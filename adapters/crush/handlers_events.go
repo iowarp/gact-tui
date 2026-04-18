@@ -70,7 +70,10 @@ func (s *Server) proxySSE(w http.ResponseWriter, r *http.Request, wsID, sessionF
 		return
 	}
 	upReq.Header.Set("Accept", "text/event-stream")
-	streamClient := &http.Client{Timeout: 0, Transport: s.client.Transport}
+	// SSE is long-lived — can't reuse the RPC client's 10 s timeout.
+	// ResolveUpstreamTransport yields a fresh Transport that speaks
+	// the right wire (TCP or Unix socket) for the original --upstream.
+	streamClient := &http.Client{Timeout: 0, Transport: ResolveUpstreamTransport(s.rawUpstream)}
 	resp, err := streamClient.Do(upReq)
 	if err != nil {
 		writeSSELine(w, flusher, "server.error", map[string]any{"error": err.Error()})
