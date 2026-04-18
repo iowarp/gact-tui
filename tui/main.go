@@ -115,6 +115,8 @@ func runTUI() {
 		cur, _, _ := config.Load() // preserve fields we don't touch
 		ct := app.Theme.CollapseThreshold
 		cur.CollapseThreshold = &ct
+		themeName := ui.ThemeModeName(ui.ThemeModeFor(app.Theme))
+		cur.Theme = &themeName
 		return config.Save(cur, persistPath)
 	}
 	// Hot-reload: Ctrl+L re-reads the on-disk config and reapplies

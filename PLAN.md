@@ -164,6 +164,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **M9.** Tabbed help overlay (#7). Split the help list into 5 (now 6 with Scenarios) tabs so it fits at 80x24. ←/→/h/l/Tab navigate. Tests: `TestHelpOverlay_TabCycles`, `TestHelpOverlay_FitsInSmallViewport`. Screenshots 36-40, 47.
 - [x] **M10.** Configurable collapse threshold (#6). `Theme.CollapseThreshold` controls the tool_result preview budget; Settings > TUI exposes a ◀/▶ stepper; default lowered from 8 to 5 per user feedback. Test: `TestCollapseThreshold_ArrowKeysAdjust`. Screenshots 41-43.
 
+## Phase O — Themes + ecosystem polish
+
+- [x] **O1.** Ship 5 new palettes + fix light (#8). Added Dracula, Solarized Dark, Solarized Light, Nord, Tokyo Night. Replaced the horrifying white light theme with a Gruvbox-inspired warm-cream variant. Settings > Theme cycles all 7 palettes with live preview on ↑/↓ and persists the choice via `config.json` (name ⇌ ThemeMode via `ThemeModeName` / `ParseThemeMode`). `ThemeModeFor(theme)` reverse-lookup lets SaveConfig serialise the active palette without tracking mode on the Theme struct. Screenshots 54-59 show each theme applied. Tests updated (`TestSettings_ThemeTabUpDownCycle` walks all 7, `TestThemeName` uses palette-identity matching).
+
 ## Phase N — Follow-up polish after second-round feedback shipped
 
 Concrete, small-surface improvements that round out the M-phase features. Each one is tight enough to ship in a single iteration; pick from the top.
