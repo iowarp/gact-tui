@@ -508,6 +508,30 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
+// TestSearchJump_MarksMessage verifies V3: jumpToMessage sets
+// searchHitMessageID and the rendered conversation contains the
+// gutter marker on the matching row.
+func TestSearchJump_MarksMessage(t *testing.T) {
+	sessions := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "first", ID: "p1"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "second", ID: "p2"}}},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.jumpToMessage("m2")
+
+	if a.searchHitMessageID != "m2" {
+		t.Fatalf("searchHitMessageID = %q, want m2", a.searchHitMessageID)
+	}
+
+	rendered := ansi.Strip(renderAtSize(a, 110, 30))
+	if !strings.Contains(rendered, "▶ ") {
+		t.Fatalf("gutter marker missing from render:\n%s", rendered)
+	}
+}
+
 // TestSSEHealthDot_ReflectsStage covers V2: the helper returns a
 // glyph whose colour maps to the current SSE state — green for live,
 // amber during backoff, red during the initial connect stage.

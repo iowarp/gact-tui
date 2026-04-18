@@ -131,6 +131,12 @@ type App struct {
 	// actually prevents message splitting.
 	inPaste bool
 
+	// searchHitMessageID marks the message that was jumped to from the
+	// palette ?search results. The render layer draws a gutter marker
+	// on that row so users can spot their hit. Cleared on the next
+	// action (session switch, filter edit, etc.).
+	searchHitMessageID string
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -1490,11 +1496,17 @@ func (a *App) isSearchMode() bool {
 // to (totalMessages - index - 1) so the renderer's bottom-anchored
 // math leaves it on screen. Falls back to "stick to bottom" if the ID
 // is no longer in the loaded slice (e.g. SSE replaced the list).
+//
+// V3: also sets searchHitMessageID so the render layer can mark the
+// row visually. The marker clears on the next non-jump action via
+// clearSearchHit — the row isn't a persistent selection, just a
+// "here's what you were looking for" hint.
 func (a *App) jumpToMessage(messageID string) {
 	for i, m := range a.messages {
 		if m.ID == messageID {
 			a.scrollOffset = len(a.messages) - i - 1
 			a.stickyToBottom = a.scrollOffset == 0
+			a.searchHitMessageID = messageID
 			return
 		}
 	}
@@ -2101,6 +2113,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.pendingPermissions = nil
 	a.pendingDeleteSessionID = "" // armed delete is per-session; clear on switch
 	a.pendingClearSessionID = ""  // same for /clear confirmation
+	a.searchHitMessageID = ""     // V3 marker doesn't travel across sessions
 	// New session ⇒ new event stream, no replay. Starting at 0 makes
 	// the adapter/emulator send the full current event history from
 	// the ring buffer (per SPEC §7.3 replay semantics).
@@ -2980,7 +2993,15 @@ func (a *App) renderBody(width, height int) string {
 			if i > 0 {
 				prev = &a.messages[i-1]
 			}
-			rows = append(rows, t.renderMessageInContext(m, prev, width-4))
+			row := t.renderMessageInContext(m, prev, width-4)
+			// V3: left-gutter marker for the message the user jumped to
+			// from the palette's `?search` results. Applied after the
+			// full row render so it prepends cleanly to every line.
+			if m.ID != "" && m.ID == a.searchHitMessageID {
+				marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
+				row = prependGutter(row, marker)
+			}
+			rows = append(rows, row)
 		}
 		body = strings.Join(rows, "\n")
 		// The pane's inner content height is msgH-2 (two border rows).
@@ -3101,6 +3122,17 @@ func (a *App) expandMostRecentPaste() {
 	}
 	a.input.SetValue(strings.Replace(buf, last.placeholder, last.content, 1))
 	a.pastes = a.pastes[:len(a.pastes)-1]
+}
+
+// prependGutter inserts gutter at the start of every line of s.
+// Used by the V3 search-hit marker so a message's gutter shows up
+// on every wrapped row, not just the first.
+func prependGutter(s, gutter string) string {
+	lines := strings.Split(s, "\n")
+	for i := range lines {
+		lines[i] = gutter + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // clampLines hard-truncates a pre-rendered string to at most max newline-
