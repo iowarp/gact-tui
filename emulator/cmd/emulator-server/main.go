@@ -2,7 +2,8 @@
 //
 // Usage:
 //
-//	emulator-server [--port 7777] [--scenario default] [--seed-workspace true]
+//	emulator-server [--port 7777] [--scenario default] [--timing fast|realistic]
+//	                [--seed-workspace true]
 package main
 
 import (
@@ -16,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/scenario"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/server"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -30,7 +32,8 @@ const (
 func main() {
 	var (
 		port          = flag.Int("port", 7777, "TCP port to listen on")
-		scenario      = flag.String("scenario", "default", "scenario name to load")
+		scenarioName  = flag.String("scenario", "default", "scenario name to load")
+		timingMode    = flag.String("timing", "realistic", "scenario timing: fast | realistic")
 		seedWorkspace = flag.Bool("seed-workspace", true, "create a default workspace at startup")
 	)
 	flag.Parse()
@@ -48,7 +51,18 @@ func main() {
 		log.Printf("seeded workspace %s at %s", seedWorkspaceID, seedWorkspaceRoot)
 	}
 
-	srv := server.NewWithStore(server.Config{Scenario: *scenario}, st)
+	srv := server.NewWithStore(server.Config{Scenario: *scenarioName}, st)
+
+	// Wire the scenario engine: it consumes the OnUserMessage hook, drives
+	// assistant responses through the bus, and is cancelled by the cancel
+	// hook. The engine shares the server's bus + store + permissions store.
+	timing := scenario.Realistic
+	if *timingMode == "fast" {
+		timing = scenario.Fast
+	}
+	engine := scenario.New(srv.Bus(), srv.Store(), srv.Permissions(), scenario.Config{Timing: timing})
+	srv.SetOnUserMessage(engine.OnUserMessage)
+	srv.SetOnCancel(engine.Cancel)
 
 	httpServer := &http.Server{
 		Addr:              fmt.Sprintf(":%d", *port),
@@ -58,7 +72,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("emulator listening on %s (scenario=%s)", httpServer.Addr, *scenario)
+		log.Printf("emulator listening on %s (scenario=%s timing=%s)", httpServer.Addr, *scenarioName, *timingMode)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
