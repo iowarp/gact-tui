@@ -28,11 +28,14 @@ func TestCostAccumulatesAcrossTurns(t *testing.T) {
 		})
 		eng.OnUserMessage(sid, user.ID)
 
-		// Drain events until status returns to idle. Generous deadline:
-		// the test exits on the success predicate, so a longer wait
-		// doesn't slow the happy path; it just absorbs CI variance
-		// where a slow runner can take much longer than the local
-		// dev loop. Original 3s tripped on GitHub Actions runners.
+		// Drain until the *idle* status_changed event arrives. Reading
+		// the event's payload (not the store's current status) is what
+		// makes this race-free — the script can publish status→running,
+		// then complete and publish status→idle, all before we read the
+		// first event from the buffered channel; querying the store
+		// would mistake the running event for an idle transition.
+		// 30 s deadline is plenty of headroom for slow CI runners; the
+		// loop exits on success so healthy runs aren't slowed.
 		deadline := time.After(30 * time.Second)
 		settled := false
 		for !settled {
@@ -43,11 +46,12 @@ func TestCostAccumulatesAcrossTurns(t *testing.T) {
 				if !ok {
 					t.Fatalf("turn %d: stream closed", i)
 				}
-				if e.Type == "session.status_changed" {
-					latest, _ := st.GetSession(sid)
-					if latest != nil && latest.Status == gact.StatusIdle {
-						settled = true
-					}
+				if e.Type != "session.status_changed" {
+					continue
+				}
+				payload, _ := e.Payload.(map[string]any)
+				if payload != nil && payload["status"] == gact.StatusIdle {
+					settled = true
 				}
 			}
 		}
