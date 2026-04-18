@@ -190,6 +190,13 @@ func (s *Store) CreateSession(sess gact.Session) (*gact.Session, error) {
 	if sess.Status == "" {
 		sess.Status = gact.StatusIdle
 	}
+	// Derived fields are managed by the store, never by callers. Imports and
+	// forks reset to zero; AppendMessage increments from there. Without this
+	// reset, importing a session blob that already counted N messages and
+	// then appending the same N messages double-counts.
+	sess.MessageCount = 0
+	sess.Tokens = gact.Tokens{}
+	sess.CostUSD = 0
 
 	stored := sess
 	s.sessions[sess.ID] = &stored

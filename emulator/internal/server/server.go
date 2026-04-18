@@ -66,4 +66,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
 	s.mux.HandleFunc("PATCH /v1/workspaces/{id}", s.handlePatchWorkspace)
 	s.mux.HandleFunc("DELETE /v1/workspaces/{id}", s.handleDeleteWorkspace)
+
+	// §6.2 — Sessions
+	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
+	s.mux.HandleFunc("POST /v1/sessions", s.handleCreateSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
+	s.mux.HandleFunc("PATCH /v1/sessions/{id}", s.handlePatchSession)
+	s.mux.HandleFunc("DELETE /v1/sessions/{id}", s.handleDeleteSession)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/fork", s.handleForkSession)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/cancel", s.handleCancelSession)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/summarize", s.handleSummarizeSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/export", s.handleExportSession)
+	s.mux.HandleFunc("POST /v1/sessions/import", s.handleImportSession)
 }
