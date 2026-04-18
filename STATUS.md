@@ -239,4 +239,4 @@ cd ../tui   && go build -o ./gact .
 | 53 | 2026-04-18T17:55 | K6 — per-session input history (↑/↓ recall, draft preserved) | f87378d |
 | 54 | 2026-04-18T18:10 | K7 — emulator --seed-sessions flag (parallel to K3) | 70fed59 |
 | 55 | 2026-04-18T18:25 | K8 — session archive via `A` (PATCH archived=true + sidebar removal) | 883a834 |
-| 56 | 2026-04-18T18:45 | K9 — archived view toggle (`h`) + un-archive via `A` in that view | (this) |
+| 56 | 2026-04-18T18:45 | K9 — archived view toggle (`h`) + un-archive via `A` in that view | 20afd26 |
