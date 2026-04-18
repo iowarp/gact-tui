@@ -86,6 +86,10 @@ type App struct {
 	settingsOpen bool
 	settings     *settingsState
 
+	// Metrics overlay
+	metricsOpen bool
+	metrics     *metricsState
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -362,6 +366,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case metricsLoadedMsg:
+		if a.metrics == nil {
+			a.metrics = &metricsState{}
+		}
+		a.metrics.loading = false
+		a.metrics.err = m.err
+		a.metrics.data = m.data
+		return a, nil
+
 	case sessionUpdatedMsg:
 		// Apply the patched session into the local sessions slice.
 		for i, s := range a.sessions {
@@ -441,7 +454,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const reconnectDelay = 750 * time.Millisecond
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// Modal layers take precedence: settings/help/palette → permission keys.
+	// Modal layers take precedence: metrics/settings/help/palette → permission keys.
+	if a.metricsOpen {
+		return a.handleMetricsKey(k)
+	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
@@ -497,6 +513,11 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.settingsOpen = true
 		a.settings = &settingsState{}
 		return a, loadSettingsCmd(a.c)
+	case "ctrl+t":
+		// Open Metrics modal.
+		a.metricsOpen = true
+		a.metrics = &metricsState{loading: true}
+		return a, loadMetricsCmd(a.c)
 	}
 	switch a.focus {
 	case FocusSidebar:
@@ -1067,6 +1088,9 @@ func (a *App) viewMain() string {
 	if a.settingsOpen {
 		base = overlay(base, a.viewSettings(), a.width, a.height)
 	}
+	if a.metricsOpen {
+		base = overlay(base, a.viewMetrics(), a.width, a.height)
+	}
 	return base
 }
 
@@ -1485,6 +1509,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+n") + "    new session",
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
 		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
+		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
 		t.HintKey.Render("Ctrl+c") + "    quit",
 		"",
