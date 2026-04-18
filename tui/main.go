@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -46,12 +47,76 @@ func main() {
 		case "version", "--version", "-v":
 			fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
 			return
+		case "diag", "--diag":
+			runDiag()
+			return
 		case "-h", "--help":
 			printUsage()
 			return
 		}
 	}
 	runTUI()
+}
+
+// runDiag writes a structured diagnostic report to stdout: binary
+// version, contract version, Go runtime, resolved config path + its
+// fields, resolved theme, and whether a custom theme file was found.
+// Non-interactive; exits zero after printing. Useful for bug reports.
+func runDiag() {
+	fmt.Printf("gact %s\n", binaryVersion)
+	fmt.Printf("  contract:   %s\n", contractVersion)
+	fmt.Printf("  runtime:    %s\n", runtime.Version())
+	fmt.Printf("  platform:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
+
+	cfgPath, err := config.DefaultPath()
+	if err != nil {
+		fmt.Printf("  config path: (error: %v)\n", err)
+	} else {
+		fmt.Printf("  config path: %s\n", cfgPath)
+	}
+	cfg, _, cfgErr := config.Load()
+	if cfgErr != nil {
+		fmt.Printf("  config load: (error: %v)\n", cfgErr)
+	}
+	print := func(label string, val *string) {
+		if val != nil && *val != "" {
+			fmt.Printf("  %s: %s\n", label, *val)
+		} else {
+			fmt.Printf("  %s: (unset)\n", label)
+		}
+	}
+	print("backend_url", cfg.BackendURL)
+	print("theme      ", cfg.Theme)
+	print("voice_cmd  ", cfg.VoiceCommand)
+	if cfg.CollapseThreshold != nil {
+		fmt.Printf("  collapse_threshold: %d\n", *cfg.CollapseThreshold)
+	}
+	if cfg.CostWarnTokens != nil {
+		fmt.Printf("  cost_warn_tokens:   %d\n", *cfg.CostWarnTokens)
+	}
+	if cfg.CostDangerTokens != nil {
+		fmt.Printf("  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
+	}
+
+	// Custom theme file.
+	themePath, _ := ui.CustomThemeDefaultPath()
+	if themePath != "" {
+		if _, err := os.Stat(themePath); err == nil {
+			fmt.Printf("  custom theme: %s (present)\n", themePath)
+			if _, err := ui.LoadCustomTheme(themePath); err != nil {
+				fmt.Printf("    parse error: %v\n", err)
+			}
+		} else {
+			fmt.Printf("  custom theme: %s (not present)\n", themePath)
+		}
+	}
+
+	// Environment.
+	for _, name := range []string{"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD", "GACT_CONFIG", "GACT_THEME_FILE"} {
+		if v := os.Getenv(name); v != "" {
+			fmt.Printf("  env %s: %s\n", name, v)
+		}
+	}
 }
 
 const (
@@ -69,6 +134,7 @@ Usage:
   gact export <session_id>   download a session blob (JSON) to stdout
   gact import <file|->       upload a previously-exported session blob
   gact version               print version + contract version
+  gact diag                  print environment + config for bug reports
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
