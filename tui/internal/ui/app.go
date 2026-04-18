@@ -46,6 +46,17 @@ type App struct {
 	// See scripts/voice-record.sh for a reference arecord wrapper.
 	VoiceCommand string
 
+	// ReloadConfig is invoked by Ctrl+L to re-read the on-disk config
+	// and reapply runtime-tweakable fields (theme, voice command). The
+	// returned string is shown to the user as a transient toast.
+	// Wired by main.go; tests can leave it nil and Ctrl+L becomes a no-op.
+	ReloadConfig func() (string, error)
+
+	// transientHint is a short banner shown above the input for ~3s
+	// (cleared by the next key press). Used for non-fatal feedback like
+	// config-reload outcomes that don't deserve the full error stage.
+	transientHint string
+
 	// DisableAltScreen turns off the alternate-screen-buffer mode. Used
 	// by tests because teatest's PTY simulation doesn't capture writes
 	// while in alt-screen mode. NEVER set this in production.
@@ -511,6 +522,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const reconnectDelay = 750 * time.Millisecond
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Clear any transient hint banner — it's a one-off toast that
+	// shouldn't persist past the next interaction. Done before modal
+	// dispatch so even hitting "Esc" in a modal dismisses the banner.
+	if k.String() != "ctrl+l" {
+		a.transientHint = ""
+	}
 	// Modal layers take precedence: metrics/settings/help/palette → permission keys.
 	if a.metricsOpen {
 		return a.handleMetricsKey(k)
@@ -565,6 +582,19 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
+	case "ctrl+l":
+		// Reload on-disk config without restarting. Hot-applies theme +
+		// voice command; backend changes are flagged but not applied
+		// (would need to reconnect SSE, refetch caps, drop sessions).
+		if a.ReloadConfig != nil {
+			toast, err := a.ReloadConfig()
+			if err != nil {
+				a.transientHint = "config reload failed: " + err.Error()
+			} else {
+				a.transientHint = toast
+			}
+		}
+		return a, nil
 	case "ctrl+s":
 		// Open Settings.
 		a.settingsOpen = true
@@ -1612,6 +1642,15 @@ func (a *App) renderBody(width, height int) string {
 	}
 	inputPane := inputStyle.Render(a.input.View())
 
+	// Surface a transient hint (e.g. config-reload result) above the
+	// input so the user sees the outcome without losing their place.
+	if a.transientHint != "" {
+		hint := lipgloss.NewStyle().
+			Foreground(t.Secondary).
+			Italic(true).
+			Render("· " + a.transientHint)
+		return lipgloss.JoinVertical(lipgloss.Left, msgPane, hint, inputPane)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, msgPane, inputPane)
 }
 
@@ -1770,6 +1809,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
 		t.HintKey.Render("Ctrl+n") + "    new session",
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
+		t.HintKey.Render("Ctrl+l") + "    reload config (theme + voice cmd)",
 		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
