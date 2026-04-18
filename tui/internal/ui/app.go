@@ -2440,44 +2440,77 @@ func shortID(id string) string {
 	return id[:12] + "…"
 }
 
-// viewHelp renders the help overlay.
+// viewHelp renders the help overlay. Groups shortcuts by the pane
+// they act on so users can scan "what can I do HERE" rather than one
+// flat list — this is the L7 discoverability fix: reviewers weren't
+// discovering existing features (rename, archive, filter) because
+// they were buried mid-list among unrelated global keys.
 func (a *App) viewHelp() string {
 	t := a.Theme
+	section := func(label string) string {
+		return lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+			Render(label)
+	}
+	subsection := func(label string) string {
+		return lipgloss.NewStyle().Bold(true).Foreground(t.Warning).
+			Render(label)
+	}
+	key := func(k, desc string) string {
+		return t.HintKey.Render(k) + "  " + t.HintLabel.Render(desc)
+	}
+
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Keybindings"),
+		section("Keybindings"),
 		"",
-		t.HintKey.Render("Tab/⇧Tab") + "  cycle pane focus",
-		t.HintKey.Render("↑/↓") + "       navigate (sidebar / scroll body)",
-		t.HintKey.Render("↑ (empty)") + " recall prior prompt (per-session history)",
-		t.HintKey.Render("Enter") + "     send message  /  confirm",
-		t.HintKey.Render("/") + "         open command palette",
-		t.HintKey.Render("/?…") + "       in palette: search session messages",
-		t.HintKey.Render("?") + "         toggle this help",
-		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
-		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
-		t.HintKey.Render("y") + "         (body) copy last assistant message to clipboard",
-		t.HintKey.Render("R") + "         (body) retry — resend last user message",
-		t.HintKey.Render("Ctrl+n") + "    new session",
-		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
-		t.HintKey.Render("Ctrl+l") + "    reload config (theme + voice cmd)",
-		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
-		t.HintKey.Render("Ctrl+w") + "    switch workspace",
-		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
-		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
-		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
-		t.HintKey.Render("A") + "         (sidebar) archive session (or un-archive in archived view)",
-		t.HintKey.Render("o") + "         (sidebar) add a file to session context",
-		t.HintKey.Render("h") + "         (sidebar) toggle archived view",
-		t.HintKey.Render("/") + "         (sidebar) filter sessions by title",
-		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
-		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
-		t.HintKey.Render("Ctrl+c") + "    quit",
+
+		subsection("Global — work from any pane"),
+		key("Tab / ⇧Tab", "cycle focus (sidebar → body → input)"),
+		key("Ctrl+N", "new session"),
+		key("Ctrl+W", "switch workspace"),
+		key("Ctrl+S", "settings (model / agent)"),
+		key("Ctrl+T", "backend metrics"),
+		key("Ctrl+R", "refresh / reconnect"),
+		key("Ctrl+L", "reload config from disk"),
+		key("Ctrl+X", "cancel running scenario"),
+		key("Ctrl+Y", "voice transcribe"),
+		key("?", "toggle this help"),
+		key("Esc", "close overlay / clear input"),
+		key("Ctrl+C", "quit"),
 		"",
-		lipgloss.NewStyle().Bold(true).Foreground(t.Warning).Render("When a permission is pending"),
-		t.HintKey.Render("a") + "         allow",
-		t.HintKey.Render("d") + "         deny",
-		t.HintKey.Render("s") + "         allow for this session",
-		t.HintKey.Render("w") + "         allow for this workspace",
+
+		subsection("Sidebar — manage sessions"),
+		key("↑/↓ · j/k", "pick session (auto-loads messages)"),
+		key("g / G", "jump to first / last session"),
+		key("PgUp/PgDn", "page up / down"),
+		key("n", "new session"),
+		key("e", "rename session"),
+		key("x", "delete session (press x again to confirm)"),
+		key("A", "archive session (un-archive in archived view)"),
+		key("h", "toggle archived / active view"),
+		key("/", "filter sessions by title"),
+		key("o", "add file to session context"),
+		"",
+
+		subsection("Conversation body — read + act on messages"),
+		key("↑/↓ · j/k", "scroll"),
+		key("g / G", "top / bottom"),
+		key("y", "copy last assistant message to clipboard"),
+		key("R", "retry — resend last user message"),
+		key("a / r", "apply / reject pending diff"),
+		"",
+
+		subsection("Input — compose messages"),
+		key("Enter", "send"),
+		key("Shift+Enter", "newline"),
+		key("↑ on empty", "recall prior prompt (per-session history)"),
+		key("/", "open command palette"),
+		key("/?<query>", "search session messages in palette"),
+		"",
+
+		subsection("When a permission is pending"),
+		key("a / d", "allow / deny once"),
+		key("s", "allow for this session"),
+		key("w", "allow for this workspace"),
 	}
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return lipgloss.NewStyle().
