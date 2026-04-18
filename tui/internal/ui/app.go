@@ -168,6 +168,21 @@ type App struct {
 	// it. Prevents a stray `x` from destroying a conversation silently.
 	pendingDeleteSessionID string
 
+	// inputHistoryBySession tracks the last N prompts the user sent,
+	// per session. Keyed on session ID so switching sessions gives
+	// you that session's history rather than a shared global. Each
+	// slice is oldest-first; appends push to the end and trim from
+	// the front when the cap is hit.
+	inputHistoryBySession map[string][]string
+	// historyCursor is -1 when we're not navigating, else an index
+	// into the current session's history slice (most-recent-is-last,
+	// so ↑ moves the cursor DOWN numerically from len toward 0).
+	historyCursor int
+	// historyDraft preserves what the user had typed before entering
+	// history mode, so ↓-past-the-end restores it. Set on the first
+	// ↑ that enters history mode; cleared on Enter or Esc.
+	historyDraft string
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -194,9 +209,11 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		c:              client.New(backendURL),
 		stage:          StageConnecting,
 		focus:          FocusInput,
-		selected:       -1,
-		stickyToBottom: true,
-		input:          ta,
+		selected:              -1,
+		stickyToBottom:        true,
+		input:                 ta,
+		inputHistoryBySession: map[string][]string{},
+		historyCursor:         -1,
 	}
 }
 
@@ -1298,26 +1315,56 @@ func rejectDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 }
 
 func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	key := k.String()
+
 	// Slash on empty input opens the palette.
-	if k.String() == "/" && a.input.Value() == "" {
+	if key == "/" && a.input.Value() == "" {
 		a.paletteOpen = true
 		a.paletteFilter = ""
 		a.paletteSel = 0
 		return a, nil
 	}
+
+	// Input history: ↑ on empty input (or while already navigating)
+	// recalls prior prompts; ↓ walks forward and eventually restores
+	// the pre-history draft. When the input has content AND we're NOT
+	// already navigating, arrow keys pass through to the textarea so
+	// multi-line cursor nav still works.
+	if key == "up" && (a.input.Value() == "" || a.historyCursor >= 0) {
+		if txt, ok := a.historyPrev(); ok {
+			a.input.SetValue(txt)
+			return a, nil
+		}
+	}
+	if key == "down" && a.historyCursor >= 0 {
+		if txt, ok := a.historyNext(); ok {
+			a.input.SetValue(txt)
+			return a, nil
+		}
+	}
+
 	// Plain Enter sends; Shift+Enter (or any modifier) inserts a newline
 	// (passes through to textarea).
-	if k.String() == "enter" {
+	if key == "enter" {
 		text := strings.TrimSpace(a.input.Value())
 		a.input.Reset()
+		a.exitHistory()
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
+		a.pushInputHistory(text)
 		return a, postMessageCmd(a.c, a.currentSessionID(), text)
 	}
-	if k.String() == "esc" {
+	if key == "esc" {
 		a.input.Reset()
+		a.exitHistory()
 		return a, nil
+	}
+	// Any other key implies editing — drop out of history mode so the
+	// user's keystrokes replace whatever history text is currently in
+	// the buffer (rather than the next ↑/↓ jumping back to history).
+	if a.historyCursor >= 0 {
+		a.exitHistory()
 	}
 	// Everything else: delegate to textarea.
 	var cmd tea.Cmd
@@ -2161,6 +2208,7 @@ func (a *App) viewHelp() string {
 		"",
 		t.HintKey.Render("Tab/⇧Tab") + "  cycle pane focus",
 		t.HintKey.Render("↑/↓") + "       navigate (sidebar / scroll body)",
+		t.HintKey.Render("↑ (empty)") + " recall prior prompt (per-session history)",
 		t.HintKey.Render("Enter") + "     send message  /  confirm",
 		t.HintKey.Render("/") + "         open command palette",
 		t.HintKey.Render("/?…") + "       in palette: search session messages",
