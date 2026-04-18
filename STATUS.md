@@ -210,4 +210,5 @@ cd ../tui   && go build -o ./gact .
 | 24 | 2026-04-18T09:15 | F1 OpenCode adapter scaffold + tests + README | 7dde94f |
 | 25 | 2026-04-18T09:30 | F4 voice; PLAN core complete | 2095fc6 |
 | 26 | 2026-04-18T09:42 | gact version; G6 cost test; Phase G defined | 32c4a3e |
-| 27 | 2026-04-18T09:55 | G1+G3 — adapter list+post messages | (this) |
+| 27 | 2026-04-18T09:55 | G1+G3 — adapter list+post messages | ab6267d |
+| 28 | 2026-04-18T10:08 | G2 — adapter SSE proxy with event translation | (this) |
