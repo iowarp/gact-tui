@@ -441,6 +441,29 @@ func (s *Store) AppendPart(msgID string, part gact.Part) (*gact.Part, error) {
 	return &out, nil
 }
 
+// ClearSessionMessages removes every message from a session and resets the
+// per-session derived counters (message_count, tokens, cost). Returns the
+// number of messages removed. Used by /clear and similar resets.
+func (s *Store) ClearSessionMessages(sessionID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sess, ok := s.sessions[sessionID]
+	if !ok {
+		return 0, ErrNotFound
+	}
+	ids := s.messagesBySession[sessionID]
+	for _, mid := range ids {
+		delete(s.messages, mid)
+	}
+	n := len(ids)
+	delete(s.messagesBySession, sessionID)
+	sess.MessageCount = 0
+	sess.Tokens = gact.Tokens{}
+	sess.CostUSD = 0
+	sess.UpdatedAt = s.now().UTC()
+	return n, nil
+}
+
 // DeleteMessage removes a message from its session.
 func (s *Store) DeleteMessage(id string) error {
 	s.mu.Lock()
