@@ -141,6 +141,64 @@ func TestBackslashEnter_InsertsNewline(t *testing.T) {
 	}
 }
 
+// TestHelpOverlay_TabCycles checks that ←/→ rotate helpTab within bounds
+// so the tabbed help overlay never wraps past either end.
+func TestHelpOverlay_TabCycles(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.helpOpen = true
+	a.helpTab = 0
+
+	// Right should increment up to helpTabCount-1 and stop.
+	for i := 1; i < helpTabCount; i++ {
+		out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+		a = out.(*App)
+		if a.helpTab != i {
+			t.Fatalf("after %d right-presses, helpTab = %d, want %d", i, a.helpTab, i)
+		}
+	}
+	// One more right should stay pinned to the last tab.
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.helpTab != helpTabCount-1 {
+		t.Fatalf("right past last tab: helpTab = %d, want %d", a.helpTab, helpTabCount-1)
+	}
+
+	// Left walks back to 0 and stops.
+	for i := helpTabCount - 2; i >= 0; i-- {
+		out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+		a = out.(*App)
+		if a.helpTab != i {
+			t.Fatalf("helpTab = %d, want %d", a.helpTab, i)
+		}
+	}
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	a = out.(*App)
+	if a.helpTab != 0 {
+		t.Fatalf("left past first tab: helpTab = %d, want 0", a.helpTab)
+	}
+}
+
+// TestHelpOverlay_FitsInSmallViewport verifies the overlay no longer
+// overflows at the viewport size users report — 80x24 was the smallest
+// size reviewers complained about.
+func TestHelpOverlay_FitsInSmallViewport(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.helpOpen = true
+
+	for _, dim := range []struct{ W, H int }{
+		{80, 24}, {100, 30}, {110, 30},
+	} {
+		for tab := 0; tab < helpTabCount; tab++ {
+			a.helpTab = tab
+			rendered := renderAtSize(a, dim.W, dim.H)
+			lines := strings.Count(rendered, "\n") + 1
+			if lines > dim.H {
+				t.Errorf("tab=%d W=%d H=%d: rendered %d lines > H", tab, dim.W, dim.H, lines)
+			}
+		}
+	}
+}
+
 // TestRenderBody_ReturnsExactHeight is the tightest contract: regardless
 // of content size, the final rendered tui View is bounded by a.height
 // rows. The footer can only stay in frame if every other pane respects

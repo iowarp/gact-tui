@@ -144,6 +144,7 @@ type App struct {
 
 	// Help overlay
 	helpOpen bool
+	helpTab  int // active tab index when helpOpen; see helpTabs
 
 	// Settings overlay
 	settingsOpen bool
@@ -977,6 +978,15 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch k.String() {
 		case "?", "esc", "ctrl+c":
 			a.helpOpen = false
+			a.helpTab = 0
+		case "left", "h":
+			if a.helpTab > 0 {
+				a.helpTab--
+			}
+		case "right", "l", "tab":
+			if a.helpTab < helpTabCount-1 {
+				a.helpTab++
+			}
 		}
 		return a, nil
 	}
@@ -2615,80 +2625,121 @@ func shortID(id string) string {
 	return id[:12] + "…"
 }
 
-// viewHelp renders the help overlay. Groups shortcuts by the pane
-// they act on so users can scan "what can I do HERE" rather than one
-// flat list — this is the L7 discoverability fix: reviewers weren't
-// discovering existing features (rename, archive, filter) because
-// they were buried mid-list among unrelated global keys.
+// helpTabs is the fixed list of help-overlay tabs. Keep the slice sorted
+// by pane-discovery order (global → where the cursor is → deeper modes).
+var helpTabs = []struct {
+	title string
+	keys  [][2]string // {key, description}
+}{
+	{
+		title: "Global",
+		keys: [][2]string{
+			{"Tab / ⇧Tab", "cycle focus (sidebar → body → input)"},
+			{"Ctrl+N", "new session"},
+			{"Ctrl+W", "switch workspace"},
+			{"Ctrl+S", "settings (model / agent / theme / TUI)"},
+			{"Ctrl+T", "backend metrics"},
+			{"Ctrl+R", "refresh / reconnect"},
+			{"Ctrl+L", "reload config from disk"},
+			{"Ctrl+X", "cancel running scenario"},
+			{"Ctrl+Y", "voice transcribe"},
+			{"?", "toggle this help"},
+			{"Esc", "close overlay / clear input"},
+			{"Ctrl+C", "quit"},
+		},
+	},
+	{
+		title: "Sidebar",
+		keys: [][2]string{
+			{"↑/↓ · j/k", "pick session (auto-loads messages)"},
+			{"g / G", "jump to first / last session"},
+			{"PgUp/PgDn", "page up / down"},
+			{"n", "new session"},
+			{"e", "rename session"},
+			{"x", "delete session (press x again to confirm)"},
+			{"A", "archive session (un-archive in archived view)"},
+			{"h", "toggle archived / active view"},
+			{"/", "filter sessions by title"},
+			{"o", "add file to session context"},
+		},
+	},
+	{
+		title: "Conversation",
+		keys: [][2]string{
+			{"↑/↓ · j/k", "scroll"},
+			{"g / G", "top / bottom"},
+			{"y", "copy last assistant message to clipboard"},
+			{"R", "retry — resend last user message"},
+			{"Ctrl+E", "expand latest bulky tool output in floating detail view"},
+			{"a / r", "apply / reject pending diff"},
+		},
+	},
+	{
+		title: "Input",
+		keys: [][2]string{
+			{"Enter", "send"},
+			{"Shift+Enter", "newline (terminal must support it)"},
+			{"\\<Enter>", "newline (Claude-Code style; always works)"},
+			{"Alt+Enter · Ctrl+J", "newline (alternate)"},
+			{"↑ on empty", "recall prior prompt (per-session history)"},
+			{"/", "open command palette"},
+			{"/?<query>", "search session messages in palette"},
+		},
+	},
+	{
+		title: "Permission",
+		keys: [][2]string{
+			{"a / d", "allow / deny once"},
+			{"s", "allow for this session"},
+			{"w", "allow for this workspace"},
+		},
+	},
+}
+
+const helpTabCount = 5
+
+// viewHelp renders the help overlay as a tabbed modal. Each tab scopes
+// keybindings to a pane or mode so the list always fits in-view —
+// replacing the older L7 single-scroll layout that users reported as
+// overflowing the viewport (issue #7).
+//
+// Navigation: ←/→ or h/l or Tab cycles tabs; ?/Esc closes.
 func (a *App) viewHelp() string {
 	t := a.Theme
-	section := func(label string) string {
-		return lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-			Render(label)
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("Keybindings")
+
+	// Tab header — highlight the active tab.
+	tabCells := make([]string, 0, len(helpTabs))
+	for i, tab := range helpTabs {
+		style := lipgloss.NewStyle().Padding(0, 1).Foreground(t.FgMuted)
+		if i == a.helpTab {
+			style = lipgloss.NewStyle().Padding(0, 1).
+				Foreground(t.Bg).Background(t.Primary).Bold(true)
+		}
+		tabCells = append(tabCells, style.Render(tab.title))
 	}
-	subsection := func(label string) string {
-		return lipgloss.NewStyle().Bold(true).Foreground(t.Warning).
-			Render(label)
+	tabRow := lipgloss.JoinHorizontal(lipgloss.Top, tabCells...)
+
+	// Body — the current tab's key list. Clamp helpTab defensively so a
+	// future out-of-range value doesn't crash the render.
+	idx := a.helpTab
+	if idx < 0 || idx >= len(helpTabs) {
+		idx = 0
 	}
-	key := func(k, desc string) string {
-		return t.HintKey.Render(k) + "  " + t.HintLabel.Render(desc)
+	rows := make([]string, 0, len(helpTabs[idx].keys))
+	for _, kp := range helpTabs[idx].keys {
+		rows = append(rows,
+			t.HintKey.Render(kp[0])+"  "+t.HintLabel.Render(kp[1]))
 	}
+	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	rows := []string{
-		section("Keybindings"),
-		"",
+	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
+		Render("← →  switch tab    ?  close")
 
-		subsection("Global — work from any pane"),
-		key("Tab / ⇧Tab", "cycle focus (sidebar → body → input)"),
-		key("Ctrl+N", "new session"),
-		key("Ctrl+W", "switch workspace"),
-		key("Ctrl+S", "settings (model / agent)"),
-		key("Ctrl+T", "backend metrics"),
-		key("Ctrl+R", "refresh / reconnect"),
-		key("Ctrl+L", "reload config from disk"),
-		key("Ctrl+X", "cancel running scenario"),
-		key("Ctrl+Y", "voice transcribe"),
-		key("?", "toggle this help"),
-		key("Esc", "close overlay / clear input"),
-		key("Ctrl+C", "quit"),
-		"",
-
-		subsection("Sidebar — manage sessions"),
-		key("↑/↓ · j/k", "pick session (auto-loads messages)"),
-		key("g / G", "jump to first / last session"),
-		key("PgUp/PgDn", "page up / down"),
-		key("n", "new session"),
-		key("e", "rename session"),
-		key("x", "delete session (press x again to confirm)"),
-		key("A", "archive session (un-archive in archived view)"),
-		key("h", "toggle archived / active view"),
-		key("/", "filter sessions by title"),
-		key("o", "add file to session context"),
-		"",
-
-		subsection("Conversation body — read + act on messages"),
-		key("↑/↓ · j/k", "scroll"),
-		key("g / G", "top / bottom"),
-		key("y", "copy last assistant message to clipboard"),
-		key("R", "retry — resend last user message"),
-		key("Ctrl+E", "expand latest bulky tool output in floating detail view"),
-		key("a / r", "apply / reject pending diff"),
-		"",
-
-		subsection("Input — compose messages"),
-		key("Enter", "send"),
-		key("Shift+Enter", "newline"),
-		key("↑ on empty", "recall prior prompt (per-session history)"),
-		key("/", "open command palette"),
-		key("/?<query>", "search session messages in palette"),
-		"",
-
-		subsection("When a permission is pending"),
-		key("a / d", "allow / deny once"),
-		key("s", "allow for this session"),
-		key("w", "allow for this workspace"),
-	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		title, "", tabRow, "", keys, "", hint,
+	)
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.Primary).
