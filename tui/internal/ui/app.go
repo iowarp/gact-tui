@@ -92,18 +92,23 @@ type App struct {
 	pendingSidebarRefresh bool
 }
 
-// New constructs an App.
+// New constructs an App with the default (dark) theme.
 func New(backendURL string) *App {
+	return NewWithTheme(backendURL, DefaultTheme())
+}
+
+// NewWithTheme constructs an App with a specific theme.
+func NewWithTheme(backendURL string, theme Theme) *App {
 	ta := textarea.New()
 	ta.Placeholder = "type a message — Enter to send, Shift+Enter for newline"
 	ta.Prompt = "> "
 	ta.SetHeight(3)
-	ta.SetWidth(80) // updated on WindowSizeMsg
+	ta.SetWidth(80)
 	ta.ShowLineNumbers = false
 	ta.Focus()
 	return &App{
 		BackendURL:     backendURL,
-		Theme:          DefaultTheme(),
+		Theme:          theme,
 		c:              client.New(backendURL),
 		stage:          StageConnecting,
 		focus:          FocusInput,
