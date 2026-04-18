@@ -60,6 +60,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/messages", s.handlePostMessage)
+	s.mux.HandleFunc("GET /v1/events", s.handleEvents)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleSessionEvents)
 	// Anything else under /v1/ → 501 with a clear note for the TUI to
 	// gracefully degrade. The capabilities response advertises only what
 	// the adapter implements so a well-behaved client shouldn't ask.
