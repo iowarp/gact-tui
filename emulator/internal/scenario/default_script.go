@@ -220,9 +220,9 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	// --- Assistant message #2 (final) --------------------------------------
 	final, _ := e.createAssistantMessage(sessionID)
 	finalP, _ := e.addPart(sessionID, final.ID, gact.NewTextPart(""))
-	finalText := "I read the file successfully. It's a small Go program with a main that prints \"hello\". Want me to extend it?"
+	finalText := "**Done.** I read `main.go` and it's a small Go program — its `main` function just calls `println(\"hello\")`. A few things you might want next:\n\n- add a `package` doc comment\n- introduce a `cmd/` layout if this grows\n- wire `flag` for arguments\n\nWant me to start with one of those?"
 	if dangerous {
-		finalText = "Done — the directory was removed. Anything else?"
+		finalText = "**Removed.** Cleared `/tmp/scratch` (3 files, 2 dirs). Anything else?"
 	}
 	if err := e.streamText(ctx, sessionID, final.ID, finalP.ID, finalText, "text"); err != nil {
 		return
