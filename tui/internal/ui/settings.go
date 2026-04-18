@@ -15,12 +15,18 @@ import (
 // settingsState holds the Settings modal's internal state. Lives on App
 // when settingsOpen is true.
 type settingsState struct {
-	tab         int // 0 = Model, 1 = Agent
-	modelSel    int // index into modelList
-	agentSel    int // index into agentList
-	modelList   []settingsModelEntry
-	agentList   []gact.AgentDef
+	tab       int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs
+	modelSel  int // index into modelList
+	agentSel  int // index into agentList
+	themeSel  int // 0 = dark, 1 = light
+	modelList []settingsModelEntry
+	agentList []gact.AgentDef
 }
+
+// settingsTabCount is the canonical number of tabs — updating the list
+// in viewSettings without touching the wrap-around in handleSettingsKey
+// caused Tab to go stale in past iterations. Single source of truth.
+const settingsTabCount = 4
 
 type settingsModelEntry struct {
 	provider string
@@ -88,24 +94,63 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+s":
 		a.settingsOpen = false
 		return a, nil
-	case "tab", "shift+tab":
-		s.tab = (s.tab + 1) % 2
+	case "tab":
+		s.tab = (s.tab + 1) % settingsTabCount
+		return a, nil
+	case "shift+tab":
+		s.tab = (s.tab + settingsTabCount - 1) % settingsTabCount
 		return a, nil
 	case "up", "k":
-		if s.tab == 0 && s.modelSel > 0 {
-			s.modelSel--
-		} else if s.tab == 1 && s.agentSel > 0 {
-			s.agentSel--
+		switch s.tab {
+		case 0:
+			if s.modelSel > 0 {
+				s.modelSel--
+			}
+		case 1:
+			if s.agentSel > 0 {
+				s.agentSel--
+			}
+		case 2:
+			if s.themeSel > 0 {
+				s.themeSel--
+			}
 		}
 		return a, nil
 	case "down", "j":
-		if s.tab == 0 && s.modelSel < len(s.modelList)-1 {
-			s.modelSel++
-		} else if s.tab == 1 && s.agentSel < len(s.agentList)-1 {
-			s.agentSel++
+		switch s.tab {
+		case 0:
+			if s.modelSel < len(s.modelList)-1 {
+				s.modelSel++
+			}
+		case 1:
+			if s.agentSel < len(s.agentList)-1 {
+				s.agentSel++
+			}
+		case 2:
+			if s.themeSel < 1 {
+				s.themeSel++
+			}
 		}
 		return a, nil
 	case "enter":
+		switch s.tab {
+		case 2:
+			// Theme apply is local — no backend PATCH. Live-swap the
+			// lipgloss Theme so the conversation redraws with the new
+			// palette; same plumbing K9 uses for config-reload.
+			mode := ModeDark
+			if s.themeSel == 1 {
+				mode = ModeLight
+			}
+			a.Theme = ThemeForMode(mode)
+			a.settingsOpen = false
+			a.transientHint = "theme applied (persist via --theme flag or config)"
+			return a, nil
+		case 3:
+			// TUI prefs tab is read-only for now — Enter just closes.
+			a.settingsOpen = false
+			return a, nil
+		}
 		sid := a.currentSessionID()
 		if sid == "" {
 			a.settingsOpen = false
@@ -137,7 +182,7 @@ func (a *App) viewSettings() string {
 	w := a.modalWidth()
 
 	tabs := func(i int) string {
-		labels := []string{"Model", "Agent"}
+		labels := []string{"Model", "Agent", "Theme", "TUI"}
 		var rendered []string
 		for j, l := range labels {
 			st := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
@@ -167,7 +212,8 @@ func (a *App) viewSettings() string {
 		tabs(s.tab),
 		"",
 	}
-	if s.tab == 0 {
+	switch s.tab {
+	case 0:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
 		rows = append(rows, "")
 		if len(s.modelList) == 0 {
@@ -184,7 +230,7 @@ func (a *App) viewSettings() string {
 				lipgloss.NewStyle().Foreground(t.FgMuted).Render(e.model.Name)
 			rows = append(rows, truncate(line, w-2))
 		}
-	} else {
+	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
 		rows = append(rows, "")
 		if len(s.agentList) == 0 {
@@ -201,6 +247,47 @@ func (a *App) viewSettings() string {
 				lipgloss.NewStyle().Foreground(t.FgMuted).Render(ag.Title)
 			rows = append(rows, truncate(line, w-2))
 		}
+	case 2:
+		// Theme tab — pick light or dark live. Doesn't persist to the
+		// config file; the hint explains how (use --theme or config).
+		rows = append(rows, t.HintLabel.Render("current: "+themeName(a.Theme)))
+		rows = append(rows, "")
+		for i, entry := range []struct{ name, desc string }{
+			{"dark", "high-contrast on dark backgrounds (default)"},
+			{"light", "muted palette on light backgrounds"},
+		} {
+			marker := "  "
+			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+			if i == s.themeSel {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
+			}
+			line := marker + titleStyle.Render(entry.name) + "  " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Render(entry.desc)
+			rows = append(rows, truncate(line, w-2))
+		}
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			"Enter live-applies. Persist via --theme=light|dark or "+
+				"voice_command in ~/.config/gact/config.json."))
+	case 3:
+		// TUI preferences — read-only this pass. Surfaces what's
+		// currently configured so users can confirm state without
+		// grepping their own config file.
+		rows = append(rows, t.HintLabel.Render("Runtime configuration (read-only — edit config file to change)"))
+		rows = append(rows, "")
+		rows = append(rows, "  "+t.HintKey.Render("backend URL  ")+a.BackendURL)
+		if a.VoiceCommand == "" {
+			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+t.HintLabel.Render("(unset — Ctrl+Y sends placeholder)"))
+		} else {
+			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+a.VoiceCommand)
+		}
+		rows = append(rows, "  "+t.HintKey.Render("theme        ")+themeName(a.Theme))
+		rows = append(rows, "  "+t.HintKey.Render("AltScreen    ")+boolPretty(!a.DisableAltScreen))
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			"Ctrl+L reloads these from config at runtime. See "+
+				"contract/SPEC.md for per-session settings."))
 	}
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Tab switch tab  Enter apply  Esc close"))
 
@@ -219,4 +306,21 @@ func orPlaceholder(s, placeholder string) string {
 		return placeholder
 	}
 	return s
+}
+
+// themeName returns "light" or "dark" based on the theme's background
+// luminance. Same heuristic as renderMarkdown's glamourStyle picker.
+func themeName(t Theme) string {
+	if r, g, b, _ := t.Bg.RGBA(); r > 60000 && g > 60000 && b > 60000 {
+		return "light"
+	}
+	return "dark"
+}
+
+// boolPretty renders a bool as "on"/"off" for the TUI-prefs tab.
+func boolPretty(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
 }
