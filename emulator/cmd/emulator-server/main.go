@@ -4,6 +4,7 @@
 //
 //	emulator-server [--port 7777] [--scenario default] [--timing fast|realistic]
 //	                [--seed-workspace true] [--seed-workspaces name:/path,…]
+//	                [--seed-sessions ws_id=count,ws_id=count]
 package main
 
 import (
@@ -39,6 +40,10 @@ func main() {
 		seedWorkspaces = flag.String("seed-workspaces", "",
 			"comma-separated list of extra workspaces to seed as "+
 				"`name:/path,name:/path`. Useful for multi-workspace demos.")
+		seedSessions = flag.String("seed-sessions", "",
+			"comma-separated `ws_id=N` entries; seeds N placeholder "+
+				"sessions in each listed workspace. Useful for demos "+
+				"of multi-session sidebar behaviour.")
 	)
 	flag.Parse()
 
@@ -65,6 +70,24 @@ func main() {
 			log.Fatalf("seed extra workspace %q: %v", ws.Name, err)
 		}
 		log.Printf("seeded workspace %s at %s", created.ID, created.RootPath)
+	}
+
+	sessionPlan, err := parseSeedSessions(*seedSessions)
+	if err != nil {
+		log.Fatalf("--seed-sessions: %v", err)
+	}
+	for _, step := range sessionPlan {
+		for i := 0; i < step.count; i++ {
+			sess, err := st.CreateSession(gact.Session{
+				WorkspaceID: step.wsID,
+				Title:       fmt.Sprintf("seeded session %d", i+1),
+				Status:      gact.StatusIdle,
+			})
+			if err != nil {
+				log.Fatalf("seed session #%d for %q: %v", i+1, step.wsID, err)
+			}
+			log.Printf("seeded session %s (%q) in workspace %s", sess.ID, sess.Title, step.wsID)
+		}
 	}
 
 	srv := server.NewWithStore(server.Config{Scenario: *scenarioName}, st)
@@ -112,6 +135,51 @@ func main() {
 		os.Exit(1)
 	}
 	log.Println("bye")
+}
+
+// seedSessionStep is one ws_id=count entry from --seed-sessions.
+type seedSessionStep struct {
+	wsID  string
+	count int
+}
+
+// parseSeedSessions parses --seed-sessions. Empty input → nil, no
+// error. Each entry is "ws_id=N"; N must be a positive integer
+// (zero is pointless, negative is nonsense). Same whitespace
+// tolerance + fail-on-malformed-input stance as parseSeedWorkspaces.
+func parseSeedSessions(raw string) ([]seedSessionStep, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	var out []seedSessionStep
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		i := strings.IndexByte(entry, '=')
+		if i <= 0 || i == len(entry)-1 {
+			return nil, fmt.Errorf("bad entry %q: want `ws_id=count`", entry)
+		}
+		wsID := strings.TrimSpace(entry[:i])
+		countStr := strings.TrimSpace(entry[i+1:])
+		if wsID == "" || countStr == "" {
+			return nil, fmt.Errorf("bad entry %q: workspace id and count must be non-empty", entry)
+		}
+		n := 0
+		for _, r := range countStr {
+			if r < '0' || r > '9' {
+				return nil, fmt.Errorf("bad entry %q: count must be a positive integer", entry)
+			}
+			n = n*10 + int(r-'0')
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("bad entry %q: count must be > 0", entry)
+		}
+		out = append(out, seedSessionStep{wsID: wsID, count: n})
+	}
+	return out, nil
 }
 
 // parseSeedWorkspaces parses --seed-workspaces. Empty input → nil, no
