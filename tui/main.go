@@ -106,6 +106,17 @@ func runTUI() {
 
 	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+
+	// P2: load a user-supplied custom theme if present at
+	// ~/.config/gact/theme.json. Failures are logged but non-fatal —
+	// the TUI still boots with whatever finalTheme resolved to.
+	if themePath, err := ui.CustomThemeDefaultPath(); err == nil {
+		if name, err := ui.LoadCustomTheme(themePath); err != nil {
+			fmt.Fprintf(os.Stderr, "gact: warning — failed to load %s: %v\n", themePath, err)
+		} else if name != "" {
+			log.Printf("custom theme loaded: %s (from %s)", name, themePath)
+		}
+	}
 	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
