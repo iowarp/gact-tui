@@ -97,6 +97,14 @@ type App struct {
 	// snaps back to the baseline.
 	sseBackoffAttempts int
 
+	// lastSeenSeqID is the highest SSE event SeqID we've processed for
+	// the current session. Passed as `Last-Event-ID` on reconnect so
+	// the emulator's ring buffer replays events published during the
+	// outage instead of the client silently losing them (visible in
+	// the conversation as "skipped from thinking straight to done").
+	// Reset to 0 whenever the active session changes.
+	lastSeenSeqID uint64
+
 	// connectRetryAttempts is the count of consecutive failed
 	// connectCmd dispatches. Same backoff schedule as the SSE
 	// reconnect; reset on connectedMsg.
@@ -280,7 +288,10 @@ func (a *App) startSSECmd(sessionID string) tea.Cmd {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.sseCancel = cancel
-	events, errs, err := a.c.StreamEvents(ctx, client.EventStreamScope{SessionID: sessionID})
+	events, errs, err := a.c.StreamEvents(ctx, client.EventStreamScope{
+		SessionID:   sessionID,
+		LastEventID: a.lastSeenSeqID,
+	})
 	if err != nil {
 		return func() tea.Msg { return errMsg{err: err, stage: "sse"} }
 	}
@@ -425,6 +436,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// reconnect backoff so the NEXT disconnect waits 250 ms, not
 		// whatever the attempts counter had climbed to.
 		a.sseBackoffAttempts = 0
+		// Track the highest SeqID we've processed so a reconnect can
+		// resume via Last-Event-ID rather than silently dropping
+		// events published during the outage. Monotonic under normal
+		// operation; a max() guards against a late-arriving out-of-
+		// order event from a replay window not dragging us backwards.
+		if seq := m.Event.SeqID(); seq > a.lastSeenSeqID {
+			a.lastSeenSeqID = seq
+		}
 		a.applySSE(m.Event)
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
 		if a.pendingSidebarRefresh && a.wsID != "" {
@@ -1203,6 +1222,10 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.stickyToBottom = true
 	a.currentStatus = a.sessions[idx].Status
 	a.pendingPermissions = nil
+	// New session ⇒ new event stream, no replay. Starting at 0 makes
+	// the adapter/emulator send the full current event history from
+	// the ring buffer (per SPEC §7.3 replay semantics).
+	a.lastSeenSeqID = 0
 	return tea.Batch(
 		loadMessagesCmd(a.c, sid),
 		loadContextFilesCmd(a.c, sid),
