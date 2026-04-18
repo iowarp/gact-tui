@@ -19,9 +19,14 @@ type settingsState struct {
 	modelSel  int // index into modelList
 	agentSel  int // index into agentList
 	themeSel  int // 0 = dark, 1 = light
+	tuiRow    int // TUI tab active row (0 = collapse threshold)
 	modelList []settingsModelEntry
 	agentList []gact.AgentDef
 }
+
+// tuiPrefsRowCount is the number of editable rows in the TUI tab.
+// Bump when adding new knobs; key navigation clamps against this.
+const tuiPrefsRowCount = 1
 
 // settingsTabCount is the canonical number of tabs — updating the list
 // in viewSettings without touching the wrap-around in handleSettingsKey
@@ -114,6 +119,10 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.themeSel > 0 {
 				s.themeSel--
 			}
+		case 3:
+			if s.tuiRow > 0 {
+				s.tuiRow--
+			}
 		}
 		return a, nil
 	case "down", "j":
@@ -129,6 +138,28 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case 2:
 			if s.themeSel < 1 {
 				s.themeSel++
+			}
+		case 3:
+			if s.tuiRow < tuiPrefsRowCount-1 {
+				s.tuiRow++
+			}
+		}
+		return a, nil
+	case "left", "h":
+		// Decrement the selected TUI pref (collapse threshold). Clamp
+		// at 1 — a zero-line threshold is "always collapse", which we
+		// already reserve for the disabled-collapse state (handled in
+		// render.go by swapping to the const).
+		if s.tab == 3 && s.tuiRow == 0 {
+			if a.Theme.CollapseThreshold > 1 {
+				a.Theme.CollapseThreshold--
+			}
+		}
+		return a, nil
+	case "right", "l":
+		if s.tab == 3 && s.tuiRow == 0 {
+			if a.Theme.CollapseThreshold < 50 {
+				a.Theme.CollapseThreshold++
 			}
 		}
 		return a, nil
@@ -271,11 +302,31 @@ func (a *App) viewSettings() string {
 			"Enter live-applies. Persist via --theme=light|dark or "+
 				"voice_command in ~/.config/gact/config.json."))
 	case 3:
-		// TUI preferences — read-only this pass. Surfaces what's
-		// currently configured so users can confirm state without
-		// grepping their own config file.
-		rows = append(rows, t.HintLabel.Render("Runtime configuration (read-only — edit config file to change)"))
+		// TUI preferences. Mix of editable knobs and read-only runtime
+		// state. Editable rows have ◀/▶ affordances; the selected row
+		// is highlighted so ←/→ target is unambiguous.
+		rows = append(rows, t.HintLabel.Render("Display preferences"))
 		rows = append(rows, "")
+
+		// Row 0: collapse threshold.
+		thresholdLabel := "collapse threshold"
+		thresholdValue := "◀ " + itoa2(a.Theme.CollapseThreshold) + " lines ▶"
+		marker := "  "
+		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		valueStyle := t.HintLabel
+		if s.tuiRow == 0 {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+			valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		}
+		rows = append(rows, marker+labelStyle.Render(thresholdLabel)+"  "+valueStyle.Render(thresholdValue))
+		rows = append(rows, "  "+t.HintLabel.Italic(true).Render(
+			"tool_result bodies longer than N lines collapse to a preview. "+
+				"Ctrl+E opens the full content."))
+		rows = append(rows, "")
+
+		// Read-only runtime state for confirmation.
+		rows = append(rows, t.HintLabel.Render("Runtime state (edit config.json to change)"))
 		rows = append(rows, "  "+t.HintKey.Render("backend URL  ")+a.BackendURL)
 		if a.VoiceCommand == "" {
 			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+t.HintLabel.Render("(unset — Ctrl+Y sends placeholder)"))
@@ -286,8 +337,7 @@ func (a *App) viewSettings() string {
 		rows = append(rows, "  "+t.HintKey.Render("AltScreen    ")+boolPretty(!a.DisableAltScreen))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"Ctrl+L reloads these from config at runtime. See "+
-				"contract/SPEC.md for per-session settings."))
+			"←/→ on the selected row adjusts the value. Ctrl+L reloads the config file."))
 	}
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Tab switch tab  Enter apply  Esc close"))
 
@@ -323,4 +373,30 @@ func boolPretty(b bool) string {
 		return "on"
 	}
 	return "off"
+}
+
+// itoa2 is a tiny int-to-string helper for small positive integers.
+// Spelled out to avoid pulling strconv into this file; only used by
+// the settings display.
+func itoa2(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := false
+	if n < 0 {
+		neg = true
+		n = -n
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
 }

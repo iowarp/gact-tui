@@ -234,7 +234,11 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 
 		raw := text.String()
-		collapsed, hidden := collapseForPreview(raw, toolResultPreviewLines)
+		threshold := t.CollapseThreshold
+		if threshold <= 0 {
+			threshold = toolResultPreviewLines
+		}
+		collapsed, hidden := collapseForPreview(raw, threshold)
 		rendered := bodyStyle.Render(collapsed)
 		errTag := ""
 		if p.IsError {

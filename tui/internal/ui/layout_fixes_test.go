@@ -199,6 +199,48 @@ func TestHelpOverlay_FitsInSmallViewport(t *testing.T) {
 	}
 }
 
+// TestCollapseThreshold_ArrowKeysAdjust verifies the Settings > TUI tab
+// keybindings for the collapse-threshold stepper: ←/→ nudge the value
+// between 1 and 50 inclusive without blowing up.
+func TestCollapseThreshold_ArrowKeysAdjust(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CollapseThreshold = 5
+
+	// Right bumps up.
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.Theme.CollapseThreshold != 6 {
+		t.Fatalf("right: got %d, want 6", a.Theme.CollapseThreshold)
+	}
+
+	// Left decrements.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	a = out.(*App)
+	if a.Theme.CollapseThreshold != 5 {
+		t.Fatalf("left: got %d, want 5", a.Theme.CollapseThreshold)
+	}
+
+	// Lower bound is 1 — many lefts shouldn't drop below it.
+	for i := 0; i < 10; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+		a = out.(*App)
+	}
+	if a.Theme.CollapseThreshold != 1 {
+		t.Fatalf("clamp low: got %d, want 1", a.Theme.CollapseThreshold)
+	}
+
+	// Upper bound is 50.
+	for i := 0; i < 60; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+		a = out.(*App)
+	}
+	if a.Theme.CollapseThreshold != 50 {
+		t.Fatalf("clamp high: got %d, want 50", a.Theme.CollapseThreshold)
+	}
+}
+
 // TestRenderBody_ReturnsExactHeight is the tightest contract: regardless
 // of content size, the final rendered tui View is bounded by a.height
 // rows. The footer can only stay in frame if every other pane respects
