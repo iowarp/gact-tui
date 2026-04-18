@@ -234,3 +234,4 @@ cd ../tui   && go build -o ./gact .
 | 48 | 2026-04-18T16:25 | K1 — Crush adapter --upstream unix:/// socket transport + SSE-aware dialer | 2f3e5e2 |
 | 49 | 2026-04-18T16:45 | K2 — manual session rename from sidebar (`e` → inline editor) + screenshot | 7218048 |
 | 50 | 2026-04-18T17:00 | K3 — emulator --seed-workspaces flag (multi-ws demos without curl) | 9dfa3ff |
+| 51 | 2026-04-18T17:20 | K4 — sidebar status dots + header spinner + session_id bug fix | 093ac35 |
