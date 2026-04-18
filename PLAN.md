@@ -66,10 +66,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase E — Polish & integration
 
-- [ ] **E1.** End-to-end test: TUI driven via teatest in same process talking to embedded emulator. (`internal/client/client_integration_test.go` already covers wire-format end-to-end via real binary; this would add UI-level assertions.)
+- [ ] **E1.** [BLOCKED] TUI-side teatest e2e: `tm.Output()` returns empty bytes throughout the run when the App uses `AltScreen=true`. teatest's PTY simulation may not capture alt-screen-buffer writes from bubbletea v2's renderer. Worked around for now: client_integration_test.go covers the wire-format end-to-end via the real binary, and golden tests cover view rendering against synthetic state. Reproducer was at tui/internal/ui/e2e_test.go (removed).
 - [x] **E2.** README.md at repo root.
 - [x] **E3.** Theming — LightTheme() + ThemeForMode() + ParseThemeMode(); main.go honors `--theme=light|dark` flag (and `GACT_THEME` env). Glamour markdown style still hardcoded dark — visible mismatch on light bg (follow-up).
-- [ ] **E3b.** Glamour style follows TUI theme (light vs dark) so inline-code/code-block backgrounds match.
+- [x] **E3b.** Glamour style follows TUI theme — Theme.glamourStyle() picks 'light' when bg luminance is bright, 'dark' otherwise; renderMarkdown takes style as param; cache key now includes (style, width).
 - [x] **E4.** Keyboard hint discoverability — footer + help overlay.
 - [x] **E5.** Connection resilience — sseClosedMsg → reconnect tick.
 - [x] **E6.** Empty-state polish — sidebar n-to-create + body crib.
@@ -79,7 +79,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [ ] **F1.** Real backend adapter for Crush (or OpenCode, whichever is easier).
 - [x] **F2.** Configuration file — JSON at `$XDG_CONFIG_HOME/gact/config.json` (or `~/.config/gact/`); resolution precedence file < env < flag < fallback. Decided JSON over TOML to keep TUI dep-free.
-- [ ] **F3.** Session export/import via `gact export <session_id>` / `gact import <file>` CLI subcommands.
+- [x] **F3.** Export/import subcommands — `gact export <sid> [-o file]`, `gact import <file|->`. Flag reordering so users can write `gact export SID -o file`. Honors GACT_BACKEND env. Round-trip verified manually against the emulator.
 - [ ] **F4.** Voice input wiring (call backend `/voice/transcribe`).
 - [x] **F5.** Markdown rendering in messages via glamour — implemented for assistant text (iteration 11).
 

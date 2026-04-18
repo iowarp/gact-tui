@@ -17,7 +17,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-var update = flag.Bool("update", false, "update golden files")
+var update = flag.Bool("update-views", false, "update view-golden files")
 
 // goldenPath returns the file path under testdata/ for the given test.
 func goldenPath(t *testing.T) string {
