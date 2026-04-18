@@ -439,6 +439,67 @@ func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
 	}
 }
 
+// TestCatalogBrowser_CommandIDsRoute verifies the L5 palette routing:
+// /mcp /tools /skills fan out to catalog kinds, /agents redirects to
+// Settings tab 1, everything else falls through to RunCommand.
+func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
+	cases := []struct {
+		in      string
+		wantOk  bool
+		wantKind catalogBrowserKind
+	}{
+		{"/mcp", true, catalogKindMcp},
+		{"/tools", true, catalogKindTools},
+		{"/skills", true, catalogKindSkills},
+		{"/clear", false, 0},
+		{"/help", false, 0},
+	}
+	for _, c := range cases {
+		kind, ok := catalogCommandForID(c.in)
+		if ok != c.wantOk {
+			t.Errorf("%s: ok=%v want %v", c.in, ok, c.wantOk)
+		}
+		if ok && kind != c.wantKind {
+			t.Errorf("%s: kind=%d want %d", c.in, kind, c.wantKind)
+		}
+	}
+}
+
+// TestCatalogBrowser_OpenAndClose walks the state machine end-to-end.
+func TestCatalogBrowser_OpenAndClose(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	cmd := a.openCatalogBrowser(catalogKindTools)
+	if !a.catalogBrowserOpen {
+		t.Fatalf("openCatalogBrowser didn't flip the flag")
+	}
+	if a.catalogBrowser.title != "Tools" {
+		t.Fatalf("wrong title: %q", a.catalogBrowser.title)
+	}
+	if cmd == nil {
+		t.Fatalf("no fetch cmd returned")
+	}
+
+	// Simulate a loaded message arriving.
+	out, _ := a.Update(catalogBrowserLoadedMsg{
+		kind:  catalogKindTools,
+		items: []catalogItem{{id: "bash", title: "Bash", desc: "Run shell"}},
+	})
+	a = out.(*App)
+	if a.catalogBrowser.loading {
+		t.Fatalf("loading flag should be false after load")
+	}
+	if len(a.catalogBrowser.items) != 1 {
+		t.Fatalf("items = %d, want 1", len(a.catalogBrowser.items))
+	}
+
+	// Esc closes.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	a = out.(*App)
+	if a.catalogBrowserOpen {
+		t.Fatalf("Esc didn't close catalog browser")
+	}
+}
+
 // TestCollapseThreshold_ArrowKeysAdjust verifies the Settings > TUI tab
 // keybindings for the collapse-threshold stepper: ←/→ nudge the value
 // between 1 and 50 inclusive without blowing up.

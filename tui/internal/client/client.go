@@ -409,6 +409,16 @@ func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) 
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
 }
 
+// ListMcpServers returns all MCP servers known to the backend. Powers
+// the /mcp slash-command modal.
+func (c *Client) ListMcpServers(ctx context.Context) ([]gact.McpServer, error) {
+	var out struct {
+		Servers []gact.McpServer `json:"servers"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/mcp/servers", nil, &out)
+	return out.Servers, err
+}
+
 // ListWorkspaceFiles returns the workspace-rooted file tree. The server
 // returns a flat list of FileEntry (some may be type="dir"). Used by the
 // M6 @-picker to let users reference files by path.
