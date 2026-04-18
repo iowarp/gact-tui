@@ -2248,6 +2248,12 @@ func (a *App) renderBody(width, height int) string {
 				" "+t.HintLabel.Render("triggers a diff (a/r in body to apply/reject)"),
 			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("split this with a sub-agent")+
 				" "+t.HintLabel.Render("spawns a code_reviewer subagent"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("write a long explain")+
+				"       "+t.HintLabel.Render("long assistant reply (~60 lines)"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("dump the log")+
+				"              "+t.HintLabel.Render("large tool output (~80 lines)"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("many tools please")+
+				"         "+t.HintLabel.Render("3 tool calls in one turn"),
 			"",
 			t.HintLabel.Render("Or ")+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" to change the model/agent."),
 		)

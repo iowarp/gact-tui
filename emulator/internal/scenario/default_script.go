@@ -20,6 +20,9 @@ import (
 // Triggers:
 //   - "delete" / "rm " / "drop " / "truncate" → permission flow
 //   - "split" / "with help" / "subagent"      → spawn a subagent inline
+//   - "long" / "explain" / "writeup"          → long assistant message (~60 lines)
+//   - "log" / "dump" / "traceback" / "logs"   → large tool output (~80 lines)
+//   - "many tools" / "multi tool"             → sequence of 3 tool calls
 func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) {
 	userMsg, err := e.store.GetMessage(userMsgID)
 	if err != nil {
@@ -29,6 +32,9 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	dangerous := containsAny(userText, "delete", "rm ", "drop ", "truncate")
 	wantsSubagent := containsAny(userText, "split", "with help", "subagent")
 	wantsDiff := containsAny(userText, " diff", " edit", " patch", "propose")
+	wantsLong := containsAny(userText, "long", "explain", "writeup")
+	wantsBigTool := containsAny(userText, "log", "dump", "traceback", "logs")
+	wantsMultiTool := containsAny(userText, "many tools", "multi tool")
 
 	// Subagent path takes precedence and demonstrates the multi-agent flow.
 	if wantsSubagent {
@@ -37,6 +43,18 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 	if wantsDiff {
 		runDiffScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsLong {
+		runLongScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsBigTool {
+		runBigToolScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsMultiTool {
+		runMultiToolScript(ctx, e, sessionID, userMsg)
 		return
 	}
 
