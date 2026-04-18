@@ -205,4 +205,5 @@ cd ../tui   && go build -o ./gact .
 | 19 | 2026-04-18T06:55 | E3b glamour theme; F2 config file | ef209ba c7a3556 |
 | 20 | 2026-04-18T07:05 | UX QA fixes (sidebar scroll, header truncation, paste, empty callout) | abb6d01 |
 | 21 | 2026-04-18T08:05 | E1 blocked; F3 export/import CLI + tests | 569d07d 4785052 |
-| 22 | 2026-04-18T08:30 | Metrics modal (Ctrl+T) — wired to /v1/metrics | (this) |
+| 22 | 2026-04-18T08:30 | Metrics modal (Ctrl+T) — wired to /v1/metrics | 65ee662 |
+| 23 | 2026-04-18T08:50 | E1 unblocked (DisableAltScreen); default model on new sessions; cost charges all assistant turns | (this) |

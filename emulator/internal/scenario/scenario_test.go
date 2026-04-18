@@ -57,13 +57,16 @@ func TestDefaultScriptHappyPath(t *testing.T) {
 
 	eng.OnUserMessage(sid, user.ID)
 
+	// Stop on session.status_changed → idle (terminal signal). Multiple
+	// message.completed events fire (one per assistant turn), so don't
+	// stop on the first.
 	got := collectEventTypes(sub, 500, 5*time.Second, func(et string) bool {
-		// Stop after the final session.status_changed (back to idle).
-		return et == "message.completed"
+		if et != "session.status_changed" {
+			return false
+		}
+		latest, _ := st.GetSession(sid)
+		return latest != nil && latest.Status == gact.StatusIdle
 	})
-	// After message.completed, there's still one session.status_changed → idle.
-	// Drain a couple more so the test sees it.
-	got = append(got, collectEventTypes(sub, 5, 200*time.Millisecond, nil)...)
 
 	wantInOrder := []string{
 		"session.status_changed", // running
@@ -151,9 +154,16 @@ loop:
 		t.Fatal("Resolve returned false")
 	}
 
-	// Drain to completion.
-	got := collectEventTypes(sub, 500, 5*time.Second, func(t string) bool {
-		return t == "message.completed"
+	// Drain until session.status_changed → idle (the script's terminal
+	// signal). The pre-tool-call assistant message also fires
+	// message.completed (with stop_reason=tool_use), so we can't stop on
+	// the first message.completed — wait for the run to actually settle.
+	got := collectEventTypes(sub, 500, 5*time.Second, func(et string) bool {
+		if et != "session.status_changed" {
+			return false
+		}
+		latest, _ := st.GetSession(sid)
+		return latest != nil && latest.Status == gact.StatusIdle
 	})
 	mustContain(t, got, "tool.call.completed")
 	mustContain(t, got, "message.completed")
