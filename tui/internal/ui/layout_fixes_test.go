@@ -338,6 +338,71 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestInputDraft_PreservedAcrossSessionSwitch checks N1: typing into
+// session A, switching to session B, typing there, switching back —
+// should restore A's draft verbatim.
+func TestInputDraft_PreservedAcrossSessionSwitch(t *testing.T) {
+	sessions := []gact.Session{
+		{ID: "sess_a", Title: "A", Status: gact.StatusIdle},
+		{ID: "sess_b", Title: "B", Status: gact.StatusIdle},
+	}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	// Session A selected by newReadyApp (selected=0).
+	a.input.SetValue("draft for A")
+
+	// Exercise swapInputDraftFor directly — the full selectSession
+	// path fires SSE reconnects which waste test time waiting on a
+	// non-existent backend.
+	a.swapInputDraftFor("sess_b")
+	if got := a.input.Value(); got != "" {
+		t.Fatalf("switch to B: expected empty input, got %q", got)
+	}
+
+	// Type in B.
+	a.input.SetValue("draft for B")
+
+	// Switch back to A.
+	a.swapInputDraftFor("sess_a")
+	if got := a.input.Value(); got != "draft for A" {
+		t.Fatalf("switch back to A: expected 'draft for A', got %q", got)
+	}
+
+	// Switch to B — should restore B's draft.
+	a.swapInputDraftFor("sess_b")
+	if got := a.input.Value(); got != "draft for B" {
+		t.Fatalf("switch to B: expected 'draft for B', got %q", got)
+	}
+}
+
+// TestInputDraft_ClearedOnSend ensures successful Enter drops the
+// saved draft so coming back later sees a clean slate rather than
+// the already-sent text resurfacing.
+func TestInputDraft_ClearedOnSend(t *testing.T) {
+	sessions := []gact.Session{
+		{ID: "sess_a", Title: "A", Status: gact.StatusIdle},
+		{ID: "sess_b", Title: "B", Status: gact.StatusIdle},
+	}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.input.SetValue("hello there")
+
+	// Simulate Enter send.
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if _, ok := a.inputDraftBySession["sess_a"]; ok {
+		t.Fatalf("sent draft should be dropped from saved map")
+	}
+
+	// Switch and return — input should be empty (no resurfacing).
+	a.swapInputDraftFor("sess_b")
+	a.swapInputDraftFor("sess_a")
+	if got := a.input.Value(); got != "" {
+		t.Fatalf("post-send return: expected empty input, got %q", got)
+	}
+}
+
 // TestTransientHint_ExpiresAfterDwell verifies the hintExpireMsg
 // versioning: an expire message only clears the hint if it still
 // matches what was originally scheduled. Protects against an older

@@ -192,6 +192,11 @@ func newReadyApp(sessions []gact.Session, msgs []gact.Message) *App {
 	if len(sessions) > 0 {
 		a.selected = 0
 		a.currentStatus = sessions[0].Status
+		// N1: the input buffer is associated with the initially-
+		// selected session. Real app sets this via selectSession
+		// on connectedMsg; tests bypass that path so wire it up by
+		// hand or draft-preserve logic sees lastLoadedSessionID="".
+		a.lastLoadedSessionID = sessions[0].ID
 	} else {
 		a.selected = -1
 	}

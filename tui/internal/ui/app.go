@@ -143,6 +143,18 @@ type App struct {
 	catalogBrowserOpen bool
 	catalogBrowser     *catalogBrowserState
 
+	// inputDraftBySession preserves per-session in-flight drafts so
+	// switching away and back doesn't wipe what the user was typing.
+	// Lifetime is the app process — restart drops the map (N5 tracks
+	// persistence via config.json).
+	inputDraftBySession map[string]string
+
+	// lastLoadedSessionID is the session ID the input buffer currently
+	// belongs to. selectSession uses this (not currentSessionID which
+	// reads a.selected AFTER callers have updated it) to stash the
+	// outgoing draft under the correct key.
+	lastLoadedSessionID string
+
 	// pastes is a chronological record of multi-line pastes that have
 	// been compressed in the input box as `[pasted content: N lines]`
 	// placeholders. On send, each placeholder still present in the
@@ -1804,6 +1816,12 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.input.Reset()
 		a.pastes = nil
 		a.exitHistory()
+		// N1: successful dispatch invalidates any saved draft for
+		// this session. Drop it now so that coming back later sees
+		// a clean slate rather than the already-sent text resurfacing.
+		if sid := a.currentSessionID(); sid != "" {
+			delete(a.inputDraftBySession, sid)
+		}
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
@@ -1854,6 +1872,8 @@ func (a *App) selectSession(idx int) tea.Cmd {
 		return nil
 	}
 	sid := a.sessions[idx].ID
+	a.swapInputDraftFor(sid)
+
 	a.messages = nil
 	a.contextFiles = nil
 	a.scrollOffset = 0
@@ -1870,6 +1890,43 @@ func (a *App) selectSession(idx int) tea.Cmd {
 		loadContextFilesCmd(a.c, sid),
 		a.startSSECmd(sid),
 	)
+}
+
+// swapInputDraftFor is the draft-swap half of a session switch. It
+// stashes whatever the input currently holds under the OUTGOING
+// session's ID (read from lastLoadedSessionID, not currentSessionID
+// which has already flipped to the incoming idx by the time callers
+// reach here) and loads whatever draft was saved for `newSID`.
+// Exported as its own method so tests can exercise it without
+// triggering the SSE startup path selectSession also does.
+func (a *App) swapInputDraftFor(newSID string) {
+	if a.lastLoadedSessionID != "" && a.lastLoadedSessionID != newSID {
+		a.stashDraft(a.lastLoadedSessionID, a.input.Value())
+	}
+	a.input.Reset()
+	a.pastes = nil
+	if saved, ok := a.inputDraftBySession[newSID]; ok {
+		a.input.SetValue(saved)
+	}
+	a.lastLoadedSessionID = newSID
+}
+
+// stashDraft saves `val` as the draft for `sid`. Empty drafts clear
+// any prior entry so leftover state doesn't resurface. Map is lazily
+// allocated to avoid burning memory for sessions that never get a
+// draft.
+func (a *App) stashDraft(sid, val string) {
+	if sid == "" {
+		return
+	}
+	if val == "" {
+		delete(a.inputDraftBySession, sid)
+		return
+	}
+	if a.inputDraftBySession == nil {
+		a.inputDraftBySession = map[string]string{}
+	}
+	a.inputDraftBySession[sid] = val
 }
 
 // applySSE folds an incoming event into local state.
