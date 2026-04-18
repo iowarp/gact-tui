@@ -3,7 +3,7 @@
 // Usage:
 //
 //	emulator-server [--port 7777] [--scenario default] [--timing fast|realistic]
-//	                [--seed-workspace true]
+//	                [--seed-workspace true] [--seed-workspaces name:/path,…]
 package main
 
 import (
@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,10 +32,13 @@ const (
 
 func main() {
 	var (
-		port          = flag.Int("port", 7777, "TCP port to listen on")
-		scenarioName  = flag.String("scenario", "default", "scenario name to load")
-		timingMode    = flag.String("timing", "realistic", "scenario timing: fast | realistic")
-		seedWorkspace = flag.Bool("seed-workspace", true, "create a default workspace at startup")
+		port           = flag.Int("port", 7777, "TCP port to listen on")
+		scenarioName   = flag.String("scenario", "default", "scenario name to load")
+		timingMode     = flag.String("timing", "realistic", "scenario timing: fast | realistic")
+		seedWorkspace  = flag.Bool("seed-workspace", true, "create a default workspace at startup")
+		seedWorkspaces = flag.String("seed-workspaces", "",
+			"comma-separated list of extra workspaces to seed as "+
+				"`name:/path,name:/path`. Useful for multi-workspace demos.")
 	)
 	flag.Parse()
 
@@ -49,6 +53,18 @@ func main() {
 			log.Fatalf("seed workspace: %v", err)
 		}
 		log.Printf("seeded workspace %s at %s", seedWorkspaceID, seedWorkspaceRoot)
+	}
+
+	extras, err := parseSeedWorkspaces(*seedWorkspaces)
+	if err != nil {
+		log.Fatalf("--seed-workspaces: %v", err)
+	}
+	for _, ws := range extras {
+		created, err := st.CreateWorkspace(ws)
+		if err != nil {
+			log.Fatalf("seed extra workspace %q: %v", ws.Name, err)
+		}
+		log.Printf("seeded workspace %s at %s", created.ID, created.RootPath)
 	}
 
 	srv := server.NewWithStore(server.Config{Scenario: *scenarioName}, st)
@@ -96,4 +112,42 @@ func main() {
 		os.Exit(1)
 	}
 	log.Println("bye")
+}
+
+// parseSeedWorkspaces parses --seed-workspaces. Empty input → nil, no
+// error. Each entry is "name:/path"; name becomes gact.Workspace.Name,
+// path becomes RootPath. We let the store assign IDs so tests aren't
+// sensitive to IDs hashing differently between runs. Whitespace around
+// each entry is trimmed; an empty entry between commas is skipped so
+// `a:/a,,b:/b` is tolerated.
+//
+// Per-entry syntax errors fail the whole flag — better to refuse to
+// boot than to silently start with an incomplete seed list.
+func parseSeedWorkspaces(raw string) ([]gact.Workspace, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	var out []gact.Workspace
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		i := strings.IndexByte(entry, ':')
+		if i <= 0 || i == len(entry)-1 {
+			return nil, fmt.Errorf("bad entry %q: want `name:/path`", entry)
+		}
+		name := strings.TrimSpace(entry[:i])
+		path := strings.TrimSpace(entry[i+1:])
+		if name == "" || path == "" {
+			return nil, fmt.Errorf("bad entry %q: name and path must be non-empty", entry)
+		}
+		out = append(out, gact.Workspace{
+			Name:     name,
+			RootPath: path,
+			Metadata: map[string]any{"seeded": true},
+		})
+	}
+	return out, nil
 }
