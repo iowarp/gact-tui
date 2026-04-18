@@ -1975,10 +1975,24 @@ func (a *App) renderFooter() string {
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		if s.CostUSD > 0 || s.Tokens.Input > 0 {
+			// Color-code input tokens by how close we are to typical
+			// context window limits. Warning at 100K (getting into
+			// "summarize soon" territory for most frontier models),
+			// danger at 150K (Sonnet/GPT-4 Turbo window limits). Raw
+			// counts stay muted.
+			tokenColor := t.FgMuted
+			switch {
+			case s.Tokens.Input >= 150_000:
+				tokenColor = t.Danger
+			case s.Tokens.Input >= 100_000:
+				tokenColor = t.Warning
+			}
 			right = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
 				Render(fmt.Sprintf("$%.4f", s.CostUSD)) + " " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).
-					Render(fmt.Sprintf("(%d in / %d out)", s.Tokens.Input, s.Tokens.Output))
+				lipgloss.NewStyle().Foreground(tokenColor).
+					Render(fmt.Sprintf("(%s in / %s out)",
+						humanTokens(s.Tokens.Input),
+						humanTokens(s.Tokens.Output)))
 		}
 	}
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
