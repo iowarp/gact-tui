@@ -72,7 +72,12 @@ Usage:
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
-  --theme STR      dark | light      (env: GACT_THEME)`)
+  --theme STR      dark | light      (env: GACT_THEME)
+
+TUI-only flags:
+  --voice-cmd STR  shell command that records audio to stdout, run on
+                   Ctrl+Y. See scripts/voice-record.sh for an example.
+                   (env: GACT_VOICE_CMD, config: voice_command)`)
 }
 
 func runTUI() {
@@ -85,12 +90,16 @@ func runTUI() {
 		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
 	theme := flag.String("theme", defaultTheme,
 		"colour theme: dark | light (env: GACT_THEME, config: theme)")
+	voiceCmd := flag.String("voice-cmd", "",
+		"shell cmd that writes audio/wav to stdout (env: GACT_VOICE_CMD, config: voice_command)")
 	flag.Parse()
 
 	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
+	app.VoiceCommand = finalVoice
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "gact:", err)

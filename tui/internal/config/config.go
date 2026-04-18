@@ -23,8 +23,9 @@ import (
 // "absent from file" from "explicitly set to zero" — important for
 // layering with env vars and flags.
 type Config struct {
-	BackendURL *string `json:"backend_url,omitempty"`
-	Theme      *string `json:"theme,omitempty"`     // "dark" | "light"
+	BackendURL   *string `json:"backend_url,omitempty"`
+	Theme        *string `json:"theme,omitempty"`         // "dark" | "light"
+	VoiceCommand *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
 }
 
 // Load reads the config file from the first path that exists. Returns
