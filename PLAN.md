@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase GG — session creation CLI
+
+- [ ] **GG1.** `gact new [--workspace WS_ID] [--title TITLE]` creates a new session and prints its id to stdout. Plumbing for shell pipelines that want a fresh session per task: `SID=$(gact new) && gact ask "$SID" "..."`.
+
 ## Phase FF — q&a CLI
 
 - [x] **FF1.** `gact ask <sid> <q|->` — send + wait + print latest assistant reply text. Snapshots pre-send count so it picks the new reply even when subagents fan out. Stdin via `-`. CLI test.

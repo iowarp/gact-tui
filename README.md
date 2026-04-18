@@ -152,6 +152,7 @@ running backend:
 
 | Command | What it does |
 |---|---|
+| `gact new [--title T] [--workspace WS_ID]` | Create a session; print id |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |
 | `gact tail [SID] [--workspace WS_ID]` | Stream SSE events as JSON lines |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
@@ -172,9 +173,10 @@ running backend:
 Pipe-friendly composition example:
 
 ```sh
-SID=$(gact list | head -1 | cut -f1)
-gact run "$SID" "please summarise main.go"
-gact tail "$SID" | jq 'select(.type == "message.completed")'
+SID=$(gact new --title "scratch")
+answer=$(gact ask "$SID" "please summarise main.go")
+echo "$answer" > summary.txt
+gact log "$SID" | grep -i "tool"
 ```
 
 ## What's implemented

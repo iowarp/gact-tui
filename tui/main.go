@@ -65,6 +65,8 @@ func main() {
 			os.Exit(runLog(os.Args[2:]))
 		case "ask":
 			os.Exit(runAsk(os.Args[2:]))
+		case "new":
+			os.Exit(runNew(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -234,6 +236,7 @@ Usage:
   gact run <sid> <text|->    send + wait in one command
   gact log <sid>             dump conversation messages to stdout
   gact ask <sid> <q|->       send + wait + print assistant reply
+  gact new [--title T]       create a session; print id to stdout
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -349,6 +352,55 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runNew creates a new session and prints its id to stdout. With no
+// flags, defaults the workspace to the first one in the backend's
+// /v1/workspaces list (matches what the TUI does on startup) and the
+// title to "session HH:MM:SS UTC". Pure shell plumbing:
+//
+//	SID=$(gact new --title "scratch")
+//	gact ask "$SID" "what does main.go do?"
+func runNew(args []string) int {
+	fs := flag.NewFlagSet("new", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "workspace id; defaults to first listed")
+	title := fs.String("title", "", "session title; defaults to current UTC time")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if *wsID == "" {
+		wss, err := c.ListWorkspaces(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact new: list workspaces: %v\n", err)
+			return 1
+		}
+		if len(wss) == 0 {
+			fmt.Fprintln(os.Stderr, "gact new: no workspaces; pass --workspace WS_ID")
+			return 1
+		}
+		*wsID = wss[0].ID
+	}
+	if *title == "" {
+		*title = "session " + time.Now().UTC().Format("15:04:05 UTC")
+	}
+
+	s, err := c.CreateSession(ctx, client.CreateSessionRequest{
+		WorkspaceID: *wsID,
+		Title:       *title,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact new: %v\n", err)
+		return 1
+	}
+	fmt.Println(s.ID)
+	return 0
+}
+
 // runAsk is `run` + extract: posts a user message, waits for idle,
 // then prints the assistant's reply text to stdout. Pure stdout
 // (no role headers, no trailing newline) so shell capture works:
