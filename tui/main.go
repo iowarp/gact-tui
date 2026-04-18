@@ -1,8 +1,8 @@
 // Command gact is the GACT TUI client.
 //
-// Usage:
-//
-//	gact [--backend URL]
+// Configuration precedence (lowest → highest): built-in defaults, on-disk
+// config file (JSON; see internal/config), env vars (GACT_BACKEND,
+// GACT_THEME), CLI flags.
 package main
 
 import (
@@ -13,27 +13,34 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui"
 )
 
+const (
+	defaultBackend = "http://localhost:7777"
+	defaultTheme   = "dark"
+)
+
 func main() {
-	backend := flag.String("backend", envDefault("GACT_BACKEND", "http://localhost:7777"),
-		"GACT backend URL (env: GACT_BACKEND)")
-	theme := flag.String("theme", envDefault("GACT_THEME", "dark"),
-		"colour theme: dark | light (env: GACT_THEME)")
+	cfg, cfgPath, cfgErr := config.Load()
+	if cfgErr != nil {
+		fmt.Fprintf(os.Stderr, "gact: warning — failed to read %s: %v\n", cfgPath, cfgErr)
+	}
+
+	backend := flag.String("backend", defaultBackend,
+		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
+	theme := flag.String("theme", defaultTheme,
+		"colour theme: dark | light (env: GACT_THEME, config: theme)")
 	flag.Parse()
 
-	app := ui.NewWithTheme(*backend, ui.ThemeForMode(ui.ParseThemeMode(*theme)))
+	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+
+	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "gact:", err)
 		log.Fatal(err)
 	}
-}
-
-func envDefault(k, d string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return d
 }
