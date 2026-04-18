@@ -338,6 +338,29 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestTransientHint_ExpiresAfterDwell verifies the hintExpireMsg
+// versioning: an expire message only clears the hint if it still
+// matches what was originally scheduled. Protects against an older
+// dwell timer wiping a newer toast.
+func TestTransientHint_ExpiresAfterDwell(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.transientHint = "cleared 3 messages"
+
+	// Stale expiry (different text) shouldn't touch the hint.
+	out, _ := a.Update(hintExpireMsg{text: "old toast"})
+	a = out.(*App)
+	if a.transientHint != "cleared 3 messages" {
+		t.Fatalf("stale expiry wiped current hint: %q", a.transientHint)
+	}
+
+	// Matching expiry clears it.
+	out, _ = a.Update(hintExpireMsg{text: "cleared 3 messages"})
+	a = out.(*App)
+	if a.transientHint != "" {
+		t.Fatalf("matching expiry didn't clear: %q", a.transientHint)
+	}
+}
+
 // TestFilePicker_FuzzyScore verifies the scoring function directly:
 // substring matches beat skip-matches, basename-substring beats
 // directory-substring, skips with smaller gaps beat scattered ones.
