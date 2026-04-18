@@ -166,10 +166,17 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase R — discoverability + diag
+
+- [ ] **R1.** `--diag` CLI flag prints config + resolved theme + binary version so bug reports come with reproducible environment info. Non-interactive (exits after printing).
+- [ ] **R2.** Sidebar footer row "N sessions · M archived" so users know at a glance how much history they have.
+- [ ] **R3.** `gact version` subcommand — already partially wired, audit the output and make sure it surfaces the git SHA + build time.
+- [ ] **R4.** `--emit-config` writes a sample `config.json` with every option + defaults, commented. Reduces the "how do I configure X?" friction.
+
 ## Phase Q — polish round four
 
 - [x] **Q1.** README refreshed — theme gallery (Dracula + solarized-light + picker + tokyo-night), custom-theme schema, Phase-M/N/O keymap additions, updated TUI implementation summary.
-- [ ] **Q2.** `Ctrl+Alt+T` cycles themes without opening Settings — single-key bag-shift for quick experimentation.
+- [x] **Q2.** `Ctrl+Alt+T` (Kitty-protocol terminals) + `/theme-next` / `/theme-prev` slash commands cycle palettes in-place. CollapseThreshold + cost thresholds preserved across the swap; persists via SaveConfig. Tests cover wrap-around + threshold-survive. No Kitty-free one-key equivalent — `/theme-next` is the portable path.
 - [x] **Q3.** Palette surfaces the active state for `/theme /clear /cancel /agent /rename` via `paletteCurrentValue(id)`. Secondary-italic suffix after the title keeps the primary identifier prominent. Test + screenshot 64.
 - [x] **Q4.** `/theme-export` serialises the active palette to `~/.config/gact/theme.json`. Round-trip safe with LoadCustomTheme (exported `name` field matches the active ThemeMode). Test `TestExportThemeJSON_Roundtrip` exports Dracula, reloads, asserts Bg RGBA preserved.
 
