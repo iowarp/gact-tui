@@ -156,6 +156,12 @@ type App struct {
 	renameDraft  string
 	renameCursor int
 
+	// spinnerFrame drives the running-session animation — advanced by
+	// spinnerTickMsg as long as any session is non-idle. Cheap (single
+	// int, no timers when idle) so it's fine to leave in even when no
+	// session is active.
+	spinnerFrame int
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -384,12 +390,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.wsID = m.wsID
 		a.sessions = m.sessions
 		a.commands = m.commands
-		var cmd tea.Cmd
+		// Bootstrap the spinner tick loop. The handler gates
+		// rescheduling on anySessionRunning(), so this fires exactly
+		// once per connect even if nothing is currently active.
+		cmds := []tea.Cmd{spinnerCmd()}
 		if len(a.sessions) > 0 {
 			a.selected = 0
-			cmd = a.selectSession(0)
+			cmds = append(cmds, a.selectSession(0))
 		}
-		return a, cmd
+		return a, tea.Batch(cmds...)
 
 	case errMsg:
 		// Search failures shouldn't blow away the whole UI — clear the
@@ -425,6 +434,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.stage = StageConnecting
 		return a, connectCmd(a.c)
+
+	case spinnerTickMsg:
+		a.spinnerFrame++
+		// Re-arm only while something is active. When everything
+		// goes idle the loop drains naturally; the next non-idle
+		// transition restarts it via the branch below.
+		if a.anySessionRunning() {
+			return a, spinnerCmd()
+		}
+		return a, nil
 
 	case searchResultsMsg:
 		a.searching = false
@@ -497,11 +516,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if seq := m.Event.SeqID(); seq > a.lastSeenSeqID {
 			a.lastSeenSeqID = seq
 		}
+		prevRunning := a.anySessionRunning()
 		a.applySSE(m.Event)
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
 			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+		}
+		// Restart the spinner loop if this event flipped a session
+		// into a running state. The spinnerTickMsg handler drains
+		// itself when nothing's running, so idle→running needs to
+		// re-arm the tick; running→running is fine because the loop
+		// is still alive.
+		if !prevRunning && a.anySessionRunning() {
+			cmds = append(cmds, spinnerCmd())
 		}
 		return a, tea.Batch(cmds...)
 
@@ -1322,8 +1350,27 @@ func (a *App) applySSE(e client.SSEEvent) {
 		// Final part-state already in store; the assistant turn is done.
 	case "session.status_changed":
 		if pl != nil {
-			if v, ok := pl["status"].(string); ok {
+			v, _ := pl["status"].(string)
+			if v != "" {
+				// Update the header's view of the currently-selected
+				// session…
 				a.currentStatus = v
+				// …and mirror into a.sessions so the sidebar status
+				// dots match reality. Events can arrive for the
+				// currently-selected session OR for a sibling (a
+				// subagent running on another session), so key on
+				// session_id from the payload rather than assuming
+				// it's always the selected one.
+				targetSID, _ := pl["session_id"].(string)
+				if targetSID == "" {
+					targetSID = a.currentSessionID()
+				}
+				for i := range a.sessions {
+					if a.sessions[i].ID == targetSID {
+						a.sessions[i].Status = v
+						break
+					}
+				}
 			}
 		}
 	case "permission.requested":
@@ -1775,8 +1822,15 @@ func (a *App) renderSidebar(width, height int) string {
 		if title == "" {
 			title = "untitled"
 		}
-		titleLine := marker + indent + titleStyle.Render(truncate(title, width-6-len(indent)))
-		statusLine := "  " + indent + statusStyle.Render(s.Status)
+		// Sidebar row layout: marker · indent · dot+space · title (truncated)
+		// The status dot replaces the old second-line italic status text,
+		// collapsing two lines into one and giving the status a splash of
+		// colour/motion (spinner for running, ⚠ for waiting_permission,
+		// muted · for idle). The raw status word is preserved on the second
+		// line as a muted caption so accessibility doesn't lose information.
+		dot := a.sessionStatusDot(s.Status)
+		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, width-8-len(indent)))
+		statusLine := "  " + indent + "  " + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
 	if endIdx < len(a.sessions) {
@@ -1826,8 +1880,15 @@ func (a *App) renderBody(width, height int) string {
 	titleLine := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("CONVERSATION")
 	statusLine := ""
 	if a.currentStatus != "" && a.currentStatus != gact.StatusIdle {
+		// Running sessions get the animated spinner; waiting_permission
+		// gets a static ⚠ so it doesn't compete for attention with the
+		// actual running turns. Idle never reaches this branch.
+		glyph := a.spinnerChar()
+		if a.currentStatus == gact.StatusWaitingPermission {
+			glyph = "⚠"
+		}
 		statusLine = lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-			Render("● " + a.currentStatus)
+			Render(glyph + " " + a.currentStatus)
 	}
 	headerRow := titleLine
 	if statusLine != "" {

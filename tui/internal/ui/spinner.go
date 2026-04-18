@@ -1,0 +1,84 @@
+package ui
+
+import (
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+// spinnerFrames is a standard Braille dots spinner. Short cycle means
+// long turns feel animated without needing a huge frame count.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// spinnerTickInterval balances "feels alive" against "burns CPU". At
+// 100 ms we redraw 10x/sec, same as most TUIs. Dropped to 125 ms after
+// spot-checking that the terminal keeps up under load.
+const spinnerTickInterval = 125 * time.Millisecond
+
+// spinnerTickMsg advances the spinner frame counter. Emitted by a
+// self-rescheduling tea.Tick only while at least one visible session
+// is non-idle — an idle TUI costs no frames.
+type spinnerTickMsg struct{}
+
+// spinnerCmd schedules the next spinnerTickMsg. Called from
+// connectedMsg (to bootstrap) and again from every spinnerTickMsg
+// handler when there's still something running.
+func spinnerCmd() tea.Cmd {
+	return tea.Tick(spinnerTickInterval, func(time.Time) tea.Msg {
+		return spinnerTickMsg{}
+	})
+}
+
+// spinnerChar returns the current frame's glyph.
+func (a *App) spinnerChar() string {
+	if len(spinnerFrames) == 0 {
+		return "●"
+	}
+	return spinnerFrames[a.spinnerFrame%len(spinnerFrames)]
+}
+
+// anySessionRunning reports whether any session we know about is
+// non-idle. Used as the gate for rescheduling the spinner tick —
+// lets the tick loop drain naturally when everything settles.
+func (a *App) anySessionRunning() bool {
+	// Fast path: the header status is derived from the selected
+	// session. If it's non-idle we're already running.
+	if a.currentStatus != "" && a.currentStatus != gact.StatusIdle {
+		return true
+	}
+	// Scan the full sidebar too — a subagent turn might be running on
+	// a session we don't have selected, and the user should still see
+	// the dot animate on it.
+	for _, s := range a.sessions {
+		if s.Status != "" && s.Status != gact.StatusIdle {
+			return true
+		}
+	}
+	return false
+}
+
+// sessionStatusDot renders the leading glyph for a session row in the
+// sidebar. Animates for running; static for waiting_permission and
+// idle. Colours are theme-aware so the light/dark palettes both read
+// correctly.
+//
+// Returned string is one glyph + one space, width-stable so the title
+// line lines up regardless of status.
+func (a *App) sessionStatusDot(status string) string {
+	t := a.Theme
+	switch status {
+	case gact.StatusRunning:
+		return lipgloss.NewStyle().Foreground(t.Warning).Render(a.spinnerChar()) + " "
+	case gact.StatusWaitingPermission:
+		return lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("⚠") + " "
+	case gact.StatusIdle, "":
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render("·") + " "
+	default:
+		// Forward-compat: unknown statuses get a neutral dot so nothing
+		// is "broken" if the backend adds new values.
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render("○") + " "
+	}
+}
