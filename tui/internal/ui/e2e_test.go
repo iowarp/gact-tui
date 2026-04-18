@@ -116,13 +116,13 @@ func TestE2E_TUI_HappyPath(t *testing.T) {
 	// teatest.WaitFor consumes the reader between calls, so combine
 	// asserting all three in one predicate. The full assistant turn
 	// (thinking → tool_call → tool result) renders within ~5s on Fast.
-	// Tool-call rendering is Claude-Code-style: `ReadFile(path)` header
-	// with `⎿` leading indented output — L4 reshaped this, so the
-	// expected strings changed from the lowercase tool name.
+	// L4 reshaped tool rendering: `ReadFile(path)` header + `⎿` glyph
+	// leading the indented output (no `● TOOL` row between them, since
+	// the L4 polish nests tool_result under its call).
 	waitForOutput(t, tm, func(s string) bool {
 		return strings.Contains(s, "ASSISTANT") &&
 			strings.Contains(s, "ReadFile(") &&
-			strings.Contains(s, "TOOL")
+			strings.Contains(s, "⎿")
 	}, 8*time.Second)
 
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
