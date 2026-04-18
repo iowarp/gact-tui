@@ -16,6 +16,15 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase Q — polish round four
+- **Q1.** README refreshed — theme gallery (screenshots 54-63), custom
+  theme schema, Phase-M/N/O keymap updates, TUI implementation summary.
+- **Q3.** Palette surfaces current state inline (`/clear · 4 messages`,
+  `/theme · current: dracula`, `/cancel · status: running`).
+  Screenshot 64.
+- **Q4.** `/theme-export` serialises the active palette to
+  `~/.config/gact/theme.json` — round-trip safe with LoadCustomTheme.
+
 ### Phase P — polish round three
 - **P1.** Per-theme glamour StyleConfig (Document/Heading → Fg+Primary,
   Code → Warning on BgSubtle) — fixes the "assistant text almost
