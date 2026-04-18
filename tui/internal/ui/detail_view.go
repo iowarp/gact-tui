@@ -65,6 +65,39 @@ func (a *App) detailPageSize() int {
 	return n
 }
 
+// findBulkyPartIn scans a single message for a bulky tool_result or
+// text part (same threshold as findLatestBulkyPart). Used by the
+// Z1 Ctrl+E routing when a body cursor is set — the user wants to
+// expand "this one", not "the newest bulky anywhere".
+func findBulkyPartIn(m gact.Message) (bulkyPartRef, bool) {
+	for _, p := range m.Parts {
+		switch p.Type {
+		case gact.PartTypeToolResult:
+			text := flattenToolResult(p)
+			if lineCount(text) <= toolResultPreviewLines {
+				continue
+			}
+			return bulkyPartRef{
+				messageID: m.ID,
+				partID:    p.ID,
+				title:     fmt.Sprintf("tool_result · %d lines", lineCount(text)),
+				fullText:  text,
+			}, true
+		case gact.PartTypeText:
+			if lineCount(p.Text) <= toolResultPreviewLines {
+				continue
+			}
+			return bulkyPartRef{
+				messageID: m.ID,
+				partID:    p.ID,
+				title:     fmt.Sprintf("%s text · %d lines", strings.ToLower(m.Role), lineCount(p.Text)),
+				fullText:  p.Text,
+			}, true
+		}
+	}
+	return bulkyPartRef{}, false
+}
+
 // findLatestBulkyPart walks a.messages in reverse order and returns
 // a bulkyPartRef for the newest tool_result OR text part whose body
 // exceeds the inline preview budget. Used by Ctrl+E to decide what
