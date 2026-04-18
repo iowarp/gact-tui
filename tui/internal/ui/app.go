@@ -174,6 +174,18 @@ type App struct {
 	// the toggle handler so the render path can stay pure.
 	showArchived bool
 
+	// sessionFilter narrows the sidebar to sessions whose title
+	// contains this substring (case-insensitive). Empty = show all.
+	// sessionFilterActive is true only while the user is editing the
+	// filter text (via `/` in sidebar focus); it commits on Enter and
+	// clears on Esc. The filter itself can persist after commit.
+	sessionFilter       string
+	sessionFilterActive bool
+	// filterSnapshot preserves the pre-edit filter value so Esc can
+	// roll back the in-progress edit without losing a previously-
+	// committed filter. Set by `/` on entry, cleared on commit/cancel.
+	filterSnapshot string
+
 	// inputHistoryBySession tracks the last N prompts the user sent,
 	// per session. Keyed on session ID so switching sessions gives
 	// you that session's history rather than a shared global. Each
@@ -1211,46 +1223,42 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 }
 
 func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Filter edit mode: keystrokes go into sessionFilter instead of
+	// navigating/acting on the list. Enter commits (keeps the filter
+	// but exits edit mode), Esc cancels AND clears the filter back to
+	// whatever it was when `/` was pressed.
+	if a.sessionFilterActive {
+		return a.handleSidebarFilterKey(k)
+	}
+
 	switch k.String() {
 	case "up", "k":
-		if a.selected > 0 {
-			a.selected--
+		if a.stepSelectionVisible(-1) {
 			return a, a.selectSession(a.selected)
 		}
 	case "down", "j":
-		if a.selected < len(a.sessions)-1 {
-			a.selected++
+		if a.stepSelectionVisible(+1) {
 			return a, a.selectSession(a.selected)
 		}
 	case "g", "home":
-		// Jump to first session.
-		if len(a.sessions) > 0 && a.selected != 0 {
-			a.selected = 0
+		// Jump to first VISIBLE session.
+		vis := a.visibleSessionIndexes()
+		if len(vis) > 0 && a.selected != vis[0] {
+			a.selected = vis[0]
 			return a, a.selectSession(a.selected)
 		}
 	case "G", "end":
-		// Jump to last session.
-		if last := len(a.sessions) - 1; last >= 0 && a.selected != last {
-			a.selected = last
+		vis := a.visibleSessionIndexes()
+		if len(vis) > 0 && a.selected != vis[len(vis)-1] {
+			a.selected = vis[len(vis)-1]
 			return a, a.selectSession(a.selected)
 		}
 	case "pgup", "ctrl+u":
-		// Page up — sidebarPageSize() honors current pane height, so the
-		// jump matches what the user can actually see.
-		if step := a.sidebarPageSize(); a.selected > 0 {
-			a.selected -= step
-			if a.selected < 0 {
-				a.selected = 0
-			}
+		if a.stepSelectionVisible(-a.sidebarPageSize()) {
 			return a, a.selectSession(a.selected)
 		}
 	case "pgdown", "ctrl+d":
-		// Page down.
-		if step := a.sidebarPageSize(); a.selected < len(a.sessions)-1 {
-			a.selected += step
-			if a.selected > len(a.sessions)-1 {
-				a.selected = len(a.sessions) - 1
-			}
+		if a.stepSelectionVisible(+a.sidebarPageSize()) {
 			return a, a.selectSession(a.selected)
 		}
 	case "enter":
@@ -1289,6 +1297,12 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.renameOpen = true
 		a.renameDraft = a.sessions[a.selected].Title
 		a.renameCursor = len(a.renameDraft)
+		return a, nil
+	case "/":
+		// Enter filter mode. Remember the current filter so Esc can
+		// restore it (the slash wasn't meant as a destructive action).
+		a.sessionFilterActive = true
+		a.filterSnapshot = a.sessionFilter
 		return a, nil
 	case "A":
 		// Archive toggle — PATCH archived to the opposite of the
@@ -1952,6 +1966,30 @@ func (a *App) renderSidebar(width, height int) string {
 			t.HintKey.Render("n")+t.HintLabel.Render(" to create"))
 	}
 
+	// Filter indicator row — shown above the session list whenever a
+	// filter is active. "editing" while sessionFilterActive, static
+	// after commit. Blank when no filter so existing layout is
+	// unchanged.
+	if a.sessionFilterActive || a.sessionFilter != "" {
+		filterText := a.sessionFilter
+		if a.sessionFilterActive {
+			filterText += "_"
+		}
+		label := "filter: "
+		if a.sessionFilter == "" && a.sessionFilterActive {
+			label = "filter: (type to filter)"
+			filterText = ""
+		}
+		rows = append(rows,
+			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+				Render(label+filterText),
+			"")
+	}
+
+	// Build the filter-filtered view once so the scroll math and the
+	// render loop work off the same subset.
+	visIdx := a.visibleSessionIndexes()
+
 	// Each session takes 3 rows (title + status + spacer). Scroll the
 	// session list so the selected entry stays visible. We reserve room
 	// for the SESSIONS title (2 rows) + CONTEXT section (~3-N rows)
@@ -1972,20 +2010,33 @@ func (a *App) renderSidebar(width, height int) string {
 		avail = rowsPerSession
 	}
 	maxSessions := avail / rowsPerSession
+
+	// Find the selected session's position within the visible list.
+	selVis := -1
+	for i, idx := range visIdx {
+		if idx == a.selected {
+			selVis = i
+			break
+		}
+	}
 	startIdx := 0
-	if a.selected >= 0 && a.selected >= maxSessions {
-		startIdx = a.selected - maxSessions + 1
+	if selVis >= 0 && selVis >= maxSessions {
+		startIdx = selVis - maxSessions + 1
 	}
 	endIdx := startIdx + maxSessions
-	if endIdx > len(a.sessions) {
-		endIdx = len(a.sessions)
+	if endIdx > len(visIdx) {
+		endIdx = len(visIdx)
 	}
 	if startIdx > 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
 			Render(fmt.Sprintf("  ↑ %d more", startIdx)))
 	}
+	if a.sessionFilter != "" && len(visIdx) == 0 {
+		rows = append(rows, t.HintLabel.Render("  (no matches)"))
+	}
 	for i := startIdx; i < endIdx; i++ {
-		s := a.sessions[i]
+		sIdx := visIdx[i]
+		s := a.sessions[sIdx]
 		marker := "  "
 		indent := ""
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
@@ -1994,7 +2045,7 @@ func (a *App) renderSidebar(width, height int) string {
 			indent = "  └ "
 			titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
 		}
-		if i == a.selected {
+		if sIdx == a.selected {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 			titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 		}
@@ -2013,9 +2064,9 @@ func (a *App) renderSidebar(width, height int) string {
 		statusLine := "  " + indent + "  " + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
-	if endIdx < len(a.sessions) {
+	if endIdx < len(visIdx) {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
-			Render(fmt.Sprintf("  %d more ↓", len(a.sessions)-endIdx)))
+			Render(fmt.Sprintf("  %d more ↓", len(visIdx)-endIdx)))
 	}
 
 	// CONTEXT section — show files in the current session's context.
@@ -2332,6 +2383,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
 		t.HintKey.Render("A") + "         (sidebar) archive session (or un-archive in archived view)",
 		t.HintKey.Render("h") + "         (sidebar) toggle archived view",
+		t.HintKey.Render("/") + "         (sidebar) filter sessions by title",
 		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
 		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
 		t.HintKey.Render("Ctrl+c") + "    quit",
