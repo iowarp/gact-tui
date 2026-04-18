@@ -38,6 +38,11 @@ type App struct {
 	BackendURL string
 	Theme      Theme
 
+	// DisableAltScreen turns off the alternate-screen-buffer mode. Used
+	// by tests because teatest's PTY simulation doesn't capture writes
+	// while in alt-screen mode. NEVER set this in production.
+	DisableAltScreen bool
+
 	c *client.Client
 
 	width, height int
@@ -1040,7 +1045,7 @@ func (a *App) View() tea.View {
 		content = a.viewMain()
 	}
 	v := tea.NewView(content)
-	v.AltScreen = true
+	v.AltScreen = !a.DisableAltScreen
 	v.BackgroundColor = a.Theme.Bg
 	v.ForegroundColor = a.Theme.Fg
 	return v

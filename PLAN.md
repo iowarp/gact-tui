@@ -66,7 +66,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase E — Polish & integration
 
-- [ ] **E1.** [BLOCKED] TUI-side teatest e2e: `tm.Output()` returns empty bytes throughout the run when the App uses `AltScreen=true`. teatest's PTY simulation may not capture alt-screen-buffer writes from bubbletea v2's renderer. Worked around for now: client_integration_test.go covers the wire-format end-to-end via the real binary, and golden tests cover view rendering against synthetic state. Reproducer was at tui/internal/ui/e2e_test.go (removed).
+- [x] **E1.** TUI teatest e2e — unblocked by adding `App.DisableAltScreen` (test-only knob). 3 tests in tui/internal/ui/e2e_test.go cover happy path (Ctrl+N → type → wait for ASSISTANT/read_file/TOOL render), permission flow (delete → permission banner → 'a' allow → completion), and overlays (? help, / palette). Took 2.84s race-clean.
 - [x] **E2.** README.md at repo root.
 - [x] **E3.** Theming — LightTheme() + ThemeForMode() + ParseThemeMode(); main.go honors `--theme=light|dark` flag (and `GACT_THEME` env). Glamour markdown style still hardcoded dark — visible mismatch on light bg (follow-up).
 - [x] **E3b.** Glamour style follows TUI theme — Theme.glamourStyle() picks 'light' when bg luminance is bright, 'dark' otherwise; renderMarkdown takes style as param; cache key now includes (style, width).
