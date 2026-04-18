@@ -162,6 +162,12 @@ type App struct {
 	// session is active.
 	spinnerFrame int
 
+	// pendingDeleteSessionID is the session that the user has armed
+	// for deletion by pressing `x` once. The next `x` (while this
+	// equals the selected session's ID) commits; any other key clears
+	// it. Prevents a stray `x` from destroying a conversation silently.
+	pendingDeleteSessionID string
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -758,6 +764,14 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if k.String() != "ctrl+l" {
 		a.transientHint = ""
 	}
+	// Any key other than `x` cancels a pending delete — the two-step
+	// confirm is there to catch accidents, not to force the user into
+	// a modal dialog, so a natural next action (arrow key, typing,
+	// whatever) should back out cleanly. The `x` branch itself
+	// distinguishes arm-vs-commit.
+	if k.String() != "x" {
+		a.pendingDeleteSessionID = ""
+	}
 	// StageError is a special case: Ctrl+R retries immediately (skips
 	// the auto-retry backoff), Ctrl+C still quits, every other key is
 	// swallowed so users don't accidentally trigger something against
@@ -1163,10 +1177,22 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, createSessionCmd(a.c, a.wsID)
 		}
 	case "x":
-		// Delete current session.
-		if sid := a.currentSessionID(); sid != "" {
+		// Two-step delete: first `x` arms, second `x` executes.
+		// Prevents a stray keystroke from silently destroying a
+		// conversation. Any other key clears the arm via the
+		// fall-through in handleKey.
+		sid := a.currentSessionID()
+		if sid == "" {
+			return a, nil
+		}
+		if a.pendingDeleteSessionID == sid {
+			a.pendingDeleteSessionID = ""
+			a.transientHint = ""
 			return a, deleteSessionCmd(a.c, a.wsID, sid)
 		}
+		a.pendingDeleteSessionID = sid
+		a.transientHint = "press x again to confirm delete (any other key cancels)"
+		return a, nil
 	case "e":
 		// Rename the selected session. Opens an inline prompt
 		// pre-filled with the current title; Enter commits, Esc
@@ -1319,6 +1345,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.stickyToBottom = true
 	a.currentStatus = a.sessions[idx].Status
 	a.pendingPermissions = nil
+	a.pendingDeleteSessionID = "" // armed delete is per-session; clear on switch
 	// New session ⇒ new event stream, no replay. Starting at 0 makes
 	// the adapter/emulator send the full current event history from
 	// the ring buffer (per SPEC §7.3 replay semantics).

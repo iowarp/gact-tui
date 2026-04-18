@@ -235,3 +235,4 @@ cd ../tui   && go build -o ./gact .
 | 49 | 2026-04-18T16:45 | K2 — manual session rename from sidebar (`e` → inline editor) + screenshot | 7218048 |
 | 50 | 2026-04-18T17:00 | K3 — emulator --seed-workspaces flag (multi-ws demos without curl) | 9dfa3ff |
 | 51 | 2026-04-18T17:20 | K4 — sidebar status dots + header spinner + session_id bug fix | 093ac35 |
+| 52 | 2026-04-18T17:35 | K5 — two-step delete confirmation (arm/commit/cancel-on-any-key) | (this) |
