@@ -59,6 +59,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
+	s.mux.HandleFunc("GET /v1/events", s.handleWorkspaceEvents)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleSessionEvents)
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
 
