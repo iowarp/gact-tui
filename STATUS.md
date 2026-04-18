@@ -249,4 +249,4 @@ cd ../tui   && go build -o ./gact .
 | 63 | 2026-04-18T20:40 | K16 — SSE "(reconnecting…)" footer indicator during backoff | 94f7948 |
 | 64 | 2026-04-18T20:50 | K17 — deterministic seeded session IDs + Phase L UX feedback queued | bec3466 |
 | 65 | 2026-04-18T21:15 | L1 — richer scenario (long reply / big tool output / multi-tool) + crib | a7fe775 |
-| 66 | 2026-04-18T21:45 | L2 — floating modal overlays (ANSI-aware splice + shared modalWidth) | (this) |
+| 66 | 2026-04-18T21:45 | L2 — floating modal overlays (ANSI-aware splice + shared modalWidth) | 70d83bc |
