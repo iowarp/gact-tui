@@ -132,6 +132,12 @@ type App struct {
 	composeOpen bool
 	compose     *composeState
 
+	// @-file picker (M6): fuzzy-search workspace files and insert a
+	// ref into the input. Opened when the user types @ at the start
+	// of a new word.
+	filePickerOpen bool
+	filePicker     *filePickerState
+
 	// pastes is a chronological record of multi-line pastes that have
 	// been compressed in the input box as `[pasted content: N lines]`
 	// placeholders. On send, each placeholder still present in the
@@ -761,6 +767,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.selected = 0
 		return a, a.selectSession(0)
 
+	case filePickerLoadedMsg:
+		if a.filePicker == nil {
+			return a, nil
+		}
+		a.filePicker.entries = m.entries
+		a.filePicker.loaded = true
+		return a, nil
+
 	case settingsLoadedMsg:
 		if a.settings == nil {
 			a.settings = &settingsState{}
@@ -1020,6 +1034,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.composeOpen {
 		return a.handleComposeKey(k)
+	}
+	if a.filePickerOpen {
+		return a.handleFilePickerKey(k)
 	}
 	if a.paletteOpen {
 		return a.handlePaletteKey(k)
@@ -1616,6 +1633,18 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 
+	// `@` at the start of input or after whitespace opens the M6 fuzzy
+	// file picker. Passing through @ mid-word (e.g. in an email) is
+	// preserved so we don't surprise users who are genuinely typing an
+	// @-character. k.Text check guards against synthetic KeyPressMsg
+	// without a Text payload (e.g. ctrl-modified).
+	if k.Text == "@" {
+		cur := a.input.Value()
+		if cur == "" || strings.HasSuffix(cur, " ") || strings.HasSuffix(cur, "\n") {
+			return a, a.openFilePicker()
+		}
+	}
+
 	// Input history: ↑ on empty input (or while already navigating)
 	// recalls prior prompts; ↓ walks forward and eventually restores
 	// the pre-history draft. When the input has content AND we're NOT
@@ -2068,6 +2097,9 @@ func (a *App) viewMain() string {
 	}
 	if a.composeOpen {
 		base = overlay(base, a.viewCompose(), a.width, a.height)
+	}
+	if a.filePickerOpen {
+		base = overlay(base, a.viewFilePicker(), a.width, a.height)
 	}
 	return base
 }
@@ -2805,6 +2837,7 @@ var helpTabs = []struct {
 			{"Paste ≥ 3 lines", "auto-compresses to [pasted content: N lines]"},
 			{"Ctrl+P", "expand most recent compressed paste in-place"},
 			{"Ctrl+G · Ctrl+⇧P", "open compose modal (long-form editor)"},
+			{"@", "open fuzzy workspace-file picker (inserts @path)"},
 		},
 	},
 	{

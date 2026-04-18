@@ -289,6 +289,69 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 	}
 }
 
+// TestFilePicker_OpensOnAtAndInserts verifies M6: typing `@` at the
+// start of input opens the picker, Enter on a loaded entry inserts
+// `@path` into the buffer and triggers an AddContextFile command.
+func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	// Typing @ on empty input opens picker.
+	out, _ := a.Update(tea.KeyPressMsg{Code: '@', Text: "@"})
+	a = out.(*App)
+	if !a.filePickerOpen {
+		t.Fatalf("@ on empty didn't open picker")
+	}
+
+	// Inject loaded entries so we can exercise the selection path
+	// without a live backend round-trip.
+	a.filePicker.entries = []gact.FileEntry{
+		{Path: "main.go", Type: "file"},
+		{Path: "README.md", Type: "file"},
+		{Path: "internal/store/store.go", Type: "file"},
+	}
+	a.filePicker.loaded = true
+
+	// Type "sto" — should narrow to internal/store/store.go.
+	for _, r := range "sto" {
+		out, _ = a.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		a = out.(*App)
+	}
+	matches := a.filePickerMatches()
+	if len(matches) != 1 || matches[0].Path != "internal/store/store.go" {
+		t.Fatalf("filter 'sto' didn't narrow: %+v", matches)
+	}
+
+	// Enter inserts.
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if a.filePickerOpen {
+		t.Fatalf("Enter didn't close picker")
+	}
+	if !strings.Contains(a.input.Value(), "@internal/store/store.go") {
+		t.Fatalf("insert missing: %q", a.input.Value())
+	}
+	if cmd == nil {
+		t.Fatalf("expected addContextFile cmd after insert")
+	}
+}
+
+// TestFilePicker_AtMidWordPassesThrough ensures @ in the middle of a
+// word (e.g. typing an email address) doesn't hijack input.
+func TestFilePicker_AtMidWordPassesThrough(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.input.SetValue("hi jaime")
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: '@', Text: "@"})
+	a = out.(*App)
+	if a.filePickerOpen {
+		t.Fatalf("@ mid-word opened picker — should have passed through")
+	}
+}
+
 // TestCompose_OpenCommitCancel covers M5's full state machine:
 // Ctrl+G opens with seeded draft, Ctrl+S commits the modal body back
 // to the base input, Esc cancels and preserves the pre-modal draft.

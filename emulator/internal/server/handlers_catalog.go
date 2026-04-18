@@ -728,11 +728,28 @@ func (s *Server) handleWorkspaceFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Static demo entries — the emulator doesn't actually walk a filesystem
-	// to keep behaviour deterministic across CI environments.
+	// to keep behaviour deterministic across CI environments. The list is
+	// intentionally richer than the three placeholders we started with so
+	// the TUI's @-file picker (M6) has real material to fuzzy-match.
+	const ts = "2026-04-15T10:00:00Z"
 	writeJSON(w, http.StatusOK, map[string]any{"entries": []gact.FileEntry{
-		{Path: "main.go", Type: "file", Size: 1024, Modified: "2026-04-15T10:00:00Z"},
-		{Path: "README.md", Type: "file", Size: 512, Modified: "2026-04-15T10:00:00Z"},
+		{Path: "main.go", Type: "file", Size: 1024, Modified: ts},
+		{Path: "README.md", Type: "file", Size: 512, Modified: ts},
+		{Path: "go.mod", Type: "file", Size: 180, Modified: ts},
+		{Path: "go.sum", Type: "file", Size: 4096, Modified: ts},
+		{Path: "Makefile", Type: "file", Size: 320, Modified: ts},
 		{Path: "internal", Type: "dir"},
+		{Path: "internal/server/server.go", Type: "file", Size: 2400, Modified: ts},
+		{Path: "internal/server/handlers.go", Type: "file", Size: 1800, Modified: ts},
+		{Path: "internal/server/router.go", Type: "file", Size: 900, Modified: ts},
+		{Path: "internal/store/store.go", Type: "file", Size: 3200, Modified: ts},
+		{Path: "internal/store/store_test.go", Type: "file", Size: 2100, Modified: ts},
+		{Path: "internal/events/bus.go", Type: "file", Size: 1500, Modified: ts},
+		{Path: "pkg/gact/messaging.go", Type: "file", Size: 3600, Modified: ts},
+		{Path: "pkg/gact/catalog.go", Type: "file", Size: 2800, Modified: ts},
+		{Path: "cmd/server/main.go", Type: "file", Size: 1400, Modified: ts},
+		{Path: "docs/architecture.md", Type: "file", Size: 5200, Modified: ts},
+		{Path: "docs/contributing.md", Type: "file", Size: 1800, Modified: ts},
 	}})
 }
 
