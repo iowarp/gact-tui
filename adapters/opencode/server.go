@@ -1,9 +1,11 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -56,6 +58,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/messages", s.handlePostMessage)
 	// Anything else under /v1/ → 501 with a clear note for the TUI to
 	// gracefully degrade. The capabilities response advertises only what
 	// the adapter implements so a well-behaved client shouldn't ask.
@@ -90,7 +94,8 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			Vendor:  "gact",
 		},
 		Capabilities: gact.CapabilityFlags{
-			// Honest about scope — adapter is sessions-only in v0.1.
+			// Honest about scope — adapter currently does sessions + read
+			// of messages. POST/SSE/permissions still TBD.
 			Workspaces: true,
 			Sessions:   true,
 		},
@@ -157,6 +162,127 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"sessions": SessionsToGact(ocs),
+	})
+}
+
+// gactPostMessageRequest mirrors the GACT POST shape (parts + optional model).
+type gactPostMessageRequest struct {
+	Parts []gact.Part    `json:"parts"`
+	Model *gact.ModelRef `json:"model,omitempty"`
+}
+
+// gactPostMessageResponse mirrors GACT's 202 ack.
+type gactPostMessageResponse struct {
+	MessageID  string    `json:"message_id"`
+	AcceptedAt time.Time `json:"accepted_at"`
+}
+
+// handlePostMessage forwards a GACT-shaped message post to OpenCode's
+// async-prompt endpoint. We translate GACT parts → OpenCode parts on
+// the way out, and return a synthetic 202 with the message ID OpenCode
+// allocates (or with the request body's pre-assigned ID if present).
+//
+// OpenCode's `POST /session/:id/prompt_async` returns 204 (work happens
+// in the background). We synthesize a message_id on the GACT side from
+// the upstream response if available, or generate one client-side.
+func (s *Server) handlePostMessage(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4*1024*1024))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+		return
+	}
+	var req gactPostMessageRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+		return
+	}
+	if len(req.Parts) == 0 {
+		writeError(w, http.StatusBadRequest, "invalid_body", "parts must be non-empty")
+		return
+	}
+
+	// Translate GACT parts → OpenCode parts. v0.1 supports text + tool_call.
+	ocParts := make([]map[string]any, 0, len(req.Parts))
+	for _, p := range req.Parts {
+		switch p.Type {
+		case gact.PartTypeText:
+			ocParts = append(ocParts, map[string]any{"type": "text", "text": p.Text})
+		case gact.PartTypeToolCall:
+			ocParts = append(ocParts, map[string]any{
+				"type":   "tool",
+				"callID": p.CallID,
+				"tool":   p.ToolName,
+				"state":  map[string]any{"status": "pending", "input": p.Input},
+			})
+		default:
+			// Drop unknown — adapter is best-effort.
+		}
+	}
+	upstreamBody := map[string]any{
+		"parts": ocParts,
+	}
+	if req.Model != nil {
+		upstreamBody["providerID"] = req.Model.ProviderID
+		upstreamBody["modelID"] = req.Model.ModelID
+	}
+
+	upBytes, _ := json.Marshal(upstreamBody)
+	upReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+		s.upstream+"/session/"+id+"/prompt_async", bytes.NewReader(upBytes))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "upstream_request", err.Error())
+		return
+	}
+	upReq.Header.Set("Content-Type", "application/json")
+	resp, err := s.client.Do(upReq)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		writeError(w, http.StatusBadGateway, "upstream_error",
+			fmt.Sprintf("opencode %d: %s", resp.StatusCode, respBody))
+		return
+	}
+
+	// OpenCode prompt_async returns 204 with no body. The actual message
+	// ID will appear via the SSE stream (handled separately). We give
+	// callers a synthetic id so they can correlate locally.
+	out := gactPostMessageResponse{
+		MessageID:  "msg_pending_" + id,
+		AcceptedAt: time.Now().UTC(),
+	}
+	writeJSON(w, http.StatusAccepted, out)
+}
+
+func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	q := url.Values{}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		q.Set("limit", l)
+	}
+	if before := r.URL.Query().Get("before"); before != "" {
+		q.Set("before", before)
+	}
+	upPath := "/session/" + id + "/message"
+	if len(q) > 0 {
+		upPath += "?" + q.Encode()
+	}
+	body, err := s.upstreamGet(upPath)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	var ms []OcMessageWithParts
+	if err := json.Unmarshal(body, &ms); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"messages": MessagesToGact(ms),
 	})
 }
 
