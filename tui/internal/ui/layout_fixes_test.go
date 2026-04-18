@@ -507,6 +507,55 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
+// TestCycleTheme_NextWrapsForward advances through AllThemeModes and
+// wraps back to the first entry.
+func TestCycleTheme_NextWrapsForward(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.Theme = ThemeForMode(ModeDark)
+
+	seen := []ThemeMode{}
+	for i := 0; i <= len(AllThemeModes); i++ {
+		seen = append(seen, ThemeModeFor(a.Theme))
+		a.cycleThemeCmd(+1)
+	}
+	// After one full loop, we should be back where we started.
+	if seen[0] != seen[len(seen)-1] {
+		t.Errorf("wrap-around failed: start=%d, after full cycle=%d",
+			seen[0], seen[len(seen)-1])
+	}
+	// Exactly one of each theme visited (+ the start repeated at end).
+	counts := map[ThemeMode]int{}
+	for _, m := range seen[:len(seen)-1] {
+		counts[m]++
+	}
+	for _, m := range AllThemeModes {
+		if counts[m] != 1 {
+			t.Errorf("theme %s visited %d times, want 1", ThemeModeName(m), counts[m])
+		}
+	}
+}
+
+// TestCycleTheme_PreservesThresholds ensures the collapse + cost
+// thresholds survive a cycle — users should never lose a preference
+// just because they flipped palettes.
+func TestCycleTheme_PreservesThresholds(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.Theme.CollapseThreshold = 13
+	a.Theme.CostWarnTokens = 42_000
+	a.Theme.CostDangerTokens = 88_000
+
+	a.cycleThemeCmd(+1)
+	if a.Theme.CollapseThreshold != 13 {
+		t.Errorf("CollapseThreshold lost: %d", a.Theme.CollapseThreshold)
+	}
+	if a.Theme.CostWarnTokens != 42_000 {
+		t.Errorf("CostWarnTokens lost: %d", a.Theme.CostWarnTokens)
+	}
+	if a.Theme.CostDangerTokens != 88_000 {
+		t.Errorf("CostDangerTokens lost: %d", a.Theme.CostDangerTokens)
+	}
+}
+
 // TestPaletteCurrentValue_HintsForKnownCommands covers Q3 routing:
 // well-known settings-style commands return a non-empty state hint;
 // unknown commands return empty so the palette row stays clean.
