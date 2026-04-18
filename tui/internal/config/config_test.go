@@ -81,6 +81,27 @@ func TestDefaultPathFallsBackToHome(t *testing.T) {
 	}
 }
 
+// TestSaveLoadRoundtrip covers N5: Save + Load preserve the
+// collapse threshold across a write-then-read cycle so persisted
+// user prefs survive restart.
+func TestSaveLoadRoundtrip(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "subdir", "config.json")
+	ct := 12
+	original := Config{CollapseThreshold: &ct}
+	if err := Save(original, p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, _, err := LoadFrom(p)
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	if loaded.CollapseThreshold == nil || *loaded.CollapseThreshold != 12 {
+		t.Errorf("round-trip lost threshold: got %v", loaded.CollapseThreshold)
+	}
+}
+
 func TestResolvePrecedence(t *testing.T) {
 	str := func(s string) *string { return &s }
 

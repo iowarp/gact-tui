@@ -338,6 +338,35 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestCollapseThreshold_CallsSaveConfig verifies N5 persistence: every
+// stepper ◀/▶ flush fires SaveConfig so the on-disk file tracks the
+// current value.
+func TestCollapseThreshold_CallsSaveConfig(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CollapseThreshold = 5
+	called := 0
+	a.SaveConfig = func() error {
+		called++
+		return nil
+	}
+
+	// Right nudges + persists.
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if called != 1 {
+		t.Fatalf("Right should call SaveConfig, got called=%d", called)
+	}
+
+	// Left nudges + persists.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	a = out.(*App)
+	if called != 2 {
+		t.Fatalf("Left should call SaveConfig, got called=%d", called)
+	}
+}
+
 // TestClear_RequiresDoubleConfirmation verifies N2: one /clear sets
 // a pending state and leaves messages alone; a second /clear within
 // the dwell actually wipes. Protects against accidental destructive

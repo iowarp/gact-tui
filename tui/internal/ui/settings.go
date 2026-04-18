@@ -153,6 +153,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if s.tab == 3 && s.tuiRow == 0 {
 			if a.Theme.CollapseThreshold > 1 {
 				a.Theme.CollapseThreshold--
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -160,6 +161,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if s.tab == 3 && s.tuiRow == 0 {
 			if a.Theme.CollapseThreshold < 50 {
 				a.Theme.CollapseThreshold++
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -373,6 +375,19 @@ func boolPretty(b bool) string {
 		return "on"
 	}
 	return "off"
+}
+
+// persistPrefs asks the host (main.go) to save the current Settings
+// > TUI values to disk. No-op when SaveConfig isn't wired (tests,
+// embedded-mode callers) so the in-memory UI still reflects the
+// latest stepper click.
+func (a *App) persistPrefs() {
+	if a.SaveConfig == nil {
+		return
+	}
+	if err := a.SaveConfig(); err != nil {
+		a.transientHint = "config save failed: " + err.Error()
+	}
 }
 
 // itoa2 is a tiny int-to-string helper for small positive integers.
