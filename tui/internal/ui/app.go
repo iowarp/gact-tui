@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -61,9 +62,8 @@ type App struct {
 	sseErrs   <-chan error
 	sseCancel context.CancelFunc
 
-	// Input
-	inputBuf string
-	cursorOn bool
+	// Input — bubbles/textarea handles multi-line, paste, cursor, etc.
+	input textarea.Model
 
 	// Pending status (running/waiting_permission)
 	currentStatus string
@@ -82,6 +82,13 @@ type App struct {
 
 // New constructs an App.
 func New(backendURL string) *App {
+	ta := textarea.New()
+	ta.Placeholder = "type a message — Enter to send, Shift+Enter for newline"
+	ta.Prompt = "> "
+	ta.SetHeight(3)
+	ta.SetWidth(80) // updated on WindowSizeMsg
+	ta.ShowLineNumbers = false
+	ta.Focus()
 	return &App{
 		BackendURL:     backendURL,
 		Theme:          DefaultTheme(),
@@ -89,14 +96,14 @@ func New(backendURL string) *App {
 		stage:          StageConnecting,
 		focus:          FocusInput,
 		selected:       -1,
-		cursorOn:       true,
 		stickyToBottom: true,
+		input:          ta,
 	}
 }
 
-// Init returns the initial Cmds: connect + start cursor blink.
+// Init returns the initial Cmd: connect.
 func (a *App) Init() tea.Cmd {
-	return tea.Batch(connectCmd(a.c), blinkCmd())
+	return connectCmd(a.c)
 }
 
 func connectCmd(c *client.Client) tea.Cmd {
@@ -125,9 +132,6 @@ func connectCmd(c *client.Client) tea.Cmd {
 	}
 }
 
-func blinkCmd() tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg { return blinkMsg{} })
-}
 
 // loadMessagesCmd fetches messages for a session.
 func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
@@ -229,10 +233,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.stage = StageError
 		a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
 		return a, nil
-
-	case blinkMsg:
-		a.cursorOn = !a.cursorOn
-		return a, blinkCmd()
 
 	case messagesLoadedMsg:
 		// Only apply if it's for the currently selected session.
@@ -539,37 +539,31 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch k.String() {
-	case "/":
-		// Open the slash-command palette if the input is empty; otherwise
-		// pass through to the buffer (so people can include literal slashes).
-		if a.inputBuf == "" {
-			a.paletteOpen = true
-			a.paletteFilter = ""
-			a.paletteSel = 0
-			return a, nil
-		}
-		a.inputBuf += "/"
+	// Slash on empty input opens the palette.
+	if k.String() == "/" && a.input.Value() == "" {
+		a.paletteOpen = true
+		a.paletteFilter = ""
+		a.paletteSel = 0
 		return a, nil
-	case "backspace":
-		if len(a.inputBuf) > 0 {
-			a.inputBuf = a.inputBuf[:len(a.inputBuf)-1]
-		}
-	case "enter":
-		text := strings.TrimSpace(a.inputBuf)
-		a.inputBuf = ""
+	}
+	// Plain Enter sends; Shift+Enter (or any modifier) inserts a newline
+	// (passes through to textarea).
+	if k.String() == "enter" {
+		text := strings.TrimSpace(a.input.Value())
+		a.input.Reset()
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
 		return a, postMessageCmd(a.c, a.currentSessionID(), text)
-	case "esc":
-		a.inputBuf = ""
-	default:
-		if k.Text != "" {
-			a.inputBuf += k.Text
-		}
 	}
-	return a, nil
+	if k.String() == "esc" {
+		a.input.Reset()
+		return a, nil
+	}
+	// Everything else: delegate to textarea.
+	var cmd tea.Cmd
+	a.input, cmd = a.input.Update(k)
+	return a, cmd
 }
 
 func (a *App) currentSessionID() string {
@@ -892,15 +886,14 @@ func (a *App) renderFooter() string {
 	}
 	hintLine := strings.Join(hints, "  ")
 	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
-	right := t.HintLabel.Render(time.Now().UTC().Format("15:04:05Z"))
-	gap := a.width - lipgloss.Width(left) - lipgloss.Width(right) - lipgloss.Width(hintLine) - 6
+	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - 6
 	if gap < 1 {
 		gap = 1
 	}
 	return lipgloss.NewStyle().
 		Width(a.width).Background(t.BgSubtle).Foreground(t.FgMuted).
 		Padding(0, 1).Render(
-		left + "  " + hintLine + strings.Repeat(" ", gap) + right,
+		left + "  " + hintLine + strings.Repeat(" ", gap),
 	)
 }
 
@@ -1017,21 +1010,19 @@ func (a *App) renderBody(width, height int) string {
 	pieces = append(pieces, "", body)
 	msgPane := msgStyle.Render(lipgloss.JoinVertical(lipgloss.Left, pieces...))
 
-	// Input
+	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
+	a.input.SetWidth(width - 4)
+	a.input.SetHeight(inputH - 2)
+	if a.focus == FocusInput {
+		a.input.Focus()
+	} else {
+		a.input.Blur()
+	}
 	inputStyle := t.Pane.Width(width - 2).Height(inputH - 2)
 	if a.focus == FocusInput {
 		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH - 2)
 	}
-	cursor := ""
-	if a.focus == FocusInput && a.cursorOn {
-		cursor = lipgloss.NewStyle().Background(t.Primary).Foreground(t.Fg).Render(" ")
-	}
-	prompt := lipgloss.NewStyle().Foreground(t.Secondary).Render("> ")
-	inputBody := prompt + a.inputBuf + cursor
-	if a.inputBuf == "" && a.focus != FocusInput {
-		inputBody = prompt + t.HintLabel.Render("type a message…")
-	}
-	inputPane := inputStyle.Render(inputBody)
+	inputPane := inputStyle.Render(a.input.View())
 
 	return lipgloss.JoinVertical(lipgloss.Left, msgPane, inputPane)
 }
@@ -1204,7 +1195,6 @@ type errMsg struct {
 	stage string
 }
 
-type blinkMsg struct{}
 
 type messagesLoadedMsg struct {
 	sessionID string
