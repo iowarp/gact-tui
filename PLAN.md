@@ -170,7 +170,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 - [x] **Q1.** README refreshed — theme gallery (Dracula + solarized-light + picker + tokyo-night), custom-theme schema, Phase-M/N/O keymap additions, updated TUI implementation summary.
 - [ ] **Q2.** `Ctrl+Alt+T` cycles themes without opening Settings — single-key bag-shift for quick experimentation.
-- [ ] **Q3.** Palette shows the current value beside settings-style commands (`/theme · current: dracula`).
+- [x] **Q3.** Palette surfaces the active state for `/theme /clear /cancel /agent /rename` via `paletteCurrentValue(id)`. Secondary-italic suffix after the title keeps the primary identifier prominent. Test + screenshot 64.
 - [x] **Q4.** `/theme-export` serialises the active palette to `~/.config/gact/theme.json`. Round-trip safe with LoadCustomTheme (exported `name` field matches the active ThemeMode). Test `TestExportThemeJSON_Roundtrip` exports Dracula, reloads, asserts Bg RGBA preserved.
 
 ## Phase P — polish round three
