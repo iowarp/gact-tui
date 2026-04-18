@@ -16,6 +16,17 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase P — polish round three
+- **P1.** Per-theme glamour StyleConfig (Document/Heading → Fg+Primary,
+  Code → Warning on BgSubtle) — fixes the "assistant text almost
+  invisible on solarized-light" readability issue.
+- **P2.** Custom theme import from `~/.config/gact/theme.json` as
+  `ModeCustom`. Screenshots 62/63.
+- **P3.** Configurable cost-meter thresholds
+  (`Theme.CostWarnTokens` / `CostDangerTokens`, config.json-persisted).
+- **P4.** Collapse-hint upweights the `Ctrl+E` key pointer so users
+  spot it at a glance.
+
 ### Phase O — themes (#8)
 - **O1.** Dracula, Solarized (Dark + Light), Nord, Tokyo Night + fixed
   light (Gruvbox cream). Live preview on ↑/↓, persists via config.json,
