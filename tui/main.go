@@ -50,12 +50,40 @@ func main() {
 		case "diag", "--diag":
 			runDiag()
 			return
+		case "emit-config", "--emit-config":
+			runEmitConfig()
+			return
 		case "-h", "--help":
 			printUsage()
 			return
 		}
 	}
 	runTUI()
+}
+
+// runEmitConfig prints a sample config.json to stdout so users have a
+// starting point for customisation. Shows every field with its default
+// value — JSON doesn't allow comments, so the field names themselves
+// serve as documentation. Users redirect to the canonical path:
+//
+//     gact emit-config > ~/.config/gact/config.json
+func runEmitConfig() {
+	bk := "http://localhost:7777"
+	th := "dark"
+	vc := ""
+	ct := 5
+	cw := 100_000
+	cd := 150_000
+	sample := config.Config{
+		BackendURL:        &bk,
+		Theme:             &th,
+		VoiceCommand:      &vc,
+		CollapseThreshold: &ct,
+		CostWarnTokens:    &cw,
+		CostDangerTokens:  &cd,
+	}
+	buf, _ := json.MarshalIndent(sample, "", "  ")
+	fmt.Println(string(buf))
 }
 
 // runDiag writes a structured diagnostic report to stdout: binary
@@ -135,6 +163,7 @@ Usage:
   gact import <file|->       upload a previously-exported session blob
   gact version               print version + contract version
   gact diag                  print environment + config for bug reports
+  gact emit-config           print sample config.json to stdout
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
