@@ -13,20 +13,20 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **A5.** Internal storage layer: in-memory state for workspaces, sessions, messages, parts. **Decided:** sync.RWMutex per-Store (single mutex, simpler than per-resource), maps keyed by ID, secondary index `messagesBySession`. Cascade delete (workspace→sessions→messages). System messages filtered by default in ListMessages. Cursor pagination via `Before` (last seen msg ID).
 - [x] **A6.** Workspaces endpoints (SPEC §6.1): GET list, POST create, GET one, PATCH, DELETE. Seeded `ws_default` at `/tmp/gact-emulator-workspace`. Auto-name from basename if not supplied. DisallowUnknownFields for strict request validation.
 - [x] **A7.** Sessions endpoints (SPEC §6.2): list (filter workspace_id, parent_session_id, archived), create (with optional fork-at-message), get, patch (title, archived, agent, model, status, metadata), delete, fork (copies messages from parent), cancel (resets status to idle — event emission deferred to A10/A11), summarize (placeholder summary — real summary via A11 scenario), export (chronological), import (resets IDs). **Fix:** store.CreateSession now resets MessageCount/Tokens/CostUSD — derived fields managed by store, not callers.
-- [ ] **A8.** Messages endpoints (SPEC §6.3): list (cursor-paginated, newest-first), get one, POST (returns 202 with msg_id), DELETE, PATCH part, search.
-- [ ] **A9.** SSE event stream: `GET /v1/events?workspace_id=...` and `GET /v1/sessions/{id}/events`. Per-client event queue; `server.connected` on open, heartbeat every 15s. Use `Last-Event-ID` for resume.
-- [ ] **A10.** Event bus: internal pub/sub so handlers can emit events to subscribed SSE clients.
-- [ ] **A11.** Scenario engine: `scenarios/default.go` defines a script — when user posts a message, generate this assistant response with these parts (text, tool_call, tool_result, finish) emitted with realistic timing (configurable via `--timing fast|realistic`).
-- [ ] **A12.** Permissions endpoints (SPEC §6.11): GET pending, POST allow/deny. Scenario can set "next tool requires permission" → emit `permission.requested` event → wait for response → continue.
-- [ ] **A13.** Providers + models endpoints (SPEC §6.12): return a hard-coded list (Anthropic, OpenAI, Local) with sample models. No real API calls.
-- [ ] **A14.** Tools endpoint (SPEC §6.6): list a fixed set of fake tools (`bash`, `edit_file`, `read_file`, `web_search`).
-- [ ] **A15.** MCP server stubs (SPEC §6.7): one fake MCP server `fake-mcp` with 2 tools, 1 resource, 1 prompt. Endpoints return realistic shapes; nothing actually connects to a real MCP.
-- [ ] **A16.** Agents endpoint (SPEC §6.5): GET returns 2 builtin agents (`default`, `code_reviewer`). Write API stubbed to 501 (`agent_write` capability false in v1 of emulator).
-- [ ] **A17.** Files / context / repo_map (SPEC §6.9): minimal implementation — list files in workspace root, read file content, fake repo map (just file tree).
-- [ ] **A18.** Diffs (SPEC §6.10): scenario emits a `file_diff` part; GET diffs endpoint returns it; apply/reject endpoints work.
-- [ ] **A19.** Commands (SPEC §6.13): GET returns hard-coded slash-command list (`/clear`, `/model`, `/add`, `/diff`, `/cancel`, `/help`).
-- [ ] **A20.** Metrics endpoint (SPEC §6.16).
-- [ ] **A21.** Cancellation: in-flight scenario respects `POST /sessions/{id}/cancel` mid-stream — emits `message.error` part-stop and resets session status.
+- [x] **A8.** Messages endpoints (SPEC §6.3): list cursor-paginated, get, POST 202, DELETE, PATCH part, search (substring + snippet).
+- [x] **A9.** SSE event stream: per-client filter, ring-buffer replay via Last-Event-ID, heartbeat 15s.
+- [x] **A10.** Event bus: in-process pub/sub with monotonic SeqID, ring buffer, slow-subscriber drops counted, race-clean fan-out.
+- [x] **A11.** Scenario engine: per-session goroutine + cancel; DefaultScript synthesizes thinking + intro + tool_call + tool_result + finish, optionally with permission flow on dangerous keywords.
+- [x] **A12.** Permissions: list (pending filter), get, respond (allow/deny/allow_session/allow_workspace). Per-request resolveCh wakes the scenario.
+- [x] **A13.** Providers + models: anthropic / openai / local with realistic models + pricing.
+- [x] **A14.** Tools: bash/read_file/edit_file/web_search + 2 mcp-sourced tools, all with input_schema and ToolAnnotations.
+- [x] **A15.** MCP: one fake server (`mcp_fake`) — list/get/reconnect/tools/resources/templates/read/subscribe/prompts/prompts.get.
+- [x] **A16.** Agents: default + code_reviewer (read). Write API + extract → 501 per `agent_write=false`.
+- [x] **A17.** Files / context / repo_map: per-session context-files set + workspace files demo + repo_map demo tree.
+- [x] **A18.** Diffs: aggregate file_diff parts across messages, apply/reject mark Applied flag, undo deletes last N messages.
+- [x] **A19.** Commands: /clear /cancel /model /agent /add /drop /diff /undo /help /summarize (mcp_prompt).
+- [x] **A20.** Metrics: tokens, sessions+by_status, messages+by_role, cost+by_provider.
+- [x] **A21.** Cancellation: handleCancelSession invokes engine.Cancel + emits status_changed (verified by E2E test).
 
 ## Phase B — Emulator tests
 

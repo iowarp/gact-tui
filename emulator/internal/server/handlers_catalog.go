@@ -1,0 +1,774 @@
+package server
+
+// Static catalog data — providers, tools, agents, MCP, commands. The
+// emulator returns hard-coded values that exercise the wire shapes; real
+// backends would compute these from runtime state.
+
+import (
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+	"time"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+// --- §6.12 Providers + Models ----------------------------------------------
+
+func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"providers": staticProviders(),
+	})
+}
+
+func (s *Server) handleGetProvider(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, p := range staticProviders() {
+		if p.ID == id {
+			writeJSON(w, http.StatusOK, p)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "provider_not_found", "no provider with id "+id)
+}
+
+func (s *Server) handleListProviderModels(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	models, ok := staticModels()[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "provider_not_found", "no provider with id "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"models": models})
+}
+
+func staticProviders() []gact.Provider {
+	return []gact.Provider{
+		{ID: "anthropic", Name: "Anthropic", AuthMethods: []string{"api_key", "oauth"}, IsAuthenticated: true, DefaultModel: "claude-opus-4-7"},
+		{ID: "openai", Name: "OpenAI", AuthMethods: []string{"api_key"}, IsAuthenticated: false, DefaultModel: "gpt-5"},
+		{ID: "local", Name: "Local (Ollama)", AuthMethods: []string{"none"}, IsAuthenticated: true, DefaultModel: "llama3.3"},
+	}
+}
+
+func staticModels() map[string][]gact.Model {
+	support := func(tools, vision, think, cu, cache bool) gact.ModelSupports {
+		return gact.ModelSupports{
+			Tools: tools, Vision: vision, Thinking: think, ComputerUse: cu, PromptCaching: cache,
+		}
+	}
+	return map[string][]gact.Model{
+		"anthropic": {
+			{ID: "claude-opus-4-7", Name: "Claude Opus 4.7", ContextWindow: 1_000_000, MaxOutputTokens: 8192,
+				Supports: support(true, true, true, true, true),
+				Pricing:  &gact.ModelPricing{InputPerMTok: 15, OutputPerMTok: 75, CacheReadPerMTok: 1.5, CacheWritePerMTok: 18.75}},
+			{ID: "claude-sonnet-4-6", Name: "Claude Sonnet 4.6", ContextWindow: 200_000, MaxOutputTokens: 8192,
+				Supports: support(true, true, true, false, true),
+				Pricing:  &gact.ModelPricing{InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3, CacheWritePerMTok: 3.75}},
+			{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5", ContextWindow: 200_000, MaxOutputTokens: 8192,
+				Supports: support(true, true, false, false, true),
+				Pricing:  &gact.ModelPricing{InputPerMTok: 0.8, OutputPerMTok: 4}},
+		},
+		"openai": {
+			{ID: "gpt-5", Name: "GPT-5", ContextWindow: 256_000, MaxOutputTokens: 16384, Supports: support(true, true, false, false, false)},
+			{ID: "gpt-5-mini", Name: "GPT-5 Mini", ContextWindow: 128_000, MaxOutputTokens: 8192, Supports: support(true, true, false, false, false)},
+		},
+		"local": {
+			{ID: "llama3.3", Name: "Llama 3.3 70B", ContextWindow: 32_000, MaxOutputTokens: 4096, Supports: support(true, false, false, false, false)},
+			{ID: "qwen3-coder", Name: "Qwen 3 Coder 32B", ContextWindow: 64_000, MaxOutputTokens: 8192, Supports: support(true, false, false, false, false)},
+		},
+	}
+}
+
+// --- §6.6 Tools ------------------------------------------------------------
+
+func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"tools": staticTools()})
+}
+
+func (s *Server) handleGetTool(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, t := range staticTools() {
+		if t.ID == id {
+			writeJSON(w, http.StatusOK, t)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "tool_not_found", "no tool with id "+id)
+}
+
+func staticTools() []gact.Tool {
+	stringSchema := func() map[string]any {
+		return map[string]any{"type": "string"}
+	}
+	return []gact.Tool{
+		{
+			ID: "bash", Source: "builtin", Name: "bash", Title: "Run shell command",
+			Description: "Execute a bash command in the workspace.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"command": stringSchema(),
+				},
+				"required": []string{"command"},
+			},
+			Annotations:       &gact.ToolAnnotations{Title: "Run shell command", DestructiveHint: true, OpenWorldHint: false},
+			PermissionDefault: "ask",
+		},
+		{
+			ID: "read_file", Source: "builtin", Name: "read_file", Title: "Read file",
+			Description: "Read the contents of a file.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{"path": stringSchema()},
+				"required":   []string{"path"},
+			},
+			Annotations:       &gact.ToolAnnotations{Title: "Read file", ReadOnlyHint: true},
+			PermissionDefault: "allow",
+		},
+		{
+			ID: "edit_file", Source: "builtin", Name: "edit_file", Title: "Edit file",
+			Description: "Modify a file in place. Returns a diff.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path":  stringSchema(),
+					"patch": stringSchema(),
+				},
+				"required": []string{"path", "patch"},
+			},
+			Annotations:       &gact.ToolAnnotations{Title: "Edit file", DestructiveHint: true},
+			PermissionDefault: "ask",
+		},
+		{
+			ID: "web_search", Source: "builtin", Name: "web_search", Title: "Search the web",
+			Description: "Search the web for relevant pages.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{"query": stringSchema()},
+				"required":   []string{"query"},
+			},
+			Annotations:       &gact.ToolAnnotations{Title: "Web search", ReadOnlyHint: true, OpenWorldHint: true},
+			PermissionDefault: "allow",
+		},
+		{
+			ID: "fake-mcp.fetch", Source: "mcp", ServerID: "mcp_fake", Name: "fetch", Title: "Fetch URL",
+			Description: "(MCP) Download a URL and return its contents.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{"url": stringSchema()},
+				"required":   []string{"url"},
+			},
+			PermissionDefault: "allow",
+		},
+		{
+			ID: "fake-mcp.dbquery", Source: "mcp", ServerID: "mcp_fake", Name: "dbquery", Title: "Database query",
+			Description: "(MCP) Run a read-only query against the demo database.",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"sql": stringSchema()},
+				"required":   []string{"sql"},
+			},
+			PermissionDefault: "allow",
+		},
+	}
+}
+
+// --- §6.5 Agents -----------------------------------------------------------
+
+func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"agents": staticAgents()})
+}
+
+func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, a := range staticAgents() {
+		if a.ID == id {
+			writeJSON(w, http.StatusOK, a)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "agent_not_found", "no agent with id "+id)
+}
+
+// agent_write is false — these are 501s.
+func (s *Server) handleAgentNotImplemented(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusNotImplemented, "not_implemented",
+		"this emulator's capabilities.agent_write is false; agent write API not supported")
+}
+
+func staticAgents() []gact.AgentDef {
+	return []gact.AgentDef{
+		{
+			ID: "default", Source: "builtin", Title: "Default Agent",
+			Description:  "General-purpose coding agent with full tool access.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Tools:        []string{"bash", "read_file", "edit_file", "web_search"},
+		},
+		{
+			ID: "code_reviewer", Source: "builtin", Title: "Code Reviewer",
+			Description:  "Reviews diffs without modifying files. Read-only.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file"},
+		},
+	}
+}
+
+// --- §6.7 MCP --------------------------------------------------------------
+
+func (s *Server) handleListMcpServers(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"servers": staticMcpServers()})
+}
+
+func (s *Server) handleGetMcpServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, srv := range staticMcpServers() {
+		if srv.ID == id {
+			writeJSON(w, http.StatusOK, srv)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+}
+
+func (s *Server) handleMcpReconnect(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleMcpServerTools(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	tools := []gact.Tool{}
+	for _, t := range staticTools() {
+		if t.Source == "mcp" && t.ServerID == id {
+			tools = append(tools, t)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tools": tools})
+}
+
+func (s *Server) handleMcpServerResources(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"resources": staticMcpResources(id)})
+}
+
+func (s *Server) handleMcpServerResourceTemplates(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"templates": []gact.McpResourceTemplate{
+		{ServerID: id, URITemplate: "file:///docs/{name}.md", Name: "doc", Description: "Demo doc by name"},
+	}})
+}
+
+type mcpReadRequest struct {
+	URI string `json:"uri"`
+}
+
+func (s *Server) handleMcpResourceRead(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	var req mcpReadRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.URI == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "uri required")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"contents": []gact.McpContent{
+			{URI: req.URI, MimeType: "text/plain", Text: "demo content for " + req.URI},
+		},
+	})
+}
+
+func (s *Server) handleMcpResourceSubscribe(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	var req mcpReadRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleMcpServerPrompts(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"prompts": staticMcpPrompts(id)})
+}
+
+type mcpPromptGetRequest struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+}
+
+func (s *Server) handleMcpPromptGet(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	var req mcpPromptGetRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"description": "Demo prompt for " + req.Name,
+		"messages": []gact.McpMessage{
+			{Role: gact.RoleUser, Content: []gact.Part{
+				gact.NewTextPart("Demo body for prompt " + req.Name),
+			}},
+		},
+	})
+}
+
+func mcpExists(id string) bool {
+	for _, s := range staticMcpServers() {
+		if s.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func staticMcpServers() []gact.McpServer {
+	return []gact.McpServer{
+		{
+			ID: "mcp_fake", Name: "fake-mcp", Version: "0.1.0",
+			Transport: "stdio", ProtocolVersion: "2025-06-18", Status: "ready",
+			ServerInfo: map[string]any{"name": "fake-mcp", "version": "0.1.0"},
+			Instructions: "Demo MCP server. Two tools (fetch, dbquery), one resource, one prompt.",
+			DeclaredCapabilities: gact.McpCapabilities{
+				Tools:     true,
+				Resources: &gact.McpResourcesCapability{Subscribe: true, ListChanged: true},
+				Prompts:   &gact.McpPromptsCapability{ListChanged: false},
+				Logging:   true,
+			},
+		},
+	}
+}
+
+func staticMcpResources(serverID string) []gact.McpResource {
+	return []gact.McpResource{
+		{ServerID: serverID, URI: "file:///docs/welcome.md", Name: "welcome",
+			Title: "Welcome", Description: "Intro doc", MimeType: "text/markdown", Size: 256},
+	}
+}
+
+func staticMcpPrompts(serverID string) []gact.McpPrompt {
+	return []gact.McpPrompt{
+		{ServerID: serverID, Name: "summarize", Title: "Summarize",
+			Description: "Summarize a chunk of text",
+			Arguments: []gact.McpPromptArg{
+				{Name: "text", Required: true, Description: "Text to summarize"},
+			}},
+	}
+}
+
+// --- §6.13 Commands --------------------------------------------------------
+
+func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"commands": staticCommands()})
+}
+
+func staticCommands() []gact.Command {
+	return []gact.Command{
+		{ID: "/clear", Title: "Clear chat history", Source: "builtin", Shortcut: "ctrl+l"},
+		{ID: "/cancel", Title: "Cancel current run", Source: "builtin", Shortcut: "ctrl+c"},
+		{ID: "/model", Title: "Switch model", Source: "builtin",
+			Arguments: []gact.AgentParameter{{Name: "model_id", Type: "string", Required: true}}},
+		{ID: "/agent", Title: "Switch agent", Source: "builtin",
+			Arguments: []gact.AgentParameter{{Name: "agent_id", Type: "string", Required: true}}},
+		{ID: "/add", Title: "Add file to context", Source: "builtin",
+			Arguments: []gact.AgentParameter{{Name: "path", Type: "string", Required: true}}},
+		{ID: "/drop", Title: "Drop file from context", Source: "builtin",
+			Arguments: []gact.AgentParameter{{Name: "path", Type: "string", Required: true}}},
+		{ID: "/diff", Title: "Show pending diffs", Source: "builtin"},
+		{ID: "/undo", Title: "Undo last assistant change", Source: "builtin"},
+		{ID: "/help", Title: "Show help", Source: "builtin", Shortcut: "?"},
+		{ID: "/summarize", Title: "Summarize fake-mcp text",
+			Source: "mcp_prompt", ServerID: "mcp_fake",
+			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
+	}
+}
+
+// handleSessionCommand records a slash-command invocation. For the emulator
+// it simply acks (204) — execution semantics belong to the scenario engine.
+func (s *Server) handleSessionCommand(w http.ResponseWriter, r *http.Request) {
+	cmd := r.PathValue("cmd_id")
+	cmd, _ = url.PathUnescape(cmd)
+	known := false
+	for _, c := range staticCommands() {
+		if c.ID == cmd {
+			known = true
+			break
+		}
+	}
+	if !known {
+		writeError(w, http.StatusNotFound, "command_not_found", "no command "+cmd)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- §6.16 Metrics ---------------------------------------------------------
+
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	sessions := s.store.ListSessions(store.SessionFilter{IncludeArchived: true})
+	byStatus := map[string]int{}
+	active := 0
+	totalMsg := 0
+	byRole := map[string]int{
+		gact.RoleUser:      0,
+		gact.RoleAssistant: 0,
+		gact.RoleTool:      0,
+		gact.RoleSystem:    0,
+	}
+	tokens := gact.MetricsTokens{}
+	costByProvider := map[string]float64{}
+	totalCost := 0.0
+
+	for _, sess := range sessions {
+		byStatus[sess.Status]++
+		if sess.Status != gact.StatusIdle {
+			active++
+		}
+		totalMsg += sess.MessageCount
+		tokens.InputTotal += sess.Tokens.Input
+		tokens.OutputTotal += sess.Tokens.Output
+		tokens.CacheReadTotal += sess.Tokens.CacheRead
+		tokens.CacheWriteTotal += sess.Tokens.CacheWrite
+		totalCost += sess.CostUSD
+		if sess.Model.ProviderID != "" {
+			costByProvider[sess.Model.ProviderID] += sess.CostUSD
+		}
+	}
+
+	// Walk per-session messages to fill byRole counts cheaply.
+	for _, sess := range sessions {
+		msgs, _, _ := s.store.ListMessages(store.MessageFilter{
+			SessionID: sess.ID, Limit: 100000, IncludeSystem: true,
+		})
+		for _, m := range msgs {
+			byRole[m.Role]++
+		}
+	}
+
+	writeJSON(w, http.StatusOK, gact.Metrics{
+		UptimeS: int(time.Since(s.started).Seconds()),
+		Sessions: gact.MetricsSessions{
+			Total: len(sessions), Active: active, ByStatus: byStatus,
+		},
+		Messages: gact.MetricsMessages{Total: totalMsg, ByRole: byRole},
+		Tokens:   tokens,
+		Cost:     gact.MetricsCost{TotalUSD: totalCost, ByProvider: costByProvider},
+	})
+}
+
+// --- §6.9 Files / context / repo_map ---------------------------------------
+
+// In-memory context-files storage (per-session). Lives on Server because
+// it's emulator-specific (not part of store, since store is the message DB).
+// Would move to its own package if we built persistence later.
+type contextFileSet struct {
+	files map[string][]gact.ContextFile // sessionID -> files
+}
+
+func (s *Server) handleListContextFiles(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"files": s.contextFiles.get(id)})
+}
+
+type contextFileRequest struct {
+	Path string `json:"path"`
+	Mode string `json:"mode"`
+}
+
+func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req contextFileRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Path == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "path required")
+		return
+	}
+	if req.Mode == "" {
+		req.Mode = "read"
+	}
+	cf := gact.ContextFile{Path: req.Path, Mode: req.Mode, AddedAt: time.Now().UTC().Format(time.RFC3339)}
+	s.contextFiles.add(id, cf)
+	writeJSON(w, http.StatusCreated, cf)
+}
+
+func (s *Server) handleDeleteContextFile(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req contextFileRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !s.contextFiles.remove(id, req.Path) {
+		writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handlePatchContextFile(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req contextFileRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if cf, ok := s.contextFiles.update(id, req.Path, req.Mode); ok {
+		writeJSON(w, http.StatusOK, cf)
+		return
+	}
+	writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+}
+
+// Workspace files: minimal listing of a tree on disk. Returns 200 with empty
+// list if the workspace's root_path doesn't exist (emulator may not have
+// the directory). This avoids surprising the TUI with errors.
+
+func (s *Server) handleWorkspaceFiles(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetWorkspace(id); err != nil {
+		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
+		return
+	}
+	// Static demo entries — the emulator doesn't actually walk a filesystem
+	// to keep behaviour deterministic across CI environments.
+	writeJSON(w, http.StatusOK, map[string]any{"entries": []gact.FileEntry{
+		{Path: "main.go", Type: "file", Size: 1024, Modified: "2026-04-15T10:00:00Z"},
+		{Path: "README.md", Type: "file", Size: 512, Modified: "2026-04-15T10:00:00Z"},
+		{Path: "internal", Type: "dir"},
+	}})
+}
+
+func (s *Server) handleWorkspaceFileRead(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetWorkspace(id); err != nil {
+		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
+		return
+	}
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		writeError(w, http.StatusBadRequest, "invalid_query", "path required")
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("// demo content of " + path.Base(p) + "\npackage main\n\nfunc main() {}\n"))
+}
+
+func (s *Server) handleRepoMap(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetWorkspace(id); err != nil {
+		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"tree": &gact.RepoMapNode{
+			Path: "/", Type: "dir", Children: []*gact.RepoMapNode{
+				{Path: "main.go", Type: "file", Symbols: []string{"main", "init"}},
+				{Path: "README.md", Type: "file"},
+				{Path: "internal", Type: "dir", Children: []*gact.RepoMapNode{
+					{Path: "internal/handler.go", Type: "file", Symbols: []string{"Handler", "ServeHTTP"}},
+				}},
+			},
+		},
+		"tokens": 1024,
+	})
+}
+
+// --- §6.10 Diffs -----------------------------------------------------------
+
+// Diffs are stored in messages (file_diff parts). The handlers below scan
+// the session's messages and aggregate.
+
+func (s *Server) handleSessionDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	diffs := collectDiffs(s, id, "")
+	writeJSON(w, http.StatusOK, map[string]any{"diffs": diffs})
+}
+
+func (s *Server) handleMessageDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	mid := r.PathValue("msg_id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	diffs := collectDiffs(s, id, mid)
+	writeJSON(w, http.StatusOK, map[string]any{"diffs": diffs})
+}
+
+type applyRejectRequest struct {
+	Paths []string `json:"paths,omitempty"`
+}
+
+func (s *Server) handleDiffApply(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req applyRejectRequest
+	if !decodeJSONOptional(w, r, &req) {
+		return
+	}
+	pathSet := setOf(req.Paths)
+	applied := []string{}
+	walkDiffParts(s, id, "", func(msgID, partID string, p *gact.Part) {
+		if len(pathSet) > 0 && !pathSet[p.Path] {
+			return
+		}
+		_, _ = s.store.UpdateMessagePart(msgID, partID, func(pp *gact.Part) {
+			pp.Applied = true
+		})
+		applied = append(applied, p.Path)
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"applied": applied})
+}
+
+func (s *Server) handleDiffReject(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req applyRejectRequest
+	if !decodeJSONOptional(w, r, &req) {
+		return
+	}
+	pathSet := setOf(req.Paths)
+	rejected := []string{}
+	walkDiffParts(s, id, "", func(msgID, partID string, p *gact.Part) {
+		if len(pathSet) > 0 && !pathSet[p.Path] {
+			return
+		}
+		_, _ = s.store.UpdateMessagePart(msgID, partID, func(pp *gact.Part) {
+			pp.Applied = false
+			if pp.Metadata == nil {
+				pp.Metadata = map[string]any{}
+			}
+			pp.Metadata["rejected"] = true
+		})
+		rejected = append(rejected, p.Path)
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"rejected": rejected})
+}
+
+type undoRequest struct {
+	Count int `json:"count,omitempty"`
+}
+
+func (s *Server) handleSessionUndo(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req undoRequest
+	if !decodeJSONOptional(w, r, &req) {
+		return
+	}
+	count := req.Count
+	if count <= 0 {
+		count = 1
+	}
+	msgs, _, _ := s.store.ListMessages(store.MessageFilter{
+		SessionID: id, Limit: count, IncludeSystem: true,
+	})
+	reverted := []string{}
+	for _, m := range msgs {
+		if err := s.store.DeleteMessage(m.ID); err == nil {
+			reverted = append(reverted, m.ID)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"reverted_messages": reverted})
+}
+
+func collectDiffs(s *Server, sessionID, onlyMsgID string) []gact.FileDiff {
+	out := []gact.FileDiff{}
+	walkDiffParts(s, sessionID, onlyMsgID, func(_ , _ string, p *gact.Part) {
+		out = append(out, gact.FileDiff{
+			Path:     p.Path,
+			Before:   p.Before,
+			After:    p.After,
+			Language: p.Language,
+			Applied:  p.Applied,
+		})
+	})
+	return out
+}
+
+func walkDiffParts(s *Server, sessionID, onlyMsgID string, fn func(msgID, partID string, p *gact.Part)) {
+	msgs, _, _ := s.store.ListMessages(store.MessageFilter{
+		SessionID: sessionID, Limit: 100000, IncludeSystem: true,
+	})
+	for _, m := range msgs {
+		if onlyMsgID != "" && m.ID != onlyMsgID {
+			continue
+		}
+		for i := range m.Parts {
+			if m.Parts[i].Type == gact.PartTypeFileDiff {
+				fn(m.ID, m.Parts[i].ID, &m.Parts[i])
+			}
+		}
+	}
+}
+
+func setOf(s []string) map[string]bool {
+	if len(s) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(s))
+	for _, v := range s {
+		m[v] = true
+	}
+	return m
+}
+
+// trim is unused but kept for future use / linter happy.
+var _ = strings.TrimSpace

@@ -29,12 +29,13 @@ type Config struct {
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg     Config
-	started time.Time
-	mux     *http.ServeMux
-	store   *store.Store
-	bus     *events.Bus
-	perms   *store.Permissions
+	cfg          Config
+	started      time.Time
+	mux          *http.ServeMux
+	store        *store.Store
+	bus          *events.Bus
+	perms        *store.Permissions
+	contextFiles *contextFileSet
 
 	onUserMessage func(sessionID, messageID string)
 	onCancel      func(sessionID string)
@@ -56,6 +57,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		store:         st,
 		bus:           events.NewBus(cfg.EventRingCapacity),
 		perms:         store.NewPermissions(),
+		contextFiles:  newContextFileSet(),
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -129,6 +131,58 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/permissions", s.handleListPermissions)
 	s.mux.HandleFunc("GET /v1/permissions/{id}", s.handleGetPermission)
 	s.mux.HandleFunc("POST /v1/permissions/{id}", s.handleRespondPermission)
+
+	// §6.5 — Agents
+	s.mux.HandleFunc("GET /v1/agents", s.handleListAgents)
+	s.mux.HandleFunc("GET /v1/agents/{id}", s.handleGetAgent)
+	s.mux.HandleFunc("POST /v1/agents", s.handleAgentNotImplemented)
+	s.mux.HandleFunc("PUT /v1/agents/{id}", s.handleAgentNotImplemented)
+	s.mux.HandleFunc("DELETE /v1/agents/{id}", s.handleAgentNotImplemented)
+	s.mux.HandleFunc("POST /v1/agents/extract", s.handleAgentNotImplemented)
+
+	// §6.6 — Tools
+	s.mux.HandleFunc("GET /v1/tools", s.handleListTools)
+	s.mux.HandleFunc("GET /v1/tools/{id}", s.handleGetTool)
+
+	// §6.7 — MCP
+	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcpServers)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcpServer)
+	s.mux.HandleFunc("POST /v1/mcp/servers/{id}/reconnect", s.handleMcpReconnect)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/tools", s.handleMcpServerTools)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/resources", s.handleMcpServerResources)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/resource_templates", s.handleMcpServerResourceTemplates)
+	s.mux.HandleFunc("POST /v1/mcp/servers/{id}/resources/read", s.handleMcpResourceRead)
+	s.mux.HandleFunc("POST /v1/mcp/servers/{id}/resources/subscribe", s.handleMcpResourceSubscribe)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/prompts", s.handleMcpServerPrompts)
+	s.mux.HandleFunc("POST /v1/mcp/servers/{id}/prompts/get", s.handleMcpPromptGet)
+
+	// §6.9 — Files & context
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files", s.handleListContextFiles)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/context/files", s.handleAddContextFile)
+	s.mux.HandleFunc("DELETE /v1/sessions/{id}/context/files", s.handleDeleteContextFile)
+	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
+	s.mux.HandleFunc("GET /v1/workspaces/{id}/files", s.handleWorkspaceFiles)
+	s.mux.HandleFunc("GET /v1/workspaces/{id}/files/read", s.handleWorkspaceFileRead)
+	s.mux.HandleFunc("GET /v1/workspaces/{id}/repo_map", s.handleRepoMap)
+
+	// §6.10 — Diffs
+	s.mux.HandleFunc("GET /v1/sessions/{id}/diffs", s.handleSessionDiffs)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}/diffs", s.handleMessageDiffs)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/diffs/apply", s.handleDiffApply)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/diffs/reject", s.handleDiffReject)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/undo", s.handleSessionUndo)
+
+	// §6.12 — Providers + Models
+	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)
+	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
+	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
+
+	// §6.13 — Commands
+	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/commands/{cmd_id}", s.handleSessionCommand)
+
+	// §6.16 — Metrics
+	s.mux.HandleFunc("GET /v1/metrics", s.handleMetrics)
 
 	// §7 — SSE event streams
 	s.mux.HandleFunc("GET /v1/events", s.handleWorkspaceEvents)

@@ -1,0 +1,347 @@
+package server
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+// --- §6.12 Providers / Models ----------------------------------------------
+
+func TestProviders(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	{
+		rec := do(t, h, http.MethodGet, "/v1/providers", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/providers/anthropic", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("get: %d", rec.Code)
+		}
+		var got gact.Provider
+		mustDecode(t, rec, &got)
+		if got.ID != "anthropic" {
+			t.Errorf("id = %q", got.ID)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/providers/anthropic/models", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("models: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/providers/nope", nil)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("missing provider: %d", rec.Code)
+		}
+		rec2 := do(t, h, http.MethodGet, "/v1/providers/nope/models", nil)
+		if rec2.Code != http.StatusNotFound {
+			t.Errorf("missing models: %d", rec2.Code)
+		}
+	}
+}
+
+// --- §6.6 Tools ------------------------------------------------------------
+
+func TestTools(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/tools", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	rec2 := do(t, h, http.MethodGet, "/v1/tools/bash", nil)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("get: %d", rec2.Code)
+	}
+	rec3 := do(t, h, http.MethodGet, "/v1/tools/nope", nil)
+	if rec3.Code != http.StatusNotFound {
+		t.Errorf("missing: %d", rec3.Code)
+	}
+}
+
+// --- §6.5 Agents -----------------------------------------------------------
+
+func TestAgents(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/agents", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	rec2 := do(t, h, http.MethodGet, "/v1/agents/default", nil)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("get: %d", rec2.Code)
+	}
+	// Write API stubbed to 501.
+	rec3 := do(t, h, http.MethodPost, "/v1/agents", map[string]any{"id": "x"})
+	if rec3.Code != http.StatusNotImplemented {
+		t.Errorf("POST: %d, want 501", rec3.Code)
+	}
+}
+
+// --- §6.7 MCP --------------------------------------------------------------
+
+func TestMcpEndpoints(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	{
+		rec := do(t, h, http.MethodGet, "/v1/mcp/servers", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/mcp/servers/mcp_fake", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("get: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/mcp/servers/nope", nil)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("missing: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_fake/reconnect", nil)
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("reconnect: %d", rec.Code)
+		}
+	}
+	for _, p := range []string{
+		"/v1/mcp/servers/mcp_fake/tools",
+		"/v1/mcp/servers/mcp_fake/resources",
+		"/v1/mcp/servers/mcp_fake/resource_templates",
+		"/v1/mcp/servers/mcp_fake/prompts",
+	} {
+		rec := do(t, h, http.MethodGet, p, nil)
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s: %d", p, rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_fake/resources/read", map[string]any{
+			"uri": "file:///docs/welcome.md",
+		})
+		if rec.Code != http.StatusOK {
+			t.Errorf("read: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_fake/resources/subscribe", map[string]any{
+			"uri": "file:///docs/welcome.md",
+		})
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("subscribe: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_fake/prompts/get", map[string]any{
+			"name": "summarize", "arguments": map[string]any{"text": "hi"},
+		})
+		if rec.Code != http.StatusOK {
+			t.Errorf("prompts/get: %d", rec.Code)
+		}
+	}
+}
+
+// --- §6.13 Commands --------------------------------------------------------
+
+func TestCommands(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/commands", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	// Invoke a known command.
+	rec2 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/%2Fclear", nil)
+	if rec2.Code != http.StatusNoContent {
+		t.Errorf("/clear: %d", rec2.Code)
+	}
+	// Unknown command.
+	rec3 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/nope", nil)
+	if rec3.Code != http.StatusNotFound {
+		t.Errorf("unknown: %d", rec3.Code)
+	}
+}
+
+// --- §6.16 Metrics ---------------------------------------------------------
+
+func TestMetrics(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+	_, _ = srv.Store().AppendMessage(gact.Message{
+		SessionID: sid, Role: gact.RoleUser, Parts: []gact.Part{gact.NewTextPart("x")},
+	})
+
+	rec := do(t, h, http.MethodGet, "/v1/metrics", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("metrics: %d", rec.Code)
+	}
+	var m gact.Metrics
+	mustDecode(t, rec, &m)
+	if m.Sessions.Total < 1 {
+		t.Errorf("sessions.total = %d", m.Sessions.Total)
+	}
+	if m.Messages.Total < 1 {
+		t.Errorf("messages.total = %d", m.Messages.Total)
+	}
+}
+
+// --- §6.9 Files / context --------------------------------------------------
+
+func TestContextFiles(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	// add
+	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
+		Path: "main.go", Mode: "edit",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("add: %d", rec.Code)
+	}
+
+	// list
+	rec2 := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/context/files", nil)
+	var listBody struct {
+		Files []gact.ContextFile `json:"files"`
+	}
+	mustDecode(t, rec2, &listBody)
+	if len(listBody.Files) != 1 || listBody.Files[0].Path != "main.go" {
+		t.Errorf("list = %+v", listBody)
+	}
+
+	// patch
+	rec3 := do(t, h, http.MethodPatch, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
+		Path: "main.go", Mode: "read",
+	})
+	if rec3.Code != http.StatusOK {
+		t.Errorf("patch: %d", rec3.Code)
+	}
+	// patch missing
+	rec3b := do(t, h, http.MethodPatch, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
+		Path: "nope.go", Mode: "read",
+	})
+	if rec3b.Code != http.StatusNotFound {
+		t.Errorf("patch missing: %d", rec3b.Code)
+	}
+
+	// delete
+	rec4 := do(t, h, http.MethodDelete, "/v1/sessions/"+sid+"/context/files", contextFileRequest{Path: "main.go"})
+	if rec4.Code != http.StatusNoContent {
+		t.Errorf("delete: %d", rec4.Code)
+	}
+
+	// delete missing
+	rec5 := do(t, h, http.MethodDelete, "/v1/sessions/"+sid+"/context/files", contextFileRequest{Path: "nope.go"})
+	if rec5.Code != http.StatusNotFound {
+		t.Errorf("delete missing: %d", rec5.Code)
+	}
+}
+
+func TestWorkspaceFiles(t *testing.T) {
+	srv, wsID := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/workspaces/"+wsID+"/files", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("files: %d", rec.Code)
+	}
+
+	rec2 := do(t, h, http.MethodGet, "/v1/workspaces/"+wsID+"/files/read?path=main.go", nil)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("read: %d", rec2.Code)
+	}
+	if rec2.Body.Len() == 0 {
+		t.Errorf("read returned empty body")
+	}
+
+	rec3 := do(t, h, http.MethodGet, "/v1/workspaces/"+wsID+"/files/read", nil)
+	if rec3.Code != http.StatusBadRequest {
+		t.Errorf("read missing path: %d", rec3.Code)
+	}
+
+	rec4 := do(t, h, http.MethodGet, "/v1/workspaces/"+wsID+"/repo_map", nil)
+	if rec4.Code != http.StatusOK {
+		t.Errorf("repo_map: %d", rec4.Code)
+	}
+}
+
+// --- §6.10 Diffs -----------------------------------------------------------
+
+func TestDiffs(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	// Seed an assistant message with a file_diff part.
+	before := "old\n"
+	after := "new\n"
+	msg, _ := srv.Store().AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleAssistant,
+		Parts: []gact.Part{
+			gact.NewFileDiffPart("a.go", &before, &after, "go"),
+		},
+	})
+
+	// session diffs
+	{
+		rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/diffs", nil)
+		var body struct {
+			Diffs []gact.FileDiff `json:"diffs"`
+		}
+		mustDecode(t, rec, &body)
+		if len(body.Diffs) != 1 || body.Diffs[0].Path != "a.go" {
+			t.Errorf("diffs: %+v", body)
+		}
+	}
+
+	// per-message diffs
+	{
+		rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages/"+msg.ID+"/diffs", nil)
+		if rec.Code != http.StatusOK {
+			t.Errorf("msg diffs: %d", rec.Code)
+		}
+	}
+
+	// apply
+	{
+		rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/diffs/apply", applyRejectRequest{Paths: []string{"a.go"}})
+		if rec.Code != http.StatusOK {
+			t.Errorf("apply: %d", rec.Code)
+		}
+	}
+
+	// reject
+	{
+		rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/diffs/reject", applyRejectRequest{Paths: []string{"a.go"}})
+		if rec.Code != http.StatusOK {
+			t.Errorf("reject: %d", rec.Code)
+		}
+	}
+
+	// undo (deletes 1 message)
+	{
+		rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/undo", undoRequest{Count: 1})
+		if rec.Code != http.StatusOK {
+			t.Errorf("undo: %d", rec.Code)
+		}
+	}
+
+	_ = store.SessionFilter{} // pull store import if otherwise unused
+}
