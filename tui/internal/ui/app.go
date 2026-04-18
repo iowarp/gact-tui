@@ -138,6 +138,11 @@ type App struct {
 	filePickerOpen bool
 	filePicker     *filePickerState
 
+	// Catalog browser (L5): /mcp /tools /skills open a read-only list
+	// modal backed by the matching catalog endpoint.
+	catalogBrowserOpen bool
+	catalogBrowser     *catalogBrowserState
+
 	// pastes is a chronological record of multi-line pastes that have
 	// been compressed in the input box as `[pasted content: N lines]`
 	// placeholders. On send, each placeholder still present in the
@@ -775,6 +780,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.filePicker.loaded = true
 		return a, nil
 
+	case catalogBrowserLoadedMsg:
+		if a.catalogBrowser == nil || a.catalogBrowser.kind != m.kind {
+			return a, nil
+		}
+		a.catalogBrowser.loading = false
+		a.catalogBrowser.items = m.items
+		a.catalogBrowser.errText = m.errText
+		if a.catalogBrowser.sel >= len(m.items) {
+			a.catalogBrowser.sel = 0
+		}
+		return a, nil
+
 	case settingsLoadedMsg:
 		if a.settings == nil {
 			a.settings = &settingsState{}
@@ -1038,6 +1055,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.filePickerOpen {
 		return a.handleFilePickerKey(k)
 	}
+	if a.catalogBrowserOpen {
+		return a.handleCatalogBrowserKey(k)
+	}
 	if a.paletteOpen {
 		return a.handlePaletteKey(k)
 	}
@@ -1221,6 +1241,22 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.paletteSel < len(cmdMatches) {
 			cmd := cmdMatches[a.paletteSel]
 			a.closePalette()
+
+			// L5: catalog-style commands open a dedicated read-only
+			// list modal instead of firing RunCommand. /mcp /tools
+			// /skills each route here; everything else keeps the
+			// old behaviour.
+			if kind, ok := catalogCommandForID(cmd.ID); ok {
+				return a, a.openCatalogBrowser(kind)
+			}
+			// /agents reuses Settings > Agent tab — the richer picker
+			// there already shows descriptions + mode + selection.
+			if cmd.ID == "/agent" || cmd.ID == "/agents" {
+				a.settingsOpen = true
+				a.settings = &settingsState{tab: 1}
+				return a, loadSettingsCmd(a.c)
+			}
+
 			// Optimistic local UI updates for commands with instant
 			// visible effect. The backend still processes the command
 			// (SSE events keep us honest), but the UI shouldn't appear
@@ -2100,6 +2136,9 @@ func (a *App) viewMain() string {
 	}
 	if a.filePickerOpen {
 		base = overlay(base, a.viewFilePicker(), a.width, a.height)
+	}
+	if a.catalogBrowserOpen {
+		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
 	}
 	return base
 }
