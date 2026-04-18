@@ -149,9 +149,14 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 	case gact.PartTypeFileDiff:
 		head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
 			Render("◇ diff " + p.Path)
-		applied := ""
+		status := ""
 		if p.Applied {
-			applied = lipgloss.NewStyle().Foreground(t.Success).Render(" (applied)")
+			status = lipgloss.NewStyle().Foreground(t.Success).Render(" (applied)")
+		} else if rj, ok := p.Metadata["rejected"].(bool); ok && rj {
+			status = lipgloss.NewStyle().Foreground(t.FgMuted).Render(" (rejected)")
+		} else {
+			status = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+				Render(" — focus body, then 'a' apply / 'r' reject")
 		}
 		before := ""
 		after := ""
@@ -162,7 +167,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			after = *p.After
 		}
 		body := simpleDiff(before, after, wrapW-2)
-		return lipgloss.JoinVertical(lipgloss.Left, head+applied, indent(body, "  "))
+		return lipgloss.JoinVertical(lipgloss.Left, head+status, indent(body, "  "))
 
 	case gact.PartTypeSubagentCall:
 		head := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).
