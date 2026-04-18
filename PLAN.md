@@ -169,7 +169,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 ## Phase P — polish round three
 
 - [x] **P1.** Per-theme glamour StyleConfig — `glamourStyleFromTheme(Theme)` derives an `ansi.StyleConfig` from the theme's palette (Document/Heading → Fg+Primary, Code → Warning on BgSubtle, Link → Secondary, etc.). Cache keyed by `ThemeModeName + width` so swaps invalidate naturally. Screenshots 60/61 show the result on Solarized-Light and Dracula.
-- [ ] **P2.** Custom theme import — `~/.config/gact/themes/*.json` loaded at startup so users can ship their own palette without a rebuild. Pointer to a follow-up PR if too big.
+- [x] **P2.** Custom theme import — `~/.config/gact/theme.json` (single file) loaded at startup; palette appended to AllThemeModes as `ModeCustom`; ThemeModeFor checks custom first so user-vs-builtin collisions prefer the user's file. Tests cover load + missing-file + round-trip. Screenshots 62/63.
 - [x] **P3.** Cost-meter thresholds configurable — `Theme.CostWarnTokens` / `Theme.CostDangerTokens` (defaults 100K/150K via applyStyles) + config.json fields. Footer colour branch reads from the theme so local-model users can lower thresholds. Stepper rows in Settings > TUI deferred (the array-of-steppers pattern needs its own component; current TUI tab only handles one row).
 - [x] **P4.** Collapse hint upweights the Ctrl+E pointer (Secondary + bold) so it matches the footer affordance grammar. Muted-italic wrapper still, but the key itself pops.
 
