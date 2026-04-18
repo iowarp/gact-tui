@@ -1478,6 +1478,41 @@ func (a *App) jumpToMessage(messageID string) {
 	a.stickyToBottom = true
 }
 
+// paletteCurrentValue returns a short summary of the current state
+// for settings-style commands so the palette row can show it inline.
+// Empty string = no state worth surfacing (the default for most
+// commands). Keep these short — they're rendered in ~30 cells after
+// the title.
+func (a *App) paletteCurrentValue(id string) string {
+	switch id {
+	case "/theme", "/themes":
+		return "current: " + ThemeModeName(ThemeModeFor(a.Theme))
+	case "/clear":
+		n := len(a.messages)
+		if n == 0 {
+			return "session empty"
+		}
+		return fmt.Sprintf("%d messages", n)
+	case "/cancel":
+		if a.currentStatus == gact.StatusRunning ||
+			a.currentStatus == gact.StatusWaitingPermission {
+			return "status: " + a.currentStatus
+		}
+		return "nothing running"
+	case "/agent", "/agents":
+		if a.selected >= 0 && a.selected < len(a.sessions) {
+			if agent := a.sessions[a.selected].Agent.ID; agent != "" {
+				return "current: " + agent
+			}
+		}
+	case "/rename":
+		if a.selected >= 0 && a.selected < len(a.sessions) {
+			return "current: " + a.sessions[a.selected].Title
+		}
+	}
+	return ""
+}
+
 func (a *App) paletteMatches() []gact.Command {
 	if a.paletteFilter == "" {
 		return a.commands
@@ -3002,6 +3037,14 @@ func (a *App) viewPalette() string {
 			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
 		}
 		line := marker + titleStyle.Render(c.ID) + "  " + descStyle.Render(c.Title)
+		// Q3: settings-style commands surface their current state
+		// inline so users know what they'd be changing before they
+		// hit Enter. Rendered as a faint suffix in Secondary so it
+		// stands out without competing with the title.
+		if hint := a.paletteCurrentValue(c.ID); hint != "" {
+			valStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
+			line += "  " + valStyle.Render("· "+hint)
+		}
 		rows = append(rows, truncate(line, w-2))
 	}
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter run  Esc close"))
