@@ -61,6 +61,8 @@ func main() {
 			os.Exit(runCancel(os.Args[2:]))
 		case "run":
 			os.Exit(runRun(os.Args[2:]))
+		case "log":
+			os.Exit(runLog(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -228,6 +230,7 @@ Usage:
   gact wait <sid>            block until the session status is idle
   gact cancel <sid>          POST /v1/sessions/{id}/cancel
   gact run <sid> <text|->    send + wait in one command
+  gact log <sid>             dump conversation messages to stdout
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -343,6 +346,98 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runLog dumps a session's conversation to stdout in a human-readable
+// shape — `[role] message text` per turn, with one-line summaries of
+// tool_call / tool_result parts. Exits 0 on success. Useful to read
+// what happened in a session without launching the TUI.
+//
+// Output is intentionally plain (no ANSI) so it's grep-friendly. If
+// users want JSON, they should use `gact export <sid>` which already
+// returns the raw blob.
+func runLog(args []string) int {
+	fs := flag.NewFlagSet("log", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	limit := fs.Int("limit", 100, "max messages to print")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--limit": true, "-limit": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	msgs, _, err := c.ListMessages(ctx, client.MessageFilter{SessionID: sid, Limit: *limit, IncludeSystem: true})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact log: %v\n", err)
+		return 1
+	}
+	for _, m := range msgs {
+		fmt.Printf("[%s @ %s]\n", strings.ToUpper(m.Role), m.CreatedAt.UTC().Format(time.RFC3339))
+		for _, p := range m.Parts {
+			switch p.Type {
+			case gact.PartTypeText:
+				if p.Text != "" {
+					fmt.Println(indent(p.Text, "  "))
+				}
+			case gact.PartTypeThinking:
+				if p.Thinking != "" {
+					fmt.Println(indent("(thinking) "+p.Thinking, "  "))
+				}
+			case gact.PartTypeToolCall:
+				args, _ := json.Marshal(p.Input)
+				fmt.Printf("  → %s(%s)\n", p.ToolName, string(args))
+			case gact.PartTypeToolResult:
+				body := flattenToolResultParts(p.Content)
+				prefix := "  ⎿ "
+				if p.IsError {
+					prefix = "  ⎿! "
+				}
+				fmt.Println(indent(body, prefix))
+			case gact.PartTypeFileDiff:
+				fmt.Printf("  ◇ diff %s\n", p.Path)
+			}
+		}
+		fmt.Println()
+	}
+	return 0
+}
+
+// indent prefixes every line of s with prefix. Used by `gact log` to
+// keep multi-line bodies aligned under their role header.
+func indent(s, prefix string) string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	for i := range lines {
+		lines[i] = prefix + lines[i]
+	}
+	return strings.Join(lines, "\n")
+}
+
+// flattenToolResultParts joins a tool_result's nested text parts with
+// blank lines — same flattening shape the TUI render uses.
+func flattenToolResultParts(parts []gact.Part) string {
+	var b strings.Builder
+	for i, p := range parts {
+		if p.Type != gact.PartTypeText {
+			continue
+		}
+		if i > 0 && b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(p.Text)
+	}
+	return b.String()
+}
+
 // runCancel POSTs /v1/sessions/{id}/cancel. Exits 0 on 204, 1 on
 // transport / API error. Symmetric with the TUI's Ctrl+X but reachable
 // from shell scripts.

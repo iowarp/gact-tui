@@ -171,6 +171,11 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase DD — docs + log
+
+- [x] **DD1.** README "CLI subcommands" section — every Phase T-CC subcommand documented with one-line description + pipe-composition example.
+- [ ] **DD2.** `gact log <sid>` dumps the conversation messages to stdout (text + tool_call/result summaries). Needed because users have to launch the TUI just to read what happened in a session.
+
 ## Phase CC — operator-tools fill-in
 
 - [x] **CC1.** `gact cancel <sid>` POSTs the cancel endpoint. Idempotent. CLI test.
