@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -260,6 +261,9 @@ func (s *Server) handleForkSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCancelSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.onCancel != nil {
+		s.onCancel(id)
+	}
 	_, err := s.store.UpdateSession(id, func(sess *gact.Session) {
 		sess.Status = gact.StatusIdle
 	})
@@ -267,9 +271,16 @@ func (s *Server) handleCancelSession(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, err, "session_not_found", "invalid_session")
 		return
 	}
-	// Note: with the event bus (PLAN A10) wired, this should also publish
-	// session.status_changed and message.error events for any in-flight
-	// scenario. The scenario engine (A11) consumes that signal to stop.
+	// Publish status change so subscribers see the reset.
+	s.bus.Publish(events.Event{
+		Type:      "session.status_changed",
+		SessionID: id,
+		Payload: map[string]any{
+			"session_id": id,
+			"status":     gact.StatusIdle,
+			"reason":     "cancelled",
+		},
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 
