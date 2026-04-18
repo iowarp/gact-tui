@@ -127,15 +127,24 @@ func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) str
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-// glamourStyle returns "light" if the theme's background is bright,
-// "dark" otherwise. We compare luminance of t.Bg cheaply by checking
-// the light-theme sentinel (matches LightTheme()).
+// glamourStyle maps the active palette to a glamour style key. The
+// older luminance-based heuristic tagged every non-paper-white light
+// theme (Gruvbox, Solarized Light) as dark, washing out code blocks.
+// Mapping to ThemeMode keeps the round-trip consistent with how the
+// Theme tab labels palettes.
 func (t Theme) glamourStyle() string {
-	// LightTheme uses bg #FAFAF7. If our Bg matches that, we're light.
-	if r, g, b, _ := t.Bg.RGBA(); r > 60000 && g > 60000 && b > 60000 {
+	switch ThemeModeFor(t) {
+	case ModeLight, ModeSolarizedLight:
 		return "light"
+	case ModeDracula:
+		return "dracula"
+	// Solarized, Nord, Tokyo Night all look better against glamour's
+	// "dark" style than any of the more exotic presets — their own
+	// accent colours come from our Theme + lipgloss rendering, not
+	// glamour's code-block colors.
+	default:
+		return "dark"
 	}
-	return "dark"
 }
 
 func (t Theme) renderRoleHeader(role string) string {
