@@ -11,12 +11,14 @@ The contract itself is in [`contract/SPEC.md`](./contract/SPEC.md).
 
 | | |
 |---|---|
-| ![streaming](screenshots/02-streaming.png) | ![completed](screenshots/03-completed.png) |
-| Mid-stream — running badge, thinking + tool call with parsed args | Completed conversation, idle status |
-| ![permission](screenshots/04-permission.png) | ![after allow](screenshots/09-after-allow.png) |
-| Yellow permission banner, `waiting_permission` status | After pressing `a` (allow), scenario continued and completed |
-| ![palette](screenshots/06-palette.png) | ![help](screenshots/05-help.png) |
-| Slash-command palette (filter as you type) | Help overlay (`?` to toggle) |
+| ![streaming](screenshots/02-streaming.png) | ![tool demarcation](screenshots/25-tool-demarcation.png) |
+| Mid-stream — running badge, thinking + tool call | Claude-Code-style `ToolName(arg)` headers + `⎿` continuation |
+| ![permission](screenshots/04-permission.png) | ![bulky collapsed](screenshots/27-bulky-collapsed.png) |
+| Yellow permission banner, `a/d/s/w` to respond | Big tool output auto-collapses with `Ctrl+E` affordance |
+| ![palette](screenshots/52-catalog-tools.png) | ![help](screenshots/39-help-tab-input.png) |
+| `/tools` catalog browser (slash palette) | Tabbed help overlay — Input tab showing newline bindings |
+| ![compose](screenshots/45-compose-typing.png) | ![file picker](screenshots/49-file-picker-filtered.png) |
+| `Ctrl+G` long-form compose modal | `@` fuzzy workspace-file picker |
 
 ## Quickstart
 
