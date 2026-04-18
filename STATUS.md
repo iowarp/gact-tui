@@ -240,3 +240,4 @@ cd ../tui   && go build -o ./gact .
 | 54 | 2026-04-18T18:10 | K7 — emulator --seed-sessions flag (parallel to K3) | 70fed59 |
 | 55 | 2026-04-18T18:25 | K8 — session archive via `A` (PATCH archived=true + sidebar removal) | 883a834 |
 | 56 | 2026-04-18T18:45 | K9 — archived view toggle (`h`) + un-archive via `A` in that view | 20afd26 |
+| 57 | 2026-04-18T19:00 | K10 — `y` copies last assistant message to clipboard (atotto) | (this) |

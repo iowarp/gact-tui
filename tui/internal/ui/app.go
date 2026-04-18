@@ -1362,6 +1362,23 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
 			return a, rejectDiffsCmd(a.c, sid)
 		}
+	case "y":
+		// Yank — copy the most recent assistant message's text to the
+		// system clipboard. Users reach for this to grab code the
+		// agent just produced; picking "most recent assistant" rather
+		// than "focused message" is a pragmatic first cut (no message-
+		// level cursor exists yet). Feedback is a transient toast
+		// because clipboard success is otherwise invisible.
+		text, ok := lastAssistantText(a.messages)
+		if !ok {
+			a.transientHint = "nothing to copy — no assistant messages yet"
+			return a, nil
+		}
+		if err := clipboardWrite(text); err != nil {
+			a.transientHint = "copy failed: " + err.Error()
+			return a, nil
+		}
+		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
 	}
 	return a, nil
 }
@@ -2304,6 +2321,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("?") + "         toggle this help",
 		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
+		t.HintKey.Render("y") + "         (body) copy last assistant message to clipboard",
 		t.HintKey.Render("Ctrl+n") + "    new session",
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
 		t.HintKey.Render("Ctrl+l") + "    reload config (theme + voice cmd)",
