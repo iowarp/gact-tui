@@ -46,16 +46,27 @@ func writeStoreError(w http.ResponseWriter, err error, notFoundCode, validationC
 	}
 }
 
-// decodeJSON parses the request body into v. Returns true if successful;
-// otherwise it has already written a 400 response and the caller should return.
+// decodeJSON parses the request body into v. Returns true on success;
+// otherwise it has already written a 400 and the caller should return.
+// Body may be empty for endpoints whose request bodies are optional —
+// pass allowEmpty=true in that case.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields() // strict — open-spec extensions go in metadata or under /ext/
+	dec.DisallowUnknownFields() // strict — vendor extensions go in metadata or under /ext/
 	if err := dec.Decode(v); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", fmt.Sprintf("decode: %v", err))
 		return false
 	}
 	return true
+}
+
+// decodeJSONOptional is like decodeJSON but treats EOF as "no body sent" and
+// returns true with v left at its zero value.
+func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
+	if r.ContentLength == 0 {
+		return true
+	}
+	return decodeJSON(w, r, v)
 }
 
 // --- §3 health + capabilities ----------------------------------------------
@@ -111,119 +122,4 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		},
 		Extensions: []gact.Extension{},
 	})
-}
-
-// --- §6.1 Workspaces -------------------------------------------------------
-
-// CreateWorkspaceRequest is the body for POST /v1/workspaces.
-type CreateWorkspaceRequest struct {
-	Name     string         `json:"name,omitempty"`
-	RootPath string         `json:"root_path"`
-	Config   map[string]any `json:"config,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
-}
-
-// UpdateWorkspaceRequest is the body for PATCH /v1/workspaces/{id}. Pointer
-// types distinguish "not provided" from "set to empty".
-type UpdateWorkspaceRequest struct {
-	Name     *string        `json:"name,omitempty"`
-	RootPath *string        `json:"root_path,omitempty"`
-	Config   map[string]any `json:"config,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
-}
-
-// ListWorkspacesResponse is the body for GET /v1/workspaces.
-type ListWorkspacesResponse struct {
-	Workspaces []gact.Workspace `json:"workspaces"`
-	NextCursor string           `json:"next_cursor,omitempty"`
-}
-
-func (s *Server) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, ListWorkspacesResponse{
-		Workspaces: s.store.ListWorkspaces(),
-	})
-}
-
-func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
-	var req CreateWorkspaceRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	if req.RootPath == "" {
-		writeError(w, http.StatusBadRequest, "invalid_body", "root_path is required")
-		return
-	}
-	name := req.Name
-	if name == "" {
-		name = baseName(req.RootPath)
-	}
-	ws := gact.Workspace{
-		Name:     name,
-		RootPath: req.RootPath,
-		Config:   req.Config,
-		Metadata: req.Metadata,
-	}
-	created, err := s.store.CreateWorkspace(ws)
-	if err != nil {
-		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
-		return
-	}
-	writeJSON(w, http.StatusCreated, created)
-}
-
-func (s *Server) handleGetWorkspace(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	ws, err := s.store.GetWorkspace(id)
-	if err != nil {
-		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
-		return
-	}
-	writeJSON(w, http.StatusOK, ws)
-}
-
-func (s *Server) handlePatchWorkspace(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	var req UpdateWorkspaceRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	updated, err := s.store.UpdateWorkspace(id, func(ws *gact.Workspace) {
-		if req.Name != nil {
-			ws.Name = *req.Name
-		}
-		if req.RootPath != nil {
-			ws.RootPath = *req.RootPath
-		}
-		if req.Config != nil {
-			ws.Config = req.Config
-		}
-		if req.Metadata != nil {
-			ws.Metadata = req.Metadata
-		}
-	})
-	if err != nil {
-		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
-		return
-	}
-	writeJSON(w, http.StatusOK, updated)
-}
-
-func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if err := s.store.DeleteWorkspace(id); err != nil {
-		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// baseName returns the trailing path segment of p (basename), or p if there
-// is none. Avoids importing path/filepath just for this.
-func baseName(p string) string {
-	for i := len(p) - 1; i >= 0; i-- {
-		if p[i] == '/' || p[i] == '\\' {
-			return p[i+1:]
-		}
-	}
-	return p
 }
