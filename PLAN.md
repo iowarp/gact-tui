@@ -168,8 +168,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase U — tiny wins
 
-- [ ] **U1.** `gact list --format json` for machine-parseable output; defaults to the existing tab-separated form.
-- [ ] **U2.** Window title surfaces running/waiting_permission status: `GACT — demo (running)` so tab-switchers see what needs attention.
+- [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
+- [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
 ## Phase T — terminal integration
 
