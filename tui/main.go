@@ -89,10 +89,20 @@ func runTUI() {
 	backend := flag.String("backend", defaultBackend,
 		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
 	theme := flag.String("theme", defaultTheme,
-		"colour theme: dark | light (env: GACT_THEME, config: theme)")
+		"colour theme (env: GACT_THEME, config: theme) — use --list-themes to see options")
 	voiceCmd := flag.String("voice-cmd", "",
 		"shell cmd that writes audio/wav to stdout (env: GACT_VOICE_CMD, config: voice_command)")
+	listThemes := flag.Bool("list-themes", false,
+		"print available theme names (for --theme) and exit")
 	flag.Parse()
+
+	if *listThemes {
+		fmt.Println("Available themes:")
+		for _, m := range ui.AllThemeModes {
+			fmt.Printf("  %s\n", ui.ThemeModeName(m))
+		}
+		return
+	}
 
 	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
