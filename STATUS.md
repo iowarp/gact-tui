@@ -16,6 +16,12 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase S — render polish
+- **S1.** Body-focus `t` toggles per-message timestamps (faint-italic
+  row under role headers; not persisted).
+- **S2.** Ctrl+E now expands long assistant text in the paginated
+  detail view, not just tool_result.
+
 ### Phase R — discoverability + diag
 - **R1.** `gact diag` prints binary + contract version + runtime +
   config path + every config field + custom-theme status + GACT_* env

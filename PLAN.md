@@ -169,7 +169,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 ## Phase S — render polish
 
 - [x] **S1.** Body-focus `t` toggles per-message timestamps. Faint-italic row under the role header when on; skipped on tool-result messages whose header is already suppressed. Not persisted (live debugging aid). Test covers both flip states.
-- [ ] **S2.** Long assistant text (>N lines) mirrors the tool_result compress-with-expand treatment — currently only tool outputs collapse, so a 60-line explanation still floods the viewport.
+- [x] **S2.** Ctrl+E now expands long assistant text too. findLatestBulkyPart extended to consider PartTypeText; title reflects "tool_result · N lines" vs "assistant text · N lines" so the detail view header tells the user which kind they opened. Inline compression of text parts deferred — plain text scrolls fine in the body; this feature is about the paginated detail view entry point.
 
 ## Phase R — discoverability + diag
 
