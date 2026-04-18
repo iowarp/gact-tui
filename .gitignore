@@ -15,6 +15,10 @@ loop-test/hello.gif
 loop-test/screenshot.png
 loop-test/testdata/
 
+# Claude Code session-only state
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
+
 # IDE / editor
 .idea/
 .vscode/
