@@ -241,4 +241,4 @@ cd ../tui   && go build -o ./gact .
 | 55 | 2026-04-18T18:25 | K8 — session archive via `A` (PATCH archived=true + sidebar removal) | 883a834 |
 | 56 | 2026-04-18T18:45 | K9 — archived view toggle (`h`) + un-archive via `A` in that view | 20afd26 |
 | 57 | 2026-04-18T19:00 | K10 — `y` copies last assistant message to clipboard (atotto) | 88c6253 |
-| 58 | 2026-04-18T19:20 | K11 — sidebar `/` session title filter (nav skips hidden) | (this) |
+| 58 | 2026-04-18T19:20 | K11 — sidebar `/` session title filter (nav skips hidden) | 18cb890 |
