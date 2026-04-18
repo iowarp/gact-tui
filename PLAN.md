@@ -170,7 +170,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 - [x] **R1.** `gact diag` prints version + contract + runtime + platform + config path + every config field + custom theme file status + GACT_* env vars. Non-interactive; exits after printing. Users can paste the output into bug reports without opening the TUI.
 - [x] **R2.** Sidebar ends with a faint-italic "N active · M archived" row (flips ordering in the archived view so the first number always matches what's shown). Screenshot 54 confirms.
-- [ ] **R3.** `gact version` subcommand — already partially wired, audit the output and make sure it surfaces the git SHA + build time.
+- [x] **R3.** `gact version` now reads runtime/debug.ReadBuildInfo() and prints the git revision (+ `(dirty)` when vcs.modified is set), commit time, and Go toolchain. Works automatically on any `go install` build.
 - [x] **R4.** `gact emit-config` prints a sample config.json to stdout with every field + its default (JSON doesn't allow comments so field names serve as docs). Redirect to `~/.config/gact/config.json` for a starting point.
 
 ## Phase Q — polish round four

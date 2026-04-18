@@ -16,6 +16,17 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase R — discoverability + diag
+- **R1.** `gact diag` prints binary + contract version + runtime +
+  config path + every config field + custom-theme status + GACT_* env
+  vars for bug-report copy-paste.
+- **R2.** Sidebar footer shows `N active · M archived`; order flips
+  in the archived view so the primary number always matches the list.
+- **R3.** `gact version` now surfaces git revision + `(dirty)` flag +
+  commit time via `runtime/debug.ReadBuildInfo`.
+- **R4.** `gact emit-config` prints a sample `config.json` with every
+  field + defaults so users have a starting point to customise.
+
 ### Phase Q — polish round four
 - **Q1.** README refreshed — theme gallery (screenshots 54-63), custom
   theme schema, Phase-M/N/O keymap updates, TUI implementation summary.
