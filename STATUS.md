@@ -233,4 +233,4 @@ cd ../tui   && go build -o ./gact .
 | 47 | 2026-04-18T16:10 | J6 — auto-rename session from first user message (silent on PATCH fail) | e969d30 |
 | 48 | 2026-04-18T16:25 | K1 — Crush adapter --upstream unix:/// socket transport + SSE-aware dialer | 2f3e5e2 |
 | 49 | 2026-04-18T16:45 | K2 — manual session rename from sidebar (`e` → inline editor) + screenshot | 7218048 |
-| 50 | 2026-04-18T17:00 | K3 — emulator --seed-workspaces flag (multi-ws demos without curl) | (this) |
+| 50 | 2026-04-18T17:00 | K3 — emulator --seed-workspaces flag (multi-ws demos without curl) | 9dfa3ff |
