@@ -1317,6 +1317,18 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, createSessionCmd(a.c, a.wsID)
 			}
 
+			// /sessions focuses the sidebar and pre-arms the K11
+			// title filter so the user can immediately type to
+			// narrow the session list. Cheaper than a second
+			// dedicated modal and reuses the filter code path the
+			// sidebar already exercises on `/`.
+			if cmd.ID == "/sessions" {
+				a.focus = FocusSidebar
+				a.sessionFilterActive = true
+				a.filterSnapshot = a.sessionFilter
+				return a, nil
+			}
+
 			// /rename opens the K2 rename editor on the current
 			// session. Equivalent to sidebar `e` but reachable from
 			// anywhere.
@@ -3039,6 +3051,7 @@ var helpTabs = []struct {
 			{"/skills", "list available skills (backend-dependent)"},
 			{"/agents", "switch agent (opens Settings > Agent)"},
 			{"/scenarios", "jump to the Scenarios help tab"},
+			{"/sessions", "focus sidebar + start title filter"},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},
