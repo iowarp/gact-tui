@@ -171,9 +171,13 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase AA — scripting
+
+- [ ] **AA1.** `gact send <session_id> <text>` posts a single user message via the POST /v1/sessions/{id}/messages endpoint. Accepts `-` as text to read stdin so `echo "prompt" | gact send SID -` works for script chains.
+
 ## Phase Z — cursor-aware everything
 
-- [ ] **Z1.** Route `Ctrl+E` through the body cursor too. When set and the cursor's message has a bulky tool_result or text part, expand THAT one; otherwise fall back to `findLatestBulkyPart`.
+- [x] **Z1.** `Ctrl+E` respects the Y1 cursor. `findBulkyPartIn(msg)` scans a single message; falls back to `findLatestBulkyPart` when the cursor is off or the selected message has no bulky content.
 
 ## Phase Y — body-focus cursor
 
