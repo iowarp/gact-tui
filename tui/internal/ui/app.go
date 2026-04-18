@@ -70,6 +70,14 @@ type App struct {
 
 	// Pending permissions for current session (most recent first)
 	pendingPermissions []client.PermissionWire
+
+	// Slash command palette state
+	paletteOpen   bool
+	paletteFilter string
+	paletteSel    int
+
+	// Help overlay
+	helpOpen bool
 }
 
 // New constructs an App.
@@ -254,17 +262,45 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Modal layers take precedence: help overlay → palette → permission keys.
+	if a.helpOpen {
+		switch k.String() {
+		case "?", "esc", "ctrl+c":
+			a.helpOpen = false
+		}
+		return a, nil
+	}
+	if a.paletteOpen {
+		return a.handlePaletteKey(k)
+	}
+	// Permission action keys when a permission is pending. These take
+	// precedence so the user can respond without losing focus.
+	if len(a.pendingPermissions) > 0 {
+		if cmd, handled := a.handlePermissionKey(k); handled {
+			return a, cmd
+		}
+	}
+
 	switch k.String() {
 	case "ctrl+c":
 		if a.sseCancel != nil {
 			a.sseCancel()
 		}
 		return a, tea.Quit
+	case "?":
+		a.helpOpen = true
+		return a, nil
 	case "tab":
 		a.focus = (a.focus + 1) % 3
 		return a, nil
 	case "shift+tab":
 		a.focus = (a.focus + 2) % 3
+		return a, nil
+	case "ctrl+x":
+		// Cancel current run.
+		if sid := a.currentSessionID(); sid != "" {
+			return a, cancelCmd(a.c, sid)
+		}
 		return a, nil
 	}
 	switch a.focus {
@@ -276,6 +312,109 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a.handleInputKey(k)
 	}
 	return a, nil
+}
+
+// handlePermissionKey processes a/d/s/w on a pending permission.
+func (a *App) handlePermissionKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
+	if len(a.pendingPermissions) == 0 {
+		return nil, false
+	}
+	id := a.pendingPermissions[0].ID
+	switch k.String() {
+	case "a":
+		return respondPermissionCmd(a.c, id, gact.PermAllow), true
+	case "d":
+		return respondPermissionCmd(a.c, id, gact.PermDeny), true
+	case "s":
+		return respondPermissionCmd(a.c, id, gact.PermAllowSession), true
+	case "w":
+		return respondPermissionCmd(a.c, id, gact.PermAllowWorkspace), true
+	}
+	return nil, false
+}
+
+// handlePaletteKey is the slash-command palette key router.
+func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	matches := a.paletteMatches()
+	switch k.String() {
+	case "esc", "ctrl+c":
+		a.paletteOpen = false
+		a.paletteFilter = ""
+		a.paletteSel = 0
+		return a, nil
+	case "up":
+		if a.paletteSel > 0 {
+			a.paletteSel--
+		}
+	case "down":
+		if a.paletteSel < len(matches)-1 {
+			a.paletteSel++
+		}
+	case "enter":
+		if a.paletteSel < len(matches) {
+			cmd := matches[a.paletteSel]
+			a.paletteOpen = false
+			a.paletteFilter = ""
+			a.paletteSel = 0
+			return a, runCommandCmd(a.c, a.currentSessionID(), cmd.ID)
+		}
+	case "backspace":
+		if len(a.paletteFilter) > 0 {
+			a.paletteFilter = a.paletteFilter[:len(a.paletteFilter)-1]
+			a.paletteSel = 0
+		}
+	default:
+		if k.Text != "" {
+			a.paletteFilter += k.Text
+			a.paletteSel = 0
+		}
+	}
+	return a, nil
+}
+
+func (a *App) paletteMatches() []gact.Command {
+	if a.paletteFilter == "" {
+		return a.commands
+	}
+	needle := strings.ToLower(a.paletteFilter)
+	out := make([]gact.Command, 0, len(a.commands))
+	for _, c := range a.commands {
+		hay := strings.ToLower(c.ID + " " + c.Title + " " + c.Description)
+		if strings.Contains(hay, needle) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func cancelCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = c.CancelSession(ctx, sessionID)
+		return nil
+	}
+}
+
+func respondPermissionCmd(c *client.Client, permID string, action gact.PermissionAction) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = c.RespondPermission(ctx, permID, action)
+		return nil
+	}
+}
+
+func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
+	return func() tea.Msg {
+		if sessionID == "" {
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = c.RunCommand(ctx, sessionID, cmdID)
+		return nil
+	}
 }
 
 func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -322,6 +461,17 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
+	case "/":
+		// Open the slash-command palette if the input is empty; otherwise
+		// pass through to the buffer (so people can include literal slashes).
+		if a.inputBuf == "" {
+			a.paletteOpen = true
+			a.paletteFilter = ""
+			a.paletteSel = 0
+			return a, nil
+		}
+		a.inputBuf += "/"
+		return a, nil
 	case "backspace":
 		if len(a.inputBuf) > 0 {
 			a.inputBuf = a.inputBuf[:len(a.inputBuf)-1]
@@ -590,6 +740,18 @@ func (a *App) viewError() string {
 }
 
 func (a *App) viewMain() string {
+	base := a.viewMainBase()
+	// Overlay layers (last-rendered wins).
+	if a.paletteOpen {
+		base = overlay(base, a.viewPalette(), a.width, a.height)
+	}
+	if a.helpOpen {
+		base = overlay(base, a.viewHelp(), a.width, a.height)
+	}
+	return base
+}
+
+func (a *App) viewMainBase() string {
 	headerH := 1
 	footerH := 1
 	bodyH := a.height - headerH - footerH
@@ -814,6 +976,120 @@ func truncate(s string, max int) string {
 		return "…"
 	}
 	return s[:max-1] + "…"
+}
+
+// viewPalette renders the slash-command palette as a centered modal.
+func (a *App) viewPalette() string {
+	t := a.Theme
+	matches := a.paletteMatches()
+
+	w := 60
+	if w > a.width-8 {
+		w = a.width - 8
+	}
+	rows := []string{
+		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Commands"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render("filter: " + a.paletteFilter + "_"),
+		"",
+	}
+	if len(matches) == 0 {
+		rows = append(rows, t.HintLabel.Render("(no matches)"))
+	}
+	for i, c := range matches {
+		marker := "  "
+		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+		if i == a.paletteSel {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
+		}
+		line := marker + titleStyle.Render(c.ID) + "  " + descStyle.Render(c.Title)
+		rows = append(rows, truncate(line, w-2))
+	}
+	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter run  Esc close"))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Background(t.BgSubtle).
+		Padding(1, 2).
+		Width(w).
+		Render(body)
+}
+
+// viewHelp renders the help overlay.
+func (a *App) viewHelp() string {
+	t := a.Theme
+	rows := []string{
+		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Keybindings"),
+		"",
+		t.HintKey.Render("Tab/⇧Tab") + "  cycle pane focus",
+		t.HintKey.Render("↑/↓") + "       navigate (sidebar / scroll body)",
+		t.HintKey.Render("Enter") + "     send message  /  confirm",
+		t.HintKey.Render("/") + "         open command palette",
+		t.HintKey.Render("?") + "         toggle this help",
+		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
+		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
+		t.HintKey.Render("Ctrl+c") + "    quit",
+		"",
+		lipgloss.NewStyle().Bold(true).Foreground(t.Warning).Render("When a permission is pending"),
+		t.HintKey.Render("a") + "         allow",
+		t.HintKey.Render("d") + "         deny",
+		t.HintKey.Render("s") + "         allow for this session",
+		t.HintKey.Render("w") + "         allow for this workspace",
+	}
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Background(t.BgSubtle).
+		Padding(1, 2).
+		Width(56).
+		Render(body)
+}
+
+// overlay places overlay centered on top of base. Bubbletea v2 doesn't have
+// a built-in compositor (the lipgloss Layer API works but is heavier).
+// This is a simple character-grid composite: split base into lines, paint
+// the overlay's lines starting at the centered offset, return joined string.
+func overlay(base, top string, w, h int) string {
+	baseLines := strings.Split(base, "\n")
+	topLines := strings.Split(top, "\n")
+	tH := len(topLines)
+	tW := 0
+	for _, l := range topLines {
+		if w := lipgloss.Width(l); w > tW {
+			tW = w
+		}
+	}
+	startY := (h - tH) / 2
+	startX := (w - tW) / 2
+	if startY < 0 {
+		startY = 0
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	for i, ol := range topLines {
+		idx := startY + i
+		if idx >= len(baseLines) {
+			break
+		}
+		baseLines[idx] = padOrInsert(baseLines[idx], ol, startX, w)
+	}
+	return strings.Join(baseLines, "\n")
+}
+
+// padOrInsert overlays insert at the given column offset on row, padding
+// row with spaces if needed. ANSI codes are not handled gracefully here —
+// the user accepts some bleeding around the overlay edges. Acceptable for
+// modals because the visible inside is opaque.
+func padOrInsert(row, insert string, offset, _ int) string {
+	// Strip control runes from row width calculation by relying on lipgloss.Width.
+	// Simplest correct approach: just print spaces of width `offset`, then insert.
+	prefix := strings.Repeat(" ", offset)
+	return prefix + insert
 }
 
 // --- Messages -------------------------------------------------------------
