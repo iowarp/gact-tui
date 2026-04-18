@@ -526,6 +526,60 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case sessionArchivedMsg:
+		if m.err != nil {
+			// Soft-fail: J5 pattern. Keep the session in the sidebar;
+			// the user can retry. Don't promote to StageError.
+			a.transientHint = "archive failed: " + m.err.Error()
+			return a, nil
+		}
+		// Remove the archived session from the sidebar. Find its
+		// index first so we can adjust a.selected — if we were
+		// sitting ON the archived session, drop the current SSE
+		// stream and pick a sibling (prev if available, else next).
+		idx := -1
+		for i, s := range a.sessions {
+			if s.ID == m.sessionID {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			// Already gone (stale event?). Nothing to do.
+			return a, nil
+		}
+		wasSelected := idx == a.selected
+		a.sessions = append(a.sessions[:idx], a.sessions[idx+1:]...)
+		a.transientHint = "session archived"
+		if !wasSelected {
+			// Adjust selection index if the removed session was above
+			// the selected one.
+			if idx < a.selected {
+				a.selected--
+			}
+			return a, nil
+		}
+		// We were on the archived session — tear down its SSE stream
+		// and pick a new one. Prefer the previous sibling (visually
+		// less disorienting than jumping down).
+		if a.sseCancel != nil {
+			a.sseCancel()
+			a.sseCancel = nil
+		}
+		if len(a.sessions) == 0 {
+			a.selected = -1
+			a.messages = nil
+			a.contextFiles = nil
+			a.currentStatus = ""
+			return a, nil
+		}
+		newIdx := idx - 1
+		if newIdx < 0 {
+			newIdx = 0
+		}
+		a.selected = newIdx
+		return a, a.selectSession(newIdx)
+
 	case sseEventMsg:
 		// Event arrival means the stream is healthy — reset the
 		// reconnect backoff so the NEXT disconnect waits 250 ms, not
@@ -1223,6 +1277,14 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.renameDraft = a.sessions[a.selected].Title
 		a.renameCursor = len(a.renameDraft)
 		return a, nil
+	case "A":
+		// Archive — soft-delete. PATCH archived=true and drop from
+		// the sidebar on success. No confirmation required (unlike
+		// the real delete `x`) because archive is reversible
+		// server-side; the UI just stops showing the session.
+		if sid := a.currentSessionID(); sid != "" {
+			return a, archiveSessionCmd(a.c, sid)
+		}
 	}
 	return a, nil
 }
@@ -2223,6 +2285,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
+		t.HintKey.Render("A") + "         (sidebar) archive session (soft-delete)",
 		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
 		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
 		t.HintKey.Render("Ctrl+c") + "    quit",
