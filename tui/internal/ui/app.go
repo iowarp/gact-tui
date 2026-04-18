@@ -1295,9 +1295,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// conversation after the empty-state crib disappears.
 			if cmd.ID == "/scenarios" {
 				a.helpOpen = true
-				// Scenarios tab is the last one — helpTabCount-1
-				// keeps this auto-correct if tabs are reordered.
-				a.helpTab = helpTabCount - 1
+				a.helpTab = helpTabIndex("Scenarios")
 				return a, nil
 			}
 
@@ -2970,6 +2968,25 @@ var helpTabs = []struct {
 		},
 	},
 	{
+		// Slash-commands users can type after pressing `/`. Palette
+		// shows them all; this tab serves as a quick-reference for
+		// the newer ones that might not jump out of the flat list.
+		title: "Commands",
+		keys: [][2]string{
+			{"/clear", "wipe messages in this session"},
+			{"/cancel", "halt the running assistant turn"},
+			{"/new", "create a new session"},
+			{"/rename", "rename the current session"},
+			{"/mcp", "list connected MCP servers"},
+			{"/tools", "list available tools"},
+			{"/skills", "list available skills (backend-dependent)"},
+			{"/agents", "switch agent (opens Settings > Agent)"},
+			{"/scenarios", "jump to the Scenarios help tab"},
+			{"/help", "show help message from backend"},
+			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
+		},
+	},
+	{
 		title: "Permission",
 		keys: [][2]string{
 			{"a / d", "allow / deny once"},
@@ -2996,7 +3013,20 @@ var helpTabs = []struct {
 	},
 }
 
-const helpTabCount = 6
+const helpTabCount = 7
+
+// helpTabIndex returns the slice position of the tab with the given
+// title, or 0 (Global) if not found. Lets slash-command handlers
+// jump to a named tab without hard-coding indexes that drift when
+// tabs are added or reordered.
+func helpTabIndex(title string) int {
+	for i, tab := range helpTabs {
+		if tab.title == title {
+			return i
+		}
+	}
+	return 0
+}
 
 // viewHelp renders the help overlay as a tabbed modal. Each tab scopes
 // keybindings to a pane or mode so the list always fits in-view —
