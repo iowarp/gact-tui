@@ -3,4 +3,5 @@ go 1.25.8
 use (
 	./emulator
 	./tui
+	./adapters/opencode
 )
