@@ -117,6 +117,49 @@ func customTheme() Theme {
 	return *customThemeRegistry
 }
 
+// ExportThemeJSON serialises the given Theme to JSON matching the
+// customThemeDoc schema. Pairs with LoadCustomTheme — a round trip
+// (export, edit, re-load) is intentionally supported. The `name`
+// field is populated from the active ThemeMode so a user exporting
+// `solarized-dark` gets a `"name": "solarized-dark"` starting point
+// to tweak.
+func ExportThemeJSON(t Theme) ([]byte, error) {
+	doc := customThemeDoc{
+		Name:          ThemeModeName(ThemeModeFor(t)),
+		Bg:            hexOf(t.Bg),
+		BgSubtle:      hexOf(t.BgSubtle),
+		Fg:            hexOf(t.Fg),
+		FgMuted:       hexOf(t.FgMuted),
+		FgFaint:       hexOf(t.FgFaint),
+		Primary:       hexOf(t.Primary),
+		Secondary:     hexOf(t.Secondary),
+		Success:       hexOf(t.Success),
+		Warning:       hexOf(t.Warning),
+		Danger:        hexOf(t.Danger),
+		Border:        hexOf(t.Border),
+		BorderFocus:   hexOf(t.BorderFocus),
+		RoleUser:      hexOf(t.RoleUser),
+		RoleAssistant: hexOf(t.RoleAssistant),
+		RoleSystem:    hexOf(t.RoleSystem),
+		RoleTool:      hexOf(t.RoleTool),
+	}
+	return json.MarshalIndent(doc, "", "  ")
+}
+
+// SaveCustomTheme serialises `t` to `path`, creating parent dirs as
+// needed. Wrapper around ExportThemeJSON + os.WriteFile so callers
+// don't duplicate the disk-writing boilerplate.
+func SaveCustomTheme(t Theme, path string) error {
+	data, err := ExportThemeJSON(t)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // CustomThemeDefaultPath resolves the conventional path for the
 // custom-theme file — same lookup order as config.Load. Returns the
 // path even when the file doesn't exist so callers can Stat it.

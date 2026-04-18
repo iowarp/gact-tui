@@ -168,7 +168,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase Q — polish round four
 
-- [ ] **Q1.** README refresh — theme gallery (link to screenshots 54-63), custom-theme-file section, updated keymap table.
+- [x] **Q1.** README refreshed — theme gallery (Dracula + solarized-light + picker + tokyo-night), custom-theme schema, Phase-M/N/O keymap additions, updated TUI implementation summary.
 - [ ] **Q2.** `Ctrl+Alt+T` cycles themes without opening Settings — single-key bag-shift for quick experimentation.
 - [ ] **Q3.** Palette shows the current value beside settings-style commands (`/theme · current: dracula`).
 - [ ] **Q4.** `/theme-export` writes the active palette to `~/.config/gact/theme.json` so users can start from a known-good palette + tweak.
