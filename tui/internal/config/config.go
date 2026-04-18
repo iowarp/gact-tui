@@ -23,9 +23,24 @@ import (
 // "absent from file" from "explicitly set to zero" — important for
 // layering with env vars and flags.
 type Config struct {
-	BackendURL   *string `json:"backend_url,omitempty"`
-	Theme        *string `json:"theme,omitempty"`         // "dark" | "light"
-	VoiceCommand *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
+	BackendURL        *string `json:"backend_url,omitempty"`
+	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
+	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
+	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
+}
+
+// Save writes cfg to path, creating parent directories as needed.
+// Uses JSON with a two-space indent so humans can diff/edit by hand.
+// Caller is responsible for choosing the path (usually DefaultPath()).
+func Save(cfg Config, path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
 }
 
 // Load reads the config file from the first path that exists. Returns

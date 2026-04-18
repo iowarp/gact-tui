@@ -55,6 +55,11 @@ type App struct {
 	// Wired by main.go; tests can leave it nil and Ctrl+L becomes a no-op.
 	ReloadConfig func() (string, error)
 
+	// SaveConfig persists the current Settings > TUI preferences (N5)
+	// to the config file. Wired by main.go; tests leave it nil and
+	// the stepper just updates in-memory state.
+	SaveConfig func() error
+
 	// transientHint is a short banner shown above the input for ~3s
 	// (cleared by the next key press). Used for non-fatal feedback like
 	// config-reload outcomes that don't deserve the full error stage.

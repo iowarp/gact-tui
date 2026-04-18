@@ -100,6 +100,23 @@ func runTUI() {
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
 	app.VoiceCommand = finalVoice
+	// N5: restore the persisted collapse threshold. If the file
+	// didn't have it, Theme.applyStyles already picked the 5-line
+	// default in NewWithTheme above.
+	if cfg.CollapseThreshold != nil && *cfg.CollapseThreshold > 0 {
+		app.Theme.CollapseThreshold = *cfg.CollapseThreshold
+	}
+	// Wire the save hook so Settings > TUI ◀/▶ adjustments flush to
+	// disk on every change. The hook captures the resolved config
+	// path so writes always land at the canonical location even when
+	// only GACT_CONFIG is set.
+	persistPath, _ := config.DefaultPath()
+	app.SaveConfig = func() error {
+		cur, _, _ := config.Load() // preserve fields we don't touch
+		ct := app.Theme.CollapseThreshold
+		cur.CollapseThreshold = &ct
+		return config.Save(cur, persistPath)
+	}
 	// Hot-reload: Ctrl+L re-reads the on-disk config and reapplies
 	// runtime-tweakable fields (theme, voice command). Backend changes
 	// require a restart — flagged in the toast so the user knows.
