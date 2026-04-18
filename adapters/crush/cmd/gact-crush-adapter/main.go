@@ -19,7 +19,8 @@ import (
 
 func main() {
 	upstream := flag.String("upstream", "http://localhost:8080",
-		"Crush HTTP base URL (use a TCP listener — Unix-socket support is a follow-up)")
+		"Crush HTTP base URL. Accepts http://host:port, https://…, or "+
+			"unix:///path/to/socket (matching Crush's production default).")
 	defaultWs := flag.String("default-workspace", "",
 		"workspace ID to use when GACT requests omit one (single-workspace deployments)")
 	port := flag.Int("port", 7779, "TCP port to listen on for GACT clients")

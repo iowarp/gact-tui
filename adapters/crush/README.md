@@ -13,11 +13,15 @@ upstream so the TUI can drive Crush without changes.
 cd adapters/crush/cmd/gact-crush-adapter
 go build -o gact-crush-adapter .
 
-# Crush listens on a Unix socket by default. For v0.1 the adapter speaks
-# TCP only — use `crush serve --listen tcp://127.0.0.1:8080` (or an
-# equivalent flag) to expose Crush over TCP.
+# TCP upstream:
 ./gact-crush-adapter \
   --upstream http://127.0.0.1:8080 \
+  --default-workspace ws_default \
+  --port 7779
+
+# Unix-socket upstream (Crush's production default):
+./gact-crush-adapter \
+  --upstream unix:///run/crush/crush.sock \
   --default-workspace ws_default \
   --port 7779
 
@@ -66,6 +70,11 @@ Everything else returns 501.
   `?workspace_id=`. Pass `--default-workspace` so single-workspace
   deployments don't need to thread the ID on every request.
 - Crush timestamps are Unix seconds (not ms — that's OpenCode).
+- `--upstream` accepts `http://host:port`, `https://…`, and
+  `unix:///path/to/sock`. The Unix form uses a custom `http.Transport`
+  whose `DialContext` dials the socket directly; the base URL
+  internally becomes `http://unix` but the Transport intercepts the
+  dial before the URL's host matters.
 - Crush's `yolo`/`debug` workspace flags are surfaced as
   `metadata.x_crush_*` per SPEC §8.2.
 - Crush's `prompt_tokens`/`completion_tokens` map to GACT's
@@ -79,7 +88,6 @@ Everything else returns 501.
 |---|---|---|
 | permissions | `/v1/workspaces/{id}/permissions/grant` etc. | Crush has rich permission flow. |
 | LSP / MCP | `/v1/workspaces/{id}/lsps`, `/mcp/states` | First-party in Crush. |
-| Unix socket transport | n/a | TCP only in v0.1. |
 
 ## Tests
 

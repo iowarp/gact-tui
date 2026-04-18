@@ -25,7 +25,14 @@ import (
 // workspace too — v0.1 falls back to scanning the configured upstream
 // workspace; multi-workspace support is a follow-up.
 type Server struct {
-	upstream    string // e.g. http://localhost:8080
+	// upstream is the base URL to prefix on every proxied request —
+	// "http://localhost:8080" for TCP, "http://unix" for Unix sockets
+	// (the real path lives in the Transport's DialContext, not the URL).
+	upstream string
+	// rawUpstream keeps the original --upstream value so the SSE proxy
+	// can reconstruct a matching Transport with Timeout=0 rather than
+	// reusing the RPC client.
+	rawUpstream string
 	defaultWsID string // workspace ID used when GACT request omits one
 	client      *http.Client
 	mux         *http.ServeMux
@@ -35,11 +42,20 @@ type Server struct {
 // New constructs the adapter. defaultWsID is used to disambiguate single-
 // session lookups when GACT's flat URL doesn't carry the workspace.
 func New(upstream, defaultWsID string, httpClient *http.Client) *Server {
+	// When the caller passes nil, pick a client whose Transport
+	// matches the upstream scheme (TCP or Unix socket). ResolveUpstream
+	// also normalises the baseURL — Unix upstreams become "http://unix"
+	// since the Transport intercepts dials before the URL's host is
+	// used for network purposes.
+	var baseURL string
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 10 * time.Second}
+		baseURL, httpClient = ResolveUpstream(upstream, 10*time.Second)
+	} else {
+		baseURL = trimSlash(upstream)
 	}
 	s := &Server{
-		upstream:    trimSlash(upstream),
+		upstream:    baseURL,
+		rawUpstream: upstream,
 		defaultWsID: defaultWsID,
 		client:      httpClient,
 		mux:         http.NewServeMux(),
