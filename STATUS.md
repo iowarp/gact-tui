@@ -16,6 +16,12 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase V — operator tools
+- **V1.** `gact export --all -o DIR` bulk-exports every session as
+  one JSON per session. CLI-level end-to-end test.
+- **V2.** Header SSE health dot (green/amber/red) surfaces stream
+  state at a glance. Screenshot 65.
+
 ### Phase T — terminal integration
 - **T1.** OSC 2 window title reflects active session
   (`GACT — <title>`).

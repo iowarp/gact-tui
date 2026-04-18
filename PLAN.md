@@ -174,7 +174,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 ## Phase V — operator tools
 
 - [x] **V1.** `gact export --all -o DIR [--workspace WS_ID]` bulk-exports sessions to one JSON file per session. Tolerates per-session failures; summary to stderr; exit 1 if any failed. Full CLI test against a real emulator binary.
-- [ ] **V2.** Header shows a small SSE health dot — green when the stream is live, amber during backoff, red when the initial connect is still pending. Currently only the `(reconnecting…)` footer text surfaces backoff state.
+- [x] **V2.** `sseHealthDot()` in the header — green/amber/red glyph keyed to the SSE stage. Users glance-verify the stream without scanning the footer.
 - [ ] **V3.** Message search hits highlighted in the conversation pane when palette `?query` results are displayed — currently the palette finds them but the jump lands on the message without underlining the match.
 
 ## Phase T — terminal integration
