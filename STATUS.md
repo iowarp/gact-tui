@@ -228,4 +228,4 @@ cd ../tui   && go build -o ./gact .
 | 42 | 2026-04-18T14:50 | J1 — workspace switcher modal (Ctrl+W) + ANSI-truncate bug fix + screenshot | dbafeb5 |
 | 43 | 2026-04-18T15:05 | J2 — SSE exponential backoff (250ms→30s + ±25% jitter + reset on event) | 9b1a5ec |
 | 44 | 2026-04-18T15:20 | J3 — auto-retry connect + Ctrl+R instant retry from StageError | 3e717b0 |
-| 45 | 2026-04-18T15:40 | J4 — SSE Last-Event-ID resume (track highest SeqID; reset on selectSession) | (this) |
+| 45 | 2026-04-18T15:40 | J4 — SSE Last-Event-ID resume (track highest SeqID; reset on selectSession) | ee3c246 |
