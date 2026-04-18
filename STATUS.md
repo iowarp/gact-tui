@@ -6,12 +6,18 @@
 
 ## TL;DR for morning-you
 
-- **It works end-to-end.** `cd emulator && go build ./cmd/emulator-server && cd ../tui && go build .`
-  Then `./emulator/emulator-server &` and `GACT_BACKEND=http://localhost:7777 ./tui/gact`.
-- **9 screenshots in `screenshots/`** show every visible state working: empty, mid-stream, completed, permission banner, help overlay, slash palette + filter, after-allow.
+- **It works end-to-end.**
+  ```
+  cd emulator && go build -o ./emulator-server ./cmd/emulator-server
+  cd ../tui   && go build -o ./gact .
+  ./emulator/emulator-server --timing realistic &
+  ./tui/gact
+  ```
+- **14 screenshots in `screenshots/`** show every state working: empty, sessions list, streaming, completed, permission banner, help, palette, palette filtered, permission allowed, in-TUI new-session flow, **markdown rendering** (13-), **textarea input** (14-).
 - **Emulator: 21/21 Phase A endpoints**, race-clean, ≥75% coverage where it matters.
-- **TUI: 12/12 Phase C tasks** including extras (slash palette, help overlay, permission action keys, cancel-run).
+- **TUI: 12/12 Phase C tasks + Phase E polish** — palette, help overlay, permission action keys (a/d/s/w), cancel-run, sidebar new/delete (n/x), auto-reconnect on emulator restart, glamour markdown rendering, bubbles/textarea input.
 - **Top-level README** has the quickstart + screenshot gallery + status table.
+- 16 commits on main, all green.
 
 ## Done so far (chronological)
 
@@ -95,6 +101,20 @@
 - 3 new screenshots (10-empty, 11-after-new, 12-streamed) verify the
   in-TUI new-session flow end-to-end.
 
+### Iteration 11 — glamour markdown
+- Assistant text parts go through glamour TermRenderer (cached per width).
+  Bold, inline code (pink highlight), bullet lists all render properly.
+- Scenario's final assistant message enriched with markdown so the
+  rendering shows off in 13-markdown.png.
+
+### Iteration 12 — bubbles/textarea + footer cleanup
+- Replaced custom inputBuf with charm.land/bubbles/v2/textarea.
+  Multi-line via Shift+Enter, paste, arrows, etc. all work properly.
+- Removed cursorOn/blinkCmd — textarea has its own cursor.
+- Removed second-precision UTC clock from footer — was forcing
+  unnecessary re-renders.
+- 14-textarea.png shows the cleaner input pane.
+
 ## In progress
 - Phase D — golden tests for TUI states.
 
@@ -156,3 +176,5 @@ cd ../tui   && go build -o ./gact .
 | 8 | 2026-04-18T05:50 | top-level README | f9566bf |
 | 9 | 2026-04-18T05:53 | Phase D goldens (9 states) | ae2ca54 |
 | 10 | 2026-04-18T05:55 | Phase E polish + reconnect + new-session | 8a1b80f |
+| 11 | 2026-04-18T05:58 | glamour markdown for assistant text | a787b1a |
+| 12 | 2026-04-18T06:01 | bubbles/textarea + footer cleanup | 8609e67 |
