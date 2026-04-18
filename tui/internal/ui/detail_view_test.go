@@ -97,6 +97,30 @@ func TestRenderPart_ToolResultCollapsesLongOutput(t *testing.T) {
 	}
 }
 
+// TestFindLatestBulkyPart_TargetsLongText covers S2: long assistant
+// text should now qualify as bulky so Ctrl+E can open it.
+func TestFindLatestBulkyPart_TargetsLongText(t *testing.T) {
+	var longText strings.Builder
+	for i := 0; i < 50; i++ {
+		if i > 0 {
+			longText.WriteString("\n")
+		}
+		longText.WriteString("paragraph line ")
+		longText.WriteString(string(rune('a' + i%26)))
+	}
+	msgs := []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: longText.String(), ID: "p1"}}},
+	}
+	got, ok := findLatestBulkyPart(msgs)
+	if !ok {
+		t.Fatalf("long text should be bulky")
+	}
+	if !strings.Contains(got.title, "text") {
+		t.Errorf("title = %q, want mention of 'text'", got.title)
+	}
+}
+
 func TestFindLatestBulkyPart_PicksNewestBulky(t *testing.T) {
 	// Three tool_result parts, only the last two are bulky. Should pick
 	// the last (most recent) one.

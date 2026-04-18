@@ -66,11 +66,15 @@ func (a *App) detailPageSize() int {
 }
 
 // findLatestBulkyPart walks a.messages in reverse order and returns
-// a bulkyPartRef for the newest tool_result whose flattened text
+// a bulkyPartRef for the newest tool_result OR text part whose body
 // exceeds the inline preview budget. Used by Ctrl+E to decide what
 // to expand; picking "the most recent bulky one" is the same cheap
 // heuristic K10's clipboard copy uses, and matches the user's
 // mental model that Ctrl+E expands "what I just saw previewed".
+//
+// S2 extension: long assistant text (e.g. the ~60-line "long
+// explain" scenario) now qualifies as bulky too so users can open
+// it in the paginated detail view instead of scrolling.
 //
 // Returns (nil, false) when there's no bulky part to expand; the
 // caller surfaces a "nothing to expand" toast in that case.
@@ -78,19 +82,29 @@ func findLatestBulkyPart(msgs []gact.Message) (bulkyPartRef, bool) {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		m := msgs[i]
 		for _, p := range m.Parts {
-			if p.Type != gact.PartTypeToolResult {
-				continue
+			switch p.Type {
+			case gact.PartTypeToolResult:
+				text := flattenToolResult(p)
+				if lineCount(text) <= toolResultPreviewLines {
+					continue
+				}
+				return bulkyPartRef{
+					messageID: m.ID,
+					partID:    p.ID,
+					title:     fmt.Sprintf("tool_result · %d lines", lineCount(text)),
+					fullText:  text,
+				}, true
+			case gact.PartTypeText:
+				if lineCount(p.Text) <= toolResultPreviewLines {
+					continue
+				}
+				return bulkyPartRef{
+					messageID: m.ID,
+					partID:    p.ID,
+					title:     fmt.Sprintf("%s text · %d lines", strings.ToLower(m.Role), lineCount(p.Text)),
+					fullText:  p.Text,
+				}, true
 			}
-			text := flattenToolResult(p)
-			if lineCount(text) <= toolResultPreviewLines {
-				continue
-			}
-			return bulkyPartRef{
-				messageID: m.ID,
-				partID:    p.ID,
-				title:     fmt.Sprintf("tool_result · %d lines", lineCount(text)),
-				fullText:  text,
-			}, true
 		}
 	}
 	return bulkyPartRef{}, false
