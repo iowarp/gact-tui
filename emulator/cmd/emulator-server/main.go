@@ -2,7 +2,7 @@
 //
 // Usage:
 //
-//	emulator-server [--port 7777] [--scenario default]
+//	emulator-server [--port 7777] [--scenario default] [--seed-workspace true]
 package main
 
 import (
@@ -17,16 +17,38 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/server"
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+const (
+	seedWorkspaceID   = "ws_default"
+	seedWorkspaceName = "default"
+	seedWorkspaceRoot = "/tmp/gact-emulator-workspace"
 )
 
 func main() {
 	var (
-		port     = flag.Int("port", 7777, "TCP port to listen on")
-		scenario = flag.String("scenario", "default", "scenario name to load")
+		port          = flag.Int("port", 7777, "TCP port to listen on")
+		scenario      = flag.String("scenario", "default", "scenario name to load")
+		seedWorkspace = flag.Bool("seed-workspace", true, "create a default workspace at startup")
 	)
 	flag.Parse()
 
-	srv := server.New(server.Config{Scenario: *scenario})
+	st := store.New()
+	if *seedWorkspace {
+		if _, err := st.CreateWorkspace(gact.Workspace{
+			ID:       seedWorkspaceID,
+			Name:     seedWorkspaceName,
+			RootPath: seedWorkspaceRoot,
+			Metadata: map[string]any{"seeded": true},
+		}); err != nil {
+			log.Fatalf("seed workspace: %v", err)
+		}
+		log.Printf("seeded workspace %s at %s", seedWorkspaceID, seedWorkspaceRoot)
+	}
+
+	srv := server.NewWithStore(server.Config{Scenario: *scenario}, st)
 
 	httpServer := &http.Server{
 		Addr:              fmt.Sprintf(":%d", *port),
