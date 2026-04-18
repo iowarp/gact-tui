@@ -147,9 +147,22 @@ func TestE2E_FullScenarioFlow(t *testing.T) {
 		"tool.call.completed":     false,
 		"message.completed":       false,
 	}
-	deadline := time.After(5 * time.Second)
-	completed := false
-	for !completed {
+	deadline := time.After(8 * time.Second)
+	doneEvents := 0
+	// The scenario fires message.completed multiple times (once per
+	// assistant turn — pre-tool and post-result). Wait for ALL the
+	// 'wantSeen' events to appear, not just the first message.completed.
+	for {
+		allSeen := true
+		for _, v := range wantSeen {
+			if !v {
+				allSeen = false
+				break
+			}
+		}
+		if allSeen {
+			break
+		}
 		select {
 		case <-deadline:
 			t.Fatalf("timed out; seen=%+v", wantSeen)
@@ -163,9 +176,10 @@ func TestE2E_FullScenarioFlow(t *testing.T) {
 			wantSeen[ev] = true
 		}
 		if ev == "message.completed" {
-			completed = true
+			doneEvents++
 		}
 	}
+	_ = doneEvents
 	for et, seen := range wantSeen {
 		if !seen {
 			t.Errorf("never saw %q", et)

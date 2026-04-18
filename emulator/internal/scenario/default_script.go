@@ -193,6 +193,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 		}
 	}
 
+	// Charge for the pre-tool-call assistant message now that it's
+	// fully assembled. completeMessage handles cost.updated emission.
+	e.completeMessage(sessionID, asst.ID, gact.StopReasonToolUse)
+
 	// "Tool execution"
 	if err := sleep(ctx, e.cfg.Timing.ToolThink); err != nil {
 		return
