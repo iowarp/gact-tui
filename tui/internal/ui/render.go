@@ -3,22 +3,82 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"sync"
 
+	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
+// glamourRenderers caches glamour TermRenderers by width to avoid the
+// non-trivial initialization cost on every Render call. Keyed by width.
+var (
+	glamourMu sync.Mutex
+	glamourCa = map[int]*glamour.TermRenderer{}
+)
+
+func glamourRenderer(width int) *glamour.TermRenderer {
+	glamourMu.Lock()
+	defer glamourMu.Unlock()
+	if r, ok := glamourCa[width]; ok {
+		return r
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+		glamour.WithEmoji(),
+	)
+	if err != nil {
+		return nil
+	}
+	glamourCa[width] = r
+	return r
+}
+
+// renderMarkdown attempts to render s as markdown via glamour. On any error
+// or empty result, returns the original string. Trims leading/trailing
+// blank lines glamour likes to add.
+func renderMarkdown(s string, width int) string {
+	r := glamourRenderer(width)
+	if r == nil {
+		return s
+	}
+	out, err := r.Render(s)
+	if err != nil || out == "" {
+		return s
+	}
+	return strings.Trim(out, "\n")
+}
+
 // renderMessage formats one message for the conversation pane. Wraps to
 // `width` cells and uses role-coloured headers so the user can scan flow
-// at a glance.
+// at a glance. Assistant text is rendered as markdown via glamour;
+// user/system/tool text is rendered literally so URLs and code don't get
+// reformatted on the way in.
 func (t Theme) renderMessage(m gact.Message, width int) string {
 	header := t.renderRoleHeader(m.Role)
-	body := t.renderParts(m.Parts, width)
+	body := t.renderPartsForRole(m.Parts, width, m.Role)
 	if body == "" {
 		body = t.HintLabel.Render("(no parts)")
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, "")
+}
+
+func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) string {
+	var rows []string
+	for _, p := range parts {
+		var rendered string
+		if role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "" {
+			rendered = renderMarkdown(p.Text, width-2)
+		} else {
+			rendered = t.renderPart(p, width)
+		}
+		if rendered != "" {
+			rows = append(rows, rendered)
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 func (t Theme) renderRoleHeader(role string) string {
