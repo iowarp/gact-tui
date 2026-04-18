@@ -25,6 +25,12 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase GG / HH — session lifecycle CLI
+- **GG1.** `gact new [--title T] [--workspace WS_ID]` prints a fresh
+  session id; pairs with `gact ask` for "create + ask" pipelines.
+- **HH1.** `gact delete <sid>` cleans up scratch sessions.
+- **HH2.** `gact rename <sid> <title>` PATCHes the session title.
+
 ### Phase EE — repo ergonomics
 - **EE1.** Top-level `Makefile` with build/test/run/screenshots/help.
 
