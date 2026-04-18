@@ -253,3 +253,4 @@ cd ../tui   && go build -o ./gact .
 | 67 | 2026-04-18T22:10 | L4 — Claude-Code-style tool_call/result demarcation + screenshot | e57eb09 |
 | 68 | 2026-04-18T22:30 | L4-polish — nest tool_result under assistant call (hide TOOL banner) | d2206a1 |
 | 69 | 2026-04-18T22:50 | L7 — help overlay grouped by pane (fixes discoverability) + screenshot | e01bf92 |
+| 70 | 2026-04-18T23:15 | L3 — bulky tool_result collapse + Ctrl+E floating detail view + 3 screenshots | (this) |

@@ -211,6 +211,11 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// Claude-Code style: output hangs under the tool call with a
 		// leading `⎿` glyph, indented to visually continue the call.
 		// Errors get a red glyph + "(error)" tag on the first line.
+		//
+		// Auto-collapse large outputs. A 200-line log should not blow
+		// up the viewport; it should preview the first few lines and
+		// show a "[N more lines — Ctrl+E to expand]" footer. The user
+		// can open the full content in the floating detail view.
 		glyph := "⎿"
 		glyphStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
 		if p.IsError {
@@ -227,15 +232,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		if p.IsError {
 			bodyStyle = bodyStyle.Foreground(t.Danger)
 		}
-		rendered := bodyStyle.Render(text.String())
+
+		raw := text.String()
+		collapsed, hidden := collapseForPreview(raw, toolResultPreviewLines)
+		rendered := bodyStyle.Render(collapsed)
 		errTag := ""
 		if p.IsError {
 			errTag = lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
 				Render(" (error)")
 		}
-		// Prepend the glyph to the first line; continuation lines get
-		// matching indent so the shape reads as one logical block.
-		return indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, "   ")
+		body := indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, "   ")
+		if hidden > 0 {
+			hint := lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+				Render(fmt.Sprintf("   [%d more lines — Ctrl+E to expand]", hidden))
+			body = body + "\n" + hint
+		}
+		return body
 
 	case gact.PartTypeFileDiff:
 		head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
@@ -416,6 +428,52 @@ func capitalizeToolName(name string) string {
 		parts[i] = strings.ToUpper(w[:1]) + w[1:]
 	}
 	return strings.Join(parts, "")
+}
+
+// toolResultPreviewLines is the inline preview budget for tool_result
+// bodies. Anything longer collapses to this many lines + a "[N more]"
+// footer. 8 lines hits the typical "`tail -N` output fits on one
+// screen" sweet spot without drowning the conversation pane.
+const toolResultPreviewLines = 8
+
+// collapseForPreview returns (visible, hidden) where visible is the
+// first `n` lines of s and hidden is the count of lines not shown
+// (0 when s already fits in n lines). Preserves trailing-newline
+// absence — if s has no trailing \n, the visible prefix doesn't
+// either. Used by tool_result rendering to keep big outputs from
+// blowing up the viewport; the full content is reachable via the
+// Ctrl+E detail view.
+func collapseForPreview(s string, n int) (string, int) {
+	if n <= 0 {
+		return "", lineCount(s)
+	}
+	lines := strings.Split(s, "\n")
+	// Trailing empty line from Split("text\n", "\n") shouldn't count
+	// toward the visible budget — collapse() treats "text\n" as 1
+	// line, not 2.
+	total := len(lines)
+	if total > 0 && lines[total-1] == "" {
+		total--
+	}
+	if total <= n {
+		return s, 0
+	}
+	visible := strings.Join(lines[:n], "\n")
+	return visible, total - n
+}
+
+// lineCount counts content lines in s (no trailing-empty inflation).
+// Used by the detail view to show "{count} lines" without surprising
+// off-by-ones on strings with/without a trailing newline.
+func lineCount(s string) int {
+	if s == "" {
+		return 0
+	}
+	n := strings.Count(s, "\n")
+	if !strings.HasSuffix(s, "\n") {
+		n++
+	}
+	return n
 }
 
 // indentWithGlyph prepends `glyph` to the first line of s and `cont`

@@ -164,6 +164,13 @@ type App struct {
 	contextAddDraft  string
 	contextAddCursor int
 
+	// Floating detail view (L3) — shows a bulky tool_result's full
+	// content in a scrollable modal. Opens on Ctrl+E from body focus
+	// when there's a collapsed tool_result in the loaded messages.
+	detailViewOpen bool
+	detailView     *bulkyPartRef
+	detailScroll   int
+
 	// spinnerFrame drives the running-session animation — advanced by
 	// spinnerTickMsg as long as any session is non-idle. Cheap (single
 	// int, no timers when idle) so it's fine to leave in even when no
@@ -421,7 +428,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
 		// Forward paste events to the textarea when input has focus.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen {
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
 			return a, cmd
@@ -905,7 +912,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	}
-	// Modal layers take precedence: rename/context-add/workspace-switcher/metrics/settings/help/palette → permission keys.
+	// Modal layers take precedence: detail-view/rename/context-add/workspace-switcher/metrics/settings/help/palette → permission keys.
+	if a.detailViewOpen {
+		return a.handleDetailViewKey(k)
+	}
 	if a.renameOpen {
 		return a.handleRenameKey(k)
 	}
@@ -968,6 +978,19 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
+	case "ctrl+e":
+		// Expand the most recent bulky tool_result into the floating
+		// detail view (L3). "Most recent" matches K10/K13's "target
+		// the newest" heuristic — a proper part cursor is a follow-up.
+		ref, ok := findLatestBulkyPart(a.messages)
+		if !ok {
+			a.transientHint = "nothing to expand — no bulky tool outputs loaded"
+			return a, nil
+		}
+		a.detailView = &ref
+		a.detailViewOpen = true
+		a.detailScroll = 0
+		return a, nil
 	case "ctrl+l":
 		// Reload on-disk config without restarting. Hot-applies theme +
 		// voice command; backend changes are flagged but not applied
@@ -1886,6 +1909,9 @@ func (a *App) viewMain() string {
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
 	}
+	if a.detailViewOpen {
+		base = overlay(base, a.viewDetailView(), a.width, a.height)
+	}
 	return base
 }
 
@@ -2496,6 +2522,7 @@ func (a *App) viewHelp() string {
 		key("g / G", "top / bottom"),
 		key("y", "copy last assistant message to clipboard"),
 		key("R", "retry — resend last user message"),
+		key("Ctrl+E", "expand latest bulky tool output in floating detail view"),
 		key("a / r", "apply / reject pending diff"),
 		"",
 
