@@ -196,4 +196,5 @@ cd ../tui   && go build -o ./gact .
 | 10 | 2026-04-18T05:55 | Phase E polish + reconnect + new-session | 8a1b80f |
 | 11 | 2026-04-18T05:58 | glamour markdown for assistant text | a787b1a |
 | 12 | 2026-04-18T06:01 | bubbles/textarea + footer cleanup | 8609e67 |
-| 13 | 2026-04-18T06:08 | C19 subagent flow + sidebar indent | (this) |
+| 13 | 2026-04-18T06:08 | C19 subagent flow + sidebar indent | abd11cf |
+| 14 | 2026-04-18T06:18 | C15 settings modal (model/agent picker) | (this) |

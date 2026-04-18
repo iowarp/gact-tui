@@ -79,6 +79,10 @@ type App struct {
 	// Help overlay
 	helpOpen bool
 
+	// Settings overlay
+	settingsOpen bool
+	settings     *settingsState
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -297,6 +301,40 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.selected = 0
 		return a, a.selectSession(0)
 
+	case settingsLoadedMsg:
+		if a.settings == nil {
+			a.settings = &settingsState{}
+		}
+		a.settings.modelList = m.models
+		a.settings.agentList = m.agents
+		// Pre-select current model/agent if present.
+		if a.selected >= 0 && a.selected < len(a.sessions) {
+			cur := a.sessions[a.selected]
+			for i, e := range m.models {
+				if e.provider == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
+					a.settings.modelSel = i
+					break
+				}
+			}
+			for i, ag := range m.agents {
+				if ag.ID == cur.Agent.ID {
+					a.settings.agentSel = i
+					break
+				}
+			}
+		}
+		return a, nil
+
+	case sessionUpdatedMsg:
+		// Apply the patched session into the local sessions slice.
+		for i, s := range a.sessions {
+			if s.ID == m.session.ID {
+				a.sessions[i] = m.session
+				break
+			}
+		}
+		return a, nil
+
 	case sessionsRefreshedMsg:
 		// Preserve the current session ID across the refresh so the user
 		// doesn't get yanked to a different session when sidebar reloads
@@ -331,7 +369,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const reconnectDelay = 750 * time.Millisecond
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// Modal layers take precedence: help overlay → palette → permission keys.
+	// Modal layers take precedence: settings/help/palette → permission keys.
+	if a.settingsOpen {
+		return a.handleSettingsKey(k)
+	}
 	if a.helpOpen {
 		switch k.String() {
 		case "?", "esc", "ctrl+c":
@@ -379,6 +420,11 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
+	case "ctrl+s":
+		// Open Settings.
+		a.settingsOpen = true
+		a.settings = &settingsState{}
+		return a, loadSettingsCmd(a.c)
 	}
 	switch a.focus {
 	case FocusSidebar:
@@ -865,6 +911,9 @@ func (a *App) viewMain() string {
 	if a.helpOpen {
 		base = overlay(base, a.viewHelp(), a.width, a.height)
 	}
+	if a.settingsOpen {
+		base = overlay(base, a.viewSettings(), a.width, a.height)
+	}
 	return base
 }
 
@@ -1167,6 +1216,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
 		t.HintKey.Render("Ctrl+n") + "    new session",
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
+		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
 		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
 		t.HintKey.Render("Ctrl+c") + "    quit",
 		"",

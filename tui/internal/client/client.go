@@ -350,6 +350,24 @@ func (c *Client) RunCommand(ctx context.Context, sessionID, cmdID string) error 
 		"/v1/sessions/"+sessionID+"/commands/"+escaped, nil, nil)
 }
 
+// PatchSessionRequest mirrors server.UpdateSessionRequest fields the TUI
+// needs (avoids importing server internals into the client).
+type PatchSessionRequest struct {
+	Title    *string         `json:"title,omitempty"`
+	Archived *bool           `json:"archived,omitempty"`
+	Agent    *gact.AgentRef  `json:"agent,omitempty"`
+	Model    *gact.ModelRef  `json:"model,omitempty"`
+	Status   *string         `json:"status,omitempty"`
+	Metadata map[string]any  `json:"metadata,omitempty"`
+}
+
+// PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
+func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
+	var out gact.Session
+	err := c.do(ctx, http.MethodPatch, "/v1/sessions/"+id, req, &out)
+	return out, err
+}
+
 // --- §6.16 metrics ---------------------------------------------------------
 
 func (c *Client) Metrics(ctx context.Context) (gact.Metrics, error) {
