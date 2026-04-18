@@ -302,7 +302,14 @@ func (a *App) viewSettings() string {
 				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
 			}
-			line := marker + titleStyle.Render(ThemeModeName(mode)) + "  " +
+			// ModeCustom surfaces the user's chosen name (from
+			// theme.json `name` field) in the list; fallback to
+			// "custom" via customThemeDisplayName when unset.
+			label := ThemeModeName(mode)
+			if mode == ModeCustom {
+				label = customThemeDisplayName
+			}
+			line := marker + titleStyle.Render(label) + "  " +
 				lipgloss.NewStyle().Foreground(t.FgMuted).Render(themeDescription(mode))
 			rows = append(rows, truncate(line, w-2))
 		}
@@ -417,6 +424,8 @@ func themeDescription(m ThemeMode) string {
 		return "arctic blue + aurora accents"
 	case ModeTokyoNight:
 		return "navy + neon — cyberpunk glow"
+	case ModeCustom:
+		return "loaded from ~/.config/gact/theme.json"
 	}
 	return ""
 }

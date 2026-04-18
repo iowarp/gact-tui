@@ -83,11 +83,16 @@ const (
 	// ModeTokyoNight is deep-navy on near-black with neon accents —
 	// popular in the VS Code / Vim ecosystem.
 	ModeTokyoNight
+	// ModeCustom points to whatever palette was loaded from
+	// ~/.config/gact/theme.json at startup. Only surfaces in the
+	// Theme picker when IsCustomThemeAvailable() is true.
+	ModeCustom
 )
 
-// AllThemeModes is the canonical ordering used by Settings > Theme for
-// cycling. Append-only so user muscle memory around indexes stays
-// stable.
+// AllThemeModes is the pickable list rendered by Settings > Theme.
+// Built-in ordering is append-only for muscle memory; ModeCustom is
+// appended at runtime by registerCustomTheme when a custom palette
+// loads successfully.
 var AllThemeModes = []ThemeMode{
 	ModeDark,
 	ModeLight,
@@ -96,6 +101,17 @@ var AllThemeModes = []ThemeMode{
 	ModeSolarizedLight,
 	ModeNord,
 	ModeTokyoNight,
+}
+
+// registerCustomTheme appends ModeCustom to AllThemeModes. Idempotent
+// so LoadCustomTheme can call it unconditionally.
+func registerCustomTheme() {
+	for _, m := range AllThemeModes {
+		if m == ModeCustom {
+			return
+		}
+	}
+	AllThemeModes = append(AllThemeModes, ModeCustom)
 }
 
 // ThemeModeName returns the string identifier used in config.json /
@@ -114,6 +130,8 @@ func ThemeModeName(m ThemeMode) string {
 		return "nord"
 	case ModeTokyoNight:
 		return "tokyo-night"
+	case ModeCustom:
+		return "custom"
 	}
 	return "dark"
 }
@@ -345,6 +363,8 @@ func ThemeForMode(m ThemeMode) Theme {
 		return NordTheme()
 	case ModeTokyoNight:
 		return TokyoNightTheme()
+	case ModeCustom:
+		return customTheme()
 	}
 	return DefaultTheme()
 }
@@ -354,8 +374,21 @@ func ThemeForMode(m ThemeMode) Theme {
 // the currently-active theme back to disk — we don't track the mode
 // on the Theme struct itself so this round-trip goes via colour
 // identity. Unknown Bg → ModeDark (safest fallback).
+//
+// Custom themes are checked first so a user-loaded palette that
+// happens to match a built-in by coincidence still round-trips as
+// ModeCustom (the user's file wins over the shipped palette).
 func ThemeModeFor(t Theme) ThemeMode {
+	if IsCustomThemeAvailable() {
+		custom := customTheme()
+		if sameColor(custom.Bg, t.Bg) && sameColor(custom.Fg, t.Fg) {
+			return ModeCustom
+		}
+	}
 	for _, m := range AllThemeModes {
+		if m == ModeCustom {
+			continue // already handled above
+		}
 		candidate := ThemeForMode(m)
 		if sameColor(candidate.Bg, t.Bg) && sameColor(candidate.Fg, t.Fg) {
 			return m
@@ -390,6 +423,8 @@ func ParseThemeMode(s string) ThemeMode {
 		return ModeNord
 	case "tokyo-night":
 		return ModeTokyoNight
+	case "custom":
+		return ModeCustom
 	default:
 		return ModeDark
 	}
