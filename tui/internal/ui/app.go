@@ -1292,9 +1292,17 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// frozen between "Enter" and the SSE round-trip.
 			switch cmd.ID {
 			case "/clear":
+				n := len(a.messages)
 				a.messages = nil
 				a.scrollOffset = 0
 				a.stickyToBottom = true
+				if n > 0 {
+					a.transientHint = fmt.Sprintf("cleared %d messages", n)
+				} else {
+					a.transientHint = "session already empty"
+				}
+			case "/cancel":
+				a.transientHint = "cancelling run…"
 			}
 			return a, runCommandCmd(a.c, a.currentSessionID(), cmd.ID)
 		}
