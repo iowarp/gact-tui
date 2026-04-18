@@ -222,3 +222,4 @@ cd ../tui   && go build -o ./gact .
 | 36 | 2026-04-18T12:35 | H2 — Crush adapter SSE proxy + per-session filter + event translation | db502c9 |
 | 37 | 2026-04-18T12:55 | H3 — Crush adapter POST messages (parts → flat prompt + attachments) | 3ade8d4 |
 | 38 | 2026-04-18T13:15 | I1 — GitHub Actions CI (test/vet/build matrix) + vet-found bug fixes | 866df27 |
+| 39 | 2026-04-18T13:35 | fix: real race in scenario tests (event-payload vs store query); CI green | 3540251 |
