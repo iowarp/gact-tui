@@ -16,6 +16,10 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase W — session utilities
+- **W1.** `/duplicate` clones current session's title/model/agent to
+  a fresh session.
+
 ### Phase V — operator tools
 - **V1.** `gact export --all -o DIR` bulk-exports every session as
   one JSON per session. CLI-level end-to-end test.
