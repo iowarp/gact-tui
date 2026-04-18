@@ -27,6 +27,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui"
@@ -52,6 +53,8 @@ func main() {
 			os.Exit(runTail(os.Args[2:]))
 		case "ping":
 			os.Exit(runPing(os.Args[2:]))
+		case "send":
+			os.Exit(runSend(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -215,6 +218,7 @@ Usage:
   gact export --all -o DIR   bulk-export every session as JSON files
   gact tail [SID]            stream SSE events as JSON lines
   gact ping                  probe /v1/health (exit 0 if healthy)
+  gact send <sid> <text|->   post a user message to a session
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -330,6 +334,55 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runSend posts a single user text message to a session from the
+// shell. Accepts `-` as the text to read from stdin so pipes work:
+//
+//	echo "please read main.go" | gact send SID -
+//	gact send SID "what does this project do?"
+//
+// Exits 0 on 202 Accepted; prints the returned message_id to stdout.
+func runSend(args []string) int {
+	fs := flag.NewFlagSet("send", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact send <session_id> <text|-> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	text := fs.Arg(1)
+	if text == "-" {
+		buf, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact send: read stdin: %v\n", err)
+			return 1
+		}
+		text = strings.TrimRight(string(buf), "\n")
+	}
+	if text == "" {
+		fmt.Fprintln(os.Stderr, "gact send: empty text")
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := c.PostMessage(ctx, sid, client.PostMessageRequest{
+		Parts: []gact.Part{{Type: gact.PartTypeText, Text: text}},
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact send: %v\n", err)
+		return 1
+	}
+	fmt.Println(resp.MessageID)
+	return 0
+}
+
 // runTail streams SSE events for a session (or workspace) to stdout
 // as newline-delimited JSON. Each line contains {"type", "seq",
 // "payload"}. Exits when the connection closes or Ctrl+C fires.
@@ -616,6 +669,14 @@ func reorderFlagsFirst(args []string, known map[string]bool) []string {
 	i := 0
 	for i < len(args) {
 		a := args[i]
+		// Lone "-" is a positional convention (stdin sentinel) —
+		// keep it out of the flags bucket. Without this, runSend's
+		// `gact send SID -` interprets the `-` as an unknown flag.
+		if a == "-" {
+			positional = append(positional, a)
+			i++
+			continue
+		}
 		if strings.HasPrefix(a, "-") {
 			// Token already includes its value? (e.g. -o=foo)
 			if strings.Contains(a, "=") {

@@ -197,6 +197,40 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Send covers AA1: `gact send` posts a user message and
+// prints the returned message_id. Also covers the stdin-via-`-`
+// path for pipe use.
+func TestCLI_Send(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "send-target")
+
+	// Positional text argument.
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"send", sid, "hello from the shell")
+	if code != 0 {
+		t.Fatalf("send: exit %d, stderr=%q", code, stderr)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(stdout), "msg_") {
+		t.Errorf("expected msg_* on stdout, got %q", stdout)
+	}
+
+	// Stdin sentinel.
+	cmd := exec.Command(bin, "send", "--backend", url, sid, "-")
+	cmd.Env = append(os.Environ(), "GACT_BACKEND="+url)
+	cmd.Stdin = strings.NewReader("pipe input\n")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("stdin send: %v", err)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(out.String()), "msg_") {
+		t.Errorf("stdin send stdout = %q", out.String())
+	}
+}
+
 // TestCLI_Tail covers X1: tail emits at least the `server.connected`
 // event as a JSON line when the emulator is up. Test runs with a
 // short timeout + kills the tail process since the stream is
