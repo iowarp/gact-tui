@@ -612,9 +612,16 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		// Default model + agent so the user can send a message immediately
+		// without first opening Settings. The defaults match the emulator's
+		// best-tier capabilities (Anthropic Claude Opus 4.7) — adapters
+		// for other backends should fall through gracefully if they don't
+		// know this model and either map it or surface an error.
 		s, err := c.CreateSession(ctx, client.CreateSessionRequest{
 			WorkspaceID: wsID,
 			Title:       "new session " + time.Now().UTC().Format("15:04:05"),
+			Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Agent:       &gact.AgentRef{ID: "default"},
 		})
 		if err != nil {
 			return errMsg{err: err, stage: "create-session"}
