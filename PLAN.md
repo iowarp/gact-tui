@@ -78,7 +78,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 ## Phase F — Stretch (only if Phase A–E complete)
 
 - [ ] **F1.** Real backend adapter for Crush (or OpenCode, whichever is easier).
-- [ ] **F2.** Configuration file (`~/.config/gact/config.toml`) for backend URL, theme, default model.
+- [x] **F2.** Configuration file — JSON at `$XDG_CONFIG_HOME/gact/config.json` (or `~/.config/gact/`); resolution precedence file < env < flag < fallback. Decided JSON over TOML to keep TUI dep-free.
 - [ ] **F3.** Session export/import via `gact export <session_id>` / `gact import <file>` CLI subcommands.
 - [ ] **F4.** Voice input wiring (call backend `/voice/transcribe`).
 - [x] **F5.** Markdown rendering in messages via glamour — implemented for assistant text (iteration 11).
