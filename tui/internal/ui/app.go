@@ -1194,6 +1194,11 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.metricsOpen = true
 		a.metrics = &metricsState{loading: true}
 		return a, loadMetricsCmd(a.c)
+	case "ctrl+alt+t", "alt+ctrl+t":
+		// Q2: cycle to the next theme without opening Settings.
+		// Kitty-protocol-only binding — non-Kitty users get the
+		// /theme-next slash command as a fallback.
+		return a, a.cycleThemeCmd(+1)
 	case "ctrl+w":
 		// Open Workspace switcher. Reuses the already-loaded workspace
 		// list — connectCmd populates a.workspaces at startup and
@@ -1311,6 +1316,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.settingsOpen = true
 				a.settings = &settingsState{tab: 1}
 				return a, loadSettingsCmd(a.c)
+			}
+
+			// /theme-next and /theme-prev cycle the palette without
+			// opening Settings. Universal alternative to
+			// Ctrl+Alt+T which requires the Kitty keyboard protocol.
+			if cmd.ID == "/theme-next" {
+				return a, a.cycleThemeCmd(+1)
+			}
+			if cmd.ID == "/theme-prev" {
+				return a, a.cycleThemeCmd(-1)
 			}
 
 			// /metrics opens the metrics modal inline — same modal
@@ -1485,6 +1500,40 @@ func (a *App) jumpToMessage(messageID string) {
 	}
 	a.scrollOffset = 0
 	a.stickyToBottom = true
+}
+
+// cycleThemeCmd advances the active theme by `step` positions through
+// AllThemeModes, wrapping at the ends. Preserves CollapseThreshold +
+// cost thresholds across the swap, fires SaveConfig so the new theme
+// sticks across restart, and returns a tea.Cmd that schedules a
+// transient hint to auto-clear. Same plumbing Settings > Theme uses on
+// Enter; the key difference is this path skips the modal.
+func (a *App) cycleThemeCmd(step int) tea.Cmd {
+	if len(AllThemeModes) == 0 {
+		return nil
+	}
+	cur := ThemeModeFor(a.Theme)
+	idx := 0
+	for i, m := range AllThemeModes {
+		if m == cur {
+			idx = i
+			break
+		}
+	}
+	idx = (idx + step + len(AllThemeModes)) % len(AllThemeModes)
+	next := AllThemeModes[idx]
+
+	prevCT := a.Theme.CollapseThreshold
+	prevW := a.Theme.CostWarnTokens
+	prevD := a.Theme.CostDangerTokens
+	a.Theme = ThemeForMode(next)
+	a.Theme.CollapseThreshold = prevCT
+	a.Theme.CostWarnTokens = prevW
+	a.Theme.CostDangerTokens = prevD
+	a.Theme.applyStyles()
+	a.transientHint = "theme: " + ThemeModeName(next)
+	a.persistPrefs()
+	return scheduleHintExpire(a.transientHint)
 }
 
 // paletteCurrentValue returns a short summary of the current state
@@ -3140,6 +3189,7 @@ var helpTabs = []struct {
 			{"Ctrl+W", "switch workspace"},
 			{"Ctrl+S", "settings (model / agent / theme / TUI)"},
 			{"Ctrl+T", "backend metrics"},
+			{"Ctrl+Alt+T", "cycle colour theme (Kitty-only; else /theme-next)"},
 			{"Ctrl+R", "refresh / reconnect"},
 			{"Ctrl+L", "reload config from disk"},
 			{"Ctrl+X", "cancel running scenario"},
@@ -3211,6 +3261,8 @@ var helpTabs = []struct {
 			{"/theme", "open Theme picker (dark/light/dracula/…) "},
 			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
 			{"/metrics", "open metrics modal (same as Ctrl+T)"},
+			{"/theme-next", "cycle to next theme (Ctrl+Alt+T on Kitty)"},
+			{"/theme-prev", "cycle to previous theme"},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},
