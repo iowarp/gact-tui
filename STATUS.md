@@ -1,8 +1,25 @@
 # STATUS
 
-**Last updated:** 2026-04-18T18:55Z
-**Current phase:** Phase M complete — all second-round feedback shipped + a round of follow-up polish
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3302ddf` and pushed
+**Last updated:** 2026-04-18T19:35Z
+**Current phase:** Phase N (draft/delete/undo/config polish) + Phase O (themes) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `13ffecc` and pushed
+
+## This loop (Phases N + O)
+
+### Phase N — second-round feedback follow-ups
+- **N1.** Per-session input draft preservation (`swapInputDraftFor`).
+- **N2.** Two-step /clear confirmation (pendingClearSessionID + toast).
+- **N3.** `d` deletes last message (optimistic, target-latest pattern).
+- **N4.** `/sessions` focuses sidebar + arms title filter.
+- **N5.** Persisted collapse threshold via `config.json`
+  (`Config.CollapseThreshold *int`, `config.Save`, `App.SaveConfig`).
+- **N6.** Conformance suite gained Commands / Tools / Metrics sections
+  with matching Skip flags.
+
+### Phase O — themes (#8)
+- **O1.** Dracula, Solarized (Dark + Light), Nord, Tokyo Night + fixed
+  light (Gruvbox cream). Live preview on ↑/↓, persists via config.json,
+  screenshots 54-59.
 
 ## This loop
 
