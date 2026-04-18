@@ -1,8 +1,30 @@
 # STATUS
 
-**Last updated:** 2026-04-18T05:50Z
-**Current phase:** Phase D (TUI tests / golden snapshots)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f9566bf` and ahead
+**Last updated:** 2026-04-18T18:40Z
+**Current phase:** Phase M complete — all second-round feedback shipped
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `79d88aa` and pushed
+
+## This loop (Phase M, issues #1-#7 + bug cluster)
+
+All filed as GitHub issues (#1-#7), all closed via `closes #N` in commit
+messages. Seven feature/polish items + four load-bearing bug fixes in
+one loop; every commit has tests + screenshots.
+
+- **M1.** Footer clipped to viewport on long conversations (bug).
+- **M2.** Shift+Enter / `\`+Enter / Alt+Enter / Ctrl+J insert newline.
+- **M3.** Paste no longer fragments into multiple prompts.
+- **M4.** Compressed paste display `[pasted content #N: L lines]`.
+- **M5.** Floating compose modal (Ctrl+G / Ctrl+Shift+P).
+- **M6.** @ file-reference fuzzy picker with workspace listing.
+- **M7.** Scenarios help tab for post-first-message discoverability.
+- **M8.** Slash commands actually execute (`/clear` wipes, `/cancel` halts,
+  `/help` / `/diff` / `/undo` emit assistant notes).
+- **M9.** Tabbed help overlay (6 tabs; fits at 80x24).
+- **M10.** Configurable tool-output collapse threshold (Settings > TUI).
+- **M11.** Input pane auto-grows with multi-line content.
+- **L5.** Catalog-browser modal for /mcp /tools /skills /agents.
+
+Screenshots 32-53 capture every new surface.
 
 ## TL;DR for morning-you
 
