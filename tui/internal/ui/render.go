@@ -349,8 +349,17 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 		body := indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, "   ")
 		if hidden > 0 {
-			hint := lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-				Render(fmt.Sprintf("   [%d more lines — Ctrl+E to expand]", hidden))
+			// P4: surface the Ctrl+E affordance with real weight — the
+			// previous faint-italic sat below users' radar. Key style
+			// matches the footer hints (Secondary + bold) so users pick
+			// up the pattern without having to remember a third
+			// affordance style.
+			prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+				Render(fmt.Sprintf("   [%d more lines · ", hidden))
+			keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+			suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+				Render(" to expand]")
+			hint := prefix + keyStyle.Render("Ctrl+E") + suffix
 			body = body + "\n" + hint
 		}
 		return body
