@@ -146,6 +146,7 @@ running backend:
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
 | `gact wait <sid> [--timeout DUR]` | Poll until session status is idle |
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
+| `gact log <sid> [--limit N]` | Print role-headered conversation to stdout |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
 | `gact export <sid> [-o file]` | Dump one session as a JSON blob |
