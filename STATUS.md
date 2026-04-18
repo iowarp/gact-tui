@@ -201,4 +201,7 @@ cd ../tui   && go build -o ./gact .
 | 15 | 2026-04-18T06:25 | C16 context panel (CONTEXT sidebar section) | 6e041e8 |
 | 16 | 2026-04-18T06:33 | C17 diff viewer apply/reject (a/r on body) | 0fd34bb |
 | 17 | 2026-04-18T06:38 | C18 cost meter — emulator emits + footer renders | 6a9e902 |
-| 18 | 2026-04-18T06:46 | E3 light theme + --theme flag | (this) |
+| 18 | 2026-04-18T06:46 | E3 light theme + --theme flag | e1eacc4 |
+| 19 | 2026-04-18T06:55 | E3b glamour theme; F2 config file | ef209ba c7a3556 |
+| 20 | 2026-04-18T07:05 | UX QA fixes (sidebar scroll, header truncation, paste, empty callout) | abb6d01 |
+| 21 | 2026-04-18T08:05 | E1 documented as blocked; F3 export/import CLI | (this) |

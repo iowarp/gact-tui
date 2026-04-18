@@ -387,6 +387,30 @@ func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) 
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
 }
 
+// SessionExportBlob mirrors emulator/internal/server.SessionExport so the
+// TUI can use the export/import endpoints without depending on emulator
+// internals.
+type SessionExportBlob struct {
+	Format     string         `json:"format"`
+	ExportedAt time.Time      `json:"exported_at"`
+	Session    gact.Session   `json:"session"`
+	Messages   []gact.Message `json:"messages"`
+}
+
+// ExportSession GET /v1/sessions/{id}/export.
+func (c *Client) ExportSession(ctx context.Context, sessionID string) (SessionExportBlob, error) {
+	var out SessionExportBlob
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/export", nil, &out)
+	return out, err
+}
+
+// ImportSession POST /v1/sessions/import. Returns the newly-created session.
+func (c *Client) ImportSession(ctx context.Context, blob SessionExportBlob) (gact.Session, error) {
+	var out gact.Session
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/import", blob, &out)
+	return out, err
+}
+
 // ApplyDiffs POST /v1/sessions/{id}/diffs/apply. paths is optional —
 // nil/empty means "apply all pending diffs".
 func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, error) {
