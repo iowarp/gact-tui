@@ -361,6 +361,32 @@ type PatchSessionRequest struct {
 	Metadata map[string]any  `json:"metadata,omitempty"`
 }
 
+// --- §6.9 context files ----------------------------------------------------
+
+// ListContextFiles returns the files currently in a session's context.
+func (c *Client) ListContextFiles(ctx context.Context, sessionID string) ([]gact.ContextFile, error) {
+	var out struct {
+		Files []gact.ContextFile `json:"files"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/context/files", nil, &out)
+	return out.Files, err
+}
+
+// AddContextFile pins a file into a session's context. Mode is one of
+// "edit" | "read" | "pin"; defaults server-side to "read" if blank.
+func (c *Client) AddContextFile(ctx context.Context, sessionID, path, mode string) (gact.ContextFile, error) {
+	var out gact.ContextFile
+	body := map[string]any{"path": path, "mode": mode}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/context/files", body, &out)
+	return out, err
+}
+
+// RemoveContextFile drops a file from a session's context.
+func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) error {
+	body := map[string]any{"path": path}
+	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
+}
+
 // PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
 func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
 	var out gact.Session
