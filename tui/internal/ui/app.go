@@ -730,6 +730,37 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.selected++
 			return a, a.selectSession(a.selected)
 		}
+	case "g", "home":
+		// Jump to first session.
+		if len(a.sessions) > 0 && a.selected != 0 {
+			a.selected = 0
+			return a, a.selectSession(a.selected)
+		}
+	case "G", "end":
+		// Jump to last session.
+		if last := len(a.sessions) - 1; last >= 0 && a.selected != last {
+			a.selected = last
+			return a, a.selectSession(a.selected)
+		}
+	case "pgup", "ctrl+u":
+		// Page up — sidebarPageSize() honors current pane height, so the
+		// jump matches what the user can actually see.
+		if step := a.sidebarPageSize(); a.selected > 0 {
+			a.selected -= step
+			if a.selected < 0 {
+				a.selected = 0
+			}
+			return a, a.selectSession(a.selected)
+		}
+	case "pgdown", "ctrl+d":
+		// Page down.
+		if step := a.sidebarPageSize(); a.selected < len(a.sessions)-1 {
+			a.selected += step
+			if a.selected > len(a.sessions)-1 {
+				a.selected = len(a.sessions) - 1
+			}
+			return a, a.selectSession(a.selected)
+		}
 	case "enter":
 		a.focus = FocusInput
 		return a, nil
@@ -744,6 +775,25 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return a, nil
+}
+
+// sidebarPageSize returns the number of session entries that fit in the
+// visible sidebar pane — used by PgUp/PgDn so the jump matches what the
+// user sees. Mirrors the math in renderSidebar (rowsPerSession=3, plus
+// borders/title/CONTEXT block); we always return at least 1 so paging
+// still moves on a tiny window.
+func (a *App) sidebarPageSize() int {
+	const rowsPerSession = 3
+	contextLines := 0
+	if a.selected >= 0 {
+		contextLines = 4 + len(a.contextFiles)
+	}
+	avail := (a.height - 4) - 2 - contextLines - 1 // -4: header+footer rows
+	page := avail / rowsPerSession
+	if page < 1 {
+		page = 1
+	}
+	return page
 }
 
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -1566,6 +1616,8 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
+		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
+		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
 		t.HintKey.Render("Ctrl+c") + "    quit",
 		"",
 		lipgloss.NewStyle().Bold(true).Foreground(t.Warning).Render("When a permission is pending"),

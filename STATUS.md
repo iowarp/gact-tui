@@ -213,4 +213,5 @@ cd ../tui   && go build -o ./gact .
 | 27 | 2026-04-18T09:55 | G1+G3 — adapter list+post messages | ab6267d |
 | 28 | 2026-04-18T10:08 | G2 — adapter SSE proxy with event translation | 2516904 |
 | 29 | 2026-04-18T10:25 | G4 — Crush adapter scaffold (workspaces+sessions, mocked tests) | 34e1340 |
-| 30 | 2026-04-18T10:38 | G5 — voice mic capture wrapper (--voice-cmd + scripts/voice-record.sh) | (this) |
+| 30 | 2026-04-18T10:38 | G5 — voice mic capture wrapper (--voice-cmd + scripts/voice-record.sh) | 0354113 |
+| 31 | 2026-04-18T10:55 | G7 — sidebar g/G + PgUp/PgDn (Ctrl+u/d) for many-session lists | (this) |
