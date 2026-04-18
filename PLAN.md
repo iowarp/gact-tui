@@ -166,6 +166,12 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase T — terminal integration
+
+- [ ] **T1.** Terminal window title reflects active session — OSC 2 set when selectSession fires so tmux / alacritty / kitty / iterm tabs show "GACT — <session title>" instead of generic shell name.
+- [ ] **T2.** `gact list` subcommand prints recent sessions (id + title + status + updated_at) for shell-side scripting. No TUI launch.
+- [ ] **T3.** Emulator `--workspace-path` flag walks the directory on every `/v1/workspaces/{id}/files` request instead of returning the static demo list. Opt-in because deterministic tests rely on the static fixture.
+
 ## Phase S — render polish
 
 - [x] **S1.** Body-focus `t` toggles per-message timestamps. Faint-italic row under the role header when on; skipped on tool-result messages whose header is already suppressed. Not persisted (live debugging aid). Test covers both flip states.

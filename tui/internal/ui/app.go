@@ -2412,7 +2412,25 @@ func (a *App) View() tea.View {
 	v.AltScreen = !a.DisableAltScreen
 	v.BackgroundColor = a.Theme.Bg
 	v.ForegroundColor = a.Theme.Fg
+	// T1: reflect the active session's title in the terminal window
+	// title so tmux / alacritty / kitty / iterm tabs show what the
+	// user is looking at. Fallback is the bare "GACT" brand when no
+	// session is selected.
+	v.WindowTitle = a.windowTitle()
 	return v
+}
+
+// windowTitle builds the OSC-2 string set on every frame. Intentionally
+// cheap — the bubbletea renderer diffs against the previous view and
+// only emits the escape sequence when the string actually changes.
+func (a *App) windowTitle() string {
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		title := a.sessions[a.selected].Title
+		if title != "" {
+			return "GACT — " + title
+		}
+	}
+	return "GACT"
 }
 
 func (a *App) viewConnecting() string {

@@ -508,6 +508,24 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
+// TestWindowTitle_ReflectsActiveSession verifies T1: the View()'s
+// WindowTitle is "GACT — <title>" when a session is selected, and
+// a bare "GACT" otherwise.
+func TestWindowTitle_ReflectsActiveSession(t *testing.T) {
+	// No session → fallback.
+	a := newReadyApp(nil, nil)
+	if got := a.windowTitle(); got != "GACT" {
+		t.Errorf("no-session title = %q, want 'GACT'", got)
+	}
+
+	// Selected session → "GACT — <title>".
+	sessions := []gact.Session{{ID: "s1", Title: "refactor auth", Status: gact.StatusIdle}}
+	a = newReadyApp(sessions, nil)
+	if got := a.windowTitle(); got != "GACT — refactor auth" {
+		t.Errorf("title with session = %q, want 'GACT — refactor auth'", got)
+	}
+}
+
 // TestTimestampToggle_FlipsAndRenders verifies S1: body-focus `t`
 // toggles Theme.ShowTimestamps, and the rendered conversation
 // includes a formatted timestamp when the flag is on.
