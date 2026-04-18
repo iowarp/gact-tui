@@ -317,7 +317,10 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 	}
 }
 
-// postMessageCmd posts a user message to the current session.
+// postMessageCmd posts a user message to the current session. On
+// failure the message returns postFailedMsg rather than errMsg so the
+// Update handler can restore the text to the input (rather than
+// sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -326,10 +329,18 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 			Parts: []gact.Part{gact.NewTextPart(text)},
 		})
 		if err != nil {
-			return errMsg{err: err, stage: "post"}
+			return postFailedMsg{text: text, err: err}
 		}
 		return msgPostedAck{sessionID: sessionID}
 	}
+}
+
+// postFailedMsg is the sole signal that PostMessage failed. Lets the
+// Update handler restore the user's text into the textarea so a
+// transient network blip doesn't cost them their message.
+type postFailedMsg struct {
+	text string
+	err  error
 }
 
 // --- Update ---------------------------------------------------------------
@@ -424,6 +435,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.currentSessionID() == m.sessionID {
 			a.contextFiles = m.files
 		}
+		return a, nil
+
+	case postFailedMsg:
+		// Transient failure (dial error, backend restart, upstream 5xx).
+		// Don't blow away the UI; restore the text so the user can
+		// just press Enter again once the backend is back. Surface a
+		// transient hint so they know what happened.
+		a.input.SetValue(m.text)
+		a.transientHint = "message not sent — press Enter to retry · " + m.err.Error()
 		return a, nil
 
 	case msgPostedAck:
