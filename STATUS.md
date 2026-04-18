@@ -244,4 +244,4 @@ cd ../tui   && go build -o ./gact .
 | 58 | 2026-04-18T19:20 | K11 — sidebar `/` session title filter (nav skips hidden) | 18cb890 |
 | 59 | 2026-04-18T19:40 | K12 — emulator --seed-messages flag (completes seeding trio) | f9c9389 |
 | 60 | 2026-04-18T19:55 | K13 — body `R` retries last user message | cce02f3 |
-| 61 | 2026-04-18T20:15 | K14 — context files add from TUI (`o` in sidebar) + screenshot | (this) |
+| 61 | 2026-04-18T20:15 | K14 — context files add from TUI (`o` in sidebar) + screenshot | bb66e69 |
