@@ -542,6 +542,56 @@ func TestDuplicateSession_PreservesMeta(t *testing.T) {
 	}
 }
 
+// TestBodyCursor_WalksMessages covers Y1: `n` advances the body
+// cursor; `N` walks it backward; clamped at both ends.
+func TestBodyCursor_WalksMessages(t *testing.T) {
+	sessions := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "a", ID: "p1"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "b", ID: "p2"}}},
+		{ID: "m3", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "c", ID: "p3"}}},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusBody
+
+	// Default: idx == -1 (off).
+	if a.bodySelMsgIdx != -1 {
+		t.Fatalf("default bodySelMsgIdx = %d, want -1", a.bodySelMsgIdx)
+	}
+
+	// First `n` → idx 0.
+	out, _ := a.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 0 {
+		t.Fatalf("after first n, idx = %d, want 0", a.bodySelMsgIdx)
+	}
+
+	// Two more → idx 2 (clamped).
+	for i := 0; i < 4; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+		a = out.(*App)
+	}
+	if a.bodySelMsgIdx != 2 {
+		t.Fatalf("after many n, idx = %d, want 2 (clamped)", a.bodySelMsgIdx)
+	}
+
+	// `N` walks backward.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'N', Text: "N"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 1 {
+		t.Fatalf("after N, idx = %d, want 1", a.bodySelMsgIdx)
+	}
+
+	// Rendered output should include the cursor glyph.
+	plain := ansi.Strip(renderAtSize(a, 110, 30))
+	if !strings.Contains(plain, "▌ ") {
+		t.Errorf("body cursor glyph missing:\n%s", plain)
+	}
+}
+
 // TestSearchJump_MarksMessage verifies V3: jumpToMessage sets
 // searchHitMessageID and the rendered conversation contains the
 // gutter marker on the matching row.

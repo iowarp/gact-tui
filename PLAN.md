@@ -171,10 +171,14 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase Y — body-focus cursor
+
+- [ ] **Y1.** Per-message cursor in body focus. `j/k` moves the selection; left gutter shows `▌` on the selected message. Replaces the "target latest" heuristic for future d/y/R routing (those stay pinned to "latest" for backward compat until explicitly moved).
+
 ## Phase X — CLI + backend surface
 
-- [ ] **X1.** `gact tail <session_id>` streams the SSE event feed to stdout as JSON lines. Useful for `gact tail SID | jq '.type'` monitoring without launching the TUI.
-- [ ] **X2.** `gact ping` — hits `/v1/health` and exits 0 if reachable, non-zero otherwise. One-liner for shell-script health checks.
+- [x] **X1.** `gact tail [SID] [--workspace WS_ID]` streams SSE events as JSON lines (`{"type", "seq", "payload"}`). Kill via Ctrl+C or upstream closing the stream.
+- [x] **X2.** `gact ping [-q]` probes `/v1/health`; exits 0 healthy, 1 otherwise. Full CLI tests cover live + unreachable.
 
 ## Phase W — session utilities
 
