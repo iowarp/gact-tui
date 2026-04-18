@@ -25,6 +25,15 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase CC — operator-tools fill-in
+- **CC1.** `gact cancel <sid>`. CLI test.
+- **CC2.** `gact run <sid> <text|->` combined send + wait. CLI test.
+
+### Phase DD — docs + log
+- **DD1.** README CLI subcommand table covering Phase T-CC.
+- **DD2.** `gact log <sid>` dumps role-headered plain-text
+  conversation; pairs with `gact run`. CLI test.
+
 ### Phase BB — scripting follow-ups
 - **BB1.** `gact wait <sid>` polls status until idle. Pairs with
   `gact send` so shell pipelines can chain send → wait → list.

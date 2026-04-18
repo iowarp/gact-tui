@@ -174,7 +174,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 ## Phase DD — docs + log
 
 - [x] **DD1.** README "CLI subcommands" section — every Phase T-CC subcommand documented with one-line description + pipe-composition example.
-- [ ] **DD2.** `gact log <sid>` dumps the conversation messages to stdout (text + tool_call/result summaries). Needed because users have to launch the TUI just to read what happened in a session.
+- [x] **DD2.** `gact log <sid> [--limit N]` prints role-headered conversation: text bodies, `→ tool(args)` for tool_call, `⎿ output` for tool_result, `(thinking)` prefix. Plain ASCII (greppable). CLI test asserts USER + ASSISTANT headers and user text appear after a run.
 
 ## Phase CC — operator-tools fill-in
 
