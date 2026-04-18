@@ -67,6 +67,10 @@ func main() {
 			os.Exit(runAsk(os.Args[2:]))
 		case "new":
 			os.Exit(runNew(os.Args[2:]))
+		case "delete":
+			os.Exit(runDelete(os.Args[2:]))
+		case "rename":
+			os.Exit(runRename(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -237,6 +241,8 @@ Usage:
   gact log <sid>             dump conversation messages to stdout
   gact ask <sid> <q|->       send + wait + print assistant reply
   gact new [--title T]       create a session; print id to stdout
+  gact delete <sid>          DELETE /v1/sessions/{id}
+  gact rename <sid> <title>  PATCH session title
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -352,6 +358,59 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runDelete DELETEs /v1/sessions/{id}. Exits 0 on 204; 1 on
+// transport / API error. Pairs with `gact new` so shell scripts
+// can clean up scratch sessions.
+func runDelete(args []string) int {
+	fs := flag.NewFlagSet("delete", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact delete <session_id> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.DeleteSession(ctx, sid); err != nil {
+		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runRename PATCHes the session title. Useful in scripts that want
+// to label a session retroactively (e.g. after the first reply
+// lands and you know what the conversation was actually about).
+func runRename(args []string) int {
+	fs := flag.NewFlagSet("rename", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact rename <session_id> <new-title> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	title := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.PatchSession(ctx, sid, client.PatchSessionRequest{Title: &title}); err != nil {
+		fmt.Fprintf(os.Stderr, "gact rename: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 // runNew creates a new session and prints its id to stdout. With no
 // flags, defaults the workspace to the first one in the backend's
 // /v1/workspaces list (matches what the TUI does on startup) and the

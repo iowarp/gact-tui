@@ -171,9 +171,14 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase HH — session management CLI
+
+- [ ] **HH1.** `gact delete <sid>` — DELETE `/v1/sessions/{id}`. Pairs with `gact new` so users can clean up after themselves.
+- [ ] **HH2.** `gact rename <sid> <new-title>` — PATCH session title. Useful in scripts that want to label a session retroactively (e.g. after the first reply lands).
+
 ## Phase GG — session creation CLI
 
-- [ ] **GG1.** `gact new [--workspace WS_ID] [--title TITLE]` creates a new session and prints its id to stdout. Plumbing for shell pipelines that want a fresh session per task: `SID=$(gact new) && gact ask "$SID" "..."`.
+- [x] **GG1.** `gact new [--workspace WS_ID] [--title T]` prints the new session id; defaults workspace to first listed and title to current UTC time. CLI test round-trips through `gact list`.
 
 ## Phase FF — q&a CLI
 

@@ -197,6 +197,59 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_DeleteRoundTrip covers HH1: gact new → gact delete →
+// list confirms the session is gone.
+func TestCLI_DeleteRoundTrip(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "new")
+	if code != 0 {
+		t.Fatalf("new: exit %d", code)
+	}
+	sid := strings.TrimSpace(stdout)
+
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "delete", sid)
+	if code != 0 {
+		t.Fatalf("delete: exit %d", code)
+	}
+
+	listOut, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	if code != 0 {
+		t.Fatalf("list: exit %d", code)
+	}
+	if strings.Contains(listOut, sid) {
+		t.Errorf("session %q still in list after delete: %s", sid, listOut)
+	}
+}
+
+// TestCLI_RenameUpdatesTitle covers HH2: rename + list shows the
+// new title.
+func TestCLI_RenameUpdatesTitle(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"new", "--title", "before")
+	if code != 0 {
+		t.Fatalf("new: exit %d", code)
+	}
+	sid := strings.TrimSpace(stdout)
+
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"rename", sid, "after-rename")
+	if code != 0 {
+		t.Fatalf("rename: exit %d", code)
+	}
+
+	listOut, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	if !strings.Contains(listOut, "after-rename") {
+		t.Errorf("renamed title missing from list: %s", listOut)
+	}
+}
+
 // TestCLI_New covers GG1: gact new prints a session id; the id can
 // then be passed to subsequent commands. Validates:
 //   - exit code 0 on success
