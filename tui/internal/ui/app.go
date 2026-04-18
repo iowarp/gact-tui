@@ -1313,6 +1313,24 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, loadSettingsCmd(a.c)
 			}
 
+			// /theme-export writes the currently-active palette to
+			// ~/.config/gact/theme.json so users who like a built-in
+			// + a couple of tweaks have a starting point to edit. No
+			// backend round-trip; pure local file write.
+			if cmd.ID == "/theme-export" {
+				path, pathErr := CustomThemeDefaultPath()
+				if pathErr != nil {
+					a.transientHint = "theme export: " + pathErr.Error()
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				if err := SaveCustomTheme(a.Theme, path); err != nil {
+					a.transientHint = "theme export failed: " + err.Error()
+				} else {
+					a.transientHint = "exported " + ThemeModeName(ThemeModeFor(a.Theme)) + " → " + path
+				}
+				return a, scheduleHintExpire(a.transientHint)
+			}
+
 			// /theme opens Settings on the Theme tab with the current
 			// palette pre-selected so ↓↑ immediately previews live.
 			if cmd.ID == "/theme" || cmd.ID == "/themes" {
@@ -3139,6 +3157,7 @@ var helpTabs = []struct {
 			{"/scenarios", "jump to the Scenarios help tab"},
 			{"/sessions", "focus sidebar + start title filter"},
 			{"/theme", "open Theme picker (dark/light/dracula/…) "},
+			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},

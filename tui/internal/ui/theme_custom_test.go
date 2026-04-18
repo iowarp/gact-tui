@@ -61,6 +61,35 @@ func TestLoadCustomTheme_EndToEnd(t *testing.T) {
 	}
 }
 
+// TestExportThemeJSON_Roundtrip verifies Q4: the active palette
+// serialises to a schema-shaped JSON that LoadCustomTheme can read
+// back faithfully.
+func TestExportThemeJSON_Roundtrip(t *testing.T) {
+	resetCustomThemeForTest(t)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "export.json")
+	if err := SaveCustomTheme(ThemeForMode(ModeDracula), path); err != nil {
+		t.Fatalf("SaveCustomTheme: %v", err)
+	}
+
+	name, err := LoadCustomTheme(path)
+	if err != nil {
+		t.Fatalf("LoadCustomTheme: %v", err)
+	}
+	if name != "dracula" {
+		t.Errorf("name = %q, want 'dracula'", name)
+	}
+
+	loaded := customTheme()
+	orig := ThemeForMode(ModeDracula)
+	r1, g1, b1, _ := loaded.Bg.RGBA()
+	r2, g2, b2, _ := orig.Bg.RGBA()
+	if r1 != r2 || g1 != g2 || b1 != b2 {
+		t.Errorf("Bg not preserved: got (%X %X %X), want (%X %X %X)", r1, g1, b1, r2, g2, b2)
+	}
+}
+
 // TestLoadCustomTheme_MissingFileNoError keeps startup resilient —
 // a missing theme.json should not break LoadCustomTheme.
 func TestLoadCustomTheme_MissingFileNoError(t *testing.T) {
