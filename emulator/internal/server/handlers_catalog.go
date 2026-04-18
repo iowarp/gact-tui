@@ -428,6 +428,7 @@ func staticCommands() []gact.Command {
 		{ID: "/metrics", Title: "Open backend metrics modal", Source: "builtin"},
 		{ID: "/theme-next", Title: "Cycle to the next colour theme", Source: "builtin"},
 		{ID: "/theme-prev", Title: "Cycle to the previous colour theme", Source: "builtin"},
+		{ID: "/duplicate", Title: "Copy current session's title/model/agent to a fresh session", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
 			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},

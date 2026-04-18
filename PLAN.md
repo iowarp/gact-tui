@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase W — session utilities
+
+- [ ] **W1.** `/duplicate` palette command — creates a new session with the same title + agent + model as the current one (no messages). Useful for "start a fresh branch of the same kind of work".
+
 ## Phase V — operator tools
 
 - [x] **V1.** `gact export --all -o DIR [--workspace WS_ID]` bulk-exports sessions to one JSON file per session. Tolerates per-session failures; summary to stderr; exit 1 if any failed. Full CLI test against a real emulator binary.
