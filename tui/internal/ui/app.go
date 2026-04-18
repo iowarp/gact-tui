@@ -1257,6 +1257,18 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, loadSettingsCmd(a.c)
 			}
 
+			// /scenarios jumps to the Scenarios help tab. Saves the
+			// user from pressing ? then → five times to get the
+			// trigger keyword cheat sheet — especially useful mid-
+			// conversation after the empty-state crib disappears.
+			if cmd.ID == "/scenarios" {
+				a.helpOpen = true
+				// Scenarios tab is the last one — helpTabCount-1
+				// keeps this auto-correct if tabs are reordered.
+				a.helpTab = helpTabCount - 1
+				return a, nil
+			}
+
 			// Optimistic local UI updates for commands with instant
 			// visible effect. The backend still processes the command
 			// (SSE events keep us honest), but the UI shouldn't appear
