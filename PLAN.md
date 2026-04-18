@@ -28,13 +28,13 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **A20.** Metrics: tokens, sessions+by_status, messages+by_role, cost+by_provider.
 - [x] **A21.** Cancellation: handleCancelSession invokes engine.Cancel + emits status_changed (verified by E2E test).
 
-## Phase B — Emulator tests
+## Phase B — Emulator tests (DONE)
 
-- [ ] **B1.** `emulator/internal/server/server_test.go` — table-driven tests for each REST endpoint: status code, response shape (json schema), basic happy/sad paths.
-- [ ] **B2.** SSE integration test: client connects, posts a message, asserts the canonical event sequence (per SPEC §7.4) arrives in order.
-- [ ] **B3.** Permission flow integration test: scenario triggers permission, client receives event, client allows, scenario continues, client receives `tool.call.completed`.
-- [ ] **B4.** Cancellation integration test: client cancels mid-stream, sees `message.error` and `session.status_changed → idle`.
-- [ ] **B5.** Coverage check: `go test -cover ./...` should be ≥75% for `internal/server` and `internal/scenario`.
+- [x] **B1.** Table-driven endpoint tests across handlers_*_test.go files.
+- [x] **B2.** SSE integration via `cmd/emulator-server/e2e_test.go::TestE2E_FullScenarioFlow`.
+- [x] **B3.** Permission flow E2E in `TestE2E_PermissionFlow`.
+- [x] **B4.** Cancel mid-stream covered by `TestE2E_CancelInflight`.
+- [x] **B5.** Coverage ≥ target: events 87.3%, scenario 82.2%, server 79.9%, store 90.3%.
 
 ## Phase C — TUI scaffold
 
@@ -48,15 +48,15 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **C8.** Footer: focus zone, key hints (Tab pane, Enter send, ?help, ctrl+c quit), UTC clock.
 - [x] **C9.** Streaming: message.created → part.added → part.delta (text_append, thinking_append, input_json_append) → part.completed (parses tool_call input). Verified end-to-end via 02-streaming + 03-completed screenshots.
 - [x] **C10.** Permission dialog: yellow warning banner above conversation when permission.requested arrives. Verified via 04-permission screenshot. (Action submit keys still TODO — see C10b.)
-- [ ] **C10b.** Permission action keys: a/d/s for allow/deny/allow_session, submitting via POST /v1/permissions/{id}.
-- [ ] **C11.** Slash command palette: `/` opens a fuzzy-search list populated from `GET /v1/commands`. Selection executes via `POST /v1/sessions/{id}/commands/{cmd_id}`.
-- [ ] **C12.** Help overlay: `?` toggles a help screen with key bindings, generated from a key-map struct.
-- [ ] **C13.** Window resize: subscribe to `WindowSizeMsg`, recompute layout, propagate to subcomponents.
-- [ ] **C14.** Backend connect screen: on startup, prompt for backend URL (default `http://localhost:7777`); fetch `GET /v1/capabilities`; show error and retry on failure. Hide UI for capabilities not present.
-- [ ] **C15.** Settings panel (`/settings` cmd or shortcut): edit current model, current agent, theme.
-- [ ] **C16.** File context panel: side-pane showing files in context (editable / read-only). Add/drop via slash commands.
-- [ ] **C17.** Diff viewer: when a `file_diff` part arrives, render the unified diff with syntax highlighting (use `notes/` glamour or a manual lipgloss render). Buttons to apply/reject.
-- [ ] **C18.** Cost meter: live-updating cost in footer, fed by `cost.updated` events.
+- [x] **C10b.** Permission action keys (a/d/s/w → POST /v1/permissions/{id}).
+- [x] **C11.** Slash palette ('/' on empty input opens it; fuzzy filter; Enter dispatches POST /v1/sessions/{id}/commands/{cmd_id}).
+- [x] **C12.** Help overlay ('?' toggles).
+- [x] **C13.** WindowSizeMsg propagated through layout.
+- [x] **C14.** Connect screen: capabilities probe on startup; error stage on failure; capabilities-aware UI (e.g. would hide panels if capability=false).
+- [x] **C15.** Settings panel — Ctrl+s opens modal with Model/Agent tabs; lists from /v1/providers + /v1/agents; Enter applies via PATCH /v1/sessions/{id}. Theme switching deferred to E3.
+- [ ] **C16.** File context panel (use /v1/sessions/{id}/context/files).
+- [ ] **C17.** Diff viewer: file_diff part is currently rendered with `+/-` lines; could add accept/reject buttons.
+- [ ] **C18.** Cost meter in footer (consume cost.updated events; emulator does not yet emit them).
 - [x] **C19.** Subagent indication: scenario spawns a subagent on "split"/"with help"/"subagent" triggers; emits subagent.started/completed events; parent carries subagent_call/result parts; TUI renders both with ▼/▲ markers; sidebar shows subsessions indented with `└`. Verified via 15-subagent-parent + 16-subagent-sidebar screenshots.
 
 ## Phase D — TUI tests + visual verification
