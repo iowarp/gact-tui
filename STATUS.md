@@ -224,3 +224,4 @@ cd ../tui   && go build -o ./gact .
 | 38 | 2026-04-18T13:15 | I1 — GitHub Actions CI (test/vet/build matrix) + vet-found bug fixes | 866df27 |
 | 39 | 2026-04-18T13:35 | fix: real race in scenario tests (event-payload vs store query); CI green | 3540251 |
 | 40 | 2026-04-18T14:00 | I2 — adapter conformance suite (contract/conformance/) + CI wiring | f3bfe1a |
+| 41 | 2026-04-18T14:20 | I3 — OpenCode + Crush adapters run conformance against mocked upstreams | (this) |
