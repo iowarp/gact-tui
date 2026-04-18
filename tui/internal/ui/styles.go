@@ -40,6 +40,13 @@ type Theme struct {
 	StatusBadge lipgloss.Style
 	HintKey     lipgloss.Style
 	HintLabel   lipgloss.Style
+
+	// CollapseThreshold is the line-count above which tool_result
+	// output is preview-collapsed in the conversation pane (the full
+	// content is still reachable via Ctrl+E). 0 disables collapse.
+	// User-controllable via Settings > TUI; default 5 matches the
+	// feedback ask.
+	CollapseThreshold int
 }
 
 // ThemeMode picks which palette DefaultTheme returns.
@@ -99,6 +106,11 @@ func (t *Theme) applyStyles() {
 		Foreground(t.Bg).Background(t.Secondary).Padding(0, 1).Bold(true)
 	t.HintKey = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 	t.HintLabel = lipgloss.NewStyle().Foreground(t.FgMuted)
+	// Keep an existing non-zero threshold (caller may have set it
+	// explicitly after a theme swap) and only default when unset.
+	if t.CollapseThreshold == 0 {
+		t.CollapseThreshold = 5
+	}
 }
 
 // DefaultTheme returns a dark-leaning palette tuned for terminals.

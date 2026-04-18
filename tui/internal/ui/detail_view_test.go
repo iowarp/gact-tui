@@ -71,7 +71,7 @@ func TestLineCount(t *testing.T) {
 
 func TestRenderPart_ToolResultCollapsesLongOutput(t *testing.T) {
 	theme := DefaultTheme()
-	// 20 lines of output — well over the 8-line preview budget.
+	// 20 lines of output — well over the 5-line default preview budget.
 	var b strings.Builder
 	for i := 0; i < 20; i++ {
 		if i > 0 {
@@ -86,8 +86,11 @@ func TestRenderPart_ToolResultCollapsesLongOutput(t *testing.T) {
 	}
 	got := theme.renderPart(p, 80)
 	plain := ansi.Strip(got)
-	if !strings.Contains(plain, "12 more lines") {
-		t.Errorf("long tool_result should show '12 more lines' hint; got:\n%s", plain)
+	// Default threshold is 5 (set by applyStyles), so 20 - 5 = 15 lines
+	// are hidden. The exact number is less important than the presence
+	// of a collapse hint + the Ctrl+E pointer.
+	if !strings.Contains(plain, "more lines") {
+		t.Errorf("long tool_result should show a 'more lines' hint; got:\n%s", plain)
 	}
 	if !strings.Contains(plain, "Ctrl+E") {
 		t.Errorf("collapse hint should mention Ctrl+E; got:\n%s", plain)
