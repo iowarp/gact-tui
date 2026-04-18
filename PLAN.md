@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase Y — body-focus cursor
 
-- [ ] **Y1.** Per-message cursor in body focus. `j/k` moves the selection; left gutter shows `▌` on the selected message. Replaces the "target latest" heuristic for future d/y/R routing (those stay pinned to "latest" for backward compat until explicitly moved).
+- [x] **Y1.** Body-focus message cursor (`n` next, `N` prev; idx=-1 off by default). Left-gutter `▌` in Secondary when set; takes precedence over the V3 search marker. Session switch resets. d/y/R still target latest — threading the cursor through them is a follow-up.
 
 ## Phase X — CLI + backend surface
 

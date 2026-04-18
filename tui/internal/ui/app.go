@@ -1949,15 +1949,21 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, rejectDiffsCmd(a.c, sid)
 		}
 	case "y":
-		// Yank — copy the most recent assistant message's text to the
-		// system clipboard. Users reach for this to grab code the
-		// agent just produced; picking "most recent assistant" rather
-		// than "focused message" is a pragmatic first cut (no message-
-		// level cursor exists yet). Feedback is a transient toast
-		// because clipboard success is otherwise invisible.
-		text, ok := lastAssistantText(a.messages)
+		// Yank: when the body cursor is set, copy THAT message's text;
+		// otherwise fall back to "latest assistant". Feedback is a
+		// transient toast because clipboard success is otherwise
+		// invisible.
+		var (
+			text string
+			ok   bool
+		)
+		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+			text, ok = messageText(a.messages[a.bodySelMsgIdx])
+		} else {
+			text, ok = lastAssistantText(a.messages)
+		}
 		if !ok {
-			a.transientHint = "nothing to copy — no assistant messages yet"
+			a.transientHint = "nothing to copy — selected message has no text"
 			return a, nil
 		}
 		if err := clipboardWrite(text); err != nil {
@@ -1966,15 +1972,27 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
 	case "R":
-		// Retry — resend the most recent user message's text. J5 made
-		// post failures preserve the draft in the input; this is the
-		// complement for the case where the draft was already sent,
-		// accepted, and the agent's response went sideways.
+		// Retry: when the body cursor is on a user message, resend
+		// that one's text; otherwise fall back to "latest user".
+		// Cursor-on-assistant is a no-op with an explanatory toast.
 		sid := a.currentSessionID()
 		if sid == "" {
 			return a, nil
 		}
-		text, ok := lastUserText(a.messages)
+		var (
+			text string
+			ok   bool
+		)
+		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+			sel := a.messages[a.bodySelMsgIdx]
+			if sel.Role != gact.RoleUser {
+				a.transientHint = "retry: cursor is not on a user message"
+				return a, scheduleHintExpire(a.transientHint)
+			}
+			text, ok = messageText(sel)
+		} else {
+			text, ok = lastUserText(a.messages)
+		}
 		if !ok {
 			a.transientHint = "no user message to retry"
 			return a, nil
@@ -1994,23 +2012,30 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.transientHint = "timestamps: " + state
 		return a, scheduleHintExpire(a.transientHint)
 	case "d":
-		// N3: delete the most recent message. "Target latest" same
-		// pattern as y/R since the TUI doesn't yet have a per-message
-		// cursor. Optimistically drops the local entry so the user
-		// sees immediate feedback; the backend DELETE is fired in the
-		// background via deleteMessageCmd. No two-step confirmation
-		// here — the message is still recoverable (reload re-fetches
-		// from backend if the delete fails). If that becomes noisy we
-		// can copy the /clear two-step pattern.
+		// Delete: when the body cursor is set, drop THAT message;
+		// otherwise fall back to "latest". Optimistic local removal;
+		// background DELETE via deleteMessageCmd. No two-step
+		// confirmation — reload re-fetches on failure.
 		if len(a.messages) == 0 {
 			a.transientHint = "no messages to delete"
 			return a, nil
 		}
-		last := a.messages[len(a.messages)-1]
-		a.messages = a.messages[:len(a.messages)-1]
-		a.transientHint = "deleted last message"
+		idx := len(a.messages) - 1
+		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+			idx = a.bodySelMsgIdx
+		}
+		target := a.messages[idx]
+		a.messages = append(a.messages[:idx], a.messages[idx+1:]...)
+		// Cursor shifts back to previous message (clamped) so the
+		// selection stays on-screen after a delete.
+		if a.bodySelMsgIdx >= 0 {
+			if a.bodySelMsgIdx >= len(a.messages) {
+				a.bodySelMsgIdx = len(a.messages) - 1
+			}
+		}
+		a.transientHint = "deleted message"
 		return a, tea.Batch(
-			deleteMessageCmd(a.c, last.ID),
+			deleteMessageCmd(a.c, target.ID),
 			scheduleHintExpire(a.transientHint),
 		)
 	}
