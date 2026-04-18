@@ -181,6 +181,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/commands/{cmd_id}", s.handleSessionCommand)
 
+	// §6.14 — Voice
+	s.mux.HandleFunc("POST /v1/sessions/{id}/voice/transcribe", s.handleVoiceTranscribe)
+
 	// §6.16 — Metrics
 	s.mux.HandleFunc("GET /v1/metrics", s.handleMetrics)
 

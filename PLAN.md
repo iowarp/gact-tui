@@ -80,7 +80,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **F1.** OpenCode adapter v0.1 — new `adapters/opencode/` module exposes GACT v0.1 endpoints, proxies to an OpenCode upstream. v0.1 implements `/v1/health`, `/v1/capabilities`, `/v1/workspaces`, `/v1/sessions`, `/v1/sessions/{id}` with shape translation (OpenCode ms timestamps → time.Time, slug/projectID/directory preserved as `x_opencode_*` metadata). Unimplemented endpoints return 501. Tests use httptest to mock OpenCode upstream — no real OpenCode needed. README documents remaining endpoints + their OpenCode mappings as a follow-up roadmap.
 - [x] **F2.** Configuration file — JSON at `$XDG_CONFIG_HOME/gact/config.json` (or `~/.config/gact/`); resolution precedence file < env < flag < fallback. Decided JSON over TOML to keep TUI dep-free.
 - [x] **F3.** Export/import subcommands — `gact export <sid> [-o file]`, `gact import <file|->`. Flag reordering so users can write `gact export SID -o file`. Honors GACT_BACKEND env. Round-trip verified manually against the emulator.
-- [ ] **F4.** Voice input wiring (call backend `/voice/transcribe`).
+- [x] **F4.** Voice transcribe wire-up — emulator implements POST /v1/sessions/{id}/voice/transcribe (canned transcript by body length, with `?text=` query override for tests). TUI client.VoiceTranscribe + Ctrl+Y key inserts the recognised text at the textarea cursor. Real mic capture is platform-specific shell-out — out of scope for the TUI core; documented as user-supplied wrapper script.
 - [x] **F5.** Markdown rendering in messages via glamour — implemented for assistant text (iteration 11).
 
 ## Follow-ups (added during build, not yet ordered)

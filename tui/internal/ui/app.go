@@ -197,6 +197,20 @@ func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
 
 // reloadSessionsCmd is used after subagent.started so the new sub-session
 // shows up in the sidebar without the user having to refresh manually.
+// transcribeCmd POSTs audio bytes to /v1/sessions/{id}/voice/transcribe
+// and returns a voiceTranscribedMsg to insert the recognised text.
+func transcribeCmd(c *client.Client, sessionID string, audio []byte) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		out, err := c.VoiceTranscribe(ctx, sessionID, audio, "audio/wav")
+		if err != nil {
+			return errMsg{err: err, stage: "transcribe"}
+		}
+		return voiceTranscribedMsg{text: out.Text, durationMs: out.DurationMs}
+	}
+}
+
 func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -371,6 +385,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case voiceTranscribedMsg:
+		// Insert the transcribed text at the textarea cursor.
+		a.input.InsertString(m.text)
+		return a, nil
+
 	case metricsLoadedMsg:
 		if a.metrics == nil {
 			a.metrics = &metricsState{}
@@ -523,6 +542,17 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.metricsOpen = true
 		a.metrics = &metricsState{loading: true}
 		return a, loadMetricsCmd(a.c)
+	case "ctrl+y":
+		// "Yo" — voice transcribe. Real mic capture is platform-specific
+		// shell-out (arecord on Linux, sox on macOS, PowerShell on Windows)
+		// — out of scope for the TUI core. v0.1 sends a placeholder audio
+		// body and inserts whatever the backend transcribes into the input.
+		// A user-supplied wrapper script can write captured audio to a file
+		// and trigger this via a custom keybind set instead.
+		if sid := a.currentSessionID(); sid != "" {
+			return a, transcribeCmd(a.c, sid, []byte("placeholder audio"))
+		}
+		return a, nil
 	}
 	switch a.focus {
 	case FocusSidebar:
@@ -1522,6 +1552,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
 		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
+		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
 		t.HintKey.Render("Ctrl+c") + "    quit",
 		"",
@@ -1630,6 +1661,11 @@ type reconnectMsg struct {
 type contextFilesLoadedMsg struct {
 	sessionID string
 	files     []gact.ContextFile
+}
+
+type voiceTranscribedMsg struct {
+	text       string
+	durationMs int
 }
 
 type diffsAppliedMsg struct {

@@ -98,7 +98,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			Permissions:       true,
 			Providers:         true,
 			Commands:          true,
-			Voice:             false,
+			Voice:             true,
 			ScheduledSessions: false,
 			Metrics:           true,
 			SessionBranching:  true,
