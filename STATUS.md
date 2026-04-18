@@ -20,6 +20,13 @@
 - **O1.** Dracula, Solarized (Dark + Light), Nord, Tokyo Night + fixed
   light (Gruvbox cream). Live preview on ↑/↓, persists via config.json,
   screenshots 54-59.
+- **O2.** Glamour style picks per-palette (Dracula + Tokyo Night get
+  their own glamour styles; light variants use glamour "light";
+  everything else uses "dark"). `TestThemeRoundTrip` catches palette
+  collisions on Bg+Fg identity.
+- **O3.** `/theme` palette command opens Settings > Theme pre-selected
+  on the current palette. `--list-themes` CLI flag prints every
+  available name for discoverability before launching the TUI.
 
 ## This loop
 
