@@ -168,7 +168,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase R — discoverability + diag
 
-- [ ] **R1.** `--diag` CLI flag prints config + resolved theme + binary version so bug reports come with reproducible environment info. Non-interactive (exits after printing).
+- [x] **R1.** `gact diag` prints version + contract + runtime + platform + config path + every config field + custom theme file status + GACT_* env vars. Non-interactive; exits after printing. Users can paste the output into bug reports without opening the TUI.
 - [ ] **R2.** Sidebar footer row "N sessions · M archived" so users know at a glance how much history they have.
 - [ ] **R3.** `gact version` subcommand — already partially wired, audit the output and make sure it surfaces the git SHA + build time.
 - [ ] **R4.** `--emit-config` writes a sample `config.json` with every option + defaults, commented. Reduces the "how do I configure X?" friction.
