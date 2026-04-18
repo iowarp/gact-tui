@@ -2769,6 +2769,28 @@ func (a *App) renderSidebar(width, height int) string {
 		}
 	}
 
+	// R2: sidebar footer — show "N active · M archived" so users
+	// can tell at a glance how much history is live vs hidden under
+	// the `h` toggle. Placed after CONTEXT so it sits at the bottom
+	// of the pane regardless of CONTEXT's length.
+	active, archived := 0, 0
+	for _, s := range a.sessions {
+		if s.ArchivedAt != nil {
+			archived++
+		} else {
+			active++
+		}
+	}
+	if active > 0 || archived > 0 {
+		label := fmt.Sprintf("%d active · %d archived", active, archived)
+		if a.showArchived {
+			label = fmt.Sprintf("%d archived · %d active", archived, active)
+		}
+		rows = append(rows,
+			"",
+			lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(label))
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return style.Render(body)
 }
