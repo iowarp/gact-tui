@@ -166,6 +166,13 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase P — polish round three
+
+- [x] **P1.** Per-theme glamour StyleConfig — `glamourStyleFromTheme(Theme)` derives an `ansi.StyleConfig` from the theme's palette (Document/Heading → Fg+Primary, Code → Warning on BgSubtle, Link → Secondary, etc.). Cache keyed by `ThemeModeName + width` so swaps invalidate naturally. Screenshots 60/61 show the result on Solarized-Light and Dracula.
+- [ ] **P2.** Custom theme import — `~/.config/gact/themes/*.json` loaded at startup so users can ship their own palette without a rebuild. Pointer to a follow-up PR if too big.
+- [ ] **P3.** Footer cost-meter thresholds configurable — Theme.CostWarningTokens + Theme.CostDangerTokens. Currently hardcoded at 100K/150K which works for Claude but not for local models.
+- [x] **P4.** Collapse hint upweights the Ctrl+E pointer (Secondary + bold) so it matches the footer affordance grammar. Muted-italic wrapper still, but the key itself pops.
+
 - [x] **O1.** Ship 5 new palettes + fix light (#8). Added Dracula, Solarized Dark, Solarized Light, Nord, Tokyo Night. Replaced the horrifying white light theme with a Gruvbox-inspired warm-cream variant. Settings > Theme cycles all 7 palettes with live preview on ↑/↓ and persists the choice via `config.json` (name ⇌ ThemeMode via `ThemeModeName` / `ParseThemeMode`). `ThemeModeFor(theme)` reverse-lookup lets SaveConfig serialise the active palette without tracking mode on the Theme struct. Screenshots 54-59 show each theme applied. Tests updated (`TestSettings_ThemeTabUpDownCycle` walks all 7, `TestThemeName` uses palette-identity matching).
 
 ## Phase N — Follow-up polish after second-round feedback shipped

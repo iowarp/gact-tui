@@ -2480,9 +2480,9 @@ func (a *App) renderFooter() string {
 			// counts stay muted.
 			tokenColor := t.FgMuted
 			switch {
-			case s.Tokens.Input >= 150_000:
+			case s.Tokens.Input >= t.CostDangerTokens:
 				tokenColor = t.Danger
-			case s.Tokens.Input >= 100_000:
+			case s.Tokens.Input >= t.CostWarnTokens:
 				tokenColor = t.Warning
 			}
 			right = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
