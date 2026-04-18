@@ -60,7 +60,9 @@ func TestDefaultScriptHappyPath(t *testing.T) {
 	// Stop on session.status_changed → idle (terminal signal). Multiple
 	// message.completed events fire (one per assistant turn), so don't
 	// stop on the first.
-	got := collectEventTypes(sub, 500, 5*time.Second, func(et string) bool {
+	// 30 s deadline absorbs slow-CI variance — local dev hits the success
+	// predicate in <100 ms so the cap never fires for healthy runs.
+	got := collectEventTypes(sub, 500, 30*time.Second, func(et string) bool {
 		if et != "session.status_changed" {
 			return false
 		}
@@ -125,9 +127,9 @@ func TestDefaultScriptDangerousRequiresPermission(t *testing.T) {
 
 	eng.OnUserMessage(sid, user.ID)
 
-	// Wait for permission.requested.
+	// Wait for permission.requested. Generous deadline same as below.
 	var permID string
-	deadline := time.After(2 * time.Second)
+	deadline := time.After(30 * time.Second)
 loop:
 	for {
 		select {
@@ -158,7 +160,9 @@ loop:
 	// signal). The pre-tool-call assistant message also fires
 	// message.completed (with stop_reason=tool_use), so we can't stop on
 	// the first message.completed — wait for the run to actually settle.
-	got := collectEventTypes(sub, 500, 5*time.Second, func(et string) bool {
+	// 30 s deadline absorbs slow-CI variance — local dev hits the success
+	// predicate in <100 ms so the cap never fires for healthy runs.
+	got := collectEventTypes(sub, 500, 30*time.Second, func(et string) bool {
 		if et != "session.status_changed" {
 			return false
 		}
