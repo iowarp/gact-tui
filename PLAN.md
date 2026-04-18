@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase EE — repo ergonomics
+
+- [ ] **EE1.** Top-level `Makefile` so contributors get `make build`, `make test`, `make run-emulator`, `make run-tui` without having to memorise the multi-module dance.
+
 ## Phase DD — docs + log
 
 - [x] **DD1.** README "CLI subcommands" section — every Phase T-CC subcommand documented with one-line description + pipe-composition example.

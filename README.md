@@ -25,7 +25,7 @@ The contract itself is in [`contract/SPEC.md`](./contract/SPEC.md).
 Requirements: Go 1.25+, a terminal that supports 256-colour (or true-colour for best results).
 
 ```sh
-# Build
+# Build everything (or use the Makefile: `make build`)
 cd emulator && go build -o ./emulator-server ./cmd/emulator-server
 cd ../tui     && go build -o ./gact .
 
@@ -34,6 +34,17 @@ cd ../tui     && go build -o ./gact .
 
 # In another shell: run the TUI
 GACT_BACKEND=http://localhost:7777 ./tui/gact
+```
+
+Or, with the included Makefile:
+
+```sh
+make build           # both binaries
+make run-emulator    # emulator on PORT (default 7777) with TIMING (default realistic)
+make run-tui         # TUI against the running backend with THEME (default dark)
+make test            # every module's go test
+make test-race       # with -race
+make help            # everything else
 ```
 
 Type a message, hit `Enter`. The emulator's default scenario runs an
