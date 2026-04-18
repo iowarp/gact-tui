@@ -119,6 +119,13 @@ type App struct {
 	metricsOpen bool
 	metrics     *metricsState
 
+	// Workspace switcher overlay — ↑/↓ to navigate the current
+	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
+	// already-loaded workspace list (connectCmd populates it) so the
+	// modal opens without re-hitting the backend.
+	workspaceSwitchOpen bool
+	workspaceSwitchSel  int
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -315,7 +322,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
 		// Forward paste events to the textarea when input has focus.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen {
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
 			return a, cmd
@@ -515,6 +522,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Prior session is gone — fall back to the first.
 		a.selected = 0
 		return a, a.selectSession(0)
+
+	case workspaceSwitchedMsg:
+		// Ignore stale responses — if the user switched again before
+		// this one landed, a.wsID would no longer match.
+		if m.wsID != a.wsID {
+			return a, nil
+		}
+		a.sessions = m.sessions
+		if len(a.sessions) == 0 {
+			a.selected = -1
+			a.messages = nil
+			return a, nil
+		}
+		a.selected = 0
+		return a, a.selectSession(0)
 	}
 	return a, nil
 }
@@ -528,7 +550,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if k.String() != "ctrl+l" {
 		a.transientHint = ""
 	}
-	// Modal layers take precedence: metrics/settings/help/palette → permission keys.
+	// Modal layers take precedence: workspace-switcher/metrics/settings/help/palette → permission keys.
+	if a.workspaceSwitchOpen {
+		return a.handleWorkspaceSwitchKey(k)
+	}
 	if a.metricsOpen {
 		return a.handleMetricsKey(k)
 	}
@@ -605,6 +630,25 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.metricsOpen = true
 		a.metrics = &metricsState{loading: true}
 		return a, loadMetricsCmd(a.c)
+	case "ctrl+w":
+		// Open Workspace switcher. Reuses the already-loaded workspace
+		// list — connectCmd populates a.workspaces at startup and
+		// refreshCmd keeps it fresh — so the modal opens without a
+		// round-trip. Selection defaults to the current workspace so
+		// Enter is a no-op unless the user moves off it.
+		if len(a.workspaces) == 0 {
+			a.transientHint = "no workspaces available"
+			return a, nil
+		}
+		a.workspaceSwitchOpen = true
+		a.workspaceSwitchSel = 0
+		for i, w := range a.workspaces {
+			if w.ID == a.wsID {
+				a.workspaceSwitchSel = i
+				break
+			}
+		}
+		return a, nil
 	case "ctrl+y":
 		// "Yo" — voice transcribe. If VoiceCommand is set, run it to
 		// capture WAV bytes; otherwise post a tiny placeholder so the
@@ -1319,6 +1363,9 @@ func (a *App) viewMain() string {
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)
 	}
+	if a.workspaceSwitchOpen {
+		base = overlay(base, a.viewWorkspaceSwitch(), a.width, a.height)
+	}
 	return base
 }
 
@@ -1811,6 +1858,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
 		t.HintKey.Render("Ctrl+l") + "    reload config (theme + voice cmd)",
 		t.HintKey.Render("Ctrl+s") + "    settings (model / agent)",
+		t.HintKey.Render("Ctrl+w") + "    switch workspace",
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
