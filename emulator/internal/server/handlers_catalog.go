@@ -480,14 +480,22 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	latencies := map[string]gact.MetricsLatencyStat{}
+	for pat, st := range s.latency.Snapshot() {
+		latencies[pat] = gact.MetricsLatencyStat{
+			Count: st.Count, P50Ms: st.P50Ms, P95Ms: st.P95Ms, MaxMs: st.MaxMs,
+		}
+	}
+
 	writeJSON(w, http.StatusOK, gact.Metrics{
 		UptimeS: int(time.Since(s.started).Seconds()),
 		Sessions: gact.MetricsSessions{
 			Total: len(sessions), Active: active, ByStatus: byStatus,
 		},
-		Messages: gact.MetricsMessages{Total: totalMsg, ByRole: byRole},
-		Tokens:   tokens,
-		Cost:     gact.MetricsCost{TotalUSD: totalCost, ByProvider: costByProvider},
+		Messages:  gact.MetricsMessages{Total: totalMsg, ByRole: byRole},
+		Tokens:    tokens,
+		Cost:      gact.MetricsCost{TotalUSD: totalCost, ByProvider: costByProvider},
+		Latencies: latencies,
 	})
 }
 

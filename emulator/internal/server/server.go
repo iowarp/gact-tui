@@ -36,6 +36,7 @@ type Server struct {
 	bus          *events.Bus
 	perms        *store.Permissions
 	contextFiles *contextFileSet
+	latency      *latencyTracker
 
 	onUserMessage func(sessionID, messageID string)
 	onCancel      func(sessionID string)
@@ -58,6 +59,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		bus:           events.NewBus(cfg.EventRingCapacity),
 		perms:         store.NewPermissions(),
 		contextFiles:  newContextFileSet(),
+		latency:       newLatencyTracker(1024),
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -65,8 +67,10 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 	return s
 }
 
-// Handler returns the HTTP handler for the server.
-func (s *Server) Handler() http.Handler { return s.mux }
+// Handler returns the HTTP handler for the server. The mux is wrapped
+// with timingMiddleware so per-route latency reservoirs feed into the
+// /v1/metrics endpoint (SPEC §6.16).
+func (s *Server) Handler() http.Handler { return timingMiddleware(s.latency, s.mux) }
 
 // Store returns the underlying store. Useful for callers that want to seed
 // state before serving requests.
