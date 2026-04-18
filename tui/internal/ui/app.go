@@ -156,6 +156,13 @@ type App struct {
 	renameDraft  string
 	renameCursor int
 
+	// Context-file add modal — same shape as rename, different
+	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
+	// /v1/sessions/{id}/context/files; Esc cancels.
+	contextAddOpen   bool
+	contextAddDraft  string
+	contextAddCursor int
+
 	// spinnerFrame drives the running-session animation — advanced by
 	// spinnerTickMsg as long as any session is non-idle. Cheap (single
 	// int, no timers when idle) so it's fine to leave in even when no
@@ -413,7 +420,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
 		// Forward paste events to the textarea when input has focus.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen {
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
 			return a, cmd
@@ -542,6 +549,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		return a, nil
+
+	case contextFileAddedMsg:
+		if m.err != nil {
+			a.transientHint = "add failed: " + m.err.Error()
+			return a, nil
+		}
+		// Mirror the new file into the sidebar only if it's for the
+		// session we're currently showing — stale responses from a
+		// since-switched session get dropped.
+		if a.currentSessionID() == m.sessionID {
+			a.contextFiles = append(a.contextFiles, m.file)
+		}
+		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
 
 	case sessionArchivedMsg:
@@ -883,9 +904,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	}
-	// Modal layers take precedence: rename/workspace-switcher/metrics/settings/help/palette → permission keys.
+	// Modal layers take precedence: rename/context-add/workspace-switcher/metrics/settings/help/palette → permission keys.
 	if a.renameOpen {
 		return a.handleRenameKey(k)
+	}
+	if a.contextAddOpen {
+		return a.handleContextAddKey(k)
 	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
@@ -1312,6 +1336,16 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if sid := a.currentSessionID(); sid != "" {
 			return a, archiveSessionCmd(a.c, sid, !a.showArchived)
 		}
+	case "o":
+		// Open the "add to context" prompt. No-op if there's no
+		// current session to add the file to.
+		if a.currentSessionID() == "" {
+			return a, nil
+		}
+		a.contextAddOpen = true
+		a.contextAddDraft = ""
+		a.contextAddCursor = 0
+		return a, nil
 	case "h":
 		// Toggle archived vs active view. Refetches the session list
 		// with the new filter; the result falls into the existing
@@ -1847,6 +1881,9 @@ func (a *App) viewMain() string {
 	}
 	if a.renameOpen {
 		base = overlay(base, a.viewRename(), a.width, a.height)
+	}
+	if a.contextAddOpen {
+		base = overlay(base, a.viewContextAdd(), a.width, a.height)
 	}
 	return base
 }
@@ -2399,6 +2436,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
 		t.HintKey.Render("A") + "         (sidebar) archive session (or un-archive in archived view)",
+		t.HintKey.Render("o") + "         (sidebar) add a file to session context",
 		t.HintKey.Render("h") + "         (sidebar) toggle archived view",
 		t.HintKey.Render("/") + "         (sidebar) filter sessions by title",
 		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
