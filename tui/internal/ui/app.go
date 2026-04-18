@@ -2420,6 +2420,23 @@ func (a *App) View() tea.View {
 	return v
 }
 
+// sseHealthDot renders a single-glyph indicator summarising the
+// event-stream state. Green = live, amber = reconnecting (backoff
+// in progress), red = still in the connect stage. Used in the
+// header so users can glance-verify the stream without scanning
+// for the backoff hint in the footer.
+func (a *App) sseHealthDot() string {
+	t := a.Theme
+	switch {
+	case a.stage == StageConnecting:
+		return lipgloss.NewStyle().Foreground(t.Danger).Render("●")
+	case a.sseBackoffAttempts > 0:
+		return lipgloss.NewStyle().Foreground(t.Warning).Render("●")
+	default:
+		return lipgloss.NewStyle().Foreground(t.Success).Render("●")
+	}
+}
+
 // windowTitle builds the OSC-2 string set on every frame. Intentionally
 // cheap — the bubbletea renderer diffs against the previous view and
 // only emits the escape sequence when the string actually changes.
@@ -2559,11 +2576,13 @@ func (a *App) viewMainBase() string {
 
 func (a *App) renderHeader() string {
 	t := a.Theme
-	// Required parts (badge + URL) always render. Optional parts
-	// (workspace + session + status) are dropped when there's no room.
+	// Required parts (badge + URL + SSE health dot) always render.
+	// Optional parts (workspace + session + status) are dropped when
+	// there's no room.
 	badge := t.HeaderTitle.Render(" GACT ")
+	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
 	url := t.Header.Render(a.BackendURL)
-	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, url)
+	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, url)
 	avail := a.width - lipgloss.Width(required)
 
 	optional := []string{}
