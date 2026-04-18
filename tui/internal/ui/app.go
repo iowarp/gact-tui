@@ -97,6 +97,11 @@ type App struct {
 	// snaps back to the baseline.
 	sseBackoffAttempts int
 
+	// connectRetryAttempts is the count of consecutive failed
+	// connectCmd dispatches. Same backoff schedule as the SSE
+	// reconnect; reset on connectedMsg.
+	connectRetryAttempts int
+
 	// Input — bubbles/textarea handles multi-line, paste, cursor, etc.
 	input textarea.Model
 
@@ -339,6 +344,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case connectedMsg:
 		a.stage = StageReady
+		// Successful connect — reset retry attempts so the NEXT
+		// connect failure retries on the baseline delay, not whatever
+		// we'd climbed to during the prior outage.
+		a.connectRetryAttempts = 0
 		a.caps = m.caps
 		a.workspaces = m.wss
 		a.wsID = m.wsID
@@ -362,7 +371,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.stage = StageError
 		a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
+		// Connect-stage failures are usually transient (backend booting,
+		// network blip). Auto-retry on the same exponential backoff
+		// schedule the SSE reconnect uses — same UX shape, same code
+		// path. Other stages (selectSession, post-message, etc.) come
+		// from user actions and shouldn't loop in the background.
+		if isConnectStage(m.stage) {
+			delay := a.nextConnectRetryDelay()
+			a.connectRetryAttempts++
+			return a, tea.Tick(delay, func(time.Time) tea.Msg {
+				return retryConnectMsg{}
+			})
+		}
 		return a, nil
+
+	case retryConnectMsg:
+		// Only retry while we're still in StageError — the user might
+		// have already manually reconnected via Ctrl+R or the backend
+		// might be healthy now via some other path.
+		if a.stage != StageError {
+			return a, nil
+		}
+		a.stage = StageConnecting
+		return a, connectCmd(a.c)
 
 	case searchResultsMsg:
 		a.searching = false
@@ -567,6 +598,33 @@ const (
 	maxReconnectDelay  = 30 * time.Second
 )
 
+// retryConnectMsg fires after the connect-retry backoff elapses and
+// triggers another connectCmd if the TUI is still in StageError.
+type retryConnectMsg struct{}
+
+// isConnectStage reports whether the errMsg.stage value came from
+// connectCmd. The connect path emits exactly three stages — bumping
+// this list when a new stage is added is intentional friction so
+// retry doesn't accidentally fire for unrelated user actions.
+func isConnectStage(stage string) bool {
+	switch stage {
+	case "capabilities", "workspaces", "sessions":
+		return true
+	}
+	return false
+}
+
+// nextConnectRetryDelay reuses the SSE backoff schedule but reads
+// from connectRetryAttempts. Same shape, same constants — this keeps
+// the user-visible reconnect rhythm consistent across both paths.
+func (a *App) nextConnectRetryDelay() time.Duration {
+	saved := a.sseBackoffAttempts
+	a.sseBackoffAttempts = a.connectRetryAttempts
+	d := a.nextReconnectDelay()
+	a.sseBackoffAttempts = saved
+	return d
+}
+
 // nextReconnectDelay computes the wait before the next SSE reconnect
 // attempt. Pure function of a.sseBackoffAttempts so tests can walk
 // the schedule directly. Adds ±25% jitter so multiple TUI instances
@@ -599,6 +657,21 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// dispatch so even hitting "Esc" in a modal dismisses the banner.
 	if k.String() != "ctrl+l" {
 		a.transientHint = ""
+	}
+	// StageError is a special case: Ctrl+R retries immediately (skips
+	// the auto-retry backoff), Ctrl+C still quits, every other key is
+	// swallowed so users don't accidentally trigger something against
+	// the unconnected backend.
+	if a.stage == StageError {
+		switch k.String() {
+		case "ctrl+c":
+			return a, tea.Quit
+		case "ctrl+r":
+			a.stage = StageConnecting
+			a.connectRetryAttempts = 0
+			return a, connectCmd(a.c)
+		}
+		return a, nil
 	}
 	// Modal layers take precedence: workspace-switcher/metrics/settings/help/palette → permission keys.
 	if a.workspaceSwitchOpen {
@@ -1386,9 +1459,16 @@ func (a *App) viewError() string {
 	t := a.Theme
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Danger).Render("Connection error")
 	hint := t.HintLabel.Render("Backend: " + a.BackendURL)
+	keys := t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
+		t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit")
+	retryHint := ""
+	if a.connectRetryAttempts > 0 {
+		retryHint = t.HintLabel.Render(fmt.Sprintf(
+			"auto-retry pending (attempt %d)", a.connectRetryAttempts+1))
+	}
 	body := t.Pane.BorderForeground(t.Danger).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			title, "", a.stageError, "", hint, "", t.HintLabel.Render("press ctrl+c to quit"),
+			title, "", a.stageError, "", hint, "", retryHint, "", keys,
 		),
 	)
 	box := lipgloss.NewStyle().
