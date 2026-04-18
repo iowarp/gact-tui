@@ -68,7 +68,8 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [ ] **E1.** End-to-end test: TUI driven via teatest in same process talking to embedded emulator. (`internal/client/client_integration_test.go` already covers wire-format end-to-end via real binary; this would add UI-level assertions.)
 - [x] **E2.** README.md at repo root.
-- [ ] **E3.** Theming: light/dark adaptive via lipgloss `LightDark`. Currently dark-only.
+- [x] **E3.** Theming — LightTheme() + ThemeForMode() + ParseThemeMode(); main.go honors `--theme=light|dark` flag (and `GACT_THEME` env). Glamour markdown style still hardcoded dark — visible mismatch on light bg (follow-up).
+- [ ] **E3b.** Glamour style follows TUI theme (light vs dark) so inline-code/code-block backgrounds match.
 - [x] **E4.** Keyboard hint discoverability — footer + help overlay.
 - [x] **E5.** Connection resilience — sseClosedMsg → reconnect tick.
 - [x] **E6.** Empty-state polish — sidebar n-to-create + body crib.
