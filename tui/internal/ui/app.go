@@ -2815,9 +2815,26 @@ var helpTabs = []struct {
 			{"w", "allow for this workspace"},
 		},
 	},
+	{
+		// Scenario triggers — the emulator routes messages by keyword
+		// into different scripts. The empty-state crib listed these
+		// but disappeared once a message landed. Surfacing them here
+		// means users can always remember "how do I get a long reply
+		// again?" even mid-conversation (issue #4).
+		title: "Scenarios",
+		keys: [][2]string{
+			{"read main.go", "normal turn (text + tool call + result)"},
+			{"delete the temp dir", "triggers a permission prompt (a/d/s/w)"},
+			{"propose an edit to main.go", "file_diff part — a / r in body to apply/reject"},
+			{"split this with a sub-agent", "spawns a code_reviewer subagent"},
+			{"write a long explain", "long assistant reply (~60 lines)"},
+			{"dump the log", "large tool output (~80 lines) — Ctrl+E to expand"},
+			{"many tools please", "3 tool calls in one turn"},
+		},
+	},
 }
 
-const helpTabCount = 5
+const helpTabCount = 6
 
 // viewHelp renders the help overlay as a tabbed modal. Each tab scopes
 // keybindings to a pane or mode so the list always fits in-view —
