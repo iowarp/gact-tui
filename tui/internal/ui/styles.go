@@ -47,6 +47,14 @@ type Theme struct {
 	// User-controllable via Settings > TUI; default 5 matches the
 	// feedback ask.
 	CollapseThreshold int
+
+	// CostWarnTokens and CostDangerTokens are the input-token
+	// thresholds that tint the footer's token counter. 0 means
+	// "use the built-in defaults": 100K / 150K — sized for Claude
+	// Sonnet/Opus context windows. Local models with 32K or 8K
+	// windows can lower them via config.json or the CLI flag.
+	CostWarnTokens   int
+	CostDangerTokens int
 }
 
 // ThemeMode identifies which named palette to load. New palettes get a
@@ -309,6 +317,15 @@ func (t *Theme) applyStyles() {
 	t.HintLabel = lipgloss.NewStyle().Foreground(t.FgMuted)
 	if t.CollapseThreshold == 0 {
 		t.CollapseThreshold = 5
+	}
+	// Cost-meter thresholds — default to Claude-sized windows. Users
+	// on smaller local models lower them through Settings > TUI or
+	// config.json.
+	if t.CostWarnTokens == 0 {
+		t.CostWarnTokens = 100_000
+	}
+	if t.CostDangerTokens == 0 {
+		t.CostDangerTokens = 150_000
 	}
 }
 

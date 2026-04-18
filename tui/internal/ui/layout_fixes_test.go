@@ -482,6 +482,31 @@ func TestSessionsSlashCmd_FocusesSidebarFilter(t *testing.T) {
 	}
 }
 
+// TestCostThresholds_DefaultAndOverride verifies P3: zero → Claude
+// defaults (100K / 150K); user override sticks through applyStyles.
+func TestCostThresholds_DefaultAndOverride(t *testing.T) {
+	dark := ThemeForMode(ModeDark)
+	if dark.CostWarnTokens != 100_000 {
+		t.Errorf("default warn = %d, want 100000", dark.CostWarnTokens)
+	}
+	if dark.CostDangerTokens != 150_000 {
+		t.Errorf("default danger = %d, want 150000", dark.CostDangerTokens)
+	}
+
+	// User override via direct assignment survives applyStyles re-run
+	// (mimics what the live-swap path does).
+	custom := dark
+	custom.CostWarnTokens = 20_000
+	custom.CostDangerTokens = 30_000
+	custom.applyStyles()
+	if custom.CostWarnTokens != 20_000 {
+		t.Errorf("override warn lost: %d", custom.CostWarnTokens)
+	}
+	if custom.CostDangerTokens != 30_000 {
+		t.Errorf("override danger lost: %d", custom.CostDangerTokens)
+	}
+}
+
 // TestThemeSlashCmd_OpensSettingsThemeTab verifies /theme lands the
 // user on Settings > Theme with the current palette pre-selected so
 // ↓/↑ immediately previews a neighbour.

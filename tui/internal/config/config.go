@@ -27,6 +27,8 @@ type Config struct {
 	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
 	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
+	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
+	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`
 }
 
 // Save writes cfg to path, creating parent directories as needed.

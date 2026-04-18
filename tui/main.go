@@ -116,6 +116,14 @@ func runTUI() {
 	if cfg.CollapseThreshold != nil && *cfg.CollapseThreshold > 0 {
 		app.Theme.CollapseThreshold = *cfg.CollapseThreshold
 	}
+	// P3: restore persisted cost-meter thresholds. Zero falls back
+	// to the Claude-sized defaults via applyStyles.
+	if cfg.CostWarnTokens != nil && *cfg.CostWarnTokens > 0 {
+		app.Theme.CostWarnTokens = *cfg.CostWarnTokens
+	}
+	if cfg.CostDangerTokens != nil && *cfg.CostDangerTokens > 0 {
+		app.Theme.CostDangerTokens = *cfg.CostDangerTokens
+	}
 	// Wire the save hook so Settings > TUI ◀/▶ adjustments flush to
 	// disk on every change. The hook captures the resolved config
 	// path so writes always land at the canonical location even when
@@ -127,6 +135,10 @@ func runTUI() {
 		cur.CollapseThreshold = &ct
 		themeName := ui.ThemeModeName(ui.ThemeModeFor(app.Theme))
 		cur.Theme = &themeName
+		warn := app.Theme.CostWarnTokens
+		danger := app.Theme.CostDangerTokens
+		cur.CostWarnTokens = &warn
+		cur.CostDangerTokens = &danger
 		return config.Save(cur, persistPath)
 	}
 	// Hot-reload: Ctrl+L re-reads the on-disk config and reapplies
