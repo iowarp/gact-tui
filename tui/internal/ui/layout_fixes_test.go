@@ -542,6 +542,41 @@ func TestDuplicateSession_PreservesMeta(t *testing.T) {
 	}
 }
 
+// TestBodyCursor_DeleteTargetsSelection covers Y2: with the body
+// cursor on a non-last message, `d` drops that specific message
+// (not "latest").
+func TestBodyCursor_DeleteTargetsSelection(t *testing.T) {
+	sessions := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "first", ID: "p1"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "middle", ID: "p2"}}},
+		{ID: "m3", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "last", ID: "p3"}}},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusBody
+	a.bodySelMsgIdx = 1 // target the middle message
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	a = out.(*App)
+	if len(a.messages) != 2 {
+		t.Fatalf("want 2 messages after delete, got %d", len(a.messages))
+	}
+	remaining := []string{a.messages[0].ID, a.messages[1].ID}
+	if remaining[0] != "m1" || remaining[1] != "m3" {
+		t.Fatalf("wrong messages remain: %v", remaining)
+	}
+	if cmd == nil {
+		t.Fatalf("expected deleteMessageCmd")
+	}
+	// Cursor should clamp to new last index (1 after delete).
+	if a.bodySelMsgIdx != 1 {
+		t.Errorf("cursor should stay at 1 after delete, got %d", a.bodySelMsgIdx)
+	}
+}
+
 // TestBodyCursor_WalksMessages covers Y1: `n` advances the body
 // cursor; `N` walks it backward; clamped at both ends.
 func TestBodyCursor_WalksMessages(t *testing.T) {

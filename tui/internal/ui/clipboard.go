@@ -12,6 +12,35 @@ import (
 // to atotto/clipboard; test files override the variable.
 var clipboardWrite = clipboard.WriteAll
 
+// messageText returns the concatenated text/thinking content of a
+// single message — the same flattening rule lastAssistantText uses.
+// Returns ("", false) when the message has no copyable content.
+func messageText(m gact.Message) (string, bool) {
+	var b strings.Builder
+	for _, p := range m.Parts {
+		var chunk string
+		switch p.Type {
+		case gact.PartTypeText:
+			chunk = p.Text
+		case gact.PartTypeThinking:
+			if p.Thinking == "" {
+				continue
+			}
+			chunk = "<thinking>\n" + p.Thinking + "\n</thinking>"
+		default:
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(chunk)
+	}
+	if b.Len() == 0 {
+		return "", false
+	}
+	return b.String(), true
+}
+
 // lastUserText walks msgs in reverse and returns the concatenated
 // text of the newest user message. Multiple text parts are joined
 // with blank-line separators; non-text parts are skipped because the
