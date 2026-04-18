@@ -1313,6 +1313,15 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, loadSettingsCmd(a.c)
 			}
 
+			// /metrics opens the metrics modal inline — same modal
+			// Ctrl+T surfaces. Nice for users who live in the palette
+			// and don't remember the keybinding.
+			if cmd.ID == "/metrics" {
+				a.metricsOpen = true
+				a.metrics = &metricsState{loading: true}
+				return a, loadMetricsCmd(a.c)
+			}
+
 			// /theme-export writes the currently-active palette to
 			// ~/.config/gact/theme.json so users who like a built-in
 			// + a couple of tweaks have a starting point to edit. No
@@ -3201,6 +3210,7 @@ var helpTabs = []struct {
 			{"/sessions", "focus sidebar + start title filter"},
 			{"/theme", "open Theme picker (dark/light/dracula/…) "},
 			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
+			{"/metrics", "open metrics modal (same as Ctrl+T)"},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},

@@ -423,6 +423,7 @@ func staticCommands() []gact.Command {
 		{ID: "/sessions", Title: "Focus sidebar + filter sessions by title", Source: "builtin"},
 		{ID: "/theme", Title: "Pick a colour theme (live preview)", Source: "builtin"},
 		{ID: "/theme-export", Title: "Export current palette to ~/.config/gact/theme.json", Source: "builtin"},
+		{ID: "/metrics", Title: "Open backend metrics modal", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
 			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
