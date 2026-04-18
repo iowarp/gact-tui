@@ -173,8 +173,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase CC — operator-tools fill-in
 
-- [ ] **CC1.** `gact cancel <session_id>` — POST `/v1/sessions/{id}/cancel`. Completes the matrix alongside list/tail/send/wait/ping/export/import.
-- [ ] **CC2.** `gact run <session_id> <text|->` — combined send + wait. One command for "ask + block until reply". Defaults to `--timeout 5m`.
+- [x] **CC1.** `gact cancel <sid>` POSTs the cancel endpoint. Idempotent. CLI test.
+- [x] **CC2.** `gact run <sid> <text|->` combined send+wait. Stdin sentinel via `-`. Honours --timeout / --interval. CLI test.
 
 ## Phase BB — scripting follow-ups
 

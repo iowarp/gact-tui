@@ -133,6 +133,37 @@ The contract: the command runs synchronously, writes audio bytes to
 stdout, and exits 0. See [`scripts/voice-record.sh`](./scripts/voice-record.sh)
 for a reference wrapper around `arecord`/`sox`/`ffmpeg`.
 
+## CLI subcommands
+
+`gact` is interactive by default. These subcommands are non-interactive
+and exit when done — handy for shell-script automation against a
+running backend:
+
+| Command | What it does |
+|---|---|
+| `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |
+| `gact tail [SID] [--workspace WS_ID]` | Stream SSE events as JSON lines |
+| `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
+| `gact wait <sid> [--timeout DUR]` | Poll until session status is idle |
+| `gact run <sid> <text\|->` | Combined send + wait — one command |
+| `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
+| `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
+| `gact export <sid> [-o file]` | Dump one session as a JSON blob |
+| `gact export --all -o DIR` | Dump every session as one file each |
+| `gact import <file\|->` | Upload an export blob (re-IDs everything) |
+| `gact diag` | Print binary version + config + env for bug reports |
+| `gact emit-config` | Print sample `config.json` to stdout |
+| `gact version` | Print version + git revision + build time |
+| `gact list-themes` *(via `--list-themes`)* | Print available palettes |
+
+Pipe-friendly composition example:
+
+```sh
+SID=$(gact list | head -1 | cut -f1)
+gact run "$SID" "please summarise main.go"
+gact tail "$SID" | jq 'select(.type == "message.completed")'
+```
+
 ## What's implemented
 
 **Emulator** (Phase A complete — 21/21 tasks). Race-clean, ≥75% coverage on
