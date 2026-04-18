@@ -5,6 +5,7 @@
 //	emulator-server [--port 7777] [--scenario default] [--timing fast|realistic]
 //	                [--seed-workspace true] [--seed-workspaces name:/path,…]
 //	                [--seed-sessions ws_id=count,ws_id=count]
+//	                [--seed-messages ses_id=count,ses_id=count]
 package main
 
 import (
@@ -44,6 +45,10 @@ func main() {
 			"comma-separated `ws_id=N` entries; seeds N placeholder "+
 				"sessions in each listed workspace. Useful for demos "+
 				"of multi-session sidebar behaviour.")
+		seedMessages = flag.String("seed-messages", "",
+			"comma-separated `ses_id=N` entries; seeds N placeholder "+
+				"user+assistant message pairs in each listed session. "+
+				"Useful for demos of populated-conversation rendering.")
 	)
 	flag.Parse()
 
@@ -88,6 +93,33 @@ func main() {
 			}
 			log.Printf("seeded session %s (%q) in workspace %s", sess.ID, sess.Title, step.wsID)
 		}
+	}
+
+	messagePlan, err := parseSeedMessages(*seedMessages)
+	if err != nil {
+		log.Fatalf("--seed-messages: %v", err)
+	}
+	for _, step := range messagePlan {
+		for i := 0; i < step.count; i++ {
+			// One user turn + one assistant turn per count — a single
+			// N=3 creates 6 messages, matching how users think about
+			// "turns" rather than raw message counts.
+			if _, err := st.AppendMessage(gact.Message{
+				SessionID: step.sessionID,
+				Role:      gact.RoleUser,
+				Parts:     []gact.Part{gact.NewTextPart(fmt.Sprintf("seeded user message %d", i+1))},
+			}); err != nil {
+				log.Fatalf("seed user message #%d for %q: %v", i+1, step.sessionID, err)
+			}
+			if _, err := st.AppendMessage(gact.Message{
+				SessionID: step.sessionID,
+				Role:      gact.RoleAssistant,
+				Parts:     []gact.Part{gact.NewTextPart(fmt.Sprintf("seeded assistant reply %d", i+1))},
+			}); err != nil {
+				log.Fatalf("seed assistant message #%d for %q: %v", i+1, step.sessionID, err)
+			}
+		}
+		log.Printf("seeded %d message pairs in session %s", step.count, step.sessionID)
 	}
 
 	srv := server.NewWithStore(server.Config{Scenario: *scenarioName}, st)
@@ -141,6 +173,51 @@ func main() {
 type seedSessionStep struct {
 	wsID  string
 	count int
+}
+
+// seedMessageStep is one ses_id=count entry from --seed-messages.
+type seedMessageStep struct {
+	sessionID string
+	count     int
+}
+
+// parseSeedMessages parses --seed-messages. Shape mirrors
+// parseSeedSessions so operators don't have to learn a third syntax —
+// same whitespace tolerance, same positive-count requirement, same
+// refuse-to-boot stance on malformed input.
+func parseSeedMessages(raw string) ([]seedMessageStep, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	var out []seedMessageStep
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		i := strings.IndexByte(entry, '=')
+		if i <= 0 || i == len(entry)-1 {
+			return nil, fmt.Errorf("bad entry %q: want `session_id=count`", entry)
+		}
+		sid := strings.TrimSpace(entry[:i])
+		countStr := strings.TrimSpace(entry[i+1:])
+		if sid == "" || countStr == "" {
+			return nil, fmt.Errorf("bad entry %q: session id and count must be non-empty", entry)
+		}
+		n := 0
+		for _, r := range countStr {
+			if r < '0' || r > '9' {
+				return nil, fmt.Errorf("bad entry %q: count must be a positive integer", entry)
+			}
+			n = n*10 + int(r-'0')
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("bad entry %q: count must be > 0", entry)
+		}
+		out = append(out, seedMessageStep{sessionID: sid, count: n})
+	}
+	return out, nil
 }
 
 // parseSeedSessions parses --seed-sessions. Empty input → nil, no
