@@ -338,6 +338,43 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestFilePicker_FuzzyScore verifies the scoring function directly:
+// substring matches beat skip-matches, basename-substring beats
+// directory-substring, skips with smaller gaps beat scattered ones.
+func TestFilePicker_FuzzyScore(t *testing.T) {
+	// Substring matches return small scores.
+	s1, ok := fuzzyScore("internal/server/server.go", "server")
+	if !ok {
+		t.Fatalf("expected match for 'server' in internal/server/server.go")
+	}
+
+	// Basename bonus: "server" in the basename component scores lower
+	// than "server" in a directory component.
+	s2, _ := fuzzyScore("internal/server-notes/x.md", "server")
+	if s1 >= s2 {
+		t.Errorf("basename match %d should beat dir match %d", s1, s2)
+	}
+
+	// Skip-match still works: "isrgo" → "internal/server.go" (i-s-r-g-o
+	// appear in order even without being contiguous).
+	if _, ok := fuzzyScore("internal/server.go", "isrgo"); !ok {
+		t.Errorf("expected skip-match on 'isrgo'")
+	}
+
+	// Missing chars fail.
+	if _, ok := fuzzyScore("internal/server/server.go", "zzzzzz"); ok {
+		t.Errorf("impossible needle shouldn't match")
+	}
+
+	// Substring beats skip: typing "store" should rank the exact hit
+	// over any hypothetical scattered match.
+	aSub, _ := fuzzyScore("internal/store/store.go", "store")
+	aSkip, _ := fuzzyScore("internal/s-t-o-r-e.go", "store")
+	if aSub >= aSkip {
+		t.Errorf("substring %d should beat skip %d", aSub, aSkip)
+	}
+}
+
 // TestFilePicker_AtMidWordPassesThrough ensures @ in the middle of a
 // word (e.g. typing an email address) doesn't hijack input.
 func TestFilePicker_AtMidWordPassesThrough(t *testing.T) {
