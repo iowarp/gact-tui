@@ -35,6 +35,11 @@ Implemented:
 - `GET /v1/sessions?workspace_id=…` — translates Crush's nested
   `/v1/workspaces/{id}/sessions`
 - `GET /v1/sessions/{id}?workspace_id=…` — same nesting
+- `GET /v1/sessions/{id}/messages?workspace_id=…` — translates Crush's
+  wrapped `{type, data}` parts. text/reasoning/tool_call/tool_result
+  pass through with shape conversion; `finish` becomes
+  `Message.StopReason`; `image_url`/`binary` map to `image`/`document`;
+  unknown types fall through as `x_crush_<type>` per SPEC §8.3.
 
 Everything else returns 501.
 
@@ -55,7 +60,6 @@ Everything else returns 501.
 
 | GACT endpoint | Crush mapping | Notes |
 |---|---|---|
-| messages | `/v1/workspaces/{id}/sessions/{sid}/messages` | Need part-shape translation. |
 | SSE events | `/v1/workspaces/{id}/events` | Per-session filter + event taxonomy. |
 | POST messages | `POST /v1/workspaces/{id}/agent` | Maps to Crush's agent endpoint. |
 | permissions | `/v1/workspaces/{id}/permissions/grant` etc. | Crush has rich permission flow. |
