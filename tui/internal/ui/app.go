@@ -260,6 +260,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return a.handleKey(m)
 
+	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
+		// Forward paste events to the textarea when input has focus.
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen {
+			var cmd tea.Cmd
+			a.input, cmd = a.input.Update(m)
+			return a, cmd
+		}
+		return a, nil
+
 	case connectedMsg:
 		a.stage = StageReady
 		a.caps = m.caps
@@ -1089,22 +1098,41 @@ func (a *App) viewMainBase() string {
 
 func (a *App) renderHeader() string {
 	t := a.Theme
-	parts := []string{
-		t.HeaderTitle.Render(" GACT "),
-		t.Header.Render(a.BackendURL),
-	}
+	// Required parts (badge + URL) always render. Optional parts
+	// (workspace + session + status) are dropped when there's no room.
+	badge := t.HeaderTitle.Render(" GACT ")
+	url := t.Header.Render(a.BackendURL)
+	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, url)
+	avail := a.width - lipgloss.Width(required)
+
+	optional := []string{}
 	if len(a.workspaces) > 0 {
-		parts = append(parts, t.Header.Render("ws: "+a.workspaces[0].Name))
+		optional = append(optional, "ws: "+a.workspaces[0].Name)
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
-		s := a.sessions[a.selected]
-		parts = append(parts, t.Header.Render("session: "+s.Title))
+		optional = append(optional, "session: "+a.sessions[a.selected].Title)
 	}
+	statusBadge := ""
 	if a.currentStatus != "" {
-		parts = append(parts, t.StatusBadge.Render(a.currentStatus))
+		statusBadge = t.StatusBadge.Render(a.currentStatus)
+		avail -= lipgloss.Width(statusBadge)
 	}
-	line := lipgloss.JoinHorizontal(lipgloss.Top, parts...)
-	// Pad right so background extends to full width.
+
+	rendered := []string{required}
+	for _, opt := range optional {
+		styled := t.Header.Render(truncate(opt, avail-2))
+		w := lipgloss.Width(styled)
+		if w > avail {
+			break
+		}
+		rendered = append(rendered, styled)
+		avail -= w
+	}
+	if statusBadge != "" {
+		rendered = append(rendered, statusBadge)
+	}
+
+	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
 	pad := a.width - lipgloss.Width(line)
 	if pad < 0 {
 		pad = 0
@@ -1116,8 +1144,10 @@ func (a *App) renderHeader() string {
 func (a *App) renderFooter() string {
 	t := a.Theme
 	hints := []string{
+		t.HintKey.Render("Ctrl+N") + t.HintLabel.Render(" new"),
 		t.HintKey.Render("Tab") + t.HintLabel.Render(" pane"),
-		t.HintKey.Render("Enter") + t.HintLabel.Render(" send"),
+		t.HintKey.Render("Ctrl+S") + t.HintLabel.Render(" settings"),
+		t.HintKey.Render("/") + t.HintLabel.Render(" cmd"),
 		t.HintKey.Render("?") + t.HintLabel.Render(" help"),
 		t.HintKey.Render("ctrl+c") + t.HintLabel.Render(" quit"),
 	}
@@ -1170,7 +1200,41 @@ func (a *App) renderSidebar(width, height int) string {
 			"",
 			t.HintKey.Render("n")+t.HintLabel.Render(" to create"))
 	}
-	for i, s := range a.sessions {
+
+	// Each session takes 3 rows (title + status + spacer). Scroll the
+	// session list so the selected entry stays visible. We reserve room
+	// for the SESSIONS title (2 rows) + CONTEXT section (~3-N rows)
+	// + pane border padding (2 rows). Anything not fitting is hidden,
+	// with "↑ N more" / "N more ↓" indicators at the edges.
+	const rowsPerSession = 3
+	contextLines := 0
+	if a.selected >= 0 {
+		contextLines = 2 + 1 + len(a.contextFiles) // title+blank, then files (at least 1 placeholder)
+		if contextLines < 4 {
+			contextLines = 4 // accommodate "(no files)"
+		}
+	}
+	// Available rows for sessions inside the pane (height-2 for border,
+	// minus 2 for SESSIONS title+blank, minus contextLines, minus 1 spacer).
+	avail := (height - 2) - 2 - contextLines - 1
+	if avail < rowsPerSession {
+		avail = rowsPerSession
+	}
+	maxSessions := avail / rowsPerSession
+	startIdx := 0
+	if a.selected >= 0 && a.selected >= maxSessions {
+		startIdx = a.selected - maxSessions + 1
+	}
+	endIdx := startIdx + maxSessions
+	if endIdx > len(a.sessions) {
+		endIdx = len(a.sessions)
+	}
+	if startIdx > 0 {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(fmt.Sprintf("  ↑ %d more", startIdx)))
+	}
+	for i := startIdx; i < endIdx; i++ {
+		s := a.sessions[i]
 		marker := "  "
 		indent := ""
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
@@ -1190,6 +1254,10 @@ func (a *App) renderSidebar(width, height int) string {
 		titleLine := marker + indent + titleStyle.Render(truncate(title, width-6-len(indent)))
 		statusLine := "  " + indent + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
+	}
+	if endIdx < len(a.sessions) {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(fmt.Sprintf("  %d more ↓", len(a.sessions)-endIdx)))
 	}
 
 	// CONTEXT section — show files in the current session's context.
@@ -1256,20 +1324,41 @@ func (a *App) renderBody(width, height int) string {
 
 	var body string
 	if a.selected < 0 || a.selected >= len(a.sessions) {
-		body = lipgloss.JoinVertical(lipgloss.Left,
-			t.HintLabel.Render("No session selected."),
+		// Big, friendly empty state. Same pattern as a real onboarding.
+		callout := lipgloss.NewStyle().
+			Bold(true).Foreground(t.Primary).Padding(0, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(t.Primary).
+			Render("Press " +
+				lipgloss.NewStyle().Foreground(t.Bg).Background(t.Primary).Padding(0, 1).Render("Ctrl+N") +
+				" to start your first conversation")
+		hints := lipgloss.JoinVertical(lipgloss.Left,
+			t.HintLabel.Render("Or in sidebar (Tab to focus):"),
+			"  "+t.HintKey.Render("n")+t.HintLabel.Render(" new")+
+				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete")+
+				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" pick"),
 			"",
-			t.HintLabel.Render("Sidebar (Tab to focus):"),
-			"  "+t.HintKey.Render("↑/↓")+" "+t.HintLabel.Render("pick"),
-			"  "+t.HintKey.Render("n")+"   "+t.HintLabel.Render("new"),
-			"  "+t.HintKey.Render("x")+"   "+t.HintLabel.Render("delete"),
+			t.HintLabel.Render("Other things to try:"),
+			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" pick a model / agent"),
+			"  "+t.HintKey.Render("/")+t.HintLabel.Render(" command palette"),
+			"  "+t.HintKey.Render("?")+t.HintLabel.Render(" help"),
 		)
+		body = lipgloss.JoinVertical(lipgloss.Left, callout, "", hints)
 	} else if len(a.messages) == 0 {
 		body = lipgloss.JoinVertical(lipgloss.Left,
 			t.HintLabel.Render("(no messages yet — type below to send the first one)"),
 			"",
-			t.HintLabel.Render("Try: 'read main.go' for a normal turn"),
-			t.HintLabel.Render("Try: 'delete temp dir' to trigger a permission prompt"),
+			t.HintLabel.Render("Try one of these to see different flows:"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("read main.go")+
+				"           "+t.HintLabel.Render("normal turn (text + tool call + result)"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("delete the temp dir")+
+				"    "+t.HintLabel.Render("triggers a permission prompt (a/d/s/w to respond)"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("propose an edit to main.go")+
+				" "+t.HintLabel.Render("triggers a diff (a/r in body to apply/reject)"),
+			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("split this with a sub-agent")+
+				" "+t.HintLabel.Render("spawns a code_reviewer subagent"),
+			"",
+			t.HintLabel.Render("Or ")+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" to change the model/agent."),
 		)
 	} else {
 		var rows []string
