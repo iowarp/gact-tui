@@ -107,6 +107,21 @@ func (a *App) viewMetrics() string {
 		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
 			rows = append(rows, row(t, "  "+name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])))
 		}
+		// Latencies — show top 6 routes by p95 so the modal stays compact.
+		// Backends running an older contract might omit this field; render
+		// nothing in that case rather than an empty section.
+		if len(m.Latencies) > 0 {
+			rows = append(rows,
+				"",
+				lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Latencies (top 6 by p95, ms)"))
+			for _, pat := range topLatencyRoutes(m.Latencies, 6) {
+				st := m.Latencies[pat]
+				rows = append(rows, row(t,
+					"  "+truncate(pat, 32),
+					fmt.Sprintf("p50 %.1f / p95 %.1f / max %.1f (n=%d)",
+						st.P50Ms, st.P95Ms, st.MaxMs, st.Count)))
+			}
+		}
 	}
 	rows = append(rows, "", t.HintLabel.Render("r refresh   Esc / Ctrl+T close"))
 
@@ -147,5 +162,22 @@ func sortedFloatKeys(m map[string]float64) []string {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	return keys
+}
+
+// topLatencyRoutes returns up to n route patterns ordered by descending
+// p95 — these are the slowest endpoints, which is what an operator
+// debugging the backend cares about.
+func topLatencyRoutes(m map[string]gact.MetricsLatencyStat, n int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return m[keys[i]].P95Ms > m[keys[j]].P95Ms
+	})
+	if len(keys) > n {
+		keys = keys[:n]
+	}
 	return keys
 }

@@ -208,11 +208,22 @@ type Command struct {
 
 // Metrics is the body of GET /v1/metrics (SPEC §6.16).
 type Metrics struct {
-	UptimeS  int                 `json:"uptime_s"`
-	Sessions MetricsSessions     `json:"sessions"`
-	Messages MetricsMessages     `json:"messages"`
-	Tokens   MetricsTokens       `json:"tokens"`
-	Cost     MetricsCost         `json:"cost"`
+	UptimeS   int                          `json:"uptime_s"`
+	Sessions  MetricsSessions              `json:"sessions"`
+	Messages  MetricsMessages              `json:"messages"`
+	Tokens    MetricsTokens                `json:"tokens"`
+	Cost      MetricsCost                  `json:"cost"`
+	Latencies map[string]MetricsLatencyStat `json:"latencies,omitempty"`
+}
+
+// MetricsLatencyStat is one row of per-route timing — keyed by mux
+// pattern (e.g. "GET /v1/sessions/{id}"). count is total samples ever
+// observed; the percentiles come from a recent-1024-sample reservoir.
+type MetricsLatencyStat struct {
+	Count int     `json:"count"`
+	P50Ms float64 `json:"p50_ms"`
+	P95Ms float64 `json:"p95_ms"`
+	MaxMs float64 `json:"max_ms"`
 }
 
 type MetricsSessions struct {
