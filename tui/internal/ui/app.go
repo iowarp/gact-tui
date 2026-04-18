@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -88,6 +89,13 @@ type App struct {
 	sseEvents <-chan client.SSEEvent
 	sseErrs   <-chan error
 	sseCancel context.CancelFunc
+
+	// sseBackoffAttempts is the count of consecutive reconnects since
+	// the last successful event arrival. Used by nextReconnectDelay()
+	// to pick 250 ms → 500 ms → 1 s → … → 30 s. Reset to 0 whenever an
+	// event is delivered, so a flaky backend that comes back quickly
+	// snaps back to the baseline.
+	sseBackoffAttempts int
 
 	// Input — bubbles/textarea handles multi-line, paste, cursor, etc.
 	input textarea.Model
@@ -382,6 +390,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case sseEventMsg:
+		// Event arrival means the stream is healthy — reset the
+		// reconnect backoff so the NEXT disconnect waits 250 ms, not
+		// whatever the attempts counter had climbed to.
+		a.sseBackoffAttempts = 0
 		a.applySSE(m.Event)
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
 		if a.pendingSidebarRefresh && a.wsID != "" {
@@ -391,11 +403,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(cmds...)
 
 	case sseClosedMsg:
-		// Stream ended (cancelled or remote closed). Wait briefly then
-		// reopen for current session — this gives a server restart time
-		// to come back without a tight reconnect loop.
+		// Stream ended (cancelled or remote closed). Wait per the
+		// backoff schedule then reopen for current session. A tight
+		// fixed-delay loop hammers the backend on a long outage; this
+		// schedule plays nicer and still reconnects fast on transient
+		// blips (first retry at ~250 ms).
 		if sid := a.currentSessionID(); sid != "" {
-			return a, tea.Tick(reconnectDelay, func(time.Time) tea.Msg {
+			delay := a.nextReconnectDelay()
+			a.sseBackoffAttempts++
+			return a, tea.Tick(delay, func(time.Time) tea.Msg {
 				return reconnectMsg{sessionID: sid}
 			})
 		}
@@ -541,7 +557,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-const reconnectDelay = 750 * time.Millisecond
+// SSE reconnect backoff constants. baseReconnectDelay is the first
+// retry's target; each subsequent attempt doubles (250 ms, 500 ms, 1 s,
+// 2 s, 4 s, 8 s, 16 s, 30 s…). maxReconnectDelay caps the ceiling so a
+// user coming back to a long-idle TUI gets a reconnect within half a
+// minute, not 20.
+const (
+	baseReconnectDelay = 250 * time.Millisecond
+	maxReconnectDelay  = 30 * time.Second
+)
+
+// nextReconnectDelay computes the wait before the next SSE reconnect
+// attempt. Pure function of a.sseBackoffAttempts so tests can walk
+// the schedule directly. Adds ±25% jitter so multiple TUI instances
+// reconnecting after the same backend restart don't thunder in lockstep.
+func (a *App) nextReconnectDelay() time.Duration {
+	n := a.sseBackoffAttempts
+	if n < 0 {
+		n = 0
+	}
+	// Cap the shift so we don't overflow on pathologically large n.
+	if n > 20 {
+		n = 20
+	}
+	d := baseReconnectDelay * (1 << n)
+	if d > maxReconnectDelay {
+		d = maxReconnectDelay
+	}
+	// ±25% jitter. rand.Int63n is fine here — not a security context.
+	jitter := time.Duration(rand.Int63n(int64(d/2))) - d/4
+	result := d + jitter
+	if result < baseReconnectDelay {
+		result = baseReconnectDelay
+	}
+	return result
+}
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Clear any transient hint banner — it's a one-off toast that
