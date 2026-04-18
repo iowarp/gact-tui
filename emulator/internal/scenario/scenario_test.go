@@ -44,6 +44,35 @@ func collectEventTypes(sub *events.Subscription, maxCount int, timeout time.Dura
 	return out
 }
 
+// collectStatusEvents drains events until a session.status_changed event
+// whose payload carries the requested status is seen. Returns the type
+// names in the order they arrived. Unlike collectEventTypes, this looks
+// at the event's *own* payload — never the store — so it can't be fooled
+// by the script publishing newer events while we're still draining.
+func collectStatusEvents(sub *events.Subscription, maxCount int, timeout time.Duration, wantStatus string) []string {
+	out := make([]string, 0, 64)
+	deadline := time.After(timeout)
+	for len(out) < maxCount {
+		select {
+		case e, ok := <-sub.C:
+			if !ok {
+				return out
+			}
+			out = append(out, e.Type)
+			if e.Type != "session.status_changed" {
+				continue
+			}
+			payload, _ := e.Payload.(map[string]any)
+			if payload != nil && payload["status"] == wantStatus {
+				return out
+			}
+		case <-deadline:
+			return out
+		}
+	}
+	return out
+}
+
 func TestDefaultScriptHappyPath(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
@@ -60,15 +89,12 @@ func TestDefaultScriptHappyPath(t *testing.T) {
 	// Stop on session.status_changed → idle (terminal signal). Multiple
 	// message.completed events fire (one per assistant turn), so don't
 	// stop on the first.
-	// 30 s deadline absorbs slow-CI variance — local dev hits the success
-	// predicate in <100 ms so the cap never fires for healthy runs.
-	got := collectEventTypes(sub, 500, 30*time.Second, func(et string) bool {
-		if et != "session.status_changed" {
-			return false
-		}
-		latest, _ := st.GetSession(sid)
-		return latest != nil && latest.Status == gact.StatusIdle
-	})
+	// Stop on the actual idle event payload, not the store's current
+	// status — the script can race ahead and set the store to idle
+	// while we're still reading earlier "running" events from the
+	// channel, causing the predicate to fire on the wrong event.
+	// 30 s deadline absorbs slow-CI variance.
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
 
 	wantInOrder := []string{
 		"session.status_changed", // running
@@ -160,15 +186,12 @@ loop:
 	// signal). The pre-tool-call assistant message also fires
 	// message.completed (with stop_reason=tool_use), so we can't stop on
 	// the first message.completed — wait for the run to actually settle.
-	// 30 s deadline absorbs slow-CI variance — local dev hits the success
-	// predicate in <100 ms so the cap never fires for healthy runs.
-	got := collectEventTypes(sub, 500, 30*time.Second, func(et string) bool {
-		if et != "session.status_changed" {
-			return false
-		}
-		latest, _ := st.GetSession(sid)
-		return latest != nil && latest.Status == gact.StatusIdle
-	})
+	// Stop on the actual idle event payload, not the store's current
+	// status — the script can race ahead and set the store to idle
+	// while we're still reading earlier "running" events from the
+	// channel, causing the predicate to fire on the wrong event.
+	// 30 s deadline absorbs slow-CI variance.
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
 	mustContain(t, got, "tool.call.completed")
 	mustContain(t, got, "message.completed")
 
