@@ -173,7 +173,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase Y — body-focus cursor
 
-- [x] **Y1.** Body-focus message cursor (`n` next, `N` prev; idx=-1 off by default). Left-gutter `▌` in Secondary when set; takes precedence over the V3 search marker. Session switch resets. d/y/R still target latest — threading the cursor through them is a follow-up.
+- [x] **Y1.** Body-focus message cursor (`n` next, `N` prev; idx=-1 off by default). Left-gutter `▌` in Secondary when set; takes precedence over the V3 search marker. Session switch resets.
+- [x] **Y2.** d / y / R route through the cursor when set (drop/copy/retry THAT message); fall back to "latest" when the cursor is off. Delete clamps cursor to new last-index. Cursor-on-assistant + R emits a hint rather than sending the wrong text.
 
 ## Phase X — CLI + backend surface
 

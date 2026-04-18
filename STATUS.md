@@ -16,6 +16,17 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase X — CLI + backend surface
+- **X1.** `gact tail [SID] [--workspace WS_ID]` streams SSE as JSON
+  lines.
+- **X2.** `gact ping` probes `/v1/health`; exit 0 healthy.
+
+### Phase Y — body-focus cursor
+- **Y1.** `n` / `N` move a per-message cursor in body focus; bold-
+  green `▌` gutter marks the selection.
+- **Y2.** `d` / `y` / `R` target the cursor when set (fall back to
+  "latest" otherwise). Delete clamps cursor to new last-index.
+
 ### Phase W — session utilities
 - **W1.** `/duplicate` clones current session's title/model/agent to
   a fresh session.
