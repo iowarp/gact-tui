@@ -52,8 +52,27 @@ trigger the permission flow.
 | `?` | Toggle help overlay |
 | `a` / `d` / `s` / `w` | Permission: allow / deny / allow-session / allow-workspace |
 | `Ctrl+x` | Cancel currently-running scenario |
+| `Ctrl+y` | Voice transcribe (runs `--voice-cmd`; placeholder if unset) |
 | `Esc` | Close overlay / clear input |
 | `Ctrl+c` | Quit |
+
+### Voice input
+
+Ctrl+y posts audio bytes to the backend's `/v1/sessions/{id}/voice/transcribe`
+endpoint and inserts the recognised text at the cursor. The TUI doesn't
+record audio itself; it shells out to a user-supplied command:
+
+```sh
+gact --voice-cmd "scripts/voice-record.sh"
+# or
+GACT_VOICE_CMD="scripts/voice-record.sh" gact
+# or in $XDG_CONFIG_HOME/gact/config.json:
+#   {"voice_command": "scripts/voice-record.sh"}
+```
+
+The contract: the command runs synchronously, writes audio bytes to
+stdout, and exits 0. See [`scripts/voice-record.sh`](./scripts/voice-record.sh)
+for a reference wrapper around `arecord`/`sox`/`ffmpeg`.
 
 ## What's implemented
 

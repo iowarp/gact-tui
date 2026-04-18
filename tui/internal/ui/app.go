@@ -38,6 +38,14 @@ type App struct {
 	BackendURL string
 	Theme      Theme
 
+	// VoiceCommand is a shell command line that records audio and writes
+	// the bytes to stdout. Invoked by Ctrl+Y. Empty ⇒ Ctrl+Y posts a tiny
+	// placeholder body so the emulator's canned transcript still fires.
+	// Contract: exit 0 + audio/wav on stdout, or non-zero with a short
+	// stderr message that surfaces to the user via the error stage.
+	// See scripts/voice-record.sh for a reference arecord wrapper.
+	VoiceCommand string
+
 	// DisableAltScreen turns off the alternate-screen-buffer mode. Used
 	// by tests because teatest's PTY simulation doesn't capture writes
 	// while in alt-screen mode. NEVER set this in production.
@@ -197,10 +205,16 @@ func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
 
 // reloadSessionsCmd is used after subagent.started so the new sub-session
 // shows up in the sidebar without the user having to refresh manually.
-// transcribeCmd POSTs audio bytes to /v1/sessions/{id}/voice/transcribe
-// and returns a voiceTranscribedMsg to insert the recognised text.
-func transcribeCmd(c *client.Client, sessionID string, audio []byte) tea.Cmd {
+// transcribeCmd captures audio (via voiceCmd, if set) and POSTs it to
+// /v1/sessions/{id}/voice/transcribe, returning a voiceTranscribedMsg
+// with the recognised text. Empty voiceCmd ⇒ placeholder body so the
+// emulator's canned transcript still fires for demos.
+func transcribeCmd(c *client.Client, sessionID string, voiceCmd string) tea.Cmd {
 	return func() tea.Msg {
+		audio, err := captureVoice(voiceCmd)
+		if err != nil {
+			return errMsg{err: err, stage: "voice-capture"}
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		out, err := c.VoiceTranscribe(ctx, sessionID, audio, "audio/wav")
@@ -543,14 +557,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.metrics = &metricsState{loading: true}
 		return a, loadMetricsCmd(a.c)
 	case "ctrl+y":
-		// "Yo" — voice transcribe. Real mic capture is platform-specific
-		// shell-out (arecord on Linux, sox on macOS, PowerShell on Windows)
-		// — out of scope for the TUI core. v0.1 sends a placeholder audio
-		// body and inserts whatever the backend transcribes into the input.
-		// A user-supplied wrapper script can write captured audio to a file
-		// and trigger this via a custom keybind set instead.
+		// "Yo" — voice transcribe. If VoiceCommand is set, run it to
+		// capture WAV bytes; otherwise post a tiny placeholder so the
+		// emulator's canned transcript still fires for demos.
+		// See scripts/voice-record.sh for a reference arecord wrapper.
 		if sid := a.currentSessionID(); sid != "" {
-			return a, transcribeCmd(a.c, sid, []byte("placeholder audio"))
+			return a, transcribeCmd(a.c, sid, a.VoiceCommand)
 		}
 		return a, nil
 	}
