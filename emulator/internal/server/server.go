@@ -25,6 +25,11 @@ type Config struct {
 	// session status is reset. Used by scenario engines to halt in-flight
 	// scripts. nil = no-op.
 	OnCancel func(sessionID string)
+	// WalkWorkspaceFiles, when true, makes GET /v1/workspaces/{id}/files
+	// walk the workspace's RootPath on disk. When false (default), the
+	// handler returns a static demo list. Opt-in because deterministic
+	// tests rely on the static fixture.
+	WalkWorkspaceFiles bool
 }
 
 // Server is the GACT emulator HTTP server.

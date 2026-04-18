@@ -7,7 +7,9 @@ package server
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -749,14 +751,26 @@ func (s *Server) handlePatchContextFile(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleWorkspaceFiles(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if _, err := s.store.GetWorkspace(id); err != nil {
+	ws, err := s.store.GetWorkspace(id)
+	if err != nil {
 		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
 		return
 	}
-	// Static demo entries — the emulator doesn't actually walk a filesystem
-	// to keep behaviour deterministic across CI environments. The list is
-	// intentionally richer than the three placeholders we started with so
-	// the TUI's @-file picker (M6) has real material to fuzzy-match.
+	// T3: if the workspace's RootPath exists on disk as a real dir
+	// AND the cfg.WalkWorkspaceFiles flag is on, walk it. Otherwise
+	// return the static demo list so deterministic tests keep
+	// passing without touching the filesystem.
+	if s.cfg.WalkWorkspaceFiles && ws.RootPath != "" {
+		if entries, ok := walkWorkspaceFiles(ws.RootPath); ok {
+			writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+			return
+		}
+	}
+	// Static demo entries — the emulator doesn't walk a filesystem
+	// by default to keep behaviour deterministic across CI
+	// environments. The list is intentionally richer than the three
+	// placeholders we started with so the TUI's @-file picker (M6)
+	// has real material to fuzzy-match.
 	const ts = "2026-04-15T10:00:00Z"
 	writeJSON(w, http.StatusOK, map[string]any{"entries": []gact.FileEntry{
 		{Path: "main.go", Type: "file", Size: 1024, Modified: ts},
@@ -777,6 +791,59 @@ func (s *Server) handleWorkspaceFiles(w http.ResponseWriter, r *http.Request) {
 		{Path: "docs/architecture.md", Type: "file", Size: 5200, Modified: ts},
 		{Path: "docs/contributing.md", Type: "file", Size: 1800, Modified: ts},
 	}})
+}
+
+// walkWorkspaceFiles lists the real files under root. Returns
+// (nil, false) if the root isn't a readable directory — callers fall
+// back to the static list. Skips dotfiles + node_modules + .git to
+// stay useful; a future flag could expose the full tree.
+func walkWorkspaceFiles(root string) ([]gact.FileEntry, bool) {
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return nil, false
+	}
+	var entries []gact.FileEntry
+	walkErr := filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil // skip unreadable nodes
+		}
+		if p == root {
+			return nil
+		}
+		name := fi.Name()
+		if strings.HasPrefix(name, ".") || name == "node_modules" ||
+			name == "vendor" || name == "target" {
+			if fi.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return nil
+		}
+		entry := gact.FileEntry{
+			Path:     filepath.ToSlash(rel),
+			Modified: fi.ModTime().UTC().Format("2006-01-02T15:04:05Z"),
+		}
+		if fi.IsDir() {
+			entry.Type = "dir"
+		} else {
+			entry.Type = "file"
+			entry.Size = fi.Size()
+		}
+		entries = append(entries, entry)
+		// Cap at 2000 entries — protects the TUI from 100K-file
+		// monorepo floods, which would blow up the picker anyway.
+		if len(entries) >= 2000 {
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return nil, false
+	}
+	return entries, true
 }
 
 func (s *Server) handleWorkspaceFileRead(w http.ResponseWriter, r *http.Request) {
