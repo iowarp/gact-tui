@@ -257,6 +257,33 @@ func TestMessageAppendAndList(t *testing.T) {
 	}
 }
 
+func TestAppendPart(t *testing.T) {
+	s := newTestStore(t)
+	ws, _ := s.CreateWorkspace(gact.Workspace{RootPath: "/tmp/x"})
+	sess, _ := s.CreateSession(gact.Session{WorkspaceID: ws.ID})
+	msg, _ := s.AppendMessage(gact.Message{
+		SessionID: sess.ID,
+		Role:      gact.RoleAssistant,
+		Parts:     []gact.Part{gact.NewTextPart("hi")},
+	})
+	added, err := s.AppendPart(msg.ID, gact.NewTextPart("more"))
+	if err != nil {
+		t.Fatalf("AppendPart: %v", err)
+	}
+	if added.ID == "" {
+		t.Errorf("AppendPart did not assign ID")
+	}
+	got, _ := s.GetMessage(msg.ID)
+	if len(got.Parts) != 2 {
+		t.Errorf("part count = %d, want 2", len(got.Parts))
+	}
+
+	// AppendPart to missing message returns NotFound.
+	if _, err := s.AppendPart("msg_nope", gact.NewTextPart("x")); err != ErrNotFound {
+		t.Errorf("AppendPart to missing: err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestUpdateMessagePart(t *testing.T) {
 	s := newTestStore(t)
 	ws, _ := s.CreateWorkspace(gact.Workspace{RootPath: "/tmp/x"})
