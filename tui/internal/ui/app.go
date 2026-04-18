@@ -1971,6 +1971,14 @@ func (a *App) renderFooter() string {
 	}
 	hintLine := strings.Join(hints, "  ")
 	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
+	// Surface SSE reconnect state: while the backoff counter is > 0
+	// the stream is down and we're waiting to retry. J2's reset-on-
+	// event drops this back to nothing as soon as the stream is
+	// healthy, so nothing needs to clear it on a separate code path.
+	if a.sseBackoffAttempts > 0 {
+		left += "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+			Render("(reconnecting…)")
+	}
 	right := ""
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
