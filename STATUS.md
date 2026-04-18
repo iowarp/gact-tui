@@ -25,6 +25,13 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase EE — repo ergonomics
+- **EE1.** Top-level `Makefile` with build/test/run/screenshots/help.
+
+### Phase FF — q&a CLI
+- **FF1.** `gact ask <sid> <q|->` — send + wait + print assistant
+  reply text only (capture-friendly). CLI test.
+
 ### Phase CC — operator-tools fill-in
 - **CC1.** `gact cancel <sid>`. CLI test.
 - **CC2.** `gact run <sid> <text|->` combined send + wait. CLI test.
