@@ -1545,6 +1545,24 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 	}
 }
 
+// deleteMessageCmd fires a background DELETE /v1/messages/{id}. The
+// TUI already dropped the message locally so there's no message for
+// us to emit on success; failures are silently swallowed because the
+// user's next session switch or Ctrl+R will re-sync from the backend.
+// If delete failures become a real problem, switch to an errMsg-
+// returning command with a retry UX.
+func deleteMessageCmd(c *client.Client, messageID string) tea.Cmd {
+	return func() tea.Msg {
+		if messageID == "" {
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = c.DeleteMessage(ctx, messageID)
+		return nil
+	}
+}
+
 func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Filter edit mode: keystrokes go into sessionFilter instead of
 	// navigating/acting on the list. Enter commits (keeps the filter
@@ -1742,6 +1760,26 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		a.transientHint = "retrying…"
 		return a, postMessageCmd(a.c, sid, text)
+	case "d":
+		// N3: delete the most recent message. "Target latest" same
+		// pattern as y/R since the TUI doesn't yet have a per-message
+		// cursor. Optimistically drops the local entry so the user
+		// sees immediate feedback; the backend DELETE is fired in the
+		// background via deleteMessageCmd. No two-step confirmation
+		// here — the message is still recoverable (reload re-fetches
+		// from backend if the delete fails). If that becomes noisy we
+		// can copy the /clear two-step pattern.
+		if len(a.messages) == 0 {
+			a.transientHint = "no messages to delete"
+			return a, nil
+		}
+		last := a.messages[len(a.messages)-1]
+		a.messages = a.messages[:len(a.messages)-1]
+		a.transientHint = "deleted last message"
+		return a, tea.Batch(
+			deleteMessageCmd(a.c, last.ID),
+			scheduleHintExpire(a.transientHint),
+		)
 	}
 	return a, nil
 }
@@ -3047,6 +3085,7 @@ var helpTabs = []struct {
 			{"g / G", "top / bottom"},
 			{"y", "copy last assistant message to clipboard"},
 			{"R", "retry — resend last user message"},
+			{"d", "delete last message (optimistic; targets newest)"},
 			{"Ctrl+E", "expand latest bulky tool output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},

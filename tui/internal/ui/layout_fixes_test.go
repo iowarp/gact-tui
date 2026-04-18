@@ -338,6 +338,47 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestDeleteLastMessage_DropsLocally verifies N3: pressing `d` on
+// body focus removes the last message from the local slice and
+// fires a background DELETE. No-ops when messages is empty.
+func TestDeleteLastMessage_DropsLocally(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{
+		{ID: "msg_a", SessionID: "sess_1", Role: gact.RoleUser,
+			Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "a"}}},
+		{ID: "msg_b", SessionID: "sess_1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "b"}}},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusBody
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	a = out.(*App)
+	if len(a.messages) != 1 {
+		t.Fatalf("delete should leave 1 msg, got %d", len(a.messages))
+	}
+	if a.messages[0].ID != "msg_a" {
+		t.Fatalf("wrong message remained: %q", a.messages[0].ID)
+	}
+	if cmd == nil {
+		t.Fatalf("expected background delete cmd")
+	}
+
+	// Delete again — should drop msg_a.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	a = out.(*App)
+	if len(a.messages) != 0 {
+		t.Fatalf("second delete should empty messages, got %d", len(a.messages))
+	}
+
+	// Empty messages — no-op with hint.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	a = out.(*App)
+	if a.transientHint != "no messages to delete" {
+		t.Fatalf("expected no-messages hint, got %q", a.transientHint)
+	}
+}
+
 // TestCollapseThreshold_CallsSaveConfig verifies N5 persistence: every
 // stepper ◀/▶ flush fires SaveConfig so the on-disk file tracks the
 // current value.

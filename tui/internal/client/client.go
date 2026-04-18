@@ -273,6 +273,14 @@ type SearchMatch struct {
 // SearchMessages issues GET /v1/sessions/{id}/messages/search?q=...
 // and returns the matches in score order. Empty query returns no
 // matches — callers should validate that before dispatching.
+// DeleteMessage issues DELETE /v1/messages/{id}. The SSE stream
+// doesn't emit a dedicated message.deleted event in v0.1 so callers
+// that care about UI follow-up should drop the local entry
+// optimistically after a successful call.
+func (c *Client) DeleteMessage(ctx context.Context, messageID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/messages/"+messageID, nil, nil)
+}
+
 func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([]SearchMatch, error) {
 	q := url.Values{}
 	q.Set("q", query)
