@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -113,6 +114,17 @@ type App struct {
 
 	// Input — bubbles/textarea handles multi-line, paste, cursor, etc.
 	input textarea.Model
+
+	// inPaste is true between PasteStartMsg and PasteEndMsg. While set,
+	// the Enter interceptor stands down so a newline embedded in the
+	// paste stream doesn't get treated as "send message" — that was the
+	// "paste creates multiple prompts" bug from user testing. When the
+	// terminal groups the whole paste into a single PasteMsg (bracketed
+	// paste), this flag is incidental; when the terminal splits the
+	// paste into individual KeyPressMsg events between Start/End (seen
+	// in some tmux + Windows Terminal combos), this flag is what
+	// actually prevents message splitting.
+	inPaste bool
 
 	// Pending status (running/waiting_permission)
 	currentStatus string
@@ -220,6 +232,11 @@ type App struct {
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
 	pendingSidebarRefresh bool
+
+	// Set by SSE handlers when the current session's message list
+	// should be reloaded from scratch (e.g. /clear wiped the backend).
+	// The next Update reads + clears it and fires loadMessagesCmd.
+	pendingReload bool
 }
 
 // New constructs an App with the default (dark) theme.
@@ -235,6 +252,15 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	ta.SetHeight(3)
 	ta.SetWidth(80)
 	ta.ShowLineNumbers = false
+	// Rebind newline: plain Enter is reserved for "send". Users hit
+	// Shift+Enter / Alt+Enter / Ctrl+J to insert a literal newline
+	// (common chat-app shortcuts). Without this the textarea's default
+	// binding swallows "enter" for newline and Enter would never fire
+	// the send path.
+	ta.KeyMap.InsertNewline = key.NewBinding(
+		key.WithKeys("shift+enter", "alt+enter", "ctrl+j"),
+		key.WithHelp("shift+enter", "newline"),
+	)
 	ta.Focus()
 	return &App{
 		BackendURL:     backendURL,
@@ -426,8 +452,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return a.handleKey(m)
 
-	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
+	case tea.PasteStartMsg:
+		a.inPaste = true
+		// Don't forward to textarea — PasteStartMsg is a state signal,
+		// not content. The textarea handles content via PasteMsg.
+		return a, nil
+	case tea.PasteEndMsg:
+		a.inPaste = false
+		return a, nil
+	case tea.PasteMsg:
 		// Forward paste events to the textarea when input has focus.
+		// This is the bracketed-paste happy path: one PasteMsg with the
+		// whole multi-line content, inserted as a single operation.
 		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen {
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
@@ -653,6 +689,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
 			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+		}
+		if a.pendingReload {
+			a.pendingReload = false
+			if sid := a.currentSessionID(); sid != "" {
+				cmds = append(cmds, loadMessagesCmd(a.c, sid))
+			}
 		}
 		// Restart the spinner loop if this event flipped a session
 		// into a running state. The spinnerTickMsg handler drains
@@ -1121,6 +1163,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.paletteSel < len(cmdMatches) {
 			cmd := cmdMatches[a.paletteSel]
 			a.closePalette()
+			// Optimistic local UI updates for commands with instant
+			// visible effect. The backend still processes the command
+			// (SSE events keep us honest), but the UI shouldn't appear
+			// frozen between "Enter" and the SSE round-trip.
+			switch cmd.ID {
+			case "/clear":
+				a.messages = nil
+				a.scrollOffset = 0
+				a.stickyToBottom = true
+			}
 			return a, runCommandCmd(a.c, a.currentSessionID(), cmd.ID)
 		}
 	case "backspace":
@@ -1541,10 +1593,33 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Plain Enter sends; Shift+Enter (or any modifier) inserts a newline
-	// (passes through to textarea).
+	// Plain Enter sends; Shift+Enter / Alt+Enter / Ctrl+J insert a
+	// newline (the textarea's rebinding picks those up in the Update
+	// branch below). We also honour Claude-Code muscle memory: a
+	// literal `\` at the end of the buffer + Enter inserts a newline
+	// instead of sending — the trailing backslash is dropped and a
+	// newline takes its place.
+	//
+	// If we're in the middle of a paste (PasteStart fired but no
+	// PasteEnd yet), DO NOT intercept — route the key to the textarea
+	// so embedded newlines become literal newlines instead of
+	// triggering multiple "send" actions.
+	if key == "enter" && a.inPaste {
+		var cmd tea.Cmd
+		a.input, cmd = a.input.Update(k)
+		return a, cmd
+	}
 	if key == "enter" {
-		text := strings.TrimSpace(a.input.Value())
+		raw := a.input.Value()
+		if strings.HasSuffix(raw, "\\") {
+			// Backslash-escape → newline. Strip the trailing "\" and
+			// append "\n". We do this by round-tripping through
+			// SetValue because the textarea API doesn't expose a
+			// mutation primitive.
+			a.input.SetValue(strings.TrimSuffix(raw, "\\") + "\n")
+			return a, nil
+		}
+		text := strings.TrimSpace(raw)
 		a.input.Reset()
 		a.exitHistory()
 		if text == "" || a.currentSessionID() == "" {
@@ -1654,6 +1729,22 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.pendingSidebarRefresh = true
 	case "cost.updated":
 		a.applyCostUpdated(e)
+	case "session.cleared":
+		// /clear wiped the backend's messages for this session — drop
+		// the local cache so the conversation pane matches. The event
+		// carries session_id so we can ignore hits for other sessions.
+		if pl != nil {
+			sid, _ := pl["session_id"].(string)
+			if sid != "" && sid == a.currentSessionID() {
+				a.messages = nil
+				a.scrollOffset = 0
+				a.stickyToBottom = true
+				// Reload to be safe — the SSE ring may have stale
+				// replay events the emulator hasn't pruned, and a
+				// fresh ListMessages is the source of truth.
+				a.pendingReload = true
+			}
+		}
 	}
 }
 
@@ -1941,8 +2032,18 @@ func (a *App) viewMainBase() string {
 	sidebar := a.renderSidebar(sidebarW, bodyH)
 	body := a.renderBody(bodyW, bodyH)
 
+	// Both panes must hit exactly bodyH rows — otherwise JoinHorizontal
+	// (which aligns from top) leaves a mismatch and the taller one
+	// bleeds into the footer row below.
+	sidebar = clampLines(sidebar, bodyH)
+	body = clampLines(body, bodyH)
+
 	row := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, body)
-	return lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
+	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
+	// Final belt-and-braces clip — if any subpane still overflows
+	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
+	// lose the first row than let the footer slip off screen.
+	return clampLines(full, a.height)
 }
 
 func (a *App) renderHeader() string {
@@ -2206,7 +2307,18 @@ func (a *App) renderSidebar(width, height int) string {
 func (a *App) renderBody(width, height int) string {
 	t := a.Theme
 	inputH := 3
-	msgH := height - inputH
+	// The transient hint (e.g. config-reload outcome) renders as its own
+	// row between the message pane and the input pane. When it's present
+	// we have to steal that row from the message pane or else the total
+	// stack exceeds `height`, pushes the input down, and (since the whole
+	// view is JoinVertical'd) the footer slides off-screen. This was the
+	// root cause of the "footer disappears on long conversations" bug —
+	// overflow from this pane cascaded through to the footer.
+	hintH := 0
+	if a.transientHint != "" {
+		hintH = 1
+	}
+	msgH := height - inputH - hintH
 
 	// Conversation pane
 	msgStyle := t.Pane.Width(width - 2).Height(msgH - 2)
@@ -2298,7 +2410,20 @@ func (a *App) renderBody(width, height int) string {
 			rows = append(rows, t.renderMessageInContext(m, prev, width-4))
 		}
 		body = strings.Join(rows, "\n")
-		body = a.scrollClip(body, msgH-3, t)
+		// The pane's inner content height is msgH-2 (two border rows).
+		// We burn 1 row on headerRow, 1 on the blank separator, and
+		// optionally 1 more if the permission banner is present. The
+		// remaining rows are all the conversation body can occupy —
+		// anything beyond that overflows the pane and bleeds into the
+		// footer row below.
+		conversationH := msgH - 2 - 1 - 1
+		if permBanner != "" {
+			conversationH--
+		}
+		if conversationH < 1 {
+			conversationH = 1
+		}
+		body = a.scrollClip(body, conversationH, t)
 	}
 
 	pieces := []string{headerRow}
@@ -2307,6 +2432,11 @@ func (a *App) renderBody(width, height int) string {
 	}
 	pieces = append(pieces, "", body)
 	msgPane := msgStyle.Render(lipgloss.JoinVertical(lipgloss.Left, pieces...))
+	// Belt-and-braces: even with the scrollClip above, an unusually
+	// wide message row can soft-wrap past its nominal line count and
+	// push the total over msgH. Hard-clip to msgH so the footer is
+	// always in frame.
+	msgPane = clampLines(msgPane, msgH)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
 	a.input.SetWidth(width - 4)
@@ -2320,7 +2450,7 @@ func (a *App) renderBody(width, height int) string {
 	if a.focus == FocusInput {
 		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH - 2)
 	}
-	inputPane := inputStyle.Render(a.input.View())
+	inputPane := clampLines(inputStyle.Render(a.input.View()), inputH)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
@@ -2332,6 +2462,21 @@ func (a *App) renderBody(width, height int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, msgPane, hint, inputPane)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, msgPane, inputPane)
+}
+
+// clampLines hard-truncates a pre-rendered string to at most max newline-
+// separated rows. Used as a final safety net so layout siblings (header,
+// footer) don't get pushed off-screen when a pane's internal clip math
+// underestimates line count (soft-wrap, multi-line ANSI composites, etc.).
+func clampLines(s string, max int) string {
+	if max < 1 {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= max {
+		return s
+	}
+	return strings.Join(lines[:max], "\n")
 }
 
 // scrollClip clamps body to maxRows lines, sticking to bottom by default.

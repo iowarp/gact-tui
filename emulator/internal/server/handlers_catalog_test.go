@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
@@ -167,15 +168,39 @@ func TestCommands(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list: %d", rec.Code)
 	}
-	// Invoke a known command.
+	// /clear now actually wipes messages — seed some first so the
+	// count-in-response is meaningful.
+	for i := 0; i < 3; i++ {
+		_, _ = srv.Store().AppendMessage(gact.Message{
+			SessionID: sid, Role: gact.RoleUser,
+			Parts: []gact.Part{gact.NewTextPart("hi")},
+		})
+	}
 	rec2 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/%2Fclear", nil)
-	if rec2.Code != http.StatusNoContent {
+	if rec2.Code != http.StatusOK {
 		t.Errorf("/clear: %d", rec2.Code)
 	}
+	// Listing messages should now return an empty slice.
+	rec2b := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages", nil)
+	if !strings.Contains(rec2b.Body.String(), `"messages":[]`) && !strings.Contains(rec2b.Body.String(), `"messages":null`) {
+		t.Errorf("messages after /clear: %s", rec2b.Body.String())
+	}
+
+	// /help is a side-effecting command that emits an assistant note.
+	// 204 is fine; ensure the assistant note landed in the store.
+	rec3 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/%2Fhelp", nil)
+	if rec3.Code != http.StatusNoContent {
+		t.Errorf("/help: %d", rec3.Code)
+	}
+	rec3b := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages", nil)
+	if !strings.Contains(rec3b.Body.String(), "GACT slash commands") {
+		t.Errorf("help note missing: %s", rec3b.Body.String())
+	}
+
 	// Unknown command.
-	rec3 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/nope", nil)
-	if rec3.Code != http.StatusNotFound {
-		t.Errorf("unknown: %d", rec3.Code)
+	rec4 := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/commands/nope", nil)
+	if rec4.Code != http.StatusNotFound {
+		t.Errorf("unknown: %d", rec4.Code)
 	}
 }
 
