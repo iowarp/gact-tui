@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ func main() {
 		case "import":
 			os.Exit(runImport(os.Args[2:]))
 		case "version", "--version", "-v":
-			fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
+			runVersion()
 			return
 		case "diag", "--diag":
 			runDiag()
@@ -59,6 +60,45 @@ func main() {
 		}
 	}
 	runTUI()
+}
+
+// runVersion prints binary + contract version and (when available)
+// the VCS revision and build time from Go's embedded build info.
+// Lets users confirm which commit they're running when filing bugs.
+// Falls back to the manual binaryVersion when ReadBuildInfo is empty
+// (e.g. tests without a module context).
+func runVersion() {
+	fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	var rev, when, modified string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.time":
+			when = s.Value
+		case "vcs.modified":
+			modified = s.Value
+		}
+	}
+	if rev != "" {
+		short := rev
+		if len(short) > 12 {
+			short = short[:12]
+		}
+		suffix := ""
+		if modified == "true" {
+			suffix = " (dirty)"
+		}
+		fmt.Printf("  revision: %s%s\n", short, suffix)
+	}
+	if when != "" {
+		fmt.Printf("  built:    %s\n", when)
+	}
+	fmt.Printf("  go:       %s\n", info.GoVersion)
 }
 
 // runEmitConfig prints a sample config.json to stdout so users have a
