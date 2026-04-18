@@ -126,6 +126,14 @@ type App struct {
 	// actually prevents message splitting.
 	inPaste bool
 
+	// pastes is a chronological record of multi-line pastes that have
+	// been compressed in the input box as `[pasted content: N lines]`
+	// placeholders. On send, each placeholder still present in the
+	// buffer is expanded back to its full content. Ctrl+P expands the
+	// most recent compressed paste in-place so users can see what
+	// they're actually sending.
+	pastes []pastedSegment
+
 	// Pending status (running/waiting_permission)
 	currentStatus string
 
@@ -466,6 +474,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
 		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen {
+			// Claude-Code-style compressed paste: multi-line pastes get a
+			// [pasted content: N lines] placeholder in the input, with
+			// the full content stashed on App. Ctrl+P toggles expand.
+			if n := strings.Count(m.Content, "\n") + 1; n >= 3 {
+				a.insertPastePlaceholder(m.Content, n)
+				return a, nil
+			}
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
 			return a, cmd
@@ -1629,14 +1644,25 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.input.SetValue(strings.TrimSuffix(raw, "\\") + "\n")
 			return a, nil
 		}
-		text := strings.TrimSpace(raw)
+		// Expand any `[pasted content: N lines]` placeholders in the
+		// buffer so the backend sees the real body, not the compressed
+		// sigil. Send-time expansion keeps the input readable right up
+		// until the moment the message is dispatched.
+		text := strings.TrimSpace(a.expandPasteText(raw))
 		a.input.Reset()
+		a.pastes = nil
 		a.exitHistory()
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
 		a.pushInputHistory(text)
 		return a, postMessageCmd(a.c, a.currentSessionID(), text)
+	}
+	if key == "ctrl+p" {
+		// Expand the most recent compressed paste in-place so the user
+		// can inspect what's actually queued to send.
+		a.expandMostRecentPaste()
+		return a, nil
 	}
 	if key == "esc" {
 		a.input.Reset()
@@ -2474,6 +2500,72 @@ func (a *App) renderBody(width, height int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, msgPane, inputPane)
 }
 
+// pastedSegment represents a single multi-line paste that was
+// compressed in the input box. `placeholder` is the exact string
+// inserted into the textarea (e.g. `[pasted content: 42 lines]`);
+// `content` is the real body that gets expanded either on Ctrl+P or
+// implicitly at send time.
+type pastedSegment struct {
+	placeholder string
+	content     string
+	lineCount   int
+}
+
+// insertPastePlaceholder compresses a paste into a short placeholder
+// token in the input textarea and records the real content for later
+// substitution. Called from the PasteMsg handler when the paste is
+// ≥ 3 lines tall (small pastes flow through as-is because the compress
+// overhead isn't worth it).
+func (a *App) insertPastePlaceholder(content string, lineCount int) {
+	seq := len(a.pastes) + 1
+	placeholder := fmt.Sprintf("[pasted content #%d: %d lines]", seq, lineCount)
+	a.pastes = append(a.pastes, pastedSegment{
+		placeholder: placeholder,
+		content:     content,
+		lineCount:   lineCount,
+	})
+	// Append the placeholder to the current buffer. We use InsertString
+	// via SetValue round-trip because bubbles/v2's textarea doesn't
+	// expose an insert-at-cursor primitive and the append-on-end
+	// behaviour is what users actually want for a paste anyway.
+	cur := a.input.Value()
+	if cur != "" && !strings.HasSuffix(cur, " ") && !strings.HasSuffix(cur, "\n") {
+		cur += " "
+	}
+	a.input.SetValue(cur + placeholder + " ")
+}
+
+// expandPasteText returns raw with every recorded paste placeholder
+// substituted for its full content. Used at send time so the backend
+// receives the pasted material verbatim, and by Ctrl+P to reveal the
+// most recent paste inline.
+func (a *App) expandPasteText(raw string) string {
+	out := raw
+	for _, p := range a.pastes {
+		out = strings.ReplaceAll(out, p.placeholder, p.content)
+	}
+	return out
+}
+
+// expandMostRecentPaste swaps the last compressed paste's placeholder
+// for its full content in the current buffer. Drops the segment from
+// the pastes list so a second Ctrl+P expands the next one up.
+// No-ops when nothing is compressed.
+func (a *App) expandMostRecentPaste() {
+	if len(a.pastes) == 0 {
+		return
+	}
+	last := a.pastes[len(a.pastes)-1]
+	buf := a.input.Value()
+	if !strings.Contains(buf, last.placeholder) {
+		// Placeholder was already deleted manually; drop the record.
+		a.pastes = a.pastes[:len(a.pastes)-1]
+		return
+	}
+	a.input.SetValue(strings.Replace(buf, last.placeholder, last.content, 1))
+	a.pastes = a.pastes[:len(a.pastes)-1]
+}
+
 // clampLines hard-truncates a pre-rendered string to at most max newline-
 // separated rows. Used as a final safety net so layout siblings (header,
 // footer) don't get pushed off-screen when a pane's internal clip math
@@ -2684,6 +2776,8 @@ var helpTabs = []struct {
 			{"↑ on empty", "recall prior prompt (per-session history)"},
 			{"/", "open command palette"},
 			{"/?<query>", "search session messages in palette"},
+			{"Paste ≥ 3 lines", "auto-compresses to [pasted content: N lines]"},
+			{"Ctrl+P", "expand most recent compressed paste in-place"},
 		},
 	},
 	{

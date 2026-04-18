@@ -199,6 +199,96 @@ func TestHelpOverlay_FitsInSmallViewport(t *testing.T) {
 	}
 }
 
+// TestPaste_MultiLineCompresses verifies the M4 behaviour: a paste with
+// 3+ lines gets compressed to a [pasted content: N lines] placeholder
+// in the input buffer, and the full content is recorded for later
+// substitution.
+func TestPaste_MultiLineCompresses(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteStartMsg{})
+	a = out.(*App)
+	out, _ = a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3\nline 4"})
+	a = out.(*App)
+	out, _ = a.Update(tea.PasteEndMsg{})
+	a = out.(*App)
+
+	buf := a.input.Value()
+	if !strings.Contains(buf, "[pasted content") {
+		t.Fatalf("buffer missing placeholder, got %q", buf)
+	}
+	if !strings.Contains(buf, "4 lines") {
+		t.Fatalf("placeholder doesn't report line count, got %q", buf)
+	}
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if a.pastes[0].content != "line 1\nline 2\nline 3\nline 4" {
+		t.Fatalf("paste content not preserved: %q", a.pastes[0].content)
+	}
+
+	// expandPasteText should replace the placeholder with the real body.
+	expanded := a.expandPasteText(buf)
+	if !strings.Contains(expanded, "line 1\nline 2\nline 3\nline 4") {
+		t.Fatalf("expand failed: %q", expanded)
+	}
+	if strings.Contains(expanded, "[pasted content") {
+		t.Fatalf("placeholder survived expansion: %q", expanded)
+	}
+}
+
+// TestPaste_ShortPassesThrough ensures 2-line pastes don't trigger the
+// compression path — overhead isn't worth it at small sizes and the
+// user experience of "pasted content: 2 lines" would feel silly.
+func TestPaste_ShortPassesThrough(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteMsg{Content: "one\ntwo"})
+	a = out.(*App)
+	if len(a.pastes) != 0 {
+		t.Fatalf("short paste shouldn't compress, pastes=%d", len(a.pastes))
+	}
+	// Content should be in the textarea directly (textarea's own
+	// PasteMsg handling).
+	if !strings.Contains(a.input.Value(), "one") {
+		t.Fatalf("short paste content missing: %q", a.input.Value())
+	}
+}
+
+// TestPaste_CtrlPExpandsLatest ensures Ctrl+P swaps the most recent
+// placeholder for real content in the buffer.
+func TestPaste_CtrlPExpandsLatest(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteMsg{Content: "a\nb\nc"})
+	a = out.(*App)
+	if !strings.Contains(a.input.Value(), "[pasted content") {
+		t.Fatalf("setup: paste didn't compress")
+	}
+
+	// Ctrl+P has no Text payload — Ctrl-modified keys aren't
+	// considered printable input.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	a = out.(*App)
+
+	buf := a.input.Value()
+	if strings.Contains(buf, "[pasted content") {
+		t.Fatalf("Ctrl+P didn't expand: %q", buf)
+	}
+	if !strings.Contains(buf, "a\nb\nc") {
+		t.Fatalf("expanded content missing: %q", buf)
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("paste record should be dropped after expand, got %d", len(a.pastes))
+	}
+}
+
 // TestCollapseThreshold_ArrowKeysAdjust verifies the Settings > TUI tab
 // keybindings for the collapse-threshold stepper: ←/→ nudge the value
 // between 1 and 50 inclusive without blowing up.
