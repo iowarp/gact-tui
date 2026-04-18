@@ -139,29 +139,63 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		return wrap(p.Text, wrapW)
 
 	case gact.PartTypeThinking:
-		head := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("◊ thinking")
-		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(wrap(p.Thinking, wrapW))
+		// Thinking stays muted + italic; "⎿" turns it into a continuation
+		// of the assistant header above (Claude-Code-style demarcation).
+		head := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("⎿ thinking")
+		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(indent(wrap(p.Thinking, wrapW-2), "  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
 
 	case gact.PartTypeToolCall:
-		head := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
-			Render(fmt.Sprintf("⚙ %s", p.ToolName))
-		input := jsonOneLine(p.Input)
-		body := lipgloss.NewStyle().Foreground(t.FgMuted).Render("  " + wrap(input, wrapW-2))
-		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+		// Claude-Code style: `ToolName(summary_of_input)` header with
+		// the input inlined as a one-liner when it fits, "…" when it
+		// overflows. Nothing indented beneath the header unless there
+		// are structured args to highlight (we don't split those out
+		// yet; tool_result carries the output and gets its own ⎿).
+		summary := toolCallSummary(p)
+		toolName := capitalizeToolName(p.ToolName)
+		headText := toolName + "(" + summary + ")"
+		if lipgloss.Width(headText) > wrapW {
+			// Truncate the summary to fit. -3 for "…)" suffix.
+			keep := wrapW - lipgloss.Width(toolName) - 3
+			if keep < 4 {
+				keep = 4
+			}
+			headText = toolName + "(" + truncateString(summary, keep) + "…)"
+		}
+		return lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
+			Render(headText)
 
 	case gact.PartTypeToolResult:
-		head := lipgloss.NewStyle().Foreground(t.RoleTool).Render("← result")
-		errStr := ""
+		// Claude-Code style: output hangs under the tool call with a
+		// leading `⎿` glyph, indented to visually continue the call.
+		// Errors get a red glyph + "(error)" tag on the first line.
+		glyph := "⎿"
+		glyphStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
 		if p.IsError {
-			errStr = lipgloss.NewStyle().Foreground(t.Danger).Render(" (error)")
+			glyphStyle = glyphStyle.Foreground(t.Danger)
 		}
-		text := ""
-		for _, c := range p.Content {
-			text += t.renderPart(c, wrapW) + "\n"
+		var text strings.Builder
+		for i, c := range p.Content {
+			if i > 0 {
+				text.WriteString("\n")
+			}
+			text.WriteString(t.renderPart(c, wrapW-2))
 		}
-		text = strings.TrimRight(text, "\n")
-		return lipgloss.JoinVertical(lipgloss.Left, head+errStr, indent(text, "  "))
+		bodyStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+		if p.IsError {
+			bodyStyle = bodyStyle.Foreground(t.Danger)
+		}
+		rendered := bodyStyle.Render(text.String())
+		errTag := ""
+		if p.IsError {
+			errTag = lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
+				Render(" (error)")
+		}
+		// Prepend the glyph to the first line; continuation lines get
+		// matching indent so the shape reads as one logical block.
+		return indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, "   ")
 
 	case gact.PartTypeFileDiff:
 		head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
@@ -282,6 +316,92 @@ func jsonOneLine(m map[string]any) string {
 		parts = append(parts, fmt.Sprintf("%s: %v", k, v))
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// toolCallSummary produces the "arg summary" that goes inside the
+// parentheses of a Claude-Code-style tool-call header. Well-known
+// tools get their primary arg pulled up inline (Bash: `command`,
+// Read: `path`, Grep: `pattern`) so the header reads naturally.
+// Anything else falls back to a compact JSON-oneline.
+func toolCallSummary(p gact.Part) string {
+	if p.Input == nil {
+		return ""
+	}
+	tool := strings.ToLower(p.ToolName)
+	primary := ""
+	switch tool {
+	case "bash", "shell", "exec":
+		if v, ok := p.Input["command"].(string); ok {
+			primary = v
+		} else if v, ok := p.Input["cmd"].(string); ok {
+			primary = v
+		}
+	case "read", "read_file", "cat":
+		if v, ok := p.Input["path"].(string); ok {
+			primary = v
+		}
+	case "write", "write_file", "edit", "edit_file":
+		if v, ok := p.Input["path"].(string); ok {
+			primary = v
+		}
+	case "grep", "search":
+		if v, ok := p.Input["pattern"].(string); ok {
+			primary = v
+		}
+	case "web_search":
+		if v, ok := p.Input["query"].(string); ok {
+			primary = v
+		}
+	}
+	if primary != "" {
+		return primary
+	}
+	return jsonOneLine(p.Input)
+}
+
+// capitalizeToolName renders the tool name in CamelCase for the
+// Claude-Code-style header (e.g. "bash" → "Bash", "read_file" →
+// "ReadFile", "web_search" → "WebSearch"). Matches how Claude Code
+// displays tool calls so users who've seen both UIs get consistent
+// visual vocabulary.
+func capitalizeToolName(name string) string {
+	if name == "" {
+		return "Tool"
+	}
+	parts := strings.Split(name, "_")
+	for i, w := range parts {
+		if w == "" {
+			continue
+		}
+		parts[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(parts, "")
+}
+
+// indentWithGlyph prepends `glyph` to the first line of s and `cont`
+// to every continuation line. Used by the tool_result render to
+// produce:
+//
+//	⎿ first line of output
+//	   second line of output
+//	   third line of output
+//
+// Preserves trailing-newline absence — if s has no trailing \n, the
+// output doesn't either.
+func indentWithGlyph(s, glyph, cont string) string {
+	if s == "" {
+		return glyph
+	}
+	lines := strings.Split(s, "\n")
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		if i == 0 {
+			out[i] = glyph + " " + l
+		} else {
+			out[i] = cont + l
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 // simpleDiff produces a primitive +/- per-line diff — fine for the demo
