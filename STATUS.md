@@ -218,3 +218,4 @@ cd ../tui   && go build -o ./gact .
 | 32 | 2026-04-18T11:18 | G8 — search UI in palette (`?<query>` Enter→submit, Enter→jump) | a5b5201 |
 | 33 | 2026-04-18T11:35 | G10 — per-route p50/p95 latencies in /v1/metrics + TUI modal | 6ba8abb |
 | 34 | 2026-04-18T11:50 | G9 — Ctrl+L hot-reloads theme + voice cmd from config.json | 79639a1 |
+| 35 | 2026-04-18T12:10 | H1 — Crush adapter messages list (parts incl. unknown forward-compat) | (this) |

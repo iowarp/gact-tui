@@ -58,6 +58,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
 
@@ -186,6 +187,38 @@ func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, SessionToGact(cs, wsID))
+}
+
+func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
+	sid := r.PathValue("id")
+	wsID := r.URL.Query().Get("workspace_id")
+	if wsID == "" {
+		wsID = s.defaultWsID
+	}
+	if wsID == "" {
+		writeError(w, http.StatusBadRequest, "missing_workspace",
+			"adapter requires workspace_id query for messages list")
+		return
+	}
+	body, err := s.upstreamGet(r.Context(), "/v1/workspaces/"+wsID+"/sessions/"+sid+"/messages")
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	var cs []CrushMessage
+	if err := json.Unmarshal(body, &cs); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	msgs, err := MessagesToGact(cs, sid)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "translate_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"messages":    msgs,
+		"next_cursor": "",
+	})
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, r *http.Request) {
