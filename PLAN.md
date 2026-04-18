@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase BB — scripting follow-ups
 
-- [ ] **BB1.** `gact wait <session_id>` blocks until the session's status returns to idle. Pairs with `gact send` so shell pipelines can chain "send → wait → list/tail".
+- [x] **BB1.** `gact wait <sid> [--timeout] [--interval]` polls status until idle. Exit 2 on timeout. Full CLI test exercises send → wait → verify idle against a real emulator.
 
 ## Phase AA — scripting
 

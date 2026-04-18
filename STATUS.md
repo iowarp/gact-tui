@@ -25,6 +25,10 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase BB — scripting follow-ups
+- **BB1.** `gact wait <sid>` polls status until idle. Pairs with
+  `gact send` so shell pipelines can chain send → wait → list.
+
 ### Phase AA — scripting
 - **AA1.** `gact send <sid> <text|->` posts a user message via
   CLI; stdin pipe supported through `-`. Full CLI test.
