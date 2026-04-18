@@ -171,9 +171,13 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase FF — q&a CLI
+
+- [ ] **FF1.** `gact ask <sid> <question>` — `run` + extract the assistant's reply text. Prints just the text to stdout so `ANSWER=$(gact ask SID "what does this do?")` works for shell scripts.
+
 ## Phase EE — repo ergonomics
 
-- [ ] **EE1.** Top-level `Makefile` so contributors get `make build`, `make test`, `make run-emulator`, `make run-tui` without having to memorise the multi-module dance.
+- [x] **EE1.** Top-level `Makefile` with build / test / test-race / vet / fmt / run-emulator / run-tui / ping / list / screenshots / clean / help targets. PORT/THEME/TIMING overridable via env. README quickstart links the targets.
 
 ## Phase DD — docs + log
 
