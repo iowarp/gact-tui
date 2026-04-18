@@ -39,22 +39,79 @@ assistant turn with thinking → tool call → tool result → final reply.
 Type something containing `delete`, `rm `, `drop `, or `truncate ` to
 trigger the permission flow.
 
+## Themes
+
+Seven palettes ship out of the box — cycle them live in Settings > Theme
+or pass `--theme <name>` at launch. `gact --list-themes` prints the
+options without opening the TUI. Picked theme persists to
+`~/.config/gact/config.json`.
+
+Current lineup: **dark** (default) · **light** (Gruvbox-inspired cream) ·
+**dracula** · **solarized-dark** · **solarized-light** · **nord** ·
+**tokyo-night**.
+
+| | |
+|---|---|
+| ![dracula](screenshots/61-dracula-convo.png) | ![solarized-light](screenshots/60-solarized-light-convo.png) |
+| Dracula in action | Solarized-light, conversation pane |
+| ![theme picker](screenshots/54-themes-list.png) | ![tokyo-night](screenshots/59-theme-tokyo-night.png) |
+| Settings > Theme picker — ↑/↓ previews live | Tokyo Night |
+
+### Custom theme
+
+Drop a `theme.json` at `~/.config/gact/theme.json` (or point
+`$GACT_THEME_FILE` anywhere) and the picker grows a `custom` entry.
+Every field is optional; unset values inherit the dark baseline:
+
+```json
+{
+  "name": "my-neon",
+  "bg": "#0E0B1F",
+  "fg": "#F0F0FF",
+  "primary": "#FF5BEB",
+  "secondary": "#5BEBFF",
+  "warning": "#FFE55B",
+  "role_user": "#5BEBFF",
+  "role_assistant": "#FF5BEB"
+}
+```
+
+Screenshots 62/63 show a sample custom theme applied and surfaced in
+the picker.
+
 ## Keys
 
 | Key | Action |
 |---|---|
 | `Tab` / `Shift+Tab` | Cycle focus (sidebar ↔ conversation ↔ input) |
 | `Enter` (input) | Send message |
-| `Enter` (sidebar) | Confirm session selection (jumps to input) |
+| `Shift+Enter` · `Alt+Enter` · `Ctrl+J` · `\<Enter>` | Insert newline in input |
 | `↑/↓` (sidebar) | Pick session — auto-loads messages and reopens SSE |
 | `↑/↓ G g` (conversation) | Scroll / jump bottom / jump top |
+| `d` (conversation) | Delete the last message (optimistic) |
+| `y` (conversation) | Copy last assistant message to clipboard |
+| `R` (conversation) | Retry — resend last user message |
+| `Ctrl+E` (conversation) | Expand latest bulky tool output in detail view |
+| `a` / `r` (conversation) | Apply / reject pending diff |
 | `/` (input, empty) | Open slash-command palette |
-| `?` | Toggle help overlay |
+| `@` (input, word start) | Open fuzzy workspace-file picker |
+| `Ctrl+G` · `Ctrl+Shift+P` | Floating compose modal (long-form editor) |
+| `Ctrl+P` | Expand most recent compressed paste in-place |
+| `?` | Toggle tabbed help overlay (←/→ cycles tabs) |
 | `a` / `d` / `s` / `w` | Permission: allow / deny / allow-session / allow-workspace |
-| `Ctrl+x` | Cancel currently-running scenario |
-| `Ctrl+y` | Voice transcribe (runs `--voice-cmd`; placeholder if unset) |
-| `Esc` | Close overlay / clear input |
-| `Ctrl+c` | Quit |
+| `Ctrl+S` | Open Settings (Model / Agent / Theme / TUI) |
+| `Ctrl+T` | Open backend metrics |
+| `Ctrl+W` | Switch workspace |
+| `Ctrl+X` | Cancel running scenario |
+| `Ctrl+Y` | Voice transcribe (runs `--voice-cmd`; placeholder if unset) |
+| `Ctrl+L` | Reload config from disk |
+| `Ctrl+N` | New session |
+| `Esc` | Close overlay / cancel armed action / clear input |
+| `Ctrl+C` | Quit |
+
+**Slash commands** (type `/` then filter): `/clear` (two-step confirm) ·
+`/cancel` · `/new` · `/rename` · `/sessions` · `/theme` · `/scenarios` ·
+`/mcp` · `/tools` · `/skills` · `/agents` · `/help` · `/diff` · `/undo`.
 
 ### Voice input
 
@@ -97,25 +154,34 @@ flow. See [`emulator/README.md`](./emulator) (TBD) and `STATUS.md`.
 | §6.16 | metrics roll-up | ✓ |
 | §7 | SSE event streams (workspace + session scope) + `Last-Event-ID` resume | ✓ |
 
-**TUI** (Phase C — 12/12 tasks done; D & E in progress).
+**TUI** (Phases C through P complete). Highlights:
 
-- Connect screen with capabilities probe + error state
-- Sidebar sessions list with live status
-- Conversation viewport with role-coloured headers, thinking/tool
-  call/tool result/file diff/error rendering, sticky-bottom scroll
-- Input box with cursor blink
-- Footer with focus indicator + key hints + UTC clock
-- Live SSE consumer: streaming text deltas, status changes, permissions
-- Permission banner with keyboard action keys (a/d/s/w)
-- Slash-command palette (fuzzy-filterable from `/v1/commands`)
-- Help overlay
-- Cancel current run (Ctrl+x)
+- Connect screen with capabilities probe + error state + auto-retry
+- Sidebar with sessions list, live status dots, K11 title filter,
+  `e` rename, `A` archive, `h` toggle archived, `o` add context file
+- Conversation viewport with role-coloured headers, thinking /
+  tool_call (`ToolName(arg)` headers) / tool_result (`⎿` glyph,
+  auto-collapse ≥ 5 lines with `Ctrl+E` floating detail view) /
+  file_diff / subagent_call/result / error rendering, sticky-bottom
+- Message-level actions (`y` copy, `R` retry, `d` delete)
+- bubbles/v2/textarea input — `Enter` sends, `Shift+Enter` newline,
+  `\<Enter>` newline fallback for non-Kitty terminals, per-session
+  draft preservation across session switches
+- Bracketed-paste compression (`[pasted content: N lines]`) with
+  `Ctrl+P` to expand, floating compose modal (`Ctrl+G` /
+  `Ctrl+Shift+P`) for long prompts
+- `@`-fuzzy file picker with basename bonus — inserts `@path` and
+  attaches the file to session context
+- 7-tab help overlay + catalog browsers for `/mcp`, `/tools`,
+  `/skills`
+- Settings modal with Model / Agent / Theme / TUI tabs; ↑/↓ previews
+  themes live; palette persisted via `config.json`
+- Seven themes + custom `~/.config/gact/theme.json` import; glamour
+  markdown rendering derives its StyleConfig from the active theme
+- SSE auto-reconnect with exponential backoff + jitter + Last-Event-ID
+  resume
 - Forward-compat: unknown part types render as a `[type]` placeholder
   rather than being silently dropped (per SPEC §8.3)
-
-**Yet to do**: Phase D golden tests for TUI states, Phase E polish
-(themes, connection resilience, better empty states), Phase F stretch
-(real backend adapter for Crush/OpenCode, voice, markdown rendering).
 
 ## Project layout
 
