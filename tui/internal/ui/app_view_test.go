@@ -195,7 +195,8 @@ func newReadyApp(sessions []gact.Session, msgs []gact.Message) *App {
 	} else {
 		a.selected = -1
 	}
-	a.cursorOn = false // deterministic — no blink in goldens
+	// Hide blink cursor for deterministic goldens.
+	a.input.SetVirtualCursor(false)
 	return a
 }
 
