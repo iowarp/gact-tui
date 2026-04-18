@@ -57,6 +57,10 @@ func main() {
 			os.Exit(runSend(os.Args[2:]))
 		case "wait":
 			os.Exit(runWait(os.Args[2:]))
+		case "cancel":
+			os.Exit(runCancel(os.Args[2:]))
+		case "run":
+			os.Exit(runRun(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -222,6 +226,8 @@ Usage:
   gact ping                  probe /v1/health (exit 0 if healthy)
   gact send <sid> <text|->   post a user message to a session
   gact wait <sid>            block until the session status is idle
+  gact cancel <sid>          POST /v1/sessions/{id}/cancel
+  gact run <sid> <text|->    send + wait in one command
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -337,6 +343,103 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runCancel POSTs /v1/sessions/{id}/cancel. Exits 0 on 204, 1 on
+// transport / API error. Symmetric with the TUI's Ctrl+X but reachable
+// from shell scripts.
+func runCancel(args []string) int {
+	fs := flag.NewFlagSet("cancel", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact cancel <session_id> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.CancelSession(ctx, sid); err != nil {
+		fmt.Fprintf(os.Stderr, "gact cancel: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runRun is `gact send` followed by `gact wait` — a single command
+// for "ask + block until reply" shell pipelines. Prints the message
+// id once accepted, then blocks. Honours the same --timeout /
+// --interval flags as wait.
+func runRun(args []string) int {
+	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
+	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--timeout": true, "-timeout": true,
+		"--interval": true, "-interval": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact run <session_id> <text|-> [--backend URL] [--timeout DUR] [--interval DUR]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	text := fs.Arg(1)
+	if text == "-" {
+		buf, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact run: read stdin: %v\n", err)
+			return 1
+		}
+		text = strings.TrimRight(string(buf), "\n")
+	}
+	if text == "" {
+		fmt.Fprintln(os.Stderr, "gact run: empty text")
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+
+	postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	resp, err := c.PostMessage(postCtx, sid, client.PostMessageRequest{
+		Parts: []gact.Part{{Type: gact.PartTypeText, Text: text}},
+	})
+	postCancel()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact run: send: %v\n", err)
+		return 1
+	}
+	fmt.Println(resp.MessageID)
+
+	deadline := time.Now().Add(*timeout)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		s, err := c.GetSession(ctx, sid)
+		cancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact run: poll: %v\n", err)
+			return 1
+		}
+		if s.Status == gact.StatusIdle {
+			return 0
+		}
+		if time.Now().After(deadline) {
+			fmt.Fprintf(os.Stderr, "gact run: timeout after %s (status=%s)\n", *timeout, s.Status)
+			return 2
+		}
+		time.Sleep(*interval)
+	}
+}
+
 // runWait blocks until a session's status is idle, then exits 0.
 // Polls GET /v1/sessions/{id} on a short interval rather than SSE —
 // simpler, no reconnect loop, and a second of lag is fine for shell

@@ -197,6 +197,42 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Cancel covers CC1: POST cancel, exit 0 even when session
+// is already idle (the emulator + most backends accept idempotent
+// cancels).
+func TestCLI_Cancel(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "cancel-target")
+
+	_, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url}, "cancel", sid)
+	if code != 0 {
+		t.Fatalf("cancel: exit %d, stderr=%q", code, stderr)
+	}
+}
+
+// TestCLI_Run covers CC2: combined send + wait. Emits the message id
+// to stdout then blocks until idle. Test runs against scenario
+// timing=fast so it completes quickly.
+func TestCLI_Run(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "run-target")
+
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"run", "--timeout", "30s", sid, "please read main.go")
+	if code != 0 {
+		t.Fatalf("run: exit %d, stderr=%q", code, stderr)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(stdout), "msg_") {
+		t.Errorf("expected msg_* on stdout, got %q", stdout)
+	}
+}
+
 // TestCLI_Wait covers BB1: post a message + immediately poll status
 // with `wait`. Exits 0 once the emulator returns idle. We use the
 // real emulator; scenario timing=fast keeps the running window

@@ -171,6 +171,11 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase CC — operator-tools fill-in
+
+- [ ] **CC1.** `gact cancel <session_id>` — POST `/v1/sessions/{id}/cancel`. Completes the matrix alongside list/tail/send/wait/ping/export/import.
+- [ ] **CC2.** `gact run <session_id> <text|->` — combined send + wait. One command for "ask + block until reply". Defaults to `--timeout 5m`.
+
 ## Phase BB — scripting follow-ups
 
 - [x] **BB1.** `gact wait <sid> [--timeout] [--interval]` polls status until idle. Exit 2 on timeout. Full CLI test exercises send → wait → verify idle against a real emulator.
