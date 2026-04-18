@@ -251,3 +251,4 @@ cd ../tui   && go build -o ./gact .
 | 65 | 2026-04-18T21:15 | L1 — richer scenario (long reply / big tool output / multi-tool) + crib | a7fe775 |
 | 66 | 2026-04-18T21:45 | L2 — floating modal overlays (ANSI-aware splice + shared modalWidth) | 70d83bc |
 | 67 | 2026-04-18T22:10 | L4 — Claude-Code-style tool_call/result demarcation + screenshot | e57eb09 |
+| 68 | 2026-04-18T22:30 | L4-polish — nest tool_result under assistant call (hide TOOL banner) | d2206a1 |
