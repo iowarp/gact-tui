@@ -507,6 +507,39 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
+// TestPaletteCurrentValue_HintsForKnownCommands covers Q3 routing:
+// well-known settings-style commands return a non-empty state hint;
+// unknown commands return empty so the palette row stays clean.
+func TestPaletteCurrentValue_HintsForKnownCommands(t *testing.T) {
+	sessions := []gact.Session{{
+		ID: "sess_1", Title: "refactor auth",
+		Status: gact.StatusRunning,
+		Agent:  gact.AgentRef{ID: "code_reviewer"},
+	}}
+	msgs := []gact.Message{{
+		ID: "m1", SessionID: "sess_1", Role: gact.RoleUser,
+		Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "hi"}},
+	}}
+	a := newReadyApp(sessions, msgs)
+	a.Theme = ThemeForMode(ModeDracula)
+	a.currentStatus = gact.StatusRunning
+
+	cases := map[string]string{
+		"/theme":       "current: dracula",
+		"/clear":       "1 messages",
+		"/cancel":      "status: running",
+		"/agent":       "current: code_reviewer",
+		"/rename":      "current: refactor auth",
+		"/completely_unknown_cmd": "",
+	}
+	for id, want := range cases {
+		got := a.paletteCurrentValue(id)
+		if got != want {
+			t.Errorf("%s: got %q, want %q", id, got, want)
+		}
+	}
+}
+
 // TestThemeSlashCmd_OpensSettingsThemeTab verifies /theme lands the
 // user on Settings > Theme with the current palette pre-selected so
 // ↓/↑ immediately previews a neighbour.
