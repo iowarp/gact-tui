@@ -338,6 +338,37 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestSessionsSlashCmd_FocusesSidebarFilter verifies N4 routing:
+// picking `/sessions` from the palette focuses the sidebar and
+// pre-arms the title filter so the user can type straight into it.
+func TestSessionsSlashCmd_FocusesSidebarFilter(t *testing.T) {
+	sessions := []gact.Session{
+		{ID: "sess_a", Title: "refactor auth", Status: gact.StatusIdle},
+		{ID: "sess_b", Title: "add tests", Status: gact.StatusIdle},
+	}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.commands = []gact.Command{
+		{ID: "/sessions", Title: "Focus sidebar + filter", Source: "builtin"},
+	}
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = 0
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+
+	if a.paletteOpen {
+		t.Fatalf("palette should close after Enter on /sessions")
+	}
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus should be sidebar, got %v", a.focus)
+	}
+	if !a.sessionFilterActive {
+		t.Fatalf("session filter should be armed for editing")
+	}
+}
+
 // TestInputDraft_PreservedAcrossSessionSwitch checks N1: typing into
 // session A, switching to session B, typing there, switching back —
 // should restore A's draft verbatim.

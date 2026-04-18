@@ -168,9 +168,9 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 Concrete, small-surface improvements that round out the M-phase features. Each one is tight enough to ship in a single iteration; pick from the top.
 
-- [ ] **N1.** Per-session input draft preservation. Switching to another session and back should restore whatever the user was typing; right now the base input is a singleton so drafts are lost on session switch. Keep the map in-memory only (persistence = follow-up).
+- [x] **N1.** Per-session input draft preservation. `swapInputDraftFor(sid)` stashes the outgoing session's buffer and restores the incoming one; successful sends drop the saved draft to prevent resurfacing. `lastLoadedSessionID` field tracks the buffer-owning session so the swap works even though callers update `a.selected` before calling `selectSession`. 2 tests cover A→B→A→B preservation and send-clears-draft.
 - [ ] **N2.** `/undo-clear` — cache the last wiped set of messages (local-only) and offer a restore path via a toast or a new slash command. User feedback didn't explicitly ask for this but "I cleared by accident" is a foreseeable frustration.
 - [ ] **N3.** Message-level delete (`d` on body focus over a selected message). Requires a message cursor; K10/K13 cheat with "latest" — N3 needs a proper per-row selection. Medium scope.
-- [ ] **N4.** `/sessions` slash command → opens a dedicated session-switcher overlay (currently buried under Ctrl+W for workspaces + sidebar for sessions).
+- [x] **N4.** `/sessions` slash command — focuses the sidebar and pre-arms the K11 title filter so the user can immediately type to narrow the session list. Cheaper than a second dedicated modal and reuses the existing filter code path. Test `TestSessionsSlashCmd_FocusesSidebarFilter` covers the palette-Enter wiring.
 - [ ] **N5.** Persist Settings > TUI collapse threshold + compose-modal preferences via `config.json` so the knob sticks across restarts. Currently in-memory only.
 - [ ] **N6.** Crush adapter's conformance suite coverage bump — H-phase adapters should run every gact conformance assertion. Check `adapters/crush/` coverage.
