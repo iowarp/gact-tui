@@ -197,6 +197,38 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_New covers GG1: gact new prints a session id; the id can
+// then be passed to subsequent commands. Validates:
+//   - exit code 0 on success
+//   - stdout begins with sess_ (canonical id prefix)
+//   - the session is reachable via gact list afterwards
+func TestCLI_New(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"new", "--title", "shell-created")
+	if code != 0 {
+		t.Fatalf("new: exit %d, stderr=%q", code, stderr)
+	}
+	sid := strings.TrimSpace(stdout)
+	if !strings.HasPrefix(sid, "sess_") {
+		t.Fatalf("new: stdout doesn't look like a session id: %q", stdout)
+	}
+
+	// Round-trip through list to confirm the session landed.
+	listOut, _, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url}, "list")
+	if code != 0 {
+		t.Fatalf("list after new: exit %d", code)
+	}
+	if !strings.Contains(listOut, sid) {
+		t.Errorf("list didn't include the new session %q: %q", sid, listOut)
+	}
+}
+
 // TestCLI_Ask covers FF1: ask returns the assistant's reply text on
 // stdout (no role headers, no extra noise) so shell capture works.
 // Validates non-empty output and that stdout contains assistant
