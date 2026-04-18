@@ -21,6 +21,8 @@
   one JSON per session. CLI-level end-to-end test.
 - **V2.** Header SSE health dot (green/amber/red) surfaces stream
   state at a glance. Screenshot 65.
+- **V3.** `?search` jump marks the target message with a bold amber
+  `▶` in the left gutter; clears on session switch.
 
 ### Phase T — terminal integration
 - **T1.** OSC 2 window title reflects active session
