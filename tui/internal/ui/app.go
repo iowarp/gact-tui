@@ -811,6 +811,38 @@ func (a *App) applySSE(e client.SSEEvent) {
 	case "subagent.started", "subagent.completed":
 		// Refresh sidebar so the new subsession appears (or its status updates).
 		a.pendingSidebarRefresh = true
+	case "cost.updated":
+		a.applyCostUpdated(e)
+	}
+}
+
+// applyCostUpdated rolls the latest cost/tokens into the local sessions
+// slice so the footer's meter and the sidebar status both stay live.
+func (a *App) applyCostUpdated(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	sid, _ := pl["session_id"].(string)
+	if sid == "" {
+		return
+	}
+	for i := range a.sessions {
+		if a.sessions[i].ID != sid {
+			continue
+		}
+		if c, ok := pl["cost_usd"].(float64); ok {
+			a.sessions[i].CostUSD = c
+		}
+		if tokens, ok := pl["tokens"].(map[string]any); ok {
+			if v, ok := tokens["input"].(float64); ok {
+				a.sessions[i].Tokens.Input = int(v)
+			}
+			if v, ok := tokens["output"].(float64); ok {
+				a.sessions[i].Tokens.Output = int(v)
+			}
+		}
+		return
 	}
 }
 
@@ -1086,14 +1118,24 @@ func (a *App) renderFooter() string {
 	}
 	hintLine := strings.Join(hints, "  ")
 	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
-	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - 6
+	right := ""
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		s := a.sessions[a.selected]
+		if s.CostUSD > 0 || s.Tokens.Input > 0 {
+			right = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
+				Render(fmt.Sprintf("$%.4f", s.CostUSD)) + " " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).
+					Render(fmt.Sprintf("(%d in / %d out)", s.Tokens.Input, s.Tokens.Output))
+		}
+	}
+	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
 	if gap < 1 {
 		gap = 1
 	}
 	return lipgloss.NewStyle().
 		Width(a.width).Background(t.BgSubtle).Foreground(t.FgMuted).
 		Padding(0, 1).Render(
-		left + "  " + hintLine + strings.Repeat(" ", gap),
+		left + "  " + hintLine + strings.Repeat(" ", gap) + right,
 	)
 }
 

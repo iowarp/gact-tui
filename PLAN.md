@@ -56,7 +56,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **C15.** Settings panel — Ctrl+s opens modal with Model/Agent tabs; lists from /v1/providers + /v1/agents; Enter applies via PATCH /v1/sessions/{id}. Theme switching deferred to E3.
 - [x] **C16.** File context panel — sidebar CONTEXT section lists files for current session with mode badges (E/R/P colored). Loaded on session select via GET /v1/sessions/{id}/context/files. Add/remove via REST is wired in client (AddContextFile/RemoveContextFile) but not yet exposed via UI keys.
 - [x] **C17.** Diff viewer: a/r keys on body focus apply/reject all pending diffs via /v1/sessions/{id}/diffs/{apply,reject}. Diff part shows status badge: '(applied)' / '(rejected)' / inline hint when pending. Emulator scenario triggered by 'diff' / 'edit' / 'patch' / 'propose' keywords.
-- [ ] **C18.** Cost meter in footer (consume cost.updated events; emulator does not yet emit them).
+- [x] **C18.** Cost meter — emulator now emits `cost.updated` after every assistant turn (synthetic 1500-in/600-out at Sonnet rates ≈ $0.0135/turn) and rolls into the session aggregate; TUI consumes the event, updates the in-memory session, renders `$X.XXXX (N in / N out)` right-aligned in the footer.
 - [x] **C19.** Subagent indication: scenario spawns a subagent on "split"/"with help"/"subagent" triggers; emits subagent.started/completed events; parent carries subagent_call/result parts; TUI renders both with ▼/▲ markers; sidebar shows subsessions indented with `└`. Verified via 15-subagent-parent + 16-subagent-sidebar screenshots.
 
 ## Phase D — TUI tests + visual verification
