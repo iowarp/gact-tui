@@ -409,6 +409,17 @@ func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) 
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
 }
 
+// ListWorkspaceFiles returns the workspace-rooted file tree. The server
+// returns a flat list of FileEntry (some may be type="dir"). Used by the
+// M6 @-picker to let users reference files by path.
+func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]gact.FileEntry, error) {
+	var out struct {
+		Entries []gact.FileEntry `json:"entries"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/workspaces/"+workspaceID+"/files", nil, &out)
+	return out.Entries, err
+}
+
 // SessionExportBlob mirrors emulator/internal/server.SessionExport so the
 // TUI can use the export/import endpoints without depending on emulator
 // internals.

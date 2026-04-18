@@ -1,0 +1,253 @@
+// At-sign (@) file picker (M6). Typing `@` as the first character of a
+// new word in the input opens a floating fuzzy-file picker scoped to the
+// current workspace. Selecting a file:
+//
+//   1. Inserts `@path/to/file` into the input at the cursor position.
+//   2. Attaches the file to the session's context via POST
+//      /v1/sessions/{id}/context/files (mode=read) so the backend sees
+//      it as extra context on the next send. Same plumbing as the K14
+//      sidebar `o` key, reached from the input side.
+//
+// Design:
+//   * Fuzzy matching is simple case-insensitive substring scoring. Good
+//     enough for the sizes we're dealing with (workspace listings are
+//     typically hundreds of entries, not thousands) and debuggable.
+//   * Files only — directories are skipped. The @-syntax refers to
+//     concrete files; directories confuse the context-attach semantics.
+//   * The picker modal sits above the input and uses the same centred
+//     spliceRow overlay as every other modal so the base view stays
+//     visible behind the gutter.
+package ui
+
+import (
+	"context"
+	"sort"
+	"strings"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+)
+
+// filePickerState holds the live state of the @-picker modal.
+type filePickerState struct {
+	entries []gact.FileEntry // all file entries from the workspace (dirs filtered out)
+	filter  string           // user-typed filter; empty = show all
+	sel     int              // index into the filtered slice
+	loaded  bool             // true once entries have been fetched
+}
+
+// filePickerLoadedMsg delivers the initial fetch result.
+type filePickerLoadedMsg struct {
+	entries []gact.FileEntry
+}
+
+// loadFilePickerCmd hits /v1/workspaces/{id}/files and converts the
+// response into a filePickerLoadedMsg. Filters out directories so the
+// picker only deals with pickable files.
+func loadFilePickerCmd(c *client.Client, workspaceID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		entries, err := c.ListWorkspaceFiles(ctx, workspaceID)
+		if err != nil {
+			return errMsg{err: err, stage: "file-picker"}
+		}
+		out := entries[:0:0]
+		for _, e := range entries {
+			if e.Type == "dir" {
+				continue
+			}
+			out = append(out, e)
+		}
+		return filePickerLoadedMsg{entries: out}
+	}
+}
+
+// openFilePicker puts the modal in its initial "loading" state and
+// kicks off the fetch. The user can start typing immediately — the
+// filter state is preserved across the load.
+func (a *App) openFilePicker() tea.Cmd {
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{}
+	if a.wsID == "" {
+		return nil
+	}
+	return loadFilePickerCmd(a.c, a.wsID)
+}
+
+// closeFilePicker drops modal state and ensures the input doesn't
+// re-open the picker on the next key.
+func (a *App) closeFilePicker() {
+	a.filePickerOpen = false
+	a.filePicker = nil
+}
+
+// filePickerMatches returns the entries that pass the current filter,
+// sorted by match quality (earlier substring match ranks higher), then
+// by path so ties are deterministic.
+func (a *App) filePickerMatches() []gact.FileEntry {
+	if a.filePicker == nil {
+		return nil
+	}
+	if a.filePicker.filter == "" {
+		out := make([]gact.FileEntry, len(a.filePicker.entries))
+		copy(out, a.filePicker.entries)
+		sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+		return out
+	}
+	needle := strings.ToLower(a.filePicker.filter)
+	type scored struct {
+		entry gact.FileEntry
+		score int // lower is better (substring index)
+	}
+	var hits []scored
+	for _, e := range a.filePicker.entries {
+		idx := strings.Index(strings.ToLower(e.Path), needle)
+		if idx < 0 {
+			continue
+		}
+		hits = append(hits, scored{entry: e, score: idx})
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].score != hits[j].score {
+			return hits[i].score < hits[j].score
+		}
+		return hits[i].entry.Path < hits[j].entry.Path
+	})
+	out := make([]gact.FileEntry, len(hits))
+	for i, h := range hits {
+		out[i] = h.entry
+	}
+	return out
+}
+
+// handleFilePickerKey routes keypresses while the @-picker modal is open.
+func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if a.filePicker == nil {
+		a.closeFilePicker()
+		return a, nil
+	}
+	matches := a.filePickerMatches()
+	switch k.String() {
+	case "esc", "ctrl+c":
+		a.closeFilePicker()
+		return a, nil
+	case "up":
+		if a.filePicker.sel > 0 {
+			a.filePicker.sel--
+		}
+	case "down":
+		if a.filePicker.sel < len(matches)-1 {
+			a.filePicker.sel++
+		}
+	case "enter":
+		if a.filePicker.sel < 0 || a.filePicker.sel >= len(matches) {
+			return a, nil
+		}
+		selected := matches[a.filePicker.sel]
+		a.closeFilePicker()
+
+		// Insert `@path ` into the input. We append rather than insert-
+		// at-cursor because bubbles/v2/textarea doesn't expose a
+		// cursor-position insert primitive; in practice the user typed
+		// @ last, so append reaches the right spot.
+		cur := a.input.Value()
+		if cur != "" && !strings.HasSuffix(cur, " ") && !strings.HasSuffix(cur, "\n") {
+			cur += " "
+		}
+		a.input.SetValue(cur + "@" + selected.Path + " ")
+
+		// Attach the file to session context so the backend auto-reads
+		// it on the next send. Failure is non-fatal — the @-reference
+		// still lands in the prompt, which is enough for most backends
+		// that interpret @-refs directly. Reuses K14's
+		// addContextFileCmd so sidebar CONTEXT updates the same way.
+		if sid := a.currentSessionID(); sid != "" {
+			return a, addContextFileCmd(a.c, sid, selected.Path)
+		}
+		return a, nil
+	case "backspace":
+		if len(a.filePicker.filter) > 0 {
+			a.filePicker.filter = a.filePicker.filter[:len(a.filePicker.filter)-1]
+			a.filePicker.sel = 0
+		}
+	default:
+		if k.Text != "" {
+			a.filePicker.filter += k.Text
+			a.filePicker.sel = 0
+		}
+	}
+	return a, nil
+}
+
+// viewFilePicker renders the modal: title, filter row, sorted results,
+// hint bar. Keeps the total rendered height fixed at ~15 rows so the
+// bottom of the modal doesn't dance when filter results change size.
+func (a *App) viewFilePicker() string {
+	t := a.Theme
+	w := a.modalWidth()
+	if a.filePicker == nil {
+		return ""
+	}
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("Insert file reference")
+
+	filterRow := t.HintKey.Render("@") + t.HintLabel.Render(a.filePicker.filter) +
+		lipgloss.NewStyle().Foreground(t.Primary).Blink(true).Render("_")
+
+	matches := a.filePickerMatches()
+
+	// Always show a fixed rows height so the modal doesn't reflow its
+	// surrounding chrome as the user types.
+	const resultRows = 10
+	rows := make([]string, 0, resultRows)
+	if !a.filePicker.loaded && len(matches) == 0 {
+		rows = append(rows, t.HintLabel.Italic(true).Render("loading workspace files…"))
+	} else if len(matches) == 0 {
+		rows = append(rows, t.HintLabel.Italic(true).Render("no matches"))
+	}
+	start := 0
+	if a.filePicker.sel >= resultRows {
+		start = a.filePicker.sel - resultRows + 1
+	}
+	for i, m := range matches {
+		if i < start {
+			continue
+		}
+		if i-start >= resultRows {
+			break
+		}
+		marker := "  "
+		style := lipgloss.NewStyle().Foreground(t.Fg)
+		if i == a.filePicker.sel {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			style = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		}
+		rows = append(rows, marker+style.Render(truncate(m.Path, w-6)))
+	}
+	// Pad to fixed height so the hint bar doesn't jump.
+	for len(rows) < resultRows {
+		rows = append(rows, "")
+	}
+
+	hint := t.HintLabel.Italic(true).Render(
+		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
+
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		title, "", filterRow, "",
+		lipgloss.JoinVertical(lipgloss.Left, rows...),
+		"", hint,
+	)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Background(t.BgSubtle).
+		Padding(1, 2).
+		Width(w).
+		Render(body)
+}
