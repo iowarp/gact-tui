@@ -115,10 +115,7 @@ type contextFileAddedMsg struct {
 // modal chrome so muscle memory carries over.
 func (a *App) viewContextAdd() string {
 	t := a.Theme
-	w := 60
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 
 	runes := []rune(a.contextAddDraft)
 	cur := a.contextAddCursor

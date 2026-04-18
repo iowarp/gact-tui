@@ -104,10 +104,7 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 // switcher / settings overlay shape.
 func (a *App) viewRename() string {
 	t := a.Theme
-	w := 60
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 
 	// Minimal cursor rendering — a reverse-video block at a.renameCursor.
 	runes := []rune(a.renameDraft)

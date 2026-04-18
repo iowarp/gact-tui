@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -2338,10 +2339,7 @@ func truncate(s string, max int) string {
 // viewPalette renders the slash-command palette as a centered modal.
 func (a *App) viewPalette() string {
 	t := a.Theme
-	w := 60
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 
 	if a.isSearchMode() {
 		return a.viewPaletteSearch(w)
@@ -2483,7 +2481,7 @@ func (a *App) viewHelp() string {
 		BorderForeground(t.Primary).
 		Background(t.BgSubtle).
 		Padding(1, 2).
-		Width(56).
+		Width(a.modalWidth()).
 		Render(body)
 }
 
@@ -2491,14 +2489,30 @@ func (a *App) viewHelp() string {
 // a built-in compositor (the lipgloss Layer API works but is heavier).
 // This is a simple character-grid composite: split base into lines, paint
 // the overlay's lines starting at the centered offset, return joined string.
+// overlay splices `top` onto `base` as a centred floating window.
+// Rows outside the modal's Y range pass through unchanged; rows
+// intersecting the modal are spliced so the base content LEFT of the
+// modal and RIGHT of the modal stays visible. The modal's own lines
+// are considered opaque (they're pre-styled with a solid-background
+// box), so the base behind them doesn't bleed through.
+//
+// Splicing is ANSI-aware via github.com/charmbracelet/x/ansi so we
+// count display cells, not bytes, when cutting the base row. The
+// reset-SGR between segments prevents background-colour state from
+// leaking past the modal's right edge into the base content.
+//
+// This fixes the old padOrInsert bug where every modal row returned
+// `spaces + modal` and discarded the base entirely — that's what made
+// the modal look like a "black bar across the screen" that reviewers
+// called out in feedback L2.
 func overlay(base, top string, w, h int) string {
 	baseLines := strings.Split(base, "\n")
 	topLines := strings.Split(top, "\n")
 	tH := len(topLines)
 	tW := 0
 	for _, l := range topLines {
-		if w := lipgloss.Width(l); w > tW {
-			tW = w
+		if wl := lipgloss.Width(l); wl > tW {
+			tW = wl
 		}
 	}
 	startY := (h - tH) / 2
@@ -2514,20 +2528,45 @@ func overlay(base, top string, w, h int) string {
 		if idx >= len(baseLines) {
 			break
 		}
-		baseLines[idx] = padOrInsert(baseLines[idx], ol, startX, w)
+		baseLines[idx] = spliceRow(baseLines[idx], ol, startX, tW)
 	}
 	return strings.Join(baseLines, "\n")
 }
 
-// padOrInsert overlays insert at the given column offset on row, padding
-// row with spaces if needed. ANSI codes are not handled gracefully here —
-// the user accepts some bleeding around the overlay edges. Acceptable for
-// modals because the visible inside is opaque.
-func padOrInsert(row, insert string, offset, _ int) string {
-	// Strip control runes from row width calculation by relying on lipgloss.Width.
-	// Simplest correct approach: just print spaces of width `offset`, then insert.
-	prefix := strings.Repeat(" ", offset)
-	return prefix + insert
+// spliceRow overlays `top` starting at column `startX` of `row` while
+// preserving the base content to the left and right of the modal.
+// Width is in display cells (grapheme-safe via ansi.Width).
+//
+// If the base row is shorter than startX, the gap is padded with
+// spaces so the modal still lands at the intended column. Similarly
+// if startX+topW extends past the base row, the right segment is
+// empty (nothing to preserve).
+//
+// The "\x1b[0m" between segments is a reset-SGR escape so the modal's
+// background colour can't leak past its right edge into the base.
+func spliceRow(row, top string, startX, topW int) string {
+	const resetSGR = "\x1b[0m"
+	rowW := ansi.StringWidth(row)
+
+	// Left chunk of the base row: first `startX` display cells.
+	var left string
+	if startX <= 0 {
+		left = ""
+	} else if rowW >= startX {
+		left = ansi.Truncate(row, startX, "")
+	} else {
+		// Base row too short — pad to startX.
+		left = row + strings.Repeat(" ", startX-rowW)
+	}
+
+	// Right chunk: everything past (startX + topW) in the base row.
+	var right string
+	rightCut := startX + topW
+	if rowW > rightCut {
+		right = ansi.TruncateLeft(row, rightCut, "")
+	}
+
+	return left + resetSGR + top + resetSGR + right
 }
 
 // --- Messages -------------------------------------------------------------
