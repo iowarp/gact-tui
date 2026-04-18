@@ -476,8 +476,21 @@ func (s *Server) handleSessionCommand(w http.ResponseWriter, r *http.Request) {
 			Type:      "session.cleared",
 			SessionID: sessionID,
 			Payload: map[string]any{
-				"session_id":        sessionID,
-				"messages_cleared":  n,
+				"session_id":       sessionID,
+				"messages_cleared": n,
+			},
+		})
+		// Emit a zeroed cost.updated so the TUI's footer meter drops
+		// back to $0.0000 (0 in / 0 out) in lockstep with the message
+		// wipe. Otherwise the meter stays at the pre-clear value until
+		// the next assistant turn rolls in new totals.
+		s.bus.Publish(events.Event{
+			Type:      "cost.updated",
+			SessionID: sessionID,
+			Payload: map[string]any{
+				"session_id": sessionID,
+				"cost_usd":   0.0,
+				"tokens":     gact.Tokens{},
 			},
 		})
 		writeJSON(w, http.StatusOK, map[string]any{"messages_cleared": n})
