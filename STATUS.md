@@ -78,6 +78,23 @@
 - Top-level README with screenshot gallery, quickstart, key table,
   status table, project layout, testing, visual workflow link.
 
+### Iteration 9 — Phase D goldens
+- 9 view-state golden tests under `tui/internal/ui/testdata/`.
+- Direct-state approach (bypasses tea.NewProgram) so deterministic.
+- Volatile clock masked to `HH:MM:SSZ`.
+- `-update` flag regenerates.
+
+### Iteration 10 — Phase E polish
+- Sidebar 'n' creates new session, 'x' deletes. Ctrl+n works anywhere.
+- Ctrl+r refreshes capabilities + sessions.
+- SSE auto-reconnect: 750ms debounce after sseClosedMsg, then reopen.
+  Survives emulator restart without permanent error.
+- Empty-state polish: sidebar shows 'n to create' hint; conversation
+  pane shows sidebar crib + suggested prompts.
+- Help overlay updated with Ctrl+n/Ctrl+r/n/x rows.
+- 3 new screenshots (10-empty, 11-after-new, 12-streamed) verify the
+  in-TUI new-session flow end-to-end.
+
 ## In progress
 - Phase D — golden tests for TUI states.
 
@@ -137,3 +154,5 @@ cd ../tui   && go build -o ./gact .
 | 6 | 2026-04-18T05:42 | TUI C1-C10 | 8cca3f5 |
 | 7 | 2026-04-18T05:48 | TUI C10b+C11+C12 | d459a2e |
 | 8 | 2026-04-18T05:50 | top-level README | f9566bf |
+| 9 | 2026-04-18T05:53 | Phase D goldens (9 states) | ae2ca54 |
+| 10 | 2026-04-18T05:55 | Phase E polish + reconnect + new-session | 8a1b80f |
