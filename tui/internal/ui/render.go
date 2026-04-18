@@ -186,11 +186,25 @@ func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width 
 	if body == "" {
 		body = t.HintLabel.Render("(no parts)")
 	}
+	// Optional timestamp row (S1). Rendered in a faint style under the
+	// role header so it doesn't fight for attention with the message
+	// content. Skipped when the header itself is hidden (tool-result
+	// nesting) — the timestamp would look orphaned there.
+	ts := ""
+	if t.ShowTimestamps && !m.CreatedAt.IsZero() && !hideHeader {
+		ts = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+			Render("  " + m.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
 	if hideHeader {
 		return lipgloss.JoinVertical(lipgloss.Left, body, "")
 	}
 	header := t.renderRoleHeader(m.Role)
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, "")
+	parts := []string{header}
+	if ts != "" {
+		parts = append(parts, ts)
+	}
+	parts = append(parts, body, "")
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 // assistantCarriedToolCall reports whether m has any tool_call

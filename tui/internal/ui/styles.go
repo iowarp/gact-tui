@@ -48,6 +48,11 @@ type Theme struct {
 	// feedback ask.
 	CollapseThreshold int
 
+	// ShowTimestamps toggles a dim "2026-04-18 20:34" line under
+	// each message's role header. Flipped by `t` on body focus; not
+	// persisted (local debugging aid, not a real preference).
+	ShowTimestamps bool
+
 	// CostWarnTokens and CostDangerTokens are the input-token
 	// thresholds that tint the footer's token counter. 0 means
 	// "use the built-in defaults": 100K / 150K — sized for Claude
