@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase FF — q&a CLI
 
-- [ ] **FF1.** `gact ask <sid> <question>` — `run` + extract the assistant's reply text. Prints just the text to stdout so `ANSWER=$(gact ask SID "what does this do?")` works for shell scripts.
+- [x] **FF1.** `gact ask <sid> <q|->` — send + wait + print latest assistant reply text. Snapshots pre-send count so it picks the new reply even when subagents fan out. Stdin via `-`. CLI test.
 
 ## Phase EE — repo ergonomics
 
