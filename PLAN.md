@@ -54,7 +54,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **C13.** WindowSizeMsg propagated through layout.
 - [x] **C14.** Connect screen: capabilities probe on startup; error stage on failure; capabilities-aware UI (e.g. would hide panels if capability=false).
 - [x] **C15.** Settings panel — Ctrl+s opens modal with Model/Agent tabs; lists from /v1/providers + /v1/agents; Enter applies via PATCH /v1/sessions/{id}. Theme switching deferred to E3.
-- [ ] **C16.** File context panel (use /v1/sessions/{id}/context/files).
+- [x] **C16.** File context panel — sidebar CONTEXT section lists files for current session with mode badges (E/R/P colored). Loaded on session select via GET /v1/sessions/{id}/context/files. Add/remove via REST is wired in client (AddContextFile/RemoveContextFile) but not yet exposed via UI keys.
 - [ ] **C17.** Diff viewer: file_diff part is currently rendered with `+/-` lines; could add accept/reject buttons.
 - [ ] **C18.** Cost meter in footer (consume cost.updated events; emulator does not yet emit them).
 - [x] **C19.** Subagent indication: scenario spawns a subagent on "split"/"with help"/"subagent" triggers; emits subagent.started/completed events; parent carries subagent_call/result parts; TUI renders both with ▼/▲ markers; sidebar shows subsessions indented with `└`. Verified via 15-subagent-parent + 16-subagent-sidebar screenshots.

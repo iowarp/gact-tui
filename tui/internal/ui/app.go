@@ -57,6 +57,9 @@ type App struct {
 	scrollOffset     int // 0 = stick to bottom; >0 = scrolled up
 	stickyToBottom   bool
 
+	// Context files for the currently selected session (fetched on select).
+	contextFiles []gact.ContextFile
+
 	// SSE state
 	sseEvents <-chan client.SSEEvent
 	sseErrs   <-chan error
@@ -164,6 +167,20 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
+// loadContextFilesCmd fetches the in-context files for a session.
+func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		files, err := c.ListContextFiles(ctx, sessionID)
+		if err != nil {
+			// Don't promote to error stage — context files are optional.
+			return contextFilesLoadedMsg{sessionID: sessionID, files: nil}
+		}
+		return contextFilesLoadedMsg{sessionID: sessionID, files: files}
+	}
+}
+
 // reloadSessionsCmd is used after subagent.started so the new sub-session
 // shows up in the sidebar without the user having to refresh manually.
 func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
@@ -262,6 +279,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.currentSessionID() == m.sessionID {
 			a.messages = m.messages
 			a.stickyToBottom = true
+		}
+		return a, nil
+
+	case contextFilesLoadedMsg:
+		if a.currentSessionID() == m.sessionID {
+			a.contextFiles = m.files
 		}
 		return a, nil
 
@@ -656,19 +679,22 @@ func (a *App) currentSessionID() string {
 	return a.sessions[a.selected].ID
 }
 
-// selectSession switches the active session, loads messages, and reopens SSE.
+// selectSession switches the active session, loads messages + context files,
+// and reopens SSE.
 func (a *App) selectSession(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(a.sessions) {
 		return nil
 	}
 	sid := a.sessions[idx].ID
 	a.messages = nil
+	a.contextFiles = nil
 	a.scrollOffset = 0
 	a.stickyToBottom = true
 	a.currentStatus = a.sessions[idx].Status
 	a.pendingPermissions = nil
 	return tea.Batch(
 		loadMessagesCmd(a.c, sid),
+		loadContextFilesCmd(a.c, sid),
 		a.startSSECmd(sid),
 	)
 }
@@ -1037,6 +1063,31 @@ func (a *App) renderSidebar(width, height int) string {
 		statusLine := "  " + indent + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
+
+	// CONTEXT section — show files in the current session's context.
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		rows = append(rows,
+			lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("CONTEXT"),
+			"")
+		if len(a.contextFiles) == 0 {
+			rows = append(rows, t.HintLabel.Render("(no files)"))
+		}
+		for _, cf := range a.contextFiles {
+			modeChar := "?"
+			modeColor := t.FgMuted
+			switch cf.Mode {
+			case "edit":
+				modeChar, modeColor = "E", t.Warning
+			case "read":
+				modeChar, modeColor = "R", t.RoleUser
+			case "pin":
+				modeChar, modeColor = "P", t.Secondary
+			}
+			modeBadge := lipgloss.NewStyle().Foreground(modeColor).Bold(true).Render(modeChar)
+			rows = append(rows, "  "+modeBadge+" "+t.HintLabel.Render(truncate(cf.Path, width-10)))
+		}
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return style.Render(body)
 }
@@ -1320,4 +1371,9 @@ type sessionsRefreshedMsg struct {
 
 type reconnectMsg struct {
 	sessionID string
+}
+
+type contextFilesLoadedMsg struct {
+	sessionID string
+	files     []gact.ContextFile
 }
