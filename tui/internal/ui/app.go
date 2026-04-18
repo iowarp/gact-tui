@@ -1313,6 +1313,22 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, loadSettingsCmd(a.c)
 			}
 
+			// /theme opens Settings on the Theme tab with the current
+			// palette pre-selected so ↓↑ immediately previews live.
+			if cmd.ID == "/theme" || cmd.ID == "/themes" {
+				a.settingsOpen = true
+				cur := ThemeModeFor(a.Theme)
+				sel := 0
+				for i, m := range AllThemeModes {
+					if m == cur {
+						sel = i
+						break
+					}
+				}
+				a.settings = &settingsState{tab: 2, themeSel: sel}
+				return a, nil
+			}
+
 			// /scenarios jumps to the Scenarios help tab. Saves the
 			// user from pressing ? then → five times to get the
 			// trigger keyword cheat sheet — especially useful mid-
@@ -3122,6 +3138,7 @@ var helpTabs = []struct {
 			{"/agents", "switch agent (opens Settings > Agent)"},
 			{"/scenarios", "jump to the Scenarios help tab"},
 			{"/sessions", "focus sidebar + start title filter"},
+			{"/theme", "open Theme picker (dark/light/dracula/…) "},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},

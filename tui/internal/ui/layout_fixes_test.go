@@ -482,6 +482,41 @@ func TestSessionsSlashCmd_FocusesSidebarFilter(t *testing.T) {
 	}
 }
 
+// TestThemeSlashCmd_OpensSettingsThemeTab verifies /theme lands the
+// user on Settings > Theme with the current palette pre-selected so
+// ↓/↑ immediately previews a neighbour.
+func TestThemeSlashCmd_OpensSettingsThemeTab(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.Theme = ThemeForMode(ModeDracula)
+	a.commands = []gact.Command{
+		{ID: "/theme", Title: "Pick a theme", Source: "builtin"},
+	}
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = 0
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+
+	if !a.settingsOpen {
+		t.Fatalf("/theme should open settings")
+	}
+	if a.settings.tab != 2 {
+		t.Fatalf("tab = %d, want 2 (Theme)", a.settings.tab)
+	}
+	// themeSel should pre-seed to Dracula's position in AllThemeModes.
+	wantSel := 0
+	for i, m := range AllThemeModes {
+		if m == ModeDracula {
+			wantSel = i
+			break
+		}
+	}
+	if a.settings.themeSel != wantSel {
+		t.Fatalf("themeSel = %d, want %d (Dracula)", a.settings.themeSel, wantSel)
+	}
+}
+
 // TestInputDraft_PreservedAcrossSessionSwitch checks N1: typing into
 // session A, switching to session B, typing there, switching back —
 // should restore A's draft verbatim.
