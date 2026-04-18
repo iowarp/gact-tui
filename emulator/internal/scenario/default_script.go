@@ -28,10 +28,15 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	userText := strings.ToLower(extractFirstText(userMsg))
 	dangerous := containsAny(userText, "delete", "rm ", "drop ", "truncate")
 	wantsSubagent := containsAny(userText, "split", "with help", "subagent")
+	wantsDiff := containsAny(userText, " diff", " edit", " patch", "propose")
 
 	// Subagent path takes precedence and demonstrates the multi-agent flow.
 	if wantsSubagent {
 		runSubagentScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsDiff {
+		runDiffScript(ctx, e, sessionID, userMsg)
 		return
 	}
 

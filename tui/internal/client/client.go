@@ -387,6 +387,33 @@ func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) 
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
 }
 
+// ApplyDiffs POST /v1/sessions/{id}/diffs/apply. paths is optional —
+// nil/empty means "apply all pending diffs".
+func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, error) {
+	body := map[string]any{}
+	if len(paths) > 0 {
+		body["paths"] = paths
+	}
+	var out struct {
+		Applied []string `json:"applied"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/diffs/apply", body, &out)
+	return out.Applied, err
+}
+
+// RejectDiffs POST /v1/sessions/{id}/diffs/reject.
+func (c *Client) RejectDiffs(ctx context.Context, sessionID string, paths []string) ([]string, error) {
+	body := map[string]any{}
+	if len(paths) > 0 {
+		body["paths"] = paths
+	}
+	var out struct {
+		Rejected []string `json:"rejected"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/diffs/reject", body, &out)
+	return out.Rejected, err
+}
+
 // PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
 func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
 	var out gact.Session

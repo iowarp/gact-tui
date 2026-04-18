@@ -358,6 +358,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case diffsAppliedMsg:
+		// Mark matching parts as applied locally. Server is source of truth
+		// but optimistic update keeps the UI snappy.
+		applied := make(map[string]bool, len(m.paths))
+		for _, p := range m.paths {
+			applied[p] = true
+		}
+		for i := range a.messages {
+			for j := range a.messages[i].Parts {
+				p := &a.messages[i].Parts[j]
+				if p.Type == gact.PartTypeFileDiff && applied[p.Path] {
+					p.Applied = true
+				}
+			}
+		}
+		return a, nil
+
+	case diffsRejectedMsg:
+		rejected := make(map[string]bool, len(m.paths))
+		for _, p := range m.paths {
+			rejected[p] = true
+		}
+		for i := range a.messages {
+			for j := range a.messages[i].Parts {
+				p := &a.messages[i].Parts[j]
+				if p.Type == gact.PartTypeFileDiff && rejected[p.Path] {
+					if p.Metadata == nil {
+						p.Metadata = map[string]any{}
+					}
+					p.Metadata["rejected"] = true
+				}
+			}
+		}
+		return a, nil
+
 	case sessionsRefreshedMsg:
 		// Preserve the current session ID across the refresh so the user
 		// doesn't get yanked to a different session when sidebar reloads
@@ -640,8 +675,54 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		a.scrollOffset = 0
 		a.stickyToBottom = true
+	case "a":
+		// Apply all unapplied diffs in the current session.
+		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
+			return a, applyDiffsCmd(a.c, sid)
+		}
+	case "r":
+		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
+			return a, rejectDiffsCmd(a.c, sid)
+		}
 	}
 	return a, nil
+}
+
+// hasPendingDiffs returns true if any file_diff part in the loaded messages
+// is not yet applied. Used to gate the a/r body keys.
+func (a *App) hasPendingDiffs() bool {
+	for _, m := range a.messages {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeFileDiff && !p.Applied {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		applied, err := c.ApplyDiffs(ctx, sessionID, nil)
+		if err != nil {
+			return errMsg{err: err, stage: "apply-diffs"}
+		}
+		return diffsAppliedMsg{paths: applied}
+	}
+}
+
+func rejectDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		rejected, err := c.RejectDiffs(ctx, sessionID, nil)
+		if err != nil {
+			return errMsg{err: err, stage: "reject-diffs"}
+		}
+		return diffsRejectedMsg{paths: rejected}
+	}
 }
 
 func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -1376,4 +1457,12 @@ type reconnectMsg struct {
 type contextFilesLoadedMsg struct {
 	sessionID string
 	files     []gact.ContextFile
+}
+
+type diffsAppliedMsg struct {
+	paths []string
+}
+
+type diffsRejectedMsg struct {
+	paths []string
 }
