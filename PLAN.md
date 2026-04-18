@@ -163,3 +163,14 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **M8.** Slash commands actually execute. Root cause in emulator's `handleSessionCommand`: it only recorded the invocation. Now `/clear` wipes messages (+ `session.cleared` event → TUI reload), `/cancel` halts the run (shared plumbing with cancel endpoint), `/help` / `/diff` / `/undo` emit assistant notes. TUI optimistically clears on `/clear` for instant feedback. Test `TestCommands` verifies `/clear` wipes + `/help` emits an assistant note.
 - [x] **M9.** Tabbed help overlay (#7). Split the help list into 5 (now 6 with Scenarios) tabs so it fits at 80x24. ←/→/h/l/Tab navigate. Tests: `TestHelpOverlay_TabCycles`, `TestHelpOverlay_FitsInSmallViewport`. Screenshots 36-40, 47.
 - [x] **M10.** Configurable collapse threshold (#6). `Theme.CollapseThreshold` controls the tool_result preview budget; Settings > TUI exposes a ◀/▶ stepper; default lowered from 8 to 5 per user feedback. Test: `TestCollapseThreshold_ArrowKeysAdjust`. Screenshots 41-43.
+
+## Phase N — Follow-up polish after second-round feedback shipped
+
+Concrete, small-surface improvements that round out the M-phase features. Each one is tight enough to ship in a single iteration; pick from the top.
+
+- [ ] **N1.** Per-session input draft preservation. Switching to another session and back should restore whatever the user was typing; right now the base input is a singleton so drafts are lost on session switch. Keep the map in-memory only (persistence = follow-up).
+- [ ] **N2.** `/undo-clear` — cache the last wiped set of messages (local-only) and offer a restore path via a toast or a new slash command. User feedback didn't explicitly ask for this but "I cleared by accident" is a foreseeable frustration.
+- [ ] **N3.** Message-level delete (`d` on body focus over a selected message). Requires a message cursor; K10/K13 cheat with "latest" — N3 needs a proper per-row selection. Medium scope.
+- [ ] **N4.** `/sessions` slash command → opens a dedicated session-switcher overlay (currently buried under Ctrl+W for workspaces + sidebar for sessions).
+- [ ] **N5.** Persist Settings > TUI collapse threshold + compose-modal preferences via `config.json` so the knob sticks across restarts. Currently in-memory only.
+- [ ] **N6.** Crush adapter's conformance suite coverage bump — H-phase adapters should run every gact conformance assertion. Check `adapters/crush/` coverage.
