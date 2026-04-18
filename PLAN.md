@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase AA — scripting
 
-- [ ] **AA1.** `gact send <session_id> <text>` posts a single user message via the POST /v1/sessions/{id}/messages endpoint. Accepts `-` as text to read stdin so `echo "prompt" | gact send SID -` works for script chains.
+- [x] **AA1.** `gact send <sid> <text|->` posts a user message; prints the returned `msg_id`. Stdin pipe via `-`. reorderFlagsFirst taught to preserve lone `-` as positional. Full CLI test.
 
 ## Phase Z — cursor-aware everything
 
