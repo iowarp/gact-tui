@@ -250,4 +250,4 @@ cd ../tui   && go build -o ./gact .
 | 64 | 2026-04-18T20:50 | K17 — deterministic seeded session IDs + Phase L UX feedback queued | bec3466 |
 | 65 | 2026-04-18T21:15 | L1 — richer scenario (long reply / big tool output / multi-tool) + crib | a7fe775 |
 | 66 | 2026-04-18T21:45 | L2 — floating modal overlays (ANSI-aware splice + shared modalWidth) | 70d83bc |
-| 67 | 2026-04-18T22:10 | L4 — Claude-Code-style tool_call/result demarcation + screenshot | (this) |
+| 67 | 2026-04-18T22:10 | L4 — Claude-Code-style tool_call/result demarcation + screenshot | e57eb09 |
