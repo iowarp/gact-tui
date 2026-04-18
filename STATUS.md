@@ -232,4 +232,4 @@ cd ../tui   && go build -o ./gact .
 | 46 | 2026-04-18T15:55 | J5 — preserve in-flight message on post failure (restore text + hint) | 781ba40 |
 | 47 | 2026-04-18T16:10 | J6 — auto-rename session from first user message (silent on PATCH fail) | e969d30 |
 | 48 | 2026-04-18T16:25 | K1 — Crush adapter --upstream unix:/// socket transport + SSE-aware dialer | 2f3e5e2 |
-| 49 | 2026-04-18T16:45 | K2 — manual session rename from sidebar (`e` → inline editor) + screenshot | (this) |
+| 49 | 2026-04-18T16:45 | K2 — manual session rename from sidebar (`e` → inline editor) + screenshot | 7218048 |
