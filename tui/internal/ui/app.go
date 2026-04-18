@@ -2918,7 +2918,11 @@ func (a *App) renderBody(width, height int) string {
 			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("many tools please")+
 				"         "+t.HintLabel.Render("3 tool calls in one turn"),
 			"",
-			t.HintLabel.Render("Or ")+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" to change the model/agent."),
+			t.HintLabel.Render("Also try:"),
+			"  "+t.HintKey.Render("@")+t.HintLabel.Render(" to attach a workspace file  ·  ")+
+				t.HintKey.Render("Ctrl+G")+t.HintLabel.Render(" to compose in a big window"),
+			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" settings  ·  ")+
+				t.HintKey.Render("/theme")+t.HintLabel.Render(" to pick a palette"),
 		)
 	} else {
 		var rows []string
