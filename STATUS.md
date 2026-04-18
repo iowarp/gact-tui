@@ -1,47 +1,139 @@
 # STATUS
 
-**Last updated:** 2026-04-18T05:08Z by autonomous loop iteration 2
-**Current phase:** Phase A — emulator skeleton (7/21 tasks done)
-**Next task:** PLAN A8 — Messages endpoints (POST 202, GET list with cursor, PATCH part, search)
+**Last updated:** 2026-04-18T05:50Z
+**Current phase:** Phase D (TUI tests / golden snapshots)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f9566bf` and ahead
 
-## Done so far
+## TL;DR for morning-you
 
-### Handoff session
-- See iteration 0/1 below for setup details.
+- **It works end-to-end.** `cd emulator && go build ./cmd/emulator-server && cd ../tui && go build .`
+  Then `./emulator/emulator-server &` and `GACT_BACKEND=http://localhost:7777 ./tui/gact`.
+- **9 screenshots in `screenshots/`** show every visible state working: empty, mid-stream, completed, permission banner, help overlay, slash palette + filter, after-allow.
+- **Emulator: 21/21 Phase A endpoints**, race-clean, ≥75% coverage where it matters.
+- **TUI: 12/12 Phase C tasks** including extras (slash palette, help overlay, permission action keys, cancel-run).
+- **Top-level README** has the quickstart + screenshot gallery + status table.
 
-### Iteration 2 (autonomous)
-- **PLAN A5 done.** `internal/store/`:
-  - In-memory Store with single sync.RWMutex
-  - Workspace/Session/Message CRUD
-  - Cursor pagination (newest-first), system-message filter, cascade delete
-  - 8 unit tests, all pass
-- **PLAN A6 done.** Workspace endpoints (SPEC §6.1): list/create/get/patch/delete; seeded `ws_default`; DisallowUnknownFields. Smoke-tested via curl end-to-end.
-- **PLAN A7 done.** Session endpoints (SPEC §6.2): list (filter by workspace_id/parent_session_id/archived), create, get, patch, delete, fork (copies parent messages), cancel, summarize, export, import. **Bug found and fixed:** session.MessageCount was preserved through import causing double-counting → store.CreateSession now resets derived fields (MessageCount/Tokens/CostUSD).
+## Done so far (chronological)
 
-## Currently in progress
-- Nothing.
+### Iteration 0 — handoff
+- Surveys, contract, notes, skills, plan, scaffold, repo init.
+
+### Iteration 1 — emulator A1-A4
+- go.mod, server bootstrap, /v1/health, /v1/capabilities.
+
+### Iteration 2 — emulator A5-A7
+- in-memory store, workspaces CRUD, sessions CRUD + fork + cancel + export/import.
+
+### Iteration 3 (this push, fast/manual) — A8-A12 + A21
+- Messages endpoints (SPEC §6.3) — list / get / post 202 / delete / patch part / search.
+- Event bus (in-process pub/sub with ring-buffer replay).
+- SSE event streams (workspace + session scope, Last-Event-ID, heartbeat).
+- Scenario engine — DefaultScript synthesises canonical SPEC §7.4 sequence
+  (status→running, message+parts streaming, optional permission, completion).
+- Permissions (SPEC §6.11).
+- Cancellation (SPEC §6.2).
+
+### Iteration 4 — emulator hardening
+- Race detector found and **fixed a real bug** in events.Bus.Publish
+  (close-vs-send window).
+- End-to-end binary tests (cmd/emulator-server/e2e_test.go).
+- Permissions store + handler tests.
+- Workspace SSE filter test, Last-Event-ID resume test.
+- AppendPart store test.
+- Coverage: events 87.3 / scenario 82.2 / server 79.9 / store 90.3.
+
+### Iteration 5 — emulator A13-A20
+- Providers + models, tools, MCP server stubs, agents (write→501),
+  files/context/repo_map, diffs (apply/reject/undo), commands, metrics.
+- Catalog test file covers every endpoint.
+
+### Iteration 6 — TUI C1-C9
+- go.work + `tui/go.mod` + bubbletea/lipgloss/bubbles v2 wired.
+- Typed client (`internal/client/client.go`) for every endpoint.
+- SSE consumer (`sse.go`) with Last-Event-ID resume support.
+- Client integration test that boots the emulator binary and exercises
+  the full streaming + permission flow.
+- Bubbletea app: connecting → ready → error stages, sidebar/body/input
+  layout, role-coloured message rendering with thinking + tool_call +
+  tool_result + file_diff + error parts, sticky-bottom scroll.
+- AltScreen + bg/fg colour. **Bug fix mid-iteration:** session.status_changed
+  was reading e.Payload["status"] but the SSE shape nests under
+  `payload`, so status badge stayed "idle". Fixed.
+- **Bug fix:** tool_call input wasn't rendering — added applyPartCompleted
+  to parse accumulated raw_input JSON into Part.Input on completed.
+- 4 screenshots (01-initial, 02-streaming, 03-completed, 04-permission)
+  prove the flow.
+
+### Iteration 7 — TUI C10b/C11/C12
+- Permission action keys (a/d/s/w) calling RespondPermission.
+- Slash command palette (`/` opens; type to filter; Enter to run).
+- Help overlay (`?`).
+- Cancel running scenario (Ctrl+x).
+- Modal layering via simple line-grid `overlay()` compositor.
+- Added `RunCommand` to client.
+- 5 more screenshots (05-help, 06-palette, 07-palette-filter,
+  08-permission-banner, 09-after-allow).
+
+### Iteration 8 — README
+- Top-level README with screenshot gallery, quickstart, key table,
+  status table, project layout, testing, visual workflow link.
+
+## In progress
+- Phase D — golden tests for TUI states.
 
 ## Blockers
-- **Build env note (still applies for future iterations):** Bash subshells initialize from `~/.bashrc`. Go 1.26.2 is wired there. If a future iteration sees `go: command not found` or `go 1.22.2`, prepend `export GOROOT="$HOME/sdk/go1.26.2" && export PATH="$GOROOT/bin:$HOME/go/bin:$PATH"` to the bash command.
+- None.
 
 ## Decisions made (not in SPEC)
-- **Emulator routing:** stdlib net/http, Go-1.22+ method-prefixed mux. (iteration 1)
-- **Module path:** `github.com/JaimeCernuda/gact-tui/{emulator,tui}` — two modules in one repo. (iteration 1)
-- **Single mutex per Store:** simpler than per-resource locks; profile if contention shows up. (iteration 2)
-- **Strict request bodies:** `json.DisallowUnknownFields` on all handlers. Vendor extensions go in metadata or under `/v1/ext/...`. (iteration 2)
-- **Derived session fields are store-managed:** MessageCount/Tokens/CostUSD reset on CreateSession; AppendMessage increments. Caller-supplied values are ignored on create. (iteration 2)
-- **Session cancel/summarize:** in absence of event bus (A10) yet, cancel just sets Status=idle and summarize sets a placeholder. Real semantics arrive with A11 scenario engine.
-- **Handler file split:** `handlers.go` (helpers + §3), `handlers_workspaces.go`, `handlers_sessions.go`. New resources get their own file.
+- **stdlib net/http only** for emulator routing (no chi/gorilla).
+- **Two modules in one repo** + `go.work` for sharing pkg/gact.
+- **Single mutex per Store** instead of per-resource.
+- **Strict request bodies** (DisallowUnknownFields). Vendor extensions
+  go in metadata or under `/v1/ext/...`.
+- **Derived session fields are store-managed** (MessageCount/Tokens/
+  Cost reset on Create; AppendMessage increments).
+- **Bus fan-out under read-lock** for the whole loop — eliminates
+  send-on-closed-channel race with Cancel. Trade-off: Cancel is
+  serialised behind active publishes (rare; trivial cost).
+- **TUI input is a plain string buffer** for now (not bubbles/textarea).
+  Sufficient for single-line; swap if multi-line composition matters.
+- **Modal compositor is line-grid + space prefix.** Simple but doesn't
+  preserve underlying ANSI past the modal column. Acceptable since
+  modals are opaque on the inside.
+- **Permission action keys take precedence over focus.** Prevents
+  the user from typing 'a' into the input box while a scenario waits.
 
-## Notes for the next iteration
-- A8 is messages — list (cursor pagination, IncludeSystem flag), get one, POST (returns 202 with msg_id), DELETE, PATCH part, search (stub or simple substring scan).
-- The POST should accept `{parts: [...], model?: ModelRef}` and return `{message_id, accepted_at}` per SPEC §6.3. The user's message becomes a stored Message immediately; the emulator's scenario engine (A11) will produce the assistant's response asynchronously and stream it via SSE (A9). For A8, just store the user message; assistant response generation comes later.
-- After A8, A9 (SSE) is the next big chunk. Sketch: per-client channel, fan-out from a central event bus, heartbeat goroutine. Use `Last-Event-ID` for resume by maintaining a small ring buffer.
-- Repo state: 4 commits on main, clean tree.
+## Notes for next session
+
+If you want to push further, the highest-value next steps:
+
+1. Phase D — golden tests for empty/streaming/permission/palette/help.
+   Template in `.claude/skills/tui-test.md`. ~30 min.
+2. Phase E5 — connection resilience: when emulator dies and comes back,
+   the TUI should reconnect SSE and re-fetch capabilities without crashing.
+3. Phase F1 — write a Crush adapter so the TUI drives a real Crush
+   backend. This validates the contract against an existing
+   implementation. ~1 hour because Crush's protocol is similar in
+   shape but not identical.
+
+If you want to test it yourself:
+```sh
+cd emulator && go build -o ./emulator-server ./cmd/emulator-server
+cd ../tui   && go build -o ./gact .
+./emulator/emulator-server --port 7777 --timing realistic &
+./tui/gact
+# Type something. Try "delete the temp dir" to trigger permission.
+```
 
 ## Iteration log
-| # | Time (UTC) | Tasks | Commits | Tests | Screenshots |
-|---|---|---|---|---|---|
-| 0 | 2026-04-18T04:45Z | Handoff scaffold | 1 (initial) | — | — |
-| 1 | 2026-04-18T04:50Z | A1, A2, A3, A4 | f9b1fd8, ecab7e7 | 3 pass | — |
-| 2 | 2026-04-18T05:08Z | A5, A6, A7 | 80036e7, e285f68, (this) | 24+ pass | — |
+| # | Time (UTC) | Tasks | Commits |
+|---|---|---|---|
+| 0 | 2026-04-18T04:45 | Handoff scaffold | b4487f1 |
+| 1 | 2026-04-18T04:50 | A1-A4 | f9b1fd8 ecab7e7 |
+| 2 | 2026-04-18T05:08 | A5-A7 | 80036e7 e285f68 9e4fb37 |
+| 3 | 2026-04-18T05:24 | A8-A12 + A21 | acf95be |
+| 4 | 2026-04-18T05:30 | hardening (race + e2e + gaps) | e4d1a2f |
+| 5 | 2026-04-18T05:36 | A13-A20 (catalog) | e33e576 |
+| 6 | 2026-04-18T05:42 | TUI C1-C10 | 8cca3f5 |
+| 7 | 2026-04-18T05:48 | TUI C10b+C11+C12 | d459a2e |
+| 8 | 2026-04-18T05:50 | top-level README | f9566bf |
