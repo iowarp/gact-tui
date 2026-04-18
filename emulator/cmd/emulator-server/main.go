@@ -49,6 +49,10 @@ func main() {
 			"comma-separated `ses_id=N` entries; seeds N placeholder "+
 				"user+assistant message pairs in each listed session. "+
 				"Useful for demos of populated-conversation rendering.")
+		walkFiles = flag.Bool("walk-files", false,
+			"serve real files from each workspace's RootPath for "+
+				"GET /v1/workspaces/{id}/files (instead of the static demo list). "+
+				"Off by default so deterministic tests keep passing.")
 	)
 	flag.Parse()
 
@@ -128,7 +132,10 @@ func main() {
 		log.Printf("seeded %d message pairs in session %s", step.count, step.sessionID)
 	}
 
-	srv := server.NewWithStore(server.Config{Scenario: *scenarioName}, st)
+	srv := server.NewWithStore(server.Config{
+		Scenario:           *scenarioName,
+		WalkWorkspaceFiles: *walkFiles,
+	}, st)
 
 	// Wire the scenario engine: it consumes the OnUserMessage hook, drives
 	// assistant responses through the bus, and is cancelled by the cancel

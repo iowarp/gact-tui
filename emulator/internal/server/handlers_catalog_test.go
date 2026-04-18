@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -369,4 +371,44 @@ func TestDiffs(t *testing.T) {
 	}
 
 	_ = store.SessionFilter{} // pull store import if otherwise unused
+}
+
+// TestWorkspaceFiles_WalkMode covers T3: with WalkWorkspaceFiles=true
+// and a real directory as the workspace root, the handler returns
+// entries discovered on disk instead of the static demo list.
+func TestWorkspaceFiles_WalkMode(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "alpha.go"), []byte("package x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "nested", "beta.md"), []byte("# hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	st := store.New()
+	ws, err := st.CreateWorkspace(gact.Workspace{ID: "ws_real", Name: "real", RootPath: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := NewWithStore(Config{WalkWorkspaceFiles: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/workspaces/"+ws.ID+"/files", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "alpha.go") {
+		t.Errorf("walk didn't surface alpha.go: %s", body)
+	}
+	if !strings.Contains(body, "nested/beta.md") {
+		t.Errorf("walk didn't surface nested/beta.md: %s", body)
+	}
+	// Static demo entry must NOT appear — walk wins when enabled.
+	if strings.Contains(body, "docs/architecture.md") {
+		t.Errorf("static-demo entry bled into walk output: %s", body)
+	}
 }
