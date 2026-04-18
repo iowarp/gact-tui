@@ -1393,6 +1393,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, createSessionCmd(a.c, a.wsID)
 			}
 
+			// /duplicate clones the current session's title + model
+			// + agent but starts with zero messages. "Same kind of
+			// work, fresh context" — common enough that users were
+			// reaching for Ctrl+N then manually re-applying settings
+			// every time.
+			if cmd.ID == "/duplicate" && a.selected >= 0 && a.selected < len(a.sessions) {
+				src := a.sessions[a.selected]
+				return a, duplicateSessionCmd(a.c, a.wsID, src)
+			}
+
 			// /sessions focuses the sidebar and pre-arms the K11
 			// title filter so the user can immediately type to
 			// narrow the session list. Cheaper than a second
@@ -1633,6 +1643,38 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 		})
 		if err != nil {
 			return errMsg{err: err, stage: "create-session"}
+		}
+		return sessionCreatedMsg{session: s}
+	}
+}
+
+// duplicateSessionCmd creates a new session carrying over the source
+// session's title + model + agent but with zero messages. "Same kind
+// of work, fresh context."
+func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		title := src.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		title += " (copy)"
+		req := client.CreateSessionRequest{
+			WorkspaceID: wsID,
+			Title:       title,
+		}
+		if src.Model.ModelID != "" {
+			m := src.Model
+			req.Model = &m
+		}
+		if src.Agent.ID != "" {
+			ag := src.Agent
+			req.Agent = &ag
+		}
+		s, err := c.CreateSession(ctx, req)
+		if err != nil {
+			return errMsg{err: err, stage: "duplicate-session"}
 		}
 		return sessionCreatedMsg{session: s}
 	}
@@ -3383,6 +3425,7 @@ var helpTabs = []struct {
 			{"/metrics", "open metrics modal (same as Ctrl+T)"},
 			{"/theme-next", "cycle to next theme (Ctrl+Alt+T on Kitty)"},
 			{"/theme-prev", "cycle to previous theme"},
+			{"/duplicate", "copy current session (title/model/agent; fresh messages)"},
 			{"/help", "show help message from backend"},
 			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
 		},
