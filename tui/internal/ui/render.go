@@ -11,36 +11,42 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// glamourRenderers caches glamour TermRenderers by width to avoid the
-// non-trivial initialization cost on every Render call. Keyed by width.
+// glamourRenderers caches glamour TermRenderers by (style, width) so we
+// don't pay the non-trivial init cost on every Render. Keyed by a struct.
+type glamourKey struct {
+	style string
+	width int
+}
+
 var (
 	glamourMu sync.Mutex
-	glamourCa = map[int]*glamour.TermRenderer{}
+	glamourCa = map[glamourKey]*glamour.TermRenderer{}
 )
 
-func glamourRenderer(width int) *glamour.TermRenderer {
+func glamourRenderer(style string, width int) *glamour.TermRenderer {
 	glamourMu.Lock()
 	defer glamourMu.Unlock()
-	if r, ok := glamourCa[width]; ok {
+	k := glamourKey{style: style, width: width}
+	if r, ok := glamourCa[k]; ok {
 		return r
 	}
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
+		glamour.WithStandardStyle(style),
 		glamour.WithWordWrap(width),
 		glamour.WithEmoji(),
 	)
 	if err != nil {
 		return nil
 	}
-	glamourCa[width] = r
+	glamourCa[k] = r
 	return r
 }
 
-// renderMarkdown attempts to render s as markdown via glamour. On any error
-// or empty result, returns the original string. Trims leading/trailing
-// blank lines glamour likes to add.
-func renderMarkdown(s string, width int) string {
-	r := glamourRenderer(width)
+// renderMarkdown attempts to render s as markdown via glamour. style is
+// "dark" or "light" to match the TUI theme. On any error or empty
+// result, returns the original string.
+func renderMarkdown(s, style string, width int) string {
+	r := glamourRenderer(style, width)
 	if r == nil {
 		return s
 	}
@@ -70,7 +76,7 @@ func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) str
 	for _, p := range parts {
 		var rendered string
 		if role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "" {
-			rendered = renderMarkdown(p.Text, width-2)
+			rendered = renderMarkdown(p.Text, t.glamourStyle(), width-2)
 		} else {
 			rendered = t.renderPart(p, width)
 		}
@@ -79,6 +85,17 @@ func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) str
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+// glamourStyle returns "light" if the theme's background is bright,
+// "dark" otherwise. We compare luminance of t.Bg cheaply by checking
+// the light-theme sentinel (matches LightTheme()).
+func (t Theme) glamourStyle() string {
+	// LightTheme uses bg #FAFAF7. If our Bg matches that, we're light.
+	if r, g, b, _ := t.Bg.RGBA(); r > 60000 && g > 60000 && b > 60000 {
+		return "light"
+	}
+	return "dark"
 }
 
 func (t Theme) renderRoleHeader(role string) string {
