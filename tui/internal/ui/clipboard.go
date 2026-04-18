@@ -12,6 +12,40 @@ import (
 // to atotto/clipboard; test files override the variable.
 var clipboardWrite = clipboard.WriteAll
 
+// lastUserText walks msgs in reverse and returns the concatenated
+// text of the newest user message. Multiple text parts are joined
+// with blank-line separators; non-text parts are skipped because the
+// retry payload is a plain-text resend (the backend will re-run any
+// tool calls itself).
+//
+// Returns ("", false) when there is no user message, so the caller
+// can surface "no user message to retry" rather than posting "".
+func lastUserText(msgs []gact.Message) (string, bool) {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role != gact.RoleUser {
+			continue
+		}
+		var b strings.Builder
+		for _, p := range m.Parts {
+			if p.Type != gact.PartTypeText || p.Text == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString(p.Text)
+		}
+		if b.Len() == 0 {
+			// User message with no text (e.g. only an image) —
+			// not retryable as a plain-text resend.
+			return "", false
+		}
+		return b.String(), true
+	}
+	return "", false
+}
+
 // lastAssistantText walks msgs in reverse order and returns the
 // concatenated plain text of the newest assistant message. Multiple
 // text/thinking parts are joined with blank lines to preserve para
