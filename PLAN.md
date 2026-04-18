@@ -168,7 +168,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase S — render polish
 
-- [ ] **S1.** Per-message timestamp toggle — pressing `t` on body focus flips a hidden/shown state for creation timestamps under each role header. Useful for "when did this happen" debugging without always burning a row per message.
+- [x] **S1.** Body-focus `t` toggles per-message timestamps. Faint-italic row under the role header when on; skipped on tool-result messages whose header is already suppressed. Not persisted (live debugging aid). Test covers both flip states.
 - [ ] **S2.** Long assistant text (>N lines) mirrors the tool_result compress-with-expand treatment — currently only tool outputs collapse, so a 60-line explanation still floods the viewport.
 
 ## Phase R — discoverability + diag
