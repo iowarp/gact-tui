@@ -38,5 +38,10 @@ Right
 Sleep 200ms
 Screenshot "/home/jcernuda/tui/screenshots/40-help-tab-permission.png"
 
+# Right → Scenarios (new post-first-message discoverability tab).
+Right
+Sleep 200ms
+Screenshot "/home/jcernuda/tui/screenshots/47-help-tab-scenarios.png"
+
 Escape
 Sleep 200ms
