@@ -238,19 +238,48 @@ func (e *Engine) completePart(sessionID, msgID, partID string) {
 	})
 }
 
-// completeMessage emits message.completed.
+// completeMessage emits message.completed and a cost.updated tick. The
+// emulator fakes plausible per-turn usage from a fixed rate so the TUI's
+// cost meter visibly increments without a real LLM call.
 func (e *Engine) completeMessage(sessionID, msgID, stopReason string) {
 	_, _ = e.store.UpdateMessagePart(msgID, "__nope__", func(*gact.Part) {}) // touch updated_at
+
+	// Synthetic but plausible usage: ~1500 input + 600 output tokens per
+	// assistant turn, priced like Sonnet ($3/MTok in, $15/MTok out).
+	turnTokens := gact.Tokens{Input: 1500, Output: 600}
+	turnCost := float64(turnTokens.Input)/1_000_000*3.0 + float64(turnTokens.Output)/1_000_000*15.0
+
+	// Roll cost into the message.
+	_, _ = e.store.UpdateMessagePart(msgID, "__nope__", func(*gact.Part) {})
+	// Roll into the session aggregate.
+	updated, err := e.store.UpdateSession(sessionID, func(s *gact.Session) {
+		s.Tokens.Input += turnTokens.Input
+		s.Tokens.Output += turnTokens.Output
+		s.CostUSD += turnCost
+	})
+
 	e.bus.Publish(events.Event{
 		Type:      "message.completed",
 		SessionID: sessionID,
 		Payload: map[string]any{
 			"message_id":  msgID,
 			"stop_reason": stopReason,
-			"tokens":      gact.Tokens{},
-			"cost_usd":    0,
+			"tokens":      turnTokens,
+			"cost_usd":    turnCost,
 		},
 	})
+
+	if err == nil && updated != nil {
+		e.bus.Publish(events.Event{
+			Type:      "cost.updated",
+			SessionID: sessionID,
+			Payload: map[string]any{
+				"session_id": sessionID,
+				"tokens":     updated.Tokens,
+				"cost_usd":   updated.CostUSD,
+			},
+		})
+	}
 }
 
 // --- Internal utilities -----------------------------------------------------

@@ -199,4 +199,5 @@ cd ../tui   && go build -o ./gact .
 | 13 | 2026-04-18T06:08 | C19 subagent flow + sidebar indent | abd11cf |
 | 14 | 2026-04-18T06:18 | C15 settings modal (model/agent picker) | af9da9b |
 | 15 | 2026-04-18T06:25 | C16 context panel (CONTEXT sidebar section) | 6e041e8 |
-| 16 | 2026-04-18T06:33 | C17 diff viewer apply/reject (a/r on body) | (this) |
+| 16 | 2026-04-18T06:33 | C17 diff viewer apply/reject (a/r on body) | 0fd34bb |
+| 17 | 2026-04-18T06:38 | C18 cost meter — emulator emits + footer renders | (this) |
