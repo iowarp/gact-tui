@@ -87,10 +87,15 @@ type App struct {
 	// Pending permissions for current session (most recent first)
 	pendingPermissions []client.PermissionWire
 
-	// Slash command palette state
+	// Slash command palette state. When paletteFilter starts with "?",
+	// the palette switches to message-search mode: Enter submits the
+	// query (everything after "?"), results replace the matches list,
+	// a second Enter jumps the conversation viewport to the hit.
 	paletteOpen   bool
 	paletteFilter string
 	paletteSel    int
+	searchMatches []client.SearchMatch
+	searching     bool // true while the SearchMessages cmd is in flight
 
 	// Help overlay
 	helpOpen bool
@@ -321,8 +326,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 
 	case errMsg:
+		// Search failures shouldn't blow away the whole UI — clear the
+		// in-flight flag and surface a single empty result so the user
+		// can adjust the query without losing their session view.
+		if m.stage == "search" {
+			a.searching = false
+			a.searchMatches = nil
+			return a, nil
+		}
 		a.stage = StageError
 		a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
+		return a, nil
+
+	case searchResultsMsg:
+		a.searching = false
+		a.searchMatches = m.matches
+		a.paletteSel = 0
 		return a, nil
 
 	case messagesLoadedMsg:
@@ -598,41 +617,98 @@ func (a *App) handlePermissionKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 
 // handlePaletteKey is the slash-command palette key router.
 func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	matches := a.paletteMatches()
+	searchMode := a.isSearchMode()
+	cmdMatches := a.paletteMatches()
+	rowCount := len(cmdMatches)
+	if searchMode {
+		rowCount = len(a.searchMatches)
+	}
+
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.paletteOpen = false
-		a.paletteFilter = ""
-		a.paletteSel = 0
+		a.closePalette()
 		return a, nil
 	case "up":
 		if a.paletteSel > 0 {
 			a.paletteSel--
 		}
 	case "down":
-		if a.paletteSel < len(matches)-1 {
+		if a.paletteSel < rowCount-1 {
 			a.paletteSel++
 		}
 	case "enter":
-		if a.paletteSel < len(matches) {
-			cmd := matches[a.paletteSel]
-			a.paletteOpen = false
-			a.paletteFilter = ""
-			a.paletteSel = 0
+		if searchMode {
+			query := strings.TrimSpace(a.paletteFilter[1:])
+			// First Enter submits the search; second Enter (when matches
+			// are loaded) jumps the conversation viewport to the hit.
+			if len(a.searchMatches) == 0 {
+				if sid := a.currentSessionID(); sid != "" && query != "" {
+					a.searching = true
+					return a, searchMessagesCmd(a.c, sid, query)
+				}
+				return a, nil
+			}
+			if a.paletteSel < len(a.searchMatches) {
+				match := a.searchMatches[a.paletteSel]
+				a.closePalette()
+				a.jumpToMessage(match.MessageID)
+				return a, nil
+			}
+			return a, nil
+		}
+		if a.paletteSel < len(cmdMatches) {
+			cmd := cmdMatches[a.paletteSel]
+			a.closePalette()
 			return a, runCommandCmd(a.c, a.currentSessionID(), cmd.ID)
 		}
 	case "backspace":
 		if len(a.paletteFilter) > 0 {
 			a.paletteFilter = a.paletteFilter[:len(a.paletteFilter)-1]
 			a.paletteSel = 0
+			// Any edit invalidates a previously-fetched result list.
+			a.searchMatches = nil
 		}
 	default:
 		if k.Text != "" {
 			a.paletteFilter += k.Text
 			a.paletteSel = 0
+			a.searchMatches = nil
 		}
 	}
 	return a, nil
+}
+
+// closePalette resets all palette state — same dance is needed in three
+// places (esc, command-Enter, search-Enter) so factor it.
+func (a *App) closePalette() {
+	a.paletteOpen = false
+	a.paletteFilter = ""
+	a.paletteSel = 0
+	a.searchMatches = nil
+	a.searching = false
+}
+
+// isSearchMode reports whether the palette filter is in message-search
+// mode (`?` prefix).
+func (a *App) isSearchMode() bool {
+	return strings.HasPrefix(a.paletteFilter, "?")
+}
+
+// jumpToMessage scrolls the conversation pane so the message with the
+// given ID is visible. Implementation: find the index, set scrollOffset
+// to (totalMessages - index - 1) so the renderer's bottom-anchored
+// math leaves it on screen. Falls back to "stick to bottom" if the ID
+// is no longer in the loaded slice (e.g. SSE replaced the list).
+func (a *App) jumpToMessage(messageID string) {
+	for i, m := range a.messages {
+		if m.ID == messageID {
+			a.scrollOffset = len(a.messages) - i - 1
+			a.stickyToBottom = a.scrollOffset == 0
+			return
+		}
+	}
+	a.scrollOffset = 0
+	a.stickyToBottom = true
 }
 
 func (a *App) paletteMatches() []gact.Command {
@@ -648,6 +724,24 @@ func (a *App) paletteMatches() []gact.Command {
 		}
 	}
 	return out
+}
+
+// searchMessagesCmd POSTs to /v1/sessions/{id}/messages/search and
+// returns a searchResultsMsg with the hits (or an errMsg).
+func searchMessagesCmd(c *client.Client, sessionID, query string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		matches, err := c.SearchMessages(ctx, sessionID, query)
+		if err != nil {
+			return errMsg{err: err, stage: "search"}
+		}
+		return searchResultsMsg{matches: matches}
+	}
+}
+
+type searchResultsMsg struct {
+	matches []client.SearchMatch
 }
 
 func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
@@ -1560,15 +1654,20 @@ func truncate(s string, max int) string {
 // viewPalette renders the slash-command palette as a centered modal.
 func (a *App) viewPalette() string {
 	t := a.Theme
-	matches := a.paletteMatches()
-
 	w := 60
 	if w > a.width-8 {
 		w = a.width - 8
 	}
+
+	if a.isSearchMode() {
+		return a.viewPaletteSearch(w)
+	}
+
+	matches := a.paletteMatches()
 	rows := []string{
 		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Commands"),
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render("filter: " + a.paletteFilter + "_"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render("(start with ? to search session messages)"),
 		"",
 	}
 	if len(matches) == 0 {
@@ -1597,6 +1696,64 @@ func (a *App) viewPalette() string {
 		Render(body)
 }
 
+// viewPaletteSearch renders the palette in message-search mode (filter
+// starts with `?`). Three sub-states:
+//  1. query empty (just `?`) — prompt for input
+//  2. query non-empty + no results yet — show "Enter to search" hint
+//  3. results loaded — render each match with msg id + snippet
+func (a *App) viewPaletteSearch(w int) string {
+	t := a.Theme
+	query := strings.TrimSpace(a.paletteFilter[1:])
+	rows := []string{
+		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Search messages"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render("query: " + query + "_"),
+		"",
+	}
+	switch {
+	case a.searching:
+		rows = append(rows, t.HintLabel.Render("searching…"))
+	case query == "":
+		rows = append(rows, t.HintLabel.Render("(type a query, then Enter to search)"))
+	case len(a.searchMatches) == 0:
+		rows = append(rows, t.HintLabel.Render("Enter to search this session for: "+query))
+	default:
+		for i, m := range a.searchMatches {
+			marker := "  "
+			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+			snippetStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+			if i == a.paletteSel {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
+			}
+			head := marker + titleStyle.Render(shortID(m.MessageID))
+			snippet := snippetStyle.Render(strings.ReplaceAll(strings.TrimSpace(m.Snippet), "\n", " "))
+			rows = append(rows, truncate(head+"  "+snippet, w-2))
+		}
+	}
+	if len(a.searchMatches) > 0 {
+		rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter jump  Esc close"))
+	} else {
+		rows = append(rows, "", t.HintLabel.Render("Esc close"))
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Background(t.BgSubtle).
+		Padding(1, 2).
+		Width(w).
+		Render(body)
+}
+
+// shortID truncates a message ID for display (e.g. "msg_1a2b3c4d…").
+func shortID(id string) string {
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:12] + "…"
+}
+
 // viewHelp renders the help overlay.
 func (a *App) viewHelp() string {
 	t := a.Theme
@@ -1607,6 +1764,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("↑/↓") + "       navigate (sidebar / scroll body)",
 		t.HintKey.Render("Enter") + "     send message  /  confirm",
 		t.HintKey.Render("/") + "         open command palette",
+		t.HintKey.Render("/?…") + "       in palette: search session messages",
 		t.HintKey.Render("?") + "         toggle this help",
 		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
