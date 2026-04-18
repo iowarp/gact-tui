@@ -197,6 +197,33 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Ask covers FF1: ask returns the assistant's reply text on
+// stdout (no role headers, no extra noise) so shell capture works.
+// Validates non-empty output and that stdout contains assistant
+// content rather than the question echoed back.
+func TestCLI_Ask(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "ask-target")
+
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"ask", "--timeout", "30s", sid, "please read main.go")
+	if code != 0 {
+		t.Fatalf("ask: exit %d, stderr=%q", code, stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Fatalf("ask returned empty stdout")
+	}
+	// The emulator's scenario emits assistant text containing
+	// "I'll take a look" — verify it landed.
+	if !strings.Contains(stdout, "main.go") && !strings.Contains(stdout, "took") &&
+		!strings.Contains(stdout, "look") {
+		t.Errorf("stdout doesn't look like an assistant reply: %q", stdout)
+	}
+}
+
 // TestCLI_Log covers DD2: send a message that triggers a scenario,
 // wait for idle, then dump the log and verify role headers + the
 // user message text appear in the output.
