@@ -326,6 +326,7 @@ func runList(args []string) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "only sessions in this workspace")
+	format := fs.String("format", "tsv", "output format: tsv | json")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -340,13 +341,27 @@ func runList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact list: %v\n", err)
 		return 1
 	}
-	for _, s := range sessions {
-		title := s.Title
-		if title == "" {
-			title = "(untitled)"
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(sessions); err != nil {
+			fmt.Fprintf(os.Stderr, "gact list: encode: %v\n", err)
+			return 1
 		}
-		fmt.Printf("%s\t%s\t%s\t%s\n",
-			s.ID, s.Status, title, s.UpdatedAt.UTC().Format(time.RFC3339))
+	case "tsv", "":
+		for _, s := range sessions {
+			title := s.Title
+			if title == "" {
+				title = "(untitled)"
+			}
+			fmt.Printf("%s\t%s\t%s\t%s\n",
+				s.ID, s.Status, title, s.UpdatedAt.UTC().Format(time.RFC3339))
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "gact list: unknown format %q (want tsv|json)\n", *format)
+		return 2
 	}
 	return 0
 }

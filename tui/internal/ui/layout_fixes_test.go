@@ -508,9 +508,10 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
-// TestWindowTitle_ReflectsActiveSession verifies T1: the View()'s
-// WindowTitle is "GACT — <title>" when a session is selected, and
-// a bare "GACT" otherwise.
+// TestWindowTitle_ReflectsActiveSession verifies T1 + U2: the View()'s
+// WindowTitle is "GACT — <title>" when a session is selected (plus
+// a status suffix when running or waiting on permission), and a bare
+// "GACT" otherwise.
 func TestWindowTitle_ReflectsActiveSession(t *testing.T) {
 	// No session → fallback.
 	a := newReadyApp(nil, nil)
@@ -518,11 +519,25 @@ func TestWindowTitle_ReflectsActiveSession(t *testing.T) {
 		t.Errorf("no-session title = %q, want 'GACT'", got)
 	}
 
-	// Selected session → "GACT — <title>".
-	sessions := []gact.Session{{ID: "s1", Title: "refactor auth", Status: gact.StatusIdle}}
-	a = newReadyApp(sessions, nil)
+	// Idle session → just the title.
+	idle := []gact.Session{{ID: "s1", Title: "refactor auth", Status: gact.StatusIdle}}
+	a = newReadyApp(idle, nil)
 	if got := a.windowTitle(); got != "GACT — refactor auth" {
-		t.Errorf("title with session = %q, want 'GACT — refactor auth'", got)
+		t.Errorf("idle title = %q", got)
+	}
+
+	// Running session → "(running)" suffix.
+	running := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusRunning}}
+	a = newReadyApp(running, nil)
+	if got := a.windowTitle(); got != "GACT — demo (running)" {
+		t.Errorf("running title = %q", got)
+	}
+
+	// Waiting on permission → "(waiting)" suffix.
+	waiting := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusWaitingPermission}}
+	a = newReadyApp(waiting, nil)
+	if got := a.windowTitle(); got != "GACT — demo (waiting)" {
+		t.Errorf("waiting title = %q", got)
 	}
 }
 
