@@ -1393,6 +1393,22 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
+	case "R":
+		// Retry — resend the most recent user message's text. J5 made
+		// post failures preserve the draft in the input; this is the
+		// complement for the case where the draft was already sent,
+		// accepted, and the agent's response went sideways.
+		sid := a.currentSessionID()
+		if sid == "" {
+			return a, nil
+		}
+		text, ok := lastUserText(a.messages)
+		if !ok {
+			a.transientHint = "no user message to retry"
+			return a, nil
+		}
+		a.transientHint = "retrying…"
+		return a, postMessageCmd(a.c, sid, text)
 	}
 	return a, nil
 }
@@ -2373,6 +2389,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
 		t.HintKey.Render("y") + "         (body) copy last assistant message to clipboard",
+		t.HintKey.Render("R") + "         (body) retry — resend last user message",
 		t.HintKey.Render("Ctrl+n") + "    new session",
 		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
 		t.HintKey.Render("Ctrl+l") + "    reload config (theme + voice cmd)",
