@@ -168,6 +168,12 @@ type App struct {
 	// it. Prevents a stray `x` from destroying a conversation silently.
 	pendingDeleteSessionID string
 
+	// showArchived is true when the sidebar is displaying archived
+	// sessions (filter=archived=true) rather than the active list.
+	// Toggled via `h` in the sidebar. Refetching the list happens in
+	// the toggle handler so the render path can stay pure.
+	showArchived bool
+
 	// inputHistoryBySession tracks the last N prompts the user sent,
 	// per session. Keyed on session ID so switching sessions gives
 	// you that session's history rather than a shared global. Each
@@ -530,13 +536,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.err != nil {
 			// Soft-fail: J5 pattern. Keep the session in the sidebar;
 			// the user can retry. Don't promote to StageError.
-			a.transientHint = "archive failed: " + m.err.Error()
+			verb := "archive"
+			if !m.archived {
+				verb = "un-archive"
+			}
+			a.transientHint = verb + " failed: " + m.err.Error()
 			return a, nil
 		}
-		// Remove the archived session from the sidebar. Find its
-		// index first so we can adjust a.selected — if we were
-		// sitting ON the archived session, drop the current SSE
-		// stream and pick a sibling (prev if available, else next).
+		// Remove the session from the current view (it no longer
+		// matches the view's filter — archived sessions disappear from
+		// the active view, un-archived from the archived view).
 		idx := -1
 		for i, s := range a.sessions {
 			if s.ID == m.sessionID {
@@ -550,7 +559,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		wasSelected := idx == a.selected
 		a.sessions = append(a.sessions[:idx], a.sessions[idx+1:]...)
-		a.transientHint = "session archived"
+		if m.archived {
+			a.transientHint = "session archived"
+		} else {
+			a.transientHint = "session un-archived"
+		}
 		if !wasSelected {
 			// Adjust selection index if the removed session was above
 			// the selected one.
@@ -1278,12 +1291,26 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.renameCursor = len(a.renameDraft)
 		return a, nil
 	case "A":
-		// Archive — soft-delete. PATCH archived=true and drop from
-		// the sidebar on success. No confirmation required (unlike
-		// the real delete `x`) because archive is reversible
-		// server-side; the UI just stops showing the session.
+		// Archive toggle — PATCH archived to the opposite of the
+		// current view's filter. In the active view (showArchived=
+		// false), `A` archives; in the archived view, it un-archives.
+		// Either way the session drops from the current list.
 		if sid := a.currentSessionID(); sid != "" {
-			return a, archiveSessionCmd(a.c, sid)
+			return a, archiveSessionCmd(a.c, sid, !a.showArchived)
+		}
+	case "h":
+		// Toggle archived vs active view. Refetches the session list
+		// with the new filter; the result falls into the existing
+		// sessionsRefreshedMsg branch which preserves selection where
+		// possible.
+		a.showArchived = !a.showArchived
+		if a.showArchived {
+			a.transientHint = "showing archived sessions (h to go back)"
+		} else {
+			a.transientHint = "showing active sessions"
+		}
+		if a.wsID != "" {
+			return a, reloadSessionsForView(a.c, a.wsID, a.showArchived)
 		}
 	}
 	return a, nil
@@ -2285,7 +2312,8 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
 		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
-		t.HintKey.Render("A") + "         (sidebar) archive session (soft-delete)",
+		t.HintKey.Render("A") + "         (sidebar) archive session (or un-archive in archived view)",
+		t.HintKey.Render("h") + "         (sidebar) toggle archived view",
 		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
 		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
 		t.HintKey.Render("Ctrl+c") + "    quit",
