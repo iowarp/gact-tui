@@ -4,13 +4,14 @@ package server
 import (
 	"net/http"
 	"time"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
 )
 
 // Config configures a Server.
 type Config struct {
 	// Scenario is the scenario name to load (e.g. "default"). Reserved for
-	// future use; currently unused by the server but plumbed through for the
-	// scenario engine in PLAN A11.
+	// future use by the scenario engine in PLAN A11.
 	Scenario string
 }
 
@@ -19,14 +20,22 @@ type Server struct {
 	cfg     Config
 	started time.Time
 	mux     *http.ServeMux
+	store   *store.Store
 }
 
-// New constructs a Server with routes registered.
+// New constructs a Server with routes registered, owning a fresh in-memory
+// store. Use NewWithStore if you want to inject a pre-populated store.
 func New(cfg Config) *Server {
+	return NewWithStore(cfg, store.New())
+}
+
+// NewWithStore is like New but uses the provided store. Useful for tests.
+func NewWithStore(cfg Config, st *store.Store) *Server {
 	s := &Server{
 		cfg:     cfg,
 		started: time.Now(),
 		mux:     http.NewServeMux(),
+		store:   st,
 	}
 	s.routes()
 	return s
@@ -36,6 +45,10 @@ func New(cfg Config) *Server {
 func (s *Server) Handler() http.Handler {
 	return s.mux
 }
+
+// Store returns the underlying store. Useful for callers that want to seed
+// state before serving requests.
+func (s *Server) Store() *store.Store { return s.store }
 
 // Scenario returns the configured scenario name.
 func (s *Server) Scenario() string { return s.cfg.Scenario }
@@ -47,5 +60,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)
 
-	// Future routes register here as PLAN tasks A6+ are implemented.
+	// §6.1 — Workspaces
+	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
+	s.mux.HandleFunc("POST /v1/workspaces", s.handleCreateWorkspace)
+	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
+	s.mux.HandleFunc("PATCH /v1/workspaces/{id}", s.handlePatchWorkspace)
+	s.mux.HandleFunc("DELETE /v1/workspaces/{id}", s.handleDeleteWorkspace)
 }
