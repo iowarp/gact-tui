@@ -1,28 +1,50 @@
 # STATUS
 
-**Last updated:** 2026-04-18T18:40Z
-**Current phase:** Phase M complete — all second-round feedback shipped
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `79d88aa` and pushed
+**Last updated:** 2026-04-18T18:55Z
+**Current phase:** Phase M complete — all second-round feedback shipped + a round of follow-up polish
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3302ddf` and pushed
 
-## This loop (Phase M, issues #1-#7 + bug cluster)
+## This loop
 
-All filed as GitHub issues (#1-#7), all closed via `closes #N` in commit
-messages. Seven feature/polish items + four load-bearing bug fixes in
-one loop; every commit has tests + screenshots.
+All feedback filed as GitHub issues (#1-#7); all closed via `closes #N` in
+commit messages. Every commit has tests + screenshots.
 
-- **M1.** Footer clipped to viewport on long conversations (bug).
-- **M2.** Shift+Enter / `\`+Enter / Alt+Enter / Ctrl+J insert newline.
-- **M3.** Paste no longer fragments into multiple prompts.
-- **M4.** Compressed paste display `[pasted content #N: L lines]`.
-- **M5.** Floating compose modal (Ctrl+G / Ctrl+Shift+P).
-- **M6.** @ file-reference fuzzy picker with workspace listing.
+### Bugs (load-bearing, shipped first)
+- **M1.** Footer clipped to viewport on long conversations — renderBody +
+  clampLines, final-view clamp as belt-and-braces.
+- **M2.** Shift+Enter / `\<Enter>` / Alt+Enter / Ctrl+J insert newline —
+  textarea keymap rebinding + backslash-escape path.
+- **M3.** Paste no longer fragments into multiple prompts — inPaste flag
+  gating the Enter interceptor.
+- **M8.** Slash commands actually execute — emulator's handleSessionCommand
+  now wipes / cancels / emits assistant notes per command ID.
+
+### Features from feedback
+- **M4.** Compressed paste display `[pasted content #N: L lines]` with
+  Ctrl+P expand. Enter auto-expands before sending.
+- **M5.** Floating compose modal (Ctrl+G / Ctrl+Shift+P). Plain Enter inside
+  inserts newline; Ctrl+S or Ctrl+Enter commits; Esc cancels.
+- **M6.** @ file-reference fuzzy picker. Inserts `@path` + attaches file to
+  session context (mode=read). Emulator file list expanded 3 → 17 entries
+  for realistic fuzzy demos.
 - **M7.** Scenarios help tab for post-first-message discoverability.
-- **M8.** Slash commands actually execute (`/clear` wipes, `/cancel` halts,
-  `/help` / `/diff` / `/undo` emit assistant notes).
-- **M9.** Tabbed help overlay (6 tabs; fits at 80x24).
-- **M10.** Configurable tool-output collapse threshold (Settings > TUI).
-- **M11.** Input pane auto-grows with multi-line content.
-- **L5.** Catalog-browser modal for /mcp /tools /skills /agents.
+- **M9.** Tabbed help overlay (7 tabs after follow-up: Global / Sidebar /
+  Conversation / Input / Permission / Scenarios / Commands; fits at 80x24).
+- **M10.** Configurable tool-output collapse threshold (Settings > TUI,
+  ◀/▶ stepper, default 5 per feedback).
+- **L5.** Catalog-browser modal for /mcp /tools /skills; /agents routes
+  into Settings > Agent.
+
+### Polish (this round)
+- **M11.** Input pane auto-grows with multi-line content (cap viewport/3).
+- **M12.** @-picker fuzzy scoring with basename bonus + skip-match.
+- **M13.** /new /rename /scenarios slash commands (jump straight to
+  actions without leaving the palette).
+- **M14.** Compose title shows line count; Ctrl+Enter alias for commit.
+- **M15.** Transient hint auto-clears after 4s dwell (versioned so newer
+  toasts don't get wiped by older ticks).
+- **M16.** Toasts on /clear and /cancel for visible feedback.
+- **M17.** /clear emits a zero cost.updated so the footer meter follows.
 
 Screenshots 32-53 capture every new surface.
 
