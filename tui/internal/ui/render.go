@@ -63,12 +63,52 @@ func renderMarkdown(s, style string, width int) string {
 // user/system/tool text is rendered literally so URLs and code don't get
 // reformatted on the way in.
 func (t Theme) renderMessage(m gact.Message, width int) string {
-	header := t.renderRoleHeader(m.Role)
+	return t.renderMessageInContext(m, nil, width)
+}
+
+// renderMessageInContext is like renderMessage but also takes the
+// previous message in the conversation so it can suppress the
+// `● TOOL` role header when a tool-result message follows an
+// assistant-with-tool-call. That combination is the "output of the
+// previous call" (Claude Code style — the output visually nests
+// under the call, no separate role boundary) and the TOOL banner
+// just adds noise.
+func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width int) string {
+	// Hide the TOOL role header when this message is a result following
+	// either (a) an assistant-with-tool-calls OR (b) another TOOL
+	// message — the latter covers the multi-tool case where one
+	// assistant turn emits several calls and the results arrive as
+	// a chain of TOOL messages. The outputs all visually nest under
+	// the single assistant turn's ToolName(…) headers above.
+	hideHeader := m.Role == gact.RoleTool && prev != nil &&
+		(prev.Role == gact.RoleTool ||
+			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
+
 	body := t.renderPartsForRole(m.Parts, width, m.Role)
 	if body == "" {
 		body = t.HintLabel.Render("(no parts)")
 	}
+	if hideHeader {
+		return lipgloss.JoinVertical(lipgloss.Left, body, "")
+	}
+	header := t.renderRoleHeader(m.Role)
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, "")
+}
+
+// assistantCarriedToolCall reports whether m has any tool_call
+// part — used by renderMessageInContext to decide whether the
+// following tool message is a "result" that should nest under
+// the call rather than stand alone.
+func assistantCarriedToolCall(m *gact.Message) bool {
+	if m == nil {
+		return false
+	}
+	for _, p := range m.Parts {
+		if p.Type == gact.PartTypeToolCall {
+			return true
+		}
+	}
+	return false
 }
 
 func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) string {

@@ -2260,8 +2260,12 @@ func (a *App) renderBody(width, height int) string {
 		)
 	} else {
 		var rows []string
-		for _, m := range a.messages {
-			rows = append(rows, t.renderMessage(m, width-4))
+		for i, m := range a.messages {
+			var prev *gact.Message
+			if i > 0 {
+				prev = &a.messages[i-1]
+			}
+			rows = append(rows, t.renderMessageInContext(m, prev, width-4))
 		}
 		body = strings.Join(rows, "\n")
 		body = a.scrollClip(body, msgH-3, t)
