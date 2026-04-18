@@ -40,6 +40,14 @@ Implemented:
   pass through with shape conversion; `finish` becomes
   `Message.StopReason`; `image_url`/`binary` map to `image`/`document`;
   unknown types fall through as `x_crush_<type>` per SPEC §8.3.
+- `GET /v1/sessions/{id}/events?workspace_id=…` and
+  `GET /v1/events?workspace_id=…` — proxy Crush's
+  `/v1/workspaces/{wsID}/events` SSE stream. Crush's
+  `{type, payload:{type, payload}}` envelope translates to GACT events
+  (session.created/updated/status_changed/deleted, message.created/
+  updated/deleted, permission.requested/resolved). Unknown payload
+  types fall through as `x.crush.<type>` per SPEC §8.4. Per-session
+  filter drops crosstalk; heartbeat every 15s.
 
 Everything else returns 501.
 
@@ -60,7 +68,6 @@ Everything else returns 501.
 
 | GACT endpoint | Crush mapping | Notes |
 |---|---|---|
-| SSE events | `/v1/workspaces/{id}/events` | Per-session filter + event taxonomy. |
 | POST messages | `POST /v1/workspaces/{id}/agent` | Maps to Crush's agent endpoint. |
 | permissions | `/v1/workspaces/{id}/permissions/grant` etc. | Crush has rich permission flow. |
 | LSP / MCP | `/v1/workspaces/{id}/lsps`, `/mcp/states` | First-party in Crush. |
