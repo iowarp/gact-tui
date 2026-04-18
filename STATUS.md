@@ -16,6 +16,20 @@
 - **N6.** Conformance suite gained Commands / Tools / Metrics sections
   with matching Skip flags.
 
+### Phase T — terminal integration
+- **T1.** OSC 2 window title reflects active session
+  (`GACT — <title>`).
+- **T2.** `gact list` subcommand — tab-separated session list for
+  shell pipelines.
+- **T3.** Emulator `--walk-files` flag serves real dir contents
+  from each workspace's RootPath (opt-in; static demo list stays
+  default).
+
+### Phase U — tiny wins
+- **U1.** `gact list --format json` machine-parseable output.
+- **U2.** Window title appends `(running)` / `(waiting)` so tab
+  switchers see what needs attention.
+
 ### Phase S — render polish
 - **S1.** Body-focus `t` toggles per-message timestamps (faint-italic
   row under role headers; not persisted).
