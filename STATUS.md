@@ -236,3 +236,4 @@ cd ../tui   && go build -o ./gact .
 | 50 | 2026-04-18T17:00 | K3 — emulator --seed-workspaces flag (multi-ws demos without curl) | 9dfa3ff |
 | 51 | 2026-04-18T17:20 | K4 — sidebar status dots + header spinner + session_id bug fix | 093ac35 |
 | 52 | 2026-04-18T17:35 | K5 — two-step delete confirmation (arm/commit/cancel-on-any-key) | b2c94f1 |
+| 53 | 2026-04-18T17:55 | K6 — per-session input history (↑/↓ recall, draft preserved) | (this) |
