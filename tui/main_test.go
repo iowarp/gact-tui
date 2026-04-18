@@ -174,6 +174,60 @@ func TestCLI_ExportToFile_FlagAfterArg(t *testing.T) {
 	}
 }
 
+// TestCLI_Ping covers X2: exit 0 against a live emulator, exit 1
+// against an unreachable backend.
+func TestCLI_Ping(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Live backend → exit 0.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "ping")
+	if code != 0 {
+		t.Fatalf("ping live: exit %d, stdout=%q", code, stdout)
+	}
+	if !strings.Contains(stdout, "ok:") {
+		t.Errorf("ping ok output missing: %q", stdout)
+	}
+
+	// Unreachable backend → exit 1.
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": "http://127.0.0.1:1"}, "ping")
+	if code != 1 {
+		t.Errorf("ping unreachable: exit %d, want 1", code)
+	}
+}
+
+// TestCLI_Tail covers X1: tail emits at least the `server.connected`
+// event as a JSON line when the emulator is up. Test runs with a
+// short timeout + kills the tail process since the stream is
+// long-lived by design.
+func TestCLI_Tail(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	cmd := exec.Command(bin, "tail", "--workspace", "ws_default")
+	cmd.Env = append(os.Environ(), "GACT_BACKEND="+url)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start tail: %v", err)
+	}
+	// Give the stream a second to emit the server.connected event.
+	time.Sleep(1500 * time.Millisecond)
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	out := stdout.String()
+	if !strings.Contains(out, `"type"`) {
+		t.Fatalf("tail produced no JSON lines: %q", out)
+	}
+	if !strings.Contains(out, "server.connected") {
+		t.Errorf("tail missed server.connected event: %q", out)
+	}
+}
+
 // TestCLI_ExportAll covers V1: `gact export --all -o DIR` writes one
 // JSON file per session into DIR. Exercises the full CLI path against
 // a real emulator binary.

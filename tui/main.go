@@ -48,6 +48,10 @@ func main() {
 			os.Exit(runImport(os.Args[2:]))
 		case "list":
 			os.Exit(runList(os.Args[2:]))
+		case "tail":
+			os.Exit(runTail(os.Args[2:]))
+		case "ping":
+			os.Exit(runPing(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -209,6 +213,8 @@ Usage:
   gact emit-config           print sample config.json to stdout
   gact list                  list recent sessions (tab-separated)
   gact export --all -o DIR   bulk-export every session as JSON files
+  gact tail [SID]            stream SSE events as JSON lines
+  gact ping                  probe /v1/health (exit 0 if healthy)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -324,6 +330,111 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runTail streams SSE events for a session (or workspace) to stdout
+// as newline-delimited JSON. Each line contains {"type", "seq",
+// "payload"}. Exits when the connection closes or Ctrl+C fires.
+//
+// Usage examples:
+//
+//	gact tail sess_abc123              # one session
+//	gact tail --workspace ws_default   # workspace-scoped stream
+//	gact tail SID | jq '.type'         # filter on event type
+func runTail(args []string) int {
+	fs := flag.NewFlagSet("tail", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "workspace-scoped stream (when no session_id)")
+	known := map[string]bool{"--backend": true, "-backend": true, "--workspace": true, "-workspace": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+
+	scope := client.EventStreamScope{WorkspaceID: *wsID}
+	if fs.NArg() == 1 {
+		scope.SessionID = fs.Arg(0)
+	} else if fs.NArg() > 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact tail [session_id] [--workspace WS_ID] [--backend URL]")
+		return 2
+	}
+	if scope.SessionID == "" && scope.WorkspaceID == "" {
+		fmt.Fprintln(os.Stderr, "gact tail: specify either <session_id> or --workspace WS_ID")
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+
+	// Signal handling: Ctrl+C cleanly closes the stream.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	events, errs, err := c.StreamEvents(ctx, scope)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact tail: connect: %v\n", err)
+		return 1
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	for {
+		select {
+		case <-ctx.Done():
+			return 0
+		case e, ok := <-events:
+			if !ok {
+				return 0
+			}
+			record := map[string]any{
+				"type":    e.Type,
+				"seq":     e.SeqID(),
+				"payload": e.Payload,
+			}
+			if err := enc.Encode(record); err != nil {
+				fmt.Fprintf(os.Stderr, "gact tail: encode: %v\n", err)
+				return 1
+			}
+		case err, ok := <-errs:
+			if !ok {
+				return 0
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact tail: stream: %v\n", err)
+				return 1
+			}
+		}
+	}
+}
+
+// runPing hits /v1/health and exits 0 on 200, non-zero otherwise.
+// Shell-script-friendly: `gact ping && echo ok` works as expected.
+func runPing(args []string) int {
+	fs := flag.NewFlagSet("ping", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	quiet := fs.Bool("q", false, "suppress stdout output; only exit code")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	h, err := c.Health(ctx)
+	if err != nil {
+		if !*quiet {
+			fmt.Fprintf(os.Stderr, "gact ping: %v\n", err)
+		}
+		return 1
+	}
+	if !h.Healthy {
+		if !*quiet {
+			fmt.Fprintf(os.Stderr, "gact ping: backend reports unhealthy\n")
+		}
+		return 1
+	}
+	if !*quiet {
+		fmt.Printf("ok: %s (uptime %ds)\n", finalBackend, h.UptimeS)
+	}
+	return 0
+}
+
 func runList(args []string) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
