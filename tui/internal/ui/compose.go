@@ -92,7 +92,10 @@ func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	switch k.String() {
-	case "ctrl+s":
+	case "ctrl+s", "ctrl+enter":
+		// Ctrl+Enter is a convenience alias for Ctrl+S — matches
+		// chat-app muscle memory where the modifier-Enter sends.
+		// Kitty-protocol terminals only; Ctrl+S always works.
 		a.commitCompose()
 		return a, nil
 	case "esc":
@@ -140,8 +143,10 @@ func (a *App) viewCompose() string {
 	a.compose.ta.SetWidth(w - 4)
 	a.compose.ta.SetHeight(taH)
 
+	lines := strings.Count(a.compose.ta.Value(), "\n") + 1
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Compose")
+		Render("Compose") + "  " + t.HintLabel.Italic(true).
+		Render("("+itoa2(lines)+" lines)")
 	subtitle := t.HintLabel.Italic(true).Render(
 		"Long-form editor — pastes render expanded, newlines are literal. " +
 			"Ctrl+S commits to the input box; Esc cancels.")

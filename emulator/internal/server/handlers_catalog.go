@@ -418,6 +418,8 @@ func staticCommands() []gact.Command {
 		{ID: "/skills", Title: "List available skills", Source: "builtin"},
 		{ID: "/agents", Title: "Pick an agent for this session", Source: "builtin"},
 		{ID: "/scenarios", Title: "Show scenario trigger keywords", Source: "builtin"},
+		{ID: "/new", Title: "Create a new session", Source: "builtin"},
+		{ID: "/rename", Title: "Rename the current session", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
 			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},

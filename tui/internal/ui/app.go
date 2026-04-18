@@ -1269,6 +1269,23 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 
+			// /new creates a new session inline so users don't have
+			// to remember Ctrl+N or tab into the sidebar.
+			if cmd.ID == "/new" {
+				return a, createSessionCmd(a.c, a.wsID)
+			}
+
+			// /rename opens the K2 rename editor on the current
+			// session. Equivalent to sidebar `e` but reachable from
+			// anywhere.
+			if cmd.ID == "/rename" {
+				if a.selected >= 0 && a.selected < len(a.sessions) {
+					a.renameOpen = true
+					a.renameDraft = a.sessions[a.selected].Title
+				}
+				return a, nil
+			}
+
 			// Optimistic local UI updates for commands with instant
 			// visible effect. The backend still processes the command
 			// (SSE events keep us honest), but the UI shouldn't appear
