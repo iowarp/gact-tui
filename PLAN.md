@@ -168,7 +168,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase T — terminal integration
 
-- [ ] **T1.** Terminal window title reflects active session — OSC 2 set when selectSession fires so tmux / alacritty / kitty / iterm tabs show "GACT — <session title>" instead of generic shell name.
+- [x] **T1.** `tea.View.WindowTitle` set to `GACT — <session title>` (fallback: bare `GACT`). bubbletea's renderer diffs against the previous frame so the escape sequence only fires when the title actually changes. Test covers both branches.
 - [ ] **T2.** `gact list` subcommand prints recent sessions (id + title + status + updated_at) for shell-side scripting. No TUI launch.
 - [ ] **T3.** Emulator `--workspace-path` flag walks the directory on every `/v1/workspaces/{id}/files` request instead of returning the static demo list. Opt-in because deterministic tests rely on the static fixture.
 
