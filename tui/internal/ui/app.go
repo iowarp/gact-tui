@@ -1005,9 +1005,13 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "ctrl+s":
-		// Open Settings.
+		// Open Settings. Seed themeSel to the currently-active theme
+		// so the Theme tab doesn't "reset" to dark on every open.
 		a.settingsOpen = true
 		a.settings = &settingsState{}
+		if themeName(a.Theme) == "light" {
+			a.settings.themeSel = 1
+		}
 		return a, loadSettingsCmd(a.c)
 	case "ctrl+t":
 		// Open Metrics modal.
