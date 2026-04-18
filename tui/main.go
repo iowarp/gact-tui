@@ -55,6 +55,8 @@ func main() {
 			os.Exit(runPing(os.Args[2:]))
 		case "send":
 			os.Exit(runSend(os.Args[2:]))
+		case "wait":
+			os.Exit(runWait(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -219,6 +221,7 @@ Usage:
   gact tail [SID]            stream SSE events as JSON lines
   gact ping                  probe /v1/health (exit 0 if healthy)
   gact send <sid> <text|->   post a user message to a session
+  gact wait <sid>            block until the session status is idle
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -334,6 +337,55 @@ func runTUI() {
 // Prints one tab-separated row per session (id, status, title,
 // updated_at RFC3339) so shell pipelines can grep / awk the output.
 // No TUI launch; useful for remote scripting.
+// runWait blocks until a session's status is idle, then exits 0.
+// Polls GET /v1/sessions/{id} on a short interval rather than SSE —
+// simpler, no reconnect loop, and a second of lag is fine for shell
+// chaining. Exits with code 2 on timeout, 1 on transport error.
+//
+// Usage chain:
+//
+//	SID=$(gact list | head -1 | cut -f1)
+//	gact send "$SID" "please read main.go" && \
+//	  gact wait "$SID" && \
+//	  gact tail "$SID" | head -20
+func runWait(args []string) int {
+	fs := flag.NewFlagSet("wait", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	timeout := fs.Duration("timeout", 5*time.Minute, "abandon after this long")
+	interval := fs.Duration("interval", 500*time.Millisecond, "poll cadence")
+	known := map[string]bool{"--backend": true, "-backend": true, "--timeout": true, "-timeout": true, "--interval": true, "-interval": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact wait <session_id> [--timeout DUR] [--interval DUR]")
+		return 2
+	}
+	sid := fs.Arg(0)
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+
+	deadline := time.Now().Add(*timeout)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		s, err := c.GetSession(ctx, sid)
+		cancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact wait: %v\n", err)
+			return 1
+		}
+		if s.Status == gact.StatusIdle {
+			return 0
+		}
+		if time.Now().After(deadline) {
+			fmt.Fprintf(os.Stderr, "gact wait: timeout after %s (status=%s)\n", *timeout, s.Status)
+			return 2
+		}
+		time.Sleep(*interval)
+	}
+}
+
 // runSend posts a single user text message to a session from the
 // shell. Accepts `-` as the text to read from stdin so pipes work:
 //

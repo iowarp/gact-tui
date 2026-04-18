@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase BB — scripting follow-ups
+
+- [ ] **BB1.** `gact wait <session_id>` blocks until the session's status returns to idle. Pairs with `gact send` so shell pipelines can chain "send → wait → list/tail".
+
 ## Phase AA — scripting
 
 - [x] **AA1.** `gact send <sid> <text|->` posts a user message; prints the returned `msg_id`. Stdin pipe via `-`. reorderFlagsFirst taught to preserve lone `-` as positional. Full CLI test.
