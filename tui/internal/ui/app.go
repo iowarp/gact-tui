@@ -137,6 +137,11 @@ type App struct {
 	// action (session switch, filter edit, etc.).
 	searchHitMessageID string
 
+	// bodySelMsgIdx is the body-focus message cursor. -1 = no
+	// selection (the pane behaves as before). `n` / `N` walk it
+	// forward/backward. Reset on session switch.
+	bodySelMsgIdx int
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -329,6 +334,7 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		input:                 ta,
 		inputHistoryBySession: map[string][]string{},
 		historyCursor:         -1,
+		bodySelMsgIdx:         -1,
 	}
 }
 
@@ -1501,6 +1507,17 @@ func (a *App) isSearchMode() bool {
 	return strings.HasPrefix(a.paletteFilter, "?")
 }
 
+// scrollToSelectedMessage shifts scrollOffset so the selected message
+// sits inside the visible window. Uses the same bottom-anchored math
+// jumpToMessage does.
+func (a *App) scrollToSelectedMessage() {
+	if a.bodySelMsgIdx < 0 || a.bodySelMsgIdx >= len(a.messages) {
+		return
+	}
+	a.scrollOffset = len(a.messages) - a.bodySelMsgIdx - 1
+	a.stickyToBottom = a.scrollOffset == 0
+}
+
 // jumpToMessage scrolls the conversation pane so the message with the
 // given ID is visible. Implementation: find the index, set scrollOffset
 // to (totalMessages - index - 1) so the renderer's bottom-anchored
@@ -1899,6 +1916,29 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		a.scrollOffset = 0
 		a.stickyToBottom = true
+	case "n":
+		// Y1: advance the body message cursor forward. Off (idx=-1)
+		// until the user starts navigating — matches the body's
+		// default "read-only pane" mode.
+		if len(a.messages) == 0 {
+			return a, nil
+		}
+		if a.bodySelMsgIdx < 0 {
+			a.bodySelMsgIdx = 0
+		} else if a.bodySelMsgIdx < len(a.messages)-1 {
+			a.bodySelMsgIdx++
+		}
+		a.scrollToSelectedMessage()
+	case "N":
+		if len(a.messages) == 0 {
+			return a, nil
+		}
+		if a.bodySelMsgIdx < 0 {
+			a.bodySelMsgIdx = len(a.messages) - 1
+		} else if a.bodySelMsgIdx > 0 {
+			a.bodySelMsgIdx--
+		}
+		a.scrollToSelectedMessage()
 	case "a":
 		// Apply all unapplied diffs in the current session.
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
@@ -2156,6 +2196,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.pendingDeleteSessionID = "" // armed delete is per-session; clear on switch
 	a.pendingClearSessionID = ""  // same for /clear confirmation
 	a.searchHitMessageID = ""     // V3 marker doesn't travel across sessions
+	a.bodySelMsgIdx = -1          // Y1 cursor resets to off on session switch
 	// New session ⇒ new event stream, no replay. Starting at 0 makes
 	// the adapter/emulator send the full current event history from
 	// the ring buffer (per SPEC §7.3 replay semantics).
@@ -3036,10 +3077,16 @@ func (a *App) renderBody(width, height int) string {
 				prev = &a.messages[i-1]
 			}
 			row := t.renderMessageInContext(m, prev, width-4)
-			// V3: left-gutter marker for the message the user jumped to
-			// from the palette's `?search` results. Applied after the
-			// full row render so it prepends cleanly to every line.
-			if m.ID != "" && m.ID == a.searchHitMessageID {
+			// Y1: body cursor marker — bold green `▌` on the selected
+			// message. Takes precedence over the V3 search-hit marker
+			// if both apply, because the cursor is the active state.
+			if i == a.bodySelMsgIdx && a.focus == FocusBody {
+				marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
+				row = prependGutter(row, marker)
+			} else if m.ID != "" && m.ID == a.searchHitMessageID {
+				// V3: left-gutter marker for the message the user jumped to
+				// from the palette's `?search` results. Applied after the
+				// full row render so it prepends cleanly to every line.
 				marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
 				row = prependGutter(row, marker)
 			}
@@ -3384,6 +3431,7 @@ var helpTabs = []struct {
 			{"R", "retry — resend last user message"},
 			{"d", "delete last message (optimistic; targets newest)"},
 			{"t", "toggle per-message timestamps"},
+			{"n / N", "next / prev message (cursor with ▌ gutter)"},
 			{"Ctrl+E", "expand latest bulky tool output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},
