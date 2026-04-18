@@ -32,12 +32,18 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 	defer adapterServer.Close()
 
 	conformance.Run(t, adapterServer.URL, conformance.Options{
-		WorkspaceID:       wsID,
-		SessionID:         sesID,
+		WorkspaceID: wsID,
+		SessionID:   sesID,
 		// Crush adapter is read+POST-message; it doesn't expose
 		// POST /v1/sessions for creation (Crush owns session lifecycle).
 		SkipCreateSession: true,
-		SSEBudget:         5 * time.Second,
+		// Crush adapter doesn't proxy commands/tools/metrics endpoints
+		// yet — they'd all 501. Suite-level skip keeps the conformance
+		// assertions scoped to what Crush actually promises.
+		SkipCommands: true,
+		SkipTools:    true,
+		SkipMetrics:  true,
+		SSEBudget:    5 * time.Second,
 	})
 }
 

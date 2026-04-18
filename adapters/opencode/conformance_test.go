@@ -33,6 +33,12 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// fixture is the one our mock returns from /session.
 		SkipCreateSession: true,
 		SessionID:         "ses_conformance",
+		// OpenCode adapter doesn't proxy commands/tools/metrics
+		// endpoints; fold them out of the conformance scope so a
+		// 501 doesn't fail the suite.
+		SkipCommands: true,
+		SkipTools:    true,
+		SkipMetrics:  true,
 		// SSE budget bumped from default 3 s — the adapter emits
 		// server.connected immediately so this is plenty, but a slow
 		// CI runner can still take a moment to wire up sockets.

@@ -47,13 +47,16 @@ type Options struct {
 	// Skip* flags turn sections off for backends that only implement
 	// a subset of the SPEC. A skipped section emits t.Log instead of
 	// running its assertions.
-	SkipHealth       bool
-	SkipCapabilities bool
-	SkipWorkspaces   bool
-	SkipSessions     bool
+	SkipHealth        bool
+	SkipCapabilities  bool
+	SkipWorkspaces    bool
+	SkipSessions      bool
 	SkipCreateSession bool
-	SkipPostMessage  bool
-	SkipSSE          bool
+	SkipPostMessage   bool
+	SkipSSE           bool
+	SkipCommands      bool
+	SkipTools         bool
+	SkipMetrics       bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -120,6 +123,16 @@ func Run(t *testing.T, baseURL string, opts Options) {
 		t.Run("SSE", func(t *testing.T) {
 			checkSSE(t, c, sid, wsID, opts.SSEBudget)
 		})
+	}
+
+	if !opts.SkipCommands {
+		t.Run("Commands_List", func(t *testing.T) { checkCommands(t, c) })
+	}
+	if !opts.SkipTools {
+		t.Run("Tools_List", func(t *testing.T) { checkTools(t, c) })
+	}
+	if !opts.SkipMetrics {
+		t.Run("Metrics", func(t *testing.T) { checkMetrics(t, c) })
 	}
 }
 
@@ -425,4 +438,97 @@ func checkSSE(t *testing.T, c *conformClient, sid, wsID string, budget time.Dura
 		}
 	}
 	t.Fatalf("no SSE data frame within %s; saw=%q", budget, seen.String())
+}
+
+// checkCommands asserts GET /v1/commands returns 200 with a
+// {"commands": [...]} shape where each entry has an `id`. We don't
+// insist on specific built-ins — backends vary — only that the
+// envelope and per-item shape match SPEC §6.13.
+func checkCommands(t *testing.T, c *conformClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/commands")
+	if err != nil {
+		t.Fatalf("GET /v1/commands: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("commands endpoint returned 501 — set SkipCommands if backend doesn't implement it")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var got struct {
+		Commands []struct {
+			ID     string `json:"id"`
+			Title  string `json:"title"`
+			Source string `json:"source"`
+		} `json:"commands"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("commands JSON decode: %v (body=%s)", err, body)
+	}
+	for i, cmd := range got.Commands {
+		if cmd.ID == "" {
+			t.Errorf("commands[%d].id empty", i)
+		}
+	}
+}
+
+// checkTools asserts GET /v1/tools returns 200 with a
+// {"tools": [...]} shape where each entry has a `name`. Same
+// forgiving approach as Commands — we verify the shape, not the
+// specific tools in scope.
+func checkTools(t *testing.T, c *conformClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/tools")
+	if err != nil {
+		t.Fatalf("GET /v1/tools: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("tools endpoint returned 501 — set SkipTools if backend doesn't implement it")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var got struct {
+		Tools []struct {
+			Name string `json:"name"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("tools JSON decode: %v (body=%s)", err, body)
+	}
+	for i, tl := range got.Tools {
+		if tl.Name == "" {
+			t.Errorf("tools[%d].name empty", i)
+		}
+	}
+}
+
+// checkMetrics asserts GET /v1/metrics returns 200 and the top-level
+// { uptime_s, sessions, messages, tokens } envelope described in
+// SPEC §6.16. Specific nested field values aren't asserted since
+// they're operational and change per request.
+func checkMetrics(t *testing.T, c *conformClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/metrics")
+	if err != nil {
+		t.Fatalf("GET /v1/metrics: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("metrics endpoint returned 501 — set SkipMetrics if backend doesn't implement it")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("metrics JSON decode: %v (body=%s)", err, body)
+	}
+	// uptime_s is the one field every backend must emit per SPEC.
+	if _, ok := got["uptime_s"]; !ok {
+		t.Errorf("metrics response missing uptime_s field: %s", body)
+	}
 }
