@@ -101,6 +101,12 @@ func NewBus(ringCap int) *Bus {
 // full the event is dropped for that subscriber and DroppedCount increments.
 // This trades reliability for liveness; the SPEC allows event loss and SSE
 // clients can recover via Last-Event-ID + the ring buffer.
+//
+// Concurrency: holds b.mu for read for the whole fan-out. This blocks
+// concurrent Subscribe/Cancel for the duration but eliminates the race
+// where a subscriber's channel is closed (by Cancel) between the time
+// Publish snapshots the subscriber list and the time it sends — which would
+// panic with "send on closed channel".
 func (b *Bus) Publish(e Event) Event {
 	if e.OccurredAt.IsZero() {
 		e.OccurredAt = time.Now().UTC()
@@ -118,15 +124,9 @@ func (b *Bus) Publish(e Event) Event {
 	}
 	b.ringMu.Unlock()
 
-	// Fan-out to subscribers.
 	b.mu.RLock()
-	subs := make([]*subscriber, 0, len(b.subscribers))
+	defer b.mu.RUnlock()
 	for s := range b.subscribers {
-		subs = append(subs, s)
-	}
-	b.mu.RUnlock()
-
-	for _, s := range subs {
 		if !s.filter.match(e) {
 			continue
 		}
