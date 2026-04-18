@@ -79,7 +79,7 @@ func buildGact(t *testing.T) string {
 func runGact(t *testing.T, bin string, env map[string]string, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
-	cmd.Env = append(os.Environ())
+	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}

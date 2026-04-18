@@ -215,7 +215,10 @@ func TestE2E_PermissionFlow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url+"/v1/sessions/"+sid+"/events", nil)
-	resp, _ := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open events stream: %v", err)
+	}
 	defer resp.Body.Close()
 	rdr := bufio.NewReader(resp.Body)
 	_, _ = readSSEEvent(rdr, time.Second) // greeting
@@ -249,7 +252,10 @@ loop:
 	}
 
 	// List pending and find our permission.
-	plResp, _ := http.Get(url + "/v1/permissions?session_id=" + sid + "&status=pending")
+	plResp, err := http.Get(url + "/v1/permissions?session_id=" + sid + "&status=pending")
+	if err != nil {
+		t.Fatalf("list permissions: %v", err)
+	}
 	defer plResp.Body.Close()
 	var pending struct {
 		Permissions []map[string]any `json:"permissions"`

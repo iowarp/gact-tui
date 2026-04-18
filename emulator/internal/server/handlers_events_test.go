@@ -101,7 +101,10 @@ func TestSSEFiltersOutOtherSessions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/v1/sessions/"+sid+"/events", nil)
-	resp, _ := ts.Client().Do(req)
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("ts.Client().Do: %v", err)
+	}
 	defer resp.Body.Close()
 	rdr := bufio.NewReader(resp.Body)
 	_ = readSSEUntil(t, rdr, 1, time.Second) // drain greeting
@@ -129,7 +132,10 @@ func TestSSEWorkspaceFilter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/v1/events?workspace_id=ws_test", nil)
-	resp, _ := ts.Client().Do(req)
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("ts.Client().Do: %v", err)
+	}
 	defer resp.Body.Close()
 	rdr := bufio.NewReader(resp.Body)
 	_ = readSSEUntil(t, rdr, 1, time.Second) // greeting
@@ -158,7 +164,10 @@ func TestSSELastEventIDResume(t *testing.T) {
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/v1/sessions/"+sid+"/events", nil)
 	req.Header.Set("Last-Event-ID", "1")
-	resp, _ := ts.Client().Do(req)
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("ts.Client().Do: %v", err)
+	}
 	defer resp.Body.Close()
 	rdr := bufio.NewReader(resp.Body)
 
