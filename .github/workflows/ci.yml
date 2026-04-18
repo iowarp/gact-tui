@@ -25,6 +25,7 @@ jobs:
           - tui
           - adapters/opencode
           - adapters/crush
+          - contract/conformance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -58,6 +59,7 @@ jobs:
           - tui
           - adapters/opencode
           - adapters/crush
+          - contract/conformance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
