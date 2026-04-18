@@ -4,4 +4,5 @@ use (
 	./emulator
 	./tui
 	./adapters/opencode
+	./adapters/crush
 )
