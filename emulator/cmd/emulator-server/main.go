@@ -83,7 +83,13 @@ func main() {
 	}
 	for _, step := range sessionPlan {
 		for i := 0; i < step.count; i++ {
+			// Deterministic seeded session IDs so operators and
+			// chained flags (--seed-messages) can refer to them
+			// without first booting the server to discover hash-
+			// based IDs. ses_seed_<wsID>_<n> is documented in
+			// --seed-sessions usage.
 			sess, err := st.CreateSession(gact.Session{
+				ID:          fmt.Sprintf("ses_seed_%s_%d", step.wsID, i+1),
 				WorkspaceID: step.wsID,
 				Title:       fmt.Sprintf("seeded session %d", i+1),
 				Status:      gact.StatusIdle,
