@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -207,6 +208,7 @@ Usage:
   gact diag                  print environment + config for bug reports
   gact emit-config           print sample config.json to stdout
   gact list                  list recent sessions (tab-separated)
+  gact export --all -o DIR   bulk-export every session as JSON files
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -370,12 +372,28 @@ func runExport(args []string) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	out := fs.String("o", "-", "output file path; '-' for stdout")
-	knownFlags := map[string]bool{"-o": true, "--backend": true, "-backend": true}
+	all := fs.Bool("all", false, "export every session; writes one JSON per session into --out dir")
+	wsID := fs.String("workspace", "", "with --all, restrict to one workspace")
+	knownFlags := map[string]bool{"-o": true, "--backend": true, "-backend": true, "--workspace": true, "-workspace": true}
 	if err := fs.Parse(reorderFlagsFirst(args, knownFlags)); err != nil {
 		return 2
 	}
+
+	// V1: bulk export path. Takes --out as a directory (created if
+	// absent) and writes one <session_id>.json per session; tolerates
+	// per-session fetch errors so one bad session doesn't abort the
+	// whole snapshot. Prints a summary to stderr.
+	if *all {
+		if *out == "-" || *out == "" {
+			fmt.Fprintln(os.Stderr, "gact export --all requires -o DIR (cannot dump to stdout)")
+			return 2
+		}
+		return runExportAll(*out, *wsID, *backend)
+	}
+
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact export <session_id> [-o path] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact export <session_id> [-o path] [--backend URL]\n" +
+			"   or: gact export --all -o DIR [--workspace WS_ID] [--backend URL]")
 		return 2
 	}
 	sessionID := fs.Arg(0)
@@ -410,6 +428,66 @@ func runExport(args []string) int {
 	}
 	if *out != "-" {
 		fmt.Fprintf(os.Stderr, "gact export: wrote %d messages to %s\n", len(blob.Messages), *out)
+	}
+	return 0
+}
+
+// runExportAll walks every session (optionally scoped to a workspace)
+// and writes one indented JSON per session into dir. Continues past
+// per-session fetch errors — one 500 on a single session shouldn't
+// trash the whole backup — and reports a summary to stderr.
+func runExportAll(dir, wsID, backendFlag string) int {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "gact export: mkdir %s: %v\n", dir, err)
+		return 1
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), backendFlag, defaultBackend)
+	c := client.New(finalBackend)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact export: list sessions: %v\n", err)
+		return 1
+	}
+	if len(sessions) == 0 {
+		fmt.Fprintln(os.Stderr, "gact export: no sessions to export")
+		return 0
+	}
+
+	ok := 0
+	failed := 0
+	for _, s := range sessions {
+		ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
+		blob, err := c.ExportSession(ectx, s.ID)
+		ecancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", s.ID, err)
+			failed++
+			continue
+		}
+		path := filepath.Join(dir, s.ID+".json")
+		f, err := os.Create(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: create %s: %v\n", s.ID, path, err)
+			failed++
+			continue
+		}
+		enc := json.NewEncoder(f)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(blob); err != nil {
+			f.Close()
+			fmt.Fprintf(os.Stderr, "  %s: encode: %v\n", s.ID, err)
+			failed++
+			continue
+		}
+		f.Close()
+		ok++
+	}
+	fmt.Fprintf(os.Stderr, "gact export: %d ok, %d failed → %s\n", ok, failed, dir)
+	if failed > 0 {
+		return 1
 	}
 	return 0
 }
