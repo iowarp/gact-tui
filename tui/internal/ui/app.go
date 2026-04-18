@@ -557,6 +557,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case hintExpireMsg:
+		// Only clear if the hint is still the one we scheduled — a
+		// newer toast set mid-dwell shouldn't be wiped by the older
+		// tick. Equivalent to versioning the hint without carrying a
+		// separate counter.
+		if a.transientHint == m.text {
+			a.transientHint = ""
+		}
+		return a, nil
+
 	case retryConnectMsg:
 		// Only retry while we're still in StageError — the user might
 		// have already manually reconnected via Ctrl+R or the backend
@@ -935,6 +945,28 @@ const (
 // triggers another connectCmd if the TUI is still in StageError.
 type retryConnectMsg struct{}
 
+// hintExpireMsg fires after the transient-hint dwell delay to auto-
+// clear stale toasts. Without this, a hint set by e.g. /clear could
+// linger until the next user action. Carries the exact text it was
+// scheduled for so a newer hint doesn't get wiped by the old tick.
+type hintExpireMsg struct {
+	text string
+}
+
+// scheduleHintExpire returns a Cmd that fires a hintExpireMsg after
+// hintDwell. Callers that set a.transientHint should tea.Batch this
+// in so the toast fades out even if the user doesn't touch anything.
+func scheduleHintExpire(text string) tea.Cmd {
+	return tea.Tick(hintDwell, func(time.Time) tea.Msg {
+		return hintExpireMsg{text: text}
+	})
+}
+
+// hintDwell is how long a transient hint stays on screen before
+// auto-clearing. Long enough for the user to read a short toast,
+// short enough that they don't feel stuck with stale status.
+const hintDwell = 4 * time.Second
+
 // isConnectStage reports whether the errMsg.stage value came from
 // connectCmd. The connect path emits exactly three stages — bumping
 // this list when a new stage is added is intentional friction so
@@ -1290,6 +1322,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// visible effect. The backend still processes the command
 			// (SSE events keep us honest), but the UI shouldn't appear
 			// frozen between "Enter" and the SSE round-trip.
+			var extraCmds []tea.Cmd
 			switch cmd.ID {
 			case "/clear":
 				n := len(a.messages)
@@ -1301,10 +1334,13 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				} else {
 					a.transientHint = "session already empty"
 				}
+				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
 			case "/cancel":
 				a.transientHint = "cancelling run…"
+				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
 			}
-			return a, runCommandCmd(a.c, a.currentSessionID(), cmd.ID)
+			extraCmds = append(extraCmds, runCommandCmd(a.c, a.currentSessionID(), cmd.ID))
+			return a, tea.Batch(extraCmds...)
 		}
 	case "backspace":
 		if len(a.paletteFilter) > 0 {
