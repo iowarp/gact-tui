@@ -262,6 +262,28 @@ func (c *Client) PostMessage(ctx context.Context, sessionID string, req PostMess
 	return out, err
 }
 
+// SearchMatch mirrors SPEC §6.3 — one hit from /messages/search.
+type SearchMatch struct {
+	MessageID string `json:"message_id"`
+	PartID    string `json:"part_id"`
+	Snippet   string `json:"snippet"`
+	Score     float64 `json:"score"`
+}
+
+// SearchMessages issues GET /v1/sessions/{id}/messages/search?q=...
+// and returns the matches in score order. Empty query returns no
+// matches — callers should validate that before dispatching.
+func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([]SearchMatch, error) {
+	q := url.Values{}
+	q.Set("q", query)
+	var out struct {
+		Matches []SearchMatch `json:"matches"`
+	}
+	err := c.do(ctx, http.MethodGet,
+		"/v1/sessions/"+sessionID+"/messages/search?"+q.Encode(), nil, &out)
+	return out.Matches, err
+}
+
 // --- §6.5 agents -----------------------------------------------------------
 
 func (c *Client) ListAgents(ctx context.Context) ([]gact.AgentDef, error) {
