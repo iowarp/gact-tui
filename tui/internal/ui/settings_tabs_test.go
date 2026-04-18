@@ -120,6 +120,24 @@ func TestThemeName(t *testing.T) {
 	}
 }
 
+// TestThemeRoundTrip ensures every AllThemeModes entry survives a
+// ThemeForMode → ThemeModeFor round-trip. If a new palette collides
+// with an existing one on Bg+Fg (very unlikely but cheap to catch),
+// this test fires a clear signal.
+func TestThemeRoundTrip(t *testing.T) {
+	for _, mode := range AllThemeModes {
+		theme := ThemeForMode(mode)
+		back := ThemeModeFor(theme)
+		if back != mode {
+			t.Errorf("round-trip %q (%d) → %d failed", ThemeModeName(mode), mode, back)
+		}
+		// Parse(Name(m)) should also yield the same mode.
+		if got := ParseThemeMode(ThemeModeName(mode)); got != mode {
+			t.Errorf("Parse(Name(%d)) = %d, want %d", mode, got, mode)
+		}
+	}
+}
+
 func TestBoolPretty(t *testing.T) {
 	if got := boolPretty(true); got != "on" {
 		t.Errorf("boolPretty(true) = %q", got)
