@@ -197,6 +197,36 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Log covers DD2: send a message that triggers a scenario,
+// wait for idle, then dump the log and verify role headers + the
+// user message text appear in the output.
+func TestCLI_Log(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "log-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"run", "--timeout", "30s", sid, "please read main.go"); code != 0 {
+		t.Fatalf("run setup: exit %d", code)
+	}
+
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url}, "log", sid)
+	if code != 0 {
+		t.Fatalf("log: exit %d, stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stdout, "[USER @") {
+		t.Errorf("log missing USER role header: %q", stdout)
+	}
+	if !strings.Contains(stdout, "please read main.go") {
+		t.Errorf("log missing user text: %q", stdout)
+	}
+	if !strings.Contains(stdout, "[ASSISTANT @") {
+		t.Errorf("log missing ASSISTANT role header: %q", stdout)
+	}
+}
+
 // TestCLI_Cancel covers CC1: POST cancel, exit 0 even when session
 // is already idle (the emulator + most backends accept idempotent
 // cancels).
