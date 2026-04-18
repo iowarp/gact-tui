@@ -134,10 +134,7 @@ func (a *App) viewSettings() string {
 		a.settings = &settingsState{}
 	}
 	s := a.settings
-	w := 70
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 
 	tabs := func(i int) string {
 		labels := []string{"Model", "Agent"}

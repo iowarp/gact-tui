@@ -58,10 +58,7 @@ func (a *App) viewMetrics() string {
 	if a.metrics == nil {
 		a.metrics = &metricsState{loading: true}
 	}
-	w := 60
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 
 	rows := []string{
 		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Backend Metrics"),

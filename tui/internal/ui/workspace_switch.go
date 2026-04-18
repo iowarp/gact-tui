@@ -90,10 +90,7 @@ type workspaceSwitchedMsg struct {
 // overlay style so the user's muscle memory carries over.
 func (a *App) viewWorkspaceSwitch() string {
 	t := a.Theme
-	w := 50
-	if w > a.width-8 {
-		w = a.width - 8
-	}
+	w := a.modalWidth()
 	rows := []string{
 		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Switch workspace"),
 		"",
