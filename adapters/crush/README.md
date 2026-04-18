@@ -48,6 +48,15 @@ Implemented:
   updated/deleted, permission.requested/resolved). Unknown payload
   types fall through as `x.crush.<type>` per SPEC §8.4. Per-session
   filter drops crosstalk; heartbeat every 15s.
+- `POST /v1/sessions/{id}/messages?workspace_id=…` — translates GACT
+  parts into Crush's flat `{session_id, prompt, attachments}` shape
+  and forwards to `POST /v1/workspaces/{wsID}/agent`. text parts join
+  with newlines; thinking parts are wrapped in `<thinking>` blocks;
+  image/document parts with binary base64 sources lift into
+  attachments; URL-only image sources are dropped (no fetch); unknown
+  part types JSON-fence into the prompt so nothing is silently lost.
+  Returns 202 with a synthetic `msg_pending_<ts>` ID — the real Crush
+  ID arrives via the SSE `message.created` event.
 
 Everything else returns 501.
 
@@ -68,7 +77,6 @@ Everything else returns 501.
 
 | GACT endpoint | Crush mapping | Notes |
 |---|---|---|
-| POST messages | `POST /v1/workspaces/{id}/agent` | Maps to Crush's agent endpoint. |
 | permissions | `/v1/workspaces/{id}/permissions/grant` etc. | Crush has rich permission flow. |
 | LSP / MCP | `/v1/workspaces/{id}/lsps`, `/mcp/states` | First-party in Crush. |
 | Unix socket transport | n/a | TCP only in v0.1. |
