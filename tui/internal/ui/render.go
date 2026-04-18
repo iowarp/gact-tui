@@ -1,0 +1,232 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+
+	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+// renderMessage formats one message for the conversation pane. Wraps to
+// `width` cells and uses role-coloured headers so the user can scan flow
+// at a glance.
+func (t Theme) renderMessage(m gact.Message, width int) string {
+	header := t.renderRoleHeader(m.Role)
+	body := t.renderParts(m.Parts, width)
+	if body == "" {
+		body = t.HintLabel.Render("(no parts)")
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, "")
+}
+
+func (t Theme) renderRoleHeader(role string) string {
+	col := t.RoleAssistant
+	label := "ASSISTANT"
+	switch role {
+	case gact.RoleUser:
+		col = t.RoleUser
+		label = "USER"
+	case gact.RoleSystem:
+		col = t.RoleSystem
+		label = "SYSTEM"
+	case gact.RoleTool:
+		col = t.RoleTool
+		label = "TOOL"
+	}
+	return lipgloss.NewStyle().
+		Foreground(col).
+		Bold(true).
+		Render("● " + label)
+}
+
+func (t Theme) renderParts(parts []gact.Part, width int) string {
+	var rows []string
+	for _, p := range parts {
+		rendered := t.renderPart(p, width)
+		if rendered != "" {
+			rows = append(rows, rendered)
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (t Theme) renderPart(p gact.Part, width int) string {
+	wrapW := width - 2
+	if wrapW < 10 {
+		wrapW = 10
+	}
+	switch p.Type {
+	case gact.PartTypeText:
+		return wrap(p.Text, wrapW)
+
+	case gact.PartTypeThinking:
+		head := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("◊ thinking")
+		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(wrap(p.Thinking, wrapW))
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
+	case gact.PartTypeToolCall:
+		head := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
+			Render(fmt.Sprintf("⚙ %s", p.ToolName))
+		input := jsonOneLine(p.Input)
+		body := lipgloss.NewStyle().Foreground(t.FgMuted).Render("  " + wrap(input, wrapW-2))
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
+	case gact.PartTypeToolResult:
+		head := lipgloss.NewStyle().Foreground(t.RoleTool).Render("← result")
+		errStr := ""
+		if p.IsError {
+			errStr = lipgloss.NewStyle().Foreground(t.Danger).Render(" (error)")
+		}
+		text := ""
+		for _, c := range p.Content {
+			text += t.renderPart(c, wrapW) + "\n"
+		}
+		text = strings.TrimRight(text, "\n")
+		return lipgloss.JoinVertical(lipgloss.Left, head+errStr, indent(text, "  "))
+
+	case gact.PartTypeFileDiff:
+		head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
+			Render("◇ diff " + p.Path)
+		applied := ""
+		if p.Applied {
+			applied = lipgloss.NewStyle().Foreground(t.Success).Render(" (applied)")
+		}
+		before := ""
+		after := ""
+		if p.Before != nil {
+			before = *p.Before
+		}
+		if p.After != nil {
+			after = *p.After
+		}
+		body := simpleDiff(before, after, wrapW-2)
+		return lipgloss.JoinVertical(lipgloss.Left, head+applied, indent(body, "  "))
+
+	case gact.PartTypeError:
+		return lipgloss.NewStyle().Foreground(t.Danger).
+			Render("✗ " + p.Code + ": " + p.Message)
+
+	case gact.PartTypeCompaction:
+		head := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("⌘ history compacted")
+		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(wrap(p.Summary, wrapW))
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
+	default:
+		// Unknown part type — preserve presence (per SPEC §8.3) so the user
+		// sees something instead of silently swallowing it.
+		return lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render("[" + p.Type + "]")
+	}
+}
+
+// wrap wraps s to width cells. Word-aware where possible. Newlines preserved.
+func wrap(s string, width int) string {
+	if width <= 0 {
+		return s
+	}
+	var out strings.Builder
+	for _, line := range strings.Split(s, "\n") {
+		if lipgloss.Width(line) <= width {
+			out.WriteString(line)
+			out.WriteString("\n")
+			continue
+		}
+		// naive word-wrap
+		words := strings.Fields(line)
+		cur := ""
+		for _, w := range words {
+			if lipgloss.Width(cur)+lipgloss.Width(w)+1 > width {
+				if cur != "" {
+					out.WriteString(cur)
+					out.WriteString("\n")
+				}
+				cur = w
+			} else {
+				if cur == "" {
+					cur = w
+				} else {
+					cur += " " + w
+				}
+			}
+		}
+		if cur != "" {
+			out.WriteString(cur)
+			out.WriteString("\n")
+		}
+	}
+	return strings.TrimRight(out.String(), "\n")
+}
+
+// indent prefixes every line of s with prefix.
+func indent(s, prefix string) string {
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = prefix + l
+	}
+	return strings.Join(lines, "\n")
+}
+
+// jsonOneLine produces a compact one-line representation of a JSON-ish map.
+// Avoids the encoding/json import and does fine for our display use.
+func jsonOneLine(m map[string]any) string {
+	if m == nil {
+		return "{}"
+	}
+	parts := []string{}
+	for k, v := range m {
+		parts = append(parts, fmt.Sprintf("%s: %v", k, v))
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// simpleDiff produces a primitive +/- per-line diff — fine for the demo
+// output. A real implementation would use an LCS diff.
+func simpleDiff(before, after string, width int) string {
+	bs := strings.Split(strings.TrimRight(before, "\n"), "\n")
+	as := strings.Split(strings.TrimRight(after, "\n"), "\n")
+	out := []string{}
+	min := len(bs)
+	if len(as) < min {
+		min = len(as)
+	}
+	for i := 0; i < min; i++ {
+		if bs[i] == as[i] {
+			out = append(out, "  "+truncateString(bs[i], width-2))
+			continue
+		}
+		out = append(out, lipgloss.NewStyle().Foreground(red).Render("- "+truncateString(bs[i], width-2)))
+		out = append(out, lipgloss.NewStyle().Foreground(green).Render("+ "+truncateString(as[i], width-2)))
+	}
+	for i := min; i < len(bs); i++ {
+		out = append(out, lipgloss.NewStyle().Foreground(red).Render("- "+truncateString(bs[i], width-2)))
+	}
+	for i := min; i < len(as); i++ {
+		out = append(out, lipgloss.NewStyle().Foreground(green).Render("+ "+truncateString(as[i], width-2)))
+	}
+	return strings.Join(out, "\n")
+}
+
+func truncateString(s string, max int) string {
+	if max < 1 {
+		return ""
+	}
+	if lipgloss.Width(s) <= max {
+		return s
+	}
+	if max <= 1 {
+		return "…"
+	}
+	return s[:max-1] + "…"
+}
+
+var (
+	red   = lipgloss.Color("#FF6B6B")
+	green = lipgloss.Color("#73F59F")
+)

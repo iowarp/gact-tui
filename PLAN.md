@@ -38,16 +38,17 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase C — TUI scaffold
 
-- [ ] **C1.** `tui/go.mod`. Module `github.com/JaimeCernuda/gact-tui/tui`. Deps from `notes/`. `cd tui && go build` produces `gact` binary.
-- [ ] **C2.** `tui/internal/client/` — Go HTTP client for GACT v0.1 with typed request/response. Use `notes/` shapes from SPEC §4. Cover capabilities, sessions, messages, events (SSE).
-- [ ] **C3.** SSE consumer: a goroutine that reads the events stream and turns each event into a `tea.Msg` posted via `program.Send`. Reconnect on disconnect.
-- [ ] **C4.** Root model + layout: header (1 row), main split horizontal (sidebar 30 wide, body fill), footer (1 row). Use ultraviolet `layout.Vertical/Horizontal`.
-- [ ] **C5.** Sidebar: list of sessions (use `bubbles/list`). Fetch via `GET /v1/sessions`. Show title + status + cost.
-- [ ] **C6.** Body main pane: `viewport` with rendered messages. Each message rendered with role-colored header + parts. Auto-scroll on new content.
-- [ ] **C7.** Body input pane: `textarea` at the bottom of body, multi-line, Ctrl+Enter (or specific key) to send.
-- [ ] **C8.** Footer / status line: shows backend URL, model, session-cost, key hints (`?: help, q: quit`).
-- [ ] **C9.** Streaming render: handle `message.created`, `message.part.added`, `message.part.delta`, `message.part.completed`, `message.completed` events. Smoothly append/update the viewport.
-- [ ] **C10.** Permission dialog: when `permission.requested` event arrives, pop a modal with summary + Allow/Deny/Allow-Session buttons. Submit via `POST /permissions/{id}`.
+- [x] **C1.** `tui/go.mod`. Module `github.com/JaimeCernuda/gact-tui/tui`. Bubbletea v2, lipgloss v2, bubbles v2. `gact` binary builds (~11.5MB).
+- [x] **C2.** `tui/internal/client/` — typed Go HTTP+SSE client. Covers capabilities, sessions, messages, events, agents, tools, providers, commands, permissions, metrics. Integration test boots emulator binary and exercises the wire.
+- [x] **C3.** SSE consumer: tea.Cmd loop pattern. waitForSSE re-enqueues itself on every event. Reconnect on `sseClosedMsg`.
+- [x] **C4.** Root model + layout: header / sidebar+body / footer via lipgloss.JoinVertical/Horizontal. AltScreen + Bg/Fg colours.
+- [x] **C5.** Sidebar with sessions list, ▌ marker on selected, status colour-italic underneath.
+- [x] **C6.** Body conversation pane: role-coloured headers (USER/ASSISTANT/TOOL/SYSTEM), thinking/text/tool_call/tool_result/file_diff/error rendering, scroll-clip with sticky-bottom.
+- [x] **C7.** Input pane: simple text buffer + Enter-to-send (textarea bubble can replace later). Cursor blink.
+- [x] **C8.** Footer: focus zone, key hints (Tab pane, Enter send, ?help, ctrl+c quit), UTC clock.
+- [x] **C9.** Streaming: message.created → part.added → part.delta (text_append, thinking_append, input_json_append) → part.completed (parses tool_call input). Verified end-to-end via 02-streaming + 03-completed screenshots.
+- [x] **C10.** Permission dialog: yellow warning banner above conversation when permission.requested arrives. Verified via 04-permission screenshot. (Action submit keys still TODO — see C10b.)
+- [ ] **C10b.** Permission action keys: a/d/s for allow/deny/allow_session, submitting via POST /v1/permissions/{id}.
 - [ ] **C11.** Slash command palette: `/` opens a fuzzy-search list populated from `GET /v1/commands`. Selection executes via `POST /v1/sessions/{id}/commands/{cmd_id}`.
 - [ ] **C12.** Help overlay: `?` toggles a help screen with key bindings, generated from a key-map struct.
 - [ ] **C13.** Window resize: subscribe to `WindowSizeMsg`, recompute layout, propagate to subcomponents.
