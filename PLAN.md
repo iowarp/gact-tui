@@ -6,10 +6,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase A — Emulator skeleton
 
-- [ ] **A1.** `emulator/go.mod`, package layout. Dependencies: `net/http` stdlib (or `chi`/`gorilla` if needed — choose now), `encoding/json`, `github.com/google/uuid`. Module name `github.com/JaimeCernuda/gact-tui/emulator`.
-- [ ] **A2.** Server bootstrap: `cmd/emulator-server/main.go` with `--port`, `--scenario` flags. `go run ./cmd/emulator-server` boots and returns 200 on `/v1/health`.
-- [ ] **A3.** `GET /v1/health` returns `{healthy: true, uptime_s: <int>}` (per SPEC §3.4).
-- [ ] **A4.** `GET /v1/capabilities` returns the capability bundle (per SPEC §3.3). Hard-coded for now; reflects what the emulator actually implements.
+- [x] **A1.** `emulator/go.mod`, package layout. **Decided:** stdlib `net/http` only (Go 1.22+ method-prefixed mux), `github.com/google/uuid` for IDs. Module `github.com/JaimeCernuda/gact-tui/emulator`. Layout: `cmd/emulator-server/`, `internal/server/`, `pkg/gact/`.
+- [x] **A2.** Server bootstrap: `cmd/emulator-server/main.go` with `--port`, `--scenario` flags. `go run ./cmd/emulator-server` boots, listens, gracefully shuts down on SIGTERM.
+- [x] **A3.** `GET /v1/health` returns `{healthy: true, uptime_s: <int>}` (per SPEC §3.4).
+- [x] **A4.** `GET /v1/capabilities` returns the capability bundle (per SPEC §3.3). Hard-coded; reflects what the emulator implements (workspaces/sessions/subagents/MCP/files/diffs/permissions/providers/commands/metrics/branching/export/cost/thinking/search = true; LSP/voice/scheduled/sharing/edit_modes/plan_mode/agent_write/skills_extraction = false in v0.1).
 - [ ] **A5.** Internal storage layer: in-memory state for workspaces, sessions, messages, parts. Thread-safe (sync.RWMutex or channels — your call). No persistence yet.
 - [ ] **A6.** Workspaces endpoints (SPEC §6.1): GET list, POST create, GET one, PATCH, DELETE. Return seed workspace `ws_default` rooted at `/tmp/gact-emulator-workspace`.
 - [ ] **A7.** Sessions endpoints (SPEC §6.2): all CRUD + fork + cancel + summarize + export. summarize/cancel just update status/emit events.
