@@ -175,7 +175,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 - [x] **V1.** `gact export --all -o DIR [--workspace WS_ID]` bulk-exports sessions to one JSON file per session. Tolerates per-session failures; summary to stderr; exit 1 if any failed. Full CLI test against a real emulator binary.
 - [x] **V2.** `sseHealthDot()` in the header — green/amber/red glyph keyed to the SSE stage. Users glance-verify the stream without scanning the footer.
-- [ ] **V3.** Message search hits highlighted in the conversation pane when palette `?query` results are displayed — currently the palette finds them but the jump lands on the message without underlining the match.
+- [x] **V3.** `searchHitMessageID` + left-gutter `▶` marker applied when the user hits Enter on a `?search` result. Marker clears on session switch. Per-character highlight within the match string deferred — gutter attention alone was enough without threading the query through glamour.
 
 ## Phase T — terminal integration
 
