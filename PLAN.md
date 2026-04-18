@@ -166,6 +166,13 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase Q — polish round four
+
+- [ ] **Q1.** README refresh — theme gallery (link to screenshots 54-63), custom-theme-file section, updated keymap table.
+- [ ] **Q2.** `Ctrl+Alt+T` cycles themes without opening Settings — single-key bag-shift for quick experimentation.
+- [ ] **Q3.** Palette shows the current value beside settings-style commands (`/theme · current: dracula`).
+- [ ] **Q4.** `/theme-export` writes the active palette to `~/.config/gact/theme.json` so users can start from a known-good palette + tweak.
+
 ## Phase P — polish round three
 
 - [x] **P1.** Per-theme glamour StyleConfig — `glamourStyleFromTheme(Theme)` derives an `ansi.StyleConfig` from the theme's palette (Document/Heading → Fg+Primary, Code → Warning on BgSubtle, Link → Secondary, etc.). Cache keyed by `ThemeModeName + width` so swaps invalidate naturally. Screenshots 60/61 show the result on Solarized-Light and Dracula.
