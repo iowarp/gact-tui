@@ -1,0 +1,45 @@
+# Local research clones — read-only references, not part of the project
+research/
+
+# Go build artifacts
+bin/
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+
+# Loop-test artifacts (kept for reference but binaries/screenshots regenerated)
+loop-test/hello
+loop-test/hello.gif
+loop-test/screenshot.png
+loop-test/testdata/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Emulator / TUI build outputs (added once those exist)
+emulator/emulator-server
+emulator/coverage.txt
+tui/gact
+tui/coverage.txt
+
+# VHS produced media (we whitelist screenshots/ which is committed)
+**/*.gif
+!docs/**/*.gif
+*.webm
+*.mp4
+
+# Allow committed screenshots
+!screenshots/
+!screenshots/**/*.png
