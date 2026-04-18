@@ -43,6 +43,9 @@ func main() {
 			os.Exit(runExport(os.Args[2:]))
 		case "import":
 			os.Exit(runImport(os.Args[2:]))
+		case "version", "--version", "-v":
+			fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
+			return
 		case "-h", "--help":
 			printUsage()
 			return
@@ -51,6 +54,13 @@ func main() {
 	runTUI()
 }
 
+const (
+	// binaryVersion is bumped manually for now. A future enhancement
+	// could thread version info from the build via -ldflags.
+	binaryVersion   = "0.1.0"
+	contractVersion = "0.1"
+)
+
 func printUsage() {
 	fmt.Println(`gact — GACT TUI client
 
@@ -58,6 +68,7 @@ Usage:
   gact                       run the interactive TUI
   gact export <session_id>   download a session blob (JSON) to stdout
   gact import <file|->       upload a previously-exported session blob
+  gact version               print version + contract version
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)

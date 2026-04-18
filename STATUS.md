@@ -208,4 +208,5 @@ cd ../tui   && go build -o ./gact .
 | 22 | 2026-04-18T08:30 | Metrics modal (Ctrl+T) — wired to /v1/metrics | 65ee662 |
 | 23 | 2026-04-18T08:50 | E1 unblocked; default model; cost charges all turns | 89176b4 739c41a a847d85 |
 | 24 | 2026-04-18T09:15 | F1 OpenCode adapter scaffold + tests + README | 7dde94f |
-| 25 | 2026-04-18T09:30 | F4 voice transcribe wire-up (Ctrl+Y) | (this) |
+| 25 | 2026-04-18T09:30 | F4 voice; PLAN core complete | 2095fc6 |
+| 26 | 2026-04-18T09:42 | gact version subcommand; G6 cost test; Phase G follow-ups defined | (this) |

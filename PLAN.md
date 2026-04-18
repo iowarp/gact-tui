@@ -83,6 +83,15 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **F4.** Voice transcribe wire-up — emulator implements POST /v1/sessions/{id}/voice/transcribe (canned transcript by body length, with `?text=` query override for tests). TUI client.VoiceTranscribe + Ctrl+Y key inserts the recognised text at the textarea cursor. Real mic capture is platform-specific shell-out — out of scope for the TUI core; documented as user-supplied wrapper script.
 - [x] **F5.** Markdown rendering in messages via glamour — implemented for assistant text (iteration 11).
 
-## Follow-ups (added during build, not yet ordered)
+## Phase G — Open follow-ups
 
-(None yet.)
+- [ ] **G1.** OpenCode adapter messages list — `GET /v1/sessions/{id}/messages` translating OpenCode's `GET /session/{id}/message` (cursor pagination + Part translation).
+- [ ] **G2.** OpenCode adapter SSE — proxy `/event` with shape translation (BusEvent → GACT event taxonomy).
+- [ ] **G3.** OpenCode adapter POST message — `POST /v1/sessions/{id}/messages` translating to OpenCode's `POST /session/{id}/message`.
+- [ ] **G4.** Crush adapter — same shape, different upstream protocol (HTTP+SSE over Unix socket).
+- [ ] **G5.** Voice mic capture — user-supplied wrapper script that records audio and binds to a TUI key. Document the contract.
+- [x] **G6.** Cost meter test — `TestCostAccumulatesAcrossTurns` runs 3 user turns through the default scenario and asserts session.CostUSD = 0.081 (3 × 2 × $0.0135) and tokens.input/output match (9000 / 3600). Catches regressions in completeMessage cost charging.
+- [ ] **G7.** Sidebar viewport — keyboard navigation of the session list when there are many sessions (j/k beyond visible).
+- [ ] **G8.** Search UI — wire `/v1/sessions/{id}/messages/search` into the slash-command palette.
+- [ ] **G9.** Reload-on-config-change — TUI should pick up theme/backend changes from config without restart.
+- [ ] **G10.** Telemetry sampling — emulator's metrics include p50/p95 latencies for each endpoint.
