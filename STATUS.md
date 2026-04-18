@@ -243,4 +243,4 @@ cd ../tui   && go build -o ./gact .
 | 57 | 2026-04-18T19:00 | K10 — `y` copies last assistant message to clipboard (atotto) | 88c6253 |
 | 58 | 2026-04-18T19:20 | K11 — sidebar `/` session title filter (nav skips hidden) | 18cb890 |
 | 59 | 2026-04-18T19:40 | K12 — emulator --seed-messages flag (completes seeding trio) | f9c9389 |
-| 60 | 2026-04-18T19:55 | K13 — body `R` retries last user message | (this) |
+| 60 | 2026-04-18T19:55 | K13 — body `R` retries last user message | cce02f3 |
