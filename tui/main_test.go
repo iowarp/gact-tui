@@ -197,6 +197,32 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Wait covers BB1: post a message + immediately poll status
+// with `wait`. Exits 0 once the emulator returns idle. We use the
+// real emulator; scenario timing=fast keeps the running window
+// below a second so the test doesn't drag.
+func TestCLI_Wait(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "wait-target")
+
+	// Send a message that triggers a scenario (which runs briefly
+	// then returns to idle), then wait for idle.
+	_, _, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"send", sid, "please read main.go")
+	if code != 0 {
+		t.Fatalf("send failed: exit %d", code)
+	}
+	_, _, code = runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid)
+	if code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+}
+
 // TestCLI_Send covers AA1: `gact send` posts a user message and
 // prints the returned message_id. Also covers the stdin-via-`-`
 // path for pipe use.
