@@ -147,6 +147,15 @@ type App struct {
 	workspaceSwitchOpen bool
 	workspaceSwitchSel  int
 
+	// Rename modal — inline prompt to change a session's title.
+	// Opened by `e` on a selected session in the sidebar. We roll
+	// our own input (not bubbles/textarea) because we want a single-
+	// line, single-purpose editor and the full textarea styling would
+	// overwhelm this tiny overlay.
+	renameOpen   bool
+	renameDraft  string
+	renameCursor int
+
 	// Set by SSE handlers when the sidebar list might be stale (e.g. a
 	// subsession was created). The next Update reads + clears it and
 	// dispatches reloadSessionsCmd.
@@ -357,7 +366,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg, tea.PasteStartMsg, tea.PasteEndMsg:
 		// Forward paste events to the textarea when input has focus.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen {
 			var cmd tea.Cmd
 			a.input, cmd = a.input.Update(m)
 			return a, cmd
@@ -736,7 +745,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	}
-	// Modal layers take precedence: workspace-switcher/metrics/settings/help/palette → permission keys.
+	// Modal layers take precedence: rename/workspace-switcher/metrics/settings/help/palette → permission keys.
+	if a.renameOpen {
+		return a.handleRenameKey(k)
+	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
 	}
@@ -1127,6 +1139,19 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if sid := a.currentSessionID(); sid != "" {
 			return a, deleteSessionCmd(a.c, a.wsID, sid)
 		}
+	case "e":
+		// Rename the selected session. Opens an inline prompt
+		// pre-filled with the current title; Enter commits, Esc
+		// cancels. Complements J6's auto-rename — there the title
+		// derives from the first message heuristically; here the
+		// user can pick what they actually want.
+		if a.selected < 0 || a.selected >= len(a.sessions) {
+			return a, nil
+		}
+		a.renameOpen = true
+		a.renameDraft = a.sessions[a.selected].Title
+		a.renameCursor = len(a.renameDraft)
+		return a, nil
 	}
 	return a, nil
 }
@@ -1562,6 +1587,9 @@ func (a *App) viewMain() string {
 	}
 	if a.workspaceSwitchOpen {
 		base = overlay(base, a.viewWorkspaceSwitch(), a.width, a.height)
+	}
+	if a.renameOpen {
+		base = overlay(base, a.viewRename(), a.width, a.height)
 	}
 	return base
 }
@@ -2058,7 +2086,7 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("Ctrl+w") + "    switch workspace",
 		t.HintKey.Render("Ctrl+t") + "    backend metrics (telemetry)",
 		t.HintKey.Render("Ctrl+y") + "    voice transcribe (insert at cursor)",
-		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
+		t.HintKey.Render("n / x / e") + " (sidebar) new / delete / rename session",
 		t.HintKey.Render("g / G") + "     (sidebar) jump to first / last session",
 		t.HintKey.Render("PgUp/PgDn") + " (sidebar) page up / down",
 		t.HintKey.Render("Ctrl+c") + "    quit",
