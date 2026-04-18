@@ -45,6 +45,8 @@ func main() {
 			os.Exit(runExport(os.Args[2:]))
 		case "import":
 			os.Exit(runImport(os.Args[2:]))
+		case "list":
+			os.Exit(runList(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -204,6 +206,7 @@ Usage:
   gact version               print version + contract version
   gact diag                  print environment + config for bug reports
   gact emit-config           print sample config.json to stdout
+  gact list                  list recent sessions (tab-separated)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -315,6 +318,39 @@ func runTUI() {
 
 // runExport implements `gact export <session_id> [-o path] [--backend URL]`.
 // Returns the process exit code.
+// runList implements `gact list [--backend URL] [--workspace WS_ID]`.
+// Prints one tab-separated row per session (id, status, title,
+// updated_at RFC3339) so shell pipelines can grep / awk the output.
+// No TUI launch; useful for remote scripting.
+func runList(args []string) int {
+	fs := flag.NewFlagSet("list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "only sessions in this workspace")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact list: %v\n", err)
+		return 1
+	}
+	for _, s := range sessions {
+		title := s.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Printf("%s\t%s\t%s\t%s\n",
+			s.ID, s.Status, title, s.UpdatedAt.UTC().Format(time.RFC3339))
+	}
+	return 0
+}
+
 func runExport(args []string) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
