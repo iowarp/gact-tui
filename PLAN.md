@@ -173,8 +173,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase HH — session management CLI
 
-- [ ] **HH1.** `gact delete <sid>` — DELETE `/v1/sessions/{id}`. Pairs with `gact new` so users can clean up after themselves.
-- [ ] **HH2.** `gact rename <sid> <new-title>` — PATCH session title. Useful in scripts that want to label a session retroactively (e.g. after the first reply lands).
+- [x] **HH1.** `gact delete <sid>` removes a session. CLI test asserts the session disappears from `gact list` after.
+- [x] **HH2.** `gact rename <sid> <title>` PATCHes the title. CLI test confirms the new title surfaces in `gact list`.
 
 ## Phase GG — session creation CLI
 
