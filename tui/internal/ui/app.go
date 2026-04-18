@@ -126,6 +126,12 @@ type App struct {
 	// actually prevents message splitting.
 	inPaste bool
 
+	// Compose modal (M5): a full-screen-ish textarea seeded with the
+	// current input, for long prompts / expanded paste review. Opened
+	// from the input pane via Ctrl+G or Ctrl+Shift+P.
+	composeOpen bool
+	compose     *composeState
+
 	// pastes is a chronological record of multi-line pastes that have
 	// been compressed in the input box as `[pasted content: N lines]`
 	// placeholders. On send, each placeholder still present in the
@@ -470,6 +476,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.inPaste = false
 		return a, nil
 	case tea.PasteMsg:
+		// Compose modal takes paste routing whenever it's open — that's
+		// the whole point of "pastes render expanded" there.
+		if a.composeOpen && a.compose != nil {
+			var cmd tea.Cmd
+			a.compose.ta, cmd = a.compose.ta.Update(m)
+			return a, cmd
+		}
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
@@ -1004,6 +1017,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return a, nil
+	}
+	if a.composeOpen {
+		return a.handleComposeKey(k)
 	}
 	if a.paletteOpen {
 		return a.handlePaletteKey(k)
@@ -1664,6 +1680,13 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.expandMostRecentPaste()
 		return a, nil
 	}
+	if key == "ctrl+g" || key == "ctrl+shift+p" {
+		// Open the M5 compose modal for long-form editing. Both bindings
+		// are accepted — ctrl+shift+p only works on terminals that
+		// negotiate the Kitty keyboard protocol, ctrl+g works universally.
+		a.openCompose()
+		return a, nil
+	}
 	if key == "esc" {
 		a.input.Reset()
 		a.exitHistory()
@@ -2042,6 +2065,9 @@ func (a *App) viewMain() string {
 	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
+	}
+	if a.composeOpen {
+		base = overlay(base, a.viewCompose(), a.width, a.height)
 	}
 	return base
 }
@@ -2778,6 +2804,7 @@ var helpTabs = []struct {
 			{"/?<query>", "search session messages in palette"},
 			{"Paste ≥ 3 lines", "auto-compresses to [pasted content: N lines]"},
 			{"Ctrl+P", "expand most recent compressed paste in-place"},
+			{"Ctrl+G · Ctrl+⇧P", "open compose modal (long-form editor)"},
 		},
 	},
 	{
