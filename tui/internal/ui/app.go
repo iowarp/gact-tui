@@ -252,14 +252,46 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, waitForSSE(a.sseEvents, a.sseErrs)
 
 	case sseClosedMsg:
-		// Stream ended (cancelled or remote closed). Reopen for current session.
+		// Stream ended (cancelled or remote closed). Wait briefly then
+		// reopen for current session — this gives a server restart time
+		// to come back without a tight reconnect loop.
 		if sid := a.currentSessionID(); sid != "" {
-			return a, a.startSSECmd(sid)
+			return a, tea.Tick(reconnectDelay, func(time.Time) tea.Msg {
+				return reconnectMsg{sessionID: sid}
+			})
 		}
 		return a, nil
+
+	case reconnectMsg:
+		if a.currentSessionID() == m.sessionID {
+			return a, a.startSSECmd(m.sessionID)
+		}
+		return a, nil
+
+	case sessionCreatedMsg:
+		a.sessions = append([]gact.Session{m.session}, a.sessions...)
+		a.selected = 0
+		return a, a.selectSession(0)
+
+	case sessionsRefreshedMsg:
+		a.sessions = m.sessions
+		if len(a.sessions) == 0 {
+			a.selected = -1
+			a.messages = nil
+			return a, nil
+		}
+		if a.selected >= len(a.sessions) {
+			a.selected = len(a.sessions) - 1
+		}
+		if a.selected < 0 {
+			a.selected = 0
+		}
+		return a, a.selectSession(a.selected)
 	}
 	return a, nil
 }
+
+const reconnectDelay = 750 * time.Millisecond
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Modal layers take precedence: help overlay → palette → permission keys.
@@ -297,11 +329,19 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.focus = (a.focus + 2) % 3
 		return a, nil
 	case "ctrl+x":
-		// Cancel current run.
 		if sid := a.currentSessionID(); sid != "" {
 			return a, cancelCmd(a.c, sid)
 		}
 		return a, nil
+	case "ctrl+n":
+		// New session in current workspace.
+		if a.wsID != "" {
+			return a, createSessionCmd(a.c, a.wsID)
+		}
+		return a, nil
+	case "ctrl+r":
+		// Manual reconnect / refresh.
+		return a, connectCmd(a.c)
 	}
 	switch a.focus {
 	case FocusSidebar:
@@ -387,6 +427,37 @@ func (a *App) paletteMatches() []gact.Command {
 	return out
 }
 
+func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		s, err := c.CreateSession(ctx, client.CreateSessionRequest{
+			WorkspaceID: wsID,
+			Title:       "new session " + time.Now().UTC().Format("15:04:05"),
+		})
+		if err != nil {
+			return errMsg{err: err, stage: "create-session"}
+		}
+		return sessionCreatedMsg{session: s}
+	}
+}
+
+func deleteSessionCmd(c *client.Client, wsID, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := c.DeleteSession(ctx, sessionID); err != nil {
+			return errMsg{err: err, stage: "delete-session"}
+		}
+		// Re-list sessions in the workspace.
+		sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
+		if err != nil {
+			return errMsg{err: err, stage: "list-sessions"}
+		}
+		return sessionsRefreshedMsg{sessions: sessions}
+	}
+}
+
 func cancelCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -430,9 +501,17 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, a.selectSession(a.selected)
 		}
 	case "enter":
-		// Already selected; move focus to input for typing.
 		a.focus = FocusInput
 		return a, nil
+	case "n":
+		if a.wsID != "" {
+			return a, createSessionCmd(a.c, a.wsID)
+		}
+	case "x":
+		// Delete current session.
+		if sid := a.currentSessionID(); sid != "" {
+			return a, deleteSessionCmd(a.c, a.wsID, sid)
+		}
 	}
 	return a, nil
 }
@@ -846,7 +925,10 @@ func (a *App) renderSidebar(width, height int) string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("SESSIONS")
 	rows := []string{title, ""}
 	if len(a.sessions) == 0 {
-		rows = append(rows, t.HintLabel.Render("no sessions"))
+		rows = append(rows,
+			t.HintLabel.Render("no sessions"),
+			"",
+			t.HintKey.Render("n")+t.HintLabel.Render(" to create"))
 	}
 	for i, s := range a.sessions {
 		marker := "  "
@@ -904,9 +986,21 @@ func (a *App) renderBody(width, height int) string {
 
 	var body string
 	if a.selected < 0 || a.selected >= len(a.sessions) {
-		body = t.HintLabel.Render("Select a session on the left, or create a new one.")
+		body = lipgloss.JoinVertical(lipgloss.Left,
+			t.HintLabel.Render("No session selected."),
+			"",
+			t.HintLabel.Render("Sidebar (Tab to focus):"),
+			"  "+t.HintKey.Render("↑/↓")+" "+t.HintLabel.Render("pick"),
+			"  "+t.HintKey.Render("n")+"   "+t.HintLabel.Render("new"),
+			"  "+t.HintKey.Render("x")+"   "+t.HintLabel.Render("delete"),
+		)
 	} else if len(a.messages) == 0 {
-		body = t.HintLabel.Render("(no messages yet — type below to send the first one)")
+		body = lipgloss.JoinVertical(lipgloss.Left,
+			t.HintLabel.Render("(no messages yet — type below to send the first one)"),
+			"",
+			t.HintLabel.Render("Try: 'read main.go' for a normal turn"),
+			t.HintLabel.Render("Try: 'delete temp dir' to trigger a permission prompt"),
+		)
 	} else {
 		var rows []string
 		for _, m := range a.messages {
@@ -1031,6 +1125,9 @@ func (a *App) viewHelp() string {
 		t.HintKey.Render("?") + "         toggle this help",
 		t.HintKey.Render("Esc") + "       close overlay  /  clear input",
 		t.HintKey.Render("Ctrl+x") + "    cancel running scenario",
+		t.HintKey.Render("Ctrl+n") + "    new session",
+		t.HintKey.Render("Ctrl+r") + "    refresh / reconnect",
+		t.HintKey.Render("n / x") + "     (sidebar) new / delete session",
 		t.HintKey.Render("Ctrl+c") + "    quit",
 		"",
 		lipgloss.NewStyle().Bold(true).Foreground(t.Warning).Render("When a permission is pending"),
@@ -1121,5 +1218,17 @@ type sseEventMsg struct {
 type sseClosedMsg struct{}
 
 type msgPostedAck struct {
+	sessionID string
+}
+
+type sessionCreatedMsg struct {
+	session gact.Session
+}
+
+type sessionsRefreshedMsg struct {
+	sessions []gact.Session
+}
+
+type reconnectMsg struct {
 	sessionID string
 }
