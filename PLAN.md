@@ -166,11 +166,16 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase U — tiny wins
+
+- [ ] **U1.** `gact list --format json` for machine-parseable output; defaults to the existing tab-separated form.
+- [ ] **U2.** Window title surfaces running/waiting_permission status: `GACT — demo (running)` so tab-switchers see what needs attention.
+
 ## Phase T — terminal integration
 
 - [x] **T1.** `tea.View.WindowTitle` set to `GACT — <session title>` (fallback: bare `GACT`). bubbletea's renderer diffs against the previous frame so the escape sequence only fires when the title actually changes. Test covers both branches.
 - [x] **T2.** `gact list [--backend URL] [--workspace WS_ID]` prints tab-separated rows (id, status, title, updated_at RFC3339). Pipelines like `gact list | awk '$2=="waiting_permission" {print $1}'` work out of the box.
-- [ ] **T3.** Emulator `--workspace-path` flag walks the directory on every `/v1/workspaces/{id}/files` request instead of returning the static demo list. Opt-in because deterministic tests rely on the static fixture.
+- [x] **T3.** Emulator `--walk-files` flag. When set AND a workspace's RootPath exists on disk, the handler walks the real tree (up to 2000 entries; skips dotfiles + node_modules + vendor + target). Test covers the happy path and confirms static-demo entries are suppressed in walk mode.
 
 ## Phase S — render polish
 

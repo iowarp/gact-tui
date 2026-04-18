@@ -2423,14 +2423,26 @@ func (a *App) View() tea.View {
 // windowTitle builds the OSC-2 string set on every frame. Intentionally
 // cheap — the bubbletea renderer diffs against the previous view and
 // only emits the escape sequence when the string actually changes.
+// U2: appends a status suffix for running / waiting_permission so
+// tab-switchers can tell at a glance which pane needs attention.
 func (a *App) windowTitle() string {
-	if a.selected >= 0 && a.selected < len(a.sessions) {
-		title := a.sessions[a.selected].Title
-		if title != "" {
-			return "GACT — " + title
-		}
+	if a.selected < 0 || a.selected >= len(a.sessions) {
+		return "GACT"
 	}
-	return "GACT"
+	s := a.sessions[a.selected]
+	title := s.Title
+	if title == "" {
+		title = "GACT"
+	} else {
+		title = "GACT — " + title
+	}
+	switch s.Status {
+	case gact.StatusRunning:
+		title += " (running)"
+	case gact.StatusWaitingPermission:
+		title += " (waiting)"
+	}
+	return title
 }
 
 func (a *App) viewConnecting() string {
