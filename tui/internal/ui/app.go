@@ -78,6 +78,11 @@ type App struct {
 
 	// Help overlay
 	helpOpen bool
+
+	// Set by SSE handlers when the sidebar list might be stale (e.g. a
+	// subsession was created). The next Update reads + clears it and
+	// dispatches reloadSessionsCmd.
+	pendingSidebarRefresh bool
 }
 
 // New constructs an App.
@@ -152,6 +157,20 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 			out[len(msgs)-1-i] = m
 		}
 		return messagesLoadedMsg{sessionID: sessionID, messages: out}
+	}
+}
+
+// reloadSessionsCmd is used after subagent.started so the new sub-session
+// shows up in the sidebar without the user having to refresh manually.
+func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
+		if err != nil {
+			return errMsg{err: err, stage: "list-sessions"}
+		}
+		return sessionsRefreshedMsg{sessions: sessions}
 	}
 }
 
@@ -249,7 +268,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sseEventMsg:
 		a.applySSE(m.Event)
-		return a, waitForSSE(a.sseEvents, a.sseErrs)
+		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
+		if a.pendingSidebarRefresh && a.wsID != "" {
+			a.pendingSidebarRefresh = false
+			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+		}
+		return a, tea.Batch(cmds...)
 
 	case sseClosedMsg:
 		// Stream ended (cancelled or remote closed). Wait briefly then
@@ -274,19 +298,32 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.selectSession(0)
 
 	case sessionsRefreshedMsg:
+		// Preserve the current session ID across the refresh so the user
+		// doesn't get yanked to a different session when sidebar reloads
+		// (e.g. after a subsession is created).
+		prevID := a.currentSessionID()
 		a.sessions = m.sessions
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
 			return a, nil
 		}
-		if a.selected >= len(a.sessions) {
-			a.selected = len(a.sessions) - 1
+		// Try to find the prior session in the new list.
+		newIdx := -1
+		for i, s := range a.sessions {
+			if s.ID == prevID {
+				newIdx = i
+				break
+			}
 		}
-		if a.selected < 0 {
-			a.selected = 0
+		if newIdx >= 0 {
+			a.selected = newIdx
+			// No need to reload messages — same session.
+			return a, nil
 		}
-		return a, a.selectSession(a.selected)
+		// Prior session is gone — fall back to the first.
+		a.selected = 0
+		return a, a.selectSession(0)
 	}
 	return a, nil
 }
@@ -618,8 +655,15 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.applyPermissionRequested(e)
 	case "permission.resolved":
 		a.applyPermissionResolved(e)
+	case "subagent.started", "subagent.completed":
+		// Refresh sidebar so the new subsession appears (or its status updates).
+		a.pendingSidebarRefresh = true
 	}
 }
+
+// pendingSidebarRefresh works around the fact that we can't return a Cmd
+// from applySSE — it's called from inside Update. The next blink/idle Cmd
+// pickup checks the flag and triggers reloadSessionsCmd.
 
 func (a *App) applyMessageCreated(e client.SSEEvent) {
 	mp, ok := e.Payload["payload"].(map[string]any)
@@ -925,8 +969,13 @@ func (a *App) renderSidebar(width, height int) string {
 	}
 	for i, s := range a.sessions {
 		marker := "  "
+		indent := ""
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
 		statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
+		if s.ParentSessionID != "" {
+			indent = "  └ "
+			titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
+		}
 		if i == a.selected {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 			titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
@@ -935,8 +984,8 @@ func (a *App) renderSidebar(width, height int) string {
 		if title == "" {
 			title = "untitled"
 		}
-		titleLine := marker + titleStyle.Render(truncate(title, width-6))
-		statusLine := "  " + statusStyle.Render(s.Status)
+		titleLine := marker + indent + titleStyle.Render(truncate(title, width-6-len(indent)))
+		statusLine := "  " + indent + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)

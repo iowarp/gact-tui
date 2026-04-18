@@ -17,16 +17,23 @@ import (
 //  6. Assistant message #2: text response + finish (stop_reason)
 //  7. session.status_changed → idle
 //
-// If the user message text contains a danger keyword (delete, rm, drop,
-// truncate), the tool call requires permission. Otherwise it auto-allows.
+// Triggers:
+//   - "delete" / "rm " / "drop " / "truncate" → permission flow
+//   - "split" / "with help" / "subagent"      → spawn a subagent inline
 func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) {
-	// Look at the user message to choose tool + permission behaviour.
 	userMsg, err := e.store.GetMessage(userMsgID)
 	if err != nil {
 		return
 	}
 	userText := strings.ToLower(extractFirstText(userMsg))
 	dangerous := containsAny(userText, "delete", "rm ", "drop ", "truncate")
+	wantsSubagent := containsAny(userText, "split", "with help", "subagent")
+
+	// Subagent path takes precedence and demonstrates the multi-agent flow.
+	if wantsSubagent {
+		runSubagentScript(ctx, e, sessionID, userMsg)
+		return
+	}
 
 	e.publishStatus(sessionID, gact.StatusRunning)
 
