@@ -143,6 +143,13 @@ type App struct {
 	catalogBrowserOpen bool
 	catalogBrowser     *catalogBrowserState
 
+	// pendingClearSessionID arms a two-step /clear confirmation on
+	// the named session. A first /clear sets this + a toast; the
+	// second /clear within the toast window actually wipes. Any
+	// other key/command cancels the pending state. Same idea as
+	// K5's pendingDeleteSessionID but scoped to messages.
+	pendingClearSessionID string
+
 	// inputDraftBySession preserves per-session in-flight drafts so
 	// switching away and back doesn't wipe what the user was typing.
 	// Lifetime is the app process — restart drops the map (N5 tracks
@@ -1345,8 +1352,21 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// (SSE events keep us honest), but the UI shouldn't appear
 			// frozen between "Enter" and the SSE round-trip.
 			var extraCmds []tea.Cmd
+			sid := a.currentSessionID()
 			switch cmd.ID {
 			case "/clear":
+				// Two-step confirmation — /clear is destructive and
+				// irreversible (backend wipes messages). First
+				// invocation arms a pending state + a toast; second
+				// within the dwell window actually wipes. Anything
+				// else cancels.
+				if a.pendingClearSessionID != sid {
+					a.pendingClearSessionID = sid
+					a.transientHint = "press /clear again to confirm wipe"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				a.pendingClearSessionID = ""
 				n := len(a.messages)
 				a.messages = nil
 				a.scrollOffset = 0
@@ -1361,7 +1381,12 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.transientHint = "cancelling run…"
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
 			}
-			extraCmds = append(extraCmds, runCommandCmd(a.c, a.currentSessionID(), cmd.ID))
+			// Any non-/clear action cancels a pending clear — same
+			// anti-accident pattern as K5's armed delete.
+			if cmd.ID != "/clear" {
+				a.pendingClearSessionID = ""
+			}
+			extraCmds = append(extraCmds, runCommandCmd(a.c, sid, cmd.ID))
 			return a, tea.Batch(extraCmds...)
 		}
 	case "backspace":
@@ -1893,6 +1918,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.currentStatus = a.sessions[idx].Status
 	a.pendingPermissions = nil
 	a.pendingDeleteSessionID = "" // armed delete is per-session; clear on switch
+	a.pendingClearSessionID = ""  // same for /clear confirmation
 	// New session ⇒ new event stream, no replay. Starting at 0 makes
 	// the adapter/emulator send the full current event history from
 	// the ring buffer (per SPEC §7.3 replay semantics).

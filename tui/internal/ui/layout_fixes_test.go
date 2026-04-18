@@ -338,6 +338,49 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 }
 
+// TestClear_RequiresDoubleConfirmation verifies N2: one /clear sets
+// a pending state and leaves messages alone; a second /clear within
+// the dwell actually wipes. Protects against accidental destructive
+// command invocation.
+func TestClear_RequiresDoubleConfirmation(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{{
+		ID: "msg1", SessionID: "sess_1", Role: gact.RoleUser,
+		Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "hi"}},
+	}}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusInput
+	a.commands = []gact.Command{
+		{ID: "/clear", Title: "Clear chat history", Source: "builtin"},
+	}
+
+	// First /clear — should arm the pending state, NOT wipe messages.
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = 0
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if a.pendingClearSessionID != "sess_1" {
+		t.Fatalf("first /clear didn't arm pending state: %q", a.pendingClearSessionID)
+	}
+	if len(a.messages) == 0 {
+		t.Fatalf("first /clear wiped messages — should require confirmation")
+	}
+
+	// Second /clear — should wipe.
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = 0
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if len(a.messages) != 0 {
+		t.Fatalf("second /clear didn't wipe messages: %d left", len(a.messages))
+	}
+	if a.pendingClearSessionID != "" {
+		t.Fatalf("pending state should clear after confirmed wipe: %q", a.pendingClearSessionID)
+	}
+}
+
 // TestSessionsSlashCmd_FocusesSidebarFilter verifies N4 routing:
 // picking `/sessions` from the palette focuses the sidebar and
 // pre-arms the title filter so the user can type straight into it.
