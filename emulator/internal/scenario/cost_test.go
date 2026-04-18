@@ -28,8 +28,12 @@ func TestCostAccumulatesAcrossTurns(t *testing.T) {
 		})
 		eng.OnUserMessage(sid, user.ID)
 
-		// Drain events until status returns to idle.
-		deadline := time.After(3 * time.Second)
+		// Drain events until status returns to idle. Generous deadline:
+		// the test exits on the success predicate, so a longer wait
+		// doesn't slow the happy path; it just absorbs CI variance
+		// where a slow runner can take much longer than the local
+		// dev loop. Original 3s tripped on GitHub Actions runners.
+		deadline := time.After(30 * time.Second)
 		settled := false
 		for !settled {
 			select {
