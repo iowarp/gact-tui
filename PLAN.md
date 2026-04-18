@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase W — session utilities
 
-- [ ] **W1.** `/duplicate` palette command — creates a new session with the same title + agent + model as the current one (no messages). Useful for "start a fresh branch of the same kind of work".
+- [x] **W1.** `/duplicate` creates a fresh session with title+` (copy)` + cloned model + cloned agent. Dispatches sessionCreatedMsg so the new session lands in the sidebar and becomes active. Test + emulator catalog + help entry.
 
 ## Phase V — operator tools
 
