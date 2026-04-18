@@ -174,6 +174,41 @@ func TestCLI_ExportToFile_FlagAfterArg(t *testing.T) {
 	}
 }
 
+// TestCLI_ExportAll covers V1: `gact export --all -o DIR` writes one
+// JSON file per session into DIR. Exercises the full CLI path against
+// a real emulator binary.
+func TestCLI_ExportAll(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Seed 3 sessions so the bulk export has real material.
+	sid1 := createSession(t, url, "alpha")
+	sid2 := createSession(t, url, "beta")
+	sid3 := createSession(t, url, "gamma")
+
+	outDir := filepath.Join(t.TempDir(), "exports")
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"export", "--all", "-o", outDir)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stderr, "ok") {
+		t.Errorf("summary missing from stderr: %q", stderr)
+	}
+
+	for _, sid := range []string{sid1, sid2, sid3} {
+		p := filepath.Join(outDir, sid+".json")
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("missing export for %s: %v", sid, err)
+		}
+		if !strings.Contains(string(b), `"gact-v1"`) {
+			t.Errorf("%s doesn't look like an export blob: %s", sid, string(b)[:80])
+		}
+	}
+}
+
 func TestCLI_ImportRoundTrip(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
