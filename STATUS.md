@@ -230,3 +230,4 @@ cd ../tui   && go build -o ./gact .
 | 44 | 2026-04-18T15:20 | J3 — auto-retry connect + Ctrl+R instant retry from StageError | 3e717b0 |
 | 45 | 2026-04-18T15:40 | J4 — SSE Last-Event-ID resume (track highest SeqID; reset on selectSession) | ee3c246 |
 | 46 | 2026-04-18T15:55 | J5 — preserve in-flight message on post failure (restore text + hint) | 781ba40 |
+| 47 | 2026-04-18T16:10 | J6 — auto-rename session from first user message (silent on PATCH fail) | (this) |

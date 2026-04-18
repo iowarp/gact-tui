@@ -331,7 +331,7 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 		if err != nil {
 			return postFailedMsg{text: text, err: err}
 		}
-		return msgPostedAck{sessionID: sessionID}
+		return msgPostedAck{sessionID: sessionID, text: text}
 	}
 }
 
@@ -449,6 +449,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case msgPostedAck:
 		// User message is in the store; the SSE stream will reflect it via
 		// the message.created event the server publishes.
+		//
+		// Auto-rename: if this was the first user message AND the
+		// session still carries the default "new session …" title,
+		// patch it to a truncated version of the message so the
+		// sidebar becomes self-describing. Silent: no toast if the
+		// PATCH fails (the rename is a nicety, not load-bearing).
+		if title, ok := autoRenameTitle(a, m.sessionID, m.text); ok {
+			return a, patchSessionTitleCmd(a.c, m.sessionID, title)
+		}
+		return a, nil
+
+	case sessionTitleRenamedMsg:
+		// Rename failed — swallow silently. Title stays at the default.
+		if m.err != nil {
+			return a, nil
+		}
+		// Mirror the new title into a.sessions so the sidebar updates
+		// without a full list refetch.
+		for i, s := range a.sessions {
+			if s.ID == m.sessionID {
+				a.sessions[i].Title = m.title
+				break
+			}
+		}
 		return a, nil
 
 	case sseEventMsg:
@@ -2127,6 +2151,7 @@ type sseClosedMsg struct{}
 
 type msgPostedAck struct {
 	sessionID string
+	text      string // the user message just posted; used by auto-rename
 }
 
 type sessionCreatedMsg struct {
