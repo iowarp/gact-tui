@@ -1887,6 +1887,18 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		a.transientHint = "retrying…"
 		return a, postMessageCmd(a.c, sid, text)
+	case "t":
+		// S1: toggle per-message timestamps under the role headers.
+		// Not persisted — this is a live-debugging aid, not a real
+		// preference. Flipping it re-renders the conversation so the
+		// change is visible immediately.
+		a.Theme.ShowTimestamps = !a.Theme.ShowTimestamps
+		state := "off"
+		if a.Theme.ShowTimestamps {
+			state = "on"
+		}
+		a.transientHint = "timestamps: " + state
+		return a, scheduleHintExpire(a.transientHint)
 	case "d":
 		// N3: delete the most recent message. "Target latest" same
 		// pattern as y/R since the TUI doesn't yet have a per-message
@@ -3244,6 +3256,7 @@ var helpTabs = []struct {
 			{"y", "copy last assistant message to clipboard"},
 			{"R", "retry — resend last user message"},
 			{"d", "delete last message (optimistic; targets newest)"},
+			{"t", "toggle per-message timestamps"},
 			{"Ctrl+E", "expand latest bulky tool output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},

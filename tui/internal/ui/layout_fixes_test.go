@@ -9,6 +9,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -504,6 +505,48 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 	if custom.CostDangerTokens != 30_000 {
 		t.Errorf("override danger lost: %d", custom.CostDangerTokens)
+	}
+}
+
+// TestTimestampToggle_FlipsAndRenders verifies S1: body-focus `t`
+// toggles Theme.ShowTimestamps, and the rendered conversation
+// includes a formatted timestamp when the flag is on.
+func TestTimestampToggle_FlipsAndRenders(t *testing.T) {
+	ts := time.Date(2026, 4, 18, 20, 34, 5, 0, time.UTC)
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	msgs := []gact.Message{
+		{
+			ID: "m1", SessionID: "sess_1", Role: gact.RoleUser,
+			CreatedAt: ts,
+			Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "hi"}},
+		},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusBody
+
+	// Before toggling — timestamp should NOT appear.
+	plain := ansi.Strip(renderAtSize(a, 110, 30))
+	if strings.Contains(plain, "2026-04-18 20:34:05") {
+		t.Fatalf("timestamp shown before toggle")
+	}
+
+	// Press `t` — state flips to on.
+	out, _ := a.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	a = out.(*App)
+	if !a.Theme.ShowTimestamps {
+		t.Fatalf("showTimestamps didn't flip on")
+	}
+
+	plain = ansi.Strip(renderAtSize(a, 110, 30))
+	if !strings.Contains(plain, "2026-04-18 20:34:05") {
+		t.Fatalf("timestamp missing after toggle-on: %q", plain[:400])
+	}
+
+	// Press `t` again — state flips off.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	a = out.(*App)
+	if a.Theme.ShowTimestamps {
+		t.Fatalf("showTimestamps didn't flip off")
 	}
 }
 

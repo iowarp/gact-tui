@@ -166,6 +166,11 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase O — Themes + ecosystem polish
 
+## Phase S — render polish
+
+- [ ] **S1.** Per-message timestamp toggle — pressing `t` on body focus flips a hidden/shown state for creation timestamps under each role header. Useful for "when did this happen" debugging without always burning a row per message.
+- [ ] **S2.** Long assistant text (>N lines) mirrors the tool_result compress-with-expand treatment — currently only tool outputs collapse, so a 60-line explanation still floods the viewport.
+
 ## Phase R — discoverability + diag
 
 - [x] **R1.** `gact diag` prints version + contract + runtime + platform + config path + every config field + custom theme file status + GACT_* env vars. Non-interactive; exits after printing. Users can paste the output into bug reports without opening the TUI.
