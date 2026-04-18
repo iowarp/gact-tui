@@ -119,6 +119,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.themeSel > 0 {
 				s.themeSel--
 			}
+			a.previewTheme(s.themeSel)
 		case 3:
 			if s.tuiRow > 0 {
 				s.tuiRow--
@@ -136,9 +137,10 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				s.agentSel++
 			}
 		case 2:
-			if s.themeSel < 1 {
+			if s.themeSel < len(AllThemeModes)-1 {
 				s.themeSel++
 			}
+			a.previewTheme(s.themeSel)
 		case 3:
 			if s.tuiRow < tuiPrefsRowCount-1 {
 				s.tuiRow++
@@ -170,14 +172,20 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case 2:
 			// Theme apply is local — no backend PATCH. Live-swap the
 			// lipgloss Theme so the conversation redraws with the new
-			// palette; same plumbing K9 uses for config-reload.
+			// palette; same plumbing K9 uses for config-reload. We
+			// also persist the choice via SaveConfig so it survives
+			// restart (N5 plumbing).
 			mode := ModeDark
-			if s.themeSel == 1 {
-				mode = ModeLight
+			if s.themeSel >= 0 && s.themeSel < len(AllThemeModes) {
+				mode = AllThemeModes[s.themeSel]
 			}
+			prev := a.Theme.CollapseThreshold
 			a.Theme = ThemeForMode(mode)
+			a.Theme.CollapseThreshold = prev // preserve the user's pref across swap
+			a.Theme.applyStyles()            // re-run so HintKey/etc. see the new palette
 			a.settingsOpen = false
-			a.transientHint = "theme applied (persist via --theme flag or config)"
+			a.transientHint = "theme: " + ThemeModeName(mode)
+			a.persistPrefs()
 			return a, nil
 		case 3:
 			// TUI prefs tab is read-only for now — Enter just closes.
@@ -281,28 +289,26 @@ func (a *App) viewSettings() string {
 			rows = append(rows, truncate(line, w-2))
 		}
 	case 2:
-		// Theme tab — pick light or dark live. Doesn't persist to the
-		// config file; the hint explains how (use --theme or config).
+		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
+		// previews live so users can see what they're picking
+		// before committing. Enter commits + persists via N5's
+		// config hook.
 		rows = append(rows, t.HintLabel.Render("current: "+themeName(a.Theme)))
 		rows = append(rows, "")
-		for i, entry := range []struct{ name, desc string }{
-			{"dark", "high-contrast on dark backgrounds (default)"},
-			{"light", "muted palette on light backgrounds"},
-		} {
+		for i, mode := range AllThemeModes {
 			marker := "  "
 			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
 			if i == s.themeSel {
 				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
 			}
-			line := marker + titleStyle.Render(entry.name) + "  " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Render(entry.desc)
+			line := marker + titleStyle.Render(ThemeModeName(mode)) + "  " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Render(themeDescription(mode))
 			rows = append(rows, truncate(line, w-2))
 		}
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"Enter live-applies. Persist via --theme=light|dark or "+
-				"voice_command in ~/.config/gact/config.json."))
+			"↑/↓ previews live · Enter commits + persists to ~/.config/gact/config.json"))
 	case 3:
 		// TUI preferences. Mix of editable knobs and read-only runtime
 		// state. Editable rows have ◀/▶ affordances; the selected row
@@ -360,13 +366,14 @@ func orPlaceholder(s, placeholder string) string {
 	return s
 }
 
-// themeName returns "light" or "dark" based on the theme's background
-// luminance. Same heuristic as renderMarkdown's glamourStyle picker.
+// themeName returns the canonical string identifier for a Theme.
+// Used by the Theme tab's "current:" row, the settings hint, and
+// the Ctrl+L / --theme config persistence round-trip. Previously
+// keyed off background luminance (r,g,b > 60000 = light); now uses
+// ThemeModeFor which matches against the known palettes exactly so
+// adding new themes doesn't silently mislabel them.
 func themeName(t Theme) string {
-	if r, g, b, _ := t.Bg.RGBA(); r > 60000 && g > 60000 && b > 60000 {
-		return "light"
-	}
-	return "dark"
+	return ThemeModeName(ThemeModeFor(t))
 }
 
 // boolPretty renders a bool as "on"/"off" for the TUI-prefs tab.
@@ -375,6 +382,43 @@ func boolPretty(b bool) string {
 		return "on"
 	}
 	return "off"
+}
+
+// previewTheme live-swaps a.Theme as the user steps through the
+// theme picker with ↑/↓. The current CollapseThreshold survives the
+// swap — no one wants their pref reset just because they're
+// flipping through palettes.
+func (a *App) previewTheme(idx int) {
+	if idx < 0 || idx >= len(AllThemeModes) {
+		return
+	}
+	prev := a.Theme.CollapseThreshold
+	a.Theme = ThemeForMode(AllThemeModes[idx])
+	a.Theme.CollapseThreshold = prev
+	a.Theme.applyStyles()
+}
+
+// themeDescription returns a one-line hint shown next to each palette
+// name in the Theme tab. Short and factual; keep the vibe in the
+// palette itself, not the description.
+func themeDescription(m ThemeMode) string {
+	switch m {
+	case ModeDark:
+		return "default — purple + green on near-black"
+	case ModeLight:
+		return "Gruvbox-inspired cream + warm accents"
+	case ModeDracula:
+		return "purple + pink + cyan on deep graphite"
+	case ModeSolarizedDark:
+		return "Solarized low-contrast dark"
+	case ModeSolarizedLight:
+		return "Solarized paper-inspired light"
+	case ModeNord:
+		return "arctic blue + aurora accents"
+	case ModeTokyoNight:
+		return "navy + neon — cyberpunk glow"
+	}
+	return ""
 }
 
 // persistPrefs asks the host (main.go) to save the current Settings

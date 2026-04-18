@@ -39,23 +39,26 @@ func TestSettings_ThemeTabUpDownCycle(t *testing.T) {
 	a.settingsOpen = true
 	a.settings = &settingsState{tab: 2, themeSel: 0}
 
-	// ↓ from dark (0) should go to light (1); ↓ again clamps at 1.
+	last := len(AllThemeModes) - 1
+
+	// ↓ from 0 should advance to 1.
 	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	if a.settings.themeSel != 1 {
 		t.Errorf("themeSel after ↓ = %d, want 1", a.settings.themeSel)
 	}
-	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
-	if a.settings.themeSel != 1 {
-		t.Errorf("themeSel clamp past light = %d, want 1", a.settings.themeSel)
+	// Walk ↓ to the end, then confirm clamp.
+	for i := 0; i < last*2; i++ {
+		a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	}
-	// ↑ back to dark, then clamp at 0.
-	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyUp})
-	if a.settings.themeSel != 0 {
-		t.Errorf("themeSel after ↑ = %d, want 0", a.settings.themeSel)
+	if a.settings.themeSel != last {
+		t.Errorf("themeSel clamp at end = %d, want %d", a.settings.themeSel, last)
 	}
-	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	// ↑ back to 0, then confirm clamp.
+	for i := 0; i < last*2; i++ {
+		a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	}
 	if a.settings.themeSel != 0 {
-		t.Errorf("themeSel clamp below dark = %d, want 0", a.settings.themeSel)
+		t.Errorf("themeSel clamp below = %d, want 0", a.settings.themeSel)
 	}
 }
 
@@ -75,8 +78,8 @@ func TestSettings_ThemeEnterSwapsThemeLive(t *testing.T) {
 	if themeName(a.Theme) != "light" {
 		t.Errorf("theme after Enter = %q, want 'light'", themeName(a.Theme))
 	}
-	if !strings.Contains(a.transientHint, "theme applied") {
-		t.Errorf("hint = %q, want 'theme applied' confirmation", a.transientHint)
+	if !strings.Contains(a.transientHint, "theme: ") {
+		t.Errorf("hint = %q, want 'theme: ' prefix", a.transientHint)
 	}
 }
 
