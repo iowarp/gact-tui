@@ -100,6 +100,25 @@ func runTUI() {
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
 	app.VoiceCommand = finalVoice
+	// Hot-reload: Ctrl+L re-reads the on-disk config and reapplies
+	// runtime-tweakable fields (theme, voice command). Backend changes
+	// require a restart — flagged in the toast so the user knows.
+	startBackend := finalBackend
+	app.ReloadConfig = func() (string, error) {
+		newCfg, _, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		nextTheme := config.Resolve(newCfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+		nextVoice := config.Resolve(newCfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
+		nextBackend := config.Resolve(newCfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+		app.Theme = ui.ThemeForMode(ui.ParseThemeMode(nextTheme))
+		app.VoiceCommand = nextVoice
+		if nextBackend != startBackend {
+			return fmt.Sprintf("config reloaded (theme=%s); backend changed — restart to apply", nextTheme), nil
+		}
+		return fmt.Sprintf("config reloaded (theme=%s, voice=%t)", nextTheme, nextVoice != ""), nil
+	}
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "gact:", err)
