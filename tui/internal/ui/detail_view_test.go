@@ -97,6 +97,40 @@ func TestRenderPart_ToolResultCollapsesLongOutput(t *testing.T) {
 	}
 }
 
+// TestFindBulkyPartIn covers Z1: scanning a single message for bulky
+// parts returns the first qualifying tool_result or text. Used by the
+// cursor-routed Ctrl+E path.
+func TestFindBulkyPartIn(t *testing.T) {
+	// No bulky parts in a short-text message.
+	short := gact.Message{
+		ID: "m1", Role: gact.RoleAssistant,
+		Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "short"}},
+	}
+	if _, ok := findBulkyPartIn(short); ok {
+		t.Errorf("short msg shouldn't qualify as bulky")
+	}
+
+	// Long text qualifies.
+	var b strings.Builder
+	for i := 0; i < 40; i++ {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString("line ")
+	}
+	long := gact.Message{
+		ID: "m2", Role: gact.RoleAssistant,
+		Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: b.String()}},
+	}
+	ref, ok := findBulkyPartIn(long)
+	if !ok {
+		t.Fatalf("long msg should qualify")
+	}
+	if !strings.Contains(ref.title, "text") {
+		t.Errorf("title missing 'text': %q", ref.title)
+	}
+}
+
 // TestFindLatestBulkyPart_TargetsLongText covers S2: long assistant
 // text should now qualify as bulky so Ctrl+E can open it.
 func TestFindLatestBulkyPart_TargetsLongText(t *testing.T) {

@@ -1167,12 +1167,21 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
 	case "ctrl+e":
-		// Expand the most recent bulky tool_result into the floating
-		// detail view (L3). "Most recent" matches K10/K13's "target
-		// the newest" heuristic — a proper part cursor is a follow-up.
-		ref, ok := findLatestBulkyPart(a.messages)
+		// Z1: when the body cursor is set and the selected message
+		// has a bulky tool_result or text part, expand THAT one.
+		// Otherwise fall back to the "latest bulky" heuristic (L3).
+		var (
+			ref bulkyPartRef
+			ok  bool
+		)
+		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+			ref, ok = findBulkyPartIn(a.messages[a.bodySelMsgIdx])
+		}
 		if !ok {
-			a.transientHint = "nothing to expand — no bulky tool outputs loaded"
+			ref, ok = findLatestBulkyPart(a.messages)
+		}
+		if !ok {
+			a.transientHint = "nothing to expand — no bulky outputs in selection"
 			return a, nil
 		}
 		a.detailView = &ref

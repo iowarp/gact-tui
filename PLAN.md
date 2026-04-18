@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase Z — cursor-aware everything
+
+- [ ] **Z1.** Route `Ctrl+E` through the body cursor too. When set and the cursor's message has a bulky tool_result or text part, expand THAT one; otherwise fall back to `findLatestBulkyPart`.
+
 ## Phase Y — body-focus cursor
 
 - [x] **Y1.** Body-focus message cursor (`n` next, `N` prev; idx=-1 off by default). Left-gutter `▌` in Secondary when set; takes precedence over the V3 search marker. Session switch resets.
