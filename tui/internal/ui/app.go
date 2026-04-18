@@ -2439,7 +2439,24 @@ func (a *App) renderSidebar(width, height int) string {
 
 func (a *App) renderBody(width, height int) string {
 	t := a.Theme
+	// Input pane grows with multi-line content up to a cap so users
+	// can actually see what they're composing. 3 rows is the floor
+	// (1 border top + 1 content + 1 border bottom ≈ 1 visible line)
+	// and we cap at ~1/3 the viewport so a long paste doesn't crowd
+	// out the conversation. lineCount here is 1-based (a 3-line buffer
+	// reports 3); we give the pane one extra row for the cursor.
+	lineCount := strings.Count(a.input.Value(), "\n") + 1
 	inputH := 3
+	if lineCount > 1 {
+		inputH = lineCount + 2 // +2 for borders
+		maxInputH := height / 3
+		if maxInputH < 3 {
+			maxInputH = 3
+		}
+		if inputH > maxInputH {
+			inputH = maxInputH
+		}
+	}
 	// The transient hint (e.g. config-reload outcome) renders as its own
 	// row between the message pane and the input pane. When it's present
 	// we have to steal that row from the message pane or else the total

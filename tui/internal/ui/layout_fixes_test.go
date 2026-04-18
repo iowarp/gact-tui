@@ -12,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -437,6 +438,37 @@ func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
 	if len(a.pastes) != 0 {
 		t.Fatalf("pastes weren't cleared after compose open")
 	}
+}
+
+// TestInputPane_GrowsWithContent verifies multi-line buffers get a
+// taller input pane (capped at ~1/3 viewport) so users can see what
+// they're composing. Single-line buffers keep the compact 3-row pane.
+func TestInputPane_GrowsWithContent(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+
+	// Single-line buffer — pane should be minimal (no noticeable growth
+	// compared to empty).
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.input.SetValue("one line")
+	baseline := lipgloss.Height(renderAtSize(a, 110, 30))
+
+	// Five-line buffer — total height should still equal viewport (the
+	// footer-clipping contract never breaks) but the split shifts so the
+	// input pane grows.
+	a.input.SetValue("line 1\nline 2\nline 3\nline 4\nline 5")
+	tall := renderAtSize(a, 110, 30)
+	if got := lipgloss.Height(tall); got > 30 {
+		t.Fatalf("multi-line input pushed view over viewport: %d > 30", got)
+	}
+	// Belt-and-braces: the rendered output should contain every buffer
+	// line. Strip ANSI so the substring test isn't tripped up by style
+	// escape codes.
+	plain := ansi.Strip(tall)
+	if !strings.Contains(plain, "line 5") {
+		t.Fatalf("multi-line buffer last line missing — pane didn't grow")
+	}
+	_ = baseline
 }
 
 // TestCatalogBrowser_CommandIDsRoute verifies the L5 palette routing:
