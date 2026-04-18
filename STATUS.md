@@ -21,6 +21,14 @@
   lines.
 - **X2.** `gact ping` probes `/v1/health`; exit 0 healthy.
 
+### Phase Z — cursor-aware everything
+- **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
+  part of the SELECTED message, falls back to newest-bulky.
+
+### Phase AA — scripting
+- **AA1.** `gact send <sid> <text|->` posts a user message via
+  CLI; stdin pipe supported through `-`. Full CLI test.
+
 ### Phase Y — body-focus cursor
 - **Y1.** `n` / `N` move a per-message cursor in body focus; bold-
   green `▌` gutter marks the selection.
