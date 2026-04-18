@@ -30,8 +30,9 @@ type OcSession struct {
 // OcTimes mirrors OpenCode's `time: {created, updated}` sub-object
 // (timestamps are ms since epoch).
 type OcTimes struct {
-	Created int64 `json:"created"`
-	Updated int64 `json:"updated"`
+	Created   int64 `json:"created"`
+	Updated   int64 `json:"updated"`
+	Completed int64 `json:"completed,omitempty"`
 }
 
 // OcSessionListResponse mirrors GET /session/ which returns an array
@@ -121,6 +122,153 @@ func WorkspaceFromProject(p OcProjectInfo) gact.Workspace {
 		UpdatedAt: time.Now().UTC(),
 		Metadata:  map[string]any{"x_opencode_project_id": p.ID},
 	}
+}
+
+// --- Messages -------------------------------------------------------------
+
+// OcMessage mirrors OpenCode's MessageV2 wire envelope from
+// packages/opencode/src/session/message-v2.ts. The TS shape is
+// discriminated by `role`. We carry only the fields we translate.
+type OcMessage struct {
+	ID        string  `json:"id"`
+	SessionID string  `json:"sessionID"`
+	Role      string  `json:"role"` // "user" | "assistant"
+	Time      OcTimes `json:"time"`
+	ParentID  string  `json:"parentID,omitempty"`
+	ProviderID string `json:"providerID,omitempty"`
+	ModelID    string `json:"modelID,omitempty"`
+	Agent      string `json:"agent,omitempty"`
+	Cost       float64 `json:"cost,omitempty"`
+	Tokens     OcTokens `json:"tokens,omitempty"`
+	Finish     string  `json:"finish,omitempty"`
+}
+
+// OcTokens mirrors OpenCode's tokens sub-object on assistant messages.
+type OcTokens struct {
+	Input  int `json:"input,omitempty"`
+	Output int `json:"output,omitempty"`
+	Cache  struct {
+		Read  int `json:"read,omitempty"`
+		Write int `json:"write,omitempty"`
+	} `json:"cache,omitempty"`
+}
+
+// OcMessageWithParts mirrors OpenCode's GET /session/{id}/message response
+// item: `{info: Message, parts: Part[]}`.
+type OcMessageWithParts struct {
+	Info  OcMessage `json:"info"`
+	Parts []OcPart  `json:"parts"`
+}
+
+// OcPart is OpenCode's part envelope. Type fans out to the part-specific
+// shape; for v0.1 we map text, reasoning, tool, file. Unknown types are
+// preserved as a raw GACT part with the original type so the TUI can
+// render them via its forward-compat "[type]" placeholder.
+type OcPart struct {
+	ID       string         `json:"id,omitempty"`
+	Type     string         `json:"type"`
+	Text     string         `json:"text,omitempty"`
+	Time     map[string]any `json:"time,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+	// reasoning
+	// (reasoning's payload is also under `text` in MessageV2)
+	// tool
+	CallID string         `json:"callID,omitempty"`
+	Tool   string         `json:"tool,omitempty"`
+	State  map[string]any `json:"state,omitempty"`
+	// file
+	Mime     string `json:"mime,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	URL      string `json:"url,omitempty"`
+}
+
+// MessageToGact translates one OpenCode message+parts into a GACT message.
+func MessageToGact(m OcMessageWithParts) gact.Message {
+	out := gact.Message{
+		ID:        m.Info.ID,
+		SessionID: m.Info.SessionID,
+		Role:      m.Info.Role,
+		CreatedAt: msToTime(m.Info.Time.Created),
+		UpdatedAt: msToTime(m.Info.Time.Updated),
+		CostUSD:   m.Info.Cost,
+		Tokens: gact.Tokens{
+			Input:      m.Info.Tokens.Input,
+			Output:     m.Info.Tokens.Output,
+			CacheRead:  m.Info.Tokens.Cache.Read,
+			CacheWrite: m.Info.Tokens.Cache.Write,
+		},
+		StopReason: m.Info.Finish,
+	}
+	if m.Info.ProviderID != "" || m.Info.ModelID != "" {
+		out.Model = &gact.ModelRef{
+			ProviderID: m.Info.ProviderID,
+			ModelID:    m.Info.ModelID,
+		}
+	}
+	out.Parts = make([]gact.Part, 0, len(m.Parts))
+	for _, p := range m.Parts {
+		out.Parts = append(out.Parts, partToGact(p))
+	}
+	return out
+}
+
+// partToGact translates a single OpenCode part. Unknown types fall through
+// to a `Type: <opencode-type>` part so the TUI's placeholder renderer
+// shows users what was there.
+func partToGact(p OcPart) gact.Part {
+	out := gact.Part{ID: p.ID, Metadata: p.Metadata}
+	switch p.Type {
+	case "text":
+		out.Type = gact.PartTypeText
+		out.Text = p.Text
+	case "reasoning":
+		out.Type = gact.PartTypeThinking
+		out.Thinking = p.Text
+	case "tool":
+		out.Type = gact.PartTypeToolCall
+		out.CallID = p.CallID
+		out.ToolName = p.Tool
+		// State carries OpenCode-specific shape; surface it via Input
+		// so the user can see what the tool was called with.
+		if input, ok := p.State["input"].(map[string]any); ok {
+			out.Input = input
+		} else if p.State != nil {
+			out.Input = p.State
+		}
+	case "file":
+		out.Type = gact.PartTypeImage // close enough for v0.1
+		out.MimeType = p.Mime
+		// Don't fail on missing source — fall through with metadata.
+		if out.Metadata == nil {
+			out.Metadata = map[string]any{}
+		}
+		if p.URL != "" {
+			out.Metadata["x_opencode_url"] = p.URL
+		}
+		if p.Filename != "" {
+			out.Metadata["x_opencode_filename"] = p.Filename
+		}
+	default:
+		// Forward-compat: surface the OpenCode type so the TUI shows a
+		// "[<type>]" placeholder rather than dropping the part.
+		out.Type = "x_opencode_" + p.Type
+		if out.Metadata == nil {
+			out.Metadata = map[string]any{}
+		}
+		if p.Text != "" {
+			out.Metadata["x_opencode_text"] = p.Text
+		}
+	}
+	return out
+}
+
+// MessagesToGact translates a list response.
+func MessagesToGact(ms []OcMessageWithParts) []gact.Message {
+	out := make([]gact.Message, len(ms))
+	for i, m := range ms {
+		out[i] = MessageToGact(m)
+	}
+	return out
 }
 
 // --- Helpers --------------------------------------------------------------

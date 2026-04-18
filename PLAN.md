@@ -85,9 +85,9 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase G — Open follow-ups
 
-- [ ] **G1.** OpenCode adapter messages list — `GET /v1/sessions/{id}/messages` translating OpenCode's `GET /session/{id}/message` (cursor pagination + Part translation).
+- [x] **G1.** OpenCode adapter messages list — `GET /v1/sessions/{id}/messages` translates OpenCode's `GET /session/{id}/message`. Forwards limit + before query params. Translates parts: text, reasoning→thinking, tool→tool_call, file→image. Unknown types pass through as `x_opencode_<type>` per SPEC §8.3 forward-compat. Cost/tokens/finish propagated.
 - [ ] **G2.** OpenCode adapter SSE — proxy `/event` with shape translation (BusEvent → GACT event taxonomy).
-- [ ] **G3.** OpenCode adapter POST message — `POST /v1/sessions/{id}/messages` translating to OpenCode's `POST /session/{id}/message`.
+- [x] **G3.** OpenCode adapter POST message — `POST /v1/sessions/{id}/messages` translates GACT parts → OpenCode parts (text + tool_call) and forwards to OpenCode's `POST /session/{id}/prompt_async`. Returns synthetic 202 with placeholder message_id (real ID will arrive via SSE — wired in G2).
 - [ ] **G4.** Crush adapter — same shape, different upstream protocol (HTTP+SSE over Unix socket).
 - [ ] **G5.** Voice mic capture — user-supplied wrapper script that records audio and binds to a TUI key. Document the contract.
 - [x] **G6.** Cost meter test — `TestCostAccumulatesAcrossTurns` runs 3 user turns through the default scenario and asserts session.CostUSD = 0.081 (3 × 2 × $0.0135) and tokens.input/output match (9000 / 3600). Catches regressions in completeMessage cost charging.
