@@ -115,6 +115,24 @@
   unnecessary re-renders.
 - 14-textarea.png shows the cleaner input pane.
 
+### Iteration 13 — C19 subagent flow
+- Emulator: trigger words "split", "with help", "subagent" route
+  through new `runSubagentScript` (subagent_script.go). Spawns a child
+  session with parent_session_id + spawned_by_message_id, runs a brief
+  scripted assistant turn in the subsession, emits subagent.started
+  and subagent.completed events, attaches subagent_call/subagent_result
+  parts to the parent message, then continues the parent's turn.
+- TUI: render subagent_call (▼ marker, prompt, subsession id) and
+  subagent_result (▲ marker, summary). Sidebar shows subsessions
+  indented with `└` and dimmed-italic title. SSE handlers for
+  subagent.started/.completed flag pendingSidebarRefresh, processed
+  on the next sseEventMsg cycle to reload the sessions list.
+- Bug fix: sessionsRefreshedMsg used to reset selected to 0 — now
+  preserves the current session ID across refreshes.
+- 15-subagent-parent shows parent view with both sub parts; 16-subagent-
+  sidebar shows the subsession selected via the sidebar.
+- Race-clean across both modules.
+
 ## In progress
 - Phase D — golden tests for TUI states.
 
@@ -178,3 +196,4 @@ cd ../tui   && go build -o ./gact .
 | 10 | 2026-04-18T05:55 | Phase E polish + reconnect + new-session | 8a1b80f |
 | 11 | 2026-04-18T05:58 | glamour markdown for assistant text | a787b1a |
 | 12 | 2026-04-18T06:01 | bubbles/textarea + footer cleanup | 8609e67 |
+| 13 | 2026-04-18T06:08 | C19 subagent flow + sidebar indent | (this) |

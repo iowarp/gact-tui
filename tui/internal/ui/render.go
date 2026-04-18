@@ -164,6 +164,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		body := simpleDiff(before, after, wrapW-2)
 		return lipgloss.JoinVertical(lipgloss.Left, head+applied, indent(body, "  "))
 
+	case gact.PartTypeSubagentCall:
+		head := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).
+			Render("▼ subagent: " + p.AgentID)
+		sub := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("  → " + truncateString(p.Prompt, wrapW-4))
+		hint := lipgloss.NewStyle().Foreground(t.FgFaint).
+			Render("  (subsession " + p.SubsessionID + ")")
+		return lipgloss.JoinVertical(lipgloss.Left, head, sub, hint)
+
+	case gact.PartTypeSubagentResult:
+		head := lipgloss.NewStyle().Foreground(t.Primary).
+			Render("▲ subagent done")
+		body := lipgloss.NewStyle().Foreground(t.Fg).
+			Render("  " + wrap(p.Summary, wrapW-2))
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
 	case gact.PartTypeError:
 		return lipgloss.NewStyle().Foreground(t.Danger).
 			Render("✗ " + p.Code + ": " + p.Message)
