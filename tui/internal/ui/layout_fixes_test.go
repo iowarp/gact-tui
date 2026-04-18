@@ -289,6 +289,93 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 	}
 }
 
+// TestCompose_OpenCommitCancel covers M5's full state machine:
+// Ctrl+G opens with seeded draft, Ctrl+S commits the modal body back
+// to the base input, Esc cancels and preserves the pre-modal draft.
+func TestCompose_OpenCommitCancel(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+
+	// Open + commit path.
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.input.SetValue("seed draft")
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl})
+	a = out.(*App)
+	if !a.composeOpen {
+		t.Fatalf("Ctrl+G didn't open compose modal")
+	}
+	if a.compose.ta.Value() != "seed draft" {
+		t.Fatalf("compose not seeded: %q", a.compose.ta.Value())
+	}
+
+	// Type "more" in the compose modal.
+	for _, r := range " more" {
+		out, _ = a.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		a = out.(*App)
+	}
+	// Ctrl+S commits.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	a = out.(*App)
+	if a.composeOpen {
+		t.Fatalf("Ctrl+S didn't close compose modal")
+	}
+	if a.input.Value() != "seed draft more" {
+		t.Fatalf("commit didn't land: %q", a.input.Value())
+	}
+
+	// Open + cancel path.
+	a2 := newReadyApp(sessions, nil)
+	a2.focus = FocusInput
+	a2.input.SetValue("original")
+
+	out, _ = a2.Update(tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl})
+	a2 = out.(*App)
+	// Edit inside modal.
+	for _, r := range " edit" {
+		out, _ = a2.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		a2 = out.(*App)
+	}
+	// Esc cancels.
+	out, _ = a2.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	a2 = out.(*App)
+	if a2.composeOpen {
+		t.Fatalf("Esc didn't close compose modal")
+	}
+	if a2.input.Value() != "original" {
+		t.Fatalf("cancel overwrote base input: %q", a2.input.Value())
+	}
+}
+
+// TestCompose_ExpandsPastesOnOpen ensures compressed paste placeholders
+// get inlined when the compose modal opens — "where everything
+// renders expanded" is the point of the view.
+func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	// Paste → placeholder in base input.
+	out, _ := a.Update(tea.PasteMsg{Content: "a\nb\nc"})
+	a = out.(*App)
+	if !strings.Contains(a.input.Value(), "[pasted content") {
+		t.Fatalf("setup: paste didn't compress")
+	}
+
+	// Open compose.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl})
+	a = out.(*App)
+	if strings.Contains(a.compose.ta.Value(), "[pasted content") {
+		t.Fatalf("compose kept placeholder: %q", a.compose.ta.Value())
+	}
+	if !strings.Contains(a.compose.ta.Value(), "a\nb\nc") {
+		t.Fatalf("compose missing expanded content: %q", a.compose.ta.Value())
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("pastes weren't cleared after compose open")
+	}
+}
+
 // TestCollapseThreshold_ArrowKeysAdjust verifies the Settings > TUI tab
 // keybindings for the collapse-threshold stepper: ←/→ nudge the value
 // between 1 and 50 inclusive without blowing up.

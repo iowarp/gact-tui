@@ -1,0 +1,176 @@
+// Floating compose window (M5). A big modal textarea seeded with the
+// current input draft, useful for long prompts or reviewing pasted
+// code. The user's flow:
+//
+//   Input focus → Ctrl+G (or Ctrl+Shift+P on terminals that send it)
+//       opens the compose modal with the current draft.
+//   Inside the modal → normal textarea editing, ALL pastes land
+//       expanded (no compression) so users can see everything.
+//       Ctrl+S commits the modal body back to the base input and
+//       closes the modal. Esc cancels and preserves the pre-modal
+//       draft.
+//   From the base input after Ctrl+S → Enter still sends, same as
+//       before.
+//
+// Design note: we deliberately reuse bubbles/v2/textarea rather than
+// building a second editor. The base input is single-line-ish by
+// convention; the compose window is the same widget sized for the
+// modal so all existing key behaviour (selection, word-wise motion,
+// paste handling) transfers verbatim.
+package ui
+
+import (
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/lipgloss/v2"
+)
+
+// composeState carries the modal's runtime bits. App.compose is nil
+// while the modal is closed; populated on open, cleared on close.
+type composeState struct {
+	ta        textarea.Model
+	prevDraft string // raw contents of a.input at the moment of open; restored on cancel
+}
+
+// openCompose pops the compose modal seeded with the current input
+// draft. Expands any compressed paste placeholders inline so the
+// editor sees real content, mirroring the user's expectation that
+// "the compose view is where everything renders expanded".
+func (a *App) openCompose() {
+	expanded := a.expandPasteText(a.input.Value())
+
+	ta := textarea.New()
+	ta.SetValue(expanded)
+	ta.ShowLineNumbers = false
+	ta.Prompt = ""
+	// Rebind InsertNewline so plain Enter in the compose window inserts
+	// a newline — the modal is for long prompts so Enter shouldn't
+	// short-circuit as "send".
+	ta.KeyMap.InsertNewline = key.NewBinding(
+		key.WithKeys("enter", "ctrl+m", "shift+enter", "alt+enter", "ctrl+j"),
+	)
+	ta.Focus()
+	// Drop it at the end of the buffer so the user can keep typing.
+	ta.CursorEnd()
+
+	a.compose = &composeState{ta: ta, prevDraft: a.input.Value()}
+	a.composeOpen = true
+	// Clear pastes — we've inlined them; subsequent compress/expand
+	// cycles can start fresh.
+	a.pastes = nil
+}
+
+// commitCompose copies the modal's body back into the base input and
+// closes the modal. Preserves cursor-end so the user can immediately
+// Enter-send.
+func (a *App) commitCompose() {
+	if a.compose == nil {
+		a.composeOpen = false
+		return
+	}
+	a.input.SetValue(a.compose.ta.Value())
+	a.composeOpen = false
+	a.compose = nil
+}
+
+// cancelCompose closes the modal WITHOUT overwriting the base input.
+// Pre-modal draft is already intact (we didn't touch a.input on open),
+// so this is just a state teardown.
+func (a *App) cancelCompose() {
+	a.composeOpen = false
+	a.compose = nil
+}
+
+// handleComposeKey routes keypresses while the compose modal is open.
+// Returns a new model + command like every other modal handler.
+func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if a.compose == nil {
+		a.composeOpen = false
+		return a, nil
+	}
+	switch k.String() {
+	case "ctrl+s":
+		a.commitCompose()
+		return a, nil
+	case "esc":
+		a.cancelCompose()
+		return a, nil
+	}
+	// Everything else — delegate to the inner textarea.
+	var cmd tea.Cmd
+	a.compose.ta, cmd = a.compose.ta.Update(k)
+	return a, cmd
+}
+
+// viewCompose renders the compose modal: full-height-ish textarea
+// framed by a bordered box with a one-line hint bar. Sized to ~80% of
+// the app viewport so the surrounding base layout is still visible
+// through the overlay gutters (consistent with other modals' use of
+// spliceRow).
+func (a *App) viewCompose() string {
+	t := a.Theme
+	if a.compose == nil {
+		return ""
+	}
+
+	// Modal dimensions — keep at least 12 rows tall so the textarea is
+	// useful, and cap at 80% of viewport to leave visible gutters.
+	w := a.width * 4 / 5
+	if w < 60 {
+		w = 60
+	}
+	if w > a.width-6 {
+		w = a.width - 6
+	}
+	h := a.height * 4 / 5
+	if h < 14 {
+		h = 14
+	}
+	if h > a.height-4 {
+		h = a.height - 4
+	}
+
+	taH := h - 6 // header + hint + border padding
+	if taH < 6 {
+		taH = 6
+	}
+	a.compose.ta.SetWidth(w - 4)
+	a.compose.ta.SetHeight(taH)
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("Compose")
+	subtitle := t.HintLabel.Italic(true).Render(
+		"Long-form editor — pastes render expanded, newlines are literal. " +
+			"Ctrl+S commits to the input box; Esc cancels.")
+
+	hint := t.HintLabel.Render("Ctrl+S  commit    Esc  cancel")
+
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		title, subtitle, "",
+		a.compose.ta.View(),
+		"", hint,
+	)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Background(t.BgSubtle).
+		Padding(1, 2).
+		Width(w).
+		Render(body)
+}
+
+// composeSummary returns a short hint like "(compose open — 12 lines)"
+// suitable for status-bar / debug display when someone needs to see at
+// a glance that the modal is live. Currently unused outside of tests,
+// but cheap to keep around.
+func (a *App) composeSummary() string {
+	if a.compose == nil {
+		return ""
+	}
+	n := strings.Count(a.compose.ta.Value(), "\n") + 1
+	return "(compose open — " + itoa2(n) + " lines)"
+}
