@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T20:35Z
-**Current phase:** HHHHH1 + IIIII1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cfb33cd` and pushed
+**Last updated:** 2026-04-19T20:55Z
+**Current phase:** JJJJJ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e013336` and pushed
 **Open:** none
+
+### Phase JJJJJ — Ctrl+C cancels in-flight turn before quit
+- **JJJJJ1.** Ctrl+C now POSTs /cancel before tea.Quit when the
+  current session is running or waiting_permission. Idle
+  sessions unaffected. Pairs with IIIII1: Ctrl+Z = leave
+  running, Ctrl+C = stop everything.
 
 ### Phase IIIII — tmux-like detach (Ctrl+Z)
 - **IIIII1.** Replaced LLL8b's SIGTSTP suspend with a clean
