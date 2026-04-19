@@ -166,6 +166,8 @@ running backend:
 | `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files |
 | `gact perms list <sid> [--pending]` | List permissions for a session |
 | `gact perms allow\|deny\|allow-session\|allow-workspace <pid>` | Respond to a pending permission |
+| `gact diff list <sid>` | List file_diff parts (path + pending/applied/rejected) |
+| `gact diff apply\|reject <sid> [paths…]` | Apply or reject diffs (empty = all pending) |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |

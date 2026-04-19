@@ -94,6 +94,8 @@ func main() {
 			os.Exit(runStream(os.Args[2:]))
 		case "perms", "perm", "permissions":
 			os.Exit(runPerms(os.Args[2:]))
+		case "diff", "diffs":
+			os.Exit(runDiff(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -298,6 +300,9 @@ Usage:
   gact stream [SID]          pretty-print SSE events as a one-liner timeline
   gact perms list <sid>      list permissions for a session
   gact perms allow <pid>     allow / deny / allow-session / allow-workspace
+  gact diff list <sid>       list file_diff parts (path + status)
+  gact diff apply <sid> [p…] apply pending diffs (no paths = all)
+  gact diff reject <sid> [p…] reject pending diffs
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -435,6 +440,119 @@ func runDelete(args []string) int {
 	if err := c.DeleteSession(ctx, sid); err != nil {
 		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runDiff dispatches the `gact diff <verb>` family for managing
+// file diffs the agent has produced. The contract has apply/reject
+// endpoints but no list endpoint, so `list` walks the session's
+// messages and aggregates file_diff parts client-side — same logic
+// the TUI uses to gate the `a` / `r` keys.
+//
+//	gact diff list <sid>                — path  status (pending/applied/rejected)
+//	gact diff apply <sid> [paths...]    — POST apply
+//	gact diff reject <sid> [paths...]   — POST reject
+//
+// With no paths, apply/reject act on every pending diff.
+func runDiff(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact diff list|apply|reject <session_id> [paths...]")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list":
+		return runDiffList(rest)
+	case "apply":
+		return runDiffApplyReject(rest, true)
+	case "reject":
+		return runDiffApplyReject(rest, false)
+	default:
+		fmt.Fprintf(os.Stderr, "gact diff: unknown verb %q (want list|apply|reject)\n", verb)
+		return 2
+	}
+}
+
+func runDiffList(args []string) int {
+	fs := flag.NewFlagSet("diff list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact diff list <session_id>")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	msgs, _, err := c.ListMessages(ctx, client.MessageFilter{SessionID: sid, Limit: 10000})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact diff list: %v\n", err)
+		return 1
+	}
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type != gact.PartTypeFileDiff {
+				continue
+			}
+			status := "pending"
+			if p.Applied {
+				status = "applied"
+			}
+			if rj, ok := p.Metadata["rejected"].(bool); ok && rj {
+				status = "rejected"
+			}
+			fmt.Printf("%s\t%s\n", p.Path, status)
+		}
+	}
+	return 0
+}
+
+func runDiffApplyReject(args []string, apply bool) int {
+	verb := "apply"
+	if !apply {
+		verb = "reject"
+	}
+	fs := flag.NewFlagSet("diff "+verb, flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		fmt.Fprintf(os.Stderr, "usage: gact diff %s <session_id> [paths...]\n", verb)
+		return 2
+	}
+	sid := fs.Arg(0)
+	var paths []string
+	for i := 1; i < fs.NArg(); i++ {
+		paths = append(paths, fs.Arg(i))
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var (
+		hit []string
+		err error
+	)
+	if apply {
+		hit, err = c.ApplyDiffs(ctx, sid, paths)
+	} else {
+		hit, err = c.RejectDiffs(ctx, sid, paths)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact diff %s: %v\n", verb, err)
+		return 1
+	}
+	for _, p := range hit {
+		fmt.Println(p)
 	}
 	return 0
 }
@@ -1349,7 +1467,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1369,7 +1487,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1382,7 +1500,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
