@@ -234,6 +234,51 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_ToolShow covers CCC1: fetch one tool's full definition.
+// Asserts the seeded `bash` tool's name, description, and schema.
+func TestCLI_ToolShow(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tool", "show", "bash")
+	if code != 0 {
+		t.Fatalf("tool show: exit %d", code)
+	}
+	for _, want := range []string{"id:", "name:", "input_schema:", "command"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in output: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tool", "show", "bash", "--format", "json")
+	if code != 0 {
+		t.Fatalf("tool show json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"input_schema"`) || !strings.Contains(stdout, `"bash"`) {
+		t.Errorf("expected JSON with input_schema + id: %q", stdout)
+	}
+}
+
+// TestCLI_McpReconnect covers CCC2: POST reconnect for a known MCP
+// server returns exit 0 and a missing one returns exit 1.
+func TestCLI_McpReconnect(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "mcp_fake"); code != 0 {
+		t.Fatalf("reconnect mcp_fake: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "nope"); code == 0 {
+		t.Fatalf("reconnect nope: expected non-zero exit")
+	}
+}
+
 // TestCLI_McpDetail covers BBB1: list tools, resources, and prompts
 // for the seeded `mcp_fake` server. Each verb must return at least
 // one row (the emulator seeds them statically).
