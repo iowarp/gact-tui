@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase IIIIII — conformance: messages list + per-id drill-down
+
+- [x] **IIIIII1.** Adds a `Messages_List` section that walks `GET /v1/sessions/{id}/messages` (SPEC §6.3) plus per-id drill into `GET /v1/sessions/{id}/messages/{msg_id}` for the first entry. Asserts 200 + non-nil top-level `messages` array (empty is fine; missing key violates spec) + per-entry required {id, role, parts} with `role` in the documented enum (user|assistant|system|tool). For the first message, drills into the per-id endpoint and verifies id is echoed back. Locks the wire shape that powers `gact log` and the conversation pane's history fetch. Read-only. New `Options.SkipMessageList` opt-out wired through TestConformance_OptionsSkip.
+
 ## Phase HHHHHH — conformance: sessions per-id drill-down
 
 - [x] **HHHHHH1.** Adds a `Sessions_Get` section that walks `GET /v1/sessions/{id}` after the existing Sessions_Create (or pinned via `Options.SessionID`). Asserts 200 + id echoed back + non-empty status (sessions always carry a lifecycle state per the Session schema). Skips when no sid is available — the caller already gates on that. Catches adapters that wired only the list/create endpoints and forgot the per-id read. Read-only.
