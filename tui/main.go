@@ -831,7 +831,7 @@ func resolveSessionByName(ctx context.Context, c *client.Client, name string) (s
 // runPermsRules dispatches `gact perms rules <subverb>` for MMM4
 // §6.11 policy management:
 //
-//	gact perms rules list
+//	gact perms rules list [--format json|tsv]
 //	gact perms rules set <json-file|->     (whole-list replace)
 //	gact perms rules clear
 func runPermsRules(args []string) int {
@@ -856,7 +856,19 @@ func runPermsRules(args []string) int {
 func runPermsRulesList(args []string) int {
 	fs := flag.NewFlagSet("perms rules list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
+	// Default kept as json for back-compat with existing scripting
+	// callers (this verb predates --format). New TSV view added per
+	// KKKK1 — opt in with --format tsv for human-scannable output.
+	format := fs.String("format", "json", "json | tsv")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *format != "json" && *format != "tsv" {
+		fmt.Fprintf(os.Stderr, "gact perms rules list: unknown format %q (want json|tsv)\n", *format)
 		return 2
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -868,9 +880,40 @@ func runPermsRulesList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact perms rules list: %v\n", err)
 		return 1
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(map[string]any{"policies": policies})
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(map[string]any{"policies": policies})
+		return 0
+	}
+	// TSV columns: scope, scope_id, tool_pattern, path_pattern,
+	// action, annotations_filter (compact k=v list or "-").
+	fmt.Println("scope\tscope_id\ttool_pattern\tpath_pattern\taction\tannotations")
+	for _, p := range policies {
+		scopeID := p.ScopeID
+		if scopeID == "" {
+			scopeID = "*"
+		}
+		path := p.PathPattern
+		if path == "" {
+			path = "-"
+		}
+		ann := "-"
+		if len(p.AnnotationsFilter) > 0 {
+			parts := make([]string, 0, len(p.AnnotationsFilter))
+			keys := make([]string, 0, len(p.AnnotationsFilter))
+			for k := range p.AnnotationsFilter {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				parts = append(parts, fmt.Sprintf("%s=%v", k, p.AnnotationsFilter[k]))
+			}
+			ann = strings.Join(parts, ",")
+		}
+		fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\n",
+			p.Scope, scopeID, p.ToolNamePattern, path, p.Action, ann)
+	}
 	return 0
 }
 

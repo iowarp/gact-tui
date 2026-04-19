@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKK — perms rules list --format tsv
+
+- [x] **KKKK1.** `gact perms rules list` gains `--format json|tsv` (default kept as `json` for back-compat with existing scripting callers; `--format tsv` is the new opt-in human view). TSV columns: scope, scope_id (`*` for any), tool_pattern, path_pattern (`-` if empty), action, annotations (sorted `k=v` list or `-`). CLI test seeds two policies, asserts both rows in TSV, default JSON shape preserved, unknown format → exit 2.
+
 ## Phase JJJJ — gact mcp list
 
 - [x] **JJJJ1.** `gact mcp list [--format tsv|json]` enumerates the backend's connected MCP servers via `GET /v1/mcp/servers`. TSV columns: id, name, status, transport, protocol_version, capabilities (compact `tools,resources,prompts,logging`), last_error. JSON mode dumps the array as-is. Aliased to `mcp ls`. Help text + verb dispatcher updated. CLI test seeds the `default` emulator scenario (one fake-mcp), asserts both formats and that unknown format exits 2.

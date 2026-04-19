@@ -689,6 +689,61 @@ func TestCLI_Rewind(t *testing.T) {
 	}
 }
 
+// TestCLI_PermsRulesListTSV covers KKKK1: --format tsv on `perms
+// rules list` produces a human-scannable table; default stays JSON
+// for back-compat.
+func TestCLI_PermsRulesListTSV(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	dir := t.TempDir()
+	policyFile := filepath.Join(dir, "policy.json")
+	body := `{"policies":[
+		{"scope":"workspace","tool_name_pattern":"shell","action":"ask"},
+		{"scope":"workspace","scope_id":"ws_main","tool_name_pattern":"fs.write","path_pattern":"/tmp/*","action":"allow","annotations_filter":{"safe":true}}
+	]}`
+	if err := os.WriteFile(policyFile, []byte(body), 0o644); err != nil {
+		t.Fatalf("write policy: %v", err)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "set", policyFile); code != 0 {
+		t.Fatalf("perms rules set: exit %d", code)
+	}
+
+	// TSV mode.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "list", "--format", "tsv")
+	if code != 0 {
+		t.Fatalf("perms rules list --format tsv: exit %d", code)
+	}
+	for _, want := range []string{
+		"scope\tscope_id\ttool_pattern\tpath_pattern\taction\tannotations",
+		"workspace\t*\tshell\t-\task\t-",
+		"workspace\tws_main\tfs.write\t/tmp/*\tallow\tsafe=true",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected TSV row %q in: %q", want, stdout)
+		}
+	}
+
+	// Default mode stays JSON (back-compat).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "list")
+	if code != 0 {
+		t.Fatalf("perms rules list (default): exit %d", code)
+	}
+	if !strings.Contains(stdout, `"policies"`) {
+		t.Errorf("expected default JSON shape, got: %q", stdout)
+	}
+
+	// Unknown format → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "list", "--format", "yaml"); code != 2 {
+		t.Errorf("--format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_PermsRules covers MMM4: install a policy via the CLI,
 // trigger a permission-requesting scenario, verify the request
 // auto-resolves with the policy's action (no manual allow/deny).
