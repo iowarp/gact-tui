@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T06:45Z
-**Current phase:** XXX1 + YYY1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f5ce29f` and pushed
+**Last updated:** 2026-04-19T07:00Z
+**Current phase:** ZZZ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `58592f1` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase ZZZ — gact follow
+- **ZZZ1.** `gact follow <sid>` ships. Snapshots existing log,
+  then streams new messages via SSE with seen-dedupe. Extracted
+  printLogMessage helper shared with `gact log`. Test seeds
+  ALPHA, follows with deadline, sends BRAVO, asserts both.
 
 ### Phase YYY — wait any-of
 - **YYY1.** `gact wait --any-of sid1,sid2,...` ships. Polls each
