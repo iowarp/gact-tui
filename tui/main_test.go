@@ -1926,6 +1926,105 @@ func TestCLI_ContextListJSON(t *testing.T) {
 	}
 }
 
+// TestCLI_InfoIncludePerms covers NNNNN1: `gact info --include perms`
+// fetches all permission requests for the session (pending +
+// resolved). Triggers the emulator's `delete` permission scenario,
+// asserts the pending row appears in both text and JSON modes,
+// then resolves it and asserts the resolved row's action surfaces.
+func TestCLI_InfoIncludePerms(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "info-perms-target")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "delete the temp dir"); code != 0 {
+		t.Fatalf("send delete: exit %d", code)
+	}
+	// Wait for the perm to materialize (status flips to waiting).
+	deadline := time.Now().Add(3 * time.Second)
+	var permID string
+	for time.Now().Before(deadline) {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"perms", "list", sid)
+		if code == 0 {
+			for _, line := range strings.Split(stdout, "\n") {
+				fields := strings.Split(line, "\t")
+				if len(fields) > 0 && strings.HasPrefix(fields[0], "perm_") {
+					permID = fields[0]
+					break
+				}
+			}
+		}
+		if permID != "" {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if permID == "" {
+		t.Fatalf("permission never appeared")
+	}
+
+	// Text mode: pending row visible under '--- perms ---'.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "perms")
+	if code != 0 {
+		t.Fatalf("info --include perms: exit %d", code)
+	}
+	for _, want := range []string{"--- perms ---", "pending\t" + permID} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("text mode missing %q in: %q", want, stdout)
+		}
+	}
+
+	// JSON mode: parse + assert perms array contains the pending row.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "perms", "--format", "json")
+	if code != 0 {
+		t.Fatalf("info --include perms --format json: exit %d", code)
+	}
+	var out struct {
+		Session struct {
+			ID string `json:"id"`
+		} `json:"session"`
+		Perms []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+			Action string `json:"action,omitempty"`
+		} `json:"perms"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("json parse: %v\n  raw=%q", err, stdout)
+	}
+	if out.Session.ID != sid {
+		t.Errorf("session.id mismatch: %q vs %q", out.Session.ID, sid)
+	}
+	if len(out.Perms) != 1 || out.Perms[0].ID != permID || out.Perms[0].Status != "pending" {
+		t.Errorf("expected 1 pending perm with id=%s, got: %+v", permID, out.Perms)
+	}
+
+	// Resolve the perm, then assert action shows on the resolved row.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "deny", permID); code != 0 {
+		t.Fatalf("perms deny: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait idle: exit %d", code)
+	}
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "perms")
+	if code != 0 {
+		t.Fatalf("info --include perms (post-resolve): exit %d", code)
+	}
+	if !strings.Contains(stdout, "resolved\t"+permID) {
+		t.Errorf("expected resolved status row, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "action=deny") {
+		t.Errorf("expected action=deny suffix, got: %q", stdout)
+	}
+}
+
 // TestCLI_InfoInclude covers OOOO1: `gact info --include tasks,hooks`
 // pulls extra sections in both text and JSON modes. Seeds two tasks
 // (one set to completed) + a session-scoped hook, asserts both
