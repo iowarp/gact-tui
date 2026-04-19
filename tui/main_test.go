@@ -629,6 +629,43 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_Grep covers WWW1: seed two sessions with a unique token
+// + assert both hits surface in the cross-session search.
+func TestCLI_Grep(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid1 := createSession(t, url, "grep-target-1")
+	sid2 := createSession(t, url, "grep-target-2")
+	for _, sid := range []string{sid1, sid2} {
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"send", sid, "the marker token is xyzzy_grep_999"); code != 0 {
+			t.Fatalf("send: exit %d", code)
+		}
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", "xyzzy_grep_999")
+	if code != 0 {
+		t.Fatalf("grep: exit %d", code)
+	}
+	for _, want := range []string{sid1, sid2, "xyzzy_grep_999"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in grep output: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", "xyzzy_grep_999", "--format", "json")
+	if code != 0 {
+		t.Fatalf("grep json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"sid"`) || !strings.Contains(stdout, `"snippet"`) {
+		t.Errorf("expected JSON shape: %q", stdout)
+	}
+}
+
 // TestCLI_Dashboard covers VVV1: pretty + tsv + json modes all
 // surface session rows with the key columns.
 func TestCLI_Dashboard(t *testing.T) {
