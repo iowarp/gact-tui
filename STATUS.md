@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T06:15Z
-**Current phase:** VVV1 + WWW1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e8c5093` and pushed
+**Last updated:** 2026-04-19T06:30Z
+**Current phase:** XXX1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `55c1ac5` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase XXX — concurrent bench
+- **XXX1.** `gact bench --concurrent C` ships. C goroutines, each
+  owning a session × N serial turns. Aggregate p50/p90/p99 + thrpt
+  (shown when C>1). runBenchWorker extracted. Test covers both
+  serial and parallel modes + cleanup.
 
 ### Phase WWW — cross-session grep
 - **WWW1.** `gact grep <query>` ships. Bounded-pool fanout
