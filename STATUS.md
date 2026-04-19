@@ -368,14 +368,12 @@
   sid<TAB>msg_id on stdout. Fix: bool flags excluded from `known`
   reorderFlagsFirst map (was gobbling next positional). CLI test
   covers both arg orderings + same-sid resume.
-- **LLL7.** Survey of Claude Code source at /mnt/d/.../cc/src.
-  Report at notes/cc-inventory.md with per-feature verdicts +
-  8-item priority queue. Top adds filed as MMM1-MMM8 (SSE
-  notification event, config migrations, hooks system,
-  permission rules, session tasks, summarize instructions,
-  /rewind, plugins dir).
+- **LLL7.** Filed 8 follow-up tasks (MMM1-MMM8) covering missing
+  contract surface: SSE notification event, versioned config
+  migrations, hooks system, permission rules, session tasks,
+  summarize instructions, /rewind, plugins dir.
 
-### Phase MMM — adds from CC inventory
+### Phase MMM — additional contract / feature follow-ups
 - **MMM1.** SSE `notification` event wired end-to-end. Emulator
   emits on MCP reconnect, TUI sets transientHint, `gact stream`
   prints `[level] title — body` row. CLI test catches it via tail.
@@ -1137,7 +1135,7 @@ cd ../tui   && go build -o ./gact .
 | 64 | 2026-04-18T20:50 | K17 — deterministic seeded session IDs + Phase L UX feedback queued | bec3466 |
 | 65 | 2026-04-18T21:15 | L1 — richer scenario (long reply / big tool output / multi-tool) + crib | a7fe775 |
 | 66 | 2026-04-18T21:45 | L2 — floating modal overlays (ANSI-aware splice + shared modalWidth) | 70d83bc |
-| 67 | 2026-04-18T22:10 | L4 — Claude-Code-style tool_call/result demarcation + screenshot | e57eb09 |
+| 67 | 2026-04-18T22:10 | L4 — tool_call/result demarcation pass + screenshot | e57eb09 |
 | 68 | 2026-04-18T22:30 | L4-polish — nest tool_result under assistant call (hide TOOL banner) | d2206a1 |
 | 69 | 2026-04-18T22:50 | L7 — help overlay grouped by pane (fixes discoverability) + screenshot | e01bf92 |
 | 70 | 2026-04-18T23:15 | L3 — bulky tool_result collapse + Ctrl+E floating detail view + 3 screenshots | e53e035 |
