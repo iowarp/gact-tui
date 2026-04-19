@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase VVVVVV — conformance: file read endpoint
+
+- [x] **VVVVVV1.** Extended `checkFiles` (already had list-shape coverage from UUUUU1) with the per-file body endpoint per SPEC §6.9: `GET /v1/workspaces/{id}/files/read?path=<p>`. Picks the first entry with `type=file` from the list, fetches it, asserts 200 + non-empty body. Adapter authors that wired the tree but forgot the body endpoint break the @-file picker preview + `gact files read` at runtime; this catches it at conformance time. Read-only.
+
 ## Phase UUUUUU — conformance: context files + repo_map
 
 - [x] **UUUUUU1.** Adds two more SPEC §6.9 sections to the conformance suite, both gated on `capabilities.files`: (1) `Context_Files` (sid required) — `GET /v1/sessions/{id}/context/files` asserts 200 + non-nil `files` array + per-entry {path, mode} with mode in {edit|read|pin} enum. (2) `Repo_Map` (wsID required) — `GET /v1/workspaces/{id}/repo_map` asserts 200 + non-nil `tree` + `tokens` keys (specific tree shape stays per-backend; only the envelope is enforced). Both read-only — never POST/PATCH/DELETE so they stay idempotent against the live session/workspace. Adapter authors that don't claim `caps.files=true` auto-skip via the cap gate.
