@@ -164,6 +164,77 @@ func (t Theme) renderMessage(m gact.Message, width int) string {
 	return t.renderMessageInContext(m, nil, width)
 }
 
+// pairToolResults walks a slice of messages and, for each assistant
+// message that contains tool_call parts, builds a map from call_id →
+// tool_result Part by absorbing the consecutive role=tool messages
+// that follow. Returns:
+//
+//   - inlineResults[i] = map of results to inline into message i
+//     (only set for assistants that carried tool_calls)
+//   - absorbed[i] = true if message i is a tool message whose result
+//     was paired into the previous assistant and should NOT be
+//     rendered standalone
+//
+// Pairing is by Part.CallID. Unpaired tool results stay visible
+// standalone so we never silently lose output.
+func pairToolResults(msgs []gact.Message) (map[int]map[string]gact.Part, map[int]bool) {
+	inlineResults := map[int]map[string]gact.Part{}
+	absorbed := map[int]bool{}
+	for i := range msgs {
+		m := msgs[i]
+		if m.Role != gact.RoleAssistant {
+			continue
+		}
+		// Collect the call_ids this assistant emitted.
+		wantedCalls := map[string]bool{}
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall && p.CallID != "" {
+				wantedCalls[p.CallID] = true
+			}
+		}
+		if len(wantedCalls) == 0 {
+			continue
+		}
+		// Walk forward through tool messages, picking out matching results.
+		results := map[string]gact.Part{}
+		for j := i + 1; j < len(msgs); j++ {
+			tm := msgs[j]
+			if tm.Role != gact.RoleTool {
+				break
+			}
+			matched := false
+			for _, p := range tm.Parts {
+				if p.Type == gact.PartTypeToolResult && wantedCalls[p.CallID] {
+					results[p.CallID] = p
+					matched = true
+				}
+			}
+			// If the entire tool message is paired, mark it absorbed.
+			// If it had unmatched parts, leave it visible standalone.
+			if matched {
+				allMatched := true
+				for _, p := range tm.Parts {
+					if p.Type == gact.PartTypeToolResult && !wantedCalls[p.CallID] {
+						allMatched = false
+						break
+					}
+				}
+				if allMatched {
+					absorbed[j] = true
+				}
+			} else {
+				// Unmatched tool message — stop the scan; subsequent
+				// tool messages aren't ours either.
+				break
+			}
+		}
+		if len(results) > 0 {
+			inlineResults[i] = results
+		}
+	}
+	return inlineResults, absorbed
+}
+
 // renderMessageInContext is like renderMessage but also takes the
 // previous message in the conversation so it can suppress the
 // `● TOOL` role header when a tool-result message follows an
@@ -172,6 +243,13 @@ func (t Theme) renderMessage(m gact.Message, width int) string {
 // under the call, no separate role boundary) and the TOOL banner
 // just adds noise.
 func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width int) string {
+	return t.renderMessageInContextWithResults(m, prev, width, nil)
+}
+
+// renderMessageInContextWithResults extends renderMessageInContext by
+// inlining tool_result parts under their matching tool_call parts.
+// `inlineResults` is keyed by Part.CallID; pass nil to disable.
+func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part) string {
 	// Hide the TOOL role header when this message is a result following
 	// either (a) an assistant-with-tool-calls OR (b) another TOOL
 	// message — the latter covers the multi-tool case where one
@@ -182,7 +260,7 @@ func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width 
 		(prev.Role == gact.RoleTool ||
 			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
 
-	body := t.renderPartsForRole(m.Parts, width, m.Role)
+	body := t.renderPartsForRoleWithResults(m.Parts, width, m.Role, inlineResults)
 	if body == "" {
 		body = t.HintLabel.Render("(no parts)")
 	}
@@ -224,6 +302,15 @@ func assistantCarriedToolCall(m *gact.Message) bool {
 }
 
 func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) string {
+	return t.renderPartsForRoleWithResults(parts, width, role, nil)
+}
+
+// renderPartsForRoleWithResults renders parts in order, but when a
+// tool_call part has a matching entry in `inlineResults` (by CallID),
+// the result Part is rendered immediately after the call so the
+// output visually hangs off its own header. Without this map the
+// behaviour is identical to renderPartsForRole.
+func (t Theme) renderPartsForRoleWithResults(parts []gact.Part, width int, role string, inlineResults map[string]gact.Part) string {
 	var rows []string
 	for _, p := range parts {
 		var rendered string
@@ -234,6 +321,15 @@ func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) str
 		}
 		if rendered != "" {
 			rows = append(rows, rendered)
+		}
+		// Interleave: if this is a tool_call we have a result for,
+		// emit the matching result right after.
+		if p.Type == gact.PartTypeToolCall && p.CallID != "" && inlineResults != nil {
+			if r, ok := inlineResults[p.CallID]; ok {
+				if rr := t.renderPart(r, width); rr != "" {
+					rows = append(rows, rr)
+				}
+			}
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)

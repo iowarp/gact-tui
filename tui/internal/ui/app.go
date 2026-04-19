@@ -3115,12 +3115,20 @@ func (a *App) renderBody(width, height int) string {
 		)
 	} else {
 		var rows []string
+		// III1: pair tool_results to their tool_calls so each call's
+		// output renders directly under it. Tool messages whose entire
+		// payload was absorbed get skipped from standalone rendering
+		// (the role header would otherwise be empty noise).
+		inlineResults, absorbed := pairToolResults(a.messages)
 		for i, m := range a.messages {
+			if absorbed[i] {
+				continue
+			}
 			var prev *gact.Message
 			if i > 0 {
 				prev = &a.messages[i-1]
 			}
-			row := t.renderMessageInContext(m, prev, width-4)
+			row := t.renderMessageInContextWithResults(m, prev, width-4, inlineResults[i])
 			// Y1: body cursor marker — bold green `▌` on the selected
 			// message. Takes precedence over the V3 search-hit marker
 			// if both apply, because the cursor is the active state.
