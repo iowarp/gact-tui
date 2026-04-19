@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:05Z
-**Current phase:** BBBBBB1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d7b0f2f` (pushed after status commit)
+**Last updated:** 2026-04-19T18:13Z
+**Current phase:** CCCCCC1 shipped this iteration (BBBBBB1 + CCCCCC1 in this run)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0223c8a` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase CCCCCC — conformance per-message Diffs
+- **CCCCCC1.** Conformance gains a `Messages_Diffs` section
+  (gated on capabilities.diffs + sid). Lists session messages,
+  picks the first id, walks `GET /v1/sessions/{id}/messages/
+  {msg_id}/diffs`. Asserts 200 + non-nil `diffs` key + same
+  per-entry file_diff shape as BBBBBB1. Skips quietly when the
+  session has no messages. Read-only. New `Options.SkipMessageDiffs`
+  opt-out. CLI test updated.
 
 ### Phase BBBBBB — conformance Diffs section
 - **BBBBBB1.** Conformance gains a `Diffs` section (gated on

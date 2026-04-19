@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase CCCCCC — conformance: per-message Diffs section
+
+- [x] **CCCCCC1.** Adds a `Messages_Diffs` section to the conformance suite (gated on `capabilities.diffs` AND a non-empty session id). Lists session messages, picks the first id, walks `GET /v1/sessions/{id}/messages/{msg_id}/diffs`. Asserts 200 + non-nil `diffs` array + same per-entry file_diff shape as BBBBBB1 (path required + non-empty, applied bool-typed, language string|null when present). Skips quietly when the session has no messages yet — listing returns empty so there's nothing to drill into. Read-only — never POSTs to apply/reject. Locks the wire shape that powers per-turn diff drill-down (Ctrl+E from a tool_result row). New `Options.SkipMessageDiffs` opt-out. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Messages_Diffs ✓ Messages_Diffs PASS`.
+
 ## Phase BBBBBB — conformance: Diffs section
 
 - [x] **BBBBBB1.** Adds a `Diffs` section to the conformance suite (gated on `capabilities.diffs` AND a non-empty session id). Walks `GET /v1/sessions/{id}/diffs`: asserts 200, top-level `diffs` array present (non-nil), and each entry carries the file_diff shape from SPEC §5.4 — required `{path, applied}` (with `applied` bool-typed, `path` non-empty), optional `language` typed as string|null when present. Read-only — never POSTs to `/diffs/apply` or `/diffs/reject`, so it stays idempotent against the live session. Locks the wire shape that powers `gact diff` and the conversation pane's a/r apply/reject keys. New `Options.SkipDiffs` opt-out for adapters that don't surface diffs. Adapters that don't claim `diffs=true` auto-skip via the cap gate. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Diffs ✓ Diffs PASS`.
