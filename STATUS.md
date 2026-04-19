@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T09:55Z
-**Current phase:** GGGG1 + HHHH1 + IIII1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `36db1ed` and pushed
+**Last updated:** 2026-04-19T10:25Z
+**Current phase:** JJJJ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b57f7f7` and pushed
 **Open:** none
+
+### Phase JJJJ — gact mcp list
+- **JJJJ1.** `gact mcp list [--format tsv|json]` enumerates the
+  backend's MCP servers. TSV columns: id, name, status, transport,
+  protocol_version, caps (compact `tools,resources,prompts,logging`),
+  last_error. JSON dumps the array as-is. Aliased to `mcp ls`.
+  Help text + verb dispatcher updated. CLI test asserts both
+  formats and unknown-format exit 2.
 
 ### Phase IIII — gact theme set
 - **IIII1.** `gact theme set <name>` writes the chosen theme to
