@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-18T23:35Z
-**Current phase:** Phase KKK + HHH (gact tell + header model) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `62f9989` and pushed
-**Open issues:** III1 (tool call/result interleave + collapse-with-affordance), JJJ1 (intro splash + any-key-to-settings/sessions)
+**Last updated:** 2026-04-18T23:50Z
+**Current phase:** Phase III (tool call/result interleave) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2becd84` and pushed
+**Open issues:** LLL1–LLL8 (UX polish round filed from latest user feedback), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -25,6 +25,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase III — tool call/result linkage
+- **III1.** Tool calls and their results now interleave by CallID
+  in the conversation pane. `pairToolResults` builds a per-message
+  result map, tool messages whose payload is fully absorbed get
+  skipped, unpaired results stay visible. Three unit tests +
+  screenshots/67-tool-interleave.png.
 
 ### Phase KKK — name-based tell (user-flagged)
 - **KKK1.** `gact tell <name> <msg>` — single idempotent verb.
