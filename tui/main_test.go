@@ -197,6 +197,66 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_ArchiveRoundTrip covers II1: archive hides from default
+// list, unarchive restores. Both exit 0 against the emulator.
+func TestCLI_ArchiveRoundTrip(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"new", "--title", "archive-target")
+	if code != 0 {
+		t.Fatalf("new: exit %d", code)
+	}
+	sid := strings.TrimSpace(stdout)
+
+	// Archive.
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "archive", sid)
+	if code != 0 {
+		t.Fatalf("archive: exit %d", code)
+	}
+
+	// Default list now omits the session (emulator filters archived).
+	listOut, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	if strings.Contains(listOut, sid) {
+		t.Errorf("archived session still in default list: %q", listOut)
+	}
+
+	// Unarchive restores.
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "unarchive", sid)
+	if code != 0 {
+		t.Fatalf("unarchive: exit %d", code)
+	}
+	listOut, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	if !strings.Contains(listOut, sid) {
+		t.Errorf("unarchived session missing from list: %q", listOut)
+	}
+
+	// Cleanup.
+	_, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "delete", sid)
+}
+
+// TestCLI_Completion covers II2: each shell mode prints a script
+// with at least the canonical "completion" entry.
+func TestCLI_Completion(t *testing.T) {
+	bin := buildGact(t)
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		stdout, _, code := runGact(t, bin, nil, "completion", shell)
+		if code != 0 {
+			t.Errorf("completion %s: exit %d", shell, code)
+		}
+		if !strings.Contains(stdout, "gact") {
+			t.Errorf("completion %s: missing 'gact' in script: %q", shell, stdout[:120])
+		}
+	}
+	// Unknown shell → exit 2.
+	_, _, code := runGact(t, bin, nil, "completion", "powershell")
+	if code != 2 {
+		t.Errorf("unknown shell should exit 2, got %d", code)
+	}
+}
+
 // TestCLI_DeleteRoundTrip covers HH1: gact new → gact delete →
 // list confirms the session is gone.
 func TestCLI_DeleteRoundTrip(t *testing.T) {

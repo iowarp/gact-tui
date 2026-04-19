@@ -155,6 +155,8 @@ running backend:
 | `gact new [--title T] [--workspace WS_ID]` | Create a session; print id |
 | `gact delete <sid>` | DELETE the session |
 | `gact rename <sid> <new-title>` | PATCH session title |
+| `gact archive <sid>` / `gact unarchive <sid>` | Hide / restore from default sidebar |
+| `gact completion bash\|zsh\|fish` | Print shell completion script |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |
 | `gact tail [SID] [--workspace WS_ID]` | Stream SSE events as JSON lines |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |

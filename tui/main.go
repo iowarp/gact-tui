@@ -71,6 +71,12 @@ func main() {
 			os.Exit(runDelete(os.Args[2:]))
 		case "rename":
 			os.Exit(runRename(os.Args[2:]))
+		case "archive":
+			os.Exit(runArchive(os.Args[2:], true))
+		case "unarchive":
+			os.Exit(runArchive(os.Args[2:], false))
+		case "completion":
+			os.Exit(runCompletion(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -243,6 +249,9 @@ Usage:
   gact new [--title T]       create a session; print id to stdout
   gact delete <sid>          DELETE /v1/sessions/{id}
   gact rename <sid> <title>  PATCH session title
+  gact archive <sid>         hide a session from the default sidebar
+  gact unarchive <sid>       restore an archived session
+  gact completion <shell>    print bash|zsh|fish completion script
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -383,6 +392,105 @@ func runDelete(args []string) int {
 	}
 	return 0
 }
+
+// runArchive PATCHes session.archived. `archived=true` hides the
+// session from the default sidebar view (TUI's `h` toggles back);
+// `archived=false` restores it. Same code path for both via the
+// boolean argument so the two subcommand cases stay one-liners.
+func runArchive(args []string, archived bool) int {
+	verb := "archive"
+	if !archived {
+		verb = "unarchive"
+	}
+	fs := flag.NewFlagSet(verb, flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintf(os.Stderr, "usage: gact %s <session_id> [--backend URL]\n", verb)
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.PatchSession(ctx, sid, client.PatchSessionRequest{Archived: &archived}); err != nil {
+		fmt.Fprintf(os.Stderr, "gact %s: %v\n", verb, err)
+		return 1
+	}
+	return 0
+}
+
+// runCompletion writes a shell-completion script to stdout. Supports
+// bash, zsh, and fish — each emits a static list of subcommands +
+// the most common flags. We don't try to enumerate every flag of
+// every subcommand because (a) the list grows organically and (b)
+// users tab-complete the subcommand name + filename half the time
+// anyway.
+func runCompletion(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact completion bash|zsh|fish")
+		return 2
+	}
+	switch args[0] {
+	case "bash":
+		fmt.Print(bashCompletionScript)
+	case "zsh":
+		fmt.Print(zshCompletionScript)
+	case "fish":
+		fmt.Print(fishCompletionScript)
+	default:
+		fmt.Fprintf(os.Stderr, "gact completion: unknown shell %q (want bash|zsh|fish)\n", args[0])
+		return 2
+	}
+	return 0
+}
+
+const bashCompletionScript = `# gact bash completion. Source manually or copy to /etc/bash_completion.d/gact.
+_gact() {
+    local cur prev cmds
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    cmds="ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait"
+
+    if [ $COMP_CWORD -eq 1 ]; then
+        COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
+        return 0
+    fi
+    case "$prev" in
+        --backend|--workspace|--theme|--voice-cmd|--out|-o|--timeout|--interval|--limit|--title|--format)
+            return 0 ;;
+        completion)
+            COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") ) ;;
+    esac
+    return 0
+}
+complete -F _gact gact
+`
+
+const zshCompletionScript = `#compdef gact
+_gact() {
+    local -a cmds
+    cmds=(ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait)
+    if (( CURRENT == 2 )); then
+        _describe 'subcommand' cmds
+        return
+    fi
+    case "$words[2]" in
+        completion) _values 'shell' bash zsh fish ;;
+    esac
+}
+compdef _gact gact
+`
+
+const fishCompletionScript = `# gact fish completion
+complete -c gact -n "__fish_use_subcommand" -a "ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait"
+complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
+`
 
 // runRename PATCHes the session title. Useful in scripts that want
 // to label a session retroactively (e.g. after the first reply
