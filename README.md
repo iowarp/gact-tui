@@ -201,7 +201,7 @@ running backend:
 | `gact tell <name> <msg> [--async]` | Find-or-create session by title; send + print reply. `--async`: print sid·msg_id and exit |
 | `gact attach <name\|sid>` | Launch the TUI pre-selected on a session |
 | `gact voice <sid> <audio-file\|->` | POST audio bytes to `/voice/transcribe`; print recognised text |
-| `gact bench [-n N] [--message TEXT]` | Run N turns serially; report p50/p90/p99 latency |
+| `gact bench [-n N] [--concurrent C] [--message TEXT]` | Run N turns × C parallel goroutines; aggregate p50/p90/p99 + thrpt |
 | `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
 | `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json]` | One-shot table of every session (status·model·age·tokens·cost) |
 | `gact grep <query> [--workspace WS_ID] [--format tsv\|json]` | Search across every session in parallel (TSV: sid·title·mid·role·snippet) |
