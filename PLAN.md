@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase OOOOOO — adapter conformance follow-ups
+
+- [x] **OOOOOO1.** After adding 13 conformance sections (BBBBBB1..NNNNNN1) this run, adapters needed catch-up. Opencode now implements `GET /v1/workspaces/{id}` (synthetic single-workspace echo, returns 404 on id mismatch) so the §6.1 per-id drill stops returning 501. Both opencode + crush conformance tests now set `SkipAgents: true` since neither adapter proxies /v1/agents (no upstream concept). Mock upstream for opencode gains a /path handler so the new GetWorkspace handler can resolve. All adapter conformance subtests pass: Health, Capabilities, Workspaces, Sessions_List, Sessions_Get, Messages_Post, Messages_List, SSE.
+
 ## Phase NNNNNN — conformance: SSE envelope validation
 
 - [x] **NNNNNN1.** Strengthened `checkSSE` from "first `data:` line received" to "first complete event matches SPEC §7.2 envelope": (1) `event:` line is present, (2) `data:` line parses as JSON with a `type` field, (3) `data.type` matches the `event:` value (the redundancy is per spec — clients can read whichever they prefer; the conformance suite locks both in sync). New `validateSSEEvent` helper reads up to the first `\n\n` delimiter and runs the assertions. Specific event types and payload shapes stay per-backend; we only enforce the envelope shape.
