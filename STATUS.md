@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T21:55Z
-**Current phase:** LLLLL1 + MMMMM1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7f6a11a` and pushed
+**Last updated:** 2026-04-19T22:15Z
+**Current phase:** NNNNN1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ce70a0c` and pushed
 **Open:** none
+
+### Phase NNNNN — gact info --include perms
+- **NNNNN1.** Closes the OOOO1 follow-up. `gact info <sid>
+  --include perms` appends a perms section (pending + resolved
+  with action=…). Works in both text + JSON modes. Composes
+  with existing tasks/hooks. CLI test exercises full
+  request → deny lifecycle.
 
 ### Phase MMMMM — gact env --format json
 - **MMMMM1.** `gact env --format json` emits a single object
