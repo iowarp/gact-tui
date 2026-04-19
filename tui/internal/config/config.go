@@ -34,6 +34,14 @@ type Config struct {
 	// honour an "allowed_tools" list at session-create time would read
 	// this; today it's purely a TUI display filter.
 	DisabledTools []string `json:"disabled_tools,omitempty"`
+	// IntroSkip suppresses the JJJ1 splash screen. Default behaviour
+	// (nil/false) is to show the splash on TUI startup.
+	IntroSkip *bool `json:"intro_skip,omitempty"`
+	// IntroFile points at a custom splash file (`logo` block followed
+	// by a blank line and a `name` block, both ASCII art). Empty =
+	// use the baked-in default. Resolves relative paths against
+	// $XDG_CONFIG_HOME/gact/.
+	IntroFile *string `json:"intro_file,omitempty"`
 	// ConfigVersion tracks the schema generation. Bumped each time a
 	// breaking config field rename/move lands; migrate.go's Run() walks
 	// configs forward through the registered migrations on Load. Absent

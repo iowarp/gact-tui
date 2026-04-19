@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
@@ -34,6 +35,9 @@ const (
 	StageConnecting Stage = iota
 	StageReady
 	StageError
+	// StageIntro is the splash screen shown before connecting (JJJ1).
+	// Any key dismisses it and transitions into StageConnecting.
+	StageIntro
 )
 
 // App is the root Bubbletea model.
@@ -163,6 +167,11 @@ type App struct {
 	// from Config.DisabledTools at startup and persisted via SaveConfig
 	// when toggled. Today purely a TUI display filter.
 	disabledTools map[string]bool
+
+	// JJJ1: ASCII splash. Empty = use baked-in defaults.
+	// Loaded from --intro-file or ~/.config/gact/intro.txt at startup.
+	IntroLogo []string
+	IntroName []string
 
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
@@ -343,8 +352,19 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	}
 }
 
+// EnableIntro flips the initial stage to StageIntro so the splash
+// renders before the connect flow starts. Call from main before the
+// program is run when intro_skip is not set. (JJJ1)
+func (a *App) EnableIntro() { a.stage = StageIntro }
+
 // Init returns the initial Cmd: connect.
 func (a *App) Init() tea.Cmd {
+	// JJJ1: defer the connect handshake until the splash dismisses.
+	// Without this, connectedMsg can arrive before the user sees the
+	// splash and flip straight to StageReady.
+	if a.stage == StageIntro {
+		return nil
+	}
 	return connectCmd(a.c)
 }
 
@@ -1078,6 +1098,16 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if k.String() != "x" {
 		a.pendingDeleteSessionID = ""
 	}
+	// JJJ1: any key dismisses the splash and starts the connect flow.
+	// Ctrl+C still quits.
+	if a.stage == StageIntro {
+		if k.String() == "ctrl+c" {
+			return a, tea.Quit
+		}
+		a.stage = StageConnecting
+		return a, connectCmd(a.c)
+	}
+
 	// StageError is a special case: Ctrl+R retries immediately (skips
 	// the auto-retry backoff), Ctrl+C still quits, every other key is
 	// swallowed so users don't accidentally trigger something against
@@ -2561,6 +2591,8 @@ func (a *App) View() tea.View {
 	}
 	var content string
 	switch a.stage {
+	case StageIntro:
+		content = a.viewIntro()
 	case StageConnecting:
 		content = a.viewConnecting()
 	case StageError:
@@ -2632,6 +2664,82 @@ func (a *App) viewConnecting() string {
 		t.HeaderTitle.Render(" GACT TUI "),
 		"",
 		t.HintLabel.Render("Connecting to "+a.BackendURL+"…"),
+	)
+	return box.Render(body)
+}
+
+// IntroLogo / IntroName are the ASCII art shown in StageIntro
+// (JJJ1). Either can be overridden by loading a file via
+// SetIntroFromFile; absent both, the baked-in defaults render.
+var defaultIntroLogo = []string{
+	"      ▲      ",
+	"     ▲ ▲     ",
+	"    ▲   ▲    ",
+	"   ▲▲▲▲▲▲▲   ",
+}
+
+var defaultIntroName = []string{
+	"   ___   _    ___   _____ ",
+	"  / __| /_\\  / __| |_   _|",
+	" | (_ |/ _ \\| (__    | |  ",
+	"  \\___/_/ \\_\\___|   |_|  ",
+}
+
+// SetIntroFromFile loads a custom splash from disk. Format is two
+// blocks separated by a blank line: logo block, then name block.
+// Best-effort — bad files are ignored and the baked-in defaults
+// remain. Returns the error for callers that want to surface it.
+func (a *App) SetIntroFromFile(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	logo := []string{}
+	name := []string{}
+	hitBlank := false
+	for _, l := range lines {
+		if !hitBlank {
+			if strings.TrimSpace(l) == "" {
+				hitBlank = true
+				continue
+			}
+			logo = append(logo, l)
+		} else {
+			name = append(name, l)
+		}
+	}
+	if len(logo) > 0 {
+		a.IntroLogo = logo
+	}
+	if len(name) > 0 {
+		a.IntroName = name
+	}
+	return nil
+}
+
+func (a *App) viewIntro() string {
+	t := a.Theme
+	logo := a.IntroLogo
+	if len(logo) == 0 {
+		logo = defaultIntroLogo
+	}
+	name := a.IntroName
+	if len(name) == 0 {
+		name = defaultIntroName
+	}
+	logoStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	nameStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	box := lipgloss.NewStyle().
+		Width(a.width).Height(a.height).
+		Align(lipgloss.Center, lipgloss.Center).
+		Foreground(t.Fg).Background(t.Bg)
+	body := lipgloss.JoinVertical(lipgloss.Center,
+		logoStyle.Render(strings.Join(logo, "\n")),
+		"",
+		nameStyle.Render(strings.Join(name, "\n")),
+		"",
+		t.HintLabel.Italic(true).Render("press any key to continue"),
 	)
 	return box.Render(body)
 }
