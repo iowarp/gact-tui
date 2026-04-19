@@ -394,7 +394,7 @@ Usage:
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
-  gact dashboard             one-shot table of every session (status/model/cost)
+  gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
@@ -2041,11 +2041,16 @@ func runDashboard(args []string) int {
 	format := fs.String("format", "pretty", "pretty | tsv | json")
 	watch := fs.Bool("watch", false, "re-render every --interval (BBBB1)")
 	interval := fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
+	// YYYY1: --status filters rows to one status (or comma-list).
+	// Empty = all (back-compat). Validation runs client-side so a
+	// typo errors fast instead of returning a silently-empty board.
+	statusFilter := fs.String("status", "", "comma-separated status filter: idle|running|waiting|error")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
 		"--interval": true, "-interval": true,
+		"--status": true, "-status": true,
 	})); err != nil {
 		return 2
 	}
@@ -2055,12 +2060,31 @@ func runDashboard(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact dashboard: unknown format %q (want pretty|tsv|json)\n", *format)
 		return 2
 	}
+	var keep map[string]bool
+	if *statusFilter != "" {
+		keep = map[string]bool{}
+		for _, s := range strings.Split(*statusFilter, ",") {
+			s = strings.TrimSpace(s)
+			// Translate user-friendly "waiting" alias to the actual
+			// server status string `waiting_permission` (see SPEC).
+			switch s {
+			case "":
+			case "idle", "running", "error":
+				keep[s] = true
+			case "waiting", "waiting_permission":
+				keep["waiting_permission"] = true
+			default:
+				fmt.Fprintf(os.Stderr, "gact dashboard: unknown --status %q (want idle|running|waiting|error)\n", s)
+				return 2
+			}
+		}
+	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	c := client.New(finalBackend)
 
 	if !*watch {
 		// One-shot path (back-compat).
-		return renderDashboardOnce(c, *wsID, *format)
+		return renderDashboardOnce(c, *wsID, *format, keep)
 	}
 
 	// BBBB1: watch loop. ANSI clear-screen + cursor-home between
@@ -2076,7 +2100,7 @@ func runDashboard(args []string) int {
 			fmt.Print("\033[2J\033[H") // clear + home
 			fmt.Printf("gact dashboard --watch  backend=%s  refresh=%s  (Ctrl+C to exit)\n\n",
 				finalBackend, *interval)
-			if code := renderDashboardOnce(c, *wsID, *format); code != 0 {
+			if code := renderDashboardOnce(c, *wsID, *format, keep); code != 0 {
 				cancel()
 				return code
 			}
@@ -2092,8 +2116,9 @@ func runDashboard(args []string) int {
 
 // renderDashboardOnce runs a single dashboard fetch+print. Extracted
 // from runDashboard so --watch can call it on each tick. Returns
-// the exit code (non-zero on backend error).
-func renderDashboardOnce(c *client.Client, wsID, format string) int {
+// the exit code (non-zero on backend error). When keep is non-nil,
+// only sessions whose status is in the set are rendered (YYYY1).
+func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
@@ -2101,8 +2126,20 @@ func renderDashboardOnce(c *client.Client, wsID, format string) int {
 		fmt.Fprintf(os.Stderr, "gact dashboard: %v\n", err)
 		return 1
 	}
+	if keep != nil {
+		filtered := sessions[:0]
+		for _, s := range sessions {
+			if keep[s.Status] {
+				filtered = append(filtered, s)
+			}
+		}
+		sessions = filtered
+	}
 
 	if format == "json" {
+		if sessions == nil {
+			sessions = []gact.Session{}
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(sessions)
@@ -5731,9 +5768,15 @@ func runList(args []string) int {
 		return 1
 	}
 	if *status != "" {
+		// Translate user-friendly "waiting" alias to server status
+		// `waiting_permission`. Same fix applied to dashboard (YYYY1).
+		want := *status
+		if want == "waiting" {
+			want = "waiting_permission"
+		}
 		filtered := sessions[:0]
 		for _, s := range sessions {
-			if s.Status == *status {
+			if s.Status == want {
 				filtered = append(filtered, s)
 			}
 		}

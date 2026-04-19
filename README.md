@@ -207,7 +207,7 @@ running backend:
 | `gact voice <sid> <audio-file\|->` | POST audio bytes to `/voice/transcribe`; print recognised text |
 | `gact bench [-n N] [--concurrent C] [--message TEXT]` | Run N turns × C parallel goroutines; aggregate p50/p90/p99 + thrpt |
 | `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
-| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--watch] [--interval DUR]` | Session table; --watch refreshes every interval (default 2s) |
+| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--status …] [--watch] [--interval DUR]` | Session table; `--status idle\|running\|waiting\|error` to filter (comma-separated); `--watch` refreshes every interval |
 | `gact grep <query> [--workspace WS_ID] [--format tsv\|json] [--limit N]` | Search across every session in parallel; `--limit N` truncates output (0 = unlimited) |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks; `list --event TYPE --scope global\|session\|workspace` to filter |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies; `list --format tsv` for human-scannable table |
