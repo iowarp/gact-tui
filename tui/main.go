@@ -396,6 +396,10 @@ func runTUI() {
 		"shell cmd that writes audio/wav to stdout (env: GACT_VOICE_CMD, config: voice_command)")
 	listThemes := flag.Bool("list-themes", false,
 		"print available theme names (for --theme) and exit")
+	noIntro := flag.Bool("no-intro", false,
+		"skip the JJJ1 splash screen (also: intro_skip in config)")
+	introFile := flag.String("intro-file", "",
+		"path to ASCII splash file (logo block, blank line, name block); env GACT_INTRO_FILE; config intro_file")
 	flag.Parse()
 
 	if *listThemes {
@@ -441,6 +445,28 @@ func runTUI() {
 	// across restarts.
 	if len(cfg.DisabledTools) > 0 {
 		app.SetDisabledTools(cfg.DisabledTools)
+	}
+	// JJJ1: enable splash unless --no-intro / GACT_NO_INTRO /
+	// intro_skip in config. Load custom intro file if set.
+	skipIntro := *noIntro
+	if !skipIntro && os.Getenv("GACT_NO_INTRO") != "" {
+		skipIntro = true
+	}
+	if !skipIntro && cfg.IntroSkip != nil && *cfg.IntroSkip {
+		skipIntro = true
+	}
+	if !skipIntro {
+		app.EnableIntro()
+	}
+	finalIntroFile := *introFile
+	if finalIntroFile == "" {
+		finalIntroFile = os.Getenv("GACT_INTRO_FILE")
+	}
+	if finalIntroFile == "" && cfg.IntroFile != nil {
+		finalIntroFile = *cfg.IntroFile
+	}
+	if finalIntroFile != "" {
+		_ = app.SetIntroFromFile(finalIntroFile)
 	}
 	// Wire the save hook so Settings > TUI ◀/▶ adjustments flush to
 	// disk on every change. The hook captures the resolved config

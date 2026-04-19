@@ -37,7 +37,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase JJJ — intro/splash screen (user-flagged)
 
-- [ ] **JJJ1.** Replace the bare "connecting…" text with an ASCII-art splash: a configurable `name` rendered in big block-letters, plus a logo above (default: Clio with a triangle on top). Both the name and the logo are read from a reference file `~/.config/gact/intro.txt` (or `--intro-file`); when absent, falls back to baked-in defaults. A `--no-intro` flag and `intro_skip: true` config bypass the splash entirely (so tests don't have to wait it out). Pressing any key during the splash transitions: → if no model/agent in config → settings modal opened to Model tab; → if both present → straight to the session list. Test with golden + a screenshot.
+- [x] **JJJ1.** ASCII splash shipped. New `StageIntro` shown before connect (Init guards connectCmd while in StageIntro). `viewIntro` renders Triangle logo + GACT block-letters + "press any key to continue". Custom splash via `--intro-file PATH`, `GACT_INTRO_FILE`, or `intro_file` config (format: logo block, blank line, name block). Bypassed by `--no-intro` flag, `GACT_NO_INTRO` env, or `intro_skip: true` config. Any non-Ctrl+C key dismisses → connect. 4 unit tests + screenshots/71-intro-splash.png. NB: deferred the "if no model/agent: open Settings>Model" routing — both fields default to anthropic/claude-opus-4-7 in createSessionCmd today, so nothing's "unset"; revisit when those defaults move into Settings.
 
 ## Phase KKK — name-based tell (user-flagged)
 
