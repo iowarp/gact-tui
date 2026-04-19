@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T05:00Z
-**Current phase:** RRR1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0275db5` and pushed
-**Open:** SSS1 (conformance CLI — needs Reporter refactor, deferred)
+**Last updated:** 2026-04-19T05:20Z
+**Current phase:** RRR1 + SSS1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0a35c1a` and pushed
+**Open:** none
 
 ## This loop (Phases N + O)
 
@@ -95,6 +95,13 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase SSS — conformance CLI
+- **SSS1.** `gact conformance` ships. Refactored
+  contract/conformance to a Reporter interface; *testing.T wraps
+  via FromTest, new CLIReporter prints tree-style results. CLI
+  supports --skip Section,… and exits 1 on any section failure.
+  Test runs full suite vs emulator → PASS.
 
 ### Phase RRR — tail filter
 - **RRR1.** `gact tail --filter type1,type2` ships. Comma-separated
