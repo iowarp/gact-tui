@@ -31,6 +31,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/plugins"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui"
 )
 
@@ -131,6 +132,8 @@ func main() {
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
 			os.Exit(runTasks(os.Args[2:]))
+		case "plugins", "plugin":
+			os.Exit(runPlugins(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -366,6 +369,8 @@ Usage:
   gact tasks list|add|set|rm manage §6.18 session tasks
                               add: <sid> <title> [--status pending|…]
                               set: <task-id> [--title T] [--status S]
+  gact plugins list|dir      list/inspect plugins under
+                              ~/.config/gact/plugins/<name>/plugin.json
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -818,6 +823,114 @@ func runPermsRulesClear(args []string) int {
 	if _, err := c.PutPolicies(ctx, []gact.Policy{}); err != nil {
 		fmt.Fprintf(os.Stderr, "gact perms rules clear: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runPlugins dispatches `gact plugins <verb>` for the MMM8 plugin
+// loader. Sub-verbs:
+//
+//	gact plugins list [--format text|json] [--dir DIR]
+//	gact plugins dir   (print the resolved plugin root)
+func runPlugins(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact plugins list|dir [--dir DIR]")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list", "ls":
+		return runPluginsList(rest)
+	case "dir", "path":
+		return runPluginsDir(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact plugins: unknown verb %q (want list|dir)\n", verb)
+	return 2
+}
+
+func runPluginsDir(args []string) int {
+	fs := flag.NewFlagSet("plugins dir", flag.ContinueOnError)
+	dir := fs.String("dir", "", "override plugin root (default: $XDG_CONFIG_HOME/gact/plugins)")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--dir": true, "-dir": true})); err != nil {
+		return 2
+	}
+	resolved := *dir
+	if resolved == "" {
+		d, err := plugins.DefaultDir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact plugins dir: %v\n", err)
+			return 1
+		}
+		resolved = d
+	}
+	fmt.Println(resolved)
+	return 0
+}
+
+func runPluginsList(args []string) int {
+	fs := flag.NewFlagSet("plugins list", flag.ContinueOnError)
+	dir := fs.String("dir", "", "override plugin root")
+	format := fs.String("format", "text", "text | json")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--dir": true, "-dir": true,
+		"--format": true, "-format": true,
+	})); err != nil {
+		return 2
+	}
+	resolved := *dir
+	if resolved == "" {
+		d, err := plugins.DefaultDir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact plugins list: %v\n", err)
+			return 1
+		}
+		resolved = d
+	}
+	loaded, errs, err := plugins.LoadVerbose(resolved)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact plugins list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(loaded)
+		for _, e := range errs {
+			fmt.Fprintln(os.Stderr, "warn:", e)
+		}
+		return 0
+	}
+	if *format != "text" {
+		fmt.Fprintf(os.Stderr, "gact plugins list: unknown format %q\n", *format)
+		return 2
+	}
+	if len(loaded) == 0 {
+		fmt.Fprintf(os.Stderr, "no plugins under %s\n", resolved)
+		return 0
+	}
+	for _, p := range loaded {
+		header := p.Name
+		if p.Version != "" {
+			header += " " + p.Version
+		}
+		if p.Description != "" {
+			header += " — " + p.Description
+		}
+		fmt.Println(header)
+		for _, c := range p.Commands {
+			line := "  " + c.ID
+			if c.Title != "" {
+				line += "  " + c.Title
+			}
+			if c.Description != "" {
+				line += " — " + c.Description
+			}
+			fmt.Println(line)
+		}
+	}
+	for _, e := range errs {
+		fmt.Fprintln(os.Stderr, "warn:", e)
 	}
 	return 0
 }
@@ -3235,7 +3348,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3255,7 +3368,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3268,7 +3381,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
