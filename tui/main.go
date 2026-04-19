@@ -116,6 +116,10 @@ func main() {
 			os.Exit(runMcp(os.Args[2:]))
 		case "tool", "tools":
 			os.Exit(runTool(os.Args[2:]))
+		case "agent", "agents":
+			os.Exit(runAgent(os.Args[2:]))
+		case "watch":
+			os.Exit(runWatch(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -337,6 +341,8 @@ Usage:
   gact mcp prompts <srv-id>  list one MCP server's prompt templates
   gact mcp reconnect <srv-id> force-reconnect an MCP server
   gact tool show <id>        print one tool's metadata + input schema
+  gact agent show <id>       print one agent's metadata + system prompt
+  gact watch <sid>           tail status changes (TSV: time status msgs tokens)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -652,6 +658,157 @@ func runSearch(args []string) int {
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
 	}
 	return 0
+}
+
+// runAgent dispatches the `gact agent <verb>` family. Right now only
+// `show` is implemented (list is covered by `gact catalog agents`):
+//
+//	gact agent show <id> [--format text|json]
+func runAgent(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent show <id> [--format text|json]")
+		return 2
+	}
+	verb := args[0]
+	if verb != "show" {
+		fmt.Fprintf(os.Stderr, "gact agent: unknown verb %q (want show — list is `gact catalog agents`)\n", verb)
+		return 2
+	}
+	rest := args[1:]
+	fs := flag.NewFlagSet("agent show", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent show <id> [--format text|json]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact agent show: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	a, err := c.GetAgent(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent show: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(a)
+		return 0
+	}
+	fmt.Printf("id:            %s\n", a.ID)
+	fmt.Printf("source:        %s\n", a.Source)
+	fmt.Printf("title:         %s\n", a.Title)
+	if a.Description != "" {
+		fmt.Printf("description:   %s\n", a.Description)
+	}
+	if a.DefaultModel != nil {
+		fmt.Printf("default_model: %s/%s\n", a.DefaultModel.ProviderID, a.DefaultModel.ModelID)
+	}
+	if len(a.Tools) > 0 {
+		fmt.Printf("tools:         %s\n", strings.Join(a.Tools, ", "))
+	}
+	for _, p := range a.Parameters {
+		req := ""
+		if p.Required {
+			req = " (required)"
+		}
+		fmt.Printf("param:         %s [%s]%s — %s\n", p.Name, p.Type, req, p.Description)
+	}
+	if a.SystemPrompt != "" {
+		fmt.Printf("system_prompt:\n%s\n", a.SystemPrompt)
+	}
+	return 0
+}
+
+// runWatch polls GetSession every --interval and prints one TSV row
+// per status change: time<TAB>status<TAB>messages<TAB>tokens_out.
+// Different from `gact wait` (which exits on first idle): this
+// surfaces transitions, useful for "what's the agent doing?" tail.
+// Stops after status hits idle and stays idle for one extra interval.
+func runWatch(args []string) int {
+	fs := flag.NewFlagSet("watch", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	interval := fs.Duration("interval", time.Second, "polling cadence")
+	timeout := fs.Duration("timeout", 5*time.Minute, "abandon after this long")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--interval": true, "-interval": true,
+		"--timeout": true, "-timeout": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact watch <session_id> [--interval DUR] [--timeout DUR]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+	prevStatus, prevMessages, prevTokens := "", -1, -1
+	sawActivity := false
+	idleStreak := 0
+	tick := time.NewTicker(*interval)
+	defer tick.Stop()
+	emit := func(s gact.Session) {
+		fmt.Printf("%s\t%s\t%d\t%d\n",
+			time.Now().UTC().Format("15:04:05"),
+			s.Status, s.MessageCount, s.Tokens.Output)
+	}
+	for {
+		s, err := c.GetSession(ctx, sid)
+		if err != nil {
+			if ctx.Err() != nil {
+				fmt.Fprintln(os.Stderr, "gact watch: timeout")
+				return 1
+			}
+			fmt.Fprintf(os.Stderr, "gact watch: %v\n", err)
+			return 1
+		}
+		// Activity = any non-idle status, or any change in message/token
+		// counts after the first poll. Either signal means we've seen
+		// the session do something — without it, --timeout is the only
+		// exit. The first poll itself never counts (prevMessages == -1).
+		if s.Status != "idle" {
+			sawActivity = true
+		}
+		if prevMessages != -1 && (s.MessageCount != prevMessages || s.Tokens.Output != prevTokens) {
+			sawActivity = true
+		}
+		if s.Status != prevStatus || s.MessageCount != prevMessages || s.Tokens.Output != prevTokens {
+			emit(s)
+			prevStatus = s.Status
+			prevMessages = s.MessageCount
+			prevTokens = s.Tokens.Output
+			idleStreak = 0
+		} else if s.Status == "idle" && sawActivity {
+			idleStreak++
+			if idleStreak >= 2 {
+				return 0
+			}
+		}
+		select {
+		case <-tick.C:
+		case <-ctx.Done():
+			fmt.Fprintln(os.Stderr, "gact watch: timeout")
+			return 1
+		}
+	}
 }
 
 // runTool dispatches the `gact tool <verb>` family. Right now only
@@ -2284,7 +2441,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces"
+    cmds="agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -2304,7 +2461,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces)
+    cmds=(agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -2317,7 +2474,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

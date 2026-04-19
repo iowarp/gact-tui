@@ -438,6 +438,15 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 	return out.Entries, err
 }
 
+// GetAgent fetches one agent definition by id (full def incl.
+// system_prompt and parameters) via /v1/agents/{id}. Used by
+// `gact agent show` for shell scripting symmetric to `gact tool show`.
+func (c *Client) GetAgent(ctx context.Context, id string) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodGet, "/v1/agents/"+id, nil, &out)
+	return out, err
+}
+
 // GetTool fetches one tool by id (full definition incl. input/output
 // schemas) via /v1/tools/{id}. Used by `gact tool show` to surface
 // the schema for shell scripts that want to call the tool directly.

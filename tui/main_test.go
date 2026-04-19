@@ -234,6 +234,66 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_AgentShow covers DDD1: fetch the seeded `default` agent
+// and assert its title, description, default_model line, and tools
+// list land in text output. JSON mode dumps the raw AgentDef.
+func TestCLI_AgentShow(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"agent", "show", "default")
+	if code != 0 {
+		t.Fatalf("agent show: exit %d", code)
+	}
+	for _, want := range []string{"id:", "Default Agent", "default_model:", "tools:"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in output: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"agent", "show", "default", "--format", "json")
+	if code != 0 {
+		t.Fatalf("agent show json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id"`) || !strings.Contains(stdout, `"default"`) {
+		t.Errorf("expected JSON with id+default: %q", stdout)
+	}
+}
+
+// TestCLI_Watch covers DDD2: send a turn in the background, watch
+// surfaces transitions, and exits cleanly when status settles.
+func TestCLI_Watch(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "watch-target")
+
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"send", sid, "hello watcher")
+	}()
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"watch", sid, "--interval", "150ms", "--timeout", "20s")
+	if code != 0 {
+		t.Fatalf("watch: exit %d", code)
+	}
+	rows := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(rows) < 2 {
+		t.Errorf("expected at least 2 transition rows, got %d: %q", len(rows), stdout)
+	}
+	for _, r := range rows {
+		fields := strings.Split(r, "\t")
+		if len(fields) != 4 {
+			t.Errorf("expected 4 TSV fields per row, got %d in %q", len(fields), r)
+		}
+	}
+}
+
 // TestCLI_ToolShow covers CCC1: fetch one tool's full definition.
 // Asserts the seeded `bash` tool's name, description, and schema.
 func TestCLI_ToolShow(t *testing.T) {
