@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T22:10Z
-**Current phase:** Phase AAA (repo map CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `02eaa54` and pushed
+**Last updated:** 2026-04-18T22:25Z
+**Current phase:** Phase BBB (MCP detail CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `45d0ea5` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase BBB — MCP detail CLI
+- **BBB1.** `gact mcp tools|resources|prompts <server-id>` exposes
+  the three previously-unwrapped per-server endpoints. Added
+  `client.McpServerTools/Resources/Prompts`. TSV columns tuned per
+  type. JSON mode dumps raw slice. CLI test asserts ≥1 row each
+  for `mcp_fake` and JSON shape.
 
 ### Phase AAA — repo map CLI
 - **AAA1.** `gact repo-map <ws-id> [--format tree|json]` exposes
