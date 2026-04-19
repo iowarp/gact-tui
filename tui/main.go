@@ -238,13 +238,15 @@ func runEmitConfig() {
 	ct := 5
 	cw := 100_000
 	cd := 150_000
+	pt := 3
 	sample := config.Config{
-		BackendURL:        &bk,
-		Theme:             &th,
-		VoiceCommand:      &vc,
-		CollapseThreshold: &ct,
-		CostWarnTokens:    &cw,
-		CostDangerTokens:  &cd,
+		BackendURL:             &bk,
+		Theme:                  &th,
+		VoiceCommand:           &vc,
+		CollapseThreshold:      &ct,
+		CostWarnTokens:         &cw,
+		CostDangerTokens:       &cd,
+		PasteCompressThreshold: &pt,
 	}
 	buf, _ := json.MarshalIndent(sample, "", "  ")
 	fmt.Println(string(buf))
@@ -497,6 +499,11 @@ func runTUI() {
 	if cfg.CostDangerTokens != nil && *cfg.CostDangerTokens > 0 {
 		app.Theme.CostDangerTokens = *cfg.CostDangerTokens
 	}
+	// YYYYY1: restore paste-compress threshold (defaults to 3 via
+	// Theme.applyStyles when nil/zero).
+	if cfg.PasteCompressThreshold != nil && *cfg.PasteCompressThreshold > 0 {
+		app.Theme.PasteCompressThreshold = *cfg.PasteCompressThreshold
+	}
 	// LLL2: restore disabled tools so the catalog browser hides them
 	// across restarts.
 	if len(cfg.DisabledTools) > 0 {
@@ -514,6 +521,9 @@ func runTUI() {
 	if !skipIntro {
 		app.EnableIntro()
 	}
+	// YYYYY1: mirror the resolved skip-intro state onto the App so
+	// Settings → TUI sees the current value when the user opens it.
+	app.IntroDisabled = skipIntro
 	finalIntroFile := *introFile
 	if finalIntroFile == "" {
 		finalIntroFile = os.Getenv("GACT_INTRO_FILE")
@@ -565,6 +575,13 @@ func runTUI() {
 		danger := app.Theme.CostDangerTokens
 		cur.CostWarnTokens = &warn
 		cur.CostDangerTokens = &danger
+		// YYYYY1: persist paste-compress threshold + intro toggle so
+		// they survive across launches like the other Settings → TUI
+		// knobs.
+		paste := app.Theme.PasteCompressThreshold
+		cur.PasteCompressThreshold = &paste
+		introSkip := app.IntroDisabled
+		cur.IntroSkip = &introSkip
 		cur.DisabledTools = app.GetDisabledTools()
 		return config.Save(cur, persistPath)
 	}

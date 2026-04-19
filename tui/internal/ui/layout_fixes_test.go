@@ -1293,6 +1293,69 @@ func TestSettings_CostThresholdArrows(t *testing.T) {
 	}
 }
 
+// YYYYY1: row 3 = paste-compress threshold (steps by 1, clamps at
+// 2..20). Row 4 = intro splash toggle (boolean). Verifies cross-
+// talk-free + clamping behavior.
+func TestSettings_PasteAndIntroToggle(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	// Row 3 = paste-compress.
+	a.settings.tuiRow = 3
+	a.Theme.PasteCompressThreshold = 5
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.Theme.PasteCompressThreshold != 6 {
+		t.Errorf("right paste: got %d, want 6", a.Theme.PasteCompressThreshold)
+	}
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	a = out.(*App)
+	if a.Theme.PasteCompressThreshold != 5 {
+		t.Errorf("left paste: got %d, want 5", a.Theme.PasteCompressThreshold)
+	}
+	// Lower clamp at pasteThresholdMin (2).
+	for i := 0; i < 30; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+		a = out.(*App)
+	}
+	if a.Theme.PasteCompressThreshold != 2 {
+		t.Errorf("clamp low paste: got %d, want 2", a.Theme.PasteCompressThreshold)
+	}
+	// Upper clamp at pasteThresholdMax (20).
+	for i := 0; i < 30; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+		a = out.(*App)
+	}
+	if a.Theme.PasteCompressThreshold != 20 {
+		t.Errorf("clamp high paste: got %d, want 20", a.Theme.PasteCompressThreshold)
+	}
+
+	// Row 4 = intro toggle. Both ←/→ flip the bool.
+	a.settings.tuiRow = 4
+	a.IntroDisabled = false
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if !a.IntroDisabled {
+		t.Errorf("right on intro row should flip false→true")
+	}
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	a = out.(*App)
+	if a.IntroDisabled {
+		t.Errorf("left on intro row should flip true→false")
+	}
+
+	// Cross-talk: right on row 3 must NOT touch IntroDisabled.
+	a.settings.tuiRow = 3
+	a.Theme.PasteCompressThreshold = 5
+	a.IntroDisabled = false
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.IntroDisabled {
+		t.Errorf("row=3 right should NOT flip intro: got %v", a.IntroDisabled)
+	}
+}
+
 // TestRenderBody_ReturnsExactHeight is the tightest contract: regardless
 // of content size, the final rendered tui View is bounded by a.height
 // rows. The footer can only stay in frame if every other pane respects

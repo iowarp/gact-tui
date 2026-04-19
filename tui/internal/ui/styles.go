@@ -60,6 +60,13 @@ type Theme struct {
 	// windows can lower them via config.json or the CLI flag.
 	CostWarnTokens   int
 	CostDangerTokens int
+
+	// PasteCompressThreshold is the minimum line count a bracketed
+	// paste must have before it gets the [pasted content: N lines]
+	// placeholder treatment. Below this the paste falls through to
+	// the textarea verbatim. 0 means "use built-in default" (3).
+	// User-controllable via Settings → TUI. (YYYYY1)
+	PasteCompressThreshold int
 }
 
 // ThemeMode identifies which named palette to load. New palettes get a
@@ -349,6 +356,11 @@ func (t *Theme) applyStyles() {
 	}
 	if t.CostDangerTokens == 0 {
 		t.CostDangerTokens = 150_000
+	}
+	// YYYYY1: paste-compress threshold defaults to 3 lines, matching
+	// the previous hard-coded value in the bracketed-paste handler.
+	if t.PasteCompressThreshold == 0 {
+		t.PasteCompressThreshold = 3
 	}
 }
 
