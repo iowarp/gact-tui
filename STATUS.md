@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T23:15Z
-**Current phase:** PPPPP1 + QQQQQ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d374f3a` and pushed
+**Last updated:** 2026-04-19T23:35Z
+**Current phase:** RRRRR1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `230ba84` and pushed
 **Open:** none
+
+### Phase RRRRR — diff scenario variants
+- **RRRRR1.** Closes the variant-cycle arc across all four
+  scenario families. `runDiffScript` cycles 3 distinct file
+  diffs per session — Go logging swap (preserved), Python
+  try/except, JS callback→async refactor. Three different
+  languages so the syntax-hint render path also gets variety.
 
 ### Phase QQQQQ — multi-tool scenario variants
 - **QQQQQ1.** `runMultiToolScript` cycles 3 distinct 3-tool flows
