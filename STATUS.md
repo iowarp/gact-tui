@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T11:45Z
-**Current phase:** MMMM1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `770e36a` and pushed
+**Last updated:** 2026-04-19T12:10Z
+**Current phase:** MMMM1 + NNNN1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cf625a4` and pushed
 **Open:** none
+
+### Phase NNNN — gact follow --format json (NDJSON)
+- **NNNN1.** `gact follow <sid> --format json` emits NDJSON for
+  both the snapshot and SSE-streamed messages. Refactored to an
+  `emit(msg)` closure so both code paths stay format-aware.
+  Default text mode unchanged. CLI test runs follow in a 5s-
+  bounded goroutine, sends BRAVO mid-stream, asserts both ALPHA
+  (snapshot) and BRAVO (stream) appear in parsed NDJSON.
 
 ### Phase MMMM — gact log --format json (NDJSON)
 - **MMMM1.** `gact log <sid> --format json` emits one message per
