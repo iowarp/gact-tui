@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T04:05Z
-**Current phase:** MMM7/8 + NNN1 + JJJ1 + LLL8b + MMM8b shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3b606fb` and pushed
-**Open:** none — all known follow-ups closed. PLAN.md awaits next user feedback for new phases.
+**Last updated:** 2026-04-19T04:20Z
+**Current phase:** OOO1 (gact attach) shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a7054c9` and pushed
+**Open:** none — PLAN awaits next user feedback for new phases.
 
 ## This loop (Phases N + O)
 
@@ -95,6 +95,13 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase OOO — TUI launch shortcuts
+- **OOO1.** `gact attach <name|sid>` ships. runAttach trims argv +
+  sets env, App.AttachSessionID + pickAttachIndex helper select
+  the right row at connect (matches by id OR title, falls back
+  with hint if missing). 4 sub-tests + screenshots/72-attach-
+  direct.png.
 
 ### Phase JJJ — intro splash (user-flagged)
 - **JJJ1.** ASCII splash with Triangle logo + GACT block-letters
