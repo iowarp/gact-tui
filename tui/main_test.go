@@ -307,6 +307,49 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_TellAsync covers LLL8: --async returns immediately with
+// sid<TAB>msg_id and exits before the assistant reply lands.
+func TestCLI_TellAsync(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	name := "async-test"
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tell", name, "--async", "fire and forget")
+	if code != 0 {
+		t.Fatalf("tell --async: exit %d", code)
+	}
+	out := strings.TrimSpace(stdout)
+	parts := strings.Split(out, "\t")
+	if len(parts) != 2 {
+		t.Fatalf("expected sid<TAB>msg_id, got %q", out)
+	}
+	sid, mid := parts[0], parts[1]
+	if !strings.HasPrefix(sid, "sess_") {
+		t.Errorf("sid prefix: got %q", sid)
+	}
+	if !strings.HasPrefix(mid, "msg_") {
+		t.Errorf("msg_id prefix: got %q", mid)
+	}
+
+	// Second call with same name + --async still resolves to the
+	// same session — proving --async didn't break the create-or-resume
+	// behaviour.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tell", "--async", name, "second turn")
+	if code != 0 {
+		t.Fatalf("tell --async (resume): exit %d", code)
+	}
+	parts2 := strings.Split(strings.TrimSpace(stdout), "\t")
+	if len(parts2) != 2 {
+		t.Fatalf("expected sid<TAB>msg_id, got %q", stdout)
+	}
+	if parts2[0] != sid {
+		t.Errorf("expected same sid on resume: first=%q second=%q", sid, parts2[0])
+	}
+}
+
 // TestCLI_Tell covers user-flagged name-based session messaging:
 // `gact tell <name> <msg>` creates a session by title on first call
 // and resumes it on subsequent calls. One verb, idempotent resolution.
