@@ -56,6 +56,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)
 	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
+	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
@@ -139,6 +140,40 @@ func (s *Server) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"workspaces": []gact.Workspace{w_ws},
 	})
+}
+
+// handleGetWorkspace returns the synthetic workspace for a given id.
+// Per SPEC §6.1, GET /v1/workspaces/{id} must return the same shape
+// as the list entries. The adapter only ever has one workspace
+// ("default" derived from /path), so a non-matching id is 404.
+func (s *Server) handleGetWorkspace(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	body, err := s.upstreamGet("/path")
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	var path struct {
+		Worktree  string `json:"worktree"`
+		Directory string `json:"directory"`
+	}
+	if err := json.Unmarshal(body, &path); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	root := path.Worktree
+	if root == "" {
+		root = path.Directory
+	}
+	w_ws := WorkspaceFromProject(OcProjectInfo{
+		ID:       "default",
+		Worktree: root,
+	})
+	if w_ws.ID != id {
+		writeError(w, http.StatusNotFound, "workspace_not_found", "no workspace with id "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, w_ws)
 }
 
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
