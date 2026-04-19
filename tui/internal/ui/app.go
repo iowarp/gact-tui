@@ -2342,6 +2342,25 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.pendingSidebarRefresh = true
 	case "cost.updated":
 		a.applyCostUpdated(e)
+	case "notification":
+		// MMM1: backend-pushed banner-worthy message. Surface as a
+		// transient hint with the level prefixed, so the user sees
+		// "info: MCP server reconnected" / "warning: ..." in the
+		// reserved hint row above the input. Best-effort — payload
+		// is structured but optional fields can be missing.
+		if pl != nil {
+			level, _ := pl["level"].(string)
+			title, _ := pl["title"].(string)
+			body, _ := pl["body"].(string)
+			if level == "" {
+				level = "info"
+			}
+			text := level + ": " + title
+			if body != "" {
+				text += " — " + body
+			}
+			a.transientHint = text
+		}
 	case "session.cleared":
 		// /clear wiped the backend's messages for this session — drop
 		// the local cache so the conversation pane matches. The event

@@ -96,6 +96,32 @@ func runGact(t *testing.T, bin string, env map[string]string, args ...string) (s
 	return out.String(), errBuf.String(), exit
 }
 
+// runGactWithDuration runs gact for a bounded duration then sends
+// SIGTERM. Used by streaming tests (`tail`/`stream`/`watch`) that
+// would otherwise block forever waiting for events.
+func runGactWithDuration(t *testing.T, bin string, env map[string]string, d time.Duration, args ...string) (string, string, int) {
+	t.Helper()
+	cmd := exec.Command(bin, args...)
+	cmd.Env = os.Environ()
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	var out, errBuf bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errBuf
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("gact start: %v", err)
+	}
+	timer := time.AfterFunc(d, func() { _ = cmd.Process.Signal(os.Interrupt) })
+	err := cmd.Wait()
+	timer.Stop()
+	exit := 0
+	if ee, ok := err.(*exec.ExitError); ok {
+		exit = ee.ExitCode()
+	}
+	return out.String(), errBuf.String(), exit
+}
+
 // createSession seeds an emulator session with one user message. Returns the
 // session id.
 func createSession(t *testing.T, baseURL, title string) string {
@@ -538,7 +564,9 @@ func TestCLI_ToolShow(t *testing.T) {
 }
 
 // TestCLI_McpReconnect covers CCC2: POST reconnect for a known MCP
-// server returns exit 0 and a missing one returns exit 1.
+// server returns exit 0 and a missing one returns exit 1. MMM1
+// extends this: assert the workspace SSE stream picks up the
+// `notification` event the reconnect handler now emits.
 func TestCLI_McpReconnect(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
@@ -551,6 +579,29 @@ func TestCLI_McpReconnect(t *testing.T) {
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"mcp", "reconnect", "nope"); code == 0 {
 		t.Fatalf("reconnect nope: expected non-zero exit")
+	}
+
+	// MMM1: start tailing in the background, fire the reconnect, and
+	// verify the workspace stream surfaces a `notification` event.
+	tailDone := make(chan string, 1)
+	go func() {
+		stdout, _, _ := runGactWithDuration(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			1500*time.Millisecond,
+			"tail", "--workspace", "ws_default")
+		tailDone <- stdout
+	}()
+	time.Sleep(300 * time.Millisecond) // let SSE stream attach
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "mcp_fake"); code != 0 {
+		t.Fatalf("reconnect for notification: exit %d", code)
+	}
+	out := <-tailDone
+	if !strings.Contains(out, `"notification"`) {
+		t.Errorf("expected notification event in tail output: %q", out)
+	}
+	if !strings.Contains(out, "MCP server reconnected") {
+		t.Errorf("expected notification title in tail output: %q", out)
 	}
 }
 

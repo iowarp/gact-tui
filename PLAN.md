@@ -10,7 +10,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase MMM — adds from Claude Code inventory (LLL7)
 
-- [ ] **MMM1.** SSE `notification` event type — backends push `{level, code, title, body, action?}` for MCP-disconnect, model-migration, deprecation, etc. without polluting message history. SPEC §7 addition + emulator emitter + TUI toast renderer + CLI surface in `gact tail`/`gact stream`.
+- [x] **MMM1.** SPEC already had `notification` event type at §7.3 line 680; wired it end-to-end. Emulator: `handleMcpReconnect` now publishes `{level: "info", title: "MCP server reconnected", body: server_id}`. TUI: `applySSE` case `notification` sets `transientHint = "<level>: <title> — <body>"`. CLI: `gact stream` prints `[<level>] <title> — <body>` row. CLI test asserts the workspace tail catches the event when reconnect fires.
 - [ ] **MMM2.** Versioned config migrations — add `Config.ConfigVersion *int`, `internal/config/migrate.go` with ordered migration funcs that run on Load(). Cheap insurance against the first config-rename breaking existing users.
 - [ ] **MMM3.** Hooks system — `POST /v1/hooks` registering `{event, cmd_or_url}` for pre/post tool, on permission, on message-created. SPEC §6.X new section + emulator side-effect runner + `gact hooks list/add/remove` CLI.
 - [ ] **MMM4.** Permission rules — `POST /v1/permissions/rules` storing reusable predicates (e.g. `auto-allow read_file under /tmp`). SPEC §6.11 extension + emulator matcher + `gact perms rules` CLI.
