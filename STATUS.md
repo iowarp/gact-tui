@@ -25,6 +25,14 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase MM — install + scripts dir
+- **MM1.** `make install` (PREFIX/BINDIR overridable) +
+  `make uninstall`. README quickstart updated.
+- **MM2.** `scripts/completion.sh` shell-aware completion install
+  helper.
+- **+** `gact diag` now embeds the git revision + build time
+  (shared `readVCSInfo` helper with `gact version`).
+
 ### Phase KK — one-shot scripting
 - **KK1.** `gact quick <q|->` — create + ask + delete in one
   command. CLI test asserts session count unchanged after run.
