@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAAAA — gact context list --mode/--glob filters
+
+- [x] **AAAAA1.** `gact context list <sid>` gains two filters: `--mode read|edit|pin` (exact) and `--glob PATTERN` (Go path.Match with basename fallback, mirrors ZZZZ1). Both empty by default = no filter (back-compat). Combined filters AND together. Bad --mode or --glob → exit 2 client-side without hitting the backend. JSON returns `[]` not `null` after filtering. CLI test seeds 3 entries (read/pin/edit; .go and .md), asserts each filter narrows correctly + the combined case + bad-value exits.
+
 ## Phase ZZZZ — gact files list --glob PATTERN
 
 - [x] **ZZZZ1.** `gact files list <ws-id> --glob PATTERN` filters workspace listings by Go `path.Match` pattern. Empty = no filter (back-compat). Two-pass match: full path first, then basename fallback so `*.go` matches `src/foo.go` (otherwise `*` wouldn't cross `/`). Bad pattern → exit 2 client-side without hitting the backend. JSON returns `[]` not `null` after filtering. CLI test seeds the default workspace, asserts `*.go` keeps Go files but drops `README.md`/`go.mod`, basename fallback works for `main.go`, and bad pattern exits 2.
