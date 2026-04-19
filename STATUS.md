@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T05:35Z
-**Current phase:** TTT1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8e1bb48` and pushed
+**Last updated:** 2026-04-19T05:50Z
+**Current phase:** TTT1 + UUU1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `aa997b7` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase UUU — sidebar task badges
+- **UUU1.** Sidebar `(N tasks)` badge per session for open §6.18
+  tasks. New loadSessionTasksCmd + sessionTasksLoadedMsg + cache
+  on App. Loaded lazily on selectSession. 2 tests +
+  screenshots/73-task-badge.png.
 
 ### Phase TTT — log time filter
 - **TTT1.** `gact log --since DUR` ships. Filters messages older
