@@ -80,6 +80,12 @@ type Options struct {
 	// and `gact repo-map`. Read-only: doesn't touch the file body
 	// endpoint to avoid coupling to the test fixture's file content.
 	SkipFiles bool
+	// BBBBBB1: Diffs section — gated on capabilities.diffs. Walks
+	// GET /v1/sessions/{id}/diffs (the pending file_diff list).
+	// Locks the shape that powers `gact diff` + the conversation
+	// pane's a/r apply/reject keys. Read-only: doesn't apply or
+	// reject anything (idempotent against the live session).
+	SkipDiffs bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -160,7 +166,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles || !opts.SkipDiffs {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -186,11 +192,14 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipFiles && caps.Files && wsID != "" {
 			t.Run("Files", func(t Reporter) { checkFiles(t, c, wsID) })
 		}
+		if !opts.SkipDiffs && caps.Diffs && sid != "" {
+			t.Run("Diffs", func(t Reporter) { checkDiffs(t, c, sid) })
+		}
 	}
 }
 
 // minimalCaps holds just the flags we need for AAAA1 + BBBBB1 +
-// TTTTT1 gating.
+// TTTTT1 + UUUUU1 + BBBBBB1 gating.
 type minimalCaps struct {
 	Hooks        bool
 	Permissions  bool
@@ -198,6 +207,7 @@ type minimalCaps struct {
 	Mcp          bool
 	Providers    bool
 	Files        bool
+	Diffs        bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -215,6 +225,7 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 			Mcp          bool `json:"mcp"`
 			Providers    bool `json:"providers"`
 			Files        bool `json:"files"`
+			Diffs        bool `json:"diffs"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)
@@ -940,6 +951,61 @@ func checkFiles(t Reporter, c *conformClient, wsID string) {
 			case "file", "dir":
 			default:
 				t.Errorf("entry[%d] unexpected type %q (want file|dir)", i, typ)
+			}
+		}
+	}
+}
+
+// BBBBBB1 — checkDiffs validates GET /v1/sessions/{id}/diffs. Asserts
+// 200, top-level `diffs` array (non-nil — empty list is fine, missing
+// key is not), and each entry carries the file_diff shape from SPEC
+// §5.4: required {path, applied}; optional {before, after, language}
+// (we only assert types when present so adapters that emit nulls
+// still pass). Locks the wire shape that powers `gact diff` and the
+// conversation pane's a/r apply/reject keys. Read-only — never POSTs
+// to /diffs/apply or /diffs/reject so it stays idempotent against
+// the live session.
+func checkDiffs(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/diffs")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/diffs: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id}/diffs returned 501 — set SkipDiffs or fix capabilities.diffs")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Diffs []map[string]any `json:"diffs"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("diffs JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Diffs == nil {
+		t.Errorf("response missing `diffs` key: %s", body)
+		return
+	}
+	for i, d := range raw.Diffs {
+		for _, key := range []string{"path", "applied"} {
+			if _, ok := d[key]; !ok {
+				t.Errorf("diff[%d] missing required key %q: %v", i, key, d)
+			}
+		}
+		if path, ok := d["path"].(string); ok && path == "" {
+			t.Errorf("diff[%d] has empty path: %v", i, d)
+		}
+		if _, isBool := d["applied"].(bool); !isBool {
+			if _, present := d["applied"]; present {
+				t.Errorf("diff[%d] applied is not bool: %v", i, d["applied"])
+			}
+		}
+		if lang, present := d["language"]; present {
+			if _, ok := lang.(string); !ok && lang != nil {
+				t.Errorf("diff[%d] language must be string|null: %v", i, lang)
 			}
 		}
 	}
