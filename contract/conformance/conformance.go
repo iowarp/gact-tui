@@ -52,7 +52,13 @@ type Options struct {
 	SkipSessions      bool
 	SkipCreateSession bool
 	SkipPostMessage   bool
-	SkipSSE           bool
+	// IIIIII1: Messages list/get section — gated on a non-empty
+	// session id. Walks GET /v1/sessions/{id}/messages and drills
+	// into GET /v1/sessions/{id}/messages/{msg_id} for the first
+	// entry. Locks the wire shape that powers `gact log` and the
+	// conversation pane's history fetch.
+	SkipMessageList bool
+	SkipSSE         bool
 	SkipCommands      bool
 	SkipTools         bool
 	SkipMetrics       bool
@@ -163,6 +169,12 @@ func Run(t Reporter, baseURL string, opts Options) {
 	if sid != "" && !opts.SkipPostMessage {
 		t.Run("Messages_Post", func(t Reporter) {
 			checkPostMessage(t, c, sid, wsID)
+		})
+	}
+
+	if sid != "" && !opts.SkipMessageList {
+		t.Run("Messages_List", func(t Reporter) {
+			checkMessagesList(t, c, sid)
 		})
 	}
 
@@ -567,6 +579,89 @@ func checkPostMessage(t Reporter, c *conformClient, sid, wsID string) {
 	}
 	if got.MessageID == "" {
 		t.Errorf("message_id missing from POST response: %s", body)
+	}
+}
+
+// IIIIII1 — checkMessagesList validates GET /v1/sessions/{id}/messages
+// (SPEC §6.3) plus the per-id drill into GET /v1/sessions/{id}/
+// messages/{msg_id}. Asserts 200 + non-nil top-level `messages`
+// array (empty is fine; missing key violates spec) + per-entry
+// required {id, role, parts} with `role` in the documented enum
+// (user|assistant|system|tool). For the first message, drills into
+// the per-id endpoint and verifies the id is echoed back. Locks
+// the wire shape that powers `gact log` and the conversation
+// pane's history fetch. Read-only.
+func checkMessagesList(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/messages: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("messages list returned 501 — set SkipMessageList")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Messages []map[string]any `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("messages JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Messages == nil {
+		t.Errorf("response missing `messages` key: %s", body)
+		return
+	}
+	var firstID string
+	for i, m := range raw.Messages {
+		for _, key := range []string{"id", "role", "parts"} {
+			if _, ok := m[key]; !ok {
+				t.Errorf("message[%d] missing required key %q: %v", i, key, m)
+			}
+		}
+		if id, _ := m["id"].(string); id == "" {
+			t.Errorf("message[%d] has empty id: %v", i, m)
+		} else if firstID == "" {
+			firstID = id
+		}
+		if role, _ := m["role"].(string); role != "" {
+			switch role {
+			case "user", "assistant", "system", "tool":
+			default:
+				t.Errorf("message[%d] unexpected role %q (want user|assistant|system|tool)", i, role)
+			}
+		}
+	}
+	if firstID == "" {
+		return
+	}
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, err := c.get(dctx, "/v1/sessions/"+sid+"/messages/"+firstID)
+	if err != nil {
+		t.Errorf("GET /v1/sessions/%s/messages/%s: %v", sid, firstID, err)
+		return
+	}
+	if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/sessions/{id}/messages/{msg_id} returned 501 — per-id drill-down required by SPEC §6.3")
+		return
+	}
+	if dResp.StatusCode != 200 {
+		t.Errorf("/v1/sessions/%s/messages/%s status %d body %s", sid, firstID, dResp.StatusCode, dBody)
+		return
+	}
+	var detail struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(dBody, &detail); err != nil {
+		t.Errorf("message/%s JSON decode: %v (body=%s)", firstID, err, dBody)
+		return
+	}
+	if detail.ID != firstID {
+		t.Errorf("/v1/sessions/%s/messages/%s returned id=%q (want %q)", sid, firstID, detail.ID, firstID)
 	}
 }
 
