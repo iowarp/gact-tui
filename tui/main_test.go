@@ -894,6 +894,40 @@ func TestCLI_Voice(t *testing.T) {
 	}
 }
 
+// TestCLI_WaitAnyOf covers YYY1: fire two async turns then wait for
+// the first to finish; assert exit 0 and the printed sid is one of
+// the two we passed.
+func TestCLI_WaitAnyOf(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	tellSid := func(name string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"tell", name, "--async", "fire and watch")
+		if code != 0 {
+			t.Fatalf("tell %s: exit %d", name, code)
+		}
+		parts := strings.Split(strings.TrimSpace(stdout), "\t")
+		if len(parts) != 2 {
+			t.Fatalf("expected sid<TAB>mid, got %q", stdout)
+		}
+		return parts[0]
+	}
+	sid1 := tellSid("wait-any-A")
+	sid2 := tellSid("wait-any-B")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--any-of", sid1+","+sid2, "--timeout", "30s")
+	if code != 0 {
+		t.Fatalf("wait --any-of: exit %d", code)
+	}
+	winner := strings.TrimSpace(stdout)
+	if winner != sid1 && winner != sid2 {
+		t.Errorf("expected winner ∈ {%q, %q}, got %q", sid1, sid2, winner)
+	}
+}
+
 // TestCLI_TellAsync covers LLL8: --async returns immediately with
 // sid<TAB>msg_id and exits before the assistant reply lands.
 func TestCLI_TellAsync(t *testing.T) {
