@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKKKK — conformance: providers per-id drill-down
+
+- [x] **KKKKKK1.** Extended `checkProviders` (already had per-provider /models drill) with the missing `GET /v1/providers/{id}` detail endpoint. Per SPEC §6.12, adapter authors that wired only the list + models endpoints had a silent gap on the per-provider detail. Per-id response must echo the same id back and have a non-empty `name`. Read-only.
+
 ## Phase JJJJJJ — conformance: MCP per-server drill-down
 
 - [x] **JJJJJJ1.** Extended `checkMcp` (existing list-shape coverage) with two per-server drills for the first server in the list (when present): (1) `GET /v1/mcp/servers/{id}` — detail endpoint, must echo id back; (2) `GET /v1/mcp/servers/{id}/tools` — tools listing per server, must have non-nil `tools` array with each entry carrying a non-empty id. Both required by SPEC §6.7. Catches adapters that wired only the list endpoint — the per-server detail + tools listing were silent gaps before. Read-only.
