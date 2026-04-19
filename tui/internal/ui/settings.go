@@ -247,12 +247,46 @@ func (a *App) viewSettings() string {
 		}
 	}
 
+	// LLL4: title bar — full-width Primary-background strip with the
+	// modal title in inverted text. Reads as a real header instead of
+	// a floating dim word.
+	titleBar := lipgloss.NewStyle().
+		Background(t.Primary).Foreground(t.Bg).Bold(true).
+		Padding(0, 2).Width(w - 4).Render("Settings")
+
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Settings"),
+		titleBar,
 		"",
 		tabs(s.tab),
 		"",
 	}
+	// LLL4: shared row renderer — selected row gets a Bg background
+	// strip + Secondary-bold text; non-selected just plain Fg. The
+	// `▌` marker stays for keyboard-only users who want to verify
+	// the cursor at a glance.
+	rowLine := func(selected bool, primaryText, secondaryText string) string {
+		marker := "  "
+		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+		if selected {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
+		}
+		line := marker + titleStyle.Render(primaryText)
+		if secondaryText != "" {
+			line += "  " + descStyle.Render(secondaryText)
+		}
+		out := truncate(line, w-2)
+		if selected {
+			// Bg strip behind the entire row to make the selection
+			// pop. Width(w-4) matches modal interior; the row bg
+			// extends past the text so even short rows feel selected.
+			out = lipgloss.NewStyle().Background(t.Bg).
+				Width(w - 4).Render(out)
+		}
+		return out
+	}
+
 	switch s.tab {
 	case 0:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
@@ -261,15 +295,8 @@ func (a *App) viewSettings() string {
 			rows = append(rows, t.HintLabel.Render("loading…"))
 		}
 		for i, e := range s.modelList {
-			marker := "  "
-			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			if i == s.modelSel {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-			}
-			line := marker + titleStyle.Render(e.provider+"/"+e.model.ID) + "  " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Render(e.model.Name)
-			rows = append(rows, truncate(line, w-2))
+			rows = append(rows, rowLine(i == s.modelSel,
+				e.provider+"/"+e.model.ID, e.model.Name))
 		}
 	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
@@ -278,15 +305,7 @@ func (a *App) viewSettings() string {
 			rows = append(rows, t.HintLabel.Render("loading…"))
 		}
 		for i, ag := range s.agentList {
-			marker := "  "
-			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			if i == s.agentSel {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-			}
-			line := marker + titleStyle.Render(ag.ID) + "  " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Render(ag.Title)
-			rows = append(rows, truncate(line, w-2))
+			rows = append(rows, rowLine(i == s.agentSel, ag.ID, ag.Title))
 		}
 	case 2:
 		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
@@ -296,22 +315,11 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render("current: "+themeName(a.Theme)))
 		rows = append(rows, "")
 		for i, mode := range AllThemeModes {
-			marker := "  "
-			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			if i == s.themeSel {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-			}
-			// ModeCustom surfaces the user's chosen name (from
-			// theme.json `name` field) in the list; fallback to
-			// "custom" via customThemeDisplayName when unset.
 			label := ThemeModeName(mode)
 			if mode == ModeCustom {
 				label = customThemeDisplayName
 			}
-			line := marker + titleStyle.Render(label) + "  " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Render(themeDescription(mode))
-			rows = append(rows, truncate(line, w-2))
+			rows = append(rows, rowLine(i == s.themeSel, label, themeDescription(mode)))
 		}
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(

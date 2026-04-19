@@ -360,8 +360,11 @@ func (a *App) viewCatalogBrowser() string {
 	}
 	w := a.modalWidth() + 6 // slightly wider than standard modals for descriptions
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render(a.catalogBrowser.title)
+	// LLL4: title bar matching the Settings modal — full-width Primary
+	// background with inverted text. Reads as a real header.
+	title := lipgloss.NewStyle().
+		Background(t.Primary).Foreground(t.Bg).Bold(true).
+		Padding(0, 2).Width(w - 4).Render(a.catalogBrowser.title)
 	const rowBudget = 12
 	rows := make([]string, 0, rowBudget)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
@@ -387,7 +390,8 @@ func (a *App) viewCatalogBrowser() string {
 		if isDisabled {
 			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
 		}
-		if i == a.catalogBrowser.sel {
+		isSelected := i == a.catalogBrowser.sel
+		if isSelected {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 			titleStyle = titleStyle.Foreground(t.Secondary)
 		}
@@ -403,10 +407,21 @@ func (a *App) viewCatalogBrowser() string {
 			}
 			line += "  " + tagStyle.Render("["+item.statusTag+"]")
 		}
-		rows = append(rows, truncate(line, w-4))
+		out := truncate(line, w-4)
+		// LLL4: row-bg highlight for the selected row, mirroring the
+		// Settings modal pattern.
+		if isSelected {
+			out = lipgloss.NewStyle().Background(t.Bg).Width(w - 4).Render(out)
+		}
+		rows = append(rows, out)
 		if item.desc != "" {
 			descStyle := t.HintLabel.Italic(true)
-			rows = append(rows, "  "+truncate(descStyle.Render(item.desc), w-4))
+			descLine := "  " + truncate(descStyle.Render(item.desc), w-4)
+			if isSelected {
+				descLine = lipgloss.NewStyle().Background(t.Bg).
+					Width(w - 4).Render(descLine)
+			}
+			rows = append(rows, descLine)
 		}
 	}
 	// Pad to fixed height.
