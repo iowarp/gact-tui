@@ -380,6 +380,11 @@ func checkCapabilities(t Reporter, c *conformClient) {
 	}
 	if got.ContractVersion == "" {
 		t.Errorf("contract_version missing from capabilities")
+	} else if !strings.HasPrefix(got.ContractVersion, "0.") && !strings.HasPrefix(got.ContractVersion, "1.") {
+		// SSSSSS1: contract_version must look like a real version
+		// (semver-ish, currently 0.x or 1.x). Catches accidents like
+		// `"contract_version": "GACT"` or empty-string-after-trim.
+		t.Errorf("contract_version %q does not look like a version (want 0.x or 1.x)", got.ContractVersion)
 	}
 	if got.Backend.Name == "" {
 		t.Errorf("backend.name missing")
@@ -389,6 +394,19 @@ func checkCapabilities(t Reporter, c *conformClient) {
 	// clients have something to key on.
 	if len(got.Capabilities) == 0 {
 		t.Errorf("capabilities map is empty")
+	}
+	// SSSSSS1: every capability value must be a JSON bool. Adapter
+	// authors that emit `"hooks": "yes"` or `"files": null` would
+	// silently downgrade to false in the cap-gating logic; this
+	// catches it at the wire. Forward-compat carve-out: vendor-prefixed
+	// keys (`x_<vendor>_<flag>`) may be any JSON value.
+	for k, v := range got.Capabilities {
+		if strings.HasPrefix(k, "x_") {
+			continue
+		}
+		if _, ok := v.(bool); !ok {
+			t.Errorf("capability %q must be a JSON bool, got %T (%v)", k, v, v)
+		}
 	}
 }
 
