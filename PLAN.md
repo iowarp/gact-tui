@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase MMMMM — gact env --format json
+
+- [x] **MMMMM1.** `gact env --format json` emits a single object with the resolved config (backend_url, theme, voice_cmd, intro_file, config_path, plugins_dir) plus a nested `env` object containing every `GACT_*` variable. Default tsv preserved for back-compat with diag bundle scripts. Unknown format → exit 2. CLI test parses the JSON, asserts both config and env nested fields round-trip the values set via test env.
+
 ## Phase LLLLL — Settings TUI tab: cost-warn / cost-danger token thresholds
 
 - [x] **LLLLL1.** Closes part of feedback_tui_ux_direction item 6 ("Settings modal is thin"). The TUI tab had only one editable knob (collapse threshold) — now also has cost-warn and cost-danger token thresholds. Both already existed in `Theme` and were used by the footer cost chip color logic; just weren't surfaced in the picker. Bumped `tuiPrefsRowCount` from 1 to 3, added `costStep` (25_000) / `costMin` (1_000) / `costMax` (1_000_000) constants, refactored render path through a shared `editableRow` helper so all three rows render identically. ←/→ on each row clamps independently against its own range. New unit test asserts: row 1 ←/→ moves warn but not danger; row 2 moves danger; bounds at costMin/costMax; row 0 still only touches collapse threshold (no cross-talk). Existing collapse-threshold test unchanged. Screenshot: `screenshots/LLLLL1_settings_tui_costs.png`.
