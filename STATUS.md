@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:48Z
-**Current phase:** PPPPPP1 (README refresh) shipped this run
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `64ba6ab` (pushed)
+**Last updated:** 2026-04-19T18:50Z
+**Current phase:** QQQQQQ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `66002d0` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase QQQQQQ — conformance messages search
+- **QQQQQQ1.** Adds `Messages_Search` section gated on
+  capabilities.search_messages. Walks GET /v1/sessions/{id}/
+  messages/search?q=hello. Asserts 200 + non-nil `matches`
+  array; per-entry {message_id, snippet} required when matches
+  are present. Locks SPEC §6.3 search wire shape.
 
 ### Phase PPPPPP — conformance README refresh
 - **PPPPPP1.** README "What it checks" table was 7 sections
