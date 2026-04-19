@@ -108,6 +108,8 @@ func main() {
 			os.Exit(runInfo(os.Args[2:]))
 		case "undo":
 			os.Exit(runUndo(os.Args[2:]))
+		case "files", "file":
+			os.Exit(runFiles(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -321,6 +323,8 @@ Usage:
   gact models list           list providers + models (TSV: pid mid name ctx)
   gact info <sid>            print one session's metadata (text or json)
   gact undo <sid> [--count N] revert the last N messages (default 1)
+  gact files list <ws-id>    list workspace files (TSV: type  size  path)
+  gact files read <ws-id> <path> dump file bytes to stdout
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -634,6 +638,102 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runFiles dispatches the `gact files <verb>` family for workspace
+// file inspection from the shell:
+//
+//	gact files list <ws-id>          — TSV: type  size  path
+//	gact files list <ws-id> --format json
+//	gact files read <ws-id> <path>   — raw bytes to stdout
+func runFiles(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact files list|read ...")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list", "ls":
+		return runFilesList(rest)
+	case "read", "cat":
+		return runFilesRead(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact files: unknown verb %q (want list|read)\n", verb)
+	return 2
+}
+
+func runFilesList(args []string) int {
+	fs := flag.NewFlagSet("files list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact files list <workspace_id> [--format tsv|json]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact files list: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	wsID := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	entries, err := c.ListWorkspaceFiles(ctx, wsID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact files list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(entries); err != nil {
+			fmt.Fprintf(os.Stderr, "gact files list: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	for _, e := range entries {
+		fmt.Printf("%s\t%d\t%s\n", e.Type, e.Size, e.Path)
+	}
+	return 0
+}
+
+func runFilesRead(args []string) int {
+	fs := flag.NewFlagSet("files read", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact files read <workspace_id> <path>")
+		return 2
+	}
+	wsID := fs.Arg(0)
+	path := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	body, err := c.ReadWorkspaceFile(ctx, wsID, path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact files read: %v\n", err)
+		return 1
+	}
+	if _, err := os.Stdout.Write(body); err != nil {
+		fmt.Fprintf(os.Stderr, "gact files read: stdout write: %v\n", err)
+		return 1
 	}
 	return 0
 }
@@ -1857,7 +1957,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1877,7 +1977,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1890,7 +1990,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

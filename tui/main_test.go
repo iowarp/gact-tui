@@ -234,6 +234,51 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_FilesList covers ZZ1: list workspace files in TSV and JSON.
+func TestCLI_FilesList(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default")
+	if code != 0 {
+		t.Fatalf("files list: exit %d", code)
+	}
+	if !strings.Contains(stdout, "main.go") {
+		t.Errorf("expected main.go in workspace listing: %q", stdout)
+	}
+	if !strings.HasPrefix(stdout, "file\t") && !strings.HasPrefix(stdout, "dir\t") {
+		t.Errorf("expected TSV with type as first column: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default", "--format", "json")
+	if code != 0 {
+		t.Fatalf("files list json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"path"`) || !strings.Contains(stdout, `"main.go"`) {
+		t.Errorf("expected JSON entries with main.go: %q", stdout)
+	}
+}
+
+// TestCLI_FilesRead covers ZZ2: read main.go from the seeded workspace
+// and assert content contains `package main`.
+func TestCLI_FilesRead(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "read", "ws_default", "main.go")
+	if code != 0 {
+		t.Fatalf("files read: exit %d", code)
+	}
+	if !strings.Contains(stdout, "package main") {
+		t.Errorf("expected file body to contain 'package main': %q", stdout)
+	}
+}
+
 // TestCLI_Undo covers YY1: send + run a turn, count messages, undo
 // the last one, and assert the count drops by one and the freshest
 // message id is gone from the log.
