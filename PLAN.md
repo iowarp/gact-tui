@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase FFF — list filters
+
+- [x] **FFF1.** `gact list` gained `--status STATUS`, `--archived`, `--parent SID`, `--limit N`. Status/limit applied client-side (server has no query params); workspace+archived+parent flow through SessionFilter. Validates --status against the known set with exit 2. CLI test seeds 2 sessions, asserts --limit 1 truncates, --status idle keeps idle rows, --status running yields empty, and bogus status fails 2.
+
 ## Phase EEE — MCP resource read
 
 - [x] **EEE1.** `gact mcp resource-read <srv-id> <uri>` (alias `mcp read`) wraps new `client.McpResourceRead`. Walks returned `contents` slice and writes each chunk's `text` to stdout (or base64-decodes `data` for binary). CLI test reads seeded `file:///docs/welcome.md` and asserts `demo content` lands.
