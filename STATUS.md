@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T13:55Z
-**Current phase:** SSSS1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2008f62` and pushed
+**Last updated:** 2026-04-19T14:15Z
+**Current phase:** SSSS1 + TTTT1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4b2071c` and pushed
 **Open:** none
+
+### Phase TTTT — gact tail --format text
+- **TTTT1.** `gact tail --format text` reuses streamRow() (same
+  human formatter as `gact stream`) so live debugging doesn't
+  require jq. Default kept as `json` (NDJSON) for back-compat.
+  CLI test asserts no JSON keys leak in text mode + every line
+  starts with HH:MM:SS.
 
 ### Phase SSSS — gact watch --format json
 - **SSSS1.** `gact watch <sid> --format json` emits NDJSON
