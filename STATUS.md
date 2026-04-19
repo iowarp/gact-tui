@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T23:35Z
-**Current phase:** RRRRR1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `230ba84` and pushed
+**Last updated:** 2026-04-19T23:55Z
+**Current phase:** RRRRR1 + SSSSS1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `93237de` and pushed
 **Open:** none
+
+### Phase SSSSS — subagent scenario variants
+- **SSSSS1.** `runSubagentScript` cycles 3 distinct subagent
+  identities per session — code_reviewer (preserved),
+  security_auditor (OWASP findings), perf_profiler (pprof
+  attribution). Closes the variant-cycle arc — every rich
+  scenario family (bigtool/long/multi-tool/diff/subagent) now
+  produces per-turn variety.
 
 ### Phase RRRRR — diff scenario variants
 - **RRRRR1.** Closes the variant-cycle arc across all four
