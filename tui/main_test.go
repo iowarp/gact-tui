@@ -234,6 +234,39 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_RepoMap covers AAA1: render the seeded workspace repo map
+// in tree and JSON formats; assert main.go and the Handler symbol
+// surface.
+func TestCLI_RepoMap(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"repo-map", "ws_default")
+	if code != 0 {
+		t.Fatalf("repo-map: exit %d", code)
+	}
+	if !strings.Contains(stdout, "main.go") {
+		t.Errorf("expected main.go in tree: %q", stdout)
+	}
+	if !strings.Contains(stdout, "Handler") {
+		t.Errorf("expected Handler symbol in tree: %q", stdout)
+	}
+	if !strings.Contains(stderr, "tokens") {
+		t.Errorf("expected tokens summary on stderr: %q", stderr)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"repo-map", "ws_default", "--format", "json")
+	if code != 0 {
+		t.Fatalf("repo-map json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"tree"`) || !strings.Contains(stdout, `"tokens"`) {
+		t.Errorf("expected JSON shape: %q", stdout)
+	}
+}
+
 // TestCLI_FilesList covers ZZ1: list workspace files in TSV and JSON.
 func TestCLI_FilesList(t *testing.T) {
 	url, stop := startEmulator(t)

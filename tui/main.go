@@ -110,6 +110,8 @@ func main() {
 			os.Exit(runUndo(os.Args[2:]))
 		case "files", "file":
 			os.Exit(runFiles(os.Args[2:]))
+		case "repo-map", "repomap":
+			os.Exit(runRepoMap(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -325,6 +327,7 @@ Usage:
   gact undo <sid> [--count N] revert the last N messages (default 1)
   gact files list <ws-id>    list workspace files (TSV: type  size  path)
   gact files read <ws-id> <path> dump file bytes to stdout
+  gact repo-map <ws-id>      tree-render the workspace repo map
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -640,6 +643,85 @@ func runSearch(args []string) int {
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
 	}
 	return 0
+}
+
+// runRepoMap fetches the workspace repo map and renders it as a tree
+// (default) or raw JSON. Tree mode uses tree(1)-style box-drawing
+// glyphs and hangs symbol outlines under each file as `· name`.
+//
+//	gact repo-map ws_default            # tree view, with token cost
+//	gact repo-map ws_default --format json
+func runRepoMap(args []string) int {
+	fs := flag.NewFlagSet("repo-map", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tree", "tree | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact repo-map <workspace_id> [--format tree|json]")
+		return 2
+	}
+	if *format != "tree" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact repo-map: unknown format %q (want tree|json)\n", *format)
+		return 2
+	}
+	wsID := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rm, err := c.WorkspaceRepoMap(ctx, wsID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact repo-map: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(rm); err != nil {
+			fmt.Fprintf(os.Stderr, "gact repo-map: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	if rm.Tree != nil {
+		fmt.Println(rm.Tree.Path)
+		printRepoMapNode(rm.Tree, "")
+	}
+	fmt.Fprintf(os.Stderr, "%d tokens\n", rm.Tokens)
+	return 0
+}
+
+func printRepoMapNode(n *gact.RepoMapNode, prefix string) {
+	if n == nil {
+		return
+	}
+	total := len(n.Children) + len(n.Symbols)
+	idx := 0
+	for _, sym := range n.Symbols {
+		idx++
+		glyph := "├── "
+		if idx == total {
+			glyph = "└── "
+		}
+		fmt.Printf("%s%s· %s\n", prefix, glyph, sym)
+	}
+	for _, ch := range n.Children {
+		idx++
+		glyph := "├── "
+		nextPrefix := prefix + "│   "
+		if idx == total {
+			glyph = "└── "
+			nextPrefix = prefix + "    "
+		}
+		fmt.Printf("%s%s%s\n", prefix, glyph, ch.Path)
+		printRepoMapNode(ch, nextPrefix)
+	}
 }
 
 // runFiles dispatches the `gact files <verb>` family for workspace
@@ -1957,7 +2039,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1977,7 +2059,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1990,7 +2072,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

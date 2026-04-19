@@ -438,6 +438,23 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 	return out.Entries, err
 }
 
+// RepoMapResponse is the full response of /v1/workspaces/{id}/repo_map
+// — the tree plus the backend's estimate of how many tokens
+// it would cost to ship to the model as context.
+type RepoMapResponse struct {
+	Tree   *gact.RepoMapNode `json:"tree"`
+	Tokens int               `json:"tokens"`
+}
+
+// WorkspaceRepoMap fetches the workspace's repo map — a tree of files
+// and (optionally) symbol outlines per file. Used by both the @-picker
+// and the CLI repo-map subcommand.
+func (c *Client) WorkspaceRepoMap(ctx context.Context, workspaceID string) (RepoMapResponse, error) {
+	var out RepoMapResponse
+	err := c.do(ctx, http.MethodGet, "/v1/workspaces/"+workspaceID+"/repo_map", nil, &out)
+	return out, err
+}
+
 // ReadWorkspaceFile fetches the raw bytes of a workspace-rooted file
 // via /v1/workspaces/{id}/files/read?path=... Used for the M6 file
 // preview and for shell scripts that want to pipe a file's content
