@@ -1088,7 +1088,7 @@ func runPluginsList(args []string) int {
 // runTasks dispatches `gact tasks <verb>` for §6.18 session tasks
 // (MMM5). Sub-verbs:
 //
-//	gact tasks list <sid>
+//	gact tasks list <sid> [--status pending,running,…]
 //	gact tasks add <sid> <title> [--status pending|running|completed|failed]
 //	gact tasks set <task-id> [--title T] [--status S]
 //	gact tasks rm <task-id>
@@ -1208,16 +1208,40 @@ func runTasksList(args []string) int {
 	fs := flag.NewFlagSet("tasks list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	format := fs.String("format", "tsv", "tsv | json")
+	// WWWW1: --status filters to one status (or comma-separated list).
+	// Empty = all (back-compat). Validation happens client-side so a
+	// typo errors fast instead of returning a silently-empty set.
+	statusFilter := fs.String("status", "", "comma-separated status filter: pending|running|completed|failed")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--status": true, "-status": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact tasks list <session-id>")
+		fmt.Fprintln(os.Stderr, "usage: gact tasks list <session-id> [--status pending,running,…] [--format tsv|json]")
 		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact tasks list: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	var keep map[string]bool
+	if *statusFilter != "" {
+		keep = map[string]bool{}
+		for _, s := range strings.Split(*statusFilter, ",") {
+			s = strings.TrimSpace(s)
+			switch s {
+			case "":
+			case "pending", "running", "completed", "failed":
+				keep[s] = true
+			default:
+				fmt.Fprintf(os.Stderr, "gact tasks list: unknown --status value %q (want pending|running|completed|failed)\n", s)
+				return 2
+			}
+		}
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	c := client.New(finalBackend)
@@ -1228,7 +1252,19 @@ func runTasksList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact tasks list: %v\n", err)
 		return 1
 	}
+	if keep != nil {
+		filtered := tasks[:0]
+		for _, t := range tasks {
+			if keep[t.Status] {
+				filtered = append(filtered, t)
+			}
+		}
+		tasks = filtered
+	}
 	if *format == "json" {
+		if tasks == nil {
+			tasks = []gact.SessionTask{}
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(tasks)

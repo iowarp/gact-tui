@@ -211,7 +211,7 @@ running backend:
 | `gact grep <query> [--workspace WS_ID] [--format tsv\|json] [--limit N]` | Search across every session in parallel; `--limit N` truncates output (0 = unlimited) |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks (`--event STR --command PATH \| --url URL [--session][--workspace]`) |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies; `list --format tsv` for human-scannable table |
-| `gact tasks list\|add\|set\|rm\|summary` | Manage §6.18 session tasks; `summary` aggregates counts across all sessions |
+| `gact tasks list\|add\|set\|rm\|summary` | Manage §6.18 session tasks; `list --status pending,running,…` to filter; `summary` aggregates counts across all sessions |
 | `gact plugins list\|dir [--dir DIR]` | Discover plugins under `~/.config/gact/plugins/<name>/plugin.json` |
 | `gact export <sid> [-o file]` | Dump one session as a JSON blob |
 | `gact export --all -o DIR` | Dump every session as one file each |
