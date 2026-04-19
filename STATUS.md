@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T04:45Z
-**Current phase:** OOO1 + PPP1 + QQQ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fc1e6b9` and pushed
-**Open:** none
+**Last updated:** 2026-04-19T05:00Z
+**Current phase:** RRR1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0275db5` and pushed
+**Open:** SSS1 (conformance CLI — needs Reporter refactor, deferred)
 
 ## This loop (Phases N + O)
 
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase RRR — tail filter
+- **RRR1.** `gact tail --filter type1,type2` ships. Comma-separated
+  type list parsed into a lookup map; non-matching events
+  dropped before encode. CLI test asserts notification kept,
+  server.connected dropped when filter targets only notification.
 
 ### Phase QQQ — bench
 - **QQQ1.** `gact bench [-n N] [--message TEXT]` ships. Creates a
