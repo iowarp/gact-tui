@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T11:15Z
-**Current phase:** JJJJ1 + KKKK1 + LLLL1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5b407cf` and pushed
+**Last updated:** 2026-04-19T11:45Z
+**Current phase:** MMMM1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `770e36a` and pushed
 **Open:** none
+
+### Phase MMMM — gact log --format json (NDJSON)
+- **MMMM1.** `gact log <sid> --format json` emits one message per
+  line as NDJSON (no indentation) so callers can pipe to `jq -c`.
+  Default text mode unchanged; plays cleanly with --limit and
+  --since (both run before serialization). CLI test parses each
+  line, asserts session_id + both user/assistant roles present.
 
 ### Phase LLLL — gact ping --json
 - **LLLL1.** `gact ping --json` emits `{ok,backend,uptime_s,error?}`
