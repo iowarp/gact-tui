@@ -34,6 +34,12 @@ type Config struct {
 	// honour an "allowed_tools" list at session-create time would read
 	// this; today it's purely a TUI display filter.
 	DisabledTools []string `json:"disabled_tools,omitempty"`
+	// ConfigVersion tracks the schema generation. Bumped each time a
+	// breaking config field rename/move lands; migrate.go's Run() walks
+	// configs forward through the registered migrations on Load. Absent
+	// (or 0) is treated as "pre-versioned" and runs all migrations.
+	// MMM2.
+	ConfigVersion *int `json:"config_version,omitempty"`
 }
 
 // Save writes cfg to path, creating parent directories as needed.
@@ -74,6 +80,11 @@ func LoadFrom(path string) (Config, string, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return Config{}, path, err
 	}
+	// MMM2: walk the config forward through any migrations whose
+	// version > cfg.ConfigVersion (or all of them if absent). Migration
+	// runs are best-effort — a failure logs but doesn't block boot,
+	// because a misbehaving migration shouldn't lock the user out.
+	cfg, _ = Migrate(cfg)
 	return cfg, path, nil
 }
 
