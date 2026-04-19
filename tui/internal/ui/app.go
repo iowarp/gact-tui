@@ -2668,6 +2668,33 @@ func (a *App) viewMain() string {
 	return base
 }
 
+// conversationPaneHeight mirrors the input/hint math inside renderBody
+// so other layout code (e.g. sidebar sizing for LLL5) can pick the
+// same convH renderBody uses internally. Always returns ≥1.
+func (a *App) conversationPaneHeight(bodyH int) int {
+	lineCount := strings.Count(a.input.Value(), "\n") + 1
+	inputH := 3
+	if lineCount > 1 {
+		inputH = lineCount + 2
+		maxInputH := bodyH / 3
+		if maxInputH < 3 {
+			maxInputH = 3
+		}
+		if inputH > maxInputH {
+			inputH = maxInputH
+		}
+	}
+	hintH := 0
+	if a.transientHint != "" {
+		hintH = 1
+	}
+	convH := bodyH - inputH - hintH
+	if convH < 1 {
+		convH = 1
+	}
+	return convH
+}
+
 func (a *App) viewMainBase() string {
 	headerH := 1
 	footerH := 1
@@ -2687,12 +2714,21 @@ func (a *App) viewMainBase() string {
 	header := a.renderHeader()
 	footer := a.renderFooter()
 
-	sidebar := a.renderSidebar(sidebarW, bodyH)
+	// LLL5: align the sidebar's bottom border with the conversation
+	// pane's bottom border. Previously the sidebar took the full bodyH
+	// (which includes the input box + transient hint row), so its
+	// bottom corner sat 3+ rows below the conversation pane's corner —
+	// the seam between sidebar `╯` and input `╭` looked broken.
+	// Compute the same convH that renderBody uses, give the sidebar
+	// exactly that, and let JoinHorizontal pad blank rows below it.
+	convH := a.conversationPaneHeight(bodyH)
+
+	sidebar := a.renderSidebar(sidebarW, convH)
 	body := a.renderBody(bodyW, bodyH)
 
-	// Both panes must hit exactly bodyH rows — otherwise JoinHorizontal
-	// (which aligns from top) leaves a mismatch and the taller one
-	// bleeds into the footer row below.
+	// Both stacks must hit exactly bodyH rows — otherwise
+	// JoinHorizontal (top-aligned) lets the taller bleed into the
+	// footer row below.
 	sidebar = clampLines(sidebar, bodyH)
 	body = clampLines(body, bodyH)
 
@@ -3004,30 +3040,17 @@ func (a *App) renderBody(width, height int) string {
 	// and we cap at ~1/3 the viewport so a long paste doesn't crowd
 	// out the conversation. lineCount here is 1-based (a 3-line buffer
 	// reports 3); we give the pane one extra row for the cursor.
-	lineCount := strings.Count(a.input.Value(), "\n") + 1
-	inputH := 3
-	if lineCount > 1 {
-		inputH = lineCount + 2 // +2 for borders
-		maxInputH := height / 3
-		if maxInputH < 3 {
-			maxInputH = 3
-		}
-		if inputH > maxInputH {
-			inputH = maxInputH
-		}
-	}
-	// The transient hint (e.g. config-reload outcome) renders as its own
-	// row between the message pane and the input pane. When it's present
-	// we have to steal that row from the message pane or else the total
-	// stack exceeds `height`, pushes the input down, and (since the whole
-	// view is JoinVertical'd) the footer slides off-screen. This was the
-	// root cause of the "footer disappears on long conversations" bug —
-	// overflow from this pane cascaded through to the footer.
+	//
+	// LLL5: the conv-height math also lives in conversationPaneHeight
+	// so renderSidebar can match. Re-derive inputH/hintH from the same
+	// formula here (kept inline so renderBody keeps its single-pass
+	// shape and doesn't traverse the helper twice).
+	msgH := a.conversationPaneHeight(height)
 	hintH := 0
 	if a.transientHint != "" {
 		hintH = 1
 	}
-	msgH := height - inputH - hintH
+	inputH := height - msgH - hintH
 
 	// Conversation pane
 	msgStyle := t.Pane.Width(width - 2).Height(msgH - 2)
