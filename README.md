@@ -204,6 +204,7 @@ running backend:
 | `gact bench [-n N] [--message TEXT]` | Run N turns serially; report p50/p90/p99 latency |
 | `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
 | `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json]` | One-shot table of every session (status·model·age·tokens·cost) |
+| `gact grep <query> [--workspace WS_ID] [--format tsv\|json]` | Search across every session in parallel (TSV: sid·title·mid·role·snippet) |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks (`--event STR --command PATH \| --url URL [--session][--workspace]`) |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies (set takes JSON `{policies:[…]}`) |
 | `gact tasks list\|add\|set\|rm` | Manage SPEC §6.18 session tasks (`add <sid> <title>`, `set <tid> --status …`) |

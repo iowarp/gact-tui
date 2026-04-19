@@ -25,6 +25,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -141,6 +142,8 @@ func main() {
 			os.Exit(runConformance(os.Args[2:]))
 		case "dashboard", "dash":
 			os.Exit(runDashboard(os.Args[2:]))
+		case "grep":
+			os.Exit(runGrep(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -381,6 +384,7 @@ Usage:
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session (status/model/cost)
+  gact grep <query>          search across all sessions; TSV: sid title mid role snippet
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1309,6 +1313,110 @@ func runHooksRm(args []string) int {
 	if err := c.DeleteHook(ctx, fs.Arg(0)); err != nil {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runGrep extends `gact search` (per-session) to every session in
+// parallel. Lists sessions, fans out SearchMessages calls with a
+// small goroutine pool, aggregates results. Useful for "did I ever
+// mention X anywhere?" (WWW1).
+func runGrep(args []string) int {
+	fs := flag.NewFlagSet("grep", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--format tsv|json]")
+		return 2
+	}
+	query := strings.Join(fs.Args(), " ")
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact grep: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact grep: list sessions: %v\n", err)
+		return 1
+	}
+
+	type hit struct {
+		SID     string `json:"sid"`
+		Title   string `json:"title"`
+		MID     string `json:"mid"`
+		Role    string `json:"role"`
+		Snippet string `json:"snippet"`
+	}
+	var hits []hit
+	var mu sync.Mutex
+
+	// Bounded goroutine pool — don't fan out 1000 sessions to 1000
+	// concurrent SearchMessages calls.
+	sem := make(chan struct{}, 8)
+	var wg sync.WaitGroup
+	for _, sess := range sessions {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(s gact.Session) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			sctx, scancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer scancel()
+			matches, err := c.SearchMessages(sctx, s.ID, query)
+			if err != nil {
+				return // best-effort — skip sessions whose search fails
+			}
+			if len(matches) == 0 {
+				return
+			}
+			// Build mid → role map for the few hit message ids only
+			// (cheaper than ListMessages on every session).
+			midRoles := map[string]string{}
+			msgs, _, mErr := c.ListMessages(sctx, client.MessageFilter{SessionID: s.ID, Limit: 500})
+			if mErr == nil {
+				for _, m := range msgs {
+					midRoles[m.ID] = string(m.Role)
+				}
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			for _, m := range matches {
+				role := midRoles[m.MessageID]
+				if role == "" {
+					role = "?"
+				}
+				hits = append(hits, hit{
+					SID: s.ID, Title: s.Title, MID: m.MessageID,
+					Role: role,
+					Snippet: strings.ReplaceAll(m.Snippet, "\n", " "),
+				})
+			}
+		}(sess)
+	}
+	wg.Wait()
+	sort.Slice(hits, func(i, j int) bool { return hits[i].SID < hits[j].SID })
+
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(hits)
+		return 0
+	}
+	for _, h := range hits {
+		fmt.Printf("%s\t%s\t%s\t%s\t%s\n", h.SID, h.Title, h.MID, h.Role, h.Snippet)
 	}
 	return 0
 }
@@ -3835,7 +3943,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3855,7 +3963,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3868,7 +3976,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
