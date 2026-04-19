@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T00:05Z
-**Current phase:** LLL1 + LLL5 + III1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e2475d5` and pushed
-**Open:** LLL2 (tool/MCP enable+drilldown TUI), LLL3 (skills+agents render verify), LLL4 (settings recolour), LLL6 (footer polish), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T00:15Z
+**Current phase:** LLL1 + LLL5 + LLL6 + III1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8766d7f` and pushed
+**Open:** LLL2 (tool/MCP enable+drilldown TUI), LLL3 (skills+agents render verify), LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -32,6 +32,10 @@
 - **LLL5.** Sidebar height now matches conversation pane height —
   both bottom borders close on same row. Extracted
   `conversationPaneHeight` helper as single source of truth.
+  UI goldens regenerated.
+- **LLL6.** Footer hints clustered (action | nav | exit) with
+  `·` and `│` separators. Cost rendered as a styled chip
+  (chipBg=Bg, Secondary-bold $ + threshold-colored tokens).
   UI goldens regenerated.
 
 ### Phase III — tool call/result linkage
