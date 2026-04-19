@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase VVVVV — input prompt `>` only on first row
+
+- [x] **VVVVV1.** User feedback: "i do not like the > on > fdshfjkdshjflkdsf | > fdkjfkdsjfdskf | >" — the textarea's `Prompt = "> "` was applied to every visible row, so multi-line input got an ugly chevron column. Switched to `SetPromptFunc(2, …)` rendering `> ` on row 0 and `  ` (two spaces) on continuation rows. Width matches so the cursor column doesn't shift. Golden snapshots regenerated for the 7 view fixtures whose input region now has the new prompt shape. Screenshot: `screenshots/VVVVV1_prompt_first_row_only.png` showing 3-line input with single `>` on top row.
+
 ## Phase UUUUU — conformance: Files section
 
 - [x] **UUUUU1.** Adds a `Files` section to the conformance suite (gated on `capabilities.files` AND a non-empty workspace id). Walks `GET /v1/workspaces/{id}/files`: asserts 200, top-level `entries` array present, and each entry carries `path` + `type` with type in the `file|dir` enum. Locks the wire shape that powers `gact files list`, the @-file picker (M6), and `gact repo-map`'s tree view. Read-only — doesn't fetch file bodies, so it stays decoupled from fixture content. New `Options.SkipFiles` opt-out. Adapters that don't claim `files=true` auto-skip via the cap gate. TestCLI_Conformance now requires the new section name. Confirmed against the emulator: `▶ Files ✓ Files PASS`.
