@@ -56,6 +56,14 @@ type Options struct {
 	SkipCommands      bool
 	SkipTools         bool
 	SkipMetrics       bool
+	// AAAA1: optional MMM-endpoint coverage. Each gated by the
+	// matching capability flag — backends that don't claim it get
+	// auto-skipped, so adapters that wire only a subset don't fail
+	// here. Setting Skip* explicitly always skips even if the cap
+	// is true.
+	SkipHooks    bool
+	SkipPolicies bool
+	SkipTasks    bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -133,6 +141,52 @@ func Run(t Reporter, baseURL string, opts Options) {
 	if !opts.SkipMetrics {
 		t.Run("Metrics", func(t Reporter) { checkMetrics(t, c) })
 	}
+	// AAAA1: MMM endpoints, gated by capability flag. We need the
+	// caps to know which to run; reuse the Capabilities check's
+	// fetch by re-calling it here (cheap GET).
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks {
+		caps := fetchCapabilities(c)
+		if !opts.SkipHooks && caps.Hooks {
+			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
+		}
+		if !opts.SkipPolicies {
+			// Policies has no capability flag in Capabilities —
+			// permissions itself does. Run when permissions=true.
+			if caps.Permissions {
+				t.Run("Policies", func(t Reporter) { checkPolicies(t, c) })
+			}
+		}
+		if !opts.SkipTasks && caps.SessionTasks {
+			if sid != "" {
+				t.Run("Tasks", func(t Reporter) { checkTasks(t, c, sid) })
+			}
+		}
+	}
+}
+
+// minimalCaps holds just the flags we need for AAAA1 gating.
+type minimalCaps struct {
+	Hooks        bool
+	Permissions  bool
+	SessionTasks bool
+}
+
+func fetchCapabilities(c *conformClient) minimalCaps {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, body, err := c.get(ctx, "/v1/capabilities")
+	if err != nil {
+		return minimalCaps{}
+	}
+	var raw struct {
+		Capabilities struct {
+			Hooks        bool `json:"hooks"`
+			Permissions  bool `json:"permissions"`
+			SessionTasks bool `json:"session_tasks"`
+		} `json:"capabilities"`
+	}
+	_ = json.Unmarshal(body, &raw)
+	return minimalCaps(raw.Capabilities)
 }
 
 // conformClient is a thin wrapper around http.Client that prefixes URLs
@@ -530,4 +584,165 @@ func checkMetrics(t Reporter, c *conformClient) {
 	if _, ok := got["uptime_s"]; !ok {
 		t.Errorf("metrics response missing uptime_s field: %s", body)
 	}
+}
+
+// AAAA1 — checks for §6.17 hooks, §6.11 policies, §6.18 tasks. Each
+// runs a minimal write+read cycle against the live backend.
+
+func checkHooks(t Reporter, c *conformClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// GET should return {hooks: []}.
+	resp, body, err := c.get(ctx, "/v1/hooks")
+	if err != nil {
+		t.Fatalf("GET /v1/hooks: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var listResp struct {
+		Hooks []map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(body, &listResp); err != nil {
+		t.Fatalf("hooks list decode: %v (body=%s)", err, body)
+	}
+
+	// POST a hook, expect 201 + {id}.
+	hookBody := map[string]any{
+		"event":   "notification",
+		"command": "/bin/true",
+	}
+	postResp, postBody, err := c.postJSON(ctx, "/v1/hooks", hookBody)
+	if err != nil {
+		t.Fatalf("POST /v1/hooks: %v", err)
+	}
+	if postResp.StatusCode != 200 && postResp.StatusCode != 201 {
+		t.Fatalf("create hook status %d body %s", postResp.StatusCode, postBody)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(postBody, &created)
+	if created.ID == "" {
+		t.Fatalf("created hook missing id: %s", postBody)
+	}
+
+	// DELETE the hook, expect 204.
+	delReq, _ := http.NewRequestWithContext(ctx, http.MethodDelete,
+		c.baseURL+"/v1/hooks/"+created.ID, nil)
+	delResp, err := c.http.Do(delReq)
+	if err != nil {
+		t.Fatalf("DELETE /v1/hooks/%s: %v", created.ID, err)
+	}
+	delResp.Body.Close()
+	if delResp.StatusCode != 204 {
+		t.Errorf("delete hook expected 204, got %d", delResp.StatusCode)
+	}
+}
+
+func checkPolicies(t Reporter, c *conformClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/policies")
+	if err != nil {
+		t.Fatalf("GET /v1/policies: %v", err)
+	}
+	if resp.StatusCode == 404 || resp.StatusCode == 501 {
+		// Backends that don't implement the policy CRUD return 404 or
+		// 501 — the spec calls policies optional. Tolerate.
+		return
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+
+	// PUT a single allow-shell rule, then GET to verify round-trip.
+	put := map[string]any{
+		"policies": []map[string]any{
+			{"scope": "workspace", "tool_name_pattern": "shell", "action": "allow"},
+		},
+	}
+	putReq, _ := http.NewRequest(http.MethodPut, c.baseURL+"/v1/policies", bytes.NewReader(mustJSON(put)))
+	putReq.Header.Set("Content-Type", "application/json")
+	putReq = putReq.WithContext(ctx)
+	putResp, err := c.http.Do(putReq)
+	if err != nil {
+		t.Fatalf("PUT /v1/policies: %v", err)
+	}
+	putBody, _ := io.ReadAll(putResp.Body)
+	putResp.Body.Close()
+	if putResp.StatusCode != 200 {
+		t.Fatalf("put policies status %d body %s", putResp.StatusCode, putBody)
+	}
+	if !strings.Contains(string(putBody), `"shell"`) {
+		t.Errorf("PUT echo missing shell rule: %s", putBody)
+	}
+
+	// Cleanup — empty list.
+	emptyReq, _ := http.NewRequest(http.MethodPut, c.baseURL+"/v1/policies",
+		bytes.NewReader(mustJSON(map[string]any{"policies": []any{}})))
+	emptyReq.Header.Set("Content-Type", "application/json")
+	emptyReq = emptyReq.WithContext(ctx)
+	if r, err := c.http.Do(emptyReq); err == nil {
+		r.Body.Close()
+	}
+}
+
+func checkTasks(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// POST a task.
+	postResp, postBody, err := c.postJSON(ctx,
+		"/v1/sessions/"+sid+"/tasks", map[string]any{"title": "conformance probe"})
+	if err != nil {
+		t.Fatalf("POST tasks: %v", err)
+	}
+	if postResp.StatusCode != 200 && postResp.StatusCode != 201 {
+		t.Fatalf("create task status %d body %s", postResp.StatusCode, postBody)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(postBody, &created)
+	if created.ID == "" {
+		t.Fatalf("created task missing id: %s", postBody)
+	}
+
+	// GET — must list at least the one we created.
+	getResp, getBody, err := c.get(ctx, "/v1/sessions/"+sid+"/tasks")
+	if err != nil {
+		t.Fatalf("GET tasks: %v", err)
+	}
+	if getResp.StatusCode != 200 {
+		t.Fatalf("list tasks status %d body %s", getResp.StatusCode, getBody)
+	}
+	if !strings.Contains(string(getBody), created.ID) {
+		t.Errorf("list missing created task %s: %s", created.ID, getBody)
+	}
+
+	// DELETE.
+	delReq, _ := http.NewRequestWithContext(ctx, http.MethodDelete,
+		c.baseURL+"/v1/tasks/"+created.ID, nil)
+	delResp, err := c.http.Do(delReq)
+	if err != nil {
+		t.Fatalf("DELETE task: %v", err)
+	}
+	delResp.Body.Close()
+	if delResp.StatusCode != 204 {
+		t.Errorf("delete task expected 204, got %d", delResp.StatusCode)
+	}
+}
+
+// mustJSON panics on marshal error — only used for static literals
+// inside check functions where panic == suite bug.
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

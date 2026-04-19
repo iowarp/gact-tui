@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase AAAA — conformance for MMM endpoints
+
+- [x] **AAAA1.** conformance suite gained Hooks (§6.17), Policies (§6.11), Tasks (§6.18) sections. Each is gated by `capabilities.{hooks,permissions,session_tasks}` so adapters that wire only a subset get auto-skipped. New SkipHooks/SkipPolicies/SkipTasks options + matching --skip names in `gact conformance`. Each section runs GET + write + delete to exercise the round-trip. Manual e2e: full suite passes against emulator with all 3 new sections green.
+
 ## Phase ZZZ — gact follow
 
 - [x] **ZZZ1.** `gact follow <sid>` ships. Snapshots existing messages (chronological), then subscribes to SSE for the session and renders any new completed messages until Ctrl+C. `seen` map dedupes against SSE replay. Extracted printLogMessage helper so log + follow share one render path. CLI test seeds + waits ALPHA, starts follow with deadline, sends BRAVO, asserts both surface in the captured output.

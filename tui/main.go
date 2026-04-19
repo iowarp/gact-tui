@@ -1724,6 +1724,12 @@ func runConformance(args []string) int {
 			opts.SkipTools = true
 		case "Metrics":
 			opts.SkipMetrics = true
+		case "Hooks":
+			opts.SkipHooks = true
+		case "Policies":
+			opts.SkipPolicies = true
+		case "Tasks":
+			opts.SkipTasks = true
 		default:
 			fmt.Fprintf(os.Stderr, "gact conformance: unknown --skip section %q\n", s)
 			return 2
