@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T01:40Z
-**Current phase:** LLL2/3/4/7/8a + MMM1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ffd2147` and pushed
-**Open:** MMM2-MMM8, LLL8b, JJJ1
+**Last updated:** 2026-04-19T01:55Z
+**Current phase:** MMM2 + MMM3 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b2b77d7` and pushed
+**Open:** MMM4-MMM8, LLL8b, JJJ1
 
 ## This loop (Phases N + O)
 
@@ -54,6 +54,13 @@
 - **MMM1.** SSE `notification` event wired end-to-end. Emulator
   emits on MCP reconnect, TUI sets transientHint, `gact stream`
   prints `[level] title — body` row. CLI test catches it via tail.
+- **MMM2.** Versioned config migrations framework (Migrate +
+  ordered slice). Wired into LoadFrom; v1 stamps existing configs.
+  3 unit tests.
+- **MMM3.** Hooks system end-to-end (SPEC §6.17). Emulator stores
+  + bus dispatcher + 3 endpoints; client wrappers; `gact hooks
+  list/add/rm` CLI. Hook commands receive event JSON on stdin or
+  via POST to URL. CLI test asserts e2e capture.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
