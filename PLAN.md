@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase LL — summary + completion
+
+- [x] **LL1.** `gact summarize <sid>` triggers POST `/v1/sessions/{id}/summarize`, refetches, prints the updated session.summary. Completion scripts updated to list every subcommand. CLI test.
+
 ## Phase KK — one-shot scripting
 
 - [x] **KK1.** `gact quick <q|-> [--keep]` — one-shot create + ask + delete. Default workspace via /v1/workspaces[0]. CLI test asserts session count unchanged after run, proving cleanup.
