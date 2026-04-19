@@ -256,6 +256,17 @@ func (s *Server) handleMcpReconnect(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
 		return
 	}
+	// MMM1: surface a notification SSE event so connected clients see
+	// the reconnect succeeded without polling. Workspace-scoped so
+	// every TUI/SSE listener picks it up.
+	s.bus.Publish(events.Event{
+		Type: "notification",
+		Payload: map[string]any{
+			"level": "info",
+			"title": "MCP server reconnected",
+			"body":  id,
+		},
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 

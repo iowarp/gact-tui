@@ -2041,6 +2041,18 @@ func streamRow(e client.SSEEvent) string {
 	case "cost.updated":
 		cost, _ := pickPath(pl, "cost_usd").(float64)
 		summary = fmt.Sprintf("cost=$%.4f", cost)
+	case "notification":
+		// MMM1: backend-pushed banner-worthy message.
+		level, _ := pickPath(pl, "level").(string)
+		title, _ := pickPath(pl, "title").(string)
+		body, _ := pickPath(pl, "body").(string)
+		if level == "" {
+			level = "info"
+		}
+		summary = fmt.Sprintf("[%s] %s", level, title)
+		if body != "" {
+			summary += " — " + truncateForRow(body)
+		}
 	}
 	return fmt.Sprintf("%s  %-30s %s", now, e.Type, summary)
 }
