@@ -197,6 +197,46 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Stream covers QQ1: pretty-print SSE timeline. Starts the
+// stream in the background, lets it capture server.connected, kills
+// it. Asserts at least one HH:MM:SS-prefixed row landed.
+func TestCLI_Stream(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	cmd := exec.Command(bin, "stream", "--workspace", "ws_default")
+	cmd.Env = append(os.Environ(), "GACT_BACKEND="+url)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start stream: %v", err)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	body := out.String()
+	if !strings.Contains(body, "server.connected") {
+		t.Fatalf("stream missed server.connected event: %q", body)
+	}
+	// Format check: every row begins with HH:MM:SS (10 chars then two
+	// spaces). Split on newlines and verify the first non-empty row
+	// matches.
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Expected prefix shape: NN:NN:NN<space><space>type
+		if len(line) < 11 || line[2] != ':' || line[5] != ':' {
+			t.Errorf("row doesn't look like HH:MM:SS-prefixed: %q", line)
+		}
+		break
+	}
+}
+
 // TestCLI_DumpBundle covers PP1: dump-bundle creates the expected
 // directory layout with version + diag + metrics + per-session JSON
 // files. Seeds a session first so the sessions/ subdir is non-empty.
