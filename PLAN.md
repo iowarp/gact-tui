@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase RR — permissions CLI
 
-- [ ] **RR1.** `gact perms list <sid>` and `gact perms allow|deny|allow-session|allow-workspace <perm-id>` — manage pending permissions from the shell. Same endpoints the TUI's a/d/s/w action keys use.
+- [x] **RR1.** `gact perms {list,allow,deny,allow-session,allow-workspace}` — full permission CLI mirroring the TUI a/d/s/w keys. CLI test triggers a permission scenario, locates the pending id, allows, and verifies resolved status.
 
 ## Phase QQ — pretty stream
 
