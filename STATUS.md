@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T08:15Z
-**Current phase:** DDDD1 + EEEE1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3a5d5d0` and pushed
+**Last updated:** 2026-04-19T08:30Z
+**Current phase:** FFFF1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `694028d` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,13 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase FFFF — tasks summary
+- **FFFF1.** `gact tasks summary` ships. Bounded-pool fanout
+  (8-wide) over ListSessionTasks per session, sums by status,
+  skips empty sessions. TSV table + TOTAL footer with
+  `(N sessions)` count. CLI test asserts aggregate matches
+  seeded counts.
 
 ### Phase EEEE — dump-bundle --since
 - **EEEE1.** `gact dump-bundle --since DUR` ships. Filters
