@@ -36,10 +36,11 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// OpenCode adapter doesn't proxy commands/tools/metrics/agents
 		// endpoints; fold them out of the conformance scope so a
 		// 501 doesn't fail the suite.
-		SkipCommands: true,
-		SkipTools:    true,
-		SkipMetrics:  true,
-		SkipAgents:   true,
+		SkipCommands:      true,
+		SkipTools:         true,
+		SkipMetrics:       true,
+		SkipAgents:        true,
+		SkipSessionExport: true,
 		// SSE budget bumped from default 3 s — the adapter emits
 		// server.connected immediately so this is plenty, but a slow
 		// CI runner can still take a moment to wire up sockets.

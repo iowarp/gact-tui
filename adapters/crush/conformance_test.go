@@ -40,11 +40,12 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// Crush adapter doesn't proxy commands/tools/metrics/agents
 		// endpoints yet — they'd all 501. Suite-level skip keeps the
 		// conformance assertions scoped to what Crush actually promises.
-		SkipCommands: true,
-		SkipTools:    true,
-		SkipMetrics:  true,
-		SkipAgents:   true,
-		SSEBudget:    5 * time.Second,
+		SkipCommands:      true,
+		SkipTools:         true,
+		SkipMetrics:       true,
+		SkipAgents:        true,
+		SkipSessionExport: true,
+		SSEBudget:         5 * time.Second,
 	})
 }
 

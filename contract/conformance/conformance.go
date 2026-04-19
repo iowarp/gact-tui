@@ -58,7 +58,11 @@ type Options struct {
 	// entry. Locks the wire shape that powers `gact log` and the
 	// conversation pane's history fetch.
 	SkipMessageList bool
-	SkipSSE         bool
+	// RRRRRR1: Sessions_Export — SPEC §6.2 GET
+	// /v1/sessions/{id}/export. Asserts 200 + JSON content-type +
+	// decodable body. Read-only.
+	SkipSessionExport bool
+	SkipSSE           bool
 	SkipCommands      bool
 	SkipTools         bool
 	SkipMetrics       bool
@@ -181,6 +185,12 @@ func Run(t Reporter, baseURL string, opts Options) {
 	if sid != "" && !opts.SkipMessageList {
 		t.Run("Messages_List", func(t Reporter) {
 			checkMessagesList(t, c, sid)
+		})
+	}
+
+	if sid != "" && !opts.SkipSessionExport {
+		t.Run("Sessions_Export", func(t Reporter) {
+			checkSessionExport(t, c, sid)
 		})
 	}
 
@@ -1700,5 +1710,36 @@ func checkMessagesSearch(t Reporter, c *conformClient, sid string) {
 		if mid, _ := m["message_id"].(string); mid == "" {
 			t.Errorf("match[%d] empty message_id: %v", i, m)
 		}
+	}
+}
+
+// RRRRRR1 — checkSessionExport validates GET /v1/sessions/{id}/export
+// (SPEC §6.2). Asserts 200 + Content-Type starts with application/json
+// + body parses as JSON. Specific exported shape is per-backend; the
+// SPEC says "session blob" without locking the field set, so we only
+// assert that the response is valid JSON. Locks just enough that
+// `gact export` and `gact import` can round-trip without a 501 hiding
+// in the middle. Read-only.
+func checkSessionExport(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/export")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/export: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id}/export returned 501 — set SkipSessionExport")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	ct := resp.Header.Get("Content-Type")
+	if !strings.Contains(ct, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	var blob any
+	if err := json.Unmarshal(body, &blob); err != nil {
+		t.Errorf("export body not valid JSON: %v (body=%s)", err, body)
 	}
 }
