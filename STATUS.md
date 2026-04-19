@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T01:10Z
-**Current phase:** LLL2 + LLL3 + LLL4 + LLL8a shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b090a36` and pushed
-**Open:** LLL7 (claude-code inventory), LLL8b (TUI detach key — stub), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T01:25Z
+**Current phase:** LLL2/3/4/7/8a shipped this iteration; MMM1-8 filed
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `343fd10` and pushed
+**Open:** MMM1-MMM8 (CC-inspired adds), LLL8b (TUI detach), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -43,6 +43,12 @@
   sid<TAB>msg_id on stdout. Fix: bool flags excluded from `known`
   reorderFlagsFirst map (was gobbling next positional). CLI test
   covers both arg orderings + same-sid resume.
+- **LLL7.** Survey of Claude Code source at /mnt/d/.../cc/src.
+  Report at notes/cc-inventory.md with per-feature verdicts +
+  8-item priority queue. Top adds filed as MMM1-MMM8 (SSE
+  notification event, config migrations, hooks system,
+  permission rules, session tasks, summarize instructions,
+  /rewind, plugins dir).
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
