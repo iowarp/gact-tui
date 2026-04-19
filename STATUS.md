@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T07:45Z
-**Current phase:** BBBB1 + CCCC1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `340f4d8` and pushed
+**Last updated:** 2026-04-19T08:00Z
+**Current phase:** DDDD1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6ef9337` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase DDDD — gact env
+- **DDDD1.** `gact env` ships. TSV resolved KEY/VALUE for
+  backend·theme·voice·intro·config-path·plugins-dir + a
+  `--- ENV ---` section listing every GACT_* env var. Pure
+  local — no backend dep. Test asserts both env vars + values.
 
 ### Phase CCCC — replay
 - **CCCC1.** `gact replay <file|-> [--attach]` ships. Reads
