@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T06:05Z
-**Current phase:** VVV1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f4c0e30` and pushed
+**Last updated:** 2026-04-19T06:15Z
+**Current phase:** VVV1 + WWW1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e8c5093` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase WWW — cross-session grep
+- **WWW1.** `gact grep <query>` ships. Bounded-pool fanout
+  (8-wide) over SearchMessages per session, mid→role lookup per
+  hit. TSV/JSON output. CLI test seeds 2 sessions + asserts both
+  matches surface.
 
 ### Phase VVV — dashboard
 - **VVV1.** `gact dashboard [--format pretty|tsv|json]` ships.
