@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase TTTTTT — conformance: tasks PATCH + status enum
+
+- [x] **TTTTTT1.** Extended `checkTasks` (already had POST/GET/DELETE round-trip) with `PATCH /v1/tasks/{id}` per SPEC §6.18. Flips the created task to `status=running`, asserts 200 + id echoed back + status=running echoed + status in the documented enum (`pending|running|completed|failed`). Catches adapter authors that wired POST/GET/DELETE but forgot PATCH (which the TUI's task panel uses for in-place status flips).
+
 ## Phase SSSSSS — conformance: capabilities deeper validation
 
 - [x] **SSSSSS1.** Strengthened `checkCapabilities` from "fields present" to "fields well-formed". (1) `contract_version` must look like a real semver-ish version (currently 0.x or 1.x) — catches accidents like `"contract_version": "GACT"` or empty-after-trim. (2) Every capability value must be a JSON bool — adapter authors that emit `"hooks": "yes"` or `"files": null` would silently downgrade to false in cap-gating logic; this catches it at the wire. Forward-compat carve-out: vendor-prefixed keys (`x_<vendor>_<flag>`) may be any JSON value. Catches a category of adapter regressions that the looser shape check would have let through.
