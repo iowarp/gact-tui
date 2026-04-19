@@ -205,6 +205,42 @@ func newReadyApp(sessions []gact.Session, msgs []gact.Message) *App {
 	return a
 }
 
+// HHH1: model + agent labels appear in the header for the selected session.
+func TestRenderHeader_ModelAndAgent(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{
+			ID: "sess_1", Title: "demo", Status: gact.StatusIdle,
+			Model: gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Agent: gact.AgentRef{ID: "default"},
+		},
+	}, nil)
+	a.width = 200
+	got := a.renderHeader()
+	if !strings.Contains(got, "model: claude-opus-4-7") {
+		t.Errorf("expected model label in header, got: %q", got)
+	}
+	if !strings.Contains(got, "agent: default") {
+		t.Errorf("expected agent label in header, got: %q", got)
+	}
+}
+
+// HHH1 narrow-window guard: model/agent get dropped, but session label
+// still wins over them — header should never panic on tight widths.
+func TestRenderHeader_NarrowDropsOptional(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{
+			ID: "sess_1", Title: "demo", Status: gact.StatusIdle,
+			Model: gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Agent: gact.AgentRef{ID: "default"},
+		},
+	}, nil)
+	a.width = 50
+	got := a.renderHeader()
+	if !strings.Contains(got, "GACT") {
+		t.Errorf("required GACT badge missing in narrow header: %q", got)
+	}
+}
+
 // Verify the app responds to Tab without panicking.
 func TestUpdate_TabCyclesFocus(t *testing.T) {
 	a := newReadyApp(nil, nil)
