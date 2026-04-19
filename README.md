@@ -190,7 +190,7 @@ running backend:
 | `gact tail [SID] [--workspace WS_ID] [--filter type1,type2]` | Stream SSE events as JSON lines; `--filter` keeps only named types |
 | `gact stream [SID] [--workspace WS_ID]` | Stream SSE events as a pretty timeline |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
-| `gact wait <sid> [--timeout DUR]` | Poll until session status is idle |
+| `gact wait <sid> [--timeout DUR]` \| `gact wait --any-of sid1,sid2,...` | Poll until session(s) idle; --any-of returns on first to finish |
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
 | `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
