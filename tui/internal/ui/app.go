@@ -2144,21 +2144,55 @@ func (a *App) sidebarPageSize() int {
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "up", "k":
-		a.scrollOffset++
-		a.stickyToBottom = false
-	case "down", "j":
-		if a.scrollOffset > 0 {
-			a.scrollOffset--
+		// WWWWW1: up/k navigate the cursor through messages now,
+		// not the raw scroll. User feedback was that "the window
+		// scrolls but the cursor remains there" — the cursor would
+		// scroll offscreen, leaving an orphan marker. Cursor-driven
+		// scroll keeps the marker visible. Raw page scroll stays
+		// available via PgUp/PgDn for big single-message bodies.
+		if len(a.messages) == 0 {
+			return a, nil
 		}
-		if a.scrollOffset == 0 {
+		if a.bodySelMsgIdx < 0 {
+			a.bodySelMsgIdx = len(a.messages) - 1
+		} else if a.bodySelMsgIdx > 0 {
+			a.bodySelMsgIdx--
+		}
+		a.scrollToSelectedMessage()
+	case "down", "j":
+		if len(a.messages) == 0 {
+			return a, nil
+		}
+		if a.bodySelMsgIdx < 0 {
+			a.bodySelMsgIdx = 0
+		} else if a.bodySelMsgIdx < len(a.messages)-1 {
+			a.bodySelMsgIdx++
+		}
+		a.scrollToSelectedMessage()
+	case "pgup", "ctrl+u":
+		// Page-scroll for the within-message use case. Doesn't move
+		// the cursor — when the user wants to read a long single
+		// message, the cursor stays on it.
+		a.scrollOffset += 10
+		a.stickyToBottom = false
+	case "pgdown", "ctrl+d":
+		a.scrollOffset -= 10
+		if a.scrollOffset <= 0 {
+			a.scrollOffset = 0
 			a.stickyToBottom = true
 		}
 	case "g":
-		a.scrollOffset = 1 << 20
-		a.stickyToBottom = false
+		// g jumps the cursor to the first (oldest) message.
+		if len(a.messages) > 0 {
+			a.bodySelMsgIdx = 0
+			a.scrollToSelectedMessage()
+		}
 	case "G":
-		a.scrollOffset = 0
-		a.stickyToBottom = true
+		// G jumps the cursor to the latest message.
+		if len(a.messages) > 0 {
+			a.bodySelMsgIdx = len(a.messages) - 1
+			a.scrollToSelectedMessage()
+		}
 	case "n":
 		// Y1: advance the body message cursor forward. Off (idx=-1)
 		// until the user starts navigating — matches the body's
@@ -3944,14 +3978,15 @@ var helpTabs = []struct {
 	{
 		title: "Conversation",
 		keys: [][2]string{
-			{"↑/↓ · j/k", "scroll"},
-			{"g / G", "top / bottom"},
+			{"↑/↓ · j/k", "move message cursor (▌ gutter; cursor stays visible)"},
+			{"g / G", "cursor to first / last message"},
+			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
 			{"y", "copy last assistant message to clipboard"},
 			{"R", "retry — resend last user message"},
 			{"d", "delete last message (optimistic; targets newest)"},
 			{"t", "toggle per-message timestamps"},
-			{"n / N", "next / prev message (cursor with ▌ gutter)"},
-			{"Ctrl+E", "expand latest bulky tool output in floating detail view"},
+			{"n / N", "next / prev message (alias for ↓/↑)"},
+			{"Ctrl+E", "expand the cursor's bulky output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},
 	},
