@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T07:15Z
-**Current phase:** ZZZ1 + AAAA1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ace0116` and pushed
+**Last updated:** 2026-04-19T07:30Z
+**Current phase:** BBBB1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3ca094c` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,11 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase BBBB — dashboard watch
+- **BBBB1.** `gact dashboard --watch [--interval DUR]` ships.
+  ANSI clear+home between frames. Extracted renderDashboardOnce.
+  Test asserts ≥2 frames in 2.5s with --interval 1s.
 
 ### Phase AAAA — conformance MMM coverage
 - **AAAA1.** Conformance suite gained Hooks/Policies/Tasks
