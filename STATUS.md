@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T03:35Z
-**Current phase:** MMM7/8 + NNN1 + JJJ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d513c4e` and pushed
-**Open:** LLL8b (TUI detach), MMM8b (TUI palette plugin wiring)
+**Last updated:** 2026-04-19T03:50Z
+**Current phase:** MMM7/8 + NNN1 + JJJ1 + LLL8b shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d1a0232` and pushed
+**Open:** MMM8b (TUI palette plugin wiring) — only known follow-up
 
 ## This loop (Phases N + O)
 
@@ -83,6 +83,12 @@
   `~/.config/gact/plugins/<name>/plugin.json` declares slash
   commands. Bad manifests/commands skipped, errors surfaced via
   LoadVerbose. 5 tests. TUI palette wiring deferred.
+
+### Phase LLL — UX polish round (continued)
+- **LLL8b.** Ctrl+Z detach: bound to `tea.Suspend` (built-in
+  SIGTSTP handling). Reassurance hint "detached — fg to resume;
+  backend session keeps running" set before suspend. Help
+  overlay updated. Unit test asserts hint + cmd.
 
 ### Phase JJJ — intro splash (user-flagged)
 - **JJJ1.** ASCII splash with Triangle logo + GACT block-letters
