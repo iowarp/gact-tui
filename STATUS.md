@@ -1,15 +1,21 @@
 # STATUS
 
-**Last updated:** 2026-04-20T00:55Z
-**Current phase:** VVVVV1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b3e56e7` and pushed
+**Last updated:** 2026-04-20T01:15Z
+**Current phase:** WWWWW1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ad20e4d` and pushed
 **Open:**
-  - Cursor follows scroll (#154) — body cursor stays at the
-    selected message even after ↑ scrolls it offscreen
   - Tool output more visually distinct (#155) — user wants
     Claude-Code-grade contrast on `⎿ ...` body
   - Shift+Enter newline still not landing (terminal-fold issue)
   - Settings still shallow — paste-compress + intro toggle
+  - Conformance Diffs section (stashed VVVVV1 prior — non-feedback)
+
+### Phase WWWWW — body cursor follows ↑/↓ scroll
+- **WWWWW1.** ↑/↓/k/j now walk the message cursor (and
+  scroll follows), not the raw page scroll. PgUp/PgDn added
+  for raw within-message scroll. Cursor seeds to latest on
+  first up, first on first down. Closes user feedback "the
+  window scrolls but the cursor remains there".
 
 ### Phase VVVVV — input prompt `>` only on first row
 - **VVVVV1.** User feedback: textarea `>` repeated on every
