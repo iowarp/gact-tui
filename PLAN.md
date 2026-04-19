@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase EEEEEE — conformance: tools per-id drill-down
+
+- [x] **EEEEEE1.** Extended `checkTools` to assert each list entry carries the required {id, name} pair (SPEC §6.6 + §4.6) and to drill into `GET /v1/tools/{id}` for the first tool in the list. Per-id response must echo the same id back and have a non-empty name. Catches a missing per-id endpoint at conformance time — adapter authors that wired only the list got a silent gap before. Read-only.
+
 ## Phase DDDDDD — conformance: Agents section
 
 - [x] **DDDDDD1.** Adds an `Agents` section to the conformance suite (no capability gate — agents read is always available per SPEC §6.5; backends with a totally different agent model can SkipAgents). Walks `GET /v1/agents`. Asserts 200 + non-nil top-level `agents` array (empty list is fine; missing key violates spec) + per-entry required {id, source, title} with `source` in the documented enum (builtin|user|recipe|skill). Locks the wire shape that powers the Settings → Agent picker (ListAgents → settingsLoadedMsg) and `gact agents list`. Read-only — never POSTs. New `Options.SkipAgents` opt-out wired through TestConformance_OptionsSkip. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Agents ✓ Agents PASS`.
