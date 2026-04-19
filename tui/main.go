@@ -3949,15 +3949,17 @@ func runLog(args []string) int {
 	fs := flag.NewFlagSet("log", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	limit := fs.Int("limit", 100, "max messages to print")
+	since := fs.Duration("since", 0, "only print messages with created_at within the last DUR (e.g. 5m, 1h); 0 = unset")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--limit": true, "-limit": true,
+		"--since": true, "-since": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--backend URL]")
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -3971,6 +3973,19 @@ func runLog(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact log: %v\n", err)
 		return 1
+	}
+	// TTT1: --since drops messages older than the cutoff. Computed
+	// once vs each message's CreatedAt; missing timestamps survive
+	// (unprintable to filter).
+	if *since > 0 {
+		cutoff := time.Now().UTC().Add(-*since)
+		filtered := msgs[:0]
+		for _, m := range msgs {
+			if m.CreatedAt.IsZero() || !m.CreatedAt.Before(cutoff) {
+				filtered = append(filtered, m)
+			}
+		}
+		msgs = filtered
 	}
 	for _, m := range msgs {
 		fmt.Printf("[%s @ %s]\n", strings.ToUpper(m.Role), m.CreatedAt.UTC().Format(time.RFC3339))
