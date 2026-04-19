@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T19:35Z
-**Current phase:** Phase N (draft/delete/undo/config polish) + Phase O (themes) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `13ffecc` and pushed
+**Last updated:** 2026-04-18T20:10Z
+**Current phase:** Phase SS (diff CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1402b41` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,14 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase SS — diff CLI
+- **SS1.** `gact diff list/apply/reject` mirrors the TUI a/r body
+  keys for shell automation. `list` walks ListMessages client-side
+  (no backend list endpoint for diffs) and prints
+  `path<TAB>pending|applied|rejected`. apply/reject reuse existing
+  client methods; empty paths means "all currently pending". CLI
+  test runs the full propose→list→apply→list cycle.
 
 ### Phase RR — permissions CLI
 - **RR1.** `gact perms {list,allow,deny,allow-session,allow-workspace}`
