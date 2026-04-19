@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase OOOO — gact info --include tasks,hooks
+
+- [x] **OOOO1.** `gact info <sid> --include tasks,hooks` adds composite sections to the existing single-session info dump. In text mode, appends `--- tasks ---` and `--- hooks ---` blocks (TSV rows or `(none)`). In JSON mode, the response is wrapped: `{session, tasks?, hooks?}`. Hook scoping rule: keep session-scoped hooks for this session, plus global (`session=""` and `workspace=""`) and workspace-scoped hooks matching `s.workspace_id` (since those fire for this session). Unknown --include token → exit 2. Bare `gact info` unchanged. CLI test seeds two tasks (one completed) + one session-scoped hook, asserts both modes contain expected rows + JSON parses to {session,tasks,hooks} with correct counts.
+
 ## Phase NNNN — gact follow --format json (NDJSON)
 
 - [x] **NNNN1.** `gact follow <sid> --format json` emits NDJSON for both the initial snapshot and streamed messages, so `gact follow $sid --format json | jq -c .` works as a poor-man's event tap. Default text mode unchanged. Refactored the message printing into an `emit(msg)` closure so snapshot + SSE-completed paths stay format-aware. CLI test runs follow in a goroutine bounded by `runGactWithDuration(5s)`, sends a second message mid-stream, asserts both ALPHA (snapshot) + BRAVO (stream) appear in NDJSON parts and every line parses as a Message.
