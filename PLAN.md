@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase VV — fork CLI
+
+- [x] **VV1.** `gact fork <parent-sid> [--at MID] [--title T]` — POSTs a new session with `parent_session_id` (and optionally `fork_at_message_id`), inheriting the parent's workspace via a GetSession lookup. Prints the new id to stdout. CLI test forks an existing session and asserts the child surfaces under `?parent_session_id=`.
+
 ## Phase UU — workspaces CLI
 
 - [x] **UU1.** `gact workspaces list [--format tsv|json]` — wraps `/v1/workspaces` so scripts can discover workspace ids without booting the TUI. TSV columns: id, name, root_path. Aliases: `workspace`, `ws`. CLI test asserts the seeded `ws_default` shows up in both TSV and JSON.

@@ -100,6 +100,8 @@ func main() {
 			os.Exit(runSearch(os.Args[2:]))
 		case "workspaces", "workspace", "ws":
 			os.Exit(runWorkspaces(os.Args[2:]))
+		case "fork":
+			os.Exit(runFork(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -309,6 +311,7 @@ Usage:
   gact diff reject <sid> [p…] reject pending diffs
   gact search <sid> <query>  full-text search across session messages
   gact workspaces list       list workspaces (TSV: id  name  root_path)
+  gact fork <sid> [--at MID] spawn a child session forked from another
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -623,6 +626,60 @@ func runSearch(args []string) int {
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
 	}
+	return 0
+}
+
+// runFork creates a child session via the same `/v1/sessions` POST
+// `gact new` uses but with `parent_session_id` set (and optionally
+// `fork_at_message_id`). Inherits the parent's workspace so callers
+// don't have to re-specify it. Useful for what-if branches:
+//
+//	CHILD=$(gact fork "$SID" --at "$MID" --title "alt-branch")
+//	gact ask "$CHILD" "what if we tried a different approach?"
+//
+// Prints the new session id to stdout. Exits 1 on backend failure,
+// 2 on bad args.
+func runFork(args []string) int {
+	fs := flag.NewFlagSet("fork", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	atMid := fs.String("at", "", "fork at this message id (default: tail)")
+	title := fs.String("title", "", "child session title; defaults to 'fork of <parent>'")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--at": true, "-at": true,
+		"--title": true, "-title": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact fork <parent-session-id> [--at MID] [--title T]")
+		return 2
+	}
+	parentID := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	parent, err := c.GetSession(ctx, parentID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact fork: %v\n", err)
+		return 1
+	}
+	if *title == "" {
+		*title = "fork of " + parentID
+	}
+	s, err := c.CreateSession(ctx, client.CreateSessionRequest{
+		WorkspaceID:     parent.WorkspaceID,
+		Title:           *title,
+		ParentSessionID: parentID,
+		ForkAtMessageID: *atMid,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact fork: %v\n", err)
+		return 1
+	}
+	fmt.Println(s.ID)
 	return 0
 }
 
@@ -1590,7 +1647,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1610,7 +1667,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1623,7 +1680,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

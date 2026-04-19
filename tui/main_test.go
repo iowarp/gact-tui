@@ -234,6 +234,36 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Fork covers VV1: fork an existing session, assert the new
+// id differs and the child surfaces under the parent in
+// /v1/sessions?parent_session_id=...
+func TestCLI_Fork(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	parent := createSession(t, url, "fork-parent")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"fork", parent, "--title", "fork-child")
+	if code != 0 {
+		t.Fatalf("fork: exit %d", code)
+	}
+	child := strings.TrimSpace(stdout)
+	if child == "" || child == parent {
+		t.Fatalf("expected new child id distinct from parent; got %q (parent %q)", child, parent)
+	}
+
+	resp, err := http.Get(url + "/v1/sessions?parent_session_id=" + parent)
+	if err != nil {
+		t.Fatalf("list children: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), child) {
+		t.Errorf("expected child %q in parent's children list: %s", child, body)
+	}
+}
+
 // TestCLI_Workspaces covers UU1: list workspaces in TSV and JSON
 // against the seeded `ws_default` workspace the emulator boots with.
 func TestCLI_Workspaces(t *testing.T) {
