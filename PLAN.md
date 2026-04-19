@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase NN — context CLI
+
+- [ ] **NN1.** `gact context list <sid>`, `gact context add <sid> <path> [--mode read|edit|pin]`, `gact context rm <sid> <path>` — manage session context files from shell. Backs the same `/v1/sessions/{id}/context/files` endpoints the TUI's `o` key + sidebar CONTEXT panel use.
+
 ## Phase MM — install + scripts dir
 
 - [x] **MM1.** `make install` (with `PREFIX` / `BINDIR` overrides) copies both binaries to `$BINDIR`. `make uninstall` removes them. Tested via `PREFIX=/tmp/...` round-trip.

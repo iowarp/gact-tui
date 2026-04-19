@@ -84,6 +84,8 @@ func main() {
 			os.Exit(runQuick(os.Args[2:]))
 		case "summarize":
 			os.Exit(runSummarize(os.Args[2:]))
+		case "context":
+			os.Exit(runContext(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -280,6 +282,9 @@ Usage:
   gact metrics [--format]    backend metrics summary (text or json)
   gact quick <q|->           one-shot Q&A (creates+asks+deletes session)
   gact summarize <sid>       trigger backend summary; prints result
+  gact context list <sid>    list session context files (mode + path)
+  gact context add <sid> <p> attach a file (--mode read|edit|pin)
+  gact context rm <sid> <p>  detach a file
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -416,6 +421,120 @@ func runDelete(args []string) int {
 	defer cancel()
 	if err := c.DeleteSession(ctx, sid); err != nil {
 		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runContext dispatches the `gact context <verb>` subcommand family
+// for managing per-session context files (the things sidebar K14
+// adds via `o`). Three verbs:
+//
+//	gact context list <sid>                   — print path + mode per file
+//	gact context add  <sid> <path> [--mode]   — POST add (default mode=read)
+//	gact context rm   <sid> <path>            — DELETE remove
+//
+// Verb-then-flags structure mirrors `git remote` / `kubectl`. Returns
+// 2 on usage errors, 1 on transport / API errors.
+func runContext(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact context list|add|rm <session_id> [path] [--mode read|edit|pin]")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+
+	switch verb {
+	case "list":
+		return runContextList(rest)
+	case "add":
+		return runContextAdd(rest)
+	case "rm", "remove", "delete":
+		return runContextRm(rest)
+	default:
+		fmt.Fprintf(os.Stderr, "gact context: unknown verb %q (want list|add|rm)\n", verb)
+		return 2
+	}
+}
+
+func runContextList(args []string) int {
+	fs := flag.NewFlagSet("context list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	files, err := c.ListContextFiles(ctx, sid)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact context list: %v\n", err)
+		return 1
+	}
+	for _, f := range files {
+		mode := f.Mode
+		if mode == "" {
+			mode = "?"
+		}
+		fmt.Printf("%s\t%s\n", mode, f.Path)
+	}
+	return 0
+}
+
+func runContextAdd(args []string) int {
+	fs := flag.NewFlagSet("context add", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	mode := fs.String("mode", "read", "context mode: read | edit | pin")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--mode": true, "-mode": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact context add <session_id> <path> [--mode read|edit|pin]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	path := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.AddContextFile(ctx, sid, path, *mode); err != nil {
+		fmt.Fprintf(os.Stderr, "gact context add: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runContextRm(args []string) int {
+	fs := flag.NewFlagSet("context rm", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact context rm <session_id> <path> [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	path := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.RemoveContextFile(ctx, sid, path); err != nil {
+		fmt.Fprintf(os.Stderr, "gact context rm: %v\n", err)
 		return 1
 	}
 	return 0
@@ -727,7 +846,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
+    cmds="archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -747,7 +866,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait)
+    cmds=(archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -760,7 +879,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

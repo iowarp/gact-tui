@@ -197,6 +197,63 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_ContextRoundTrip covers NN1: list (empty) → add two
+// files → list (both present) → rm one → list (one left).
+func TestCLI_ContextRoundTrip(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "context-target")
+
+	// Empty list to start.
+	stdout, _, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid)
+	if code != 0 {
+		t.Fatalf("list (empty): exit %d", code)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty list, got: %q", stdout)
+	}
+
+	// Add two files.
+	for _, f := range []string{"main.go", "README.md"} {
+		_, _, code := runGact(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			"context", "add", sid, f)
+		if code != 0 {
+			t.Fatalf("add %s: exit %d", f, code)
+		}
+	}
+
+	// List should show both.
+	stdout, _, _ = runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid)
+	if !strings.Contains(stdout, "main.go") || !strings.Contains(stdout, "README.md") {
+		t.Errorf("list missing entries: %q", stdout)
+	}
+
+	// Remove one.
+	_, _, code = runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"context", "rm", sid, "main.go")
+	if code != 0 {
+		t.Fatalf("rm: exit %d", code)
+	}
+
+	// Confirm only README.md remains.
+	stdout, _, _ = runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid)
+	if strings.Contains(stdout, "main.go") {
+		t.Errorf("main.go should be removed: %q", stdout)
+	}
+	if !strings.Contains(stdout, "README.md") {
+		t.Errorf("README.md should remain: %q", stdout)
+	}
+}
+
 // TestCLI_Summarize covers LL1: triggers /summarize and prints the
 // updated session.summary. The emulator stamps a placeholder string
 // so we just check it lands non-empty on stdout.
