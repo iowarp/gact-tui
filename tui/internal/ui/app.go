@@ -356,7 +356,18 @@ func New(backendURL string) *App {
 func NewWithTheme(backendURL string, theme Theme) *App {
 	ta := textarea.New()
 	ta.Placeholder = "type a message — Enter to send, Shift+Enter for newline"
-	ta.Prompt = "> "
+	// VVVVV1: render `> ` only on the first row of the input. Wrapped /
+	// multi-line input previously got a `>` gutter on every visible
+	// row, which the user called "ugly". Continuation rows now use
+	// two spaces so the cursor column stays put but the chevron
+	// doesn't repeat. Width 2 matches the `> ` width so the textarea
+	// reserves the same horizontal space either way.
+	ta.SetPromptFunc(2, func(p textarea.PromptInfo) string {
+		if p.LineNumber == 0 {
+			return "> "
+		}
+		return "  "
+	})
 	ta.SetHeight(3)
 	ta.SetWidth(80)
 	ta.ShowLineNumbers = false
