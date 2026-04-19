@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T20:55Z
-**Current phase:** JJJJJ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e013336` and pushed
+**Last updated:** 2026-04-19T21:15Z
+**Current phase:** JJJJJ1 + KKKKK1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2d9fc6a` and pushed
 **Open:** none
+
+### Phase KKKKK — empty-state hints surface session-lifecycle keys
+- **KKKKK1.** Closes the discoverability gap (feedback_tui_ux
+  item 7). Empty-state crib now shows e=rename, A=archive,
+  h=toggle archived, /=filter, o=context-add, plus Ctrl+Z
+  detach. Screenshot:
+  `screenshots/KKKKK1_empty_state_hints.png`.
 
 ### Phase JJJJJ — Ctrl+C cancels in-flight turn before quit
 - **JJJJJ1.** Ctrl+C now POSTs /cancel before tea.Quit when the
