@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNNNN — conformance: SSE envelope validation
+
+- [x] **NNNNNN1.** Strengthened `checkSSE` from "first `data:` line received" to "first complete event matches SPEC §7.2 envelope": (1) `event:` line is present, (2) `data:` line parses as JSON with a `type` field, (3) `data.type` matches the `event:` value (the redundancy is per spec — clients can read whichever they prefer; the conformance suite locks both in sync). New `validateSSEEvent` helper reads up to the first `\n\n` delimiter and runs the assertions. Specific event types and payload shapes stay per-backend; we only enforce the envelope shape.
+
 ## Phase MMMMMM — conformance: metrics deeper validation
 
 - [x] **MMMMMM1.** Strengthened `checkMetrics` from "uptime_s present" to "full top-level envelope present per SPEC §6.16": {sessions, messages, tokens} must each be a JSON object (not just a present-but-null key); sessions+messages must carry `total`; tokens must carry input_total + output_total. Specific values stay unchecked (operational and change per request) but the structural presence is locked so the metrics tab can render row totals without a nil dereference. Adapter authors that emit only uptime_s now get caught here.

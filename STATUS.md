@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:40Z
-**Current phase:** MMMMMM1 shipped (12 conformance phases this run: BBBBBB1..MMMMMM1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `12f2e6e` (pushed after status commit)
+**Last updated:** 2026-04-19T18:42Z
+**Current phase:** NNNNNN1 shipped (13 conformance phases this run: BBBBBB1..NNNNNN1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a61b7d5` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase NNNNNN — conformance SSE envelope validation
+- **NNNNNN1.** Strengthened `checkSSE` from "first data:
+  line received" to "first complete event matches SPEC §7.2
+  envelope": event: line present, data: parses as JSON with
+  a `type` field, and data.type matches the event: value.
+  New `validateSSEEvent` helper.
 
 ### Phase MMMMMM — conformance metrics deeper validation
 - **MMMMMM1.** Strengthened `checkMetrics` from
