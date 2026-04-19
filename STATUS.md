@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T08:30Z
-**Current phase:** FFFF1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `694028d` and pushed
+**Last updated:** 2026-04-19T09:05Z
+**Current phase:** GGGG1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ccbc927` and pushed
 **Open:** none
+
+### Phase GGGG — gact theme show
+- **GGGG1.** `gact theme show [--name N]` prints the active theme
+  palette as TSV (`key<TAB>hex`). Resolution honors --name flag,
+  otherwise `config.Resolve(cfg.Theme, $GACT_THEME, "", defaultTheme)`.
+  Emits 16 color rows (bg/fg/primary/secondary/success/warning/danger/
+  border/role_*) plus a `name<TAB>mode` header. Pure local — no
+  backend dep. Help text + bash/zsh/fish completions updated. CLI
+  test asserts env override, --name override, unknown verb → exit 2.
 
 ## This loop (Phases N + O)
 
