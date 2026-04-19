@@ -361,7 +361,12 @@ func New(backendURL string) *App {
 // NewWithTheme constructs an App with a specific theme.
 func NewWithTheme(backendURL string, theme Theme) *App {
 	ta := textarea.New()
-	ta.Placeholder = "type a message — Enter to send, Shift+Enter for newline"
+	// ZZZZZ1: placeholder leads with the always-works newline option
+	// (\\<Enter>) because Shift+Enter requires terminal support
+	// (kitty/xterm extended modifiers / modifyOtherKeys); not all
+	// terminals send the modifier through. \\<Enter> works everywhere
+	// since it's just a literal char + Enter the handler intercepts.
+	ta.Placeholder = "type a message — Enter to send · \\<Enter> for newline (Shift+Enter on supporting terminals)"
 	// VVVVV1: render `> ` only on the first row of the input. Wrapped /
 	// multi-line input previously got a `>` gutter on every visible
 	// row, which the user called "ugly". Continuation rows now use
@@ -4005,13 +4010,12 @@ var helpTabs = []struct {
 		title: "Input",
 		keys: [][2]string{
 			{"Enter", "send"},
-			{"Shift+Enter", "newline (terminal must support it)"},
-			{"\\<Enter>", "newline (Claude-Code style; always works)"},
-			{"Alt+Enter · Ctrl+J", "newline (alternate)"},
+			{"\\<Enter>", "newline (always works — Claude-Code style)"},
+			{"Shift+Enter · Alt+Enter · Ctrl+J", "newline (terminal-dependent)"},
 			{"↑ on empty", "recall prior prompt (per-session history)"},
 			{"/", "open command palette"},
 			{"/?<query>", "search session messages in palette"},
-			{"Paste ≥ 3 lines", "auto-compresses to [pasted content: N lines]"},
+			{"Paste ≥ N lines", "auto-compresses (N = Settings → TUI → paste compress)"},
 			{"Ctrl+P", "expand most recent compressed paste in-place"},
 			{"Ctrl+G · Ctrl+⇧P", "open compose modal (long-form editor)"},
 			{"@", "open fuzzy workspace-file picker (inserts @path)"},
