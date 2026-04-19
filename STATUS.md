@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T12:55Z
-**Current phase:** OOOO1 + PPPP1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b564538` and pushed
+**Last updated:** 2026-04-19T13:15Z
+**Current phase:** QQQQ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d25f2ec` and pushed
 **Open:** none
+
+### Phase QQQQ — parallelize gact export --all
+- **QQQQ1.** `gact export --all -o DIR` now fans out per-session
+  export+write across an 8-wide goroutine pool (mirrors FFFF1).
+  Was strictly serial — a 200-session backup paid 200×RTT.
+  Per-session error tolerance preserved. CLI test seeds 12
+  sessions (>workers) so the pool must reuse slots.
 
 ### Phase PPPP — gact context list --format json
 - **PPPP1.** `gact context list <sid> --format json` emits the
