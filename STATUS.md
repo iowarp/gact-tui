@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:32Z
-**Current phase:** KKKKKK1 shipped (10 conformance phases this run: BBBBBB1..KKKKKK1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `77fb3c8` (pushed after status commit)
+**Last updated:** 2026-04-19T18:33Z
+**Current phase:** LLLLLL1 shipped (11 conformance phases this run: BBBBBB1..LLLLLL1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7f0a91f` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase LLLLLL — conformance MCP resources + prompts
+- **LLLLLL1.** Extended `checkMcp`'s per-server drill with the
+  remaining read-only MCP catalog endpoints: `/resources`
+  (non-nil array, each entry has uri) + `/prompts` (non-nil
+  array, each entry has name). Both per SPEC §6.7. Read-only —
+  never POSTs to /resources/read or /prompts/get.
 
 ### Phase KKKKKK — conformance providers per-id drill-down
 - **KKKKKK1.** Extended `checkProviders` (already had
