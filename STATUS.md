@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T03:05Z
-**Current phase:** MMM7 + MMM8 shipped this iteration; entire MMM phase done
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `dca1b5b` and pushed
-**Open:** NNN1 (emulator scenario race), LLL8b (TUI detach), JJJ1 (intro splash), MMM8b (TUI palette plugin wiring)
+**Last updated:** 2026-04-19T03:20Z
+**Current phase:** MMM7/8 + NNN1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e8fcc8e` and pushed
+**Open:** LLL8b (TUI detach), JJJ1 (intro splash), MMM8b (TUI palette plugin wiring)
 
 ## This loop (Phases N + O)
 
@@ -83,6 +83,14 @@
   `~/.config/gact/plugins/<name>/plugin.json` declares slash
   commands. Bad manifests/commands skipped, errors surfaced via
   LoadVerbose. 5 tests. TUI palette wiring deferred.
+
+### Phase NNN — emulator hardening
+- **NNN1.** Scenario engine no longer panics when its session's
+  messages are deleted mid-flight. Helpers `addPart` and
+  `createAssistantMessage` now return placeholder non-nil values
+  on error so the ~12 call sites that ignore the error can't
+  nil-deref. Regression test deletes the assistant message
+  mid-flight and verifies the session survives.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
