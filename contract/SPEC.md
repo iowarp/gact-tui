@@ -346,7 +346,7 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 | DELETE | `/v1/sessions/{id}` | — | `204` |
 | POST | `/v1/sessions/{id}/fork` | `{at_message_id?, title?}` | `Session` (new) |
 | POST | `/v1/sessions/{id}/cancel` | — | `204` (cancels in-flight run) |
-| POST | `/v1/sessions/{id}/summarize` | `{auto?: bool}` | `204` (triggers async summarization; result via events) |
+| POST | `/v1/sessions/{id}/summarize` | `{auto?: bool, instructions?: string}` | `204` (triggers async summarization; result via events). MMM6: `instructions` is a free-form prompt the backend SHOULD pass to its summarizer (e.g. "tldr in 5 sentences", "extract action items only"). |
 | GET | `/v1/sessions/{id}/export` | — | `application/json` blob (full session w/ messages) |
 | POST | `/v1/sessions/import` | session blob | `Session` |
 

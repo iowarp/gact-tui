@@ -39,7 +39,8 @@ type ForkSessionRequest struct {
 
 // SummarizeSessionRequest is the body for POST /v1/sessions/{id}/summarize.
 type SummarizeSessionRequest struct {
-	Auto bool `json:"auto,omitempty"`
+	Auto         bool   `json:"auto,omitempty"`
+	Instructions string `json:"instructions,omitempty"` // MMM6
 }
 
 // ListSessionsResponse is the body for GET /v1/sessions.
@@ -291,9 +292,14 @@ func (s *Server) handleSummarizeSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	_, err := s.store.UpdateSession(id, func(sess *gact.Session) {
-		// Placeholder summary. The scenario engine (A11) will replace this
-		// with real summary content emitted via session.summarized event.
-		if sess.Summary == "" {
+		// Placeholder summary. MMM6: when --instructions is supplied,
+		// echo them into the placeholder so test/scripted callers can
+		// verify the field round-tripped end-to-end. Real scenario
+		// engines would feed the instructions into the summarizer
+		// prompt rather than literally emit them.
+		if req.Instructions != "" {
+			sess.Summary = "[auto-summary, instructions: " + req.Instructions + "]"
+		} else if sess.Summary == "" {
 			sess.Summary = "[auto-summary placeholder]"
 		}
 	})

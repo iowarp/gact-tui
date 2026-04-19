@@ -1353,6 +1353,20 @@ func TestCLI_Summarize(t *testing.T) {
 	if strings.TrimSpace(stdout) == "" {
 		t.Errorf("summarize returned empty stdout")
 	}
+
+	// MMM6: --instructions round-trips into the resulting summary
+	// (emulator echoes the prompt; real backends would feed it to
+	// the summarizer). Use a fresh session so the placeholder doesn't
+	// stick around from the first call.
+	sid2 := createSession(t, url, "summarize-with-instr")
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"summarize", sid2, "--instructions", "tldr in 3 words")
+	if code != 0 {
+		t.Fatalf("summarize --instructions: exit %d", code)
+	}
+	if !strings.Contains(stdout, "tldr in 3 words") {
+		t.Errorf("expected instructions echoed in summary, got %q", stdout)
+	}
 }
 
 // TestCLI_Quick covers KK1: one-shot create + ask + delete chain.

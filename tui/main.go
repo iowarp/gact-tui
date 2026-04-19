@@ -2890,12 +2890,17 @@ func runSummarize(args []string) int {
 	fs := flag.NewFlagSet("summarize", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	auto := fs.Bool("auto", true, "request automatic summary if backend supports it")
-	known := map[string]bool{"--backend": true, "-backend": true, "--auto": true, "-auto": true}
+	instructions := fs.String("instructions", "", "custom summarizer prompt (MMM6, optional)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--auto": true, "-auto": true,
+		"--instructions": true, "-instructions": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact summarize <session_id> [--auto=false] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact summarize <session_id> [--auto=false] [--instructions \"...\"] [--backend URL]")
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -2903,7 +2908,7 @@ func runSummarize(args []string) int {
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := c.SummarizeSession(ctx, sid, *auto); err != nil {
+	if err := c.SummarizeSession(ctx, sid, *auto, *instructions); err != nil {
 		fmt.Fprintf(os.Stderr, "gact summarize: %v\n", err)
 		return 1
 	}
