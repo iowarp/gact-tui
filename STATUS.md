@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T10:50Z
-**Current phase:** JJJJ1 + KKKK1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `66fcb44` and pushed
+**Last updated:** 2026-04-19T11:15Z
+**Current phase:** JJJJ1 + KKKK1 + LLLL1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5b407cf` and pushed
 **Open:** none
+
+### Phase LLLL — gact ping --json
+- **LLLL1.** `gact ping --json` emits `{ok,backend,uptime_s,error?}`
+  on a single line for both success and failure branches, so it
+  pipes cleanly into jq. Existing text mode unchanged; --json
+  overrides -q. CLI test parses both branches structurally.
 
 ### Phase KKKK — perms rules list --format tsv
 - **KKKK1.** `gact perms rules list` gains `--format json|tsv`
