@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase PPP — voice CLI
+
+- [x] **PPP1.** `gact voice <sid> <audio-file|->` ships. Wraps `client.VoiceTranscribe`. Reads file or stdin, defaults `--mime audio/wav`, prints recognised text on stdout. CLI test feeds a deterministic file + asserts non-empty transcription, plus exit-2 on empty audio.
+
 ## Phase OOO — TUI launch shortcuts
 
 - [x] **OOO1.** `gact attach <name|sid>` ships. New runAttach dispatcher sets GACT_ATTACH_SESSION_ID env, strips its own argv, and re-enters runTUI. App.AttachSessionID + new pickAttachIndex helper select the right row on connectedMsg (matches by id OR title). Missing id falls back to row 0 with a transient hint. CLI test (TestPickAttachIndex) covers no-attach default, match-by-id, match-by-title, missing+fallback. Screenshot 72.
