@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase BBBBBB — conformance: Diffs section
+
+- [x] **BBBBBB1.** Adds a `Diffs` section to the conformance suite (gated on `capabilities.diffs` AND a non-empty session id). Walks `GET /v1/sessions/{id}/diffs`: asserts 200, top-level `diffs` array present (non-nil), and each entry carries the file_diff shape from SPEC §5.4 — required `{path, applied}` (with `applied` bool-typed, `path` non-empty), optional `language` typed as string|null when present. Read-only — never POSTs to `/diffs/apply` or `/diffs/reject`, so it stays idempotent against the live session. Locks the wire shape that powers `gact diff` and the conversation pane's a/r apply/reject keys. New `Options.SkipDiffs` opt-out for adapters that don't surface diffs. Adapters that don't claim `diffs=true` auto-skip via the cap gate. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Diffs ✓ Diffs PASS`.
+
 ## Phase ZZZZZ — input newline copy honest about Shift+Enter terminal-fold
 
 - [x] **ZZZZZ1.** User feedback: Shift+Enter still doesn't insert a newline despite earlier work. Root cause is terminal-side: many terminals fold Shift+Enter to plain Enter unless they negotiate kitty/modifyOtherKeys protocol — there's nothing the application can do to make a terminal send modifiers it isn't sending. Fix is to be honest in the copy: placeholder now leads with the always-works `\<Enter>` option ("type a message — Enter to send · `\<Enter>` for newline (Shift+Enter on supporting terminals)"). Help-tab Input section reorders to put `\<Enter>` first ("always works — Claude-Code style") with Shift+Enter / Alt+Enter / Ctrl+J grouped as "terminal-dependent". The keybinding code is unchanged (already accepts all three) — only the user-facing text is updated. Also folded the YYYYY1 paste-threshold change into the help-tab text: "Paste ≥ N lines" instead of the previously hard-coded ≥3. Help-overlay golden regenerated.

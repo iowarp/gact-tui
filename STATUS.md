@@ -1,10 +1,20 @@
 # STATUS
 
-**Last updated:** 2026-04-20T02:50Z
-**Current phase:** AAAAAA1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f6b932c` and pushed
-**Open:**
-  - Conformance Diffs section (stashed prior — non-feedback)
+**Last updated:** 2026-04-19T18:05Z
+**Current phase:** BBBBBB1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d7b0f2f` (pushed after status commit)
+**Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase BBBBBB — conformance Diffs section
+- **BBBBBB1.** Conformance gains a `Diffs` section (gated on
+  capabilities.diffs + a non-empty session id). Walks
+  `GET /v1/sessions/{id}/diffs`, asserts 200 + non-nil `diffs`
+  key + per-entry {path, applied} required (with applied
+  bool-typed) and `language` string|null when present. Read-only
+  — never POSTs to /diffs/apply or /diffs/reject so it stays
+  idempotent against the live session. New `Options.SkipDiffs`
+  opt-out for adapters that don't surface diffs. CLI test
+  updated to require "Diffs" in the section list.
 
 ### Phase AAAAAA — docs cleanup
 - **AAAAAA1.** Working-tree + history rewrite. Removed
