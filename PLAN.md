@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase SS — diff CLI
+
+- [x] **SS1.** `gact diff list <sid>` lists every file_diff part in the session (path + pending/applied/rejected); `gact diff apply|reject <sid> [paths...]` invokes the existing apply/reject endpoints. Empty paths means "all pending". CLI test runs the full propose→list→apply→list cycle.
+
 ## Phase RR — permissions CLI
 
 - [x] **RR1.** `gact perms {list,allow,deny,allow-session,allow-workspace}` — full permission CLI mirroring the TUI a/d/s/w keys. CLI test triggers a permission scenario, locates the pending id, allows, and verifies resolved status.
