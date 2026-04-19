@@ -3133,9 +3133,21 @@ func runList(args []string) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "only sessions in this workspace")
+	parentID := fs.String("parent", "", "only sub-sessions of this session id")
+	status := fs.String("status", "", "filter by status (idle|running|waiting|error)")
+	archived := fs.Bool("archived", false, "include archived sessions")
+	limit := fs.Int("limit", 0, "truncate to first N rows after filtering (0 = no limit)")
 	format := fs.String("format", "tsv", "output format: tsv | json")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *status != "" {
+		switch *status {
+		case "idle", "running", "waiting", "error":
+		default:
+			fmt.Fprintf(os.Stderr, "gact list: unknown --status %q (want idle|running|waiting|error)\n", *status)
+			return 2
+		}
 	}
 
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -3143,10 +3155,26 @@ func runList(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{
+		WorkspaceID:     *wsID,
+		ParentSessionID: *parentID,
+		Archived:        *archived,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact list: %v\n", err)
 		return 1
+	}
+	if *status != "" {
+		filtered := sessions[:0]
+		for _, s := range sessions {
+			if s.Status == *status {
+				filtered = append(filtered, s)
+			}
+		}
+		sessions = filtered
+	}
+	if *limit > 0 && len(sessions) > *limit {
+		sessions = sessions[:*limit]
 	}
 
 	switch *format {

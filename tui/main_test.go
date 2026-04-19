@@ -234,6 +234,61 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_ListFilters covers FFF1: --limit truncates, --status idle
+// keeps everything (all sessions start idle), --status running drops
+// everything, and an unknown --status returns exit 2.
+func TestCLI_ListFilters(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Two fresh sessions so we can exercise --limit 1.
+	_ = createSession(t, url, "list-filter-1")
+	_ = createSession(t, url, "list-filter-2")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	if code != 0 {
+		t.Fatalf("list: exit %d", code)
+	}
+	totalRows := strings.Count(strings.TrimSpace(stdout), "\n") + 1
+	if totalRows < 2 {
+		t.Fatalf("expected ≥2 sessions, got %d", totalRows)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"list", "--limit", "1")
+	if code != 0 {
+		t.Fatalf("list --limit: exit %d", code)
+	}
+	if got := strings.Count(strings.TrimSpace(stdout), "\n") + 1; got != 1 {
+		t.Errorf("--limit 1: expected 1 row, got %d (%q)", got, stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"list", "--status", "idle")
+	if code != 0 {
+		t.Fatalf("list --status idle: exit %d", code)
+	}
+	idleRows := strings.Count(strings.TrimSpace(stdout), "\n") + 1
+	if idleRows < 2 {
+		t.Errorf("--status idle: expected ≥2 rows, got %d", idleRows)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"list", "--status", "running")
+	if code != 0 {
+		t.Fatalf("list --status running: exit %d", code)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("--status running: expected empty (no running sessions), got %q", stdout)
+	}
+
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"list", "--status", "bogus"); code != 2 {
+		t.Errorf("list --status bogus: expected exit 2, got %d", code)
+	}
+}
+
 // TestCLI_McpResourceRead covers EEE1: read the seeded MCP resource
 // at file:///docs/welcome.md and assert "demo content" lands on
 // stdout.
