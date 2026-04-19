@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRRRR — conformance: session export
+
+- [x] **RRRRRR1.** Adds a `Sessions_Export` section that walks `GET /v1/sessions/{id}/export` (SPEC §6.2) after Messages_List. Asserts 200 + Content-Type starts with `application/json` + body parses as JSON. Specific exported shape stays per-backend (SPEC says "session blob" without locking the field set), so we only assert validity — just enough that `gact export` and `gact import` can round-trip without a 501 hiding in the middle. Read-only. New `Options.SkipSessionExport` opt-out wired through TestConformance_OptionsSkip plus both opencode + crush adapter conformance tests (neither implements export today).
+
 ## Phase QQQQQQ — conformance: messages search
 
 - [x] **QQQQQQ1.** Adds `Messages_Search` section to the conformance suite (gated on `capabilities.search_messages` AND a non-empty session id). Walks `GET /v1/sessions/{id}/messages/search?q=hello&limit=5`. Asserts 200 + non-nil top-level `matches` array (empty list is fine — the seed message may not match the query; missing key violates spec). When matches are present, each must carry the documented {message_id, snippet} pair with non-empty message_id. Locks the wire shape that powers the @-search palette and `gact search`. Read-only. Adapter authors that don't implement search advertise `search_messages=false` and auto-skip via the cap gate. New `Options.SkipMessageSearch` opt-out.

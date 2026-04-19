@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:50Z
-**Current phase:** QQQQQQ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `66002d0` (pushed after status commit)
+**Last updated:** 2026-04-19T18:52Z
+**Current phase:** RRRRRR1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `df8a544` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase RRRRRR — conformance session export
+- **RRRRRR1.** Adds `Sessions_Export` section. Walks GET
+  /v1/sessions/{id}/export (SPEC §6.2) after Messages_List.
+  Asserts 200 + Content-Type application/json + valid JSON
+  body. Specific shape stays per-backend; only validity is
+  enforced. New SkipSessionExport opt-out wired through
+  OptionsSkip + opencode + crush adapter conformance tests.
 
 ### Phase QQQQQQ — conformance messages search
 - **QQQQQQ1.** Adds `Messages_Search` section gated on
