@@ -479,6 +479,9 @@ Otherwise omit; TUI hides LSP UI.
 | POST | `/v1/sessions/{id}/diffs/apply` | `{paths?: string[]}` | `{applied: string[]}` |
 | POST | `/v1/sessions/{id}/diffs/reject` | `{paths?: string[]}` | `{rejected: string[]}` |
 | POST | `/v1/sessions/{id}/undo` | `{count?: int}` | `{reverted_messages: string[]}` |
+| POST | `/v1/sessions/{id}/rewind` | `{to_message_id: string, include_target?: bool}` | `{deleted_messages: string[]}` (MMM7) |
+
+`/rewind` deletes every message after `to_message_id` in the named session. With `include_target=true`, it also deletes that message itself. Different from `/undo` (which counts backward from the tail) — useful when the user has scrolled and wants to fork off a known checkpoint.
 
 ### §6.11 Permissions
 

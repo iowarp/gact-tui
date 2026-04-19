@@ -382,6 +382,71 @@ func TestCLI_Tasks(t *testing.T) {
 	}
 }
 
+// TestCLI_Rewind covers MMM7: send 3 turns, wait for each idle,
+// rewind to msg 1, assert msgs after it are gone.
+func TestCLI_Rewind(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "rewind-target")
+
+	send := func(text string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"send", sid, text)
+		if code != 0 {
+			t.Fatalf("send %q: exit %d", text, code)
+		}
+		mid := strings.TrimSpace(stdout)
+		// Wait for the scenario to finish before sending the next
+		// message — otherwise rewind can race the scenario engine
+		// updating a part on a now-deleted message (pre-existing
+		// emulator quirk; not the rewind handler's bug).
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"wait", "--timeout", "30s", sid); code != 0 {
+			t.Fatalf("wait after %q: exit %d", text, code)
+		}
+		return mid
+	}
+	m1 := send("first")
+	_ = send("second")
+	_ = send("third")
+
+	// Rewind to m1: deletes everything newer (the second + third
+	// user msgs and their assistant turns). Default keeps m1 itself.
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"rewind", sid, m1)
+	if code != 0 {
+		t.Fatalf("rewind: exit %d (stderr=%q)", code, stderr)
+	}
+	if !strings.Contains(stderr, "deleted") {
+		t.Errorf("expected 'deleted N' summary on stderr: %q", stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("expected at least one deleted mid on stdout")
+	}
+
+	// log must still contain m1 but NOT "second" / "third".
+	logOut, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	if !strings.Contains(logOut, "first") {
+		t.Errorf("expected first user msg to remain: %q", logOut)
+	}
+	if strings.Contains(logOut, "second") || strings.Contains(logOut, "third") {
+		t.Errorf("rewind didn't drop later messages: %q", logOut)
+	}
+
+	// --include-target removes m1 too.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"rewind", sid, m1, "--include-target"); code != 0 {
+		t.Fatalf("rewind --include-target: exit %d", code)
+	}
+	logOut, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	if strings.Contains(logOut, "first") {
+		t.Errorf("--include-target should drop m1 too: %q", logOut)
+	}
+}
+
 // TestCLI_PermsRules covers MMM4: install a policy via the CLI,
 // trigger a permission-requesting scenario, verify the request
 // auto-resolves with the policy's action (no manual allow/deny).
