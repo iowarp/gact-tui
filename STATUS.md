@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T00:15Z
-**Current phase:** LLL1 + LLL5 + LLL6 + III1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8766d7f` and pushed
-**Open:** LLL2 (tool/MCP enable+drilldown TUI), LLL3 (skills+agents render verify), LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T00:30Z
+**Current phase:** LLL2 (catalog tool toggle + MCP drilldown) shipped
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b23aaf9` and pushed
+**Open:** LLL3 (skills+agents render verify), LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -27,6 +27,11 @@
   part of the SELECTED message, falls back to newest-bulky.
 
 ### Phase LLL — UX polish round (user-flagged)
+- **LLL2.** Catalog browser: Space toggles tool disabled state
+  (persisted to Config.DisabledTools, dimmed render); Enter on an
+  MCP server drills into a unified tools+resources+prompts subview
+  with `[type]` prefixes; Esc/Backspace pops back to parent list.
+  5 unit tests + screenshots/68-mcp-detail.png.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
