@@ -198,6 +198,14 @@ type App struct {
 	// or a title — both are matched.
 	AttachSessionID string
 
+	// IIIII1: when set on Ctrl+Z (clean detach), main.go reads this
+	// after p.Run() returns and prints "Detached … Reattach: gact
+	// attach <sid>" to stderr. Empty means the TUI exited via Ctrl+C
+	// or normal quit. The backend session lives on either way — this
+	// is purely a hint mechanism so the user knows the session is
+	// retrievable.
+	DetachedSessionID string
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -1183,14 +1191,18 @@ func (a *App) nextReconnectDelay() time.Duration {
 }
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// LLL8b: Ctrl+Z detaches — sends SIGTSTP to ourselves so the
-	// shell backgrounds the process. fg resumes. The backend session
-	// keeps running independently (sessions are server-side state).
-	// Setting transientHint here gets shown on resume so the user
-	// has a "you can come back to this" reassurance when they `fg`.
+	// IIIII1: Ctrl+Z is a CLEAN detach, not a SIGTSTP suspend.
+	// Sets DetachedSessionID so main.go can print a reattach hint
+	// after p.Run() returns, then quits the program. The backend
+	// session keeps running by design (sessions are server-side
+	// state) — `gact attach <sid>` resumes the conversation in a
+	// new TUI process. User explicitly asked for tmux-like detach
+	// instead of the previous LLL8b job-control suspend, which
+	// "leveraging the linux background execution is just cheap"
+	// (lost the session if the terminal closed).
 	if k.String() == "ctrl+z" {
-		a.transientHint = "detached — `fg` to resume; backend session keeps running"
-		return a, tea.Suspend
+		a.DetachedSessionID = a.currentSessionID()
+		return a, tea.Quit
 	}
 	// Clear any transient hint banner — it's a one-off toast that
 	// shouldn't persist past the next interaction. Done before modal
@@ -3871,7 +3883,7 @@ var helpTabs = []struct {
 			{"Ctrl+L", "reload config from disk"},
 			{"Ctrl+X", "cancel running scenario"},
 			{"Ctrl+Y", "voice transcribe"},
-			{"Ctrl+Z", "detach (suspend; `fg` resumes)"},
+			{"Ctrl+Z", "detach (TUI exits; `gact attach <sid>` reattaches)"},
 			{"?", "toggle this help"},
 			{"Esc", "close overlay / clear input"},
 			{"Ctrl+C", "quit"},

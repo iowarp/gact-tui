@@ -592,6 +592,16 @@ func runTUI() {
 		fmt.Fprintln(os.Stderr, "gact:", err)
 		log.Fatal(err)
 	}
+	// IIIII1: Ctrl+Z sets DetachedSessionID before tea.Quit. After
+	// the TUI exits cleanly, surface the reattach command — the
+	// session is still running on the backend, but the user has
+	// no way to know that without being told. Printed to stderr so
+	// it survives `gact ... | head` style pipelines.
+	if app.DetachedSessionID != "" {
+		fmt.Fprintf(os.Stderr,
+			"Detached. Reattach with:\n  gact attach %s\n",
+			app.DetachedSessionID)
+	}
 }
 
 // runExport implements `gact export <session_id> [-o path] [--backend URL]`.
