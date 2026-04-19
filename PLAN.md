@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQQ — multi-tool scenario variants
+
+- [x] **QQQQQ1.** Mirrors GGGGG1/PPPPP1 for the multi-tool path. `runMultiToolScript` cycles through `multiToolVariants` per session via `NextCallIndex`. Three variants: existing read_file/grep/edit_file refactor flow (variant[0], preserved for back-compat with existing test); a new psql/psql/go-vet schema-migration check (variant[1]); a go-test/grep/go-test failing-test triage flow (variant[2]). Each variant has its own intro + followup. New unit test sends two "many tools" turns and asserts (a) different tool-call sequences fire across the turns (variant cycle works) and (b) the union covers both `shell` (variant[1]) and `read_file` (variant[0]) tool names. Order-agnostic since `ListMessages` is newest-first. Existing `TestRichScripts_MultiTool` still passes against variant[0]'s 3-tool shape.
+
 ## Phase PPPPP — long-reply scenario variants (cycle for cursor demo)
 
 - [x] **PPPPP1.** Mirrors GGGGG1 for the long-reply path. `runLongScript` now picks from `longReplyVariants` per session via `NextCallIndex`. Three distinct writeups: existing rendering-strategy memo (variant[0], unchanged so TestRichScripts_LongReply still passes), a new request-lifecycle architecture trace (variant[1]), a profiling-triage runbook (variant[2]). Each variant has its own opening "thinking" line. New unit test sends three "long writeup" turns, asserts all three text bodies are distinct and that variant[1]/variant[2] markers ('## Request lifecycle' / '## Profiling triage') both appear. Pairs with FFFFF1: cursor-aware Ctrl+E now has two scenario families (bigtool + long) that produce real variety so users can demo the cursor against multiple bulky outputs.
