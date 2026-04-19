@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 // TestEnableIntro_FlipsStage checks that EnableIntro switches the
@@ -55,6 +57,55 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	// Default name has G/A/C/T glyphs — check for one distinctive char.
 	if !strings.Contains(out, "/_\\") {
 		t.Errorf("expected default G ASCII art in splash: %q", out)
+	}
+}
+
+// UUU1: sidebar shows `(N tasks)` badge when the session has open
+// tasks. Counts pending+running; completed/failed don't count.
+func TestSidebar_TaskBadge(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_1", Title: "with-tasks", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "no-tasks", Status: gact.StatusIdle},
+	}, nil)
+	a.taskCountBySession = map[string]int{"sess_1": 3}
+	a.width, a.height = 100, 30
+	out := a.renderSidebar(40, 25)
+	if !strings.Contains(out, "(3 tasks)") {
+		t.Errorf("expected (3 tasks) badge in sidebar: %q", out)
+	}
+	// no-tasks session should NOT have a badge.
+	noBadge := strings.Index(out, "no-tasks")
+	if noBadge < 0 {
+		t.Fatalf("no-tasks session not rendered: %q", out)
+	}
+	// Strip the with-tasks line, check the no-tasks line doesn't
+	// contain "tasks)".
+	tail := out[noBadge:]
+	if eol := strings.IndexByte(tail, '\n'); eol > 0 {
+		tail = tail[:eol]
+	}
+	if strings.Contains(tail, "tasks)") {
+		t.Errorf("no-tasks session shouldn't show badge: %q", tail)
+	}
+}
+
+// UUU1: sessionTasksLoadedMsg counts only pending+running, ignores
+// completed/failed.
+func TestSessionTasksLoaded_OnlyOpenCount(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.taskCountBySession = map[string]int{}
+	out, _ := a.Update(sessionTasksLoadedMsg{
+		sessionID: "sess_x",
+		tasks: []gact.SessionTask{
+			{ID: "1", Status: "pending"},
+			{ID: "2", Status: "running"},
+			{ID: "3", Status: "completed"},
+			{ID: "4", Status: "failed"},
+		},
+	})
+	got := out.(*App)
+	if got.taskCountBySession["sess_x"] != 2 {
+		t.Errorf("expected 2 open tasks, got %d", got.taskCountBySession["sess_x"])
 	}
 }
 

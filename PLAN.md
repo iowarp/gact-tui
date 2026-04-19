@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase UUU — sidebar task badges
+
+- [x] **UUU1.** Sidebar rows show `(N tasks)` badge (warning color, italic) when the session has open §6.18 tasks. Counts only pending+running statuses. Loaded lazily via new loadSessionTasksCmd in selectSession; cached in App.taskCountBySession. Title truncation accounts for badge width so layout doesn't overflow. 2 unit tests + screenshots/73-task-badge.png.
+
 ## Phase TTT — log time filter
 
 - [x] **TTT1.** `gact log --since DUR` ships. After ListMessages returns, drops messages with CreatedAt older than now-DUR. Empty/0 = passthrough. CLI test sends AAA, sleeps 2s, sends BBB, asserts --since 1h keeps both, --since 1500ms keeps only BBB.
