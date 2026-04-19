@@ -629,6 +629,30 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_Conformance covers SSS1: run the conformance suite against
+// a freshly-started emulator and assert exit 0 + every section
+// reports PASS in stderr.
+func TestCLI_Conformance(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"conformance")
+	if code != 0 {
+		t.Fatalf("conformance: exit %d (stderr=%q stdout=%q)", code, stderr, stdout)
+	}
+	if !strings.Contains(stderr, "PASS") {
+		t.Errorf("expected PASS in stderr, got %q", stderr)
+	}
+	// Every major section should appear in the output.
+	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected section %q in stdout: %q", want, stdout)
+		}
+	}
+}
+
 // TestCLI_TailFilter covers RRR1: --filter narrows the event stream
 // to the named types. Asserts notification is included and
 // server.connected is excluded when filter targets only "notification".

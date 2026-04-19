@@ -5,7 +5,7 @@
 //
 // Usage:
 //
-//	func TestMyBackendConformance(t *testing.T) {
+//	func TestMyBackendConformance(t Reporter) {
 //	    srv := startMyBackend(t)
 //	    defer srv.Close()
 //	    conformance.Run(t, srv.URL, conformance.Options{
@@ -27,7 +27,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -70,7 +69,7 @@ type Options struct {
 // Run executes the conformance suite. Each section uses t.Run so a
 // failure in one doesn't mask failures elsewhere, and individual
 // sections can be skipped via -run.
-func Run(t *testing.T, baseURL string, opts Options) {
+func Run(t Reporter, baseURL string, opts Options) {
 	t.Helper()
 	if opts.HTTPTimeout == 0 {
 		opts.HTTPTimeout = 10 * time.Second
@@ -82,57 +81,57 @@ func Run(t *testing.T, baseURL string, opts Options) {
 	c := &conformClient{baseURL: baseURL, http: &http.Client{Timeout: opts.HTTPTimeout}}
 
 	if !opts.SkipHealth {
-		t.Run("Health", func(t *testing.T) { checkHealth(t, c) })
+		t.Run("Health", func(t Reporter) { checkHealth(t, c) })
 	}
 	if !opts.SkipCapabilities {
-		t.Run("Capabilities", func(t *testing.T) { checkCapabilities(t, c) })
+		t.Run("Capabilities", func(t Reporter) { checkCapabilities(t, c) })
 	}
 
 	// Resolve workspace once so later sections can reuse it.
 	wsID := opts.WorkspaceID
 	if wsID == "" && !opts.SkipWorkspaces {
 		var got string
-		t.Run("Workspaces", func(t *testing.T) {
+		t.Run("Workspaces", func(t Reporter) {
 			got = checkWorkspaces(t, c)
 		})
 		wsID = got
 	} else if !opts.SkipWorkspaces {
-		t.Run("Workspaces", func(t *testing.T) { _ = checkWorkspaces(t, c) })
+		t.Run("Workspaces", func(t Reporter) { _ = checkWorkspaces(t, c) })
 	}
 
 	// Resolve or create session.
 	sid := opts.SessionID
 	if !opts.SkipSessions {
-		t.Run("Sessions_List", func(t *testing.T) {
+		t.Run("Sessions_List", func(t Reporter) {
 			checkSessionsList(t, c, wsID)
 		})
 	}
 	if sid == "" && !opts.SkipCreateSession {
-		t.Run("Sessions_Create", func(t *testing.T) {
+		t.Run("Sessions_Create", func(t Reporter) {
 			sid = checkCreateSession(t, c, wsID)
 		})
 	}
 
 	if sid != "" && !opts.SkipPostMessage {
-		t.Run("Messages_Post", func(t *testing.T) {
+		t.Run("Messages_Post", func(t Reporter) {
 			checkPostMessage(t, c, sid, wsID)
 		})
 	}
 
 	if sid != "" && !opts.SkipSSE {
-		t.Run("SSE", func(t *testing.T) {
+		t.Run("SSE", func(t Reporter) {
 			checkSSE(t, c, sid, wsID, opts.SSEBudget)
 		})
 	}
 
 	if !opts.SkipCommands {
-		t.Run("Commands_List", func(t *testing.T) { checkCommands(t, c) })
+		t.Run("Commands_List", func(t Reporter) { checkCommands(t, c) })
 	}
 	if !opts.SkipTools {
-		t.Run("Tools_List", func(t *testing.T) { checkTools(t, c) })
+		t.Run("Tools_List", func(t Reporter) { checkTools(t, c) })
 	}
 	if !opts.SkipMetrics {
-		t.Run("Metrics", func(t *testing.T) { checkMetrics(t, c) })
+		t.Run("Metrics", func(t Reporter) { checkMetrics(t, c) })
 	}
 }
 
@@ -179,7 +178,7 @@ func (c *conformClient) postJSON(ctx context.Context, path string, body any) (*h
 
 // --- Section implementations ------------------------------------------------
 
-func checkHealth(t *testing.T, c *conformClient) {
+func checkHealth(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/health")
@@ -204,7 +203,7 @@ func checkHealth(t *testing.T, c *conformClient) {
 	_ = got.UptimeS
 }
 
-func checkCapabilities(t *testing.T, c *conformClient) {
+func checkCapabilities(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/capabilities")
@@ -239,7 +238,7 @@ func checkCapabilities(t *testing.T, c *conformClient) {
 	}
 }
 
-func checkWorkspaces(t *testing.T, c *conformClient) string {
+func checkWorkspaces(t Reporter, c *conformClient) string {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/workspaces")
@@ -277,7 +276,7 @@ func checkWorkspaces(t *testing.T, c *conformClient) string {
 	return got.Workspaces[0].ID
 }
 
-func checkSessionsList(t *testing.T, c *conformClient, wsID string) {
+func checkSessionsList(t Reporter, c *conformClient, wsID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	path := "/v1/sessions"
@@ -311,7 +310,7 @@ func checkSessionsList(t *testing.T, c *conformClient, wsID string) {
 	}
 }
 
-func checkCreateSession(t *testing.T, c *conformClient, wsID string) string {
+func checkCreateSession(t Reporter, c *conformClient, wsID string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	req := map[string]any{
@@ -341,7 +340,7 @@ func checkCreateSession(t *testing.T, c *conformClient, wsID string) string {
 	return got.ID
 }
 
-func checkPostMessage(t *testing.T, c *conformClient, sid, wsID string) {
+func checkPostMessage(t Reporter, c *conformClient, sid, wsID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	path := fmt.Sprintf("/v1/sessions/%s/messages", sid)
@@ -379,7 +378,7 @@ func checkPostMessage(t *testing.T, c *conformClient, sid, wsID string) {
 	}
 }
 
-func checkSSE(t *testing.T, c *conformClient, sid, wsID string, budget time.Duration) {
+func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	path := fmt.Sprintf("/v1/sessions/%s/events", sid)
@@ -444,7 +443,7 @@ func checkSSE(t *testing.T, c *conformClient, sid, wsID string, budget time.Dura
 // {"commands": [...]} shape where each entry has an `id`. We don't
 // insist on specific built-ins — backends vary — only that the
 // envelope and per-item shape match SPEC §6.13.
-func checkCommands(t *testing.T, c *conformClient) {
+func checkCommands(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/commands")
@@ -478,7 +477,7 @@ func checkCommands(t *testing.T, c *conformClient) {
 // {"tools": [...]} shape where each entry has a `name`. Same
 // forgiving approach as Commands — we verify the shape, not the
 // specific tools in scope.
-func checkTools(t *testing.T, c *conformClient) {
+func checkTools(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/tools")
@@ -510,7 +509,7 @@ func checkTools(t *testing.T, c *conformClient) {
 // { uptime_s, sessions, messages, tokens } envelope described in
 // SPEC §6.16. Specific nested field values aren't asserted since
 // they're operational and change per request.
-func checkMetrics(t *testing.T, c *conformClient) {
+func checkMetrics(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
 	resp, body, err := c.get(ctx, "/v1/metrics")

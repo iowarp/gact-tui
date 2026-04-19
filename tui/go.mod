@@ -7,6 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.6
 	charm.land/glamour/v2 v2.0.0
 	charm.land/lipgloss/v2 v2.0.3
+	github.com/JaimeCernuda/gact-tui/contract/conformance v0.0.0-00010101000000-000000000000
 	github.com/JaimeCernuda/gact-tui/emulator v0.0.0-00010101000000-000000000000
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/x/ansi v0.11.7
@@ -43,3 +44,5 @@ require (
 )
 
 replace github.com/JaimeCernuda/gact-tui/emulator => ../emulator
+
+replace github.com/JaimeCernuda/gact-tui/contract/conformance => ../contract/conformance

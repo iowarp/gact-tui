@@ -29,6 +29,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/contract/conformance"
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
@@ -136,6 +137,8 @@ func main() {
 			os.Exit(runVoice(os.Args[2:]))
 		case "bench":
 			os.Exit(runBench(os.Args[2:]))
+		case "conformance":
+			os.Exit(runConformance(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -374,6 +377,7 @@ Usage:
   gact attach <name|sid>     launch the TUI pre-selected on a session
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
+  gact conformance           run contract/conformance suite against backend
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1303,6 +1307,72 @@ func runHooksRm(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
 	}
+	return 0
+}
+
+// runConformance runs the contract/conformance suite against the
+// configured backend and prints per-section pass/fail. Backend
+// implementers can use this to verify their server matches the v0.1
+// SPEC without writing test code (SSS1).
+//
+// Exit codes:
+//   0 — every section passed (or was explicitly skipped)
+//   1 — at least one section failed
+//   2 — bad usage
+func runConformance(args []string) int {
+	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "workspace id (default: first listed)")
+	skip := fs.String("skip", "", "comma-separated section names to skip (Health,Capabilities,Workspaces,Sessions,CreateSession,PostMessage,SSE,Commands,Tools,Metrics)")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+		"--skip": true, "-skip": true,
+	})); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	opts := conformance.Options{WorkspaceID: *wsID}
+	for _, s := range strings.Split(*skip, ",") {
+		switch strings.TrimSpace(s) {
+		case "":
+		case "Health":
+			opts.SkipHealth = true
+		case "Capabilities":
+			opts.SkipCapabilities = true
+		case "Workspaces":
+			opts.SkipWorkspaces = true
+		case "Sessions":
+			opts.SkipSessions = true
+		case "CreateSession":
+			opts.SkipCreateSession = true
+		case "PostMessage":
+			opts.SkipPostMessage = true
+		case "SSE":
+			opts.SkipSSE = true
+		case "Commands":
+			opts.SkipCommands = true
+		case "Tools":
+			opts.SkipTools = true
+		case "Metrics":
+			opts.SkipMetrics = true
+		default:
+			fmt.Fprintf(os.Stderr, "gact conformance: unknown --skip section %q\n", s)
+			return 2
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "gact conformance  backend=%s\n", finalBackend)
+	r := conformance.NewCLIReporter(func(line string) { fmt.Println(line) })
+	conformance.Run(r, finalBackend, opts)
+	if failed := r.FailedSections(); len(failed) > 0 {
+		fmt.Fprintf(os.Stderr, "FAIL: %d section(s)\n", len(failed))
+		for _, f := range failed {
+			fmt.Fprintln(os.Stderr, "  -", f)
+		}
+		return 1
+	}
+	fmt.Fprintln(os.Stderr, "PASS")
 	return 0
 }
 
@@ -3612,7 +3682,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3632,7 +3702,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3645,7 +3715,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

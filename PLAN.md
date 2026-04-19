@@ -14,7 +14,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase SSS — conformance CLI (deferred)
 
-- [ ] **SSS1.** `gact conformance [--backend URL] [--skip ...]` — wrap `contract/conformance.Run` so backend authors can run the v0.1 spec test against any URL without writing test code. Requires extracting a `Reporter` interface (Run/Logf/Errorf/Helper/Skip) from the current `*testing.T` usage and adapting the 11 `check*` functions. Time-box per iteration: 30+ min refactor — bigger than a typical iteration slot.
+- [x] **SSS1.** `gact conformance` ships. Refactored `contract/conformance` to a `Reporter` interface (Helper/Run/Errorf/Fatal/Fatalf) — testing.T wraps via `FromTest`, CLIReporter implements it for command-line use. NewCLIReporter prints `▶`/`✓`/`✗` per section + tracks Failed; FailedSections() returns leaf failures. CLI accepts `--skip Section,…` to disable sections. Exit 0 = pass, 1 = fail, 2 = bad usage. CLI test runs full suite vs emulator and asserts PASS in stderr.
 
 ## Phase RRR — tail filter
 
