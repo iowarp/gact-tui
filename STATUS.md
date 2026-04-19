@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T13:15Z
-**Current phase:** QQQQ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d25f2ec` and pushed
+**Last updated:** 2026-04-19T13:35Z
+**Current phase:** QQQQ1 + RRRR1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `72f5087` and pushed
 **Open:** none
+
+### Phase RRRR — parallelize gact dump-bundle session export
+- **RRRR1.** `gact dump-bundle` per-session export+write now uses
+  the same 8-wide bounded fanout as QQQQ1. Was strictly serial.
+  CLI test seeds 12 sessions (>workers), asserts summary count
+  and every session.json lands in bundle/sessions/.
 
 ### Phase QQQQ — parallelize gact export --all
 - **QQQQ1.** `gact export --all -o DIR` now fans out per-session
