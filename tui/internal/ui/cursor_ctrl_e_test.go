@@ -142,3 +142,89 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// WWWWW1: in FocusBody, up/down move the cursor (and scroll
+// follows), not the raw scroll. User reported "the window scrolls
+// but the cursor remains there" — orphan marker bug.
+func TestBodyUpDown_MovesCursorNotJustScroll(t *testing.T) {
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{
+			{ID: "m1", Role: "user", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "a"}}},
+			{ID: "m2", Role: "assistant", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "b"}}},
+			{ID: "m3", Role: "user", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "c"}}},
+			{ID: "m4", Role: "assistant", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "d"}}},
+		},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	a.bodySelMsgIdx = 3 // start on the latest
+
+	// up moves cursor one back.
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 2 {
+		t.Errorf("after up, bodySelMsgIdx = %d, want 2", a.bodySelMsgIdx)
+	}
+	// up again.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 1 {
+		t.Errorf("after second up, bodySelMsgIdx = %d, want 1", a.bodySelMsgIdx)
+	}
+	// down brings cursor forward.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 2 {
+		t.Errorf("after down, bodySelMsgIdx = %d, want 2", a.bodySelMsgIdx)
+	}
+	// up at bottom: clamps at 0 (oldest).
+	for i := 0; i < 10; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+		a = out.(*App)
+	}
+	if a.bodySelMsgIdx != 0 {
+		t.Errorf("clamp low: bodySelMsgIdx = %d, want 0", a.bodySelMsgIdx)
+	}
+	// G jumps cursor to latest.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 3 {
+		t.Errorf("after G, bodySelMsgIdx = %d, want 3 (last)", a.bodySelMsgIdx)
+	}
+	// g jumps to first.
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 0 {
+		t.Errorf("after g, bodySelMsgIdx = %d, want 0 (first)", a.bodySelMsgIdx)
+	}
+}
+
+// First up/down on an unset cursor seeds it (latest for up, first
+// for down) — composes with FFFFF1's maybeInitBodyCursor.
+func TestBodyUpDown_SeedsCursorWhenUnset(t *testing.T) {
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{
+			{ID: "m1", Role: "user", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "a"}}},
+			{ID: "m2", Role: "assistant", Parts: []gact.Part{{Type: gact.PartTypeText, Text: "b"}}},
+		},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	a.bodySelMsgIdx = -1
+
+	// up on unset → seed to latest (idx=1).
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 1 {
+		t.Errorf("up on unset cursor: idx = %d, want 1 (latest)", a.bodySelMsgIdx)
+	}
+
+	a.bodySelMsgIdx = -1
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 0 {
+		t.Errorf("down on unset cursor: idx = %d, want 0 (first)", a.bodySelMsgIdx)
+	}
+}

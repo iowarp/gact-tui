@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase WWWWW — body cursor follows ↑/↓ scroll
+
+- [x] **WWWWW1.** User feedback: "now i do see the cursor on the selected segment but when i press up the window scrolls but the cursor remains there" — scrollOffset moved on ↑/↓ but bodySelMsgIdx didn't, leaving an orphan marker offscreen. Rebound up/down/k/j in handleBodyKey to behave like N/n: walk the cursor through messages and let `scrollToSelectedMessage` keep it visible. g/G now jump cursor to first/last (not raw scroll). PgUp/PgDn/Ctrl+U/Ctrl+D added to handleBodyKey for the within-message use case (raw page scroll, cursor stays put). First press on an unset cursor seeds it (up = latest, down = first) — composes with FFFFF1's maybeInitBodyCursor. Help-tab text refreshed: "↑/↓ · j/k move message cursor (▌ gutter; cursor stays visible)" + dedicated PgUp/PgDn line. Two new unit tests cover the cursor walk + the seeding semantics. Goldens regenerated for the help-tab text shift. Screenshot: `screenshots/WWWWW1_cursor_follows_scroll.png` (cursor visible on USER message at top after 4× ↑).
+
 ## Phase VVVVV — input prompt `>` only on first row
 
 - [x] **VVVVV1.** User feedback: "i do not like the > on > fdshfjkdshjflkdsf | > fdkjfkdsjfdskf | >" — the textarea's `Prompt = "> "` was applied to every visible row, so multi-line input got an ugly chevron column. Switched to `SetPromptFunc(2, …)` rendering `> ` on row 0 and `  ` (two spaces) on continuation rows. Width matches so the cursor column doesn't shift. Golden snapshots regenerated for the 7 view fixtures whose input region now has the new prompt shape. Screenshot: `screenshots/VVVVV1_prompt_first_row_only.png` showing 3-line input with single `>` on top row.
