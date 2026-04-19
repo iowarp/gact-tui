@@ -1044,7 +1044,7 @@ func runPluginsList(args []string) int {
 //	gact tasks rm <task-id>
 func runTasks(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact tasks list|add|set|rm ...")
+		fmt.Fprintln(os.Stderr, "usage: gact tasks list|add|set|rm|summary ...")
 		return 2
 	}
 	verb := args[0]
@@ -1058,9 +1058,100 @@ func runTasks(args []string) int {
 		return runTasksSet(rest)
 	case "rm", "delete", "remove":
 		return runTasksRm(rest)
+	case "summary":
+		return runTasksSummary(rest)
 	}
-	fmt.Fprintf(os.Stderr, "gact tasks: unknown verb %q (want list|add|set|rm)\n", verb)
+	fmt.Fprintf(os.Stderr, "gact tasks: unknown verb %q (want list|add|set|rm|summary)\n", verb)
 	return 2
+}
+
+// runTasksSummary aggregates §6.18 task counts across every session
+// in the workspace (default: all). Lists sessions, fans out
+// ListSessionTasks calls with a bounded pool, prints per-session
+// TSV rows + a TOTAL footer. (FFFF1)
+func runTasksSummary(args []string) int {
+	fs := flag.NewFlagSet("tasks summary", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact tasks summary: list sessions: %v\n", err)
+		return 1
+	}
+
+	type row struct {
+		sid     string
+		title   string
+		pending int
+		running int
+		done    int
+		failed  int
+	}
+	rows := make([]row, len(sessions))
+	sem := make(chan struct{}, 8)
+	var wg sync.WaitGroup
+	for i, s := range sessions {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, s gact.Session) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+			tasks, err := c.ListSessionTasks(tctx, s.ID)
+			tcancel()
+			if err != nil {
+				return // best-effort; absent backend = no row
+			}
+			r := row{sid: s.ID, title: s.Title}
+			for _, t := range tasks {
+				switch t.Status {
+				case "pending":
+					r.pending++
+				case "running":
+					r.running++
+				case "completed":
+					r.done++
+				case "failed":
+					r.failed++
+				}
+			}
+			rows[i] = r
+		}(i, s)
+	}
+	wg.Wait()
+
+	fmt.Println("SID\tTITLE\tPENDING\tRUNNING\tCOMPLETED\tFAILED")
+	var total row
+	printed := 0
+	for _, r := range rows {
+		if r.sid == "" {
+			continue
+		}
+		if r.pending+r.running+r.done+r.failed == 0 {
+			continue // skip sessions without any tasks — keeps output focused
+		}
+		fmt.Printf("%s\t%s\t%d\t%d\t%d\t%d\n",
+			r.sid, r.title, r.pending, r.running, r.done, r.failed)
+		total.pending += r.pending
+		total.running += r.running
+		total.done += r.done
+		total.failed += r.failed
+		printed++
+	}
+	fmt.Printf("TOTAL\t(%d sessions)\t%d\t%d\t%d\t%d\n",
+		printed, total.pending, total.running, total.done, total.failed)
+	return 0
 }
 
 func runTasksList(args []string) int {
