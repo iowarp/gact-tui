@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:30Z
-**Current phase:** JJJJJJ1 shipped (9 conformance phases this run: BBBBBB1..JJJJJJ1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `290dcef` (pushed after status commit)
+**Last updated:** 2026-04-19T18:32Z
+**Current phase:** KKKKKK1 shipped (10 conformance phases this run: BBBBBB1..KKKKKK1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `77fb3c8` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase KKKKKK — conformance providers per-id drill-down
+- **KKKKKK1.** Extended `checkProviders` (already had
+  /models drill) with the missing `GET /v1/providers/{id}`
+  detail endpoint. Asserts 200 + id echoed back + non-empty
+  name. Read-only.
 
 ### Phase JJJJJJ — conformance MCP per-server drill-down
 - **JJJJJJ1.** Extended `checkMcp` with two per-server drills
