@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:25Z
-**Current phase:** GGGGGG1 shipped (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1+FFFFFF1+GGGGGG1 this run)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1efc6d2` (pushed after status commit)
+**Last updated:** 2026-04-19T18:27Z
+**Current phase:** HHHHHH1 shipped (7 conformance phases shipped this run: BBBBBB1..HHHHHH1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8478bf5` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase HHHHHH — conformance sessions per-id drill-down
+- **HHHHHH1.** Adds `Sessions_Get` section. Walks
+  `GET /v1/sessions/{id}` after Sessions_Create (or pinned via
+  Options.SessionID). Asserts 200 + id echoed + non-empty
+  status. Read-only.
 
 ### Phase GGGGGG — conformance workspaces per-id drill-down
 - **GGGGGG1.** Mirror of EEEEEE1/FFFFFF1 for workspaces.
