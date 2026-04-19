@@ -1366,7 +1366,7 @@ func runTasksRm(args []string) int {
 
 // runHooks dispatches the §6.17 hooks CLI (MMM3):
 //
-//	gact hooks list                                       — TSV: id event command/url scope
+//	gact hooks list [--event TYPE] [--scope global|session|workspace] [--format tsv|json]
 //	gact hooks add --event <ev> --command|--url <target>  — register; prints id
 //	gact hooks rm <hook-id>                               — DELETE
 //
@@ -1394,15 +1394,29 @@ func runHooksList(args []string) int {
 	fs := flag.NewFlagSet("hooks list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	format := fs.String("format", "tsv", "tsv | json")
+	// XXXX1: --event filters by hook event type (exact match, or
+	// '*' wildcard which matches the universal-hook entry too).
+	// --scope filters by scope kind (global|session|workspace).
+	// Both are empty by default = no filter (back-compat).
+	eventFilter := fs.String("event", "", "filter to one event type (exact); empty = all")
+	scopeFilter := fs.String("scope", "", "filter by scope kind: global|session|workspace; empty = all")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--event": true, "-event": true,
+		"--scope": true, "-scope": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact hooks list: unknown format %q\n", *format)
+		return 2
+	}
+	switch *scopeFilter {
+	case "", "global", "session", "workspace":
+	default:
+		fmt.Fprintf(os.Stderr, "gact hooks list: unknown --scope %q (want global|session|workspace)\n", *scopeFilter)
 		return 2
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -1414,7 +1428,32 @@ func runHooksList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact hooks list: %v\n", err)
 		return 1
 	}
+	if *eventFilter != "" || *scopeFilter != "" {
+		filtered := hooks[:0]
+		for _, h := range hooks {
+			if *eventFilter != "" && h.Event != *eventFilter {
+				continue
+			}
+			if *scopeFilter != "" {
+				kind := "global"
+				switch {
+				case h.SessionID != "":
+					kind = "session"
+				case h.WorkspaceID != "":
+					kind = "workspace"
+				}
+				if kind != *scopeFilter {
+					continue
+				}
+			}
+			filtered = append(filtered, h)
+		}
+		hooks = filtered
+	}
 	if *format == "json" {
+		if hooks == nil {
+			hooks = []gact.Hook{}
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(hooks)

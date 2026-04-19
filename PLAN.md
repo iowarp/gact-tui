@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase XXXX — gact hooks list --event/--scope filters
+
+- [x] **XXXX1.** `gact hooks list` gains two filters: `--event TYPE` (exact match; `*` matches the universal-hook entry) and `--scope global|session|workspace`. Both empty by default = no filter (back-compat). Combined filters AND together. Unknown --scope → exit 2 client-side. JSON mode returns `[]` not `null` after filtering. CLI test seeds three hooks (one in each scope kind), asserts each filter keeps the right one and drops the rest, plus a combined filter case.
+
 ## Phase WWWW — gact tasks list --status FILTER
 
 - [x] **WWWW1.** `gact tasks list <sid> --status pending,running,…` filters tasks by status (single value or comma-separated set). Empty filter = all (back-compat). Validation runs client-side so a typo errors fast (exit 2) instead of returning a silently-empty set. Works in both TSV and JSON modes (JSON returns `[]` not `null` after filtering). CLI test seeds 3 tasks with different statuses, asserts single-value filter, comma-list filter, JSON shape after filter, and unknown status → exit 2.
