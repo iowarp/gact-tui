@@ -171,6 +171,11 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase MM — install + scripts dir
+
+- [ ] **MM1.** `make install` target copies the gact + emulator-server binaries into `$PREFIX/bin` (default `~/.local/bin`). Saves the "where do I put this thing" step for first-time users.
+- [ ] **MM2.** `scripts/completion.sh` helper that prints completion install instructions per shell. Pairs with `gact completion`.
+
 ## Phase LL — summary + completion
 
 - [x] **LL1.** `gact summarize <sid>` triggers POST `/v1/sessions/{id}/summarize`, refetches, prints the updated session.summary. Completion scripts updated to list every subcommand. CLI test.

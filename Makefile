@@ -11,10 +11,12 @@ TUI_BIN      ?= tui/gact
 PORT      ?= 7777
 THEME     ?= dark
 TIMING    ?= realistic
+PREFIX    ?= $(HOME)/.local
+BINDIR    ?= $(PREFIX)/bin
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
-        screenshots clean fmt vet
+        screenshots clean fmt vet install uninstall
 
 help: ## Print this help message.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -71,6 +73,21 @@ screenshots: build-tui ## Render every VHS tape under tui/ into screenshots/.
 		echo "rendering $$tape"; \
 		GACT_BACKEND=http://localhost:$(PORT) vhs $$tape; \
 	done
+
+install: build ## Install gact + emulator-server to $(BINDIR) (default ~/.local/bin).
+	@install -d $(BINDIR)
+	install -m 0755 $(TUI_BIN) $(BINDIR)/gact
+	install -m 0755 $(EMULATOR_BIN) $(BINDIR)/emulator-server
+	@echo
+	@echo "Installed:"
+	@echo "  $(BINDIR)/gact"
+	@echo "  $(BINDIR)/emulator-server"
+	@echo
+	@echo "Make sure $(BINDIR) is on PATH. For tab-completion:"
+	@echo "  scripts/completion.sh   # prints per-shell install instructions"
+
+uninstall: ## Remove the installed binaries.
+	rm -f $(BINDIR)/gact $(BINDIR)/emulator-server
 
 clean: ## Remove built binaries.
 	rm -f $(EMULATOR_BIN) $(TUI_BIN)
