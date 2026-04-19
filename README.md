@@ -197,7 +197,7 @@ running backend:
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
 | `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
 | `gact log <sid> [--limit N] [--since DUR] [--format text\|json]` | Print conversation; `--format json` emits NDJSON (one message per line) for piping |
-| `gact follow <sid>` | tail -f for the conversation: print snapshot, stream new messages |
+| `gact follow <sid> [--format text\|json]` | tail -f for the conversation; `--format json` emits NDJSON for both snapshot + streamed messages |
 | `gact replay <file\|-> [--attach]` | Import an export blob; with `--attach` launches the TUI on the imported session |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |

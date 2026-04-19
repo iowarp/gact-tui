@@ -396,7 +396,7 @@ Usage:
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session (status/model/cost)
   gact grep <query>          search across all sessions; TSV: sid title mid role snippet
-  gact follow <sid>          tail -f the conversation log; stream new messages
+  gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env                   print resolved config + GACT_* env vars (TSV)
   gact theme show [--name N] print active theme palette as TSV (key\thex)
@@ -1720,13 +1720,36 @@ func runReplay(args []string) {
 func runFollow(args []string) int {
 	fs := flag.NewFlagSet("follow", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
+	// NNNN1: --format json emits NDJSON (one message per line) for
+	// both the snapshot and streamed messages. Default text mode
+	// unchanged.
+	format := fs.String("format", "text", "text | json (NDJSON)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id>")
+		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--format text|json]")
 		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact follow: unknown format %q (want text|json)\n", *format)
+		return 2
+	}
+	emit := func(m gact.Message) {
+		if *format == "json" {
+			b, err := json.Marshal(m)
+			if err != nil {
+				return
+			}
+			os.Stdout.Write(b)
+			os.Stdout.Write([]byte{'\n'})
+			return
+		}
+		printLogMessage(m)
 	}
 	sid := fs.Arg(0)
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -1745,7 +1768,7 @@ func runFollow(args []string) int {
 		return 1
 	}
 	for i := len(msgs) - 1; i >= 0; i-- {
-		printLogMessage(msgs[i])
+		emit(msgs[i])
 	}
 	// Track ids we've already printed so the SSE loop doesn't
 	// re-render the snapshot (replay events arrive on every connect).
@@ -1802,7 +1825,7 @@ func runFollow(args []string) int {
 				if seen[m.ID] {
 					continue
 				}
-				printLogMessage(m)
+				emit(m)
 				seen[m.ID] = true
 			}
 		case err, ok := <-errs:
