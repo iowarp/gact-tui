@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase VVVV — gact grep --limit N
+
+- [x] **VVVV1.** `gact grep <query> --limit N` truncates the cross-session search output. Default 0 = unlimited (back-compat). Truncation runs AFTER sorting by sid so the kept rows are still the lexicographically-smallest sids (deterministic). Negative --limit → exit 2. CLI test seeds 4 sessions with the same marker, asserts no-limit returns ≥4 rows and `--limit 2` returns exactly 2.
+
 ## Phase UUUU — gact stream --filter (mirrors tail's RRR1)
 
 - [x] **UUUU1.** `gact stream --filter type1,type2` drops events whose type isn't in the keep set, mirroring `gact tail --filter` (RRR1). Useful for live human debugging when message.part.delta floods drown out the interesting events. Empty filter = passthrough (back-compat). CLI test runs stream in --filter notification mode bounded by sleep+kill, fires an mcp reconnect to trigger a notification, asserts the notification row appears while server.connected does not.
