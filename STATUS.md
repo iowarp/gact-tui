@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:33Z
-**Current phase:** LLLLLL1 shipped (11 conformance phases this run: BBBBBB1..LLLLLL1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7f0a91f` (pushed after status commit)
+**Last updated:** 2026-04-19T18:40Z
+**Current phase:** MMMMMM1 shipped (12 conformance phases this run: BBBBBB1..MMMMMM1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `12f2e6e` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase MMMMMM — conformance metrics deeper validation
+- **MMMMMM1.** Strengthened `checkMetrics` from
+  "uptime_s present" to "full top-level envelope present
+  per SPEC §6.16": {sessions, messages, tokens} must each
+  be a JSON object; sessions+messages must carry `total`;
+  tokens must carry input_total + output_total. Specific
+  values stay unchecked (operational).
 
 ### Phase LLLLLL — conformance MCP resources + prompts
 - **LLLLLL1.** Extended `checkMcp`'s per-server drill with the
