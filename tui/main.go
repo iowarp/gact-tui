@@ -144,6 +144,8 @@ func main() {
 			os.Exit(runDashboard(os.Args[2:]))
 		case "grep":
 			os.Exit(runGrep(os.Args[2:]))
+		case "follow":
+			os.Exit(runFollow(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -385,6 +387,7 @@ Usage:
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session (status/model/cost)
   gact grep <query>          search across all sessions; TSV: sid title mid role snippet
+  gact follow <sid>          tail -f the conversation log; stream new messages
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1315,6 +1318,110 @@ func runHooksRm(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runFollow is `tail -f` for a session's conversation log. Prints
+// the existing messages, then subscribes to SSE for the session and
+// renders any newly-completed assistant/tool messages until Ctrl+C.
+// (ZZZ1)
+func runFollow(args []string) int {
+	fs := flag.NewFlagSet("follow", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id>")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+
+	// 1. Snapshot the existing log so the user lands on the latest
+	//    state, not an empty pane. ListMessages returns newest-first;
+	//    reverse for chronological display.
+	listCtx, listCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	msgs, _, err := c.ListMessages(listCtx, client.MessageFilter{
+		SessionID: sid, Limit: 200, IncludeSystem: true,
+	})
+	listCancel()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact follow: list: %v\n", err)
+		return 1
+	}
+	for i := len(msgs) - 1; i >= 0; i-- {
+		printLogMessage(msgs[i])
+	}
+	// Track ids we've already printed so the SSE loop doesn't
+	// re-render the snapshot (replay events arrive on every connect).
+	seen := map[string]bool{}
+	for _, m := range msgs {
+		seen[m.ID] = true
+	}
+
+	// 2. Subscribe to SSE for the session. On message.completed, fetch
+	//    the message (one quick ListMessages with that mid filter would
+	//    be ideal but we just use limit=1+seen-tracking) and render.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events, errs, err := c.StreamEvents(ctx, client.EventStreamScope{SessionID: sid})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact follow: subscribe: %v\n", err)
+		return 1
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return 0
+		case e, ok := <-events:
+			if !ok {
+				return 0
+			}
+			if e.Type != "message.completed" && e.Type != "message.created" {
+				continue
+			}
+			pl, _ := e.Payload["payload"].(map[string]any)
+			var mid string
+			if msgID, ok := pl["message_id"].(string); ok {
+				mid = msgID
+			} else if msg, ok := pl["message"].(map[string]any); ok {
+				if id, ok := msg["id"].(string); ok {
+					mid = id
+				}
+			}
+			if mid == "" || seen[mid] {
+				continue
+			}
+			// Refetch the canonical message — we want the
+			// completed parts, not the part-by-part deltas.
+			fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			latest, _, ferr := c.ListMessages(fetchCtx, client.MessageFilter{
+				SessionID: sid, Limit: 50, IncludeSystem: true,
+			})
+			fetchCancel()
+			if ferr != nil {
+				continue
+			}
+			for i := len(latest) - 1; i >= 0; i-- {
+				m := latest[i]
+				if seen[m.ID] {
+					continue
+				}
+				printLogMessage(m)
+				seen[m.ID] = true
+			}
+		case err, ok := <-errs:
+			if !ok {
+				return 0
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact follow: stream: %v\n", err)
+				return 1
+			}
+		}
+	}
 }
 
 // runGrep extends `gact search` (per-session) to every session in
@@ -3991,7 +4098,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -4011,7 +4118,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -4024,7 +4131,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
@@ -4297,34 +4404,41 @@ func runLog(args []string) int {
 		msgs = filtered
 	}
 	for _, m := range msgs {
-		fmt.Printf("[%s @ %s]\n", strings.ToUpper(m.Role), m.CreatedAt.UTC().Format(time.RFC3339))
-		for _, p := range m.Parts {
-			switch p.Type {
-			case gact.PartTypeText:
-				if p.Text != "" {
-					fmt.Println(indent(p.Text, "  "))
-				}
-			case gact.PartTypeThinking:
-				if p.Thinking != "" {
-					fmt.Println(indent("(thinking) "+p.Thinking, "  "))
-				}
-			case gact.PartTypeToolCall:
-				args, _ := json.Marshal(p.Input)
-				fmt.Printf("  → %s(%s)\n", p.ToolName, string(args))
-			case gact.PartTypeToolResult:
-				body := flattenToolResultParts(p.Content)
-				prefix := "  ⎿ "
-				if p.IsError {
-					prefix = "  ⎿! "
-				}
-				fmt.Println(indent(body, prefix))
-			case gact.PartTypeFileDiff:
-				fmt.Printf("  ◇ diff %s\n", p.Path)
-			}
-		}
-		fmt.Println()
+		printLogMessage(m)
 	}
 	return 0
+}
+
+// printLogMessage renders one message in the canonical role-headered
+// shape used by `gact log` and `gact follow`. Extracted so both
+// callers stay in sync.
+func printLogMessage(m gact.Message) {
+	fmt.Printf("[%s @ %s]\n", strings.ToUpper(m.Role), m.CreatedAt.UTC().Format(time.RFC3339))
+	for _, p := range m.Parts {
+		switch p.Type {
+		case gact.PartTypeText:
+			if p.Text != "" {
+				fmt.Println(indent(p.Text, "  "))
+			}
+		case gact.PartTypeThinking:
+			if p.Thinking != "" {
+				fmt.Println(indent("(thinking) "+p.Thinking, "  "))
+			}
+		case gact.PartTypeToolCall:
+			args, _ := json.Marshal(p.Input)
+			fmt.Printf("  → %s(%s)\n", p.ToolName, string(args))
+		case gact.PartTypeToolResult:
+			body := flattenToolResultParts(p.Content)
+			prefix := "  ⎿ "
+			if p.IsError {
+				prefix = "  ⎿! "
+			}
+			fmt.Println(indent(body, prefix))
+		case gact.PartTypeFileDiff:
+			fmt.Printf("  ◇ diff %s\n", p.Path)
+		}
+	}
+	fmt.Println()
 }
 
 // indent prefixes every line of s with prefix. Used by `gact log` to

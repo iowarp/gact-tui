@@ -894,6 +894,47 @@ func TestCLI_Voice(t *testing.T) {
 	}
 }
 
+// TestCLI_Follow covers ZZZ1: send a first message, start follow in
+// the background (with deadline), then send a second; assert the
+// follow output contains BOTH the seeded and the streamed message.
+func TestCLI_Follow(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "follow-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "snapshot ALPHA"); code != 0 {
+		t.Fatalf("send ALPHA: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait ALPHA: exit %d", code)
+	}
+
+	followDone := make(chan string, 1)
+	go func() {
+		stdout, _, _ := runGactWithDuration(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			5*time.Second,
+			"follow", sid)
+		followDone <- stdout
+	}()
+	time.Sleep(800 * time.Millisecond) // let snapshot + SSE attach
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "stream BRAVO"); code != 0 {
+		t.Fatalf("send BRAVO: exit %d", code)
+	}
+
+	out := <-followDone
+	if !strings.Contains(out, "snapshot ALPHA") {
+		t.Errorf("follow should print existing log: %q", out)
+	}
+	if !strings.Contains(out, "stream BRAVO") {
+		t.Errorf("follow should stream new message: %q", out)
+	}
+}
+
 // TestCLI_WaitAnyOf covers YYY1: fire two async turns then wait for
 // the first to finish; assert exit 0 and the printed sid is one of
 // the two we passed.
