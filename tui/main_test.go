@@ -629,6 +629,38 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_TailFilter covers RRR1: --filter narrows the event stream
+// to the named types. Asserts notification is included and
+// server.connected is excluded when filter targets only "notification".
+func TestCLI_TailFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Background tail with filter; wait for it to attach, fire an
+	// event, then stop tail and inspect output.
+	tailDone := make(chan string, 1)
+	go func() {
+		stdout, _, _ := runGactWithDuration(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			2*time.Second,
+			"tail", "--workspace", "ws_default", "--filter", "notification")
+		tailDone <- stdout
+	}()
+	time.Sleep(400 * time.Millisecond) // SSE connect
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "mcp_fake"); code != 0 {
+		t.Fatalf("reconnect: exit %d", code)
+	}
+	out := <-tailDone
+	if !strings.Contains(out, `"notification"`) {
+		t.Errorf("expected notification kept by filter: %q", out)
+	}
+	if strings.Contains(out, `"type":"server.connected"`) {
+		t.Errorf("server.connected should have been filtered out: %q", out)
+	}
+}
+
 // TestCLI_Bench covers QQQ1: small N=2 bench, asserts the summary
 // table mentions p50/p90/p99 and that the bench session was cleaned
 // up (delete after run).

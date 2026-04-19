@@ -4167,9 +4167,24 @@ func runTail(args []string) int {
 	fs := flag.NewFlagSet("tail", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "workspace-scoped stream (when no session_id)")
-	known := map[string]bool{"--backend": true, "-backend": true, "--workspace": true, "-workspace": true}
+	filter := fs.String("filter", "", "comma-separated event types to keep (e.g. permission.requested,tool.call.completed); empty = all")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+		"--filter": true, "-filter": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
+	}
+	// RRR1: parse --filter into a quick-lookup set; nil means "all".
+	var keep map[string]bool
+	if *filter != "" {
+		keep = map[string]bool{}
+		for _, t := range strings.Split(*filter, ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				keep[t] = true
+			}
+		}
 	}
 
 	scope := client.EventStreamScope{WorkspaceID: *wsID}
@@ -4205,6 +4220,11 @@ func runTail(args []string) int {
 		case e, ok := <-events:
 			if !ok {
 				return 0
+			}
+			// RRR1: when --filter is set, drop events whose type
+			// isn't in the keep set. nil keep = passthrough.
+			if keep != nil && !keep[e.Type] {
+				continue
 			}
 			record := map[string]any{
 				"type":    e.Type,

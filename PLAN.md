@@ -12,6 +12,14 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase SSS — conformance CLI (deferred)
+
+- [ ] **SSS1.** `gact conformance [--backend URL] [--skip ...]` — wrap `contract/conformance.Run` so backend authors can run the v0.1 spec test against any URL without writing test code. Requires extracting a `Reporter` interface (Run/Logf/Errorf/Helper/Skip) from the current `*testing.T` usage and adapting the 11 `check*` functions. Time-box per iteration: 30+ min refactor — bigger than a typical iteration slot.
+
+## Phase RRR — tail filter
+
+- [x] **RRR1.** `gact tail --filter` ships. Comma-separated type list parsed once into a lookup map; events whose type isn't in the set get dropped before encode. Empty/unset = passthrough. CLI test asserts notification is kept and server.connected is filtered out when filter targets only "notification".
+
 ## Phase QQQ — bench
 
 - [x] **QQQ1.** `gact bench [-n N] [--message TEXT] [--workspace] [--timeout]` ships. Creates a fresh session, runs N turns serially, polls each send→idle for per-turn duration, computes p50/p90/p99/avg/min/max/total, deletes the session, prints a summary table. CLI test asserts the table fields appear and the session is cleaned up (post-bench list count == pre).
