@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T23:05Z
-**Current phase:** Phase EEE (MCP resource read) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8bb2f61` and pushed
+**Last updated:** 2026-04-18T23:15Z
+**Current phase:** Phase FFF (list filters) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `72c146c` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase FFF — list filters
+- **FFF1.** `gact list` gained `--status`, `--archived`,
+  `--parent`, `--limit`. Status/limit are client-side; the rest
+  flow through SessionFilter. --status is validated, exit 2 on
+  bogus values. CLI test asserts truncation, status-keep,
+  status-empty, and validation paths.
 
 ### Phase EEE — MCP resource read
 - **EEE1.** `gact mcp resource-read <srv-id> <uri>` (alias
