@@ -197,6 +197,25 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Summarize covers LL1: triggers /summarize and prints the
+// updated session.summary. The emulator stamps a placeholder string
+// so we just check it lands non-empty on stdout.
+func TestCLI_Summarize(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "summarize-target")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"summarize", sid)
+	if code != 0 {
+		t.Fatalf("summarize: exit %d", code)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("summarize returned empty stdout")
+	}
+}
+
 // TestCLI_Quick covers KK1: one-shot create + ask + delete chain.
 // The session count before and after should be identical because
 // quick cleans up the scratch session it creates.

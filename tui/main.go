@@ -76,11 +76,14 @@ func main() {
 		case "unarchive":
 			os.Exit(runArchive(os.Args[2:], false))
 		case "completion":
+			// Add summarize to the static completion script too.
 			os.Exit(runCompletion(os.Args[2:]))
 		case "metrics":
 			os.Exit(runMetrics(os.Args[2:]))
 		case "quick":
 			os.Exit(runQuick(os.Args[2:]))
+		case "summarize":
+			os.Exit(runSummarize(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -258,6 +261,7 @@ Usage:
   gact completion <shell>    print bash|zsh|fish completion script
   gact metrics [--format]    backend metrics summary (text or json)
   gact quick <q|->           one-shot Q&A (creates+asks+deletes session)
+  gact summarize <sid>       trigger backend summary; prints result
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -396,6 +400,46 @@ func runDelete(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
 		return 1
 	}
+	return 0
+}
+
+// runSummarize triggers POST /v1/sessions/{id}/summarize and prints
+// the resulting Session.Summary to stdout. The endpoint may be a
+// no-op + placeholder for backends that don't implement actual
+// summarisation (the emulator stamps a "[auto-summary placeholder]"
+// string); real backends produce real summaries asynchronously.
+func runSummarize(args []string) int {
+	fs := flag.NewFlagSet("summarize", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	auto := fs.Bool("auto", true, "request automatic summary if backend supports it")
+	known := map[string]bool{"--backend": true, "-backend": true, "--auto": true, "-auto": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact summarize <session_id> [--auto=false] [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := c.SummarizeSession(ctx, sid, *auto); err != nil {
+		fmt.Fprintf(os.Stderr, "gact summarize: %v\n", err)
+		return 1
+	}
+	// Re-fetch to read the updated summary back.
+	s, err := c.GetSession(ctx, sid)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact summarize: refetch: %v\n", err)
+		return 1
+	}
+	if s.Summary == "" {
+		fmt.Fprintln(os.Stderr, "gact summarize: backend produced empty summary")
+		return 1
+	}
+	fmt.Println(s.Summary)
 	return 0
 }
 
@@ -665,7 +709,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait"
+    cmds="archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -685,7 +729,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait)
+    cmds=(archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -698,7 +742,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "ask cancel completion delete diag emit-config export import list log new ping rename run send tail unarchive archive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel completion delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
