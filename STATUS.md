@@ -1,12 +1,19 @@
 # STATUS
 
-**Last updated:** 2026-04-20T01:35Z
-**Current phase:** WWWWW1 + XXXXX1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a80ebfa` and pushed
+**Last updated:** 2026-04-20T01:55Z
+**Current phase:** YYYYY1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ab4bc3d` and pushed
 **Open:**
   - Shift+Enter newline still not landing (terminal-fold issue)
-  - Settings still shallow — paste-compress + intro toggle
-  - Conformance Diffs section (stashed VVVVV1 prior — non-feedback)
+  - Conformance Diffs section (stashed prior — non-feedback)
+
+### Phase YYYYY — Settings TUI: paste-compress + intro toggle
+- **YYYYY1.** User flagged Settings as "very shallow still".
+  Added paste-compress threshold (◀ N lines ▶, default 3) and
+  intro splash skip (◀ on/off ▶) as Settings → TUI rows.
+  Both persist via `persistPrefs` to `config.json`. CLI flags
+  still win as overrides at startup. Screenshot:
+  `screenshots/YYYYY1_settings_paste_intro.png`.
 
 ### Phase XXXXX — tool output Claude-Code-grade contrast
 - **XXXXX1.** Body text now uses full Fg (not FgMuted) and
