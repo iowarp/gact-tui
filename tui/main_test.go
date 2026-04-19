@@ -333,6 +333,55 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_Tasks covers MMM5: full session-task lifecycle via CLI.
+func TestCLI_Tasks(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "tasks-target")
+
+	// Add — should print a tsk_ id.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "add", sid, "Run unit tests")
+	if code != 0 {
+		t.Fatalf("tasks add: exit %d", code)
+	}
+	tid := strings.TrimSpace(stdout)
+	if !strings.HasPrefix(tid, "tsk_") {
+		t.Fatalf("expected tsk_ id, got %q", stdout)
+	}
+
+	// List — must show pending status + the title.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid)
+	if code != 0 || !strings.Contains(stdout, tid) ||
+		!strings.Contains(stdout, "pending") || !strings.Contains(stdout, "Run unit tests") {
+		t.Fatalf("tasks list missing fields: code=%d out=%q", code, stdout)
+	}
+
+	// Set status to running — list should reflect it.
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "set", tid, "--status", "running"); code != 0 {
+		t.Fatalf("tasks set: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid)
+	if !strings.Contains(stdout, "running") {
+		t.Errorf("expected running status after set: %q", stdout)
+	}
+
+	// Rm — list should be empty.
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "rm", tid); code != 0 {
+		t.Fatalf("tasks rm: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid)
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("expected empty list after rm: %q", stdout)
+	}
+}
+
 // TestCLI_PermsRules covers MMM4: install a policy via the CLI,
 // trigger a permission-requesting scenario, verify the request
 // auto-resolves with the policy's action (no manual allow/deny).

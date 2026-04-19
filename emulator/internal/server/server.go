@@ -44,6 +44,7 @@ type Server struct {
 	contextFiles *contextFileSet
 	latency      *latencyTracker
 	hooks        *hooksStore // §6.17 — MMM3
+	tasks        *tasksStore // §6.18 — MMM5
 
 	onUserMessage func(sessionID, messageID string)
 	onCancel      func(sessionID string)
@@ -68,6 +69,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		contextFiles:  newContextFileSet(),
 		latency:       newLatencyTracker(1024),
 		hooks:         newHooksStore(),
+		tasks:         newTasksStore(),
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -211,6 +213,12 @@ func (s *Server) routes() {
 	// §6.11 — Policies (MMM4 — auto-resolve permissions by rule)
 	s.mux.HandleFunc("GET /v1/policies", s.handleListPolicies)
 	s.mux.HandleFunc("PUT /v1/policies", s.handlePutPolicies)
+
+	// §6.18 — Session tasks (MMM5)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/tasks", s.handleListSessionTasks)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/tasks", s.handleCreateSessionTask)
+	s.mux.HandleFunc("PATCH /v1/tasks/{id}", s.handlePatchTask)
+	s.mux.HandleFunc("DELETE /v1/tasks/{id}", s.handleDeleteTask)
 
 	// §7 — SSE event streams
 	s.mux.HandleFunc("GET /v1/events", s.handleWorkspaceEvents)

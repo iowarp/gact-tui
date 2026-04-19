@@ -2,6 +2,8 @@
 // See contract/SPEC.md in the repo root for the authoritative spec.
 package gact
 
+import "time"
+
 // HealthResponse is returned by GET /v1/health (SPEC §3.4).
 type HealthResponse struct {
 	Healthy bool `json:"healthy"`
@@ -38,7 +40,8 @@ type CapabilityFlags struct {
 	Commands          bool `json:"commands"`
 	Voice             bool `json:"voice"`
 	ScheduledSessions bool `json:"scheduled_sessions"`
-	Hooks             bool `json:"hooks"` // §6.17 — MMM3
+	Hooks             bool `json:"hooks"`         // §6.17 — MMM3
+	SessionTasks      bool `json:"session_tasks"` // §6.18 — MMM5
 	Metrics           bool `json:"metrics"`
 	SessionBranching  bool `json:"session_branching"`
 	SessionSharing    bool `json:"session_sharing"`
@@ -80,6 +83,20 @@ type Policy struct {
 	PathPattern       string         `json:"path_pattern,omitempty"`
 	Action            string         `json:"action"` // "allow" | "deny" | "ask"
 	AnnotationsFilter map[string]any `json:"annotations_filter,omitempty"`
+}
+
+// SessionTask is a unit of in-flight work tracked at the session
+// level (SPEC §6.18 — MMM5). Backends that fan out subagents or
+// plan multi-step turns can publish tasks so TUIs and shell scripts
+// can show progress without parsing message history.
+type SessionTask struct {
+	ID        string         `json:"id"`
+	SessionID string         `json:"session_id"`
+	Title     string         `json:"title"`
+	Status    string         `json:"status"` // pending|running|completed|failed
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
 // Hook is a side-effect registration (SPEC §6.17 — MMM3). When the
