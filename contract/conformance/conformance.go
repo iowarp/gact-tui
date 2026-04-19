@@ -86,6 +86,13 @@ type Options struct {
 	// pane's a/r apply/reject keys. Read-only: doesn't apply or
 	// reject anything (idempotent against the live session).
 	SkipDiffs bool
+	// CCCCCC1: per-message diffs section — gated on
+	// capabilities.diffs + at least one message in the session.
+	// Walks GET /v1/sessions/{id}/messages → first message id →
+	// GET /v1/sessions/{id}/messages/{mid}/diffs. Locks the wire
+	// shape that powers per-turn diff drill-down (Ctrl+E from a
+	// tool_result row). Read-only.
+	SkipMessageDiffs bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -166,7 +173,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles || !opts.SkipDiffs {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles || !opts.SkipDiffs || !opts.SkipMessageDiffs {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -194,6 +201,9 @@ func Run(t Reporter, baseURL string, opts Options) {
 		}
 		if !opts.SkipDiffs && caps.Diffs && sid != "" {
 			t.Run("Diffs", func(t Reporter) { checkDiffs(t, c, sid) })
+		}
+		if !opts.SkipMessageDiffs && caps.Diffs && sid != "" {
+			t.Run("Messages_Diffs", func(t Reporter) { checkMessageDiffs(t, c, sid) })
 		}
 	}
 }
@@ -984,6 +994,89 @@ func checkDiffs(t Reporter, c *conformClient, sid string) {
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		t.Fatalf("diffs JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Diffs == nil {
+		t.Errorf("response missing `diffs` key: %s", body)
+		return
+	}
+	for i, d := range raw.Diffs {
+		for _, key := range []string{"path", "applied"} {
+			if _, ok := d[key]; !ok {
+				t.Errorf("diff[%d] missing required key %q: %v", i, key, d)
+			}
+		}
+		if path, ok := d["path"].(string); ok && path == "" {
+			t.Errorf("diff[%d] has empty path: %v", i, d)
+		}
+		if _, isBool := d["applied"].(bool); !isBool {
+			if _, present := d["applied"]; present {
+				t.Errorf("diff[%d] applied is not bool: %v", i, d["applied"])
+			}
+		}
+		if lang, present := d["language"]; present {
+			if _, ok := lang.(string); !ok && lang != nil {
+				t.Errorf("diff[%d] language must be string|null: %v", i, lang)
+			}
+		}
+	}
+}
+
+// CCCCCC1 — checkMessageDiffs validates the per-message variant
+// `GET /v1/sessions/{id}/messages/{msg_id}/diffs`. Picks the first
+// message id from `GET /v1/sessions/{id}/messages` so the suite
+// stays portable (no fixture coupling). Asserts 200, top-level
+// `diffs` array (non-nil), and the same file_diff entry shape as
+// checkDiffs (path required + non-empty, applied bool, language
+// string|null when present). Skips quietly when the session has no
+// messages yet — listing returns empty so there's nothing to walk.
+// Read-only.
+func checkMessageDiffs(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	listResp, listBody, err := c.get(ctx, "/v1/sessions/"+sid+"/messages")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/messages: %v", sid, err)
+	}
+	if listResp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("messages list returned 501 — set SkipMessageDiffs")
+	}
+	if listResp.StatusCode != 200 {
+		t.Fatalf("list messages status %d body %s", listResp.StatusCode, listBody)
+	}
+	var listRaw struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(listBody, &listRaw); err != nil {
+		t.Fatalf("messages JSON decode: %v (body=%s)", err, listBody)
+	}
+	if len(listRaw.Messages) == 0 {
+		// Empty session — nothing to drill into. Don't fail; the
+		// per-message endpoint shape is exercised only when there's
+		// at least one message to point at.
+		return
+	}
+	mid := listRaw.Messages[0].ID
+	if mid == "" {
+		t.Fatalf("first message id empty in list: %s", listBody)
+	}
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages/"+mid+"/diffs")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/messages/%s/diffs: %v", sid, mid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id}/messages/{msg_id}/diffs returned 501 — set SkipMessageDiffs or fix capabilities.diffs")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Diffs []map[string]any `json:"diffs"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("message diffs JSON decode: %v (body=%s)", err, body)
 	}
 	if raw.Diffs == nil {
 		t.Errorf("response missing `diffs` key: %s", body)

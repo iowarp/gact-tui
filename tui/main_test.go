@@ -1432,9 +1432,10 @@ func TestCLI_Conformance(t *testing.T) {
 	// Every major section should appear in the output. Mcp is BBBBB1
 	// (gated on capabilities.mcp), Providers is TTTTT1 (gated on
 	// capabilities.providers), Files is UUUUU1 (gated on
-	// capabilities.files), Diffs is BBBBBB1 (gated on
-	// capabilities.diffs); the emulator advertises all four.
-	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp", "Providers", "Files", "Diffs"} {
+	// capabilities.files), Diffs is BBBBBB1, Messages_Diffs is
+	// CCCCCC1 (both gated on capabilities.diffs); the emulator
+	// advertises all four caps.
+	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp", "Providers", "Files", "Diffs", "Messages_Diffs"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected section %q in stdout: %q", want, stdout)
 		}
