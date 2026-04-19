@@ -4,6 +4,14 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDDDD — footer flicker on transient SSE drops
+
+- [x] **DDDDD1.** "(reconnecting…)" badge in the footer no longer flashes for one frame on routine sub-second SSE blips. Added an `sseDownSince` clock (set when `sseBackoffAttempts` goes 0→positive, cleared on `sseEventMsg`); renderFooter now requires `time.Since(sseDownSince) >= 800ms` before painting the badge. Real outages still surface within a second; the typical 250 ms reconnect cycle stays silent. Three new unit tests pin the gate (visible past gate, hidden during sub-gate blip, hidden when down-clock is zero) plus the existing healthy/backoff cases. Screenshot: `screenshots/DDDDD1_footer_steady.png`.
+
+## Phase CCCCC — conversation pane overflow / sidebar misalignment
+
+- [x] **CCCCC1.** Shipped previous iteration. Lipgloss .Height(N) is OUTER (border included); the renderer was passing Height(N-2) treating it as inner content, leaving each bordered pane 2 rows short. Sidebar `╰╯` floated up while conversation `╰╯` stayed at full bodyH, breaking the bottom alignment. Fixed by passing the outer target straight to .Height on all three pane styles + a `fitLines()` belt-and-braces helper. Golden snapshots regenerated. Screenshots: `screenshots/CCCCC1_overflow_{before,after}_fix.png`.
+
 ## Phase BBBBB — conformance: Mcp section + adapter test repair
 
 - [x] **BBBBB1.** Conformance suite gains an `Mcp` section (gated on `capabilities.mcp`) that walks `GET /v1/mcp/servers`: asserts 200, top-level `servers` array shape, and each server has the required `id`/`name`/`transport`/`status` fields with status in the enum (connecting|ready|error|disconnected). Locks the wire shape that JJJJ1's `gact mcp list` and the TUI catalog both depend on. New `Options.SkipMcp` opt-out preserves back-compat. Discovered + fixed a latent breakage along the way: both adapter conformance tests (crush + opencode) were calling `conformance.Run(t, ...)` with raw `*testing.T`, which broke when the suite was refactored to `Reporter`. Wrapped both calls with `conformance.FromTest(t)`. Confirmed the new section runs against the emulator (`gact conformance` shows `▶ Mcp ✓ Mcp PASS`) and TestCLI_Conformance now requires the new section name.
