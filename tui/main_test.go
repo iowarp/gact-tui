@@ -1431,7 +1431,8 @@ func TestCLI_Conformance(t *testing.T) {
 	}
 	// Every major section should appear in the output. Mcp is BBBBB1
 	// (gated on capabilities.mcp; the emulator advertises it).
-	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp"} {
+	// Providers is TTTTT1 (gated on capabilities.providers).
+	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp", "Providers"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected section %q in stdout: %q", want, stdout)
 		}

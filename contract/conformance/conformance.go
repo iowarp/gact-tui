@@ -69,6 +69,11 @@ type Options struct {
 	// browser depends on it. Backends that don't claim mcp=true skip
 	// automatically.
 	SkipMcp bool
+	// TTTTT1: Models/Providers section — gated on capabilities.providers.
+	// Walks GET /v1/providers + GET /v1/providers/{id}/models so the
+	// model picker (Settings tab + `gact models list`) catches drift
+	// at the wire level before users hit it.
+	SkipProviders bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -149,7 +154,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -169,15 +174,20 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipMcp && caps.Mcp {
 			t.Run("Mcp", func(t Reporter) { checkMcp(t, c) })
 		}
+		if !opts.SkipProviders && caps.Providers {
+			t.Run("Providers", func(t Reporter) { checkProviders(t, c) })
+		}
 	}
 }
 
-// minimalCaps holds just the flags we need for AAAA1 + BBBBB1 gating.
+// minimalCaps holds just the flags we need for AAAA1 + BBBBB1 +
+// TTTTT1 gating.
 type minimalCaps struct {
 	Hooks        bool
 	Permissions  bool
 	SessionTasks bool
 	Mcp          bool
+	Providers    bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -193,6 +203,7 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 			Permissions  bool `json:"permissions"`
 			SessionTasks bool `json:"session_tasks"`
 			Mcp          bool `json:"mcp"`
+			Providers    bool `json:"providers"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)
@@ -800,6 +811,78 @@ func checkMcp(t Reporter, c *conformClient) {
 			case "connecting", "ready", "error", "disconnected":
 			default:
 				t.Errorf("server[%d] unexpected status %q (want connecting|ready|error|disconnected)", i, status)
+			}
+		}
+	}
+}
+
+// TTTTT1 — checkProviders validates GET /v1/providers + per-provider
+// GET /v1/providers/{id}/models. Status 200 + a non-nil `providers`
+// key on the list endpoint; for each provider, status 200 + a non-nil
+// `models` key on the nested endpoint and each model entry has the
+// required {id, name} fields. Locks the wire shape that powers the
+// Settings → Model tab and `gact models list` (CLI). Adapters that
+// don't proxy /v1/providers can SkipProviders explicitly.
+func checkProviders(t Reporter, c *conformClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/providers")
+	if err != nil {
+		t.Fatalf("GET /v1/providers: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/providers returned 501 — set SkipProviders or fix capabilities.providers")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Providers []map[string]any `json:"providers"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("providers JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Providers == nil {
+		t.Errorf("response missing `providers` key: %s", body)
+		return
+	}
+	for i, p := range raw.Providers {
+		for _, key := range []string{"id", "name"} {
+			if _, ok := p[key]; !ok {
+				t.Errorf("provider[%d] missing required key %q: %v", i, key, p)
+			}
+		}
+		pid, _ := p["id"].(string)
+		if pid == "" {
+			continue
+		}
+		// Per-provider models endpoint.
+		mresp, mbody, err := c.get(ctx, "/v1/providers/"+pid+"/models")
+		if err != nil {
+			t.Errorf("GET /v1/providers/%s/models: %v", pid, err)
+			continue
+		}
+		if mresp.StatusCode != 200 {
+			t.Errorf("provider[%s] models status %d body %s", pid, mresp.StatusCode, mbody)
+			continue
+		}
+		var mraw struct {
+			Models []map[string]any `json:"models"`
+		}
+		if err := json.Unmarshal(mbody, &mraw); err != nil {
+			t.Errorf("provider[%s] models decode: %v (body=%s)", pid, err, mbody)
+			continue
+		}
+		if mraw.Models == nil {
+			t.Errorf("provider[%s] response missing `models` key: %s", pid, mbody)
+			continue
+		}
+		for j, m := range mraw.Models {
+			for _, key := range []string{"id", "name"} {
+				if _, ok := m[key]; !ok {
+					t.Errorf("provider[%s] model[%d] missing required key %q: %v", pid, j, key, m)
+				}
 			}
 		}
 	}
