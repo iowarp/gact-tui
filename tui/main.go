@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image/color"
 	"io"
 	"log"
 	"os"
@@ -151,6 +152,8 @@ func main() {
 			return
 		case "env":
 			os.Exit(runEnv(os.Args[2:]))
+		case "theme":
+			os.Exit(runTheme(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -395,6 +398,7 @@ Usage:
   gact follow <sid>          tail -f the conversation log; stream new messages
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env                   print resolved config + GACT_* env vars (TSV)
+  gact theme show [--name N] print active theme palette as TSV (key\thex)
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1416,6 +1420,68 @@ func runHooksRm(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runTheme dispatches `gact theme <verb>`. Right now only `show` is
+// implemented (theme picking lives in Settings > Theme tab). (GGGG1)
+func runTheme(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact theme show [--name dark|light|...]")
+		return 2
+	}
+	verb := args[0]
+	if verb != "show" {
+		fmt.Fprintf(os.Stderr, "gact theme: unknown verb %q (want show)\n", verb)
+		return 2
+	}
+	rest := args[1:]
+	fs := flag.NewFlagSet("theme show", flag.ContinueOnError)
+	name := fs.String("name", "", "theme name to show (default: resolved active theme)")
+	if err := fs.Parse(reorderFlagsFirst(rest, map[string]bool{"--name": true, "-name": true})); err != nil {
+		return 2
+	}
+	cfg, _, _ := config.Load()
+	resolved := *name
+	if resolved == "" {
+		resolved = config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), "", defaultTheme)
+	}
+	mode := ui.ParseThemeMode(resolved)
+	theme := ui.ThemeForMode(mode)
+
+	rows := [][2]string{
+		{"name", ui.ThemeModeName(mode)},
+	}
+	add := func(k string, c color.Color) {
+		rows = append(rows, [2]string{k, hexOfColor(c)})
+	}
+	add("bg", theme.Bg)
+	add("bg_subtle", theme.BgSubtle)
+	add("fg", theme.Fg)
+	add("fg_muted", theme.FgMuted)
+	add("fg_faint", theme.FgFaint)
+	add("primary", theme.Primary)
+	add("secondary", theme.Secondary)
+	add("success", theme.Success)
+	add("warning", theme.Warning)
+	add("danger", theme.Danger)
+	add("border", theme.Border)
+	add("border_focus", theme.BorderFocus)
+	add("role_user", theme.RoleUser)
+	add("role_assistant", theme.RoleAssistant)
+	add("role_system", theme.RoleSystem)
+	add("role_tool", theme.RoleTool)
+	for _, r := range rows {
+		fmt.Printf("%s\t%s\n", r[0], r[1])
+	}
+	return 0
+}
+
+// hexOfColor returns the canonical "#RRGGBB" form of a color.Color
+// (handles lipgloss.Color hex strings + RGBA fallback). Used by
+// `gact theme show`.
+func hexOfColor(c color.Color) string {
+	r, g, b, _ := c.RGBA()
+	return fmt.Sprintf("#%02X%02X%02X", r>>8, g>>8, b>>8)
 }
 
 // runEnv prints the fully-resolved configuration the binary will
@@ -4368,7 +4434,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -4388,7 +4454,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -4401,7 +4467,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
