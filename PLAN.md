@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase JJJJJJ — conformance: MCP per-server drill-down
+
+- [x] **JJJJJJ1.** Extended `checkMcp` (existing list-shape coverage) with two per-server drills for the first server in the list (when present): (1) `GET /v1/mcp/servers/{id}` — detail endpoint, must echo id back; (2) `GET /v1/mcp/servers/{id}/tools` — tools listing per server, must have non-nil `tools` array with each entry carrying a non-empty id. Both required by SPEC §6.7. Catches adapters that wired only the list endpoint — the per-server detail + tools listing were silent gaps before. Read-only.
+
 ## Phase IIIIII — conformance: messages list + per-id drill-down
 
 - [x] **IIIIII1.** Adds a `Messages_List` section that walks `GET /v1/sessions/{id}/messages` (SPEC §6.3) plus per-id drill into `GET /v1/sessions/{id}/messages/{msg_id}` for the first entry. Asserts 200 + non-nil top-level `messages` array (empty is fine; missing key violates spec) + per-entry required {id, role, parts} with `role` in the documented enum (user|assistant|system|tool). For the first message, drills into the per-id endpoint and verifies id is echoed back. Locks the wire shape that powers `gact log` and the conversation pane's history fetch. Read-only. New `Options.SkipMessageList` opt-out wired through TestConformance_OptionsSkip.

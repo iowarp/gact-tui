@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:29Z
-**Current phase:** IIIIII1 shipped (8 conformance phases this run: BBBBBB1..IIIIII1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `94c5d7e` (pushed after status commit)
+**Last updated:** 2026-04-19T18:30Z
+**Current phase:** JJJJJJ1 shipped (9 conformance phases this run: BBBBBB1..JJJJJJ1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `290dcef` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase JJJJJJ — conformance MCP per-server drill-down
+- **JJJJJJ1.** Extended `checkMcp` with two per-server drills
+  for the first server: `GET /v1/mcp/servers/{id}` (detail must
+  echo id) and `GET /v1/mcp/servers/{id}/tools` (must have
+  non-nil `tools` array with non-empty ids). Both required by
+  SPEC §6.7. Read-only.
 
 ### Phase IIIIII — conformance messages list + per-id drill
 - **IIIIII1.** Adds `Messages_List` section that walks
