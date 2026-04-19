@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase YYYY — gact dashboard --status FILTER (+ list/dashboard waiting alias fix)
+
+- [x] **YYYY1.** `gact dashboard --status idle|running|waiting|error` filters dashboard rows by status (single value or comma-separated set). Empty filter = all (back-compat). Fast-fail validation on typo (exit 2). Discovered + fixed a latent bug while implementing: `gact list --status waiting` and the new `gact dashboard --status waiting` never matched anything because the actual server status is `waiting_permission` (per SPEC). Now both verbs translate the user-friendly `waiting` alias to `waiting_permission`. CLI test seeds an idle session + a waiting one (via the `delete` permission scenario), asserts the filter keeps the waiting row + drops the idle one, then resolves perms and asserts both reappear under `--status idle`. Comma-list and unknown-status (exit 2) cases also covered.
+
 ## Phase XXXX — gact hooks list --event/--scope filters
 
 - [x] **XXXX1.** `gact hooks list` gains two filters: `--event TYPE` (exact match; `*` matches the universal-hook entry) and `--scope global|session|workspace`. Both empty by default = no filter (back-compat). Combined filters AND together. Unknown --scope → exit 2 client-side. JSON mode returns `[]` not `null` after filtering. CLI test seeds three hooks (one in each scope kind), asserts each filter keeps the right one and drops the rest, plus a combined filter case.
