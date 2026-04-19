@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T16:15Z
-**Current phase:** ZZZZ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `07d5fe4` and pushed
+**Last updated:** 2026-04-19T16:35Z
+**Current phase:** ZZZZ1 + AAAAA1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0c52ec3` and pushed
 **Open:** none
+
+### Phase AAAAA — gact context list --mode/--glob filters
+- **AAAAA1.** `gact context list <sid>` gains `--mode
+  read|edit|pin` (exact) and `--glob PATTERN` (Go path.Match
+  with basename fallback, mirrors ZZZZ1). Combined filters AND
+  together. Bad value → exit 2 client-side. CLI test asserts
+  single filter, combined filter, and exits.
 
 ### Phase ZZZZ — gact files list --glob PATTERN
 - **ZZZZ1.** `gact files list <ws-id> --glob PATTERN` filters by
