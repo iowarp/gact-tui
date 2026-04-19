@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:22Z
-**Current phase:** EEEEEE1 shipped this iteration (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1 in this run)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ed61288` (pushed after status commit)
+**Last updated:** 2026-04-19T18:24Z
+**Current phase:** FFFFFF1 shipped (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1+FFFFFF1 this run)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `48b08c4` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase FFFFFF — conformance agents per-id drill-down
+- **FFFFFF1.** Mirror of EEEEEE1 for agents. Extended
+  `checkAgents` with `GET /v1/agents/{id}` drill — first agent
+  in the list, asserts id echoed back + non-empty source/title.
+  Read-only.
 
 ### Phase EEEEEE — conformance tools per-id drill-down
 - **EEEEEE1.** Extended `checkTools` to assert each list entry has

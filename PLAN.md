@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase FFFFFF — conformance: agents per-id drill-down
+
+- [x] **FFFFFF1.** Mirror of EEEEEE1 for agents. Extended `checkAgents` to drill into `GET /v1/agents/{id}` for the first agent in the list (when present). Per-id response must echo the same id back and have non-empty source/title — same shape as a list entry per SPEC §6.5. Catches adapters that wired only the list endpoint. Read-only.
+
 ## Phase EEEEEE — conformance: tools per-id drill-down
 
 - [x] **EEEEEE1.** Extended `checkTools` to assert each list entry carries the required {id, name} pair (SPEC §6.6 + §4.6) and to drill into `GET /v1/tools/{id}` for the first tool in the list. Per-id response must echo the same id back and have a non-empty name. Catches a missing per-id endpoint at conformance time — adapter authors that wired only the list got a silent gap before. Read-only.
