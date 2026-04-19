@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase SSSSS — subagent scenario variants
+
+- [x] **SSSSS1.** Closes the variant arc — every rich scenario family (default, big tool, long, multi-tool, diff, subagent) now produces per-turn variety. `runSubagentScript` cycles through `subagentVariants` per session via `NextCallIndex`. Three variants spawn three different agent identities so repeat "spawn a subagent" turns feel like distinct delegations: code_reviewer (preserved), security_auditor (HIGH/MEDIUM/LOW JWT findings), perf_profiler (3-hot-spot pprof attribution with measured impact). Each variant has its own thinking line, intro, prompt, sub-body, summary, and parent followup. New unit test sends three "spawn subagent" turns, asserts ≥3 subagent_call parts emit with 3 distinct agent_ids, and that both security_auditor + perf_profiler fire across the run (order-agnostic).
+
 ## Phase RRRRR — diff scenario variants
 
 - [x] **RRRRR1.** Closes the four-scenario-family arc (bigtool/long/multi-tool now diff). `runDiffScript` cycles through `diffVariants` per session via `NextCallIndex`. Three variants spanning three languages: existing Go logging swap (variant[0], preserved); Python try/except + structured logging around a network call (variant[1]); JS callback-chain → async/await refactor (variant[2]). Each variant has its own intro narration. Different (path, language) pairs per variant exercise the diff renderer's syntax-hint path through Go, Python, and JS lexers. New unit test sends three "propose an edit" turns, asserts ≥3 file_diff parts emitted, all three (path, language) pairs distinct, and that both python + js variants fire across the run (order-agnostic since ListMessages is newest-first).
