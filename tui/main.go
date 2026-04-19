@@ -4126,15 +4126,25 @@ func runPermsList(args []string) int {
 	fs := flag.NewFlagSet("perms list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	pending := fs.Bool("pending", false, "only pending; default lists every state")
+	// OOOOO1: --format json emits the raw PermissionWire array with
+	// the full ToolCall payload (input args + annotations) intact —
+	// the TSV view loses that. Default tsv preserved for back-compat
+	// with the existing perms-list scripting + the test harness.
+	format := fs.String("format", "tsv", "tsv | json")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--pending": true, "-pending": true,
+		"--format": true, "-format": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact perms list <session_id> [--pending] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact perms list <session_id> [--pending] [--format tsv|json] [--backend URL]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact perms list: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -4146,6 +4156,18 @@ func runPermsList(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact perms list: %v\n", err)
 		return 1
+	}
+	if *format == "json" {
+		if perms == nil {
+			perms = []client.PermissionWire{}
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(perms); err != nil {
+			fmt.Fprintf(os.Stderr, "gact perms list: encode: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	for _, p := range perms {
 		summary := strings.ReplaceAll(p.Summary, "\n", " ")

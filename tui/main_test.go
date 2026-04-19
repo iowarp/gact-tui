@@ -2948,6 +2948,91 @@ func TestCLI_Search(t *testing.T) {
 	}
 }
 
+// TestCLI_PermsListJSON covers OOOOO1: --format json on
+// `gact perms list` returns the raw PermissionWire array including
+// the full ToolCall (tool_name + input args + annotations) which
+// the TSV view loses. Default tsv preserved.
+func TestCLI_PermsListJSON(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "perms-json-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "delete the temp dir"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	// Wait for the permission to register.
+	deadline := time.Now().Add(3 * time.Second)
+	var pid string
+	for time.Now().Before(deadline) {
+		stdout, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"perms", "list", sid)
+		for _, line := range strings.Split(stdout, "\n") {
+			if strings.HasPrefix(line, "perm_") {
+				pid = strings.SplitN(line, "\t", 2)[0]
+				break
+			}
+		}
+		if pid != "" {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if pid == "" {
+		t.Fatalf("permission never appeared")
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "list", sid, "--format", "json")
+	if code != 0 {
+		t.Fatalf("perms list --format json: exit %d", code)
+	}
+	var arr []struct {
+		ID       string `json:"id"`
+		Status   string `json:"status"`
+		ToolCall struct {
+			ToolName string         `json:"tool_name"`
+			Input    map[string]any `json:"input"`
+		} `json:"tool_call"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &arr); err != nil {
+		t.Fatalf("parse: %v\n  raw=%q", err, stdout)
+	}
+	if len(arr) != 1 {
+		t.Fatalf("expected 1 perm, got %d", len(arr))
+	}
+	if arr[0].ID != pid {
+		t.Errorf("id mismatch: %q vs %q", arr[0].ID, pid)
+	}
+	if arr[0].Status != "pending" {
+		t.Errorf("status = %q, want pending", arr[0].Status)
+	}
+	// JSON-only payload: tool name + input args.
+	if arr[0].ToolCall.ToolName == "" {
+		t.Errorf("expected tool_name to be populated; got %+v", arr[0].ToolCall)
+	}
+	if _, ok := arr[0].ToolCall.Input["command"]; !ok {
+		t.Errorf("expected tool_call.input.command in JSON view; got %+v", arr[0].ToolCall.Input)
+	}
+
+	// Default tsv still works (back-compat with TestCLI_Perms).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "list", sid)
+	if code != 0 {
+		t.Fatalf("perms list (default tsv): exit %d", code)
+	}
+	if !strings.Contains(stdout, pid) || !strings.Contains(stdout, "pending") {
+		t.Errorf("default tsv missing pid/pending: %q", stdout)
+	}
+
+	// Unknown format → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "list", sid, "--format", "yaml"); code != 2 {
+		t.Errorf("perms list --format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_Perms covers RR1: send a permission-triggering message,
 // list perms, find the pending one, allow it, list again and verify
 // the action lands as "resolved/allow".

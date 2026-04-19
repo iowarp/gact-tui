@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase OOOOO — gact perms list --format json
+
+- [x] **OOOOO1.** `gact perms list <sid> --format json` returns the raw `[]PermissionWire` array including the full `tool_call` payload (tool_name + input args + annotations) — info that the TSV view drops because it only shows id/status/action/summary. Useful when scripting "did the agent ever try to delete /etc/* in this session?" against the structured payload. Default tsv preserved (TestCLI_Perms relies on it). Empty list serializes as `[]` not `null`. Unknown format → exit 2 client-side. CLI test triggers the `delete` permission scenario, asserts JSON parses with the expected ToolCall.input.command field, default tsv still works, unknown format exits 2.
+
 ## Phase NNNNN — gact info --include perms
 
 - [x] **NNNNN1.** Closes the explicit OOOO1 follow-up: `gact info --include perms` adds a section for every permission request the session has seen (pending + resolved). Works in both text mode (TSV-ish `status<TAB>id<TAB>summary [action=…]` rows under `--- perms ---`) and JSON mode (wrapped as `perms` array on the top-level result object alongside session/tasks/hooks). Composes with the existing tasks/hooks tokens. Unknown --include token still exits 2 client-side. CLI test triggers the `delete` permission scenario, asserts the pending row appears in both modes, then resolves with deny and asserts `resolved` + `action=deny` surface in the next render.
