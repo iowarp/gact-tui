@@ -82,7 +82,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 
 	// Text intro
-	intro, _ := e.addPart(sessionID, asst.ID, gact.NewTextPart(""))
+	intro, err := e.addPart(sessionID, asst.ID, gact.NewTextPart(""))
+	if err != nil {
+		return
+	}
 	introText := "I'll take a look. First, I'm going to inspect the current state with a tool call."
 	if err := e.streamText(ctx, sessionID, asst.ID, intro.ID, introText, "text"); err != nil {
 		return
@@ -98,7 +101,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	if dangerous {
 		toolName = "shell"
 	}
-	toolPart, _ := e.addPart(sessionID, asst.ID, gact.NewToolCallPart(callID, toolName, nil))
+	toolPart, err := e.addPart(sessionID, asst.ID, gact.NewToolCallPart(callID, toolName, nil))
+	if err != nil {
+		return
+	}
 	// Stream the input as a single chunk (input_json_append).
 	toolInputRaw := `{"path":"main.go"}`
 	if dangerous {
@@ -185,7 +191,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 					"is_error": true,
 				},
 			})
-			toolMsg, _ := e.store.AppendMessage(gact.Message{
+			toolMsg, terr := e.store.AppendMessage(gact.Message{
 				SessionID: sessionID,
 				Role:      gact.RoleTool,
 				Parts: []gact.Part{
@@ -194,13 +200,22 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 					}, true),
 				},
 			})
+			if terr != nil {
+				return
+			}
 			e.bus.Publish(events.Event{
 				Type:      "message.created",
 				SessionID: sessionID,
 				Payload:   toolMsg,
 			})
-			finalMsg, _ := e.createAssistantMessage(sessionID)
-			finalText, _ := e.addPart(sessionID, finalMsg.ID, gact.NewTextPart(""))
+			finalMsg, ferr := e.createAssistantMessage(sessionID)
+			if ferr != nil {
+				return
+			}
+			finalText, fterr := e.addPart(sessionID, finalMsg.ID, gact.NewTextPart(""))
+			if fterr != nil {
+				return
+			}
 			_ = e.streamText(ctx, sessionID, finalMsg.ID, finalText.ID,
 				"OK — I won't run that command. Let me know if you'd like to try something else.",
 				"text")
@@ -233,7 +248,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	if dangerous {
 		resultText = "removed: /tmp/scratch (3 files, 2 dirs)"
 	}
-	toolMsg, _ := e.store.AppendMessage(gact.Message{
+	toolMsg, terr := e.store.AppendMessage(gact.Message{
 		SessionID: sessionID,
 		Role:      gact.RoleTool,
 		Parts: []gact.Part{
@@ -242,6 +257,9 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 			}, false),
 		},
 	})
+	if terr != nil {
+		return
+	}
 	e.bus.Publish(events.Event{
 		Type:      "message.created",
 		SessionID: sessionID,
@@ -252,8 +270,14 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 
 	// --- Assistant message #2 (final) --------------------------------------
-	final, _ := e.createAssistantMessage(sessionID)
-	finalP, _ := e.addPart(sessionID, final.ID, gact.NewTextPart(""))
+	final, ferr := e.createAssistantMessage(sessionID)
+	if ferr != nil {
+		return
+	}
+	finalP, fperr := e.addPart(sessionID, final.ID, gact.NewTextPart(""))
+	if fperr != nil {
+		return
+	}
 	finalText := "**Done.** I read `main.go` and it's a small Go program — its `main` function just calls `println(\"hello\")`. A few things you might want next:\n\n- add a `package` doc comment\n- introduce a `cmd/` layout if this grows\n- wire `flag` for arguments\n\nWant me to start with one of those?"
 	if dangerous {
 		finalText = "**Removed.** Cleared `/tmp/scratch` (3 files, 2 dirs). Anything else?"
