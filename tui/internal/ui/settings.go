@@ -26,7 +26,21 @@ type settingsState struct {
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
 // Bump when adding new knobs; key navigation clamps against this.
-const tuiPrefsRowCount = 1
+// LLLLL1: row 0 = collapse threshold, row 1 = cost warn tokens,
+// row 2 = cost danger tokens. Anything below is read-only runtime
+// state and isn't selectable.
+const tuiPrefsRowCount = 3
+
+// LLLLL1: cost token thresholds adjust in 25k-token increments —
+// fine enough to land on practical values (50K/75K/100K…), coarse
+// enough that one keypress moves the dial meaningfully. Min 1k so
+// the warn band can't be silenced entirely; max 1M covers the
+// largest current context windows with headroom.
+const (
+	costStep = 25_000
+	costMin  = 1_000
+	costMax  = 1_000_000
+)
 
 // settingsTabCount is the canonical number of tabs — updating the list
 // in viewSettings without touching the wrap-around in handleSettingsKey
@@ -148,22 +162,54 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "left", "h":
-		// Decrement the selected TUI pref (collapse threshold). Clamp
-		// at 1 — a zero-line threshold is "always collapse", which we
-		// already reserve for the disabled-collapse state (handled in
-		// render.go by swapping to the const).
-		if s.tab == 3 && s.tuiRow == 0 {
-			if a.Theme.CollapseThreshold > 1 {
-				a.Theme.CollapseThreshold--
-				a.persistPrefs()
+		// LLLLL1: ←/→ on the selected TUI pref. Each row clamps
+		// independently. Collapse threshold (row 0) stays at the old
+		// 1..50 line range. Cost rows (1, 2) move in costStep
+		// increments and stay clamped to costMin..costMax.
+		if s.tab == 3 {
+			switch s.tuiRow {
+			case 0:
+				if a.Theme.CollapseThreshold > 1 {
+					a.Theme.CollapseThreshold--
+					a.persistPrefs()
+				}
+			case 1:
+				if a.Theme.CostWarnTokens > costMin+costStep {
+					a.Theme.CostWarnTokens -= costStep
+					a.persistPrefs()
+				} else if a.Theme.CostWarnTokens > costMin {
+					a.Theme.CostWarnTokens = costMin
+					a.persistPrefs()
+				}
+			case 2:
+				if a.Theme.CostDangerTokens > costMin+costStep {
+					a.Theme.CostDangerTokens -= costStep
+					a.persistPrefs()
+				} else if a.Theme.CostDangerTokens > costMin {
+					a.Theme.CostDangerTokens = costMin
+					a.persistPrefs()
+				}
 			}
 		}
 		return a, nil
 	case "right", "l":
-		if s.tab == 3 && s.tuiRow == 0 {
-			if a.Theme.CollapseThreshold < 50 {
-				a.Theme.CollapseThreshold++
-				a.persistPrefs()
+		if s.tab == 3 {
+			switch s.tuiRow {
+			case 0:
+				if a.Theme.CollapseThreshold < 50 {
+					a.Theme.CollapseThreshold++
+					a.persistPrefs()
+				}
+			case 1:
+				if a.Theme.CostWarnTokens+costStep <= costMax {
+					a.Theme.CostWarnTokens += costStep
+					a.persistPrefs()
+				}
+			case 2:
+				if a.Theme.CostDangerTokens+costStep <= costMax {
+					a.Theme.CostDangerTokens += costStep
+					a.persistPrefs()
+				}
 			}
 		}
 		return a, nil
@@ -331,22 +377,41 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render("Display preferences"))
 		rows = append(rows, "")
 
-		// Row 0: collapse threshold.
-		thresholdLabel := "collapse threshold"
-		thresholdValue := "◀ " + itoa2(a.Theme.CollapseThreshold) + " lines ▶"
-		marker := "  "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		valueStyle := t.HintLabel
-		if s.tuiRow == 0 {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-			valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		// LLLLL1: shared editable-row renderer for the TUI tab so
+		// rows 0..tuiPrefsRowCount-1 share the same selection visual
+		// (▌ marker + Secondary-bold label + Secondary-bold value).
+		editableRow := func(rowIdx int, label, value, hint string) []string {
+			marker := "  "
+			labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+			valueStyle := t.HintLabel
+			if s.tuiRow == rowIdx {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+				valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+			}
+			out := []string{marker + labelStyle.Render(label) + "  " + valueStyle.Render(value)}
+			if hint != "" {
+				out = append(out, "  "+t.HintLabel.Italic(true).Render(hint))
+			}
+			out = append(out, "")
+			return out
 		}
-		rows = append(rows, marker+labelStyle.Render(thresholdLabel)+"  "+valueStyle.Render(thresholdValue))
-		rows = append(rows, "  "+t.HintLabel.Italic(true).Render(
+
+		rows = append(rows, editableRow(0,
+			"collapse threshold",
+			"◀ "+itoa2(a.Theme.CollapseThreshold)+" lines ▶",
 			"tool_result bodies longer than N lines collapse to a preview. "+
-				"Ctrl+E opens the full content."))
-		rows = append(rows, "")
+				"Ctrl+E opens the full content.")...)
+		rows = append(rows, editableRow(1,
+			"cost warn tokens   ",
+			"◀ "+humanTokens(a.Theme.CostWarnTokens)+" ▶",
+			"footer turns yellow when input tokens cross this threshold "+
+				"(approaching the model's context window).")...)
+		rows = append(rows, editableRow(2,
+			"cost danger tokens ",
+			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
+			"footer turns red — usually the hard ceiling of typical "+
+				"frontier-model context windows.")...)
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render("Runtime state (edit config.json to change)"))
