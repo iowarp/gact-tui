@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T22:55Z
-**Current phase:** Phase DDD (agent detail + watch) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `936cae2` and pushed
+**Last updated:** 2026-04-18T23:05Z
+**Current phase:** Phase EEE (MCP resource read) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8bb2f61` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,12 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase EEE — MCP resource read
+- **EEE1.** `gact mcp resource-read <srv-id> <uri>` (alias
+  `mcp read`) wraps new `client.McpResourceRead`. Writes text
+  chunks to stdout, base64-decodes data chunks for binary. CLI
+  test reads seeded `file:///docs/welcome.md`.
 
 ### Phase DDD — agent detail + watch
 - **DDD1.** `gact agent show <id>` (alias `agents show`) wraps new
