@@ -2434,6 +2434,63 @@ func TestCLI_FilesList(t *testing.T) {
 	}
 }
 
+// TestCLI_FilesListGlob covers ZZZZ1: --glob filters workspace
+// listing by Go path.Match pattern. Tries '*.go' (basename
+// fallback path), an exact path match, and a bad pattern → exit 2.
+func TestCLI_FilesListGlob(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Capture an unfiltered baseline so we know we're truly
+	// reducing the set, not coincidentally seeing a single match.
+	allOut, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default")
+	if code != 0 {
+		t.Fatalf("files list (baseline): exit %d", code)
+	}
+	allRows := strings.Count(strings.TrimSpace(allOut), "\n") + 1
+
+	// '*.go' should keep multiple .go files (the seeded workspace
+	// has at least main.go + a couple under internal/).
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default", "--glob", "*.go")
+	if code != 0 {
+		t.Fatalf("files list --glob *.go: exit %d", code)
+	}
+	if strings.Contains(stdout, "README.md") || strings.Contains(stdout, "go.mod") {
+		t.Errorf("non-.go entries leaked through *.go filter: %q", stdout)
+	}
+	if !strings.Contains(stdout, "main.go") {
+		t.Errorf("expected main.go in *.go filter: %q", stdout)
+	}
+	goRows := strings.Count(strings.TrimSpace(stdout), "\n") + 1
+	if goRows >= allRows {
+		t.Errorf("*.go filter (got %d) should be narrower than baseline (got %d)", goRows, allRows)
+	}
+
+	// Exact-path glob: 'main.go' matches both the root main.go and
+	// any deeper basename-equal path (cmd/server/main.go) due to the
+	// basename-fallback rule. README.md should still be excluded.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default", "--glob", "main.go")
+	if code != 0 {
+		t.Fatalf("files list --glob main.go: exit %d", code)
+	}
+	if !strings.Contains(stdout, "main.go") {
+		t.Errorf("expected main.go in exact glob: %q", stdout)
+	}
+	if strings.Contains(stdout, "README.md") || strings.Contains(stdout, "go.mod") {
+		t.Errorf("non-main.go entries leaked: %q", stdout)
+	}
+
+	// Bad pattern → exit 2 without making the request.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"files", "list", "ws_default", "--glob", "[bad"); code != 2 {
+		t.Errorf("files list --glob '[bad': want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_FilesRead covers ZZ2: read main.go from the seeded workspace
 // and assert content contains `package main`.
 func TestCLI_FilesRead(t *testing.T) {

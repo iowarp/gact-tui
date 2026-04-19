@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase ZZZZ — gact files list --glob PATTERN
+
+- [x] **ZZZZ1.** `gact files list <ws-id> --glob PATTERN` filters workspace listings by Go `path.Match` pattern. Empty = no filter (back-compat). Two-pass match: full path first, then basename fallback so `*.go` matches `src/foo.go` (otherwise `*` wouldn't cross `/`). Bad pattern → exit 2 client-side without hitting the backend. JSON returns `[]` not `null` after filtering. CLI test seeds the default workspace, asserts `*.go` keeps Go files but drops `README.md`/`go.mod`, basename fallback works for `main.go`, and bad pattern exits 2.
+
 ## Phase YYYY — gact dashboard --status FILTER (+ list/dashboard waiting alias fix)
 
 - [x] **YYYY1.** `gact dashboard --status idle|running|waiting|error` filters dashboard rows by status (single value or comma-separated set). Empty filter = all (back-compat). Fast-fail validation on typo (exit 2). Discovered + fixed a latent bug while implementing: `gact list --status waiting` and the new `gact dashboard --status waiting` never matched anything because the actual server status is `waiting_permission` (per SPEC). Now both verbs translate the user-friendly `waiting` alias to `waiting_permission`. CLI test seeds an idle session + a waiting one (via the `delete` permission scenario), asserts the filter keeps the waiting row + drops the idle one, then resolves perms and asserts both reappear under `--status idle`. Comma-list and unknown-status (exit 2) cases also covered.

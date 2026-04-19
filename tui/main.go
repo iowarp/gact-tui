@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"path"
 	"log"
 	"os"
 	"path/filepath"
@@ -374,7 +375,7 @@ Usage:
   gact info <sid>            print one session's metadata; --include tasks,hooks for composite view
   gact undo <sid> [--count N] revert the last N messages (default 1)
   gact rewind <sid> <mid>    delete every message after <mid> [--include-target]
-  gact files list <ws-id>    list workspace files (TSV: type  size  path)
+  gact files list <ws-id>    list workspace files; --glob PATTERN to filter (e.g. '*.go')
   gact files read <ws-id> <path> dump file bytes to stdout
   gact repo-map <ws-id>      tree-render the workspace repo map
   gact mcp list              list all connected MCP servers (TSV or JSON)
@@ -3424,20 +3425,33 @@ func runFilesList(args []string) int {
 	fs := flag.NewFlagSet("files list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	format := fs.String("format", "tsv", "tsv | json")
+	// ZZZZ1: --glob applies a Go path.Match pattern to entry.Path
+	// (the relative-to-workspace-root path the backend already
+	// returns). Empty = no filter (back-compat). We deliberately use
+	// path.Match (forward-slash, no recursion across `/`) rather
+	// than filepath.Match so behavior is portable across hosts.
+	glob := fs.String("glob", "", "filter to entries whose path matches this Go path.Match pattern (e.g. '*.go', 'cmd/*')")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--glob": true, "-glob": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact files list <workspace_id> [--format tsv|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact files list <workspace_id> [--format tsv|json] [--glob PATTERN]")
 		return 2
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact files list: unknown format %q (want tsv|json)\n", *format)
 		return 2
+	}
+	if *glob != "" {
+		if _, err := path.Match(*glob, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "gact files list: bad --glob %q: %v\n", *glob, err)
+			return 2
+		}
 	}
 	wsID := fs.Arg(0)
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -3449,7 +3463,27 @@ func runFilesList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact files list: %v\n", err)
 		return 1
 	}
+	if *glob != "" {
+		// path.Match is non-recursive across '/', so try the full
+		// path first and the basename as a fallback. This matches
+		// the natural intuition that '*.go' should match
+		// 'src/foo.go' as well as 'foo.go'.
+		filtered := entries[:0]
+		for _, e := range entries {
+			if matched, _ := path.Match(*glob, e.Path); matched {
+				filtered = append(filtered, e)
+				continue
+			}
+			if matched, _ := path.Match(*glob, path.Base(e.Path)); matched {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
 	if *format == "json" {
+		if entries == nil {
+			entries = []gact.FileEntry{}
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(entries); err != nil {
