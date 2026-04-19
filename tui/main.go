@@ -88,6 +88,8 @@ func main() {
 			os.Exit(runContext(os.Args[2:]))
 		case "catalog":
 			os.Exit(runCatalog(os.Args[2:]))
+		case "dump-bundle":
+			os.Exit(runDumpBundle(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -288,6 +290,7 @@ Usage:
   gact context add <sid> <p> attach a file (--mode read|edit|pin)
   gact context rm <sid> <p>  detach a file
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
+  gact dump-bundle [-o DIR]  diag + metrics + every session as a bundle
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -427,6 +430,174 @@ func runDelete(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runDumpBundle writes a complete bug-report bundle to a directory:
+//
+//	diag.txt           ← `gact diag` capture
+//	metrics.json       ← /v1/metrics raw response
+//	sessions/<sid>.json ← every session export (one file each)
+//	version.txt        ← binary/contract/runtime/VCS info
+//
+// Single command for "I'm filing a bug, attach this directory". Beats
+// chaining diag + export --all + version + manual paste.
+func runDumpBundle(args []string) int {
+	fs := flag.NewFlagSet("dump-bundle", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	out := fs.String("o", "gact-bundle", "output directory")
+	known := map[string]bool{"--backend": true, "-backend": true, "-o": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if err := os.MkdirAll(*out, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "gact dump-bundle: mkdir %s: %v\n", *out, err)
+		return 1
+	}
+
+	// version.txt — captured directly from runVersion's logic so the
+	// bundle is self-contained without shelling out.
+	{
+		var b strings.Builder
+		fmt.Fprintf(&b, "gact %s (contract %s)\n", binaryVersion, contractVersion)
+		if rev, when, dirty := readVCSInfo(); rev != "" {
+			suffix := ""
+			if dirty {
+				suffix = " (dirty)"
+			}
+			fmt.Fprintf(&b, "  revision: %s%s\n", rev, suffix)
+			if when != "" {
+				fmt.Fprintf(&b, "  built:    %s\n", when)
+			}
+		}
+		fmt.Fprintf(&b, "  runtime:  %s\n", runtime.Version())
+		fmt.Fprintf(&b, "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		if err := os.WriteFile(filepath.Join(*out, "version.txt"), []byte(b.String()), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "gact dump-bundle: write version.txt: %v\n", err)
+			return 1
+		}
+	}
+
+	// diag.txt — re-route runDiag's stdout into a file. Easiest is to
+	// inline the body so we don't have to swap os.Stdout temporarily.
+	{
+		f, err := os.Create(filepath.Join(*out, "diag.txt"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact dump-bundle: create diag.txt: %v\n", err)
+			return 1
+		}
+		writeDiagTo(f)
+		f.Close()
+	}
+
+	// metrics.json — best-effort; if backend is offline we still want
+	// the rest of the bundle.
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		m, err := c.Metrics(ctx)
+		cancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact dump-bundle: metrics: %v (continuing)\n", err)
+		} else {
+			f, err := os.Create(filepath.Join(*out, "metrics.json"))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact dump-bundle: create metrics.json: %v\n", err)
+				return 1
+			}
+			enc := json.NewEncoder(f)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(m)
+			f.Close()
+		}
+	}
+
+	// sessions/<sid>.json — reuse runExportAll's loop semantics.
+	sessDir := filepath.Join(*out, "sessions")
+	if err := os.MkdirAll(sessDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "gact dump-bundle: mkdir sessions/: %v\n", err)
+		return 1
+	}
+	listCtx, listCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	sessions, err := c.ListSessions(listCtx, client.SessionFilter{})
+	listCancel()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact dump-bundle: list sessions: %v (continuing)\n", err)
+	}
+	ok := 0
+	for _, s := range sessions {
+		ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
+		blob, err := c.ExportSession(ectx, s.ID)
+		ecancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", s.ID, err)
+			continue
+		}
+		f, ferr := os.Create(filepath.Join(sessDir, s.ID+".json"))
+		if ferr != nil {
+			fmt.Fprintf(os.Stderr, "  %s: create: %v\n", s.ID, ferr)
+			continue
+		}
+		enc := json.NewEncoder(f)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(blob)
+		f.Close()
+		ok++
+	}
+
+	fmt.Fprintf(os.Stderr, "gact dump-bundle: wrote %d sessions + version + diag + metrics → %s\n", ok, *out)
+	return 0
+}
+
+// writeDiagTo writes the same content `runDiag` prints, but into an
+// arbitrary writer. Extracted from runDiag so dump-bundle can capture
+// the diag report into a file without process re-exec or pipes.
+func writeDiagTo(w io.Writer) {
+	fmt.Fprintf(w, "gact %s\n", binaryVersion)
+	fmt.Fprintf(w, "  contract:   %s\n", contractVersion)
+	fmt.Fprintf(w, "  runtime:    %s\n", runtime.Version())
+	fmt.Fprintf(w, "  platform:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	if rev, when, dirty := readVCSInfo(); rev != "" {
+		suffix := ""
+		if dirty {
+			suffix = " (dirty)"
+		}
+		fmt.Fprintf(w, "  revision:   %s%s\n", rev, suffix)
+		if when != "" {
+			fmt.Fprintf(w, "  built:      %s\n", when)
+		}
+	}
+	cfgPath, err := config.DefaultPath()
+	if err != nil {
+		fmt.Fprintf(w, "  config path: (error: %v)\n", err)
+	} else {
+		fmt.Fprintf(w, "  config path: %s\n", cfgPath)
+	}
+	cfg, _, _ := config.Load()
+	print := func(label string, val *string) {
+		if val != nil && *val != "" {
+			fmt.Fprintf(w, "  %s: %s\n", label, *val)
+		} else {
+			fmt.Fprintf(w, "  %s: (unset)\n", label)
+		}
+	}
+	print("backend_url", cfg.BackendURL)
+	print("theme      ", cfg.Theme)
+	print("voice_cmd  ", cfg.VoiceCommand)
+	if cfg.CollapseThreshold != nil {
+		fmt.Fprintf(w, "  collapse_threshold: %d\n", *cfg.CollapseThreshold)
+	}
+	if cfg.CostWarnTokens != nil {
+		fmt.Fprintf(w, "  cost_warn_tokens:   %d\n", *cfg.CostWarnTokens)
+	}
+	if cfg.CostDangerTokens != nil {
+		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
+	}
+	for _, name := range []string{"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD", "GACT_CONFIG", "GACT_THEME_FILE"} {
+		if v := os.Getenv(name); v != "" {
+			fmt.Fprintf(w, "  env %s: %s\n", name, v)
+		}
+	}
 }
 
 // runCatalog browses the catalog endpoints from the shell:

@@ -197,6 +197,36 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_DumpBundle covers PP1: dump-bundle creates the expected
+// directory layout with version + diag + metrics + per-session JSON
+// files. Seeds a session first so the sessions/ subdir is non-empty.
+func TestCLI_DumpBundle(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	_ = createSession(t, url, "bundle-target")
+
+	dir := filepath.Join(t.TempDir(), "bundle")
+	_, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"dump-bundle", "-o", dir)
+	if code != 0 {
+		t.Fatalf("dump-bundle: exit %d, stderr=%q", code, stderr)
+	}
+	for _, want := range []string{"version.txt", "diag.txt", "metrics.json"} {
+		if _, err := os.Stat(filepath.Join(dir, want)); err != nil {
+			t.Errorf("missing %s: %v", want, err)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "sessions"))
+	if err != nil {
+		t.Fatalf("sessions/ dir missing: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatalf("sessions/ dir empty — expected ≥1 session export")
+	}
+}
+
 // TestCLI_Catalog covers OO1: each kind (tools/agents/mcp/commands)
 // returns non-empty TSV against the emulator's seeded fixtures.
 func TestCLI_Catalog(t *testing.T) {

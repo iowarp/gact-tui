@@ -165,6 +165,7 @@ running backend:
 | `gact summarize <sid>` | Trigger backend summary; print result |
 | `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
+| `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |
 | `gact tail [SID] [--workspace WS_ID]` | Stream SSE events as JSON lines |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
