@@ -147,6 +147,7 @@ func TestConformance_OptionsSkip(t *testing.T) {
 		SkipCreateSession: true,
 		SkipPostMessage:   true,
 		SkipMessageList:   true,
+		SkipSessionExport: true,
 		SkipSSE:           true,
 		SkipCommands:      true,
 		SkipTools:         true,
