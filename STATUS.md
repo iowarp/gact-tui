@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:55Z
-**Current phase:** TTTTTT1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `94be3e6` (pushed after status commit)
+**Last updated:** 2026-04-19T18:57Z
+**Current phase:** UUUUUU1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6c5d476` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase UUUUUU — conformance context files + repo_map
+- **UUUUUU1.** Adds two SPEC §6.9 sections, both gated on
+  caps.files: (1) Context_Files (sid req): GET /v1/sessions/
+  {id}/context/files asserts {files: ContextFile[]} with mode
+  in {edit|read|pin}. (2) Repo_Map (wsID req): GET /v1/workspaces/
+  {id}/repo_map asserts {tree, tokens} envelope. Read-only.
 
 ### Phase TTTTTT — conformance tasks PATCH + enum
 - **TTTTTT1.** Extended `checkTasks` (already had

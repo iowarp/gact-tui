@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase UUUUUU — conformance: context files + repo_map
+
+- [x] **UUUUUU1.** Adds two more SPEC §6.9 sections to the conformance suite, both gated on `capabilities.files`: (1) `Context_Files` (sid required) — `GET /v1/sessions/{id}/context/files` asserts 200 + non-nil `files` array + per-entry {path, mode} with mode in {edit|read|pin} enum. (2) `Repo_Map` (wsID required) — `GET /v1/workspaces/{id}/repo_map` asserts 200 + non-nil `tree` + `tokens` keys (specific tree shape stays per-backend; only the envelope is enforced). Both read-only — never POST/PATCH/DELETE so they stay idempotent against the live session/workspace. Adapter authors that don't claim `caps.files=true` auto-skip via the cap gate.
+
 ## Phase TTTTTT — conformance: tasks PATCH + status enum
 
 - [x] **TTTTTT1.** Extended `checkTasks` (already had POST/GET/DELETE round-trip) with `PATCH /v1/tasks/{id}` per SPEC §6.18. Flips the created task to `status=running`, asserts 200 + id echoed back + status=running echoed + status in the documented enum (`pending|running|completed|failed`). Catches adapter authors that wired POST/GET/DELETE but forgot PATCH (which the TUI's task panel uses for in-place status flips).
