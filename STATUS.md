@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T02:25Z
-**Current phase:** MMM2/3/4/5 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `bc5f59b` and pushed
-**Open:** MMM6-MMM8, LLL8b, JJJ1
+**Last updated:** 2026-04-19T02:35Z
+**Current phase:** MMM2/3/4/5/6 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3fed136` and pushed
+**Open:** MMM7-MMM8, LLL8b, JJJ1
 
 ## This loop (Phases N + O)
 
@@ -70,6 +70,10 @@
   type + 4 endpoints + capability flag + client wrappers +
   `gact tasks list/add/set/rm` CLI. CLI test exercises full
   lifecycle.
+- **MMM6.** SPEC §6.2 summarize body extended with
+  `instructions?: string`. Emulator echoes them, client
+  signature updated, `gact summarize --instructions "..."` flag
+  added. Test asserts round-trip.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
