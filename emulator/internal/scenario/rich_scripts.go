@@ -137,26 +137,22 @@ func runBigToolScript(ctx context.Context, e *Engine, sessionID string, _ *gact.
 //
 // Triggered by "many tools" / "multi tool" in the user prompt.
 func runMultiToolScript(ctx context.Context, e *Engine, sessionID string, _ *gact.Message) {
+	// QQQQQ1: cycle multi-tool sequences per session, same pattern as
+	// GGGGG1/PPPPP1. Three distinct 3-tool flows so repeated "many
+	// tools" turns produce visibly different sequences.
+	idx := e.NextCallIndex(sessionID, "multitool")
+	v := multiToolVariants[idx%len(multiToolVariants)]
+
 	e.publishStatus(sessionID, gact.StatusRunning)
 	asst, err := e.createAssistantMessage(sessionID)
 	if err != nil {
 		return
 	}
 	intro, _ := e.addPart(sessionID, asst.ID, gact.NewTextPart(""))
-	_ = e.streamText(ctx, sessionID, asst.ID, intro.ID,
-		"I'll investigate in three steps: read the file, grep for the "+
-			"problematic pattern, then propose an edit.", "text")
+	_ = e.streamText(ctx, sessionID, asst.ID, intro.ID, v.intro, "text")
 	e.completePart(sessionID, asst.ID, intro.ID)
 
-	tools := []struct {
-		name   string
-		input  string
-		result string
-	}{
-		{"read_file", `{"path":"main.go"}`, "package main\n\nfunc main() { println(\"hello\") }\n"},
-		{"grep", `{"pattern":"println","path":"."}`, "main.go:3:\tprintln(\"hello\")\n"},
-		{"edit_file", `{"path":"main.go","line":3,"new":"\tlog.Println(\"hello\")"}`, "ok"},
-	}
+	tools := v.tools
 	for i, tc := range tools {
 		callID := fmt.Sprintf("call_%s_%d", asst.ID[len(asst.ID)-6:], i)
 		toolPart, _ := e.addPart(sessionID, asst.ID,
@@ -205,9 +201,7 @@ func runMultiToolScript(ctx context.Context, e *Engine, sessionID string, _ *gac
 
 	final, _ := e.createAssistantMessage(sessionID)
 	finalP, _ := e.addPart(sessionID, final.ID, gact.NewTextPart(""))
-	_ = e.streamText(ctx, sessionID, final.ID, finalP.ID,
-		"Done. Three steps: read the file, found the `println`, swapped "+
-			"it for `log.Println`. Want a diff view instead?", "text")
+	_ = e.streamText(ctx, sessionID, final.ID, finalP.ID, v.followup, "text")
 	e.completePart(sessionID, final.ID, finalP.ID)
 	e.completeMessage(sessionID, final.ID, gact.StopReasonEndTurn)
 	e.publishStatus(sessionID, gact.StatusIdle)
@@ -552,6 +546,77 @@ var nginxAccessOutput = strings.Join([]string{
 	`203.0.113.42 - - [19/Apr/2026:09:43:30 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
 	`203.0.113.42 - - [19/Apr/2026:09:43:32 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
 }, "\n")
+
+// QQQQQ1: multiToolVariants is the cycling cast of 3-tool sequences
+// for runMultiToolScript. Each variant is a different
+// investigate→action flow so repeat "many tools" turns produce
+// visibly different sequences. Per-session counter via NextCallIndex.
+type multiToolStep struct {
+	name   string
+	input  string
+	result string
+}
+
+var multiToolVariants = []struct {
+	intro    string
+	tools    []multiToolStep
+	followup string
+}{
+	{
+		intro: "I'll investigate in three steps: read the file, grep for the " +
+			"problematic pattern, then propose an edit.",
+		tools: []multiToolStep{
+			{"read_file", `{"path":"main.go"}`, "package main\n\nfunc main() { println(\"hello\") }\n"},
+			{"grep", `{"pattern":"println","path":"."}`, "main.go:3:\tprintln(\"hello\")\n"},
+			{"edit_file", `{"path":"main.go","line":3,"new":"\tlog.Println(\"hello\")"}`, "ok"},
+		},
+		followup: "Done. Three steps: read the file, found the `println`, swapped " +
+			"it for `log.Println`. Want a diff view instead?",
+	},
+	{
+		intro: "Three-step migration check: list the schema, pull a sample row, " +
+			"verify the type matches what the new code expects.",
+		tools: []multiToolStep{
+			{"shell", `{"command":"psql -c '\\d users'"}`,
+				"                Table \"public.users\"\n" +
+					" Column     | Type           | Nullable | Default\n" +
+					"------------+----------------+----------+----------\n" +
+					" id         | uuid           | not null |\n" +
+					" email      | text           | not null |\n" +
+					" created_at | timestamp tz   | not null | now()\n"},
+			{"shell", `{"command":"psql -c 'SELECT * FROM users LIMIT 1'"}`,
+				"                  id                  |       email       |       created_at\n" +
+					"--------------------------------------+-------------------+------------------------\n" +
+					" 8a31...d7c2                          | alice@example.com | 2025-12-04 19:42:01+00\n"},
+			{"shell", `{"command":"go vet ./internal/users/..."}`, ""},
+		},
+		followup: "Schema looks healthy: uuid PK, email NOT NULL, created_at default. " +
+			"`go vet` passed too — the new code's types line up with the existing " +
+			"row shape. Migration should be safe to run.",
+	},
+	{
+		intro: "Quick triage: pull the failing test name, find the file it lives in, " +
+			"then run just that test verbose.",
+		tools: []multiToolStep{
+			{"shell", `{"command":"go test ./... 2>&1 | grep FAIL | head -3"}`,
+				"--- FAIL: TestUserAuth_RejectsBadToken (0.02s)\n" +
+					"--- FAIL: TestUserAuth_AcceptsValidJWT (0.01s)\n" +
+					"FAIL\tinternal/auth\t0.043s"},
+			{"grep", `{"pattern":"func TestUserAuth_","path":"./internal/auth"}`,
+				"./internal/auth/middleware_test.go:42:func TestUserAuth_RejectsBadToken(t *testing.T) {\n" +
+					"./internal/auth/middleware_test.go:71:func TestUserAuth_AcceptsValidJWT(t *testing.T) {"},
+			{"shell", `{"command":"go test -v -run 'TestUserAuth_AcceptsValidJWT' ./internal/auth/"}`,
+				"=== RUN   TestUserAuth_AcceptsValidJWT\n" +
+					"    middleware_test.go:78: token validation: expected 200, got 403\n" +
+					"--- FAIL: TestUserAuth_AcceptsValidJWT (0.01s)\n" +
+					"FAIL"},
+		},
+		followup: "Test file is `internal/auth/middleware_test.go`. The valid-JWT case " +
+			"is failing at line 78 — got 403 where it expected 200. Likely the " +
+			"middleware's `claims.Audience` check changed; want me to diff the " +
+			"middleware against last week?",
+	},
+}
 
 // PPPPP1: cycling cast of long-reply payloads. Each variant has a
 // distinct opening "thinking" line + body so multiple "long

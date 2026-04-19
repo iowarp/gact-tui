@@ -267,6 +267,83 @@ func TestRichScripts_MultiTool(t *testing.T) {
 	}
 }
 
+// QQQQQ1: repeat "many tools" turns must cycle through
+// multiToolVariants. Sends two turns, asserts each emits 3
+// tool.call.completed events (variant shape preserved) AND that
+// the tool *names* differ between turns — variant[1] should be
+// the schema/migration psql flow, distinct from variant[0]'s
+// read_file/grep/edit_file.
+func TestRichScripts_MultiToolVariantsCycle(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 2048)
+	defer sub.Cancel()
+
+	send := func(text string) {
+		user, _ := st.AppendMessage(gact.Message{
+			SessionID: sid, Role: gact.RoleUser,
+			Parts: []gact.Part{gact.NewTextPart(text)},
+		})
+		eng.OnUserMessage(sid, user.ID)
+		_ = collectStatusEvents(sub, 5000, 30*time.Second, gact.StatusIdle)
+	}
+	send("many tools please")
+	send("many tools again")
+
+	// Walk every assistant message; collect the tool_call part names.
+	msgs, _, _ := st.ListMessages(findMessagesFilter(sid))
+	var toolNamesPerAsst [][]string
+	for _, m := range msgs {
+		if m.Role != gact.RoleAssistant {
+			continue
+		}
+		var names []string
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall {
+				names = append(names, p.ToolName)
+			}
+		}
+		if len(names) > 0 {
+			toolNamesPerAsst = append(toolNamesPerAsst, names)
+		}
+	}
+	if len(toolNamesPerAsst) < 2 {
+		t.Fatalf("expected ≥2 multi-tool assistants, got %d (%v)",
+			len(toolNamesPerAsst), toolNamesPerAsst)
+	}
+	// Each variant emits 3 tool calls. (ListMessages is newest-first
+	// so order in toolNamesPerAsst is reverse-chronological — assert
+	// the cycle order-agnostically.)
+	for i, names := range toolNamesPerAsst[:2] {
+		if len(names) != 3 {
+			t.Errorf("turn %d: expected 3 tool calls, got %d (%v)", i, len(names), names)
+		}
+	}
+	// The two turns must have different tool-call sequences (variant
+	// cycle fired) and the union must include both variant[0]'s
+	// read_file path AND variant[1]'s shell path.
+	if strings.Join(toolNamesPerAsst[0], ",") == strings.Join(toolNamesPerAsst[1], ",") {
+		t.Errorf("turn 0 + 1 emitted same tool names %v — variant cycle didn't fire",
+			toolNamesPerAsst[0])
+	}
+	allNames := append([]string{}, toolNamesPerAsst[0]...)
+	allNames = append(allNames, toolNamesPerAsst[1]...)
+	hasShell, hasReadFile := false, false
+	for _, n := range allNames {
+		if n == "shell" {
+			hasShell = true
+		}
+		if n == "read_file" {
+			hasReadFile = true
+		}
+	}
+	if !hasShell {
+		t.Errorf("expected variant[1] (shell-based) to fire across turns; got %v", allNames)
+	}
+	if !hasReadFile {
+		t.Errorf("expected variant[0] (read_file-based) to fire across turns; got %v", allNames)
+	}
+}
+
 // findMessagesFilter is a tiny wrapper that keeps the test readable.
 // Centralises the IncludeSystem/Limit knobs so each test doesn't have
 // to re-specify them.
