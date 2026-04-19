@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T21:40Z
-**Current phase:** Phase YY (undo CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `940a9eb` and pushed
+**Last updated:** 2026-04-18T21:55Z
+**Current phase:** Phase ZZ (workspace files CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fbabf43` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,14 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase ZZ — workspace files CLI
+- **ZZ1.** `gact files list <ws-id> [--format tsv|json]` wraps
+  ListWorkspaceFiles. TSV columns: type, size, path.
+- **ZZ2.** `gact files read <ws-id> <path>` writes raw bytes to
+  stdout. Required new `client.ReadWorkspaceFile([]byte,error)`
+  that bypasses the JSON decoder (response is octet-stream).
+  CLI tests cover both verbs.
 
 ### Phase YY — undo CLI
 - **YY1.** `gact undo <sid> [--count N]` POSTs
