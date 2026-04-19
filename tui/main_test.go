@@ -197,6 +197,34 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Metrics covers JJ1: text format prints uptime / sessions /
+// messages / tokens / cost; json format emits parseable JSON with
+// uptime_s present.
+func TestCLI_Metrics(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "metrics")
+	if code != 0 {
+		t.Fatalf("metrics text: exit %d", code)
+	}
+	for _, want := range []string{"uptime:", "sessions:", "messages:", "tokens:", "cost:"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("text output missing %q: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"metrics", "--format", "json")
+	if code != 0 {
+		t.Fatalf("metrics json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"uptime_s"`) {
+		t.Errorf("json output missing uptime_s field: %q", stdout)
+	}
+}
+
 // TestCLI_ArchiveRoundTrip covers II1: archive hides from default
 // list, unarchive restores. Both exit 0 against the emulator.
 func TestCLI_ArchiveRoundTrip(t *testing.T) {
