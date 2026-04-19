@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase LLLL — gact ping --json
+
+- [x] **LLLL1.** `gact ping --json` emits a single-line JSON object on both branches: `{"ok":true,"backend":URL,"uptime_s":N}` on success, `{"ok":false,"backend":URL,"error":STR}` (with `uptime_s` if backend was reached but unhealthy) on failure. Existing text behavior unchanged when --json is absent. Existing -q still suppresses the success/unhealthy text but is overridden by --json (--json always emits one line). CLI test parses both branches with `encoding/json` to assert structured shape, not just substrings.
+
 ## Phase KKKK — perms rules list --format tsv
 
 - [x] **KKKK1.** `gact perms rules list` gains `--format json|tsv` (default kept as `json` for back-compat with existing scripting callers; `--format tsv` is the new opt-in human view). TSV columns: scope, scope_id (`*` for any), tool_pattern, path_pattern (`-` if empty), action, annotations (sorted `k=v` list or `-`). CLI test seeds two policies, asserts both rows in TSV, default JSON shape preserved, unknown format → exit 2.
