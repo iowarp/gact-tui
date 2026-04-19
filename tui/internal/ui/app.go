@@ -2720,7 +2720,17 @@ func (a *App) renderHeader() string {
 		optional = append(optional, "ws: "+a.workspaces[0].Name)
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
-		optional = append(optional, "session: "+a.sessions[a.selected].Title)
+		s := a.sessions[a.selected]
+		optional = append(optional, "session: "+s.Title)
+		// Model/agent surface what's actually running. Drop down to
+		// just the model_id so the header stays compact (the provider
+		// is rarely ambiguous in practice).
+		if s.Model.ModelID != "" {
+			optional = append(optional, "model: "+s.Model.ModelID)
+		}
+		if s.Agent.ID != "" {
+			optional = append(optional, "agent: "+s.Agent.ID)
+		}
 	}
 	statusBadge := ""
 	if a.currentStatus != "" {

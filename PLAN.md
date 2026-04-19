@@ -4,6 +4,22 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase III — tool-call/result linkage (user-flagged)
+
+- [ ] **III1.** When a turn has N>1 tool calls + N tool results, currently the renderer dumps all calls then all results in a flat list — visually you can't tell which `⎿ ...` block belongs to which `ReadFile(...)` call. Two-part fix: (a) render each tool call immediately followed by its own result block (interleaved, not grouped); (b) when a result is collapsed, show `⎿ <N lines, Ctrl+E to expand>` instead of dropping it silently. Screenshot before+after.
+
+## Phase JJJ — intro/splash screen (user-flagged)
+
+- [ ] **JJJ1.** Replace the bare "connecting…" text with an ASCII-art splash: a configurable `name` rendered in big block-letters, plus a logo above (default: Clio with a triangle on top). Both the name and the logo are read from a reference file `~/.config/gact/intro.txt` (or `--intro-file`); when absent, falls back to baked-in defaults. A `--no-intro` flag and `intro_skip: true` config bypass the splash entirely (so tests don't have to wait it out). Pressing any key during the splash transitions: → if no model/agent in config → settings modal opened to Model tab; → if both present → straight to the session list. Test with golden + a screenshot.
+
+## Phase KKK — name-based tell (user-flagged)
+
+- [x] **KKK1.** `gact tell <name> <msg>` — single verb, idempotent. First call creates a session whose title is `<name>` (anthropic/claude-opus-4-7 + default agent). Subsequent calls with the same name resolve to the existing session and append. `<name>` may be a literal `sess_<id>` (resolver short-circuits). Prints assistant reply to stdout; "created session …" notice goes to stderr only on creation. CLI test covers create→resume→both turns landing in same sid.
+
+## Phase HHH — model indicator in header
+
+- [x] **HHH1.** Header now appends `model: <model_id>  agent: <agent_id>` after the session label and before the status badge. Drops cleanly on narrow widths via the existing avail logic. Two renderer tests cover the wide-window happy path and the narrow-window fallback. Screenshot at `screenshots/66-header-model.png`.
+
 ## Phase GGG — capabilities CLI
 
 - [x] **GGG1.** `gact capabilities` (alias `caps`) wraps existing `client.Capabilities`. Text mode prints contract version, backend identity, transports, auth, then a `✓`/`·` matrix of all 23 SPEC §3.3 flags. Extensions follow. JSON dumps raw `gact.Capabilities`. CLI test asserts contract_version line, three core flag rows in text, and JSON shape.

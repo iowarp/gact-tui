@@ -307,6 +307,73 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_Tell covers user-flagged name-based session messaging:
+// `gact tell <name> <msg>` creates a session by title on first call
+// and resumes it on subsequent calls. One verb, idempotent resolution.
+func TestCLI_Tell(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	name := "tell-name-roundtrip"
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tell", name, "hello, my name is jaime")
+	if code != 0 {
+		t.Fatalf("tell create: exit %d (stderr=%q)", code, stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("tell create: expected non-empty assistant reply, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "created session") {
+		t.Errorf("tell create: expected 'created session' notice on stderr, got %q", stderr)
+	}
+
+	// Second call with the same name MUST resolve to the same sid;
+	// no "created session" notice.
+	stdout, stderr, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tell", name, "what is my name")
+	if code != 0 {
+		t.Fatalf("tell resume: exit %d (stderr=%q)", code, stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("tell resume: expected non-empty assistant reply, got %q", stdout)
+	}
+	if strings.Contains(stderr, "created session") {
+		t.Errorf("tell resume: should NOT recreate existing session, stderr=%q", stderr)
+	}
+
+	// Confirm both turns landed in the same session.
+	sidStdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"list", "--status", "idle")
+	if code != 0 {
+		t.Fatalf("list: exit %d", code)
+	}
+	var sid string
+	for _, line := range strings.Split(sidStdout, "\n") {
+		if strings.Contains(line, name) {
+			sid = strings.SplitN(line, "\t", 2)[0]
+			break
+		}
+	}
+	if sid == "" {
+		t.Fatalf("could not find session %q in list: %q", name, sidStdout)
+	}
+	logOut, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	if code != 0 {
+		t.Fatalf("log: exit %d", code)
+	}
+	if !strings.Contains(logOut, "hello, my name is jaime") || !strings.Contains(logOut, "what is my name") {
+		t.Errorf("log doesn't show both turns: %q", logOut)
+	}
+
+	// Empty message → exit 2 (usage).
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tell", name); code != 2 {
+		t.Errorf("tell missing message: expected exit 2, got %d", code)
+	}
+}
+
 // TestCLI_Capabilities covers GGG1: print contract version + flags
 // in text + JSON. Asserts seeded flags (workspaces, sessions, mcp)
 // are reported as enabled and the contract_version field appears.
