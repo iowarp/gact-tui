@@ -173,8 +173,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase MM — install + scripts dir
 
-- [ ] **MM1.** `make install` target copies the gact + emulator-server binaries into `$PREFIX/bin` (default `~/.local/bin`). Saves the "where do I put this thing" step for first-time users.
-- [ ] **MM2.** `scripts/completion.sh` helper that prints completion install instructions per shell. Pairs with `gact completion`.
+- [x] **MM1.** `make install` (with `PREFIX` / `BINDIR` overrides) copies both binaries to `$BINDIR`. `make uninstall` removes them. Tested via `PREFIX=/tmp/...` round-trip.
+- [x] **MM2.** `scripts/completion.sh` shell-aware print of `gact completion` install snippet. Bash / zsh / fish supported.
 
 ## Phase LL — summary + completion
 

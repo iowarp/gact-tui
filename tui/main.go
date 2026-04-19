@@ -108,36 +108,44 @@ func main() {
 // (e.g. tests without a module context).
 func runVersion() {
 	fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return
-	}
-	var rev, when, modified string
-	for _, s := range info.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			rev = s.Value
-		case "vcs.time":
-			when = s.Value
-		case "vcs.modified":
-			modified = s.Value
-		}
-	}
+	rev, when, dirty := readVCSInfo()
 	if rev != "" {
-		short := rev
-		if len(short) > 12 {
-			short = short[:12]
-		}
 		suffix := ""
-		if modified == "true" {
+		if dirty {
 			suffix = " (dirty)"
 		}
-		fmt.Printf("  revision: %s%s\n", short, suffix)
+		fmt.Printf("  revision: %s%s\n", rev, suffix)
 	}
 	if when != "" {
 		fmt.Printf("  built:    %s\n", when)
 	}
-	fmt.Printf("  go:       %s\n", info.GoVersion)
+	if info, ok := debug.ReadBuildInfo(); ok {
+		fmt.Printf("  go:       %s\n", info.GoVersion)
+	}
+}
+
+// readVCSInfo extracts (short revision, build time, dirty?) from
+// runtime/debug.ReadBuildInfo. Used by both `gact version` and
+// `gact diag` so the output stays consistent across both surfaces.
+func readVCSInfo() (rev, when string, dirty bool) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "", "", false
+	}
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+			if len(rev) > 12 {
+				rev = rev[:12]
+			}
+		case "vcs.time":
+			when = s.Value
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	return rev, when, dirty
 }
 
 // runEmitConfig prints a sample config.json to stdout so users have a
@@ -174,6 +182,16 @@ func runDiag() {
 	fmt.Printf("  contract:   %s\n", contractVersion)
 	fmt.Printf("  runtime:    %s\n", runtime.Version())
 	fmt.Printf("  platform:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	if rev, when, dirty := readVCSInfo(); rev != "" {
+		suffix := ""
+		if dirty {
+			suffix = " (dirty)"
+		}
+		fmt.Printf("  revision:   %s%s\n", rev, suffix)
+		if when != "" {
+			fmt.Printf("  built:      %s\n", when)
+		}
+	}
 
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
