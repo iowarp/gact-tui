@@ -972,6 +972,84 @@ func TestCLI_PermsRules(t *testing.T) {
 	}
 }
 
+// TestCLI_HooksListFilter covers XXXX1: --event filters by hook
+// event type and --scope by scope kind (global|session|workspace).
+// Seeds hooks in all three scopes so each filter has something to
+// keep + drop.
+func TestCLI_HooksListFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "hooks-filter-target")
+	add := func(args ...string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			append([]string{"hooks", "add", "--command", "/bin/true"}, args...)...)
+		if code != 0 {
+			t.Fatalf("hooks add %v: exit %d", args, code)
+		}
+		return strings.TrimSpace(stdout)
+	}
+	hGlobal := add("--event", "*")
+	hSess := add("--event", "tool.call.completed", "--session", sid)
+	hWS := add("--event", "session.status_changed", "--workspace", "ws_default")
+
+	// --event "*" keeps only global one.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list", "--event", "*")
+	if code != 0 {
+		t.Fatalf("--event *: exit %d", code)
+	}
+	if !strings.Contains(stdout, hGlobal) {
+		t.Errorf("expected global hook %s in --event * output: %q", hGlobal, stdout)
+	}
+	if strings.Contains(stdout, hSess) || strings.Contains(stdout, hWS) {
+		t.Errorf("--event * leaked non-* hooks: %q", stdout)
+	}
+
+	// --scope session keeps only the session-scoped one.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list", "--scope", "session")
+	if code != 0 {
+		t.Fatalf("--scope session: exit %d", code)
+	}
+	if !strings.Contains(stdout, hSess) {
+		t.Errorf("expected session-scoped hook %s in: %q", hSess, stdout)
+	}
+	if strings.Contains(stdout, hGlobal) || strings.Contains(stdout, hWS) {
+		t.Errorf("--scope session leaked others: %q", stdout)
+	}
+
+	// --scope workspace keeps only the workspace-scoped one.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list", "--scope", "workspace")
+	if code != 0 {
+		t.Fatalf("--scope workspace: exit %d", code)
+	}
+	if !strings.Contains(stdout, hWS) {
+		t.Errorf("expected workspace-scoped hook %s in: %q", hWS, stdout)
+	}
+	if strings.Contains(stdout, hGlobal) || strings.Contains(stdout, hSess) {
+		t.Errorf("--scope workspace leaked others: %q", stdout)
+	}
+
+	// Combined filter: --event * --scope global keeps global hook.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list", "--event", "*", "--scope", "global")
+	if code != 0 {
+		t.Fatalf("combined filter: exit %d", code)
+	}
+	if !strings.Contains(stdout, hGlobal) {
+		t.Errorf("combined filter dropped global hook: %q", stdout)
+	}
+
+	// Unknown --scope → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list", "--scope", "nope"); code != 2 {
+		t.Errorf("--scope nope: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_Hooks covers MMM3: register a hook, trigger an event,
 // verify the hook script captured the event JSON, then delete it.
 func TestCLI_Hooks(t *testing.T) {
