@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T20:10Z
-**Current phase:** Phase SS (diff CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1402b41` and pushed
+**Last updated:** 2026-04-18T20:25Z
+**Current phase:** Phase TT (search CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `282bc11` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase TT — search CLI
+- **TT1.** `gact search <sid> <query> [--format tsv|json]` wires
+  the §6.3 search endpoint into the shell. TSV output is
+  `mid<TAB>role<TAB>snippet`; one ListMessages call up front
+  resolves role per match. JSON mode pretty-prints raw match
+  objects. CLI test seeds a unique token and asserts both modes.
 
 ### Phase SS — diff CLI
 - **SS1.** `gact diff list/apply/reject` mirrors the TUI a/r body
