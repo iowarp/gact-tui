@@ -221,6 +221,39 @@ func TestCLI_Ping(t *testing.T) {
 	if code != 1 {
 		t.Errorf("ping unreachable: exit %d, want 1", code)
 	}
+
+	// LLLL1: --json emits a single-line JSON object on success +
+	// failure (with error key on the unreachable case).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "ping", "--json")
+	if code != 0 {
+		t.Fatalf("ping --json live: exit %d, stdout=%q", code, stdout)
+	}
+	var ok struct {
+		OK       bool   `json:"ok"`
+		Backend  string `json:"backend"`
+		UptimeS  int    `json:"uptime_s"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &ok); err != nil {
+		t.Fatalf("ping --json parse: %v (raw=%q)", err, stdout)
+	}
+	if !ok.OK || ok.Backend != url {
+		t.Errorf("expected ok=true, backend=%s; got %+v", url, ok)
+	}
+	stdout, _, code = runGact(t, bin,
+		map[string]string{"GACT_BACKEND": "http://127.0.0.1:1"}, "ping", "--json")
+	if code != 1 {
+		t.Errorf("ping --json unreachable: exit %d, want 1", code)
+	}
+	var bad struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &bad); err != nil {
+		t.Fatalf("ping --json fail parse: %v (raw=%q)", err, stdout)
+	}
+	if bad.OK || bad.Error == "" {
+		t.Errorf("expected ok=false + non-empty error; got %+v", bad)
+	}
 }
 
 // TestCLI_Diff covers SS1: trigger a diff scenario, list it
