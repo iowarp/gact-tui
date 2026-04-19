@@ -3023,6 +3023,56 @@ func TestCLI_Tail(t *testing.T) {
 	}
 }
 
+// TestCLI_TailFormatText covers TTTT1: --format text on `gact tail`
+// emits the same human-readable rows as `gact stream` (HH:MM:SS
+// type summary). Default JSON behavior unchanged.
+func TestCLI_TailFormatText(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	cmd := exec.Command(bin, "tail", "--workspace", "ws_default", "--format", "text")
+	cmd.Env = append(os.Environ(), "GACT_BACKEND="+url)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start tail: %v", err)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	out := stdout.String()
+	if strings.Contains(out, `"type"`) || strings.Contains(out, `"seq"`) {
+		t.Errorf("text mode should not emit JSON keys: %q", out)
+	}
+	if !strings.Contains(out, "server.connected") {
+		t.Errorf("missed server.connected row: %q", out)
+	}
+	// Human row format is "HH:MM:SS  type [summary]" — first field
+	// must look like a clock time.
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			t.Errorf("malformed row: %q", line)
+			continue
+		}
+		if !strings.Contains(fields[0], ":") || len(fields[0]) != 8 {
+			t.Errorf("first field doesn't look like HH:MM:SS: %q (line=%q)", fields[0], line)
+		}
+	}
+
+	// Unknown format → exit 2 quickly.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tail", "--workspace", "ws_default", "--format", "yaml"); code != 2 {
+		t.Errorf("tail --format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_ExportAllParallel covers QQQQ1: with N>workers sessions
 // the bounded-pool fanout still exports everything. Seeds 12
 // sessions (workers=8) so the pool must reuse slots, then asserts

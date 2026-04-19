@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase TTTT — gact tail --format text
+
+- [x] **TTTT1.** `gact tail --format text` reuses `streamRow()` (the same human-readable formatter `gact stream` uses) so live debugging doesn't require piping NDJSON through `jq`. Default kept as `json` (NDJSON) for back-compat with existing tooling. CLI test runs tail in --format text bounded by sleep+kill, asserts no JSON keys leak through, the `server.connected` row appears, and every line starts with an `HH:MM:SS` time field. Unknown format → exit 2.
+
 ## Phase SSSS — gact watch --format json (NDJSON state changes)
 
 - [x] **SSSS1.** `gact watch <sid> --format json` emits one NDJSON record per state change: `{ts,sid,status,message_count,tokens_out}`. Default tsv unchanged. Same trigger logic (status flip OR msg/token-count delta). Idle-streak exit semantics preserved. CLI test fires a turn in a goroutine, runs watch in --format json, asserts ≥2 NDJSON rows, every line parses, sid is consistent, and an idle-status row appears before the run terminates. Unknown format → exit 2.

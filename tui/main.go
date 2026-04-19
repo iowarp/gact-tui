@@ -339,7 +339,7 @@ Usage:
   gact emit-config           print sample config.json to stdout
   gact list                  list recent sessions (tab-separated)
   gact export --all -o DIR   bulk-export every session as JSON files
-  gact tail [SID]            stream SSE events as JSON lines
+  gact tail [SID]            stream SSE events (NDJSON default; --format text for human one-liners)
   gact ping                  probe /v1/health (exit 0 if healthy)
   gact send <sid> <text|->   post a user message to a session
   gact wait <sid>            block until the session status is idle
@@ -5442,12 +5442,21 @@ func runTail(args []string) int {
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "workspace-scoped stream (when no session_id)")
 	filter := fs.String("filter", "", "comma-separated event types to keep (e.g. permission.requested,tool.call.completed); empty = all")
+	// TTTT1: --format text reuses the runStream `streamRow()`
+	// human-readable formatter. Default kept as json (NDJSON) for
+	// back-compat with existing scripting callers.
+	format := fs.String("format", "json", "json (NDJSON) | text (one human-readable line per event, like `gact stream`)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--filter": true, "-filter": true,
+		"--format": true, "-format": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *format != "json" && *format != "text" {
+		fmt.Fprintf(os.Stderr, "gact tail: unknown format %q (want json|text)\n", *format)
 		return 2
 	}
 	// RRR1: parse --filter into a quick-lookup set; nil means "all".
@@ -5498,6 +5507,12 @@ func runTail(args []string) int {
 			// RRR1: when --filter is set, drop events whose type
 			// isn't in the keep set. nil keep = passthrough.
 			if keep != nil && !keep[e.Type] {
+				continue
+			}
+			// TTTT1: --format text reuses streamRow() so the human-
+			// readable view matches `gact stream` exactly.
+			if *format == "text" {
+				fmt.Println(streamRow(e))
 				continue
 			}
 			record := map[string]any{
