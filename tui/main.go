@@ -1645,13 +1645,15 @@ func runConformance(args []string) int {
 func runBench(args []string) int {
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	n := fs.Int("n", 5, "number of turns")
+	n := fs.Int("n", 5, "number of turns per goroutine")
+	concurrent := fs.Int("concurrent", 1, "number of parallel goroutines (XXX1)")
 	message := fs.String("message", "say hello in one word", "message body for each turn")
 	wsID := fs.String("workspace", "", "workspace id (default: first listed)")
 	timeout := fs.Duration("timeout", 5*time.Minute, "per-turn timeout")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"-n": true, "--n": true,
+		"--concurrent": true, "-concurrent": true,
 		"--message": true, "-message": true,
 		"--workspace": true, "-workspace": true,
 		"--timeout": true, "-timeout": true,
@@ -1661,6 +1663,10 @@ func runBench(args []string) int {
 	}
 	if *n < 1 {
 		fmt.Fprintln(os.Stderr, "gact bench: -n must be >= 1")
+		return 2
+	}
+	if *concurrent < 1 {
+		fmt.Fprintln(os.Stderr, "gact bench: --concurrent must be >= 1")
 		return 2
 	}
 
@@ -1683,59 +1689,34 @@ func runBench(args []string) int {
 		cancel()
 	}
 
-	createCtx, createCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	sess, err := c.CreateSession(createCtx, client.CreateSessionRequest{
-		WorkspaceID: *wsID,
-		Title:       "bench " + time.Now().UTC().Format("15:04:05"),
-		Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
-		Agent:       &gact.AgentRef{ID: "default"},
-	})
-	createCancel()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "gact bench: create session: %v\n", err)
-		return 1
+	// XXX1: spawn `concurrent` goroutines, each running its own
+	// session × N serial turns. Aggregate durations across all
+	// goroutines so percentiles cover the whole load.
+	type result struct {
+		durations []time.Duration
+		err       error
 	}
-
-	durations := make([]time.Duration, 0, *n)
+	results := make([]result, *concurrent)
+	var wg sync.WaitGroup
 	totalStart := time.Now()
-	for i := 0; i < *n; i++ {
-		turnStart := time.Now()
-		postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		if _, err := c.PostMessage(postCtx, sess.ID, client.PostMessageRequest{
-			Parts: []gact.Part{{Type: gact.PartTypeText, Text: *message}},
-		}); err != nil {
-			postCancel()
-			fmt.Fprintf(os.Stderr, "gact bench: turn %d send: %v\n", i+1, err)
-			return 1
-		}
-		postCancel()
-		// Poll for idle.
-		deadline := time.Now().Add(*timeout)
-		for {
-			pollCtx, pollCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			s, err := c.GetSession(pollCtx, sess.ID)
-			pollCancel()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "gact bench: turn %d poll: %v\n", i+1, err)
-				return 1
-			}
-			if s.Status == gact.StatusIdle {
-				break
-			}
-			if time.Now().After(deadline) {
-				fmt.Fprintf(os.Stderr, "gact bench: turn %d timeout (status=%s)\n", i+1, s.Status)
-				return 2
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-		durations = append(durations, time.Since(turnStart))
+	for w := 0; w < *concurrent; w++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx] = runBenchWorker(c, *wsID, *n, *message, *timeout, idx)
+		}(w)
 	}
+	wg.Wait()
 	totalElapsed := time.Since(totalStart)
 
-	// Cleanup: delete the bench session so we don't pollute the list.
-	delCtx, delCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	_ = c.DeleteSession(delCtx, sess.ID)
-	delCancel()
+	var durations []time.Duration
+	for i, r := range results {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "gact bench: worker %d: %v\n", i, r.err)
+			return 1
+		}
+		durations = append(durations, r.durations...)
+	}
 
 	// Stats.
 	sorted := append([]time.Duration(nil), durations...)
@@ -1756,15 +1737,82 @@ func runBench(args []string) int {
 	}
 	avg := sum / time.Duration(len(durations))
 
-	fmt.Printf("gact bench  backend=%s  n=%d  message=%q\n", finalBackend, *n, *message)
-	fmt.Printf("  total:  %s\n", totalElapsed.Round(time.Millisecond))
-	fmt.Printf("  avg:    %s\n", avg.Round(time.Millisecond))
-	fmt.Printf("  p50:    %s\n", pct(0.50).Round(time.Millisecond))
-	fmt.Printf("  p90:    %s\n", pct(0.90).Round(time.Millisecond))
-	fmt.Printf("  p99:    %s\n", pct(0.99).Round(time.Millisecond))
-	fmt.Printf("  min:    %s\n", sorted[0].Round(time.Millisecond))
-	fmt.Printf("  max:    %s\n", sorted[len(sorted)-1].Round(time.Millisecond))
+	fmt.Printf("gact bench  backend=%s  n=%d  concurrent=%d  message=%q\n",
+		finalBackend, *n, *concurrent, *message)
+	fmt.Printf("  total:    %s\n", totalElapsed.Round(time.Millisecond))
+	fmt.Printf("  samples:  %d\n", len(durations))
+	fmt.Printf("  avg:      %s\n", avg.Round(time.Millisecond))
+	fmt.Printf("  p50:      %s\n", pct(0.50).Round(time.Millisecond))
+	fmt.Printf("  p90:      %s\n", pct(0.90).Round(time.Millisecond))
+	fmt.Printf("  p99:      %s\n", pct(0.99).Round(time.Millisecond))
+	fmt.Printf("  min:      %s\n", sorted[0].Round(time.Millisecond))
+	fmt.Printf("  max:      %s\n", sorted[len(sorted)-1].Round(time.Millisecond))
+	if *concurrent > 1 {
+		// Throughput: total turns ÷ wall clock.
+		thrpt := float64(len(durations)) / totalElapsed.Seconds()
+		fmt.Printf("  thrpt:    %.2f turns/s\n", thrpt)
+	}
 	return 0
+}
+
+// runBenchWorker is one parallel bench goroutine: creates a session,
+// runs N turns serially, deletes when done, returns durations + any
+// error. Each worker owns its session, so fan-out doesn't contend on
+// session-level locks in the backend.
+func runBenchWorker(c *client.Client, wsID string, n int, message string, timeout time.Duration, idx int) (out struct {
+	durations []time.Duration
+	err       error
+}) {
+	createCtx, createCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	sess, err := c.CreateSession(createCtx, client.CreateSessionRequest{
+		WorkspaceID: wsID,
+		Title:       fmt.Sprintf("bench-%d %s", idx, time.Now().UTC().Format("15:04:05")),
+		Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+		Agent:       &gact.AgentRef{ID: "default"},
+	})
+	createCancel()
+	if err != nil {
+		out.err = fmt.Errorf("create session: %w", err)
+		return
+	}
+	defer func() {
+		delCtx, delCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_ = c.DeleteSession(delCtx, sess.ID)
+		delCancel()
+	}()
+	out.durations = make([]time.Duration, 0, n)
+	for i := 0; i < n; i++ {
+		turnStart := time.Now()
+		postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if _, err := c.PostMessage(postCtx, sess.ID, client.PostMessageRequest{
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: message}},
+		}); err != nil {
+			postCancel()
+			out.err = fmt.Errorf("turn %d send: %w", i+1, err)
+			return
+		}
+		postCancel()
+		deadline := time.Now().Add(timeout)
+		for {
+			pollCtx, pollCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			s, err := c.GetSession(pollCtx, sess.ID)
+			pollCancel()
+			if err != nil {
+				out.err = fmt.Errorf("turn %d poll: %w", i+1, err)
+				return
+			}
+			if s.Status == gact.StatusIdle {
+				break
+			}
+			if time.Now().After(deadline) {
+				out.err = fmt.Errorf("turn %d timeout (status=%s)", i+1, s.Status)
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		out.durations = append(out.durations, time.Since(turnStart))
+	}
+	return
 }
 
 // runVoice implements `gact voice <sid> <audio-file|->`. Reads the

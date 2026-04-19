@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase XXX — concurrent bench
+
+- [x] **XXX1.** `gact bench --concurrent C` ships. Refactored runBench into a worker pool: C goroutines each own a session and run N turns serially. Aggregate stats across all C×N samples + a `thrpt` line (turns/s) shown only when concurrent>1. Default C=1 = old serial behaviour. Test extended to cover both modes + asserts thrpt hidden in serial mode.
+
 ## Phase WWW — cross-session grep
 
 - [x] **WWW1.** `gact grep <query>` ships. Cross-session SearchMessages with a 8-wide goroutine pool. Each session's matches fetch a ListMessages call to map mid→role. Sorted by sid for stable output. TSV format `sid<TAB>title<TAB>mid<TAB>role<TAB>snippet`; JSON dumps the hit slice. CLI test seeds two sessions with a unique token + asserts both surface.

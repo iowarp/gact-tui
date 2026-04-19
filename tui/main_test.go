@@ -813,9 +813,9 @@ func TestCLI_TailFilter(t *testing.T) {
 	}
 }
 
-// TestCLI_Bench covers QQQ1: small N=2 bench, asserts the summary
-// table mentions p50/p90/p99 and that the bench session was cleaned
-// up (delete after run).
+// TestCLI_Bench covers QQQ1 + XXX1: serial run (concurrent=1) and
+// parallel run (--concurrent 3 -n 2 = 6 samples), asserts summary
+// fields appear and bench sessions are cleaned up.
 func TestCLI_Bench(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
@@ -829,13 +829,28 @@ func TestCLI_Bench(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("bench: exit %d", code)
 	}
-	for _, want := range []string{"p50:", "p90:", "p99:", "n=2"} {
+	for _, want := range []string{"p50:", "p90:", "p99:", "n=2", "samples:  2"} {
 		if !strings.Contains(stdout, want) {
-			t.Errorf("expected %q in bench output: %q", want, stdout)
+			t.Errorf("expected %q in serial bench output: %q", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, "thrpt:") {
+		t.Errorf("thrpt should be hidden when concurrent=1: %q", stdout)
+	}
+
+	// XXX1: --concurrent 3, -n 2 → 6 samples + thrpt line.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"bench", "-n", "2", "--concurrent", "3", "--message", "hi")
+	if code != 0 {
+		t.Fatalf("bench --concurrent: exit %d", code)
+	}
+	for _, want := range []string{"concurrent=3", "samples:  6", "thrpt:"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in concurrent bench output: %q", want, stdout)
 		}
 	}
 
-	// Bench session must be deleted — list count back to baseline.
+	// Bench sessions must be deleted — list count back to baseline.
 	postList, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
 	postCount := strings.Count(postList, "\n")
 	if postCount != preCount {
