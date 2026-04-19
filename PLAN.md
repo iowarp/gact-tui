@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase JJ — observability
+
+- [x] **JJ1.** `gact metrics [--format text|json]` summarises uptime / session counts / token totals / cost. JSON format for scrapers, text for humans. CLI test for both.
+
 ## Phase II — archive + completion
 
 - [x] **II1.** `gact archive <sid>` / `gact unarchive <sid>` — flip session.archived. Single runArchive(args, archived bool) handles both. CLI test exercises new → archive (gone) → unarchive (restored).
