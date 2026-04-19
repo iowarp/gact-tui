@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T07:00Z
-**Current phase:** ZZZ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `58592f1` and pushed
+**Last updated:** 2026-04-19T07:15Z
+**Current phase:** ZZZ1 + AAAA1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ace0116` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase AAAA — conformance MMM coverage
+- **AAAA1.** Conformance suite gained Hooks/Policies/Tasks
+  sections, each gated by the matching capability flag. New
+  Skip{Hooks,Policies,Tasks} options + matching --skip names in
+  the CLI. Manual e2e: 13/13 sections green vs emulator.
 
 ### Phase ZZZ — gact follow
 - **ZZZ1.** `gact follow <sid>` ships. Snapshots existing log,
