@@ -629,6 +629,44 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_Dashboard covers VVV1: pretty + tsv + json modes all
+// surface session rows with the key columns.
+func TestCLI_Dashboard(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	_ = createSession(t, url, "dash-row-1")
+	_ = createSession(t, url, "dash-row-2")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "dashboard")
+	if code != 0 {
+		t.Fatalf("dashboard: exit %d", code)
+	}
+	for _, want := range []string{"ID", "STATUS", "MODEL", "COST", "dash-row-1", "dash-row-2"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in pretty output: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dashboard", "--format", "tsv")
+	if code != 0 {
+		t.Fatalf("dashboard tsv: exit %d", code)
+	}
+	if !strings.Contains(stdout, "ID\tSTATUS\tTITLE") {
+		t.Errorf("expected TSV header: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dashboard", "--format", "json")
+	if code != 0 {
+		t.Fatalf("dashboard json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id"`) || !strings.Contains(stdout, `"cost_usd"`) {
+		t.Errorf("expected JSON fields: %q", stdout)
+	}
+}
+
 // TestCLI_LogSince covers TTT1: send two messages with a sleep
 // between, --since 50ms keeps only the latest, --since 1h keeps
 // both.
