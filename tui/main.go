@@ -86,6 +86,8 @@ func main() {
 			os.Exit(runSummarize(os.Args[2:]))
 		case "context":
 			os.Exit(runContext(os.Args[2:]))
+		case "catalog":
+			os.Exit(runCatalog(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -285,6 +287,7 @@ Usage:
   gact context list <sid>    list session context files (mode + path)
   gact context add <sid> <p> attach a file (--mode read|edit|pin)
   gact context rm <sid> <p>  detach a file
+  gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -422,6 +425,108 @@ func runDelete(args []string) int {
 	if err := c.DeleteSession(ctx, sid); err != nil {
 		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runCatalog browses the catalog endpoints from the shell:
+//
+//	gact catalog tools     — id  name        description
+//	gact catalog agents    — id  title       description
+//	gact catalog mcp       — id  status      transport
+//	gact catalog commands  — id  source      title
+//
+// Tab-separated output so shell pipelines can grep / awk it. Use
+// `gact catalog tools --format json` for the raw response shape.
+func runCatalog(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact catalog tools|agents|mcp|commands [--format tsv|json]")
+		return 2
+	}
+	kind := args[0]
+	rest := args[1:]
+	fs := flag.NewFlagSet("catalog "+kind, flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "output format: tsv | json")
+	if err := fs.Parse(rest); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var (
+		payload  any
+		printTSV func()
+	)
+	switch kind {
+	case "tools":
+		out, err := c.ListTools(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact catalog tools: %v\n", err)
+			return 1
+		}
+		payload = out
+		printTSV = func() {
+			for _, t := range out {
+				fmt.Printf("%s\t%s\n", t.Name, t.Description)
+			}
+		}
+	case "agents":
+		out, err := c.ListAgents(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact catalog agents: %v\n", err)
+			return 1
+		}
+		payload = out
+		printTSV = func() {
+			for _, a := range out {
+				fmt.Printf("%s\t%s\t%s\n", a.ID, a.Title, a.Description)
+			}
+		}
+	case "mcp":
+		out, err := c.ListMcpServers(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact catalog mcp: %v\n", err)
+			return 1
+		}
+		payload = out
+		printTSV = func() {
+			for _, s := range out {
+				fmt.Printf("%s\t%s\t%s\n", s.ID, s.Status, s.Transport)
+			}
+		}
+	case "commands":
+		out, err := c.ListCommands(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact catalog commands: %v\n", err)
+			return 1
+		}
+		payload = out
+		printTSV = func() {
+			for _, cm := range out {
+				fmt.Printf("%s\t%s\t%s\n", cm.ID, cm.Source, cm.Title)
+			}
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "gact catalog: unknown kind %q (want tools|agents|mcp|commands)\n", kind)
+		return 2
+	}
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(payload); err != nil {
+			fmt.Fprintf(os.Stderr, "gact catalog: encode: %v\n", err)
+			return 1
+		}
+	case "tsv", "":
+		printTSV()
+	default:
+		fmt.Fprintf(os.Stderr, "gact catalog: unknown format %q (want tsv|json)\n", *format)
+		return 2
 	}
 	return 0
 }
@@ -846,7 +951,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
+    cmds="archive ask cancel catalog completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -866,7 +971,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait)
+    cmds=(archive ask cancel catalog completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -879,7 +984,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag emit-config export import list log metrics new ping quick rename run send summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

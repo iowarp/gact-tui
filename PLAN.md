@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase NN — context CLI
 
-- [ ] **NN1.** `gact context list <sid>`, `gact context add <sid> <path> [--mode read|edit|pin]`, `gact context rm <sid> <path>` — manage session context files from shell. Backs the same `/v1/sessions/{id}/context/files` endpoints the TUI's `o` key + sidebar CONTEXT panel use.
+- [x] **NN1.** `gact context {list,add,rm} <sid> [path] [--mode]` — verb-then-flags shape (git/kubectl style). Round-trip CLI test exercises list → add ×2 → list → rm → list. Completion scripts list `context`.
 
 ## Phase MM — install + scripts dir
 
