@@ -25,6 +25,12 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase II — archive + completion
+- **II1.** `gact archive <sid>` / `gact unarchive <sid>` flip
+  session.archived. Round-trip CLI test.
+- **II2.** `gact completion bash|zsh|fish` emits a shell completion
+  script. CLI test for all three shells.
+
 ### Phase GG / HH — session lifecycle CLI
 - **GG1.** `gact new [--title T] [--workspace WS_ID]` prints a fresh
   session id; pairs with `gact ask` for "create + ask" pipelines.

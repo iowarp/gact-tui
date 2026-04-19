@@ -173,8 +173,8 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase II — archive + completion
 
-- [ ] **II1.** `gact archive <sid>` and `gact unarchive <sid>` — PATCH `archived` true/false. Pairs with the TUI's `A` key + `h` toggle but reachable from shell.
-- [ ] **II2.** `gact completion bash|zsh|fish` — emit a shell completion script for the gact subcommands. Cargo cult from kubectl/docker/etc.
+- [x] **II1.** `gact archive <sid>` / `gact unarchive <sid>` — flip session.archived. Single runArchive(args, archived bool) handles both. CLI test exercises new → archive (gone) → unarchive (restored).
+- [x] **II2.** `gact completion bash|zsh|fish` — static scripts; `gact completion bash > /etc/bash_completion.d/gact` works. CLI test verifies all three shells emit a non-empty script.
 
 ## Phase HH — session management CLI
 
