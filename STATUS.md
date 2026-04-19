@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T22:35Z
-**Current phase:** NNNNN1 + OOOOO1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `285a524` and pushed
+**Last updated:** 2026-04-19T22:55Z
+**Current phase:** PPPPP1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9513a7a` and pushed
 **Open:** none
+
+### Phase PPPPP — long-reply scenario variants
+- **PPPPP1.** `runLongScript` cycles through 3 distinct long
+  writeups per session via `NextCallIndex`. variant[0] = existing
+  rendering memo (preserved); [1] = request-lifecycle
+  architecture trace; [2] = profiling-triage runbook. Pairs with
+  FFFFF1's cursor-aware Ctrl+E.
 
 ### Phase OOOOO — gact perms list --format json
 - **OOOOO1.** Returns raw `[]PermissionWire` with full
