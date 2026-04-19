@@ -3576,7 +3576,11 @@ func runDumpBundle(args []string) int {
 	fs := flag.NewFlagSet("dump-bundle", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	out := fs.String("o", "gact-bundle", "output directory")
-	known := map[string]bool{"--backend": true, "-backend": true, "-o": true}
+	since := fs.Duration("since", 0, "include only sessions with UpdatedAt within the last DUR (EEEE1)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true, "-o": true,
+		"--since": true, "-since": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
@@ -3654,6 +3658,21 @@ func runDumpBundle(args []string) int {
 	listCancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact dump-bundle: list sessions: %v (continuing)\n", err)
+	}
+	// EEEE1: --since filter — drop sessions whose UpdatedAt is older
+	// than the cutoff. Sessions with zero UpdatedAt always survive
+	// (defensive against backends that don't stamp).
+	if *since > 0 {
+		cutoff := time.Now().UTC().Add(-*since)
+		filtered := sessions[:0]
+		for _, s := range sessions {
+			if s.UpdatedAt.IsZero() || !s.UpdatedAt.Before(cutoff) {
+				filtered = append(filtered, s)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "gact dump-bundle: --since %s kept %d/%d sessions\n",
+			*since, len(filtered), len(sessions))
+		sessions = filtered
 	}
 	ok := 0
 	for _, s := range sessions {

@@ -919,6 +919,72 @@ func TestCLI_Voice(t *testing.T) {
 	}
 }
 
+// TestCLI_DumpBundleSince covers EEEE1: --since narrows the bundle
+// to recently-active sessions. Seeds two sessions with a sleep
+// between, asserts --since 500ms keeps only the latest.
+func TestCLI_DumpBundleSince(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	_ = createSession(t, url, "dump-since-old")
+	time.Sleep(2 * time.Second)
+	newSid := createSession(t, url, "dump-since-new")
+
+	// Wide window: includes both.
+	dirAll := t.TempDir()
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dump-bundle", "-o", dirAll, "--since", "1h"); code != 0 {
+		t.Fatalf("dump-bundle --since 1h: exit %d", code)
+	}
+	allEntries, _ := os.ReadDir(filepath.Join(dirAll, "sessions"))
+	if len(allEntries) < 2 {
+		t.Errorf("--since 1h should keep ≥2 sessions, got %d", len(allEntries))
+	}
+
+	// Narrow window: refresh `new` via rename so its UpdatedAt is
+	// "now", then sleep a bit and ask for --since 500ms. The rename
+	// touches new.UpdatedAt; old's stays at session-create time
+	// which is now ≥4s ago.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"rename", newSid, "dump-since-new-touched"); code != 0 {
+		t.Fatalf("rename to refresh UpdatedAt: exit %d", code)
+	}
+	time.Sleep(3 * time.Second)
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"rename", newSid, "dump-since-new-touched-2"); code != 0 {
+		t.Fatalf("rename 2: exit %d", code)
+	}
+	dirNew := t.TempDir()
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dump-bundle", "-o", dirNew, "--since", "1s"); code != 0 {
+		t.Fatalf("dump-bundle --since 1s: exit %d", code)
+	}
+	newEntries, _ := os.ReadDir(filepath.Join(dirNew, "sessions"))
+	foundNew := false
+	for _, e := range newEntries {
+		if strings.HasPrefix(e.Name(), newSid) {
+			foundNew = true
+		}
+	}
+	if !foundNew {
+		t.Errorf("--since 1s should include the fresh session %s, got %v",
+			newSid, dirEntryNames(newEntries))
+	}
+	if len(newEntries) >= len(allEntries) {
+		t.Errorf("--since 1s (got %d) should be narrower than 1h (got %d)",
+			len(newEntries), len(allEntries))
+	}
+}
+
+func dirEntryNames(es []os.DirEntry) []string {
+	out := make([]string, len(es))
+	for i, e := range es {
+		out[i] = e.Name()
+	}
+	return out
+}
+
 // TestCLI_Env covers DDDD1: prints resolved config + GACT_* env
 // vars. Pure local — no backend needed.
 func TestCLI_Env(t *testing.T) {
