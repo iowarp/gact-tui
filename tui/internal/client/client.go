@@ -438,6 +438,33 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 	return out.Entries, err
 }
 
+// ReadWorkspaceFile fetches the raw bytes of a workspace-rooted file
+// via /v1/workspaces/{id}/files/read?path=... Used for the M6 file
+// preview and for shell scripts that want to pipe a file's content
+// without round-tripping through the local filesystem.
+func (c *Client) ReadWorkspaceFile(ctx context.Context, workspaceID, path string) ([]byte, error) {
+	req, err := c.req(ctx, http.MethodGet,
+		"/v1/workspaces/"+workspaceID+"/files/read?path="+url.QueryEscape(path), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		var e gact.Error
+		_ = json.NewDecoder(resp.Body).Decode(&e)
+		return nil, &Error{
+			Status:  resp.StatusCode,
+			Code:    e.Error.Code,
+			Message: e.Error.Message,
+		}
+	}
+	return io.ReadAll(resp.Body)
+}
+
 // SessionExportBlob mirrors emulator/internal/server.SessionExport so the
 // TUI can use the export/import endpoints without depending on emulator
 // internals.
