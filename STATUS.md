@@ -1,9 +1,21 @@
 # STATUS
 
-**Last updated:** 2026-04-20T00:35Z
-**Current phase:** TTTTT1 + UUUUU1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `81609e2` and pushed
-**Open:** none
+**Last updated:** 2026-04-20T00:55Z
+**Current phase:** VVVVV1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b3e56e7` and pushed
+**Open:**
+  - Cursor follows scroll (#154) — body cursor stays at the
+    selected message even after ↑ scrolls it offscreen
+  - Tool output more visually distinct (#155) — user wants
+    Claude-Code-grade contrast on `⎿ ...` body
+  - Shift+Enter newline still not landing (terminal-fold issue)
+  - Settings still shallow — paste-compress + intro toggle
+
+### Phase VVVVV — input prompt `>` only on first row
+- **VVVVV1.** User feedback: textarea `>` repeated on every
+  wrapped row. Switched to `SetPromptFunc` — row 0 = `> `,
+  continuation rows = `  `. Goldens regen. Screenshot:
+  `screenshots/VVVVV1_prompt_first_row_only.png`.
 
 ### Phase UUUUU — conformance Files section
 - **UUUUU1.** Conformance gains a `Files` section (gated on
