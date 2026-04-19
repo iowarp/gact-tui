@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T14:15Z
-**Current phase:** SSSS1 + TTTT1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4b2071c` and pushed
+**Last updated:** 2026-04-19T14:25Z
+**Current phase:** UUUU1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d00d89` and pushed
 **Open:** none
+
+### Phase UUUU — gact stream --filter
+- **UUUU1.** `gact stream --filter type1,type2` mirrors
+  `gact tail --filter` (RRR1) for the human view. Empty filter =
+  passthrough (back-compat). CLI test fires an mcp reconnect to
+  trigger a notification, asserts it's kept and server.connected
+  is dropped.
 
 ### Phase TTTT — gact tail --format text
 - **TTTT1.** `gact tail --format text` reuses streamRow() (same
