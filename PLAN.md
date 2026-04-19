@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase QQQ — bench
+
+- [x] **QQQ1.** `gact bench [-n N] [--message TEXT] [--workspace] [--timeout]` ships. Creates a fresh session, runs N turns serially, polls each send→idle for per-turn duration, computes p50/p90/p99/avg/min/max/total, deletes the session, prints a summary table. CLI test asserts the table fields appear and the session is cleaned up (post-bench list count == pre).
+
 ## Phase PPP — voice CLI
 
 - [x] **PPP1.** `gact voice <sid> <audio-file|->` ships. Wraps `client.VoiceTranscribe`. Reads file or stdin, defaults `--mime audio/wav`, prints recognised text on stdout. CLI test feeds a deterministic file + asserts non-empty transcription, plus exit-2 on empty audio.

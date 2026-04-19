@@ -629,6 +629,36 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_Bench covers QQQ1: small N=2 bench, asserts the summary
+// table mentions p50/p90/p99 and that the bench session was cleaned
+// up (delete after run).
+func TestCLI_Bench(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	preList, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	preCount := strings.Count(preList, "\n")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"bench", "-n", "2", "--message", "hi")
+	if code != 0 {
+		t.Fatalf("bench: exit %d", code)
+	}
+	for _, want := range []string{"p50:", "p90:", "p99:", "n=2"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in bench output: %q", want, stdout)
+		}
+	}
+
+	// Bench session must be deleted — list count back to baseline.
+	postList, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	postCount := strings.Count(postList, "\n")
+	if postCount != preCount {
+		t.Errorf("bench leaked sessions: pre=%d post=%d", preCount, postCount)
+	}
+}
+
 // TestCLI_Voice covers PPP1: feed an audio file to gact voice,
 // verify the transcribed text comes back non-empty.
 func TestCLI_Voice(t *testing.T) {
