@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T12:10Z
-**Current phase:** MMMM1 + NNNN1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cf625a4` and pushed
+**Last updated:** 2026-04-19T12:35Z
+**Current phase:** OOOO1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4415db2` and pushed
 **Open:** none
+
+### Phase OOOO — gact info --include tasks,hooks
+- **OOOO1.** `gact info <sid> --include tasks,hooks` adds composite
+  sections so a single call returns session metadata + tasks +
+  effective hooks (global + workspace + session-scoped). Text
+  mode appends `--- tasks ---` / `--- hooks ---` blocks; JSON
+  mode wraps as `{session, tasks?, hooks?}`. CLI test seeds two
+  tasks (one completed) + one hook, asserts both modes parse
+  correctly. Unknown --include token → exit 2.
 
 ### Phase NNNN — gact follow --format json (NDJSON)
 - **NNNN1.** `gact follow <sid> --format json` emits NDJSON for
