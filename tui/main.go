@@ -1536,10 +1536,13 @@ func runDashboard(args []string) int {
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
 	format := fs.String("format", "pretty", "pretty | tsv | json")
+	watch := fs.Bool("watch", false, "re-render every --interval (BBBB1)")
+	interval := fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
+		"--interval": true, "-interval": true,
 	})); err != nil {
 		return 2
 	}
@@ -1551,15 +1554,52 @@ func runDashboard(args []string) int {
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	c := client.New(finalBackend)
+
+	if !*watch {
+		// One-shot path (back-compat).
+		return renderDashboardOnce(c, *wsID, *format)
+	}
+
+	// BBBB1: watch loop. ANSI clear-screen + cursor-home between
+	// frames so each render replaces the previous in place. Caller
+	// uses Ctrl+C to exit.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tick := time.NewTicker(*interval)
+	defer tick.Stop()
+	first := true
+	for {
+		if first || true {
+			fmt.Print("\033[2J\033[H") // clear + home
+			fmt.Printf("gact dashboard --watch  backend=%s  refresh=%s  (Ctrl+C to exit)\n\n",
+				finalBackend, *interval)
+			if code := renderDashboardOnce(c, *wsID, *format); code != 0 {
+				cancel()
+				return code
+			}
+			first = false
+		}
+		select {
+		case <-ctx.Done():
+			return 0
+		case <-tick.C:
+		}
+	}
+}
+
+// renderDashboardOnce runs a single dashboard fetch+print. Extracted
+// from runDashboard so --watch can call it on each tick. Returns
+// the exit code (non-zero on backend error).
+func renderDashboardOnce(c *client.Client, wsID, format string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact dashboard: %v\n", err)
 		return 1
 	}
 
-	if *format == "json" {
+	if format == "json" {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(sessions)
@@ -1599,7 +1639,7 @@ func runDashboard(args []string) int {
 	}
 
 	headers := []string{"ID", "STATUS", "TITLE", "MODEL", "AGE", "TOK in/out", "COST"}
-	if *format == "tsv" {
+	if format == "tsv" {
 		fmt.Println(strings.Join(headers, "\t"))
 		for _, r := range rows {
 			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -1607,7 +1647,6 @@ func runDashboard(args []string) int {
 		}
 		return 0
 	}
-	// pretty: column-aligned. Compute widths.
 	cols := [][]string{
 		{headers[0]}, {headers[1]}, {headers[2]}, {headers[3]},
 		{headers[4]}, {headers[5]}, {headers[6]},

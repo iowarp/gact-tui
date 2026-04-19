@@ -204,7 +204,7 @@ running backend:
 | `gact voice <sid> <audio-file\|->` | POST audio bytes to `/voice/transcribe`; print recognised text |
 | `gact bench [-n N] [--concurrent C] [--message TEXT]` | Run N turns × C parallel goroutines; aggregate p50/p90/p99 + thrpt |
 | `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
-| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json]` | One-shot table of every session (status·model·age·tokens·cost) |
+| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--watch] [--interval DUR]` | Session table; --watch refreshes every interval (default 2s) |
 | `gact grep <query> [--workspace WS_ID] [--format tsv\|json]` | Search across every session in parallel (TSV: sid·title·mid·role·snippet) |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks (`--event STR --command PATH \| --url URL [--session][--workspace]`) |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies (set takes JSON `{policies:[…]}`) |

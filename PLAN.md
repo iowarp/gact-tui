@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase BBBB — dashboard watch
+
+- [x] **BBBB1.** `gact dashboard --watch [--interval DUR]` ships. Extracted renderDashboardOnce so --watch can call it on each tick. ANSI `\033[2J\033[H` clear+home between frames; banner with backend URL + interval + "Ctrl+C to exit". Tests: 2.5s run with --interval 1s asserts ≥2 clear sequences + seeded session in output.
+
 ## Phase AAAA — conformance for MMM endpoints
 
 - [x] **AAAA1.** conformance suite gained Hooks (§6.17), Policies (§6.11), Tasks (§6.18) sections. Each is gated by `capabilities.{hooks,permissions,session_tasks}` so adapters that wire only a subset get auto-skipped. New SkipHooks/SkipPolicies/SkipTasks options + matching --skip names in `gact conformance`. Each section runs GET + write + delete to exercise the round-trip. Manual e2e: full suite passes against emulator with all 3 new sections green.
