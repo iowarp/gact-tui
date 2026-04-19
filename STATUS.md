@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:57Z
-**Current phase:** UUUUUU1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6c5d476` (pushed after status commit)
+**Last updated:** 2026-04-19T18:59Z
+**Current phase:** VVVVVV1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `efa0ee2` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase VVVVVV — conformance file read endpoint
+- **VVVVVV1.** Extended `checkFiles` (list-shape coverage)
+  with the per-file body endpoint: GET /v1/workspaces/{id}/
+  files/read?path=. Picks the first type=file entry, asserts
+  200 + non-empty body. Read-only.
 
 ### Phase UUUUUU — conformance context files + repo_map
 - **UUUUUU1.** Adds two SPEC §6.9 sections, both gated on
