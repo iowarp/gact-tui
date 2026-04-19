@@ -29,6 +29,11 @@ type Config struct {
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
 	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`
+	// DisabledTools is a set of tool ids the user has hidden from the
+	// catalog browser (LLL2). Persists across sessions. Backends that
+	// honour an "allowed_tools" list at session-create time would read
+	// this; today it's purely a TUI display filter.
+	DisabledTools []string `json:"disabled_tools,omitempty"`
 }
 
 // Save writes cfg to path, creating parent directories as needed.

@@ -9,6 +9,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,6 +27,9 @@ const (
 	catalogKindMcp catalogBrowserKind = iota
 	catalogKindTools
 	catalogKindSkills
+	// catalogKindMcpDetail shows one MCP server's tools+resources+prompts
+	// in a single list. Pushed on Enter from the MCP server list (LLL2).
+	catalogKindMcpDetail
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -36,6 +40,12 @@ type catalogBrowserState struct {
 	loading bool
 	errText string
 	sel     int
+	// LLL2: when kind=catalogKindMcpDetail, mcpServerID identifies
+	// which server's catalog we're viewing. parent is preserved so
+	// Esc/Backspace can pop back to the server list rather than
+	// closing the whole modal.
+	mcpServerID string
+	parent      *catalogBrowserState
 }
 
 // catalogItem is the common shape we flatten each backend response into
@@ -53,6 +63,10 @@ type catalogBrowserLoadedMsg struct {
 	kind    catalogBrowserKind
 	items   []catalogItem
 	errText string
+	// mcpServerID echoes the server context for catalogKindMcpDetail
+	// loads — protects against late-arriving messages overwriting a
+	// browser the user has since navigated back from.
+	mcpServerID string
 }
 
 // loadCatalogBrowserCmd dispatches the right fetch based on kind.
@@ -124,6 +138,78 @@ func (a *App) openCatalogBrowser(kind catalogBrowserKind) tea.Cmd {
 	return loadCatalogBrowserCmd(a.c, kind)
 }
 
+// openMcpDetail pushes a new browser state showing one server's
+// tools+resources+prompts. Called on Enter from the MCP server list
+// (LLL2). Preserves the parent so backspace/esc can pop back.
+func (a *App) openMcpDetail(serverID, serverName string) tea.Cmd {
+	parent := a.catalogBrowser
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · " + serverName,
+		loading:     true,
+		mcpServerID: serverID,
+		parent:      parent,
+	}
+	return loadMcpDetailCmd(a.c, serverID)
+}
+
+// loadMcpDetailCmd fetches tools, resources, and prompts for one MCP
+// server in parallel and merges them into a single list with type
+// prefixes (`[tool]` / `[res]` / `[prompt]`). Failures per slice are
+// surfaced inline rather than aborting — partial data is still useful.
+func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		var items []catalogItem
+		var errs []string
+
+		if tools, err := c.McpServerTools(ctx, serverID); err != nil {
+			errs = append(errs, "tools: "+err.Error())
+		} else {
+			for _, t := range tools {
+				items = append(items, catalogItem{
+					id: "tool/" + t.ID, title: "[tool] " + t.Name, desc: t.Description,
+				})
+			}
+		}
+		if rs, err := c.McpServerResources(ctx, serverID); err != nil {
+			errs = append(errs, "resources: "+err.Error())
+		} else {
+			for _, r := range rs {
+				name := r.Name
+				if name == "" {
+					name = r.URI
+				}
+				desc := r.Description
+				if desc == "" {
+					desc = r.URI
+				}
+				items = append(items, catalogItem{
+					id: "res/" + r.URI, title: "[res] " + name, desc: desc,
+				})
+			}
+		}
+		if ps, err := c.McpServerPrompts(ctx, serverID); err != nil {
+			errs = append(errs, "prompts: "+err.Error())
+		} else {
+			for _, p := range ps {
+				items = append(items, catalogItem{
+					id: "prompt/" + p.Name, title: "[prompt] " + p.Name, desc: p.Description,
+				})
+			}
+		}
+		errText := ""
+		if len(errs) > 0 {
+			errText = strings.Join(errs, "; ")
+		}
+		return catalogBrowserLoadedMsg{
+			kind: catalogKindMcpDetail, items: items,
+			errText: errText, mcpServerID: serverID,
+		}
+	}
+}
+
 func catalogBrowserTitle(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindMcp:
@@ -132,6 +218,8 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Tools"
 	case catalogKindSkills:
 		return "Skills"
+	case catalogKindMcpDetail:
+		return "MCP detail"
 	}
 	return "Catalog"
 }
@@ -143,25 +231,93 @@ func (a *App) closeCatalogBrowser() {
 }
 
 // handleCatalogBrowserKey handles keypresses while the modal is open.
-// Read-only — up/down navigates, Esc closes.
+// Up/down navigates, Esc closes (or pops MCP-detail back to parent),
+// Enter on an MCP server row drills in, Space toggles a tool's
+// enabled state (LLL2).
 func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.catalogBrowser == nil {
 		a.closeCatalogBrowser()
 		return a, nil
 	}
+	cb := a.catalogBrowser
 	switch k.String() {
-	case "esc", "ctrl+c", "enter":
+	case "esc", "ctrl+c":
+		// LLL2: in MCP detail, esc pops back to parent server list
+		// rather than closing the whole modal — gives back-out
+		// affordance without juggling separate keys.
+		if cb.kind == catalogKindMcpDetail && cb.parent != nil {
+			a.catalogBrowser = cb.parent
+			return a, nil
+		}
 		a.closeCatalogBrowser()
+	case "backspace":
+		if cb.kind == catalogKindMcpDetail && cb.parent != nil {
+			a.catalogBrowser = cb.parent
+		}
+	case "enter":
+		// Drill into an MCP server when selected.
+		if cb.kind == catalogKindMcp && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, a.openMcpDetail(it.id, it.title)
+		}
+		// Other kinds: enter still closes (back-compat).
+		a.closeCatalogBrowser()
+	case " ", "space":
+		// LLL2: toggle disabled state on a tool row. Persists to
+		// config.json so the choice survives restart. Pure TUI
+		// filter for now — backends that respect an allowed_tools
+		// list could honour this on session create.
+		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
+			id := cb.items[cb.sel].id
+			a.toggleToolDisabled(id)
+		}
 	case "up", "k":
-		if a.catalogBrowser.sel > 0 {
-			a.catalogBrowser.sel--
+		if cb.sel > 0 {
+			cb.sel--
 		}
 	case "down", "j":
-		if a.catalogBrowser.sel < len(a.catalogBrowser.items)-1 {
-			a.catalogBrowser.sel++
+		if cb.sel < len(cb.items)-1 {
+			cb.sel++
 		}
 	}
 	return a, nil
+}
+
+// toggleToolDisabled flips a tool id in/out of App.disabledTools and
+// persists. Used by the catalog browser's space key.
+func (a *App) toggleToolDisabled(id string) {
+	if a.disabledTools == nil {
+		a.disabledTools = map[string]bool{}
+	}
+	if a.disabledTools[id] {
+		delete(a.disabledTools, id)
+	} else {
+		a.disabledTools[id] = true
+	}
+	if a.SaveConfig != nil {
+		_ = a.SaveConfig()
+	}
+}
+
+// SetDisabledTools seeds the disabled-tools set from main on startup
+// (LLL2). Called once after Load() before the program runs.
+func (a *App) SetDisabledTools(ids []string) {
+	a.disabledTools = make(map[string]bool, len(ids))
+	for _, id := range ids {
+		a.disabledTools[id] = true
+	}
+}
+
+// GetDisabledTools returns the disabled-tools set as a sorted slice
+// for config persistence (LLL2). Stable order keeps config diffs
+// readable.
+func (a *App) GetDisabledTools() []string {
+	out := make([]string, 0, len(a.disabledTools))
+	for id := range a.disabledTools {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // viewCatalogBrowser renders the modal: title + rows + hint bar.
@@ -193,11 +349,23 @@ func (a *App) viewCatalogBrowser() string {
 		}
 		marker := "  "
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+		// LLL2: dim disabled tools so the user can scan what's off
+		// at a glance. Selected highlight still wins so the cursor
+		// never disappears on a disabled row.
+		isDisabled := a.catalogBrowser.kind == catalogKindTools &&
+			a.disabledTools != nil && a.disabledTools[item.id]
+		if isDisabled {
+			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
+		}
 		if i == a.catalogBrowser.sel {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 			titleStyle = titleStyle.Foreground(t.Secondary)
 		}
 		line := marker + titleStyle.Render(item.title)
+		if isDisabled {
+			line += "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+				Render("(disabled)")
+		}
 		if item.statusTag != "" {
 			tagStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
 			if item.statusTag == "connected" {
@@ -216,8 +384,20 @@ func (a *App) viewCatalogBrowser() string {
 		rows = append(rows, "")
 	}
 
-	hint := t.HintLabel.Italic(true).Render(
-		"↑/↓ navigate    Esc / Enter close")
+	// Hint text adapts per kind: tools get a Space toggle, MCP-server
+	// list gets Enter-to-drill, MCP-detail gets Backspace-to-back.
+	var hintText string
+	switch a.catalogBrowser.kind {
+	case catalogKindTools:
+		hintText = "↑/↓ navigate · Space toggle · Esc close"
+	case catalogKindMcp:
+		hintText = "↑/↓ navigate · Enter drill in · Esc close"
+	case catalogKindMcpDetail:
+		hintText = "↑/↓ navigate · Esc/Backspace back"
+	default:
+		hintText = "↑/↓ navigate · Esc close"
+	}
+	hint := t.HintLabel.Italic(true).Render(hintText)
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		title, "",

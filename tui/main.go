@@ -418,6 +418,11 @@ func runTUI() {
 	if cfg.CostDangerTokens != nil && *cfg.CostDangerTokens > 0 {
 		app.Theme.CostDangerTokens = *cfg.CostDangerTokens
 	}
+	// LLL2: restore disabled tools so the catalog browser hides them
+	// across restarts.
+	if len(cfg.DisabledTools) > 0 {
+		app.SetDisabledTools(cfg.DisabledTools)
+	}
 	// Wire the save hook so Settings > TUI ◀/▶ adjustments flush to
 	// disk on every change. The hook captures the resolved config
 	// path so writes always land at the canonical location even when
@@ -433,6 +438,7 @@ func runTUI() {
 		danger := app.Theme.CostDangerTokens
 		cur.CostWarnTokens = &warn
 		cur.CostDangerTokens = &danger
+		cur.DisabledTools = app.GetDisabledTools()
 		return config.Save(cur, persistPath)
 	}
 	// Hot-reload: Ctrl+L re-reads the on-disk config and reapplies

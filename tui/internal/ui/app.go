@@ -159,6 +159,11 @@ type App struct {
 	catalogBrowserOpen bool
 	catalogBrowser     *catalogBrowserState
 
+	// LLL2: tool ids the user has hidden from the catalog browser. Set
+	// from Config.DisabledTools at startup and persisted via SaveConfig
+	// when toggled. Today purely a TUI display filter.
+	disabledTools map[string]bool
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -828,6 +833,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case catalogBrowserLoadedMsg:
 		if a.catalogBrowser == nil || a.catalogBrowser.kind != m.kind {
+			return a, nil
+		}
+		// Late-arriving MCP-detail loads must match the server we're
+		// currently viewing — otherwise a fast back-out + forward-in
+		// could overwrite with stale data.
+		if m.kind == catalogKindMcpDetail && m.mcpServerID != a.catalogBrowser.mcpServerID {
 			return a, nil
 		}
 		a.catalogBrowser.loading = false
