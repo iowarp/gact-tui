@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:18Z
-**Current phase:** DDDDDD1 shipped this iteration (BBBBBB1 + CCCCCC1 + DDDDDD1 in this run)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `242d925` (pushed after status commit)
+**Last updated:** 2026-04-19T18:22Z
+**Current phase:** EEEEEE1 shipped this iteration (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1 in this run)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ed61288` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase EEEEEE — conformance tools per-id drill-down
+- **EEEEEE1.** Extended `checkTools` to assert each list entry has
+  the required {id, name} pair (SPEC §6.6 + §4.6) and to drill
+  into `GET /v1/tools/{id}` for the first tool. Per-id response
+  must echo the same `id` and have a non-empty `name`. Catches a
+  missing per-id endpoint that the list-only check let slip.
 
 ### Phase DDDDDD — conformance Agents section
 - **DDDDDD1.** Conformance gains an `Agents` section (no
