@@ -400,6 +400,7 @@ Usage:
   gact env                   print resolved config + GACT_* env vars (TSV)
   gact theme show [--name N] print active theme palette as TSV (key\thex)
   gact theme list            list available palettes; '*' marks active
+  gact theme set <name>      persist theme to config.json (env still wins)
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1438,8 +1439,10 @@ func runTheme(args []string) int {
 		// fall through to historical show path below
 	case "list":
 		return runThemeList(args[1:])
+	case "set":
+		return runThemeSet(args[1:])
 	default:
-		fmt.Fprintf(os.Stderr, "gact theme: unknown verb %q (want show|list)\n", verb)
+		fmt.Fprintf(os.Stderr, "gact theme: unknown verb %q (want show|list|set)\n", verb)
 		return 2
 	}
 	rest := args[1:]
@@ -1490,6 +1493,51 @@ func runTheme(args []string) int {
 func hexOfColor(c color.Color) string {
 	r, g, b, _ := c.RGBA()
 	return fmt.Sprintf("#%02X%02X%02X", r>>8, g>>8, b>>8)
+}
+
+// runThemeSet writes the chosen theme name to config.json so it
+// survives across runs. Validates against ui.AllThemeModes (rejects
+// unknown names with exit 2). Does not touch GACT_THEME — env still
+// wins at resolution time, by design. (IIII1)
+func runThemeSet(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact theme set <name>")
+		return 2
+	}
+	want := args[0]
+	valid := false
+	for _, m := range ui.AllThemeModes {
+		if ui.ThemeModeName(m) == want {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		fmt.Fprintf(os.Stderr, "gact theme set: unknown theme %q\n", want)
+		fmt.Fprintln(os.Stderr, "(see `gact theme list`)")
+		return 2
+	}
+	cfg, path, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact theme set: load config: %v\n", err)
+		return 1
+	}
+	if path == "" {
+		// no config file resolved — fall back to default.
+		p, derr := config.DefaultPath()
+		if derr != nil {
+			fmt.Fprintf(os.Stderr, "gact theme set: resolve config path: %v\n", derr)
+			return 1
+		}
+		path = p
+	}
+	cfg.Theme = &want
+	if err := config.Save(cfg, path); err != nil {
+		fmt.Fprintf(os.Stderr, "gact theme set: write %s: %v\n", path, err)
+		return 1
+	}
+	fmt.Printf("theme=%s saved to %s\n", want, path)
+	return 0
 }
 
 // runThemeList prints all known theme names + a marker on the active

@@ -443,6 +443,56 @@ func TestCLI_ThemeList(t *testing.T) {
 	}
 }
 
+// TestCLI_ThemeSet covers IIII1: `gact theme set <name>` writes the
+// chosen theme to config.json; unknown names exit 2 without touching
+// the file. Uses a per-test XDG_CONFIG_HOME so we don't smear into
+// the real user config.
+func TestCLI_ThemeSet(t *testing.T) {
+	bin := buildGact(t)
+	tmp := t.TempDir()
+	env := map[string]string{"XDG_CONFIG_HOME": tmp}
+
+	// Happy path: write nord.
+	stdout, _, code := runGact(t, bin, env, "theme", "set", "nord")
+	if code != 0 {
+		t.Fatalf("theme set nord: exit %d", code)
+	}
+	if !strings.Contains(stdout, "theme=nord saved to") {
+		t.Errorf("expected save confirmation, got: %q", stdout)
+	}
+	cfgPath := tmp + "/gact/config.json"
+	body, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if !strings.Contains(string(body), `"theme": "nord"`) {
+		t.Errorf("expected theme=nord in config, got: %s", body)
+	}
+	// theme list should now mark nord as active when reading from
+	// the same XDG dir.
+	stdout, _, code = runGact(t, bin, env, "theme", "list")
+	if code != 0 {
+		t.Fatalf("theme list: exit %d", code)
+	}
+	if !strings.Contains(stdout, "nord\t*") {
+		t.Errorf("expected list to mark nord active, got: %q", stdout)
+	}
+	// Unknown theme: exit 2, file unchanged.
+	bodyBefore, _ := os.ReadFile(cfgPath)
+	if _, _, code := runGact(t, bin, env, "theme", "set", "nonsense"); code != 2 {
+		t.Errorf("theme set nonsense: want exit 2, got %d", code)
+	}
+	bodyAfter, _ := os.ReadFile(cfgPath)
+	if string(bodyBefore) != string(bodyAfter) {
+		t.Errorf("config mutated on rejected theme: before=%q after=%q",
+			bodyBefore, bodyAfter)
+	}
+	// Wrong arity: exit 2.
+	if _, _, code := runGact(t, bin, env, "theme", "set"); code != 2 {
+		t.Errorf("theme set (no arg): want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_TasksSummary covers FFFF1: aggregate task counts across
 // sessions. Seeds two sessions with mixed-status tasks, asserts the
 // summary table contains both rows + a TOTAL footer with correct
@@ -854,9 +904,12 @@ func TestCLI_LogSince(t *testing.T) {
 		"wait", "--timeout", "30s", sid); code != 0 {
 		t.Fatalf("wait AAA: exit %d", code)
 	}
-	// Wait long enough that AAA's user msg drops out of a small
-	// --since window.
-	time.Sleep(2 * time.Second)
+	// Sleep long enough that AAA's user msg falls outside a moderate
+	// --since window even under slow-CI/parallel-test load. Window
+	// math: if we sleep 5s and use --since 4s, AAA is ≥5s old (out)
+	// while BBB has a generous 4s grace period to be queried before
+	// it ages out (well above the worst-case wait+log RTT we've seen).
+	time.Sleep(5 * time.Second)
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"send", sid, "BBB"); code != 0 {
 		t.Fatalf("send BBB: exit %d", code)
@@ -876,17 +929,17 @@ func TestCLI_LogSince(t *testing.T) {
 		t.Errorf("--since 1h should keep both: %q", stdout)
 	}
 
-	// Narrow window keeps only BBB (AAA was sent ≥2s ago).
+	// Narrow window keeps only BBB (AAA was sent ≥5s ago).
 	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"log", sid, "--since", "1500ms", "--limit", "50")
+		"log", sid, "--since", "4s", "--limit", "50")
 	if code != 0 {
-		t.Fatalf("log --since 1500ms: exit %d", code)
+		t.Fatalf("log --since 4s: exit %d", code)
 	}
 	if strings.Contains(stdout, "AAA") {
-		t.Errorf("--since 1500ms should drop AAA: %q", stdout)
+		t.Errorf("--since 4s should drop AAA: %q", stdout)
 	}
 	if !strings.Contains(stdout, "BBB") {
-		t.Errorf("--since 1500ms should keep BBB: %q", stdout)
+		t.Errorf("--since 4s should keep BBB: %q", stdout)
 	}
 }
 
