@@ -25,6 +25,14 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase NN — context CLI
+- **NN1.** `gact context list/add/rm` manages session context files
+  via the same endpoints as the sidebar `o` key.
+
+### Phase OO — catalog CLI
+- **OO1.** `gact catalog tools|agents|mcp|commands` — single CLI
+  spanning all read-side catalog endpoints; TSV + JSON output.
+
 ### Phase MM — install + scripts dir
 - **MM1.** `make install` (PREFIX/BINDIR overridable) +
   `make uninstall`. README quickstart updated.
