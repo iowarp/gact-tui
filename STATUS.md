@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T21:15Z
-**Current phase:** JJJJJ1 + KKKKK1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2d9fc6a` and pushed
+**Last updated:** 2026-04-19T21:35Z
+**Current phase:** LLLLL1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3c3342e` and pushed
 **Open:** none
+
+### Phase LLLLL — Settings TUI tab cost-warn/danger knobs
+- **LLLLL1.** TUI tab gains 2 new editable rows (cost warn +
+  cost danger) with ←/→ stepping by 25k, clamped to 1k..1M.
+  Refactored render path through a shared `editableRow` helper.
+  Closes part of feedback "Settings modal is thin". Screenshot:
+  `screenshots/LLLLL1_settings_tui_costs.png`.
 
 ### Phase KKKKK — empty-state hints surface session-lifecycle keys
 - **KKKKK1.** Closes the discoverability gap (feedback_tui_ux
