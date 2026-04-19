@@ -307,6 +307,38 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_Capabilities covers GGG1: print contract version + flags
+// in text + JSON. Asserts seeded flags (workspaces, sessions, mcp)
+// are reported as enabled and the contract_version field appears.
+func TestCLI_Capabilities(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"capabilities")
+	if code != 0 {
+		t.Fatalf("capabilities: exit %d", code)
+	}
+	if !strings.Contains(stdout, "contract_version:") {
+		t.Errorf("expected contract_version line: %q", stdout)
+	}
+	for _, want := range []string{"✓ workspaces", "✓ sessions", "✓ mcp"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in capabilities text: %q", want, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"caps", "--format", "json")
+	if code != 0 {
+		t.Fatalf("caps json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"contract_version"`) || !strings.Contains(stdout, `"workspaces"`) {
+		t.Errorf("expected JSON with contract_version + capabilities: %q", stdout)
+	}
+}
+
 // TestCLI_AgentShow covers DDD1: fetch the seeded `default` agent
 // and assert its title, description, default_model line, and tools
 // list land in text output. JSON mode dumps the raw AgentDef.

@@ -121,6 +121,8 @@ func main() {
 			os.Exit(runAgent(os.Args[2:]))
 		case "watch":
 			os.Exit(runWatch(os.Args[2:]))
+		case "capabilities", "caps":
+			os.Exit(runCapabilities(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -345,6 +347,7 @@ Usage:
   gact tool show <id>        print one tool's metadata + input schema
   gact agent show <id>       print one agent's metadata + system prompt
   gact watch <sid>           tail status changes (TSV: time status msgs tokens)
+  gact capabilities          backend contract version + capability matrix
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -658,6 +661,88 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runCapabilities prints the backend's contract version, identity, and
+// capability flag matrix. Lets shell scripts feature-detect before
+// calling endpoints (e.g. skip `gact undo` if `session_branching` is
+// off). The TUI Connect screen already calls this on startup; this
+// just exposes it from the shell.
+func runCapabilities(args []string) int {
+	fs := flag.NewFlagSet("capabilities", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact capabilities: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	caps, err := c.Capabilities(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact capabilities: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(caps)
+		return 0
+	}
+	fmt.Printf("contract_version: %s\n", caps.ContractVersion)
+	fmt.Printf("backend:          %s %s (%s)\n", caps.Backend.Name, caps.Backend.Version, caps.Backend.Vendor)
+	if caps.Backend.Homepage != "" {
+		fmt.Printf("homepage:         %s\n", caps.Backend.Homepage)
+	}
+	fmt.Printf("transports:       sse=%t websocket=%t\n", caps.Transports.EventsSSE, caps.Transports.EventsWebSocket)
+	if len(caps.Auth.Schemes) > 0 {
+		fmt.Printf("auth:             %s (current: %s)\n", strings.Join(caps.Auth.Schemes, ","), caps.Auth.Current)
+	}
+	fmt.Println("capabilities:")
+	flags := []struct {
+		name string
+		on   bool
+	}{
+		{"workspaces", caps.Capabilities.Workspaces},
+		{"sessions", caps.Capabilities.Sessions},
+		{"subagents", caps.Capabilities.Subagents},
+		{"mcp", caps.Capabilities.MCP},
+		{"lsp", caps.Capabilities.LSP},
+		{"files", caps.Capabilities.Files},
+		{"diffs", caps.Capabilities.Diffs},
+		{"permissions", caps.Capabilities.Permissions},
+		{"providers", caps.Capabilities.Providers},
+		{"commands", caps.Capabilities.Commands},
+		{"voice", caps.Capabilities.Voice},
+		{"scheduled_sessions", caps.Capabilities.ScheduledSessions},
+		{"metrics", caps.Capabilities.Metrics},
+		{"session_branching", caps.Capabilities.SessionBranching},
+		{"session_sharing", caps.Capabilities.SessionSharing},
+		{"session_export", caps.Capabilities.SessionExport},
+		{"cost_tracking", caps.Capabilities.CostTracking},
+		{"thinking_blocks", caps.Capabilities.ThinkingBlocks},
+		{"edit_modes", caps.Capabilities.EditModes},
+		{"plan_mode", caps.Capabilities.PlanMode},
+		{"search_messages", caps.Capabilities.SearchMessages},
+		{"agent_write", caps.Capabilities.AgentWrite},
+		{"skills_extraction", caps.Capabilities.SkillsExtraction},
+	}
+	for _, f := range flags {
+		mark := "·"
+		if f.on {
+			mark = "✓"
+		}
+		fmt.Printf("  %s %s\n", mark, f.name)
+	}
+	for _, e := range caps.Extensions {
+		fmt.Printf("extension:        %s %s %s\n", e.ID, e.Version, e.Docs)
 	}
 	return 0
 }
@@ -2482,7 +2567,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -2502,7 +2587,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -2515,7 +2600,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
