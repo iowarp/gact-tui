@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase DDDD — gact env
+
+- [x] **DDDD1.** `gact env` ships. TSV `KEY<TAB>VALUE` for backend/theme/voice/intro/config-path/plugins-dir, then a `--- ENV ---` section listing every GACT_* env var. Pure local — no backend dep. Test asserts both env vars + their resolved values appear.
+
 ## Phase CCCC — replay
 
 - [x] **CCCC1.** `gact replay <export-file|->` ships. Reads + decodes via existing client.ImportSession, prints new sid + "created session ... with N messages" notice. `--attach` flag bridges into the TUI via GACT_ATTACH_SESSION_ID + runTUI (OOO1 mechanism). CLI test exports a session, replays, asserts the imported log contains the original marker token.

@@ -149,6 +149,8 @@ func main() {
 		case "replay":
 			runReplay(os.Args[2:])
 			return
+		case "env":
+			os.Exit(runEnv(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -392,6 +394,7 @@ Usage:
   gact grep <query>          search across all sessions; TSV: sid title mid role snippet
   gact follow <sid>          tail -f the conversation log; stream new messages
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
+  gact env                   print resolved config + GACT_* env vars (TSV)
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1320,6 +1323,48 @@ func runHooksRm(args []string) int {
 	if err := c.DeleteHook(ctx, fs.Arg(0)); err != nil {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runEnv prints the fully-resolved configuration the binary will
+// use. Pure local — no network calls. Useful debugging aid and
+// pairs with `gact diag` (which exercises the backend side).
+// Output is TSV `KEY<TAB>VALUE` for easy diff between hosts. (DDDD1)
+func runEnv(args []string) int {
+	fs := flag.NewFlagSet("env", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	cfg, cfgPath, _ := config.Load()
+	pluginsDir, _ := plugins.DefaultDir()
+	resolved := func(field *string, env, fallback string) string {
+		if v := os.Getenv(env); v != "" {
+			return v
+		}
+		if field != nil && *field != "" {
+			return *field
+		}
+		return fallback
+	}
+	pairs := [][2]string{
+		{"BACKEND_URL", resolved(cfg.BackendURL, "GACT_BACKEND", defaultBackend)},
+		{"THEME", resolved(cfg.Theme, "GACT_THEME", defaultTheme)},
+		{"VOICE_CMD", resolved(cfg.VoiceCommand, "GACT_VOICE_CMD", "")},
+		{"INTRO_FILE", resolved(cfg.IntroFile, "GACT_INTRO_FILE", "")},
+		{"CONFIG_PATH", cfgPath},
+		{"PLUGINS_DIR", pluginsDir},
+	}
+	for _, p := range pairs {
+		fmt.Printf("%s\t%s\n", p[0], p[1])
+	}
+	// All GACT_* env vars (snapshot — useful for "is this even
+	// reaching the binary?" checks).
+	fmt.Println("--- ENV ---")
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "GACT_") {
+			fmt.Println(e)
+		}
 	}
 	return 0
 }
@@ -4213,7 +4258,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -4233,7 +4278,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -4246,7 +4291,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

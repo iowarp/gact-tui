@@ -215,6 +215,7 @@ running backend:
 | `gact export --all -o DIR` | Dump every session as one file each |
 | `gact import <file\|->` | Upload an export blob (re-IDs everything) |
 | `gact diag` | Print binary version + config + env for bug reports |
+| `gact env` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars |
 | `gact emit-config` | Print sample `config.json` to stdout |
 | `gact version` | Print version + git revision + build time |
 | `gact list-themes` *(via `--list-themes`)* | Print available palettes |
