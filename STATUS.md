@@ -1,9 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-19T22:15Z
-**Current phase:** NNNNN1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ce70a0c` and pushed
+**Last updated:** 2026-04-19T22:35Z
+**Current phase:** NNNNN1 + OOOOO1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `285a524` and pushed
 **Open:** none
+
+### Phase OOOOO — gact perms list --format json
+- **OOOOO1.** Returns raw `[]PermissionWire` with full
+  `tool_call` payload (tool_name + input args + annotations) —
+  TSV view drops those. Default tsv preserved.
 
 ### Phase NNNNN — gact info --include perms
 - **NNNNN1.** Closes the OOOO1 follow-up. `gact info <sid>
