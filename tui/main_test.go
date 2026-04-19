@@ -234,6 +234,60 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Undo covers YY1: send + run a turn, count messages, undo
+// the last one, and assert the count drops by one and the freshest
+// message id is gone from the log.
+func TestCLI_Undo(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "undo-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "hello"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	beforeLog, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	if code != 0 {
+		t.Fatalf("log before: exit %d", code)
+	}
+	beforeRoles := strings.Count(beforeLog, "[")
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"undo", sid, "--count", "1")
+	if code != 0 {
+		t.Fatalf("undo: exit %d", code)
+	}
+	revertedLines := 0
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if strings.HasPrefix(line, "msg_") {
+			revertedLines++
+		}
+	}
+	if revertedLines != 1 {
+		t.Errorf("expected 1 reverted msg id on stdout, got %d (stdout=%q)", revertedLines, stdout)
+	}
+	if !strings.Contains(stderr, "reverted 1 message") {
+		t.Errorf("expected stderr summary, got %q", stderr)
+	}
+
+	afterLog, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	if code != 0 {
+		t.Fatalf("log after: exit %d", code)
+	}
+	afterRoles := strings.Count(afterLog, "[")
+	if afterRoles != beforeRoles-1 {
+		t.Errorf("expected role count to drop by 1: before=%d after=%d", beforeRoles, afterRoles)
+	}
+}
+
 // TestCLI_Info covers XX1: get a single session's metadata in text
 // and JSON, asserting the title round-trips and status is one of the
 // known states.
