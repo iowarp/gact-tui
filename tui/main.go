@@ -4139,24 +4139,50 @@ func runDumpBundle(args []string) int {
 			*since, len(filtered), len(sessions))
 		sessions = filtered
 	}
-	ok := 0
+	// RRRR1: same 8-wide bounded fanout as runExportAll (QQQQ1) so a
+	// big bundle doesn't pay sessions×RTT.
+	const dumpWorkers = 8
+	type dumpResult struct {
+		sid string
+		err error
+	}
+	dumpSem := make(chan struct{}, dumpWorkers)
+	dumpResults := make(chan dumpResult, len(sessions))
+	var dumpWG sync.WaitGroup
 	for _, s := range sessions {
-		ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
-		blob, err := c.ExportSession(ectx, s.ID)
-		ecancel()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s: %v\n", s.ID, err)
+		s := s
+		dumpWG.Add(1)
+		dumpSem <- struct{}{}
+		go func() {
+			defer dumpWG.Done()
+			defer func() { <-dumpSem }()
+			ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
+			blob, err := c.ExportSession(ectx, s.ID)
+			ecancel()
+			if err != nil {
+				dumpResults <- dumpResult{sid: s.ID, err: err}
+				return
+			}
+			f, ferr := os.Create(filepath.Join(sessDir, s.ID+".json"))
+			if ferr != nil {
+				dumpResults <- dumpResult{sid: s.ID, err: fmt.Errorf("create: %w", ferr)}
+				return
+			}
+			enc := json.NewEncoder(f)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(blob)
+			f.Close()
+			dumpResults <- dumpResult{sid: s.ID}
+		}()
+	}
+	dumpWG.Wait()
+	close(dumpResults)
+	ok := 0
+	for r := range dumpResults {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", r.sid, r.err)
 			continue
 		}
-		f, ferr := os.Create(filepath.Join(sessDir, s.ID+".json"))
-		if ferr != nil {
-			fmt.Fprintf(os.Stderr, "  %s: create: %v\n", s.ID, ferr)
-			continue
-		}
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(blob)
-		f.Close()
 		ok++
 	}
 
