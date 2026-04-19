@@ -108,10 +108,16 @@ func TestRenderPart_ToolResultLeadingGlyph(t *testing.T) {
 	if !strings.HasPrefix(lines[0], "⎿") {
 		t.Errorf("tool_result first line missing glyph: %q", lines[0])
 	}
-	// Continuation lines should be indented (matches the glyph width).
+	// Continuation lines should be indented under the glyph. After
+	// XXXXX1 the gutter is " │ " (space + bar + space) instead of
+	// three spaces — both shapes leave content at column 3 with a
+	// leading whitespace, so the assertion is "starts with a space"
+	// (the bar variant) OR "starts with three spaces" (the legacy
+	// shape). Either way the visual indent is preserved.
 	for i := 1; i < len(lines); i++ {
-		if !strings.HasPrefix(lines[i], "   ") {
-			t.Errorf("continuation line %d not indented: %q", i, lines[i])
+		if !(strings.HasPrefix(lines[i], "   ") ||
+			strings.HasPrefix(lines[i], " │ ")) {
+			t.Errorf("continuation line %d not indented under glyph: %q", i, lines[i])
 		}
 	}
 }

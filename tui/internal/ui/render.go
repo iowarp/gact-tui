@@ -428,10 +428,30 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// up the viewport; it should preview the first few lines and
 		// show a "[N more lines — Ctrl+E to expand]" footer. The user
 		// can open the full content in the floating detail view.
+		// XXXXX1: Claude-Code-grade contrast for tool output.
+		// Previously the body inherited FgMuted (same washed-out gray
+		// as muted text) and continuation rows had no gutter — so the
+		// `⎿` elbow on line 0 was the only visual anchor for what
+		// could be 80 lines of output. User feedback: "could we get
+		// the output not just elbow bended, but maybe on a slightly
+		// different color".
+		// Two changes:
+		//  1. Body text uses full Fg (not FgMuted) so it reads
+		//     as content, not a faded annotation.
+		//  2. Continuation indent renders a `│ ` styled in
+		//     RoleTool/Border (with a left-margin space) so a
+		//     subtle vertical bar runs the full height of the
+		//     block, anchoring everything visually under the call.
 		glyph := "⎿"
-		glyphStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+		barColor := t.RoleTool
+		if barColor == nil {
+			barColor = t.Border
+		}
+		glyphStyle := lipgloss.NewStyle().Foreground(barColor)
+		barStyle := lipgloss.NewStyle().Foreground(barColor)
 		if p.IsError {
 			glyphStyle = glyphStyle.Foreground(t.Danger)
+			barStyle = barStyle.Foreground(t.Danger)
 		}
 		var text strings.Builder
 		for i, c := range p.Content {
@@ -440,7 +460,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			}
 			text.WriteString(t.renderPart(c, wrapW-2))
 		}
-		bodyStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+		bodyStyle := lipgloss.NewStyle().Foreground(t.Fg)
 		if p.IsError {
 			bodyStyle = bodyStyle.Foreground(t.Danger)
 		}
@@ -457,7 +477,11 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			errTag = lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
 				Render(" (error)")
 		}
-		body := indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, "   ")
+		// Continuation rows: " │ " (space + bar + space) so the bar
+		// hangs under the elbow's stem at column 1, matching the
+		// `⎿` glyph's vertical leg position.
+		cont := " " + barStyle.Render("│") + " "
+		body := indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, cont)
 		if hidden > 0 {
 			// P4: surface the Ctrl+E affordance with real weight — the
 			// previous faint-italic sat below users' radar. Key style
