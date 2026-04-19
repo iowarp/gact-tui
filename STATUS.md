@@ -25,6 +25,12 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase RR — permissions CLI
+- **RR1.** `gact perms {list,allow,deny,allow-session,allow-workspace}`
+  mirrors the TUI a/d/s/w keys for shell automation. CLI test
+  triggers a permission scenario, finds the pending id, allows,
+  verifies resolved.
+
 ### Phase QQ — pretty stream
 - **QQ1.** `gact stream` is `gact tail` for humans — one-liner
   HH:MM:SS timeline with per-event-type summaries. CLI test.
