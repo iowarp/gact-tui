@@ -40,11 +40,15 @@ Or, with the included Makefile:
 
 ```sh
 make build           # both binaries
+make install         # → ~/.local/bin (override PREFIX=/some/path)
 make run-emulator    # emulator on PORT (default 7777) with TIMING (default realistic)
 make run-tui         # TUI against the running backend with THEME (default dark)
 make test            # every module's go test
 make test-race       # with -race
 make help            # everything else
+
+# Tab-completion install instructions (auto-detects $SHELL):
+scripts/completion.sh
 ```
 
 Type a message, hit `Enter`. The emulator's default scenario runs an
