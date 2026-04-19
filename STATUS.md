@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T06:30Z
-**Current phase:** XXX1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `55c1ac5` and pushed
+**Last updated:** 2026-04-19T06:45Z
+**Current phase:** XXX1 + YYY1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f5ce29f` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase YYY — wait any-of
+- **YYY1.** `gact wait --any-of sid1,sid2,...` ships. Polls each
+  id per round; first idle wins (sid printed to stdout in
+  any-of mode). Single-arg form unchanged. Test asserts winner
+  is one of the input sids.
 
 ### Phase XXX — concurrent bench
 - **XXX1.** `gact bench --concurrent C` ships. C goroutines, each
