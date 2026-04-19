@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T10:25Z
-**Current phase:** JJJJ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b57f7f7` and pushed
+**Last updated:** 2026-04-19T10:50Z
+**Current phase:** JJJJ1 + KKKK1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `66fcb44` and pushed
 **Open:** none
+
+### Phase KKKK — perms rules list --format tsv
+- **KKKK1.** `gact perms rules list` gains `--format json|tsv`
+  (default kept as `json` for back-compat). TSV columns: scope,
+  scope_id (`*` for any), tool_pattern, path_pattern (`-` if
+  empty), action, annotations (sorted `k=v` list or `-`).
+  CLI test asserts both formats and unknown-format exit 2.
 
 ### Phase JJJJ — gact mcp list
 - **JJJJ1.** `gact mcp list [--format tsv|json]` enumerates the
