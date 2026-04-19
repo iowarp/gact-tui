@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQ — parallelize gact export --all
+
+- [x] **QQQQ1.** `gact export --all -o DIR` now fans out per-session export+write across a bounded worker pool (8-wide, mirroring FFFF1's tasks-summary fanout). Previous behavior was strictly serial — a 200-session backup paid 200×RTT in latency. The pool size is fixed: 8 saturates a LAN backend without DoSing it. Per-session error tolerance preserved (one bad session doesn't trash the run; failed count goes to stderr summary). CLI test seeds 12 sessions (>workers) so the pool must reuse slots, asserts every session.json lands and the summary shows `12 ok, 0 failed`.
+
 ## Phase PPPP — gact context list --format json
 
 - [x] **PPPP1.** `gact context list <sid> --format json` emits the raw `[]gact.ContextFile` array for jq pipelines (path, mode, added_at). Default tsv kept for back-compat. Empty list serializes as `[]` not `null`. CLI test seeds two files, asserts json parses to 2 items with correct mode mapping, default tsv unchanged, unknown format → exit 2.

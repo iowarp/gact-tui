@@ -5662,6 +5662,12 @@ func runExport(args []string) int {
 // and writes one indented JSON per session into dir. Continues past
 // per-session fetch errors — one 500 on a single session shouldn't
 // trash the whole backup — and reports a summary to stderr.
+//
+// QQQQ1: each session's export+write runs on a bounded goroutine
+// pool (8-wide) so a 200-session backup doesn't take 200×RTT. The
+// pool size is fixed: chosen because it pairs with the same constant
+// used by `gact tasks summary` (FFFF1) — 8 is enough to saturate a
+// LAN backend without DoSing it.
 func runExportAll(dir, wsID, backendFlag string) int {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "gact export: mkdir %s: %v\n", dir, err)
@@ -5673,6 +5679,7 @@ func runExportAll(dir, wsID, backendFlag string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
+	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact export: list sessions: %v\n", err)
 		return 1
@@ -5682,33 +5689,55 @@ func runExportAll(dir, wsID, backendFlag string) int {
 		return 0
 	}
 
-	ok := 0
-	failed := 0
+	const workers = 8
+	type result struct {
+		sid string
+		err error
+	}
+	sem := make(chan struct{}, workers)
+	results := make(chan result, len(sessions))
+	var wg sync.WaitGroup
 	for _, s := range sessions {
-		ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
-		blob, err := c.ExportSession(ectx, s.ID)
-		ecancel()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s: %v\n", s.ID, err)
-			failed++
-			continue
-		}
-		path := filepath.Join(dir, s.ID+".json")
-		f, err := os.Create(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s: create %s: %v\n", s.ID, path, err)
-			failed++
-			continue
-		}
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(blob); err != nil {
+		s := s
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			ectx, ecancel := context.WithTimeout(context.Background(), 30*time.Second)
+			blob, err := c.ExportSession(ectx, s.ID)
+			ecancel()
+			if err != nil {
+				results <- result{sid: s.ID, err: err}
+				return
+			}
+			path := filepath.Join(dir, s.ID+".json")
+			f, err := os.Create(path)
+			if err != nil {
+				results <- result{sid: s.ID, err: fmt.Errorf("create %s: %w", path, err)}
+				return
+			}
+			enc := json.NewEncoder(f)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(blob); err != nil {
+				f.Close()
+				results <- result{sid: s.ID, err: fmt.Errorf("encode: %w", err)}
+				return
+			}
 			f.Close()
-			fmt.Fprintf(os.Stderr, "  %s: encode: %v\n", s.ID, err)
+			results <- result{sid: s.ID}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	ok, failed := 0, 0
+	for r := range results {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", r.sid, r.err)
 			failed++
 			continue
 		}
-		f.Close()
 		ok++
 	}
 	fmt.Fprintf(os.Stderr, "gact export: %d ok, %d failed → %s\n", ok, failed, dir)

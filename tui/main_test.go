@@ -2933,6 +2933,39 @@ func TestCLI_Tail(t *testing.T) {
 	}
 }
 
+// TestCLI_ExportAllParallel covers QQQQ1: with N>workers sessions
+// the bounded-pool fanout still exports everything. Seeds 12
+// sessions (workers=8) so the pool must reuse slots, then asserts
+// every session.json landed in the output dir.
+func TestCLI_ExportAllParallel(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	const N = 12
+	sids := make([]string, 0, N)
+	for i := 0; i < N; i++ {
+		sids = append(sids, createSession(t, url, fmt.Sprintf("parallel-export-%d", i)))
+	}
+
+	outDir := filepath.Join(t.TempDir(), "bulk")
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"export", "--all", "-o", outDir)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr=%q", code, stderr)
+	}
+	wantSummary := fmt.Sprintf("%d ok, 0 failed", N)
+	if !strings.Contains(stderr, wantSummary) {
+		t.Errorf("summary mismatch — want %q, stderr=%q", wantSummary, stderr)
+	}
+	for _, sid := range sids {
+		p := filepath.Join(outDir, sid+".json")
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("missing export %s: %v", p, err)
+		}
+	}
+}
+
 // TestCLI_ExportAll covers V1: `gact export --all -o DIR` writes one
 // JSON file per session into DIR. Exercises the full CLI path against
 // a real emulator binary.
