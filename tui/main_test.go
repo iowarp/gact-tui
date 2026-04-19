@@ -1435,7 +1435,7 @@ func TestCLI_Conformance(t *testing.T) {
 	// capabilities.files), Diffs is BBBBBB1, Messages_Diffs is
 	// CCCCCC1 (both gated on capabilities.diffs); the emulator
 	// advertises all four caps.
-	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp", "Providers", "Files", "Diffs", "Messages_Diffs"} {
+	for _, want := range []string{"Health", "Capabilities", "Sessions_Create", "Tools_List", "Mcp", "Providers", "Files", "Diffs", "Messages_Diffs", "Agents"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected section %q in stdout: %q", want, stdout)
 		}

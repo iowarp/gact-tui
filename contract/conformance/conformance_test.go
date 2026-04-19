@@ -150,5 +150,6 @@ func TestConformance_OptionsSkip(t *testing.T) {
 		SkipCommands:      true,
 		SkipTools:         true,
 		SkipMetrics:       true,
+		SkipAgents:        true,
 	})
 }
