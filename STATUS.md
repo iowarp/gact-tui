@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:15Z
-**Current phase:** FFFFF1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e52997d` and pushed
+**Last updated:** 2026-04-19T19:50Z
+**Current phase:** FFFFF1 + GGGGG1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `dbe57ca` and pushed
 **Open:** none
+
+### Phase GGGGG — bigtool scenario variants
+- **GGGGG1.** `dump the log` cycles through 3 variants per
+  session (server logs, python tracebacks, nginx access). Engine
+  gained `NextCallIndex` for per-(session, script) call counters.
+  Prerequisite for FFFFF1's cursor-aware Ctrl+E to be testable.
 
 ### Phase FFFFF — cursor-aware Ctrl+E + visible cursor on Tab
 - **FFFFF1.** maybeInitBodyCursor seeds the body cursor to the
