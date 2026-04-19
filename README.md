@@ -178,6 +178,7 @@ running backend:
 | `gact files read <ws-id> <path>` | Dump a workspace file's bytes to stdout |
 | `gact repo-map <ws-id> [--format tree\|json]` | Tree-render the workspace repo map (with symbols) |
 | `gact mcp tools\|resources\|prompts <srv-id>` | Drill into one MCP server's catalog (TSV or JSON) |
+| `gact mcp resource-read <srv-id> <uri>` | Dump MCP resource bytes to stdout (text or base64) |
 | `gact mcp reconnect <srv-id>` | Force-reconnect an MCP server (POST) |
 | `gact tool show <id> [--format text\|json]` | Print one tool's metadata + input schema |
 | `gact agent show <id> [--format text\|json]` | Print one agent's metadata + system prompt |

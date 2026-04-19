@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -340,6 +341,7 @@ Usage:
   gact mcp resources <srv-id> list one MCP server's resources
   gact mcp prompts <srv-id>  list one MCP server's prompt templates
   gact mcp reconnect <srv-id> force-reconnect an MCP server
+  gact mcp resource-read <srv-id> <uri> dump MCP resource bytes to stdout
   gact tool show <id>        print one tool's metadata + input schema
   gact agent show <id>       print one agent's metadata + system prompt
   gact watch <sid>           tail status changes (TSV: time status msgs tokens)
@@ -908,9 +910,48 @@ func runMcp(args []string) int {
 		return runMcpPrompts(rest)
 	case "reconnect":
 		return runMcpReconnect(rest)
+	case "resource-read", "read":
+		return runMcpResourceRead(rest)
 	}
-	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts|reconnect)\n", verb)
+	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts|reconnect|resource-read)\n", verb)
 	return 2
+}
+
+func runMcpResourceRead(args []string) int {
+	fs := flag.NewFlagSet("mcp resource-read", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp resource-read <server-id> <uri>")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	contents, err := c.McpResourceRead(ctx, fs.Arg(0), fs.Arg(1))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp resource-read: %v\n", err)
+		return 1
+	}
+	for _, ch := range contents {
+		if ch.Text != "" {
+			_, _ = os.Stdout.WriteString(ch.Text)
+			continue
+		}
+		if ch.Data != "" {
+			decoded, err := base64.StdEncoding.DecodeString(ch.Data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact mcp resource-read: bad base64 for %s: %v\n", ch.URI, err)
+				return 1
+			}
+			_, _ = os.Stdout.Write(decoded)
+		}
+	}
+	return 0
 }
 
 func runMcpReconnect(args []string) int {
