@@ -154,7 +154,12 @@ func (e *Engine) publishStatus(sessionID, status string) {
 }
 
 // createAssistantMessage appends an empty assistant message and emits
-// message.created. Returns the stored message.
+// message.created. Returns the stored message. NNN1: on error
+// (typically ErrNotFound when the session was deleted mid-flight)
+// returns a placeholder with empty ID so callers that ignore the
+// error don't nil-deref. Subsequent helpers see the empty ID,
+// AppendPart/UpdateMessagePart return ErrNotFound, and the scenario
+// gracefully degrades to no-op.
 func (e *Engine) createAssistantMessage(sessionID string) (*gact.Message, error) {
 	m, err := e.store.AppendMessage(gact.Message{
 		SessionID: sessionID,
@@ -162,7 +167,7 @@ func (e *Engine) createAssistantMessage(sessionID string) (*gact.Message, error)
 		Parts:     []gact.Part{},
 	})
 	if err != nil {
-		return nil, err
+		return &gact.Message{}, err
 	}
 	e.bus.Publish(events.Event{
 		Type:      "message.created",
@@ -173,11 +178,11 @@ func (e *Engine) createAssistantMessage(sessionID string) (*gact.Message, error)
 }
 
 // addPart appends a part shell (no streamed content yet) and emits
-// message.part.added.
+// message.part.added. NNN1: nil-safe like createAssistantMessage.
 func (e *Engine) addPart(sessionID, msgID string, p gact.Part) (*gact.Part, error) {
 	added, err := e.store.AppendPart(msgID, p)
 	if err != nil {
-		return nil, err
+		return &gact.Part{}, err
 	}
 	e.bus.Publish(events.Event{
 		Type:      "message.part.added",

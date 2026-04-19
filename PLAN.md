@@ -10,7 +10,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase NNN — emulator hardening (found during MMM7)
 
-- [ ] **NNN1.** Emulator scenario engine doesn't quiesce when its session's messages are deleted out from under it (during `gact undo` or `gact rewind`). Pre-existing — not introduced by either CLI. Repro: send a message that fires the default scenario, immediately delete that assistant message; the engine panics in `default_script.go:107` on `UpdateMessagePart` against the deleted message id. Fix: check the part's existence before update, or wire a per-session cancel context the delete handler can fire.
+- [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
 ## Phase MMM — adds from Claude Code inventory (LLL7)
 

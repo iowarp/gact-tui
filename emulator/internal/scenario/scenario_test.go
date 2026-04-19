@@ -274,6 +274,51 @@ func mustGetStatus(t *testing.T, st *store.Store, sid string) string {
 	return s.Status
 }
 
+// TestDefaultScriptSurvivesMessageDelete reproduces NNN1: delete the
+// assistant message mid-flight while the scenario is still updating
+// parts on it. Before the fix, the scenario panicked on nil Part
+// returned by the addPart helper. After the fix, helpers return
+// non-nil placeholders and the scenario silently degrades to no-op
+// instead of crashing the server.
+func TestDefaultScriptSurvivesMessageDelete(t *testing.T) {
+	eng, st, _, sid := newRig(t)
+	// Slow timing so we can race the delete in.
+	eng.cfg.Timing = Timing{
+		BetweenParts: 100 * time.Millisecond,
+		PerToken:     50 * time.Millisecond,
+		ToolThink:    300 * time.Millisecond,
+	}
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("hi")},
+	})
+	eng.OnUserMessage(sid, user.ID)
+
+	// Give the scenario a beat to create the assistant message,
+	// then nuke every assistant message in the session out from
+	// under it.
+	time.Sleep(150 * time.Millisecond)
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: true,
+	})
+	for _, m := range msgs {
+		if m.Role == gact.RoleAssistant {
+			_ = st.DeleteMessage(m.ID)
+		}
+	}
+
+	// Without the NNN1 fix, the scenario goroutine would have
+	// panicked already. Wait long enough for the rest of the
+	// script to attempt its updates.
+	time.Sleep(800 * time.Millisecond)
+
+	// Sanity: getting the session shouldn't have errored or panicked.
+	if _, err := st.GetSession(sid); err != nil {
+		t.Errorf("session disappeared during scenario: %v", err)
+	}
+}
+
 // Tokenize sanity (string utility).
 func TestTokenize(t *testing.T) {
 	cases := []struct {
