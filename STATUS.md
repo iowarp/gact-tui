@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T21:10Z
-**Current phase:** Phase WW (models CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a28f71f` and pushed
+**Last updated:** 2026-04-18T21:25Z
+**Current phase:** Phase XX (session info CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6361c7d` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,14 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase XX — session info CLI
+- **XX1.** `gact info <sid> [--format text|json]` wraps GetSession.
+  Text output is one key:value per line (awk-friendly): id, title,
+  status, workspace, parent, model, agent, message_count, tokens,
+  cost, timestamps, summary. JSON mode dumps the raw Session
+  struct. CLI test asserts title round-trip and status ∈
+  {idle,running,waiting,error}.
 
 ### Phase WW — models CLI
 - **WW1.** `gact models list [--provider PID] [--format tsv|json]`
