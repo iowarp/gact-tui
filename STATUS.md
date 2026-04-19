@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T01:55Z
-**Current phase:** MMM2 + MMM3 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b2b77d7` and pushed
-**Open:** MMM4-MMM8, LLL8b, JJJ1
+**Last updated:** 2026-04-19T02:10Z
+**Current phase:** MMM2 + MMM3 + MMM4 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c119d41` and pushed
+**Open:** MMM5-MMM8, LLL8b, JJJ1
 
 ## This loop (Phases N + O)
 
@@ -61,6 +61,11 @@
   + bus dispatcher + 3 endpoints; client wrappers; `gact hooks
   list/add/rm` CLI. Hook commands receive event JSON on stdin or
   via POST to URL. CLI test asserts e2e capture.
+- **MMM4.** Permission policy auto-resolution (SPEC §6.11). Spec
+  was already written but unimplemented — wired Policy type,
+  matcher, GET/PUT /v1/policies, client ListPolicies/PutPolicies,
+  `gact perms rules list/set/clear` CLI. CLI test installs deny
+  rule + asserts auto-resolved/deny.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
