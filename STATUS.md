@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:50Z
-**Current phase:** FFFFF1 + GGGGG1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `dbe57ca` and pushed
+**Last updated:** 2026-04-19T20:15Z
+**Current phase:** HHHHH1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1ac717c` and pushed
 **Open:** none
+
+### Phase HHHHH — unified `/tools` menu (built-in + MCP)
+- **HHHHH1.** `/tools` now lists built-in + MCP-sourced tools in
+  one sorted view with [source] tags and "from <server-id>" on
+  MCP rows. `/catalog` added as alias. `/mcp` retained as
+  server-management view. New unit test covers the sort + tag
+  + server-id behavior. Screenshot:
+  `screenshots/HHHHH1_unified_tools.png`.
 
 ### Phase GGGGG — bigtool scenario variants
 - **GGGGG1.** `dump the log` cycles through 3 variants per
