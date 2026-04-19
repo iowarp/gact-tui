@@ -178,6 +178,12 @@ type App struct {
 	// of POSTing to /v1/sessions/{id}/commands/{id}.
 	plugins []pluginCommand
 
+	// UUU1: per-session task counts for the sidebar badge. Keyed by
+	// session id; populated lazily on selectSession (and reset to 0
+	// for that sid before fetch). Sessions absent from the map render
+	// without a badge.
+	taskCountBySession map[string]int
+
 	// OOO1: when set (via `gact attach <name|sid>`), the connectedMsg
 	// handler picks this session out of the freshly-loaded list
 	// instead of defaulting to index 0. Either a literal sess_<id>
@@ -442,6 +448,27 @@ func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
+// loadSessionTasksCmd fetches §6.18 tasks for a session. Used by
+// UUU1 to render a `(N tasks)` badge on the sidebar row. Failures
+// are silent — tasks are optional capability and we don't want to
+// spam errors on backends that 404 the endpoint.
+func loadSessionTasksCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		tasks, err := c.ListSessionTasks(ctx, sessionID)
+		if err != nil {
+			return sessionTasksLoadedMsg{sessionID: sessionID, tasks: nil}
+		}
+		return sessionTasksLoadedMsg{sessionID: sessionID, tasks: tasks}
+	}
+}
+
+type sessionTasksLoadedMsg struct {
+	sessionID string
+	tasks     []gact.SessionTask
+}
+
 // reloadSessionsCmd is used after subagent.started so the new sub-session
 // shows up in the sidebar without the user having to refresh manually.
 // transcribeCmd captures audio (via voiceCmd, if set) and POSTs it to
@@ -694,6 +721,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.messages = m.messages
 			a.stickyToBottom = true
 		}
+		return a, nil
+
+	case sessionTasksLoadedMsg:
+		// UUU1: stash count for the badge. Pending+running tasks count
+		// (treat completed/failed as "done" — irrelevant to the badge).
+		if a.taskCountBySession == nil {
+			a.taskCountBySession = map[string]int{}
+		}
+		open := 0
+		for _, t := range m.tasks {
+			if t.Status == "pending" || t.Status == "running" {
+				open++
+			}
+		}
+		a.taskCountBySession[m.sessionID] = open
 		return a, nil
 
 	case contextFilesLoadedMsg:
@@ -2363,6 +2405,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	return tea.Batch(
 		loadMessagesCmd(a.c, sid),
 		loadContextFilesCmd(a.c, sid),
+		loadSessionTasksCmd(a.c, sid), // UUU1: refresh task badge
 		a.startSSECmd(sid),
 	)
 }
@@ -3216,7 +3259,19 @@ func (a *App) renderSidebar(width, height int) string {
 		// muted · for idle). The raw status word is preserved on the second
 		// line as a muted caption so accessibility doesn't lose information.
 		dot := a.sessionStatusDot(s.Status)
-		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, width-8-len(indent)))
+		// UUU1: append `(N tasks)` badge when the session has open
+		// pending/running §6.18 tasks. Loaded lazily on selectSession.
+		taskBadge := ""
+		if n := a.taskCountBySession[s.ID]; n > 0 {
+			taskBadge = "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+				Render(fmt.Sprintf("(%d tasks)", n))
+		}
+		// Reserve room for badge so title truncation doesn't collide.
+		titleBudget := width - 8 - len(indent) - lipgloss.Width(taskBadge)
+		if titleBudget < 6 {
+			titleBudget = 6
+		}
+		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + taskBadge
 		statusLine := "  " + indent + "  " + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
