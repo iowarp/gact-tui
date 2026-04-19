@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNN — gact follow --format json (NDJSON)
+
+- [x] **NNNN1.** `gact follow <sid> --format json` emits NDJSON for both the initial snapshot and streamed messages, so `gact follow $sid --format json | jq -c .` works as a poor-man's event tap. Default text mode unchanged. Refactored the message printing into an `emit(msg)` closure so snapshot + SSE-completed paths stay format-aware. CLI test runs follow in a goroutine bounded by `runGactWithDuration(5s)`, sends a second message mid-stream, asserts both ALPHA (snapshot) + BRAVO (stream) appear in NDJSON parts and every line parses as a Message.
+
 ## Phase MMMM — gact log --format json (NDJSON)
 
 - [x] **MMMM1.** `gact log <sid> --format json` emits one message per line as NDJSON (no indentation, line-delimited) so callers can pipe to `jq -c` and friends. Default text mode unchanged. Plays well with the existing `--limit` / `--since` filters since both run before serialization. CLI test sends a user message + waits for assistant reply, then asserts `--format json` produces ≥2 lines that each parse to a Message-shaped object containing the right session_id and both user + assistant roles. Unknown format → exit 2.
