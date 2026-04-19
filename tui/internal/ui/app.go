@@ -1300,10 +1300,25 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch k.String() {
 	case "ctrl+c":
+		// JJJJJ1: "stop everything" semantics — if a session is
+		// actively running or waiting for a permission, fire a
+		// cancel so the backend stops the in-flight turn instead
+		// of being left orphaned. The user explicitly asked for
+		// '/exit or ctrl+c shoudl exit us anbd stop everyuthign'.
+		// Detach (Ctrl+Z, IIIII1) is the path for "leave it
+		// running"; Ctrl+C is the path for "kill the work".
 		if a.sseCancel != nil {
 			a.sseCancel()
 		}
-		return a, tea.Quit
+		var cmds []tea.Cmd
+		if sid := a.currentSessionID(); sid != "" && a.c != nil {
+			switch a.currentStatus {
+			case gact.StatusRunning, gact.StatusWaitingPermission:
+				cmds = append(cmds, cancelCmd(a.c, sid))
+			}
+		}
+		cmds = append(cmds, tea.Quit)
+		return a, tea.Batch(cmds...)
 	case "?":
 		a.helpOpen = true
 		return a, nil
@@ -3886,7 +3901,7 @@ var helpTabs = []struct {
 			{"Ctrl+Z", "detach (TUI exits; `gact attach <sid>` reattaches)"},
 			{"?", "toggle this help"},
 			{"Esc", "close overlay / clear input"},
-			{"Ctrl+C", "quit"},
+			{"Ctrl+C", "quit (cancels in-flight turn before exit)"},
 		},
 	},
 	{
