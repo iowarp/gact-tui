@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T03:20Z
-**Current phase:** MMM7/8 + NNN1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e8fcc8e` and pushed
-**Open:** LLL8b (TUI detach), JJJ1 (intro splash), MMM8b (TUI palette plugin wiring)
+**Last updated:** 2026-04-19T03:35Z
+**Current phase:** MMM7/8 + NNN1 + JJJ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d513c4e` and pushed
+**Open:** LLL8b (TUI detach), MMM8b (TUI palette plugin wiring)
 
 ## This loop (Phases N + O)
 
@@ -83,6 +83,14 @@
   `~/.config/gact/plugins/<name>/plugin.json` declares slash
   commands. Bad manifests/commands skipped, errors surfaced via
   LoadVerbose. 5 tests. TUI palette wiring deferred.
+
+### Phase JJJ — intro splash (user-flagged)
+- **JJJ1.** ASCII splash with Triangle logo + GACT block-letters
+  shipped. New StageIntro, viewIntro renderer, configurable via
+  --intro-file / $GACT_INTRO_FILE / config.IntroFile (logo block
+  + blank + name block). Skip with --no-intro / $GACT_NO_INTRO /
+  intro_skip=true. Init guards connectCmd while in StageIntro.
+  4 unit tests + screenshots/71-intro-splash.png.
 
 ### Phase NNN — emulator hardening
 - **NNN1.** Scenario engine no longer panics when its session's
