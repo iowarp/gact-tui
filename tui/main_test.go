@@ -919,6 +919,51 @@ func TestCLI_Voice(t *testing.T) {
 	}
 }
 
+// TestCLI_Replay covers CCCC1: export a session, replay the file,
+// assert the imported session has the same messages (re-IDed but
+// content preserved).
+func TestCLI_Replay(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	srcSid := createSession(t, url, "replay-source")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", srcSid, "the marker token is REPLAY_MARKER_42"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", srcSid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	dir := t.TempDir()
+	exportFile := filepath.Join(dir, "export.json")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"export", srcSid, "-o", exportFile); code != 0 {
+		t.Fatalf("export: exit %d", code)
+	}
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"replay", exportFile)
+	if code != 0 {
+		t.Fatalf("replay: exit %d (stderr=%q)", code, stderr)
+	}
+	newSid := strings.TrimSpace(stdout)
+	if !strings.HasPrefix(newSid, "sess_") {
+		t.Fatalf("replay should print new sid, got %q", stdout)
+	}
+	if newSid == srcSid {
+		t.Errorf("imported session should have a fresh id, got same as src: %q", newSid)
+	}
+
+	// Log of the imported session should contain the marker token.
+	logOut, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", newSid, "--limit", "100")
+	if !strings.Contains(logOut, "REPLAY_MARKER_42") {
+		t.Errorf("imported log missing marker: %q", logOut)
+	}
+}
+
 // TestCLI_Follow covers ZZZ1: send a first message, start follow in
 // the background (with deadline), then send a second; assert the
 // follow output contains BOTH the seeded and the streamed message.
