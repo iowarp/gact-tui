@@ -1440,6 +1440,62 @@ func TestCLI_Follow(t *testing.T) {
 	}
 }
 
+// TestCLI_ContextListJSON covers PPPP1: `gact context list --format
+// json` emits the raw ContextFile array. Default tsv unchanged.
+func TestCLI_ContextListJSON(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "context-json-target")
+	for _, item := range []struct{ path, mode string }{
+		{"/tmp/alpha.go", "read"},
+		{"/tmp/bravo.md", "pin"},
+	} {
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"context", "add", sid, item.path, "--mode", item.mode); code != 0 {
+			t.Fatalf("context add %s: exit %d", item.path, code)
+		}
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--format", "json")
+	if code != 0 {
+		t.Fatalf("context list --format json: exit %d", code)
+	}
+	var files []struct {
+		Path string `json:"path"`
+		Mode string `json:"mode"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &files); err != nil {
+		t.Fatalf("parse: %v\n  raw=%q", err, stdout)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d: %+v", len(files), files)
+	}
+	got := map[string]string{files[0].Path: files[0].Mode, files[1].Path: files[1].Mode}
+	if got["/tmp/alpha.go"] != "read" || got["/tmp/bravo.md"] != "pin" {
+		t.Errorf("unexpected files: %+v", got)
+	}
+
+	// Default tsv still works.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid)
+	if code != 0 {
+		t.Fatalf("context list (default): exit %d", code)
+	}
+	if !strings.Contains(stdout, "read\t/tmp/alpha.go") ||
+		!strings.Contains(stdout, "pin\t/tmp/bravo.md") {
+		t.Errorf("default tsv missing rows: %q", stdout)
+	}
+
+	// Unknown format → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--format", "yaml"); code != 2 {
+		t.Errorf("--format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_InfoInclude covers OOOO1: `gact info --include tasks,hooks`
 // pulls extra sections in both text and JSON modes. Seeds two tasks
 // (one set to completed) + a session-scoped hook, asserts both

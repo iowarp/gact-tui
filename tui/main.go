@@ -4351,12 +4351,22 @@ func runContext(args []string) int {
 func runContextList(args []string) int {
 	fs := flag.NewFlagSet("context list", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
+	// PPPP1: --format json emits the raw ContextFile array for jq
+	// pipelines. Default tsv kept for back-compat.
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--format tsv|json] [--backend URL]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact context list: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -4368,6 +4378,18 @@ func runContextList(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact context list: %v\n", err)
 		return 1
+	}
+	if *format == "json" {
+		if files == nil {
+			files = []gact.ContextFile{}
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(files); err != nil {
+			fmt.Fprintf(os.Stderr, "gact context list: encode: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	for _, f := range files {
 		mode := f.Mode

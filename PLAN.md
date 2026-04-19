@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase PPPP — gact context list --format json
+
+- [x] **PPPP1.** `gact context list <sid> --format json` emits the raw `[]gact.ContextFile` array for jq pipelines (path, mode, added_at). Default tsv kept for back-compat. Empty list serializes as `[]` not `null`. CLI test seeds two files, asserts json parses to 2 items with correct mode mapping, default tsv unchanged, unknown format → exit 2.
+
 ## Phase OOOO — gact info --include tasks,hooks
 
 - [x] **OOOO1.** `gact info <sid> --include tasks,hooks` adds composite sections to the existing single-session info dump. In text mode, appends `--- tasks ---` and `--- hooks ---` blocks (TSV rows or `(none)`). In JSON mode, the response is wrapped: `{session, tasks?, hooks?}`. Hook scoping rule: keep session-scoped hooks for this session, plus global (`session=""` and `workspace=""`) and workspace-scoped hooks matching `s.workspace_id` (since those fire for this session). Unknown --include token → exit 2. Bare `gact info` unchanged. CLI test seeds two tasks (one completed) + one session-scoped hook, asserts both modes contain expected rows + JSON parses to {session,tasks,hooks} with correct counts.
