@@ -125,6 +125,8 @@ func main() {
 			os.Exit(runCapabilities(os.Args[2:]))
 		case "tell":
 			os.Exit(runTell(os.Args[2:]))
+		case "hooks", "hook":
+			os.Exit(runHooks(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -353,6 +355,9 @@ Usage:
   gact tell <name> <msg>     find-or-create session by title; send + print reply
                               (re-run with same name to continue the conversation)
                               --async returns immediately with sid<TAB>msg_id
+  gact hooks list|add|rm     manage §6.17 event hooks
+                              add: --event STR --command PATH or --url URL
+                                   [--session SID] [--workspace WS_ID]
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -701,6 +706,146 @@ func resolveSessionByName(ctx context.Context, c *client.Client, name string) (s
 		}
 	}
 	return "", false, nil
+}
+
+// runHooks dispatches the §6.17 hooks CLI (MMM3):
+//
+//	gact hooks list                                       — TSV: id event command/url scope
+//	gact hooks add --event <ev> --command|--url <target>  — register; prints id
+//	gact hooks rm <hook-id>                               — DELETE
+//
+// Optional --session / --workspace flags scope hooks at add time.
+func runHooks(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact hooks list|add|rm ...")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list", "ls":
+		return runHooksList(rest)
+	case "add":
+		return runHooksAdd(rest)
+	case "rm", "delete", "remove":
+		return runHooksRm(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact hooks: unknown verb %q (want list|add|rm)\n", verb)
+	return 2
+}
+
+func runHooksList(args []string) int {
+	fs := flag.NewFlagSet("hooks list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact hooks list: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	hooks, err := c.ListHooks(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact hooks list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(hooks)
+		return 0
+	}
+	for _, h := range hooks {
+		target := h.Command
+		if h.URL != "" {
+			target = h.URL
+		}
+		scope := ""
+		if h.SessionID != "" {
+			scope = "session=" + h.SessionID
+		} else if h.WorkspaceID != "" {
+			scope = "workspace=" + h.WorkspaceID
+		}
+		fmt.Printf("%s\t%s\t%s\t%s\n", h.ID, h.Event, target, scope)
+	}
+	return 0
+}
+
+func runHooksAdd(args []string) int {
+	fs := flag.NewFlagSet("hooks add", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	event := fs.String("event", "", "event type to match (e.g. tool.call.completed; * matches all)")
+	cmdPath := fs.String("command", "", "shell command to exec on match (event JSON on stdin)")
+	url := fs.String("url", "", "URL to POST event JSON to on match")
+	sid := fs.String("session", "", "scope: session id (optional)")
+	wsID := fs.String("workspace", "", "scope: workspace id (optional)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--event": true, "-event": true,
+		"--command": true, "-command": true,
+		"--url": true, "-url": true,
+		"--session": true, "-session": true,
+		"--workspace": true, "-workspace": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *event == "" {
+		fmt.Fprintln(os.Stderr, "gact hooks add: --event required")
+		return 2
+	}
+	if *cmdPath == "" && *url == "" {
+		fmt.Fprintln(os.Stderr, "gact hooks add: --command or --url required")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	created, err := c.CreateHook(ctx, gact.Hook{
+		Event:       *event,
+		Command:     *cmdPath,
+		URL:         *url,
+		SessionID:   *sid,
+		WorkspaceID: *wsID,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact hooks add: %v\n", err)
+		return 1
+	}
+	fmt.Println(created.ID)
+	return 0
+}
+
+func runHooksRm(args []string) int {
+	fs := flag.NewFlagSet("hooks rm", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact hooks rm <hook-id>")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.DeleteHook(ctx, fs.Arg(0)); err != nil {
+		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 // runTell implements `gact tell <name> <msg>` — name-based, idempotent
@@ -2772,7 +2917,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -2792,7 +2937,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -2805,7 +2950,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

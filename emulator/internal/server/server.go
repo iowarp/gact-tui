@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -42,6 +43,7 @@ type Server struct {
 	perms        *store.Permissions
 	contextFiles *contextFileSet
 	latency      *latencyTracker
+	hooks        *hooksStore // §6.17 — MMM3
 
 	onUserMessage func(sessionID, messageID string)
 	onCancel      func(sessionID string)
@@ -65,10 +67,15 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		perms:         store.NewPermissions(),
 		contextFiles:  newContextFileSet(),
 		latency:       newLatencyTracker(1024),
+		hooks:         newHooksStore(),
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
 	s.routes()
+	// MMM3: kick off the hook dispatcher. Background ctx — runs for the
+	// server's lifetime; relies on bus.Subscribe being closed on bus
+	// shutdown to signal exit.
+	s.startHookDispatcher(context.Background())
 	return s
 }
 
@@ -195,6 +202,11 @@ func (s *Server) routes() {
 
 	// §6.16 — Metrics
 	s.mux.HandleFunc("GET /v1/metrics", s.handleMetrics)
+
+	// §6.17 — Hooks (MMM3)
+	s.mux.HandleFunc("GET /v1/hooks", s.handleListHooks)
+	s.mux.HandleFunc("POST /v1/hooks", s.handleCreateHook)
+	s.mux.HandleFunc("DELETE /v1/hooks/{id}", s.handleDeleteHook)
 
 	// §7 — SSE event streams
 	s.mux.HandleFunc("GET /v1/events", s.handleWorkspaceEvents)

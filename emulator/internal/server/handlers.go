@@ -100,6 +100,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			Commands:          true,
 			Voice:             true,
 			ScheduledSessions: false,
+			Hooks:             true,
 			Metrics:           true,
 			SessionBranching:  true,
 			SessionSharing:    false,

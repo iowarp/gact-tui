@@ -38,6 +38,7 @@ type CapabilityFlags struct {
 	Commands          bool `json:"commands"`
 	Voice             bool `json:"voice"`
 	ScheduledSessions bool `json:"scheduled_sessions"`
+	Hooks             bool `json:"hooks"` // §6.17 — MMM3
 	Metrics           bool `json:"metrics"`
 	SessionBranching  bool `json:"session_branching"`
 	SessionSharing    bool `json:"session_sharing"`
@@ -65,6 +66,20 @@ type Extension struct {
 	ID      string `json:"id"`
 	Version string `json:"version"`
 	Docs    string `json:"docs,omitempty"`
+}
+
+// Hook is a side-effect registration (SPEC §6.17 — MMM3). When the
+// backend publishes an event whose Type matches Hook.Event (or
+// Event=="*"), it runs Command (or POSTs to URL if set) with the
+// event JSON. Optional scope fields restrict matches to a session
+// or workspace.
+type Hook struct {
+	ID          string `json:"id"`
+	Event       string `json:"event"`
+	Command     string `json:"command,omitempty"`
+	URL         string `json:"url,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
 }
 
 // Error is the canonical error response shape (SPEC §6.0).
