@@ -108,6 +108,13 @@ type App struct {
 	// snaps back to the baseline.
 	sseBackoffAttempts int
 
+	// sseDownSince is the wall-clock time the current SSE outage
+	// started (when sseBackoffAttempts went 0→positive); zero when the
+	// stream is healthy. Used by renderFooter to suppress the
+	// "(reconnecting…)" badge during sub-second blips so the bottom
+	// hint bar doesn't flicker on a healthy connection. (DDDDD1)
+	sseDownSince time.Time
+
 	// lastSeenSeqID is the highest SSE event SeqID we've processed for
 	// the current session. Passed as `Last-Event-ID` on reconnect so
 	// the emulator's ring buffer replays events published during the
@@ -862,6 +869,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// reconnect backoff so the NEXT disconnect waits 250 ms, not
 		// whatever the attempts counter had climbed to.
 		a.sseBackoffAttempts = 0
+		a.sseDownSince = time.Time{} // DDDDD1: clear outage clock
 		// Track the highest SeqID we've processed so a reconnect can
 		// resume via Last-Event-ID rather than silently dropping
 		// events published during the outage. Monotonic under normal
@@ -900,6 +908,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// schedule plays nicer and still reconnects fast on transient
 		// blips (first retry at ~250 ms).
 		if sid := a.currentSessionID(); sid != "" {
+			// DDDDD1: stamp the start of the outage on the FIRST drop
+			// in this run so the renderer can hide the
+			// "(reconnecting…)" badge until the disconnect has lasted
+			// long enough to be worth surfacing. Subsequent backoff
+			// ticks must NOT reset this — that would let a long outage
+			// keep flickering as each reconnect attempt cycles.
+			if a.sseBackoffAttempts == 0 {
+				a.sseDownSince = time.Now()
+			}
 			delay := a.nextReconnectDelay()
 			a.sseBackoffAttempts++
 			return a, tea.Tick(delay, func(time.Time) tea.Msg {
@@ -1082,6 +1099,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const (
 	baseReconnectDelay = 250 * time.Millisecond
 	maxReconnectDelay  = 30 * time.Second
+	// DDDDD1: don't surface "(reconnecting…)" until the SSE outage
+	// has lasted at least this long. Eliminates the single-frame
+	// footer flicker on routine sub-second reconnect blips while
+	// keeping real outages visible within a second.
+	sseBadgeMinDelay = 800 * time.Millisecond
 )
 
 // retryConnectMsg fires after the connect-retry backoff elapses and
@@ -3093,7 +3115,16 @@ func (a *App) renderFooter() string {
 	// the stream is down and we're waiting to retry. J2's reset-on-
 	// event drops this back to nothing as soon as the stream is
 	// healthy, so nothing needs to clear it on a separate code path.
-	if a.sseBackoffAttempts > 0 {
+	//
+	// DDDDD1: only show the badge if the outage has lasted long
+	// enough to matter. Without this gate a flaky/transient SSE
+	// drop+reconnect (sub-second) makes the badge appear for a
+	// single render frame, then vanish — visible flicker on the
+	// footer that the user reported as annoying. 800 ms is short
+	// enough that real outages still surface within a second; long
+	// enough that the routine ~250 ms reconnect blip stays silent.
+	if a.sseBackoffAttempts > 0 && !a.sseDownSince.IsZero() &&
+		time.Since(a.sseDownSince) >= sseBadgeMinDelay {
 		left += "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 			Render("(reconnecting…)")
 	}
