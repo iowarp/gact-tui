@@ -1297,9 +1297,11 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "tab":
 		a.focus = (a.focus + 1) % 3
+		a.maybeInitBodyCursor()
 		return a, nil
 	case "shift+tab":
 		a.focus = (a.focus + 2) % 3
+		a.maybeInitBodyCursor()
 		return a, nil
 	case "ctrl+x":
 		if sid := a.currentSessionID(); sid != "" {
@@ -1684,6 +1686,28 @@ func (a *App) scrollToSelectedMessage() {
 	}
 	a.scrollOffset = len(a.messages) - a.bodySelMsgIdx - 1
 	a.stickyToBottom = a.scrollOffset == 0
+}
+
+// maybeInitBodyCursor seeds the body message cursor when the user
+// enters FocusBody for the first time. Previously the cursor stayed
+// at -1 (invisible) until the user explicitly pressed n/N — the user
+// reported "I have not seen this, nor can I see it now" because Tab
+// alone gave no visual feedback. Default to the latest message so
+// the marker is immediately visible AND so Ctrl+E expands the most
+// recent bulky output by default (preserves the L3 behaviour).
+// (FFFFF1)
+func (a *App) maybeInitBodyCursor() {
+	if a.focus != FocusBody {
+		return
+	}
+	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+		return
+	}
+	if len(a.messages) == 0 {
+		return
+	}
+	a.bodySelMsgIdx = len(a.messages) - 1
+	a.scrollToSelectedMessage()
 }
 
 // jumpToMessage scrolls the conversation pane so the message with the
@@ -3492,12 +3516,20 @@ func (a *App) renderBody(width, height int) string {
 				prev = &a.messages[i-1]
 			}
 			row := t.renderMessageInContextWithResults(m, prev, width-4, inlineResults[i])
-			// Y1: body cursor marker — bold green `▌` on the selected
-			// message. Takes precedence over the V3 search-hit marker
+			// Y1 + FFFFF1: body cursor marker — full-block `█` in the
+			// secondary palette colour with the same colour reused as
+			// background, so the gutter reads as a solid bar that runs
+			// the full height of the selected message. Previous `▌`
+			// half-block in plain bold was easy to miss against tool
+			// output. Takes precedence over the V3 search-hit marker
 			// if both apply, because the cursor is the active state.
 			if i == a.bodySelMsgIdx && a.focus == FocusBody {
-				marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
-				row = prependGutter(row, marker)
+				marker := lipgloss.NewStyle().
+					Foreground(t.Secondary).
+					Background(t.Secondary).
+					Bold(true).
+					Render("█")
+				row = prependGutter(row, marker+" ")
 			} else if m.ID != "" && m.ID == a.searchHitMessageID {
 				// V3: left-gutter marker for the message the user jumped to
 				// from the palette's `?search` results. Applied after the
