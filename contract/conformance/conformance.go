@@ -104,6 +104,12 @@ type Options struct {
 	// shape that powers per-turn diff drill-down (Ctrl+E from a
 	// tool_result row). Read-only.
 	SkipMessageDiffs bool
+	// QQQQQQ1: messages search — gated on
+	// capabilities.search_messages + sid. Walks GET
+	// /v1/sessions/{id}/messages/search?q=hello. Locks the wire
+	// shape SPEC §6.3 promises so the @-search palette and `gact
+	// search` don't drift at the wire level.
+	SkipMessageSearch bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -199,7 +205,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles || !opts.SkipDiffs || !opts.SkipMessageDiffs {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles || !opts.SkipDiffs || !opts.SkipMessageDiffs || !opts.SkipMessageSearch {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -231,19 +237,23 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipMessageDiffs && caps.Diffs && sid != "" {
 			t.Run("Messages_Diffs", func(t Reporter) { checkMessageDiffs(t, c, sid) })
 		}
+		if !opts.SkipMessageSearch && caps.SearchMessages && sid != "" {
+			t.Run("Messages_Search", func(t Reporter) { checkMessagesSearch(t, c, sid) })
+		}
 	}
 }
 
 // minimalCaps holds just the flags we need for AAAA1 + BBBBB1 +
-// TTTTT1 + UUUUU1 + BBBBBB1 gating.
+// TTTTT1 + UUUUU1 + BBBBBB1 + QQQQQQ1 gating.
 type minimalCaps struct {
-	Hooks        bool
-	Permissions  bool
-	SessionTasks bool
-	Mcp          bool
-	Providers    bool
-	Files        bool
-	Diffs        bool
+	Hooks          bool
+	Permissions    bool
+	SessionTasks   bool
+	Mcp            bool
+	Providers      bool
+	Files          bool
+	Diffs          bool
+	SearchMessages bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -255,13 +265,14 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 	}
 	var raw struct {
 		Capabilities struct {
-			Hooks        bool `json:"hooks"`
-			Permissions  bool `json:"permissions"`
-			SessionTasks bool `json:"session_tasks"`
-			Mcp          bool `json:"mcp"`
-			Providers    bool `json:"providers"`
-			Files        bool `json:"files"`
-			Diffs        bool `json:"diffs"`
+			Hooks          bool `json:"hooks"`
+			Permissions    bool `json:"permissions"`
+			SessionTasks   bool `json:"session_tasks"`
+			Mcp            bool `json:"mcp"`
+			Providers      bool `json:"providers"`
+			Files          bool `json:"files"`
+			Diffs          bool `json:"diffs"`
+			SearchMessages bool `json:"search_messages"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)
@@ -1644,6 +1655,50 @@ func checkMessageDiffs(t Reporter, c *conformClient, sid string) {
 			if _, ok := lang.(string); !ok && lang != nil {
 				t.Errorf("diff[%d] language must be string|null: %v", i, lang)
 			}
+		}
+	}
+}
+
+// QQQQQQ1 — checkMessagesSearch validates GET /v1/sessions/{id}/
+// messages/search?q=hello (SPEC §6.3, gated by capabilities
+// .search_messages). Asserts 200 + non-nil top-level `matches`
+// array (empty list is fine — the seed message may not match the
+// query; missing key violates spec). When matches are present,
+// each must carry the documented {message_id, snippet} pair.
+// Locks the wire shape that powers the @-search palette and
+// `gact search`. Read-only.
+func checkMessagesSearch(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages/search?q=hello&limit=5")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/messages/search: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id}/messages/search returned 501 — set SkipMessageSearch or fix capabilities.search_messages")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Matches []map[string]any `json:"matches"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("messages search JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Matches == nil {
+		t.Errorf("response missing `matches` key: %s", body)
+		return
+	}
+	for i, m := range raw.Matches {
+		for _, key := range []string{"message_id", "snippet"} {
+			if _, ok := m[key]; !ok {
+				t.Errorf("match[%d] missing required key %q: %v", i, key, m)
+			}
+		}
+		if mid, _ := m["message_id"].(string); mid == "" {
+			t.Errorf("match[%d] empty message_id: %v", i, m)
 		}
 	}
 }
