@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T20:40Z
-**Current phase:** Phase UU (workspaces CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `139c37b` and pushed
+**Last updated:** 2026-04-18T20:55Z
+**Current phase:** Phase VV (fork CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3f6791e` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase VV — fork CLI
+- **VV1.** `gact fork <parent-sid> [--at MID] [--title T]` POSTs a
+  child session with parent_session_id (+ optional
+  fork_at_message_id), inheriting the parent's workspace via a
+  GetSession lookup. Prints the new id. CLI test forks and
+  verifies the child shows up under ?parent_session_id=.
 
 ### Phase UU — workspaces CLI
 - **UU1.** `gact workspaces list [--format tsv|json]` (aliases
