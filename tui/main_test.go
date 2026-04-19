@@ -234,6 +234,24 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_McpResourceRead covers EEE1: read the seeded MCP resource
+// at file:///docs/welcome.md and assert "demo content" lands on
+// stdout.
+func TestCLI_McpResourceRead(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "resource-read", "mcp_fake", "file:///docs/welcome.md")
+	if code != 0 {
+		t.Fatalf("mcp resource-read: exit %d", code)
+	}
+	if !strings.Contains(stdout, "demo content") {
+		t.Errorf("expected 'demo content' in output: %q", stdout)
+	}
+}
+
 // TestCLI_AgentShow covers DDD1: fetch the seeded `default` agent
 // and assert its title, description, default_model line, and tools
 // list land in text output. JSON mode dumps the raw AgentDef.

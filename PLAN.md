@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase EEE — MCP resource read
+
+- [x] **EEE1.** `gact mcp resource-read <srv-id> <uri>` (alias `mcp read`) wraps new `client.McpResourceRead`. Walks returned `contents` slice and writes each chunk's `text` to stdout (or base64-decodes `data` for binary). CLI test reads seeded `file:///docs/welcome.md` and asserts `demo content` lands.
+
 ## Phase DDD — agent detail + watch
 
 - [x] **DDD1.** `gact agent show <id>` (alias `agents show`) wraps new `client.GetAgent`. Text mode lists id, source, title, description, default_model, tools, parameters, then system_prompt block. JSON mode dumps raw AgentDef. CLI test asserts seeded `default` agent renders correctly.

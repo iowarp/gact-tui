@@ -456,6 +456,18 @@ func (c *Client) GetTool(ctx context.Context, id string) (gact.Tool, error) {
 	return out, err
 }
 
+// McpResourceRead POSTs /v1/mcp/servers/{id}/resources/read with
+// `{uri: ...}` and returns the contents slice. Each entry has the
+// URI plus either a `text` body or a base64 `data` blob.
+func (c *Client) McpResourceRead(ctx context.Context, serverID, uri string) ([]gact.McpContent, error) {
+	body := map[string]any{"uri": uri}
+	var out struct {
+		Contents []gact.McpContent `json:"contents"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/mcp/servers/"+serverID+"/resources/read", body, &out)
+	return out.Contents, err
+}
+
 // McpReconnect POSTs /v1/mcp/servers/{id}/reconnect — forces the
 // backend to re-establish its connection to a previously-disconnected
 // MCP server. Returns nil on 2xx (server may respond 204).
