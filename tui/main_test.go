@@ -1006,6 +1006,53 @@ func TestCLI_Grep(t *testing.T) {
 	}
 }
 
+// TestCLI_GrepLimit covers VVVV1: --limit caps the output. Seeds 4
+// sessions with the same marker so we have 4+ hits, asserts 0
+// (default) returns ≥4 rows and --limit 2 returns exactly 2.
+func TestCLI_GrepLimit(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	const N = 4
+	const marker = "xyzzy_grep_limit_777"
+	for i := 0; i < N; i++ {
+		sid := createSession(t, url, fmt.Sprintf("grep-limit-%d", i))
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"send", sid, "the marker is "+marker); code != 0 {
+			t.Fatalf("send %d: exit %d", i, code)
+		}
+	}
+
+	// No limit → ≥N rows.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", marker)
+	if code != 0 {
+		t.Fatalf("grep no limit: exit %d", code)
+	}
+	rows := strings.Count(strings.TrimSpace(stdout), "\n") + 1
+	if rows < N {
+		t.Errorf("expected ≥%d rows without limit, got %d: %q", N, rows, stdout)
+	}
+
+	// --limit 2 → exactly 2 rows.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", marker, "--limit", "2")
+	if code != 0 {
+		t.Fatalf("grep --limit 2: exit %d", code)
+	}
+	rows = strings.Count(strings.TrimSpace(stdout), "\n") + 1
+	if rows != 2 {
+		t.Errorf("expected exactly 2 rows with --limit 2, got %d: %q", rows, stdout)
+	}
+
+	// Negative --limit → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", marker, "--limit", "-1"); code != 2 {
+		t.Errorf("grep --limit -1: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_DashboardWatch covers BBBB1: --watch refreshes the table
 // in place. Run for 2.5s with --interval 1s, expect ≥2 ANSI clear
 // sequences in the output (initial + at least one refresh).

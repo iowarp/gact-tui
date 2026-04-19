@@ -395,7 +395,7 @@ Usage:
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session (status/model/cost)
-  gact grep <query>          search across all sessions; TSV: sid title mid role snippet
+  gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env                   print resolved config + GACT_* env vars (TSV)
@@ -1849,21 +1849,30 @@ func runGrep(args []string) int {
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
 	format := fs.String("format", "tsv", "tsv | json")
+	// VVVV1: --limit caps the output. Default 0 means unlimited
+	// (back-compat). Truncation happens AFTER sorting so the kept
+	// rows are still the lexicographically-smallest sids.
+	limit := fs.Int("limit", 0, "max hits to print (0 = unlimited)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
+		"--limit": true, "-limit": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--format tsv|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--format tsv|json] [--limit N]")
 		return 2
 	}
 	query := strings.Join(fs.Args(), " ")
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact grep: unknown format %q\n", *format)
+		return 2
+	}
+	if *limit < 0 {
+		fmt.Fprintln(os.Stderr, "gact grep: --limit must be >= 0")
 		return 2
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -1931,6 +1940,9 @@ func runGrep(args []string) int {
 	}
 	wg.Wait()
 	sort.Slice(hits, func(i, j int) bool { return hits[i].SID < hits[j].SID })
+	if *limit > 0 && len(hits) > *limit {
+		hits = hits[:*limit]
+	}
 
 	if *format == "json" {
 		enc := json.NewEncoder(os.Stdout)
