@@ -1082,6 +1082,11 @@ func checkDiffs(t Reporter, c *conformClient, sid string) {
 // the Settings → Agent picker (ListAgents → settingsLoadedMsg)
 // and `gact agents list` (CLI). Read-only — never POSTs to create
 // an agent so it stays idempotent against the live backend.
+//
+// FFFFFF1: also drills into GET /v1/agents/{id} for the first
+// agent in the list (when present). Per-id response must echo the
+// same id back and have non-empty source/title — same shape as a
+// list entry, per SPEC §6.5.
 func checkAgents(t Reporter, c *conformClient) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
@@ -1106,6 +1111,7 @@ func checkAgents(t Reporter, c *conformClient) {
 		t.Errorf("response missing `agents` key: %s", body)
 		return
 	}
+	var firstID string
 	for i, a := range raw.Agents {
 		for _, key := range []string{"id", "source", "title"} {
 			if _, ok := a[key]; !ok {
@@ -1114,6 +1120,8 @@ func checkAgents(t Reporter, c *conformClient) {
 		}
 		if id, _ := a["id"].(string); id == "" {
 			t.Errorf("agent[%d] has empty id: %v", i, a)
+		} else if firstID == "" {
+			firstID = id
 		}
 		if src, _ := a["source"].(string); src != "" {
 			switch src {
@@ -1122,6 +1130,42 @@ func checkAgents(t Reporter, c *conformClient) {
 				t.Errorf("agent[%d] unexpected source %q (want builtin|user|recipe|skill)", i, src)
 			}
 		}
+	}
+	if firstID == "" {
+		return
+	}
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, err := c.get(dctx, "/v1/agents/"+firstID)
+	if err != nil {
+		t.Errorf("GET /v1/agents/%s: %v", firstID, err)
+		return
+	}
+	if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/agents/{id} returned 501 — per-id drill-down required by SPEC §6.5")
+		return
+	}
+	if dResp.StatusCode != 200 {
+		t.Errorf("/v1/agents/%s status %d body %s", firstID, dResp.StatusCode, dBody)
+		return
+	}
+	var detail struct {
+		ID     string `json:"id"`
+		Source string `json:"source"`
+		Title  string `json:"title"`
+	}
+	if err := json.Unmarshal(dBody, &detail); err != nil {
+		t.Errorf("agent/%s JSON decode: %v (body=%s)", firstID, err, dBody)
+		return
+	}
+	if detail.ID != firstID {
+		t.Errorf("/v1/agents/%s returned id=%q (want %q)", firstID, detail.ID, firstID)
+	}
+	if detail.Source == "" {
+		t.Errorf("/v1/agents/%s missing source: %s", firstID, dBody)
+	}
+	if detail.Title == "" {
+		t.Errorf("/v1/agents/%s missing title: %s", firstID, dBody)
 	}
 }
 
