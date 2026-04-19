@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T22:40Z
-**Current phase:** Phase CCC (tool detail + MCP reconnect) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1089e7e` and pushed
+**Last updated:** 2026-04-18T22:55Z
+**Current phase:** Phase DDD (agent detail + watch) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `936cae2` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,15 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase DDD — agent detail + watch
+- **DDD1.** `gact agent show <id>` (alias `agents show`) wraps new
+  `client.GetAgent`. Mirrors `tool show`. Text mode lists metadata
+  + system_prompt block; JSON mode dumps raw AgentDef.
+- **DDD2.** `gact watch <sid> [--interval DUR] [--timeout DUR]`
+  tails session transitions as TSV rows
+  (`HH:MM:SS<TAB>status<TAB>msg_count<TAB>tokens_out`). Exits
+  after activity + 2 idle ticks. CLI tests cover both verbs.
 
 ### Phase CCC — tool detail + MCP reconnect
 - **CCC1.** `gact tool show <id>` (alias `tools show`) wraps GET
