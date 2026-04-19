@@ -381,6 +381,52 @@ func TestCLI_Plugins(t *testing.T) {
 	}
 }
 
+// TestCLI_TasksSummary covers FFFF1: aggregate task counts across
+// sessions. Seeds two sessions with mixed-status tasks, asserts the
+// summary table contains both rows + a TOTAL footer with correct
+// aggregates.
+func TestCLI_TasksSummary(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid1 := createSession(t, url, "summary-A")
+	sid2 := createSession(t, url, "summary-B")
+
+	addTask := func(sid, title string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"tasks", "add", sid, title)
+		if code != 0 {
+			t.Fatalf("tasks add: exit %d", code)
+		}
+		return strings.TrimSpace(stdout)
+	}
+	setStatus := func(tid, status string) {
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"tasks", "set", tid, "--status", status); code != 0 {
+			t.Fatalf("tasks set: exit %d", code)
+		}
+	}
+	addTask(sid1, "A pending")
+	t1b := addTask(sid1, "A completed")
+	setStatus(t1b, "completed")
+	addTask(sid2, "B pending")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "summary")
+	if code != 0 {
+		t.Fatalf("tasks summary: exit %d", code)
+	}
+	// Both sids should appear; TOTAL row must show 2 pending + 1
+	// completed (this run owns those tasks; emulator clears between
+	// startEmulator calls so no other tests' tasks leak in).
+	if !strings.Contains(stdout, sid1) || !strings.Contains(stdout, sid2) {
+		t.Errorf("expected both sids in summary: %q", stdout)
+	}
+	if !strings.Contains(stdout, "TOTAL\t(2 sessions)\t2\t0\t1\t0") {
+		t.Errorf("expected TOTAL row aggregating 2 sessions / 2P / 0R / 1C / 0F: %q", stdout)
+	}
+}
+
 // TestCLI_Tasks covers MMM5: full session-task lifecycle via CLI.
 func TestCLI_Tasks(t *testing.T) {
 	url, stop := startEmulator(t)
