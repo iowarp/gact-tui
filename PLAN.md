@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQQQ — conformance: messages search
+
+- [x] **QQQQQQ1.** Adds `Messages_Search` section to the conformance suite (gated on `capabilities.search_messages` AND a non-empty session id). Walks `GET /v1/sessions/{id}/messages/search?q=hello&limit=5`. Asserts 200 + non-nil top-level `matches` array (empty list is fine — the seed message may not match the query; missing key violates spec). When matches are present, each must carry the documented {message_id, snippet} pair with non-empty message_id. Locks the wire shape that powers the @-search palette and `gact search`. Read-only. Adapter authors that don't implement search advertise `search_messages=false` and auto-skip via the cap gate. New `Options.SkipMessageSearch` opt-out.
+
 ## Phase PPPPPP — conformance README refresh
 
 - [x] **PPPPPP1.** The conformance suite's README table was 7 sections behind reality (only Health/Capabilities/Workspaces/Sessions_List/Sessions_Create/Messages_Post/SSE were listed). Brings it up to the current 14 sections + per-id drill-downs, organized into "always-on" (non-cap-gated) vs "capability-gated" with the gating capability named explicitly for each. Each row points at the phase code that introduced or extended it (BBBBBB1, CCCCCC1, DDDDDD1, EEEEEE1, FFFFFF1, GGGGGG1, HHHHHH1, IIIIII1, JJJJJJ1, KKKKKK1, LLLLLL1, MMMMMM1, NNNNNN1) so the git history stays navigable from the docs.
