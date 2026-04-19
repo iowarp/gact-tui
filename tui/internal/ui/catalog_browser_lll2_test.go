@@ -90,6 +90,22 @@ func TestCatalogBrowser_EscPopsMcpDetail(t *testing.T) {
 	}
 }
 
+// TestCatalogBrowserTitle_AgentsAndDetail: new kinds get titles.
+func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
+	cases := map[catalogBrowserKind]string{
+		catalogKindMcp:       "MCP servers",
+		catalogKindTools:     "Tools",
+		catalogKindSkills:    "Skills",
+		catalogKindMcpDetail: "MCP detail",
+		catalogKindAgents:    "Agents",
+	}
+	for k, want := range cases {
+		if got := catalogBrowserTitle(k); got != want {
+			t.Errorf("kind %d: title=%q, want %q", k, got, want)
+		}
+	}
+}
+
 // TestCatalogBrowser_DisabledRowRendersDim: a disabled tool gets
 // the (disabled) tag in the rendered output.
 func TestCatalogBrowser_DisabledRowRendersDim(t *testing.T) {

@@ -30,6 +30,10 @@ const (
 	// catalogKindMcpDetail shows one MCP server's tools+resources+prompts
 	// in a single list. Pushed on Enter from the MCP server list (LLL2).
 	catalogKindMcpDetail
+	// catalogKindAgents lists all agents from /v1/agents. Distinct from
+	// the Settings > Agent picker which is for selecting; this one is
+	// for browsing. LLL3.
+	catalogKindAgents
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -110,16 +114,40 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
-		case catalogKindSkills:
-			// Skills don't have a dedicated endpoint yet. Return a
-			// single informational row so the modal is consistent and
-			// the user sees a clear "not implemented" state rather
-			// than an empty list with no explanation.
-			return catalogBrowserLoadedMsg{kind: kind, items: []catalogItem{{
-				id:    "none",
-				title: "(no skills endpoint on this backend)",
-				desc:  "Backends that implement skills will surface them here.",
-			}}}
+		case catalogKindAgents, catalogKindSkills:
+			// Per SPEC §6.5 line 807: skills *are* agents with
+			// source="skill" — no dedicated namespace. Both verbs
+			// hit /v1/agents; skills filter to source=skill, agents
+			// shows everything.
+			agents, err := c.ListAgents(ctx)
+			if err != nil {
+				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
+			}
+			items := make([]catalogItem, 0, len(agents))
+			for _, a := range agents {
+				if kind == catalogKindSkills && a.Source != "skill" {
+					continue
+				}
+				desc := a.Description
+				if a.DefaultModel != nil && a.DefaultModel.ModelID != "" {
+					if desc != "" {
+						desc += " · "
+					}
+					desc += "model: " + a.DefaultModel.ModelID
+				}
+				items = append(items, catalogItem{
+					id: a.ID, title: a.Title, desc: desc,
+					statusTag: a.Source,
+				})
+			}
+			if len(items) == 0 && kind == catalogKindSkills {
+				items = append(items, catalogItem{
+					id:    "none",
+					title: "(no skills on this backend)",
+					desc:  "Skills are agents with source=\"skill\". Backends doing automated extraction expose them via /v1/agents.",
+				})
+			}
+			return catalogBrowserLoadedMsg{kind: kind, items: items}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}
@@ -220,6 +248,8 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Skills"
 	case catalogKindMcpDetail:
 		return "MCP detail"
+	case catalogKindAgents:
+		return "Agents"
 	}
 	return "Catalog"
 }
@@ -424,6 +454,10 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		return catalogKindTools, true
 	case "/skills":
 		return catalogKindSkills, true
+	case "/agents-list":
+		// Distinct from /agents which still routes to Settings (richer
+		// picker). LLL3 added this read-only browser route.
+		return catalogKindAgents, true
 	}
 	return 0, false
 }

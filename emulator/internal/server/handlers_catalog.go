@@ -215,6 +215,21 @@ func staticAgents() []gact.AgentDef {
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:        []string{"read_file"},
 		},
+		// Two skill-source agents so the /skills catalog browser has
+		// real data to render (LLL3). Per SPEC §6.5 line 807, skills
+		// are agents with source="skill" — no separate namespace.
+		{
+			ID: "test_writer", Source: "skill", Title: "Test Writer",
+			Description:  "Writes table-driven Go tests for a target package.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file", "edit_file"},
+		},
+		{
+			ID: "release_notes", Source: "skill", Title: "Release Notes",
+			Description:  "Summarizes git diffs since a tag into changelog entries.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
+			Tools:        []string{"bash", "read_file"},
+		},
 	}
 }
 
