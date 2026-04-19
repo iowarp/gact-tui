@@ -98,6 +98,8 @@ func main() {
 			os.Exit(runDiff(os.Args[2:]))
 		case "search":
 			os.Exit(runSearch(os.Args[2:]))
+		case "workspaces", "workspace", "ws":
+			os.Exit(runWorkspaces(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -306,6 +308,7 @@ Usage:
   gact diff apply <sid> [p…] apply pending diffs (no paths = all)
   gact diff reject <sid> [p…] reject pending diffs
   gact search <sid> <query>  full-text search across session messages
+  gact workspaces list       list workspaces (TSV: id  name  root_path)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -619,6 +622,60 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runWorkspaces handles `gact workspaces list [--format tsv|json]`
+// — single read-side wrapper over `/v1/workspaces`. Useful for
+// scripts that need to discover workspace ids before chaining
+// `gact list --workspace WS_ID` or `gact tail --workspace WS_ID`.
+// TSV columns: id, name, root_path. JSON pretty-prints the raw slice.
+func runWorkspaces(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact workspaces list [--format tsv|json]")
+		return 2
+	}
+	verb := args[0]
+	if verb != "list" && verb != "ls" {
+		fmt.Fprintf(os.Stderr, "gact workspaces: unknown verb %q (want list)\n", verb)
+		return 2
+	}
+	rest := args[1:]
+	fs := flag.NewFlagSet("workspaces list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact workspaces: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	wss, err := c.ListWorkspaces(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact workspaces list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(wss); err != nil {
+			fmt.Fprintf(os.Stderr, "gact workspaces list: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	for _, w := range wss {
+		fmt.Printf("%s\t%s\t%s\n", w.ID, w.Name, w.RootPath)
 	}
 	return 0
 }
@@ -1533,7 +1590,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1553,7 +1610,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1566,7 +1623,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

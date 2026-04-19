@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase UU — workspaces CLI
+
+- [x] **UU1.** `gact workspaces list [--format tsv|json]` — wraps `/v1/workspaces` so scripts can discover workspace ids without booting the TUI. TSV columns: id, name, root_path. Aliases: `workspace`, `ws`. CLI test asserts the seeded `ws_default` shows up in both TSV and JSON.
+
 ## Phase TT — search CLI
 
 - [x] **TT1.** `gact search <sid> <query>` — uses GET `/v1/sessions/{id}/messages/search` (client.SearchMessages). TSV output is `mid<TAB>role<TAB>snippet`; one ListMessages up front resolves role per message. `--format json` pretty-prints the raw match objects. CLI test seeds a unique token and asserts mid+role+snippet land in both TSV and JSON output.
