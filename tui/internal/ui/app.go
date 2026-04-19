@@ -2991,11 +2991,13 @@ func (a *App) viewMainBase() string {
 	sidebar := a.renderSidebar(sidebarW, convH)
 	body := a.renderBody(bodyW, bodyH)
 
-	// Both stacks must hit exactly bodyH rows — otherwise
-	// JoinHorizontal (top-aligned) lets the taller bleed into the
-	// footer row below.
-	sidebar = clampLines(sidebar, bodyH)
-	body = clampLines(body, bodyH)
+	// CCCCC1: force exact row counts on both stacks. lipgloss's
+	// .Height(N) only sets a *minimum* outer height; if the inner
+	// content is shorter the pane stays short and the border `╰╯`
+	// floats up. fitLines guarantees both stacks span the rows the
+	// horizontal layout expects.
+	sidebar = fitLines(sidebar, convH)
+	body = fitLines(body, bodyH)
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, body)
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
@@ -3152,9 +3154,13 @@ func focusLabel(f FocusZone) string {
 
 func (a *App) renderSidebar(width, height int) string {
 	t := a.Theme
-	style := t.Pane.Width(width - 2).Height(height - 2)
+	// CCCCC1: lipgloss .Height(N) is OUTER height (border included).
+	// Previously we passed Height(height-2) treating it as inner content
+	// — that left the bordered pane 2 rows short, so the sidebar's `╰╯`
+	// floated up while the conversation pane stayed at its full height.
+	style := t.Pane.Width(width - 2).Height(height)
 	if a.focus == FocusSidebar {
-		style = t.PaneFoc.Width(width - 2).Height(height - 2)
+		style = t.PaneFoc.Width(width - 2).Height(height)
 	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("SESSIONS")
 	rows := []string{title, ""}
@@ -3350,10 +3356,12 @@ func (a *App) renderBody(width, height int) string {
 	}
 	inputH := height - msgH - hintH
 
-	// Conversation pane
-	msgStyle := t.Pane.Width(width - 2).Height(msgH - 2)
+	// Conversation pane. CCCCC1: lipgloss .Height(N) is OUTER (border
+	// included); the previous Height(msgH-2) made the bordered region
+	// 2 rows shorter than its allotment.
+	msgStyle := t.Pane.Width(width - 2).Height(msgH)
 	if a.focus == FocusBody {
-		msgStyle = t.PaneFoc.Width(width - 2).Height(msgH - 2)
+		msgStyle = t.PaneFoc.Width(width - 2).Height(msgH)
 	}
 
 	titleLine := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("CONVERSATION")
@@ -3488,11 +3496,13 @@ func (a *App) renderBody(width, height int) string {
 	}
 	pieces = append(pieces, "", body)
 	msgPane := msgStyle.Render(lipgloss.JoinVertical(lipgloss.Left, pieces...))
-	// Belt-and-braces: even with the scrollClip above, an unusually
-	// wide message row can soft-wrap past its nominal line count and
-	// push the total over msgH. Hard-clip to msgH so the footer is
-	// always in frame.
-	msgPane = clampLines(msgPane, msgH)
+	// CCCCC1: hard-fit to msgH (truncate AND pad). The previous
+	// clamp-only path let lipgloss render a short pane when content
+	// was sparse — that left the conversation `╰╯` floating up while
+	// the input box stayed pinned to bodyH-inputH, making the bottom
+	// of the layout look broken whenever the conversation grew past
+	// the original short content.
+	msgPane = fitLines(msgPane, msgH)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
 	a.input.SetWidth(width - 4)
@@ -3502,11 +3512,12 @@ func (a *App) renderBody(width, height int) string {
 	} else {
 		a.input.Blur()
 	}
-	inputStyle := t.Pane.Width(width - 2).Height(inputH - 2)
+	// CCCCC1: same OUTER-height correction as sidebar/conversation.
+	inputStyle := t.Pane.Width(width - 2).Height(inputH)
 	if a.focus == FocusInput {
-		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH - 2)
+		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH)
 	}
-	inputPane := clampLines(inputStyle.Render(a.input.View()), inputH)
+	inputPane := fitLines(inputStyle.Render(a.input.View()), inputH)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
@@ -3610,6 +3621,25 @@ func clampLines(s string, max int) string {
 		return s
 	}
 	return strings.Join(lines[:max], "\n")
+}
+
+// fitLines is clampLines + bottom-pad: forces the output to be EXACTLY
+// `n` lines. lipgloss's .Height(N) is supposed to pad short content but
+// in practice (CCCCC1) empty/sparse panes can render shorter, leaving
+// JoinHorizontal to fill the gap with neighbour content. Forcing the
+// row count keeps borders from drifting between sidebar and body.
+func fitLines(s string, n int) string {
+	if n < 1 {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) > n {
+		lines = lines[:n]
+	}
+	for len(lines) < n {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // scrollClip clamps body to maxRows lines, sticking to bottom by default.
