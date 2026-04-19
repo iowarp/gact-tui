@@ -1,11 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-20T01:55Z
-**Current phase:** YYYYY1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ab4bc3d` and pushed
+**Last updated:** 2026-04-20T02:15Z
+**Current phase:** YYYYY1 + ZZZZZ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d6fdf6` and pushed
 **Open:**
-  - Shift+Enter newline still not landing (terminal-fold issue)
   - Conformance Diffs section (stashed prior — non-feedback)
+
+### Phase ZZZZZ — input newline copy honest about terminal-fold
+- **ZZZZZ1.** Shift+Enter is terminal-dependent (kitty/
+  modifyOtherKeys); placeholder + help-tab now lead with the
+  always-works `\<Enter>` fallback. Keybinding unchanged (already
+  accepts all three modified-Enter forms).
 
 ### Phase YYYYY — Settings TUI: paste-compress + intro toggle
 - **YYYYY1.** User flagged Settings as "very shallow still".
