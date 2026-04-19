@@ -241,6 +241,22 @@ func TestRenderHeader_NarrowDropsOptional(t *testing.T) {
 	}
 }
 
+// LLL8b: Ctrl+Z returns tea.Suspend (which delivers SIGTSTP via the
+// program runtime) and sets a "fg to resume" reassurance hint.
+func TestUpdate_CtrlZSuspends(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl, Text: ""})
+	got := out.(*App)
+	if cmd == nil {
+		t.Fatalf("expected non-nil cmd from Ctrl+Z")
+	}
+	if !strings.Contains(got.transientHint, "detached") ||
+		!strings.Contains(got.transientHint, "to resume") {
+		t.Errorf("expected reassurance hint with 'detached' and 'to resume', got %q",
+			got.transientHint)
+	}
+}
+
 // Verify the app responds to Tab without panicking.
 func TestUpdate_TabCyclesFocus(t *testing.T) {
 	a := newReadyApp(nil, nil)

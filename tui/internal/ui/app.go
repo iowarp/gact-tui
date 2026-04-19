@@ -1084,6 +1084,15 @@ func (a *App) nextReconnectDelay() time.Duration {
 }
 
 func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// LLL8b: Ctrl+Z detaches — sends SIGTSTP to ourselves so the
+	// shell backgrounds the process. fg resumes. The backend session
+	// keeps running independently (sessions are server-side state).
+	// Setting transientHint here gets shown on resume so the user
+	// has a "you can come back to this" reassurance when they `fg`.
+	if k.String() == "ctrl+z" {
+		a.transientHint = "detached — `fg` to resume; backend session keeps running"
+		return a, tea.Suspend
+	}
 	// Clear any transient hint banner — it's a one-off toast that
 	// shouldn't persist past the next interaction. Done before modal
 	// dispatch so even hitting "Esc" in a modal dismisses the banner.
@@ -3636,6 +3645,7 @@ var helpTabs = []struct {
 			{"Ctrl+L", "reload config from disk"},
 			{"Ctrl+X", "cancel running scenario"},
 			{"Ctrl+Y", "voice transcribe"},
+			{"Ctrl+Z", "detach (suspend; `fg` resumes)"},
 			{"?", "toggle this help"},
 			{"Esc", "close overlay / clear input"},
 			{"Ctrl+C", "quit"},
