@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T21:55Z
-**Current phase:** Phase ZZ (workspace files CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fbabf43` and pushed
+**Last updated:** 2026-04-18T22:10Z
+**Current phase:** Phase AAA (repo map CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `02eaa54` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase AAA — repo map CLI
+- **AAA1.** `gact repo-map <ws-id> [--format tree|json]` exposes
+  the previously-unwrapped `/v1/workspaces/{id}/repo_map` endpoint.
+  Added `client.WorkspaceRepoMap`. Tree mode uses tree(1)-style
+  box-drawing + `· symbol` children; tokens-cost lands on stderr
+  so stdout pipes cleanly. CLI test asserts main.go and Handler.
 
 ### Phase ZZ — workspace files CLI
 - **ZZ1.** `gact files list <ws-id> [--format tsv|json]` wraps
