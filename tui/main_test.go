@@ -197,6 +197,41 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Catalog covers OO1: each kind (tools/agents/mcp/commands)
+// returns non-empty TSV against the emulator's seeded fixtures.
+func TestCLI_Catalog(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	for _, kind := range []string{"tools", "agents", "mcp", "commands"} {
+		stdout, stderr, code := runGact(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			"catalog", kind)
+		if code != 0 {
+			t.Errorf("catalog %s: exit %d, stderr=%q", kind, code, stderr)
+			continue
+		}
+		if strings.TrimSpace(stdout) == "" {
+			t.Errorf("catalog %s: empty output", kind)
+		}
+	}
+
+	// JSON format works too.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"catalog", "tools", "--format", "json")
+	if code != 0 || !strings.Contains(stdout, `"name"`) {
+		t.Errorf("catalog tools --format json: code=%d stdout=%q", code, stdout[:80])
+	}
+
+	// Unknown kind → exit 2.
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"catalog", "skills")
+	if code != 2 {
+		t.Errorf("unknown kind should exit 2, got %d", code)
+	}
+}
+
 // TestCLI_ContextRoundTrip covers NN1: list (empty) → add two
 // files → list (both present) → rm one → list (one left).
 func TestCLI_ContextRoundTrip(t *testing.T) {
