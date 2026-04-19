@@ -139,6 +139,8 @@ func main() {
 			os.Exit(runBench(os.Args[2:]))
 		case "conformance":
 			os.Exit(runConformance(os.Args[2:]))
+		case "dashboard", "dash":
+			os.Exit(runDashboard(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -378,6 +380,7 @@ Usage:
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
+  gact dashboard             one-shot table of every session (status/model/cost)
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1308,6 +1311,156 @@ func runHooksRm(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runDashboard prints a supervisory overview of every session in
+// the workspace (default: all). One-shot — for scripting or quick
+// "what's everything doing?" checks without launching the TUI. (VVV1)
+func runDashboard(args []string) int {
+	fs := flag.NewFlagSet("dashboard", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
+	format := fs.String("format", "pretty", "pretty | tsv | json")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+		"--format": true, "-format": true,
+	})); err != nil {
+		return 2
+	}
+	switch *format {
+	case "pretty", "tsv", "json":
+	default:
+		fmt.Fprintf(os.Stderr, "gact dashboard: unknown format %q (want pretty|tsv|json)\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact dashboard: %v\n", err)
+		return 1
+	}
+
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(sessions)
+		return 0
+	}
+
+	type row struct {
+		id, status, title, model, age, tokens, cost string
+	}
+	rows := make([]row, 0, len(sessions))
+	now := time.Now().UTC()
+	for _, s := range sessions {
+		title := s.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		model := s.Model.ModelID
+		if model == "" {
+			model = "-"
+		}
+		var age string
+		if !s.UpdatedAt.IsZero() {
+			d := now.Sub(s.UpdatedAt.UTC())
+			age = humanAge(d)
+		} else {
+			age = "-"
+		}
+		rows = append(rows, row{
+			id:     s.ID,
+			status: s.Status,
+			title:  title,
+			model:  model,
+			age:    age,
+			tokens: fmt.Sprintf("%s/%s", humanTokensCLI(s.Tokens.Input), humanTokensCLI(s.Tokens.Output)),
+			cost:   fmt.Sprintf("$%.4f", s.CostUSD),
+		})
+	}
+
+	headers := []string{"ID", "STATUS", "TITLE", "MODEL", "AGE", "TOK in/out", "COST"}
+	if *format == "tsv" {
+		fmt.Println(strings.Join(headers, "\t"))
+		for _, r := range rows {
+			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost)
+		}
+		return 0
+	}
+	// pretty: column-aligned. Compute widths.
+	cols := [][]string{
+		{headers[0]}, {headers[1]}, {headers[2]}, {headers[3]},
+		{headers[4]}, {headers[5]}, {headers[6]},
+	}
+	for _, r := range rows {
+		cols[0] = append(cols[0], r.id)
+		cols[1] = append(cols[1], r.status)
+		cols[2] = append(cols[2], r.title)
+		cols[3] = append(cols[3], r.model)
+		cols[4] = append(cols[4], r.age)
+		cols[5] = append(cols[5], r.tokens)
+		cols[6] = append(cols[6], r.cost)
+	}
+	widths := make([]int, len(cols))
+	for i, col := range cols {
+		for _, s := range col {
+			if len(s) > widths[i] {
+				widths[i] = len(s)
+			}
+		}
+	}
+	printRow := func(vals []string) {
+		out := make([]string, len(vals))
+		for i, v := range vals {
+			out[i] = fmt.Sprintf("%-*s", widths[i], v)
+		}
+		fmt.Println(strings.Join(out, "  "))
+	}
+	printRow(headers)
+	printRow([]string{
+		strings.Repeat("-", widths[0]), strings.Repeat("-", widths[1]),
+		strings.Repeat("-", widths[2]), strings.Repeat("-", widths[3]),
+		strings.Repeat("-", widths[4]), strings.Repeat("-", widths[5]),
+		strings.Repeat("-", widths[6]),
+	})
+	for _, r := range rows {
+		printRow([]string{r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost})
+	}
+	return 0
+}
+
+// humanAge formats a duration as a 1-2 char age stamp (5s, 4m, 3h,
+// 2d). Used by the dashboard for compact rows.
+func humanAge(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd", int(d.Hours()/24))
+}
+
+// humanTokensCLI formats token counts compactly (1234→1.2K, 1234567
+// →1.2M). Mirrors humanTokens in the TUI; duplicated here so this
+// file doesn't import internal/ui.
+func humanTokensCLI(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
 }
 
 // runConformance runs the contract/conformance suite against the
@@ -3682,7 +3835,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3702,7 +3855,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3715,7 +3868,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
