@@ -333,6 +333,42 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_McpList covers JJJJ1: `gact mcp list` enumerates connected
+// MCP servers; emulator's `default` scenario seeds one fake-mcp.
+// Asserts both TSV header + row, and JSON encodes the seeded id.
+func TestCLI_McpList(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "list")
+	if code != 0 {
+		t.Fatalf("mcp list: exit %d", code)
+	}
+	for _, want := range []string{
+		"id\tname\tstatus\ttransport\tprotocol\tcaps\tlast_error",
+		"mcp_fake\tfake-mcp\tready\t",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in TSV: %q", want, stdout)
+		}
+	}
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "list", "--format", "json")
+	if code != 0 {
+		t.Fatalf("mcp list json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id": "mcp_fake"`) {
+		t.Errorf("expected mcp_fake id in json: %q", stdout)
+	}
+	// Unknown format: exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "list", "--format", "yaml"); code != 2 {
+		t.Errorf("mcp list --format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_Plugins covers MMM8: drop a manifest into a temp plugins
 // dir, list it, verify the rendered output and JSON shape.
 func TestCLI_Plugins(t *testing.T) {

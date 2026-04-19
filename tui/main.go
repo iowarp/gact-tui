@@ -377,6 +377,7 @@ Usage:
   gact files list <ws-id>    list workspace files (TSV: type  size  path)
   gact files read <ws-id> <path> dump file bytes to stdout
   gact repo-map <ws-id>      tree-render the workspace repo map
+  gact mcp list              list all connected MCP servers (TSV or JSON)
   gact mcp tools <srv-id>    list one MCP server's tools (TSV or JSON)
   gact mcp resources <srv-id> list one MCP server's resources
   gact mcp prompts <srv-id>  list one MCP server's prompt templates
@@ -2842,12 +2843,14 @@ func runTool(args []string) int {
 //	gact mcp prompts   <server-id>   — TSV: name  title
 func runMcp(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact mcp tools|resources|prompts <server-id> [--format tsv|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact mcp list|tools|resources|prompts <server-id> [--format tsv|json]")
 		return 2
 	}
 	verb := args[0]
 	rest := args[1:]
 	switch verb {
+	case "list", "ls":
+		return runMcpList(rest)
 	case "tools":
 		return runMcpTools(rest)
 	case "resources":
@@ -2859,8 +2862,74 @@ func runMcp(args []string) int {
 	case "resource-read", "read":
 		return runMcpResourceRead(rest)
 	}
-	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts|reconnect|resource-read)\n", verb)
+	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want list|tools|resources|prompts|reconnect|resource-read)\n", verb)
 	return 2
+}
+
+// runMcpList enumerates the backend's MCP servers (`GET
+// /v1/mcp/servers`). TSV columns: id, name, status, transport,
+// protocol_version, capabilities (compact "tools,resources,
+// prompts,logging"), last_error. JSON mode dumps the array as-is
+// for downstream tooling. (JJJJ1)
+func runMcpList(args []string) int {
+	fs, backend, format := mcpFlagSet("mcp list")
+	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp list [--format tsv|json]")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	servers, err := c.ListMcpServers(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(servers); err != nil {
+			fmt.Fprintf(os.Stderr, "gact mcp list: encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	if *format != "tsv" {
+		fmt.Fprintf(os.Stderr, "gact mcp list: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	fmt.Println("id\tname\tstatus\ttransport\tprotocol\tcaps\tlast_error")
+	for _, s := range servers {
+		caps := []string{}
+		if s.DeclaredCapabilities.Tools {
+			caps = append(caps, "tools")
+		}
+		if s.DeclaredCapabilities.Resources != nil {
+			caps = append(caps, "resources")
+		}
+		if s.DeclaredCapabilities.Prompts != nil {
+			caps = append(caps, "prompts")
+		}
+		if s.DeclaredCapabilities.Logging {
+			caps = append(caps, "logging")
+		}
+		capStr := strings.Join(caps, ",")
+		if capStr == "" {
+			capStr = "-"
+		}
+		errStr := s.LastError
+		if errStr == "" {
+			errStr = "-"
+		}
+		fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			s.ID, s.Name, s.Status, s.Transport, s.ProtocolVersion, capStr, errStr)
+	}
+	return 0
 }
 
 func runMcpResourceRead(args []string) int {
