@@ -1177,6 +1177,34 @@ func checkProviders(t Reporter, c *conformClient) {
 		if pid == "" {
 			continue
 		}
+		// KKKKKK1: Per-provider detail endpoint. SPEC §6.12 promises
+		// GET /v1/providers/{id} returns a single Provider. Adapter
+		// authors that wired only the list got a silent gap before.
+		// Per-id response must echo the same id back and have a
+		// non-empty name (Provider schema).
+		dresp, dbody, derr := c.get(ctx, "/v1/providers/"+pid)
+		if derr != nil {
+			t.Errorf("GET /v1/providers/%s: %v", pid, derr)
+		} else if dresp.StatusCode == http.StatusNotImplemented {
+			t.Errorf("/v1/providers/%s returned 501 — per-id drill-down required by SPEC §6.12", pid)
+		} else if dresp.StatusCode != 200 {
+			t.Errorf("/v1/providers/%s status %d body %s", pid, dresp.StatusCode, dbody)
+		} else {
+			var pdetail struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}
+			if err := json.Unmarshal(dbody, &pdetail); err != nil {
+				t.Errorf("provider/%s JSON decode: %v (body=%s)", pid, err, dbody)
+			} else {
+				if pdetail.ID != pid {
+					t.Errorf("/v1/providers/%s returned id=%q (want %q)", pid, pdetail.ID, pid)
+				}
+				if pdetail.Name == "" {
+					t.Errorf("/v1/providers/%s missing name: %s", pid, dbody)
+				}
+			}
+		}
 		// Per-provider models endpoint.
 		mresp, mbody, err := c.get(ctx, "/v1/providers/"+pid+"/models")
 		if err != nil {
