@@ -1,14 +1,19 @@
 # STATUS
 
-**Last updated:** 2026-04-20T01:15Z
-**Current phase:** WWWWW1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ad20e4d` and pushed
+**Last updated:** 2026-04-20T01:35Z
+**Current phase:** WWWWW1 + XXXXX1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a80ebfa` and pushed
 **Open:**
-  - Tool output more visually distinct (#155) — user wants
-    Claude-Code-grade contrast on `⎿ ...` body
   - Shift+Enter newline still not landing (terminal-fold issue)
   - Settings still shallow — paste-compress + intro toggle
   - Conformance Diffs section (stashed VVVVV1 prior — non-feedback)
+
+### Phase XXXXX — tool output Claude-Code-grade contrast
+- **XXXXX1.** Body text now uses full Fg (not FgMuted) and
+  continuation rows render a yellow `│` bar in the gutter so
+  a colored vertical line runs the full height of the output.
+  Closes the user feedback that ours was less readable than
+  Claude Code's.
 
 ### Phase WWWWW — body cursor follows ↑/↓ scroll
 - **WWWWW1.** ↑/↓/k/j now walk the message cursor (and
