@@ -187,7 +187,7 @@ running backend:
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json] [--workspace W] [--parent P] [--status S] [--archived] [--limit N]` | List sessions with filters |
-| `gact tail [SID] [--workspace WS_ID]` | Stream SSE events as JSON lines |
+| `gact tail [SID] [--workspace WS_ID] [--filter type1,type2]` | Stream SSE events as JSON lines; `--filter` keeps only named types |
 | `gact stream [SID] [--workspace WS_ID]` | Stream SSE events as a pretty timeline |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
 | `gact wait <sid> [--timeout DUR]` | Poll until session status is idle |
