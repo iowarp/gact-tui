@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
@@ -133,6 +134,8 @@ func main() {
 			return
 		case "voice":
 			os.Exit(runVoice(os.Args[2:]))
+		case "bench":
+			os.Exit(runBench(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -370,6 +373,7 @@ Usage:
                               --async returns immediately with sid<TAB>msg_id
   gact attach <name|sid>     launch the TUI pre-selected on a session
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
+  gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1299,6 +1303,136 @@ func runHooksRm(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
 	}
+	return 0
+}
+
+// runBench implements `gact bench [-n N] [--message TEXT]` (QQQ1) —
+// a latency probe useful for measuring backend adapter performance
+// against the emulator baseline. Creates a fresh session, sends N
+// turns serially (each timed send→idle), reports p50/p90/p99/avg/
+// total, deletes the session.
+func runBench(args []string) int {
+	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	n := fs.Int("n", 5, "number of turns")
+	message := fs.String("message", "say hello in one word", "message body for each turn")
+	wsID := fs.String("workspace", "", "workspace id (default: first listed)")
+	timeout := fs.Duration("timeout", 5*time.Minute, "per-turn timeout")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"-n": true, "--n": true,
+		"--message": true, "-message": true,
+		"--workspace": true, "-workspace": true,
+		"--timeout": true, "-timeout": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *n < 1 {
+		fmt.Fprintln(os.Stderr, "gact bench: -n must be >= 1")
+		return 2
+	}
+
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if *wsID == "" {
+		wss, err := c.ListWorkspaces(ctx)
+		cancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact bench: list workspaces: %v\n", err)
+			return 1
+		}
+		if len(wss) == 0 {
+			fmt.Fprintln(os.Stderr, "gact bench: no workspaces; pass --workspace WS_ID")
+			return 1
+		}
+		*wsID = wss[0].ID
+	} else {
+		cancel()
+	}
+
+	createCtx, createCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	sess, err := c.CreateSession(createCtx, client.CreateSessionRequest{
+		WorkspaceID: *wsID,
+		Title:       "bench " + time.Now().UTC().Format("15:04:05"),
+		Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+		Agent:       &gact.AgentRef{ID: "default"},
+	})
+	createCancel()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact bench: create session: %v\n", err)
+		return 1
+	}
+
+	durations := make([]time.Duration, 0, *n)
+	totalStart := time.Now()
+	for i := 0; i < *n; i++ {
+		turnStart := time.Now()
+		postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if _, err := c.PostMessage(postCtx, sess.ID, client.PostMessageRequest{
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: *message}},
+		}); err != nil {
+			postCancel()
+			fmt.Fprintf(os.Stderr, "gact bench: turn %d send: %v\n", i+1, err)
+			return 1
+		}
+		postCancel()
+		// Poll for idle.
+		deadline := time.Now().Add(*timeout)
+		for {
+			pollCtx, pollCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			s, err := c.GetSession(pollCtx, sess.ID)
+			pollCancel()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact bench: turn %d poll: %v\n", i+1, err)
+				return 1
+			}
+			if s.Status == gact.StatusIdle {
+				break
+			}
+			if time.Now().After(deadline) {
+				fmt.Fprintf(os.Stderr, "gact bench: turn %d timeout (status=%s)\n", i+1, s.Status)
+				return 2
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		durations = append(durations, time.Since(turnStart))
+	}
+	totalElapsed := time.Since(totalStart)
+
+	// Cleanup: delete the bench session so we don't pollute the list.
+	delCtx, delCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_ = c.DeleteSession(delCtx, sess.ID)
+	delCancel()
+
+	// Stats.
+	sorted := append([]time.Duration(nil), durations...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	pct := func(p float64) time.Duration {
+		if len(sorted) == 0 {
+			return 0
+		}
+		idx := int(float64(len(sorted)-1) * p)
+		if idx < 0 {
+			idx = 0
+		}
+		return sorted[idx]
+	}
+	var sum time.Duration
+	for _, d := range durations {
+		sum += d
+	}
+	avg := sum / time.Duration(len(durations))
+
+	fmt.Printf("gact bench  backend=%s  n=%d  message=%q\n", finalBackend, *n, *message)
+	fmt.Printf("  total:  %s\n", totalElapsed.Round(time.Millisecond))
+	fmt.Printf("  avg:    %s\n", avg.Round(time.Millisecond))
+	fmt.Printf("  p50:    %s\n", pct(0.50).Round(time.Millisecond))
+	fmt.Printf("  p90:    %s\n", pct(0.90).Round(time.Millisecond))
+	fmt.Printf("  p99:    %s\n", pct(0.99).Round(time.Millisecond))
+	fmt.Printf("  min:    %s\n", sorted[0].Round(time.Millisecond))
+	fmt.Printf("  max:    %s\n", sorted[len(sorted)-1].Round(time.Millisecond))
 	return 0
 }
 
@@ -3478,7 +3612,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3498,7 +3632,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3511,7 +3645,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
