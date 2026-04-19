@@ -33,12 +33,13 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// fixture is the one our mock returns from /session.
 		SkipCreateSession: true,
 		SessionID:         "ses_conformance",
-		// OpenCode adapter doesn't proxy commands/tools/metrics
+		// OpenCode adapter doesn't proxy commands/tools/metrics/agents
 		// endpoints; fold them out of the conformance scope so a
 		// 501 doesn't fail the suite.
 		SkipCommands: true,
 		SkipTools:    true,
 		SkipMetrics:  true,
+		SkipAgents:   true,
 		// SSE budget bumped from default 3 s — the adapter emits
 		// server.connected immediately so this is plenty, but a slow
 		// CI runner can still take a moment to wire up sockets.
@@ -66,6 +67,16 @@ func mockCompleteOpenCode(t *testing.T) *httptest.Server {
 			 "time":{"created":1700000000000,"updated":1700000010000}}
 		]`)
 	}
+	// /path is what the adapter calls when synthesizing the workspace
+	// (list + per-id). Returns the worktree the adapter collapses
+	// into a single "default" workspace.
+	mux.HandleFunc("GET /path", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{
+			"home":"/home/test","state":"/var/state","config":"/etc/cfg",
+			"worktree":"/repos/conformance","directory":"/repos/conformance"
+		}`)
+	})
 	// Adapter calls "/session/" (trailing slash); register both so a
 	// path-shape regression in the adapter doesn't silently 404 us.
 	mux.HandleFunc("GET /session", listSessions)
