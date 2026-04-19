@@ -2799,15 +2799,28 @@ func (a *App) renderHeader() string {
 
 func (a *App) renderFooter() string {
 	t := a.Theme
-	hints := []string{
-		t.HintKey.Render("Ctrl+N") + t.HintLabel.Render(" new"),
-		t.HintKey.Render("Tab") + t.HintLabel.Render(" pane"),
-		t.HintKey.Render("Ctrl+S") + t.HintLabel.Render(" settings"),
-		t.HintKey.Render("/") + t.HintLabel.Render(" cmd"),
-		t.HintKey.Render("?") + t.HintLabel.Render(" help"),
-		t.HintKey.Render("ctrl+c") + t.HintLabel.Render(" quit"),
+	// LLL6: cluster hints by intent so the eye can chunk them. Each
+	// cluster uses `·` (small middle dot) between hints, `│` between
+	// clusters. Action cluster comes first (most-used), then nav,
+	// then exit. Same chord style throughout (HintKey + HintLabel),
+	// no special-casing — the grouping carries the meaning.
+	dotStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
+	dot := dotStyle.Render(" · ")
+	pipe := dotStyle.Render("  │  ")
+	mk := func(key, label string) string {
+		return t.HintKey.Render(key) + t.HintLabel.Render(" "+label)
 	}
-	hintLine := strings.Join(hints, "  ")
+	clusters := [][]string{
+		{mk("Ctrl+N", "new")},
+		{mk("Tab", "pane"), mk("Ctrl+S", "settings"), mk("/", "cmd"), mk("?", "help")},
+		{mk("ctrl+c", "quit")},
+	}
+	parts := make([]string, 0, len(clusters))
+	for _, c := range clusters {
+		parts = append(parts, strings.Join(c, dot))
+	}
+	hintLine := strings.Join(parts, pipe)
+
 	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
 	// Surface SSE reconnect state: while the backoff counter is > 0
 	// the stream is down and we're waiting to retry. J2's reset-on-
@@ -2817,6 +2830,7 @@ func (a *App) renderFooter() string {
 		left += "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 			Render("(reconnecting…)")
 	}
+
 	right := ""
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
@@ -2833,12 +2847,19 @@ func (a *App) renderFooter() string {
 			case s.Tokens.Input >= t.CostWarnTokens:
 				tokenColor = t.Warning
 			}
-			right = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
-				Render(fmt.Sprintf("$%.4f", s.CostUSD)) + " " +
-				lipgloss.NewStyle().Foreground(tokenColor).
-					Render(fmt.Sprintf("(%s in / %s out)",
-						humanTokens(s.Tokens.Input),
-						humanTokens(s.Tokens.Output)))
+			// LLL6: render cost as a chip — bg-tinted pill with the
+			// $ amount and the in/out counts inside, so it pops away
+			// from the dim hint row instead of floating as plain text.
+			chipBg := t.Bg
+			chip := lipgloss.NewStyle().Background(chipBg).
+				Foreground(t.Secondary).Bold(true).Padding(0, 1).
+				Render(fmt.Sprintf("$%.4f", s.CostUSD))
+			tokens := lipgloss.NewStyle().Background(chipBg).
+				Foreground(tokenColor).Padding(0, 1).
+				Render(fmt.Sprintf("%s in / %s out",
+					humanTokens(s.Tokens.Input),
+					humanTokens(s.Tokens.Output)))
+			right = chip + tokens
 		}
 	}
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
