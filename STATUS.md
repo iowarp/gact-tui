@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T15:10Z
-**Current phase:** WWWW1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d3ab652` and pushed
+**Last updated:** 2026-04-19T15:30Z
+**Current phase:** WWWW1 + XXXX1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `22cc2ec` and pushed
 **Open:** none
+
+### Phase XXXX — gact hooks list --event/--scope filters
+- **XXXX1.** `gact hooks list` gains `--event TYPE` and
+  `--scope global|session|workspace` filters. Combined filters
+  AND together. Unknown --scope → exit 2 client-side. CLI test
+  seeds 3 hooks (one per scope kind), asserts each filter keeps
+  the right one + drops the rest.
 
 ### Phase WWWW — gact tasks list --status FILTER
 - **WWWW1.** `gact tasks list <sid> --status pending,running,…`
