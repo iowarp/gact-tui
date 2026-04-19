@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T23:15Z
-**Current phase:** Phase FFF (list filters) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `72c146c` and pushed
+**Last updated:** 2026-04-18T23:25Z
+**Current phase:** Phase GGG (capabilities CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c02b5b5` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase GGG — capabilities CLI
+- **GGG1.** `gact capabilities` (alias `caps`) exposes the
+  Connect-screen probe as a shell verb. Text mode prints contract
+  version, backend identity, transports, auth, then ✓/· matrix of
+  all 23 SPEC §3.3 capability flags. JSON dumps raw. CLI test
+  asserts contract_version + three core flag rows.
 
 ### Phase FFF — list filters
 - **FFF1.** `gact list` gained `--status`, `--archived`,
