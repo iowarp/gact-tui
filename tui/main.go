@@ -114,6 +114,8 @@ func main() {
 			os.Exit(runRepoMap(os.Args[2:]))
 		case "mcp":
 			os.Exit(runMcp(os.Args[2:]))
+		case "tool", "tools":
+			os.Exit(runTool(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -333,6 +335,8 @@ Usage:
   gact mcp tools <srv-id>    list one MCP server's tools (TSV or JSON)
   gact mcp resources <srv-id> list one MCP server's resources
   gact mcp prompts <srv-id>  list one MCP server's prompt templates
+  gact mcp reconnect <srv-id> force-reconnect an MCP server
+  gact tool show <id>        print one tool's metadata + input schema
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -650,6 +654,80 @@ func runSearch(args []string) int {
 	return 0
 }
 
+// runTool dispatches the `gact tool <verb>` family. Right now only
+// `show` is implemented (list is covered by `gact catalog tools`):
+//
+//	gact tool show <id> [--format text|json]
+func runTool(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact tool show <id> [--format text|json]")
+		return 2
+	}
+	verb := args[0]
+	if verb != "show" {
+		fmt.Fprintf(os.Stderr, "gact tool: unknown verb %q (want show — list is `gact catalog tools`)\n", verb)
+		return 2
+	}
+	rest := args[1:]
+	fs := flag.NewFlagSet("tool show", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact tool show <id> [--format text|json]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact tool show: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	t, err := c.GetTool(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact tool show: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(t)
+		return 0
+	}
+	fmt.Printf("id:                 %s\n", t.ID)
+	fmt.Printf("source:             %s\n", t.Source)
+	if t.ServerID != "" {
+		fmt.Printf("server_id:          %s\n", t.ServerID)
+	}
+	fmt.Printf("name:               %s\n", t.Name)
+	if t.Title != "" {
+		fmt.Printf("title:              %s\n", t.Title)
+	}
+	if t.Description != "" {
+		fmt.Printf("description:        %s\n", t.Description)
+	}
+	if t.PermissionDefault != "" {
+		fmt.Printf("permission_default: %s\n", t.PermissionDefault)
+	}
+	if len(t.InputSchema) > 0 {
+		schema, _ := json.MarshalIndent(t.InputSchema, "", "  ")
+		fmt.Printf("input_schema:\n%s\n", schema)
+	}
+	if len(t.OutputSchema) > 0 {
+		schema, _ := json.MarshalIndent(t.OutputSchema, "", "  ")
+		fmt.Printf("output_schema:\n%s\n", schema)
+	}
+	return 0
+}
+
 // runMcp dispatches per-server MCP detail subcommands. `gact catalog
 // mcp` lists all servers; this drills into one to inspect what it
 // exposes:
@@ -671,9 +749,33 @@ func runMcp(args []string) int {
 		return runMcpResources(rest)
 	case "prompts":
 		return runMcpPrompts(rest)
+	case "reconnect":
+		return runMcpReconnect(rest)
 	}
-	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts)\n", verb)
+	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts|reconnect)\n", verb)
 	return 2
+}
+
+func runMcpReconnect(args []string) int {
+	fs := flag.NewFlagSet("mcp reconnect", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp reconnect <server-id>")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.McpReconnect(ctx, fs.Arg(0)); err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp reconnect: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 func mcpFlagSet(name string) (*flag.FlagSet, *string, *string) {
@@ -2182,7 +2284,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -2202,7 +2304,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -2215,7 +2317,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tool tools unarchive undo version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

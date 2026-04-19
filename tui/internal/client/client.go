@@ -438,6 +438,22 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 	return out.Entries, err
 }
 
+// GetTool fetches one tool by id (full definition incl. input/output
+// schemas) via /v1/tools/{id}. Used by `gact tool show` to surface
+// the schema for shell scripts that want to call the tool directly.
+func (c *Client) GetTool(ctx context.Context, id string) (gact.Tool, error) {
+	var out gact.Tool
+	err := c.do(ctx, http.MethodGet, "/v1/tools/"+id, nil, &out)
+	return out, err
+}
+
+// McpReconnect POSTs /v1/mcp/servers/{id}/reconnect — forces the
+// backend to re-establish its connection to a previously-disconnected
+// MCP server. Returns nil on 2xx (server may respond 204).
+func (c *Client) McpReconnect(ctx context.Context, serverID string) error {
+	return c.do(ctx, http.MethodPost, "/v1/mcp/servers/"+serverID+"/reconnect", nil, nil)
+}
+
 // McpServerTools fetches the tools advertised by one MCP server via
 // /v1/mcp/servers/{id}/tools.
 func (c *Client) McpServerTools(ctx context.Context, serverID string) ([]gact.Tool, error) {

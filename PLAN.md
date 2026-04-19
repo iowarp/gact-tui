@@ -4,6 +4,11 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase CCC — tool detail + MCP reconnect
+
+- [x] **CCC1.** `gact tool show <id>` (alias `tools show`) — wraps `/v1/tools/{id}` via new `client.GetTool`. Text mode prints id, source, server, name, title, description, permission_default, plus pretty-JSON for input/output schemas; JSON mode dumps the raw `gact.Tool`. CLI test asserts seeded `bash` round-trips with name, description, and schema.
+- [x] **CCC2.** `gact mcp reconnect <srv-id>` — POSTs `/v1/mcp/servers/{id}/reconnect` via new `client.McpReconnect`. Exit 0 on success. CLI test asserts `mcp_fake` reconnects (exit 0) and an unknown id fails (non-zero).
+
 ## Phase BBB — MCP detail CLI
 
 - [x] **BBB1.** `gact mcp tools|resources|prompts <server-id>` wraps the three previously-unexposed `/v1/mcp/servers/{id}/...` GET endpoints. Added `client.McpServerTools/Resources/Prompts`. TSV columns are tuned per type: tool=id·name, resource=uri·mime·name, prompt=name·title. JSON mode dumps the raw slice. CLI test asserts each verb returns ≥1 row for the seeded `mcp_fake` and JSON mode has the right shape.
