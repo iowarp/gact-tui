@@ -8,6 +8,17 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **III1.** Tool calls and tool results now interleave: `pairToolResults(msgs)` walks the message slice, builds `inlineResults[i]={call_id→result_part}` for each assistant that emitted tool_calls, and marks the absorbed tool messages so they don't render standalone. `renderPartsForRoleWithResults` emits each call's matching result immediately after the call header. Unpaired results stay visible (never silently dropped). Collapse-affordance `[N more lines · Ctrl+E to expand]` was already in place at render.go:365-378. Three unit tests + screenshot 67.
 
+## Phase MMM — adds from Claude Code inventory (LLL7)
+
+- [ ] **MMM1.** SSE `notification` event type — backends push `{level, code, title, body, action?}` for MCP-disconnect, model-migration, deprecation, etc. without polluting message history. SPEC §7 addition + emulator emitter + TUI toast renderer + CLI surface in `gact tail`/`gact stream`.
+- [ ] **MMM2.** Versioned config migrations — add `Config.ConfigVersion *int`, `internal/config/migrate.go` with ordered migration funcs that run on Load(). Cheap insurance against the first config-rename breaking existing users.
+- [ ] **MMM3.** Hooks system — `POST /v1/hooks` registering `{event, cmd_or_url}` for pre/post tool, on permission, on message-created. SPEC §6.X new section + emulator side-effect runner + `gact hooks list/add/remove` CLI.
+- [ ] **MMM4.** Permission rules — `POST /v1/permissions/rules` storing reusable predicates (e.g. `auto-allow read_file under /tmp`). SPEC §6.11 extension + emulator matcher + `gact perms rules` CLI.
+- [ ] **MMM5.** Tasks per-session — `/v1/sessions/{id}/tasks` for backends that fan out subagents and want to expose task state. Maps cleanly to the existing TaskCreate/Update/List shape.
+- [ ] **MMM6.** `gact summarize --instructions "..."` — pass-through to backend's summarize endpoint with custom instructions (tiny SPEC §6.2 amendment).
+- [ ] **MMM7.** `/rewind <msg_id>` — restore session state to a previous message. Pairs with `gact undo`; needs backend snapshot support. SPEC §6.10 amendment.
+- [ ] **MMM8.** Plugins directory — `~/.config/gact/plugins/<name>/plugin.json` registering slash commands that exec a local binary on invoke.
+
 ## Phase LLL — UX polish round (user-flagged 2026-04-18)
 
 - [x] **LLL1.** 13 screenshots refreshed via existing tapes (screenshot, screenshot_collapse, screenshot_compose, screenshot_themes). Now reflect HHH1 header (model/agent) and III1 interleaved tool rendering.
@@ -16,7 +27,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **LLL4.** Settings + catalog browser modals got real header bars (full-width Primary bg, inverted text) instead of plain bold-foreground titles. Selected rows now get a Bg-color background strip behind the entire row in addition to the existing `▌` marker, so selection is visible at a glance even with peripheral vision. Settings rowLine helper extracted (collapses model/agent/theme tab repetition). Screenshots 68/69/70 refreshed.
 - [x] **LLL5.** Sidebar height now matches the conversation pane height (was full bodyH including input), so both bottom borders close on the same row. Extracted `conversationPaneHeight()` helper used by both `viewMainBase` (sizes sidebar) and `renderBody` (sizes msg pane). UI goldens regenerated.
 - [x] **LLL6.** Footer now groups hints into 3 clusters (action | nav | exit) with `·` between hints and `│` between clusters. Cost rendered as a styled chip with chipBg=Bg, $ amount in Secondary bold + tokens in dynamic-color (warning/danger by context-window threshold). UI goldens regenerated. Visible in screenshots/01-initial.png.
-- [ ] **LLL7.** Look at `/mnt/d/Libraries/Documents/projects/cc` (Claude Code source on Windows D:\). Inventory front-end capabilities (custom commands, agent-jumping, migration handling) and identify which belong in the GACT contract / our system. Emit a short report to `notes/cc-inventory.md` with each idea + a yes/no/maybe-add recommendation.
+- [x] **LLL7.** Survey of CC's `src/` (101 slash commands, 85 React hooks, 11 migrations, plugins, skills, vim, voice, remote bridge). Report at `notes/cc-inventory.md` with per-feature add/maybe/skip verdicts and 8-item priority queue. Top-3 adds: SSE `notification` event type, versioned config migrations, hooks system. Filed as `MMM` follow-ups in PLAN.
 - [x] **LLL8a.** `gact tell --async` posts the message and exits immediately, printing `sid<TAB>msg_id` to stdout. Combine with `gact watch <sid>` or `gact log <sid>` to pick up the reply later. Same find-or-create-by-name semantics as the sync path. CLI test asserts both orderings (positional-then-flag, flag-then-positional) work and that resume keeps the same sid.
 - [ ] **LLL8b.** TUI "detach" key — Ctrl+Z is a shell-level signal (SIGTSTP) that already backgrounds most foreground processes; the TUI doesn't intercept it today. Two options: (a) explicit `Ctrl+D`/`Ctrl+Q` keybinding that fires `syscall.Kill(getpid, SIGTSTP)` so it works the same in shells that swallow Ctrl+Z, plus a "session keeps running on backend" reassurance toast; (b) headless `gact daemon` that keeps the SSE stream alive and writes notifications to a fifo. Pick (a) — (b) is overkill until there's a use case. Stub task.
 
