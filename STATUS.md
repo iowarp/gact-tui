@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T04:20Z
-**Current phase:** OOO1 (gact attach) shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a7054c9` and pushed
-**Open:** none — PLAN awaits next user feedback for new phases.
+**Last updated:** 2026-04-19T04:30Z
+**Current phase:** OOO1 + PPP1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8ffc0e9` and pushed
+**Open:** none
 
 ## This loop (Phases N + O)
 
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase PPP — voice CLI
+- **PPP1.** `gact voice <sid> <audio-file|->` ships. Wraps
+  client.VoiceTranscribe. File or stdin, `--mime audio/wav`
+  default. Test asserts non-empty transcription + empty-audio
+  exit 2.
 
 ### Phase OOO — TUI launch shortcuts
 - **OOO1.** `gact attach <name|sid>` ships. runAttach trims argv +
