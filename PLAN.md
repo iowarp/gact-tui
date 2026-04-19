@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase MMMMMM — conformance: metrics deeper validation
+
+- [x] **MMMMMM1.** Strengthened `checkMetrics` from "uptime_s present" to "full top-level envelope present per SPEC §6.16": {sessions, messages, tokens} must each be a JSON object (not just a present-but-null key); sessions+messages must carry `total`; tokens must carry input_total + output_total. Specific values stay unchecked (operational and change per request) but the structural presence is locked so the metrics tab can render row totals without a nil dereference. Adapter authors that emit only uptime_s now get caught here.
+
 ## Phase LLLLLL — conformance: MCP resources + prompts coverage
 
 - [x] **LLLLLL1.** Extended `checkMcp`'s per-server drill (JJJJJJ1 added /tools) with the remaining read-only MCP catalog endpoints per SPEC §6.7: (1) `GET /v1/mcp/servers/{id}/resources` — non-nil `resources` array, each entry with non-empty uri; (2) `GET /v1/mcp/servers/{id}/prompts` — non-nil `prompts` array, each entry with non-empty name. Adapter authors that wired only servers + tools missed both of these MCP catalog surfaces (used by the slash-command palette and the @-resource picker). Read-only — never POSTs to /resources/read or /prompts/get.
