@@ -217,6 +217,7 @@ running backend:
 | `gact diag` | Print binary version + config + env for bug reports |
 | `gact env` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars |
 | `gact theme show [--name N]` | Print active theme palette as TSV (`key<TAB>hex`); `--name` overrides resolution |
+| `gact theme list` | List available palettes one per line; `\t*` marks the active one |
 | `gact emit-config` | Print sample `config.json` to stdout |
 | `gact version` | Print version + git revision + build time |
 | `gact list-themes` *(via `--list-themes`)* | Print available palettes |

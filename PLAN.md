@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase HHHH — gact theme list
+
+- [x] **HHHH1.** `gact theme list` enumerates `ui.AllThemeModes`, prints `<name>\n` per palette, and appends `\t*` to the resolved active line. Useful for discovering valid `--name` values + driving shell completions. Help text updated. CLI test asserts known names appear, exactly one `*` marker, and that the marker tracks `GACT_THEME`.
+
 ## Phase GGGG — gact theme show
 
 - [x] **GGGG1.** `gact theme show [--name N]` prints the resolved theme palette as TSV (`key\thex`). Resolution honors --name flag, falls back to `config.Resolve(cfg.Theme, $GACT_THEME, "", defaultTheme)`. Emits `name<TAB>mode` row + 16 color rows (bg, fg, primary, secondary, success, warning, danger, border, role_*). Pure local — no backend dep. Help text + completion entries (bash/zsh/fish) updated. CLI test asserts env override, --name override, unknown verb exits 2.
