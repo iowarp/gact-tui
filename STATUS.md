@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T02:35Z
-**Current phase:** MMM2/3/4/5/6 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3fed136` and pushed
-**Open:** MMM7-MMM8, LLL8b, JJJ1
+**Last updated:** 2026-04-19T02:50Z
+**Current phase:** MMM7 shipped
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5d49952` and pushed
+**Open:** MMM8 (plugins dir), NNN1 (emulator scenario race), LLL8b (TUI detach), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -74,6 +74,10 @@
   `instructions?: string`. Emulator echoes them, client
   signature updated, `gact summarize --instructions "..."` flag
   added. Test asserts round-trip.
+- **MMM7.** SPEC §6.10 extended with `/rewind`. Emulator handler
+  + client.RewindSession + `gact rewind <sid> <mid>
+  [--include-target]` CLI. Found pre-existing scenario engine
+  race (filed as NNN1).
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
