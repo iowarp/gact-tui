@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:50Z
-**Current phase:** DDDDD1 + EEEEE1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1384f42` and pushed
+**Last updated:** 2026-04-19T19:15Z
+**Current phase:** FFFFF1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e52997d` and pushed
 **Open:** none
+
+### Phase FFFFF — cursor-aware Ctrl+E + visible cursor on Tab
+- **FFFFF1.** maybeInitBodyCursor seeds the body cursor to the
+  latest message on Tab into FocusBody (was invisible before).
+  Marker upgraded from `▌` half-block to a fat full-block bar
+  (fg+bg both in secondary). Ctrl+E already targeted the
+  cursor (Z1) — pinned with new tests covering EARLIER vs
+  LATEST and the no-cursor fall-through. Screenshots:
+  `screenshots/FFFFF1_cursor_{on_tab,earlier_message}.png`.
 
 ### Phase EEEEE — intro splash uses figlet (slant font)
 - **EEEEE1.** Replaced hand-rolled GACT ASCII + mountain glyph
