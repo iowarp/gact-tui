@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T01:25Z
-**Current phase:** LLL2/3/4/7/8a shipped this iteration; MMM1-8 filed
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `343fd10` and pushed
-**Open:** MMM1-MMM8 (CC-inspired adds), LLL8b (TUI detach), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T01:40Z
+**Current phase:** LLL2/3/4/7/8a + MMM1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ffd2147` and pushed
+**Open:** MMM2-MMM8, LLL8b, JJJ1
 
 ## This loop (Phases N + O)
 
@@ -49,6 +49,11 @@
   notification event, config migrations, hooks system,
   permission rules, session tasks, summarize instructions,
   /rewind, plugins dir).
+
+### Phase MMM — adds from CC inventory
+- **MMM1.** SSE `notification` event wired end-to-end. Emulator
+  emits on MCP reconnect, TUI sets transientHint, `gact stream`
+  prints `[level] title — body` row. CLI test catches it via tail.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
