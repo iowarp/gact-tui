@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T21:25Z
-**Current phase:** Phase XX (session info CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6361c7d` and pushed
+**Last updated:** 2026-04-18T21:40Z
+**Current phase:** Phase YY (undo CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `940a9eb` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase YY — undo CLI
+- **YY1.** `gact undo <sid> [--count N]` POSTs
+  `/v1/sessions/{id}/undo`. Added missing `client.UndoSession`
+  wrapper returning reverted message ids. Stdout one mid per line,
+  stderr `reverted N message(s)` summary. CLI test asserts mid
+  count, summary, and log role-header drop.
 
 ### Phase XX — session info CLI
 - **XX1.** `gact info <sid> [--format text|json]` wraps GetSession.
