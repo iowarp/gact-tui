@@ -1056,6 +1056,7 @@ func checkMcp(t Reporter, c *conformClient) {
 		t.Errorf("response missing `servers` key: %s", body)
 		return
 	}
+	var firstID string
 	for i, srv := range raw.Servers {
 		for _, key := range []string{"id", "name", "transport", "status"} {
 			if _, ok := srv[key]; !ok {
@@ -1069,6 +1070,68 @@ func checkMcp(t Reporter, c *conformClient) {
 			default:
 				t.Errorf("server[%d] unexpected status %q (want connecting|ready|error|disconnected)", i, status)
 			}
+		}
+		if firstID == "" {
+			if id, _ := srv["id"].(string); id != "" {
+				firstID = id
+			}
+		}
+	}
+	if firstID == "" {
+		return
+	}
+	// JJJJJJ1: per-server drill-down. SPEC §6.7 promises GET
+	// /v1/mcp/servers/{id} returns a single McpServer and
+	// /v1/mcp/servers/{id}/tools returns {tools: Tool[]}. Catches
+	// adapters that wired only the list endpoint.
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, err := c.get(dctx, "/v1/mcp/servers/"+firstID)
+	if err != nil {
+		t.Errorf("GET /v1/mcp/servers/%s: %v", firstID, err)
+	} else if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/mcp/servers/{id} returned 501 — per-id drill-down required by SPEC §6.7")
+	} else if dResp.StatusCode != 200 {
+		t.Errorf("/v1/mcp/servers/%s status %d body %s", firstID, dResp.StatusCode, dBody)
+	} else {
+		var detail struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(dBody, &detail); err != nil {
+			t.Errorf("mcp/server/%s JSON decode: %v (body=%s)", firstID, err, dBody)
+		} else if detail.ID != firstID {
+			t.Errorf("/v1/mcp/servers/%s returned id=%q (want %q)", firstID, detail.ID, firstID)
+		}
+	}
+	// /v1/mcp/servers/{id}/tools — same pattern.
+	tctx, tcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer tcancel()
+	tResp, tBody, err := c.get(tctx, "/v1/mcp/servers/"+firstID+"/tools")
+	if err != nil {
+		t.Errorf("GET /v1/mcp/servers/%s/tools: %v", firstID, err)
+		return
+	}
+	if tResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/mcp/servers/{id}/tools returned 501 — required by SPEC §6.7")
+		return
+	}
+	if tResp.StatusCode != 200 {
+		t.Errorf("/v1/mcp/servers/%s/tools status %d body %s", firstID, tResp.StatusCode, tBody)
+		return
+	}
+	var traw struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal(tBody, &traw); err != nil {
+		t.Errorf("mcp/server/%s/tools JSON decode: %v (body=%s)", firstID, err, tBody)
+		return
+	}
+	if traw.Tools == nil {
+		t.Errorf("/v1/mcp/servers/%s/tools missing `tools` key: %s", firstID, tBody)
+	}
+	for i, tl := range traw.Tools {
+		if id, _ := tl["id"].(string); id == "" {
+			t.Errorf("mcp tool[%d] missing id: %v", i, tl)
 		}
 	}
 }
