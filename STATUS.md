@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T22:55Z
-**Current phase:** PPPPP1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9513a7a` and pushed
+**Last updated:** 2026-04-19T23:15Z
+**Current phase:** PPPPP1 + QQQQQ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d374f3a` and pushed
 **Open:** none
+
+### Phase QQQQQ — multi-tool scenario variants
+- **QQQQQ1.** `runMultiToolScript` cycles 3 distinct 3-tool flows
+  per session via `NextCallIndex`. variant[0] = refactor
+  (preserved), [1] = schema migration check (psql/psql/go-vet),
+  [2] = failing-test triage. Pairs with FFFFF1's cursor-aware
+  Ctrl+E across three scenario families now.
 
 ### Phase PPPPP — long-reply scenario variants
 - **PPPPP1.** `runLongScript` cycles through 3 distinct long
