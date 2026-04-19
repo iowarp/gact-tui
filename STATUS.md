@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-20T00:15Z
-**Current phase:** TTTTT1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6bbdbd8` and pushed
+**Last updated:** 2026-04-20T00:35Z
+**Current phase:** TTTTT1 + UUUUU1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `81609e2` and pushed
 **Open:** none
+
+### Phase UUUUU — conformance Files section
+- **UUUUU1.** Conformance gains a `Files` section (gated on
+  capabilities.files + a workspace id). Walks
+  `/v1/workspaces/{id}/files`, asserts `path`/`type` + `type` in
+  `{file, dir}` enum. New `Options.SkipFiles` opt-out.
 
 ### Phase TTTTT — conformance Providers section
 - **TTTTT1.** Conformance gains a `Providers` section (gated on
