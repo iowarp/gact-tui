@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase KK — one-shot scripting
+
+- [ ] **KK1.** `gact quick <question|->` — creates a fresh session, asks, prints the assistant reply, deletes the session. One-liner for "I just want an answer; I don't care about session lifecycle".
+
 ## Phase JJ — observability
 
 - [x] **JJ1.** `gact metrics [--format text|json]` summarises uptime / session counts / token totals / cost. JSON format for scrapers, text for humans. CLI test for both.

@@ -197,6 +197,34 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Quick covers KK1: one-shot create + ask + delete chain.
+// The session count before and after should be identical because
+// quick cleans up the scratch session it creates.
+func TestCLI_Quick(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	preList, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	preCount := strings.Count(preList, "\n")
+
+	stdout, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"quick", "--timeout", "30s", "please read main.go")
+	if code != 0 {
+		t.Fatalf("quick: exit %d, stderr=%q", code, stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Fatalf("quick returned empty stdout")
+	}
+
+	postList, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "list")
+	postCount := strings.Count(postList, "\n")
+	if postCount != preCount {
+		t.Errorf("session count changed: pre=%d post=%d (cleanup didn't run?)", preCount, postCount)
+	}
+}
+
 // TestCLI_Metrics covers JJ1: text format prints uptime / sessions /
 // messages / tokens / cost; json format emits parseable JSON with
 // uptime_s present.
