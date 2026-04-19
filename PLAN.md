@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase JJJJ — gact mcp list
+
+- [x] **JJJJ1.** `gact mcp list [--format tsv|json]` enumerates the backend's connected MCP servers via `GET /v1/mcp/servers`. TSV columns: id, name, status, transport, protocol_version, capabilities (compact `tools,resources,prompts,logging`), last_error. JSON mode dumps the array as-is. Aliased to `mcp ls`. Help text + verb dispatcher updated. CLI test seeds the `default` emulator scenario (one fake-mcp), asserts both formats and that unknown format exits 2.
+
 ## Phase IIII — gact theme set
 
 - [x] **IIII1.** `gact theme set <name>` writes the chosen theme to `config.json` (validates against `ui.AllThemeModes`, rejects unknown names with exit 2 and no file write). GACT_THEME still wins at resolution, by design — `set` only updates the config-level value. CLI test uses isolated `XDG_CONFIG_HOME` to assert: happy-path writes the file, `theme list` then marks the new value active, unknown names exit 2 without mutating the file, and missing arg exits 2.
