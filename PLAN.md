@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase KK — one-shot scripting
 
-- [ ] **KK1.** `gact quick <question|->` — creates a fresh session, asks, prints the assistant reply, deletes the session. One-liner for "I just want an answer; I don't care about session lifecycle".
+- [x] **KK1.** `gact quick <q|-> [--keep]` — one-shot create + ask + delete. Default workspace via /v1/workspaces[0]. CLI test asserts session count unchanged after run, proving cleanup.
 
 ## Phase JJ — observability
 

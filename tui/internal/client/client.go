@@ -489,6 +489,14 @@ func (c *Client) RejectDiffs(ctx context.Context, sessionID string, paths []stri
 	return out.Rejected, err
 }
 
+// SummarizeSession POSTs /v1/sessions/{id}/summarize. The backend
+// generates (or pre-fills) a summary; the updated session struct is
+// fetched on a subsequent GetSession to read it.
+func (c *Client) SummarizeSession(ctx context.Context, id string, auto bool) error {
+	body := map[string]any{"auto": auto}
+	return c.do(ctx, http.MethodPost, "/v1/sessions/"+id+"/summarize", body, nil)
+}
+
 // PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
 func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
 	var out gact.Session
