@@ -241,6 +241,69 @@ func TestRenderHeader_NarrowDropsOptional(t *testing.T) {
 	}
 }
 
+// OOO1: pickAttachIndex chooses the right initial selection given
+// AttachSessionID. Tested directly so we don't pay selectSession's
+// network timeout per row in the suite.
+func TestPickAttachIndex(t *testing.T) {
+	cases := []struct {
+		name        string
+		attach      string
+		sessions    []gact.Session
+		wantIdx     int
+		wantMissing bool
+	}{
+		{
+			name: "no attach defaults to row 0",
+			sessions: []gact.Session{
+				{ID: "sess_a", Title: "alpha"},
+				{ID: "sess_b", Title: "bravo"},
+			},
+			wantIdx: 0,
+		},
+		{
+			name:   "match by sess_ id",
+			attach: "sess_b",
+			sessions: []gact.Session{
+				{ID: "sess_a", Title: "alpha"},
+				{ID: "sess_b", Title: "bravo"},
+			},
+			wantIdx: 1,
+		},
+		{
+			name:   "match by title",
+			attach: "alpha",
+			sessions: []gact.Session{
+				{ID: "sess_a", Title: "alpha"},
+				{ID: "sess_b", Title: "bravo"},
+			},
+			wantIdx: 0,
+		},
+		{
+			name:   "missing falls back to 0 with flag set",
+			attach: "sess_nope",
+			sessions: []gact.Session{
+				{ID: "sess_a", Title: "alpha"},
+			},
+			wantIdx:     0,
+			wantMissing: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := New("http://test.local")
+			a.AttachSessionID = tc.attach
+			a.sessions = tc.sessions
+			gotIdx, gotMissing := a.pickAttachIndex()
+			if gotIdx != tc.wantIdx {
+				t.Errorf("idx: got %d, want %d", gotIdx, tc.wantIdx)
+			}
+			if gotMissing != tc.wantMissing {
+				t.Errorf("missing: got %v, want %v", gotMissing, tc.wantMissing)
+			}
+		})
+	}
+}
+
 // LLL8b: Ctrl+Z returns tea.Suspend (which delivers SIGTSTP via the
 // program runtime) and sets a "fg to resume" reassurance hint.
 func TestUpdate_CtrlZSuspends(t *testing.T) {

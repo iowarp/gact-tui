@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase OOO — TUI launch shortcuts
+
+- [x] **OOO1.** `gact attach <name|sid>` ships. New runAttach dispatcher sets GACT_ATTACH_SESSION_ID env, strips its own argv, and re-enters runTUI. App.AttachSessionID + new pickAttachIndex helper select the right row on connectedMsg (matches by id OR title). Missing id falls back to row 0 with a transient hint. CLI test (TestPickAttachIndex) covers no-attach default, match-by-id, match-by-title, missing+fallback. Screenshot 72.
+
 ## Phase MMM — adds from Claude Code inventory (LLL7)
 
 - [x] **MMM8b.** Plugins now surface in the slash palette. App carries `[]pluginCommand` (flattened from `plugins.Plugin × Command`); paletteMatches merges them in with `Source="plugin"`; Enter on a plugin command short-circuits the runCommandCmd path and execs the plugin binary in the background. Output (or failure) lands as a transient hint. Plugin scripts get `GACT_SESSION_ID`, `GACT_BACKEND`, `GACT_PLUGIN_DIR` env vars. Cross-package types `ui.PluginsLoaded`/`PluginsCommand` mirror plugins.* to keep the dep one-way. Test asserts merge + filter + lookup.

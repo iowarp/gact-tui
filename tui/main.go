@@ -128,6 +128,9 @@ func main() {
 			os.Exit(runCapabilities(os.Args[2:]))
 		case "tell":
 			os.Exit(runTell(os.Args[2:]))
+		case "attach":
+			runAttach(os.Args[2:])
+			return
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -363,6 +366,7 @@ Usage:
   gact tell <name> <msg>     find-or-create session by title; send + print reply
                               (re-run with same name to continue the conversation)
                               --async returns immediately with sid<TAB>msg_id
+  gact attach <name|sid>     launch the TUI pre-selected on a session
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -380,6 +384,22 @@ TUI-only flags:
   --voice-cmd STR  shell command that records audio to stdout, run on
                    Ctrl+Y. See scripts/voice-record.sh for an example.
                    (env: GACT_VOICE_CMD, config: voice_command)`)
+}
+
+// runAttach: `gact attach <name|sid>` — launch the TUI pre-selected
+// on a session. Exits via os.Exit when done. Env var
+// GACT_ATTACH_SESSION_ID is the bridge into runTUI's setup so the
+// flag-parse path doesn't need new flags.
+func runAttach(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact attach <name|sess_id>")
+		os.Exit(2)
+	}
+	_ = os.Setenv("GACT_ATTACH_SESSION_ID", args[0])
+	// Trim os.Args so runTUI's flag.Parse doesn't choke on "attach
+	// <name>" remnants. Set os.Args to just the program name.
+	os.Args = []string{os.Args[0]}
+	runTUI()
 }
 
 func runTUI() {
@@ -467,6 +487,11 @@ func runTUI() {
 	}
 	if finalIntroFile != "" {
 		_ = app.SetIntroFromFile(finalIntroFile)
+	}
+	// OOO1: pre-select session from `gact attach <name|sid>` via env
+	// bridge. Empty = default behaviour (first row).
+	if attach := os.Getenv("GACT_ATTACH_SESSION_ID"); attach != "" {
+		app.AttachSessionID = attach
 	}
 	// MMM8b: wire plugins discovered at default location into the
 	// slash palette. Failures (missing dir, bad manifests) silently
@@ -3395,7 +3420,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3415,7 +3440,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3428,7 +3453,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
