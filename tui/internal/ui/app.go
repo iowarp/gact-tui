@@ -178,6 +178,12 @@ type App struct {
 	// of POSTing to /v1/sessions/{id}/commands/{id}.
 	plugins []pluginCommand
 
+	// OOO1: when set (via `gact attach <name|sid>`), the connectedMsg
+	// handler picks this session out of the freshly-loaded list
+	// instead of defaulting to index 0. Either a literal sess_<id>
+	// or a title — both are matched.
+	AttachSessionID string
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -593,8 +599,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// once per connect even if nothing is currently active.
 		cmds := []tea.Cmd{spinnerCmd()}
 		if len(a.sessions) > 0 {
-			a.selected = 0
-			cmds = append(cmds, a.selectSession(0))
+			pick, missing := a.pickAttachIndex()
+			a.selected = pick
+			if missing {
+				a.transientHint = "attach: session " + a.AttachSessionID + " not found; showing first row"
+				cmds = append(cmds, scheduleHintExpire(a.transientHint))
+			}
+			cmds = append(cmds, a.selectSession(pick))
 		}
 		return a, tea.Batch(cmds...)
 
@@ -2310,6 +2321,24 @@ func (a *App) currentSessionID() string {
 
 // selectSession switches the active session, loads messages + context files,
 // and reopens SSE.
+// pickAttachIndex chooses the initial sidebar selection given the
+// session list and (optional) AttachSessionID. Returns the chosen
+// index plus a missing flag set when an explicit AttachSessionID
+// didn't match any session — caller surfaces a transient hint.
+// (OOO1; pulled out of connectedMsg so tests can target the
+// decision logic without firing the network-bound selectSession Cmd.)
+func (a *App) pickAttachIndex() (idx int, missing bool) {
+	if a.AttachSessionID == "" {
+		return 0, false
+	}
+	for i, s := range a.sessions {
+		if s.ID == a.AttachSessionID || s.Title == a.AttachSessionID {
+			return i, false
+		}
+	}
+	return 0, true
+}
+
 func (a *App) selectSession(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(a.sessions) {
 		return nil

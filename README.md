@@ -199,6 +199,7 @@ running backend:
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
 | `gact capabilities [--format text\|json]` | Backend contract version + capability matrix (alias `caps`) |
 | `gact tell <name> <msg> [--async]` | Find-or-create session by title; send + print reply. `--async`: print sid·msg_id and exit |
+| `gact attach <name\|sid>` | Launch the TUI pre-selected on a session |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks (`--event STR --command PATH \| --url URL [--session][--workspace]`) |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies (set takes JSON `{policies:[…]}`) |
 | `gact tasks list\|add\|set\|rm` | Manage SPEC §6.18 session tasks (`add <sid> <title>`, `set <tid> --status …`) |
