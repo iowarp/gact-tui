@@ -612,6 +612,36 @@ If `capabilities.metrics = true`:
 
 Metrics are point-in-time snapshots. Backends MAY add custom counters under a vendor-prefixed key (`x_<vendor>_<counter>`).
 
+### §6.18 Session tasks (optional)
+
+If `capabilities.session_tasks = true`:
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/sessions/{id}/tasks` |  | `{tasks: [SessionTask]}` |
+| POST | `/v1/sessions/{id}/tasks` | `{title, status?, metadata?}` | `SessionTask` |
+| PATCH | `/v1/tasks/{id}` | `{title?, status?, metadata?}` | `SessionTask` |
+| DELETE | `/v1/tasks/{id}` |  | 204 |
+
+```json
+// SessionTask
+{
+  "id": "tsk_01H...",
+  "session_id": "sess_...",
+  "title": "Run unit tests",
+  "status": "pending",       // "pending" | "running" | "completed" | "failed"
+  "created_at": "...",
+  "updated_at": "...",
+  "metadata": {}             // optional vendor extension bucket
+}
+```
+
+Tasks are first-class state for backends that fan out subagents or
+plan multi-step work. They show up in the TUI sidebar/footer and can
+be enumerated by shell scripts via `gact tasks`. Status transitions
+are advisory — the contract doesn't validate (e.g. `running →
+pending` is legal).
+
 ### §6.17 Hooks (optional)
 
 If `capabilities.hooks = true`:

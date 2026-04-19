@@ -127,6 +127,8 @@ func main() {
 			os.Exit(runTell(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
+		case "tasks", "task":
+			os.Exit(runTasks(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -358,6 +360,9 @@ Usage:
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
+  gact tasks list|add|set|rm manage §6.18 session tasks
+                              add: <sid> <title> [--status pending|…]
+                              set: <task-id> [--title T] [--status S]
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -809,6 +814,158 @@ func runPermsRulesClear(args []string) int {
 	defer cancel()
 	if _, err := c.PutPolicies(ctx, []gact.Policy{}); err != nil {
 		fmt.Fprintf(os.Stderr, "gact perms rules clear: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runTasks dispatches `gact tasks <verb>` for §6.18 session tasks
+// (MMM5). Sub-verbs:
+//
+//	gact tasks list <sid>
+//	gact tasks add <sid> <title> [--status pending|running|completed|failed]
+//	gact tasks set <task-id> [--title T] [--status S]
+//	gact tasks rm <task-id>
+func runTasks(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact tasks list|add|set|rm ...")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list", "ls":
+		return runTasksList(rest)
+	case "add":
+		return runTasksAdd(rest)
+	case "set", "patch":
+		return runTasksSet(rest)
+	case "rm", "delete", "remove":
+		return runTasksRm(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact tasks: unknown verb %q (want list|add|set|rm)\n", verb)
+	return 2
+}
+
+func runTasksList(args []string) int {
+	fs := flag.NewFlagSet("tasks list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact tasks list <session-id>")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tasks, err := c.ListSessionTasks(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact tasks list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(tasks)
+		return 0
+	}
+	for _, t := range tasks {
+		fmt.Printf("%s\t%s\t%s\n", t.ID, t.Status, t.Title)
+	}
+	return 0
+}
+
+func runTasksAdd(args []string) int {
+	fs := flag.NewFlagSet("tasks add", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	status := fs.String("status", "pending", "initial status: pending|running|completed|failed")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--status": true, "-status": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact tasks add <session-id> <title> [--status …]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	title := strings.Join(fs.Args()[1:], " ")
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	created, err := c.CreateSessionTask(ctx, sid, gact.SessionTask{
+		Title: title, Status: *status,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact tasks add: %v\n", err)
+		return 1
+	}
+	fmt.Println(created.ID)
+	return 0
+}
+
+func runTasksSet(args []string) int {
+	fs := flag.NewFlagSet("tasks set", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	title := fs.String("title", "", "new title (empty = unchanged)")
+	status := fs.String("status", "", "new status (empty = unchanged)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--title": true, "-title": true,
+		"--status": true, "-status": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact tasks set <task-id> [--title T] [--status S]")
+		return 2
+	}
+	if *title == "" && *status == "" {
+		fmt.Fprintln(os.Stderr, "gact tasks set: at least one of --title or --status required")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.PatchTask(ctx, fs.Arg(0), gact.SessionTask{
+		Title: *title, Status: *status,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "gact tasks set: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runTasksRm(args []string) int {
+	fs := flag.NewFlagSet("tasks rm", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact tasks rm <task-id>")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.DeleteTask(ctx, fs.Arg(0)); err != nil {
+		fmt.Fprintf(os.Stderr, "gact tasks rm: %v\n", err)
 		return 1
 	}
 	return 0
@@ -3030,7 +3187,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3050,7 +3207,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3063,7 +3220,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tell tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
