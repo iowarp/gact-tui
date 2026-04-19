@@ -1121,6 +1121,46 @@ func checkTasks(t Reporter, c *conformClient, sid string) {
 		t.Errorf("list missing created task %s: %s", created.ID, getBody)
 	}
 
+	// TTTTTT1: PATCH /v1/tasks/{id} — flip the task to status=running
+	// and verify the round-trip. Catches adapter authors that wired
+	// POST/GET/DELETE but forgot PATCH (which the TUI's task panel
+	// uses for in-place status flips).
+	patchReq, _ := http.NewRequest(http.MethodPatch,
+		c.baseURL+"/v1/tasks/"+created.ID,
+		bytes.NewReader(mustJSON(map[string]any{"status": "running"})))
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchReq = patchReq.WithContext(ctx)
+	patchResp, perr := c.http.Do(patchReq)
+	if perr != nil {
+		t.Fatalf("PATCH task: %v", perr)
+	}
+	patchBody, _ := io.ReadAll(patchResp.Body)
+	patchResp.Body.Close()
+	if patchResp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("PATCH /v1/tasks/{id} returned 501 — required by SPEC §6.18")
+	}
+	if patchResp.StatusCode != 200 {
+		t.Fatalf("patch task status %d body %s", patchResp.StatusCode, patchBody)
+	}
+	var patched struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(patchBody, &patched); err != nil {
+		t.Fatalf("patched task JSON decode: %v (body=%s)", err, patchBody)
+	}
+	if patched.ID != created.ID {
+		t.Errorf("patched task id %q != created %q", patched.ID, created.ID)
+	}
+	if patched.Status != "running" {
+		t.Errorf("patched task status %q, want %q", patched.Status, "running")
+	}
+	switch patched.Status {
+	case "pending", "running", "completed", "failed":
+	default:
+		t.Errorf("patched task status %q not in enum (pending|running|completed|failed)", patched.Status)
+	}
+
 	// DELETE.
 	delReq, _ := http.NewRequestWithContext(ctx, http.MethodDelete,
 		c.baseURL+"/v1/tasks/"+created.ID, nil)
