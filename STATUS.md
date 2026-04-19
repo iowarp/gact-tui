@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T05:50Z
-**Current phase:** TTT1 + UUU1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `aa997b7` and pushed
+**Last updated:** 2026-04-19T06:05Z
+**Current phase:** VVV1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f4c0e30` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase VVV — dashboard
+- **VVV1.** `gact dashboard [--format pretty|tsv|json]` ships.
+  Supervisory one-shot table with id/status/title/model/age/
+  tokens/cost. humanAge + humanTokensCLI compact numerics. CLI
+  test covers all 3 formats.
 
 ### Phase UUU — sidebar task badges
 - **UUU1.** Sidebar `(N tasks)` badge per session for open §6.18
