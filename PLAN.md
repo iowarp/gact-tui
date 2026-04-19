@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase SSSS — gact watch --format json (NDJSON state changes)
+
+- [x] **SSSS1.** `gact watch <sid> --format json` emits one NDJSON record per state change: `{ts,sid,status,message_count,tokens_out}`. Default tsv unchanged. Same trigger logic (status flip OR msg/token-count delta). Idle-streak exit semantics preserved. CLI test fires a turn in a goroutine, runs watch in --format json, asserts ≥2 NDJSON rows, every line parses, sid is consistent, and an idle-status row appears before the run terminates. Unknown format → exit 2.
+
 ## Phase RRRR — parallelize gact dump-bundle session export
 
 - [x] **RRRR1.** `gact dump-bundle` now uses the same 8-wide bounded fanout as `gact export --all` (QQQQ1) for the per-session export+write loop. Was strictly serial — bug-report bundles for instances with many sessions paid sessions×RTT in latency. The version.txt / diag.txt / metrics.json paths are untouched (single-shot, not in the hot path). Per-session error tolerance preserved (failures logged but don't abort). CLI test seeds 12 sessions (>workers) and asserts the summary count + every session.json lands.
