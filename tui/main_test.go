@@ -415,6 +415,34 @@ func TestCLI_ThemeShow(t *testing.T) {
 	}
 }
 
+// TestCLI_ThemeList covers HHHH1: `gact theme list` enumerates the
+// known palettes and marks the resolved active one with `\t*`.
+func TestCLI_ThemeList(t *testing.T) {
+	bin := buildGact(t)
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_THEME": "nord"},
+		"theme", "list")
+	if code != 0 {
+		t.Fatalf("theme list: exit %d", code)
+	}
+	for _, name := range []string{"dark", "light", "dracula", "nord", "tokyo-night"} {
+		if !strings.Contains(stdout, name) {
+			t.Errorf("expected %q in output, got: %q", name, stdout)
+		}
+	}
+	// Active marker must be on the resolved theme line.
+	if !strings.Contains(stdout, "nord\t*") {
+		t.Errorf("expected 'nord\\t*' active marker, got: %q", stdout)
+	}
+	// And only one star total.
+	if got := strings.Count(stdout, "*"); got != 1 {
+		t.Errorf("expected exactly one '*' marker, got %d in: %q", got, stdout)
+	}
+	// Extra args → usage error.
+	if _, _, code := runGact(t, bin, nil, "theme", "list", "extra"); code != 2 {
+		t.Errorf("theme list extra: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_TasksSummary covers FFFF1: aggregate task counts across
 // sessions. Seeds two sessions with mixed-status tasks, asserts the
 // summary table contains both rows + a TOTAL footer with correct

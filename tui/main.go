@@ -399,6 +399,7 @@ Usage:
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env                   print resolved config + GACT_* env vars (TSV)
   gact theme show [--name N] print active theme palette as TSV (key\thex)
+  gact theme list            list available palettes; '*' marks active
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1422,16 +1423,23 @@ func runHooksRm(args []string) int {
 	return 0
 }
 
-// runTheme dispatches `gact theme <verb>`. Right now only `show` is
-// implemented (theme picking lives in Settings > Theme tab). (GGGG1)
+// runTheme dispatches `gact theme <verb>`. Verbs: `show`, `list`.
+// Theme picking still lives in Settings > Theme tab; this is the
+// CLI inspection surface. (GGGG1, HHHH1)
 func runTheme(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: gact theme show [--name dark|light|...]")
+		fmt.Fprintln(os.Stderr, "       gact theme list")
 		return 2
 	}
 	verb := args[0]
-	if verb != "show" {
-		fmt.Fprintf(os.Stderr, "gact theme: unknown verb %q (want show)\n", verb)
+	switch verb {
+	case "show":
+		// fall through to historical show path below
+	case "list":
+		return runThemeList(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "gact theme: unknown verb %q (want show|list)\n", verb)
 		return 2
 	}
 	rest := args[1:]
@@ -1482,6 +1490,27 @@ func runTheme(args []string) int {
 func hexOfColor(c color.Color) string {
 	r, g, b, _ := c.RGBA()
 	return fmt.Sprintf("#%02X%02X%02X", r>>8, g>>8, b>>8)
+}
+
+// runThemeList prints all known theme names + a marker on the active
+// one. Useful for shell completions and `gact theme show` discovery.
+// (HHHH1)
+func runThemeList(args []string) int {
+	if len(args) > 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact theme list")
+		return 2
+	}
+	cfg, _, _ := config.Load()
+	resolved := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), "", defaultTheme)
+	active := ui.ParseThemeMode(resolved)
+	for _, m := range ui.AllThemeModes {
+		marker := ""
+		if m == active {
+			marker = "\t*"
+		}
+		fmt.Printf("%s%s\n", ui.ThemeModeName(m), marker)
+	}
+	return 0
 }
 
 // runEnv prints the fully-resolved configuration the binary will
