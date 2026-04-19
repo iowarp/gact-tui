@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T07:30Z
-**Current phase:** BBBB1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3ca094c` and pushed
+**Last updated:** 2026-04-19T07:45Z
+**Current phase:** BBBB1 + CCCC1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `340f4d8` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,13 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase CCCC — replay
+- **CCCC1.** `gact replay <file|-> [--attach]` ships. Reads
+  export blob via existing client.ImportSession, prints new sid.
+  --attach bridges to runTUI via GACT_ATTACH_SESSION_ID
+  (OOO1 mechanism). CLI test exports + replays + asserts marker
+  token preserved.
 
 ### Phase BBBB — dashboard watch
 - **BBBB1.** `gact dashboard --watch [--interval DUR]` ships.
