@@ -31,7 +31,7 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 	adapterServer := httptest.NewServer(adapter.Handler())
 	defer adapterServer.Close()
 
-	conformance.Run(t, adapterServer.URL, conformance.Options{
+	conformance.Run(conformance.FromTest(t), adapterServer.URL, conformance.Options{
 		WorkspaceID: wsID,
 		SessionID:   sesID,
 		// Crush adapter is read+POST-message; it doesn't expose

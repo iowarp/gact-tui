@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase BBBBB — conformance: Mcp section + adapter test repair
+
+- [x] **BBBBB1.** Conformance suite gains an `Mcp` section (gated on `capabilities.mcp`) that walks `GET /v1/mcp/servers`: asserts 200, top-level `servers` array shape, and each server has the required `id`/`name`/`transport`/`status` fields with status in the enum (connecting|ready|error|disconnected). Locks the wire shape that JJJJ1's `gact mcp list` and the TUI catalog both depend on. New `Options.SkipMcp` opt-out preserves back-compat. Discovered + fixed a latent breakage along the way: both adapter conformance tests (crush + opencode) were calling `conformance.Run(t, ...)` with raw `*testing.T`, which broke when the suite was refactored to `Reporter`. Wrapped both calls with `conformance.FromTest(t)`. Confirmed the new section runs against the emulator (`gact conformance` shows `▶ Mcp ✓ Mcp PASS`) and TestCLI_Conformance now requires the new section name.
+
 ## Phase AAAAA — gact context list --mode/--glob filters
 
 - [x] **AAAAA1.** `gact context list <sid>` gains two filters: `--mode read|edit|pin` (exact) and `--glob PATTERN` (Go path.Match with basename fallback, mirrors ZZZZ1). Both empty by default = no filter (back-compat). Combined filters AND together. Bad --mode or --glob → exit 2 client-side without hitting the backend. JSON returns `[]` not `null` after filtering. CLI test seeds 3 entries (read/pin/edit; .go and .md), asserts each filter narrows correctly + the combined case + bad-value exits.

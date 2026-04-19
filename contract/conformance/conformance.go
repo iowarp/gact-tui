@@ -64,6 +64,11 @@ type Options struct {
 	SkipHooks    bool
 	SkipPolicies bool
 	SkipTasks    bool
+	// BBBBB1: MCP servers section — gated on capabilities.mcp. Adds
+	// shape coverage for GET /v1/mcp/servers since the TUI's catalog
+	// browser depends on it. Backends that don't claim mcp=true skip
+	// automatically.
+	SkipMcp bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -144,7 +149,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -161,14 +166,18 @@ func Run(t Reporter, baseURL string, opts Options) {
 				t.Run("Tasks", func(t Reporter) { checkTasks(t, c, sid) })
 			}
 		}
+		if !opts.SkipMcp && caps.Mcp {
+			t.Run("Mcp", func(t Reporter) { checkMcp(t, c) })
+		}
 	}
 }
 
-// minimalCaps holds just the flags we need for AAAA1 gating.
+// minimalCaps holds just the flags we need for AAAA1 + BBBBB1 gating.
 type minimalCaps struct {
 	Hooks        bool
 	Permissions  bool
 	SessionTasks bool
+	Mcp          bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -183,6 +192,7 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 			Hooks        bool `json:"hooks"`
 			Permissions  bool `json:"permissions"`
 			SessionTasks bool `json:"session_tasks"`
+			Mcp          bool `json:"mcp"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)
@@ -745,4 +755,52 @@ func mustJSON(v any) []byte {
 		panic(err)
 	}
 	return b
+}
+
+// BBBBB1 — checkMcp validates GET /v1/mcp/servers shape: status 200,
+// JSON object with a `servers` array, and each entry has the required
+// fields (id, name, transport, status). The TUI's catalog browser +
+// `gact mcp list` (JJJJ1) both depend on this shape, so locking it in
+// at the conformance layer prevents drift in adapters.
+func checkMcp(t Reporter, c *conformClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/mcp/servers")
+	if err != nil {
+		t.Fatalf("GET /v1/mcp/servers: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/mcp/servers returned 501 — set SkipMcp or fix capabilities.mcp")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Servers []map[string]any `json:"servers"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("mcp/servers JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Servers == nil {
+		// Empty list is fine; nil means the response had no `servers`
+		// key at all, which violates the spec.
+		t.Errorf("response missing `servers` key: %s", body)
+		return
+	}
+	for i, srv := range raw.Servers {
+		for _, key := range []string{"id", "name", "transport", "status"} {
+			if _, ok := srv[key]; !ok {
+				t.Errorf("server[%d] missing required key %q: %v", i, key, srv)
+			}
+		}
+		// status must be one of the allowed enum values.
+		if status, _ := srv["status"].(string); status != "" {
+			switch status {
+			case "connecting", "ready", "error", "disconnected":
+			default:
+				t.Errorf("server[%d] unexpected status %q (want connecting|ready|error|disconnected)", i, status)
+			}
+		}
+	}
 }

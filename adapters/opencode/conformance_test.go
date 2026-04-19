@@ -27,7 +27,7 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 	adapterServer := httptest.NewServer(adapter.Handler())
 	defer adapterServer.Close()
 
-	conformance.Run(t, adapterServer.URL, conformance.Options{
+	conformance.Run(conformance.FromTest(t), adapterServer.URL, conformance.Options{
 		// OpenCode adapter doesn't expose POST /v1/sessions — the
 		// upstream owns session creation. Conformance's session-id
 		// fixture is the one our mock returns from /session.
