@@ -1,8 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-18T23:25Z
-**Current phase:** Phase GGG (capabilities CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c02b5b5` and pushed
+**Last updated:** 2026-04-18T23:35Z
+**Current phase:** Phase KKK + HHH (gact tell + header model) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `62f9989` and pushed
+**Open issues:** III1 (tool call/result interleave + collapse-with-affordance), JJJ1 (intro splash + any-key-to-settings/sessions)
 
 ## This loop (Phases N + O)
 
@@ -24,6 +25,19 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase KKK — name-based tell (user-flagged)
+- **KKK1.** `gact tell <name> <msg>` — single idempotent verb.
+  First call creates session titled <name>; subsequent calls
+  resume. Resolver short-circuits on literal sess_<id>. Reply
+  on stdout, "created session ..." notice on stderr (creation
+  only). CLI test covers create→resume same-sid + empty-msg
+  validation.
+
+### Phase HHH — model indicator in header
+- **HHH1.** TUI header appends `model: <id>  agent: <id>` after
+  session label, before status badge. Drops on narrow widths.
+  Two renderer tests + screenshots/66-header-model.png.
 
 ### Phase GGG — capabilities CLI
 - **GGG1.** `gact capabilities` (alias `caps`) exposes the
