@@ -195,6 +195,7 @@ running backend:
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
 | `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
 | `gact log <sid> [--limit N] [--since DUR]` | Print role-headered conversation to stdout; `--since` keeps only recent messages |
+| `gact follow <sid>` | tail -f for the conversation: print snapshot, stream new messages |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
 | `gact capabilities [--format text\|json]` | Backend contract version + capability matrix (alias `caps`) |

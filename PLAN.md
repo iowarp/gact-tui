@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase ZZZ — gact follow
+
+- [x] **ZZZ1.** `gact follow <sid>` ships. Snapshots existing messages (chronological), then subscribes to SSE for the session and renders any new completed messages until Ctrl+C. `seen` map dedupes against SSE replay. Extracted printLogMessage helper so log + follow share one render path. CLI test seeds + waits ALPHA, starts follow with deadline, sends BRAVO, asserts both surface in the captured output.
+
 ## Phase YYY — wait any-of
 
 - [x] **YYY1.** `gact wait --any-of sid1,sid2,...` ships. Polls each id per round; first idle wins. In --any-of mode the winning sid prints to stdout so chained scripts can branch on it. Single-arg form unchanged. Test fires two async tells, asserts winner ∈ the input set.
