@@ -840,7 +840,11 @@ func checkTools(t Reporter, c *conformClient) {
 // checkMetrics asserts GET /v1/metrics returns 200 and the top-level
 // { uptime_s, sessions, messages, tokens } envelope described in
 // SPEC §6.16. Specific nested field values aren't asserted since
-// they're operational and change per request.
+// they're operational and change per request, but the structural
+// presence of each top-level key is enforced (MMMMMM1) so adapter
+// authors that only emit `uptime_s` get caught at the conformance
+// layer instead of at runtime when the metrics tab tries to read
+// `sessions.total` and crashes.
 func checkMetrics(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
@@ -861,6 +865,37 @@ func checkMetrics(t Reporter, c *conformClient) {
 	// uptime_s is the one field every backend must emit per SPEC.
 	if _, ok := got["uptime_s"]; !ok {
 		t.Errorf("metrics response missing uptime_s field: %s", body)
+	}
+	// MMMMMM1: also require the {sessions, messages, tokens} top-level
+	// objects per SPEC §6.16. Each must be a JSON object (not just
+	// present-as-null) and each must carry the documented `total`
+	// counter so the metrics tab can render row totals without a nil
+	// dereference. Specific values aren't asserted (operational).
+	for _, key := range []string{"sessions", "messages", "tokens"} {
+		raw, ok := got[key]
+		if !ok {
+			t.Errorf("metrics response missing %q top-level object per SPEC §6.16: %s", key, body)
+			continue
+		}
+		obj, ok := raw.(map[string]any)
+		if !ok {
+			t.Errorf("metrics %q must be an object, got %T (%v)", key, raw, raw)
+			continue
+		}
+		// `tokens` uses input_total/output_total instead of `total`;
+		// `sessions` and `messages` use `total`. Validate accordingly.
+		if key == "tokens" {
+			if _, ok := obj["input_total"]; !ok {
+				t.Errorf("metrics tokens missing input_total: %v", obj)
+			}
+			if _, ok := obj["output_total"]; !ok {
+				t.Errorf("metrics tokens missing output_total: %v", obj)
+			}
+		} else {
+			if _, ok := obj["total"]; !ok {
+				t.Errorf("metrics %s missing total: %v", key, obj)
+			}
+		}
 	}
 }
 
