@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T00:45Z
-**Current phase:** LLL2 + LLL3 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `da7e077` and pushed
-**Open:** LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T01:00Z
+**Current phase:** LLL2 + LLL3 + LLL4 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `360a743` and pushed
+**Open:** LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -36,6 +36,9 @@
   (per SPEC §6.5 line 807). Emulator seeds 2 skill agents
   (test_writer, release_notes). New catalogKindAgents kind for
   future browse routes. Screenshots 69 (skills) + 70 (agents).
+- **LLL4.** Settings + catalog modals: full-width Primary-bg
+  header bars (inverted pill), Bg-color row highlight on selected
+  rows. Settings rowLine helper extracted. Screenshots refreshed.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
