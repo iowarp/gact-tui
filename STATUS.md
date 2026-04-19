@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T09:05Z
-**Current phase:** GGGG1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ccbc927` and pushed
+**Last updated:** 2026-04-19T09:25Z
+**Current phase:** GGGG1 + HHHH1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `36c0381` and pushed
 **Open:** none
+
+### Phase HHHH — gact theme list
+- **HHHH1.** `gact theme list` enumerates `ui.AllThemeModes` one per
+  line, appends `\t*` to the resolved active line. Useful for
+  discovering valid `--name` values and driving shell completions.
+  CLI test asserts known names present, exactly one `*` marker, and
+  that the marker tracks `GACT_THEME`. Extra args → exit 2.
 
 ### Phase GGGG — gact theme show
 - **GGGG1.** `gact theme show [--name N]` prints the active theme
