@@ -3489,16 +3489,27 @@ func (a *App) renderBody(width, height int) string {
 			Render("Press " +
 				lipgloss.NewStyle().Foreground(t.Bg).Background(t.Primary).Padding(0, 1).Render("Ctrl+N") +
 				" to start your first conversation")
+		// KKKKK1: surface the per-session lifecycle keys here. The user
+		// reported they didn't know rename/delete/archive existed —
+		// the help overlay had them but the empty-state crib (the
+		// thing they actually see first) didn't.
 		hints := lipgloss.JoinVertical(lipgloss.Left,
-			t.HintLabel.Render("Or in sidebar (Tab to focus):"),
+			t.HintLabel.Render("In sidebar (Tab to focus):"),
 			"  "+t.HintKey.Render("n")+t.HintLabel.Render(" new")+
-				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete")+
+				"   "+t.HintKey.Render("e")+t.HintLabel.Render(" rename")+
+				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete (x again to confirm)"),
+			"  "+t.HintKey.Render("A")+t.HintLabel.Render(" archive")+
+				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" toggle archived view")+
+				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" filter sessions"),
+			"  "+t.HintKey.Render("o")+t.HintLabel.Render(" attach a file as context")+
 				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" pick"),
 			"",
 			t.HintLabel.Render("Other things to try:"),
 			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" pick a model / agent"),
-			"  "+t.HintKey.Render("/")+t.HintLabel.Render(" command palette"),
-			"  "+t.HintKey.Render("?")+t.HintLabel.Render(" help"),
+			"  "+t.HintKey.Render("/")+t.HintLabel.Render(" command palette  ·  ")+
+				t.HintKey.Render("?")+t.HintLabel.Render(" help"),
+			"  "+t.HintKey.Render("Ctrl+Z")+t.HintLabel.Render(" detach (TUI exits; ")+
+				t.HintKey.Render("gact attach <sid>")+t.HintLabel.Render(" reattaches)"),
 		)
 		body = lipgloss.JoinVertical(lipgloss.Left, callout, "", hints)
 	} else if len(a.messages) == 0 {
