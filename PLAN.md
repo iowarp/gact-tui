@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase EEEEE — intro splash uses figlet (slant font)
+
+- [x] **EEEEE1.** Replaced the hand-rolled `GACT` ASCII art (and the small mountain glyph above it) with `github.com/common-nighthawk/go-figure` rendering "GACT" in the `slant` font at startup. User explicitly asked for "a ready solution" rather than bespoke art. Mountain glyph dropped — uncluttered splash; users who want a logo can supply one via `intro_file`. Existing intro tests adjusted: instead of asserting the exact `/_\` glyph from the old hand-rolled art, just check the splash contains a multi-line slant-style block (≥8 forward slashes). All other intro tests (key dismiss, custom file override) unchanged. Screenshot: `screenshots/EEEEE1_intro_figlet.png`.
+
 ## Phase DDDDD — footer flicker on transient SSE drops
 
 - [x] **DDDDD1.** "(reconnecting…)" badge in the footer no longer flashes for one frame on routine sub-second SSE blips. Added an `sseDownSince` clock (set when `sseBackoffAttempts` goes 0→positive, cleared on `sseEventMsg`); renderFooter now requires `time.Since(sseDownSince) >= 800ms` before painting the badge. Real outages still surface within a second; the typical 250 ms reconnect cycle stays silent. Three new unit tests pin the gate (visible past gate, hidden during sub-gate blip, hidden when down-clock is zero) plus the existing healthy/backoff cases. Screenshot: `screenshots/DDDDD1_footer_steady.png`.

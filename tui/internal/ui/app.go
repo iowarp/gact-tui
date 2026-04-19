@@ -14,6 +14,7 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	figure "github.com/common-nighthawk/go-figure"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -2820,19 +2821,21 @@ func (a *App) viewConnecting() string {
 // IntroLogo / IntroName are the ASCII art shown in StageIntro
 // (JJJ1). Either can be overridden by loading a file via
 // SetIntroFromFile; absent both, the baked-in defaults render.
-var defaultIntroLogo = []string{
-	"      ▲      ",
-	"     ▲ ▲     ",
-	"    ▲   ▲    ",
-	"   ▲▲▲▲▲▲▲   ",
-}
+//
+// EEEEE1: defaultIntroName is generated at init() from go-figure
+// using the "slant" font instead of being hand-rolled. The
+// previous hand art looked off-balance and the user explicitly
+// asked for "a ready solution" rather than bespoke ASCII. Logo
+// (the small mountain glyph above the name) is now empty by
+// default — keep the splash uncluttered; users who want a
+// glyph can supply one via intro_file.
+var defaultIntroLogo = []string{}
 
-var defaultIntroName = []string{
-	"   ___   _    ___   _____ ",
-	"  / __| /_\\  / __| |_   _|",
-	" | (_ |/ _ \\| (__    | |  ",
-	"  \\___/_/ \\_\\___|   |_|  ",
-}
+var defaultIntroName = func() []string {
+	out := figure.NewFigure("GACT", "slant", true).String()
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	return lines
+}()
 
 // SetIntroFromFile loads a custom splash from disk. Format is two
 // blocks separated by a blank line: logo block, then name block.

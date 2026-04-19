@@ -54,9 +54,12 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	if !strings.Contains(out, "press any key") {
 		t.Errorf("expected 'press any key' hint in splash: %q", out)
 	}
-	// Default name has G/A/C/T glyphs — check for one distinctive char.
-	if !strings.Contains(out, "/_\\") {
-		t.Errorf("expected default G ASCII art in splash: %q", out)
+	// EEEEE1: default name is generated from go-figure (slant font).
+	// Hard-coding the exact glyphs would couple this test to the
+	// font choice; assert the splash has a multi-line ASCII-art block
+	// (≥ 4 rows of forward-slash ornament from the slant font).
+	if strings.Count(out, "/") < 8 {
+		t.Errorf("expected slant-style ASCII art in splash: %q", out)
 	}
 }
 
