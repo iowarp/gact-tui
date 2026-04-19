@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T01:00Z
-**Current phase:** LLL2 + LLL3 + LLL4 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `360a743` and pushed
-**Open:** LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T01:10Z
+**Current phase:** LLL2 + LLL3 + LLL4 + LLL8a shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b090a36` and pushed
+**Open:** LLL7 (claude-code inventory), LLL8b (TUI detach key — stub), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -39,6 +39,10 @@
 - **LLL4.** Settings + catalog modals: full-width Primary-bg
   header bars (inverted pill), Bg-color row highlight on selected
   rows. Settings rowLine helper extracted. Screenshots refreshed.
+- **LLL8a.** `gact tell --async` posts message and exits with
+  sid<TAB>msg_id on stdout. Fix: bool flags excluded from `known`
+  reorderFlagsFirst map (was gobbling next positional). CLI test
+  covers both arg orderings + same-sid resume.
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
