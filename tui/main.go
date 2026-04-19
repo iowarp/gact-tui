@@ -352,6 +352,7 @@ Usage:
   gact capabilities          backend contract version + capability matrix
   gact tell <name> <msg>     find-or-create session by title; send + print reply
                               (re-run with same name to continue the conversation)
+                              --async returns immediately with sid<TAB>msg_id
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -718,6 +719,10 @@ func runTell(args []string) int {
 	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
 	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
 	wsID := fs.String("workspace", "", "workspace id for new sessions (default: first listed)")
+	async := fs.Bool("async", false, "fire-and-return: post the message and exit; print sid + msg_id without waiting for the assistant reply (LLL8)")
+	// `known` only lists flags that take a value; bool flags like
+	// --async are intentionally omitted so reorderFlagsFirst won't
+	// gobble the next positional as their value.
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--timeout": true, "-timeout": true,
@@ -795,14 +800,24 @@ func runTell(args []string) int {
 	preCount := len(preMsgs)
 
 	postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	if _, err := c.PostMessage(postCtx, sid, client.PostMessageRequest{
+	posted, err := c.PostMessage(postCtx, sid, client.PostMessageRequest{
 		Parts: []gact.Part{{Type: gact.PartTypeText, Text: msg}},
-	}); err != nil {
+	})
+	if err != nil {
 		postCancel()
 		fmt.Fprintf(os.Stderr, "gact tell: send: %v\n", err)
 		return 1
 	}
 	postCancel()
+
+	// LLL8: --async fires and returns. Print sid<TAB>msg_id on stdout
+	// so chained scripts can capture both. The session keeps running
+	// in the background; users can `gact log <sid>` or `gact watch
+	// <sid>` to see the reply when ready.
+	if *async {
+		fmt.Printf("%s\t%s\n", sid, posted.MessageID)
+		return 0
+	}
 
 	deadline := time.Now().Add(*timeout)
 	for {
