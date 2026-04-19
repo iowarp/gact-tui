@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T15:30Z
-**Current phase:** WWWW1 + XXXX1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `22cc2ec` and pushed
+**Last updated:** 2026-04-19T15:55Z
+**Current phase:** YYYY1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7eda92c` and pushed
 **Open:** none
+
+### Phase YYYY — gact dashboard --status FILTER (+ waiting alias fix)
+- **YYYY1.** `gact dashboard --status idle|running|waiting|error`
+  filters dashboard rows. Discovered + fixed a latent bug:
+  both `list --status waiting` and the new `dashboard --status
+  waiting` never matched anything because the actual server
+  status is `waiting_permission` (per SPEC). Now both verbs
+  translate the user-friendly `waiting` alias.
 
 ### Phase XXXX — gact hooks list --event/--scope filters
 - **XXXX1.** `gact hooks list` gains `--event TYPE` and
