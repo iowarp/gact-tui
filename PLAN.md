@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase GGGGGG — conformance: workspaces per-id drill-down
+
+- [x] **GGGGGG1.** Mirror of EEEEEE1/FFFFFF1 for workspaces. Extended `checkWorkspaces` to drill into `GET /v1/workspaces/{id}` for the first workspace in the list (when present). Per-id response must echo the same id back and have a non-empty root_path (a workspace without one is not a workspace). Catches adapters that wired only the list endpoint — the SPEC §6.1 promise of per-id reads was a silent gap before. Read-only.
+
 ## Phase FFFFFF — conformance: agents per-id drill-down
 
 - [x] **FFFFFF1.** Mirror of EEEEEE1 for agents. Extended `checkAgents` to drill into `GET /v1/agents/{id}` for the first agent in the list (when present). Per-id response must echo the same id back and have non-empty source/title — same shape as a list entry per SPEC §6.5. Catches adapters that wired only the list endpoint. Read-only.
