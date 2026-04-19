@@ -197,6 +197,53 @@ func TestCLI_Ping(t *testing.T) {
 	}
 }
 
+// TestCLI_Perms covers RR1: send a permission-triggering message,
+// list perms, find the pending one, allow it, list again and verify
+// the action lands as "resolved/allow".
+func TestCLI_Perms(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "perms-target")
+
+	// Trigger a permission prompt by sending a "delete" keyword.
+	_, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "delete the temp dir")
+	if code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	// Give the scenario a beat to register the pending permission.
+	time.Sleep(700 * time.Millisecond)
+
+	// List → find the pending one.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "list", "--pending", sid)
+	if code != 0 {
+		t.Fatalf("perms list: exit %d", code)
+	}
+	if !strings.Contains(stdout, "pending") {
+		t.Fatalf("expected pending entry in stdout: %q", stdout)
+	}
+	pid := strings.SplitN(strings.TrimSpace(stdout), "\t", 2)[0]
+	if !strings.HasPrefix(pid, "perm_") {
+		t.Fatalf("first column doesn't look like a perm id: %q", pid)
+	}
+
+	// Allow.
+	_, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "allow", pid)
+	if code != 0 {
+		t.Fatalf("perms allow: exit %d", code)
+	}
+
+	// Re-list, expect resolved.
+	stdout, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "list", sid)
+	if !strings.Contains(stdout, "resolved\tallow") {
+		t.Errorf("post-allow list missing resolved/allow row: %q", stdout)
+	}
+}
+
 // TestCLI_Stream covers QQ1: pretty-print SSE timeline. Starts the
 // stream in the background, lets it capture server.connected, kills
 // it. Asserts at least one HH:MM:SS-prefixed row landed.
