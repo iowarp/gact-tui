@@ -1,9 +1,19 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:13Z
-**Current phase:** CCCCCC1 shipped this iteration (BBBBBB1 + CCCCCC1 in this run)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0223c8a` (pushed after status commit)
+**Last updated:** 2026-04-19T18:18Z
+**Current phase:** DDDDDD1 shipped this iteration (BBBBBB1 + CCCCCC1 + DDDDDD1 in this run)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `242d925` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase DDDDDD — conformance Agents section
+- **DDDDDD1.** Conformance gains an `Agents` section (no
+  capability gate — agents read is always available per
+  SPEC §6.5). Walks `GET /v1/agents`. Asserts 200 + non-nil
+  top-level `agents` array + per-entry required {id, source,
+  title} with `source` in the {builtin|user|recipe|skill}
+  enum. Locks the wire shape that powers Settings → Agent
+  picker. Read-only. New `Options.SkipAgents` opt-out wired
+  through the OptionsSkip fixture. CLI test updated.
 
 ### Phase CCCCCC — conformance per-message Diffs
 - **CCCCCC1.** Conformance gains a `Messages_Diffs` section

@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDDDDD — conformance: Agents section
+
+- [x] **DDDDDD1.** Adds an `Agents` section to the conformance suite (no capability gate — agents read is always available per SPEC §6.5; backends with a totally different agent model can SkipAgents). Walks `GET /v1/agents`. Asserts 200 + non-nil top-level `agents` array (empty list is fine; missing key violates spec) + per-entry required {id, source, title} with `source` in the documented enum (builtin|user|recipe|skill). Locks the wire shape that powers the Settings → Agent picker (ListAgents → settingsLoadedMsg) and `gact agents list`. Read-only — never POSTs. New `Options.SkipAgents` opt-out wired through TestConformance_OptionsSkip. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Agents ✓ Agents PASS`.
+
 ## Phase CCCCCC — conformance: per-message Diffs section
 
 - [x] **CCCCCC1.** Adds a `Messages_Diffs` section to the conformance suite (gated on `capabilities.diffs` AND a non-empty session id). Lists session messages, picks the first id, walks `GET /v1/sessions/{id}/messages/{msg_id}/diffs`. Asserts 200 + non-nil `diffs` array + same per-entry file_diff shape as BBBBBB1 (path required + non-empty, applied bool-typed, language string|null when present). Skips quietly when the session has no messages yet — listing returns empty so there's nothing to drill into. Read-only — never POSTs to apply/reject. Locks the wire shape that powers per-turn diff drill-down (Ctrl+E from a tool_result row). New `Options.SkipMessageDiffs` opt-out. TestCLI_Conformance updated to require the new section name. Confirmed against the emulator: `▶ Messages_Diffs ✓ Messages_Diffs PASS`.
