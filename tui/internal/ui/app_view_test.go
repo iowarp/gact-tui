@@ -304,19 +304,37 @@ func TestPickAttachIndex(t *testing.T) {
 	}
 }
 
-// LLL8b: Ctrl+Z returns tea.Suspend (which delivers SIGTSTP via the
-// program runtime) and sets a "fg to resume" reassurance hint.
-func TestUpdate_CtrlZSuspends(t *testing.T) {
+// IIIII1: Ctrl+Z is now a clean detach — sets DetachedSessionID
+// to the current sid + returns tea.Quit. Main reads
+// DetachedSessionID after p.Run() returns and prints a reattach
+// hint. Replaces the previous LLL8b SIGTSTP suspend.
+func TestUpdate_CtrlZDetachesCleanly(t *testing.T) {
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_alpha", Title: "alpha", Status: gact.StatusIdle}},
+		nil,
+	)
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl, Text: ""})
+	got := out.(*App)
+	if cmd == nil {
+		t.Fatalf("expected non-nil cmd from Ctrl+Z")
+	}
+	if got.DetachedSessionID != "sess_alpha" {
+		t.Errorf("expected DetachedSessionID=sess_alpha, got %q", got.DetachedSessionID)
+	}
+}
+
+// And with no current session selected, Ctrl+Z still detaches
+// cleanly (DetachedSessionID empty signals "no reattach hint").
+func TestUpdate_CtrlZNoSession(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	out, cmd := a.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl, Text: ""})
 	got := out.(*App)
 	if cmd == nil {
 		t.Fatalf("expected non-nil cmd from Ctrl+Z")
 	}
-	if !strings.Contains(got.transientHint, "detached") ||
-		!strings.Contains(got.transientHint, "to resume") {
-		t.Errorf("expected reassurance hint with 'detached' and 'to resume', got %q",
-			got.transientHint)
+	if got.DetachedSessionID != "" {
+		t.Errorf("expected empty DetachedSessionID with no session, got %q",
+			got.DetachedSessionID)
 	}
 }
 
