@@ -181,6 +181,12 @@ type App struct {
 	IntroLogo []string
 	IntroName []string
 
+	// IntroDisabled is the persisted "skip the splash" preference
+	// (YYYYY1). Mirrors config.Config.IntroSkip; the CLI flag /
+	// env var still wins at startup. Settings → TUI lets users flip
+	// it without restarting.
+	IntroDisabled bool
+
 	// MMM8b: discovered plugins. Their commands are merged into the
 	// slash palette; selecting one execs the plugin's binary instead
 	// of POSTing to /v1/sessions/{id}/commands/{id}.
@@ -627,7 +633,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
-			if n := strings.Count(m.Content, "\n") + 1; n >= 3 {
+			// Threshold is user-configurable via Settings → TUI (YYYYY1).
+			threshold := a.Theme.PasteCompressThreshold
+			if threshold <= 0 {
+				threshold = 3
+			}
+			if n := strings.Count(m.Content, "\n") + 1; n >= threshold {
 				a.insertPastePlaceholder(m.Content, n)
 				return a, nil
 			}

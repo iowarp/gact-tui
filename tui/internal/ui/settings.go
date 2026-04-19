@@ -26,10 +26,17 @@ type settingsState struct {
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
 // Bump when adding new knobs; key navigation clamps against this.
-// LLLLL1: row 0 = collapse threshold, row 1 = cost warn tokens,
-// row 2 = cost danger tokens. Anything below is read-only runtime
-// state and isn't selectable.
-const tuiPrefsRowCount = 3
+// Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
+// 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1).
+const tuiPrefsRowCount = 5
+
+// YYYYY1: paste-compress threshold steps by 1 line (small range
+// — 2 means "compress almost everything", 20 means "rarely
+// bother") and the intro toggle is just on/off.
+const (
+	pasteThresholdMin = 2
+	pasteThresholdMax = 20
+)
 
 // LLLLL1: cost token thresholds adjust in 25k-token increments —
 // fine enough to land on practical values (50K/75K/100K…), coarse
@@ -189,6 +196,20 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					a.Theme.CostDangerTokens = costMin
 					a.persistPrefs()
 				}
+			case 3:
+				// YYYYY1: paste-compress threshold ↓
+				cur := a.Theme.PasteCompressThreshold
+				if cur <= 0 {
+					cur = 3
+				}
+				if cur > pasteThresholdMin {
+					a.Theme.PasteCompressThreshold = cur - 1
+					a.persistPrefs()
+				}
+			case 4:
+				// YYYYY1: intro toggle is bool — left/right both flip.
+				a.IntroDisabled = !a.IntroDisabled
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -210,6 +231,18 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					a.Theme.CostDangerTokens += costStep
 					a.persistPrefs()
 				}
+			case 3:
+				cur := a.Theme.PasteCompressThreshold
+				if cur <= 0 {
+					cur = 3
+				}
+				if cur < pasteThresholdMax {
+					a.Theme.PasteCompressThreshold = cur + 1
+					a.persistPrefs()
+				}
+			case 4:
+				a.IntroDisabled = !a.IntroDisabled
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -412,6 +445,26 @@ func (a *App) viewSettings() string {
 			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
 			"footer turns red — usually the hard ceiling of typical "+
 				"frontier-model context windows.")...)
+		// YYYYY1: paste compression threshold + intro splash toggle.
+		pt := a.Theme.PasteCompressThreshold
+		if pt <= 0 {
+			pt = 3
+		}
+		rows = append(rows, editableRow(3,
+			"paste compress     ",
+			"◀ "+itoa2(pt)+" lines ▶",
+			"bracketed pastes ≥ N lines collapse to a "+
+				"`[pasted content: N lines]` placeholder; Ctrl+P to expand.")...)
+		introState := "off"
+		if a.IntroDisabled {
+			introState = "on  (skip splash)"
+		} else {
+			introState = "off (show splash)"
+		}
+		rows = append(rows, editableRow(4,
+			"intro splash skip  ",
+			"◀ "+introState+" ▶",
+			"persists to config; --no-intro CLI flag still wins as override.")...)
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render("Runtime state (edit config.json to change)"))

@@ -29,6 +29,9 @@ type Config struct {
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
 	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`
+	// YYYYY1: minimum line count for a paste to get the compressed
+	// `[pasted content: N lines]` placeholder. nil/0 means default 3.
+	PasteCompressThreshold *int `json:"paste_compress_threshold,omitempty"`
 	// DisabledTools is a set of tool ids the user has hidden from the
 	// catalog browser (LLL2). Persists across sessions. Backends that
 	// honour an "allowed_tools" list at session-create time would read
