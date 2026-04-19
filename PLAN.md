@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase PPPPPP — conformance README refresh
+
+- [x] **PPPPPP1.** The conformance suite's README table was 7 sections behind reality (only Health/Capabilities/Workspaces/Sessions_List/Sessions_Create/Messages_Post/SSE were listed). Brings it up to the current 14 sections + per-id drill-downs, organized into "always-on" (non-cap-gated) vs "capability-gated" with the gating capability named explicitly for each. Each row points at the phase code that introduced or extended it (BBBBBB1, CCCCCC1, DDDDDD1, EEEEEE1, FFFFFF1, GGGGGG1, HHHHHH1, IIIIII1, JJJJJJ1, KKKKKK1, LLLLLL1, MMMMMM1, NNNNNN1) so the git history stays navigable from the docs.
+
 ## Phase OOOOOO — adapter conformance follow-ups
 
 - [x] **OOOOOO1.** After adding 13 conformance sections (BBBBBB1..NNNNNN1) this run, adapters needed catch-up. Opencode now implements `GET /v1/workspaces/{id}` (synthetic single-workspace echo, returns 404 on id mismatch) so the §6.1 per-id drill stops returning 501. Both opencode + crush conformance tests now set `SkipAgents: true` since neither adapter proxies /v1/agents (no upstream concept). Mock upstream for opencode gains a /path handler so the new GetWorkspace handler can resolve. All adapter conformance subtests pass: Health, Capabilities, Workspaces, Sessions_List, Sessions_Get, Messages_Post, Messages_List, SSE.
