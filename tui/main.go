@@ -372,7 +372,7 @@ Usage:
   gact workspaces list       list workspaces (TSV: id  name  root_path)
   gact fork <sid> [--at MID] spawn a child session forked from another
   gact models list           list providers + models (TSV: pid mid name ctx)
-  gact info <sid>            print one session's metadata; --include tasks,hooks for composite view
+  gact info <sid>            print one session's metadata; --include tasks,hooks,perms for composite view
   gact undo <sid> [--count N] revert the last N messages (default 1)
   gact rewind <sid> <mid>    delete every message after <mid> [--include-target]
   gact files list <ws-id>    list workspace files; --glob PATTERN to filter (e.g. '*.go')
@@ -3679,14 +3679,14 @@ func runInfo(args []string) int {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json] [--include tasks,hooks]")
+		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json] [--include tasks,hooks,perms]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact info: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
-	wantTasks, wantHooks := false, false
+	wantTasks, wantHooks, wantPerms := false, false, false
 	for _, t := range strings.Split(*include, ",") {
 		switch strings.TrimSpace(t) {
 		case "":
@@ -3694,8 +3694,14 @@ func runInfo(args []string) int {
 			wantTasks = true
 		case "hooks":
 			wantHooks = true
+		case "perms":
+			// NNNNN1: --include perms pulls every permission request
+			// the session has seen (pending + resolved). Useful for
+			// "what did I allow/deny in this session?" audits without
+			// chaining info + perms list.
+			wantPerms = true
 		default:
-			fmt.Fprintf(os.Stderr, "gact info: unknown --include token %q (want tasks|hooks)\n", t)
+			fmt.Fprintf(os.Stderr, "gact info: unknown --include token %q (want tasks|hooks|perms)\n", t)
 			return 2
 		}
 	}
@@ -3714,6 +3720,17 @@ func runInfo(args []string) int {
 		tasks, err = c.ListSessionTasks(ctx, sid)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "gact info: list tasks: %v\n", err)
+			return 1
+		}
+	}
+	var perms []client.PermissionWire
+	if wantPerms {
+		// All permissions the session has seen — including resolved
+		// ones — so the user can see the full a/d/s/w trail. Pass
+		// onlyPending=false to get the full set.
+		perms, err = c.ListPermissions(ctx, sid, false)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact info: list permissions: %v\n", err)
 			return 1
 		}
 	}
@@ -3751,6 +3768,12 @@ func runInfo(args []string) int {
 				sessionHooks = []gact.Hook{}
 			}
 			out["hooks"] = sessionHooks
+		}
+		if wantPerms {
+			if perms == nil {
+				perms = []client.PermissionWire{}
+			}
+			out["perms"] = perms
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -3812,6 +3835,24 @@ func runInfo(args []string) int {
 					scope = "workspace=" + h.WorkspaceID
 				}
 				fmt.Printf("%s\t%s\t%s\t%s\n", h.ID, h.Event, target, scope)
+			}
+		}
+	}
+	if wantPerms {
+		fmt.Println("--- perms ---")
+		if len(perms) == 0 {
+			fmt.Println("(none)")
+		} else {
+			for _, p := range perms {
+				summary := p.Summary
+				if summary == "" {
+					summary = p.ToolCall.ToolName
+				}
+				row := fmt.Sprintf("%s\t%s\t%s", p.Status, p.ID, summary)
+				if p.Action != "" {
+					row += "\taction=" + string(p.Action)
+				}
+				fmt.Println(row)
 			}
 		}
 	}

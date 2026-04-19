@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNNN — gact info --include perms
+
+- [x] **NNNNN1.** Closes the explicit OOOO1 follow-up: `gact info --include perms` adds a section for every permission request the session has seen (pending + resolved). Works in both text mode (TSV-ish `status<TAB>id<TAB>summary [action=…]` rows under `--- perms ---`) and JSON mode (wrapped as `perms` array on the top-level result object alongside session/tasks/hooks). Composes with the existing tasks/hooks tokens. Unknown --include token still exits 2 client-side. CLI test triggers the `delete` permission scenario, asserts the pending row appears in both modes, then resolves with deny and asserts `resolved` + `action=deny` surface in the next render.
+
 ## Phase MMMMM — gact env --format json
 
 - [x] **MMMMM1.** `gact env --format json` emits a single object with the resolved config (backend_url, theme, voice_cmd, intro_file, config_path, plugins_dir) plus a nested `env` object containing every `GACT_*` variable. Default tsv preserved for back-compat with diag bundle scripts. Unknown format → exit 2. CLI test parses the JSON, asserts both config and env nested fields round-trip the values set via test env.
