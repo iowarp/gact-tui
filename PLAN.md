@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase LLLLL — Settings TUI tab: cost-warn / cost-danger token thresholds
+
+- [x] **LLLLL1.** Closes part of feedback_tui_ux_direction item 6 ("Settings modal is thin"). The TUI tab had only one editable knob (collapse threshold) — now also has cost-warn and cost-danger token thresholds. Both already existed in `Theme` and were used by the footer cost chip color logic; just weren't surfaced in the picker. Bumped `tuiPrefsRowCount` from 1 to 3, added `costStep` (25_000) / `costMin` (1_000) / `costMax` (1_000_000) constants, refactored render path through a shared `editableRow` helper so all three rows render identically. ←/→ on each row clamps independently against its own range. New unit test asserts: row 1 ←/→ moves warn but not danger; row 2 moves danger; bounds at costMin/costMax; row 0 still only touches collapse threshold (no cross-talk). Existing collapse-threshold test unchanged. Screenshot: `screenshots/LLLLL1_settings_tui_costs.png`.
+
 ## Phase KKKKK — empty-state hints surface session-lifecycle keys
 
 - [x] **KKKKK1.** Closes the discoverability gap from feedback_tui_ux_direction item 7 ("user asked 'can I rename, delete, hide sessions?' — all three work but the user didn't know"). The empty-state crib (the only thing visible before the first message lands) was the right place for these hints, not the help overlay (which the user might never open). Expanded the in-sidebar block from 3 entries (n, x, ↑/↓) to 7 (added e=rename, A=archive, h=toggle archived view, /=filter, o=attach context). Also surfaced Ctrl+Z as the new tmux-like detach (IIIII1) so users see the reattach hint before they need it. Help-overlay golden regenerated for the layout shift. Screenshot: `screenshots/KKKKK1_empty_state_hints.png`.

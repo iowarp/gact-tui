@@ -1227,6 +1227,72 @@ func TestCollapseThreshold_ArrowKeysAdjust(t *testing.T) {
 	}
 }
 
+// LLLLL1: cost-warn / cost-danger thresholds got their own editable
+// rows in Settings > TUI. ←/→ on row 1/2 nudges by costStep
+// (25_000 tokens). Verifies a few core invariants: arrow keys move
+// the right field, low clamp at costMin (1_000), high clamp at
+// costMax (1_000_000), and ←/→ on row 0 still only affects
+// CollapseThreshold (no cross-talk between rows).
+func TestSettings_CostThresholdArrows(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	// Row 1 = cost warn. Start at default 100k.
+	a.settings.tuiRow = 1
+	a.Theme.CostWarnTokens = 100_000
+	a.Theme.CostDangerTokens = 150_000
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.Theme.CostWarnTokens != 125_000 {
+		t.Errorf("right warn: got %d, want 125000", a.Theme.CostWarnTokens)
+	}
+	if a.Theme.CostDangerTokens != 150_000 {
+		t.Errorf("danger should NOT change when row=1: got %d", a.Theme.CostDangerTokens)
+	}
+
+	// Lower bound stops at costMin (1_000).
+	for i := 0; i < 200; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+		a = out.(*App)
+	}
+	if a.Theme.CostWarnTokens != 1_000 {
+		t.Errorf("clamp low warn: got %d, want 1000", a.Theme.CostWarnTokens)
+	}
+
+	// Row 2 = cost danger. Same shape.
+	a.settings.tuiRow = 2
+	a.Theme.CostDangerTokens = 200_000
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.Theme.CostDangerTokens != 225_000 {
+		t.Errorf("right danger: got %d, want 225000", a.Theme.CostDangerTokens)
+	}
+
+	// Upper bound stops at costMax (1_000_000).
+	for i := 0; i < 200; i++ {
+		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+		a = out.(*App)
+	}
+	if a.Theme.CostDangerTokens != 1_000_000 {
+		t.Errorf("clamp high danger: got %d, want 1000000", a.Theme.CostDangerTokens)
+	}
+
+	// Cross-talk check: row 0 still only affects CollapseThreshold.
+	a.settings.tuiRow = 0
+	a.Theme.CollapseThreshold = 5
+	a.Theme.CostWarnTokens = 100_000
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = out.(*App)
+	if a.Theme.CollapseThreshold != 6 {
+		t.Errorf("row=0 right should bump collapse: got %d", a.Theme.CollapseThreshold)
+	}
+	if a.Theme.CostWarnTokens != 100_000 {
+		t.Errorf("row=0 right should NOT touch cost warn: got %d", a.Theme.CostWarnTokens)
+	}
+}
+
 // TestRenderBody_ReturnsExactHeight is the tightest contract: regardless
 // of content size, the final rendered tui View is bounded by a.height
 // rows. The footer can only stay in frame if every other pane respects
