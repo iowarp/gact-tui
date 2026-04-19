@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase HHHHHH — conformance: sessions per-id drill-down
+
+- [x] **HHHHHH1.** Adds a `Sessions_Get` section that walks `GET /v1/sessions/{id}` after the existing Sessions_Create (or pinned via `Options.SessionID`). Asserts 200 + id echoed back + non-empty status (sessions always carry a lifecycle state per the Session schema). Skips when no sid is available — the caller already gates on that. Catches adapters that wired only the list/create endpoints and forgot the per-id read. Read-only.
+
 ## Phase GGGGGG — conformance: workspaces per-id drill-down
 
 - [x] **GGGGGG1.** Mirror of EEEEEE1/FFFFFF1 for workspaces. Extended `checkWorkspaces` to drill into `GET /v1/workspaces/{id}` for the first workspace in the list (when present). Per-id response must echo the same id back and have a non-empty root_path (a workspace without one is not a workspace). Catches adapters that wired only the list endpoint — the SPEC §6.1 promise of per-id reads was a silent gap before. Read-only.
