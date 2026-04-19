@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T20:15Z
-**Current phase:** HHHHH1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1ac717c` and pushed
+**Last updated:** 2026-04-19T20:35Z
+**Current phase:** HHHHH1 + IIIII1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cfb33cd` and pushed
 **Open:** none
+
+### Phase IIIII — tmux-like detach (Ctrl+Z)
+- **IIIII1.** Replaced LLL8b's SIGTSTP suspend with a clean
+  exit + post-exit hint. Ctrl+Z stamps DetachedSessionID;
+  main.go prints `Detached. Reattach with: gact attach <sid>`.
+  Backend session persists by design. Help-tab updated.
 
 ### Phase HHHHH — unified `/tools` menu (built-in + MCP)
 - **HHHHH1.** `/tools` now lists built-in + MCP-sourced tools in
