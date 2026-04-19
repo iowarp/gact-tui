@@ -50,7 +50,7 @@ func TestConformance_AgainstEmulator(t *testing.T) {
 		t.Fatalf("emulator never became healthy: %v", err)
 	}
 
-	Run(t, url, Options{})
+	Run(FromTest(t), url, Options{})
 }
 
 // findEmulatorBinary resolves the emulator-server path. Checks common
@@ -140,7 +140,7 @@ func TestConformance_OptionsSkip(t *testing.T) {
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(func() { _ = srv.Close() })
 
-	Run(t, "http://"+ln.Addr().String(), Options{
+	Run(FromTest(t), "http://"+ln.Addr().String(), Options{
 		SkipCapabilities:  true,
 		SkipWorkspaces:    true,
 		SkipSessions:      true,
