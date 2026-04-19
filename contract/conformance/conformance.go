@@ -1487,19 +1487,52 @@ func checkFiles(t Reporter, c *conformClient, wsID string) {
 		t.Errorf("response missing `entries` key: %s", body)
 		return
 	}
+	var firstFile string
 	for i, e := range raw.Entries {
 		for _, key := range []string{"path", "type"} {
 			if _, ok := e[key]; !ok {
 				t.Errorf("entry[%d] missing required key %q: %v", i, key, e)
 			}
 		}
-		if typ, _ := e["type"].(string); typ != "" {
+		typ, _ := e["type"].(string)
+		if typ != "" {
 			switch typ {
 			case "file", "dir":
 			default:
 				t.Errorf("entry[%d] unexpected type %q (want file|dir)", i, typ)
 			}
 		}
+		if firstFile == "" && typ == "file" {
+			if path, _ := e["path"].(string); path != "" {
+				firstFile = path
+			}
+		}
+	}
+	if firstFile == "" {
+		return
+	}
+	// VVVVVV1: per-file body endpoint. SPEC §6.9 promises GET
+	// /v1/workspaces/{id}/files/read?path=<p> returns the file's
+	// content as application/octet-stream. Adapter authors that
+	// wired the tree but forgot the body endpoint break the
+	// @-file picker preview + `gact files read` at runtime.
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, derr := c.get(dctx, "/v1/workspaces/"+wsID+"/files/read?path="+firstFile)
+	if derr != nil {
+		t.Errorf("GET /v1/workspaces/%s/files/read?path=%s: %v", wsID, firstFile, derr)
+		return
+	}
+	if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/workspaces/{id}/files/read returned 501 — required by SPEC §6.9 when capabilities.files=true")
+		return
+	}
+	if dResp.StatusCode != 200 {
+		t.Errorf("/v1/workspaces/%s/files/read?path=%s status %d body %s", wsID, firstFile, dResp.StatusCode, dBody)
+		return
+	}
+	if len(dBody) == 0 {
+		t.Errorf("/v1/workspaces/%s/files/read?path=%s returned empty body", wsID, firstFile)
 	}
 }
 
