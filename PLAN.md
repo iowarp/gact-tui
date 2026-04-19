@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase SSSSSS — conformance: capabilities deeper validation
+
+- [x] **SSSSSS1.** Strengthened `checkCapabilities` from "fields present" to "fields well-formed". (1) `contract_version` must look like a real semver-ish version (currently 0.x or 1.x) — catches accidents like `"contract_version": "GACT"` or empty-after-trim. (2) Every capability value must be a JSON bool — adapter authors that emit `"hooks": "yes"` or `"files": null` would silently downgrade to false in cap-gating logic; this catches it at the wire. Forward-compat carve-out: vendor-prefixed keys (`x_<vendor>_<flag>`) may be any JSON value. Catches a category of adapter regressions that the looser shape check would have let through.
+
 ## Phase RRRRRR — conformance: session export
 
 - [x] **RRRRRR1.** Adds a `Sessions_Export` section that walks `GET /v1/sessions/{id}/export` (SPEC §6.2) after Messages_List. Asserts 200 + Content-Type starts with `application/json` + body parses as JSON. Specific exported shape stays per-backend (SPEC says "session blob" without locking the field set), so we only assert validity — just enough that `gact export` and `gact import` can round-trip without a 501 hiding in the middle. Read-only. New `Options.SkipSessionExport` opt-out wired through TestConformance_OptionsSkip plus both opencode + crush adapter conformance tests (neither implements export today).

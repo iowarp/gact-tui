@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:52Z
-**Current phase:** RRRRRR1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `df8a544` (pushed after status commit)
+**Last updated:** 2026-04-19T18:54Z
+**Current phase:** SSSSSS1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cd06cc4` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase SSSSSS — conformance capabilities deeper validation
+- **SSSSSS1.** Strengthened checkCapabilities: contract_version
+  must look like 0.x or 1.x (catches `"GACT"` accidents); every
+  capability value must be a JSON bool (catches `"yes"` / null
+  that would silently degrade to false). Forward-compat carve-out:
+  `x_<vendor>_<flag>` keys may be any JSON value.
 
 ### Phase RRRRRR — conformance session export
 - **RRRRRR1.** Adds `Sessions_Export` section. Walks GET
