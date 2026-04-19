@@ -146,6 +146,9 @@ func main() {
 			os.Exit(runGrep(os.Args[2:]))
 		case "follow":
 			os.Exit(runFollow(os.Args[2:]))
+		case "replay":
+			runReplay(os.Args[2:])
+			return
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -388,6 +391,7 @@ Usage:
   gact dashboard             one-shot table of every session (status/model/cost)
   gact grep <query>          search across all sessions; TSV: sid title mid role snippet
   gact follow <sid>          tail -f the conversation log; stream new messages
+  gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1318,6 +1322,72 @@ func runHooksRm(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runReplay imports a session export blob and (optionally) attaches
+// the TUI to the resulting session. Workflow shortcut for
+// `gact import FILE | gact attach $(gact import FILE)`. (CCCC1)
+//
+// With --attach: trims argv + sets GACT_ATTACH_SESSION_ID like
+// runAttach does, then calls runTUI. Without --attach: prints the
+// new sid and exits 0 (same as `gact import`).
+func runReplay(args []string) {
+	fs := flag.NewFlagSet("replay", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	attach := fs.Bool("attach", false, "launch the TUI on the imported session after import")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact replay <export-file|-> [--attach]")
+		os.Exit(2)
+	}
+	src := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+
+	var r io.Reader
+	if src == "-" {
+		r = os.Stdin
+	} else {
+		f, err := os.Open(src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact replay: open %s: %v\n", src, err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		r = f
+	}
+	var blob client.SessionExportBlob
+	if err := json.NewDecoder(r).Decode(&blob); err != nil {
+		fmt.Fprintf(os.Stderr, "gact replay: decode: %v\n", err)
+		os.Exit(1)
+	}
+	if blob.Format == "" {
+		fmt.Fprintln(os.Stderr, "gact replay: missing 'format' field — not a GACT export blob")
+		os.Exit(1)
+	}
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	created, err := c.ImportSession(ctx, blob)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact replay: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stderr, "gact replay: created session %s with %d messages\n",
+		created.ID, created.MessageCount)
+	if !*attach {
+		fmt.Println(created.ID)
+		os.Exit(0)
+	}
+	// --attach: hand off to runTUI. Bridge via env (same pattern as
+	// runAttach) so we don't duplicate the TUI bootstrap.
+	_ = os.Setenv("GACT_ATTACH_SESSION_ID", created.ID)
+	os.Args = []string{os.Args[0]}
+	runTUI()
 }
 
 // runFollow is `tail -f` for a session's conversation log. Prints
@@ -4143,7 +4213,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -4163,7 +4233,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -4176,7 +4246,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
