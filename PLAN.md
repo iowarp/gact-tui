@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAA — repo map CLI
+
+- [x] **AAA1.** `gact repo-map <ws-id> [--format tree|json]` — wraps `/v1/workspaces/{id}/repo_map`. Added `client.WorkspaceRepoMap` returning `RepoMapResponse{Tree, Tokens}`. Tree mode renders nested paths with `├──`/`└──` glyphs and hangs symbol outlines as `· name` children. JSON dumps the raw response. Token cost goes to stderr so stdout stays clean for `tee`. CLI test asserts main.go and Handler appear and JSON shape lands.
+
 ## Phase ZZ — workspace files CLI
 
 - [x] **ZZ1.** `gact files list <ws-id> [--format tsv|json]` — wraps `/v1/workspaces/{id}/files` (existing client.ListWorkspaceFiles). TSV columns: type, size, path. JSON dumps the raw FileEntry slice. CLI test asserts seeded `main.go` shows up.
