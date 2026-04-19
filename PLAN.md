@@ -10,11 +10,11 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase LLL — UX polish round (user-flagged 2026-04-18)
 
-- [ ] **LLL1.** Refresh stale screenshots — several PNGs in `screenshots/` show as modified in `git status` but were never recommitted; rebuild them via the existing `.tape` files and a fresh `go build` so the docs match the current visual state.
+- [x] **LLL1.** 13 screenshots refreshed via existing tapes (screenshot, screenshot_collapse, screenshot_compose, screenshot_themes). Now reflect HHH1 header (model/agent) and III1 interleaved tool rendering.
 - [ ] **LLL2.** Tool/MCP catalog browser: enable/disable individual tools, drill into each MCP server to see the tools/resources/prompts it provides (shell already has `gact mcp tools/resources/prompts`; mirror that in the TUI). Add toggle keys + a server-detail subview.
 - [ ] **LLL3.** Skills + agents — verify visually they render in the catalog browser; add screenshots; if rendering is broken or empty, fix.
 - [ ] **LLL4.** Recolour Settings/catalog modals — current scheme reads as flat/dim. Apply role-color accents (header bars, selected row highlight) consistent with the conversation pane.
-- [ ] **LLL5.** Border alignment bug at sidebar/conversation seam — the bottom-right corner of the sidebar and the bottom-left corner of the conversation pane don't meet (`╰────╯╭──`). Investigate the JoinHorizontal padding and align so the border closes cleanly.
+- [x] **LLL5.** Sidebar height now matches the conversation pane height (was full bodyH including input), so both bottom borders close on the same row. Extracted `conversationPaneHeight()` helper used by both `viewMainBase` (sizes sidebar) and `renderBody` (sizes msg pane). UI goldens regenerated.
 - [ ] **LLL6.** Bottom hint line: cluttered key list + cost on far right looks plain. Group keys into clusters with separators (`focus › navigation › actions`), add a thin underline divider, surface the cost as a styled chip, not floating text.
 - [ ] **LLL7.** Look at `/mnt/d/Libraries/Documents/projects/cc` (Claude Code source on Windows D:\). Inventory front-end capabilities (custom commands, agent-jumping, migration handling) and identify which belong in the GACT contract / our system. Emit a short report to `notes/cc-inventory.md` with each idea + a yes/no/maybe-add recommendation.
 - [ ] **LLL8.** "Detach" verb — keep TUI running but stop blocking the terminal so the user can `Ctrl+Z`/background; complement existing `Ctrl+C` exit. Also: `gact tell --async` to fire-and-return without waiting for the assistant reply (prints sid + msg_id, exits). Useful when chained in scripts that want to background a long turn.
