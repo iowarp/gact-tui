@@ -1,9 +1,19 @@
 # STATUS
 
-**Last updated:** 2026-04-19T16:35Z
-**Current phase:** ZZZZ1 + AAAAA1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0c52ec3` and pushed
+**Last updated:** 2026-04-19T17:00Z
+**Current phase:** BBBBB1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `743f33e` and pushed
 **Open:** none
+
+### Phase BBBBB — conformance Mcp section + adapter test repair
+- **BBBBB1.** Conformance suite gains an `Mcp` section (gated on
+  `capabilities.mcp`) that walks `GET /v1/mcp/servers` and
+  asserts the wire shape JJJJ1's `gact mcp list` + TUI catalog
+  depend on. New `Options.SkipMcp` opt-out. Also fixed a latent
+  breakage: both adapter conformance tests (crush + opencode)
+  were calling `Run(t, …)` with raw `*testing.T` after the
+  Reporter refactor — wrapped with `FromTest(t)` so they build
+  again. All adapter test suites now build + pass.
 
 ### Phase AAAAA — gact context list --mode/--glob filters
 - **AAAAA1.** `gact context list <sid>` gains `--mode
