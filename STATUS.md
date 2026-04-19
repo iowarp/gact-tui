@@ -1,9 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-19T21:35Z
-**Current phase:** LLLLL1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3c3342e` and pushed
+**Last updated:** 2026-04-19T21:55Z
+**Current phase:** LLLLL1 + MMMMM1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7f6a11a` and pushed
 **Open:** none
+
+### Phase MMMMM — gact env --format json
+- **MMMMM1.** `gact env --format json` emits a single object
+  with resolved config + a nested `env` object containing every
+  GACT_* variable. Default tsv preserved.
 
 ### Phase LLLLL — Settings TUI tab cost-warn/danger knobs
 - **LLLLL1.** TUI tab gains 2 new editable rows (cost warn +
