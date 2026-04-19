@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRRR — diff scenario variants
+
+- [x] **RRRRR1.** Closes the four-scenario-family arc (bigtool/long/multi-tool now diff). `runDiffScript` cycles through `diffVariants` per session via `NextCallIndex`. Three variants spanning three languages: existing Go logging swap (variant[0], preserved); Python try/except + structured logging around a network call (variant[1]); JS callback-chain → async/await refactor (variant[2]). Each variant has its own intro narration. Different (path, language) pairs per variant exercise the diff renderer's syntax-hint path through Go, Python, and JS lexers. New unit test sends three "propose an edit" turns, asserts ≥3 file_diff parts emitted, all three (path, language) pairs distinct, and that both python + js variants fire across the run (order-agnostic since ListMessages is newest-first).
+
 ## Phase QQQQQ — multi-tool scenario variants
 
 - [x] **QQQQQ1.** Mirrors GGGGG1/PPPPP1 for the multi-tool path. `runMultiToolScript` cycles through `multiToolVariants` per session via `NextCallIndex`. Three variants: existing read_file/grep/edit_file refactor flow (variant[0], preserved for back-compat with existing test); a new psql/psql/go-vet schema-migration check (variant[1]); a go-test/grep/go-test failing-test triage flow (variant[2]). Each variant has its own intro + followup. New unit test sends two "many tools" turns and asserts (a) different tool-call sequences fire across the turns (variant cycle works) and (b) the union covers both `shell` (variant[1]) and `read_file` (variant[0]) tool names. Order-agnostic since `ListMessages` is newest-first. Existing `TestRichScripts_MultiTool` still passes against variant[0]'s 3-tool shape.
