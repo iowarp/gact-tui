@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase PP — bug-report bundle
+
+- [ ] **PP1.** `gact dump-bundle -o DIR` writes a complete bug-report bundle: `diag.txt` (env/config), `metrics.json`, every session as JSON, plus the binary/contract version. Shifts the "include version + config + sample session" boilerplate from a multi-step user procedure into one command.
+
 ## Phase OO — catalog CLI
 
 - [x] **OO1.** `gact catalog tools|agents|mcp|commands [--format tsv|json]` — single CLI surface spanning all read-side catalog endpoints. Tested for all four kinds + JSON format + unknown-kind exit-2.
