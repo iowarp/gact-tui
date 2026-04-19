@@ -49,20 +49,25 @@ func runLongScript(ctx context.Context, e *Engine, sessionID string, _ *gact.Mes
 // Triggered by "log" / "dump" / "traceback" / "logs" in the user
 // prompt.
 func runBigToolScript(ctx context.Context, e *Engine, sessionID string, _ *gact.Message) {
+	// GGGGG1: pick a different log payload + framing per call so
+	// repeated "dump the log" turns produce visibly different bulky
+	// outputs. Cycles through bigLogVariants by per-session counter.
+	idx := e.NextCallIndex(sessionID, "bigtool")
+	v := bigLogVariants[idx%len(bigLogVariants)]
+
 	e.publishStatus(sessionID, gact.StatusRunning)
 	asst, err := e.createAssistantMessage(sessionID)
 	if err != nil {
 		return
 	}
 	intro, _ := e.addPart(sessionID, asst.ID, gact.NewTextPart(""))
-	_ = e.streamText(ctx, sessionID, asst.ID, intro.ID,
-		"I'll grep the last 80 lines of the server log.", "text")
+	_ = e.streamText(ctx, sessionID, asst.ID, intro.ID, v.intro, "text")
 	e.completePart(sessionID, asst.ID, intro.ID)
 
 	callID := "call_" + asst.ID[len(asst.ID)-8:]
 	toolPart, _ := e.addPart(sessionID, asst.ID,
 		gact.NewToolCallPart(callID, "shell", nil))
-	toolInputRaw := `{"command":"tail -80 /var/log/app.log"}`
+	toolInputRaw := v.commandJSON
 	e.bus.Publish(events.Event{
 		Type:      "message.part.delta",
 		SessionID: sessionID,
@@ -98,7 +103,7 @@ func runBigToolScript(ctx context.Context, e *Engine, sessionID string, _ *gact.
 		Role:      gact.RoleTool,
 		Parts: []gact.Part{
 			gact.NewToolResultPart(callID, []gact.Part{
-				gact.NewTextPart(bigLogOutput),
+				gact.NewTextPart(v.body),
 			}, false),
 		},
 	})
@@ -113,11 +118,7 @@ func runBigToolScript(ctx context.Context, e *Engine, sessionID string, _ *gact.
 
 	final, _ := e.createAssistantMessage(sessionID)
 	finalP, _ := e.addPart(sessionID, final.ID, gact.NewTextPart(""))
-	_ = e.streamText(ctx, sessionID, final.ID, finalP.ID,
-		"**80 lines of logs** returned. The interesting parts are around the "+
-			"panic at line 47 and the retry storm starting at line 62. Want me "+
-			"to grep for a specific error class?",
-		"text")
+	_ = e.streamText(ctx, sessionID, final.ID, finalP.ID, v.followup, "text")
 	e.completePart(sessionID, final.ID, finalP.ID)
 	e.completeMessage(sessionID, final.ID, gact.StopReasonEndTurn)
 	e.publishStatus(sessionID, gact.StatusIdle)
@@ -355,4 +356,193 @@ var bigLogOutput = strings.Join([]string{
 	"2026-04-18T12:11:45Z INFO  handler/sessions.go:112 POST /v1/sessions 201 40ms",
 	"2026-04-18T12:12:00Z INFO  scheduler/tick.go:55 idle-ping",
 	"2026-04-18T12:12:12Z INFO  handler/messages.go:204 POST /v1/messages 202 7ms",
+}, "\n")
+
+// GGGGG1: bigLogVariants is the rotating cast of payloads runBigToolScript
+// picks from. Each variant has a distinct intro / command / body /
+// followup so multiple "dump the log" turns in the same session look
+// genuinely different — exercising the cursor-aware Ctrl+E path
+// (FFFFF1) where the user must be able to address each bulky output
+// individually.
+var bigLogVariants = []struct {
+	intro       string
+	commandJSON string
+	body        string
+	followup    string
+}{
+	{
+		intro:       "I'll grep the last 80 lines of the server log.",
+		commandJSON: `{"command":"tail -80 /var/log/app.log"}`,
+		body:        bigLogOutput,
+		followup: "**80 lines of logs** returned. The interesting parts are around the " +
+			"panic at line 47 and the retry storm starting at line 62. Want me " +
+			"to grep for a specific error class?",
+	},
+	{
+		intro:       "Pulling the most recent Python traceback from the worker pod.",
+		commandJSON: `{"command":"kubectl logs -n workers worker-7b9c --tail=80"}`,
+		body:        pythonTracebackOutput,
+		followup: "Two distinct **TypeError** chains, both originating in the same " +
+			"`payload.normalize()` call. Top frames diverge after dispatch — looks " +
+			"like a missing schema migration. Want me to diff against last week's pod?",
+	},
+	{
+		intro:       "Tailing the nginx access log for the last 5 minutes.",
+		commandJSON: `{"command":"tail -80 /var/log/nginx/access.log"}`,
+		body:        nginxAccessOutput,
+		followup: "Heavy `/api/v2/search` traffic from one IP — looks like a misbehaving " +
+			"client retrying every 2s. Suggest rate-limiting at the gateway. Want me " +
+			"to check the rate-limiter config next?",
+	},
+}
+
+// pythonTracebackOutput is a synthetic but realistic interleaving of
+// two TypeError chains, used as the second variant of "dump the log".
+var pythonTracebackOutput = strings.Join([]string{
+	"2026-04-19 09:14:02,118 INFO  worker.main  starting (pid=1, build=2026.04.19-r3)",
+	"2026-04-19 09:14:02,341 INFO  worker.kafka subscribed: topic=ingest.v1 partitions=[0..7]",
+	"2026-04-19 09:14:03,002 INFO  worker.normalize loaded schema=v17 (327 fields)",
+	"2026-04-19 09:14:18,442 DEBUG worker.dispatch event_id=evt_8a31 type=user.profile.changed",
+	"2026-04-19 09:14:18,447 ERROR worker.normalize Traceback (most recent call last):",
+	`  File "/app/worker/dispatch.py", line 142, in dispatch`,
+	"    handler(payload)",
+	`  File "/app/worker/handlers/profile.py", line 88, in handle_profile_changed`,
+	"    payload = normalize(payload, schema=PROFILE_V17)",
+	`  File "/app/worker/normalize.py", line 314, in normalize`,
+	"    out[field] = coerce(payload[field], spec)",
+	`  File "/app/worker/normalize.py", line 401, in coerce`,
+	`    return spec.cast(value)`,
+	`TypeError: 'NoneType' object is not callable`,
+	"2026-04-19 09:14:18,449 WARN  worker.dispatch evt_8a31 dead-lettered → ingest.dlq",
+	"2026-04-19 09:14:21,008 DEBUG worker.dispatch event_id=evt_8a32 type=order.completed",
+	"2026-04-19 09:14:21,012 ERROR worker.normalize Traceback (most recent call last):",
+	`  File "/app/worker/dispatch.py", line 142, in dispatch`,
+	"    handler(payload)",
+	`  File "/app/worker/handlers/order.py", line 102, in handle_order_completed`,
+	"    payload = normalize(payload, schema=ORDER_V9)",
+	`  File "/app/worker/normalize.py", line 314, in normalize`,
+	"    out[field] = coerce(payload[field], spec)",
+	`  File "/app/worker/normalize.py", line 388, in coerce`,
+	"    raise TypeError(f\"unexpected type {type(value).__name__} for {spec.name}\")",
+	`TypeError: unexpected type dict for total_amount`,
+	"2026-04-19 09:14:21,013 WARN  worker.dispatch evt_8a32 dead-lettered → ingest.dlq",
+	"2026-04-19 09:14:24,772 DEBUG worker.dispatch event_id=evt_8a33 type=user.profile.changed",
+	"2026-04-19 09:14:24,773 ERROR worker.normalize Traceback (most recent call last):",
+	`  File "/app/worker/dispatch.py", line 142, in dispatch`,
+	"    handler(payload)",
+	`  File "/app/worker/handlers/profile.py", line 88, in handle_profile_changed`,
+	"    payload = normalize(payload, schema=PROFILE_V17)",
+	`  File "/app/worker/normalize.py", line 314, in normalize`,
+	"    out[field] = coerce(payload[field], spec)",
+	`  File "/app/worker/normalize.py", line 401, in coerce`,
+	`    return spec.cast(value)`,
+	`TypeError: 'NoneType' object is not callable`,
+	"2026-04-19 09:14:24,774 WARN  worker.dispatch evt_8a33 dead-lettered → ingest.dlq",
+	"2026-04-19 09:14:31,221 INFO  worker.metrics dlq_rate_5m=0.42 (was 0.01)",
+	"2026-04-19 09:14:31,222 WARN  worker.metrics PROFILE_V17 schema_miss=87% in last 5m",
+	"2026-04-19 09:14:35,118 DEBUG worker.dispatch event_id=evt_8a34 type=user.profile.changed",
+	"2026-04-19 09:14:35,121 ERROR worker.normalize Traceback (most recent call last):",
+	`  File "/app/worker/dispatch.py", line 142, in dispatch`,
+	"    handler(payload)",
+	`  File "/app/worker/handlers/profile.py", line 88, in handle_profile_changed`,
+	"    payload = normalize(payload, schema=PROFILE_V17)",
+	`  File "/app/worker/normalize.py", line 314, in normalize`,
+	"    out[field] = coerce(payload[field], spec)",
+	`  File "/app/worker/normalize.py", line 401, in coerce`,
+	`    return spec.cast(value)`,
+	`TypeError: 'NoneType' object is not callable`,
+	"2026-04-19 09:14:35,122 WARN  worker.dispatch evt_8a34 dead-lettered → ingest.dlq",
+	"2026-04-19 09:14:42,808 INFO  worker.heartbeat dlq=312 active=4 schema=v17",
+	"2026-04-19 09:14:48,332 DEBUG worker.dispatch event_id=evt_8a35 type=order.completed",
+	"2026-04-19 09:14:48,333 ERROR worker.normalize Traceback (most recent call last):",
+	`  File "/app/worker/dispatch.py", line 142, in dispatch`,
+	"    handler(payload)",
+	`  File "/app/worker/handlers/order.py", line 102, in handle_order_completed`,
+	"    payload = normalize(payload, schema=ORDER_V9)",
+	`  File "/app/worker/normalize.py", line 314, in normalize`,
+	"    out[field] = coerce(payload[field], spec)",
+	`  File "/app/worker/normalize.py", line 388, in coerce`,
+	"    raise TypeError(f\"unexpected type {type(value).__name__} for {spec.name}\")",
+	`TypeError: unexpected type dict for total_amount`,
+	"2026-04-19 09:14:48,334 WARN  worker.dispatch evt_8a35 dead-lettered → ingest.dlq",
+	"2026-04-19 09:14:55,001 INFO  worker.heartbeat dlq=347 active=4 schema=v17",
+	"2026-04-19 09:15:01,447 INFO  worker.metrics dlq_rate_5m=0.51 (was 0.42)",
+	"2026-04-19 09:15:01,448 WARN  worker.metrics ORDER_V9 schema_miss=12% in last 5m",
+	"2026-04-19 09:15:01,449 WARN  worker.metrics PROFILE_V17 schema_miss=89% in last 5m",
+	"2026-04-19 09:15:01,500 INFO  worker.alerting page-on-call=true (dlq_rate_5m > 0.50)",
+	"2026-04-19 09:15:08,221 DEBUG worker.dispatch event_id=evt_8a36 type=user.profile.changed",
+	"2026-04-19 09:15:08,222 INFO  worker.normalize using fallback schema PROFILE_V16",
+	"2026-04-19 09:15:08,224 DEBUG worker.dispatch evt_8a36 dispatched OK (fallback)",
+	"2026-04-19 09:15:14,118 INFO  worker.runtime SIGUSR1 received → reload schemas",
+	"2026-04-19 09:15:14,221 INFO  worker.normalize loaded schema=v18 (332 fields, +5)",
+	"2026-04-19 09:15:14,222 INFO  worker.normalize PROFILE_V18 supersedes PROFILE_V17",
+	"2026-04-19 09:15:18,001 DEBUG worker.dispatch event_id=evt_8a37 type=user.profile.changed",
+	"2026-04-19 09:15:18,003 DEBUG worker.dispatch evt_8a37 dispatched OK",
+	"2026-04-19 09:15:24,118 DEBUG worker.dispatch event_id=evt_8a38 type=order.completed",
+	"2026-04-19 09:15:24,121 DEBUG worker.dispatch evt_8a38 dispatched OK",
+	"2026-04-19 09:15:31,772 INFO  worker.metrics dlq_rate_5m=0.18 (was 0.51)",
+	"2026-04-19 09:15:31,773 INFO  worker.alerting page-on-call=false",
+}, "\n")
+
+// nginxAccessOutput is the third variant — combined-format access
+// log dominated by one misbehaving client retrying /api/v2/search.
+var nginxAccessOutput = strings.Join([]string{
+	`10.0.4.71 - - [19/Apr/2026:09:42:01 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`10.0.4.71 - - [19/Apr/2026:09:42:11 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:14 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:16 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:18 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:20 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`198.51.100.7 - - [19/Apr/2026:09:42:21 +0000] "GET /api/v1/users/me HTTP/2.0" 200 412 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:22 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:24 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:42:21 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:26 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:28 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`198.51.100.7 - - [19/Apr/2026:09:42:30 +0000] "POST /api/v1/orders HTTP/2.0" 201 88 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:30 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:32 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:42:31 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:34 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:36 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 200 1834 "-" "curl/8.4"`,
+	`192.0.2.55 - - [19/Apr/2026:09:42:37 +0000] "GET /api/v1/sessions HTTP/2.0" 200 2014 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:38 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:40 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:42:41 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:42 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:44 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:46 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`198.51.100.7 - - [19/Apr/2026:09:42:48 +0000] "GET /api/v1/orders/42 HTTP/2.0" 200 612 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:48 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:50 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:42:51 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:52 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:54 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:56 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`192.0.2.55 - - [19/Apr/2026:09:42:57 +0000] "POST /api/v1/messages HTTP/2.0" 202 41 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:42:58 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:00 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:43:01 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:02 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:04 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:06 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`198.51.100.7 - - [19/Apr/2026:09:43:08 +0000] "GET /api/v1/messages?session=ses_x HTTP/2.0" 200 4218 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:08 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:10 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:43:11 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:12 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:14 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`192.0.2.55 - - [19/Apr/2026:09:43:16 +0000] "GET /api/v1/users/me HTTP/2.0" 200 412 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:16 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:18 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:43:21 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:20 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:22 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:24 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`198.51.100.7 - - [19/Apr/2026:09:43:25 +0000] "POST /api/v1/orders HTTP/2.0" 201 88 "https://app.example.com" "Mozilla/5.0"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:26 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:28 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`10.0.4.71 - - [19/Apr/2026:09:43:31 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:30 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+	`203.0.113.42 - - [19/Apr/2026:09:43:32 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
 }, "\n")
