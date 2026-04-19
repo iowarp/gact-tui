@@ -25,6 +25,10 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase QQ — pretty stream
+- **QQ1.** `gact stream` is `gact tail` for humans — one-liner
+  HH:MM:SS timeline with per-event-type summaries. CLI test.
+
 ### Phase PP — bug-report bundle
 - **PP1.** `gact dump-bundle [-o DIR]` writes a single-directory
   bug-report snapshot (version + diag + metrics + every session
