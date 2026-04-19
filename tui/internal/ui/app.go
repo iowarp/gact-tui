@@ -173,6 +173,11 @@ type App struct {
 	IntroLogo []string
 	IntroName []string
 
+	// MMM8b: discovered plugins. Their commands are merged into the
+	// slash palette; selecting one execs the plugin's binary instead
+	// of POSTing to /v1/sessions/{id}/commands/{id}.
+	plugins []pluginCommand
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -653,6 +658,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.searchMatches = m.matches
 		a.paletteSel = 0
 		return a, nil
+
+	case pluginExecMsg:
+		// MMM8b: surface plugin output (or failure) as a transient
+		// hint. The full output stays on the user's terminal in
+		// stderr/stdout via the captured combined buffer; first line
+		// is enough for the toast.
+		first := m.Output
+		if i := strings.IndexByte(first, '\n'); i > 0 {
+			first = first[:i]
+		}
+		if m.Err != nil {
+			a.transientHint = "plugin " + m.ID + " failed: " + first
+		} else if first != "" {
+			a.transientHint = "plugin " + m.ID + ": " + first
+		} else {
+			a.transientHint = "plugin " + m.ID + " done"
+		}
+		return a, scheduleHintExpire(a.transientHint)
 
 	case messagesLoadedMsg:
 		// Only apply if it's for the currently selected session.
@@ -1530,6 +1553,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if cmd.ID != "/clear" {
 				a.pendingClearSessionID = ""
 			}
+			// MMM8b: plugin commands exec a local binary instead of
+			// hitting the backend's commands endpoint. They're tagged
+			// with Source="plugin" by paletteMatches.
+			if cmd.Source == "plugin" {
+				if pc := a.findPluginCommand(cmd.ID); pc != nil {
+					a.transientHint = "running plugin: " + cmd.ID + "…"
+					extraCmds = append(extraCmds, runPluginCmd(*pc, sid, a.BackendURL))
+					return a, tea.Batch(extraCmds...)
+				}
+			}
 			extraCmds = append(extraCmds, runCommandCmd(a.c, sid, cmd.ID))
 			return a, tea.Batch(extraCmds...)
 		}
@@ -1670,12 +1703,25 @@ func (a *App) paletteCurrentValue(id string) string {
 }
 
 func (a *App) paletteMatches() []gact.Command {
+	// MMM8b: merge plugin commands in alongside the backend-provided
+	// commands. Plugin commands get source="plugin" so the dispatch
+	// branch can short-circuit before runCommandCmd.
+	all := make([]gact.Command, 0, len(a.commands)+len(a.plugins))
+	all = append(all, a.commands...)
+	for _, p := range a.plugins {
+		all = append(all, gact.Command{
+			ID:          p.ID,
+			Title:       p.Title,
+			Description: p.Description,
+			Source:      "plugin",
+		})
+	}
 	if a.paletteFilter == "" {
-		return a.commands
+		return all
 	}
 	needle := strings.ToLower(a.paletteFilter)
-	out := make([]gact.Command, 0, len(a.commands))
-	for _, c := range a.commands {
+	out := make([]gact.Command, 0, len(all))
+	for _, c := range all {
 		hay := strings.ToLower(c.ID + " " + c.Title + " " + c.Description)
 		if strings.Contains(hay, needle) {
 			out = append(out, c)

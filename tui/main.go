@@ -468,6 +468,27 @@ func runTUI() {
 	if finalIntroFile != "" {
 		_ = app.SetIntroFromFile(finalIntroFile)
 	}
+	// MMM8b: wire plugins discovered at default location into the
+	// slash palette. Failures (missing dir, bad manifests) silently
+	// skip the offending entries.
+	if pluginsDir, err := plugins.DefaultDir(); err == nil {
+		if loaded, _, err := plugins.LoadVerbose(pluginsDir); err == nil {
+			converted := make([]ui.PluginsLoaded, 0, len(loaded))
+			for _, p := range loaded {
+				cmds := make([]ui.PluginsCommand, 0, len(p.Commands))
+				for _, c := range p.Commands {
+					cmds = append(cmds, ui.PluginsCommand{
+						ID: c.ID, Title: c.Title, Description: c.Description,
+						Command: c.Command, Args: c.Args,
+					})
+				}
+				converted = append(converted, ui.PluginsLoaded{
+					Name: p.Name, SourceDir: p.SourceDir, Commands: cmds,
+				})
+			}
+			app.SetPlugins(converted)
+		}
+	}
 	// Wire the save hook so Settings > TUI ◀/▶ adjustments flush to
 	// disk on every change. The hook captures the resolved config
 	// path so writes always land at the canonical location even when

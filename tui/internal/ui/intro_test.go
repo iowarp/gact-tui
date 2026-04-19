@@ -58,6 +58,45 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	}
 }
 
+// MMM8b: SetPlugins flattens manifests + paletteMatches surfaces
+// the plugin commands alongside backend ones with Source="plugin".
+func TestPlugins_PaletteMerge(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.SetPlugins([]PluginsLoaded{
+		{
+			Name:      "git-pr",
+			SourceDir: "/tmp/plugin",
+			Commands: []PluginsCommand{
+				{ID: "/pr", Title: "Open PR", Command: "/bin/true"},
+				{ID: "/pr-list", Title: "List PRs", Command: "/bin/true"},
+			},
+		},
+	})
+	all := a.paletteMatches()
+	hits := 0
+	for _, c := range all {
+		if c.Source == "plugin" && (c.ID == "/pr" || c.ID == "/pr-list") {
+			hits++
+		}
+	}
+	if hits != 2 {
+		t.Errorf("expected 2 plugin commands in palette, got %d", hits)
+	}
+	// Filter narrows correctly.
+	a.paletteFilter = "list"
+	filtered := a.paletteMatches()
+	for _, c := range filtered {
+		if c.ID == "/pr" {
+			t.Errorf("filter 'list' should exclude /pr; got %v", filtered)
+		}
+	}
+	// findPluginCommand returns the right tuple.
+	pc := a.findPluginCommand("/pr")
+	if pc == nil || pc.Command != "/bin/true" {
+		t.Errorf("findPluginCommand: %+v", pc)
+	}
+}
+
 // TestSetIntroFromFile_OverridesDefaults loads a custom splash file
 // and verifies it appears in the rendered output.
 func TestSetIntroFromFile_OverridesDefaults(t *testing.T) {
