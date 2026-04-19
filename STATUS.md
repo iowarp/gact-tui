@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:24Z
-**Current phase:** FFFFFF1 shipped (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1+FFFFFF1 this run)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `48b08c4` (pushed after status commit)
+**Last updated:** 2026-04-19T18:25Z
+**Current phase:** GGGGGG1 shipped (BBBBBB1+CCCCCC1+DDDDDD1+EEEEEE1+FFFFFF1+GGGGGG1 this run)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1efc6d2` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase GGGGGG — conformance workspaces per-id drill-down
+- **GGGGGG1.** Mirror of EEEEEE1/FFFFFF1 for workspaces.
+  Extended `checkWorkspaces` to drill into
+  `GET /v1/workspaces/{id}` for the first workspace. Asserts
+  id echoed back + non-empty root_path. Read-only.
 
 ### Phase FFFFFF — conformance agents per-id drill-down
 - **FFFFFF1.** Mirror of EEEEEE1 for agents. Extended
