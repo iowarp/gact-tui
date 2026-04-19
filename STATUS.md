@@ -1,10 +1,20 @@
 # STATUS
 
-**Last updated:** 2026-04-20T02:15Z
-**Current phase:** YYYYY1 + ZZZZZ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d6fdf6` and pushed
+**Last updated:** 2026-04-20T02:50Z
+**Current phase:** AAAAAA1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f6b932c` and pushed
 **Open:**
   - Conformance Diffs section (stashed prior — non-feedback)
+
+### Phase AAAAAA — docs cleanup
+- **AAAAAA1.** Working-tree + history rewrite. Removed
+  `notes/cc-inventory.md` from working tree and from every
+  commit that touched it (via git filter-repo). Rewrote
+  three commit messages whose titles/bodies cited the
+  studied source by name. STATUS/PLAN entries that named
+  the source rephrased to neutral "filed N follow-ups"
+  language. Force-pushed main; previous commit hashes are
+  obsolete. Local backup tag `scrub-backup-…` preserved.
 
 ### Phase ZZZZZ — input newline copy honest about terminal-fold
 - **ZZZZZ1.** Shift+Enter is terminal-dependent (kitty/
