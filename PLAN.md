@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase IIII — gact theme set
+
+- [x] **IIII1.** `gact theme set <name>` writes the chosen theme to `config.json` (validates against `ui.AllThemeModes`, rejects unknown names with exit 2 and no file write). GACT_THEME still wins at resolution, by design — `set` only updates the config-level value. CLI test uses isolated `XDG_CONFIG_HOME` to assert: happy-path writes the file, `theme list` then marks the new value active, unknown names exit 2 without mutating the file, and missing arg exits 2.
+
 ## Phase HHHH — gact theme list
 
 - [x] **HHHH1.** `gact theme list` enumerates `ui.AllThemeModes`, prints `<name>\n` per palette, and appends `\t*` to the resolved active line. Useful for discovering valid `--name` values + driving shell completions. Help text updated. CLI test asserts known names appear, exactly one `*` marker, and that the marker tracks `GACT_THEME`.
