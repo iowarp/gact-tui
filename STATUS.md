@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:30Z
-**Current phase:** DDDDD1 (+ CCCCC1 logged) shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c1e8f42` and pushed
+**Last updated:** 2026-04-19T18:50Z
+**Current phase:** DDDDD1 + EEEEE1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1384f42` and pushed
 **Open:** none
+
+### Phase EEEEE — intro splash uses figlet (slant font)
+- **EEEEE1.** Replaced hand-rolled GACT ASCII + mountain glyph
+  with `github.com/common-nighthawk/go-figure` "slant" font.
+  Mountain dropped — users who want a logo override via
+  `intro_file`. Tests adjusted to assert slant-style multi-line
+  block. Screenshot: `screenshots/EEEEE1_intro_figlet.png`.
 
 ### Phase DDDDD — footer flicker on transient SSE drops
 - **DDDDD1.** Footer "(reconnecting…)" badge no longer flashes
