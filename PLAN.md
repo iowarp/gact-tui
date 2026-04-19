@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase GGGG — gact theme show
+
+- [x] **GGGG1.** `gact theme show [--name N]` prints the resolved theme palette as TSV (`key\thex`). Resolution honors --name flag, falls back to `config.Resolve(cfg.Theme, $GACT_THEME, "", defaultTheme)`. Emits `name<TAB>mode` row + 16 color rows (bg, fg, primary, secondary, success, warning, danger, border, role_*). Pure local — no backend dep. Help text + completion entries (bash/zsh/fish) updated. CLI test asserts env override, --name override, unknown verb exits 2.
+
 ## Phase III — tool-call/result linkage (user-flagged)
 
 - [x] **III1.** Tool calls and tool results now interleave: `pairToolResults(msgs)` walks the message slice, builds `inlineResults[i]={call_id→result_part}` for each assistant that emitted tool_calls, and marks the absorbed tool messages so they don't render standalone. `renderPartsForRoleWithResults` emits each call's matching result immediately after the call header. Unpaired results stay visible (never silently dropped). Collapse-affordance `[N more lines · Ctrl+E to expand]` was already in place at render.go:365-378. Three unit tests + screenshot 67.

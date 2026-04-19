@@ -381,6 +381,40 @@ func TestCLI_Plugins(t *testing.T) {
 	}
 }
 
+// TestCLI_ThemeShow covers GGGG1: `gact theme show` prints the active
+// palette as TSV. Resolution honors --name and GACT_THEME. Pure local
+// — no emulator.
+func TestCLI_ThemeShow(t *testing.T) {
+	bin := buildGact(t)
+	// Default: env override wins.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_THEME": "dracula"},
+		"theme", "show")
+	if code != 0 {
+		t.Fatalf("theme show: exit %d", code)
+	}
+	if !strings.Contains(stdout, "name\tdracula") {
+		t.Errorf("expected name\\tdracula row, got: %q", stdout)
+	}
+	for _, k := range []string{"bg\t#", "fg\t#", "primary\t#", "role_user\t#"} {
+		if !strings.Contains(stdout, k) {
+			t.Errorf("expected row prefix %q, got: %q", k, stdout)
+		}
+	}
+	// --name flag overrides env.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_THEME": "dracula"},
+		"theme", "show", "--name", "light")
+	if code != 0 {
+		t.Fatalf("theme show --name light: exit %d", code)
+	}
+	if !strings.Contains(stdout, "name\tlight") {
+		t.Errorf("expected --name to override env, got: %q", stdout)
+	}
+	// Unknown verb is a usage error.
+	if _, _, code := runGact(t, bin, nil, "theme", "wat"); code != 2 {
+		t.Errorf("theme wat: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_TasksSummary covers FFFF1: aggregate task counts across
 // sessions. Seeds two sessions with mixed-status tasks, asserts the
 // summary table contains both rows + a TOTAL footer with correct
