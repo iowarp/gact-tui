@@ -1897,6 +1897,62 @@ func TestCLI_Watch(t *testing.T) {
 	}
 }
 
+// TestCLI_WatchJSON covers SSSS1: --format json on `gact watch`
+// emits one NDJSON record per state change. Asserts: ≥2 rows
+// containing sid + status fields, every line parses, and an
+// idle-status row terminates the run.
+func TestCLI_WatchJSON(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "watch-json-target")
+
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"send", sid, "hello watcher")
+	}()
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"watch", sid, "--format", "json", "--interval", "150ms", "--timeout", "20s")
+	if code != 0 {
+		t.Fatalf("watch --format json: exit %d", code)
+	}
+	rows := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(rows) < 2 {
+		t.Fatalf("expected ≥2 NDJSON rows, got %d: %q", len(rows), stdout)
+	}
+	type rec struct {
+		TS      string `json:"ts"`
+		SID     string `json:"sid"`
+		Status  string `json:"status"`
+		Msgs    int    `json:"message_count"`
+		Tokens  int    `json:"tokens_out"`
+	}
+	sawIdle := false
+	for i, line := range rows {
+		var r rec
+		if err := json.Unmarshal([]byte(line), &r); err != nil {
+			t.Fatalf("row %d not JSON: %v\n  raw=%q", i, err, line)
+		}
+		if r.SID != sid || r.TS == "" || r.Status == "" {
+			t.Errorf("row %d malformed: %+v", i, r)
+		}
+		if r.Status == "idle" {
+			sawIdle = true
+		}
+	}
+	if !sawIdle {
+		t.Errorf("expected an idle row before exit; rows=%q", stdout)
+	}
+
+	// Unknown format → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"watch", sid, "--format", "yaml"); code != 2 {
+		t.Errorf("watch --format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_ToolShow covers CCC1: fetch one tool's full definition.
 // Asserts the seeded `bash` tool's name, description, and schema.
 func TestCLI_ToolShow(t *testing.T) {

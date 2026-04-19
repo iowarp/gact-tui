@@ -385,7 +385,7 @@ Usage:
   gact mcp resource-read <srv-id> <uri> dump MCP resource bytes to stdout
   gact tool show <id>        print one tool's metadata + input schema
   gact agent show <id>       print one agent's metadata + system prompt
-  gact watch <sid>           tail status changes (TSV: time status msgs tokens)
+  gact watch <sid>           tail status changes (TSV default; --format json for NDJSON)
   gact capabilities          backend contract version + capability matrix
   gact tell <name> <msg>     find-or-create session by title; send + print reply
                               (re-run with same name to continue the conversation)
@@ -2758,16 +2758,24 @@ func runWatch(args []string) int {
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	interval := fs.Duration("interval", time.Second, "polling cadence")
 	timeout := fs.Duration("timeout", 5*time.Minute, "abandon after this long")
+	// SSSS1: --format json emits one NDJSON record per state change
+	// for jq pipelines. Default tsv kept for back-compat.
+	format := fs.String("format", "tsv", "tsv | json (NDJSON, one record per state change)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--interval": true, "-interval": true,
 		"--timeout": true, "-timeout": true,
+		"--format": true, "-format": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact watch <session_id> [--interval DUR] [--timeout DUR]")
+		fmt.Fprintln(os.Stderr, "usage: gact watch <session_id> [--interval DUR] [--timeout DUR] [--format tsv|json]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact watch: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -2781,8 +2789,25 @@ func runWatch(args []string) int {
 	tick := time.NewTicker(*interval)
 	defer tick.Stop()
 	emit := func(s gact.Session) {
+		now := time.Now().UTC()
+		if *format == "json" {
+			rec := map[string]any{
+				"ts":            now.Format(time.RFC3339Nano),
+				"sid":           s.ID,
+				"status":        s.Status,
+				"message_count": s.MessageCount,
+				"tokens_out":    s.Tokens.Output,
+			}
+			b, err := json.Marshal(rec)
+			if err != nil {
+				return
+			}
+			os.Stdout.Write(b)
+			os.Stdout.Write([]byte{'\n'})
+			return
+		}
 		fmt.Printf("%s\t%s\t%d\t%d\n",
-			time.Now().UTC().Format("15:04:05"),
+			now.Format("15:04:05"),
 			s.Status, s.MessageCount, s.Tokens.Output)
 	}
 	for {
