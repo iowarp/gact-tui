@@ -1,9 +1,23 @@
 # STATUS
 
-**Last updated:** 2026-04-19T17:00Z
-**Current phase:** BBBBB1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `743f33e` and pushed
+**Last updated:** 2026-04-19T18:30Z
+**Current phase:** DDDDD1 (+ CCCCC1 logged) shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c1e8f42` and pushed
 **Open:** none
+
+### Phase DDDDD — footer flicker on transient SSE drops
+- **DDDDD1.** Footer "(reconnecting…)" badge no longer flashes
+  for one frame on routine sub-second SSE blips. Added
+  `sseDownSince` clock; renderer requires outage ≥ 800 ms
+  before painting. Three unit tests pin the gate. Screenshot:
+  `screenshots/DDDDD1_footer_steady.png`.
+
+### Phase CCCCC — conversation pane overflow / sidebar misalignment
+- **CCCCC1.** Shipped previous iteration. Lipgloss .Height(N)
+  is OUTER (border included); the renderer was passing
+  Height(N-2). All three pane styles now pass the outer target
+  + a fitLines() belt-and-braces helper. Sidebar/conversation
+  `╰╯` now align in all cases.
 
 ### Phase BBBBB — conformance Mcp section + adapter test repair
 - **BBBBB1.** Conformance suite gains an `Mcp` section (gated on
