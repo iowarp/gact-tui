@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T04:30Z
-**Current phase:** OOO1 + PPP1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8ffc0e9` and pushed
+**Last updated:** 2026-04-19T04:45Z
+**Current phase:** OOO1 + PPP1 + QQQ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fc1e6b9` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,12 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase QQQ — bench
+- **QQQ1.** `gact bench [-n N] [--message TEXT]` ships. Creates a
+  fresh session, runs N turns serially, computes
+  avg/p50/p90/p99/min/max + total, deletes the session.
+  CLI test asserts summary fields + cleanup.
 
 ### Phase PPP — voice CLI
 - **PPP1.** `gact voice <sid> <audio-file|->` ships. Wraps
