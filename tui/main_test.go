@@ -919,6 +919,32 @@ func TestCLI_Voice(t *testing.T) {
 	}
 }
 
+// TestCLI_Env covers DDDD1: prints resolved config + GACT_* env
+// vars. Pure local — no backend needed.
+func TestCLI_Env(t *testing.T) {
+	bin := buildGact(t)
+	stdout, _, code := runGact(t, bin, map[string]string{
+		"GACT_BACKEND": "http://example:9999",
+		"GACT_THEME":   "dracula",
+	}, "env")
+	if code != 0 {
+		t.Fatalf("env: exit %d", code)
+	}
+	for _, want := range []string{
+		"BACKEND_URL\thttp://example:9999",
+		"THEME\tdracula",
+		"CONFIG_PATH\t",
+		"PLUGINS_DIR\t",
+		"--- ENV ---",
+		"GACT_BACKEND=http://example:9999",
+		"GACT_THEME=dracula",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in env output: %q", want, stdout)
+		}
+	}
+}
+
 // TestCLI_Replay covers CCCC1: export a session, replay the file,
 // assert the imported session has the same messages (re-IDed but
 // content preserved).
