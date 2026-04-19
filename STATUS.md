@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T00:30Z
-**Current phase:** LLL2 (catalog tool toggle + MCP drilldown) shipped
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b23aaf9` and pushed
-**Open:** LLL3 (skills+agents render verify), LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
+**Last updated:** 2026-04-19T00:45Z
+**Current phase:** LLL2 + LLL3 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `da7e077` and pushed
+**Open:** LLL4 (settings recolour), LLL7 (claude-code inventory), LLL8 (detach + tell --async), JJJ1 (intro splash)
 
 ## This loop (Phases N + O)
 
@@ -32,6 +32,10 @@
   MCP server drills into a unified tools+resources+prompts subview
   with `[type]` prefixes; Esc/Backspace pops back to parent list.
   5 unit tests + screenshots/68-mcp-detail.png.
+- **LLL3.** /skills now hits ListAgents filtered to source="skill"
+  (per SPEC §6.5 line 807). Emulator seeds 2 skill agents
+  (test_writer, release_notes). New catalogKindAgents kind for
+  future browse routes. Screenshots 69 (skills) + 70 (agents).
 - **LLL1.** 13 stale screenshots refreshed via existing tapes
   (initial, collapse, compose, themes). Now reflect HHH1 + III1.
 - **LLL5.** Sidebar height now matches conversation pane height —
