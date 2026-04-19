@@ -164,6 +164,7 @@ running backend:
 | `gact wait <sid> [--timeout DUR]` | Poll until session status is idle |
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
+| `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
 | `gact log <sid> [--limit N]` | Print role-headered conversation to stdout |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
