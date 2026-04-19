@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T12:35Z
-**Current phase:** OOOO1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4415db2` and pushed
+**Last updated:** 2026-04-19T12:55Z
+**Current phase:** OOOO1 + PPPP1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `b564538` and pushed
 **Open:** none
+
+### Phase PPPP — gact context list --format json
+- **PPPP1.** `gact context list <sid> --format json` emits the
+  raw `[]ContextFile` array (path, mode, added_at) for jq
+  pipelines. Default tsv kept for back-compat. CLI test asserts
+  both modes + unknown-format exit 2.
 
 ### Phase OOOO — gact info --include tasks,hooks
 - **OOOO1.** `gact info <sid> --include tasks,hooks` adds composite
