@@ -388,7 +388,44 @@ func checkWorkspaces(t Reporter, c *conformClient) string {
 	if len(got.Workspaces) == 0 {
 		return ""
 	}
-	return got.Workspaces[0].ID
+	first := got.Workspaces[0].ID
+
+	// GGGGGG1: per-id drill-down. SPEC §6.1 promises GET
+	// /v1/workspaces/{id} returns a single Workspace. Adapter
+	// authors that wired only the list endpoint get a silent gap;
+	// this catches it. Per-id response must echo the same id and
+	// have a non-empty root_path (a workspace without one is not a
+	// workspace).
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, derr := c.get(dctx, "/v1/workspaces/"+first)
+	if derr != nil {
+		t.Errorf("GET /v1/workspaces/%s: %v", first, derr)
+		return first
+	}
+	if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/workspaces/{id} returned 501 — per-id drill-down required by SPEC §6.1")
+		return first
+	}
+	if dResp.StatusCode != 200 {
+		t.Errorf("/v1/workspaces/%s status %d body %s", first, dResp.StatusCode, dBody)
+		return first
+	}
+	var detail struct {
+		ID       string `json:"id"`
+		RootPath string `json:"root_path"`
+	}
+	if err := json.Unmarshal(dBody, &detail); err != nil {
+		t.Errorf("workspace/%s JSON decode: %v (body=%s)", first, err, dBody)
+		return first
+	}
+	if detail.ID != first {
+		t.Errorf("/v1/workspaces/%s returned id=%q (want %q)", first, detail.ID, first)
+	}
+	if detail.RootPath == "" {
+		t.Errorf("/v1/workspaces/%s missing root_path: %s", first, dBody)
+	}
+	return first
 }
 
 func checkSessionsList(t Reporter, c *conformClient, wsID string) {
