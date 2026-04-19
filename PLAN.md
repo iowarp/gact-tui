@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKKK — empty-state hints surface session-lifecycle keys
+
+- [x] **KKKKK1.** Closes the discoverability gap from feedback_tui_ux_direction item 7 ("user asked 'can I rename, delete, hide sessions?' — all three work but the user didn't know"). The empty-state crib (the only thing visible before the first message lands) was the right place for these hints, not the help overlay (which the user might never open). Expanded the in-sidebar block from 3 entries (n, x, ↑/↓) to 7 (added e=rename, A=archive, h=toggle archived view, /=filter, o=attach context). Also surfaced Ctrl+Z as the new tmux-like detach (IIIII1) so users see the reattach hint before they need it. Help-overlay golden regenerated for the layout shift. Screenshot: `screenshots/KKKKK1_empty_state_hints.png`.
+
 ## Phase JJJJJ — Ctrl+C cancels in-flight turn before quit
 
 - [x] **JJJJJ1.** Pairs with IIIII1 to give the user the two halves they asked for: Ctrl+Z is "leave it running" (clean detach + reattach hint), Ctrl+C is "stop everything". Previously Ctrl+C just cancelled the SSE stream and quit — leaving the backend churning on the in-flight turn the user just abandoned. Now Ctrl+C also fires `cancelCmd(c, sid)` when the current session's status is `running` or `waiting_permission` (idle sessions skip — no in-flight work to cancel, and a redundant POST would just add backend log noise). Both commands are run via `tea.Batch(cancel, tea.Quit)` so the cancel posts before the program tears down. Two new httptest-backed unit tests: running session → 1 POST /cancel; idle session → 0 POSTs. Help-tab entry refreshed: `Ctrl+C   quit (cancels in-flight turn before exit)`. Help-overlay golden regenerated.
