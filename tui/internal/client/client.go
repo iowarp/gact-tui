@@ -497,6 +497,21 @@ func (c *Client) SummarizeSession(ctx context.Context, id string, auto bool) err
 	return c.do(ctx, http.MethodPost, "/v1/sessions/"+id+"/summarize", body, nil)
 }
 
+// UndoSession POSTs /v1/sessions/{id}/undo. Reverts the last `count`
+// messages (default 1) and returns their ids. Mirrors the `/undo`
+// slash command.
+func (c *Client) UndoSession(ctx context.Context, id string, count int) ([]string, error) {
+	body := map[string]any{}
+	if count > 0 {
+		body["count"] = count
+	}
+	var out struct {
+		Reverted []string `json:"reverted_messages"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+id+"/undo", body, &out)
+	return out.Reverted, err
+}
+
 // PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
 func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
 	var out gact.Session

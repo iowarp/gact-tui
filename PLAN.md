@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase YY — undo CLI
+
+- [x] **YY1.** `gact undo <sid> [--count N]` — POSTs `/v1/sessions/{id}/undo`. Added `client.UndoSession(ctx, id, count)` (no wrapper existed) returning the reverted message ids. Stdout: one mid per line. Stderr: `reverted N message(s)` summary. CLI test sends + waits for a turn, undoes 1, asserts the reverted-ids list has length 1, the stderr summary lands, and the log's role-header count drops by exactly 1.
+
 ## Phase XX — session info CLI
 
 - [x] **XX1.** `gact info <sid> [--format text|json]` — wraps GetSession with a key:value text output (one field per line, awk-friendly) plus raw JSON dump for jq pipelines. Surfaces id, title, status, workspace, parent, model, agent, message_count, tokens, cost, created/updated/archived, summary. CLI test asserts title round-trip and status in known set.

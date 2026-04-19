@@ -106,6 +106,8 @@ func main() {
 			os.Exit(runModels(os.Args[2:]))
 		case "info":
 			os.Exit(runInfo(os.Args[2:]))
+		case "undo":
+			os.Exit(runUndo(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -318,6 +320,7 @@ Usage:
   gact fork <sid> [--at MID] spawn a child session forked from another
   gact models list           list providers + models (TSV: pid mid name ctx)
   gact info <sid>            print one session's metadata (text or json)
+  gact undo <sid> [--count N] revert the last N messages (default 1)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -632,6 +635,48 @@ func runSearch(args []string) int {
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
 	}
+	return 0
+}
+
+// runUndo POSTs /v1/sessions/{id}/undo with optional count. Mirrors
+// the `/undo` slash command for shell scripts. Prints reverted message
+// ids one per line; count summary on stderr.
+//
+//	gact undo "$SID"           # revert last message
+//	gact undo "$SID" --count 3 # revert last three
+func runUndo(args []string) int {
+	fs := flag.NewFlagSet("undo", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	count := fs.Int("count", 1, "number of messages to revert (>=1)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--count": true, "-count": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact undo <session_id> [--count N]")
+		return 2
+	}
+	if *count < 1 {
+		fmt.Fprintln(os.Stderr, "gact undo: --count must be >= 1")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	reverted, err := c.UndoSession(ctx, sid, *count)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact undo: %v\n", err)
+		return 1
+	}
+	for _, mid := range reverted {
+		fmt.Println(mid)
+	}
+	fmt.Fprintf(os.Stderr, "reverted %d message(s)\n", len(reverted))
 	return 0
 }
 
@@ -1812,7 +1857,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1832,7 +1877,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1845,7 +1890,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive undo version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
