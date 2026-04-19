@@ -722,6 +722,64 @@ func TestCLI_Rewind(t *testing.T) {
 	}
 }
 
+// TestCLI_LogJSON covers MMMM1: `gact log --format json` emits one
+// message per line as NDJSON; each line parses to a Message-shaped
+// object. Default text mode unchanged.
+func TestCLI_LogJSON(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "log-json-target")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "ping body"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--format", "json", "--limit", "20")
+	if code != 0 {
+		t.Fatalf("log --format json: exit %d", code)
+	}
+	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected ≥2 NDJSON lines (user + assistant), got %d: %q", len(lines), stdout)
+	}
+	type msg struct {
+		ID        string `json:"id"`
+		SessionID string `json:"session_id"`
+		Role      string `json:"role"`
+		Parts     []any  `json:"parts"`
+	}
+	rolesSeen := map[string]bool{}
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+		var m msg
+		if err := json.Unmarshal([]byte(line), &m); err != nil {
+			t.Fatalf("line %d not valid JSON: %v\n  raw=%q", i, err, line)
+		}
+		if m.ID == "" || m.SessionID != sid || m.Role == "" {
+			t.Errorf("line %d malformed: %+v (raw=%q)", i, m, line)
+		}
+		rolesSeen[m.Role] = true
+	}
+	if !rolesSeen["user"] || !rolesSeen["assistant"] {
+		t.Errorf("expected both user and assistant roles, got %v", rolesSeen)
+	}
+
+	// Unknown format → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--format", "yaml"); code != 2 {
+		t.Errorf("log --format yaml: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_PermsRulesListTSV covers KKKK1: --format tsv on `perms
 // rules list` produces a human-scannable table; default stays JSON
 // for back-compat.

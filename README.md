@@ -196,7 +196,7 @@ running backend:
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
 | `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
-| `gact log <sid> [--limit N] [--since DUR]` | Print role-headered conversation to stdout; `--since` keeps only recent messages |
+| `gact log <sid> [--limit N] [--since DUR] [--format text\|json]` | Print conversation; `--format json` emits NDJSON (one message per line) for piping |
 | `gact follow <sid>` | tail -f for the conversation: print snapshot, stream new messages |
 | `gact replay <file\|-> [--attach]` | Import an export blob; with `--attach` launches the TUI on the imported session |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |

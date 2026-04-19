@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase MMMM — gact log --format json (NDJSON)
+
+- [x] **MMMM1.** `gact log <sid> --format json` emits one message per line as NDJSON (no indentation, line-delimited) so callers can pipe to `jq -c` and friends. Default text mode unchanged. Plays well with the existing `--limit` / `--since` filters since both run before serialization. CLI test sends a user message + waits for assistant reply, then asserts `--format json` produces ≥2 lines that each parse to a Message-shaped object containing the right session_id and both user + assistant roles. Unknown format → exit 2.
+
 ## Phase LLLL — gact ping --json
 
 - [x] **LLLL1.** `gact ping --json` emits a single-line JSON object on both branches: `{"ok":true,"backend":URL,"uptime_s":N}` on success, `{"ok":false,"backend":URL,"error":STR}` (with `uptime_s` if backend was reached but unhealthy) on failure. Existing text behavior unchanged when --json is absent. Existing -q still suppresses the success/unhealthy text but is overridden by --json (--json always emits one line). CLI test parses both branches with `encoding/json` to assert structured shape, not just substrings.
