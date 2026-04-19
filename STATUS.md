@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T20:25Z
-**Current phase:** Phase TT (search CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `282bc11` and pushed
+**Last updated:** 2026-04-18T20:40Z
+**Current phase:** Phase UU (workspaces CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `139c37b` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,12 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase UU — workspaces CLI
+- **UU1.** `gact workspaces list [--format tsv|json]` (aliases
+  `workspace`, `ws`) wraps `/v1/workspaces` so scripts can grab a
+  workspace id without launching the TUI. TSV: id·name·root_path.
+  CLI test asserts seeded `ws_default` in both formats.
 
 ### Phase TT — search CLI
 - **TT1.** `gact search <sid> <query> [--format tsv|json]` wires
