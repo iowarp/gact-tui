@@ -96,6 +96,8 @@ func main() {
 			os.Exit(runPerms(os.Args[2:]))
 		case "diff", "diffs":
 			os.Exit(runDiff(os.Args[2:]))
+		case "search":
+			os.Exit(runSearch(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -303,6 +305,7 @@ Usage:
   gact diff list <sid>       list file_diff parts (path + status)
   gact diff apply <sid> [p…] apply pending diffs (no paths = all)
   gact diff reject <sid> [p…] reject pending diffs
+  gact search <sid> <query>  full-text search across session messages
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -553,6 +556,69 @@ func runDiffApplyReject(args []string, apply bool) int {
 	}
 	for _, p := range hit {
 		fmt.Println(p)
+	}
+	return 0
+}
+
+// runSearch implements `gact search <sid> <query>` — full-text search
+// across a session's messages via the §6.3 search endpoint. Output
+// columns are `mid<TAB>role<TAB>snippet`; one ListMessages call up
+// front resolves message-id → role so the rows include the speaker.
+// `--format json` pretty-prints the raw match objects (mid, part_id,
+// snippet, score).
+func runSearch(args []string) int {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact search <session_id> <query>")
+		return 2
+	}
+	sid := fs.Arg(0)
+	query := strings.Join(fs.Args()[1:], " ")
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact search: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	matches, err := c.SearchMessages(ctx, sid, query)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact search: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(matches); err != nil {
+			fmt.Fprintf(os.Stderr, "gact search: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	roleByMid := map[string]string{}
+	msgs, _, err := c.ListMessages(ctx, client.MessageFilter{SessionID: sid, Limit: 500})
+	if err == nil {
+		for _, m := range msgs {
+			roleByMid[m.ID] = string(m.Role)
+		}
+	}
+	for _, m := range matches {
+		role := roleByMid[m.MessageID]
+		if role == "" {
+			role = "?"
+		}
+		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
+		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
 	}
 	return 0
 }
@@ -1467,7 +1533,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1487,7 +1553,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1500,7 +1566,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

@@ -234,6 +234,47 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Search covers TT1: send a unique-token message, then
+// search for that token and verify the message id + role + snippet
+// land in the TSV output. Also exercises --format json.
+func TestCLI_Search(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "search-target")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "the marker token is xyzzy42")
+	if code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	mid := strings.TrimSpace(stdout)
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"search", sid, "xyzzy42")
+	if code != 0 {
+		t.Fatalf("search: exit %d", code)
+	}
+	if !strings.Contains(stdout, mid) {
+		t.Errorf("expected matching mid %q in search output: %q", mid, stdout)
+	}
+	if !strings.Contains(stdout, "user") {
+		t.Errorf("expected role 'user' in search output: %q", stdout)
+	}
+	if !strings.Contains(stdout, "xyzzy42") {
+		t.Errorf("expected snippet to contain query token: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"search", "--format", "json", sid, "xyzzy42")
+	if code != 0 {
+		t.Fatalf("search json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"message_id"`) || !strings.Contains(stdout, `"snippet"`) {
+		t.Errorf("expected JSON fields in output: %q", stdout)
+	}
+}
+
 // TestCLI_Perms covers RR1: send a permission-triggering message,
 // list perms, find the pending one, allow it, list again and verify
 // the action lands as "resolved/allow".

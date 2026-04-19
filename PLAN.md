@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase TT — search CLI
+
+- [x] **TT1.** `gact search <sid> <query>` — uses GET `/v1/sessions/{id}/messages/search` (client.SearchMessages). TSV output is `mid<TAB>role<TAB>snippet`; one ListMessages up front resolves role per message. `--format json` pretty-prints the raw match objects. CLI test seeds a unique token and asserts mid+role+snippet land in both TSV and JSON output.
+
 ## Phase A — Emulator skeleton
 
 - [x] **A1.** `emulator/go.mod`, package layout. **Decided:** stdlib `net/http` only (Go 1.22+ method-prefixed mux), `github.com/google/uuid` for IDs. Module `github.com/JaimeCernuda/gact-tui/emulator`. Layout: `cmd/emulator-server/`, `internal/server/`, `pkg/gact/`.
