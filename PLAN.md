@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase PPPPP — long-reply scenario variants (cycle for cursor demo)
+
+- [x] **PPPPP1.** Mirrors GGGGG1 for the long-reply path. `runLongScript` now picks from `longReplyVariants` per session via `NextCallIndex`. Three distinct writeups: existing rendering-strategy memo (variant[0], unchanged so TestRichScripts_LongReply still passes), a new request-lifecycle architecture trace (variant[1]), a profiling-triage runbook (variant[2]). Each variant has its own opening "thinking" line. New unit test sends three "long writeup" turns, asserts all three text bodies are distinct and that variant[1]/variant[2] markers ('## Request lifecycle' / '## Profiling triage') both appear. Pairs with FFFFF1: cursor-aware Ctrl+E now has two scenario families (bigtool + long) that produce real variety so users can demo the cursor against multiple bulky outputs.
+
 ## Phase OOOOO — gact perms list --format json
 
 - [x] **OOOOO1.** `gact perms list <sid> --format json` returns the raw `[]PermissionWire` array including the full `tool_call` payload (tool_name + input args + annotations) — info that the TSV view drops because it only shows id/status/action/summary. Useful when scripting "did the agent ever try to delete /etc/* in this session?" against the structured payload. Default tsv preserved (TestCLI_Perms relies on it). Empty list serializes as `[]` not `null`. Unknown format → exit 2 client-side. CLI test triggers the `delete` permission scenario, asserts JSON parses with the expected ToolCall.input.command field, default tsv still works, unknown format exits 2.

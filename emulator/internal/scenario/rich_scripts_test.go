@@ -53,6 +53,72 @@ func TestRichScripts_LongReply(t *testing.T) {
 	}
 }
 
+// PPPPP1: repeat "long writeup" turns must cycle through
+// longReplyVariants. Sends three turns, asserts all three text
+// bodies are distinct and that variant[1]/variant[2] markers
+// ('Request lifecycle' / 'Profiling triage') both appear.
+func TestRichScripts_LongReplyVariantsCycle(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 4096)
+	defer sub.Cancel()
+
+	send := func(text string) {
+		user, _ := st.AppendMessage(gact.Message{
+			SessionID: sid, Role: gact.RoleUser,
+			Parts: []gact.Part{gact.NewTextPart(text)},
+		})
+		eng.OnUserMessage(sid, user.ID)
+		_ = collectStatusEvents(sub, 5000, 30*time.Second, gact.StatusIdle)
+	}
+	send("write a long explain please")
+	send("write a long explain again")
+	send("write a long explain once more")
+
+	msgs, _, _ := st.ListMessages(findMessagesFilter(sid))
+	var bodies []string
+	for _, m := range msgs {
+		if m.Role != gact.RoleAssistant {
+			continue
+		}
+		var body string
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeText {
+				body += p.Text
+			}
+		}
+		if len(body) > 500 { // skip the short intro/finish messages
+			bodies = append(bodies, body)
+		}
+	}
+	if len(bodies) < 3 {
+		t.Fatalf("expected ≥3 long assistant bodies, got %d", len(bodies))
+	}
+	seen := map[string]int{}
+	for _, b := range bodies[:3] {
+		seen[b]++
+	}
+	if len(seen) != 3 {
+		t.Errorf("expected 3 distinct variant bodies, got %d unique", len(seen))
+	}
+	hasArch := false
+	hasPerf := false
+	for _, b := range bodies {
+		if strings.Contains(b, "## Request lifecycle") {
+			hasArch = true
+		}
+		if strings.Contains(b, "## Profiling triage") {
+			hasPerf = true
+		}
+	}
+	if !hasArch {
+		t.Errorf("expected architecture variant; bodies start: %q", bodies[1][:min(120, len(bodies[1]))])
+	}
+	if !hasPerf {
+		t.Errorf("expected perf variant; bodies tail: %q",
+			bodies[len(bodies)-1][:min(120, len(bodies[len(bodies)-1]))])
+	}
+}
+
 func TestRichScripts_BigToolOutput(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	sub := bus.Subscribe(events.Filter{SessionID: sid}, 512)

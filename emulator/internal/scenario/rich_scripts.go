@@ -18,6 +18,13 @@ import (
 // Triggered by "long" / "explain" / "writeup" substrings in the user
 // prompt.
 func runLongScript(ctx context.Context, e *Engine, sessionID string, _ *gact.Message) {
+	// PPPPP1: cycle through longReplyVariants per session so repeat
+	// "long explain" turns produce visibly different writeups —
+	// pairs with FFFFF1's cursor-aware Ctrl+E. Same NextCallIndex
+	// pattern as GGGGG1's bigtool variants.
+	idx := e.NextCallIndex(sessionID, "long")
+	v := longReplyVariants[idx%len(longReplyVariants)]
+
 	e.publishStatus(sessionID, gact.StatusRunning)
 	asst, err := e.createAssistantMessage(sessionID)
 	if err != nil {
@@ -27,15 +34,14 @@ func runLongScript(ctx context.Context, e *Engine, sessionID string, _ *gact.Mes
 	// thinking length.
 	thinking, _ := e.addPart(sessionID, asst.ID, gact.NewThinkingPart(""))
 	_ = e.streamText(ctx, sessionID, asst.ID, thinking.ID,
-		"The user wants a longform writeup. Let me lay it out in sections.\n",
-		"thinking")
+		v.thinking, "thinking")
 	e.completePart(sessionID, asst.ID, thinking.ID)
 	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
 		return
 	}
 
 	body, _ := e.addPart(sessionID, asst.ID, gact.NewTextPart(""))
-	_ = e.streamText(ctx, sessionID, asst.ID, body.ID, longReplyText, "text")
+	_ = e.streamText(ctx, sessionID, asst.ID, body.ID, v.body, "text")
 	e.completePart(sessionID, asst.ID, body.ID)
 	e.completeMessage(sessionID, asst.ID, gact.StopReasonEndTurn)
 	e.publishStatus(sessionID, gact.StatusIdle)
@@ -545,4 +551,151 @@ var nginxAccessOutput = strings.Join([]string{
 	`10.0.4.71 - - [19/Apr/2026:09:43:31 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "kube-probe/1.31"`,
 	`203.0.113.42 - - [19/Apr/2026:09:43:30 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
 	`203.0.113.42 - - [19/Apr/2026:09:43:32 +0000] "GET /api/v2/search?q=widget HTTP/1.1" 429 84 "-" "curl/8.4"`,
+}, "\n")
+
+// PPPPP1: cycling cast of long-reply payloads. Each variant has a
+// distinct opening "thinking" line + body so multiple "long
+// explain" turns produce visibly different writeups, exercising
+// FFFFF1's cursor-aware Ctrl+E with real variety.
+var longReplyVariants = []struct {
+	thinking string
+	body     string
+}{
+	{
+		thinking: "The user wants a longform writeup. Let me lay it out in sections.\n",
+		body:     longReplyText,
+	},
+	{
+		thinking: "Architecture question. I'll trace the request path end-to-end.\n",
+		body:     longArchitectureWriteup,
+	},
+	{
+		thinking: "Performance audit. Let me walk through the hot paths I'd profile first.\n",
+		body:     longPerfWriteup,
+	},
+}
+
+// longArchitectureWriteup is the second long-reply variant — a
+// request-path trace through a hypothetical service.
+var longArchitectureWriteup = strings.Join([]string{
+	"## Request lifecycle",
+	"",
+	"From the moment a request hits the load balancer to the moment the",
+	"response is serialized back, here's what runs and in what order.",
+	"",
+	"## 1. Edge",
+	"",
+	"The L7 load balancer terminates TLS, applies a basic WAF rule set, and",
+	"routes by host header. /api/* lands on the API gateway pool; /static/*",
+	"goes to the CDN origin. Connection reuse is on (HTTP/2 frontside,",
+	"HTTP/1.1 keep-alive backside) so we don't pay handshake cost per call.",
+	"",
+	"## 2. API gateway",
+	"",
+	"The gateway adds three things the upstream services don't see:",
+	"",
+	"- **Rate limiting**: token bucket per (route, api_key). 429 leaves the",
+	"  gateway without ever reaching the service.",
+	"- **Request signing**: HMAC of (method, path, ts, body) added to the",
+	"  request as `X-Sig`. Services validate before processing.",
+	"- **Tracing**: w3c traceparent generated if absent; propagated otherwise.",
+	"",
+	"## 3. Service router",
+	"",
+	"Inside each service container, a router (chi-style) maps method+path to",
+	"a handler. Middleware: auth (verify JWT, populate request context),",
+	"audit (log request shape minus PII), rate limit (per-user backstop in",
+	"case the gateway misses).",
+	"",
+	"## 4. Handler",
+	"",
+	"Handlers are intentionally thin — parse + validate input, call into the",
+	"service layer, marshal the result. The service layer holds business",
+	"logic and is testable without HTTP plumbing.",
+	"",
+	"## 5. Persistence",
+	"",
+	"The service layer talks to the data layer via a thin repository",
+	"interface. Reads can hit the read replica; writes go to the primary.",
+	"Caching sits between the repository and the database — Redis, with a",
+	"30-second TTL on hot keys.",
+	"",
+	"## 6. Async fanout",
+	"",
+	"Side effects (outbound webhooks, ML feature recomputation, audit log",
+	"shipping) are enqueued on Kafka topics from the service layer, then",
+	"processed by dedicated worker pools. The handler doesn't wait.",
+	"",
+	"## 7. Response",
+	"",
+	"On the way back: the handler returns a typed result, the marshaller",
+	"emits JSON, the gateway adds CORS + cache headers, the LB compresses",
+	"if accept-encoding allows it. End-to-end p50 hovers around 18ms when",
+	"the cache is warm.",
+	"",
+	"That's the full trace. Want me to drill into any one stage?",
+}, "\n")
+
+// longPerfWriteup is the third long-reply variant — a profiling
+// triage memo.
+var longPerfWriteup = strings.Join([]string{
+	"## Profiling triage",
+	"",
+	"If the service is slow and you don't know why, walk these in order.",
+	"Each step takes minutes; together they catch ~80% of perf bugs.",
+	"",
+	"## 1. CPU profile (pprof)",
+	"",
+	"Pull a 30s CPU profile from production at peak. Look for:",
+	"",
+	"- One function dominating the flame graph (>30% self-time). Usually",
+	"  a regex compile inside a hot path, an unbounded JSON unmarshal, or",
+	"  a serial loop that should fan out.",
+	"- Allocator overhead (runtime.mallocgc) above ~15%. Means you're",
+	"  thrashing the GC — pool the buffers, switch to value receivers, or",
+	"  pre-size the slices.",
+	"- Lock contention (sync.Mutex.Lock above ~10%). Indicates a single",
+	"  shared structure that's serialising the request fleet.",
+	"",
+	"## 2. Heap profile",
+	"",
+	"After CPU, take a heap snapshot. Look for:",
+	"",
+	"- A single allocator above ~25% of in-use space. Usually a cache",
+	"  with no eviction, a sync.Map without periodic compaction, or a",
+	"  goroutine leak holding onto request-scoped buffers.",
+	"- Allocation rate (alloc_objects) higher than necessary — same fix",
+	"  set as CPU's allocator overhead.",
+	"",
+	"## 3. Trace (runtime/trace)",
+	"",
+	"Capture a 5s trace under load. Open in `go tool trace`. Look for:",
+	"",
+	"- GC pauses spanning many goroutines. If pause > 5ms regularly, see",
+	"  heap. If pauses are rare but huge, you have a fragmentation issue.",
+	"- Long stretches of single-goroutine work. Suggests serial code that",
+	"  could parallelise (errgroup with bounded concurrency is the easy",
+	"  fix).",
+	"- Network I/O dominating the wallclock. Means the bottleneck is",
+	"  downstream, not in your service.",
+	"",
+	"## 4. Database",
+	"",
+	"If the above didn't pin it, the bottleneck is probably the DB:",
+	"",
+	"- pg_stat_statements: top 5 queries by total_time. Almost always one",
+	"  is missing an index or is a Cartesian product.",
+	"- Connection pool exhaustion: if pool wait time > 0, you're under-",
+	"  provisioned (or holding connections too long inside transactions).",
+	"- Lock waits: pg_locks joined to pg_stat_activity. Long waits on a",
+	"  shared row mean a hot key — shard the writes or batch them.",
+	"",
+	"## 5. Network",
+	"",
+	"Last resort, but cheap to check: sar -n DEV 1, look at retransmits.",
+	"If high, the LB↔service path has a flaky link. Move the service or",
+	"raise it with the network team — there's nothing to fix in code.",
+	"",
+	"That's the full profiling pass. Most outages get caught in the first",
+	"two steps; the rest of the list is the long tail.",
 }, "\n")
