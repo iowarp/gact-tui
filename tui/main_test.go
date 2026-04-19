@@ -666,6 +666,31 @@ func TestCLI_Grep(t *testing.T) {
 	}
 }
 
+// TestCLI_DashboardWatch covers BBBB1: --watch refreshes the table
+// in place. Run for 2.5s with --interval 1s, expect ≥2 ANSI clear
+// sequences in the output (initial + at least one refresh).
+func TestCLI_DashboardWatch(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	_ = createSession(t, url, "watch-row")
+
+	stdout, _, _ := runGactWithDuration(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		2500*time.Millisecond,
+		"dashboard", "--watch", "--interval", "1s")
+	clearCount := strings.Count(stdout, "\x1b[2J")
+	if clearCount < 2 {
+		t.Errorf("expected ≥2 clear-screen frames, got %d (%q)", clearCount, stdout)
+	}
+	if !strings.Contains(stdout, "watch-row") {
+		t.Errorf("expected seeded session in watch output: %q", stdout)
+	}
+	if !strings.Contains(stdout, "Ctrl+C to exit") {
+		t.Errorf("expected watch banner: %q", stdout)
+	}
+}
+
 // TestCLI_Dashboard covers VVV1: pretty + tsv + json modes all
 // surface session rows with the key columns.
 func TestCLI_Dashboard(t *testing.T) {
