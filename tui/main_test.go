@@ -333,6 +333,67 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_PermsRules covers MMM4: install a policy via the CLI,
+// trigger a permission-requesting scenario, verify the request
+// auto-resolves with the policy's action (no manual allow/deny).
+func TestCLI_PermsRules(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	dir := t.TempDir()
+	policyFile := filepath.Join(dir, "policy.json")
+	if err := os.WriteFile(policyFile,
+		[]byte(`{"policies":[{"scope":"workspace","tool_name_pattern":"shell","action":"deny"}]}`),
+		0o644); err != nil {
+		t.Fatalf("write policy: %v", err)
+	}
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "set", policyFile); code != 0 {
+		t.Fatalf("perms rules set: exit %d", code)
+	}
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "list")
+	if code != 0 || !strings.Contains(stdout, `"shell"`) ||
+		!strings.Contains(stdout, `"deny"`) {
+		t.Fatalf("perms rules list missing fields: code=%d out=%q", code, stdout)
+	}
+
+	// Trigger a permission scenario.
+	sid := createSession(t, url, "rules-target")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "delete the temp dir"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	// Wait for the scenario's permission step to fire + auto-resolve.
+	deadline := time.Now().Add(3 * time.Second)
+	var permsOut string
+	for time.Now().Before(deadline) {
+		permsOut, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"perms", "list", sid)
+		if strings.Contains(permsOut, "resolved") && strings.Contains(permsOut, "deny") {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !strings.Contains(permsOut, "resolved") || !strings.Contains(permsOut, "deny") {
+		t.Errorf("expected auto-resolved/deny permission, got %q", permsOut)
+	}
+
+	// Clear and verify the list is empty (and the next scenario would
+	// stay pending — not exercised here to keep the test fast).
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "clear"); code != 0 {
+		t.Fatalf("perms rules clear: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"perms", "rules", "list")
+	if !strings.Contains(stdout, `"policies": []`) && !strings.Contains(stdout, `"policies": null`) {
+		t.Errorf("expected empty policies after clear, got %q", stdout)
+	}
+}
+
 // TestCLI_Hooks covers MMM3: register a hook, trigger an event,
 // verify the hook script captured the event JSON, then delete it.
 func TestCLI_Hooks(t *testing.T) {

@@ -34,9 +34,10 @@ type PermissionRequest struct {
 // Permissions is an in-memory store of pending and resolved permission
 // requests. Methods are concurrency-safe.
 type Permissions struct {
-	mu      sync.Mutex
-	byID    map[string]*PermissionRequest
-	now     func() time.Time
+	mu       sync.Mutex
+	byID     map[string]*PermissionRequest
+	policies []gact.Policy // MMM4: walk on Create for auto-resolve
+	now      func() time.Time
 }
 
 // NewPermissions constructs an empty store.
@@ -47,8 +48,114 @@ func NewPermissions() *Permissions {
 	}
 }
 
+// SetPolicies replaces the policy list (PUT /v1/policies semantics).
+func (p *Permissions) SetPolicies(pol []gact.Policy) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.policies = append(p.policies[:0], pol...)
+}
+
+// Policies returns a copy of the current policy list.
+func (p *Permissions) Policies() []gact.Policy {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]gact.Policy, len(p.policies))
+	copy(out, p.policies)
+	return out
+}
+
+// matchPolicies walks the registered policies and returns the first
+// matching action ("allow" | "deny" | "ask") + true. Returns
+// ("", false) if no policy matches. Caller holds the lock.
+func (p *Permissions) matchPolicies(req gact.PermissionRequest) (string, bool) {
+	tool := req.ToolCall.ToolName
+	path := ""
+	if v, ok := req.ToolCall.Input["path"].(string); ok {
+		path = v
+	}
+	for _, pol := range p.policies {
+		if pol.Scope == "session" && pol.ScopeID != "" && pol.ScopeID != req.SessionID {
+			continue
+		}
+		// Workspace scope intentionally accepts any session — the
+		// scenario engine doesn't track ws/session linkage in the
+		// PermissionRequest payload yet, so a workspace rule with a
+		// scope_id is treated as "any session in this workspace".
+		if !globMatch(pol.ToolNamePattern, tool) {
+			continue
+		}
+		if pol.PathPattern != "" && !globMatch(pol.PathPattern, path) {
+			continue
+		}
+		return pol.Action, true
+	}
+	return "", false
+}
+
+// globMatch is a tiny `*`/`**`-aware matcher. Empty pattern matches
+// nothing (avoids accidental "match all" via missing field).
+func globMatch(pattern, s string) bool {
+	if pattern == "" {
+		return false
+	}
+	if pattern == "*" || pattern == "**" {
+		return true
+	}
+	// Cheap path-aware match: split on `*` and require every chunk
+	// to appear in order. Doesn't handle `**` vs `*` distinction
+	// fully, but covers the common cases (e.g. "/tmp/**", "shell",
+	// "*.go") well enough for an emulator.
+	chunks := splitGlob(pattern)
+	idx := 0
+	for _, c := range chunks {
+		if c == "" {
+			continue
+		}
+		j := indexFrom(s, c, idx)
+		if j < 0 {
+			return false
+		}
+		idx = j + len(c)
+	}
+	return true
+}
+
+func splitGlob(p string) []string {
+	out := []string{}
+	cur := ""
+	for i := 0; i < len(p); i++ {
+		if p[i] == '*' {
+			if cur != "" {
+				out = append(out, cur)
+				cur = ""
+			}
+			continue
+		}
+		cur += string(p[i])
+	}
+	if cur != "" {
+		out = append(out, cur)
+	}
+	return out
+}
+
+func indexFrom(s, sub string, from int) int {
+	if from > len(s) {
+		return -1
+	}
+	for i := from; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}
+
 // Create registers a new pending permission request and returns it (with a
-// fresh ID and a channel scenarios can wait on).
+// fresh ID and a channel scenarios can wait on). MMM4: if a registered
+// policy matches with action allow/deny, the request is auto-resolved
+// before returning — scenarios calling WaitFor see the resolution
+// immediately.
 func (p *Permissions) Create(req gact.PermissionRequest) *PermissionRequest {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -64,6 +171,22 @@ func (p *Permissions) Create(req gact.PermissionRequest) *PermissionRequest {
 		resolveCh:         make(chan PermissionAction, 1),
 	}
 	p.byID[req.ID] = full
+	// MMM4: policy auto-resolve. "ask" means defer to interactive
+	// resolution (no-op here); allow/deny resolve immediately.
+	if action, ok := p.matchPolicies(req); ok && action != "ask" {
+		var pa PermissionAction
+		switch action {
+		case "allow":
+			pa = PermAllow
+		case "deny":
+			pa = PermDeny
+		}
+		full.Status = "resolved"
+		full.Action = pa
+		full.ResolvedAt = p.now().UTC()
+		full.resolveCh <- pa
+		close(full.resolveCh)
+	}
 	return full
 }
 
