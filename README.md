@@ -163,7 +163,7 @@ running backend:
 | `gact completion bash\|zsh\|fish` | Print shell completion script |
 | `gact metrics [--format text\|json]` | Backend metrics summary |
 | `gact summarize <sid>` | Trigger backend summary; print result |
-| `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files |
+| `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files; `list --format json` for jq |
 | `gact perms list <sid> [--pending]` | List permissions for a session |
 | `gact perms allow\|deny\|allow-session\|allow-workspace <pid>` | Respond to a pending permission |
 | `gact diff list <sid>` | List file_diff parts (path + pending/applied/rejected) |
