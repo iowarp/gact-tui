@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T22:25Z
-**Current phase:** Phase BBB (MCP detail CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `45d0ea5` and pushed
+**Last updated:** 2026-04-18T22:40Z
+**Current phase:** Phase CCC (tool detail + MCP reconnect) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1089e7e` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,15 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase CCC — tool detail + MCP reconnect
+- **CCC1.** `gact tool show <id>` (alias `tools show`) wraps GET
+  /v1/tools/{id} via new `client.GetTool`. Text mode prints
+  metadata + pretty-JSON schemas; JSON mode dumps raw Tool.
+- **CCC2.** `gact mcp reconnect <srv-id>` POSTs reconnect via new
+  `client.McpReconnect`. CLI tests cover both: tool show against
+  `bash`, reconnect against `mcp_fake` (exit 0) and unknown id
+  (non-zero).
 
 ### Phase BBB — MCP detail CLI
 - **BBB1.** `gact mcp tools|resources|prompts <server-id>` exposes
