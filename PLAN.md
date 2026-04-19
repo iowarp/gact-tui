@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase QQ — pretty stream
+
+- [ ] **QQ1.** `gact stream <sid>` — like `gact tail` but pretty-prints each event as a one-line `HH:MM:SS  type  summary` row. Useful for live monitoring without JQ.
+
 ## Phase PP — bug-report bundle
 
 - [x] **PP1.** `gact dump-bundle [-o DIR]` writes version.txt + diag.txt + metrics.json + sessions/<sid>.json into one directory. Best-effort (backend offline still produces local-only files). CLI test verifies each artefact lands.
