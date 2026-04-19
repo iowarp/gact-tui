@@ -92,6 +92,8 @@ func main() {
 			os.Exit(runDumpBundle(os.Args[2:]))
 		case "stream":
 			os.Exit(runStream(os.Args[2:]))
+		case "perms", "perm", "permissions":
+			os.Exit(runPerms(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -294,6 +296,8 @@ Usage:
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
   gact dump-bundle [-o DIR]  diag + metrics + every session as a bundle
   gact stream [SID]          pretty-print SSE events as a one-liner timeline
+  gact perms list <sid>      list permissions for a session
+  gact perms allow <pid>     allow / deny / allow-session / allow-workspace
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -431,6 +435,98 @@ func runDelete(args []string) int {
 	if err := c.DeleteSession(ctx, sid); err != nil {
 		fmt.Fprintf(os.Stderr, "gact delete: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runPerms dispatches the `gact perms <verb>` family for managing
+// pending permissions from the shell. Same endpoints the TUI's
+// a/d/s/w action keys use:
+//
+//	gact perms list <sid>                — pending+resolved (TSV)
+//	gact perms allow <perm-id>           — POST allow
+//	gact perms deny <perm-id>            — POST deny
+//	gact perms allow-session <perm-id>   — POST allow_session
+//	gact perms allow-workspace <perm-id> — POST allow_workspace
+func runPerms(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact perms list|allow|deny|allow-session|allow-workspace ...")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	if verb == "list" {
+		return runPermsList(rest)
+	}
+
+	// Action verbs share the same shape: <perm-id> required.
+	var action gact.PermissionAction
+	switch verb {
+	case "allow":
+		action = gact.PermAllow
+	case "deny":
+		action = gact.PermDeny
+	case "allow-session":
+		action = gact.PermAllowSession
+	case "allow-workspace":
+		action = gact.PermAllowWorkspace
+	default:
+		fmt.Fprintf(os.Stderr, "gact perms: unknown verb %q\n", verb)
+		return 2
+	}
+
+	fs := flag.NewFlagSet("perms "+verb, flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	known := map[string]bool{"--backend": true, "-backend": true}
+	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintf(os.Stderr, "usage: gact perms %s <perm-id> [--backend URL]\n", verb)
+		return 2
+	}
+	pid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.RespondPermission(ctx, pid, action); err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms %s: %v\n", verb, err)
+		return 1
+	}
+	return 0
+}
+
+// runPermsList prints pending permissions for a session as
+// tab-separated `id  status  action  summary` rows.
+func runPermsList(args []string) int {
+	fs := flag.NewFlagSet("perms list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	pending := fs.Bool("pending", false, "only pending; default lists every state")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--pending": true, "-pending": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact perms list <session_id> [--pending] [--backend URL]")
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	perms, err := c.ListPermissions(ctx, sid, *pending)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms list: %v\n", err)
+		return 1
+	}
+	for _, p := range perms {
+		summary := strings.ReplaceAll(p.Summary, "\n", " ")
+		fmt.Printf("%s\t%s\t%s\t%s\n", p.ID, p.Status, p.Action, summary)
 	}
 	return 0
 }
@@ -1253,7 +1349,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new ping quick rename run send stream summarize tail unarchive version wait"
+    cmds="archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1273,7 +1369,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new ping quick rename run send stream summarize tail unarchive version wait)
+    cmds=(archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1286,7 +1382,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new ping quick rename run send stream summarize tail unarchive version wait"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag dump-bundle emit-config export import list log metrics new perms ping quick rename run send stream summarize tail unarchive version wait"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

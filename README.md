@@ -164,6 +164,8 @@ running backend:
 | `gact metrics [--format text\|json]` | Backend metrics summary |
 | `gact summarize <sid>` | Trigger backend summary; print result |
 | `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files |
+| `gact perms list <sid> [--pending]` | List permissions for a session |
+| `gact perms allow\|deny\|allow-session\|allow-workspace <pid>` | Respond to a pending permission |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |

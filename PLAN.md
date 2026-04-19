@@ -171,6 +171,10 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 - [x] **U1.** `gact list --format json` emits indented JSON of the Session slice. `--format tsv` (default) keeps the existing tab output. Unknown format → exit 2.
 - [x] **U2.** Window title appends `(running)` or `(waiting)` for non-idle sessions so tab bars surface attention targets without bringing the TUI to the foreground.
 
+## Phase RR — permissions CLI
+
+- [ ] **RR1.** `gact perms list <sid>` and `gact perms allow|deny|allow-session|allow-workspace <perm-id>` — manage pending permissions from the shell. Same endpoints the TUI's a/d/s/w action keys use.
+
 ## Phase QQ — pretty stream
 
 - [x] **QQ1.** `gact stream [SID] [--workspace WS_ID]` pretty-prints SSE as a one-line timeline (`HH:MM:SS  type  summary`). Per-event-type summary helpers keep `tail` for json + `stream` for humans. Real-emulator CLI test asserts the row format.
