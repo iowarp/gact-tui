@@ -1181,6 +1181,37 @@ func TestCLI_TailFilter(t *testing.T) {
 	}
 }
 
+// TestCLI_StreamFilter covers UUUU1: --filter on `gact stream`
+// drops events whose type isn't in the keep set. Triggers a
+// notification via mcp reconnect, asserts the human row appears
+// while filtered-out types do not.
+func TestCLI_StreamFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	streamDone := make(chan string, 1)
+	go func() {
+		stdout, _, _ := runGactWithDuration(t, bin,
+			map[string]string{"GACT_BACKEND": url},
+			2*time.Second,
+			"stream", "--workspace", "ws_default", "--filter", "notification")
+		streamDone <- stdout
+	}()
+	time.Sleep(400 * time.Millisecond)
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "mcp_fake"); code != 0 {
+		t.Fatalf("reconnect: exit %d", code)
+	}
+	out := <-streamDone
+	if !strings.Contains(out, "notification") {
+		t.Errorf("expected notification kept by filter: %q", out)
+	}
+	if strings.Contains(out, "server.connected") {
+		t.Errorf("server.connected should have been filtered out: %q", out)
+	}
+}
+
 // TestCLI_Bench covers QQQ1 + XXX1: serial run (concurrent=1) and
 // parallel run (--concurrent 3 -n 2 = 6 samples), asserts summary
 // fields appear and bench sessions are cleaned up.

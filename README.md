@@ -190,7 +190,7 @@ running backend:
 | `gact dump-bundle [-o DIR] [--since DUR]` | Bug-report bundle (diag + metrics + sessions); `--since` filters to recent sessions |
 | `gact list [--format tsv\|json] [--workspace W] [--parent P] [--status S] [--archived] [--limit N]` | List sessions with filters |
 | `gact tail [SID] [--workspace WS_ID] [--filter type1,type2] [--format json\|text]` | Stream SSE events; NDJSON default, `--format text` for human one-liners; `--filter` keeps only named types |
-| `gact stream [SID] [--workspace WS_ID]` | Stream SSE events as a pretty timeline |
+| `gact stream [SID] [--workspace WS_ID] [--filter type1,type2]` | Stream SSE events as a pretty timeline; `--filter` keeps only named types (mirrors `gact tail`) |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
 | `gact wait <sid> [--timeout DUR]` \| `gact wait --any-of sid1,sid2,...` | Poll until session(s) idle; --any-of returns on first to finish |
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
