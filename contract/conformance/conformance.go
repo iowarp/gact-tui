@@ -1134,6 +1134,59 @@ func checkMcp(t Reporter, c *conformClient) {
 			t.Errorf("mcp tool[%d] missing id: %v", i, tl)
 		}
 	}
+	// LLLLLL1: per-server resources + prompts. SPEC §6.7 lines
+	// 436-441. Adapter authors that wired only servers + tools
+	// missed both. Read-only.
+	rctx, rcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer rcancel()
+	rResp, rBody, rerr := c.get(rctx, "/v1/mcp/servers/"+firstID+"/resources")
+	if rerr != nil {
+		t.Errorf("GET /v1/mcp/servers/%s/resources: %v", firstID, rerr)
+	} else if rResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/mcp/servers/{id}/resources returned 501 — required by SPEC §6.7")
+	} else if rResp.StatusCode != 200 {
+		t.Errorf("/v1/mcp/servers/%s/resources status %d body %s", firstID, rResp.StatusCode, rBody)
+	} else {
+		var rraw struct {
+			Resources []map[string]any `json:"resources"`
+		}
+		if err := json.Unmarshal(rBody, &rraw); err != nil {
+			t.Errorf("mcp/server/%s/resources JSON decode: %v (body=%s)", firstID, err, rBody)
+		} else if rraw.Resources == nil {
+			t.Errorf("/v1/mcp/servers/%s/resources missing `resources` key: %s", firstID, rBody)
+		} else {
+			for i, res := range rraw.Resources {
+				if uri, _ := res["uri"].(string); uri == "" {
+					t.Errorf("mcp resource[%d] missing uri: %v", i, res)
+				}
+			}
+		}
+	}
+	pctx, pcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer pcancel()
+	pResp, pBody, perr := c.get(pctx, "/v1/mcp/servers/"+firstID+"/prompts")
+	if perr != nil {
+		t.Errorf("GET /v1/mcp/servers/%s/prompts: %v", firstID, perr)
+	} else if pResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/mcp/servers/{id}/prompts returned 501 — required by SPEC §6.7")
+	} else if pResp.StatusCode != 200 {
+		t.Errorf("/v1/mcp/servers/%s/prompts status %d body %s", firstID, pResp.StatusCode, pBody)
+	} else {
+		var praw struct {
+			Prompts []map[string]any `json:"prompts"`
+		}
+		if err := json.Unmarshal(pBody, &praw); err != nil {
+			t.Errorf("mcp/server/%s/prompts JSON decode: %v (body=%s)", firstID, err, pBody)
+		} else if praw.Prompts == nil {
+			t.Errorf("/v1/mcp/servers/%s/prompts missing `prompts` key: %s", firstID, pBody)
+		} else {
+			for i, pr := range praw.Prompts {
+				if name, _ := pr["name"].(string); name == "" {
+					t.Errorf("mcp prompt[%d] missing name: %v", i, pr)
+				}
+			}
+		}
+	}
 }
 
 // TTTTT1 — checkProviders validates GET /v1/providers + per-provider
