@@ -25,6 +25,10 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase JJ — observability
+- **JJ1.** `gact metrics` text summary + `--format json` for
+  scrapers. CLI test for both.
+
 ### Phase II — archive + completion
 - **II1.** `gact archive <sid>` / `gact unarchive <sid>` flip
   session.archived. Round-trip CLI test.
