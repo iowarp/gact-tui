@@ -608,6 +608,82 @@ func TestCLI_TasksSummary(t *testing.T) {
 	}
 }
 
+// TestCLI_TasksListStatusFilter covers WWWW1: --status filters
+// tasks to one or a comma-separated list of statuses. Unknown
+// values exit 2 without listing.
+func TestCLI_TasksListStatusFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "tasks-status-target")
+	add := func(title string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"tasks", "add", sid, title)
+		if code != 0 {
+			t.Fatalf("tasks add %s: exit %d", title, code)
+		}
+		return strings.TrimSpace(stdout)
+	}
+	tP := add("pending one")
+	tR := add("running one")
+	tC := add("completed one")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "set", tR, "--status", "running"); code != 0 {
+		t.Fatalf("set running: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "set", tC, "--status", "completed"); code != 0 {
+		t.Fatalf("set completed: exit %d", code)
+	}
+
+	// Single-status filter.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid, "--status", "pending")
+	if code != 0 {
+		t.Fatalf("tasks list --status pending: exit %d", code)
+	}
+	if !strings.Contains(stdout, tP) || strings.Contains(stdout, tR) || strings.Contains(stdout, tC) {
+		t.Errorf("expected only pending row %s, got: %q", tP, stdout)
+	}
+
+	// Comma-list filter.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid, "--status", "pending,completed")
+	if code != 0 {
+		t.Fatalf("tasks list --status pending,completed: exit %d", code)
+	}
+	if !strings.Contains(stdout, tP) || !strings.Contains(stdout, tC) {
+		t.Errorf("expected pending+completed in: %q", stdout)
+	}
+	if strings.Contains(stdout, tR) {
+		t.Errorf("running %s should be filtered out: %q", tR, stdout)
+	}
+
+	// JSON mode + filter still emits an array shape.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid, "--status", "running", "--format", "json")
+	if code != 0 {
+		t.Fatalf("tasks list --status running --format json: exit %d", code)
+	}
+	var items []struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &items); err != nil {
+		t.Fatalf("json parse: %v\n  raw=%q", err, stdout)
+	}
+	if len(items) != 1 || items[0].Status != "running" || items[0].ID != tR {
+		t.Errorf("expected exactly 1 running task with id=%s, got: %+v", tR, items)
+	}
+
+	// Unknown status → exit 2 without listing.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "list", sid, "--status", "nonsense"); code != 2 {
+		t.Errorf("tasks list --status nonsense: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_Tasks covers MMM5: full session-task lifecycle via CLI.
 func TestCLI_Tasks(t *testing.T) {
 	url, stop := startEmulator(t)
@@ -1364,22 +1440,24 @@ func TestCLI_DumpBundleSince(t *testing.T) {
 	}
 
 	// Narrow window: refresh `new` via rename so its UpdatedAt is
-	// "now", then sleep a bit and ask for --since 500ms. The rename
-	// touches new.UpdatedAt; old's stays at session-create time
-	// which is now ≥4s ago.
+	// "now", then sleep a bit before the second touch + bundle call.
+	// Window math: sleep 5s + --since 6s guarantees the fresh
+	// session lands inside even if the dump-bundle subprocess takes
+	// the worst-case ~1s to spin up under parallel-test load (the
+	// previous 1s window was the source of a full-suite flake).
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"rename", newSid, "dump-since-new-touched"); code != 0 {
 		t.Fatalf("rename to refresh UpdatedAt: exit %d", code)
 	}
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"rename", newSid, "dump-since-new-touched-2"); code != 0 {
 		t.Fatalf("rename 2: exit %d", code)
 	}
 	dirNew := t.TempDir()
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"dump-bundle", "-o", dirNew, "--since", "1s"); code != 0 {
-		t.Fatalf("dump-bundle --since 1s: exit %d", code)
+		"dump-bundle", "-o", dirNew, "--since", "6s"); code != 0 {
+		t.Fatalf("dump-bundle --since 6s: exit %d", code)
 	}
 	newEntries, _ := os.ReadDir(filepath.Join(dirNew, "sessions"))
 	foundNew := false
@@ -1389,11 +1467,11 @@ func TestCLI_DumpBundleSince(t *testing.T) {
 		}
 	}
 	if !foundNew {
-		t.Errorf("--since 1s should include the fresh session %s, got %v",
+		t.Errorf("--since 6s should include the fresh session %s, got %v",
 			newSid, dirEntryNames(newEntries))
 	}
 	if len(newEntries) >= len(allEntries) {
-		t.Errorf("--since 1s (got %d) should be narrower than 1h (got %d)",
+		t.Errorf("--since 6s (got %d) should be narrower than 1h (got %d)",
 			len(newEntries), len(allEntries))
 	}
 }
