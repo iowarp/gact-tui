@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T15:55Z
-**Current phase:** YYYY1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `7eda92c` and pushed
+**Last updated:** 2026-04-19T16:15Z
+**Current phase:** ZZZZ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `07d5fe4` and pushed
 **Open:** none
+
+### Phase ZZZZ — gact files list --glob PATTERN
+- **ZZZZ1.** `gact files list <ws-id> --glob PATTERN` filters by
+  Go `path.Match`. Two-pass match: full path first, then
+  basename fallback so `*.go` matches `src/foo.go`. Bad pattern
+  → exit 2 client-side. CLI test asserts filtering works on the
+  seeded workspace.
 
 ### Phase YYYY — gact dashboard --status FILTER (+ waiting alias fix)
 - **YYYY1.** `gact dashboard --status idle|running|waiting|error`
