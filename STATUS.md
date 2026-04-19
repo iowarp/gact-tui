@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T14:50Z
-**Current phase:** UUUU1 + VVVV1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f5dfa35` and pushed
+**Last updated:** 2026-04-19T15:10Z
+**Current phase:** WWWW1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d3ab652` and pushed
 **Open:** none
+
+### Phase WWWW — gact tasks list --status FILTER
+- **WWWW1.** `gact tasks list <sid> --status pending,running,…`
+  filters tasks by status. Empty filter = all. Validation
+  client-side; typo → exit 2. Works in TSV + JSON. Also
+  stabilized TestCLI_DumpBundleSince's flaky 1s --since window
+  (now sleep 5s + --since 6s).
 
 ### Phase VVVV — gact grep --limit N
 - **VVVV1.** `gact grep <query> --limit N` truncates output;
