@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase QQ — pretty stream
 
-- [ ] **QQ1.** `gact stream <sid>` — like `gact tail` but pretty-prints each event as a one-line `HH:MM:SS  type  summary` row. Useful for live monitoring without JQ.
+- [x] **QQ1.** `gact stream [SID] [--workspace WS_ID]` pretty-prints SSE as a one-line timeline (`HH:MM:SS  type  summary`). Per-event-type summary helpers keep `tail` for json + `stream` for humans. Real-emulator CLI test asserts the row format.
 
 ## Phase PP — bug-report bundle
 
