@@ -96,6 +96,87 @@ func TestRichScripts_BigToolOutput(t *testing.T) {
 	}
 }
 
+// GGGGG1: repeated "dump the log" turns must cycle through
+// bigLogVariants so multiple bulky tool_results are addressable
+// individually via the cursor-aware Ctrl+E (FFFFF1). Asserts the
+// 2nd turn's tool_result contains the python traceback marker that
+// only appears in variant[1], not variant[0].
+func TestRichScripts_BigToolVariantsCycle(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 2048)
+	defer sub.Cancel()
+
+	send := func(text string) {
+		user, _ := st.AppendMessage(gact.Message{
+			SessionID: sid, Role: gact.RoleUser,
+			Parts: []gact.Part{gact.NewTextPart(text)},
+		})
+		eng.OnUserMessage(sid, user.ID)
+		_ = collectStatusEvents(sub, 5000, 30*time.Second, gact.StatusIdle)
+	}
+
+	// First turn → variant[0] (server logs); second → variant[1]
+	// (python traceback); third → variant[2] (nginx access).
+	send("dump the log")
+	send("dump the log again")
+	send("dump the log once more")
+
+	msgs, _, _ := st.ListMessages(findMessagesFilter(sid))
+	bodies := []string{}
+	for _, m := range msgs {
+		if m.Role != gact.RoleTool {
+			continue
+		}
+		for _, p := range m.Parts {
+			if p.Type != gact.PartTypeToolResult {
+				continue
+			}
+			var body string
+			for _, sub := range p.Content {
+				if sub.Type == gact.PartTypeText {
+					body += sub.Text
+				}
+			}
+			bodies = append(bodies, body)
+		}
+	}
+	if len(bodies) < 3 {
+		t.Fatalf("expected ≥3 tool_result bodies for 3 turns, got %d", len(bodies))
+	}
+	// All three should be distinct (no two identical bodies).
+	seen := map[string]int{}
+	for _, b := range bodies[:3] {
+		seen[b]++
+	}
+	if len(seen) != 3 {
+		t.Errorf("expected 3 distinct variant bodies, got %d unique strings", len(seen))
+	}
+	// Variant[1] (python traceback) must surface a Traceback marker.
+	hasTraceback := false
+	for _, b := range bodies {
+		if strings.Contains(b, "Traceback (most recent call last)") {
+			hasTraceback = true
+			break
+		}
+	}
+	if !hasTraceback {
+		t.Errorf("expected python-traceback variant to fire; got bodies starting %q",
+			bodies[1][:min(120, len(bodies[1]))])
+	}
+	// Variant[2] (nginx access) must surface an access-log marker.
+	hasNginx := false
+	for _, b := range bodies {
+		if strings.Contains(b, "GET /api/v2/search") {
+			hasNginx = true
+			break
+		}
+	}
+	if !hasNginx {
+		t.Errorf("expected nginx-access variant to fire; got tail %q",
+			bodies[len(bodies)-1][:min(120, len(bodies[len(bodies)-1]))])
+	}
+}
+
 func TestRichScripts_MultiTool(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	sub := bus.Subscribe(events.Filter{SessionID: sid}, 512)

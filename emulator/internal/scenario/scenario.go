@@ -66,6 +66,12 @@ type Engine struct {
 
 	mu      sync.Mutex
 	running map[string]context.CancelFunc // by sessionID
+	// scriptCalls counts how many times a named script has been
+	// invoked for a given (sessionID, scriptKey) pair. Scripts use
+	// this via NextCallIndex() to vary their output across repeated
+	// turns — e.g. so multiple "dump the log" calls return different
+	// log payloads instead of the same canned text. (GGGGG1)
+	scriptCalls map[string]int
 }
 
 // New constructs an Engine.
@@ -74,12 +80,27 @@ func New(bus *events.Bus, st *store.Store, perms *store.Permissions, cfg Config)
 		cfg.Script = DefaultScript
 	}
 	return &Engine{
-		bus:     bus,
-		store:   st,
-		perms:   perms,
-		cfg:     cfg,
-		running: make(map[string]context.CancelFunc),
+		bus:         bus,
+		store:       st,
+		perms:       perms,
+		cfg:         cfg,
+		running:     make(map[string]context.CancelFunc),
+		scriptCalls: make(map[string]int),
 	}
+}
+
+// NextCallIndex returns and increments the call counter for a given
+// (sessionID, scriptKey) pair. Scripts use this to pick a variant
+// from a list so repeated turns produce different output, exercising
+// the cursor-aware Ctrl+E path (FFFFF1) where multiple bulky outputs
+// must be individually addressable. (GGGGG1)
+func (e *Engine) NextCallIndex(sessionID, scriptKey string) int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	k := sessionID + "\x00" + scriptKey
+	idx := e.scriptCalls[k]
+	e.scriptCalls[k] = idx + 1
+	return idx
 }
 
 // OnUserMessage starts a script run for the given user message. Returns
