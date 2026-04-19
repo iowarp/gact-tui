@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase BBB — MCP detail CLI
+
+- [x] **BBB1.** `gact mcp tools|resources|prompts <server-id>` wraps the three previously-unexposed `/v1/mcp/servers/{id}/...` GET endpoints. Added `client.McpServerTools/Resources/Prompts`. TSV columns are tuned per type: tool=id·name, resource=uri·mime·name, prompt=name·title. JSON mode dumps the raw slice. CLI test asserts each verb returns ≥1 row for the seeded `mcp_fake` and JSON mode has the right shape.
+
 ## Phase AAA — repo map CLI
 
 - [x] **AAA1.** `gact repo-map <ws-id> [--format tree|json]` — wraps `/v1/workspaces/{id}/repo_map`. Added `client.WorkspaceRepoMap` returning `RepoMapResponse{Tree, Tokens}`. Tree mode renders nested paths with `├──`/`└──` glyphs and hangs symbol outlines as `· name` children. JSON dumps the raw response. Token cost goes to stderr so stdout stays clean for `tee`. CLI test asserts main.go and Handler appear and JSON shape lands.

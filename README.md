@@ -177,6 +177,7 @@ running backend:
 | `gact files list <ws-id> [--format tsv\|json]` | List workspace files (TSV: type·size·path) |
 | `gact files read <ws-id> <path>` | Dump a workspace file's bytes to stdout |
 | `gact repo-map <ws-id> [--format tree\|json]` | Tree-render the workspace repo map (with symbols) |
+| `gact mcp tools\|resources\|prompts <srv-id>` | Drill into one MCP server's catalog (TSV or JSON) |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |

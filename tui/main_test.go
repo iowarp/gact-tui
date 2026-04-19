@@ -234,6 +234,35 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_McpDetail covers BBB1: list tools, resources, and prompts
+// for the seeded `mcp_fake` server. Each verb must return at least
+// one row (the emulator seeds them statically).
+func TestCLI_McpDetail(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	for _, verb := range []string{"tools", "resources", "prompts"} {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"mcp", verb, "mcp_fake")
+		if code != 0 {
+			t.Fatalf("mcp %s: exit %d", verb, code)
+		}
+		if strings.TrimSpace(stdout) == "" {
+			t.Errorf("expected at least one row for mcp %s, got empty", verb)
+		}
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "tools", "mcp_fake", "--format", "json")
+	if code != 0 {
+		t.Fatalf("mcp tools json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id"`) {
+		t.Errorf("expected JSON tool id field: %q", stdout)
+	}
+}
+
 // TestCLI_RepoMap covers AAA1: render the seeded workspace repo map
 // in tree and JSON formats; assert main.go and the Handler symbol
 // surface.

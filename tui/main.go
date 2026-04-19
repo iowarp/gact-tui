@@ -112,6 +112,8 @@ func main() {
 			os.Exit(runFiles(os.Args[2:]))
 		case "repo-map", "repomap":
 			os.Exit(runRepoMap(os.Args[2:]))
+		case "mcp":
+			os.Exit(runMcp(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -328,6 +330,9 @@ Usage:
   gact files list <ws-id>    list workspace files (TSV: type  size  path)
   gact files read <ws-id> <path> dump file bytes to stdout
   gact repo-map <ws-id>      tree-render the workspace repo map
+  gact mcp tools <srv-id>    list one MCP server's tools (TSV or JSON)
+  gact mcp resources <srv-id> list one MCP server's resources
+  gact mcp prompts <srv-id>  list one MCP server's prompt templates
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -641,6 +646,144 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runMcp dispatches per-server MCP detail subcommands. `gact catalog
+// mcp` lists all servers; this drills into one to inspect what it
+// exposes:
+//
+//	gact mcp tools     <server-id>   — TSV: id  name
+//	gact mcp resources <server-id>   — TSV: uri  mime  name
+//	gact mcp prompts   <server-id>   — TSV: name  title
+func runMcp(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp tools|resources|prompts <server-id> [--format tsv|json]")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "tools":
+		return runMcpTools(rest)
+	case "resources":
+		return runMcpResources(rest)
+	case "prompts":
+		return runMcpPrompts(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact mcp: unknown verb %q (want tools|resources|prompts)\n", verb)
+	return 2
+}
+
+func mcpFlagSet(name string) (*flag.FlagSet, *string, *string) {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "tsv", "tsv | json")
+	return fs, backend, format
+}
+
+func runMcpTools(args []string) int {
+	fs, backend, format := mcpFlagSet("mcp tools")
+	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp tools <server-id> [--format tsv|json]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact mcp tools: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tools, err := c.McpServerTools(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp tools: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(tools)
+		return 0
+	}
+	for _, t := range tools {
+		fmt.Printf("%s\t%s\n", t.ID, t.Name)
+	}
+	return 0
+}
+
+func runMcpResources(args []string) int {
+	fs, backend, format := mcpFlagSet("mcp resources")
+	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp resources <server-id> [--format tsv|json]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact mcp resources: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rs, err := c.McpServerResources(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp resources: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(rs)
+		return 0
+	}
+	for _, r := range rs {
+		fmt.Printf("%s\t%s\t%s\n", r.URI, r.MimeType, r.Name)
+	}
+	return 0
+}
+
+func runMcpPrompts(args []string) int {
+	fs, backend, format := mcpFlagSet("mcp prompts")
+	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact mcp prompts <server-id> [--format tsv|json]")
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact mcp prompts: unknown format %q\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ps, err := c.McpServerPrompts(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact mcp prompts: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(ps)
+		return 0
+	}
+	for _, p := range ps {
+		fmt.Printf("%s\t%s\n", p.Name, p.Title)
 	}
 	return 0
 }
@@ -2039,7 +2182,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -2059,7 +2202,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -2072,7 +2215,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export files fork import info list log mcp metrics models new perms ping quick rename repo-map run search send stream summarize tail unarchive undo version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
