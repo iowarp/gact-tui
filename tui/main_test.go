@@ -333,6 +333,79 @@ func TestCLI_McpResourceRead(t *testing.T) {
 	}
 }
 
+// TestCLI_Hooks covers MMM3: register a hook, trigger an event,
+// verify the hook script captured the event JSON, then delete it.
+func TestCLI_Hooks(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Drop a tiny shell script that captures stdin to a known file.
+	dir := t.TempDir()
+	captured := filepath.Join(dir, "hook-fired.json")
+	script := filepath.Join(dir, "hook.sh")
+	if err := os.WriteFile(script,
+		[]byte("#!/bin/bash\ncat > "+captured+"\n"), 0o755); err != nil {
+		t.Fatalf("write hook script: %v", err)
+	}
+
+	// Register a hook on the `notification` event firing the script.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "add", "--event", "notification", "--command", script)
+	if code != 0 {
+		t.Fatalf("hooks add: exit %d", code)
+	}
+	hid := strings.TrimSpace(stdout)
+	if !strings.HasPrefix(hid, "hk_") {
+		t.Fatalf("hooks add returned bad id %q", stdout)
+	}
+
+	// Listing must show the hook with our script as the target.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list")
+	if code != 0 || !strings.Contains(stdout, hid) || !strings.Contains(stdout, script) {
+		t.Fatalf("hooks list missing entry: code=%d out=%q", code, stdout)
+	}
+
+	// Trigger a notification by reconnecting an MCP server (MMM1
+	// emits one). The dispatcher fires asynchronously — give it a
+	// moment to write the file.
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"mcp", "reconnect", "mcp_fake"); code != 0 {
+		t.Fatalf("mcp reconnect: exit %d", code)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	var body []byte
+	for time.Now().Before(deadline) {
+		// Both checks: file must exist AND have non-empty body. The
+		// hook script writes via `cat > file`, so file appears empty
+		// briefly before the content lands. Polling Stat alone races.
+		if b, err := os.ReadFile(captured); err == nil && len(b) > 0 {
+			body = b
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if len(body) == 0 {
+		t.Fatalf("hook never fired (no body within deadline)")
+	}
+	if !strings.Contains(string(body), `"notification"`) ||
+		!strings.Contains(string(body), "MCP server reconnected") {
+		t.Errorf("hook body missing expected fields: %s", body)
+	}
+
+	// Cleanup: rm the hook, list must drop to zero rows.
+	if _, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "rm", hid); code != 0 {
+		t.Fatalf("hooks rm: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"hooks", "list")
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("hooks list after rm: expected empty, got %q", stdout)
+	}
+}
+
 // TestCLI_TellAsync covers LLL8: --async returns immediately with
 // sid<TAB>msg_id and exits before the assistant reply lands.
 func TestCLI_TellAsync(t *testing.T) {

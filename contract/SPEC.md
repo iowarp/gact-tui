@@ -612,6 +612,30 @@ If `capabilities.metrics = true`:
 
 Metrics are point-in-time snapshots. Backends MAY add custom counters under a vendor-prefixed key (`x_<vendor>_<counter>`).
 
+### §6.17 Hooks (optional)
+
+If `capabilities.hooks = true`:
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/hooks` |  | `{hooks: [Hook]}` |
+| POST | `/v1/hooks` | `Hook` (no `id`) | `Hook` (with `id`) |
+| DELETE | `/v1/hooks/{id}` |  | 204 |
+
+```json
+// Hook
+{
+  "id": "hk_01H...",
+  "event": "tool.call.completed",  // any §7.3 event type, or "*"
+  "command": "/usr/local/bin/notify-hook.sh",  // exec'd with event JSON on stdin
+  "url": null,                                  // alternative: POST event JSON here
+  "session_id": null,                           // optional scope
+  "workspace_id": null                          // optional scope
+}
+```
+
+A hook fires whenever an event matching `event` is published; if both `command` and `url` are set, `url` wins. The backend MUST run hooks asynchronously (no back-pressure on the main loop) and SHOULD time them out at 10s. Failures are logged but never propagated to the originating request. Hooks scoped to `session_id` or `workspace_id` only fire on events for that scope.
+
 ---
 
 ## §7 Streaming Events (SSE)
