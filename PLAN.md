@@ -11,7 +11,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 ## Phase LLL — UX polish round (user-flagged 2026-04-18)
 
 - [x] **LLL1.** 13 screenshots refreshed via existing tapes (screenshot, screenshot_collapse, screenshot_compose, screenshot_themes). Now reflect HHH1 header (model/agent) and III1 interleaved tool rendering.
-- [ ] **LLL2.** Tool/MCP catalog browser: enable/disable individual tools, drill into each MCP server to see the tools/resources/prompts it provides (shell already has `gact mcp tools/resources/prompts`; mirror that in the TUI). Add toggle keys + a server-detail subview.
+- [x] **LLL2.** Catalog browser gained two TUI features: (a) Tools — `Space` toggles a tool's disabled state; disabled tools render dim+italic with `(disabled)` tag; persisted to `Config.DisabledTools`. (b) MCP — `Enter` on a server row drills into a unified tools+resources+prompts subview (`[tool]`/`[res]`/`[prompt]` prefixes) backed by the existing client.McpServerTools/Resources/Prompts methods; `Esc`/`Backspace` pops back to the server list. Per-kind hint line. 5 unit tests + screenshots/68-mcp-detail.png.
 - [ ] **LLL3.** Skills + agents — verify visually they render in the catalog browser; add screenshots; if rendering is broken or empty, fix.
 - [ ] **LLL4.** Recolour Settings/catalog modals — current scheme reads as flat/dim. Apply role-color accents (header bars, selected row highlight) consistent with the conversation pane.
 - [x] **LLL5.** Sidebar height now matches the conversation pane height (was full bodyH including input), so both bottom borders close on the same row. Extracted `conversationPaneHeight()` helper used by both `viewMainBase` (sizes sidebar) and `renderBody` (sizes msg pane). UI goldens regenerated.
