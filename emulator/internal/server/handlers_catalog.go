@@ -995,6 +995,60 @@ type undoRequest struct {
 	Count int `json:"count,omitempty"`
 }
 
+// rewindRequest is the body for POST /v1/sessions/{id}/rewind (MMM7).
+type rewindRequest struct {
+	ToMessageID   string `json:"to_message_id"`
+	IncludeTarget bool   `json:"include_target,omitempty"`
+}
+
+func (s *Server) handleSessionRewind(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req rewindRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.ToMessageID == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "to_message_id required")
+		return
+	}
+	// Pull the full ordered list (newest-first per ListMessages
+	// contract). Find the target, then delete every message AFTER it
+	// (= everything ahead of it in newest-first order, since "after"
+	// in time is "before" in the slice).
+	msgs, _, _ := s.store.ListMessages(store.MessageFilter{
+		SessionID: id, Limit: 100000, IncludeSystem: true,
+	})
+	targetIdx := -1
+	for i, m := range msgs {
+		if m.ID == req.ToMessageID {
+			targetIdx = i
+			break
+		}
+	}
+	if targetIdx < 0 {
+		writeError(w, http.StatusNotFound, "message_not_found",
+			"message "+req.ToMessageID+" not found in session "+id)
+		return
+	}
+	deleted := []string{}
+	// msgs[0..targetIdx-1] are newer than the target → delete them all.
+	for i := 0; i < targetIdx; i++ {
+		if err := s.store.DeleteMessage(msgs[i].ID); err == nil {
+			deleted = append(deleted, msgs[i].ID)
+		}
+	}
+	if req.IncludeTarget {
+		if err := s.store.DeleteMessage(req.ToMessageID); err == nil {
+			deleted = append(deleted, req.ToMessageID)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted_messages": deleted})
+}
+
 func (s *Server) handleSessionUndo(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.store.GetSession(id); err != nil {

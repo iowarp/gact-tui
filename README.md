@@ -174,6 +174,7 @@ running backend:
 | `gact models list [--provider PID] [--format tsv\|json]` | List providers + models (TSV: pid·mid·name·ctx) |
 | `gact info <sid> [--format text\|json]` | One session's metadata (text key:value or raw JSON) |
 | `gact undo <sid> [--count N]` | Revert last N messages (default 1); prints reverted ids |
+| `gact rewind <sid> <mid> [--include-target]` | Delete every message after `<mid>`; prints deleted ids |
 | `gact files list <ws-id> [--format tsv\|json]` | List workspace files (TSV: type·size·path) |
 | `gact files read <ws-id> <path>` | Dump a workspace file's bytes to stdout |
 | `gact repo-map <ws-id> [--format tree\|json]` | Tree-render the workspace repo map (with symbols) |

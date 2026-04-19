@@ -612,6 +612,22 @@ func (c *Client) SummarizeSession(ctx context.Context, id string, auto bool, ins
 	return c.do(ctx, http.MethodPost, "/v1/sessions/"+id+"/summarize", body, nil)
 }
 
+// RewindSession POSTs /v1/sessions/{id}/rewind, deleting every
+// message in the session newer than `toMessageID`. With
+// `includeTarget`, also deletes the target itself. Returns the list
+// of deleted message ids. (MMM7)
+func (c *Client) RewindSession(ctx context.Context, sessionID, toMessageID string, includeTarget bool) ([]string, error) {
+	body := map[string]any{
+		"to_message_id":  toMessageID,
+		"include_target": includeTarget,
+	}
+	var out struct {
+		Deleted []string `json:"deleted_messages"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/rewind", body, &out)
+	return out.Deleted, err
+}
+
 // UndoSession POSTs /v1/sessions/{id}/undo. Reverts the last `count`
 // messages (default 1) and returns their ids. Mirrors the `/undo`
 // slash command.

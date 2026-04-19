@@ -189,6 +189,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/sessions/{id}/diffs/apply", s.handleDiffApply)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/diffs/reject", s.handleDiffReject)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/undo", s.handleSessionUndo)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/rewind", s.handleSessionRewind)
 
 	// §6.12 — Providers + Models
 	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)

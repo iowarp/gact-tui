@@ -8,6 +8,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **III1.** Tool calls and tool results now interleave: `pairToolResults(msgs)` walks the message slice, builds `inlineResults[i]={call_id→result_part}` for each assistant that emitted tool_calls, and marks the absorbed tool messages so they don't render standalone. `renderPartsForRoleWithResults` emits each call's matching result immediately after the call header. Unpaired results stay visible (never silently dropped). Collapse-affordance `[N more lines · Ctrl+E to expand]` was already in place at render.go:365-378. Three unit tests + screenshot 67.
 
+## Phase NNN — emulator hardening (found during MMM7)
+
+- [ ] **NNN1.** Emulator scenario engine doesn't quiesce when its session's messages are deleted out from under it (during `gact undo` or `gact rewind`). Pre-existing — not introduced by either CLI. Repro: send a message that fires the default scenario, immediately delete that assistant message; the engine panics in `default_script.go:107` on `UpdateMessagePart` against the deleted message id. Fix: check the part's existence before update, or wire a per-session cancel context the delete handler can fire.
+
 ## Phase MMM — adds from Claude Code inventory (LLL7)
 
 - [x] **MMM1.** SPEC already had `notification` event type at §7.3 line 680; wired it end-to-end. Emulator: `handleMcpReconnect` now publishes `{level: "info", title: "MCP server reconnected", body: server_id}`. TUI: `applySSE` case `notification` sets `transientHint = "<level>: <title> — <body>"`. CLI: `gact stream` prints `[<level>] <title> — <body>` row. CLI test asserts the workspace tail catches the event when reconnect fires.
@@ -16,7 +20,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 - [x] **MMM4.** SPEC §6.11 already had `Policy` type + `/v1/policies` endpoints (lines 490-505); wired them end-to-end. Emulator: `Permissions.SetPolicies/Policies/matchPolicies` + auto-resolve in `Create`. Tiny `*`/`**` glob matcher walks tool_name_pattern + path_pattern. Client: `ListPolicies`, `PutPolicies`. CLI: `gact perms rules list/set/clear` (set takes a `{policies:[…]}` JSON file or stdin). CLI test installs a deny rule, triggers a permission scenario, asserts the request landed `resolved/deny` automatically.
 - [x] **MMM5.** SPEC §6.18 added (Tasks). `gact.SessionTask` type + `capabilities.session_tasks` flag. Emulator: in-memory `tasksStore` keyed by id with sessionID indexing; 4 routes (GET/POST/PATCH/DELETE). Client: ListSessionTasks, CreateSessionTask, PatchTask, DeleteTask. CLI: `gact tasks list/add/set/rm`. CLI test exercises full lifecycle (add → list shows pending → set running → list reflects → rm → empty).
 - [x] **MMM6.** SPEC §6.2 summarize body extended with `instructions?: string`. Emulator echoes the instructions into the placeholder summary so callers can verify the field round-tripped. Client.SummarizeSession signature gains `instructions string`. CLI `gact summarize --instructions "…"`. Existing TestCLI_Summarize extended to assert the round-trip.
-- [ ] **MMM7.** `/rewind <msg_id>` — restore session state to a previous message. Pairs with `gact undo`; needs backend snapshot support. SPEC §6.10 amendment.
+- [x] **MMM7.** SPEC §6.10 extended with `POST /v1/sessions/{id}/rewind` (`{to_message_id, include_target?}` → `{deleted_messages: [...]}`). Emulator finds the target in the message list, deletes everything newer, optionally drops the target. Client.RewindSession + `gact rewind <sid> <mid> [--include-target]` CLI. Test exercises both default and --include-target paths after waiting for idle (avoids pre-existing scenario-engine race noted as NNN1).
 - [ ] **MMM8.** Plugins directory — `~/.config/gact/plugins/<name>/plugin.json` registering slash commands that exec a local binary on invoke.
 
 ## Phase LLL — UX polish round (user-flagged 2026-04-18)
