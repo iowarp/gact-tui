@@ -589,9 +589,14 @@ func checkCommands(t Reporter, c *conformClient) {
 }
 
 // checkTools asserts GET /v1/tools returns 200 with a
-// {"tools": [...]} shape where each entry has a `name`. Same
-// forgiving approach as Commands — we verify the shape, not the
-// specific tools in scope.
+// {"tools": [...]} shape where each entry carries the required
+// {id, name} pair (SPEC §6.6 + §4.6). Same forgiving approach as
+// Commands — we verify the shape, not the specific tools in scope.
+//
+// EEEEEE1: also drills into GET /v1/tools/{id} for the first tool
+// in the list (when present) so adapter authors catch a missing
+// per-id endpoint at conformance time. Per-id response must echo
+// the same `id` back.
 func checkTools(t Reporter, c *conformClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
@@ -607,16 +612,56 @@ func checkTools(t Reporter, c *conformClient) {
 	}
 	var got struct {
 		Tools []struct {
+			ID   string `json:"id"`
 			Name string `json:"name"`
 		} `json:"tools"`
 	}
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatalf("tools JSON decode: %v (body=%s)", err, body)
 	}
+	var firstID string
 	for i, tl := range got.Tools {
+		if tl.ID == "" {
+			t.Errorf("tools[%d].id empty", i)
+		}
 		if tl.Name == "" {
 			t.Errorf("tools[%d].name empty", i)
 		}
+		if firstID == "" && tl.ID != "" {
+			firstID = tl.ID
+		}
+	}
+	if firstID == "" {
+		return
+	}
+	dctx, dcancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer dcancel()
+	dResp, dBody, err := c.get(dctx, "/v1/tools/"+firstID)
+	if err != nil {
+		t.Errorf("GET /v1/tools/%s: %v", firstID, err)
+		return
+	}
+	if dResp.StatusCode == http.StatusNotImplemented {
+		t.Errorf("/v1/tools/{id} returned 501 — per-id drill-down required by SPEC §6.6")
+		return
+	}
+	if dResp.StatusCode != 200 {
+		t.Errorf("/v1/tools/%s status %d body %s", firstID, dResp.StatusCode, dBody)
+		return
+	}
+	var detail struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(dBody, &detail); err != nil {
+		t.Errorf("tool/%s JSON decode: %v (body=%s)", firstID, err, dBody)
+		return
+	}
+	if detail.ID != firstID {
+		t.Errorf("/v1/tools/%s returned id=%q (want %q)", firstID, detail.ID, firstID)
+	}
+	if detail.Name == "" {
+		t.Errorf("/v1/tools/%s missing name: %s", firstID, dBody)
 	}
 }
 
