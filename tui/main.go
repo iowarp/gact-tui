@@ -131,6 +131,8 @@ func main() {
 		case "attach":
 			runAttach(os.Args[2:])
 			return
+		case "voice":
+			os.Exit(runVoice(os.Args[2:]))
 		case "hooks", "hook":
 			os.Exit(runHooks(os.Args[2:]))
 		case "tasks", "task":
@@ -367,6 +369,7 @@ Usage:
                               (re-run with same name to continue the conversation)
                               --async returns immediately with sid<TAB>msg_id
   gact attach <name|sid>     launch the TUI pre-selected on a session
+  gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact hooks list|add|rm     manage §6.17 event hooks
                               add: --event STR --command PATH or --url URL
                                    [--session SID] [--workspace WS_ID]
@@ -1296,6 +1299,61 @@ func runHooksRm(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
 	}
+	return 0
+}
+
+// runVoice implements `gact voice <sid> <audio-file|->`. Reads the
+// audio bytes (file path or `-` for stdin), POSTs to the §6.14 voice
+// endpoint via client.VoiceTranscribe, prints the transcribed text.
+// Mime type defaults to audio/wav (matches scripts/voice-record.sh
+// output) and is overridable via --mime. (PPP1)
+func runVoice(args []string) int {
+	fs := flag.NewFlagSet("voice", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	mime := fs.String("mime", "audio/wav", "audio MIME type (e.g. audio/wav, audio/webm)")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--mime": true, "-mime": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact voice <session_id> <audio-file|->")
+		return 2
+	}
+	sid := fs.Arg(0)
+	src := fs.Arg(1)
+	var audio []byte
+	if src == "-" {
+		b, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact voice: read stdin: %v\n", err)
+			return 1
+		}
+		audio = b
+	} else {
+		b, err := os.ReadFile(src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact voice: read %s: %v\n", src, err)
+			return 1
+		}
+		audio = b
+	}
+	if len(audio) == 0 {
+		fmt.Fprintln(os.Stderr, "gact voice: empty audio")
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	resp, err := c.VoiceTranscribe(ctx, sid, audio, *mime)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact voice: %v\n", err)
+		return 1
+	}
+	fmt.Print(resp.Text)
 	return 0
 }
 
@@ -3420,7 +3478,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+    cmds="agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -3440,7 +3498,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces)
+    cmds=(agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -3453,7 +3511,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach cancel capabilities caps catalog completion context delete diag diff dump-bundle emit-config export files fork hooks import info list log mcp metrics models new perms ping plugins quick rename repo-map rewind run search send stream summarize tail tasks tell tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

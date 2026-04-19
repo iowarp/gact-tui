@@ -629,6 +629,42 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_Voice covers PPP1: feed an audio file to gact voice,
+// verify the transcribed text comes back non-empty.
+func TestCLI_Voice(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "voice-target")
+
+	// Drop a non-empty file (content doesn't matter — emulator
+	// returns canned text regardless of input).
+	dir := t.TempDir()
+	audio := filepath.Join(dir, "clip.wav")
+	if err := os.WriteFile(audio, []byte("not real wav data"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"voice", sid, audio)
+	if code != 0 {
+		t.Fatalf("voice: exit %d", code)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("voice: expected non-empty transcription, got %q", stdout)
+	}
+
+	// Empty file → exit 2.
+	empty := filepath.Join(dir, "empty.wav")
+	if err := os.WriteFile(empty, []byte{}, 0o644); err != nil {
+		t.Fatalf("write empty: %v", err)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"voice", sid, empty); code != 2 {
+		t.Errorf("empty audio: expected exit 2, got %d", code)
+	}
+}
+
 // TestCLI_TellAsync covers LLL8: --async returns immediately with
 // sid<TAB>msg_id and exits before the assistant reply lands.
 func TestCLI_TellAsync(t *testing.T) {
