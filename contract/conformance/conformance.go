@@ -696,9 +696,13 @@ func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Durati
 		t.Fatalf("Content-Type = %q, want text/event-stream", ct)
 	}
 
-	// Look for at least one `data:` line within the budget. That's
-	// enough to prove the stream is live — full event taxonomy is a
-	// per-backend concern.
+	// NNNNNN1: read until we see a complete event (terminated by a
+	// blank line). Then validate the envelope per SPEC §7.2:
+	//   1. `event:` line is present
+	//   2. `data:` line parses as JSON with a `type` field
+	//   3. `data.type` matches the `event:` value
+	// Specific event types and payload shapes are per-backend; we
+	// only enforce the envelope shape.
 	deadline := time.Now().Add(budget)
 	buf := make([]byte, 4096)
 	var seen bytes.Buffer
@@ -709,8 +713,11 @@ func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Durati
 		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
 			seen.Write(buf[:n])
-			if bytes.Contains(seen.Bytes(), []byte("\ndata: ")) ||
-				bytes.HasPrefix(seen.Bytes(), []byte("data: ")) {
+			// A complete event ends with "\n\n". Take the first such
+			// block and parse it.
+			raw := seen.Bytes()
+			if idx := bytes.Index(raw, []byte("\n\n")); idx >= 0 {
+				validateSSEEvent(t, string(raw[:idx]), seen.String())
 				return
 			}
 		}
@@ -723,7 +730,45 @@ func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Durati
 			break
 		}
 	}
-	t.Fatalf("no SSE data frame within %s; saw=%q", budget, seen.String())
+	t.Fatalf("no complete SSE event (terminated by \\n\\n) within %s; saw=%q", budget, seen.String())
+}
+
+// validateSSEEvent parses an SSE event block (no trailing \n\n) and
+// asserts §7.2 envelope rules: event: line present, data: line parses
+// as JSON with a `type` field, and data.type matches the event: value.
+// Caller passes the full buffer for diagnostics.
+func validateSSEEvent(t Reporter, block, fullBuf string) {
+	t.Helper()
+	var eventName, dataLine string
+	for _, line := range strings.Split(block, "\n") {
+		switch {
+		case strings.HasPrefix(line, "event:"):
+			eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+		case strings.HasPrefix(line, "data:"):
+			dataLine = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		}
+	}
+	if eventName == "" {
+		t.Errorf("SSE event missing `event:` line per SPEC §7.2: %q", block)
+	}
+	if dataLine == "" {
+		t.Errorf("SSE event missing `data:` line per SPEC §7.2: %q", block)
+		return
+	}
+	var payload struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(dataLine), &payload); err != nil {
+		t.Errorf("SSE data: line not valid JSON: %v (data=%q full=%q)", err, dataLine, fullBuf)
+		return
+	}
+	if payload.Type == "" {
+		t.Errorf("SSE data.type missing per SPEC §7.2: %q", dataLine)
+		return
+	}
+	if eventName != "" && payload.Type != eventName {
+		t.Errorf("SSE event line (%q) does not match data.type (%q) per SPEC §7.2", eventName, payload.Type)
+	}
 }
 
 // checkCommands asserts GET /v1/commands returns 200 with a
