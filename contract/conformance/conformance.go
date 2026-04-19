@@ -56,6 +56,11 @@ type Options struct {
 	SkipCommands      bool
 	SkipTools         bool
 	SkipMetrics       bool
+	// DDDDDD1: Agents section — no capability flag in SPEC (read is
+	// always available per §6.5). Walks GET /v1/agents and locks the
+	// AgentDef shape that powers the Settings → Agent picker. Skip
+	// for backends that surface a totally different agent model.
+	SkipAgents bool
 	// AAAA1: optional MMM-endpoint coverage. Each gated by the
 	// matching capability flag — backends that don't claim it get
 	// auto-skipped, so adapters that wire only a subset don't fail
@@ -169,6 +174,9 @@ func Run(t Reporter, baseURL string, opts Options) {
 	}
 	if !opts.SkipMetrics {
 		t.Run("Metrics", func(t Reporter) { checkMetrics(t, c) })
+	}
+	if !opts.SkipAgents {
+		t.Run("Agents", func(t Reporter) { checkAgents(t, c) })
 	}
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
@@ -1016,6 +1024,57 @@ func checkDiffs(t Reporter, c *conformClient, sid string) {
 		if lang, present := d["language"]; present {
 			if _, ok := lang.(string); !ok && lang != nil {
 				t.Errorf("diff[%d] language must be string|null: %v", i, lang)
+			}
+		}
+	}
+}
+
+// DDDDDD1 — checkAgents validates GET /v1/agents (SPEC §6.5).
+// Asserts 200 + non-nil top-level `agents` array (empty list is
+// fine; missing key violates spec) + per-entry required {id,
+// source, title} with `source` in the documented enum
+// (builtin|user|recipe|skill). Locks the wire shape that powers
+// the Settings → Agent picker (ListAgents → settingsLoadedMsg)
+// and `gact agents list` (CLI). Read-only — never POSTs to create
+// an agent so it stays idempotent against the live backend.
+func checkAgents(t Reporter, c *conformClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/agents")
+	if err != nil {
+		t.Fatalf("GET /v1/agents: %v", err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/agents returned 501 — set SkipAgents")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Agents []map[string]any `json:"agents"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("agents JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Agents == nil {
+		t.Errorf("response missing `agents` key: %s", body)
+		return
+	}
+	for i, a := range raw.Agents {
+		for _, key := range []string{"id", "source", "title"} {
+			if _, ok := a[key]; !ok {
+				t.Errorf("agent[%d] missing required key %q: %v", i, key, a)
+			}
+		}
+		if id, _ := a["id"].(string); id == "" {
+			t.Errorf("agent[%d] has empty id: %v", i, a)
+		}
+		if src, _ := a["source"].(string); src != "" {
+			switch src {
+			case "builtin", "user", "recipe", "skill":
+			default:
+				t.Errorf("agent[%d] unexpected source %q (want builtin|user|recipe|skill)", i, src)
 			}
 		}
 	}
