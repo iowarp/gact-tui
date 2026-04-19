@@ -250,6 +250,15 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipMessageSearch && caps.SearchMessages && sid != "" {
 			t.Run("Messages_Search", func(t Reporter) { checkMessagesSearch(t, c, sid) })
 		}
+		// UUUUUU1: context_files + repo_map. Both gated on caps.files
+		// since the SPEC groups them in §6.9 alongside the workspace
+		// file tree. context_files needs a sid; repo_map needs a wsID.
+		if !opts.SkipFiles && caps.Files && sid != "" {
+			t.Run("Context_Files", func(t Reporter) { checkContextFiles(t, c, sid) })
+		}
+		if !opts.SkipFiles && caps.Files && wsID != "" {
+			t.Run("Repo_Map", func(t Reporter) { checkRepoMap(t, c, wsID) })
+		}
 	}
 }
 
@@ -1799,5 +1808,81 @@ func checkSessionExport(t Reporter, c *conformClient, sid string) {
 	var blob any
 	if err := json.Unmarshal(body, &blob); err != nil {
 		t.Errorf("export body not valid JSON: %v (body=%s)", err, body)
+	}
+}
+
+// UUUUUU1 — checkContextFiles validates GET /v1/sessions/{id}/
+// context/files (SPEC §6.9). Asserts 200 + non-nil top-level
+// `files` array (empty list is fine; missing key violates spec).
+// Per-entry shape: {path, mode} required, with mode in
+// {edit|read|pin}. Read-only — never POSTs to add a context
+// pin so it stays idempotent.
+func checkContextFiles(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/context/files")
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s/context/files: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id}/context/files returned 501 — required by SPEC §6.9 when capabilities.files=true")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Files []map[string]any `json:"files"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("context/files JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Files == nil {
+		t.Errorf("response missing `files` key: %s", body)
+		return
+	}
+	for i, f := range raw.Files {
+		for _, key := range []string{"path", "mode"} {
+			if _, ok := f[key]; !ok {
+				t.Errorf("context_file[%d] missing required key %q: %v", i, key, f)
+			}
+		}
+		if mode, _ := f["mode"].(string); mode != "" {
+			switch mode {
+			case "edit", "read", "pin":
+			default:
+				t.Errorf("context_file[%d] unexpected mode %q (want edit|read|pin)", i, mode)
+			}
+		}
+	}
+}
+
+// UUUUUU1 — checkRepoMap validates GET /v1/workspaces/{id}/repo_map
+// (SPEC §6.9). Asserts 200 + non-nil `tree` object + `tokens` field.
+// Specific tree shape stays per-backend (recursive structure with
+// optional code outline); we only enforce the envelope. Read-only.
+func checkRepoMap(t Reporter, c *conformClient, wsID string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/workspaces/"+wsID+"/repo_map")
+	if err != nil {
+		t.Fatalf("GET /v1/workspaces/%s/repo_map: %v", wsID, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/workspaces/{id}/repo_map returned 501 — required by SPEC §6.9 when capabilities.files=true")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("repo_map JSON decode: %v (body=%s)", err, body)
+	}
+	if _, ok := raw["tree"]; !ok {
+		t.Errorf("response missing `tree` key: %s", body)
+	}
+	if _, ok := raw["tokens"]; !ok {
+		t.Errorf("response missing `tokens` key: %s", body)
 	}
 }
