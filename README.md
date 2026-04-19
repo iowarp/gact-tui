@@ -172,7 +172,7 @@ running backend:
 | `gact workspaces list [--format tsv\|json]` | List workspaces (TSV: id·name·root_path) |
 | `gact fork <sid> [--at MID] [--title T]` | Spawn a child session forked from another (prints new id) |
 | `gact models list [--provider PID] [--format tsv\|json]` | List providers + models (TSV: pid·mid·name·ctx) |
-| `gact info <sid> [--format text\|json]` | One session's metadata (text key:value or raw JSON) |
+| `gact info <sid> [--format text\|json] [--include tasks,hooks]` | One session's metadata; `--include` appends task/hook sections (text) or wraps as `{session,tasks,hooks}` (json) |
 | `gact undo <sid> [--count N]` | Revert last N messages (default 1); prints reverted ids |
 | `gact rewind <sid> <mid> [--include-target]` | Delete every message after `<mid>`; prints deleted ids |
 | `gact files list <ws-id> [--format tsv\|json]` | List workspace files (TSV: type·size·path) |

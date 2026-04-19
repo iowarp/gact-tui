@@ -1440,6 +1440,96 @@ func TestCLI_Follow(t *testing.T) {
 	}
 }
 
+// TestCLI_InfoInclude covers OOOO1: `gact info --include tasks,hooks`
+// pulls extra sections in both text and JSON modes. Seeds two tasks
+// (one set to completed) + a session-scoped hook, asserts both
+// appear in the composite output and JSON wrapping is correct.
+func TestCLI_InfoInclude(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "info-include-target")
+	add := func(verb string, args ...string) string {
+		stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			append([]string{verb}, args...)...)
+		if code != 0 {
+			t.Fatalf("%s: exit %d", verb, code)
+		}
+		return strings.TrimSpace(stdout)
+	}
+	t1 := add("tasks", "add", sid, "do thing 1")
+	t2 := add("tasks", "add", sid, "do thing 2")
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"tasks", "set", t2, "--status", "completed"); code != 0 {
+		t.Fatalf("tasks set: exit %d", code)
+	}
+	hid := add("hooks", "add", "--event", "*", "--command", "/bin/true", "--session", sid)
+
+	// Text mode: should contain section headers + task/hook rows.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "tasks,hooks")
+	if code != 0 {
+		t.Fatalf("info --include: exit %d", code)
+	}
+	for _, want := range []string{
+		"--- tasks ---", "do thing 1", "do thing 2", "completed\t" + t2,
+		"--- hooks ---", hid, "session=" + sid,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("text mode missing %q in: %q", want, stdout)
+		}
+	}
+	if !strings.Contains(stdout, "pending\t"+t1) {
+		t.Errorf("expected pending status row for t1=%s in: %q", t1, stdout)
+	}
+
+	// JSON mode: parse and check the wrapping shape.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "tasks,hooks", "--format", "json")
+	if code != 0 {
+		t.Fatalf("info --include --format json: exit %d", code)
+	}
+	var out struct {
+		Session struct {
+			ID string `json:"id"`
+		} `json:"session"`
+		Tasks []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+		} `json:"tasks"`
+		Hooks []struct {
+			ID    string `json:"id"`
+			Event string `json:"event"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("json parse: %v\n  raw=%q", err, stdout)
+	}
+	if out.Session.ID != sid {
+		t.Errorf("session.id mismatch: %q vs %q", out.Session.ID, sid)
+	}
+	if len(out.Tasks) != 2 || len(out.Hooks) != 1 {
+		t.Errorf("expected 2 tasks + 1 hook, got %d / %d", len(out.Tasks), len(out.Hooks))
+	}
+
+	// Bare info still works (no --include).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid)
+	if code != 0 {
+		t.Fatalf("info bare: exit %d", code)
+	}
+	if strings.Contains(stdout, "--- tasks ---") {
+		t.Errorf("bare info should not include tasks section: %q", stdout)
+	}
+
+	// Unknown include token → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid, "--include", "nonsense"); code != 2 {
+		t.Errorf("info --include nonsense: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_FollowJSON covers NNNN1: `gact follow --format json`
 // emits NDJSON for both the snapshot and streamed messages. Each
 // line must parse as a Message-shaped object.

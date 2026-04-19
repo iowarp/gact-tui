@@ -371,7 +371,7 @@ Usage:
   gact workspaces list       list workspaces (TSV: id  name  root_path)
   gact fork <sid> [--at MID] spawn a child session forked from another
   gact models list           list providers + models (TSV: pid mid name ctx)
-  gact info <sid>            print one session's metadata (text or json)
+  gact info <sid>            print one session's metadata; --include tasks,hooks for composite view
   gact undo <sid> [--count N] revert the last N messages (default 1)
   gact rewind <sid> <mid>    delete every message after <mid> [--include-target]
   gact files list <ws-id>    list workspace files (TSV: type  size  path)
@@ -3431,24 +3431,48 @@ func runUndo(args []string) int {
 // parse (one key per line). `--format json` dumps the raw Session
 // struct for jq pipelines. Useful when scripts need to check status,
 // model, or message_count without parsing `gact list` TSV.
+//
+// OOOO1: --include CSV pulls in extra sections. Supported tokens:
+//
+//	tasks  — session tasks (GET /v1/sessions/{id}/tasks)
+//	hooks  — hooks scoped to this session (filtered from ListHooks)
+//
+// In text mode, extra sections are appended under "--- tasks ---" /
+// "--- hooks ---" headers. In JSON mode the response is wrapped:
+// {"session": {...}, "tasks": [...], "hooks": [...]}.
 func runInfo(args []string) int {
 	fs := flag.NewFlagSet("info", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	format := fs.String("format", "text", "text | json")
+	include := fs.String("include", "", "comma-separated extras: tasks,hooks")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--include": true, "-include": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json] [--include tasks,hooks]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact info: unknown format %q (want text|json)\n", *format)
 		return 2
+	}
+	wantTasks, wantHooks := false, false
+	for _, t := range strings.Split(*include, ",") {
+		switch strings.TrimSpace(t) {
+		case "":
+		case "tasks":
+			wantTasks = true
+		case "hooks":
+			wantHooks = true
+		default:
+			fmt.Fprintf(os.Stderr, "gact info: unknown --include token %q (want tasks|hooks)\n", t)
+			return 2
+		}
 	}
 	sid := fs.Arg(0)
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -3460,10 +3484,52 @@ func runInfo(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact info: %v\n", err)
 		return 1
 	}
+	var tasks []gact.SessionTask
+	if wantTasks {
+		tasks, err = c.ListSessionTasks(ctx, sid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact info: list tasks: %v\n", err)
+			return 1
+		}
+	}
+	var sessionHooks []gact.Hook
+	if wantHooks {
+		all, err := c.ListHooks(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact info: list hooks: %v\n", err)
+			return 1
+		}
+		// Keep hooks scoped to this session OR with no scope (global
+		// applies to every session). Workspace-scoped hooks for this
+		// session's workspace also count — they fire for this session.
+		for _, h := range all {
+			switch {
+			case h.SessionID == sid:
+				sessionHooks = append(sessionHooks, h)
+			case h.SessionID == "" && h.WorkspaceID == "":
+				sessionHooks = append(sessionHooks, h)
+			case h.SessionID == "" && h.WorkspaceID == s.WorkspaceID:
+				sessionHooks = append(sessionHooks, h)
+			}
+		}
+	}
 	if *format == "json" {
+		out := map[string]any{"session": s}
+		if wantTasks {
+			if tasks == nil {
+				tasks = []gact.SessionTask{}
+			}
+			out["tasks"] = tasks
+		}
+		if wantHooks {
+			if sessionHooks == nil {
+				sessionHooks = []gact.Hook{}
+			}
+			out["hooks"] = sessionHooks
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(s); err != nil {
+		if err := enc.Encode(out); err != nil {
 			fmt.Fprintf(os.Stderr, "gact info: %v\n", err)
 			return 1
 		}
@@ -3493,6 +3559,36 @@ func runInfo(args []string) int {
 	}
 	if s.Summary != "" {
 		fmt.Printf("summary:       %s\n", s.Summary)
+	}
+	if wantTasks {
+		fmt.Println("--- tasks ---")
+		if len(tasks) == 0 {
+			fmt.Println("(none)")
+		} else {
+			for _, t := range tasks {
+				fmt.Printf("%s\t%s\t%s\n", t.Status, t.ID, t.Title)
+			}
+		}
+	}
+	if wantHooks {
+		fmt.Println("--- hooks ---")
+		if len(sessionHooks) == 0 {
+			fmt.Println("(none)")
+		} else {
+			for _, h := range sessionHooks {
+				target := h.Command
+				if h.URL != "" {
+					target = h.URL
+				}
+				scope := "global"
+				if h.SessionID != "" {
+					scope = "session=" + h.SessionID
+				} else if h.WorkspaceID != "" {
+					scope = "workspace=" + h.WorkspaceID
+				}
+				fmt.Printf("%s\t%s\t%s\t%s\n", h.ID, h.Event, target, scope)
+			}
+		}
 	}
 	return 0
 }
