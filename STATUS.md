@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T14:25Z
-**Current phase:** UUUU1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d00d89` and pushed
+**Last updated:** 2026-04-19T14:50Z
+**Current phase:** UUUU1 + VVVV1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `f5dfa35` and pushed
 **Open:** none
+
+### Phase VVVV — gact grep --limit N
+- **VVVV1.** `gact grep <query> --limit N` truncates output;
+  default 0 = unlimited (back-compat). Truncation runs after
+  sorting by sid so kept rows are deterministic. Negative
+  --limit → exit 2.
 
 ### Phase UUUU — gact stream --filter
 - **UUUU1.** `gact stream --filter type1,type2` mirrors
