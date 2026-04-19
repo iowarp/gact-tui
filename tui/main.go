@@ -357,7 +357,7 @@ Usage:
   gact metrics [--format]    backend metrics summary (text or json)
   gact quick <q|->           one-shot Q&A (creates+asks+deletes session)
   gact summarize <sid>       trigger backend summary; prints result
-  gact context list <sid>    list session context files (mode + path)
+  gact context list <sid>    list session context files; --mode read|edit|pin --glob PATTERN to filter
   gact context add <sid> <p> attach a file (--mode read|edit|pin)
   gact context rm <sid> <p>  detach a file
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
@@ -4583,20 +4583,39 @@ func runContextList(args []string) int {
 	// PPPP1: --format json emits the raw ContextFile array for jq
 	// pipelines. Default tsv kept for back-compat.
 	format := fs.String("format", "tsv", "tsv | json")
+	// AAAAA1: --mode filters to one of read|edit|pin. Empty = all.
+	modeFilter := fs.String("mode", "", "filter by mode: read|edit|pin; empty = all")
+	// AAAAA1: --glob filters by Go path.Match against the entry's
+	// path (with basename fallback like ZZZZ1).
+	glob := fs.String("glob", "", "filter by Go path.Match pattern (e.g. '*.go'); basename fallback")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--mode": true, "-mode": true,
+		"--glob": true, "-glob": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--format tsv|json] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--format tsv|json] [--mode read|edit|pin] [--glob PATTERN] [--backend URL]")
 		return 2
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact context list: unknown format %q (want tsv|json)\n", *format)
 		return 2
+	}
+	switch *modeFilter {
+	case "", "read", "edit", "pin":
+	default:
+		fmt.Fprintf(os.Stderr, "gact context list: unknown --mode %q (want read|edit|pin)\n", *modeFilter)
+		return 2
+	}
+	if *glob != "" {
+		if _, err := path.Match(*glob, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "gact context list: bad --glob %q: %v\n", *glob, err)
+			return 2
+		}
 	}
 	sid := fs.Arg(0)
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
@@ -4607,6 +4626,24 @@ func runContextList(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact context list: %v\n", err)
 		return 1
+	}
+	if *modeFilter != "" || *glob != "" {
+		filtered := files[:0]
+		for _, f := range files {
+			if *modeFilter != "" && f.Mode != *modeFilter {
+				continue
+			}
+			if *glob != "" {
+				matched, _ := path.Match(*glob, f.Path)
+				if !matched {
+					if m2, _ := path.Match(*glob, path.Base(f.Path)); !m2 {
+						continue
+					}
+				}
+			}
+			filtered = append(filtered, f)
+		}
+		files = filtered
 	}
 	if *format == "json" {
 		if files == nil {

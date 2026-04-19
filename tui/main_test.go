@@ -1761,6 +1761,71 @@ func TestCLI_Follow(t *testing.T) {
 	}
 }
 
+// TestCLI_ContextListFilters covers AAAAA1: --mode and --glob filters
+// on `gact context list`. Seeds 3 entries (read/pin/edit; .go and
+// .md), asserts each filter narrows correctly, combined filters AND
+// together, and bad values exit 2 client-side.
+func TestCLI_ContextListFilters(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "context-filters-target")
+	for _, item := range []struct{ path, mode string }{
+		{"/tmp/alpha.go", "read"},
+		{"/tmp/bravo.md", "pin"},
+		{"/tmp/charlie.go", "edit"},
+	} {
+		if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+			"context", "add", sid, item.path, "--mode", item.mode); code != 0 {
+			t.Fatalf("context add %s: exit %d", item.path, code)
+		}
+	}
+
+	// --mode pin → only bravo.md.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--mode", "pin")
+	if code != 0 {
+		t.Fatalf("--mode pin: exit %d", code)
+	}
+	if !strings.Contains(stdout, "/tmp/bravo.md") || strings.Contains(stdout, "/tmp/alpha.go") || strings.Contains(stdout, "/tmp/charlie.go") {
+		t.Errorf("--mode pin filtering wrong: %q", stdout)
+	}
+
+	// --glob '*.go' → alpha + charlie, not bravo.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--glob", "*.go")
+	if code != 0 {
+		t.Fatalf("--glob *.go: exit %d", code)
+	}
+	if !strings.Contains(stdout, "/tmp/alpha.go") || !strings.Contains(stdout, "/tmp/charlie.go") {
+		t.Errorf("expected both .go files in --glob: %q", stdout)
+	}
+	if strings.Contains(stdout, "/tmp/bravo.md") {
+		t.Errorf("bravo.md should be filtered out: %q", stdout)
+	}
+
+	// Combined filter: --mode edit --glob *.go → only charlie.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--mode", "edit", "--glob", "*.go")
+	if code != 0 {
+		t.Fatalf("combined: exit %d", code)
+	}
+	if !strings.Contains(stdout, "/tmp/charlie.go") || strings.Contains(stdout, "/tmp/alpha.go") || strings.Contains(stdout, "/tmp/bravo.md") {
+		t.Errorf("combined filter wrong: %q", stdout)
+	}
+
+	// Bad --mode + bad --glob → exit 2.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--mode", "nope"); code != 2 {
+		t.Errorf("--mode nope: want exit 2, got %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"context", "list", sid, "--glob", "[bad"); code != 2 {
+		t.Errorf("--glob [bad: want exit 2, got %d", code)
+	}
+}
+
 // TestCLI_ContextListJSON covers PPPP1: `gact context list --format
 // json` emits the raw ContextFile array. Default tsv unchanged.
 func TestCLI_ContextListJSON(t *testing.T) {
