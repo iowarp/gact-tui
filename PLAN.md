@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase GGG — capabilities CLI
+
+- [x] **GGG1.** `gact capabilities` (alias `caps`) wraps existing `client.Capabilities`. Text mode prints contract version, backend identity, transports, auth, then a `✓`/`·` matrix of all 23 SPEC §3.3 flags. Extensions follow. JSON dumps raw `gact.Capabilities`. CLI test asserts contract_version line, three core flag rows in text, and JSON shape.
+
 ## Phase FFF — list filters
 
 - [x] **FFF1.** `gact list` gained `--status STATUS`, `--archived`, `--parent SID`, `--limit N`. Status/limit applied client-side (server has no query params); workspace+archived+parent flow through SessionFilter. Validates --status against the known set with exit 2. CLI test seeds 2 sessions, asserts --limit 1 truncates, --status idle keeps idle rows, --status running yields empty, and bogus status fails 2.
