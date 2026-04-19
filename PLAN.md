@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase WW — models CLI
+
+- [x] **WW1.** `gact models list [--provider PID] [--format tsv|json]` — chains ListProviders + per-provider ListProviderModels in one command. TSV columns: provider_id, model_id, name, context_window. `--provider` skips the providers round-trip and lists only that provider's models. CLI test asserts all three seeded providers (anthropic, openai, local) appear, that `--provider anthropic` filters correctly, and that JSON output exposes `provider_id`+`model_id`.
+
 ## Phase VV — fork CLI
 
 - [x] **VV1.** `gact fork <parent-sid> [--at MID] [--title T]` — POSTs a new session with `parent_session_id` (and optionally `fork_at_message_id`), inheriting the parent's workspace via a GetSession lookup. Prints the new id to stdout. CLI test forks an existing session and asserts the child surfaces under `?parent_session_id=`.

@@ -234,6 +234,46 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Models covers WW1: list providers + models, then filter
+// to a single provider and assert no foreign rows leak in.
+func TestCLI_Models(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"models", "list")
+	if code != 0 {
+		t.Fatalf("models list: exit %d", code)
+	}
+	for _, p := range []string{"anthropic", "openai", "local"} {
+		if !strings.Contains(stdout, p) {
+			t.Errorf("expected provider %q in models list: %q", p, stdout)
+		}
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"models", "list", "--provider", "anthropic")
+	if code != 0 {
+		t.Fatalf("models list --provider: exit %d", code)
+	}
+	if !strings.Contains(stdout, "anthropic") {
+		t.Errorf("expected anthropic rows: %q", stdout)
+	}
+	if strings.Contains(stdout, "openai") || strings.Contains(stdout, "local\t") {
+		t.Errorf("filter leaked other providers: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"models", "list", "--format", "json")
+	if code != 0 {
+		t.Fatalf("models list json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"provider_id"`) || !strings.Contains(stdout, `"model_id"`) {
+		t.Errorf("expected JSON shape: %q", stdout)
+	}
+}
+
 // TestCLI_Fork covers VV1: fork an existing session, assert the new
 // id differs and the child surfaces under the parent in
 // /v1/sessions?parent_session_id=...

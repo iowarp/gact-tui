@@ -102,6 +102,8 @@ func main() {
 			os.Exit(runWorkspaces(os.Args[2:]))
 		case "fork":
 			os.Exit(runFork(os.Args[2:]))
+		case "models", "model":
+			os.Exit(runModels(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -312,6 +314,7 @@ Usage:
   gact search <sid> <query>  full-text search across session messages
   gact workspaces list       list workspaces (TSV: id  name  root_path)
   gact fork <sid> [--at MID] spawn a child session forked from another
+  gact models list           list providers + models (TSV: pid mid name ctx)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -625,6 +628,94 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runModels handles `gact models list [--provider PID] [--format tsv|json]`.
+// Walks `/v1/providers` and per-provider `/v1/providers/{id}/models`
+// so callers don't have to chain two requests by hand. TSV columns:
+// provider_id, model_id, name, context_window. With --provider, only
+// that provider's models are listed (avoids the providers round-trip).
+func runModels(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact models list [--provider PID] [--format tsv|json]")
+		return 2
+	}
+	verb := args[0]
+	if verb != "list" && verb != "ls" {
+		fmt.Fprintf(os.Stderr, "gact models: unknown verb %q (want list)\n", verb)
+		return 2
+	}
+	rest := args[1:]
+	fs := flag.NewFlagSet("models list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	provider := fs.String("provider", "", "limit to one provider id")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--provider": true, "-provider": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact models: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	type row struct {
+		ProviderID    string     `json:"provider_id"`
+		ModelID       string     `json:"model_id"`
+		Name          string     `json:"name"`
+		ContextWindow int        `json:"context_window"`
+		Model         gact.Model `json:"model,omitempty"`
+	}
+	var rows []row
+	var providers []string
+	if *provider != "" {
+		providers = []string{*provider}
+	} else {
+		ps, err := c.ListProviders(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact models list: providers: %v\n", err)
+			return 1
+		}
+		for _, p := range ps {
+			providers = append(providers, p.ID)
+		}
+	}
+	for _, pid := range providers {
+		ms, err := c.ListProviderModels(ctx, pid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact models list %s: %v\n", pid, err)
+			return 1
+		}
+		for _, m := range ms {
+			rows = append(rows, row{
+				ProviderID:    pid,
+				ModelID:       m.ID,
+				Name:          m.Name,
+				ContextWindow: m.ContextWindow,
+				Model:         m,
+			})
+		}
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(rows); err != nil {
+			fmt.Fprintf(os.Stderr, "gact models list: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	for _, r := range rows {
+		fmt.Printf("%s\t%s\t%s\t%d\n", r.ProviderID, r.ModelID, r.Name, r.ContextWindow)
 	}
 	return 0
 }
@@ -1647,7 +1738,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1667,7 +1758,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1680,7 +1771,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
