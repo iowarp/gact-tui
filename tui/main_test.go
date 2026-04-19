@@ -2393,6 +2393,40 @@ func TestCLI_Stream(t *testing.T) {
 	}
 }
 
+// TestCLI_DumpBundleParallel covers RRRR1: with N>workers sessions
+// the bounded fanout still writes every session.json into the
+// bundle. Seeds 12 sessions (workers=8), asserts the summary count
+// matches and every file lands.
+func TestCLI_DumpBundleParallel(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	const N = 12
+	sids := make([]string, 0, N)
+	for i := 0; i < N; i++ {
+		sids = append(sids, createSession(t, url, fmt.Sprintf("dump-parallel-%d", i)))
+	}
+
+	dir := filepath.Join(t.TempDir(), "bundle")
+	_, stderr, code := runGact(t, bin,
+		map[string]string{"GACT_BACKEND": url},
+		"dump-bundle", "-o", dir)
+	if code != 0 {
+		t.Fatalf("dump-bundle: exit %d, stderr=%q", code, stderr)
+	}
+	wantSummary := fmt.Sprintf("wrote %d sessions", N)
+	if !strings.Contains(stderr, wantSummary) {
+		t.Errorf("summary mismatch — want %q, stderr=%q", wantSummary, stderr)
+	}
+	for _, sid := range sids {
+		p := filepath.Join(dir, "sessions", sid+".json")
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("missing session export %s: %v", p, err)
+		}
+	}
+}
+
 // TestCLI_DumpBundle covers PP1: dump-bundle creates the expected
 // directory layout with version + diag + metrics + per-session JSON
 // files. Seeds a session first so the sessions/ subdir is non-empty.

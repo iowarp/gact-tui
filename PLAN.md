@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRR — parallelize gact dump-bundle session export
+
+- [x] **RRRR1.** `gact dump-bundle` now uses the same 8-wide bounded fanout as `gact export --all` (QQQQ1) for the per-session export+write loop. Was strictly serial — bug-report bundles for instances with many sessions paid sessions×RTT in latency. The version.txt / diag.txt / metrics.json paths are untouched (single-shot, not in the hot path). Per-session error tolerance preserved (failures logged but don't abort). CLI test seeds 12 sessions (>workers) and asserts the summary count + every session.json lands.
+
 ## Phase QQQQ — parallelize gact export --all
 
 - [x] **QQQQ1.** `gact export --all -o DIR` now fans out per-session export+write across a bounded worker pool (8-wide, mirroring FFFF1's tasks-summary fanout). Previous behavior was strictly serial — a 200-session backup paid 200×RTT in latency. The pool size is fixed: 8 saturates a LAN backend without DoSing it. Per-session error tolerance preserved (one bad session doesn't trash the run; failed count goes to stderr summary). CLI test seeds 12 sessions (>workers) so the pool must reuse slots, asserts every session.json lands and the summary shows `12 ok, 0 failed`.
