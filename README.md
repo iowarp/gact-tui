@@ -169,6 +169,7 @@ running backend:
 | `gact diff list <sid>` | List file_diff parts (path + pending/applied/rejected) |
 | `gact diff apply\|reject <sid> [paths…]` | Apply or reject diffs (empty = all pending) |
 | `gact search <sid> <query> [--format tsv\|json]` | Search session messages (TSV: mid·role·snippet) |
+| `gact workspaces list [--format tsv\|json]` | List workspaces (TSV: id·name·root_path) |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |

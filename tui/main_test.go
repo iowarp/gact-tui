@@ -234,6 +234,32 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Workspaces covers UU1: list workspaces in TSV and JSON
+// against the seeded `ws_default` workspace the emulator boots with.
+func TestCLI_Workspaces(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"workspaces", "list")
+	if code != 0 {
+		t.Fatalf("workspaces list: exit %d", code)
+	}
+	if !strings.Contains(stdout, "ws_default") {
+		t.Errorf("expected ws_default in TSV output: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"workspaces", "list", "--format", "json")
+	if code != 0 {
+		t.Fatalf("workspaces list json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id"`) || !strings.Contains(stdout, `"ws_default"`) {
+		t.Errorf("expected JSON with ws_default id: %q", stdout)
+	}
+}
+
 // TestCLI_Search covers TT1: send a unique-token message, then
 // search for that token and verify the message id + role + snippet
 // land in the TSV output. Also exercises --format json.
