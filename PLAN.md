@@ -12,6 +12,10 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 - [x] **NNN1.** Emulator scenario engine no longer panics when messages are deleted mid-flight. Made `addPart` and `createAssistantMessage` nil-safe — they return placeholder `&gact.Part{}` / `&gact.Message{}` with empty IDs on error rather than nil. Subsequent calls to UpdateMessagePart/AppendPart/etc. return ErrNotFound (which the scenario already discards), so the script gracefully degrades to no-op instead of crashing the server. Regression test `TestDefaultScriptSurvivesMessageDelete` deletes the assistant message mid-flight and verifies the session survives.
 
+## Phase TTT — log time filter
+
+- [x] **TTT1.** `gact log --since DUR` ships. After ListMessages returns, drops messages with CreatedAt older than now-DUR. Empty/0 = passthrough. CLI test sends AAA, sleeps 2s, sends BBB, asserts --since 1h keeps both, --since 1500ms keeps only BBB.
+
 ## Phase SSS — conformance CLI (deferred)
 
 - [x] **SSS1.** `gact conformance` ships. Refactored `contract/conformance` to a `Reporter` interface (Helper/Run/Errorf/Fatal/Fatalf) — testing.T wraps via `FromTest`, CLIReporter implements it for command-line use. NewCLIReporter prints `▶`/`✓`/`✗` per section + tracks Failed; FailedSections() returns leaf failures. CLI accepts `--skip Section,…` to disable sections. Exit 0 = pass, 1 = fail, 2 = bad usage. CLI test runs full suite vs emulator and asserts PASS in stderr.

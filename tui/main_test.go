@@ -629,6 +629,59 @@ func TestCLI_Hooks(t *testing.T) {
 	}
 }
 
+// TestCLI_LogSince covers TTT1: send two messages with a sleep
+// between, --since 50ms keeps only the latest, --since 1h keeps
+// both.
+func TestCLI_LogSince(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "log-since-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "AAA"); code != 0 {
+		t.Fatalf("send AAA: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait AAA: exit %d", code)
+	}
+	// Wait long enough that AAA's user msg drops out of a small
+	// --since window.
+	time.Sleep(2 * time.Second)
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "BBB"); code != 0 {
+		t.Fatalf("send BBB: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait BBB: exit %d", code)
+	}
+
+	// Wide window keeps both.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--since", "1h", "--limit", "50")
+	if code != 0 {
+		t.Fatalf("log --since 1h: exit %d", code)
+	}
+	if !strings.Contains(stdout, "AAA") || !strings.Contains(stdout, "BBB") {
+		t.Errorf("--since 1h should keep both: %q", stdout)
+	}
+
+	// Narrow window keeps only BBB (AAA was sent ≥2s ago).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--since", "1500ms", "--limit", "50")
+	if code != 0 {
+		t.Fatalf("log --since 1500ms: exit %d", code)
+	}
+	if strings.Contains(stdout, "AAA") {
+		t.Errorf("--since 1500ms should drop AAA: %q", stdout)
+	}
+	if !strings.Contains(stdout, "BBB") {
+		t.Errorf("--since 1500ms should keep BBB: %q", stdout)
+	}
+}
+
 // TestCLI_Conformance covers SSS1: run the conformance suite against
 // a freshly-started emulator and assert exit 0 + every section
 // reports PASS in stderr.
