@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase LLLLLL — conformance: MCP resources + prompts coverage
+
+- [x] **LLLLLL1.** Extended `checkMcp`'s per-server drill (JJJJJJ1 added /tools) with the remaining read-only MCP catalog endpoints per SPEC §6.7: (1) `GET /v1/mcp/servers/{id}/resources` — non-nil `resources` array, each entry with non-empty uri; (2) `GET /v1/mcp/servers/{id}/prompts` — non-nil `prompts` array, each entry with non-empty name. Adapter authors that wired only servers + tools missed both of these MCP catalog surfaces (used by the slash-command palette and the @-resource picker). Read-only — never POSTs to /resources/read or /prompts/get.
+
 ## Phase KKKKKK — conformance: providers per-id drill-down
 
 - [x] **KKKKKK1.** Extended `checkProviders` (already had per-provider /models drill) with the missing `GET /v1/providers/{id}` detail endpoint. Per SPEC §6.12, adapter authors that wired only the list + models endpoints had a silent gap on the per-provider detail. Per-id response must echo the same id back and have a non-empty `name`. Read-only.
