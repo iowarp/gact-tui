@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-19T03:50Z
-**Current phase:** MMM7/8 + NNN1 + JJJ1 + LLL8b shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d1a0232` and pushed
-**Open:** MMM8b (TUI palette plugin wiring) — only known follow-up
+**Last updated:** 2026-04-19T04:05Z
+**Current phase:** MMM7/8 + NNN1 + JJJ1 + LLL8b + MMM8b shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3b606fb` and pushed
+**Open:** none — all known follow-ups closed. PLAN.md awaits next user feedback for new phases.
 
 ## This loop (Phases N + O)
 
@@ -89,6 +89,12 @@
   SIGTSTP handling). Reassurance hint "detached — fg to resume;
   backend session keeps running" set before suspend. Help
   overlay updated. Unit test asserts hint + cmd.
+- **MMM8b.** Plugin commands now appear in the slash palette.
+  paletteMatches merges flattened pluginCommand tuples with
+  Source="plugin"; Enter execs the binary in the background with
+  GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
+  hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
+  the dep one-way.
 
 ### Phase JJJ — intro splash (user-flagged)
 - **JJJ1.** ASCII splash with Triangle logo + GACT block-letters
