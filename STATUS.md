@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:46Z
-**Current phase:** NNNNNN1 + adapter follow-ups shipped this run
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a325de2` (pushed)
+**Last updated:** 2026-04-19T18:48Z
+**Current phase:** PPPPPP1 (README refresh) shipped this run
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `64ba6ab` (pushed)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase PPPPPP — conformance README refresh
+- **PPPPPP1.** README "What it checks" table was 7 sections
+  behind. Brings it to current: 14 sections + per-id
+  drill-downs, organized into "always-on" vs "capability-gated"
+  with the gating cap named explicitly. Each row points at the
+  phase code that introduced or extended it.
 
 ### Phase OOOOOO — adapter conformance follow-ups
 - **OOOOOO1.** After adding 13 conformance sections this run
