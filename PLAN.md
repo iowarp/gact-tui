@@ -173,7 +173,7 @@ All items captured in `.claude/projects/-home-jcernuda-tui/memory/feedback_tui_i
 
 ## Phase PP — bug-report bundle
 
-- [ ] **PP1.** `gact dump-bundle -o DIR` writes a complete bug-report bundle: `diag.txt` (env/config), `metrics.json`, every session as JSON, plus the binary/contract version. Shifts the "include version + config + sample session" boilerplate from a multi-step user procedure into one command.
+- [x] **PP1.** `gact dump-bundle [-o DIR]` writes version.txt + diag.txt + metrics.json + sessions/<sid>.json into one directory. Best-effort (backend offline still produces local-only files). CLI test verifies each artefact lands.
 
 ## Phase OO — catalog CLI
 

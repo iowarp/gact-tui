@@ -25,6 +25,11 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase PP — bug-report bundle
+- **PP1.** `gact dump-bundle [-o DIR]` writes a single-directory
+  bug-report snapshot (version + diag + metrics + every session
+  export). One command instead of four.
+
 ### Phase NN — context CLI
 - **NN1.** `gact context list/add/rm` manages session context files
   via the same endpoints as the sidebar `o` key.
