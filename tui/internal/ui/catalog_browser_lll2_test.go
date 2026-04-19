@@ -94,7 +94,7 @@ func TestCatalogBrowser_EscPopsMcpDetail(t *testing.T) {
 func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
 	cases := map[catalogBrowserKind]string{
 		catalogKindMcp:       "MCP servers",
-		catalogKindTools:     "Tools",
+		catalogKindTools:     "Tools (built-in + MCP)",
 		catalogKindSkills:    "Skills",
 		catalogKindMcpDetail: "MCP detail",
 		catalogKindAgents:    "Agents",

@@ -1133,6 +1133,8 @@ func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 	}{
 		{"/mcp", true, catalogKindMcp},
 		{"/tools", true, catalogKindTools},
+		// HHHHH1: /catalog is the alias for the unified-tools view.
+		{"/catalog", true, catalogKindTools},
 		{"/skills", true, catalogKindSkills},
 		{"/clear", false, 0},
 		{"/help", false, 0},
@@ -1155,7 +1157,7 @@ func TestCatalogBrowser_OpenAndClose(t *testing.T) {
 	if !a.catalogBrowserOpen {
 		t.Fatalf("openCatalogBrowser didn't flip the flag")
 	}
-	if a.catalogBrowser.title != "Tools" {
+	if a.catalogBrowser.title != "Tools (built-in + MCP)" {
 		t.Fatalf("wrong title: %q", a.catalogBrowser.title)
 	}
 	if cmd == nil {

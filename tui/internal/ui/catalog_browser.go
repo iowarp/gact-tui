@@ -103,14 +103,42 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
 		case catalogKindTools:
+			// HHHHH1: unified view. /v1/tools already returns tools
+			// from every source (built-in + each MCP server), but the
+			// previous loader hid that — the user said "tools and mcps
+			// were meant to be the same menu, not a separation". Now
+			// each row is tagged with its source ("builtin", "mcp",
+			// "recipe", "extension"); MCP-sourced tools also carry
+			// the server id in the description so it's clear which
+			// MCP exposes them. Sort by (source, name) so MCP tools
+			// cluster together but the row stays scannable.
 			tools, err := c.ListTools(ctx)
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
+			sort.SliceStable(tools, func(i, j int) bool {
+				if tools[i].Source != tools[j].Source {
+					return tools[i].Source < tools[j].Source
+				}
+				return tools[i].Name < tools[j].Name
+			})
 			items := make([]catalogItem, 0, len(tools))
 			for _, tl := range tools {
+				src := tl.Source
+				if src == "" {
+					src = "builtin"
+				}
+				desc := tl.Description
+				if tl.ServerID != "" {
+					tag := "from " + tl.ServerID
+					if desc == "" {
+						desc = tag
+					} else {
+						desc = tag + " · " + desc
+					}
+				}
 				items = append(items, catalogItem{
-					id: tl.Name, title: tl.Name, desc: tl.Description,
+					id: tl.Name, title: tl.Name, desc: desc, statusTag: src,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -243,7 +271,7 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 	case catalogKindMcp:
 		return "MCP servers"
 	case catalogKindTools:
-		return "Tools"
+		return "Tools (built-in + MCP)"
 	case catalogKindSkills:
 		return "Skills"
 	case catalogKindMcpDetail:
@@ -465,7 +493,11 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 	switch strings.ToLower(id) {
 	case "/mcp":
 		return catalogKindMcp, true
-	case "/tools":
+	case "/tools", "/catalog":
+		// HHHHH1: /catalog alias — the unified tool view IS the
+		// catalog. Keeps /tools as the canonical name (back-compat
+		// with help text + muscle memory) while letting users discover
+		// the same view via /catalog.
 		return catalogKindTools, true
 	case "/skills":
 		return catalogKindSkills, true
