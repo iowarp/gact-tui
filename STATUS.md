@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T23:55Z
-**Current phase:** RRRRR1 + SSSSS1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `93237de` and pushed
+**Last updated:** 2026-04-20T00:15Z
+**Current phase:** TTTTT1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6bbdbd8` and pushed
 **Open:** none
+
+### Phase TTTTT — conformance Providers section
+- **TTTTT1.** Conformance gains a `Providers` section (gated on
+  capabilities.providers). Walks `/v1/providers` +
+  `/v1/providers/{id}/models`, asserts `id`/`name` on each.
+  New `Options.SkipProviders` opt-out. Adapters auto-skip via
+  cap gate.
 
 ### Phase SSSSS — subagent scenario variants
 - **SSSSS1.** `runSubagentScript` cycles 3 distinct subagent
