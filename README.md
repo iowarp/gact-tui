@@ -199,6 +199,7 @@ running backend:
 | `gact capabilities [--format text\|json]` | Backend contract version + capability matrix (alias `caps`) |
 | `gact tell <name> <msg> [--async]` | Find-or-create session by title; send + print reply. `--async`: print sid·msg_id and exit |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks (`--event STR --command PATH \| --url URL [--session][--workspace]`) |
+| `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies (set takes JSON `{policies:[…]}`) |
 | `gact export <sid> [-o file]` | Dump one session as a JSON blob |
 | `gact export --all -o DIR` | Dump every session as one file each |
 | `gact import <file\|->` | Upload an export blob (re-IDs everything) |

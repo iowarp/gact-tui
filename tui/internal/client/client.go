@@ -678,6 +678,28 @@ func (c *Client) Metrics(ctx context.Context) (gact.Metrics, error) {
 	return out, err
 }
 
+// --- §6.11 policies (MMM4) -------------------------------------------------
+
+// ListPolicies returns every registered permission policy.
+func (c *Client) ListPolicies(ctx context.Context) ([]gact.Policy, error) {
+	var out struct {
+		Policies []gact.Policy `json:"policies"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/policies", nil, &out)
+	return out.Policies, err
+}
+
+// PutPolicies replaces the whole policy list. Returns the canonical
+// list as the server stored it.
+func (c *Client) PutPolicies(ctx context.Context, policies []gact.Policy) ([]gact.Policy, error) {
+	body := map[string]any{"policies": policies}
+	var out struct {
+		Policies []gact.Policy `json:"policies"`
+	}
+	err := c.do(ctx, http.MethodPut, "/v1/policies", body, &out)
+	return out.Policies, err
+}
+
 // --- §6.17 hooks (MMM3) ----------------------------------------------------
 
 // ListHooks returns every registered hook.

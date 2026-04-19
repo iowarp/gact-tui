@@ -5,6 +5,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 // PermissionResponseRequest is the body for POST /v1/permissions/{id}.
@@ -64,4 +65,33 @@ func (s *Server) handleRespondPermission(w http.ResponseWriter, r *http.Request)
 		},
 	})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// MMM4: §6.11 policies. PUT replaces the entire list (per spec body
+// `{policies: Policy[]}`). GET returns the current list.
+
+type policiesBody struct {
+	Policies []gact.Policy `json:"policies"`
+}
+
+func (s *Server) handleListPolicies(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, policiesBody{Policies: s.perms.Policies()})
+}
+
+func (s *Server) handlePutPolicies(w http.ResponseWriter, r *http.Request) {
+	var req policiesBody
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	for _, p := range req.Policies {
+		switch p.Action {
+		case "allow", "deny", "ask":
+		default:
+			writeError(w, http.StatusBadRequest, "invalid_body",
+				"each policy.action must be allow|deny|ask")
+			return
+		}
+	}
+	s.perms.SetPolicies(req.Policies)
+	writeJSON(w, http.StatusOK, policiesBody{Policies: s.perms.Policies()})
 }

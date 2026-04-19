@@ -708,6 +708,112 @@ func resolveSessionByName(ctx context.Context, c *client.Client, name string) (s
 	return "", false, nil
 }
 
+// runPermsRules dispatches `gact perms rules <subverb>` for MMM4
+// §6.11 policy management:
+//
+//	gact perms rules list
+//	gact perms rules set <json-file|->     (whole-list replace)
+//	gact perms rules clear
+func runPermsRules(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact perms rules list|set|clear ...")
+		return 2
+	}
+	verb := args[0]
+	rest := args[1:]
+	switch verb {
+	case "list", "ls":
+		return runPermsRulesList(rest)
+	case "set":
+		return runPermsRulesSet(rest)
+	case "clear":
+		return runPermsRulesClear(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact perms rules: unknown verb %q (want list|set|clear)\n", verb)
+	return 2
+}
+
+func runPermsRulesList(args []string) int {
+	fs := flag.NewFlagSet("perms rules list", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	policies, err := c.ListPolicies(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms rules list: %v\n", err)
+		return 1
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(map[string]any{"policies": policies})
+	return 0
+}
+
+func runPermsRulesSet(args []string) int {
+	fs := flag.NewFlagSet("perms rules set", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact perms rules set <json-file|->")
+		return 2
+	}
+	src := fs.Arg(0)
+	var r io.Reader
+	if src == "-" {
+		r = os.Stdin
+	} else {
+		f, err := os.Open(src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact perms rules set: open: %v\n", err)
+			return 1
+		}
+		defer f.Close()
+		r = f
+	}
+	var body struct {
+		Policies []gact.Policy `json:"policies"`
+	}
+	if err := json.NewDecoder(r).Decode(&body); err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms rules set: parse: %v\n", err)
+		return 1
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := c.PutPolicies(ctx, body.Policies)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms rules set: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(os.Stderr, "%d policy(s) installed\n", len(out))
+	return 0
+}
+
+func runPermsRulesClear(args []string) int {
+	fs := flag.NewFlagSet("perms rules clear", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
+		return 2
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.PutPolicies(ctx, []gact.Policy{}); err != nil {
+		fmt.Fprintf(os.Stderr, "gact perms rules clear: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 // runHooks dispatches the §6.17 hooks CLI (MMM3):
 //
 //	gact hooks list                                       — TSV: id event command/url scope
@@ -2006,13 +2112,20 @@ func runWorkspaces(args []string) int {
 //	gact perms allow-workspace <perm-id> — POST allow_workspace
 func runPerms(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact perms list|allow|deny|allow-session|allow-workspace ...")
+		fmt.Fprintln(os.Stderr, "usage: gact perms list|allow|deny|allow-session|allow-workspace|rules ...")
 		return 2
 	}
 	verb := args[0]
 	rest := args[1:]
 	if verb == "list" {
 		return runPermsList(rest)
+	}
+	if verb == "rules" {
+		// MMM4: nested verb for §6.11 policies. Subverbs:
+		//   list             - print current policy list
+		//   set <file|->     - replace whole list from JSON {policies:[…]}
+		//   clear            - replace with empty list
+		return runPermsRules(rest)
 	}
 
 	// Action verbs share the same shape: <perm-id> required.

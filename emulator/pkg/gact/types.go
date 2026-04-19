@@ -68,6 +68,20 @@ type Extension struct {
 	Docs    string `json:"docs,omitempty"`
 }
 
+// Policy is a permission auto-resolution rule (SPEC §6.11). When a
+// permission request comes in, the backend walks the policy list in
+// order and applies the first one whose patterns match. Glob-style
+// patterns: `*` matches any chars except `/`, `**` matches across
+// path segments. (MMM4)
+type Policy struct {
+	Scope             string         `json:"scope"`             // "workspace" | "session"
+	ScopeID           string         `json:"scope_id,omitempty"` // empty = any scope
+	ToolNamePattern   string         `json:"tool_name_pattern"` // e.g. "shell" or "*"
+	PathPattern       string         `json:"path_pattern,omitempty"`
+	Action            string         `json:"action"` // "allow" | "deny" | "ask"
+	AnnotationsFilter map[string]any `json:"annotations_filter,omitempty"`
+}
+
 // Hook is a side-effect registration (SPEC §6.17 — MMM3). When the
 // backend publishes an event whose Type matches Hook.Event (or
 // Event=="*"), it runs Command (or POSTs to URL if set) with the

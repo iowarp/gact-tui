@@ -208,6 +208,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/hooks", s.handleCreateHook)
 	s.mux.HandleFunc("DELETE /v1/hooks/{id}", s.handleDeleteHook)
 
+	// §6.11 — Policies (MMM4 — auto-resolve permissions by rule)
+	s.mux.HandleFunc("GET /v1/policies", s.handleListPolicies)
+	s.mux.HandleFunc("PUT /v1/policies", s.handlePutPolicies)
+
 	// §7 — SSE event streams
 	s.mux.HandleFunc("GET /v1/events", s.handleWorkspaceEvents)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleSessionEvents)
