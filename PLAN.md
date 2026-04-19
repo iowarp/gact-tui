@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase UUUUU — conformance: Files section
+
+- [x] **UUUUU1.** Adds a `Files` section to the conformance suite (gated on `capabilities.files` AND a non-empty workspace id). Walks `GET /v1/workspaces/{id}/files`: asserts 200, top-level `entries` array present, and each entry carries `path` + `type` with type in the `file|dir` enum. Locks the wire shape that powers `gact files list`, the @-file picker (M6), and `gact repo-map`'s tree view. Read-only — doesn't fetch file bodies, so it stays decoupled from fixture content. New `Options.SkipFiles` opt-out. Adapters that don't claim `files=true` auto-skip via the cap gate. TestCLI_Conformance now requires the new section name. Confirmed against the emulator: `▶ Files ✓ Files PASS`.
+
 ## Phase TTTTT — conformance: Providers section
 
 - [x] **TTTTT1.** Adds a `Providers` section to the conformance suite (gated on `capabilities.providers`). Walks `GET /v1/providers` and per-provider `GET /v1/providers/{id}/models`: asserts 200, top-level `providers`/`models` arrays present, and each entry carries the required `id` + `name` fields. Locks the wire shape that powers Settings → Model tab, `gact models list`, and the model-pick palette items. New `Options.SkipProviders` opt-out for adapters that don't proxy `/v1/providers` (crush + opencode both auto-skip via the capability gate since they don't claim providers=true). TestCLI_Conformance now requires the new section name. Confirmed against the emulator: `▶ Providers ✓ Providers PASS`.

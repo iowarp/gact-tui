@@ -74,6 +74,12 @@ type Options struct {
 	// model picker (Settings tab + `gact models list`) catches drift
 	// at the wire level before users hit it.
 	SkipProviders bool
+	// UUUUU1: Files section — gated on capabilities.files. Walks
+	// GET /v1/workspaces/{id}/files (the workspace tree). Locks the
+	// shape that powers `gact files list`, the @-file picker (M6),
+	// and `gact repo-map`. Read-only: doesn't touch the file body
+	// endpoint to avoid coupling to the test fixture's file content.
+	SkipFiles bool
 
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
@@ -154,7 +160,7 @@ func Run(t Reporter, baseURL string, opts Options) {
 	// AAAA1: MMM endpoints, gated by capability flag. We need the
 	// caps to know which to run; reuse the Capabilities check's
 	// fetch by re-calling it here (cheap GET).
-	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders {
+	if !opts.SkipHooks || !opts.SkipPolicies || !opts.SkipTasks || !opts.SkipMcp || !opts.SkipProviders || !opts.SkipFiles {
 		caps := fetchCapabilities(c)
 		if !opts.SkipHooks && caps.Hooks {
 			t.Run("Hooks", func(t Reporter) { checkHooks(t, c) })
@@ -177,6 +183,9 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipProviders && caps.Providers {
 			t.Run("Providers", func(t Reporter) { checkProviders(t, c) })
 		}
+		if !opts.SkipFiles && caps.Files && wsID != "" {
+			t.Run("Files", func(t Reporter) { checkFiles(t, c, wsID) })
+		}
 	}
 }
 
@@ -188,6 +197,7 @@ type minimalCaps struct {
 	SessionTasks bool
 	Mcp          bool
 	Providers    bool
+	Files        bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -204,6 +214,7 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 			SessionTasks bool `json:"session_tasks"`
 			Mcp          bool `json:"mcp"`
 			Providers    bool `json:"providers"`
+			Files        bool `json:"files"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)
@@ -883,6 +894,52 @@ func checkProviders(t Reporter, c *conformClient) {
 				if _, ok := m[key]; !ok {
 					t.Errorf("provider[%s] model[%d] missing required key %q: %v", pid, j, key, m)
 				}
+			}
+		}
+	}
+}
+
+// UUUUU1 — checkFiles validates GET /v1/workspaces/{id}/files. Asserts
+// 200, top-level `entries` array, and each entry carries the required
+// {path, type} with type in the file|dir enum. Locks the wire shape
+// that powers the @-file picker (M6), `gact files list`, and
+// `gact repo-map`'s tree view. Read-only; doesn't fetch file bodies
+// to avoid coupling to fixture content.
+func checkFiles(t Reporter, c *conformClient, wsID string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/workspaces/"+wsID+"/files")
+	if err != nil {
+		t.Fatalf("GET /v1/workspaces/%s/files: %v", wsID, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/workspaces/{id}/files returned 501 — set SkipFiles or fix capabilities.files")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var raw struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("files JSON decode: %v (body=%s)", err, body)
+	}
+	if raw.Entries == nil {
+		t.Errorf("response missing `entries` key: %s", body)
+		return
+	}
+	for i, e := range raw.Entries {
+		for _, key := range []string{"path", "type"} {
+			if _, ok := e[key]; !ok {
+				t.Errorf("entry[%d] missing required key %q: %v", i, key, e)
+			}
+		}
+		if typ, _ := e["type"].(string); typ != "" {
+			switch typ {
+			case "file", "dir":
+			default:
+				t.Errorf("entry[%d] unexpected type %q (want file|dir)", i, typ)
 			}
 		}
 	}
