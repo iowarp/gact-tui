@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T09:25Z
-**Current phase:** GGGG1 + HHHH1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `36c0381` and pushed
+**Last updated:** 2026-04-19T09:55Z
+**Current phase:** GGGG1 + HHHH1 + IIII1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `36db1ed` and pushed
 **Open:** none
+
+### Phase IIII — gact theme set
+- **IIII1.** `gact theme set <name>` writes the chosen theme to
+  `config.json` (validates against `ui.AllThemeModes`; unknown names
+  exit 2 with no file write). GACT_THEME still wins at resolution
+  by design — `set` only updates the config-level value.
+  CLI test uses isolated XDG_CONFIG_HOME to verify round-trip and
+  rejection paths. Also stabilized TestCLI_LogSince's flaky 1500ms
+  --since window (now sleep 5s + --since 4s).
 
 ### Phase HHHH — gact theme list
 - **HHHH1.** `gact theme list` enumerates `ui.AllThemeModes` one per
