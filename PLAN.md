@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase UUUU — gact stream --filter (mirrors tail's RRR1)
+
+- [x] **UUUU1.** `gact stream --filter type1,type2` drops events whose type isn't in the keep set, mirroring `gact tail --filter` (RRR1). Useful for live human debugging when message.part.delta floods drown out the interesting events. Empty filter = passthrough (back-compat). CLI test runs stream in --filter notification mode bounded by sleep+kill, fires an mcp reconnect to trigger a notification, asserts the notification row appears while server.connected does not.
+
 ## Phase TTTT — gact tail --format text
 
 - [x] **TTTT1.** `gact tail --format text` reuses `streamRow()` (the same human-readable formatter `gact stream` uses) so live debugging doesn't require piping NDJSON through `jq`. Default kept as `json` (NDJSON) for back-compat with existing tooling. CLI test runs tail in --format text bounded by sleep+kill, asserts no JSON keys leak through, the `server.connected` row appears, and every line starts with an `HH:MM:SS` time field. Unknown format → exit 2.

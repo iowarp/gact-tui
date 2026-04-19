@@ -361,7 +361,7 @@ Usage:
   gact context rm <sid> <p>  detach a file
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
   gact dump-bundle [-o DIR]  diag + metrics + every session as a bundle
-  gact stream [SID]          pretty-print SSE events as a one-liner timeline
+  gact stream [SID]          pretty-print SSE events as a one-liner timeline; --filter type1,type2 to narrow
   gact perms list <sid>      list permissions for a session
   gact perms allow <pid>     allow / deny / allow-session / allow-workspace
   gact diff list <sid>       list file_diff parts (path + status)
@@ -3927,15 +3927,32 @@ func runStream(args []string) int {
 	fs := flag.NewFlagSet("stream", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	wsID := fs.String("workspace", "", "workspace-scoped stream when no session_id")
-	known := map[string]bool{"--backend": true, "-backend": true, "--workspace": true, "-workspace": true}
+	// UUUU1: --filter mirrors `gact tail --filter` (RRR1) so the
+	// human-readable view can drop noise (e.g. message.part.delta
+	// floods) just as easily as the JSON view.
+	filter := fs.String("filter", "", "comma-separated event types to keep; empty = all")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--workspace": true, "-workspace": true,
+		"--filter": true, "-filter": true,
+	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
+	}
+	var keep map[string]bool
+	if *filter != "" {
+		keep = map[string]bool{}
+		for _, t := range strings.Split(*filter, ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				keep[t] = true
+			}
+		}
 	}
 	scope := client.EventStreamScope{WorkspaceID: *wsID}
 	if fs.NArg() == 1 {
 		scope.SessionID = fs.Arg(0)
 	} else if fs.NArg() > 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact stream [session_id] [--workspace WS_ID]")
+		fmt.Fprintln(os.Stderr, "usage: gact stream [session_id] [--workspace WS_ID] [--filter type1,type2]")
 		return 2
 	}
 	if scope.SessionID == "" && scope.WorkspaceID == "" {
@@ -3960,6 +3977,9 @@ func runStream(args []string) int {
 		case e, ok := <-events:
 			if !ok {
 				return 0
+			}
+			if keep != nil && !keep[e.Type] {
+				continue
 			}
 			fmt.Println(streamRow(e))
 		case err, ok := <-errs:
