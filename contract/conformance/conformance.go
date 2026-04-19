@@ -154,6 +154,12 @@ func Run(t Reporter, baseURL string, opts Options) {
 		})
 	}
 
+	if sid != "" && !opts.SkipSessions {
+		t.Run("Sessions_Get", func(t Reporter) {
+			checkSessionGet(t, c, sid)
+		})
+	}
+
 	if sid != "" && !opts.SkipPostMessage {
 		t.Run("Messages_Post", func(t Reporter) {
 			checkPostMessage(t, c, sid, wsID)
@@ -459,6 +465,40 @@ func checkSessionsList(t Reporter, c *conformClient, wsID string) {
 		if s.ID == "" {
 			t.Errorf("sessions[%d].id empty", i)
 		}
+	}
+}
+
+// HHHHHH1 — checkSessionGet validates GET /v1/sessions/{id} (SPEC
+// §6.2). Asserts 200 + id echoed back + non-empty status (sessions
+// always carry a lifecycle state per the Session schema). Skips
+// when no sid is available — the caller already gates on that.
+// Read-only.
+func checkSessionGet(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
+	defer cancel()
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid)
+	if err != nil {
+		t.Fatalf("GET /v1/sessions/%s: %v", sid, err)
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		t.Fatal("/v1/sessions/{id} returned 501 — per-id drill-down required by SPEC §6.2")
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	var got struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("session/%s JSON decode: %v (body=%s)", sid, err, body)
+	}
+	if got.ID != sid {
+		t.Errorf("/v1/sessions/%s returned id=%q (want %q)", sid, got.ID, sid)
+	}
+	if got.Status == "" {
+		t.Errorf("/v1/sessions/%s missing status: %s", sid, body)
 	}
 }
 
