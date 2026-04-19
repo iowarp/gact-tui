@@ -172,6 +172,7 @@ running backend:
 | `gact workspaces list [--format tsv\|json]` | List workspaces (TSV: id·name·root_path) |
 | `gact fork <sid> [--at MID] [--title T]` | Spawn a child session forked from another (prints new id) |
 | `gact models list [--provider PID] [--format tsv\|json]` | List providers + models (TSV: pid·mid·name·ctx) |
+| `gact info <sid> [--format text\|json]` | One session's metadata (text key:value or raw JSON) |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |

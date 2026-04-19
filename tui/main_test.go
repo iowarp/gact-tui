@@ -234,6 +234,47 @@ func TestCLI_Diff(t *testing.T) {
 	}
 }
 
+// TestCLI_Info covers XX1: get a single session's metadata in text
+// and JSON, asserting the title round-trips and status is one of the
+// known states.
+func TestCLI_Info(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "info-roundtrip")
+
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", sid)
+	if code != 0 {
+		t.Fatalf("info: exit %d", code)
+	}
+	if !strings.Contains(stdout, "info-roundtrip") {
+		t.Errorf("expected title in info text: %q", stdout)
+	}
+	if !strings.Contains(stdout, "status:") {
+		t.Errorf("expected status: line: %q", stdout)
+	}
+	hasStatus := false
+	for _, st := range []string{"idle", "running", "waiting", "error"} {
+		if strings.Contains(stdout, "status:        "+st) {
+			hasStatus = true
+			break
+		}
+	}
+	if !hasStatus {
+		t.Errorf("status not in known set: %q", stdout)
+	}
+
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"info", "--format", "json", sid)
+	if code != 0 {
+		t.Fatalf("info json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"id"`) || !strings.Contains(stdout, `"info-roundtrip"`) {
+		t.Errorf("expected JSON with id+title: %q", stdout)
+	}
+}
+
 // TestCLI_Models covers WW1: list providers + models, then filter
 // to a single provider and assert no foreign rows leak in.
 func TestCLI_Models(t *testing.T) {

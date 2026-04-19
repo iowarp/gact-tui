@@ -104,6 +104,8 @@ func main() {
 			os.Exit(runFork(os.Args[2:]))
 		case "models", "model":
 			os.Exit(runModels(os.Args[2:]))
+		case "info":
+			os.Exit(runInfo(os.Args[2:]))
 		case "version", "--version", "-v":
 			runVersion()
 			return
@@ -315,6 +317,7 @@ Usage:
   gact workspaces list       list workspaces (TSV: id  name  root_path)
   gact fork <sid> [--at MID] spawn a child session forked from another
   gact models list           list providers + models (TSV: pid mid name ctx)
+  gact info <sid>            print one session's metadata (text or json)
 
 Common flags (all subcommands):
   --backend URL    GACT backend URL  (env: GACT_BACKEND)
@@ -628,6 +631,77 @@ func runSearch(args []string) int {
 		}
 		snippet := strings.ReplaceAll(m.Snippet, "\n", " ")
 		fmt.Printf("%s\t%s\t%s\n", m.MessageID, role, snippet)
+	}
+	return 0
+}
+
+// runInfo prints a single session's metadata. The default text format
+// is a key:value layout — easy for humans to skim and easy for awk to
+// parse (one key per line). `--format json` dumps the raw Session
+// struct for jq pipelines. Useful when scripts need to check status,
+// model, or message_count without parsing `gact list` TSV.
+func runInfo(args []string) int {
+	fs := flag.NewFlagSet("info", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact info: unknown format %q (want text|json)\n", *format)
+		return 2
+	}
+	sid := fs.Arg(0)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	s, err := c.GetSession(ctx, sid)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact info: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(s); err != nil {
+			fmt.Fprintf(os.Stderr, "gact info: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Printf("id:            %s\n", s.ID)
+	fmt.Printf("title:         %s\n", s.Title)
+	fmt.Printf("status:        %s\n", s.Status)
+	fmt.Printf("workspace:     %s\n", s.WorkspaceID)
+	if s.ParentSessionID != "" {
+		fmt.Printf("parent:        %s\n", s.ParentSessionID)
+	}
+	if s.Model.ProviderID != "" || s.Model.ModelID != "" {
+		fmt.Printf("model:         %s/%s\n", s.Model.ProviderID, s.Model.ModelID)
+	}
+	if s.Agent.ID != "" {
+		fmt.Printf("agent:         %s\n", s.Agent.ID)
+	}
+	fmt.Printf("messages:      %d\n", s.MessageCount)
+	fmt.Printf("tokens_in:     %d\n", s.Tokens.Input)
+	fmt.Printf("tokens_out:    %d\n", s.Tokens.Output)
+	fmt.Printf("cost_usd:      %.4f\n", s.CostUSD)
+	fmt.Printf("created_at:    %s\n", s.CreatedAt.Format(time.RFC3339))
+	fmt.Printf("updated_at:    %s\n", s.UpdatedAt.Format(time.RFC3339))
+	if s.ArchivedAt != nil {
+		fmt.Printf("archived_at:   %s\n", s.ArchivedAt.Format(time.RFC3339))
+	}
+	if s.Summary != "" {
+		fmt.Printf("summary:       %s\n", s.Summary)
 	}
 	return 0
 }
@@ -1738,7 +1812,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+    cmds="archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -1758,7 +1832,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
+    cmds=(archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -1771,7 +1845,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "archive ask cancel catalog completion context delete diag diff dump-bundle emit-config export fork import info list log metrics models new perms ping quick rename run search send stream summarize tail unarchive version wait workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 

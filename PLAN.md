@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase XX — session info CLI
+
+- [x] **XX1.** `gact info <sid> [--format text|json]` — wraps GetSession with a key:value text output (one field per line, awk-friendly) plus raw JSON dump for jq pipelines. Surfaces id, title, status, workspace, parent, model, agent, message_count, tokens, cost, created/updated/archived, summary. CLI test asserts title round-trip and status in known set.
+
 ## Phase WW — models CLI
 
 - [x] **WW1.** `gact models list [--provider PID] [--format tsv|json]` — chains ListProviders + per-provider ListProviderModels in one command. TSV columns: provider_id, model_id, name, context_window. `--provider` skips the providers round-trip and lists only that provider's models. CLI test asserts all three seeded providers (anthropic, openai, local) appear, that `--provider anthropic` filters correctly, and that JSON output exposes `provider_id`+`model_id`.
