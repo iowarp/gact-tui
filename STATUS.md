@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T13:35Z
-**Current phase:** QQQQ1 + RRRR1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `72f5087` and pushed
+**Last updated:** 2026-04-19T13:55Z
+**Current phase:** SSSS1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2008f62` and pushed
 **Open:** none
+
+### Phase SSSS — gact watch --format json
+- **SSSS1.** `gact watch <sid> --format json` emits NDJSON
+  `{ts,sid,status,message_count,tokens_out}` per state change.
+  Default tsv unchanged. CLI test fires a turn in a goroutine,
+  asserts ≥2 NDJSON rows + idle-status row before exit.
 
 ### Phase RRRR — parallelize gact dump-bundle session export
 - **RRRR1.** `gact dump-bundle` per-session export+write now uses
