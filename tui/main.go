@@ -345,7 +345,7 @@ Usage:
   gact wait <sid>            block until the session status is idle
   gact cancel <sid>          POST /v1/sessions/{id}/cancel
   gact run <sid> <text|->    send + wait in one command
-  gact log <sid>             dump conversation messages to stdout
+  gact log <sid>             dump conversation messages (text by default; --format json for NDJSON)
   gact ask <sid> <q|->       send + wait + print assistant reply
   gact new [--title T]       create a session; print id to stdout
   gact delete <sid>          DELETE /v1/sessions/{id}
@@ -4891,16 +4891,24 @@ func runLog(args []string) int {
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	limit := fs.Int("limit", 100, "max messages to print")
 	since := fs.Duration("since", 0, "only print messages with created_at within the last DUR (e.g. 5m, 1h); 0 = unset")
+	// MMMM1: --format json emits NDJSON (one message per line) so
+	// callers can pipe to jq. Default stays text for back-compat.
+	format := fs.String("format", "text", "text | json (NDJSON, one message per line)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--limit": true, "-limit": true,
 		"--since": true, "-since": true,
+		"--format": true, "-format": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--format text|json] [--backend URL]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact log: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
 	sid := fs.Arg(0)
@@ -4927,6 +4935,18 @@ func runLog(args []string) int {
 			}
 		}
 		msgs = filtered
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		// One message per line — explicit no-indent so it's true
+		// NDJSON, not pretty-printed JSON-Lines.
+		for _, m := range msgs {
+			if err := enc.Encode(m); err != nil {
+				fmt.Fprintf(os.Stderr, "gact log: encode: %v\n", err)
+				return 1
+			}
+		}
+		return 0
 	}
 	for _, m := range msgs {
 		printLogMessage(m)
