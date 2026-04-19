@@ -25,6 +25,14 @@
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
 
+### Phase KK — one-shot scripting
+- **KK1.** `gact quick <q|->` — create + ask + delete in one
+  command. CLI test asserts session count unchanged after run.
+
+### Phase LL — summary + completion
+- **LL1.** `gact summarize <sid>` triggers backend summary; prints
+  result. Completion scripts updated. CLI test.
+
 ### Phase JJ — observability
 - **JJ1.** `gact metrics` text summary + `--format json` for
   scrapers. CLI test for both.
