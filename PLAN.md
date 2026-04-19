@@ -4,6 +4,11 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDD — agent detail + watch
+
+- [x] **DDD1.** `gact agent show <id>` (alias `agents show`) wraps new `client.GetAgent`. Text mode lists id, source, title, description, default_model, tools, parameters, then system_prompt block. JSON mode dumps raw AgentDef. CLI test asserts seeded `default` agent renders correctly.
+- [x] **DDD2.** `gact watch <sid> [--interval DUR] [--timeout DUR]` polls GetSession and emits TSV row `HH:MM:SS<TAB>status<TAB>msg_count<TAB>tokens_out` whenever status/messages/tokens change. Exits cleanly after seeing activity + 2 idle ticks (timeout otherwise). Activity = any non-idle status OR any change in counts after the first poll — this lets the loop terminate on fast emulator turns that skip running state. CLI test backgrounds a send, asserts ≥2 rows + 4-col TSV.
+
 ## Phase CCC — tool detail + MCP reconnect
 
 - [x] **CCC1.** `gact tool show <id>` (alias `tools show`) — wraps `/v1/tools/{id}` via new `client.GetTool`. Text mode prints id, source, server, name, title, description, permission_default, plus pretty-JSON for input/output schemas; JSON mode dumps the raw `gact.Tool`. CLI test asserts seeded `bash` round-trips with name, description, and schema.

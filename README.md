@@ -180,6 +180,8 @@ running backend:
 | `gact mcp tools\|resources\|prompts <srv-id>` | Drill into one MCP server's catalog (TSV or JSON) |
 | `gact mcp reconnect <srv-id>` | Force-reconnect an MCP server (POST) |
 | `gact tool show <id> [--format text\|json]` | Print one tool's metadata + input schema |
+| `gact agent show <id> [--format text\|json]` | Print one agent's metadata + system prompt |
+| `gact watch <sid> [--interval DUR]` | TSV row per status/msg/token change; exits when settled |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
 | `gact dump-bundle [-o DIR]` | One-shot bug-report bundle (diag + metrics + sessions) |
 | `gact list [--format tsv\|json]` | List sessions (id, status, title, updated_at) |
