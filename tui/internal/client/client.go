@@ -438,6 +438,36 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 	return out.Entries, err
 }
 
+// McpServerTools fetches the tools advertised by one MCP server via
+// /v1/mcp/servers/{id}/tools.
+func (c *Client) McpServerTools(ctx context.Context, serverID string) ([]gact.Tool, error) {
+	var out struct {
+		Tools []gact.Tool `json:"tools"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/mcp/servers/"+serverID+"/tools", nil, &out)
+	return out.Tools, err
+}
+
+// McpServerResources fetches the resources advertised by one MCP server
+// via /v1/mcp/servers/{id}/resources.
+func (c *Client) McpServerResources(ctx context.Context, serverID string) ([]gact.McpResource, error) {
+	var out struct {
+		Resources []gact.McpResource `json:"resources"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/mcp/servers/"+serverID+"/resources", nil, &out)
+	return out.Resources, err
+}
+
+// McpServerPrompts fetches the prompt templates advertised by one MCP
+// server via /v1/mcp/servers/{id}/prompts.
+func (c *Client) McpServerPrompts(ctx context.Context, serverID string) ([]gact.McpPrompt, error) {
+	var out struct {
+		Prompts []gact.McpPrompt `json:"prompts"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/mcp/servers/"+serverID+"/prompts", nil, &out)
+	return out.Prompts, err
+}
+
 // RepoMapResponse is the full response of /v1/workspaces/{id}/repo_map
 // — the tree plus the backend's estimate of how many tokens
 // it would cost to ship to the model as context.
