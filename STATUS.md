@@ -1,9 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:42Z
-**Current phase:** NNNNNN1 shipped (13 conformance phases this run: BBBBBB1..NNNNNN1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a61b7d5` (pushed after status commit)
+**Last updated:** 2026-04-19T18:46Z
+**Current phase:** NNNNNN1 + adapter follow-ups shipped this run
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a325de2` (pushed)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase OOOOOO — adapter conformance follow-ups
+- **OOOOOO1.** After adding 13 conformance sections this run
+  (BBBBBB1..NNNNNN1), adapters needed catch-up. Opencode now
+  implements `GET /v1/workspaces/{id}` (synthetic single-workspace
+  echo) so the §6.1 per-id drill stops returning 501. Both
+  adapters' conformance tests now `SkipAgents: true` since
+  neither proxies /v1/agents (no upstream concept). All adapter
+  conformance subtests pass.
 
 ### Phase NNNNNN — conformance SSE envelope validation
 - **NNNNNN1.** Strengthened `checkSSE` from "first data:
