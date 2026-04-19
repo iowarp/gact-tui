@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-19T08:00Z
-**Current phase:** DDDD1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `6ef9337` and pushed
+**Last updated:** 2026-04-19T08:15Z
+**Current phase:** DDDD1 + EEEE1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3a5d5d0` and pushed
 **Open:** none
 
 ## This loop (Phases N + O)
@@ -95,6 +95,11 @@
   GACT_SESSION_ID/BACKEND/PLUGIN_DIR env vars. Output → transient
   hint. Cross-package types ui.PluginsLoaded/PluginsCommand keep
   the dep one-way.
+
+### Phase EEEE — dump-bundle --since
+- **EEEE1.** `gact dump-bundle --since DUR` ships. Filters
+  bundled sessions by UpdatedAt cutoff; logs kept/total to
+  stderr. Test seeds + verifies wide vs narrow window counts.
 
 ### Phase DDDD — gact env
 - **DDDD1.** `gact env` ships. TSV resolved KEY/VALUE for
