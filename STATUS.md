@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:54Z
-**Current phase:** SSSSSS1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `cd06cc4` (pushed after status commit)
+**Last updated:** 2026-04-19T18:55Z
+**Current phase:** TTTTTT1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `94be3e6` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase TTTTTT — conformance tasks PATCH + enum
+- **TTTTTT1.** Extended `checkTasks` (already had
+  POST/GET/DELETE) with PATCH /v1/tasks/{id} per SPEC §6.18:
+  flips status to running, asserts 200 + id echo + status
+  echo + status in enum (pending|running|completed|failed).
 
 ### Phase SSSSSS — conformance capabilities deeper validation
 - **SSSSSS1.** Strengthened checkCapabilities: contract_version
