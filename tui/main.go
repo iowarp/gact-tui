@@ -399,7 +399,7 @@ Usage:
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
-  gact env                   print resolved config + GACT_* env vars (TSV)
+  gact env [--format tsv|json] print resolved config + GACT_* env vars
   gact theme show [--name N] print active theme palette as TSV (key\thex)
   gact theme list            list available palettes; '*' marks active
   gact theme set <name>      persist theme to config.json (env still wins)
@@ -1697,7 +1697,16 @@ func runThemeList(args []string) int {
 // Output is TSV `KEY<TAB>VALUE` for easy diff between hosts. (DDDD1)
 func runEnv(args []string) int {
 	fs := flag.NewFlagSet("env", flag.ContinueOnError)
-	if err := fs.Parse(args); err != nil {
+	// MMMMM1: --format json emits a single object with the resolved
+	// config + the GACT_* env snapshot. Default tsv kept for back-
+	// compat with existing scripting callers + `gact diag` users.
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{"--format": true, "-format": true}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact env: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
 	cfg, cfgPath, _ := config.Load()
@@ -1718,6 +1727,29 @@ func runEnv(args []string) int {
 		{"INTRO_FILE", resolved(cfg.IntroFile, "GACT_INTRO_FILE", "")},
 		{"CONFIG_PATH", cfgPath},
 		{"PLUGINS_DIR", pluginsDir},
+	}
+	envSnap := map[string]string{}
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "GACT_") {
+			continue
+		}
+		if eq := strings.IndexByte(e, '='); eq >= 0 {
+			envSnap[e[:eq]] = e[eq+1:]
+		}
+	}
+	if *format == "json" {
+		out := map[string]any{}
+		for _, p := range pairs {
+			out[strings.ToLower(p[0])] = p[1]
+		}
+		out["env"] = envSnap
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(out); err != nil {
+			fmt.Fprintf(os.Stderr, "gact env: encode: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	for _, p := range pairs {
 		fmt.Printf("%s\t%s\n", p[0], p[1])

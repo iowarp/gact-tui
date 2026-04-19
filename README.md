@@ -217,7 +217,7 @@ running backend:
 | `gact export --all -o DIR` | Dump every session as one file each |
 | `gact import <file\|->` | Upload an export blob (re-IDs everything) |
 | `gact diag` | Print binary version + config + env for bug reports |
-| `gact env` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars |
+| `gact env [--format tsv\|json]` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars; JSON wraps env vars in a nested object |
 | `gact theme show [--name N]` | Print active theme palette as TSV (`key<TAB>hex`); `--name` overrides resolution |
 | `gact theme list` | List available palettes one per line; `\t*` marks the active one |
 | `gact theme set <name>` | Write theme to `config.json` (validated against `theme list`; env still wins at resolution) |
