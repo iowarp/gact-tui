@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:27Z
-**Current phase:** HHHHHH1 shipped (7 conformance phases shipped this run: BBBBBB1..HHHHHH1)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8478bf5` (pushed after status commit)
+**Last updated:** 2026-04-19T18:29Z
+**Current phase:** IIIIII1 shipped (8 conformance phases this run: BBBBBB1..IIIIII1)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `94c5d7e` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase IIIIII — conformance messages list + per-id drill
+- **IIIIII1.** Adds `Messages_List` section that walks
+  `GET /v1/sessions/{id}/messages` plus per-id drill into
+  `GET /v1/sessions/{id}/messages/{msg_id}`. Asserts 200 +
+  non-nil messages + per-entry {id, role, parts} with role
+  in {user|assistant|system|tool}. New `Options.SkipMessageList`
+  opt-out wired through OptionsSkip fixture.
 
 ### Phase HHHHHH — conformance sessions per-id drill-down
 - **HHHHHH1.** Adds `Sessions_Get` section. Walks
