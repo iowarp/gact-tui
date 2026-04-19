@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-04-18T20:55Z
-**Current phase:** Phase VV (fork CLI) complete
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3f6791e` and pushed
+**Last updated:** 2026-04-18T21:10Z
+**Current phase:** Phase WW (models CLI) complete
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a28f71f` and pushed
 
 ## This loop (Phases N + O)
 
@@ -24,6 +24,13 @@
 ### Phase Z — cursor-aware everything
 - **Z1.** `Ctrl+E` respects the Y1 cursor — expands the bulky
   part of the SELECTED message, falls back to newest-bulky.
+
+### Phase WW — models CLI
+- **WW1.** `gact models list [--provider PID] [--format tsv|json]`
+  chains ListProviders + per-provider ListProviderModels into one
+  command. TSV: provider_id·model_id·name·context_window. JSON
+  embeds the full Model struct (capabilities, pricing). CLI test
+  covers full enumeration, single-provider filter, and JSON shape.
 
 ### Phase VV — fork CLI
 - **VV1.** `gact fork <parent-sid> [--at MID] [--title T]` POSTs a
