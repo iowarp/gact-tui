@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -90,6 +91,42 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	}
 	if !strings.Contains(out, "gact attach") {
 		t.Errorf("resume hint should mention gact attach: %q", out)
+	}
+}
+
+// HHHHHHHH1: sidebar status line now appends a humanized "Nm ago"
+// age so users can tell freshness at a glance. Sessions without
+// UpdatedAt (backend hasn't filled it yet) show just the status.
+func TestSidebar_StatusLineShowsAge(t *testing.T) {
+	now := time.Now().UTC()
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_fresh", Title: "fresh", Status: gact.StatusIdle,
+			UpdatedAt: now.Add(-2 * time.Minute)},
+		{ID: "sess_stale", Title: "stale", Status: gact.StatusIdle,
+			UpdatedAt: now.Add(-3 * 24 * time.Hour)},
+		{ID: "sess_no_ts", Title: "no-ts", Status: gact.StatusIdle},
+	}, nil)
+	a.width, a.height = 100, 30
+	out := a.renderSidebar(40, 25)
+	freshIdx := strings.Index(out, "fresh")
+	staleIdx := strings.Index(out, "stale")
+	noTsIdx := strings.Index(out, "no-ts")
+	if freshIdx < 0 || staleIdx < 0 || noTsIdx < 0 {
+		t.Fatalf("missing expected rows: %q", out)
+	}
+	// The status/age suffix is checked globally against the whole
+	// sidebar render — all three sessions render together so we just
+	// check the suffixes exist (or don't) in the full output.
+	if !strings.Contains(out, "2m ago") {
+		t.Errorf("expected '2m ago' somewhere in sidebar: %q", out)
+	}
+	if !strings.Contains(out, "3d ago") {
+		t.Errorf("expected '3d ago' somewhere in sidebar: %q", out)
+	}
+	// Exactly two `ago` suffixes should be present (fresh + stale);
+	// the no-UpdatedAt session must NOT add a third.
+	if got := strings.Count(out, " ago"); got != 2 {
+		t.Errorf("expected exactly 2 'ago' suffixes; got %d in %q", got, out)
 	}
 }
 

@@ -3554,7 +3554,17 @@ func (a *App) renderSidebar(width, height int) string {
 			titleBudget = 6
 		}
 		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
-		statusLine := "  " + indent + "  " + statusStyle.Render(s.Status)
+		// HHHHHHHH1: append humanized "Nm ago" to the status line so
+		// users can tell which sessions are stale at a glance. Sits
+		// next to the status word in the same muted italic — same
+		// row, no extra vertical space. Zero UpdatedAt (fresh sessions
+		// the backend hasn't filled in yet) renders without the age
+		// suffix so the row isn't a lie.
+		statusText := s.Status
+		if !s.UpdatedAt.IsZero() {
+			statusText += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
+		}
+		statusLine := "  " + indent + "  " + statusStyle.Render(statusText)
 		rows = append(rows, titleLine, statusLine, "")
 	}
 	if endIdx < len(visIdx) {
@@ -3913,6 +3923,26 @@ func (a *App) expandMostRecentPaste() {
 	}
 	a.input.SetValue(strings.Replace(buf, last.placeholder, last.content, 1))
 	a.pastes = a.pastes[:len(a.pastes)-1]
+}
+
+// humanAgeShort renders a duration as a compact 2-3 char age
+// stamp for the sidebar's per-session "updated Nm ago" suffix.
+// Negative durations (clock skew) clamp to "now" so the row
+// doesn't print confusing "-5m ago". (HHHHHHHH1)
+func humanAgeShort(d time.Duration) string {
+	if d < 0 {
+		return "now"
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 }
 
 // prependGutter inserts gutter at the start of every line of s.
