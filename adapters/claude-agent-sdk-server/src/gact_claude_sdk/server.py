@@ -91,6 +91,11 @@ class State:
     # of {name, status}; we slot in synthetic ids derived from name
     # so the SPEC §6.7 per-id endpoints can address each server.
     mcp_servers: list[dict[str, Any]] = field(default_factory=list)
+    # JJJJJJJ1: agent + slash-command catalogs — same lazy-discovery
+    # story. agent_names: data.agents (e.g. "general-purpose"),
+    # slash_command_names: data.slash_commands (e.g. "compact").
+    agent_names: list[str] = field(default_factory=list)
+    slash_command_names: list[str] = field(default_factory=list)
     # Strong refs to in-flight background turns so the GC doesn't
     # cancel them mid-stream (RUF006). Removed on completion.
     background_tasks: set[asyncio.Task[None]] = field(default_factory=set)
@@ -159,9 +164,9 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
                 "files": False,
                 "diffs": False,
                 "providers": False,
-                "agents": False,
-                "commands": False,
-                "metrics": False,
+                "agents": True,
+                "commands": True,
+                "metrics": True,
                 "mcp": True,
                 "voice": False,
                 "lsp": False,
@@ -248,6 +253,26 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
                 await sess.client.disconnect()
             except Exception:
                 pass
+
+    @app.get("/v1/sessions/{sid}/export")
+    async def export_session(sid: str) -> dict[str, Any]:
+        """JJJJJJJ1: dump session as a SPEC §6.2 export blob.
+
+        The blob contract is just "session metadata + full message
+        history as JSON"; we serialize the cached_messages list
+        alongside the Session record. /v1/sessions/import (the
+        import side) isn't wired since claude-agent-sdk doesn't
+        have a session-replay primitive.
+        """
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        return {
+            "session": _session_record(sess),
+            "messages": list(sess.cached_messages),
+            "exported_at": now_iso(),
+            "x_claudecode_version": BACKEND_VERSION,
+        }
 
     @app.post("/v1/sessions/{sid}/cancel", status_code=204)
     async def cancel_session(sid: str) -> None:
@@ -342,6 +367,35 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
 
         return {"message_id": user_msg_id, "accepted_at": now_iso()}
 
+    # --- §6.5 agents ------------------------------------------------
+
+    @app.get("/v1/agents")
+    async def list_agents() -> dict[str, Any]:
+        """JJJJJJJ1: SDK-discovered agent personas.
+
+        Empty until the first session runs (lazy-discovery; the
+        SDK only reveals available agents in SystemMessage(init).
+        data.agents). Each agent is a string name (no further
+        metadata exposed by the SDK), so we synthesize a SPEC §6.5
+        AgentDef with title=name and source=builtin.
+        """
+        return {
+            "agents": [
+                {
+                    "id": name,
+                    "source": "builtin",
+                    "title": name,
+                }
+                for name in state.agent_names
+            ]
+        }
+
+    @app.get("/v1/agents/{agent_id}")
+    async def get_agent(agent_id: str) -> dict[str, Any]:
+        if agent_id not in state.agent_names:
+            raise HTTPException(status_code=404, detail="agent_not_found")
+        return {"id": agent_id, "source": "builtin", "title": agent_id}
+
     # --- §6.6 tools -------------------------------------------------
 
     @app.get("/v1/tools")
@@ -372,6 +426,89 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
             "name": tool_id,
             "source": "builtin",
             "input_schema": {"type": "object"},
+        }
+
+    # --- §6.13 commands ---------------------------------------------
+
+    @app.get("/v1/commands")
+    async def list_commands() -> dict[str, Any]:
+        """JJJJJJJ1: slash-command catalog from SDK init.data.slash_commands."""
+        return {
+            "commands": [
+                {
+                    "id": name,
+                    "title": name,
+                    "source": "builtin",
+                }
+                for name in state.slash_command_names
+            ]
+        }
+
+    # --- §6.16 metrics ----------------------------------------------
+
+    @app.get("/v1/metrics")
+    async def metrics() -> dict[str, Any]:
+        """JJJJJJJ1: synthetic metrics roll-up from adapter state.
+
+        Token counts come from the cached assistant messages' usage
+        dicts (each AssistantMessage carries a usage block per the
+        Anthropic API). cost.total_usd accumulates from the
+        ResultMessage.total_cost_usd values we've seen — but those
+        aren't currently cached, so for now cost is 0. Sessions
+        breakdown is by current status.
+        """
+        sessions_total = len(state.sessions)
+        by_status: dict[str, int] = {
+            "idle": 0,
+            "running": 0,
+            "waiting_permission": 0,
+            "error": 0,
+        }
+        msg_total = 0
+        by_role: dict[str, int] = {
+            "user": 0,
+            "assistant": 0,
+            "system": 0,
+            "tool": 0,
+        }
+        input_tot = 0
+        output_tot = 0
+        cache_read_tot = 0
+        cache_write_tot = 0
+        active = 0
+        for s in state.sessions.values():
+            if s.status in by_status:
+                by_status[s.status] += 1
+            if s.status in ("running", "waiting_permission"):
+                active += 1
+            for m in s.cached_messages:
+                msg_total += 1
+                role = m.get("role")
+                if role in by_role:
+                    by_role[role] += 1
+                usage = m.get("usage") or {}
+                if isinstance(usage, dict):
+                    input_tot += int(usage.get("input_tokens") or 0)
+                    output_tot += int(usage.get("output_tokens") or 0)
+                    cache_read_tot += int(usage.get("cache_read_input_tokens") or 0)
+                    cache_write_tot += int(usage.get("cache_creation_input_tokens") or 0)
+        return {
+            "uptime_s": int(time.time() - state.start_time),
+            "sessions": {
+                "total": sessions_total,
+                "active": active,
+                "by_status": by_status,
+            },
+            "messages": {
+                "total": msg_total,
+                "by_role": by_role,
+            },
+            "tokens": {
+                "input_total": input_tot,
+                "output_total": output_tot,
+                "cache_read_total": cache_read_tot,
+                "cache_write_total": cache_write_tot,
+            },
         }
 
     # --- §6.7 MCP ---------------------------------------------------
@@ -719,6 +856,17 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                                     }
                                 )
                             state.mcp_servers = mapped
+                    # JJJJJJJ1: agents + slash_commands lists from
+                    # the same init payload — string lists, no per-id
+                    # detail beyond the name.
+                    if not state.agent_names:
+                        agents = msg.data.get("agents")
+                        if isinstance(agents, list):
+                            state.agent_names = [str(a) for a in agents if isinstance(a, str)]
+                    if not state.slash_command_names:
+                        cmds = msg.data.get("slash_commands")
+                        if isinstance(cmds, list):
+                            state.slash_command_names = [str(c) for c in cmds if isinstance(c, str)]
                 # StreamEvents take a separate path because they
                 # need session-level state (active streaming msg id).
                 if isinstance(msg, StreamEvent):
