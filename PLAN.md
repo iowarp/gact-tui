@@ -7,6 +7,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 ## Phase BBBBBBBB — Detached-session sidebar marker + auto-prune
 
 - [x] **BBBBBBBB1.** Sidebar now tags every session the user has previously Ctrl+Z-detached from with a small `↩` glyph. App.previouslyDetached map is seeded from the local detached.json registry at startup (filtered to the current backend so cross-backend entries don't leak). New `LoadDetachedRegistry([]DetachedRegistryEntry)` API on App + main.go wiring. Two-step `x/x` delete now prunes both the in-memory set and the on-disk registry via the new App.PruneDetachedRegistry callback so stale entries don't accumulate. Two new unit tests + screenshot `screenshots/BBBBBBBB1_detached_marker.png` showing one fresh + one marked session side-by-side. End-to-end VHS tape verified against live emulator.
+- [x] **BBBBBBBB2.** `gact detached --probe` pretty output now sorts live sessions above dead ones (stable within each group preserves newest-first) and color-codes alive/dead via dependency-free ANSI (green/red/dim; TTY-gated so pipes stay clean). Footer summary `N alive · M dead · K unprobed` prints when probe ran. End-to-end verified with mixed-status registry against live emulator: alive-2 + alive-1 at top, DEAD-new + DEAD-old below.
 
 ## Phase AAAAAAAA — Detached-sessions registry + `gact detached`
 

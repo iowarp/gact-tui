@@ -2304,16 +2304,45 @@ func runDetached(args []string) int {
 			fmt.Println("(no detached sessions — Ctrl+Z in the TUI records one here)")
 			return 0
 		}
+		// BBBBBBBB2: reorder so dead entries sink to the bottom when
+		// --probe is set — the user's next reattach target is almost
+		// always one of the live ones. Stable sort preserves the
+		// newest-first ordering within each group.
+		order := make([]int, len(reg.Records))
+		for i := range order {
+			order[i] = i
+		}
+		sort.SliceStable(order, func(i, j int) bool {
+			ai, aj := liveness[order[i]], liveness[order[j]]
+			// Both unprobed or same liveness → preserve index order.
+			if ai == nil && aj == nil {
+				return order[i] < order[j]
+			}
+			// Alive-or-unknown ranks above known-dead.
+			iDead := ai != nil && !*ai
+			jDead := aj != nil && !*aj
+			if iDead != jDead {
+				return !iDead
+			}
+			return order[i] < order[j]
+		})
 		fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
 			"SESSION", "TITLE", "BACKEND", "DETACHED", "ALIVE")
-		for i, r := range reg.Records {
-			alive := "?"
-			if liveness[i] != nil {
-				if *liveness[i] {
-					alive = "yes"
+		alive, dead, unknown := 0, 0, 0
+		for _, idx := range order {
+			r := reg.Records[idx]
+			aliveText := "?"
+			col := ansiDim
+			if liveness[idx] != nil {
+				if *liveness[idx] {
+					aliveText, col = "yes", ansiGreen
+					alive++
 				} else {
-					alive = "no"
+					aliveText, col = "no", ansiRed
+					dead++
 				}
+			} else {
+				unknown++
 			}
 			when := humanizeAge(time.Since(r.DetachedAt))
 			title := r.Title
@@ -2322,12 +2351,39 @@ func runDetached(args []string) int {
 			}
 			fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
 				truncMid(r.SessionID, 20), truncMid(title, 30),
-				truncMid(r.Backend, 30), when, alive)
+				truncMid(r.Backend, 30), when, colorize(aliveText, col))
 		}
 		fmt.Println()
+		// Footer summary — only show probe counts if at least one
+		// row was probed (otherwise the zeros are noise).
+		if alive+dead > 0 {
+			fmt.Printf("%d alive · %d dead · %d unprobed\n", alive, dead, unknown)
+		}
 		fmt.Println("Reattach: gact attach <session>")
 	}
 	return 0
+}
+
+// ansi* are the single-byte-sequence color codes used by runDetached.
+// We stay dependency-free in main.go (no lipgloss) so the CLI binary
+// stays small; these 4 strings cover the narrow palette we need here.
+const (
+	ansiReset = "\x1b[0m"
+	ansiGreen = "\x1b[32m"
+	ansiRed   = "\x1b[31m"
+	ansiDim   = "\x1b[2m"
+)
+
+// colorize wraps s in an ANSI sequence when stdout is a terminal
+// (detected via file-mode check) — otherwise returns the raw string
+// so piped output isn't cluttered with escape codes. Matches the
+// behaviour of most modern CLIs (git, ls, etc.).
+func colorize(s, code string) string {
+	fi, err := os.Stdout.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return s
+	}
+	return code + s + ansiReset
 }
 
 // humanizeAge renders a duration as a short human string ("3m",
