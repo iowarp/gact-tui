@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase HHHHHHHH — Sidebar session age suffix
+
+- [x] **HHHHHHHH1.** Sidebar status line now appends `· Nm ago` (humanAgeShort helper — Ns/Nm/Nh/Nd scale) pulled from Session.UpdatedAt. No extra row — same 3-row layout per session, status line becomes e.g. `idle · 2m ago`. Zero UpdatedAt (backend hasn't filled it yet) shows status without the suffix so the row isn't a lie. Negative durations (clock skew) clamp to "now". Users can now see at a glance which sessions were actively touched vs stale — pairs well with ↩ markers for resume discovery. Test `TestSidebar_StatusLineShowsAge`: fresh=2m ago, stale=3d ago, zero-UpdatedAt has no "ago" suffix. Screenshot `screenshots/HHHHHHHH1_sidebar_age.png`.
+
 ## Phase GGGGGGGG — `gact detached --prune-dead` cleanup
 
 - [x] **GGGGGGGG1.** New `--prune-dead` flag on `gact detached`: probes every entry, removes any whose probe came back negative, writes the survivors back to detached.json. `--prune-dead` implies `--probe` so the post-prune table also paints the alive column. Stderr prints `pruned N dead entr(y/ies); M alive remain` so the user can see what happened. Real one-shot cleanup workflow: `gact detached --prune-dead` after a backend restart leaves the registry consistent with what the backend actually has. End-to-end verified against live emulator: 2 dead + 1 live registry → after prune, file has only the live entry, footer shows "1 alive · 0 dead · 0 unprobed".
