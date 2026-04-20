@@ -94,6 +94,72 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	}
 }
 
+// JJJJJJJJ1: `d` in sidebar focus toggles detached-only view.
+// Narrows visibleSessionIndexes to sessions in previouslyDetached
+// and changes the sidebar title to "SESSIONS · detached".
+func TestSidebar_DetachedOnlyToggle(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_walked", Title: "walked", Status: gact.StatusIdle},
+		{ID: "sess_fresh", Title: "fresh", Status: gact.StatusIdle},
+		{ID: "sess_other", Title: "also-detached", Status: gact.StatusIdle},
+	}, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.focus = FocusSidebar
+	a.selected = 1
+	a.width, a.height = 100, 30
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_walked", Backend: "http://localhost:7777"},
+		{SessionID: "sess_other", Backend: "http://localhost:7777"},
+	})
+
+	// Before toggle: all three visible, title is plain SESSIONS.
+	out := a.renderSidebar(40, 25)
+	for _, name := range []string{"walked", "fresh", "also-detached"} {
+		if !strings.Contains(out, name) {
+			t.Errorf("expected %q in sidebar before toggle: %q", name, out)
+		}
+	}
+	if strings.Contains(out, "· detached") {
+		t.Error("title shouldn't carry the filter suffix yet")
+	}
+	vis := a.visibleSessionIndexes()
+	if len(vis) != 3 {
+		t.Errorf("expected 3 visible before toggle; got %d", len(vis))
+	}
+
+	// Press `d` to toggle.
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if !a.showDetachedOnly {
+		t.Fatal("d didn't flip showDetachedOnly")
+	}
+	out = a.renderSidebar(40, 25)
+	if !strings.Contains(out, "walked") || !strings.Contains(out, "also-detached") {
+		t.Errorf("detached entries should remain visible: %q", out)
+	}
+	if strings.Contains(out, "fresh\n") || strings.Contains(out, " fresh ") {
+		// "fresh" might appear as substring of other text; grab the
+		// more precise "fresh\n" / " fresh " context check only.
+		t.Errorf("fresh session should be filtered out: %q", out)
+	}
+	if !strings.Contains(out, "· detached") {
+		t.Error("title should carry '· detached' suffix when toggled on")
+	}
+	vis = a.visibleSessionIndexes()
+	if len(vis) != 2 {
+		t.Errorf("expected 2 visible after toggle; got %d", len(vis))
+	}
+
+	// Press `d` again to restore.
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if a.showDetachedOnly {
+		t.Fatal("second d should clear the toggle")
+	}
+	vis = a.visibleSessionIndexes()
+	if len(vis) != 3 {
+		t.Errorf("expected 3 visible after second toggle; got %d", len(vis))
+	}
+}
+
 // HHHHHHHH1: sidebar status line now appends a humanized "Nm ago"
 // age so users can tell freshness at a glance. Sessions without
 // UpdatedAt (backend hasn't filled it yet) show just the status.

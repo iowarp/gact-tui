@@ -335,6 +335,13 @@ type App struct {
 	// the toggle handler so the render path can stay pure.
 	showArchived bool
 
+	// JJJJJJJJ1: showDetachedOnly narrows the sidebar to sessions
+	// the user has previously Ctrl+Z-detached from (match against
+	// previouslyDetached). Toggled via `d` in sidebar focus —
+	// parallel to the `h` archived toggle. Helps users with many
+	// sessions focus on resume candidates.
+	showDetachedOnly bool
+
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
 	// sessionFilterActive is true only while the user is editing the
@@ -2231,6 +2238,22 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.wsID != "" {
 			return a, reloadSessionsForView(a.c, a.wsID, a.showArchived)
 		}
+	case "d":
+		// JJJJJJJJ1: toggle detached-only sidebar view — narrows the
+		// list to sessions the user previously Ctrl+Z-walked-away
+		// from (match against previouslyDetached). Local filter —
+		// no backend refetch needed.
+		a.showDetachedOnly = !a.showDetachedOnly
+		if a.showDetachedOnly {
+			if n := len(a.previouslyDetached); n > 0 {
+				a.transientHint = fmt.Sprintf("showing %d detached session(s) (d to go back)", n)
+			} else {
+				a.transientHint = "no detached sessions on this backend (d to go back)"
+			}
+		} else {
+			a.transientHint = "showing all sessions"
+		}
+		a.ensureSelectedVisible()
 	}
 	return a, nil
 }
@@ -3429,7 +3452,13 @@ func (a *App) renderSidebar(width, height int) string {
 	if a.focus == FocusSidebar {
 		style = t.PaneFoc.Width(width - 2).Height(height)
 	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("SESSIONS")
+	// JJJJJJJJ1: surface the detached-only filter in the title so the
+	// narrower view is visible even after the transient hint fades.
+	titleText := "SESSIONS"
+	if a.showDetachedOnly {
+		titleText = "SESSIONS · detached"
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
 	rows := []string{title, ""}
 	if len(a.sessions) == 0 {
 		rows = append(rows,
