@@ -1,9 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T00:55Z
-**Current phase:** EEEEEEE1 shipped — Python sidecar driving real Claude Code via claude-agent-sdk
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `019fcf4` (pushed)
-**Open:** none — DDDDDDD1+ deferred (Go scaffold scrapped per user direction; Python sidecar is the canonical claude path)
+**Last updated:** 2026-04-20T01:35Z
+**Current phase:** GGGGGGG1 + GGGGGGG2 shipped — TUI renders real Claude replies via sidecar
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e2d5d7d` (pushed)
+**Open:** none — sidecar roadmap (file_diff translation, streaming deltas) tracked in PLAN GGGGGGG3+
+
+### Phase GGGGGGG — claude-agent-sdk sidecar follow-ups
+- **GGGGGGG1.** GET /v1/tools wired. SDK's first SystemMessage(init) populates state.tool_names; both /v1/tools (list) and /v1/tools/{id} drill served. After one real turn, 33 tools discovered. Adds 2 endpoint tests for empty-pre-init + 404-on-unknown.
+- **GGGGGGG2.** Visual proof: screenshots/SDK-claude-tui.png shows the gact TUI rendering real Claude assistant replies via the sidecar (real OAuth, real Anthropic API). Surfaced + fixed two more bugs end-to-end: (a) gact's SSE parser dropped CRLF events from sse-starlette (fixed both sidecar with sep="\n" and gact parser with TrimRight "\r\n"); (b) the post_message user-echo broadcast still double-wrapped payload as {"message": {...}} despite bridge.py already being flat. Round-trip now verified: USER → ASSISTANT renders inline.
 
 ### Phase EEEEEEE — claude-agent-sdk Python sidecar
 - **EEEEEEE1.** New module `adapters/claude-agent-sdk-server/`
