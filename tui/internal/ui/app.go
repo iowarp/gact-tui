@@ -3729,8 +3729,9 @@ func (a *App) renderBody(width, height int) string {
 				"   "+t.HintKey.Render("e")+t.HintLabel.Render(" rename")+
 				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete (x again to confirm)"),
 			"  "+t.HintKey.Render("A")+t.HintLabel.Render(" archive")+
-				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" toggle archived view")+
-				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" filter sessions"),
+				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" archived view")+
+				"   "+t.HintKey.Render("d")+t.HintLabel.Render(" detached only")+
+				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" filter"),
 			"  "+t.HintKey.Render("o")+t.HintLabel.Render(" attach a file as context")+
 				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" pick"),
 			"",
@@ -4219,6 +4220,7 @@ var helpTabs = []struct {
 			{"x", "delete session (press x again to confirm)"},
 			{"A", "archive session (un-archive in archived view)"},
 			{"h", "toggle archived / active view"},
+			{"d", "toggle detached-only view (sessions you Ctrl+Z-walked-away-from)"},
 			{"/", "filter sessions by title"},
 			{"o", "add file to session context"},
 		},
