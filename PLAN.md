@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNNNNNN — Batch `gact detached --rm`
+
+- [x] **NNNNNNNN1.** `gact detached --rm` now accepts a comma-separated list of session ids for batch cleanup — previously one sid per invocation. Trims whitespace around each entry so `--rm "sess_a, sess_b ,sess_c"` works the same as the tight form. Reports total count to stderr. End-to-end verified with 4-entry registry + `--rm "sess_drop1,sess_drop2,sess_drop3"` → "removed 3 entr(y/ies)", surviving entry intact.
+
 ## Phase MMMMMMMM — Terminal title reflects detached count
 
 - [x] **MMMMMMMM1.** windowTitle now appends `[↩N]` when App.previouslyDetached has entries — always-visible reminder on the terminal tab/window title bar even when gact isn't focused. Combines naturally with the existing T1/U2 session-title + status suffix: `GACT — demo (running) [↩3]`. Hidden when N=0 so fresh installs stay clean. TestWindowTitle_AppendsDetachedCount covers empty / detach-only / stacks-with-session-title.
