@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase YYYYYY — conformance: hooks deeper validation
+
+- [x] **YYYYYY1.** Strengthens `checkHooks` (already had POST/GET/DELETE shape) with two more assertions that catch a real adapter bug pattern from the MMM3 era: (1) POST response must echo `event` and `command` back — adapter authors that drop fields on the way through return 200 + an id but lose the configuration. (2) GET list immediately after POST must include the new hook by id — catches adapters that 200 the POST but never persist the row to the catalog. Read-write but the cleanup DELETE removes the test hook so the suite stays idempotent across runs.
+
 ## Phase XXXXXX — conformance: README refresh round 2
 
 - [x] **XXXXXX1.** Brings the conformance README's "What it checks" table up to date with the QQQQQQ1..WWWWWW1 additions/tightenings. New rows: Sessions_Export (RRRRRR1), Context_Files (UUUUUU1), Repo_Map (UUUUUU1), Messages_Search (QQQQQQ1). Updated rows: Capabilities (SSSSSS1 — semver-ish + bool-typed cap values), Tasks (TTTTTT1 — PATCH + enum), Files (VVVVVV1 — per-file body endpoint), SSE (WWWWWW1 — occurred_at + id strictness).
