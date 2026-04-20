@@ -12,6 +12,7 @@ from pathlib import Path
 from claude_agent_sdk import (
     AssistantMessage,
     ResultMessage,
+    StreamEvent,
     SystemMessage,
     TextBlock,
     ToolResultBlock,
@@ -23,6 +24,7 @@ from gact_claude_sdk.bridge import (
     block_to_part,
     file_diff_for_tool_use,
     sdk_message_to_events,
+    stream_event_to_events,
 )
 
 
@@ -329,3 +331,104 @@ def test_assistant_message_without_cwd_omits_file_diff() -> None:
     gact_msg = assistant_message_to_gact(msg, "sess_x")  # no cwd
     types = [p["type"] for p in gact_msg["parts"]]
     assert types == ["tool_call"]
+
+
+# --- GGGGGGG4: stream event translation ------------------------------
+
+
+def _se(event: dict) -> StreamEvent:
+    """Build a StreamEvent for tests. uuid/session_id arbitrary."""
+    return StreamEvent(uuid="u-test", session_id="sdk-sess", event=event, parent_tool_use_id=None)
+
+
+def test_stream_message_start_emits_message_created_and_sets_active_id() -> None:
+    se = _se({"type": "message_start", "message": {"id": "msg_abc", "model": "m"}})
+    events, active = stream_event_to_events(se, "sess_x", None)
+    assert len(events) == 1
+    assert events[0]["type"] == "message.created"
+    body = events[0]["payload"]
+    assert body["id"] == "msg_abc"
+    assert body["session_id"] == "sess_x"
+    assert body["role"] == "assistant"
+    assert body["parts"] == []
+    assert body["model"] == {"provider_id": "anthropic", "model_id": "m"}
+    assert active == "msg_abc"
+
+
+def test_stream_text_delta_emits_part_delta_with_text_append() -> None:
+    se = _se(
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "hello"},
+        }
+    )
+    events, active = stream_event_to_events(se, "sess_x", "msg_abc")
+    assert len(events) == 1
+    assert events[0]["type"] == "message.part.delta"
+    body = events[0]["payload"]
+    assert body["message_id"] == "msg_abc"
+    assert body["part_id"] == "part_msg_abc_0"
+    assert body["delta"] == {"text_append": "hello"}
+    assert active == "msg_abc"
+
+
+def test_stream_content_block_start_text_emits_part_added() -> None:
+    se = _se(
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        }
+    )
+    events, _ = stream_event_to_events(se, "sess_x", "msg_abc")
+    assert len(events) == 1
+    assert events[0]["type"] == "message.part.added"
+    p = events[0]["payload"]["part"]
+    assert p["type"] == "text"
+    assert p["id"] == "part_msg_abc_0"
+
+
+def test_stream_content_block_start_tool_use_is_skipped() -> None:
+    """Tool-use blocks come fully formed in the final AssistantMessage;
+    streaming start for them is dropped to avoid a hollow tool_call."""
+    se = _se(
+        {
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {"type": "tool_use", "id": "toolu_x", "name": "Bash"},
+        }
+    )
+    events, _ = stream_event_to_events(se, "sess_x", "msg_abc")
+    assert events == []
+
+
+def test_stream_message_stop_emits_message_completed_and_clears_active() -> None:
+    se = _se({"type": "message_stop"})
+    events, active = stream_event_to_events(se, "sess_x", "msg_abc")
+    assert len(events) == 1
+    assert events[0]["type"] == "message.completed"
+    assert events[0]["payload"] == {"message_id": "msg_abc"}
+    assert active is None
+
+
+def test_stream_event_without_active_msg_id_drops_non_start_events() -> None:
+    """Defensive: if a delta arrives without a prior message_start
+    we can't target a part — drop rather than fabricate."""
+    se = _se(
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "x"},
+        }
+    )
+    events, active = stream_event_to_events(se, "sess_x", None)
+    assert events == []
+    assert active is None
+
+
+def test_stream_event_via_sdk_message_to_events_returns_nothing() -> None:
+    """sdk_message_to_events must NOT process StreamEvents — they
+    require session-level state. Caller routes them separately."""
+    se = _se({"type": "message_start", "message": {"id": "m", "model": ""}})
+    assert list(sdk_message_to_events(se, "sess_x")) == []

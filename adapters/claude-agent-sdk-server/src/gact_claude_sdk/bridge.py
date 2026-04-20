@@ -17,6 +17,7 @@ from typing import Any
 from claude_agent_sdk import (
     AssistantMessage,
     ResultMessage,
+    StreamEvent,
     SystemMessage,
     TextBlock,
     ThinkingBlock,
@@ -61,6 +62,163 @@ _LANG_BY_EXT: dict[str, str] = {
     ".h": "c",
     ".hpp": "cpp",
 }
+
+
+def _stream_part_id(message_id: str, index: int) -> str:
+    """Deterministic part id for a (message, content-block-index) pair.
+
+    The Anthropic streaming protocol identifies blocks by `index` only
+    (no per-block id). Deltas need a stable part_id to target, and the
+    later message.part.completed has to refer to the same id, so we
+    derive it deterministically from (msg, index). The final
+    AssistantMessage's part list will overwrite these via the
+    message.created replace-by-id semantics; we just need the partials
+    to be consistent within the streaming window.
+    """
+    return f"part_{message_id}_{index}"
+
+
+def stream_event_to_events(
+    se: StreamEvent, session_id: str, active_msg_id: str | None
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Translate one SDK StreamEvent into GACT §7.4 partials.
+
+    Returns `(events, new_active_msg_id)`. The Anthropic stream embeds
+    message id only in `message_start.message.id`; subsequent
+    content_block_* and message_stop events don't carry it. Callers
+    must thread `active_msg_id` across calls so deltas/completes can
+    target the right message. Pattern in server.py:
+
+        events, active = stream_event_to_events(se, sid, active)
+        for ev in events: await broadcast(ev)
+
+    Mapping (text only — tool_use streaming left for the final
+    AssistantMessage frame, which lands seconds later and replaces
+    by id):
+
+      message_start              → message.created (empty parts shell)
+      content_block_start (text) → message.part.added
+      content_block_delta (text_delta) → message.part.delta
+      content_block_stop         → message.part.completed
+      message_stop               → message.completed (+ clears active_msg_id)
+
+    Anything else is silently dropped — the AssistantMessage fills it in.
+    """
+    events: list[dict[str, Any]] = list(_emit_stream_events(se, session_id, active_msg_id))
+    # Update active msg id from message_start (forward) or message_stop (clear).
+    ev = se.event if isinstance(se.event, dict) else {}
+    et = ev.get("type")
+    if et == "message_start":
+        m = ev.get("message")
+        if isinstance(m, dict):
+            mid = m.get("id")
+            if isinstance(mid, str):
+                active_msg_id = mid
+    elif et == "message_stop":
+        active_msg_id = None
+    return events, active_msg_id
+
+
+def _emit_stream_events(
+    se: StreamEvent, session_id: str, active_msg_id: str | None
+) -> Iterable[dict[str, Any]]:
+    """Translate one SDK StreamEvent into GACT §7.4 partials.
+
+    Mapping (text only — tool_use streaming is left for the final
+    AssistantMessage frame, which lands seconds later and replaces by
+    id):
+
+      message_start              → message.created (empty parts shell)
+      content_block_start (text) → message.part.added
+      content_block_delta (text_delta) → message.part.delta
+      content_block_stop         → message.part.completed
+      message_stop               → message.completed
+
+    Anything else (input_json deltas, message_delta, content_block
+    starts for tool_use) is silently dropped — the AssistantMessage
+    boundary fills it in.
+    """
+    ev = se.event
+    if not isinstance(ev, dict):
+        return
+    et = ev.get("type")
+
+    if et == "message_start":
+        m = ev.get("message") or {}
+        msg_id = m.get("id")
+        model = m.get("model") or ""
+        if not isinstance(msg_id, str):
+            return
+        yield envelope(
+            "message.created",
+            {
+                "id": msg_id,
+                "session_id": session_id,
+                "role": "assistant",
+                "parts": [],
+                "model": {"provider_id": "anthropic", "model_id": model},
+                "created_at": now_iso(),
+                "stop_reason": None,
+                "usage": {},
+            },
+        )
+        return
+
+    # All other stream events need the active message id, which the
+    # caller threads via active_msg_id (set on prior message_start).
+    if active_msg_id is None:
+        return
+
+    if et == "content_block_start":
+        idx = ev.get("index")
+        block = ev.get("content_block") or {}
+        if not isinstance(idx, int) or block.get("type") != "text":
+            # Tool-use blocks come fully formed in the final
+            # AssistantMessage; skip the streaming start for them.
+            return
+        yield envelope(
+            "message.part.added",
+            {
+                "message_id": active_msg_id,
+                "part": {
+                    "id": _stream_part_id(active_msg_id, idx),
+                    "type": "text",
+                    "text": block.get("text") or "",
+                },
+            },
+        )
+        return
+    if et == "content_block_delta":
+        idx = ev.get("index")
+        delta = ev.get("delta") or {}
+        if not isinstance(idx, int):
+            return
+        if delta.get("type") == "text_delta":
+            text = delta.get("text") or ""
+            yield envelope(
+                "message.part.delta",
+                {
+                    "message_id": active_msg_id,
+                    "part_id": _stream_part_id(active_msg_id, idx),
+                    "delta": {"text_append": text},
+                },
+            )
+        return
+    if et == "content_block_stop":
+        idx = ev.get("index")
+        if not isinstance(idx, int):
+            return
+        yield envelope(
+            "message.part.completed",
+            {
+                "message_id": active_msg_id,
+                "part_id": _stream_part_id(active_msg_id, idx),
+            },
+        )
+        return
+    if et == "message_stop":
+        yield envelope("message.completed", {"message_id": active_msg_id})
+        return
 
 
 def _language_for(path: str) -> str:
@@ -312,6 +470,12 @@ def sdk_message_to_events(
             "message.created",
             user_message_to_gact(msg, session_id),
         )
+        return
+    if isinstance(msg, StreamEvent):
+        # GGGGGGG4 stream events are handled separately because they
+        # need session-level state (the active message id needs to
+        # survive across events). Caller dispatches to
+        # stream_event_to_events explicitly.
         return
     if isinstance(msg, ResultMessage):
         # SPEC §7.3: session.status_changed → idle when the turn ends.
