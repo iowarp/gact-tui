@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase JJJJJJJ — sidecar conformance gap-closing
+
+- [x] **JJJJJJJ1.** Ran `gact conformance` against live sidecar; 4 sections were 404 (Sessions_Export, Commands_List, Metrics, Agents). All 4 wired to real SDK data: agents from data.agents, commands from data.slash_commands, metrics synthesized from state + cached usage, session export = session record + cached_messages. caps.agents/commands/metrics flipped true. Full GACT conformance suite now passes against live Claude (14 sections green; Diffs/Files auto-skip via cap=false).
+
 ## Phase IIIIIII — claude-agent-sdk session control + MCP
 
 Goal: round out the sidecar with the operations the TUI's footer + catalog browser already have UI for.
