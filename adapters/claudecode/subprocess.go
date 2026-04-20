@@ -70,6 +70,10 @@ func newClaudeProcess(ctx context.Context, opts claudeOptions) (*claudeProcess, 
 		"--verbose",
 		"-p",
 		"--permission-prompt-tool", "stdio",
+		// TTTTTTT4: claude emits stream_event frames carrying the
+		// Anthropic content_block_delta deltas — that's what the
+		// TUI uses to render char-by-char.
+		"--include-partial-messages",
 	)
 	if opts.cwd != "" {
 		cmd.Dir = opts.cwd
