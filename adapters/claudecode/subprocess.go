@@ -60,11 +60,16 @@ func newClaudeProcess(ctx context.Context, opts claudeOptions) (*claudeProcess, 
 	if _, err := exec.LookPath(bin); err != nil {
 		return nil, fmt.Errorf("claude CLI not on PATH: %w", err)
 	}
+	// --permission-prompt-tool stdio is what makes claude route
+	// every gated tool call through the stream-json control protocol
+	// instead of using its built-in interactive prompt. Mirrors what
+	// the Python SDK auto-sets when can_use_tool is provided.
 	cmd := exec.CommandContext(ctx, bin,
 		"--output-format", "stream-json",
 		"--input-format", "stream-json",
 		"--verbose",
 		"-p",
+		"--permission-prompt-tool", "stdio",
 	)
 	if opts.cwd != "" {
 		cmd.Dir = opts.cwd
