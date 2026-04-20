@@ -8,8 +8,8 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 Goal: round out the sidecar with the operations the TUI's footer + catalog browser already have UI for.
 
-- [ ] **IIIIIII1.** Session cancel via `client.interrupt()`. Wire `POST /v1/sessions/{sid}/cancel` to call the SDK client's `interrupt()` method, broadcast a `session.status_changed: cancelling → idle` pair so the TUI's `Ctrl+X` flow works against real Claude. Real-LLM smoke that asks for a long reply, fires cancel mid-stream, asserts the turn ends early.
-- [ ] **IIIIIII2.** MCP catalog passthrough. The SDK's `SystemMessage(init).data.mcp_servers` lists the configured MCP servers (name + status). Cache them on State; expose via `GET /v1/mcp/servers` per SPEC §6.7. Flip `capabilities.mcp=true`. Also wire `GET /v1/mcp/servers/{id}` (the conformance per-id drill). Per-server tools/resources/prompts left for later (SDK doesn't expose them through claude-agent-sdk surface).
+- [x] **IIIIIII1.** POST /v1/sessions/{sid}/cancel routes to ClaudeSDKClient.interrupt(); SDK then yields ResultMessage(is_error=true) which the existing bridge already maps to session.status_changed:error. Also resolves any pending permission futures with deny so the SDK turn doesn't hang on a permission prompt mid-cancel. Idempotent on no-turn-in-flight. Real-LLM smoke (~500-word reply, cancel, assert idle/error within 30s) passes in 18s.
+- [x] **IIIIIII2.** MCP catalog passthrough from SystemMessage(init).data.mcp_servers. Status enum mapped to SPEC §6.7 (connected→ready, needs-auth/failed→error, pending→connecting). Synthetic ids via _slug(name); raw SDK status preserved on x_claudecode_raw_status. Endpoints: GET /v1/mcp/servers, GET /v1/mcp/servers/{id}. capabilities.mcp=true. Real-LLM smoke (~4s) discovers 3 claude.ai connectors on this dev box and validates shape + per-id echo.
 
 ## Phase HHHHHHH — claude-agent-sdk permission flow
 
