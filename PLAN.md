@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase OOOOOOO — Goose POST messages + SSE
 
-- [ ] **OOOOOOO1.** Wire POST `/v1/sessions/{sid}/messages` → POST `/reply` upstream (adapter translates GACT Part[] body → Goose `ChatRequest{user_message, session_id}`). Pump the upstream SSE response into per-session subscribers. Wire GET `/v1/sessions/{sid}/events` to fan-out to those subscribers as SPEC §7.2 envelopes. Translate Goose's MessageEvent variants: `Message`→`message.created`, `Finish`→`session.status_changed:idle`, `Error`→`session.status_changed:error`, `Notification`→`notification`, `Ping`→`server.heartbeat`. Drop `UpdateConversation`/`ActiveRequests` (adapter-internal). Tests use a mocked goosed that emits a canned SSE stream from `/reply`. caps.sse=true.
+- [x] **OOOOOOO1.** Per-session subscriber map; POST /messages spawns runUpstreamReply goroutine that POSTs upstream /reply, parses SSE, calls translateMessageEvent, broadcasts to subscribers. GET /events writes SPEC §7.2 envelopes (event:/id:/data:) + 15s heartbeat. translate.go's translateMessageEvent maps all 7 Goose MessageEvent variants. caps.sse=true. Conformance now passes 8 sections (added Messages_Post + SSE).
 
 ## Phase NNNNNNN — Goose conformance test
 
