@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -367,6 +368,7 @@ Usage:
   gact run <sid> <text|->    send + wait in one command
   gact log <sid>             dump conversation messages (text by default; --format json for NDJSON)
                               --role user,assistant,tool,system filters to one or more roles
+                              --grep REGEX drops messages whose text doesn't match (case-insensitive)
   gact ask <sid> <q|->       send + wait + print assistant reply
   gact new [--title T]       create a session; print id to stdout
   gact delete <sid>          DELETE /v1/sessions/{id}
@@ -6038,23 +6040,41 @@ func runLog(args []string) int {
 	// (comma-separated). Accepted: user|assistant|tool|system. Empty
 	// = show everything (back-compat).
 	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
+	// BBBBBBBBB1: --grep PATTERN drops messages whose flattened text
+	// doesn't match the regex (case-insensitive by default — prepend
+	// `(?-i)` to override). Composes with --role/--since/--limit.
+	grep := fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--limit": true, "-limit": true,
 		"--since": true, "-since": true,
 		"--format": true, "-format": true,
 		"--role":   true, "-role": true,
+		"--grep":   true, "-grep": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--role user,assistant,...] [--format text|json] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--role user,assistant,...] [--grep REGEX] [--format text|json] [--backend URL]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact log: unknown format %q (want text|json)\n", *format)
 		return 2
+	}
+	// BBBBBBBBB1: compile the regex up-front so a bad pattern errors
+	// fast instead of silently producing an empty log. Default to
+	// case-insensitive; callers who need case-sensitive can prefix
+	// the pattern with `(?-i)`.
+	var grepRE *regexp.Regexp
+	if *grep != "" {
+		re, err := regexp.Compile("(?i)" + *grep)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact log: bad --grep pattern %q: %v\n", *grep, err)
+			return 2
+		}
+		grepRE = re
 	}
 	// VVVVVVVV1: validate + build the role keep-set up front so a
 	// typo in --role errors fast instead of silently returning an
@@ -6105,6 +6125,25 @@ func runLog(args []string) int {
 		kept := msgs[:0]
 		for _, m := range msgs {
 			if keepRole[string(m.Role)] {
+				kept = append(kept, m)
+			}
+		}
+		msgs = kept
+	}
+	// BBBBBBBBB1: drop messages whose flattened text doesn't match
+	// the --grep regex. Uses the same messageText() helper the
+	// clipboard path uses so the search target matches what the
+	// user actually sees in the rendered log (text + thinking, tool
+	// calls + results excluded). Messages with no text content
+	// (e.g. pure tool_call assistant turns) never match.
+	if grepRE != nil {
+		kept := msgs[:0]
+		for _, m := range msgs {
+			txt, ok := flattenMessageForGrep(m)
+			if !ok {
+				continue
+			}
+			if grepRE.MatchString(txt) {
 				kept = append(kept, m)
 			}
 		}
@@ -6168,6 +6207,58 @@ func indent(s, prefix string) string {
 		lines[i] = prefix + lines[i]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// flattenMessageForGrep joins every text-bearing part in a message
+// (text, thinking, tool_call name + serialized input, tool_result
+// flattened content) into a single string so `--grep` (BBBBBBBBB1)
+// can match any of them. Returns ("", false) when the message has
+// no grep-able content — caller treats that as "doesn't match".
+func flattenMessageForGrep(m gact.Message) (string, bool) {
+	var b strings.Builder
+	for _, p := range m.Parts {
+		switch p.Type {
+		case gact.PartTypeText:
+			if p.Text == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(p.Text)
+		case gact.PartTypeThinking:
+			if p.Thinking == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(p.Thinking)
+		case gact.PartTypeToolCall:
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(p.ToolName)
+			if len(p.Input) > 0 {
+				args, _ := json.Marshal(p.Input)
+				b.WriteString(" ")
+				b.Write(args)
+			}
+		case gact.PartTypeToolResult:
+			body := flattenToolResultParts(p.Content)
+			if body == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(body)
+		}
+	}
+	if b.Len() == 0 {
+		return "", false
+	}
+	return b.String(), true
 }
 
 // flattenToolResultParts joins a tool_result's nested text parts with
