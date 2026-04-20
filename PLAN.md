@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase YYYYYYYY — `gact dashboard --detached-only`
+
+- [x] **YYYYYYYY1.** New `--detached-only` flag on `gact dashboard` mirrors the sidebar JJJJJJJJ1 `d` toggle on the CLI — restricts rows to sessions in the local registry filtered to current backend. Applied after sort so stable ordering within the surviving subset is preserved. Works with both pretty and JSON output (SSSSSSSS1's `detached: bool` is still emitted per row, always true in this mode). End-to-end verified against live emulator with 1-detached + 1-plain 2-session setup: default shows 2, `--detached-only` narrows to the 1 walked, `--detached-only --format json` returns one row with `detached: true`. All TestCLI_Dashboard* tests still pass.
+
 ## Phase XXXXXXXX — Sidebar busy-only toggle
 
 - [x] **XXXXXXXX1.** New `b` keybind in sidebar focus narrows list to sessions whose status is running or waiting_permission. Parallels JJJJJJJJ1's `d` detached-only. Can stack with `d` — the AND-combined filter shows sessions that are BOTH busy AND in the detached registry. Sidebar title reflects combinations: `SESSIONS · busy`, `SESSIONS · detached`, or `SESSIONS · detached + busy`. Transient hint reports the busy count. Help overlay + empty-state crib updated. Goldens regenerated. New `TestSidebar_BusyOnlyToggle` covers: default-all-visible, b-on keeps running+waiting, stacked-with-d narrows to busy-AND-detached intersection.

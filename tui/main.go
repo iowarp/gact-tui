@@ -419,6 +419,7 @@ Usage:
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
                               --sort newest|oldest|status|tokens|backend (default: newest)
+                              --detached-only restricts rows to the local detached registry
   gact detached              list sessions you've Ctrl+Z-detached from
                               --rm <sid[,sid,...]> drops one or many; --probe checks each is still on the backend
                               --prune-dead probes + removes every dead entry in one shot
@@ -2279,6 +2280,11 @@ func runDashboard(args []string) int {
 	// KKKKKKKK1: --sort controls row ordering. Default newest-first
 	// so "what was I just working on?" answers itself at the top.
 	sortBy := fs.String("sort", "newest", "sort by: newest | oldest | status | tokens | backend")
+	// YYYYYYYY1: --detached-only filters rows to sessions in the
+	// local registry (filtered to current backend). Mirrors the
+	// sidebar JJJJJJJJ1 `d` toggle on the CLI side — lets scripts
+	// query "what detached work is still alive".
+	detachedOnly := fs.Bool("detached-only", false, "show only sessions in the local detached registry")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
@@ -2286,6 +2292,7 @@ func runDashboard(args []string) int {
 		"--interval": true, "-interval": true,
 		"--status": true, "-status": true,
 		"--sort":   true, "-sort": true,
+		"--detached-only": true, "-detached-only": true,
 	})); err != nil {
 		return 2
 	}
@@ -2325,7 +2332,7 @@ func runDashboard(args []string) int {
 
 	if !*watch {
 		// One-shot path (back-compat).
-		return renderDashboardOnce(c, *wsID, *format, keep, *sortBy)
+		return renderDashboardOnce(c, *wsID, *format, keep, *sortBy, *detachedOnly)
 	}
 
 	// BBBB1: watch loop. ANSI clear-screen + cursor-home between
@@ -2341,7 +2348,7 @@ func runDashboard(args []string) int {
 			fmt.Print("\033[2J\033[H") // clear + home
 			fmt.Printf("gact dashboard --watch  backend=%s  refresh=%s  (Ctrl+C to exit)\n\n",
 				finalBackend, *interval)
-			if code := renderDashboardOnce(c, *wsID, *format, keep, *sortBy); code != 0 {
+			if code := renderDashboardOnce(c, *wsID, *format, keep, *sortBy, *detachedOnly); code != 0 {
 				cancel()
 				return code
 			}
@@ -2649,7 +2656,7 @@ func truncMid(s string, width int) string {
 // pretty/tsv output marks sessions the user has previously
 // Ctrl+Z-detached from with `↩` in a new DET column. Same source of
 // truth the TUI sidebar uses (BBBBBBBB1).
-func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool, sortBy string) int {
+func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool, sortBy string, detachedOnly bool) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
@@ -2684,6 +2691,19 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 				}
 			}
 		}
+	}
+	// YYYYYYYY1: --detached-only drops every session whose id isn't
+	// in the registry. Applied AFTER the detach lookup is built and
+	// AFTER sort — preserves stable ordering within the surviving
+	// subset.
+	if detachedOnly {
+		kept := sessions[:0]
+		for _, s := range sessions {
+			if detached[s.ID] {
+				kept = append(kept, s)
+			}
+		}
+		sessions = kept
 	}
 
 	if format == "json" {
