@@ -36,23 +36,36 @@ gact-goose-adapter --upstream http://localhost:3001 --port 7781
 GACT_BACKEND=http://localhost:7781 gact
 ```
 
-## Status (KKKKKKK2 — scaffold)
+## Status
 
-Wired:
-- `GET /v1/health` (probes upstream `/health`; reports `healthy=false` when goosed is unreachable)
-- `GET /v1/capabilities` (advertises `workspaces`; `sessions=false` until KKKKKKK3 wires it)
-- `GET /v1/workspaces` (single synthetic workspace from `--workspace-root`)
-- `GET /v1/workspaces/{id}` (echoes the synthetic, 404 on mismatch)
+| Endpoint | Wired? | Notes |
+|---|---|---|
+| `GET /v1/health` | ✓ | Probes upstream `/health`; reports `healthy=false` when goosed is unreachable. |
+| `GET /v1/capabilities` | ✓ | Advertises `workspaces`, `sessions`, `messages`, `sse` (everything wired below). |
+| `GET /v1/workspaces` + `/{id}` | ✓ | Single synthetic workspace from `--workspace-root`. |
+| `GET /v1/sessions` + `/{id}` | ✓ | Proxies Goose's `GET /sessions` and `/sessions/{id}` with shape translation (name → title, working_dir → metadata, status synthesized as idle). |
+| `GET /v1/sessions/{id}/messages` + `/{msg_id}` | ✓ | Reads conversation off the per-id session response and projects each Goose `Message` (text/thinking/toolRequest/toolResponse) to GACT Parts. |
+| `POST /v1/sessions/{id}/messages` | ✓ | Translates GACT Part[] → Goose `ChatRequest{user_message, session_id}`, POSTs to `/reply`. Returns 202 immediately; SSE arrives via `GET /events`. |
+| `GET /v1/sessions/{id}/events` | ✓ | Per-session SSE fan-out. Translates Goose's `MessageEvent` variants (`Message`, `Finish`, `Error`, `Notification`, `Ping`) into GACT §7.3 events. |
 
 Everything else returns `501 not_implemented` so the TUI degrades
-gracefully (it reads `capabilities` and hides UI for absent
-features).
+gracefully — it reads `capabilities` and hides UI for absent
+features (tools catalog, file diffs, MCP, permissions, etc.).
+
+**Conformance**: 8 sections green against a mocked goosed —
+Health, Capabilities, Workspaces, Sessions_List, Sessions_Get,
+Messages_Post, Messages_List, SSE.
 
 ## Roadmap
 
-- **KKKKKKK3** — Sessions: proxy `GET /sessions` + `GET /sessions/{id}`.
-- Subsequent — POST messages, SSE event translation (Goose's `/reply`
-  is SSE-native), file diffs from agent-edit tool calls.
+- File-diff Parts from agent-edit tool calls (Goose's
+  `developer__text_editor` returns the before/after; surface as
+  GACT `file_diff` so the TUI's `a`/`r` apply/reject keys light up).
+- Permissions flow (Goose's `ToolConfirmationRequest` content
+  variant maps onto SPEC §6.11 permission events).
+- MCP catalog passthrough from Goose's extension data.
+- Real-goosed smoke test (gated on `which goose` like the
+  claude-agent-sdk smokes).
 
 ## Tests
 
@@ -62,7 +75,6 @@ go test -race -count=1 ./...
 ```
 
 Tests use `httptest` to mock the Goose upstream — no real goosed
-required for unit tests. End-to-end smoke against a real goosed is
-a TODO once the messages path lands (it'd cost an inference call
-on the configured Goose provider, so it's not free like the
-emulator-backed conformance).
+required. The conformance test stands the adapter against a richer
+mock that covers every endpoint `gact conformance` walks (health,
+sessions, messages, /reply SSE) and runs the suite end-to-end.

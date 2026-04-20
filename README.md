@@ -66,7 +66,7 @@ ships as a sidecar binary you run between the TUI and the upstream:
 | [Claude Code](https://github.com/anthropics/claude-code) | [`adapters/claude-agent-sdk-server/`](adapters/claude-agent-sdk-server/) | Python sidecar built on Anthropic's [`claude-agent-sdk`](https://github.com/anthropics/claude-agent-sdk-python) — uses your existing OAuth, full conformance ✓ |
 | [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | Go proxy of the OpenCode HTTP API |
 | [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | Go proxy of the Crush HTTP API |
-| [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API (scaffold; sessions wiring in progress) |
+| [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API — sessions/messages read+write + SSE; 8/8 conformance sections ✓ |
 
 Each adapter passes the [`contract/conformance`](contract/conformance/)
 test suite so the TUI behaves identically across all of them.
