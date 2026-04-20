@@ -143,3 +143,18 @@ def test_permission_respond_400_on_invalid_action() -> None:
     before the lookup happens."""
     r = _client().post("/v1/permissions/perm_bogus", json={"action": "burn-it-down"})
     assert r.status_code == 400
+
+
+def test_session_cancel_is_idempotent_when_no_turn_in_flight() -> None:
+    """IIIIIII1: cancel on a session with no SDK client returns 204
+    rather than 5xx. Catches the no-turn-yet edge case the TUI's
+    Ctrl+X press would hit if the user mashes it pre-message."""
+    c = _client()
+    sid = c.post("/v1/sessions", json={"title": "cx"}).json()["id"]
+    r = c.post(f"/v1/sessions/{sid}/cancel")
+    assert r.status_code == 204
+
+
+def test_session_cancel_404_when_unknown() -> None:
+    r = _client().post("/v1/sessions/sess_nonexistent/cancel")
+    assert r.status_code == 404
