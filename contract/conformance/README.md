@@ -14,14 +14,15 @@ matching `Options.Skip*` flag.
 | Section | Endpoint(s) | Asserts |
 |---|---|---|
 | `Health` | `GET /v1/health` | 200, `healthy: true`, `uptime_s: int` |
-| `Capabilities` | `GET /v1/capabilities` | 200, `contract_version`, `backend.name`, non-empty capabilities map |
+| `Capabilities` | `GET /v1/capabilities` | 200; `contract_version` looks like 0.x/1.x; `backend.name` non-empty; capabilities map non-empty + every value is a JSON bool (vendor-prefixed `x_*` keys exempt) (SSSSSS1) |
 | `Workspaces` | `GET /v1/workspaces` + `/v1/workspaces/{id}` | list 200 + non-empty IDs; per-id echoes id + non-empty `root_path` (GGGGGG1) |
 | `Sessions_List` | `GET /v1/sessions[?workspace_id=…]` | 200, every session has an ID |
 | `Sessions_Create` | `POST /v1/sessions` | 2xx, response carries an ID |
 | `Sessions_Get` | `GET /v1/sessions/{id}` | 200, id echoed, non-empty status (HHHHHH1) |
 | `Messages_Post` | `POST /v1/sessions/{id}/messages` | 200 or 202, response carries a `message_id` |
 | `Messages_List` | `GET /v1/sessions/{id}/messages` + `/messages/{msg_id}` | 200 + non-nil `messages` array; per-entry `{id, role, parts}` with role in `{user\|assistant\|system\|tool}`; first-message drill echoes id (IIIIII1) |
-| `SSE` | `GET /v1/sessions/{id}/events` | 200, `text/event-stream`, first complete event has `event:` line + `data:` JSON with matching `type` per SPEC §7.2 (NNNNNN1) |
+| `Sessions_Export` | `GET /v1/sessions/{id}/export` | 200 + `application/json` Content-Type + body parses as JSON (RRRRRR1) |
+| `SSE` | `GET /v1/sessions/{id}/events` | 200, `text/event-stream`, first complete event has `event:` + matching `data.type` + RFC3339 `data.occurred_at` + non-empty `id:` if present, per SPEC §7.2 (NNNNNN1, WWWWWW1) |
 | `Commands_List` | `GET /v1/commands` | 200, every command has an `id` |
 | `Tools_List` | `GET /v1/tools` + `/v1/tools/{id}` | list 200 + each entry has `{id, name}`; first-tool drill echoes id + non-empty name (EEEEEE1) |
 | `Metrics` | `GET /v1/metrics` | 200 + `uptime_s` + structural envelope: `sessions/messages` carry `total`, `tokens` carries `input_total`/`output_total` (MMMMMM1) |
@@ -33,10 +34,13 @@ matching `Options.Skip*` flag.
 |---|---|---|---|
 | `Hooks` | `hooks` | `GET /v1/hooks`, `POST /v1/hooks`, `DELETE /v1/hooks/{id}` | full create/list/delete cycle |
 | `Policies` | `permissions` | `GET /v1/policies`, `PUT /v1/policies` | round-trip a single allow rule |
-| `Tasks` | `session_tasks` | `POST /v1/sessions/{id}/tasks`, `GET`, `DELETE` | create/list/delete cycle |
+| `Tasks` | `session_tasks` | `POST /v1/sessions/{id}/tasks`, `GET`, `PATCH /v1/tasks/{id}`, `DELETE` | full create/list/patch/delete cycle; PATCH echoes status, status in `{pending\|running\|completed\|failed}` enum (TTTTTT1) |
 | `Mcp` | `mcp` | `GET /v1/mcp/servers` + `/{id}` + `/{id}/tools` + `/{id}/resources` + `/{id}/prompts` | list shape + per-server detail + tools/resources/prompts (BBBBB1, JJJJJJ1, LLLLLL1) |
 | `Providers` | `providers` | `GET /v1/providers` + `/{id}` + `/{id}/models` | list shape + per-provider detail + per-provider models (TTTTT1, KKKKKK1) |
-| `Files` | `files` | `GET /v1/workspaces/{id}/files` | 200 + `entries` array, each entry has `path` + `type` in `{file\|dir}` (UUUUU1) |
+| `Files` | `files` | `GET /v1/workspaces/{id}/files` + `/files/read?path=` | list 200 + each entry has `{path, type}` with type in `{file\|dir}`; per-file body endpoint returns 200 + non-empty body for first `type=file` entry (UUUUU1, VVVVVV1) |
+| `Context_Files` | `files` | `GET /v1/sessions/{id}/context/files` | 200 + non-nil `files` array; per-entry `{path, mode}` with mode in `{edit\|read\|pin}` (UUUUUU1) |
+| `Repo_Map` | `files` | `GET /v1/workspaces/{id}/repo_map` | 200 + non-nil `tree` + `tokens` keys (UUUUUU1) |
+| `Messages_Search` | `search_messages` | `GET /v1/sessions/{id}/messages/search?q=…` | 200 + non-nil `matches` array; per-entry `{message_id, snippet}` when present (QQQQQQ1) |
 | `Diffs` | `diffs` | `GET /v1/sessions/{id}/diffs` | 200 + non-nil `diffs` array, each entry has required `{path, applied}` (BBBBBB1) |
 | `Messages_Diffs` | `diffs` | `GET /v1/sessions/{id}/messages/{msg_id}/diffs` | same shape as `Diffs`, gated on first message id (CCCCCC1) |
 
