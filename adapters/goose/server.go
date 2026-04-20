@@ -68,6 +68,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)
 	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
+	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
+	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
 	// Catchall 501 so TUI degrades cleanly for unimplemented sections.
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
@@ -93,9 +95,9 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"version": backendVersion,
 		},
 		"capabilities": map[string]any{
-			// Wired this scaffold:
+			// Wired:
 			"workspaces": true,
-			"sessions":   false, // KKKKKKK3 will wire
+			"sessions":   true,
 			// What's coming:
 			"messages":           false,
 			"sse":                false,
@@ -144,6 +146,57 @@ func (s *Server) workspace() gact.Workspace {
 			"x_goose_upstream": s.upstream,
 		},
 	}
+}
+
+// handleListSessions proxies Goose's `GET /sessions`. Workspace
+// scoping is collapsed (one synthetic workspace per adapter
+// instance) so the workspace_id query param is accepted but ignored.
+func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
+	body, err := s.upstreamGet("/sessions")
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	var raw gooseSessionList
+	if err := json.Unmarshal(body, &raw); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	out := make([]gact.Session, 0, len(raw.Sessions))
+	wsID := s.workspace().ID
+	for _, gs := range raw.Sessions {
+		out = append(out, sessionToGact(gs, wsID))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": out})
+}
+
+// handleGetSession proxies Goose's `GET /sessions/{id}`. Returns 404
+// when upstream returns 404 too — the SPEC §6.0 envelope is built
+// here so the TUI sees a uniform error shape.
+func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	resp, err := s.client.Get(s.upstream + "/sessions/" + id)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if resp.StatusCode == http.StatusNotFound {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "upstream_error",
+			"upstream returned "+resp.Status)
+		return
+	}
+	var gs gooseSession
+	if err := json.Unmarshal(body, &gs); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, sessionToGact(gs, s.workspace().ID))
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, r *http.Request) {

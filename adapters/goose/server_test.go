@@ -10,14 +10,34 @@ import (
 )
 
 // mockGoose returns a test server that pretends to be a Goose
-// upstream. Only /health is wired — adapter routes that don't talk
-// to upstream get tested without it.
+// upstream. /health, /sessions, and /sessions/{id} wired with
+// canned bodies the adapter knows how to translate.
 func mockGoose(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"healthy":true}`))
+	})
+	// Two sessions in the canned list — exercises the loop.
+	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"sessions": [
+				{"id":"s1","name":"first","working_dir":"/repos/x","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z"},
+				{"id":"s2","name":"second","working_dir":"/repos/y","created_at":"2026-01-02T00:00:00Z","updated_at":"2026-01-02T01:00:00Z"}
+			]
+		}`))
+	})
+	mux.HandleFunc("GET /sessions/s1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"s1","name":"first","working_dir":"/repos/x",
+			"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z"
+		}`))
+	})
+	mux.HandleFunc("GET /sessions/missing", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -142,11 +162,87 @@ func TestWorkspaceListAndGet(t *testing.T) {
 	}
 }
 
+func TestSessionsListProxiesAndTranslates(t *testing.T) {
+	upstream := mockGoose(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got struct {
+		Sessions []map[string]any `json:"sessions"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Sessions) != 2 {
+		t.Fatalf("want 2 sessions, got %d", len(got.Sessions))
+	}
+	first := got.Sessions[0]
+	if first["id"] != "s1" {
+		t.Errorf("first.id=%v", first["id"])
+	}
+	if first["title"] != "first" {
+		t.Errorf("first.title=%v (expect Goose name → GACT title)", first["title"])
+	}
+	if first["status"] != "idle" {
+		t.Errorf("first.status=%v (expect synthesized idle)", first["status"])
+	}
+	meta, _ := first["metadata"].(map[string]any)
+	if meta["x_goose_working_dir"] != "/repos/x" {
+		t.Errorf("metadata.x_goose_working_dir=%v", meta["x_goose_working_dir"])
+	}
+}
+
+func TestSessionGetEchoesUpstreamShape(t *testing.T) {
+	upstream := mockGoose(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions/s1")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["id"] != "s1" {
+		t.Errorf("id=%v", got["id"])
+	}
+	if got["title"] != "first" {
+		t.Errorf("title=%v", got["title"])
+	}
+}
+
+func TestSessionGet404PropagatesAsSpecError(t *testing.T) {
+	upstream := mockGoose(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions/missing")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 404 {
+		t.Errorf("status %d want 404", r.StatusCode)
+	}
+	if !strings.Contains(string(body), `"session_not_found"`) {
+		t.Errorf("body missing spec envelope code: %s", body)
+	}
+}
+
 func TestNotImplementedReturns501(t *testing.T) {
 	upstream := mockGoose(t)
 	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
 	defer srv.Close()
-	r, _ := http.Get(srv.URL + "/v1/sessions")
+	// /v1/tools isn't wired yet — should hit the catchall.
+	r, _ := http.Get(srv.URL + "/v1/tools")
 	body, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	if r.StatusCode != http.StatusNotImplemented {
