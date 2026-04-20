@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase XXXXXX — conformance: README refresh round 2
+
+- [x] **XXXXXX1.** Brings the conformance README's "What it checks" table up to date with the QQQQQQ1..WWWWWW1 additions/tightenings. New rows: Sessions_Export (RRRRRR1), Context_Files (UUUUUU1), Repo_Map (UUUUUU1), Messages_Search (QQQQQQ1). Updated rows: Capabilities (SSSSSS1 — semver-ish + bool-typed cap values), Tasks (TTTTTT1 — PATCH + enum), Files (VVVVVV1 — per-file body endpoint), SSE (WWWWWW1 — occurred_at + id strictness).
+
 ## Phase WWWWWW — conformance: SSE occurred_at + id strictness
 
 - [x] **WWWWWW1.** Strengthened `validateSSEEvent` (NNNNNN1 added envelope shape) with two more SPEC §7.2 envelope rules: (1) `data.occurred_at` must be present and parseable as RFC3339 — empty timestamp defeats client-side ordering and dedup; (2) if `id:` line is present, it must be non-empty — an empty id: breaks Last-Event-ID resumption (clients can't tell whether to resume from "" or skip). The id: check is gated on presence (SSE transport doesn't require it even though §7.2 documents a "monotonic event id"); occurred_at is unconditional since it's in the documented data envelope.

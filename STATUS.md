@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:00Z
-**Current phase:** WWWWWW1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2aba9ee` (pushed after status commit)
+**Last updated:** 2026-04-19T19:01Z
+**Current phase:** XXXXXX1 (README refresh round 2) shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c7af8bb` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase XXXXXX — conformance README refresh round 2
+- **XXXXXX1.** Updates README "What it checks" for the latest
+  round (QQQQQQ1..WWWWWW1): Sessions_Export + Context_Files +
+  Repo_Map + Messages_Search rows added; Capabilities/Tasks/
+  Files/SSE rows updated for new strictness.
 
 ### Phase WWWWWW — conformance SSE occurred_at + id
 - **WWWWWW1.** Strengthened validateSSEEvent with two more
