@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKKKKKK — `gact dashboard --sort`
+
+- [x] **KKKKKKKK1.** `gact dashboard` now accepts `--sort newest|oldest|status|tokens|backend` (default: newest). "newest" puts the most-recently-updated row at the top so "what was I just working on?" answers itself. `sortSessions()` helper is a pure function on the slice so --watch reuses it per tick. Stable sort preserves backend order within tied keys. Unknown --sort values fail fast with a listing of accepted values (no silent undefined order). New `TestCLI_DashboardSort` end-to-end: creates older→newer sessions with intentional UpdatedAt spread, verifies default order + --sort oldest flip + unknown-sort rejection.
+
 ## Phase JJJJJJJJ — Sidebar detached-only toggle
 
 - [x] **JJJJJJJJ1.** New `d` keybind in sidebar focus toggles a detached-only filter — mirrors the existing `h` archived toggle but filters locally against App.previouslyDetached (no backend refetch needed). `visibleSessionIndexes` now respects both the text filter and the new toggle; `ensureSelectedVisible` adjusts after toggle so the selection stays valid. Sidebar title becomes `SESSIONS · detached` when on so the narrower view is visible past the transient hint. Test `TestSidebar_DetachedOnlyToggle` covers: default=all-visible, toggle-on hides non-detached + shows suffix, toggle-off restores. Screenshots: `JJJJJJJJ1_sidebar_all.png` (5 sessions, 2 marked) and `JJJJJJJJ1_sidebar_detached_only.png` (filtered to the 2 walked ones).

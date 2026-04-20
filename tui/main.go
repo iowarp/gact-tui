@@ -417,6 +417,7 @@ Usage:
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
+                              --sort newest|oldest|status|tokens|backend (default: newest)
   gact detached              list sessions you've Ctrl+Z-detached from
                               --rm <sid> drops one entry; --probe checks each is still on the backend
                               --prune-dead probes + removes every dead entry in one shot
@@ -2247,12 +2248,16 @@ func runDashboard(args []string) int {
 	// Empty = all (back-compat). Validation runs client-side so a
 	// typo errors fast instead of returning a silently-empty board.
 	statusFilter := fs.String("status", "", "comma-separated status filter: idle|running|waiting|error")
+	// KKKKKKKK1: --sort controls row ordering. Default newest-first
+	// so "what was I just working on?" answers itself at the top.
+	sortBy := fs.String("sort", "newest", "sort by: newest | oldest | status | tokens | backend")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
 		"--interval": true, "-interval": true,
 		"--status": true, "-status": true,
+		"--sort":   true, "-sort": true,
 	})); err != nil {
 		return 2
 	}
@@ -2260,6 +2265,12 @@ func runDashboard(args []string) int {
 	case "pretty", "tsv", "json":
 	default:
 		fmt.Fprintf(os.Stderr, "gact dashboard: unknown format %q (want pretty|tsv|json)\n", *format)
+		return 2
+	}
+	switch *sortBy {
+	case "newest", "oldest", "status", "tokens", "backend":
+	default:
+		fmt.Fprintf(os.Stderr, "gact dashboard: unknown sort %q (want newest|oldest|status|tokens|backend)\n", *sortBy)
 		return 2
 	}
 	var keep map[string]bool
@@ -2286,7 +2297,7 @@ func runDashboard(args []string) int {
 
 	if !*watch {
 		// One-shot path (back-compat).
-		return renderDashboardOnce(c, *wsID, *format, keep)
+		return renderDashboardOnce(c, *wsID, *format, keep, *sortBy)
 	}
 
 	// BBBB1: watch loop. ANSI clear-screen + cursor-home between
@@ -2302,7 +2313,7 @@ func runDashboard(args []string) int {
 			fmt.Print("\033[2J\033[H") // clear + home
 			fmt.Printf("gact dashboard --watch  backend=%s  refresh=%s  (Ctrl+C to exit)\n\n",
 				finalBackend, *interval)
-			if code := renderDashboardOnce(c, *wsID, *format, keep); code != 0 {
+			if code := renderDashboardOnce(c, *wsID, *format, keep, *sortBy); code != 0 {
 				cancel()
 				return code
 			}
@@ -2565,7 +2576,7 @@ func truncMid(s string, width int) string {
 // pretty/tsv output marks sessions the user has previously
 // Ctrl+Z-detached from with `↩` in a new DET column. Same source of
 // truth the TUI sidebar uses (BBBBBBBB1).
-func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool) int {
+func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool, sortBy string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
@@ -2582,6 +2593,11 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		}
 		sessions = filtered
 	}
+	// KKKKKKKK1: sort sessions per user choice. Default "newest"
+	// puts the most-recently-updated rows at the top — the row the
+	// user is almost always looking for. Stable sort preserves
+	// backend order within tied keys (e.g. same UpdatedAt).
+	sortSessions(sessions, sortBy)
 
 	// CCCCCCCC2: build the detach lookup once per render. Soft-fails
 	// to an empty set so a missing/malformed registry just leaves
@@ -2700,6 +2716,40 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		printRow([]string{r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost, r.det})
 	}
 	return 0
+}
+
+// sortSessions reorders the slice in place by the KKKKKKKK1 --sort
+// key. Stable sort preserves backend order within tied keys. Unknown
+// key falls through to newest (the default), but runDashboard
+// validates the key up front so that path should be unreachable.
+func sortSessions(sessions []gact.Session, key string) {
+	switch key {
+	case "oldest":
+		sort.SliceStable(sessions, func(i, j int) bool {
+			return sessions[i].UpdatedAt.Before(sessions[j].UpdatedAt)
+		})
+	case "status":
+		sort.SliceStable(sessions, func(i, j int) bool {
+			return sessions[i].Status < sessions[j].Status
+		})
+	case "tokens":
+		// Tokens = input + output so the most-expensive session
+		// surfaces first. Descending.
+		total := func(s gact.Session) int64 {
+			return int64(s.Tokens.Input) + int64(s.Tokens.Output)
+		}
+		sort.SliceStable(sessions, func(i, j int) bool {
+			return total(sessions[i]) > total(sessions[j])
+		})
+	case "backend":
+		sort.SliceStable(sessions, func(i, j int) bool {
+			return sessions[i].WorkspaceID < sessions[j].WorkspaceID
+		})
+	default: // "newest" (and any unknown — validated up front)
+		sort.SliceStable(sessions, func(i, j int) bool {
+			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
+		})
+	}
 }
 
 // humanAge formats a duration as a 1-2 char age stamp (5s, 4m, 3h,
