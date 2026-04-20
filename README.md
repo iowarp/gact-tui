@@ -36,18 +36,30 @@ then write thin adapters for each backend.** Adapters live in
 
 ## Quick tour
 
+Two ways to run — pick the one that matches your stack:
+
+**Against your real agent (Claude Code):**
 ```sh
-# Terminal 1 — reference emulator (no API keys, no network)
-emulator-server --port 7777 --timing realistic
+gact agent deploy claudecode myclaude   # spawns the adapter detached
+gact connect myclaude                   # interactive TUI
+# Ctrl+Z detaches the TUI; the adapter keeps running.
+gact resume                             # comes back where you were
+gact agent stop myclaude                # when you're done for the day
+```
 
-# Terminal 2 — the TUI
+**Against the reference emulator (no API keys, no network):**
+```sh
+emulator-server --port 7777 --timing realistic &
 GACT_BACKEND=http://localhost:7777 gact
+```
 
-# Or drive the emulator from shell scripts instead
+**Scripting without the TUI:**
+```sh
 gact dashboard --sort newest                      # live sessions table
 gact ask <sid> "summarise the diff"               # one-shot Q&A
 gact log <sid> --role assistant --grep "error"    # filter conversation
-gact attach                                       # resume most-recent Ctrl+Z detach
+gact agent list --format json                     # registered agents
+gact session create --title "scratch"             # CRUD alias layer
 ```
 
 Inside the TUI: type a message → watch the thinking stream, tool call
