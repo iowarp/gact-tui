@@ -1131,6 +1131,21 @@ func checkPolicies(t Reporter, c *conformClient) {
 		t.Errorf("PUT echo missing shell rule: %s", putBody)
 	}
 
+	// ZZZZZZ1: GET after PUT must show the persisted rule. Catches
+	// adapter authors whose PUT echoes the request but never writes
+	// to the underlying store. Same root cause as YYYYYY1's
+	// post-create list check on hooks.
+	verifyResp, verifyBody, err := c.get(ctx, "/v1/policies")
+	if err != nil {
+		t.Fatalf("GET /v1/policies (post-PUT): %v", err)
+	}
+	if verifyResp.StatusCode != 200 {
+		t.Fatalf("post-PUT list status %d body %s", verifyResp.StatusCode, verifyBody)
+	}
+	if !strings.Contains(string(verifyBody), `"shell"`) {
+		t.Errorf("post-PUT GET missing shell rule: %s", verifyBody)
+	}
+
 	// Cleanup — empty list.
 	emptyReq, _ := http.NewRequest(http.MethodPut, c.baseURL+"/v1/policies",
 		bytes.NewReader(mustJSON(map[string]any{"policies": []any{}})))
