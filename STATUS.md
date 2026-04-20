@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T13:00Z
-**Current phase:** QQQQQQQQ1 shipped — default emulator scenario now cycles through 3 coherent variants per session
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0760de8` (pushed)
+**Last updated:** 2026-04-20T13:30Z
+**Current phase:** RRRRRRRR1 + SSSSSSSS1 shipped — fuzzy attach (sid prefix + title sub) + dashboard JSON carries detached field
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d667bae` (pushed)
+
+### Phase SSSSSSSS1 — Dashboard JSON has detached field
+- `--format json` rows now carry top-level `detached: bool` so jq pipelines see the marker. Same registry source as DET column.
+
+### Phase RRRRRRRR1 — Fuzzy attach matching
+- pickAttachIndex resolves in 4-level precedence: exact id → exact title → id prefix → title substring (case-insensitive). 4 new sub-tests cover the new levels + precedence ties.
 
 ### Phase QQQQQQQQ1 — Default scenario variant cycling
 - "read main.go" now produces 3 different turns (cycled per-session via NextCallIndex). Thinking + intro + tool_result + final reply all line up by index for consistent voice. Closes "whatever I write I always get the same text" feedback. New scenario test + screenshot.
