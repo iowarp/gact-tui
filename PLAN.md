@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase RRRRRRR — Goose tools catalog
 
-- [ ] **RRRRRRR1.** Wire `GET /v1/tools` against Goose's `/agent/tools?session_id=...`. Tools are session-scoped in Goose; the adapter fetches `/sessions` to find the first session and uses its id, falling back to an empty envelope when none exists. Per-tool drill `GET /v1/tools/{id}` filters the same list. Capability `tools=true`.
+- [x] **RRRRRRR1.** Wired GET /v1/tools + /v1/tools/{id} against Goose's /agent/tools?session_id=. firstSessionID() falls back when no query param. translate.go.toolToGact projects ToolInfo → GACT Tool. caps.tools=true. 2 unit tests + conformance now passes 11 sections (added Tools_List).
 
 ## Phase QQQQQQQ — Goose file_diff Parts
 
