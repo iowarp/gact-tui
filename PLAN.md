@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase IIIIIIIII — Consolidate diag output into one core
+
+- [x] **IIIIIIIII1.** runDiag (stdout) and writeDiagTo (arbitrary writer) had duplicated logic that drifted twice — once for cost thresholds and again for the HHHHHHHHH1 detached summary. Refactored both to share `writeDiagCore(w, verbose)`:   - `runDiag()` is now a one-liner: `writeDiagToVerbose(os.Stdout)` → verbose=true   - `writeDiagTo(w)` stays as a one-liner: `writeDiagCore(w, false)` → verbose=false Verbose adds the "custom theme" probe + "config load: (error: …)" row that the dump-bundle variant historically omitted. Future rows (new env vars, new counters) land in one place now. End-to-end verified: both verbose and terse outputs include the detached_path + detached_count lines; verbose alone shows the custom-theme line.
+
 ## Phase HHHHHHHHH — `gact diag` summarises detached registry
 
 - [x] **HHHHHHHHH1.** Extended both `runDiag` (stdout path) and `writeDiagTo` (dump-bundle path) to surface the detached registry state in two lines: `detached_path: <path>` + `detached_count: N record(s) across M backend(s)`. Also added `GACT_DETACHED_PATH` to the env-var roundup so bug reports show which override (if any) is in effect. Missing registry file shows `0 record(s) across 0 backend(s)` gracefully. End-to-end verified: 3-record 2-backend registry reports exactly that; missing file reports 0+0.
