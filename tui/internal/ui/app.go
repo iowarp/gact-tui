@@ -3279,6 +3279,22 @@ func (a *App) renderHeader() string {
 		statusBadge = t.StatusBadge.Render(a.currentStatus)
 		avail -= lipgloss.Width(statusBadge)
 	}
+	// DDDDDDDD1: detached-count chip — always-visible reminder that
+	// the user has Ctrl+Z-walked-away sessions on this backend that
+	// they can `gact attach` (or pick from the sidebar's ↩ rows).
+	// Hidden when the count is 0 to avoid noise on a fresh install.
+	detachChip := ""
+	if n := len(a.previouslyDetached); n > 0 {
+		// Style mirrors StatusBadge so the two chips read as a pair
+		// without needing a new palette field. Foreground is Bg
+		// (so the glyph reads on the bg-coloured chip), bg is the
+		// secondary accent so it picks up the theme.
+		detachChip = lipgloss.NewStyle().
+			Foreground(t.Bg).Background(t.Secondary).
+			Padding(0, 1).Bold(true).
+			Render(fmt.Sprintf("↩ %d", n))
+		avail -= lipgloss.Width(detachChip)
+	}
 
 	rendered := []string{required}
 	for _, opt := range optional {
@@ -3289,6 +3305,9 @@ func (a *App) renderHeader() string {
 		}
 		rendered = append(rendered, styled)
 		avail -= w
+	}
+	if detachChip != "" {
+		rendered = append(rendered, detachChip)
 	}
 	if statusBadge != "" {
 		rendered = append(rendered, statusBadge)

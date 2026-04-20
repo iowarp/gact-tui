@@ -63,6 +63,31 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	}
 }
 
+// DDDDDDDD1: header carries a `↩ N` chip when the user has
+// detached sessions on the current backend. Hidden when N=0.
+func TestHeader_DetachedChip(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_a", Title: "a", Status: gact.StatusIdle},
+	}, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.width, a.height = 140, 30
+	// No detached → no chip.
+	out := a.renderHeader()
+	if strings.Contains(out, "↩") {
+		t.Errorf("header should not show ↩ when no detached sessions: %q", out)
+	}
+	// Two detached → chip "↩ 2" appears.
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_a", Backend: "http://localhost:7777"},
+		{SessionID: "sess_b", Backend: "http://localhost:7777"},
+		{SessionID: "sess_other", Backend: "http://other:9999"},
+	})
+	out = a.renderHeader()
+	if !strings.Contains(out, "↩ 2") {
+		t.Errorf("header should show ↩ 2 chip; got %q", out)
+	}
+}
+
 // BBBBBBBB1: sidebar shows ↩ marker when the user previously
 // detached from a session (loaded from the local registry at
 // startup). Filters by backend so cross-backend entries don't
