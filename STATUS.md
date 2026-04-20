@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T10:00Z
-**Current phase:** FFFFFFFF1 + GGGGGGGG1 shipped — attach probes-and-skips dead candidates + `--prune-dead` cleans the registry. Detached-sessions feature is now reliability-hardened end-to-end.
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `09881e6` (pushed)
+**Last updated:** 2026-04-20T10:30Z
+**Current phase:** HHHHHHHH1 + IIIIIIII1 shipped — sidebar shows session age + `gact resume` alias for discoverable no-arg attach
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `50d3bcc` (pushed)
+
+### Phase IIIIIIII1 — `gact resume` alias
+- New subcommand forwards to runAttach(nil). Narrow by design — any trailing arg rejected with "use `gact attach <sid>`" hint. More-discoverable name for "pick up where I left off".
+
+### Phase HHHHHHHH1 — Sidebar session age
+- Sidebar status line now reads `<status> · <age>` (e.g. `idle · 2m ago`). humanAgeShort helper (Ns/Nm/Nh/Nd scale), clamps negative durations to "now", no suffix on zero-UpdatedAt. Pairs with ↩ markers so resume decisions become trivial.
 
 ### Phase GGGGGGGG1 — `gact detached --prune-dead`
 - New `--prune-dead` flag probes every entry, removes the dead ones, writes survivors back. Implies `--probe` so the table after prune paints alive column. End-to-end verified: 2 dead + 1 live → file has only the survivor.
