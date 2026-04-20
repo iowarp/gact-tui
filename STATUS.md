@@ -1,9 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T03:05Z
-**Current phase:** JJJJJJJ1 shipped — full GACT conformance passes against live Claude
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `49f1011` (pushed)
-**Open:** none — sidecar conformance-validated end-to-end against real Claude. Next phase TBD.
+**Last updated:** 2026-04-20T03:35Z
+**Current phase:** KKKKKKK1 + KKKKKKK2 shipped — rich TUI screenshot + Goose adapter scaffold
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fd3cd74` (pushed)
+**Open:** none — Goose sessions/messages wiring is the natural next iteration.
+
+### Phase KKKKKKK — richer demo + next adapter
+- **KKKKKKK1.** screenshots/SDK-claude-tools.png shows the TUI rendering Bash + Read + Edit tool calls + colored file_diff Part inline against real Claude through the sidecar. Reproducible via tui/screenshot_claude_sdk_tools.tape.
+- **KKKKKKK2.** New `adapters/goose/` Go scaffold (health + capabilities + workspaces) following crush/opencode pattern. Tests use mocked goosed upstream. Added to go.work, Makefile, root README adapter table. Sessions wiring next iteration.
 
 ### Phase JJJJJJJ — sidecar conformance gap-closing
 - **JJJJJJJ1.** Wired 4 missing endpoints (agents/commands/metrics/export) from real SDK init data + adapter state. caps.agents/commands/metrics flipped true. `gact conformance` against live sidecar now PASS (14/14 sections; Diffs/Files auto-skip via cap=false). 55 tests total.
