@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -489,6 +490,131 @@ func TestPostMessageRejectsEmptyParts(t *testing.T) {
 		"application/json", strings.NewReader(`{"parts":[]}`))
 	if r.StatusCode != http.StatusBadRequest {
 		t.Errorf("status %d want 400", r.StatusCode)
+	}
+}
+
+// TestMessagesListEmitsFileDiffSibling exercises the QQQQQQQ1
+// integration path: a Goose conversation containing a
+// developer__text_editor str_replace tool call should produce both
+// a tool_call Part AND a sibling file_diff Part in the GACT message
+// list, with before/after computed from the on-disk fixture.
+func TestMessagesListEmitsFileDiffSibling(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(tmp+"/main.py", []byte("hello world\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"healthy":true}`))
+	})
+	mux.HandleFunc("GET /sessions/sFD", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"sFD","name":"diff","working_dir":"` + tmp + `",
+			"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z",
+			"conversation":[
+				{"role":"Assistant","created":1735689700,"content":[
+					{"type":"toolRequest","id":"trX","name":"developer__text_editor","arguments":{
+						"command":"str_replace","path":"main.py",
+						"old_str":"hello","new_str":"GACT"
+					}}
+				]}
+			]
+		}`))
+	})
+	upstream := httptest.NewServer(mux)
+	defer upstream.Close()
+
+	srv := httptest.NewServer(New(upstream.URL, tmp, nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions/sFD/messages")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got struct {
+		Messages []map[string]any `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Messages) != 1 {
+		t.Fatalf("want 1 message, got %d", len(got.Messages))
+	}
+	parts, _ := got.Messages[0]["parts"].([]any)
+	if len(parts) != 2 {
+		t.Fatalf("want 2 parts (tool_call + file_diff), got %d", len(parts))
+	}
+	p1, _ := parts[1].(map[string]any)
+	if p1["type"] != "file_diff" {
+		t.Fatalf("parts[1].type=%v want file_diff", p1["type"])
+	}
+	if p1["path"] != "main.py" {
+		t.Errorf("file_diff path=%v", p1["path"])
+	}
+	if before, _ := p1["before"].(string); before != "hello world\n" {
+		t.Errorf("file_diff before=%q", before)
+	}
+	if after, _ := p1["after"].(string); after != "GACT world\n" {
+		t.Errorf("file_diff after=%q", after)
+	}
+	if p1["language"] != "python" {
+		t.Errorf("file_diff language=%v", p1["language"])
+	}
+}
+
+// TestDiffsListAggregatesAcrossMessages: GET /v1/sessions/{id}/diffs
+// walks every message and pulls out file_diff Parts.
+func TestDiffsListAggregatesAcrossMessages(t *testing.T) {
+	tmp := t.TempDir()
+	_ = os.WriteFile(tmp+"/a.txt", []byte("alpha\n"), 0o644)
+	_ = os.WriteFile(tmp+"/b.txt", []byte("beta\n"), 0o644)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /sessions/sAGG", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"sAGG","name":"agg","working_dir":"` + tmp + `",
+			"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z",
+			"conversation":[
+				{"role":"Assistant","created":1,"content":[
+					{"type":"toolRequest","id":"a","name":"developer__text_editor","arguments":{
+						"command":"str_replace","path":"a.txt","old_str":"alpha","new_str":"AAA"}}
+				]},
+				{"role":"Assistant","created":2,"content":[
+					{"type":"toolRequest","id":"b","name":"developer__text_editor","arguments":{
+						"command":"str_replace","path":"b.txt","old_str":"beta","new_str":"BBB"}}
+				]}
+			]
+		}`))
+	})
+	upstream := httptest.NewServer(mux)
+	defer upstream.Close()
+	srv := httptest.NewServer(New(upstream.URL, tmp, nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions/sAGG/diffs")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got struct {
+		Diffs []map[string]any `json:"diffs"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Diffs) != 2 {
+		t.Fatalf("want 2 diffs, got %d", len(got.Diffs))
+	}
+	paths := []string{got.Diffs[0]["path"].(string), got.Diffs[1]["path"].(string)}
+	if !(paths[0] == "a.txt" && paths[1] == "b.txt") {
+		t.Errorf("diff paths=%v", paths)
 	}
 }
 
