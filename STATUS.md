@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:01Z
-**Current phase:** XXXXXX1 (README refresh round 2) shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c7af8bb` (pushed after status commit)
+**Last updated:** 2026-04-19T19:04Z
+**Current phase:** YYYYYY1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `02d5b2f` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase YYYYYY — conformance hooks deeper validation
+- **YYYYYY1.** Strengthened `checkHooks`: (1) POST response
+  must echo `event` and `command` back (catches silent
+  half-create where the adapter 200s but loses config); (2)
+  GET list immediately after POST must include the new hook
+  (catches POST-not-persisted regressions).
 
 ### Phase XXXXXX — conformance README refresh round 2
 - **XXXXXX1.** Updates README "What it checks" for the latest
