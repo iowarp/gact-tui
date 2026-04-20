@@ -89,7 +89,7 @@ intro-logo-anim: ## Regenerate tui/internal/intro/grc-logo-anim.ansi (animated) 
 	convert logo/logo-video.gif -coalesce /tmp/gact-intro-frames/f%02d.png
 	@: > tui/internal/intro/grc-logo-anim.ansi
 	@for f in /tmp/gact-intro-frames/f*.png; do \
-		chafa --size 30x15 --symbols half --colors full --clear "$$f" 2>/dev/null | \
+		chafa --size 30x15 --symbols half --colors full --threshold 0.1 --clear "$$f" 2>/dev/null | \
 		python3 -c 'import sys,re; d=sys.stdin.buffer.read(); d=re.sub(rb"\x1b\[\?25[lh]",b"",d); d=re.sub(rb"\x1b\[2J\x1b\[0H",b"",d); d=re.sub(rb"\x1b\[0H",b"",d); sys.stdout.buffer.write(d.strip(b"\n")+b"\n\x0c\n")' \
 		>> tui/internal/intro/grc-logo-anim.ansi ; \
 	done

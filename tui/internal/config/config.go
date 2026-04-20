@@ -45,6 +45,11 @@ type Config struct {
 	// use the baked-in default. Resolves relative paths against
 	// $XDG_CONFIG_HOME/gact/.
 	IntroFile *string `json:"intro_file,omitempty"`
+	// NNNNNNNNN1: frame delay (milliseconds) for the animated GRC
+	// logo splash. Nil/0 = built-in default (90ms → ~3.2s per 36-
+	// frame loop). Lower = faster rotation. Range-clamped at use
+	// site to [20, 1000] so a typo doesn't freeze the splash.
+	IntroFrameDelayMs *int `json:"intro_frame_delay_ms,omitempty"`
 	// ConfigVersion tracks the schema generation. Bumped each time a
 	// breaking config field rename/move lands; migrate.go's Run() walks
 	// configs forward through the registered migrations on Load. Absent

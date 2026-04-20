@@ -247,6 +247,12 @@ type App struct {
 	// on the first keypress anyway.
 	introFrameIdx int
 
+	// NNNNNNNNN1: per-frame delay for the animated splash. Zero
+	// means "use the introFrameDelay default". main.go overrides
+	// from config.IntroFrameDelayMs. Clamped at the tick site so a
+	// typo (e.g. 0 or 10000ms) doesn't freeze or flood the splash.
+	IntroFrameDelay time.Duration
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -493,13 +499,31 @@ func (a *App) EnableIntro() { a.stage = StageIntro }
 // fixed frame cadence so the splash loops smoothly.
 type introTickMsg struct{}
 
-// introFrameDelay is ~30 FPS (33ms/frame). 36 frames × 33ms ≈ 1.2s
-// per loop — short enough the user sees the rotation before they
-// dismiss, slow enough to stay readable.
-const introFrameDelay = 33 * time.Millisecond
+// introFrameDelay is the fallback per-frame delay: 36 frames × 90ms
+// ≈ 3.2s per loop. Slowed from the initial 33ms/frame (30 FPS) per
+// user feedback on the basic-crop logo — at that rate the rotation
+// blurred past before the viewer could appreciate it. NNNNNNNNN1:
+// users can override via config.IntroFrameDelayMs; main.go plumbs
+// that into App.IntroFrameDelay, which `(a *App).tickDelay()`
+// clamps to [20ms, 1s] before handing to tea.Tick.
+const introFrameDelay = 90 * time.Millisecond
 
-func introTickCmd() tea.Cmd {
-	return tea.Tick(introFrameDelay, func(time.Time) tea.Msg { return introTickMsg{} })
+func (a *App) tickDelay() time.Duration {
+	d := a.IntroFrameDelay
+	if d <= 0 {
+		return introFrameDelay
+	}
+	if d < 20*time.Millisecond {
+		return 20 * time.Millisecond
+	}
+	if d > 1*time.Second {
+		return 1 * time.Second
+	}
+	return d
+}
+
+func (a *App) introTickCmd() tea.Cmd {
+	return tea.Tick(a.tickDelay(), func(time.Time) tea.Msg { return introTickMsg{} })
 }
 
 // Init returns the initial Cmd: connect.
@@ -511,7 +535,7 @@ func (a *App) Init() tea.Cmd {
 		// MMMMMMMMM1: start the frame-advance tick as soon as the
 		// splash renders, so the animation runs while the user
 		// reads "press any key to continue".
-		return introTickCmd()
+		return a.introTickCmd()
 	}
 	return connectCmd(a.c)
 }
@@ -734,7 +758,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(frames) > 0 {
 			a.introFrameIdx = (a.introFrameIdx + 1) % len(frames)
 		}
-		return a, introTickCmd()
+		return a, a.introTickCmd()
 
 	case tea.PasteStartMsg:
 		a.inPaste = true

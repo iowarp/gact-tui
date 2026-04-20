@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNNNNNNN — Splash: basic logo, slower cadence, configurable, transparent bg
+
+- [x] **NNNNNNNNN1.** Reloaded the animation from `logo/logo-vide-basic.gif` (the cropped "basic" version the user added). Chafa pipeline gains `--threshold 0.1` so the dark-navy source background is treated as transparent, letting the splash blend with the terminal bg. Per-frame delay promoted from a const to a config parameter: new `intro_frame_delay_ms` field in `config.Config`; `app.IntroFrameDelay` threads it from main.go; `(a *App).tickDelay()` clamps to [20ms, 1s] so a typo doesn't freeze the splash. Default raised from 33ms → 90ms (36 frames × 90ms ≈ 3.2s per loop) per user feedback that the basic-crop was too fast. Makefile target updated to include the threshold flag. Three screenshot frames (`basic_splash_frame_{a,b,c}.png`) prove the slowed cadence catches visibly different rotation angles. `gact emit-config` sample now includes the new field.
+
 ## Phase MMMMMMMMM — Animated GRC logo splash (36 frames)
 
 - [x] **MMMMMMMMM1.** Splash now animates — 36 frames extracted offline from `logo/logo-video.gif` via `convert -coalesce`, each frame chafa-rendered at 30x15 truecolor halfblock, joined with form-feed separators into `grc-logo-anim.ansi`, embedded via `go:embed`. Runtime frame counter on App, `introTickMsg` tea.Tick cmd at ~30 FPS (33ms/frame → 1.2s per loop), animation starts in Init when StageIntro, dies naturally as soon as the splash dismisses (any keypress → StageConnecting). New `make intro-logo-anim` target regenerates the bake from `logo/logo-video.gif`. Three screenshot frames `MMMMMMMMM1_splash_frame_{a,b,c}.png` prove the rotation is visibly different at 800ms / 1200ms / 1600ms marks. TestEnableIntro_FlipsStage relaxed to accept the tick cmd (invariant still covered: no connect fires in StageIntro).
