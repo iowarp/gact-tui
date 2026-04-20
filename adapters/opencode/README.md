@@ -7,14 +7,24 @@ OpenCode upstream so the TUI can drive OpenCode without changes.
 [ GACT TUI ] ── http (GACT v0.1) ──> [ adapter ] ── http (OpenCode) ──> [ opencode server ]
 ```
 
-## Build & run
+## Install
 
 ```sh
+# From a clone:
 cd adapters/opencode/cmd/gact-opencode-adapter
 go build -o gact-opencode-adapter .
 
+# Or globally with go install (once the repo is tagged):
+go install github.com/JaimeCernuda/gact-tui/adapters/opencode/cmd/gact-opencode-adapter@latest
+```
+
+You'll also need the [`gact` TUI](../../README.md#install) itself.
+
+## Run
+
+```sh
 # Point at your OpenCode server (default upstream is http://localhost:4096)
-./gact-opencode-adapter --upstream http://localhost:4096 --port 7778
+gact-opencode-adapter --upstream http://localhost:4096 --port 7778
 
 # In another terminal, run the TUI against the adapter:
 GACT_BACKEND=http://localhost:7778 gact
