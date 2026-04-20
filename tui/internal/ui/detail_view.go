@@ -21,6 +21,30 @@ type bulkyPartRef struct {
 	fullText  string
 }
 
+// openDetailForSelection opens the floating detail view on the
+// body cursor's bulky part, falling back to the latest bulky in
+// the whole conversation (Z1 + L3 behaviour). Shared by Ctrl+E
+// and ZZZZZZZZ1 body-Enter so both paths stay in lockstep.
+func (a *App) openDetailForSelection() {
+	var (
+		ref bulkyPartRef
+		ok  bool
+	)
+	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+		ref, ok = findBulkyPartIn(a.messages[a.bodySelMsgIdx])
+	}
+	if !ok {
+		ref, ok = findLatestBulkyPart(a.messages)
+	}
+	if !ok {
+		a.transientHint = "nothing to expand — no bulky outputs in selection"
+		return
+	}
+	a.detailView = &ref
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
 // handleDetailViewKey drives the expand-detail modal. Esc/Ctrl+E
 // close; ↑/↓ · j/k · PgUp/PgDn scroll through long content; g/G
 // jump to top/bottom.
