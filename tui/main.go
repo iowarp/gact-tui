@@ -359,6 +359,7 @@ Usage:
   gact diag                  print environment + config for bug reports
   gact emit-config           print sample config.json to stdout
   gact list                  list recent sessions (tab-separated)
+                              --detached-only, --sort newest|oldest|status|tokens|backend, --limit N
   gact export --all -o DIR   bulk-export every session as JSON files
   gact tail [SID]            stream SSE events (NDJSON default; --format text for human one-liners)
   gact ping                  probe /v1/health (exit 0 if healthy)
@@ -6754,6 +6755,14 @@ func runList(args []string) int {
 	archived := fs.Bool("archived", false, "include archived sessions")
 	limit := fs.Int("limit", 0, "truncate to first N rows after filtering (0 = no limit)")
 	format := fs.String("format", "tsv", "output format: tsv | json")
+	// FFFFFFFFF1: --detached-only filters to sessions present in the
+	// local registry (filtered to the current backend) — mirrors
+	// YYYYYYYY1 on `gact dashboard`.
+	detachedOnly := fs.Bool("detached-only", false, "show only sessions in the local detached registry")
+	// FFFFFFFFF1: --sort mirrors KKKKKKKK1 on `gact dashboard`.
+	// Default preserves backend order so existing scripts aren't
+	// reordered silently.
+	sortBy := fs.String("sort", "", "sort by: newest | oldest | status | tokens | backend (default: backend order)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -6762,6 +6771,14 @@ func runList(args []string) int {
 		case "idle", "running", "waiting", "error":
 		default:
 			fmt.Fprintf(os.Stderr, "gact list: unknown --status %q (want idle|running|waiting|error)\n", *status)
+			return 2
+		}
+	}
+	if *sortBy != "" {
+		switch *sortBy {
+		case "newest", "oldest", "status", "tokens", "backend":
+		default:
+			fmt.Fprintf(os.Stderr, "gact list: unknown --sort %q (want newest|oldest|status|tokens|backend)\n", *sortBy)
 			return 2
 		}
 	}
@@ -6794,6 +6811,36 @@ func runList(args []string) int {
 			}
 		}
 		sessions = filtered
+	}
+	// FFFFFFFFF1: --detached-only narrows to sessions present in the
+	// local registry (filtered to current backend). Built once per
+	// invocation — soft-fails silently on missing registry so an
+	// unconfigured CI environment doesn't error out.
+	if *detachedOnly {
+		detached := map[string]bool{}
+		if path, err := config.DetachedPath(); err == nil {
+			if reg, err := config.LoadDetached(path); err == nil {
+				for _, r := range reg.Records {
+					if r.Backend == c.BaseURL() {
+						detached[r.SessionID] = true
+					}
+				}
+			}
+		}
+		filtered := sessions[:0]
+		for _, s := range sessions {
+			if detached[s.ID] {
+				filtered = append(filtered, s)
+			}
+		}
+		sessions = filtered
+	}
+	// FFFFFFFFF1: --sort reorders rows. Default (empty) preserves
+	// backend order so existing TSV-consuming scripts aren't broken
+	// by the new flag. Reuses the sortSessions helper from the
+	// dashboard path (KKKKKKKK1).
+	if *sortBy != "" {
+		sortSessions(sessions, *sortBy)
 	}
 	if *limit > 0 && len(sessions) > *limit {
 		sessions = sessions[:*limit]
