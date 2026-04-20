@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T04:50Z
-**Current phase:** PPPPPPP1 shipped — Goose docs refresh
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1e633ae` (pushed)
-**Open:** none — sidecar coverage parity reached; next natural work is feature parity (file diffs, permissions, MCP catalog) for Goose, mirroring claude-agent-sdk's coverage.
+**Last updated:** 2026-04-20T05:05Z
+**Current phase:** QQQQQQQ1 shipped — Goose file_diff Parts + diffs endpoints
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `90e9864` (pushed)
+**Open:** none — Goose now has file_diff parity with claude-agent-sdk. Permissions + MCP catalog are next natural extensions.
+
+### Phase QQQQQQQ1 — Goose file_diff Parts
+- **QQQQQQQ1.** developer__text_editor str_replace/write produces sibling file_diff Parts (with on-disk before/after). messageToGact threaded cwd param. New SPEC §6.10 endpoints (aggregate + per-message). caps.diffs=true. 8 new tests + conformance still passes.
 
 ### Phase OOOOOOO1 — Goose POST + SSE
 - **OOOOOOO1.** Per-session subscriber map; POST /messages spawns runUpstreamReply goroutine that POSTs /reply upstream, parses SSE, translates events, broadcasts to GET /events subscribers. translate.go.translateMessageEvent maps all 7 Goose MessageEvent variants. caps.sse=true. 3 new tests + conformance now passes 8 sections.
