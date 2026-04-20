@@ -12,7 +12,7 @@ Goal: reimplement the Python claude-agent-sdk sidecar in Go so the claude integr
 - [x] **TTTTTTT2.** captureCatalogs harvests tools/agents/slash_commands/mcp_servers from system/init; new endpoints serve tools/{id}, agents/{id}, commands, mcp/servers/{id}, metrics, sessions/{id}/export. caps.agents/commands/metrics/mcp=true. `gact conformance` against live Go adapter passes 14/14 — identical coverage to Python sidecar.
 - [ ] **TTTTTTT3.** can_use_tool control protocol: handle `{"type":"control_request","subtype":"can_use_tool",...}` from claude, park on a future, resolve via POST /v1/permissions/{pid}, send back control_response. Same permission flow the Python SDK implements via its can_use_tool callback.
 - [ ] **TTTTTTT4.** Streaming partials (include_partial_messages): translate StreamEvent (content_block_delta) → message.part.delta for char-by-char rendering.
-- [ ] **TTTTTTT5.** File diffs: Edit/Write ToolUseBlock → sibling file_diff Part with on-disk before/after.
+- [x] **TTTTTTT5.** translate.go.fileDiffForToolUse: Edit (with replace_all) + Write → sibling file_diff Part. claudeAssistantToGact threads cwd. New /v1/sessions/{id}/diffs + per-message endpoints. caps.diffs=true. `gact conformance` 16/16 against live Go adapter.
 
 ## Phase RRRRRRR — Goose tools catalog
 

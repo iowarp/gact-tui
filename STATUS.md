@@ -1,9 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T05:55Z
-**Current phase:** TTTTTTT1 shipped — Go claude adapter (stream-json direct)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `666a17c` (pushed)
-**Open:** none — Python sidecar still works; Go adapter is the single-binary path. Same caps wire to TUI; both pass.
+**Last updated:** 2026-04-20T06:25Z
+**Current phase:** TTTTTTT2 + TTTTTTT5 shipped — Go claude adapter feature parity + file_diffs (16/16 conformance)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8c7a72d` (pushed)
+**Open:** TTTTTTT3 (can_use_tool control protocol) + TTTTTTT4 (streaming partials) remaining for full Python parity.
+
+### Phase TTTTTTT2 + TTTTTTT5 — Go claude adapter feature surface
+- **TTTTTTT2.** Tools/agents/commands/MCP/metrics/export endpoints; captureCatalogs harvests from system/init. caps.agents/commands/metrics/mcp=true.
+- **TTTTTTT5.** Edit/Write tool_use → sibling file_diff Part (on-disk before/after). New /diffs + /messages/{mid}/diffs endpoints. caps.diffs=true. Conformance now 16/16 sections (added Diffs + Messages_Diffs vs Python sidecar's 14).
 
 ### Phase TTTTTTT1 — Go claude adapter
 - **TTTTTTT1.** New adapters/claudecode/ Go module reimplements the Python sidecar. Drives claude --output-format stream-json directly; same HTTP surface; single-binary release goal achievable. Real-LLM smoke 5.5s. `gact quick "say hi" → "Hi there!"` exit 0.
