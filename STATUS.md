@@ -1,9 +1,24 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:07Z
-**Current phase:** AAAAAAA1 shipped this iteration (rolled to 7-letter prefix after ZZZZZZ)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a872642` (pushed after status commit)
-**Open:** none — all open feedback shipped; pull from PLAN.md.
+**Last updated:** 2026-04-20T00:55Z
+**Current phase:** EEEEEEE1 shipped — Python sidecar driving real Claude Code via claude-agent-sdk
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `019fcf4` (pushed)
+**Open:** none — DDDDDDD1+ deferred (Go scaffold scrapped per user direction; Python sidecar is the canonical claude path)
+
+### Phase EEEEEEE — claude-agent-sdk Python sidecar
+- **EEEEEEE1.** New module `adapters/claude-agent-sdk-server/`
+  (uv + pyproject.toml + FastAPI). Per-session ClaudeSDKClient,
+  per-session SSE fan-out, real-LLM smoke test against actual
+  Claude Code OAuth (~4s end-to-end). 18/18 tests green.
+  Replaces the wrong-direction Go scaffold (DDDDDDD1, deleted).
+
+### Phase CCCCCCC — release polish
+- **CCCCCCC1.** MIT LICENSE.
+- **CCCCCCC2.** README slimmed 340→~110 lines; long-form moved
+  to docs/FEATURES.md; License + Go-version badges; adapter
+  table now lists all three backends (claude-agent-sdk, opencode, crush).
+- **CCCCCCC3.** Per-adapter Install + go install instructions
+  (opencode, crush READMEs).
 
 ### Phase AAAAAAA — conformance tasks POST title echo
 - **AAAAAAA1.** Mirror of YYYYYY1 for tasks: POST response
