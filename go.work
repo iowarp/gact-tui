@@ -6,5 +6,6 @@ use (
 	./adapters/opencode
 	./adapters/crush
 	./adapters/goose
+	./adapters/claudecode
 	./contract/conformance
 )

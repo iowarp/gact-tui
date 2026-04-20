@@ -4,6 +4,16 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase TTTTTTT — Go claude-code adapter (stream-json direct)
+
+Goal: reimplement the Python claude-agent-sdk sidecar in Go so the claude integration ships in a single binary — no Python / uv runtime dep. Same HTTP surface, same caps, same passing conformance.
+
+- [ ] **TTTTTTT1.** Core flow: HTTP server (health/capabilities/workspaces/sessions CRUD/messages list+post/SSE) + per-session subprocess of `claude --output-format stream-json --input-format stream-json --verbose`. Translate the Anthropic stream-json output (system/assistant/result) → GACT events (server.connected/message.created/session.status_changed). Real-LLM smoke mirrors the Python sidecar's test_smoke.py gated on `which claude`.
+- [ ] **TTTTTTT2.** Feature parity (follow-ups): tools catalog from SystemMessage(init).tools; MCP catalog; agents + slash_commands; metrics synthesised from state; session export. Match the Python sidecar's 14/14 conformance sections.
+- [ ] **TTTTTTT3.** can_use_tool control protocol: handle `{"type":"control_request","subtype":"can_use_tool",...}` from claude, park on a future, resolve via POST /v1/permissions/{pid}, send back control_response. Same permission flow the Python SDK implements via its can_use_tool callback.
+- [ ] **TTTTTTT4.** Streaming partials (include_partial_messages): translate StreamEvent (content_block_delta) → message.part.delta for char-by-char rendering.
+- [ ] **TTTTTTT5.** File diffs: Edit/Write ToolUseBlock → sibling file_diff Part with on-disk before/after.
+
 ## Phase RRRRRRR — Goose tools catalog
 
 - [x] **RRRRRRR1.** Wired GET /v1/tools + /v1/tools/{id} against Goose's /agent/tools?session_id=. firstSessionID() falls back when no query param. translate.go.toolToGact projects ToolInfo → GACT Tool. caps.tools=true. 2 unit tests + conformance now passes 11 sections (added Tools_List).
