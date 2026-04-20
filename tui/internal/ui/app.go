@@ -3702,7 +3702,24 @@ func (a *App) renderBody(width, height int) string {
 			"  "+t.HintKey.Render("Ctrl+Z")+t.HintLabel.Render(" detach (TUI exits; ")+
 				t.HintKey.Render("gact attach <sid>")+t.HintLabel.Render(" reattaches)"),
 		)
-		body = lipgloss.JoinVertical(lipgloss.Left, callout, "", hints)
+		// EEEEEEEE1: when the user has detached sessions on this
+		// backend, surface that on the empty-state callout so the
+		// resume path is discoverable on a fresh TUI start. Hidden
+		// when count is 0 to keep the empty state clean for new
+		// installs.
+		var resumeHint string
+		if n := len(a.previouslyDetached); n > 0 {
+			resumeHint = lipgloss.NewStyle().
+				Bold(true).Foreground(t.Secondary).
+				Render(fmt.Sprintf("↩ %d detached session(s) on this backend — ", n)) +
+				t.HintKey.Render("gact attach") +
+				t.HintLabel.Render(" (no args) resumes the most recent")
+		}
+		if resumeHint != "" {
+			body = lipgloss.JoinVertical(lipgloss.Left, callout, "", resumeHint, "", hints)
+		} else {
+			body = lipgloss.JoinVertical(lipgloss.Left, callout, "", hints)
+		}
 	} else if len(a.messages) == 0 {
 		body = lipgloss.JoinVertical(lipgloss.Left,
 			t.HintLabel.Render("(no messages yet — type below to send the first one)"),
