@@ -4039,6 +4039,58 @@ func specificDead(deadSIDs ...string) func(string, string) bool {
 	return func(_, sid string) bool { return !dead[sid] }
 }
 
+// AAAAAAAAA1: `gact attach <sid> --print-only` resolves the target
+// and prints the sid to stdout without launching the TUI. Used for
+// scripting: SID=$(gact attach <prefix> --print-only). Tested via
+// the real binary since runAttach is os.Exit-based.
+func TestCLI_AttachPrintOnly_ExplicitSid(t *testing.T) {
+	// Explicit-sid path doesn't touch the registry or the backend —
+	// no-arg validation happens only for the no-arg case. We can
+	// test without an emulator.
+	bin := buildGact(t)
+	stdout, _, code := runGact(t, bin, nil,
+		"attach", "sess_abc123def456", "--print-only")
+	if code != 0 {
+		t.Fatalf("attach --print-only: exit %d (want 0)", code)
+	}
+	if got := strings.TrimSpace(stdout); got != "sess_abc123def456" {
+		t.Errorf("stdout = %q, want 'sess_abc123def456'", got)
+	}
+}
+
+func TestCLI_AttachPrintOnly_NoArgsReadsRegistry(t *testing.T) {
+	// No-arg path probes each candidate so we need a live backend
+	// for it to return a sid instead of the "all dead" error.
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Create a real session so the probe succeeds.
+	sid := createSession(t, url, "print-only-target")
+
+	// Point GACT_DETACHED_PATH at a temp registry with just this sid.
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	body := fmt.Sprintf(
+		`{"records":[{"session_id":%q,"title":"print-only-target","backend":%q,"detached_at":"2026-04-20T08:00:00Z"}]}`,
+		sid, url,
+	)
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{
+		"GACT_BACKEND":         url,
+		"GACT_DETACHED_PATH":   regPath,
+	}, "attach", "--print-only")
+	if code != 0 {
+		t.Fatalf("attach --print-only no args: exit %d stderr=%q", code, stderr)
+	}
+	if got := strings.TrimSpace(stdout); got != sid {
+		t.Errorf("stdout = %q, want %q", got, sid)
+	}
+}
+
 func TestDefaultAttachTarget_PicksMostRecentForBackend(t *testing.T) {
 	dir := t.TempDir()
 	regPath := filepath.Join(dir, "detached.json")

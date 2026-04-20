@@ -413,6 +413,7 @@ Usage:
                               --async returns immediately with sid<TAB>msg_id
   gact attach [<name|sid>]   launch the TUI pre-selected on a session;
                               no arg = most-recent Ctrl+Z-detached on this backend
+                              --print-only: resolve + print sid, no TUI (for scripting)
   gact resume                alias for gact attach (no args) — resume most-recent detach
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
@@ -457,8 +458,24 @@ TUI-only flags:
 // bridge into runTUI's setup so the flag-parse path doesn't need
 // new flags.
 func runAttach(args []string) {
+	// AAAAAAAAA1: extract --print-only (no value) ahead of the target
+	// arg so the two usages compose cleanly:
+	//   gact attach <name>           — launch TUI
+	//   gact attach <name> --print-only  — print sid only, no TUI
+	//   gact attach --print-only     — resolve no-args default, print
+	printOnly := false
+	kept := args[:0]
+	for _, a := range args {
+		if a == "--print-only" || a == "-print-only" {
+			printOnly = true
+			continue
+		}
+		kept = append(kept, a)
+	}
+	args = kept
+
 	if len(args) > 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact attach [<name|sess_id>]")
+		fmt.Fprintln(os.Stderr, "usage: gact attach [<name|sess_id>] [--print-only]")
 		os.Exit(2)
 	}
 	target := ""
@@ -475,6 +492,18 @@ func runAttach(args []string) {
 			os.Exit(2)
 		}
 		target = sid
+	}
+	// AAAAAAAAA1: --print-only short-circuits the TUI launch so
+	// scripts can resolve the target sid without running bubbletea.
+	// For a no-arg invocation, defaultAttachTarget already printed
+	// the `attaching to most-recent detach: ...` hint to stderr; the
+	// sid also goes to stdout so pipelines can capture it cleanly.
+	// For an explicit name/sid, no hint is printed (we can't fuzzy-
+	// resolve without a live backend, and the caller passed the
+	// string so no disambiguation needed).
+	if printOnly {
+		fmt.Println(target)
+		os.Exit(0)
 	}
 	_ = os.Setenv("GACT_ATTACH_SESSION_ID", target)
 	// Trim os.Args so runTUI's flag.Parse doesn't choke on "attach

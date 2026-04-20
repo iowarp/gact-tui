@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAAAAAAAA — `gact attach --print-only`
+
+- [x] **AAAAAAAAA1.** New `--print-only` flag on `gact attach`. Resolves the target sid using the same CCCCCCCC1 no-args-default / RRRRRRRR1 fuzzy-match rules, prints the sid to stdout, exits 0 — no TUI launch. Enables scripting: `SID=$(gact attach <prefix> --print-only)` or `SID=$(gact attach --print-only)` to pick up most-recent detach. Flag parsed ahead of positional args so it composes cleanly with any invocation form. 2 new CLI tests: explicit-sid path + no-args-reads-registry path (the latter requires a live emulator since defaultAttachTarget probes).
+
 ## Phase ZZZZZZZZ — Body Enter opens detail view
 
 - [x] **ZZZZZZZZ1.** New `enter` binding in body focus opens the floating detail modal on the cursor's bulky message (same code path as Ctrl+E). Matches the universal "Enter to open selected item" UX convention — users no longer have to remember Ctrl+E as the only open-detail key. Extracted `openDetailForSelection()` helper so both Ctrl+E and Enter dispatch identical behaviour. Help overlay combined row: `Ctrl+E · Enter — expand …`. New `TestBodyEnter_OpensDetailView`; existing Ctrl+E tests untouched (same helper). Goldens regenerated.
