@@ -1,9 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T05:20Z
-**Current phase:** RRRRRRR1 shipped — Goose tools catalog (11/11 conformance sections)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9c08700` (pushed)
-**Open:** none — Goose now matches claude-agent-sdk on tools/diffs. Permissions/MCP/agents/metrics are next.
+**Last updated:** 2026-04-20T05:55Z
+**Current phase:** TTTTTTT1 shipped — Go claude adapter (stream-json direct)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `666a17c` (pushed)
+**Open:** none — Python sidecar still works; Go adapter is the single-binary path. Same caps wire to TUI; both pass.
+
+### Phase TTTTTTT1 — Go claude adapter
+- **TTTTTTT1.** New adapters/claudecode/ Go module reimplements the Python sidecar. Drives claude --output-format stream-json directly; same HTTP surface; single-binary release goal achievable. Real-LLM smoke 5.5s. `gact quick "say hi" → "Hi there!"` exit 0.
+- Also in this commit: deleted 11 mocked-upstream test files from opencode/crush/goose adapters per user's repeated "no mocking real systems" rule. Replacement real-LLM smoke tests are next phase work for those adapters.
 
 ### Phase RRRRRRR1 — Goose tools catalog
 - **RRRRRRR1.** GET /v1/tools + per-id /tools/{id} proxy /agent/tools?session_id=; firstSessionID() fallback when no query. toolToGact projects Goose ToolInfo. caps.tools=true. Conformance 11/11 sections.
