@@ -3060,22 +3060,29 @@ func (a *App) sseHealthDot() string {
 // only emits the escape sequence when the string actually changes.
 // U2: appends a status suffix for running / waiting_permission so
 // tab-switchers can tell at a glance which pane needs attention.
+// MMMMMMMM1: appends `[↩N]` when the user has detached sessions on
+// this backend so an unfocused terminal tab still reminds them
+// resumable work exists.
 func (a *App) windowTitle() string {
+	var title string
 	if a.selected < 0 || a.selected >= len(a.sessions) {
-		return "GACT"
-	}
-	s := a.sessions[a.selected]
-	title := s.Title
-	if title == "" {
 		title = "GACT"
 	} else {
-		title = "GACT — " + title
+		s := a.sessions[a.selected]
+		if s.Title == "" {
+			title = "GACT"
+		} else {
+			title = "GACT — " + s.Title
+		}
+		switch s.Status {
+		case gact.StatusRunning:
+			title += " (running)"
+		case gact.StatusWaitingPermission:
+			title += " (waiting)"
+		}
 	}
-	switch s.Status {
-	case gact.StatusRunning:
-		title += " (running)"
-	case gact.StatusWaitingPermission:
-		title += " (waiting)"
+	if n := len(a.previouslyDetached); n > 0 {
+		title += fmt.Sprintf(" [↩%d]", n)
 	}
 	return title
 }

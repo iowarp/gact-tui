@@ -705,6 +705,41 @@ func TestWindowTitle_ReflectsActiveSession(t *testing.T) {
 	}
 }
 
+// MMMMMMMM1: windowTitle appends `[↩N]` when the user has detached
+// sessions on this backend so tab-switchers see the reminder even
+// when gact isn't the focused window.
+func TestWindowTitle_AppendsDetachedCount(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.BackendURL = "http://localhost:7777"
+
+	// No detached → plain title.
+	if got := a.windowTitle(); got != "GACT" {
+		t.Errorf("no-detach title = %q, want 'GACT'", got)
+	}
+
+	// 3 detached → [↩3] suffix.
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_a", Backend: "http://localhost:7777"},
+		{SessionID: "sess_b", Backend: "http://localhost:7777"},
+		{SessionID: "sess_c", Backend: "http://localhost:7777"},
+	})
+	if got := a.windowTitle(); got != "GACT [↩3]" {
+		t.Errorf("detach-only title = %q, want 'GACT [↩3]'", got)
+	}
+
+	// Detach-count stacks with the session title + status suffix so
+	// a running session with detach-count reads: "GACT — demo (running) [↩3]".
+	running := []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusRunning}}
+	a = newReadyApp(running, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_a", Backend: "http://localhost:7777"},
+	})
+	if got := a.windowTitle(); got != "GACT — demo (running) [↩1]" {
+		t.Errorf("combined title = %q", got)
+	}
+}
+
 // TestTimestampToggle_FlipsAndRenders verifies S1: body-focus `t`
 // toggles Theme.ShowTimestamps, and the rendered conversation
 // includes a formatted timestamp when the flag is on.
