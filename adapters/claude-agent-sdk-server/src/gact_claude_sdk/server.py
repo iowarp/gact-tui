@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, StreamEvent
 from fastapi import FastAPI, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from .bridge import envelope, now_iso, sdk_message_to_events
+from .bridge import envelope, now_iso, sdk_message_to_events, stream_event_to_events
 
 # Adapter contract version + backend identity advertised to the TUI.
 CONTRACT_VERSION = "0.1"
@@ -58,6 +58,10 @@ class Session:
     # Lock around client.query() so two POST /messages calls don't
     # race and interleave on the SDK's single-conversation contract.
     turn_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # GGGGGGG4: in-flight streaming message id (set on Anthropic
+    # message_start, cleared on message_stop). Bridge.stream_event_to_events
+    # threads this so deltas/completes can target the right part.
+    active_stream_msg_id: str | None = None
 
 
 @dataclass
@@ -428,6 +432,12 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
             opts = ClaudeAgentOptions(
                 cwd=state.cwd,
                 cli_path=state.cli_path,
+                # GGGGGGG4: ask the SDK to surface incremental
+                # StreamEvents alongside the final AssistantMessage.
+                # Bridge translates the Anthropic streaming protocol
+                # into GACT message.part.delta events so the TUI
+                # renders char-by-char.
+                include_partial_messages=True,
             )
             sess.client = ClaudeSDKClient(options=opts)
             await sess.client.connect()
@@ -447,6 +457,15 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                     tools = msg.data.get("tools") if isinstance(msg.data, dict) else None
                     if isinstance(tools, list):
                         state.tool_names = [str(t) for t in tools if isinstance(t, str)]
+                # StreamEvents take a separate path because they
+                # need session-level state (active streaming msg id).
+                if isinstance(msg, StreamEvent):
+                    events, sess.active_stream_msg_id = stream_event_to_events(
+                        msg, sess.id, sess.active_stream_msg_id
+                    )
+                    for ev in events:
+                        await _broadcast(sess, ev)
+                    continue
                 for ev in sdk_message_to_events(msg, sess.id, cwd=state.cwd):
                     await _broadcast(sess, ev)
                     # Cache assistant + user messages for GET /messages.
