@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAAAAAAA — Detached-sessions registry + `gact detached`
+
+- [x] **AAAAAAAA1.** New `tui/internal/config/detached.go` persists Ctrl+Z detach events to `detached.json` (sibling of config.json; honours `GACT_DETACHED_PATH`). Records: session_id + title + backend + workspace + detached_at. Dedupe by (backend, sid); trim to 64 most-recent. New `gact detached [--rm SID] [--probe] [--format pretty|tsv|json]` lists the registry; `--probe` GETs each session to mark alive/dead, `--rm` drops by sid across backends. App captures DetachedTitle + DetachedWorkspace alongside DetachedSessionID at Ctrl+Z; main.go appends after p.Run() returns. End-to-end verified through VHS tape (Ctrl+Z → JSON file → `gact detached` shows row, --probe = "yes" against live emulator). 5 new config tests, all green.
+
 ## Phase ZZZZZZZ — Body cursor visibility + visible-row snap
 
 - [x] **ZZZZZZZ1.** Body cursor row now paints a `t.BgSubtle` background tint across the entire selected message (new `tintRowBg` helper that re-pads each line to width and fills with the theme's subtle bg) on top of the existing `█` Y1/FFFFF1 gutter. Cursor navigation (up/down/g/G/n/N + maybeInitBodyCursor) snaps past pairToolResults `absorbed[i]` indices via new `snapToVisibleMsg(idx, dir)` so the cursor always lands on a row the renderer actually paints — previously the cursor could land on an absorbed tool message, leaving no visible highlight (root cause of the user's "have not seen this, nor can I see it now" report). Screenshot `screenshots/ZZZZZZZ1_body_cursor_tint.png`. All `./internal/ui/` + `./` tests green (276s gact CLI suite).
