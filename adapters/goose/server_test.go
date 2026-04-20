@@ -1,12 +1,14 @@
 package goose
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // mockGoose returns a test server that pretends to be a Goose
@@ -330,6 +332,163 @@ func TestMessagesList404OnUnknownSession(t *testing.T) {
 	}
 	if !strings.Contains(string(body), `"session_not_found"`) {
 		t.Errorf("body missing spec envelope: %s", body)
+	}
+}
+
+// mockGooseWithReply extends mockGoose with a /reply endpoint that
+// emits a canned SSE stream covering the Message → Finish path.
+func mockGooseWithReply(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"healthy":true}`))
+	})
+	mux.HandleFunc("POST /reply", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fl := w.(http.Flusher)
+		// Two events: an assistant Message + Finish. Mirrors what
+		// a typical short Goose turn would emit.
+		_, _ = w.Write([]byte("data: " + `{"type":"Message","message":{"role":"Assistant","created":1735689700,"content":[{"type":"text","text":"hi back"}]},"token_state":{}}` + "\n\n"))
+		fl.Flush()
+		_, _ = w.Write([]byte("data: " + `{"type":"Finish","reason":"end_turn","token_state":{}}` + "\n\n"))
+		fl.Flush()
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestPostMessageStreamsViaSSE drives the full POST /messages →
+// upstream /reply → SSE fan-out path.
+func TestPostMessageStreamsViaSSE(t *testing.T) {
+	upstream := mockGooseWithReply(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	// Close client connections explicitly so the SSE goroutine
+	// (which holds the TCP conn open as long as it can read)
+	// doesn't block srv.Close.
+	defer func() {
+		srv.CloseClientConnections()
+		srv.Close()
+	}()
+
+	type ev struct {
+		Type    string         `json:"type"`
+		Payload map[string]any `json:"payload"`
+	}
+	streamCh := make(chan ev, 16)
+	streamReady := make(chan struct{})
+	streamCtx, cancelStream := context.WithCancel(context.Background())
+	defer cancelStream()
+	go func() {
+		defer close(streamCh)
+		req, _ := http.NewRequestWithContext(streamCtx, "GET", srv.URL+"/v1/sessions/sX/events", nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		close(streamReady)
+		var dataBuf strings.Builder
+		buf := make([]byte, 4096)
+		for {
+			n, err := resp.Body.Read(buf)
+			if n > 0 {
+				dataBuf.Write(buf[:n])
+				blob := dataBuf.String()
+				for {
+					idx := strings.Index(blob, "\n\n")
+					if idx < 0 {
+						break
+					}
+					block := blob[:idx]
+					blob = blob[idx+2:]
+					var evType, dataLine string
+					for _, ln := range strings.Split(block, "\n") {
+						if strings.HasPrefix(ln, "event: ") {
+							evType = strings.TrimPrefix(ln, "event: ")
+						}
+						if strings.HasPrefix(ln, "data: ") {
+							dataLine = strings.TrimPrefix(ln, "data: ")
+						}
+					}
+					if dataLine == "" {
+						continue
+					}
+					var raw map[string]any
+					if jErr := json.Unmarshal([]byte(dataLine), &raw); jErr == nil {
+						pl, _ := raw["payload"].(map[string]any)
+						select {
+						case streamCh <- ev{Type: evType, Payload: pl}:
+						case <-streamCtx.Done():
+							return
+						}
+					}
+				}
+				dataBuf.Reset()
+				dataBuf.WriteString(blob)
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	<-streamReady
+	time.Sleep(100 * time.Millisecond)
+
+	postBody := strings.NewReader(`{"parts":[{"type":"text","text":"hi"}]}`)
+	r, err := http.Post(srv.URL+"/v1/sessions/sX/messages",
+		"application/json", postBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != http.StatusAccepted {
+		t.Fatalf("post status %d body %s", r.StatusCode, body)
+	}
+
+	deadline := time.After(5 * time.Second)
+	saw := map[string]bool{}
+	var lastStatus string
+loop:
+	for {
+		select {
+		case e, ok := <-streamCh:
+			if !ok {
+				break loop
+			}
+			saw[e.Type] = true
+			if e.Type == "session.status_changed" {
+				lastStatus, _ = e.Payload["status"].(string)
+			}
+			if saw["message.created"] && lastStatus == "idle" {
+				break loop
+			}
+		case <-deadline:
+			t.Fatalf("timed out; saw=%v lastStatus=%q", saw, lastStatus)
+		}
+	}
+	if !saw["server.connected"] {
+		t.Errorf("missing server.connected handshake")
+	}
+	if !saw["message.created"] {
+		t.Errorf("missing message.created")
+	}
+	if lastStatus != "idle" {
+		t.Errorf("last status %q want idle", lastStatus)
+	}
+}
+
+func TestPostMessageRejectsEmptyParts(t *testing.T) {
+	upstream := mockGooseWithReply(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+	r, _ := http.Post(srv.URL+"/v1/sessions/sX/messages",
+		"application/json", strings.NewReader(`{"parts":[]}`))
+	if r.StatusCode != http.StatusBadRequest {
+		t.Errorf("status %d want 400", r.StatusCode)
 	}
 }
 

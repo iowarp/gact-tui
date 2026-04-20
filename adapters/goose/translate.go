@@ -4,6 +4,7 @@
 package goose
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -228,6 +229,124 @@ func messageToGact(g gooseMessage, sessionID string, idx int) gact.Message {
 		CreatedAt: time.Unix(g.Created, 0).UTC(),
 	}
 }
+
+// OOOOOOO1: translateMessageEvent maps Goose's MessageEvent
+// variants (from /reply SSE) to GACT §7.3 event envelopes.
+//
+// The Goose taxonomy (from goose-server reply.rs):
+//   - Message{message, token_state}        → message.created
+//   - Finish{reason, token_state}          → session.status_changed:idle
+//   - Error{error}                         → session.status_changed:error
+//   - Notification{request_id, message}    → notification (level/title/body)
+//   - Ping                                 → server.heartbeat
+//   - UpdateConversation, ActiveRequests   → dropped (adapter-internal)
+//
+// Returns a list since some Goose events naturally fan out to
+// multiple GACT events (e.g. Finish emits both message.completed
+// and session.status_changed in the future).
+func translateMessageEvent(raw map[string]any, sid string) []map[string]any {
+	t, _ := raw["type"].(string)
+	switch t {
+	case "Message":
+		m, ok := raw["message"].(map[string]any)
+		if !ok {
+			return nil
+		}
+		// Re-encode + decode through gooseMessage so the
+		// existing messageToGact translation owns content
+		// variant dispatch.
+		buf, err := jsonMarshal(m)
+		if err != nil {
+			return nil
+		}
+		var gm gooseMessage
+		if err := jsonUnmarshal(buf, &gm); err != nil {
+			return nil
+		}
+		// id is unique within a session — unknown index here, so
+		// derive from the goose id when present, otherwise from
+		// the unix timestamp. Safe enough for SSE replay because
+		// the gact TUI dedupes by message id.
+		idx := int(gm.Created)
+		gactMsg := messageToGact(gm, sid, idx)
+		// Cast gact.Message → JSON-compat dict (the SSE writer
+		// expects map[string]any payloads).
+		jb, err := jsonMarshal(gactMsg)
+		if err != nil {
+			return nil
+		}
+		var msgDict map[string]any
+		if err := jsonUnmarshal(jb, &msgDict); err != nil {
+			return nil
+		}
+		return []map[string]any{
+			{"type": "message.created", "payload": msgDict},
+		}
+	case "Finish":
+		reason, _ := raw["reason"].(string)
+		return []map[string]any{
+			{
+				"type": "session.status_changed",
+				"payload": map[string]any{
+					"session_id":  sid,
+					"status":      "idle",
+					"prev_status": "running",
+					"reason":      reason,
+				},
+			},
+		}
+	case "Error":
+		errStr, _ := raw["error"].(string)
+		return []map[string]any{
+			{
+				"type": "session.status_changed",
+				"payload": map[string]any{
+					"session_id":  sid,
+					"status":      "error",
+					"prev_status": "running",
+					"error":       errStr,
+				},
+			},
+		}
+	case "Notification":
+		// MCP notification surfaced through the agent. Goose nests
+		// the actual message under .message; we pass it through as
+		// notification body. SPEC §7.3 notification payload:
+		// {level, title, body}.
+		nest, _ := raw["message"].(map[string]any)
+		level, _ := nest["level"].(string)
+		if level == "" {
+			level = "info"
+		}
+		title, _ := nest["title"].(string)
+		if title == "" {
+			title = "MCP"
+		}
+		body, _ := nest["body"].(string)
+		return []map[string]any{
+			{
+				"type": "notification",
+				"payload": map[string]any{
+					"level": level,
+					"title": title,
+					"body":  body,
+				},
+			},
+		}
+	case "Ping":
+		return []map[string]any{
+			{"type": "server.heartbeat", "payload": map[string]any{}},
+		}
+	}
+	// UpdateConversation, ActiveRequests, unknown → dropped
+	return nil
+}
+
+// jsonMarshal/jsonUnmarshal are tiny indirections so translate.go's
+// SSE event translation reads cleanly without sprinkling json.Marshal
+// calls through the dispatch.
+func jsonMarshal(v any) ([]byte, error)   { return json.Marshal(v) }
+func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }
 
 func itoa(n int) string {
 	// Tiny non-strconv int formatter (avoids the strconv import).
