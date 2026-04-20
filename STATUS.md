@@ -1,9 +1,17 @@
 # STATUS
 
-**Last updated:** 2026-04-20T08:30Z
-**Current phase:** BBBBBBBB1 shipped — sidebar marker + auto-prune for detached sessions
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d931ffe` (pushed)
-**Open:** Real-LLM smoke replacements for goose/crush/opencode adapters; richer `gact agent deploy/list/connect` registry + further session lifecycle UX.
+**Last updated:** 2026-04-20T09:00Z
+**Current phase:** CCCCCCCC1+CCCCCCCC2 shipped — `gact attach` (no args) defaults to most-recent detach + dashboard carries ↩ column
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `472960f` (pushed)
+**Open:** Real-LLM smoke replacements for goose/crush/opencode adapters; richer `gact agent deploy/list/connect` registry; remaining UX polish from feedback memories (GRC logo splash, footer flicker hardening).
+
+### Phase CCCCCCCC1+2 — Detach UX polish
+- **CCCCCCCC1.** `gact attach` (no args) reads detached.json + auto-attaches to most-recent record on the current backend. Stderr prints `attaching to most-recent detach: sess_… (title)`. 3 unit tests: newest pick (with stale + cross-backend distractors), no-match-for-backend error, missing-registry error.
+- **CCCCCCCC2.** `gact dashboard` (pretty + tsv) now carries a DET column with `↩` for sessions in the registry. Same source as TUI sidebar (BBBBBBBB1) so the two views agree. Width math switched to rune count so ↩ doesn't widen its column. Existing dashboard CLI tests still pass.
+
+### Phase BBBBBBBB1+2 — Detached-session sidebar marker + colored CLI
+- **BBBBBBBB1.** Sidebar `↩` marker on every session the user has previously Ctrl+Z-detached from (filtered to current backend). x/x delete prunes both in-memory + on-disk via App.PruneDetachedRegistry callback. 2 new tests + screenshot.
+- **BBBBBBBB2.** `gact detached --probe` sorts live above dead, color-codes alive/dead via dependency-free ANSI (TTY-gated), prints "N alive · M dead · K unprobed" footer.
 
 ### Phase BBBBBBBB1 — Sidebar marker for detached sessions
 - **BBBBBBBB1.** App.previouslyDetached map seeded at startup from detached.json (filtered to current backend). Sidebar paints `↩` next to every session the user previously Ctrl+Z-detached from. Two-step `x/x` delete fires PruneDetachedRegistry callback so `gact detached` doesn't list deleted sessions next time. 2 new sidebar tests + screenshot `BBBBBBBB1_detached_marker.png`.
