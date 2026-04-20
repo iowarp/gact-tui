@@ -2293,6 +2293,22 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "showing all sessions"
 		}
 		a.ensureSelectedVisible()
+	case "y":
+		// OOOOOOOO1: yank the selected session's sess_xxx id to
+		// clipboard — useful for piping into `gact log <sid>`,
+		// `gact attach <sid>`, etc. without re-typing a 32-char
+		// hash. Body-focus `y` still copies message text; the two
+		// behaviours split on focus.
+		sid := a.currentSessionID()
+		if sid == "" {
+			a.transientHint = "no session selected to copy"
+			return a, nil
+		}
+		if err := clipboardWrite(sid); err != nil {
+			a.transientHint = "copy failed: " + err.Error()
+			return a, nil
+		}
+		a.transientHint = "copied " + sid + " to clipboard"
 	}
 	return a, nil
 }
@@ -4267,6 +4283,7 @@ var helpTabs = []struct {
 			{"A", "archive session (un-archive in archived view)"},
 			{"h", "toggle archived / active view"},
 			{"d", "toggle detached-only view (sessions you Ctrl+Z-walked-away-from)"},
+			{"y", "yank selected session id to clipboard (pipe into gact log/attach/etc.)"},
 			{"/", "filter sessions by title"},
 			{"o", "add file to session context"},
 		},

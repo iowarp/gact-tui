@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase OOOOOOOO — Sidebar y yanks session id
+
+- [x] **OOOOOOOO1.** New `y` keybind in sidebar focus copies the currently-selected session's sess_xxx id to clipboard — useful for piping into `gact log <sid>`, `gact attach <sid>`, `gact rewind <sid>` etc. without re-typing a 32-char hash. Body-focus `y` still copies message text (KY3) — split on focus so the two yank flows don't collide. Transient hint confirms with `copied <sid> to clipboard`. Empty-selection case (selected = -1) prints a no-session toast instead of crashing. Help overlay gains a dedicated row. Two new clipboard tests. 
+
 ## Phase NNNNNNNN — Batch `gact detached --rm`
 
 - [x] **NNNNNNNN1.** `gact detached --rm` now accepts a comma-separated list of session ids for batch cleanup — previously one sid per invocation. Trims whitespace around each entry so `--rm "sess_a, sess_b ,sess_c"` works the same as the tight form. Reports total count to stderr. End-to-end verified with 4-entry registry + `--rm "sess_drop1,sess_drop2,sess_drop3"` → "removed 3 entr(y/ies)", surviving entry intact.
