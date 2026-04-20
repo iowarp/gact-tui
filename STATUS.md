@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T15:00Z
-**Current phase:** XXXXXXXX1 + YYYYYYYY1 shipped — sidebar `b` busy-only toggle + `gact dashboard --detached-only`
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5e30c04` (pushed)
+**Last updated:** 2026-04-20T15:30Z
+**Current phase:** ZZZZZZZZ1 + AAAAAAAAA1 shipped — body Enter opens detail view + `gact attach --print-only` for scripting
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5c1beac` (pushed)
+
+### Phase AAAAAAAAA1 — `gact attach --print-only`
+- Resolves target sid (no-args-default or fuzzy-match) and prints to stdout; exits 0 without TUI. Scripting: `SID=$(gact attach refactor --print-only)`. 2 new CLI tests.
+
+### Phase ZZZZZZZZ1 — Body Enter opens detail view
+- `Enter` in body focus opens the cursor's bulky message in the detail modal — mirrors Ctrl+E via extracted `openDetailForSelection` helper. Matches "Enter to open" convention. Help row combined. Goldens regenerated.
 
 ### Phase YYYYYYYY1 — `gact dashboard --detached-only`
 - Mirrors sidebar `d` toggle on CLI. Restricts rows to registry-matching sessions. Works with pretty + JSON. Applied after sort.
