@@ -1357,6 +1357,62 @@ func TestCLI_Dashboard(t *testing.T) {
 	}
 }
 
+// KKKKKKKK1: `gact dashboard --sort` reorders rows. Default
+// "newest" puts the most-recently-updated row at the top;
+// "oldest" flips it. An unknown sort key errors out fast
+// instead of silently rendering undefined order.
+func TestCLI_DashboardSort(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	// Create in order: older → middle → newer, with sleep between
+	// so UpdatedAt is monotonically increasing.
+	_ = createSession(t, url, "dash-older")
+	time.Sleep(150 * time.Millisecond)
+	_ = createSession(t, url, "dash-middle")
+	time.Sleep(150 * time.Millisecond)
+	_ = createSession(t, url, "dash-newer")
+
+	// Default = newest first.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url}, "dashboard")
+	if code != 0 {
+		t.Fatalf("dashboard default: exit %d", code)
+	}
+	iNewer := strings.Index(stdout, "dash-newer")
+	iOlder := strings.Index(stdout, "dash-older")
+	if iNewer < 0 || iOlder < 0 {
+		t.Fatalf("both rows should appear: %q", stdout)
+	}
+	if iNewer >= iOlder {
+		t.Errorf("default sort should put newest first: newer@%d older@%d in %q",
+			iNewer, iOlder, stdout)
+	}
+
+	// --sort oldest flips it.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dashboard", "--sort", "oldest")
+	if code != 0 {
+		t.Fatalf("dashboard --sort oldest: exit %d", code)
+	}
+	iNewer = strings.Index(stdout, "dash-newer")
+	iOlder = strings.Index(stdout, "dash-older")
+	if iOlder >= iNewer {
+		t.Errorf("--sort oldest should put oldest first: older@%d newer@%d in %q",
+			iOlder, iNewer, stdout)
+	}
+
+	// Unknown sort fails fast with a helpful error.
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"dashboard", "--sort", "bogus")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for unknown --sort")
+	}
+	if !strings.Contains(stderr, "unknown sort") {
+		t.Errorf("stderr should mention 'unknown sort': %q", stderr)
+	}
+}
+
 // TestCLI_LogSince covers TTT1: send two messages with a sleep
 // between, --since 50ms keeps only the latest, --since 1h keeps
 // both.
