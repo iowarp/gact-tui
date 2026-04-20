@@ -419,7 +419,7 @@ Usage:
   gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
                               --sort newest|oldest|status|tokens|backend (default: newest)
   gact detached              list sessions you've Ctrl+Z-detached from
-                              --rm <sid> drops one entry; --probe checks each is still on the backend
+                              --rm <sid[,sid,...]> drops one or many; --probe checks each is still on the backend
                               --prune-dead probes + removes every dead entry in one shot
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
@@ -2334,7 +2334,7 @@ func runDashboard(args []string) int {
 // (AAAAAAAA1)
 func runDetached(args []string) int {
 	fs := flag.NewFlagSet("detached", flag.ContinueOnError)
-	rm := fs.String("rm", "", "remove the entry for this session id from the registry")
+	rm := fs.String("rm", "", "remove entries for these session ids (comma-separated) from the registry")
 	probe := fs.Bool("probe", false, "probe each backend, mark sessions that no longer exist")
 	pruneDead := fs.Bool("prune-dead", false, "probe + remove every entry whose backend no longer has the session (GGGGGGGG1)")
 	format := fs.String("format", "pretty", "pretty | tsv | json")
@@ -2365,13 +2365,23 @@ func runDetached(args []string) int {
 	}
 	if *rm != "" {
 		// `--rm` removes by sid across all backends — the user
-		// thinks in sids, not (backend, sid) pairs.
-		n, err := config.RemoveDetached(path, "", *rm)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
-			return 1
+		// thinks in sids, not (backend, sid) pairs. NNNNNNNN1:
+		// accepts a comma-separated list for batch cleanup.
+		sids := strings.Split(*rm, ",")
+		total := 0
+		for _, sid := range sids {
+			sid = strings.TrimSpace(sid)
+			if sid == "" {
+				continue
+			}
+			n, err := config.RemoveDetached(path, "", sid)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
+				return 1
+			}
+			total += n
 		}
-		fmt.Fprintf(os.Stderr, "removed %d entr(y/ies) for %s\n", n, *rm)
+		fmt.Fprintf(os.Stderr, "removed %d entr(y/ies) for %s\n", total, *rm)
 		return 0
 	}
 	reg, err := config.LoadDetached(path)
