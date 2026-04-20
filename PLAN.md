@@ -4,6 +4,24 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDDDDDD — claude-code / Claude Agent SDK adapter
+
+Decision (2026-04-19): write a Go adapter that spawns `claude --output-format stream-json` directly. Rationale: matches the existing opencode/crush adapter pattern (all-Go), uses the same OAuth that the Python `claude-agent-sdk` library uses internally, no Python sidecar needed.
+
+- [ ] **DDDDDDD1.** Scaffold `adapters/claudecode/` package + `cmd/gact-claudecode-adapter` binary. Mirror the crush adapter's file layout (server.go, transport.go, translate.go, cmd/main.go, README.md, go.mod, conformance_test.go). Server stub: GET /v1/health, GET /v1/capabilities (advertise the realistic subset — sessions/diffs/files/tools, NOT mcp/voice/lsp until we wire them).
+- [ ] **DDDDDDD2.** Workspace + session resolution. One synthetic workspace pulled from `cwd` (Claude Code is per-cwd); sessions are adapter-side state (Claude doesn't expose a session list endpoint), so the adapter keeps a session table in memory keyed by id.
+- [ ] **DDDDDDD3.** POST /v1/sessions/{id}/messages → spawn `claude` subprocess with `--output-format stream-json --input-format stream-json`, write the user message to stdin, read JSONL events from stdout. Cache the assistant message + parts on the adapter side.
+- [ ] **DDDDDDD4.** SSE event stream: convert each Claude stream-json event into a GACT §7.3 event (text → message.part.delta, tool_use → tool_call, tool_result → tool_result, etc.). Emit through the existing /v1/sessions/{id}/events handler.
+- [ ] **DDDDDDD5.** Conformance test against a mocked `claude` binary (use a shell script that emits canned stream-json so CI doesn't need a real OAuth login). Assert all gated sections pass.
+
+## Phase CCCCCCC — release polish
+
+Goal: README + screenshots + install infra ready for the public.
+
+- [ ] **CCCCCCC1.** Add MIT `LICENSE` at repo root. The user is sole author; MIT matches the Go ecosystem norm.
+- [ ] **CCCCCCC2.** Slim the 340-line root README to a release-friendly hero: sharper "what & why" lede; thin the screenshot grid from 99 PNGs to ~6 hero shots; add a license badge; keep the Quickstart but move the comprehensive feature catalog into a separate `docs/FEATURES.md` so the front page reads in <2 minutes.
+- [ ] **CCCCCCC3.** Add `go install` instructions to root README + per-adapter READMEs (opencode, crush). Adapters should also link back to the main repo's quickstart so a fresh clone has one obvious path to a working setup.
+
 ## Phase AAAAAAA — conformance: tasks POST title echo
 
 - [x] **AAAAAAA1.** Mirror of YYYYYY1 for tasks: extends `checkTasks`'s POST step to also assert the response carries back the `title` field we sent. Catches adapter authors that drop fields on the way through (a silent half-create where you get the id but lose the metadata). Read-write but the trailing DELETE keeps the suite idempotent. NB: phase prefixes rolled from 6-letter (ZZZZZZ) to 7-letter (AAAAAAA) here — same convention the project used at ZZZZZ → AAAAAA.
