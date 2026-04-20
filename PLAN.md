@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase NNNNNNN — Goose conformance test
 
-- [ ] **NNNNNNN1.** Mirror `adapters/opencode/conformance_test.go` and `adapters/crush/conformance_test.go`: stand up the Goose adapter against a richer mocked goosed (everything `gact conformance` walks: /health, /sessions, /sessions/{id}, /sessions/{id}/messages via conversation), then run `conformance.Run` from `contract/conformance` against the adapter. Skip sections we don't implement (PostMessage, SSE, the cap-gated ones we report false). Anchors the wire shape so future Goose changes can't silently regress.
+- [x] **NNNNNNN1.** New conformance_test.go mirrors opencode/crush patterns. Caught a missing per-id message endpoint; added handleGetMessage. 6 sections green: Health, Capabilities, Workspaces, Sessions_List, Sessions_Get, Messages_List (with per-id drill). Goose adapter is now conformance-validated for every section it advertises.
 
 ## Phase MMMMMMM — Goose messages read
 
