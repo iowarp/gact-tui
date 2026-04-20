@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAAAAAA — conformance: tasks POST title echo
+
+- [x] **AAAAAAA1.** Mirror of YYYYYY1 for tasks: extends `checkTasks`'s POST step to also assert the response carries back the `title` field we sent. Catches adapter authors that drop fields on the way through (a silent half-create where you get the id but lose the metadata). Read-write but the trailing DELETE keeps the suite idempotent. NB: phase prefixes rolled from 6-letter (ZZZZZZ) to 7-letter (AAAAAAA) here — same convention the project used at ZZZZZ → AAAAAA.
+
 ## Phase ZZZZZZ — conformance: policies post-PUT GET round-trip
 
 - [x] **ZZZZZZ1.** Strengthens `checkPolicies` (already had PUT echo check) with a `GET /v1/policies` after the PUT to verify the rule actually persisted to the underlying store. Catches adapter authors whose PUT echoes the request body 200 OK but never writes — same bug pattern as YYYYYY1's post-create hook list check.
