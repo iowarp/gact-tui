@@ -108,6 +108,44 @@ func TestCtrlE_TargetsCursorMessage(t *testing.T) {
 	}
 }
 
+// ZZZZZZZZ1: body-focus Enter opens the detail view on the cursor's
+// bulky message — same behaviour as Ctrl+E, mapped to the intuitive
+// "Enter to open" convention.
+func TestBodyEnter_OpensDetailView(t *testing.T) {
+	bulky := strings.Repeat("line\n", 80)
+	mkBulky := func(id string) gact.Message {
+		return gact.Message{
+			ID:   id,
+			Role: "tool",
+			Parts: []gact.Part{{
+				Type: gact.PartTypeToolResult,
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: id + "\n" + bulky,
+				}},
+			}},
+		}
+	}
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{mkBulky("EARLIER"), mkBulky("MIDDLE"), mkBulky("LATEST")},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	a.bodySelMsgIdx = 1 // MIDDLE
+
+	// Enter via handleBodyKey — same code path as Ctrl+E.
+	out, _ := a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	got := out.(*App)
+	if !got.detailViewOpen || got.detailView == nil {
+		t.Fatalf("Enter should open detail view; open=%v", got.detailViewOpen)
+	}
+	if got.detailView.messageID != "MIDDLE" {
+		t.Errorf("detail view targeted %q, want MIDDLE (cursor message)",
+			got.detailView.messageID)
+	}
+}
+
 // And the fall-through still works: cursor unset → Ctrl+E expands
 // the latest bulky part (back-compat with L3).
 func TestCtrlE_FallbackLatestWhenNoCursor(t *testing.T) {

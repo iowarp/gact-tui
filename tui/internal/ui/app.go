@@ -1482,23 +1482,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Z1: when the body cursor is set and the selected message
 		// has a bulky tool_result or text part, expand THAT one.
 		// Otherwise fall back to the "latest bulky" heuristic (L3).
-		var (
-			ref bulkyPartRef
-			ok  bool
-		)
-		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
-			ref, ok = findBulkyPartIn(a.messages[a.bodySelMsgIdx])
-		}
-		if !ok {
-			ref, ok = findLatestBulkyPart(a.messages)
-		}
-		if !ok {
-			a.transientHint = "nothing to expand — no bulky outputs in selection"
-			return a, nil
-		}
-		a.detailView = &ref
-		a.detailViewOpen = true
-		a.detailScroll = 0
+		a.openDetailForSelection()
 		return a, nil
 	case "ctrl+l":
 		// Reload on-disk config without restarting. Hot-applies theme +
@@ -2363,6 +2347,13 @@ func (a *App) sidebarPageSize() int {
 
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
+	case "enter":
+		// ZZZZZZZZ1: Enter on body focus opens the floating detail
+		// view for the selected message — same code path as Ctrl+E,
+		// but mapped to the intuitive "Enter to open" convention
+		// (matches file pickers, list navigation, etc.).
+		a.openDetailForSelection()
+		return a, nil
 	case "up", "k":
 		// WWWWW1: up/k navigate the cursor through messages now,
 		// not the raw scroll. User feedback was that "the window
@@ -4385,7 +4376,7 @@ var helpTabs = []struct {
 			{"d", "delete last message (optimistic; targets newest)"},
 			{"t", "toggle per-message timestamps"},
 			{"n / N", "next / prev message (alias for ↓/↑)"},
-			{"Ctrl+E", "expand the cursor's bulky output in floating detail view"},
+			{"Ctrl+E · Enter", "expand the cursor's bulky output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},
 	},
