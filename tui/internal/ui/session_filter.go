@@ -23,22 +23,21 @@ func (a *App) sessionMatchesFilter(s gact.Session) bool {
 }
 
 // visibleSessionIndexes returns the indices of a.sessions that
-// currently match the filter, in sidebar order. Used by the sidebar
-// renderer (to compute "N more" indicators from the visible set) and
-// by the filter-aware selection adjusters below.
+// currently match every active filter, in sidebar order. Used by
+// the sidebar renderer (to compute "N more" indicators from the
+// visible set) and by the filter-aware selection adjusters below.
+// JJJJJJJJ1: respects showDetachedOnly — when true, keeps only
+// sessions whose id is in previouslyDetached.
 func (a *App) visibleSessionIndexes() []int {
-	if a.sessionFilter == "" {
-		out := make([]int, len(a.sessions))
-		for i := range a.sessions {
-			out[i] = i
-		}
-		return out
-	}
 	out := make([]int, 0, len(a.sessions))
 	for i, s := range a.sessions {
-		if a.sessionMatchesFilter(s) {
-			out = append(out, i)
+		if !a.sessionMatchesFilter(s) {
+			continue
 		}
+		if a.showDetachedOnly && !a.previouslyDetached[s.ID] {
+			continue
+		}
+		out = append(out, i)
 	}
 	return out
 }
@@ -120,14 +119,20 @@ func (a *App) stepSelectionVisible(delta int) bool {
 }
 
 // ensureSelectedVisible moves a.selected to the first visible session
-// if the current selection isn't visible under the filter. Called
-// after filter edits commit so the user isn't silently pointing at a
+// if the current selection isn't visible under any active filter
+// (text filter or the JJJJJJJJ1 detached-only toggle). Called after
+// filter edits commit so the user isn't silently pointing at a
 // hidden session.
 func (a *App) ensureSelectedVisible() {
 	if a.selected < 0 || a.selected >= len(a.sessions) {
 		return
 	}
-	if a.sessionMatchesFilter(a.sessions[a.selected]) {
+	cur := a.sessions[a.selected]
+	stillVisible := a.sessionMatchesFilter(cur)
+	if stillVisible && a.showDetachedOnly && !a.previouslyDetached[cur.ID] {
+		stillVisible = false
+	}
+	if stillVisible {
 		return
 	}
 	vis := a.visibleSessionIndexes()

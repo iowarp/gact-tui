@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase JJJJJJJJ — Sidebar detached-only toggle
+
+- [x] **JJJJJJJJ1.** New `d` keybind in sidebar focus toggles a detached-only filter — mirrors the existing `h` archived toggle but filters locally against App.previouslyDetached (no backend refetch needed). `visibleSessionIndexes` now respects both the text filter and the new toggle; `ensureSelectedVisible` adjusts after toggle so the selection stays valid. Sidebar title becomes `SESSIONS · detached` when on so the narrower view is visible past the transient hint. Test `TestSidebar_DetachedOnlyToggle` covers: default=all-visible, toggle-on hides non-detached + shows suffix, toggle-off restores. Screenshots: `JJJJJJJJ1_sidebar_all.png` (5 sessions, 2 marked) and `JJJJJJJJ1_sidebar_detached_only.png` (filtered to the 2 walked ones).
+
 ## Phase IIIIIIII — `gact resume` alias
 
 - [x] **IIIIIIII1.** New `gact resume` subcommand — discoverable alias for `gact attach` with no arguments. "resume" is the natural verb for "pick up where I left off" so users don't have to know the attach/no-args trick. Narrow by design: any trailing args are rejected with a usage hint pointing to `gact attach <sid>` for explicit session selection. Routes through `runAttach(nil)` so the same probe-and-skip-dead behaviour (FFFFFFFF1) applies. End-to-end verified against live emulator: seeds a session + registry, `gact resume` prints `attaching to most-recent detach: <sid> (<title>)` then boots the TUI.
