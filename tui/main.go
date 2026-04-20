@@ -6846,22 +6846,58 @@ func runList(args []string) int {
 		sessions = sessions[:*limit]
 	}
 
+	// GGGGGGGGG1: build the detach lookup once per invocation so the
+	// output can carry a per-row marker. Soft-fails silently — an
+	// unreadable registry just leaves the column blank (TSV) or
+	// `false` (JSON). Reuses the same map built for --detached-only
+	// above when that flag was passed, but rebuild is cheap (one
+	// mmap + JSON decode).
+	detached := map[string]bool{}
+	if path, err := config.DetachedPath(); err == nil {
+		if reg, err := config.LoadDetached(path); err == nil {
+			for _, r := range reg.Records {
+				if r.Backend == c.BaseURL() {
+					detached[r.SessionID] = true
+				}
+			}
+		}
+	}
+
 	switch *format {
 	case "json":
+		// GGGGGGGGG1: decorate each row with `detached` bool —
+		// mirrors SSSSSSSS1 on dashboard. Additive change; existing
+		// fields unchanged.
+		type decorated struct {
+			gact.Session
+			Detached bool `json:"detached"`
+		}
+		out := make([]decorated, 0, len(sessions))
+		for _, s := range sessions {
+			out = append(out, decorated{Session: s, Detached: detached[s.ID]})
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(sessions); err != nil {
+		if err := enc.Encode(out); err != nil {
 			fmt.Fprintf(os.Stderr, "gact list: encode: %v\n", err)
 			return 1
 		}
 	case "tsv", "":
+		// GGGGGGGGG1: append a 5th column with "yes"/"" for
+		// detached-registry presence. Callers that slice columns
+		// 1..4 with awk/cut stay correct; callers that count from
+		// -1 with cut pick up the new marker.
 		for _, s := range sessions {
 			title := s.Title
 			if title == "" {
 				title = "(untitled)"
 			}
-			fmt.Printf("%s\t%s\t%s\t%s\n",
-				s.ID, s.Status, title, s.UpdatedAt.UTC().Format(time.RFC3339))
+			mark := ""
+			if detached[s.ID] {
+				mark = "yes"
+			}
+			fmt.Printf("%s\t%s\t%s\t%s\t%s\n",
+				s.ID, s.Status, title, s.UpdatedAt.UTC().Format(time.RFC3339), mark)
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "gact list: unknown format %q (want tsv|json)\n", *format)
