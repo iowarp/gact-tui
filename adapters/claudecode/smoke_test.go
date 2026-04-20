@@ -111,6 +111,114 @@ func TestSmoke_RealClaude(t *testing.T) {
 	}
 }
 
+// TestSmoke_RealClaudePermissionFlow drives the can_use_tool
+// control protocol against the real CLI. Asks claude to use the
+// Write tool (Bash is auto-allowed; Write is gated), spins up a
+// background allower that auto-POSTs allow on every pending
+// permission, asserts the round-trip completes idle.
+func TestSmoke_RealClaudePermissionFlow(t *testing.T) {
+	if _, err := exec.LookPath("claude"); err != nil {
+		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
+	}
+	srv := httptest.NewServer(New(t.TempDir(), "claude").Handler())
+	defer srv.Close()
+
+	r, _ := http.Post(srv.URL+"/v1/sessions",
+		"application/json", strings.NewReader(`{"title":"perm"}`))
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(body, &created)
+	if created.ID == "" {
+		t.Fatalf("create session failed: %s", body)
+	}
+
+	// Background allower — POSTs allow on every pending permission.
+	stopCh := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				return
+			default:
+			}
+			r, err := http.Get(srv.URL + "/v1/permissions?status=pending&session_id=" + created.ID)
+			if err != nil {
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+			b, _ := io.ReadAll(r.Body)
+			r.Body.Close()
+			var lst struct {
+				Permissions []map[string]any `json:"permissions"`
+			}
+			_ = json.Unmarshal(b, &lst)
+			for _, p := range lst.Permissions {
+				pid, _ := p["id"].(string)
+				if pid == "" {
+					continue
+				}
+				_, _ = http.Post(srv.URL+"/v1/permissions/"+pid,
+					"application/json", strings.NewReader(`{"action":"allow"}`))
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
+	defer close(stopCh)
+
+	// POST the prompt that triggers a Write call.
+	r2, _ := http.Post(srv.URL+"/v1/sessions/"+created.ID+"/messages",
+		"application/json",
+		strings.NewReader(`{"parts":[{"type":"text","text":"Write a file new.txt with the content hello. Use the Write tool. Don't ask me; just do it."}]}`))
+	r2.Body.Close()
+	if r2.StatusCode != 202 {
+		t.Fatalf("post status %d", r2.StatusCode)
+	}
+
+	// Poll status — at least one permission must have been requested
+	// and resolved before idle, otherwise the protocol didn't fire.
+	deadline := time.Now().Add(120 * time.Second)
+	var status string
+	for time.Now().Before(deadline) {
+		gr, _ := http.Get(srv.URL + "/v1/sessions/" + created.ID)
+		gb, _ := io.ReadAll(gr.Body)
+		gr.Body.Close()
+		var s struct{ Status string }
+		_ = json.Unmarshal(gb, &s)
+		status = s.Status
+		if status == "idle" || status == "error" {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if status != "idle" {
+		t.Fatalf("ended status=%q want idle", status)
+	}
+
+	// Verify a permission was actually issued + resolved.
+	pr, _ := http.Get(srv.URL + "/v1/permissions?session_id=" + created.ID)
+	pb, _ := io.ReadAll(pr.Body)
+	pr.Body.Close()
+	var pl struct {
+		Permissions []map[string]any `json:"permissions"`
+	}
+	_ = json.Unmarshal(pb, &pl)
+	if len(pl.Permissions) == 0 {
+		t.Fatalf("no permissions recorded — control protocol didn't fire")
+	}
+	resolved := 0
+	for _, p := range pl.Permissions {
+		if r, _ := p["resolved"].(bool); r {
+			resolved++
+		}
+	}
+	if resolved == 0 {
+		t.Fatalf("no permissions resolved; %d pending", len(pl.Permissions))
+	}
+}
+
 // TestNonClaudePathReturnsError exercises the lookup-failure path —
 // a confidence check that we don't silently mask a missing binary.
 func TestNonClaudePathReturnsError(t *testing.T) {

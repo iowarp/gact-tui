@@ -32,10 +32,16 @@ type Server struct {
 
 	// Catalogs discovered from claude's first system/init frame.
 	// Lazily populated by the first turn — cwd-dependent.
-	toolNames    []string
-	mcpServers   []map[string]any
-	agentNames   []string
+	toolNames     []string
+	mcpServers    []map[string]any
+	agentNames    []string
 	slashCmdNames []string
+
+	// TTTTTTT3: pending permission requests, keyed by GACT perm_id.
+	// Lookup path: claude sends control_request -> adapter parks
+	// here + broadcasts permission.requested -> TUI POSTs decision
+	// -> we close the chan + write control_response back to claude.
+	perms map[string]*pendingPerm
 }
 
 type sessionState struct {
@@ -52,6 +58,25 @@ type sessionState struct {
 	proc           *claudeProcess
 }
 
+// pendingPerm tracks a permission request mid-flight: the metadata
+// the GET /v1/permissions list exposes plus the request_id we need
+// to send back in the control_response and a chan to wake up the
+// goroutine that's blocking on the user's decision.
+type pendingPerm struct {
+	id        string         // GACT permission id (perm_xxx)
+	requestID string         // claude's control_request request_id
+	sessionID string
+	record    map[string]any // PermissionRequest dict for GET /v1/permissions
+	resp      chan permResp
+}
+
+// permResp is the user's allow/deny decision flowing back to the
+// goroutine that's mid-control_request.
+type permResp struct {
+	allowed bool
+	action  string // allow|deny|allow_session|allow_workspace
+}
+
 // New builds a Server bound to the given workspace cwd and claude
 // binary path (empty = "claude" via $PATH).
 func New(cwd, bin string) *Server {
@@ -64,6 +89,7 @@ func New(cwd, bin string) *Server {
 		bin:      bin,
 		started:  time.Now(),
 		sessions: make(map[string]*sessionState),
+		perms:    make(map[string]*pendingPerm),
 	}
 	s.routes()
 	return s
@@ -95,6 +121,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}/export", s.handleExportSession)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/diffs", s.handleListDiffs)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{mid}/diffs", s.handleListMessageDiffs)
+	s.mux.HandleFunc("GET /v1/permissions", s.handleListPermissions)
+	s.mux.HandleFunc("GET /v1/permissions/{pid}", s.handleGetPermission)
+	s.mux.HandleFunc("POST /v1/permissions/{pid}", s.handleRespondPermission)
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
 
@@ -128,7 +157,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"voice":              false,
 			"lsp":                false,
 			"hooks":              false,
-			"permissions":        false,
+			"permissions":        true,
 			"session_tasks":      false,
 			"search_messages":    false,
 			"scheduled_sessions": false,
@@ -360,8 +389,19 @@ func (s *Server) runTurn(sess *sessionState, text string) {
 	}
 
 	for ev := range sess.proc.events {
+		t, _ := ev["type"].(string)
+		// TTTTTTT3: control_request handshake — claude asks the
+		// adapter (via stdio control protocol) whether a tool may
+		// run. Park the request, broadcast permission.requested,
+		// wait for the user's POST decision, write control_response
+		// back. Concurrent — runs in its own goroutine so the
+		// event loop keeps draining (heartbeats, status, etc.).
+		if t == "control_request" {
+			go s.handleControlRequest(sess, ev)
+			continue
+		}
 		// Capture catalogs from system/init.
-		if t, _ := ev["type"].(string); t == "system" {
+		if t == "system" {
 			if sub, _ := ev["subtype"].(string); sub == "init" {
 				s.captureCatalogs(ev)
 			}
@@ -379,6 +419,183 @@ func (s *Server) runTurn(sess *sessionState, text string) {
 			}
 		}
 	}
+}
+
+// handleControlRequest is the adapter side of the can_use_tool
+// control protocol. claude sends:
+//
+//	{"type":"control_request","request_id":"req_xx",
+//	 "request":{"subtype":"can_use_tool","tool_name":"Write",
+//	            "input":{...},"tool_use_id":"toolu_xx"}}
+//
+// We park the request, broadcast a SPEC §6.11 permission.requested
+// event, await the user's POST /v1/permissions/{pid} decision,
+// then write back:
+//
+//	{"type":"control_response",
+//	 "response":{"request_id":"req_xx",
+//	             "data":{"behavior":"allow","updated_input":null}}}
+func (s *Server) handleControlRequest(sess *sessionState, raw map[string]any) {
+	requestID, _ := raw["request_id"].(string)
+	req, _ := raw["request"].(map[string]any)
+	subtype, _ := req["subtype"].(string)
+	if subtype != "can_use_tool" {
+		// Other control requests aren't ours to answer; ignore.
+		return
+	}
+	toolName, _ := req["tool_name"].(string)
+	input, _ := req["input"].(map[string]any)
+	toolUseID, _ := req["tool_use_id"].(string)
+
+	pid := "perm_" + newID(12)
+	rec := map[string]any{
+		"id":         pid,
+		"session_id": sess.id,
+		"tool_call": map[string]any{
+			"call_id":     toolUseID,
+			"tool_name":   toolName,
+			"input":       input,
+			"annotations": map[string]any{},
+		},
+		"summary":    "Run tool: " + toolName,
+		"created_at": nowISO(),
+		"resolved":   false,
+	}
+	respCh := make(chan permResp, 1)
+	pp := &pendingPerm{
+		id: pid, requestID: requestID, sessionID: sess.id,
+		record: rec, resp: respCh,
+	}
+	s.mu.Lock()
+	s.perms[pid] = pp
+	s.mu.Unlock()
+
+	// Status flip + broadcast.
+	prev := sess.statusSnap()
+	sess.setStatus("waiting_permission")
+	sess.broadcast(gactEvent{Type: "session.status_changed", Payload: map[string]any{
+		"session_id": sess.id, "status": "waiting_permission", "prev_status": prev,
+	}})
+	sess.broadcast(gactEvent{Type: "permission.requested", Payload: rec})
+
+	decision := <-respCh
+
+	sess.setStatus("running")
+	sess.broadcast(gactEvent{Type: "session.status_changed", Payload: map[string]any{
+		"session_id": sess.id, "status": "running", "prev_status": "waiting_permission",
+	}})
+
+	// Build + send the control_response back to claude over stdin.
+	var data map[string]any
+	if decision.allowed {
+		data = map[string]any{
+			"behavior":            "allow",
+			"updated_input":       nil,
+			"updated_permissions": nil,
+		}
+	} else {
+		data = map[string]any{
+			"behavior":  "deny",
+			"message":   "denied via gact TUI permission flow",
+			"interrupt": false,
+		}
+	}
+	frame := map[string]any{
+		"type": "control_response",
+		"response": map[string]any{
+			"request_id": requestID,
+			"data":       data,
+		},
+	}
+	if err := sess.proc.send(frame); err != nil {
+		// Best-effort — if the subprocess died mid-way the next
+		// receive_response iteration will surface it as ResultMessage.
+		_ = err
+	}
+}
+
+// statusSnap reads sess.status under the lock — used by the perm
+// flow which updates status under a fresh lock.
+func (sess *sessionState) statusSnap() string {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	return sess.status
+}
+
+func (s *Server) handleListPermissions(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("session_id")
+	status := r.URL.Query().Get("status")
+	out := make([]map[string]any, 0)
+	s.mu.Lock()
+	for _, pp := range s.perms {
+		if sessionID != "" && pp.sessionID != sessionID {
+			continue
+		}
+		if status == "pending" {
+			if resolved, _ := pp.record["resolved"].(bool); resolved {
+				continue
+			}
+		}
+		out = append(out, pp.record)
+	}
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"permissions": out})
+}
+
+func (s *Server) handleGetPermission(w http.ResponseWriter, r *http.Request) {
+	pid := r.PathValue("pid")
+	s.mu.Lock()
+	pp, ok := s.perms[pid]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "permission_not_found", "no permission with id "+pid)
+		return
+	}
+	writeJSON(w, http.StatusOK, pp.record)
+}
+
+func (s *Server) handleRespondPermission(w http.ResponseWriter, r *http.Request) {
+	pid := r.PathValue("pid")
+	defer r.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<10))
+	var req struct {
+		Action string `json:"action"`
+	}
+	_ = json.Unmarshal(body, &req)
+	switch req.Action {
+	case "allow", "deny", "allow_session", "allow_workspace":
+	default:
+		writeError(w, http.StatusBadRequest, "invalid_action",
+			"action must be allow|deny|allow_session|allow_workspace")
+		return
+	}
+	s.mu.Lock()
+	pp, ok := s.perms[pid]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "permission_not_found", "no permission with id "+pid)
+		return
+	}
+	if resolved, _ := pp.record["resolved"].(bool); resolved {
+		writeError(w, http.StatusConflict, "already_resolved",
+			"permission "+pid+" already resolved")
+		return
+	}
+	allowed := req.Action == "allow" || req.Action == "allow_session" || req.Action == "allow_workspace"
+	pp.record["resolved"] = true
+	pp.record["action"] = req.Action
+	pp.resp <- permResp{allowed: allowed, action: req.Action}
+
+	// Broadcast permission.resolved on the session's SSE.
+	s.mu.Lock()
+	sess, sok := s.sessions[pp.sessionID]
+	s.mu.Unlock()
+	if sok {
+		sess.broadcast(gactEvent{Type: "permission.resolved", Payload: map[string]any{
+			"permission_id": pid, "session_id": pp.sessionID, "action": req.Action,
+		}})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": pid, "action": req.Action})
 }
 
 func (s *Server) captureCatalogs(initEv map[string]any) {
