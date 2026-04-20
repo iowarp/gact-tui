@@ -1,9 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:05Z
-**Current phase:** ZZZZZZ1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9af02c6` (pushed after status commit)
+**Last updated:** 2026-04-19T19:07Z
+**Current phase:** AAAAAAA1 shipped this iteration (rolled to 7-letter prefix after ZZZZZZ)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a872642` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase AAAAAAA — conformance tasks POST title echo
+- **AAAAAAA1.** Mirror of YYYYYY1 for tasks: POST response
+  must echo back the `title` we sent (catches half-create
+  adapters that return id but lose metadata).
 
 ### Phase ZZZZZZ — conformance policies post-PUT GET
 - **ZZZZZZ1.** Strengthened `checkPolicies` with a GET after
