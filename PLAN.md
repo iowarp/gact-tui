@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase CCCCCCCCC — `gact follow --grep` regex filter
+
+- [x] **CCCCCCCCC1.** Mirror BBBBBBBBB1's `--grep` plumbing onto `gact follow` (tail-f). Compiles regex up-front so a bad pattern fails fast before SSE subscribe. The emit closure drops messages whose flattened text (via shared `flattenMessageForGrep`) doesn't match — both snapshot pass and streamed messages obey. End-to-end verified against live emulator: `gact follow <sid> --grep println` prints only tool_result + assistant rows that contain "println"; bad regex exits 2 with helpful error.
+
 ## Phase BBBBBBBBB — `gact log --grep` regex filter
 
 - [x] **BBBBBBBBB1.** New `--grep PATTERN` flag on `gact log`. Drops every message whose flattened text doesn't match the regex. Case-insensitive by default (prepend `(?-i)` to override). Flatten helper covers text + thinking + tool_name + serialized tool_call input + tool_result body — so `gact log <sid> --grep "ReadFile\\("` finds tool calls, `--grep error` finds error output, etc. Stacks with --role/--since/--limit. Bad regex fails fast with `bad --grep pattern "X": ...`. New TestCLI_LogGrepFilter covers 4 scenarios: PRINTLN matches tool_result rows, unmatched returns empty, user message not present (doesn't contain pattern), malformed regex errors. All 5 log CLI tests pass (LogJSON + LogRoleFilter + LogGrepFilter + LogSince + Log).
