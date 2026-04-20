@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T14:30Z
-**Current phase:** VVVVVVVV1 + WWWWWWWW1 shipped — `--role` filter on `gact log` + `gact follow`
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a91cd25` (pushed)
+**Last updated:** 2026-04-20T15:00Z
+**Current phase:** XXXXXXXX1 + YYYYYYYY1 shipped — sidebar `b` busy-only toggle + `gact dashboard --detached-only`
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5e30c04` (pushed)
+
+### Phase YYYYYYYY1 — `gact dashboard --detached-only`
+- Mirrors sidebar `d` toggle on CLI. Restricts rows to registry-matching sessions. Works with pretty + JSON. Applied after sort.
+
+### Phase XXXXXXXX1 — Sidebar `b` busy-only toggle
+- New keybind narrows to running + waiting_permission. Stacks with `d` (AND-combined filter shows busy+detached intersection). Title flips to "SESSIONS · busy" / "· detached + busy".
 
 ### Phase WWWWWWWW1 — `gact follow --role`
 - Mirror VVVVVVVV1 plumbing on the tail-f path. Filter lives in the emit closure so snapshot + streamed messages obey same keep-set. Unknown role errors fast.
