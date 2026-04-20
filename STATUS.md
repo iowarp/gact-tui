@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T02:00Z
-**Current phase:** GGGGGGG4 shipped — char-by-char streaming via SDK partials
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d1c7f8` (pushed)
-**Open:** none — GGGGGGG complete (all 4 sub-tasks shipped). Next phase work TBD by user direction.
+**Last updated:** 2026-04-20T02:25Z
+**Current phase:** GGGGGGG3+4 + HHHHHHH1 shipped — file_diff Parts, streaming deltas, permission flow
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c15d661` (pushed)
+**Open:** none — sidecar feature parity now covers wire shape, streaming, file diffs, and permission. Next phase TBD.
+
+### Phase HHHHHHH1 — permission flow
+- **HHHHHHH1.** can_use_tool callback synthesises SPEC §6.11 PermissionRequest + future-based handoff. New /v1/permissions endpoints. Real-LLM smoke writes a file via Write (Bash is auto-allowed; only Edit/Write/etc. route through can_use_tool). Status flips waiting_permission → running on resolve. 43 tests green.
 
 ### Phase GGGGGGG4 — streaming deltas
 - **GGGGGGG4.** Sidecar passes `include_partial_messages=True`. Bridge translates Anthropic stream protocol into GACT §7.4 partials: message_start→message.created shell, content_block_delta(text_delta)→message.part.delta {text_append}, message_stop→message.completed. Final AssistantMessage replaces streamed shell by id (TUI's applyMessageCreated has replace-by-id semantics). Real-LLM smoke produces ≥1 delta per short reply.
