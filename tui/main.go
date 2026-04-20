@@ -429,6 +429,7 @@ Usage:
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
                               --role user,assistant,tool,system filters (same shape as gact log)
+                              --grep REGEX drops messages whose text doesn't match (case-insensitive)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env [--format tsv|json] print resolved config + GACT_* env vars
   gact theme show [--name N] print active theme palette as TSV (key\thex)
@@ -2041,16 +2042,21 @@ func runFollow(args []string) int {
 	// `gact follow <sid> --role assistant` tails just the model's
 	// replies.
 	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
+	// CCCCCCCCC1: --grep regex filter mirrors BBBBBBBBB1's
+	// `gact log --grep`. Applied to both the snapshot + every
+	// streamed message.
+	grep := fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
 		"--role":   true, "-role": true,
+		"--grep":   true, "-grep": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--format text|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--grep REGEX] [--format text|json]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
@@ -2074,9 +2080,26 @@ func runFollow(args []string) int {
 			}
 		}
 	}
+	// CCCCCCCCC1: compile the regex up-front so a bad pattern
+	// errors fast before we subscribe to SSE.
+	var grepRE *regexp.Regexp
+	if *grep != "" {
+		re, err := regexp.Compile("(?i)" + *grep)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact follow: bad --grep pattern %q: %v\n", *grep, err)
+			return 2
+		}
+		grepRE = re
+	}
 	emit := func(m gact.Message) {
 		if keepRole != nil && !keepRole[string(m.Role)] {
 			return
+		}
+		if grepRE != nil {
+			txt, ok := flattenMessageForGrep(m)
+			if !ok || !grepRE.MatchString(txt) {
+				return
+			}
 		}
 		if *format == "json" {
 			b, err := json.Marshal(m)
