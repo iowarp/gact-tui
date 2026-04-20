@@ -6,8 +6,8 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase KKKKKKK — richer demo + next adapter
 
-- [ ] **KKKKKKK1.** Take a richer TUI screenshot driving real Claude through a tool-using turn (Edit on a fixture file). The current `screenshots/SDK-claude-tui.png` shows a basic text reply; this one should show: USER prompt + ASSISTANT text + Edit tool call + file_diff Part rendered with the diff colours. Save as `screenshots/SDK-claude-tools.png`.
-- [ ] **KKKKKKK2.** Scaffold `adapters/goose/` — Goose has a native HTTP API like Crush, so a Go proxy adapter following the Crush pattern is the natural fit. Start with health + capabilities + workspaces against a mocked Goose upstream; wire sessions list/get next iteration.
+- [x] **KKKKKKK1.** screenshots/SDK-claude-tools.png shows the full agentic loop end-to-end against real Claude: USER prompt → Bash + Read + Edit tool calls → file_diff Part with red/green diff colors and `a/r` apply/reject hint inline → final assistant text. Tape: tui/screenshot_claude_sdk_tools.tape (caller pre-creates session + auto-allower for permission gates).
+- [x] **KKKKKKK2.** New `adapters/goose/` Go module mirrors the crush/opencode pattern. Wired: health (probes upstream /health; healthy=false when goosed down), capabilities (workspaces=true, rest false), workspaces list/get. Tests use mocked Goose upstream. Added to go.work + Makefile. Root README adapter table updated.
 
 ## Phase JJJJJJJ — sidecar conformance gap-closing
 
