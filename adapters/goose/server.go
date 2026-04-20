@@ -71,6 +71,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}", s.handleGetMessage)
 	// Catchall 501 so TUI degrades cleanly for unimplemented sections.
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
@@ -231,6 +232,44 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		out = append(out, messageToGact(gm, id, i))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"messages": out})
+}
+
+// handleGetMessage walks the same conversation array
+// handleListMessages does and returns the matching message by id.
+// Not the most efficient (we refetch the whole session) but the
+// adapter is read-only and the data is small.
+func (s *Server) handleGetMessage(w http.ResponseWriter, r *http.Request) {
+	sid := r.PathValue("id")
+	mid := r.PathValue("msg_id")
+	resp, err := s.client.Get(s.upstream + "/sessions/" + sid)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if resp.StatusCode == http.StatusNotFound {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+sid)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "upstream_error",
+			"upstream returned "+resp.Status)
+		return
+	}
+	var gs gooseSession
+	if err := json.Unmarshal(body, &gs); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	for i, gm := range gs.Conversation {
+		m := messageToGact(gm, sid, i)
+		if m.ID == mid {
+			writeJSON(w, http.StatusOK, m)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "message_not_found", "no message with id "+mid)
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, r *http.Request) {
