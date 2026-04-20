@@ -2338,12 +2338,23 @@ func runDetached(args []string) int {
 	probe := fs.Bool("probe", false, "probe each backend, mark sessions that no longer exist")
 	pruneDead := fs.Bool("prune-dead", false, "probe + remove every entry whose backend no longer has the session (GGGGGGGG1)")
 	format := fs.String("format", "pretty", "pretty | tsv | json")
+	watch := fs.Bool("watch", false, "re-render every --interval (UUUUUUUU1)")
+	interval := fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--rm": true, "-rm": true,
 		"--probe":      true, "-probe": true,
 		"--prune-dead": true, "-prune-dead": true,
-		"--format": true, "-format": true,
+		"--format":   true, "-format": true,
+		"--watch":    true, "-watch": true,
+		"--interval": true, "-interval": true,
 	})); err != nil {
+		return 2
+	}
+	// UUUUUUUU1: --watch is a read-mode loop; it has no meaning
+	// combined with write-mode flags. Reject fast so the user sees
+	// the conflict instead of silently ignoring one of them.
+	if *watch && (*rm != "" || *pruneDead) {
+		fmt.Fprintln(os.Stderr, "gact detached: --watch cannot be combined with --rm or --prune-dead")
 		return 2
 	}
 	// --prune-dead implies --probe (it has to probe to decide what to
@@ -2384,24 +2395,29 @@ func runDetached(args []string) int {
 		fmt.Fprintf(os.Stderr, "removed %d entr(y/ies) for %s\n", total, *rm)
 		return 0
 	}
-	reg, err := config.LoadDetached(path)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
-		return 1
-	}
-	// liveness[i] tracks whether record i is still on its backend.
-	// nil = unprobed; true/false otherwise.
-	liveness := make([]*bool, len(reg.Records))
-	if *probe {
-		for i, r := range reg.Records {
-			c := client.New(r.Backend)
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			_, err := c.GetSession(ctx, r.SessionID)
-			cancel()
-			alive := err == nil
-			liveness[i] = &alive
+	// UUUUUUUU1: renderOnce captures the load + probe + render path
+	// so --watch can call it per tick. Returns a non-zero exit on
+	// fatal errors (read path only); render-only errors are surfaced
+	// to stderr but don't abort the watch loop.
+	renderOnce := func() int {
+		reg, err := config.LoadDetached(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
+			return 1
 		}
-	}
+		// liveness[i] tracks whether record i is still on its backend.
+		// nil = unprobed; true/false otherwise.
+		liveness := make([]*bool, len(reg.Records))
+		if *probe {
+			for i, r := range reg.Records {
+				c := client.New(r.Backend)
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				_, err := c.GetSession(ctx, r.SessionID)
+				cancel()
+				alive := err == nil
+				liveness[i] = &alive
+			}
+		}
 	// GGGGGGGG1: --prune-dead removes every entry whose probe came
 	// back negative. Done after the probe pass so the rendered table
 	// (below) shows the survivors with their (alive=yes) column,
@@ -2518,8 +2534,27 @@ func runDetached(args []string) int {
 			fmt.Printf("%d alive · %d dead · %d unprobed\n", alive, dead, unknown)
 		}
 		fmt.Println("Reattach: gact attach <session>")
+		}
+		return 0
 	}
-	return 0
+
+	if !*watch {
+		return renderOnce()
+	}
+	// UUUUUUUU1: watch loop. ANSI clear-screen + cursor-home between
+	// frames so each render replaces the previous in place. Mirrors
+	// the BBBB1 dashboard --watch pattern. Ctrl+C exits via default
+	// SIGINT handling since there's no tea program to intercept.
+	tick := time.NewTicker(*interval)
+	defer tick.Stop()
+	for {
+		fmt.Print("\033[2J\033[H")
+		fmt.Printf("gact detached --watch  refresh=%s  (Ctrl+C to exit)\n\n", *interval)
+		if code := renderOnce(); code != 0 {
+			return code
+		}
+		<-tick.C
+	}
 }
 
 // ansi* are the single-byte-sequence color codes used by runDetached.
