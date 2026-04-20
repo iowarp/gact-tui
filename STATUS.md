@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T02:55Z
-**Current phase:** IIIIIII1 + IIIIIII2 shipped — session cancel + MCP catalog passthrough
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `01108e7` (pushed)
-**Open:** none — sidecar feature parity now covers wire shape, streaming, file diffs, permission, cancel, MCP. Next phase TBD.
+**Last updated:** 2026-04-20T03:05Z
+**Current phase:** JJJJJJJ1 shipped — full GACT conformance passes against live Claude
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `49f1011` (pushed)
+**Open:** none — sidecar conformance-validated end-to-end against real Claude. Next phase TBD.
+
+### Phase JJJJJJJ — sidecar conformance gap-closing
+- **JJJJJJJ1.** Wired 4 missing endpoints (agents/commands/metrics/export) from real SDK init data + adapter state. caps.agents/commands/metrics flipped true. `gact conformance` against live sidecar now PASS (14/14 sections; Diffs/Files auto-skip via cap=false). 55 tests total.
 
 ### Phase IIIIIII — claude-agent-sdk session control + MCP
 - **IIIIIII1.** POST /v1/sessions/{sid}/cancel → SDK.interrupt(); resolves pending perms with deny; idempotent. Real-LLM smoke ~18s.
