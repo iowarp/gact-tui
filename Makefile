@@ -67,6 +67,17 @@ ping: build-tui ## Probe the running backend (set $(PORT) to override).
 list: build-tui ## List sessions on the running backend.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) list
 
+intro-logo: ## Regenerate tui/internal/intro/grc-logo.ansi from the source PNG using chafa.
+	@if ! command -v chafa >/dev/null 2>&1; then \
+		echo "chafa not installed; apt install chafa (or see https://hpjansson.org/chafa/)"; exit 1; \
+	fi
+	@if [ ! -f tui/internal/intro/grc-logo.png ]; then \
+		echo "place the source PNG at tui/internal/intro/grc-logo.png first (not checked in — keep generation reproducible)"; exit 1; \
+	fi
+	chafa --size 30x15 --symbols half --colors full --clear \
+		tui/internal/intro/grc-logo.png > tui/internal/intro/grc-logo.ansi
+	@echo "wrote tui/internal/intro/grc-logo.ansi"
+
 screenshots: build-tui ## Render every VHS tape under tui/ into screenshots/.
 	@if ! command -v vhs >/dev/null 2>&1; then \
 		echo "vhs not installed; see https://github.com/charmbracelet/vhs"; exit 1; \

@@ -19,6 +19,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/intro"
 )
 
 // FocusZone identifies which pane owns the keyboard.
@@ -3238,22 +3239,47 @@ func (a *App) SetIntroFromFile(path string) error {
 
 func (a *App) viewIntro() string {
 	t := a.Theme
-	logo := a.IntroLogo
-	if len(logo) == 0 {
-		logo = defaultIntroLogo
+	// LLLLLLLLL1: when IntroLogo is empty and the terminal has room,
+	// render the embedded grc.iit.edu logo via pure-Go halfblock art
+	// (intro.GRCLogo). User explicitly asked for this in
+	// feedback_detach_intro_flicker_round2 item 4. Falls back to the
+	// empty defaultIntroLogo if the terminal is too narrow or the
+	// decoder errors.
+	var logoStr string
+	if len(a.IntroLogo) > 0 {
+		logoStr = strings.Join(a.IntroLogo, "\n")
+	} else {
+		w := 28
+		if a.width > 0 && a.width < 40 {
+			w = a.width - 4
+			if w < 8 {
+				w = 0
+			}
+		}
+		if w > 0 {
+			logoStr = intro.GRCLogo(w)
+		}
+		if logoStr == "" {
+			logoStr = strings.Join(defaultIntroLogo, "\n")
+		}
 	}
 	name := a.IntroName
 	if len(name) == 0 {
 		name = defaultIntroName
 	}
-	logoStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	// GRC logo carries its own ANSI colours — don't re-wrap it in the
+	// Primary-bold style that was meant for hand-rolled ASCII art.
+	logoBlock := logoStr
+	if len(a.IntroLogo) > 0 {
+		logoBlock = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render(logoStr)
+	}
 	nameStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
 		Align(lipgloss.Center, lipgloss.Center).
 		Foreground(t.Fg).Background(t.Bg)
 	body := lipgloss.JoinVertical(lipgloss.Center,
-		logoStyle.Render(strings.Join(logo, "\n")),
+		logoBlock,
 		"",
 		nameStyle.Render(strings.Join(name, "\n")),
 		"",
