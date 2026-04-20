@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase LLLLLLL — Goose adapter sessions wiring
+
+- [ ] **LLLLLLL1.** Wire Goose sessions list/get. Proxy `GET /sessions` → `{sessions: [GactSession]}` per SPEC §6.2 with the field translation: id→id, name→title, created_at→created_at, working_dir → metadata.x_goose_working_dir; status synthesized as "idle" (Goose doesn't expose live status). Per-id `GET /sessions/{id}` mirrors. Capability `sessions=true`. Tests use mocked goosed.
+
 ## Phase KKKKKKK — richer demo + next adapter
 
 - [x] **KKKKKKK1.** screenshots/SDK-claude-tools.png shows the full agentic loop end-to-end against real Claude: USER prompt → Bash + Read + Edit tool calls → file_diff Part with red/green diff colors and `a/r` apply/reject hint inline → final assistant text. Tape: tui/screenshot_claude_sdk_tools.tape (caller pre-creates session + auto-allower for permission gates).
