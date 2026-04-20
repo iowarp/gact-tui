@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T14:00Z
-**Current phase:** TTTTTTTT1 + UUUUUUUU1 shipped — dump-bundle captures detached registry + `gact detached --watch` live refresh
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9bb0986` (pushed)
+**Last updated:** 2026-04-20T14:30Z
+**Current phase:** VVVVVVVV1 + WWWWWWWW1 shipped — `--role` filter on `gact log` + `gact follow`
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `a91cd25` (pushed)
+
+### Phase WWWWWWWW1 — `gact follow --role`
+- Mirror VVVVVVVV1 plumbing on the tail-f path. Filter lives in the emit closure so snapshot + streamed messages obey same keep-set. Unknown role errors fast.
+
+### Phase VVVVVVVV1 — `gact log --role`
+- New --role user|assistant|tool|system flag (comma-separated). Filter runs before format branch so json + text both emit the same subset. New TestCLI_LogRoleFilter.
 
 ### Phase UUUUUUUU1 — `gact detached --watch`
 - New --watch + --interval flags (default 2s) re-render the table each tick. Rejects combination with --rm or --prune-dead. Mirrors dashboard --watch pattern. Useful to see registry changes live during detach-flow testing.
