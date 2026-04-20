@@ -31,9 +31,23 @@ func mockGoose(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("GET /sessions/s1", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		// MMMMMMM1: conversation included so /v1/sessions/{id}/messages
+		// has something to translate. Two text turns + one tool
+		// request/response pair so each branch of contentToGactPart
+		// gets exercised.
 		_, _ = w.Write([]byte(`{
 			"id":"s1","name":"first","working_dir":"/repos/x",
-			"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z"
+			"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z",
+			"conversation":[
+				{"role":"User","created":1735689600,"content":[{"type":"text","text":"hi"}]},
+				{"role":"Assistant","created":1735689601,"content":[
+					{"type":"text","text":"running ls"},
+					{"type":"toolRequest","id":"tr1","name":"shell","arguments":{"command":"ls"}}
+				]},
+				{"role":"User","created":1735689602,"content":[
+					{"type":"toolResponse","id":"tr1","tool_result":{"Ok":[{"type":"text","text":"file1\nfile2"}]}}
+				]}
+			]
 		}`))
 	})
 	mux.HandleFunc("GET /sessions/missing", func(w http.ResponseWriter, r *http.Request) {
@@ -234,6 +248,88 @@ func TestSessionGet404PropagatesAsSpecError(t *testing.T) {
 	}
 	if !strings.Contains(string(body), `"session_not_found"`) {
 		t.Errorf("body missing spec envelope code: %s", body)
+	}
+}
+
+func TestMessagesListProjectsConversation(t *testing.T) {
+	upstream := mockGoose(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/sessions/s1/messages")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got struct {
+		Messages []map[string]any `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Messages) != 3 {
+		t.Fatalf("want 3 messages, got %d", len(got.Messages))
+	}
+
+	// First message: user "hi"
+	m0 := got.Messages[0]
+	if m0["role"] != "user" {
+		t.Errorf("m0.role=%v want user", m0["role"])
+	}
+	parts0, _ := m0["parts"].([]any)
+	if len(parts0) != 1 {
+		t.Fatalf("m0 want 1 part, got %d", len(parts0))
+	}
+	p00, _ := parts0[0].(map[string]any)
+	if p00["type"] != "text" || p00["text"] != "hi" {
+		t.Errorf("m0.parts[0]=%v", p00)
+	}
+
+	// Second: assistant text + tool_call
+	m1 := got.Messages[1]
+	if m1["role"] != "assistant" {
+		t.Errorf("m1.role=%v", m1["role"])
+	}
+	parts1, _ := m1["parts"].([]any)
+	if len(parts1) != 2 {
+		t.Fatalf("m1 want 2 parts, got %d", len(parts1))
+	}
+	p11, _ := parts1[1].(map[string]any)
+	if p11["type"] != "tool_call" {
+		t.Errorf("m1.parts[1].type=%v want tool_call", p11["type"])
+	}
+	if p11["call_id"] != "tr1" {
+		t.Errorf("m1.parts[1].call_id=%v", p11["call_id"])
+	}
+	if p11["tool_name"] != "shell" {
+		t.Errorf("m1.parts[1].tool_name=%v", p11["tool_name"])
+	}
+
+	// Third: user tool_result with embedded text
+	m2 := got.Messages[2]
+	parts2, _ := m2["parts"].([]any)
+	p20, _ := parts2[0].(map[string]any)
+	if p20["type"] != "tool_result" {
+		t.Errorf("m2.parts[0].type=%v want tool_result", p20["type"])
+	}
+	if p20["call_id"] != "tr1" {
+		t.Errorf("m2.parts[0].call_id=%v", p20["call_id"])
+	}
+}
+
+func TestMessagesList404OnUnknownSession(t *testing.T) {
+	upstream := mockGoose(t)
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+	r, _ := http.Get(srv.URL + "/v1/sessions/missing/messages")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 404 {
+		t.Errorf("status %d want 404", r.StatusCode)
+	}
+	if !strings.Contains(string(body), `"session_not_found"`) {
+		t.Errorf("body missing spec envelope: %s", body)
 	}
 }
 
