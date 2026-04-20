@@ -1,0 +1,402 @@
+"""FastAPI HTTP server exposing GACT v0.1 endpoints over the
+claude-agent-sdk.
+
+Endpoints (SPEC §6):
+- §3   GET /v1/health
+- §3   GET /v1/capabilities
+- §6.1 GET /v1/workspaces, GET /v1/workspaces/{id}
+- §6.2 POST /v1/sessions, GET /v1/sessions, GET /v1/sessions/{id}
+- §6.3 POST /v1/sessions/{id}/messages,
+       GET  /v1/sessions/{id}/messages,
+       GET  /v1/sessions/{id}/messages/{mid}
+- §7   GET /v1/sessions/{id}/events  (SSE)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import time
+import uuid
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from fastapi import FastAPI, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
+
+from .bridge import envelope, now_iso, sdk_message_to_events
+
+# Adapter contract version + backend identity advertised to the TUI.
+CONTRACT_VERSION = "0.1"
+BACKEND_NAME = "claude-agent-sdk-server"
+BACKEND_VERSION = "0.1.0"
+
+
+@dataclass
+class Session:
+    """Per-session adapter state.
+
+    Holds the long-lived ClaudeSDKClient (one async context manager
+    per session, so SDK conversation state survives across HTTP
+    requests), plus a queue of GACT events pending SSE delivery and
+    the cached messages list for GET /messages.
+    """
+
+    id: str
+    workspace_id: str
+    title: str
+    created_at: str
+    status: str = "idle"  # idle|running|waiting_permission|error
+    client: ClaudeSDKClient | None = None
+    cached_messages: list[dict[str, Any]] = field(default_factory=list)
+    # Each subscriber gets its own queue (multiple SSE clients can
+    # tail the same session). Producer fan-outs to every queue.
+    subscribers: list[asyncio.Queue[dict[str, Any]]] = field(default_factory=list)
+    # Lock around client.query() so two POST /messages calls don't
+    # race and interleave on the SDK's single-conversation contract.
+    turn_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+@dataclass
+class State:
+    """Process-wide adapter state."""
+
+    cwd: str
+    cli_path: str | None
+    start_time: float = field(default_factory=time.time)
+    sessions: dict[str, Session] = field(default_factory=dict)
+    # Lock around the sessions dict for concurrent create/delete.
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+def workspace_record(state: State) -> dict[str, Any]:
+    """The single synthetic workspace this adapter exposes (Claude
+    Code is cwd-scoped — one adapter == one workspace)."""
+    return {
+        "id": "ws_default",
+        "name": Path(state.cwd).name or "default",
+        "root_path": state.cwd,
+        "created_at": now_iso(),
+        "metadata": {"x_claudecode_cwd": state.cwd},
+    }
+
+
+def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
+    """Build the FastAPI app bound to the given workspace cwd."""
+    state = State(cwd=str(Path(cwd).resolve()), cli_path=cli_path)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            yield
+        finally:
+            # Clean shutdown — disconnect every active SDK client.
+            for sess in list(state.sessions.values()):
+                if sess.client is not None:
+                    try:
+                        await sess.client.disconnect()
+                    except Exception:
+                        pass
+
+    app = FastAPI(
+        title="gact-claude-agent-sdk-server",
+        version=BACKEND_VERSION,
+        lifespan=lifespan,
+    )
+
+    # --- §3 health + capabilities -----------------------------------
+
+    @app.get("/v1/health")
+    async def health() -> dict[str, Any]:
+        return {
+            "healthy": True,
+            "uptime_s": int(time.time() - state.start_time),
+        }
+
+    @app.get("/v1/capabilities")
+    async def capabilities() -> dict[str, Any]:
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "backend": {"name": BACKEND_NAME, "version": BACKEND_VERSION},
+            "capabilities": {
+                "workspaces": True,
+                "sessions": True,
+                "messages": True,
+                "sse": True,
+                "tools": True,
+                "files": False,
+                "diffs": False,
+                "providers": False,
+                "agents": False,
+                "commands": False,
+                "metrics": False,
+                "mcp": False,
+                "voice": False,
+                "lsp": False,
+                "hooks": False,
+                "permissions": False,
+                "session_tasks": False,
+                "search_messages": False,
+                "scheduled_sessions": False,
+            },
+        }
+
+    # --- §6.1 workspaces --------------------------------------------
+
+    @app.get("/v1/workspaces")
+    async def list_workspaces() -> dict[str, Any]:
+        return {"workspaces": [workspace_record(state)]}
+
+    @app.get("/v1/workspaces/{ws_id}")
+    async def get_workspace(ws_id: str) -> dict[str, Any]:
+        ws = workspace_record(state)
+        if ws["id"] != ws_id:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": {
+                        "code": "workspace_not_found",
+                        "message": f"no workspace with id {ws_id}",
+                    }
+                },
+            )
+        return ws
+
+    # --- §6.2 sessions ----------------------------------------------
+
+    @app.get("/v1/sessions")
+    async def list_sessions(workspace_id: str | None = None) -> dict[str, Any]:
+        out: list[dict[str, Any]] = []
+        async with state.lock:
+            for s in state.sessions.values():
+                if workspace_id and s.workspace_id != workspace_id:
+                    continue
+                out.append(_session_record(s))
+        return {"sessions": out}
+
+    @app.post("/v1/sessions")
+    async def create_session(body: dict[str, Any]) -> dict[str, Any]:
+        ws_id = body.get("workspace_id") or "ws_default"
+        title = body.get("title") or "claude-session"
+        sid = "sess_" + uuid.uuid4().hex[:12]
+        sess = Session(
+            id=sid,
+            workspace_id=ws_id,
+            title=title,
+            created_at=now_iso(),
+        )
+        async with state.lock:
+            state.sessions[sid] = sess
+        return _session_record(sess)
+
+    @app.get("/v1/sessions/{sid}")
+    async def get_session(sid: str) -> dict[str, Any]:
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": {
+                        "code": "session_not_found",
+                        "message": f"no session with id {sid}",
+                    }
+                },
+            )
+        return _session_record(sess)
+
+    # --- §6.3 messages ----------------------------------------------
+
+    @app.get("/v1/sessions/{sid}/messages")
+    async def list_messages(sid: str) -> dict[str, Any]:
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        return {"messages": list(sess.cached_messages)}
+
+    @app.get("/v1/sessions/{sid}/messages/{mid}")
+    async def get_message(sid: str, mid: str) -> dict[str, Any]:
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        for m in sess.cached_messages:
+            if m["id"] == mid:
+                return m
+        raise HTTPException(status_code=404, detail="message_not_found")
+
+    @app.post("/v1/sessions/{sid}/messages", status_code=202)
+    async def post_message(sid: str, body: dict[str, Any]) -> dict[str, Any]:
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        # Extract the user text from the GACT Part[] body. The TUI
+        # sends `parts: [{type: "text", text: "..."}, ...]`.
+        text = _extract_text(body.get("parts") or [])
+        if not text:
+            raise HTTPException(
+                status_code=400, detail="empty message — need at least one text part"
+            )
+
+        # Cache an echo of the user message immediately so a follow-up
+        # GET /messages reflects it before the assistant turn resolves.
+        user_msg_id = "msg_" + uuid.uuid4().hex[:12]
+        user_record = {
+            "id": user_msg_id,
+            "session_id": sid,
+            "role": "user",
+            "parts": [{"id": "part_" + uuid.uuid4().hex[:12], "type": "text", "text": text}],
+            "created_at": now_iso(),
+        }
+        sess.cached_messages.append(user_record)
+        # Also broadcast it as a message.created event for any active
+        # SSE subscribers.
+        await _broadcast(sess, envelope("message.created", {"message": user_record}))
+
+        # Spawn the SDK turn in the background; SSE consumers see it
+        # stream out via the per-session subscriber queues.
+        asyncio.create_task(_run_turn(sess, text, state))
+
+        return {"message_id": user_msg_id, "accepted_at": now_iso()}
+
+    # --- §7 SSE events ----------------------------------------------
+
+    @app.get("/v1/sessions/{sid}/events")
+    async def session_events(sid: str, request: Request) -> EventSourceResponse:
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        sess.subscribers.append(queue)
+
+        # Send the SPEC §7.3 server.connected handshake immediately so
+        # the client knows the stream is live.
+        await queue.put(envelope("server.connected", {"session_id": sid}))
+
+        async def stream():
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        return
+                    try:
+                        ev = await asyncio.wait_for(queue.get(), timeout=10.0)
+                    except TimeoutError:
+                        # SPEC §7.3 server.heartbeat every ~15s.
+                        ev = envelope("server.heartbeat", {})
+                    yield {
+                        "event": ev["type"],
+                        "id": str(uuid.uuid4()),
+                        "data": _json_dumps(ev),
+                    }
+            finally:
+                if queue in sess.subscribers:
+                    sess.subscribers.remove(queue)
+
+        return EventSourceResponse(stream())
+
+    return app
+
+
+# --- helpers ---------------------------------------------------------
+
+
+def _json_dumps(obj: Any) -> str:
+    import json
+
+    return json.dumps(obj, default=str)
+
+
+def _session_record(sess: Session) -> dict[str, Any]:
+    """Project a Session into the GACT Session JSON shape."""
+    return {
+        "id": sess.id,
+        "workspace_id": sess.workspace_id,
+        "title": sess.title,
+        "status": sess.status,
+        "created_at": sess.created_at,
+    }
+
+
+def _extract_text(parts: list[dict[str, Any]]) -> str:
+    """Concatenate all text parts in a GACT message body."""
+    chunks: list[str] = []
+    for p in parts:
+        if p.get("type") == "text":
+            t = p.get("text")
+            if isinstance(t, str):
+                chunks.append(t)
+    return "".join(chunks)
+
+
+async def _broadcast(sess: Session, event: dict[str, Any]) -> None:
+    """Push an event to every SSE subscriber on this session."""
+    for q in list(sess.subscribers):
+        try:
+            q.put_nowait(event)
+        except asyncio.QueueFull:
+            pass
+
+
+async def _run_turn(sess: Session, prompt: str, state: State) -> None:
+    """Drive one assistant turn through claude-agent-sdk and push
+    every resulting message to the session's SSE subscribers + cached
+    messages list. Holds a per-session lock so concurrent POSTs
+    serialize.
+    """
+    async with sess.turn_lock:
+        sess.status = "running"
+        await _broadcast(
+            sess,
+            envelope(
+                "session.status_changed",
+                {
+                    "session_id": sess.id,
+                    "status": "running",
+                    "prev_status": "idle",
+                },
+            ),
+        )
+
+        # Lazily start the SDK client on first turn. resume= would let
+        # us pick up an existing claude session_id; we leave it to the
+        # SDK to pick a fresh one on connect.
+        if sess.client is None:
+            opts = ClaudeAgentOptions(
+                cwd=state.cwd,
+                cli_path=state.cli_path,
+            )
+            sess.client = ClaudeSDKClient(options=opts)
+            await sess.client.connect()
+
+        try:
+            await sess.client.query(prompt)
+            async for msg in sess.client.receive_response():
+                for ev in sdk_message_to_events(msg, sess.id):
+                    await _broadcast(sess, ev)
+                    # Cache assistant + user messages for GET /messages.
+                    if ev["type"] == "message.created":
+                        sess.cached_messages.append(ev["payload"]["message"])
+        except Exception as e:
+            sess.status = "error"
+            await _broadcast(
+                sess,
+                envelope(
+                    "session.status_changed",
+                    {
+                        "session_id": sess.id,
+                        "status": "error",
+                        "prev_status": "running",
+                        "error": str(e),
+                    },
+                ),
+            )
+            return
+        sess.status = "idle"
+
+
+def main_app() -> FastAPI:
+    """Module-level app factory — used by `uvicorn gact_claude_sdk.server:main_app`."""
+    cwd = os.environ.get("GACT_CLAUDE_CWD") or os.getcwd()
+    cli_path = os.environ.get("GACT_CLAUDE_CLI") or None
+    return make_app(cwd=cwd, cli_path=cli_path)
