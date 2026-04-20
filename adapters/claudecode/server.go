@@ -30,9 +30,12 @@ type Server struct {
 	mu       sync.Mutex
 	sessions map[string]*sessionState
 
-	// Tool catalog discovered from claude's first system/init frame.
-	// Lazily populated by the first turn.
-	toolNames []string
+	// Catalogs discovered from claude's first system/init frame.
+	// Lazily populated by the first turn — cwd-dependent.
+	toolNames    []string
+	mcpServers   []map[string]any
+	agentNames   []string
+	slashCmdNames []string
 }
 
 type sessionState struct {
@@ -82,6 +85,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/sessions/{id}/messages", s.handlePostMessage)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleSessionEvents)
 	s.mux.HandleFunc("GET /v1/tools", s.handleListTools)
+	s.mux.HandleFunc("GET /v1/tools/{id}", s.handleGetTool)
+	s.mux.HandleFunc("GET /v1/agents", s.handleListAgents)
+	s.mux.HandleFunc("GET /v1/agents/{id}", s.handleGetAgent)
+	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
+	s.mux.HandleFunc("GET /v1/metrics", s.handleMetrics)
+	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcp)
+	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcp)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/export", s.handleExportSession)
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
 
@@ -108,10 +119,10 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"files":              false,
 			"diffs":              false,
 			"providers":          false,
-			"agents":             false,
-			"commands":           false,
-			"metrics":            false,
-			"mcp":                false,
+			"agents":             true,
+			"commands":           true,
+			"metrics":            true,
+			"mcp":                true,
 			"voice":              false,
 			"lsp":                false,
 			"hooks":              false,
@@ -369,19 +380,67 @@ func (s *Server) runTurn(sess *sessionState, text string) {
 }
 
 func (s *Server) captureCatalogs(initEv map[string]any) {
-	tools, _ := initEv["tools"].([]any)
-	if len(tools) == 0 {
-		return
-	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(s.toolNames) == 0 {
-		for _, t := range tools {
-			if name, ok := t.(string); ok {
-				s.toolNames = append(s.toolNames, name)
+		if tools, _ := initEv["tools"].([]any); len(tools) > 0 {
+			for _, t := range tools {
+				if name, ok := t.(string); ok {
+					s.toolNames = append(s.toolNames, name)
+				}
 			}
 		}
 	}
-	s.mu.Unlock()
+	if len(s.agentNames) == 0 {
+		if agents, _ := initEv["agents"].([]any); len(agents) > 0 {
+			for _, a := range agents {
+				if name, ok := a.(string); ok {
+					s.agentNames = append(s.agentNames, name)
+				}
+			}
+		}
+	}
+	if len(s.slashCmdNames) == 0 {
+		if cmds, _ := initEv["slash_commands"].([]any); len(cmds) > 0 {
+			for _, c := range cmds {
+				if name, ok := c.(string); ok {
+					s.slashCmdNames = append(s.slashCmdNames, name)
+				}
+			}
+		}
+	}
+	if len(s.mcpServers) == 0 {
+		if servers, _ := initEv["mcp_servers"].([]any); len(servers) > 0 {
+			statusMap := map[string]string{
+				"connected":  "ready",
+				"needs-auth": "error",
+				"failed":     "error",
+				"pending":    "connecting",
+			}
+			for _, raw := range servers {
+				m, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				name, _ := m["name"].(string)
+				if name == "" {
+					continue
+				}
+				rawStatus, _ := m["status"].(string)
+				gactStatus := statusMap[rawStatus]
+				if gactStatus == "" {
+					gactStatus = "disconnected"
+				}
+				s.mcpServers = append(s.mcpServers, map[string]any{
+					"id":                       slugify(name),
+					"name":                     name,
+					"transport":                "stdio",
+					"status":                   gactStatus,
+					"x_claudecode_raw_status":  rawStatus,
+				})
+			}
+		}
+	}
 }
 
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
@@ -396,6 +455,202 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tools": out})
+}
+
+func (s *Server) handleGetTool(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, n := range s.toolNames {
+		if n == id {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id": n, "name": n, "source": "builtin",
+				"input_schema": map[string]any{"type": "object"},
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "tool_not_found", "no tool with id "+id)
+}
+
+func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	names := append([]string{}, s.agentNames...)
+	s.mu.Unlock()
+	out := make([]map[string]any, 0, len(names))
+	for _, n := range names {
+		out = append(out, map[string]any{
+			"id": n, "source": "builtin", "title": n,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"agents": out})
+}
+
+func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, n := range s.agentNames {
+		if n == id {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id": n, "source": "builtin", "title": n,
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "agent_not_found", "no agent with id "+id)
+}
+
+func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	names := append([]string{}, s.slashCmdNames...)
+	s.mu.Unlock()
+	out := make([]map[string]any, 0, len(names))
+	for _, n := range names {
+		out = append(out, map[string]any{
+			"id": n, "title": n, "source": "builtin",
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"commands": out})
+}
+
+func (s *Server) handleListMcp(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	out := append([]map[string]any{}, s.mcpServers...)
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"servers": out})
+}
+
+func (s *Server) handleGetMcp(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, srv := range s.mcpServers {
+		if srv["id"] == id {
+			writeJSON(w, http.StatusOK, srv)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "server_not_found", "no mcp server with id "+id)
+}
+
+// handleMetrics synthesises a SPEC §6.16 metrics envelope from
+// adapter state — uptime + per-status session counters + per-role
+// message counters + token usage rolled up from cached assistant
+// messages.
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	sessionsCopy := make([]*sessionState, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		sessionsCopy = append(sessionsCopy, sess)
+	}
+	s.mu.Unlock()
+
+	byStatus := map[string]int{
+		"idle": 0, "running": 0, "waiting_permission": 0, "error": 0,
+	}
+	byRole := map[string]int{"user": 0, "assistant": 0, "system": 0, "tool": 0}
+	var inputTot, outputTot, cacheReadTot, cacheWriteTot int64
+	var msgTotal, active int
+	for _, sess := range sessionsCopy {
+		sess.mu.Lock()
+		st := sess.status
+		msgs := append([]map[string]any{}, sess.cachedMessages...)
+		sess.mu.Unlock()
+		if _, ok := byStatus[st]; ok {
+			byStatus[st]++
+		}
+		if st == "running" || st == "waiting_permission" {
+			active++
+		}
+		for _, m := range msgs {
+			msgTotal++
+			if role, _ := m["role"].(string); byRole[role] >= 0 {
+				byRole[role]++
+			}
+			usage, _ := m["usage"].(map[string]any)
+			inputTot += int64Of(usage["input_tokens"])
+			outputTot += int64Of(usage["output_tokens"])
+			cacheReadTot += int64Of(usage["cache_read_input_tokens"])
+			cacheWriteTot += int64Of(usage["cache_creation_input_tokens"])
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"uptime_s": int(time.Since(s.started).Seconds()),
+		"sessions": map[string]any{
+			"total":     len(sessionsCopy),
+			"active":    active,
+			"by_status": byStatus,
+		},
+		"messages": map[string]any{
+			"total":   msgTotal,
+			"by_role": byRole,
+		},
+		"tokens": map[string]any{
+			"input_total":       inputTot,
+			"output_total":      outputTot,
+			"cache_read_total":  cacheReadTot,
+			"cache_write_total": cacheWriteTot,
+		},
+	})
+}
+
+// handleExportSession serialises a session as a SPEC §6.2 export
+// blob — session record + cached messages + timestamp.
+func (s *Server) handleExportSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.mu.Lock()
+	sess, ok := s.sessions[id]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	sess.mu.Lock()
+	msgs := append([]map[string]any{}, sess.cachedMessages...)
+	sess.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"session":              sess.record(),
+		"messages":             msgs,
+		"exported_at":          nowISO(),
+		"x_claudecode_version": backendVersion,
+	})
+}
+
+// slugify produces a stable URL-safe id from a free-form name —
+// used for synthetic MCP server ids since the SDK only gives names.
+func slugify(name string) string {
+	b := make([]byte, 0, len(name)+4)
+	b = append(b, 'm', 'c', 'p', '_')
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b = append(b, byte(r))
+		case r >= 'A' && r <= 'Z':
+			b = append(b, byte(r-'A'+'a'))
+		default:
+			b = append(b, '_')
+		}
+	}
+	// Trim trailing underscores.
+	for len(b) > 4 && b[len(b)-1] == '_' {
+		b = b[:len(b)-1]
+	}
+	return string(b)
+}
+
+// int64Of coerces a JSON-decoded number to int64 (json.Number,
+// float64, or int land here depending on decode path).
+func int64Of(v any) int64 {
+	switch x := v.(type) {
+	case float64:
+		return int64(x)
+	case int:
+		return int64(x)
+	case int64:
+		return x
+	}
+	return 0
 }
 
 func (s *Server) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
