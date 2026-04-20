@@ -41,6 +41,38 @@ func messageText(m gact.Message) (string, bool) {
 	return b.String(), true
 }
 
+// fullConversationText concatenates every message's text into a
+// single role-prefixed transcript, suitable for pasting into a
+// bug report, another LLM, or a teammate. Each message opens with
+// `## user:` / `## assistant:` / `## tool:` etc. so the blocks are
+// grammatically separable. Messages with no copyable text are
+// skipped silently (e.g. assistant turns that were pure tool_call).
+// Returns ("", false) when nothing is copyable. (PPPPPPPP1)
+func fullConversationText(msgs []gact.Message) (string, bool) {
+	var b strings.Builder
+	for _, m := range msgs {
+		txt, ok := messageText(m)
+		if !ok {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		role := string(m.Role)
+		if role == "" {
+			role = "message"
+		}
+		b.WriteString("## ")
+		b.WriteString(role)
+		b.WriteString(":\n")
+		b.WriteString(txt)
+	}
+	if b.Len() == 0 {
+		return "", false
+	}
+	return b.String(), true
+}
+
 // lastUserText walks msgs in reverse and returns the concatenated
 // text of the newest user message. Multiple text parts are joined
 // with blank-line separators; non-text parts are skipped because the
