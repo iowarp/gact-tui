@@ -2624,12 +2624,21 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 	}
 
 	if format == "json" {
-		if sessions == nil {
-			sessions = []gact.Session{}
+		// SSSSSSSS1: emit decorated rows so jq pipelines can see the
+		// detached marker too — the pretty/tsv formats already carry
+		// it as a DET column. Each row is the original Session
+		// flattened in, plus a top-level `detached` bool.
+		type decorated struct {
+			gact.Session
+			Detached bool `json:"detached"`
+		}
+		out := make([]decorated, 0, len(sessions))
+		for _, s := range sessions {
+			out = append(out, decorated{Session: s, Detached: detached[s.ID]})
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(sessions)
+		_ = enc.Encode(out)
 		return 0
 	}
 
