@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase WWWWWWWW — `gact follow --role` filter
+
+- [x] **WWWWWWWW1.** Mirror VVVVVVVV1's `--role` plumbing on `gact follow` (tail-f). Filter runs inside the `emit` closure so both the snapshot pass + every streamed message obey it. Same validation rules — unknown role errors fast. End-to-end verified: `gact follow <sid> --role assistant` prints only [ASSISTANT @ …] rows + drops user/tool turns. Unknown --role rejected with helpful error.
+
 ## Phase VVVVVVVV — `gact log --role` filter
 
 - [x] **VVVVVVVV1.** New `--role user|assistant|tool|system` flag on `gact log` (accepts comma-separated list). Drops messages whose role isn't in the keep-set; works with both text + json formats (filter runs before format branch so NDJSON emits the same subset). Unknown role value fails fast with `unknown --role "X" (want user|assistant|tool|system)` instead of silent empty output. End-to-end `TestCLI_LogRoleFilter` covers 3 scenarios: `--role user` keeps only user row, `--role assistant,tool` keeps both and drops user, `--role bogus` exits 2 with helpful error.

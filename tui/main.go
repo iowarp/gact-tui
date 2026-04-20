@@ -424,6 +424,7 @@ Usage:
                               --prune-dead probes + removes every dead entry in one shot
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
+                              --role user,assistant,tool,system filters (same shape as gact log)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env [--format tsv|json] print resolved config + GACT_* env vars
   gact theme show [--name N] print active theme palette as TSV (key\thex)
@@ -2003,22 +2004,48 @@ func runFollow(args []string) int {
 	// both the snapshot and streamed messages. Default text mode
 	// unchanged.
 	format := fs.String("format", "text", "text | json (NDJSON)")
+	// WWWWWWWW1: --role filter mirrors VVVVVVVV1's `gact log --role`.
+	// Applied to both the snapshot and every streamed message so
+	// `gact follow <sid> --role assistant` tails just the model's
+	// replies.
+	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
+		"--role":   true, "-role": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--format text|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--format text|json]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact follow: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
+	// WWWWWWWW1: build + validate the keep-set up front so a typo
+	// errors fast instead of silently producing an empty stream.
+	var keepRole map[string]bool
+	if *role != "" {
+		keepRole = map[string]bool{}
+		for _, r := range strings.Split(*role, ",") {
+			r = strings.TrimSpace(r)
+			switch r {
+			case "":
+			case "user", "assistant", "tool", "system":
+				keepRole[r] = true
+			default:
+				fmt.Fprintf(os.Stderr, "gact follow: unknown --role %q (want user|assistant|tool|system)\n", r)
+				return 2
+			}
+		}
+	}
 	emit := func(m gact.Message) {
+		if keepRole != nil && !keepRole[string(m.Role)] {
+			return
+		}
 		if *format == "json" {
 			b, err := json.Marshal(m)
 			if err != nil {
