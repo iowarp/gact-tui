@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-04-20T04:45Z
-**Current phase:** OOOOOOO1 shipped — Goose POST + SSE; 8 conformance sections green
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0507445` (pushed)
-**Open:** none — Goose adapter feature surface now matches what other adapters cover (workspaces, sessions, messages read+write, SSE).
+**Last updated:** 2026-04-20T04:50Z
+**Current phase:** PPPPPPP1 shipped — Goose docs refresh
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `1e633ae` (pushed)
+**Open:** none — sidecar coverage parity reached; next natural work is feature parity (file diffs, permissions, MCP catalog) for Goose, mirroring claude-agent-sdk's coverage.
 
 ### Phase OOOOOOO1 — Goose POST + SSE
 - **OOOOOOO1.** Per-session subscriber map; POST /messages spawns runUpstreamReply goroutine that POSTs /reply upstream, parses SSE, translates events, broadcasts to GET /events subscribers. translate.go.translateMessageEvent maps all 7 Goose MessageEvent variants. caps.sse=true. 3 new tests + conformance now passes 8 sections.
