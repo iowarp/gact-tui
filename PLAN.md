@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase SSSSSSSS — Dashboard JSON carries detached field
+
+- [x] **SSSSSSSS1.** `gact dashboard --format json` now wraps each session row with a top-level `detached: bool` field so jq pipelines see the same marker the pretty/tsv DET column shows. Same source — local detached.json filtered to current backend (CCCCCCCC2). All TestCLI_Dashboard*/Watch/StatusFilter/Sort tests still pass (TestCLI_Dashboard's `"id"`/`"cost_usd"` checks unaffected — `detached` is added alongside, not replacing).
+
 ## Phase RRRRRRRR — Fuzzy attach matching
 
 - [x] **RRRRRRRR1.** `gact attach <name|sid>` (and the sidebar's pickAttachIndex used by env-var attach) now matches in precedence order: exact id → exact title → id prefix → title substring (case-insensitive). Means an 8-char `gact attach sess_abc1` resolves a 32-char sid; `gact attach refactor` finds "refactor api auth"; `attach REFACTOR` works the same. Each level scans the full list before falling through; first match wins inside a level. Exact matches always beat heuristic ones — protects scripts that assumed strict equality. 4 new sub-tests added to TestPickAttachIndex (id-prefix, case-insensitive title substring, exact-id-beats-title-substring, exact-title-beats-id-prefix). Existing 4 sub-tests untouched.
