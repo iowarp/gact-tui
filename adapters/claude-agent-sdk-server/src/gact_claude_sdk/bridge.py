@@ -91,13 +91,19 @@ def block_to_part(block: Any) -> dict[str, Any]:
 
 
 def assistant_message_to_gact(msg: AssistantMessage, session_id: str) -> dict[str, Any]:
-    """Convert an SDK AssistantMessage into a GACT Message (SPEC §5.3)."""
+    """Convert an SDK AssistantMessage into a GACT Message (SPEC §5.3).
+
+    GACT's Message.model is a ModelRef object (`{provider_id, model_id}`),
+    not a bare string. The SDK gives us a raw model id like
+    `claude-opus-4-7` so we wrap it; provider is hard-coded to
+    `anthropic` since claude-agent-sdk only ever talks to Anthropic.
+    """
     return {
         "id": msg.message_id or ("msg_" + uuid.uuid4().hex[:12]),
         "session_id": session_id,
         "role": "assistant",
         "parts": [block_to_part(b) for b in msg.content],
-        "model": msg.model,
+        "model": {"provider_id": "anthropic", "model_id": msg.model or ""},
         "created_at": now_iso(),
         "stop_reason": msg.stop_reason,
         "usage": msg.usage or {},

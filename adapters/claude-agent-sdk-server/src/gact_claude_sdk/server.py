@@ -207,6 +207,19 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
             )
         return _session_record(sess)
 
+    @app.delete("/v1/sessions/{sid}", status_code=204)
+    async def delete_session(sid: str) -> None:
+        async with state.lock:
+            sess = state.sessions.pop(sid, None)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        # Best-effort SDK cleanup; ignore errors so DELETE is idempotent.
+        if sess.client is not None:
+            try:
+                await sess.client.disconnect()
+            except Exception:
+                pass
+
     # --- §6.3 messages ----------------------------------------------
 
     @app.get("/v1/sessions/{sid}/messages")
