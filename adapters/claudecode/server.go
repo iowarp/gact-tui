@@ -56,6 +56,10 @@ type sessionState struct {
 	subscribers    []chan map[string]any
 	turnLock       sync.Mutex
 	proc           *claudeProcess
+	// TTTTTTT4: in-flight streaming message id from message_start.
+	// Used by stream_event translation to target deltas/completes
+	// at the right Part. Cleared on message_stop.
+	activeStreamMsgID string
 }
 
 // pendingPerm tracks a permission request mid-flight: the metadata
@@ -405,6 +409,17 @@ func (s *Server) runTurn(sess *sessionState, text string) {
 			if sub, _ := ev["subtype"].(string); sub == "init" {
 				s.captureCatalogs(ev)
 			}
+		}
+		// TTTTTTT4: stream_event frames carry the Anthropic
+		// streaming protocol. Threaded session.activeStreamMsgID
+		// because message_start is the only frame with the id.
+		if t == "stream_event" {
+			events, newID := translateStreamEvent(ev, sess.id, sess.activeStreamMsgID)
+			sess.activeStreamMsgID = newID
+			for _, gactEv := range events {
+				sess.broadcast(gactEv)
+			}
+			continue
 		}
 		for _, gactEv := range translateClaudeEvent(ev, sess.id, s.cwd) {
 			sess.broadcast(gactEv)

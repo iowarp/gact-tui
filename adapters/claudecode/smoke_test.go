@@ -1,6 +1,7 @@
 package claudecode
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -216,6 +217,143 @@ func TestSmoke_RealClaudePermissionFlow(t *testing.T) {
 	}
 	if resolved == 0 {
 		t.Fatalf("no permissions resolved; %d pending", len(pl.Permissions))
+	}
+}
+
+// TestSmoke_RealClaudeStreamingDeltas asks claude for a multi-token
+// reply and verifies the SSE stream carries message.part.delta
+// events alongside the final message.created. Proves the
+// stream_event → §7.4 partials translation works against the real
+// CLI.
+func TestSmoke_RealClaudeStreamingDeltas(t *testing.T) {
+	if _, err := exec.LookPath("claude"); err != nil {
+		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
+	}
+	srv := httptest.NewServer(New(t.TempDir(), "claude").Handler())
+	defer func() {
+		srv.CloseClientConnections()
+		srv.Close()
+	}()
+
+	// Create session.
+	r, _ := http.Post(srv.URL+"/v1/sessions",
+		"application/json", strings.NewReader(`{"title":"stream"}`))
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(body, &created)
+	if created.ID == "" {
+		t.Fatalf("create session failed: %s", body)
+	}
+
+	// Open SSE in a goroutine before posting so we don't miss frames.
+	type evt struct {
+		Type    string         `json:"type"`
+		Payload map[string]any `json:"payload"`
+	}
+	streamCh := make(chan evt, 64)
+	streamReady := make(chan struct{})
+	streamCtx, cancelStream := context.WithCancel(context.Background())
+	defer cancelStream()
+	go func() {
+		defer close(streamCh)
+		req, _ := http.NewRequestWithContext(streamCtx, "GET",
+			srv.URL+"/v1/sessions/"+created.ID+"/events", nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		close(streamReady)
+		var buf strings.Builder
+		tmp := make([]byte, 4096)
+		for {
+			n, err := resp.Body.Read(tmp)
+			if n > 0 {
+				buf.Write(tmp[:n])
+				blob := buf.String()
+				for {
+					idx := strings.Index(blob, "\n\n")
+					if idx < 0 {
+						break
+					}
+					block := blob[:idx]
+					blob = blob[idx+2:]
+					var dataLine string
+					for _, ln := range strings.Split(block, "\n") {
+						if strings.HasPrefix(ln, "data: ") {
+							dataLine = strings.TrimPrefix(ln, "data: ")
+						}
+					}
+					if dataLine == "" {
+						continue
+					}
+					var raw map[string]any
+					if jErr := json.Unmarshal([]byte(dataLine), &raw); jErr == nil {
+						pl, _ := raw["payload"].(map[string]any)
+						t, _ := raw["type"].(string)
+						select {
+						case streamCh <- evt{Type: t, Payload: pl}:
+						case <-streamCtx.Done():
+							return
+						}
+					}
+				}
+				buf.Reset()
+				buf.WriteString(blob)
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	<-streamReady
+	time.Sleep(150 * time.Millisecond)
+
+	// Post a prompt that yields several tokens.
+	r2, _ := http.Post(srv.URL+"/v1/sessions/"+created.ID+"/messages",
+		"application/json", strings.NewReader(
+			`{"parts":[{"type":"text","text":"Reply with three short sentences about Go's concurrency model."}]}`))
+	r2.Body.Close()
+	if r2.StatusCode != 202 {
+		t.Fatalf("post status %d", r2.StatusCode)
+	}
+
+	deadline := time.After(90 * time.Second)
+	saw := map[string]int{}
+	var lastStatus string
+loop:
+	for {
+		select {
+		case e, ok := <-streamCh:
+			if !ok {
+				break loop
+			}
+			saw[e.Type]++
+			if e.Type == "session.status_changed" {
+				lastStatus, _ = e.Payload["status"].(string)
+			}
+			if lastStatus == "idle" {
+				break loop
+			}
+		case <-deadline:
+			t.Fatalf("timed out; saw=%v lastStatus=%q", saw, lastStatus)
+		}
+	}
+	if saw["message.part.delta"] < 1 {
+		t.Errorf("expected ≥1 message.part.delta; got %d (saw=%v)",
+			saw["message.part.delta"], saw)
+	}
+	if saw["message.part.added"] < 1 {
+		t.Errorf("expected ≥1 message.part.added; got %d", saw["message.part.added"])
+	}
+	if saw["message.completed"] < 1 {
+		t.Errorf("expected ≥1 message.completed; got %d", saw["message.completed"])
+	}
+	if lastStatus != "idle" {
+		t.Errorf("last status %q want idle", lastStatus)
 	}
 }
 

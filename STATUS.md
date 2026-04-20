@@ -1,9 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-04-20T06:25Z
-**Current phase:** TTTTTTT2 + TTTTTTT5 shipped — Go claude adapter feature parity + file_diffs (16/16 conformance)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8c7a72d` (pushed)
-**Open:** TTTTTTT3 (can_use_tool control protocol) + TTTTTTT4 (streaming partials) remaining for full Python parity.
+**Last updated:** 2026-04-20T07:30Z
+**Current phase:** TTTTTTT4 shipped — Go claude adapter has full Python sidecar parity (streaming partials + permissions + diffs + 16/16 conformance)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8c7a72d` (pre-TTTTTTT4 commit; this iteration about to push)
+**Open:** Python sidecar can be retired. Next: real-LLM smoke replacements for goose/crush/opencode adapters; then `gact agent deploy/list/connect` registry + native dtach session detach.
+
+### Phase TTTTTTT4 — Go claude adapter streaming partials
+- **TTTTTTT4.** Spawn flag `--include-partial-messages` enables claude `stream_event` frames; translateStreamEvent maps Anthropic message_start → §7.4 message.created shell, content_block_start → message.part.added, content_block_delta(text_delta) → message.part.delta(text_append), content_block_stop → message.part.completed, message_stop → message.completed. sessionState.activeStreamMsgID threads the current msg id across deltas. Real-LLM smoke `TestSmoke_RealClaudeStreamingDeltas` (~5.7s) opens SSE, posts a multi-sentence prompt, asserts ≥1 delta + added + completed. Full smoke suite green (4 passes / ~24s wall).
+- Python sidecar can now retire — Go adapter has full feature parity (16/16 conformance + can_use_tool + streaming + diffs).
+
+### Phase TTTTTTT3 — Go claude adapter permissions
+- **TTTTTTT3.** Spawn args gain `--permission-prompt-tool stdio` so claude routes gated tools (Edit/Write/etc.) through the control protocol. handleControlRequest parks the request, broadcasts permission.requested + waiting_permission status, awaits POST /v1/permissions/{pid}, writes back control_response. New SPEC §6.11 endpoints. caps.permissions=true. Real-LLM smoke (~13.5s) drives a Write tool gating round-trip end-to-end.
 
 ### Phase TTTTTTT2 + TTTTTTT5 — Go claude adapter feature surface
 - **TTTTTTT2.** Tools/agents/commands/MCP/metrics/export endpoints; captureCatalogs harvests from system/init. caps.agents/commands/metrics/mcp=true.
