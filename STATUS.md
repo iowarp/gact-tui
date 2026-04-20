@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T01:35Z
-**Current phase:** GGGGGGG1 + GGGGGGG2 shipped — TUI renders real Claude replies via sidecar
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `e2d5d7d` (pushed)
-**Open:** none — sidecar roadmap (file_diff translation, streaming deltas) tracked in PLAN GGGGGGG3+
+**Last updated:** 2026-04-20T02:00Z
+**Current phase:** GGGGGGG3 shipped — Edit/Write tools now emit GACT file_diff Parts
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4bf575f` (pushed)
+**Open:** GGGGGGG4 (streaming deltas via include_partial_messages) remaining in current phase
+
+### Phase GGGGGGG3 — file_diff translation
+- **GGGGGGG3.** Edit/Write ToolUseBlocks produce sibling file_diff Parts. Pre-state read from disk against cwd; Edit's single-occurrence vs replace_all matches Anthropic's contract; Write before=null on new file, current bytes on overwrite. Language hint inferred from extension. NotebookEdit deliberately skipped (cell model doesn't fit SPEC's flat before/after). Real-LLM smoke (`test_smoke_diff.py`) seeds a fixture, asks Claude to Edit, asserts file_diff with correct before/after — passes in ~9s. 31 tests total (was 20).
 
 ### Phase GGGGGGG — claude-agent-sdk sidecar follow-ups
 - **GGGGGGG1.** GET /v1/tools wired. SDK's first SystemMessage(init) populates state.tool_names; both /v1/tools (list) and /v1/tools/{id} drill served. After one real turn, 33 tools discovered. Adds 2 endpoint tests for empty-pre-init + 404-on-unknown.
