@@ -257,6 +257,7 @@ func runEmitConfig() {
 	cw := 100_000
 	cd := 150_000
 	pt := 3
+	ifd := 90
 	sample := config.Config{
 		BackendURL:             &bk,
 		Theme:                  &th,
@@ -265,6 +266,7 @@ func runEmitConfig() {
 		CostWarnTokens:         &cw,
 		CostDangerTokens:       &cd,
 		PasteCompressThreshold: &pt,
+		IntroFrameDelayMs:      &ifd,
 	}
 	buf, _ := json.MarshalIndent(sample, "", "  ")
 	fmt.Println(string(buf))
@@ -611,6 +613,11 @@ func runTUI() {
 	// Theme.applyStyles when nil/zero).
 	if cfg.PasteCompressThreshold != nil && *cfg.PasteCompressThreshold > 0 {
 		app.Theme.PasteCompressThreshold = *cfg.PasteCompressThreshold
+	}
+	// NNNNNNNNN1: restore animated-splash per-frame delay. App
+	// clamps to [20ms, 1s]; zero falls back to the 90ms default.
+	if cfg.IntroFrameDelayMs != nil && *cfg.IntroFrameDelayMs > 0 {
+		app.IntroFrameDelay = time.Duration(*cfg.IntroFrameDelayMs) * time.Millisecond
 	}
 	// LLL2: restore disabled tools so the catalog browser hides them
 	// across restarts.
