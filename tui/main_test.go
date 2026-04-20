@@ -4307,6 +4307,75 @@ func TestCLI_AttachPrintOnly_ExplicitSid(t *testing.T) {
 	}
 }
 
+// PPPPPPPPP1: `gact session <verb>` alias layer over existing
+// session CRUD. Verifies create → list → show → rename → rm
+// round-trip works through the alias verbs.
+func TestCLI_SessionAliasCRUD(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	env := map[string]string{"GACT_BACKEND": url}
+
+	// create
+	stdout, _, code := runGact(t, bin, env, "session", "create", "--title", "alias-test")
+	if code != 0 {
+		t.Fatalf("session create: exit %d", code)
+	}
+	sid := strings.TrimSpace(stdout)
+	if !strings.HasPrefix(sid, "sess_") {
+		t.Fatalf("session create should print sess_xxx; got %q", stdout)
+	}
+	defer func() { _, _, _ = runGact(t, bin, env, "session", "rm", sid) }()
+
+	// list → should contain the new sid + title
+	stdout, _, code = runGact(t, bin, env, "session", "list")
+	if code != 0 {
+		t.Fatalf("session list: exit %d", code)
+	}
+	if !strings.Contains(stdout, sid) || !strings.Contains(stdout, "alias-test") {
+		t.Errorf("session list missing new session: %q", stdout)
+	}
+
+	// show → should report status + title
+	stdout, _, code = runGact(t, bin, env, "session", "show", sid)
+	if code != 0 {
+		t.Fatalf("session show: exit %d", code)
+	}
+	if !strings.Contains(stdout, "title:") || !strings.Contains(stdout, "alias-test") {
+		t.Errorf("session show missing title: %q", stdout)
+	}
+
+	// rename → show should now print the new title
+	_, _, code = runGact(t, bin, env, "session", "rename", sid, "alias-test-renamed")
+	if code != 0 {
+		t.Fatalf("session rename: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, env, "session", "show", sid)
+	if !strings.Contains(stdout, "alias-test-renamed") {
+		t.Errorf("session show after rename missing new title: %q", stdout)
+	}
+
+	// rm → list should no longer include it
+	_, _, code = runGact(t, bin, env, "session", "rm", sid)
+	if code != 0 {
+		t.Fatalf("session rm: exit %d", code)
+	}
+	stdout, _, _ = runGact(t, bin, env, "session", "list")
+	if strings.Contains(stdout, sid) {
+		t.Errorf("session list still shows removed sid %s: %q", sid, stdout)
+	}
+
+	// Unknown verb fails fast.
+	_, stderr, code := runGact(t, bin, env, "session", "bogus")
+	if code != 2 {
+		t.Errorf("session bogus: exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "unknown verb") {
+		t.Errorf("stderr: %q", stderr)
+	}
+}
+
 // OOOOOOOOO1: `gact agent deploy/list/stop/rm` round-trips a
 // locally-spawned adapter. Builds the real claudecode adapter
 // (~2s compile) so the --host/--port/--cwd flags match and

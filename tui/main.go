@@ -159,6 +159,11 @@ func main() {
 			// so the common "I want to attach the TUI to my
 			// registered adapter" flow is a one-word verb.
 			os.Exit(runAgentConnect(os.Args[2:]))
+		case "session":
+			// PPPPPPPPP1: `gact session <verb>` alias layer over
+			// the existing session CRUD commands. Parallels `gact
+			// agent *`. Cleaner namespace; no new behavior.
+			os.Exit(runSession(os.Args[2:]))
 		case "resume":
 			// IIIIIIII1: `gact resume` is a more-discoverable alias
 			// for `gact attach` with no arguments — attaches to the
@@ -370,6 +375,9 @@ Usage:
                               no arg = most-recent Ctrl+Z-detached on this backend
                               --print-only: resolve + print sid, no TUI (for scripting)
   gact resume                alias for gact attach (no args) — resume most-recent detach
+  gact session <verb>        backend-side session lifecycle alias:
+                              create | list | show | connect | rename | stop | rm
+                              (parallels "gact agent *"; wraps new/list/info/attach/rename/cancel/delete)
   gact agent deploy <kind> <name>  spawn an adapter (claudecode) detached; registers locally
                               --bin PATH override adapter binary; --port N; --cwd DIR
   gact agent list            show deployed agents (name, kind, port, pid, alive status)
@@ -2687,6 +2695,39 @@ const (
 // pid, port) in ~/.config/gact/agents.json; `gact connect <name>`
 // reads the entry, sets GACT_BACKEND, and runs the TUI. Closes the
 // last-night design item we let slip during the TTTTTTT pivot.
+
+// PPPPPPPPP1: `gact session <verb>` is an alias layer over the
+// existing top-level session CRUD commands. No new behavior —
+// just a discoverable namespace symmetric with `gact agent *`.
+func runSession(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact session create|list|show|connect|rename|stop|rm …")
+		return 2
+	}
+	verb, rest := args[0], args[1:]
+	switch verb {
+	case "create", "new":
+		return runNew(rest)
+	case "list", "ls":
+		return runList(rest)
+	case "show", "info":
+		return runInfo(rest)
+	case "connect", "attach":
+		// Delegate to the same path gact attach <sid> uses.
+		runAttach(rest)
+		return 0
+	case "rename":
+		return runRename(rest)
+	case "stop", "cancel":
+		return runCancel(rest)
+	case "rm", "remove", "delete":
+		return runDelete(rest)
+	case "export":
+		return runExport(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact session: unknown verb %q (want create|list|show|connect|rename|stop|rm|export)\n", verb)
+	return 2
+}
 
 func runAgent(args []string) int {
 	if len(args) == 0 {

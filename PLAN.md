@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase PPPPPPPPP — `gact session <verb>` alias tree
+
+- [x] **PPPPPPPPP1.** Discoverable `gact session <verb>` namespace that mirrors `gact agent *`. Aliases existing top-level commands: `create` → runNew, `list` → runList, `show`/`info` → runInfo, `connect`/`attach` → runAttach, `rename` → runRename, `stop`/`cancel` → runCancel, `rm`/`remove`/`delete` → runDelete, `export` → runExport. No new behavior — just a cleaner grouping the user explicitly asked for last night. Unknown verbs fail fast. New TestCLI_SessionAliasCRUD exercises the create → list → show → rename → rm round-trip through the aliases + the unknown-verb error path.
+
 ## Phase OOOOOOOOO — `gact agent deploy/list/stop/rm/connect` local PM
 
 - [x] **OOOOOOOOO1.** Local agent process manager. `gact agent deploy <kind> <name>` spawns the adapter binary detached on a free port, probes /v1/capabilities up to 3s for readiness, records `(name, kind, host, port, pid, cwd, started_at)` in `~/.config/gact/agents.json` (GACT_AGENTS_PATH override). `list` prints a pretty / tsv / json table with per-row `probeAgentAlive` liveness. `stop` SIGTERMs the pid (idempotent — ESRCH treated as already-stopped). `rm` stops + drops the entry. `connect <name>` resolves host:port, probes alive, sets GACT_BACKEND and runs the TUI. Top-level `gact connect <name>` alias for the common path. Platform-specific `detachedSysProcAttr` helper: Setsid on Unix, CREATE_NEW_PROCESS_GROUP on Windows — adapter survives parent shell exit. Collapses the previous 3-terminal deploy (build adapter + start adapter + start TUI) to `gact agent deploy claudecode myclaude && gact connect myclaude`. 4 unit tests on the registry + 1 CLI e2e test that builds the real claudecode adapter, deploys, lists, stops, rms — all green.
