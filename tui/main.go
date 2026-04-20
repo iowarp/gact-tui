@@ -405,6 +405,7 @@ Usage:
   gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
   gact detached              list sessions you've Ctrl+Z-detached from
                               --rm <sid> drops one entry; --probe checks each is still on the backend
+                              --prune-dead probes + removes every dead entry in one shot
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
@@ -2310,13 +2311,21 @@ func runDetached(args []string) int {
 	fs := flag.NewFlagSet("detached", flag.ContinueOnError)
 	rm := fs.String("rm", "", "remove the entry for this session id from the registry")
 	probe := fs.Bool("probe", false, "probe each backend, mark sessions that no longer exist")
+	pruneDead := fs.Bool("prune-dead", false, "probe + remove every entry whose backend no longer has the session (GGGGGGGG1)")
 	format := fs.String("format", "pretty", "pretty | tsv | json")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--rm": true, "-rm": true,
-		"--probe": true, "-probe": true,
+		"--probe":      true, "-probe": true,
+		"--prune-dead": true, "-prune-dead": true,
 		"--format": true, "-format": true,
 	})); err != nil {
 		return 2
+	}
+	// --prune-dead implies --probe (it has to probe to decide what to
+	// remove). Set it implicitly so the rendered output also shows
+	// the alive column for the survivors.
+	if *pruneDead {
+		*probe = true
 	}
 	switch *format {
 	case "pretty", "tsv", "json":
@@ -2357,6 +2366,34 @@ func runDetached(args []string) int {
 			alive := err == nil
 			liveness[i] = &alive
 		}
+	}
+	// GGGGGGGG1: --prune-dead removes every entry whose probe came
+	// back negative. Done after the probe pass so the rendered table
+	// (below) shows the survivors with their (alive=yes) column,
+	// confirming what's left. The dead rows themselves are dropped
+	// silently from the rendered output but counted in stderr.
+	if *pruneDead {
+		survivors := reg.Records[:0]
+		survivorLive := liveness[:0]
+		removed := 0
+		for i, r := range reg.Records {
+			if liveness[i] != nil && !*liveness[i] {
+				removed++
+				continue
+			}
+			survivors = append(survivors, r)
+			survivorLive = append(survivorLive, liveness[i])
+		}
+		reg.Records = survivors
+		liveness = survivorLive
+		if removed > 0 {
+			if err := config.SaveDetached(reg, path); err != nil {
+				fmt.Fprintf(os.Stderr, "gact detached: prune-dead: write %s: %v\n", path, err)
+				return 1
+			}
+		}
+		fmt.Fprintf(os.Stderr, "pruned %d dead entr(y/ies); %d alive remain\n",
+			removed, len(reg.Records))
 	}
 	switch *format {
 	case "json":

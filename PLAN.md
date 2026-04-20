@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase GGGGGGGG — `gact detached --prune-dead` cleanup
+
+- [x] **GGGGGGGG1.** New `--prune-dead` flag on `gact detached`: probes every entry, removes any whose probe came back negative, writes the survivors back to detached.json. `--prune-dead` implies `--probe` so the post-prune table also paints the alive column. Stderr prints `pruned N dead entr(y/ies); M alive remain` so the user can see what happened. Real one-shot cleanup workflow: `gact detached --prune-dead` after a backend restart leaves the registry consistent with what the backend actually has. End-to-end verified against live emulator: 2 dead + 1 live registry → after prune, file has only the live entry, footer shows "1 alive · 0 dead · 0 unprobed".
+
 ## Phase FFFFFFFF — Probe candidates before attaching
 
 - [x] **FFFFFFFF1.** `defaultAttachTarget` now probes each candidate (newest-first) with a 2s GET against /v1/sessions/{sid} before returning. Stale entries (backend deleted the session, restarted, etc.) get skipped instead of crashing the TUI on the first request after attach. New `defaultAttachTargetWithProbe(probe func)` testable variant; production wraps with the real HTTP probe `probeSessionAlive`. When dead candidates are skipped before reaching a live one, stderr prints `attaching to <sid> (<title>) — skipped N dead entry(ies)`. When EVERY candidate is dead, returns `N detached entry(ies) on <backend> but none are still alive — gact detached --probe to inspect`. 5 unit tests now (3 prior + 2 new: skip-dead, all-dead). End-to-end against live emulator: 1-dead-1-live registry skips dead and attaches to live; all-dead prints the helpful error and exits 2.
