@@ -397,7 +397,8 @@ Usage:
   gact tell <name> <msg>     find-or-create session by title; send + print reply
                               (re-run with same name to continue the conversation)
                               --async returns immediately with sid<TAB>msg_id
-  gact attach <name|sid>     launch the TUI pre-selected on a session
+  gact attach [<name|sid>]   launch the TUI pre-selected on a session;
+                              no arg = most-recent Ctrl+Z-detached on this backend
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
@@ -430,20 +431,66 @@ TUI-only flags:
                    (env: GACT_VOICE_CMD, config: voice_command)`)
 }
 
-// runAttach: `gact attach <name|sid>` — launch the TUI pre-selected
-// on a session. Exits via os.Exit when done. Env var
-// GACT_ATTACH_SESSION_ID is the bridge into runTUI's setup so the
-// flag-parse path doesn't need new flags.
+// runAttach: `gact attach [<name|sid>]` — launch the TUI pre-selected
+// on a session. With no argument, defaults to the most recently
+// Ctrl+Z-detached session on the current backend (CCCCCCCC1). Exits
+// via os.Exit when done. Env var GACT_ATTACH_SESSION_ID is the
+// bridge into runTUI's setup so the flag-parse path doesn't need
+// new flags.
 func runAttach(args []string) {
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact attach <name|sess_id>")
+	if len(args) > 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact attach [<name|sess_id>]")
 		os.Exit(2)
 	}
-	_ = os.Setenv("GACT_ATTACH_SESSION_ID", args[0])
+	target := ""
+	if len(args) == 1 {
+		target = args[0]
+	} else {
+		// CCCCCCCC1: no-arg path. Look up the most-recent detach for
+		// the current backend (env > config > built-in default — same
+		// resolution runTUI uses) and attach there. Friction-killer
+		// for the common loop: gact → work → Ctrl+Z → `gact attach`.
+		sid, err := defaultAttachTarget()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(2)
+		}
+		target = sid
+	}
+	_ = os.Setenv("GACT_ATTACH_SESSION_ID", target)
 	// Trim os.Args so runTUI's flag.Parse doesn't choke on "attach
 	// <name>" remnants. Set os.Args to just the program name.
 	os.Args = []string{os.Args[0]}
 	runTUI()
+}
+
+// defaultAttachTarget reads the detached.json registry and returns
+// the SessionID of the most-recent record matching the current
+// backend (resolved via the same precedence runTUI uses: env > flag
+// > config > built-in default; flags aren't parsed yet here so we
+// fall back to env-or-config-or-default). Returns a typed error
+// when nothing applies so the caller can exit with a helpful
+// message instead of an opaque attach-failed crash later.
+func defaultAttachTarget() (string, error) {
+	cfg, _, _ := config.Load()
+	envBackend := os.Getenv("GACT_BACKEND")
+	backend := config.Resolve(cfg.BackendURL, envBackend, "", defaultBackend)
+	regPath, err := config.DetachedPath()
+	if err != nil {
+		return "", fmt.Errorf("gact attach: %v", err)
+	}
+	reg, err := config.LoadDetached(regPath)
+	if err != nil {
+		return "", fmt.Errorf("gact attach: read registry %s: %v", regPath, err)
+	}
+	for _, r := range reg.Records {
+		if r.Backend == backend {
+			fmt.Fprintf(os.Stderr, "attaching to most-recent detach: %s (%s)\n",
+				r.SessionID, r.Title)
+			return r.SessionID, nil
+		}
+	}
+	return "", fmt.Errorf("gact attach: no detached sessions on %s — Ctrl+Z in the TUI records one, or `gact detached` to inspect across backends", backend)
 }
 
 func runTUI() {

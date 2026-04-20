@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase CCCCCCCC — `gact attach` (no args) defaults to most-recent detach
+
+- [x] **CCCCCCCC1.** `gact attach` with no arguments now picks the most-recent detached session for the current backend (resolved via the same env > config > built-in default precedence runTUI uses) and attaches there. Friction-killer for the common loop: `gact` → work → Ctrl+Z → `gact attach`. New `defaultAttachTarget()` reads detached.json, filters by backend, returns the newest sid (records are already sorted newest-first by LoadDetached). Empty/no-match prints a helpful error pointing to `gact detached` and Ctrl+Z. 3 unit tests cover (newest pick, no match, missing registry). End-to-end verified against the live emulator: stderr prints `attaching to most-recent detach: sess_… (title)` then connects.
+
 ## Phase BBBBBBBB — Detached-session sidebar marker + auto-prune
 
 - [x] **BBBBBBBB1.** Sidebar now tags every session the user has previously Ctrl+Z-detached from with a small `↩` glyph. App.previouslyDetached map is seeded from the local detached.json registry at startup (filtered to the current backend so cross-backend entries don't leak). New `LoadDetachedRegistry([]DetachedRegistryEntry)` API on App + main.go wiring. Two-step `x/x` delete now prunes both the in-memory set and the on-disk registry via the new App.PruneDetachedRegistry callback so stale entries don't accumulate. Two new unit tests + screenshot `screenshots/BBBBBBBB1_detached_marker.png` showing one fresh + one marked session side-by-side. End-to-end VHS tape verified against live emulator.
