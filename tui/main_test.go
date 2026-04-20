@@ -3115,6 +3115,62 @@ func TestCLI_Info(t *testing.T) {
 	}
 }
 
+// JJJJJJJJJ1: `gact info` surfaces the detached-registry flag in
+// both text and json output — same source of truth as the other
+// 10 surfaces that show it.
+func TestCLI_InfoDetachedField(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sidPlain := createSession(t, url, "info-detach-plain")
+	sidWalked := createSession(t, url, "info-detach-walked")
+
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	body := fmt.Sprintf(
+		`{"records":[{"session_id":%q,"title":"info-detach-walked","backend":%q,"detached_at":"2026-04-20T08:00:00Z"}]}`,
+		sidWalked, url,
+	)
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"GACT_BACKEND": url, "GACT_DETACHED_PATH": regPath}
+
+	// Plain (not in registry) → text shows "detached:      no".
+	stdout, _, code := runGact(t, bin, env, "info", sidPlain)
+	if code != 0 {
+		t.Fatalf("info plain: exit %d", code)
+	}
+	if !strings.Contains(stdout, "detached:      no") {
+		t.Errorf("plain session should show 'detached: no': %q", stdout)
+	}
+
+	// Walked (in registry) → text shows "detached:      yes".
+	stdout, _, code = runGact(t, bin, env, "info", sidWalked)
+	if code != 0 {
+		t.Fatalf("info walked: exit %d", code)
+	}
+	if !strings.Contains(stdout, "detached:      yes") {
+		t.Errorf("walked session should show 'detached: yes': %q", stdout)
+	}
+
+	// JSON carries the flag at top level.
+	stdout, _, code = runGact(t, bin, env, "info", "--format", "json", sidWalked)
+	if code != 0 {
+		t.Fatalf("info json: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"detached": true`) {
+		t.Errorf("expected `\"detached\": true` in JSON: %q", stdout)
+	}
+	stdout, _, code = runGact(t, bin, env, "info", "--format", "json", sidPlain)
+	if code != 0 {
+		t.Fatalf("info json plain: exit %d", code)
+	}
+	if !strings.Contains(stdout, `"detached": false`) {
+		t.Errorf("expected `\"detached\": false` in JSON: %q", stdout)
+	}
+}
+
 // TestCLI_Models covers WW1: list providers + models, then filter
 // to a single provider and assert no foreign rows leak in.
 func TestCLI_Models(t *testing.T) {

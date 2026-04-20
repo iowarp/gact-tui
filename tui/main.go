@@ -4394,8 +4394,23 @@ func runInfo(args []string) int {
 			}
 		}
 	}
+	// JJJJJJJJJ1: read-only probe of the local detached registry so
+	// `gact info <sid>` shows the same "did I walk away from this?"
+	// flag the dashboard / list / sidebar already surface. Soft-
+	// fails to false on missing registry.
+	isDetached := false
+	if path, err := config.DetachedPath(); err == nil {
+		if reg, err := config.LoadDetached(path); err == nil {
+			for _, r := range reg.Records {
+				if r.SessionID == sid && r.Backend == c.BaseURL() {
+					isDetached = true
+					break
+				}
+			}
+		}
+	}
 	if *format == "json" {
-		out := map[string]any{"session": s}
+		out := map[string]any{"session": s, "detached": isDetached}
 		if wantTasks {
 			if tasks == nil {
 				tasks = []gact.SessionTask{}
@@ -4446,6 +4461,14 @@ func runInfo(args []string) int {
 	}
 	if s.Summary != "" {
 		fmt.Printf("summary:       %s\n", s.Summary)
+	}
+	// JJJJJJJJJ1: surface whether this session appears in the local
+	// detached registry. Always printed (yes/no) so scripts parsing
+	// `gact info` get a deterministic field.
+	if isDetached {
+		fmt.Println("detached:      yes")
+	} else {
+		fmt.Println("detached:      no")
 	}
 	if wantTasks {
 		fmt.Println("--- tasks ---")

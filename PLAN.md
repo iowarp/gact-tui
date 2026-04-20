@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase JJJJJJJJJ — `gact info` carries detached status
+
+- [x] **JJJJJJJJJ1.** `gact info <sid>` now reads the local detached registry and surfaces the flag alongside the session metadata — text adds `detached: yes|no` line (always present so scripts get a deterministic field), JSON adds `detached: bool` at the top level alongside `session`. Same source-of-truth as the other surfaces. 11 UX surfaces now read the single registry (header chip + sidebar marker + sidebar filter + dashboard DET column + dashboard JSON field + dashboard `--detached-only` + `gact list` column + `gact list` JSON + `gact list --detached-only` + `gact detached` + `gact info`). TestCLI_InfoDetachedField covers plain + walked + JSON for both.
+
 ## Phase IIIIIIIII — Consolidate diag output into one core
 
 - [x] **IIIIIIIII1.** runDiag (stdout) and writeDiagTo (arbitrary writer) had duplicated logic that drifted twice — once for cost thresholds and again for the HHHHHHHHH1 detached summary. Refactored both to share `writeDiagCore(w, verbose)`:   - `runDiag()` is now a one-liner: `writeDiagToVerbose(os.Stdout)` → verbose=true   - `writeDiagTo(w)` stays as a one-liner: `writeDiagCore(w, false)` → verbose=false Verbose adds the "custom theme" probe + "config load: (error: …)" row that the dump-bundle variant historically omitted. Future rows (new env vars, new counters) land in one place now. End-to-end verified: both verbose and terse outputs include the detached_path + detached_count lines; verbose alone shows the custom-theme line.
