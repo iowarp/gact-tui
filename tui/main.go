@@ -5860,7 +5860,7 @@ _gact() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
+    cmds="agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete detached diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map resume rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
@@ -5880,7 +5880,7 @@ complete -F _gact gact
 const zshCompletionScript = `#compdef gact
 _gact() {
     local -a cmds
-    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces)
+    cmds=(agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete detached diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map resume rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces)
     if (( CURRENT == 2 )); then
         _describe 'subcommand' cmds
         return
@@ -5893,7 +5893,7 @@ compdef _gact gact
 `
 
 const fishCompletionScript = `# gact fish completion
-complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
+complete -c gact -n "__fish_use_subcommand" -a "agent agents archive ask attach bench cancel capabilities caps catalog completion conformance context dashboard delete detached diag diff dump-bundle emit-config env export files follow fork grep hooks import info list log mcp metrics models new perms ping plugins quick rename replay repo-map resume rewind run search send stream summarize tail tasks tell theme tool tools unarchive undo version voice wait watch workspaces"
 complete -c gact -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 `
 
