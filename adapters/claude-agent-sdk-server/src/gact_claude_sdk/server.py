@@ -23,7 +23,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, StreamEvent
+from claude_agent_sdk import (
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    PermissionResultAllow,
+    PermissionResultDeny,
+    StreamEvent,
+    ToolPermissionContext,
+)
 from fastapi import FastAPI, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
@@ -82,6 +89,11 @@ class State:
     # Strong refs to in-flight background turns so the GC doesn't
     # cancel them mid-stream (RUF006). Removed on completion.
     background_tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    # HHHHHHH1: pending permission requests. Each maps perm_id to the
+    # full PermissionRequest dict (for GET /v1/permissions reads) +
+    # the future the SDK's can_use_tool callback is awaiting on.
+    permissions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    permission_futures: dict[str, asyncio.Future[bool]] = field(default_factory=dict)
 
 
 def workspace_record(state: State) -> dict[str, Any]:
@@ -149,7 +161,7 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
                 "voice": False,
                 "lsp": False,
                 "hooks": False,
-                "permissions": False,
+                "permissions": True,
                 "session_tasks": False,
                 "search_messages": False,
                 "scheduled_sessions": False,
@@ -322,6 +334,63 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
             "input_schema": {"type": "object"},
         }
 
+    # --- §6.11 permissions ------------------------------------------
+
+    @app.get("/v1/permissions")
+    async def list_permissions(
+        session_id: str | None = None, status: str | None = None
+    ) -> dict[str, Any]:
+        out: list[dict[str, Any]] = []
+        for p in state.permissions.values():
+            if session_id and p["session_id"] != session_id:
+                continue
+            if status == "pending" and p.get("resolved"):
+                continue
+            out.append(p)
+        return {"permissions": out}
+
+    @app.get("/v1/permissions/{pid}")
+    async def get_permission(pid: str) -> dict[str, Any]:
+        p = state.permissions.get(pid)
+        if p is None:
+            raise HTTPException(status_code=404, detail="permission_not_found")
+        return p
+
+    @app.post("/v1/permissions/{pid}")
+    async def respond_permission(pid: str, body: dict[str, Any]) -> dict[str, Any]:
+        action = body.get("action")
+        if action not in ("allow", "deny", "allow_session", "allow_workspace"):
+            raise HTTPException(status_code=400, detail=f"invalid action: {action!r}")
+        p = state.permissions.get(pid)
+        if p is None:
+            raise HTTPException(status_code=404, detail="permission_not_found")
+        fut = state.permission_futures.get(pid)
+        if fut is None or fut.done():
+            raise HTTPException(status_code=409, detail="permission already resolved")
+        # allow_session/workspace are sticky in the spec but we don't
+        # track scope yet — collapse to one-shot allow for now.
+        allowed = action in ("allow", "allow_session", "allow_workspace")
+        fut.set_result(allowed)
+        p["resolved"] = True
+        p["action"] = action
+        # Broadcast permission.resolved on the right session so the
+        # TUI's banner clears.
+        sid = p["session_id"]
+        sess = state.sessions.get(sid)
+        if sess is not None:
+            await _broadcast(
+                sess,
+                envelope(
+                    "permission.resolved",
+                    {
+                        "permission_id": pid,
+                        "session_id": sid,
+                        "action": action,
+                    },
+                ),
+            )
+        return {"id": pid, "action": action}
+
     # --- §7 SSE events ----------------------------------------------
 
     @app.get("/v1/sessions/{sid}/events")
@@ -405,6 +474,86 @@ async def _broadcast(sess: Session, event: dict[str, Any]) -> None:
             pass
 
 
+def _make_can_use_tool(sess: Session, state: State):
+    """Build the SDK's can_use_tool callback closure for a session.
+
+    Returns an async function the SDK invokes before every tool call.
+    The callback synthesises a SPEC §6.11 permission.requested event,
+    parks an asyncio.Future on State.permission_futures, and awaits
+    the TUI's POST /v1/permissions/{pid} response. Returns
+    PermissionResultAllow or PermissionResultDeny per the SPEC.
+
+    Important: the returned callback runs in the SDK's event loop,
+    which is the same loop the FastAPI handlers run on, so the
+    future-based handoff is safe without thread sync.
+    """
+
+    async def can_use_tool(
+        tool_name: str,
+        input_dict: dict[str, Any],
+        ctx: ToolPermissionContext,
+    ) -> PermissionResultAllow | PermissionResultDeny:
+        pid = "perm_" + uuid.uuid4().hex[:12]
+        record = {
+            "id": pid,
+            "session_id": sess.id,
+            "tool_call": {
+                "call_id": ctx.tool_use_id or "",
+                "tool_name": tool_name,
+                "input": input_dict,
+                "annotations": {},
+            },
+            "summary": f"Run tool: {tool_name}",
+            "created_at": now_iso(),
+            "resolved": False,
+        }
+        state.permissions[pid] = record
+        fut: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        state.permission_futures[pid] = fut
+
+        # Flip session status so the TUI's badge reflects the wait.
+        prev = sess.status
+        sess.status = "waiting_permission"
+        await _broadcast(
+            sess,
+            envelope(
+                "session.status_changed",
+                {
+                    "session_id": sess.id,
+                    "status": "waiting_permission",
+                    "prev_status": prev,
+                },
+            ),
+        )
+        await _broadcast(sess, envelope("permission.requested", record))
+
+        try:
+            allowed = await fut
+        finally:
+            # Restore status to running; the SDK turn is still mid-flight.
+            sess.status = "running"
+            await _broadcast(
+                sess,
+                envelope(
+                    "session.status_changed",
+                    {
+                        "session_id": sess.id,
+                        "status": "running",
+                        "prev_status": "waiting_permission",
+                    },
+                ),
+            )
+
+        if allowed:
+            return PermissionResultAllow(updated_input=None, updated_permissions=None)
+        return PermissionResultDeny(
+            message="denied via gact TUI permission flow",
+            interrupt=False,
+        )
+
+    return can_use_tool
+
+
 async def _run_turn(sess: Session, prompt: str, state: State) -> None:
     """Drive one assistant turn through claude-agent-sdk and push
     every resulting message to the session's SSE subscribers + cached
@@ -438,6 +587,12 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                 # into GACT message.part.delta events so the TUI
                 # renders char-by-char.
                 include_partial_messages=True,
+                # HHHHHHH1: every tool call routes through this
+                # callback. We translate it into a SPEC §6.11
+                # permission.requested event on the session SSE
+                # stream and block on a future the TUI resolves
+                # via POST /v1/permissions/{pid}.
+                can_use_tool=_make_can_use_tool(sess, state),
             )
             sess.client = ClaudeSDKClient(options=opts)
             await sess.client.connect()

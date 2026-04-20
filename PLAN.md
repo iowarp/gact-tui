@@ -4,6 +4,12 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase HHHHHHH — claude-agent-sdk permission flow
+
+Goal: light up the TUI's `a/d/s/w` permission keys for SDK tool calls so `gact perms` and the inline banner work end-to-end.
+
+- [ ] **HHHHHHH1.** Pass a `can_use_tool` callback to `ClaudeAgentOptions`. When the SDK calls it, the bridge synthesizes a SPEC §6.11 `permission.requested` event onto the session's SSE stream and parks a future. New `POST /v1/permissions/{pid}/respond` endpoint resolves the future with allow/deny. Capability `permissions=true`. Real-LLM smoke that asks Claude to run `Bash` and verifies the permission round-trip.
+
 ## Phase GGGGGGG — claude-agent-sdk sidecar follow-ups
 
 Goal: close out the sidecar's "Roadmap" section so capabilities the adapter advertises actually work, plus a UI proof.
