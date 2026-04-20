@@ -1,9 +1,15 @@
 # STATUS
 
-**Last updated:** 2026-04-19T18:59Z
-**Current phase:** VVVVVV1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `efa0ee2` (pushed after status commit)
+**Last updated:** 2026-04-19T19:00Z
+**Current phase:** WWWWWW1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2aba9ee` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase WWWWWW — conformance SSE occurred_at + id
+- **WWWWWW1.** Strengthened validateSSEEvent with two more
+  SPEC §7.2 rules: (1) data.occurred_at must be present +
+  RFC3339-parseable; (2) if id: line is present, it must be
+  non-empty (or resumption breaks).
 
 ### Phase VVVVVV — conformance file read endpoint
 - **VVVVVV1.** Extended `checkFiles` (list-shape coverage)
