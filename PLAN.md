@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase ZZZZZZ — conformance: policies post-PUT GET round-trip
+
+- [x] **ZZZZZZ1.** Strengthens `checkPolicies` (already had PUT echo check) with a `GET /v1/policies` after the PUT to verify the rule actually persisted to the underlying store. Catches adapter authors whose PUT echoes the request body 200 OK but never writes — same bug pattern as YYYYYY1's post-create hook list check.
+
 ## Phase YYYYYY — conformance: hooks deeper validation
 
 - [x] **YYYYYY1.** Strengthens `checkHooks` (already had POST/GET/DELETE shape) with two more assertions that catch a real adapter bug pattern from the MMM3 era: (1) POST response must echo `event` and `command` back — adapter authors that drop fields on the way through return 200 + an id but lose the configuration. (2) GET list immediately after POST must include the new hook by id — catches adapters that 200 the POST but never persist the row to the catalog. Read-write but the cleanup DELETE removes the test hook so the suite stays idempotent across runs.
