@@ -1,9 +1,12 @@
 # STATUS
 
 **Last updated:** 2026-04-20T02:00Z
-**Current phase:** GGGGGGG3 shipped — Edit/Write tools now emit GACT file_diff Parts
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `4bf575f` (pushed)
-**Open:** GGGGGGG4 (streaming deltas via include_partial_messages) remaining in current phase
+**Current phase:** GGGGGGG4 shipped — char-by-char streaming via SDK partials
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3d1c7f8` (pushed)
+**Open:** none — GGGGGGG complete (all 4 sub-tasks shipped). Next phase work TBD by user direction.
+
+### Phase GGGGGGG4 — streaming deltas
+- **GGGGGGG4.** Sidecar passes `include_partial_messages=True`. Bridge translates Anthropic stream protocol into GACT §7.4 partials: message_start→message.created shell, content_block_delta(text_delta)→message.part.delta {text_append}, message_stop→message.completed. Final AssistantMessage replaces streamed shell by id (TUI's applyMessageCreated has replace-by-id semantics). Real-LLM smoke produces ≥1 delta per short reply.
 
 ### Phase GGGGGGG3 — file_diff translation
 - **GGGGGGG3.** Edit/Write ToolUseBlocks produce sibling file_diff Parts. Pre-state read from disk against cwd; Edit's single-occurrence vs replace_all matches Anthropic's contract; Write before=null on new file, current bytes on overwrite. Language hint inferred from extension. NotebookEdit deliberately skipped (cell model doesn't fit SPEC's flat before/after). Real-LLM smoke (`test_smoke_diff.py`) seeds a fixture, asks Claude to Edit, asserts file_diff with correct before/after — passes in ~9s. 31 tests total (was 20).
