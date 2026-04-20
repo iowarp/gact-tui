@@ -1161,7 +1161,9 @@ func checkTasks(t Reporter, c *conformClient, sid string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// POST a task.
+	// POST a task. AAAAAAA1: response must echo the title we sent
+	// so adapter authors that lose fields on the way through get
+	// caught — same bug pattern as YYYYYY1 for hooks.
 	postResp, postBody, err := c.postJSON(ctx,
 		"/v1/sessions/"+sid+"/tasks", map[string]any{"title": "conformance probe"})
 	if err != nil {
@@ -1171,11 +1173,15 @@ func checkTasks(t Reporter, c *conformClient, sid string) {
 		t.Fatalf("create task status %d body %s", postResp.StatusCode, postBody)
 	}
 	var created struct {
-		ID string `json:"id"`
+		ID    string `json:"id"`
+		Title string `json:"title"`
 	}
 	_ = json.Unmarshal(postBody, &created)
 	if created.ID == "" {
 		t.Fatalf("created task missing id: %s", postBody)
+	}
+	if created.Title != "conformance probe" {
+		t.Errorf("created task title=%q (want %q): %s", created.Title, "conformance probe", postBody)
 	}
 
 	// GET — must list at least the one we created.
