@@ -39,6 +39,10 @@ def test_capabilities_advertises_expected_caps() -> None:
     assert caps["permissions"] is True
     # IIIIIII2: MCP catalog now passthrough from SDK init.
     assert caps["mcp"] is True
+    # JJJJJJJ1: conformance gap fillers — agents/commands/metrics
+    # all sourced from SDK init data + adapter state.
+    for on in ("agents", "commands", "metrics"):
+        assert caps[on] is True, f"{on} should be on"
     # Not yet wired — must be False so the TUI hides the UI:
     for off in ("voice", "lsp", "scheduled_sessions", "hooks"):
         assert caps[off] is False, f"{off} should be off"
@@ -172,4 +176,52 @@ def test_mcp_servers_empty_before_first_turn() -> None:
 
 def test_mcp_server_404_when_unknown() -> None:
     r = _client().get("/v1/mcp/servers/mcp_nonexistent")
+    assert r.status_code == 404
+
+
+def test_agents_empty_before_first_turn() -> None:
+    """JJJJJJJ1: agents list is lazy-discovered from SDK init."""
+    r = _client().get("/v1/agents")
+    assert r.status_code == 200
+    assert r.json() == {"agents": []}
+
+
+def test_agent_404_when_unknown() -> None:
+    r = _client().get("/v1/agents/nope")
+    assert r.status_code == 404
+
+
+def test_commands_empty_before_first_turn() -> None:
+    """JJJJJJJ1: slash commands list is lazy-discovered."""
+    r = _client().get("/v1/commands")
+    assert r.status_code == 200
+    assert r.json() == {"commands": []}
+
+
+def test_metrics_envelope_present_with_zero_state() -> None:
+    """JJJJJJJ1: metrics returns the SPEC §6.16 envelope even with
+    no sessions yet — uptime non-negative, totals zero."""
+    r = _client().get("/v1/metrics")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["uptime_s"] >= 0
+    assert body["sessions"]["total"] == 0
+    assert body["messages"]["total"] == 0
+    assert body["tokens"]["input_total"] == 0
+    assert body["tokens"]["output_total"] == 0
+
+
+def test_session_export_round_trip() -> None:
+    c = _client()
+    sid = c.post("/v1/sessions", json={"title": "exp"}).json()["id"]
+    r = c.get(f"/v1/sessions/{sid}/export")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["session"]["id"] == sid
+    assert body["messages"] == []
+    assert "exported_at" in body
+
+
+def test_session_export_404_when_unknown() -> None:
+    r = _client().get("/v1/sessions/sess_nope/export")
     assert r.status_code == 404
