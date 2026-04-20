@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase PPPPPPPP — Body Shift+Y yanks full conversation
+
+- [x] **PPPPPPPP1.** New `Y` (shift+y) keybind in body focus copies the entire conversation as role-prefixed markdown — each message opens with `## <role>:` so blocks are grammatically separable when pasted into a bug report, another LLM, or a teammate. Complements plain `y` which takes just the selected message. New `fullConversationText(msgs)` helper skips messages with no copyable text (tool-only assistant turns, etc.) so the output stays clean. Empty-conversation case surfaces `nothing to copy — conversation has no text yet`. 2 new clipboard tests + help-overlay row. Existing `y` tests untouched.
+
 ## Phase OOOOOOOO — Sidebar y yanks session id
 
 - [x] **OOOOOOOO1.** New `y` keybind in sidebar focus copies the currently-selected session's sess_xxx id to clipboard — useful for piping into `gact log <sid>`, `gact attach <sid>`, `gact rewind <sid>` etc. without re-typing a 32-char hash. Body-focus `y` still copies message text (KY3) — split on focus so the two yank flows don't collide. Transient hint confirms with `copied <sid> to clipboard`. Empty-selection case (selected = -1) prints a no-session toast instead of crashing. Help overlay gains a dedicated row. Two new clipboard tests. 

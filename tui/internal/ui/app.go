@@ -2444,6 +2444,21 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
+	case "Y":
+		// PPPPPPPP1: yank the FULL conversation as role-prefixed
+		// markdown so the user can paste an entire turn into a bug
+		// report, another LLM, or a teammate. Complements `y` which
+		// takes a single message.
+		text, ok := fullConversationText(a.messages)
+		if !ok {
+			a.transientHint = "nothing to copy — conversation has no text yet"
+			return a, nil
+		}
+		if err := clipboardWrite(text); err != nil {
+			a.transientHint = "copy failed: " + err.Error()
+			return a, nil
+		}
+		a.transientHint = fmt.Sprintf("copied full conversation (%d chars) to clipboard", len(text))
 	case "R":
 		// Retry: when the body cursor is on a user message, resend
 		// that one's text; otherwise fall back to "latest user".
@@ -4294,7 +4309,8 @@ var helpTabs = []struct {
 			{"↑/↓ · j/k", "move message cursor (▌ gutter; cursor stays visible)"},
 			{"g / G", "cursor to first / last message"},
 			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
-			{"y", "copy last assistant message to clipboard"},
+			{"y", "copy selected (or last assistant) message to clipboard"},
+			{"Y", "copy full conversation as role-prefixed markdown"},
 			{"R", "retry — resend last user message"},
 			{"d", "delete last message (optimistic; targets newest)"},
 			{"t", "toggle per-message timestamps"},

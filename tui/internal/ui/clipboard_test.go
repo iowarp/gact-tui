@@ -158,6 +158,54 @@ func TestHandleBodyKey_YWithNothingToCopyShowsHint(t *testing.T) {
 	}
 }
 
+// PPPPPPPP1: body-focus Shift+Y copies the FULL conversation as
+// role-prefixed markdown — useful for pasting into a bug report,
+// another LLM, or a teammate.
+func TestHandleBodyKey_CapitalYCopiesFullConversation(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = []gact.Message{
+		{Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "hi"}}},
+		{Role: gact.RoleAssistant, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "hello"}}},
+		{Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "ok bye"}}},
+	}
+	_, _ = a.handleBodyKey(tea.KeyPressMsg{Code: 'Y', Text: "Y", Mod: tea.ModShift})
+	mu.Lock()
+	defer mu.Unlock()
+	// Expect every role header + text to appear in order. Advance a
+	// cursor past each match so a repeated needle ("## user:") is
+	// located at its NEXT occurrence, not the same first match.
+	want := []string{"## user:", "hi", "## assistant:", "hello", "## user:", "ok bye"}
+	cursor := 0
+	for _, needle := range want {
+		rel := strings.Index((*got)[cursor:], needle)
+		if rel < 0 {
+			t.Fatalf("missing %q in clipboard after offset %d: %q", needle, cursor, *got)
+		}
+		cursor += rel + len(needle)
+	}
+	if !strings.Contains(a.transientHint, "full conversation") {
+		t.Errorf("hint should mention 'full conversation': %q", a.transientHint)
+	}
+}
+
+func TestHandleBodyKey_CapitalYEmptyConversationShowsHint(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = nil
+	_, _ = a.handleBodyKey(tea.KeyPressMsg{Code: 'Y', Text: "Y", Mod: tea.ModShift})
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "" {
+		t.Errorf("clipboard should stay empty; got %q", *got)
+	}
+	if !strings.Contains(a.transientHint, "no text yet") {
+		t.Errorf("hint = %q, want 'no text yet'", a.transientHint)
+	}
+}
+
 // OOOOOOOO1: sidebar-focus `y` copies the selected session's sid
 // instead of the body-y's last-assistant text. Split on focus so
 // the two yank flows don't collide.
