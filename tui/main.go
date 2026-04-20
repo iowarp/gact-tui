@@ -144,6 +144,10 @@ func main() {
 			os.Exit(runConformance(os.Args[2:]))
 		case "dashboard", "dash":
 			os.Exit(runDashboard(os.Args[2:]))
+		case "detached":
+			// AAAAAAAA1: list (or prune) sessions the user has
+			// detached from across reboots.
+			os.Exit(runDetached(os.Args[2:]))
 		case "grep":
 			os.Exit(runGrep(os.Args[2:]))
 		case "follow":
@@ -398,6 +402,8 @@ Usage:
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
   gact dashboard             one-shot table of every session; --status idle|running|waiting|error to filter
+  gact detached              list sessions you've Ctrl+Z-detached from
+                              --rm <sid> drops one entry; --probe checks each is still on the backend
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
@@ -618,6 +624,19 @@ func runTUI() {
 		fmt.Fprintf(os.Stderr,
 			"Detached. Reattach with:\n  gact attach %s\n",
 			app.DetachedSessionID)
+		// AAAAAAAA1: persist a record of the detach to a local
+		// registry so `gact detached` can list every session the
+		// user walked away from across reboots — the user
+		// shouldn't have to memorise opaque sess_xxxx ids to find
+		// what they left running.
+		if path, err := config.DetachedPath(); err == nil {
+			_ = config.AppendDetached(path, config.DetachedRecord{
+				SessionID: app.DetachedSessionID,
+				Title:     app.DetachedTitle,
+				Backend:   finalBackend,
+				Workspace: app.DetachedWorkspace,
+			}, 0)
+		}
 	}
 }
 
@@ -2172,6 +2191,155 @@ func runDashboard(args []string) int {
 		case <-tick.C:
 		}
 	}
+}
+
+// runDetached implements `gact detached [--rm <sid>] [--probe]`. Reads
+// the local detached-sessions registry (Ctrl+Z exits write to it) and
+// prints one row per detached session so the user can find what they
+// walked away from without having to remember opaque sess_xxxx ids.
+// (AAAAAAAA1)
+func runDetached(args []string) int {
+	fs := flag.NewFlagSet("detached", flag.ContinueOnError)
+	rm := fs.String("rm", "", "remove the entry for this session id from the registry")
+	probe := fs.Bool("probe", false, "probe each backend, mark sessions that no longer exist")
+	format := fs.String("format", "pretty", "pretty | tsv | json")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--rm": true, "-rm": true,
+		"--probe": true, "-probe": true,
+		"--format": true, "-format": true,
+	})); err != nil {
+		return 2
+	}
+	switch *format {
+	case "pretty", "tsv", "json":
+	default:
+		fmt.Fprintf(os.Stderr, "gact detached: unknown format %q (want pretty|tsv|json)\n", *format)
+		return 2
+	}
+	path, err := config.DetachedPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
+		return 1
+	}
+	if *rm != "" {
+		// `--rm` removes by sid across all backends — the user
+		// thinks in sids, not (backend, sid) pairs.
+		n, err := config.RemoveDetached(path, "", *rm)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(os.Stderr, "removed %d entr(y/ies) for %s\n", n, *rm)
+		return 0
+	}
+	reg, err := config.LoadDetached(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact detached: %v\n", err)
+		return 1
+	}
+	// liveness[i] tracks whether record i is still on its backend.
+	// nil = unprobed; true/false otherwise.
+	liveness := make([]*bool, len(reg.Records))
+	if *probe {
+		for i, r := range reg.Records {
+			c := client.New(r.Backend)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			_, err := c.GetSession(ctx, r.SessionID)
+			cancel()
+			alive := err == nil
+			liveness[i] = &alive
+		}
+	}
+	switch *format {
+	case "json":
+		type row struct {
+			config.DetachedRecord
+			Alive *bool `json:"alive,omitempty"`
+		}
+		rows := make([]row, len(reg.Records))
+		for i, r := range reg.Records {
+			rows[i] = row{DetachedRecord: r, Alive: liveness[i]}
+		}
+		b, _ := json.MarshalIndent(rows, "", "  ")
+		fmt.Println(string(b))
+	case "tsv":
+		fmt.Println("session_id\ttitle\tbackend\tworkspace\tdetached_at\talive")
+		for i, r := range reg.Records {
+			alive := ""
+			if liveness[i] != nil {
+				if *liveness[i] {
+					alive = "yes"
+				} else {
+					alive = "no"
+				}
+			}
+			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\n",
+				r.SessionID, r.Title, r.Backend, r.Workspace,
+				r.DetachedAt.Format(time.RFC3339), alive)
+		}
+	default: // pretty
+		if len(reg.Records) == 0 {
+			fmt.Println("(no detached sessions — Ctrl+Z in the TUI records one here)")
+			return 0
+		}
+		fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
+			"SESSION", "TITLE", "BACKEND", "DETACHED", "ALIVE")
+		for i, r := range reg.Records {
+			alive := "?"
+			if liveness[i] != nil {
+				if *liveness[i] {
+					alive = "yes"
+				} else {
+					alive = "no"
+				}
+			}
+			when := humanizeAge(time.Since(r.DetachedAt))
+			title := r.Title
+			if title == "" {
+				title = "(untitled)"
+			}
+			fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
+				truncMid(r.SessionID, 20), truncMid(title, 30),
+				truncMid(r.Backend, 30), when, alive)
+		}
+		fmt.Println()
+		fmt.Println("Reattach: gact attach <session>")
+	}
+	return 0
+}
+
+// humanizeAge renders a duration as a short human string ("3m",
+// "2h", "5d") for the detached registry's age column. Uses days as
+// the upper bound — older entries just say "Nd". Negative durations
+// (clock skew between the writing host and `gact detached` host)
+// clamp to "0s" so we don't print confusing "-6515s" rows.
+func humanizeAge(d time.Duration) string {
+	if d < 0 {
+		return "0s"
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd", int(d.Hours()/24))
+}
+
+// truncMid trims s to width by replacing the middle with `…` —
+// keeps both prefix + suffix so sess_<random> ids stay recognisable.
+func truncMid(s string, width int) string {
+	if len(s) <= width {
+		return s
+	}
+	if width <= 1 {
+		return "…"
+	}
+	half := (width - 1) / 2
+	return s[:half] + "…" + s[len(s)-half:]
 }
 
 // renderDashboardOnce runs a single dashboard fetch+print. Extracted

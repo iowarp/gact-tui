@@ -212,6 +212,13 @@ type App struct {
 	// is purely a hint mechanism so the user knows the session is
 	// retrievable.
 	DetachedSessionID string
+	// AAAAAAAA1: title + workspace captured at detach time so main.go
+	// can persist a richer record into the detached registry — `gact
+	// detached` shows title alongside sid so the user doesn't have to
+	// memorise an opaque sess_xxxx string to find the session they
+	// walked away from.
+	DetachedTitle     string
+	DetachedWorkspace string
 
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
@@ -1230,6 +1237,13 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// (lost the session if the terminal closed).
 	if k.String() == "ctrl+z" {
 		a.DetachedSessionID = a.currentSessionID()
+		// AAAAAAAA1: capture title + workspace so main.go can record
+		// a useful row in the detached registry.
+		if a.selected >= 0 && a.selected < len(a.sessions) {
+			s := a.sessions[a.selected]
+			a.DetachedTitle = s.Title
+			a.DetachedWorkspace = s.WorkspaceID
+		}
 		return a, tea.Quit
 	}
 	// Clear any transient hint banner — it's a one-off toast that
