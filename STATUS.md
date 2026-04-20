@@ -1,9 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T02:25Z
-**Current phase:** GGGGGGG3+4 + HHHHHHH1 shipped — file_diff Parts, streaming deltas, permission flow
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c15d661` (pushed)
-**Open:** none — sidecar feature parity now covers wire shape, streaming, file diffs, and permission. Next phase TBD.
+**Last updated:** 2026-04-20T02:55Z
+**Current phase:** IIIIIII1 + IIIIIII2 shipped — session cancel + MCP catalog passthrough
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `01108e7` (pushed)
+**Open:** none — sidecar feature parity now covers wire shape, streaming, file diffs, permission, cancel, MCP. Next phase TBD.
+
+### Phase IIIIIII — claude-agent-sdk session control + MCP
+- **IIIIIII1.** POST /v1/sessions/{sid}/cancel → SDK.interrupt(); resolves pending perms with deny; idempotent. Real-LLM smoke ~18s.
+- **IIIIIII2.** MCP catalog passthrough from SystemMessage(init).data.mcp_servers; status enum mapped to SPEC §6.7; synthetic ids via _slug. caps.mcp=true. Real-LLM smoke ~4s; discovers 3 claude.ai connectors on this dev box.
 
 ### Phase HHHHHHH1 — permission flow
 - **HHHHHHH1.** can_use_tool callback synthesises SPEC §6.11 PermissionRequest + future-based handoff. New /v1/permissions endpoints. Real-LLM smoke writes a file via Write (Bash is auto-allowed; only Edit/Write/etc. route through can_use_tool). Status flips waiting_permission → running on resolve. 43 tests green.
