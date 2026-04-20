@@ -94,6 +94,43 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	}
 }
 
+// LLLLLLLL1: a transient hint set by a background event between
+// two keystrokes must not get wiped on the user's next key until
+// it's been visible for at least transientHintMinDwell (800ms).
+// Without this gate, the hint flashes for ~1 frame and vanishes.
+func TestTransientHint_KeystrokeRespectsMinDwell(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_a", Title: "a", Status: gact.StatusIdle},
+	}, nil)
+	a.focus = FocusSidebar
+	a.selected = 0
+
+	// Simulate the "background event sets hint" flow: a prior
+	// Update cycle assigned transientHint. The LLLLLLLL1 deferred
+	// stamp runs at the end of each Update, so we simulate it
+	// manually here (the test is synchronous — no scheduler tick).
+	a.transientHint = "background toast"
+	a.transientHintAt = time.Now() // "just rendered"
+
+	// First keystroke within the dwell window should NOT clear.
+	a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if a.transientHint == "" {
+		t.Error("keystroke within dwell window cleared the hint; flicker risk")
+	}
+
+	// Fast-forward past the dwell window by rewinding the stamp.
+	a.transientHintAt = time.Now().Add(-2 * transientHintMinDwell)
+
+	// Now a keystroke should clear cleanly — the hint had its time.
+	a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if a.transientHint != "" {
+		t.Errorf("keystroke after dwell didn't clear the hint: %q", a.transientHint)
+	}
+	if !a.transientHintAt.IsZero() {
+		t.Error("transientHintAt should reset when hint clears")
+	}
+}
+
 // JJJJJJJJ1: `d` in sidebar focus toggles detached-only view.
 // Narrows visibleSessionIndexes to sessions in previouslyDetached
 // and changes the sidebar title to "SESSIONS · detached".
