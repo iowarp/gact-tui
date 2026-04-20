@@ -366,6 +366,7 @@ Usage:
   gact cancel <sid>          POST /v1/sessions/{id}/cancel
   gact run <sid> <text|->    send + wait in one command
   gact log <sid>             dump conversation messages (text by default; --format json for NDJSON)
+                              --role user,assistant,tool,system filters to one or more roles
   gact ask <sid> <q|->       send + wait + print assistant reply
   gact new [--title T]       create a session; print id to stdout
   gact delete <sid>          DELETE /v1/sessions/{id}
@@ -5957,22 +5958,45 @@ func runLog(args []string) int {
 	// MMMM1: --format json emits NDJSON (one message per line) so
 	// callers can pipe to jq. Default stays text for back-compat.
 	format := fs.String("format", "text", "text | json (NDJSON, one message per line)")
+	// VVVVVVVV1: --role filter narrows to one or more roles
+	// (comma-separated). Accepted: user|assistant|tool|system. Empty
+	// = show everything (back-compat).
+	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--limit": true, "-limit": true,
 		"--since": true, "-since": true,
 		"--format": true, "-format": true,
+		"--role":   true, "-role": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--format text|json] [--backend URL]")
+		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--role user,assistant,...] [--format text|json] [--backend URL]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact log: unknown format %q (want text|json)\n", *format)
 		return 2
+	}
+	// VVVVVVVV1: validate + build the role keep-set up front so a
+	// typo in --role errors fast instead of silently returning an
+	// empty log.
+	var keepRole map[string]bool
+	if *role != "" {
+		keepRole = map[string]bool{}
+		for _, r := range strings.Split(*role, ",") {
+			r = strings.TrimSpace(r)
+			switch r {
+			case "":
+			case "user", "assistant", "tool", "system":
+				keepRole[r] = true
+			default:
+				fmt.Fprintf(os.Stderr, "gact log: unknown --role %q (want user|assistant|tool|system)\n", r)
+				return 2
+			}
+		}
 	}
 	sid := fs.Arg(0)
 
@@ -5998,6 +6022,17 @@ func runLog(args []string) int {
 			}
 		}
 		msgs = filtered
+	}
+	// VVVVVVVV1: drop messages whose role isn't in the keep-set.
+	// Applied after --since so both filters stack cleanly.
+	if keepRole != nil {
+		kept := msgs[:0]
+		for _, m := range msgs {
+			if keepRole[string(m.Role)] {
+				kept = append(kept, m)
+			}
+		}
+		msgs = kept
 	}
 	if *format == "json" {
 		enc := json.NewEncoder(os.Stdout)

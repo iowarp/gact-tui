@@ -1416,6 +1416,64 @@ func TestCLI_DashboardSort(t *testing.T) {
 // TestCLI_LogSince covers TTT1: send two messages with a sleep
 // between, --since 50ms keeps only the latest, --since 1h keeps
 // both.
+// VVVVVVVV1: `gact log --role` drops messages whose role isn't in
+// the keep-set. Accepts comma-separated list; an unknown role
+// errors fast instead of silently empty-logging.
+func TestCLI_LogRoleFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "log-role-target")
+
+	// Send a "read main.go" turn — produces user + thinking
+	// assistant + tool + final assistant messages, so the role
+	// mix includes user, assistant, and tool.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "read main.go please"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	// --role user → only the user row.
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--role", "user")
+	if code != 0 {
+		t.Fatalf("log --role user: exit %d", code)
+	}
+	if !strings.Contains(stdout, "[USER @") {
+		t.Errorf("expected [USER @ ...] row: %q", stdout)
+	}
+	if strings.Contains(stdout, "[ASSISTANT @") || strings.Contains(stdout, "[TOOL @") {
+		t.Errorf("user filter should drop non-user rows: %q", stdout)
+	}
+
+	// --role assistant,tool → keeps both, drops user.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--role", "assistant,tool")
+	if code != 0 {
+		t.Fatalf("log --role assistant,tool: exit %d", code)
+	}
+	if strings.Contains(stdout, "[USER @") {
+		t.Errorf("assistant,tool filter should drop user: %q", stdout)
+	}
+	if !strings.Contains(stdout, "[ASSISTANT @") {
+		t.Errorf("assistant,tool filter should keep assistant: %q", stdout)
+	}
+
+	// Unknown role → exit 2 with a helpful error.
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--role", "bogus")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for unknown --role")
+	}
+	if !strings.Contains(stderr, "unknown --role") {
+		t.Errorf("stderr should mention 'unknown --role': %q", stderr)
+	}
+}
+
 func TestCLI_LogSince(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()

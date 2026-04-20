@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase VVVVVVVV — `gact log --role` filter
+
+- [x] **VVVVVVVV1.** New `--role user|assistant|tool|system` flag on `gact log` (accepts comma-separated list). Drops messages whose role isn't in the keep-set; works with both text + json formats (filter runs before format branch so NDJSON emits the same subset). Unknown role value fails fast with `unknown --role "X" (want user|assistant|tool|system)` instead of silent empty output. End-to-end `TestCLI_LogRoleFilter` covers 3 scenarios: `--role user` keeps only user row, `--role assistant,tool` keeps both and drops user, `--role bogus` exits 2 with helpful error.
+
 ## Phase UUUUUUUU — `gact detached --watch`
 
 - [x] **UUUUUUUU1.** New `--watch` + `--interval` flags on `gact detached` — mirrors the BBBB1 `gact dashboard --watch` pattern. Load + probe + render extracted into a renderOnce closure that the watch loop calls per tick with ANSI clear-screen between frames. Reject-fast if combined with `--rm` or `--prune-dead` (write-mode flags conflict with read-loop semantics). Ctrl+C exits via default SIGINT handling. End-to-end verified: plain invocation unchanged, --watch + --rm rejected with "cannot be combined", watch mode renders the header + table each tick.
