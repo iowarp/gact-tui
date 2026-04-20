@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase NNNNNNN — Goose conformance test
+
+- [ ] **NNNNNNN1.** Mirror `adapters/opencode/conformance_test.go` and `adapters/crush/conformance_test.go`: stand up the Goose adapter against a richer mocked goosed (everything `gact conformance` walks: /health, /sessions, /sessions/{id}, /sessions/{id}/messages via conversation), then run `conformance.Run` from `contract/conformance` against the adapter. Skip sections we don't implement (PostMessage, SSE, the cap-gated ones we report false). Anchors the wire shape so future Goose changes can't silently regress.
+
 ## Phase MMMMMMM — Goose messages read
 
 - [x] **MMMMMMM1.** Adapter now reads conversation from GET /sessions/{id} and projects it to GACT messages via translate.go's gooseMessage + contentToGactPart helpers. Handles tagged and untagged serde shapes. Variants: text, thinking, toolRequest, toolResponse with Ok/Err result wrapping. Synthesises stable ids when Goose omits Message.id. caps.messages=true. 4 new tests.
