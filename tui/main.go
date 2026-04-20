@@ -431,6 +431,7 @@ Usage:
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
                               --role user,assistant,tool,system filters (same shape as gact log)
                               --grep REGEX drops messages whose text doesn't match (case-insensitive)
+                              --since DUR trims the initial snapshot (streamed messages always emit)
   gact replay <file|-> [--attach] import a session export; --attach launches TUI on it
   gact env [--format tsv|json] print resolved config + GACT_* env vars
   gact theme show [--name N] print active theme palette as TSV (key\thex)
@@ -2047,17 +2048,22 @@ func runFollow(args []string) int {
 	// `gact log --grep`. Applied to both the snapshot + every
 	// streamed message.
 	grep := fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
+	// EEEEEEEEE1: --since DUR trims the initial snapshot to messages
+	// created within the last DUR. Streamed messages are live so the
+	// cutoff doesn't apply to them.
+	since := fs.Duration("since", 0, "trim snapshot to messages created within the last DUR (e.g. 5m, 1h); 0 = unset")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
 		"--role":   true, "-role": true,
 		"--grep":   true, "-grep": true,
+		"--since":  true, "-since": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--grep REGEX] [--format text|json]")
+		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--grep REGEX] [--since DUR] [--format text|json]")
 		return 2
 	}
 	if *format != "text" && *format != "json" {
@@ -2129,11 +2135,32 @@ func runFollow(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact follow: list: %v\n", err)
 		return 1
 	}
-	for i := len(msgs) - 1; i >= 0; i-- {
-		emit(msgs[i])
+	// EEEEEEEEE1: --since DUR drops snapshot messages older than the
+	// cutoff before emit. Mirrors TTT1 `gact log --since`. Zero-
+	// CreatedAt survives (defensive against backends that don't
+	// stamp). Streamed messages are live so the cutoff doesn't
+	// apply to them — seen-tracking below still uses the full
+	// listing so SSE replay doesn't re-emit a message that was
+	// older than --since but is still in the backend's history.
+	snapshotEmit := msgs
+	if *since > 0 {
+		cutoff := time.Now().UTC().Add(-*since)
+		trimmed := make([]gact.Message, 0, len(msgs))
+		for _, m := range msgs {
+			if m.CreatedAt.IsZero() || !m.CreatedAt.Before(cutoff) {
+				trimmed = append(trimmed, m)
+			}
+		}
+		snapshotEmit = trimmed
+	}
+	for i := len(snapshotEmit) - 1; i >= 0; i-- {
+		emit(snapshotEmit[i])
 	}
 	// Track ids we've already printed so the SSE loop doesn't
 	// re-render the snapshot (replay events arrive on every connect).
+	// NB: seen is populated off the FULL msgs slice even when --since
+	// trims the emit set, so the SSE loop doesn't re-emit older
+	// messages on replay.
 	seen := map[string]bool{}
 	for _, m := range msgs {
 		seen[m.ID] = true

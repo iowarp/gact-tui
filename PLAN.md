@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase EEEEEEEEE — `gact follow --since DUR`
+
+- [x] **EEEEEEEEE1.** Mirror TTT1's `gact log --since` on the tail-f path. Trims the initial snapshot to messages whose CreatedAt is within the last DUR; streamed messages always emit (they're live by definition). Zero-CreatedAt survives (defensive against backends that don't stamp). `seen` tracking stays populated off the FULL msgs listing so SSE replay doesn't re-emit messages that were older than --since but still in the backend's history. End-to-end: default emits all 4 snapshot rows; `--since 3s` (msgs are ~6s old) emits 0; `--since 1h` emits all 4.
+
 ## Phase DDDDDDDDD — `gact grep --role` filter
 
 - [x] **DDDDDDDDD1.** `gact grep` now accepts `--role user|assistant|tool|system` (comma-separated). Mirrors VVVVVVVV1/WWWWWWWW1 semantics. Filter applies after the parallel cross-session search gathers hits (which are already role-decorated via midRoles) but BEFORE sort + --limit so the kept rows are the lexicographically-first POST-filter. Unknown role fails fast. End-to-end verified: `grep please --role user` keeps the user hit, `--role assistant` returns empty (assistants don't say "please"), `--role bogus` exits 2. New TestCLI_GrepRoleFilter alongside existing TestCLI_Grep + TestCLI_GrepLimit — all 3 pass.
