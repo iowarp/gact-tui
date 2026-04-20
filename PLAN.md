@@ -8,8 +8,8 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 Goal: close out the sidecar's "Roadmap" section so capabilities the adapter advertises actually work, plus a UI proof.
 
-- [ ] **GGGGGGG1.** Wire `GET /v1/tools`. The adapter advertises `capabilities.tools=true` (so the TUI's `/tools` palette renders), but the endpoint itself isn't served. Pull the tool list out of the SDK's first SystemMessage(init) (which carries `data.tools: [name…]`) and cache it on State; expose via `GET /v1/tools` as `{tools: [{id, name, source: "builtin"}]}`. Add unit + smoke coverage.
-- [ ] **GGGGGGG2.** Visual proof: drive the actual gact TUI (not just `gact quick`) against a live sidecar, send a one-word message, capture a VHS screenshot to `screenshots/SDK-claude-tui.png` showing the assistant reply rendered.
+- [x] **GGGGGGG1.** Wired `GET /v1/tools` (and `/v1/tools/{id}`) sourced from the SDK's first `SystemMessage(init)` data.tools. After one real turn, 33 tools discovered. 2 endpoint tests added.
+- [x] **GGGGGGG2.** Visual proof shipped: `screenshots/SDK-claude-tui.png` shows the gact TUI rendering real Claude assistant replies via the sidecar. Surfaced + fixed two more bugs end-to-end (SSE CRLF mismatch in gact's parser; double-wrapped user-echo in post_message broadcast).
 - [ ] **GGGGGGG3.** `file_diff` translation in bridge. When the SDK emits a `ToolUseBlock` with `name in {"Edit","Write","NotebookEdit"}`, *also* emit a sibling GACT `file_diff` part so the TUI's `a/r` apply/reject keys light up. Read the input args (path/old_string/new_string for Edit, file_path/content for Write). Read-only until the user accepts (no upstream POST yet).
 - [ ] **GGGGGGG4.** Streaming deltas. Pass `include_partial_messages=True` in `ClaudeAgentOptions` and translate the SDK's `StreamEvent` into GACT `message.part.delta` events for char-by-char rendering. Currently the TUI sees full messages on `.receive_response()` boundaries.
 

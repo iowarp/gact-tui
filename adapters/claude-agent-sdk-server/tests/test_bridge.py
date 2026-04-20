@@ -7,6 +7,8 @@ covers the end-to-end SDK invocation.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from claude_agent_sdk import (
     AssistantMessage,
     ResultMessage,
@@ -17,7 +19,9 @@ from claude_agent_sdk import (
 )
 
 from gact_claude_sdk.bridge import (
+    assistant_message_to_gact,
     block_to_part,
+    file_diff_for_tool_use,
     sdk_message_to_events,
 )
 
@@ -145,3 +149,183 @@ def test_unknown_block_type_yields_text_placeholder() -> None:
     p = block_to_part(WeirdBlock())
     assert p["type"] == "text"
     assert "WeirdBlock" in p["text"]
+
+
+# --- GGGGGGG3: file_diff translation ---------------------------------
+
+
+def test_file_diff_for_edit_existing_file(tmp_path: Path) -> None:
+    f = tmp_path / "main.py"
+    f.write_text("def hello():\n    return 'world'\n")
+    block = ToolUseBlock(
+        id="toolu_e1",
+        name="Edit",
+        input={
+            "file_path": str(f),
+            "old_string": "'world'",
+            "new_string": "'GACT'",
+        },
+    )
+    diff = file_diff_for_tool_use(block, tmp_path)
+    assert diff is not None
+    assert diff["type"] == "file_diff"
+    assert diff["path"] == str(f)
+    assert diff["before"] == "def hello():\n    return 'world'\n"
+    assert diff["after"] == "def hello():\n    return 'GACT'\n"
+    assert diff["language"] == "python"
+    assert diff["applied"] is False
+
+
+def test_file_diff_for_edit_replace_all(tmp_path: Path) -> None:
+    f = tmp_path / "x.go"
+    f.write_text("a a a a a")
+    block = ToolUseBlock(
+        id="toolu_e2",
+        name="Edit",
+        input={
+            "file_path": "x.go",  # relative — resolves under cwd
+            "old_string": "a",
+            "new_string": "B",
+            "replace_all": True,
+        },
+    )
+    diff = file_diff_for_tool_use(block, tmp_path)
+    assert diff is not None
+    assert diff["after"] == "B B B B B"
+    assert diff["language"] == "go"
+
+
+def test_file_diff_for_edit_no_match_returns_none(tmp_path: Path) -> None:
+    f = tmp_path / "no-match.txt"
+    f.write_text("hello world")
+    block = ToolUseBlock(
+        id="toolu_e3",
+        name="Edit",
+        input={
+            "file_path": str(f),
+            "old_string": "missing",
+            "new_string": "x",
+        },
+    )
+    assert file_diff_for_tool_use(block, tmp_path) is None
+
+
+def test_file_diff_for_write_new_file(tmp_path: Path) -> None:
+    block = ToolUseBlock(
+        id="toolu_w1",
+        name="Write",
+        input={
+            "file_path": str(tmp_path / "new.md"),
+            "content": "# hello\n",
+        },
+    )
+    diff = file_diff_for_tool_use(block, tmp_path)
+    assert diff is not None
+    assert diff["type"] == "file_diff"
+    assert diff["before"] is None  # SPEC: null for new file
+    assert diff["after"] == "# hello\n"
+    assert diff["language"] == "markdown"
+
+
+def test_file_diff_for_write_overwrite(tmp_path: Path) -> None:
+    f = tmp_path / "existing.txt"
+    f.write_text("old contents\n")
+    block = ToolUseBlock(
+        id="toolu_w2",
+        name="Write",
+        input={"file_path": str(f), "content": "new contents\n"},
+    )
+    diff = file_diff_for_tool_use(block, tmp_path)
+    assert diff is not None
+    assert diff["before"] == "old contents\n"
+    assert diff["after"] == "new contents\n"
+
+
+def test_file_diff_skips_non_mutating_tools(tmp_path: Path) -> None:
+    block = ToolUseBlock(id="toolu_b", name="Bash", input={"command": "ls"})
+    assert file_diff_for_tool_use(block, tmp_path) is None
+
+
+def test_file_diff_skips_notebook_edit(tmp_path: Path) -> None:
+    """NotebookEdit operates on .ipynb cells; the SPEC's flat
+    before/after doesn't map cleanly. Bridge skips."""
+    block = ToolUseBlock(
+        id="toolu_nb",
+        name="NotebookEdit",
+        input={"file_path": "x.ipynb", "edits": [{"cell_id": "c1"}]},
+    )
+    assert file_diff_for_tool_use(block, tmp_path) is None
+
+
+def test_file_diff_skips_when_input_missing_required(tmp_path: Path) -> None:
+    """Defensive: SDK could in theory deliver a partial input dict;
+    we refuse to fabricate a diff."""
+    block = ToolUseBlock(
+        id="toolu_x",
+        name="Write",
+        input={"file_path": str(tmp_path / "x")},  # no `content`
+    )
+    assert file_diff_for_tool_use(block, tmp_path) is None
+
+
+def test_assistant_message_with_edit_emits_tool_call_plus_file_diff(
+    tmp_path: Path,
+) -> None:
+    """The full integration: an AssistantMessage carrying an Edit
+    ToolUseBlock should produce *two* parts in the GACT Message —
+    the tool_call AND a sibling file_diff."""
+    f = tmp_path / "fixture.go"
+    f.write_text("package main\n")
+    msg = AssistantMessage(
+        content=[
+            TextBlock(text="I'll edit that file."),
+            ToolUseBlock(
+                id="toolu_int",
+                name="Edit",
+                input={
+                    "file_path": str(f),
+                    "old_string": "package main",
+                    "new_string": "// generated\npackage main",
+                },
+            ),
+        ],
+        model="claude-opus-4-7",
+        parent_tool_use_id=None,
+        error=None,
+        usage={},
+        message_id="msg_int_1",
+        stop_reason="tool_use",
+        session_id=None,
+        uuid=None,
+    )
+    gact_msg = assistant_message_to_gact(msg, "sess_x", cwd=tmp_path)
+    types = [p["type"] for p in gact_msg["parts"]]
+    assert types == ["text", "tool_call", "file_diff"]
+    diff = gact_msg["parts"][2]
+    assert diff["before"] == "package main\n"
+    assert "// generated" in diff["after"]
+
+
+def test_assistant_message_without_cwd_omits_file_diff() -> None:
+    """If the caller doesn't pass cwd (older code paths), file_diff
+    synthesis is skipped — only the tool_call part appears."""
+    msg = AssistantMessage(
+        content=[
+            ToolUseBlock(
+                id="toolu_nocwd",
+                name="Edit",
+                input={"file_path": "x.go", "old_string": "a", "new_string": "b"},
+            ),
+        ],
+        model="claude-opus-4-7",
+        parent_tool_use_id=None,
+        error=None,
+        usage={},
+        message_id="msg_nocwd",
+        stop_reason="tool_use",
+        session_id=None,
+        uuid=None,
+    )
+    gact_msg = assistant_message_to_gact(msg, "sess_x")  # no cwd
+    types = [p["type"] for p in gact_msg["parts"]]
+    assert types == ["tool_call"]
