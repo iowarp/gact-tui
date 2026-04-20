@@ -1034,7 +1034,10 @@ func checkHooks(t Reporter, c *conformClient) {
 		t.Fatalf("hooks list decode: %v (body=%s)", err, body)
 	}
 
-	// POST a hook, expect 201 + {id}.
+	// POST a hook, expect 201 + full Hook echo. YYYYYY1: assert
+	// the response carries back the event/command we sent so adapter
+	// authors that drop fields on the way through (a real bug pattern
+	// we hit during MMM3) get caught at conformance time.
 	hookBody := map[string]any{
 		"event":   "notification",
 		"command": "/bin/true",
@@ -1047,11 +1050,33 @@ func checkHooks(t Reporter, c *conformClient) {
 		t.Fatalf("create hook status %d body %s", postResp.StatusCode, postBody)
 	}
 	var created struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
+		Event   string `json:"event"`
+		Command string `json:"command"`
 	}
 	_ = json.Unmarshal(postBody, &created)
 	if created.ID == "" {
 		t.Fatalf("created hook missing id: %s", postBody)
+	}
+	if created.Event != "notification" {
+		t.Errorf("created hook event=%q (want %q): %s", created.Event, "notification", postBody)
+	}
+	if created.Command != "/bin/true" {
+		t.Errorf("created hook command=%q (want %q): %s", created.Command, "/bin/true", postBody)
+	}
+
+	// YYYYYY1: the second list MUST include the new hook so callers
+	// can poll the catalog after a write. Catches adapter authors
+	// whose POST 200s but never persists the row to the list.
+	listResp2, listBody2, err := c.get(ctx, "/v1/hooks")
+	if err != nil {
+		t.Fatalf("GET /v1/hooks (post-create): %v", err)
+	}
+	if listResp2.StatusCode != 200 {
+		t.Fatalf("post-create list status %d body %s", listResp2.StatusCode, listBody2)
+	}
+	if !strings.Contains(string(listBody2), created.ID) {
+		t.Errorf("post-create list missing new hook %s: %s", created.ID, listBody2)
 	}
 
 	// DELETE the hook, expect 204.
