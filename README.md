@@ -1,340 +1,125 @@
 # GACT — Generic Agentic-Coder TUI
 
-A terminal frontend for any agentic-coder backend that conforms to the **GACT v0.1** REST + SSE contract. Two pieces:
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
 
-- [`emulator/`](./emulator) — a fully-implemented backend that synthesizes realistic agent turns. Boots in ~50ms, no external dependencies.
-- [`tui/`](./tui) — a Bubbletea client that drives any GACT-compliant backend (the emulator, or your own).
-
-The contract itself is in [`contract/SPEC.md`](./contract/SPEC.md).
-
-## What it looks like
+**One terminal frontend, any agentic-coder backend.** GACT is a Bubbletea
+TUI that speaks a single REST + SSE contract ([`GACT v0.1`](contract/SPEC.md))
+so you can drive Claude Code, OpenCode, Crush, or your own backend through
+the same UI — switch by changing one URL.
 
 | | |
 |---|---|
 | ![streaming](screenshots/02-streaming.png) | ![tool demarcation](screenshots/25-tool-demarcation.png) |
 | Mid-stream — running badge, thinking + tool call | Claude-Code-style `ToolName(arg)` headers + `⎿` continuation |
-| ![permission](screenshots/04-permission.png) | ![bulky collapsed](screenshots/27-bulky-collapsed.png) |
-| Yellow permission banner, `a/d/s/w` to respond | Big tool output auto-collapses with `Ctrl+E` affordance |
-| ![palette](screenshots/52-catalog-tools.png) | ![help](screenshots/39-help-tab-input.png) |
-| `/tools` catalog browser (slash palette) | Tabbed help overlay — Input tab showing newline bindings |
 | ![compose](screenshots/45-compose-typing.png) | ![file picker](screenshots/49-file-picker-filtered.png) |
 | `Ctrl+G` long-form compose modal | `@` fuzzy workspace-file picker |
 
+## Why
+
+Every agentic coder ships its own UI. They diverge on small things (themes,
+keybindings, paste handling) and lock you into one provider. GACT inverts
+that: **define the wire contract once, build one good UI, then write thin
+adapters for each backend.** Adapters live in [`adapters/`](adapters/);
+the contract and conformance suite live in [`contract/`](contract/).
+
+## Install
+
+Requires Go 1.25+ and a 256-color (or true-color) terminal.
+
+```sh
+# Clone + build both binaries
+git clone https://github.com/JaimeCernuda/gact-tui
+cd gact-tui
+make build && make install        # → ~/.local/bin/{gact,emulator-server}
+```
+
+Or with `go install` once tagged:
+
+```sh
+go install github.com/JaimeCernuda/gact-tui/tui@latest          # → $GOBIN/tui (rename to gact)
+go install github.com/JaimeCernuda/gact-tui/emulator/cmd/emulator-server@latest
+```
+
 ## Quickstart
 
-Requirements: Go 1.25+, a terminal that supports 256-colour (or true-colour for best results).
-
 ```sh
-# Build everything (or use the Makefile: `make build`)
-cd emulator && go build -o ./emulator-server ./cmd/emulator-server
-cd ../tui     && go build -o ./gact .
+# Terminal 1 — start the emulator backend (no API keys, no network)
+emulator-server --port 7777 --timing realistic
 
-# In one shell: run the emulator (with realistic streaming pacing)
-./emulator/emulator-server --port 7777 --timing realistic
-
-# In another shell: run the TUI
-GACT_BACKEND=http://localhost:7777 ./tui/gact
+# Terminal 2 — drive it with the TUI
+GACT_BACKEND=http://localhost:7777 gact
 ```
 
-Or, with the included Makefile:
+Type a message and hit `Enter`. The default scenario runs an assistant
+turn with thinking → tool call → tool result → final reply. Try
+`delete the temp dir` to trigger the permission flow, or `propose an
+edit to main.go` to see a `file_diff` part you can `a`pply or `r`eject.
 
-```sh
-make build           # both binaries
-make install         # → ~/.local/bin (override PREFIX=/some/path)
-make run-emulator    # emulator on PORT (default 7777) with TIMING (default realistic)
-make run-tui         # TUI against the running backend with THEME (default dark)
-make test            # every module's go test
-make test-race       # with -race
-make help            # everything else
+## Drive a real backend
 
-# Tab-completion install instructions (auto-detects $SHELL):
-scripts/completion.sh
-```
+Adapters translate GACT v0.1 ↔ a vendor-specific protocol. Each one
+ships as a sidecar binary you run between the TUI and the upstream:
 
-Type a message, hit `Enter`. The emulator's default scenario runs an
-assistant turn with thinking → tool call → tool result → final reply.
-Type something containing `delete`, `rm `, `drop `, or `truncate ` to
-trigger the permission flow.
-
-## Themes
-
-Seven palettes ship out of the box — cycle them live in Settings > Theme
-or pass `--theme <name>` at launch. `gact --list-themes` prints the
-options without opening the TUI. Picked theme persists to
-`~/.config/gact/config.json`.
-
-Current lineup: **dark** (default) · **light** (Gruvbox-inspired cream) ·
-**dracula** · **solarized-dark** · **solarized-light** · **nord** ·
-**tokyo-night**.
-
-| | |
-|---|---|
-| ![dracula](screenshots/61-dracula-convo.png) | ![solarized-light](screenshots/60-solarized-light-convo.png) |
-| Dracula in action | Solarized-light, conversation pane |
-| ![theme picker](screenshots/54-themes-list.png) | ![tokyo-night](screenshots/59-theme-tokyo-night.png) |
-| Settings > Theme picker — ↑/↓ previews live | Tokyo Night |
-
-### Custom theme
-
-Drop a `theme.json` at `~/.config/gact/theme.json` (or point
-`$GACT_THEME_FILE` anywhere) and the picker grows a `custom` entry.
-Every field is optional; unset values inherit the dark baseline:
-
-```json
-{
-  "name": "my-neon",
-  "bg": "#0E0B1F",
-  "fg": "#F0F0FF",
-  "primary": "#FF5BEB",
-  "secondary": "#5BEBFF",
-  "warning": "#FFE55B",
-  "role_user": "#5BEBFF",
-  "role_assistant": "#FF5BEB"
-}
-```
-
-Screenshots 62/63 show a sample custom theme applied and surfaced in
-the picker.
-
-## Keys
-
-| Key | Action |
-|---|---|
-| `Tab` / `Shift+Tab` | Cycle focus (sidebar ↔ conversation ↔ input) |
-| `Enter` (input) | Send message |
-| `Shift+Enter` · `Alt+Enter` · `Ctrl+J` · `\<Enter>` | Insert newline in input |
-| `↑/↓` (sidebar) | Pick session — auto-loads messages and reopens SSE |
-| `↑/↓ G g` (conversation) | Scroll / jump bottom / jump top |
-| `d` (conversation) | Delete the last message (optimistic) |
-| `y` (conversation) | Copy last assistant message to clipboard |
-| `R` (conversation) | Retry — resend last user message |
-| `Ctrl+E` (conversation) | Expand latest bulky tool output in detail view |
-| `a` / `r` (conversation) | Apply / reject pending diff |
-| `/` (input, empty) | Open slash-command palette |
-| `@` (input, word start) | Open fuzzy workspace-file picker |
-| `Ctrl+G` · `Ctrl+Shift+P` | Floating compose modal (long-form editor) |
-| `Ctrl+P` | Expand most recent compressed paste in-place |
-| `?` | Toggle tabbed help overlay (←/→ cycles tabs) |
-| `a` / `d` / `s` / `w` | Permission: allow / deny / allow-session / allow-workspace |
-| `Ctrl+S` | Open Settings (Model / Agent / Theme / TUI) |
-| `Ctrl+T` | Open backend metrics |
-| `Ctrl+W` | Switch workspace |
-| `Ctrl+X` | Cancel running scenario |
-| `Ctrl+Y` | Voice transcribe (runs `--voice-cmd`; placeholder if unset) |
-| `Ctrl+L` | Reload config from disk |
-| `Ctrl+N` | New session |
-| `Esc` | Close overlay / cancel armed action / clear input |
-| `Ctrl+C` | Quit |
-
-**Slash commands** (type `/` then filter): `/clear` (two-step confirm) ·
-`/cancel` · `/new` · `/rename` · `/sessions` · `/theme` · `/scenarios` ·
-`/mcp` · `/tools` · `/skills` · `/agents` · `/help` · `/diff` · `/undo`.
-
-### Voice input
-
-Ctrl+y posts audio bytes to the backend's `/v1/sessions/{id}/voice/transcribe`
-endpoint and inserts the recognised text at the cursor. The TUI doesn't
-record audio itself; it shells out to a user-supplied command:
-
-```sh
-gact --voice-cmd "scripts/voice-record.sh"
-# or
-GACT_VOICE_CMD="scripts/voice-record.sh" gact
-# or in $XDG_CONFIG_HOME/gact/config.json:
-#   {"voice_command": "scripts/voice-record.sh"}
-```
-
-The contract: the command runs synchronously, writes audio bytes to
-stdout, and exits 0. See [`scripts/voice-record.sh`](./scripts/voice-record.sh)
-for a reference wrapper around `arecord`/`sox`/`ffmpeg`.
-
-## CLI subcommands
-
-`gact` is interactive by default. These subcommands are non-interactive
-and exit when done — handy for shell-script automation against a
-running backend:
-
-| Command | What it does |
-|---|---|
-| `gact new [--title T] [--workspace WS_ID]` | Create a session; print id |
-| `gact delete <sid>` | DELETE the session |
-| `gact rename <sid> <new-title>` | PATCH session title |
-| `gact archive <sid>` / `gact unarchive <sid>` | Hide / restore from default sidebar |
-| `gact completion bash\|zsh\|fish` | Print shell completion script |
-| `gact metrics [--format text\|json]` | Backend metrics summary |
-| `gact summarize <sid>` | Trigger backend summary; print result |
-| `gact context list/add/rm <sid> [path] [--mode]` | Manage session context files; `list --format json` for jq; `list --mode read\|edit\|pin --glob PATTERN` to filter |
-| `gact perms list <sid> [--pending] [--format tsv\|json]` | List permissions for a session; `--format json` keeps the full ToolCall (input args + annotations) |
-| `gact perms allow\|deny\|allow-session\|allow-workspace <pid>` | Respond to a pending permission |
-| `gact diff list <sid>` | List file_diff parts (path + pending/applied/rejected) |
-| `gact diff apply\|reject <sid> [paths…]` | Apply or reject diffs (empty = all pending) |
-| `gact search <sid> <query> [--format tsv\|json]` | Search session messages (TSV: mid·role·snippet) |
-| `gact workspaces list [--format tsv\|json]` | List workspaces (TSV: id·name·root_path) |
-| `gact fork <sid> [--at MID] [--title T]` | Spawn a child session forked from another (prints new id) |
-| `gact models list [--provider PID] [--format tsv\|json]` | List providers + models (TSV: pid·mid·name·ctx) |
-| `gact info <sid> [--format text\|json] [--include tasks,hooks,perms]` | One session's metadata; `--include` appends task/hook/perm sections (text) or wraps as `{session,tasks,hooks,perms}` (json) |
-| `gact undo <sid> [--count N]` | Revert last N messages (default 1); prints reverted ids |
-| `gact rewind <sid> <mid> [--include-target]` | Delete every message after `<mid>`; prints deleted ids |
-| `gact files list <ws-id> [--format tsv\|json] [--glob PATTERN]` | List workspace files (TSV: type·size·path); `--glob` uses Go `path.Match` (basename fallback so `*.go` matches `src/foo.go`) |
-| `gact files read <ws-id> <path>` | Dump a workspace file's bytes to stdout |
-| `gact repo-map <ws-id> [--format tree\|json]` | Tree-render the workspace repo map (with symbols) |
-| `gact mcp list` | Enumerate connected MCP servers; TSV (default) or `--format json` |
-| `gact ping [--json]` | Probe `/v1/health`; `--json` emits `{ok,backend,uptime_s,error?}` for piping |
-| `gact mcp tools\|resources\|prompts <srv-id>` | Drill into one MCP server's catalog (TSV or JSON) |
-| `gact mcp resource-read <srv-id> <uri>` | Dump MCP resource bytes to stdout (text or base64) |
-| `gact mcp reconnect <srv-id>` | Force-reconnect an MCP server (POST) |
-| `gact tool show <id> [--format text\|json]` | Print one tool's metadata + input schema |
-| `gact agent show <id> [--format text\|json]` | Print one agent's metadata + system prompt |
-| `gact watch <sid> [--interval DUR] [--format tsv\|json]` | One row per status/msg/token change (TSV default; `--format json` for NDJSON); exits when settled |
-| `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
-| `gact dump-bundle [-o DIR] [--since DUR]` | Bug-report bundle (diag + metrics + sessions); `--since` filters to recent sessions |
-| `gact list [--format tsv\|json] [--workspace W] [--parent P] [--status S] [--archived] [--limit N]` | List sessions with filters |
-| `gact tail [SID] [--workspace WS_ID] [--filter type1,type2] [--format json\|text]` | Stream SSE events; NDJSON default, `--format text` for human one-liners; `--filter` keeps only named types |
-| `gact stream [SID] [--workspace WS_ID] [--filter type1,type2]` | Stream SSE events as a pretty timeline; `--filter` keeps only named types (mirrors `gact tail`) |
-| `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
-| `gact wait <sid> [--timeout DUR]` \| `gact wait --any-of sid1,sid2,...` | Poll until session(s) idle; --any-of returns on first to finish |
-| `gact run <sid> <text\|->` | Combined send + wait — one command |
-| `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
-| `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
-| `gact log <sid> [--limit N] [--since DUR] [--format text\|json]` | Print conversation; `--format json` emits NDJSON (one message per line) for piping |
-| `gact follow <sid> [--format text\|json]` | tail -f for the conversation; `--format json` emits NDJSON for both snapshot + streamed messages |
-| `gact replay <file\|-> [--attach]` | Import an export blob; with `--attach` launches the TUI on the imported session |
-| `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
-| `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
-| `gact capabilities [--format text\|json]` | Backend contract version + capability matrix (alias `caps`) |
-| `gact tell <name> <msg> [--async]` | Find-or-create session by title; send + print reply. `--async`: print sid·msg_id and exit |
-| `gact attach <name\|sid>` | Launch the TUI pre-selected on a session |
-| `gact voice <sid> <audio-file\|->` | POST audio bytes to `/voice/transcribe`; print recognised text |
-| `gact bench [-n N] [--concurrent C] [--message TEXT]` | Run N turns × C parallel goroutines; aggregate p50/p90/p99 + thrpt |
-| `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
-| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--status …] [--watch] [--interval DUR]` | Session table; `--status idle\|running\|waiting\|error` to filter (comma-separated); `--watch` refreshes every interval |
-| `gact grep <query> [--workspace WS_ID] [--format tsv\|json] [--limit N]` | Search across every session in parallel; `--limit N` truncates output (0 = unlimited) |
-| `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks; `list --event TYPE --scope global\|session\|workspace` to filter |
-| `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies; `list --format tsv` for human-scannable table |
-| `gact tasks list\|add\|set\|rm\|summary` | Manage §6.18 session tasks; `list --status pending,running,…` to filter; `summary` aggregates counts across all sessions |
-| `gact plugins list\|dir [--dir DIR]` | Discover plugins under `~/.config/gact/plugins/<name>/plugin.json` |
-| `gact export <sid> [-o file]` | Dump one session as a JSON blob |
-| `gact export --all -o DIR` | Dump every session as one file each |
-| `gact import <file\|->` | Upload an export blob (re-IDs everything) |
-| `gact diag` | Print binary version + config + env for bug reports |
-| `gact env [--format tsv\|json]` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars; JSON wraps env vars in a nested object |
-| `gact theme show [--name N]` | Print active theme palette as TSV (`key<TAB>hex`); `--name` overrides resolution |
-| `gact theme list` | List available palettes one per line; `\t*` marks the active one |
-| `gact theme set <name>` | Write theme to `config.json` (validated against `theme list`; env still wins at resolution) |
-| `gact emit-config` | Print sample `config.json` to stdout |
-| `gact version` | Print version + git revision + build time |
-| `gact list-themes` *(via `--list-themes`)* | Print available palettes |
-
-Pipe-friendly composition example:
-
-```sh
-SID=$(gact new --title "scratch")
-answer=$(gact ask "$SID" "please summarise main.go")
-echo "$answer" > summary.txt
-gact log "$SID" | grep -i "tool"
-```
-
-## What's implemented
-
-**Emulator** (Phase A complete — 21/21 tasks). Race-clean, ≥75% coverage on
-HTTP layer, end-to-end binary tests cover the full streaming + permission
-flow. See [`emulator/README.md`](./emulator) (TBD) and `STATUS.md`.
-
-| SPEC § | Capability | Status |
+| Backend | Adapter | Status |
 |---|---|---|
-| §3 | health + capabilities discovery | ✓ |
-| §6.1 | workspaces CRUD + seed `ws_default` | ✓ |
-| §6.2 | sessions CRUD + fork + cancel + summarize + export/import | ✓ |
-| §6.3 | messages list/get/post/delete + part patch + search | ✓ |
-| §6.5 | agents (read; write returns 501 per `agent_write=false`) | ✓ |
-| §6.6 | tools list (`bash`, `read_file`, `edit_file`, `web_search` + 2 MCP) | ✓ |
-| §6.7 | MCP server stub (`mcp_fake`) — tools, resources, prompts | ✓ |
-| §6.9 | files / context / repo_map | ✓ |
-| §6.10 | diffs aggregate + apply / reject / undo | ✓ |
-| §6.11 | permissions list / get / respond | ✓ |
-| §6.12 | providers + models (Anthropic, OpenAI, local) | ✓ |
-| §6.13 | commands catalog + invoke | ✓ |
-| §6.16 | metrics roll-up | ✓ |
-| §7 | SSE event streams (workspace + session scope) + `Last-Event-ID` resume | ✓ |
+| [Claude Code](https://github.com/anthropics/claude-code) | [`adapters/claudecode/`](adapters/claudecode/) | spawns `claude --output-format stream-json` (uses your existing OAuth) |
+| [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | proxies the OpenCode HTTP API |
+| [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | proxies the Crush HTTP API |
 
-**TUI** (Phases C through P complete). Highlights:
+Each adapter passes the [`contract/conformance`](contract/conformance/)
+test suite so the TUI behaves identically across all of them.
 
-- Connect screen with capabilities probe + error state + auto-retry
-- Sidebar with sessions list, live status dots, K11 title filter,
-  `e` rename, `A` archive, `h` toggle archived, `o` add context file
-- Conversation viewport with role-coloured headers, thinking /
-  tool_call (`ToolName(arg)` headers) / tool_result (`⎿` glyph,
-  auto-collapse ≥ 5 lines with `Ctrl+E` floating detail view) /
-  file_diff / subagent_call/result / error rendering, sticky-bottom
-- Message-level actions (`y` copy, `R` retry, `d` delete)
-- bubbles/v2/textarea input — `Enter` sends, `Shift+Enter` newline,
-  `\<Enter>` newline fallback for non-Kitty terminals, per-session
-  draft preservation across session switches
-- Bracketed-paste compression (`[pasted content: N lines]`) with
-  `Ctrl+P` to expand, floating compose modal (`Ctrl+G` /
-  `Ctrl+Shift+P`) for long prompts
-- `@`-fuzzy file picker with basename bonus — inserts `@path` and
-  attaches the file to session context
-- 7-tab help overlay + catalog browsers for `/mcp`, `/tools`,
-  `/skills`
-- Settings modal with Model / Agent / Theme / TUI tabs; ↑/↓ previews
-  themes live; palette persisted via `config.json`
-- Seven themes + custom `~/.config/gact/theme.json` import; glamour
-  markdown rendering derives its StyleConfig from the active theme
-- SSE auto-reconnect with exponential backoff + jitter + Last-Event-ID
-  resume
-- Forward-compat: unknown part types render as a `[type]` placeholder
-  rather than being silently dropped (per SPEC §8.3)
+## What you get
+
+Highlights — full reference in [`docs/FEATURES.md`](docs/FEATURES.md):
+
+- **7 themes + custom JSON palettes**, glamour markdown that matches
+- **Settings modal**: model picker, agent picker, theme cycler, TUI prefs
+- **`@`-file picker** with fuzzy basename matching, **`/`-slash palette**
+  for commands, **`Ctrl+G` compose modal** for long prompts
+- **Bracketed-paste compression** (collapses big pastes to
+  `[pasted content: N lines]` placeholder; `Ctrl+P` expands)
+- **Permission flow**: `a`llow / `d`eny / allow-`s`ession /
+  allow-`w`orkspace, with a config-side rules engine to auto-resolve
+- **Diff workflow**: `a`/`r` apply/reject `file_diff` parts inline
+- **CLI subcommands** for shell-script automation (`gact ask`,
+  `gact log`, `gact dashboard`, `gact bench`, etc. — see FEATURES.md
+  for the full ~70-command reference)
+- **Plugin loader** under `~/.config/gact/plugins/<name>/plugin.json`
+
+## Build it for your own backend
+
+1. Read [`contract/SPEC.md`](contract/SPEC.md) — every endpoint your
+   adapter has to implement (or explicitly opt out of via
+   `capabilities.<flag> = false`).
+2. Write a Go adapter under `adapters/<name>/` (mirror `crush/` or
+   `opencode/`'s shape — server.go, transport.go, translate.go).
+3. Add a `conformance_test.go` that calls
+   `conformance.Run(t, srv.URL, opts)` against a mocked upstream.
+4. Open a PR.
+
+The conformance suite ([`contract/conformance/README.md`](contract/conformance/README.md))
+locks 14+ sections including per-id drill-downs, SSE envelope rules
+(SPEC §7.2), and the full diff/file/MCP catalog endpoints. If your
+adapter passes it, the TUI works.
 
 ## Project layout
 
-```
-gact-tui/
-├── contract/
-│   ├── README.md        # design principles + compatibility targets
-│   └── SPEC.md          # normative contract — read first if implementing
-├── emulator/
-│   ├── cmd/emulator-server/  # binary
-│   ├── internal/server/      # HTTP handlers per SPEC §
-│   ├── internal/store/       # in-memory state
-│   ├── internal/events/      # bus + ring buffer
-│   ├── internal/scenario/    # default agent script
-│   └── pkg/gact/             # wire types (used by TUI too)
-├── tui/
-│   ├── main.go               # entry point
-│   ├── internal/client/      # typed HTTP+SSE client for the contract
-│   └── internal/ui/          # Bubbletea model + render
-├── notes/                    # distilled reference for bubbletea/lipgloss/etc.
-├── .claude/skills/           # tui-screenshot + tui-test workflows
-├── screenshots/              # VHS-rendered visual record of states
-├── research/                 # read-only clones of crush, opencode, aider, ...
-├── PLAN.md                   # ordered task queue
-├── STATUS.md                 # iteration log + decisions
-└── CLAUDE.md                 # project rules for Claude sessions
-```
+- [`tui/`](tui/) — the Bubbletea client
+- [`emulator/`](emulator/) — reference backend (boots in ~50ms, no deps)
+- [`contract/`](contract/) — SPEC + conformance suite
+- [`adapters/`](adapters/) — vendor-specific bridges
+- [`docs/FEATURES.md`](docs/FEATURES.md) — every keybinding, CLI command,
+  capability matrix, theme details, voice plumbing
 
-## Testing
+## Contributing
 
-```sh
-# Race + everything
-cd emulator && go test -race -count=1 ./...
-cd ../tui   && go test -race -count=1 ./...
+Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Run
+`make test-race` before pushing. UI changes need a fresh screenshot in
+`screenshots/` — see
+[`.claude/skills/tui-screenshot.md`](.claude/skills/tui-screenshot.md).
 
-# Coverage
-cd emulator && go test -count=1 -cover ./...
-```
+## License
 
-The TUI's `internal/client` integration tests boot the actual emulator
-binary over real HTTP, so they exercise the wire-format end to end.
-
-## Visual feedback loop
-
-For UI changes, the canonical workflow is captured in
-[`.claude/skills/tui-screenshot.md`](./.claude/skills/tui-screenshot.md):
-
-1. Build the TUI binary
-2. Run a `.tape` file via VHS
-3. Inspect the resulting PNG in `screenshots/`
-
-Screenshots are committed to the repo as a visual changelog. New work
-that touches the UI should add a fresh screenshot demonstrating it.
+MIT — see [LICENSE](LICENSE).
