@@ -148,6 +148,19 @@ func main() {
 			// AAAAAAAA1: list (or prune) sessions the user has
 			// detached from across reboots.
 			os.Exit(runDetached(os.Args[2:]))
+		case "resume":
+			// IIIIIIII1: `gact resume` is a more-discoverable alias
+			// for `gact attach` with no arguments — attaches to the
+			// most-recent Ctrl+Z-detached session on the current
+			// backend. Any trailing args are rejected so the alias
+			// stays narrow ("resume X" should be `attach X` — we
+			// don't want two ways to pick a specific sid).
+			if len(os.Args) > 2 {
+				fmt.Fprintln(os.Stderr, "usage: gact resume  (no args — use `gact attach <sid>` for a specific session)")
+				os.Exit(2)
+			}
+			runAttach(nil)
+			return
 		case "grep":
 			os.Exit(runGrep(os.Args[2:]))
 		case "follow":
@@ -399,6 +412,7 @@ Usage:
                               --async returns immediately with sid<TAB>msg_id
   gact attach [<name|sid>]   launch the TUI pre-selected on a session;
                               no arg = most-recent Ctrl+Z-detached on this backend
+  gact resume                alias for gact attach (no args) — resume most-recent detach
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend

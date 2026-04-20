@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase IIIIIIII — `gact resume` alias
+
+- [x] **IIIIIIII1.** New `gact resume` subcommand — discoverable alias for `gact attach` with no arguments. "resume" is the natural verb for "pick up where I left off" so users don't have to know the attach/no-args trick. Narrow by design: any trailing args are rejected with a usage hint pointing to `gact attach <sid>` for explicit session selection. Routes through `runAttach(nil)` so the same probe-and-skip-dead behaviour (FFFFFFFF1) applies. End-to-end verified against live emulator: seeds a session + registry, `gact resume` prints `attaching to most-recent detach: <sid> (<title>)` then boots the TUI.
+
 ## Phase HHHHHHHH — Sidebar session age suffix
 
 - [x] **HHHHHHHH1.** Sidebar status line now appends `· Nm ago` (humanAgeShort helper — Ns/Nm/Nh/Nd scale) pulled from Session.UpdatedAt. No extra row — same 3-row layout per session, status line becomes e.g. `idle · 2m ago`. Zero UpdatedAt (backend hasn't filled it yet) shows status without the suffix so the row isn't a lie. Negative durations (clock skew) clamp to "now". Users can now see at a glance which sessions were actively touched vs stale — pairs well with ↩ markers for resume discovery. Test `TestSidebar_StatusLineShowsAge`: fresh=2m ago, stale=3d ago, zero-UpdatedAt has no "ago" suffix. Screenshot `screenshots/HHHHHHHH1_sidebar_age.png`.
