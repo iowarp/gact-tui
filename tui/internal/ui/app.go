@@ -241,6 +241,12 @@ type App struct {
 	// away from" without leaving the TUI.
 	previouslyDetached map[string]bool
 
+	// MMMMMMMMM1: introFrameIdx drives the animated splash. Advances
+	// on each introTickMsg while stage==StageIntro and loops on
+	// len(intro.GRCLogoFrames()). Not persisted — splash dismisses
+	// on the first keypress anyway.
+	introFrameIdx int
+
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
 	// second /clear within the toast window actually wipes. Any
@@ -482,13 +488,30 @@ type DetachedRegistryEntry struct {
 // program is run when intro_skip is not set. (JJJ1)
 func (a *App) EnableIntro() { a.stage = StageIntro }
 
+// MMMMMMMMM1: introTickMsg advances the animated splash by one
+// frame. introTick returns a cmd that re-fires itself on the
+// fixed frame cadence so the splash loops smoothly.
+type introTickMsg struct{}
+
+// introFrameDelay is ~30 FPS (33ms/frame). 36 frames × 33ms ≈ 1.2s
+// per loop — short enough the user sees the rotation before they
+// dismiss, slow enough to stay readable.
+const introFrameDelay = 33 * time.Millisecond
+
+func introTickCmd() tea.Cmd {
+	return tea.Tick(introFrameDelay, func(time.Time) tea.Msg { return introTickMsg{} })
+}
+
 // Init returns the initial Cmd: connect.
 func (a *App) Init() tea.Cmd {
 	// JJJ1: defer the connect handshake until the splash dismisses.
 	// Without this, connectedMsg can arrive before the user sees the
 	// splash and flip straight to StageReady.
 	if a.stage == StageIntro {
-		return nil
+		// MMMMMMMMM1: start the frame-advance tick as soon as the
+		// splash renders, so the animation runs while the user
+		// reads "press any key to continue".
+		return introTickCmd()
 	}
 	return connectCmd(a.c)
 }
@@ -698,6 +721,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		return a.handleKey(m)
+
+	case introTickMsg:
+		// MMMMMMMMM1: while the splash is up, advance the logo
+		// frame and schedule the next tick. As soon as we leave
+		// StageIntro (any keypress), the tick returns nil and the
+		// loop dies naturally.
+		if a.stage != StageIntro {
+			return a, nil
+		}
+		frames := intro.GRCLogoFrames()
+		if len(frames) > 0 {
+			a.introFrameIdx = (a.introFrameIdx + 1) % len(frames)
+		}
+		return a, introTickCmd()
 
 	case tea.PasteStartMsg:
 		a.inPaste = true
@@ -3239,12 +3276,12 @@ func (a *App) SetIntroFromFile(path string) error {
 
 func (a *App) viewIntro() string {
 	t := a.Theme
-	// LLLLLLLLL1: when IntroLogo is empty and the terminal has room,
-	// render the embedded grc.iit.edu logo via pure-Go halfblock art
-	// (intro.GRCLogo). User explicitly asked for this in
-	// feedback_detach_intro_flicker_round2 item 4. Falls back to the
-	// empty defaultIntroLogo if the terminal is too narrow or the
-	// decoder errors.
+	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
+	// terminal has room, render the embedded grc.iit.edu logo. If
+	// the animation-frames embed is populated, cycle through the
+	// 36-frame truecolor rotation on the introFrameIdx tick; else
+	// fall back to the static halfblock render. Closes the splash
+	// dep on runtime chafa — frames are chafa-baked once.
 	var logoStr string
 	if len(a.IntroLogo) > 0 {
 		logoStr = strings.Join(a.IntroLogo, "\n")
@@ -3257,7 +3294,11 @@ func (a *App) viewIntro() string {
 			}
 		}
 		if w > 0 {
-			logoStr = intro.GRCLogo(w)
+			if frames := intro.GRCLogoFrames(); len(frames) > 0 {
+				logoStr = frames[a.introFrameIdx%len(frames)]
+			} else {
+				logoStr = intro.GRCLogo(w)
+			}
 		}
 		if logoStr == "" {
 			logoStr = strings.Join(defaultIntroLogo, "\n")

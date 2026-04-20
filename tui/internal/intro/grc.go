@@ -1,17 +1,12 @@
 // Package intro serves the baked-in splash art.
 //
-// The GRC logo is generated OFFLINE by chafa (hand-run by a
-// maintainer — see `make intro-logo`) and checked in as raw ANSI
-// truecolor halfblock text. Runtime just embeds the file, so the
-// gact binary has no image-decoding dependency and no runtime
-// chafa dependency. The maintainer workflow:
+// Both the static logo and the animated 36-frame version are
+// generated OFFLINE from PNG / GIF sources by chafa (see the
+// maintainer workflow in the root Makefile's `intro-logo` target).
+// The bytes are checked in as ANSI truecolor halfblock text and
+// `go:embed`-ed so runtime has no image decoder or chafa dep.
 //
-//	chafa --size 30x15 --symbols half --colors full --clear \
-//	      tui/internal/intro/grc-logo.png \
-//	    > tui/internal/intro/grc-logo.ansi
-//
-// License note: the logo asset is GRC's — used as the default
-// splash per feedback_detach_intro_flicker_round2 item 4.
+// License note: the logo asset is GRC's.
 package intro
 
 import (
@@ -22,11 +17,38 @@ import (
 //go:embed grc-logo.ansi
 var grcLogoANSI string
 
-// GRCLogo returns the baked-in GRC logo as ANSI truecolor halfblock
-// art. The argument is accepted for API symmetry with future
-// on-the-fly renderers; the current impl returns the ~30-col
-// chafa-generated art unchanged regardless of width.
+//go:embed grc-logo-anim.ansi
+var grcLogoAnimANSI string
+
+// GRCLogo returns the static baked-in GRC logo as ANSI truecolor
+// halfblock art. The width argument is accepted for API symmetry
+// and currently ignored (chafa bakes at the 30x15 target).
 func GRCLogo(width int) string {
 	_ = width
 	return strings.TrimRight(grcLogoANSI, "\n")
+}
+
+// GRCLogoFrames returns every animation frame as separate strings.
+// Baked from the 36-frame grc.iit.edu logo-video.gif; each frame
+// is chafa-rendered at 30x15 truecolor halfblock. The caller flips
+// through them on a tick to drive the animated splash.
+// MMMMMMMMM1: an empty return means the embed file wasn't populated
+// (maintainer hasn't run `make intro-logo-anim` yet) — callers
+// should fall back to the static GRCLogo.
+func GRCLogoFrames() []string {
+	if strings.TrimSpace(grcLogoAnimANSI) == "" {
+		return nil
+	}
+	// Frames are separated by a form-feed char (\f) that chafa's
+	// halfblock renderer never emits on its own.
+	raw := strings.Split(grcLogoAnimANSI, "\f")
+	out := make([]string, 0, len(raw))
+	for _, f := range raw {
+		t := strings.Trim(f, "\n")
+		if t == "" {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
 }
