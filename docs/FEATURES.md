@@ -53,12 +53,18 @@ the picker.
 | `Enter` (input) | Send message |
 | `Shift+Enter` · `Alt+Enter` · `Ctrl+J` · `\<Enter>` | Insert newline in input |
 | `↑/↓` (sidebar) | Pick session — auto-loads messages and reopens SSE |
-| `↑/↓ G g` (conversation) | Scroll / jump bottom / jump top |
-| `d` (conversation) | Delete the last message (optimistic) |
-| `y` (conversation) | Copy last assistant message to clipboard |
-| `R` (conversation) | Retry — resend last user message |
-| `Ctrl+E` (conversation) | Expand latest bulky tool output in detail view |
+| `h` (sidebar) | Toggle archived-only view |
+| `d` (sidebar) | Toggle detached-only view (sessions you Ctrl+Z-walked-away from) |
+| `b` (sidebar) | Toggle busy-only view (running + waiting_permission) — stacks with `d` |
+| `y` (sidebar) | Copy selected session id to clipboard (pipe into `gact log/attach/rewind`) |
+| `↑/↓ G g n N` (conversation) | Move message cursor (body) |
+| `d` (conversation) | Delete the selected (or last) message (optimistic) |
+| `y` (conversation) | Copy selected (or last-assistant) message text to clipboard |
+| `Y` (conversation) | Copy FULL conversation as role-prefixed markdown |
+| `R` (conversation) | Retry — resend selected (or last) user message |
+| `Ctrl+E` · `Enter` (conversation) | Expand cursor's bulky tool output in detail view |
 | `a` / `r` (conversation) | Apply / reject pending diff |
+| `Ctrl+Z` | Clean detach — TUI exits, backend session keeps running. `gact attach` / `gact resume` brings you back |
 | `/` (input, empty) | Open slash-command palette |
 | `@` (input, word start) | Open fuzzy workspace-file picker |
 | `Ctrl+G` · `Ctrl+Shift+P` | Floating compose modal (long-form editor) |
@@ -121,7 +127,7 @@ running backend:
 | `gact workspaces list [--format tsv\|json]` | List workspaces (TSV: id·name·root_path) |
 | `gact fork <sid> [--at MID] [--title T]` | Spawn a child session forked from another (prints new id) |
 | `gact models list [--provider PID] [--format tsv\|json]` | List providers + models (TSV: pid·mid·name·ctx) |
-| `gact info <sid> [--format text\|json] [--include tasks,hooks,perms]` | One session's metadata; `--include` appends task/hook/perm sections (text) or wraps as `{session,tasks,hooks,perms}` (json) |
+| `gact info <sid> [--format text\|json] [--include tasks,hooks,perms]` | One session's metadata; `--include` appends task/hook/perm sections (text) or wraps as `{session,tasks,hooks,perms}` (json). Always carries `detached: yes\|no` (text) / `detached: bool` (json) so scripts see the registry flag |
 | `gact undo <sid> [--count N]` | Revert last N messages (default 1); prints reverted ids |
 | `gact rewind <sid> <mid> [--include-target]` | Delete every message after `<mid>`; prints deleted ids |
 | `gact files list <ws-id> [--format tsv\|json] [--glob PATTERN]` | List workspace files (TSV: type·size·path); `--glob` uses Go `path.Match` (basename fallback so `*.go` matches `src/foo.go`) |
@@ -136,8 +142,8 @@ running backend:
 | `gact agent show <id> [--format text\|json]` | Print one agent's metadata + system prompt |
 | `gact watch <sid> [--interval DUR] [--format tsv\|json]` | One row per status/msg/token change (TSV default; `--format json` for NDJSON); exits when settled |
 | `gact catalog tools\|agents\|mcp\|commands` | List backend catalog (TSV or JSON) |
-| `gact dump-bundle [-o DIR] [--since DUR]` | Bug-report bundle (diag + metrics + sessions); `--since` filters to recent sessions |
-| `gact list [--format tsv\|json] [--workspace W] [--parent P] [--status S] [--archived] [--limit N]` | List sessions with filters |
+| `gact dump-bundle [-o DIR] [--since DUR]` | Bug-report bundle (diag + metrics + sessions + local detached.json + version); `--since` filters to recent sessions |
+| `gact list [--format tsv\|json] [--workspace W] [--parent P] [--status S] [--archived] [--limit N] [--detached-only] [--sort newest\|oldest\|status\|tokens\|backend]` | List sessions. `--detached-only` keeps rows in the local registry. `--sort` mirrors dashboard (default keeps backend order for script stability). Output carries a detached marker: TSV 5th col `yes`/empty, JSON `detached: bool` |
 | `gact tail [SID] [--workspace WS_ID] [--filter type1,type2] [--format json\|text]` | Stream SSE events; NDJSON default, `--format text` for human one-liners; `--filter` keeps only named types |
 | `gact stream [SID] [--workspace WS_ID] [--filter type1,type2]` | Stream SSE events as a pretty timeline; `--filter` keeps only named types (mirrors `gact tail`) |
 | `gact send <sid> <text\|->` | Post a user message; prints `msg_<id>` |
@@ -145,19 +151,21 @@ running backend:
 | `gact run <sid> <text\|->` | Combined send + wait — one command |
 | `gact ask <sid> <q\|->` | `run` + print assistant reply text only |
 | `gact quick <q\|-> [--keep]` | One-shot create+ask+delete session |
-| `gact log <sid> [--limit N] [--since DUR] [--format text\|json]` | Print conversation; `--format json` emits NDJSON (one message per line) for piping |
-| `gact follow <sid> [--format text\|json]` | tail -f for the conversation; `--format json` emits NDJSON for both snapshot + streamed messages |
+| `gact log <sid> [--limit N] [--since DUR] [--role user,assistant,tool,system] [--grep REGEX] [--format text\|json]` | Print conversation. `--format json` emits NDJSON; `--role` narrows by role; `--grep` filters by regex (case-insensitive default) over flattened text+thinking+tool_name+tool_call input+tool_result body |
+| `gact follow <sid> [--role ROLES] [--grep REGEX] [--since DUR] [--format text\|json]` | tail -f for the conversation; filters compose with `gact log`. `--since` trims initial snapshot; streamed messages always emit |
 | `gact replay <file\|-> [--attach]` | Import an export blob; with `--attach` launches the TUI on the imported session |
 | `gact cancel <sid>` | POST `/v1/sessions/{id}/cancel` |
 | `gact ping [-q]` | Probe `/v1/health`; exit 0 healthy |
 | `gact capabilities [--format text\|json]` | Backend contract version + capability matrix (alias `caps`) |
 | `gact tell <name> <msg> [--async]` | Find-or-create session by title; send + print reply. `--async`: print sid·msg_id and exit |
-| `gact attach <name\|sid>` | Launch the TUI pre-selected on a session |
+| `gact attach [<name\|sid>] [--print-only]` | Launch the TUI pre-selected on a session. Matching is precedence-ordered: exact id → exact title → id prefix → title substring (case-insensitive). **No arg** = most-recent Ctrl+Z-detached session on current backend (probes + skips dead). `--print-only` resolves + prints sid, no TUI (for scripting) |
+| `gact resume` | Alias for `gact attach` (no args) — resume most-recent detach |
+| `gact detached [--rm SID1,SID2,...] [--probe] [--prune-dead] [--watch] [--interval DUR] [--format pretty\|tsv\|json]` | List sessions you've Ctrl+Z-detached from (per-machine registry). `--probe` pings each backend; `--prune-dead` removes any that fail; `--rm` drops specific sids (comma-separated); `--watch` live-refreshes |
 | `gact voice <sid> <audio-file\|->` | POST audio bytes to `/voice/transcribe`; print recognised text |
 | `gact bench [-n N] [--concurrent C] [--message TEXT]` | Run N turns × C parallel goroutines; aggregate p50/p90/p99 + thrpt |
 | `gact conformance [--skip Section,…]` | Run `contract/conformance` v0.1 spec test against the backend |
-| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--status …] [--watch] [--interval DUR]` | Session table; `--status idle\|running\|waiting\|error` to filter (comma-separated); `--watch` refreshes every interval |
-| `gact grep <query> [--workspace WS_ID] [--format tsv\|json] [--limit N]` | Search across every session in parallel; `--limit N` truncates output (0 = unlimited) |
+| `gact dashboard [--workspace WS_ID] [--format pretty\|tsv\|json] [--status …] [--sort newest\|oldest\|status\|tokens\|backend] [--detached-only] [--watch] [--interval DUR]` | Session table. `--status` filters by status; `--sort` reorders (default newest); `--detached-only` keeps registry rows. Pretty + TSV carry a DET column, JSON carries `detached: bool`. `--watch` refreshes every interval |
+| `gact grep <query> [--workspace WS_ID] [--role user,assistant,tool,system] [--format tsv\|json] [--limit N]` | Cross-session full-text search. `--role` narrows hits by role; `--limit N` truncates output (0 = unlimited) |
 | `gact hooks list\|add\|rm` | Manage SPEC §6.17 event hooks; `list --event TYPE --scope global\|session\|workspace` to filter |
 | `gact perms rules list\|set\|clear` | Manage SPEC §6.11 auto-resolution policies; `list --format tsv` for human-scannable table |
 | `gact tasks list\|add\|set\|rm\|summary` | Manage §6.18 session tasks; `list --status pending,running,…` to filter; `summary` aggregates counts across all sessions |
@@ -165,7 +173,7 @@ running backend:
 | `gact export <sid> [-o file]` | Dump one session as a JSON blob |
 | `gact export --all -o DIR` | Dump every session as one file each |
 | `gact import <file\|->` | Upload an export blob (re-IDs everything) |
-| `gact diag` | Print binary version + config + env for bug reports |
+| `gact diag` | Print binary version + config + env for bug reports. Includes the detached registry summary (`detached_path` + `detached_count: N record(s) across M backend(s)`) + `GACT_DETACHED_PATH` env |
 | `gact env [--format tsv\|json]` | Print resolved local config (backend·theme·voice·intro·plugins) + GACT_* env vars; JSON wraps env vars in a nested object |
 | `gact theme show [--name N]` | Print active theme palette as TSV (`key<TAB>hex`); `--name` overrides resolution |
 | `gact theme list` | List available palettes one per line; `\t*` marks the active one |

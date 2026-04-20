@@ -1,8 +1,13 @@
 # STATUS
 
-**Last updated:** 2026-04-20T18:30Z
-**Current phase:** JJJJJJJJJ1 + KKKKKKKKK1 shipped — `gact info` carries detached status + completion scripts updated
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `dd3e1a0` (pushed)
+**Last updated:** 2026-04-20T19:00Z
+**Current phase:** Final pass — README rewritten with contract-first framing, FEATURES.md refreshed with new CLI surface, full test + coverage run
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0433964` (about to push README/docs refresh)
+
+### Final pass summary
+- All tests green: emulator (5 packages), tui (5 packages incl. 284s CLI suite), adapters/claudecode non-smoke. Coverage: `tui/internal/ui` 67.6%, `config` 77.5%, `plugins` 72.9%, `client` 39.5%; emulator `events` 87.3%, `scenario` 83.3%, `store` 72.3%, `server` 67.5%.
+- README rewritten: "Building a TUI for an agentic loop is hard" opener, prominent contract link, refreshed screenshot grid (DDDDDDDD1 header chip + JJJJJJJJ1 detached-only side by side with the streaming/demarcation shots), updated adapter table (claudecode Go native as recommended, claude-agent-sdk-server retained as Python reference), tests + coverage section.
+- docs/FEATURES.md: refreshed CLI table with detached/resume subcommands, --print-only, --sort, --detached-only, --role, --grep, --since on log/follow/grep/dashboard/list/info. Keys section updated with sidebar `d`/`b`/`y`, body `n`/`N`/`Y`/Enter, Ctrl+Z detach.
 
 ### Phase KKKKKKKKK1 — Completion scripts catch up
 - bash/zsh/fish get `detached` + `resume` subcommands that shipped without completion entries. Test extended to assert them + dashboard + log.
