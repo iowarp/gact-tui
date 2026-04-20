@@ -8,6 +8,35 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
+// QQQQQQQQ1: variants for the default happy-path so repeated
+// "read main.go" prompts produce visibly different output.
+// Cycled per-session via NextCallIndex (same pattern PPPPP1 + GGGGG1
+// + RRRRR1 already use). Length parity is intentional — three of
+// each, lined up so [i] of every slice forms a coherent turn.
+var defaultThinkingVariants = []string{
+	"The user wants me to investigate. Let me consider tools that fit.\n",
+	"Let me start by reading the file so I can ground my response in what's actually there.\n",
+	"Quick context-gather first — I'll inspect main.go before commenting.\n",
+}
+
+var defaultIntroVariants = []string{
+	"I'll take a look. First, I'm going to inspect the current state with a tool call.",
+	"Let me peek at the file before I say anything substantive.",
+	"Reading the source now so my advice is based on what's actually there.",
+}
+
+var defaultResultVariants = []string{
+	"package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n",
+	"package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello, world\")\n}\n",
+	"package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n)\n\nfunc main() {\n\tname := \"world\"\n\tif len(os.Args) > 1 {\n\t\tname = os.Args[1]\n\t}\n\tfmt.Printf(\"hello, %s\\n\", name)\n}\n",
+}
+
+var defaultFinalVariants = []string{
+	"**Done.** I read `main.go` and it's a small Go program — its `main` function just calls `println(\"hello\")`. A few things you might want next:\n\n- add a `package` doc comment\n- introduce a `cmd/` layout if this grows\n- wire `flag` for arguments\n\nWant me to start with one of those?",
+	"**Done.** It's a one-file program that uses `fmt.Println` to print `hello, world`. If you'd like to extend it, common next steps are:\n\n- factor out a small `greet()` function so it's testable\n- add a `go.mod` if you don't have one yet\n- consider where logs/errors should go (stderr is the convention)\n\nWhich direction interests you?",
+	"**Done.** It already takes a positional CLI arg and falls back to \"world\" — slightly more capable than I expected. Sensible next steps would be:\n\n- introduce `flag` so `-name=alice` reads more naturally than positional args\n- write a quick test for the arg-parsing branch\n- add a `--version` flag once you tag a release\n\nHappy to wire any of those.",
+}
+
 // DefaultScript synthesizes a realistic-feeling assistant turn:
 //  1. session.status_changed → running
 //  2. Assistant message #1: thinking + text intro + tool_call
@@ -60,6 +89,13 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 
 	e.publishStatus(sessionID, gact.StatusRunning)
 
+	// QQQQQQQQ1: pick variant index once per turn so all four
+	// strings (thinking, intro, result, final) line up — gives the
+	// turn a coherent "voice" instead of mixing-and-matching.
+	// Dangerous path uses the existing single string; only the
+	// happy path varies (it's the one the user actually replays).
+	variantIdx := e.NextCallIndex(sessionID, "default") % len(defaultThinkingVariants)
+
 	// --- Assistant message #1 ----------------------------------------------
 	asst, err := e.createAssistantMessage(sessionID)
 	if err != nil {
@@ -72,7 +108,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 		return
 	}
 	if err := e.streamText(ctx, sessionID, asst.ID, thinking.ID,
-		"The user wants me to investigate. Let me consider tools that fit.\n",
+		defaultThinkingVariants[variantIdx],
 		"thinking"); err != nil {
 		return
 	}
@@ -86,7 +122,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	if err != nil {
 		return
 	}
-	introText := "I'll take a look. First, I'm going to inspect the current state with a tool call."
+	introText := defaultIntroVariants[variantIdx]
 	if err := e.streamText(ctx, sessionID, asst.ID, intro.ID, introText, "text"); err != nil {
 		return
 	}
@@ -243,8 +279,11 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 		},
 	})
 
-	// Tool result message
-	resultText := "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n"
+	// Tool result message — happy path varies by per-session
+	// variantIdx so repeat reads of "main.go" return the matching
+	// source for the chosen turn voice. Dangerous path stays
+	// singular (different shape, different output altogether).
+	resultText := defaultResultVariants[variantIdx]
 	if dangerous {
 		resultText = "removed: /tmp/scratch (3 files, 2 dirs)"
 	}
@@ -278,7 +317,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	if fperr != nil {
 		return
 	}
-	finalText := "**Done.** I read `main.go` and it's a small Go program — its `main` function just calls `println(\"hello\")`. A few things you might want next:\n\n- add a `package` doc comment\n- introduce a `cmd/` layout if this grows\n- wire `flag` for arguments\n\nWant me to start with one of those?"
+	finalText := defaultFinalVariants[variantIdx]
 	if dangerous {
 		finalText = "**Removed.** Cleared `/tmp/scratch` (3 files, 2 dirs). Anything else?"
 	}
