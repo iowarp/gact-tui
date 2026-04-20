@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDDDDDDD — Header chip for detached count
+
+- [x] **DDDDDDDD1.** Top header now carries a small `↩ N` chip (StatusBadge-style: theme Secondary bg + theme Bg fg, padded + bold) when the user has Ctrl+Z-walked-away sessions on this backend. Reads from App.previouslyDetached so the count stays consistent with the BBBBBBBB1 sidebar markers + CCCCCCCC2 dashboard column. Hidden when N=0 to avoid noise on a fresh install. Chip renders before the status badge so the eye groups them as a pair. New unit test `TestHeader_DetachedChip` (no chip when empty, "↩ 2" when two entries match the backend, cross-backend filtered out). Screenshot `screenshots/DDDDDDDD1_header_detached_chip.png` shows the chip + sidebar markers + sessions side by side.
+
 ## Phase CCCCCCCC — Detach UX polish (no-arg attach + dashboard marker)
 
 - [x] **CCCCCCCC1.** `gact attach` with no arguments now picks the most-recent detached session for the current backend (resolved via the same env > config > built-in default precedence runTUI uses) and attaches there. Friction-killer for the common loop: `gact` → work → Ctrl+Z → `gact attach`. New `defaultAttachTarget()` reads detached.json, filters by backend, returns the newest sid (records are already sorted newest-first by LoadDetached). Empty/no-match prints a helpful error pointing to `gact detached` and Ctrl+Z. 3 unit tests cover (newest pick, no match, missing registry). End-to-end verified against the live emulator: stderr prints `attaching to most-recent detach: sess_… (title)` then connects.
