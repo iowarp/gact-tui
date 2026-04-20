@@ -95,7 +95,10 @@ func (c *Client) StreamEvents(ctx context.Context, scope EventStreamScope) (<-ch
 				}
 				return
 			}
-			line = strings.TrimRight(line, "\n")
+			// SSE wire spec uses CRLF, but some servers emit LF only.
+			// Trim both so the blank-line dispatch + prefix matches
+			// work regardless of which the upstream picks.
+			line = strings.TrimRight(line, "\r\n")
 			if line == "" {
 				// dispatch
 				if current.Raw != nil {

@@ -269,8 +269,9 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
         }
         sess.cached_messages.append(user_record)
         # Also broadcast it as a message.created event for any active
-        # SSE subscribers.
-        await _broadcast(sess, envelope("message.created", {"message": user_record}))
+        # SSE subscribers. SPEC §7.3 says payload IS the Message itself
+        # (not wrapped in {"message": {...}}).
+        await _broadcast(sess, envelope("message.created", user_record))
 
         # Spawn the SDK turn in the background; SSE consumers see it
         # stream out via the per-session subscriber queues.
@@ -343,7 +344,12 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
                 if queue in sess.subscribers:
                     sess.subscribers.remove(queue)
 
-        return EventSourceResponse(stream())
+        # sep="\n" forces LF-only line endings. Default sse-starlette
+        # uses CRLF, which is RFC-conformant but trips clients whose
+        # parsers (e.g. gact's bufio.Scanner-based reader) leave a
+        # trailing \r on lines and then fail the "blank line ends an
+        # event" check. LF works for every conforming client.
+        return EventSourceResponse(stream(), sep="\n")
 
     return app
 
@@ -437,8 +443,10 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                 for ev in sdk_message_to_events(msg, sess.id):
                     await _broadcast(sess, ev)
                     # Cache assistant + user messages for GET /messages.
+                    # message.created payload IS the Message itself (per
+                    # SPEC §7.3 + the gact TUI's applyMessageCreated).
                     if ev["type"] == "message.created":
-                        sess.cached_messages.append(ev["payload"]["message"])
+                        sess.cached_messages.append(ev["payload"])
         except Exception as e:
             sess.status = "error"
             await _broadcast(
