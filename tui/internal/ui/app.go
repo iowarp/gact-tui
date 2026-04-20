@@ -72,6 +72,14 @@ type App struct {
 	// delete is otherwise a no-op for the registry. (BBBBBBBB1)
 	PruneDetachedRegistry func(sessionID string)
 
+	// LLLLLLLL1: transientHintAt stamps when transientHint was last
+	// set to a non-empty value. handleKey's blanket-clear on any
+	// keypress honours a minimum-display floor so hints that arrive
+	// BETWEEN keystrokes don't flash for one frame and vanish on
+	// the user's next key. setTransientHint wraps the assignment so
+	// call sites don't have to remember to update the stamp.
+	transientHintAt time.Time
+
 	// transientHint is a short banner shown above the input for ~3s
 	// (cleared by the next key press). Used for non-fatal feedback like
 	// config-reload outcomes that don't deserve the full error stage.
@@ -660,6 +668,20 @@ type postFailedMsg struct {
 // --- Update ---------------------------------------------------------------
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// LLLLLLLL1: snapshot the hint going INTO this Update cycle.
+	// If a branch below assigns a different non-empty value we
+	// stamp transientHintAt after switch returns. This means the
+	// "first seen" time tracks the Update that actually set the
+	// hint — not an arbitrary later Update that only read it.
+	preHint := a.transientHint
+	defer func() {
+		if a.transientHint != "" && a.transientHint != preHint {
+			a.transientHintAt = time.Now()
+		}
+		if a.transientHint == "" {
+			a.transientHintAt = time.Time{}
+		}
+	}()
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width = m.Width
@@ -1194,6 +1216,12 @@ const (
 	// footer flicker on routine sub-second reconnect blips while
 	// keeping real outages visible within a second.
 	sseBadgeMinDelay = 800 * time.Millisecond
+	// LLLLLLLL1: min dwell before a transient hint is eligible for
+	// keystroke-clear. Prevents the "hint set by background event
+	// between two keystrokes disappears on the user's next key"
+	// flicker. Same 800ms floor as the reconnect badge so the two
+	// toast paths use the same "sub-second = not worth flashing" rule.
+	transientHintMinDwell = 800 * time.Millisecond
 )
 
 // retryConnectMsg fires after the connect-retry backoff elapses and
@@ -1295,8 +1323,19 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Clear any transient hint banner — it's a one-off toast that
 	// shouldn't persist past the next interaction. Done before modal
 	// dispatch so even hitting "Esc" in a modal dismisses the banner.
-	if k.String() != "ctrl+l" {
-		a.transientHint = ""
+	// LLLLLLLL1: but only if the hint has been on-screen long enough
+	// for the user to read it. Without the min-display gate, a hint
+	// set by a background event (SSE reconnect, session archive
+	// confirmation, etc.) between two keystrokes gets clobbered on
+	// the very next key, flashing for one frame. 800 ms matches the
+	// DDDDD1 reconnect-badge threshold so the two toast paths use the
+	// same "sub-second = not worth flashing" rule.
+	if k.String() != "ctrl+l" && a.transientHint != "" {
+		if a.transientHintAt.IsZero() ||
+			time.Since(a.transientHintAt) >= transientHintMinDwell {
+			a.transientHint = ""
+			a.transientHintAt = time.Time{}
+		}
 	}
 	// Any key other than `x` cancels a pending delete — the two-step
 	// confirm is there to catch accidents, not to force the user into
