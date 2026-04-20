@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T04:25Z
-**Current phase:** NNNNNNN1 shipped — Goose conformance test
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2c7c765` (pushed)
-**Open:** none — Goose POST /messages + SSE next phase work.
+**Last updated:** 2026-04-20T04:45Z
+**Current phase:** OOOOOOO1 shipped — Goose POST + SSE; 8 conformance sections green
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0507445` (pushed)
+**Open:** none — Goose adapter feature surface now matches what other adapters cover (workspaces, sessions, messages read+write, SSE).
+
+### Phase OOOOOOO1 — Goose POST + SSE
+- **OOOOOOO1.** Per-session subscriber map; POST /messages spawns runUpstreamReply goroutine that POSTs /reply upstream, parses SSE, translates events, broadcasts to GET /events subscribers. translate.go.translateMessageEvent maps all 7 Goose MessageEvent variants. caps.sse=true. 3 new tests + conformance now passes 8 sections.
 
 ### Phase NNNNNNN1 — Goose conformance
 - **NNNNNNN1.** Mirror of opencode/crush conformance_test.go for Goose. Caught a missing per-id message endpoint; added handleGetMessage. 6 sections green for Goose adapter.
