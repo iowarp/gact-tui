@@ -1,8 +1,11 @@
 # STATUS
 
-**Last updated:** 2026-04-20T10:30Z
-**Current phase:** HHHHHHHH1 + IIIIIIII1 shipped — sidebar shows session age + `gact resume` alias for discoverable no-arg attach
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `50d3bcc` (pushed)
+**Last updated:** 2026-04-20T11:00Z
+**Current phase:** JJJJJJJJ1 shipped + help/empty-state discoverability — sidebar `d` toggles detached-only view
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c50b811` (pushed)
+
+### Phase JJJJJJJJ1 — Sidebar detached-only toggle
+- `d` in sidebar focus narrows list to previously-detached sessions (parallels `h` archived toggle). Sidebar title flips to `SESSIONS · detached`, transient hint reads "showing N detached session(s)". Local filter — no backend refetch. ensureSelectedVisible adjusts selection after toggle. Help overlay row + empty-state crib updated; view goldens regenerated.
 
 ### Phase IIIIIIII1 — `gact resume` alias
 - New subcommand forwards to runAttach(nil). Narrow by design — any trailing arg rejected with "use `gact attach <sid>`" hint. More-discoverable name for "pick up where I left off".
