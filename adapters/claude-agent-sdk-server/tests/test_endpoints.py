@@ -107,3 +107,19 @@ def test_post_message_rejects_empty_parts() -> None:
     sid = c.post("/v1/sessions", json={}).json()["id"]
     r = c.post(f"/v1/sessions/{sid}/messages", json={"parts": []})
     assert r.status_code == 400
+
+
+def test_tools_empty_before_first_turn() -> None:
+    """The SDK's tool catalog is cwd-dependent; we can only learn it
+    after the first SystemMessage(init). Before any session has run,
+    /v1/tools should still be a valid empty envelope so the TUI's
+    catalog browser doesn't crash."""
+    r = _client().get("/v1/tools")
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {"tools": []}
+
+
+def test_tool_404_when_unknown() -> None:
+    r = _client().get("/v1/tools/UnknownTool")
+    assert r.status_code == 404

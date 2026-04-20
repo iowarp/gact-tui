@@ -70,6 +70,11 @@ class State:
     sessions: dict[str, Session] = field(default_factory=dict)
     # Lock around the sessions dict for concurrent create/delete.
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # Tool catalog discovered from the SDK's first SystemMessage(init).
+    # Stays empty until the first session runs a turn — that's the only
+    # time the SDK reveals the resolved tool list (which depends on
+    # the working directory's CLAUDE.md, MCP config, agent settings).
+    tool_names: list[str] = field(default_factory=list)
 
 
 def workspace_record(state: State) -> dict[str, Any]:
@@ -273,6 +278,38 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
 
         return {"message_id": user_msg_id, "accepted_at": now_iso()}
 
+    # --- §6.6 tools -------------------------------------------------
+
+    @app.get("/v1/tools")
+    async def list_tools() -> dict[str, Any]:
+        """Returns the SDK-discovered tool catalog. The list comes
+        from the first SystemMessage(init) that any session received;
+        before any session has run a turn, this is empty (the tool
+        list is cwd-dependent so we can't pre-populate it).
+        """
+        return {
+            "tools": [
+                {
+                    "id": name,
+                    "name": name,
+                    "source": "builtin",
+                    "input_schema": {"type": "object"},
+                }
+                for name in state.tool_names
+            ]
+        }
+
+    @app.get("/v1/tools/{tool_id}")
+    async def get_tool(tool_id: str) -> dict[str, Any]:
+        if tool_id not in state.tool_names:
+            raise HTTPException(status_code=404, detail="tool_not_found")
+        return {
+            "id": tool_id,
+            "name": tool_id,
+            "source": "builtin",
+            "input_schema": {"type": "object"},
+        }
+
     # --- §7 SSE events ----------------------------------------------
 
     @app.get("/v1/sessions/{sid}/events")
@@ -385,6 +422,18 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
         try:
             await sess.client.query(prompt)
             async for msg in sess.client.receive_response():
+                # GGGGGGG1: capture the SDK's tool catalog from the
+                # init SystemMessage so /v1/tools can serve it. The
+                # tool list is cwd-dependent (CLAUDE.md/MCP/agents
+                # affect resolution) so we can only learn it from a
+                # live SDK turn — but once we know, it sticks for
+                # the adapter's lifetime.
+                from claude_agent_sdk import SystemMessage
+
+                if isinstance(msg, SystemMessage) and not state.tool_names:
+                    tools = msg.data.get("tools") if isinstance(msg.data, dict) else None
+                    if isinstance(tools, list):
+                        state.tool_names = [str(t) for t in tools if isinstance(t, str)]
                 for ev in sdk_message_to_events(msg, sess.id):
                     await _broadcast(sess, ev)
                     # Cache assistant + user messages for GET /messages.
