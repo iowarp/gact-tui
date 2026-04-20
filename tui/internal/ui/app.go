@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"math/rand"
 	"os"
 	"strings"
@@ -1749,19 +1750,55 @@ func (a *App) scrollToSelectedMessage() {
 // alone gave no visual feedback. Default to the latest message so
 // the marker is immediately visible AND so Ctrl+E expands the most
 // recent bulky output by default (preserves the L3 behaviour).
-// (FFFFF1)
+// (FFFFF1) ZZZZZZZ1: skip past any absorbed tool messages so the
+// cursor lands on a row the renderer actually paints — otherwise the
+// highlight is invisible because the index targets a message that
+// pairToolResults swallowed into its assistant parent.
 func (a *App) maybeInitBodyCursor() {
 	if a.focus != FocusBody {
 		return
 	}
 	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+		a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx, -1)
 		return
 	}
 	if len(a.messages) == 0 {
 		return
 	}
-	a.bodySelMsgIdx = len(a.messages) - 1
+	a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
 	a.scrollToSelectedMessage()
+}
+
+// snapToVisibleMsg walks from idx in the given direction (+1 forward,
+// -1 backward) until it finds a non-absorbed message, then returns
+// that index. If none exists in that direction, falls back to the
+// other direction. Returns idx itself if everything is absorbed
+// (degenerate case — keeps the cursor stable).
+func (a *App) snapToVisibleMsg(idx, dir int) int {
+	if len(a.messages) == 0 {
+		return -1
+	}
+	_, absorbed := pairToolResults(a.messages)
+	if dir == 0 {
+		dir = -1
+	}
+	i := idx
+	for i >= 0 && i < len(a.messages) {
+		if !absorbed[i] {
+			return i
+		}
+		i += dir
+	}
+	// Fall back to scanning the other direction.
+	i = idx
+	dir = -dir
+	for i >= 0 && i < len(a.messages) {
+		if !absorbed[i] {
+			return i
+		}
+		i += dir
+	}
+	return idx
 }
 
 // jumpToMessage scrolls the conversation pane so the message with the
@@ -2166,13 +2203,15 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// scroll offscreen, leaving an orphan marker. Cursor-driven
 		// scroll keeps the marker visible. Raw page scroll stays
 		// available via PgUp/PgDn for big single-message bodies.
+		// ZZZZZZZ1: snap past absorbed tool messages so the cursor
+		// always lands on a row the renderer paints.
 		if len(a.messages) == 0 {
 			return a, nil
 		}
 		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = len(a.messages) - 1
+			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
 		} else if a.bodySelMsgIdx > 0 {
-			a.bodySelMsgIdx--
+			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx-1, -1)
 		}
 		a.scrollToSelectedMessage()
 	case "down", "j":
@@ -2180,9 +2219,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = 0
+			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
 		} else if a.bodySelMsgIdx < len(a.messages)-1 {
-			a.bodySelMsgIdx++
+			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx+1, 1)
 		}
 		a.scrollToSelectedMessage()
 	case "pgup", "ctrl+u":
@@ -2198,15 +2237,18 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.stickyToBottom = true
 		}
 	case "g":
-		// g jumps the cursor to the first (oldest) message.
+		// g jumps the cursor to the first (oldest) message. ZZZZZZZ1:
+		// snap forward past any absorbed tool message so the cursor
+		// lands on a visible row.
 		if len(a.messages) > 0 {
-			a.bodySelMsgIdx = 0
+			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
 			a.scrollToSelectedMessage()
 		}
 	case "G":
-		// G jumps the cursor to the latest message.
+		// G jumps the cursor to the latest message. ZZZZZZZ1: snap
+		// backward past any absorbed tool message.
 		if len(a.messages) > 0 {
-			a.bodySelMsgIdx = len(a.messages) - 1
+			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
 			a.scrollToSelectedMessage()
 		}
 	case "n":
@@ -2217,9 +2259,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = 0
+			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
 		} else if a.bodySelMsgIdx < len(a.messages)-1 {
-			a.bodySelMsgIdx++
+			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx+1, 1)
 		}
 		a.scrollToSelectedMessage()
 	case "N":
@@ -2227,9 +2269,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = len(a.messages) - 1
+			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
 		} else if a.bodySelMsgIdx > 0 {
-			a.bodySelMsgIdx--
+			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx-1, -1)
 		}
 		a.scrollToSelectedMessage()
 	case "a":
@@ -3615,13 +3657,18 @@ func (a *App) renderBody(width, height int) string {
 				prev = &a.messages[i-1]
 			}
 			row := t.renderMessageInContextWithResults(m, prev, width-4, inlineResults[i])
-			// Y1 + FFFFF1: body cursor marker — full-block `█` in the
-			// secondary palette colour with the same colour reused as
+			// Y1 + FFFFF1 + ZZZZZZZ1: body cursor marker — full-block `█` in
+			// the secondary palette colour with the same colour reused as
 			// background, so the gutter reads as a solid bar that runs
-			// the full height of the selected message. Previous `▌`
-			// half-block in plain bold was easy to miss against tool
-			// output. Takes precedence over the V3 search-hit marker
-			// if both apply, because the cursor is the active state.
+			// the full height of the selected message. Plus a faint
+			// row-wide background tint (ZZZZZZZ1) so the selected
+			// message is unmistakable against tool output and dense
+			// content — feedback_ctrl_e_and_overflow item 5: user
+			// reported "have not seen this, nor can I see it now" with
+			// the gutter alone. Tint matches BgSubtle (theme-aware) so
+			// foreground colours stay legible on every palette.
+			// Takes precedence over the V3 search-hit marker if both
+			// apply, because the cursor is the active state.
 			if i == a.bodySelMsgIdx && a.focus == FocusBody {
 				marker := lipgloss.NewStyle().
 					Foreground(t.Secondary).
@@ -3629,6 +3676,7 @@ func (a *App) renderBody(width, height int) string {
 					Bold(true).
 					Render("█")
 				row = prependGutter(row, marker+" ")
+				row = tintRowBg(row, t.BgSubtle, width-4)
 			} else if m.ID != "" && m.ID == a.searchHitMessageID {
 				// V3: left-gutter marker for the message the user jumped to
 				// from the palette's `?search` results. Applied after the
@@ -3769,6 +3817,26 @@ func prependGutter(s, gutter string) string {
 	lines := strings.Split(s, "\n")
 	for i := range lines {
 		lines[i] = gutter + lines[i]
+	}
+	return strings.Join(lines, "\n")
+}
+
+// tintRowBg paints a background colour across every line of s,
+// padding each line to width so the tint fills any short trailing
+// cells. Used by the body cursor to make the selected message
+// unmistakable — the gutter alone is easy to miss against tool
+// output (per feedback_ctrl_e_and_overflow item 5).
+func tintRowBg(s string, bg color.Color, width int) string {
+	lines := strings.Split(s, "\n")
+	style := lipgloss.NewStyle().Background(bg)
+	for i, ln := range lines {
+		// lipgloss.Width is ANSI-aware; pad with raw spaces and let the
+		// outer Background(...).Render colour those cells too.
+		w := lipgloss.Width(ln)
+		if w < width {
+			ln += strings.Repeat(" ", width-w)
+		}
+		lines[i] = style.Render(ln)
 	}
 	return strings.Join(lines, "\n")
 }

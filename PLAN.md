@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase ZZZZZZZ — Body cursor visibility + visible-row snap
+
+- [x] **ZZZZZZZ1.** Body cursor row now paints a `t.BgSubtle` background tint across the entire selected message (new `tintRowBg` helper that re-pads each line to width and fills with the theme's subtle bg) on top of the existing `█` Y1/FFFFF1 gutter. Cursor navigation (up/down/g/G/n/N + maybeInitBodyCursor) snaps past pairToolResults `absorbed[i]` indices via new `snapToVisibleMsg(idx, dir)` so the cursor always lands on a row the renderer actually paints — previously the cursor could land on an absorbed tool message, leaving no visible highlight (root cause of the user's "have not seen this, nor can I see it now" report). Screenshot `screenshots/ZZZZZZZ1_body_cursor_tint.png`. All `./internal/ui/` + `./` tests green (276s gact CLI suite).
+
 ## Phase TTTTTTT — Go claude-code adapter (stream-json direct)
 
 Goal: reimplement the Python claude-agent-sdk sidecar in Go so the claude integration ships in a single binary — no Python / uv runtime dep. Same HTTP surface, same caps, same passing conformance.
