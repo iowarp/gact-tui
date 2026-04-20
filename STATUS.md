@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T13:30Z
-**Current phase:** RRRRRRRR1 + SSSSSSSS1 shipped — fuzzy attach (sid prefix + title sub) + dashboard JSON carries detached field
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d667bae` (pushed)
+**Last updated:** 2026-04-20T14:00Z
+**Current phase:** TTTTTTTT1 + UUUUUUUU1 shipped — dump-bundle captures detached registry + `gact detached --watch` live refresh
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9bb0986` (pushed)
+
+### Phase UUUUUUUU1 — `gact detached --watch`
+- New --watch + --interval flags (default 2s) re-render the table each tick. Rejects combination with --rm or --prune-dead. Mirrors dashboard --watch pattern. Useful to see registry changes live during detach-flow testing.
+
+### Phase TTTTTTTT1 — dump-bundle captures detached
+- Bug-report bundle now includes `detached.json` alongside diag/metrics/sessions/version. Best-effort: missing registry just skips the artifact.
 
 ### Phase SSSSSSSS1 — Dashboard JSON has detached field
 - `--format json` rows now carry top-level `detached: bool` so jq pipelines see the marker. Same registry source as DET column.
