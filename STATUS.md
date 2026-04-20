@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T03:35Z
-**Current phase:** KKKKKKK1 + KKKKKKK2 shipped — rich TUI screenshot + Goose adapter scaffold
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `fd3cd74` (pushed)
-**Open:** none — Goose sessions/messages wiring is the natural next iteration.
+**Last updated:** 2026-04-20T03:55Z
+**Current phase:** LLLLLLL1 shipped — Goose sessions wired
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2de1ab5` (pushed)
+**Open:** none — Goose messages POST + SSE next; subagents/recipes after.
+
+### Phase LLLLLLL1 — Goose sessions
+- **LLLLLLL1.** New translate.go holds gooseSession → gact.Session projection. GET /v1/sessions + /v1/sessions/{id} wired with field translation (name→title, working_dir→metadata, status synthesized idle). caps.sessions=true. 4 new tests.
 
 ### Phase KKKKKKK — richer demo + next adapter
 - **KKKKKKK1.** screenshots/SDK-claude-tools.png shows the TUI rendering Bash + Read + Edit tool calls + colored file_diff Part inline against real Claude through the sidecar. Reproducible via tui/screenshot_claude_sdk_tools.tape.

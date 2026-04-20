@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase LLLLLLL — Goose adapter sessions wiring
 
-- [ ] **LLLLLLL1.** Wire Goose sessions list/get. Proxy `GET /sessions` → `{sessions: [GactSession]}` per SPEC §6.2 with the field translation: id→id, name→title, created_at→created_at, working_dir → metadata.x_goose_working_dir; status synthesized as "idle" (Goose doesn't expose live status). Per-id `GET /sessions/{id}` mirrors. Capability `sessions=true`. Tests use mocked goosed.
+- [x] **LLLLLLL1.** New translate.go holds gooseSession → gact.Session projection. GET /v1/sessions proxies + translates; GET /v1/sessions/{id} mirrors with upstream 404 → SPEC §6.0 envelope. caps.sessions=true. 4 new tests cover translation, 404 propagation, list loop. The TUI's sidebar populates with Goose sessions when pointed at a real goosed.
 
 ## Phase KKKKKKK — richer demo + next adapter
 
