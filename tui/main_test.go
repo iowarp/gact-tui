@@ -3909,7 +3909,22 @@ var _ = io.Discard
 
 // CCCCCCCC1: defaultAttachTarget reads the detached-sessions
 // registry and picks the most-recent entry for the current
-// backend so `gact attach` (no args) just works.
+// backend so `gact attach` (no args) just works. FFFFFFFF1 made
+// it probe each candidate before returning so a stale registry
+// entry doesn't crash the TUI on attach — tests stub the probe.
+//
+// allAlive treats every (backend, sid) as live; allDead treats
+// none alive; specificDead returns false for the listed SIDs only.
+func allAlive(_, _ string) bool { return true }
+func allDead(_, _ string) bool  { return false }
+func specificDead(deadSIDs ...string) func(string, string) bool {
+	dead := map[string]bool{}
+	for _, s := range deadSIDs {
+		dead[s] = true
+	}
+	return func(_, sid string) bool { return !dead[sid] }
+}
+
 func TestDefaultAttachTarget_PicksMostRecentForBackend(t *testing.T) {
 	dir := t.TempDir()
 	regPath := filepath.Join(dir, "detached.json")
@@ -3925,7 +3940,7 @@ func TestDefaultAttachTarget_PicksMostRecentForBackend(t *testing.T) {
 	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := defaultAttachTarget()
+	got, err := defaultAttachTargetWithProbe(allAlive)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3941,12 +3956,11 @@ func TestDefaultAttachTarget_NoMatchReturnsHelpfulError(t *testing.T) {
 	t.Setenv("GACT_BACKEND", "http://localhost:7777")
 	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
 
-	// Registry exists but only has entries on a DIFFERENT backend.
 	body := `{"records":[{"session_id":"sess_a","backend":"http://other:9999","detached_at":"2026-04-20T07:00:00Z"}]}`
 	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := defaultAttachTarget()
+	_, err := defaultAttachTargetWithProbe(allAlive)
 	if err == nil {
 		t.Fatal("expected error when no detach matches the current backend")
 	}
@@ -3963,12 +3977,66 @@ func TestDefaultAttachTarget_MissingRegistryIsHandled(t *testing.T) {
 	t.Setenv("GACT_BACKEND", "http://localhost:7777")
 	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
 
-	_, err := defaultAttachTarget()
+	_, err := defaultAttachTargetWithProbe(allAlive)
 	if err == nil {
 		t.Fatal("expected error when registry is empty/missing")
 	}
 	if !strings.Contains(err.Error(), "no detached sessions") {
 		t.Errorf("error should be the no-match message, got %q", err.Error())
+	}
+}
+
+// FFFFFFFF1: when the most-recent candidate is dead, fall through
+// to the next-newest live entry instead of attaching to a dead sid
+// and crashing the TUI on first request.
+func TestDefaultAttachTarget_SkipsDeadCandidates(t *testing.T) {
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	t.Setenv("GACT_DETACHED_PATH", regPath)
+	t.Setenv("GACT_BACKEND", "http://localhost:7777")
+	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
+
+	// Newest is dead, next is dead, third is alive — should pick third.
+	body := `{"records":[
+		{"session_id":"sess_dead_top","backend":"http://localhost:7777","detached_at":"2026-04-20T08:00:00Z"},
+		{"session_id":"sess_dead_mid","backend":"http://localhost:7777","detached_at":"2026-04-20T07:30:00Z"},
+		{"session_id":"sess_alive","backend":"http://localhost:7777","detached_at":"2026-04-20T07:00:00Z"}
+	]}`
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := defaultAttachTargetWithProbe(specificDead("sess_dead_top", "sess_dead_mid"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "sess_alive" {
+		t.Errorf("got %q, want sess_alive", got)
+	}
+}
+
+// FFFFFFFF1: when EVERY candidate is dead, return a helpful error
+// pointing to `gact detached --probe` so the user can clean up.
+func TestDefaultAttachTarget_AllDeadReturnsHelpfulError(t *testing.T) {
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	t.Setenv("GACT_DETACHED_PATH", regPath)
+	t.Setenv("GACT_BACKEND", "http://localhost:7777")
+	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
+
+	body := `{"records":[
+		{"session_id":"sess_a","backend":"http://localhost:7777","detached_at":"2026-04-20T08:00:00Z"},
+		{"session_id":"sess_b","backend":"http://localhost:7777","detached_at":"2026-04-20T07:00:00Z"}
+	]}`
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := defaultAttachTargetWithProbe(allDead)
+	if err == nil {
+		t.Fatal("expected error when every candidate is dead")
+	}
+	if !strings.Contains(err.Error(), "none are still alive") ||
+		!strings.Contains(err.Error(), "gact detached --probe") {
+		t.Errorf("error should point to --probe for cleanup; got %q", err.Error())
 	}
 }
 

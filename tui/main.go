@@ -466,12 +466,24 @@ func runAttach(args []string) {
 
 // defaultAttachTarget reads the detached.json registry and returns
 // the SessionID of the most-recent record matching the current
-// backend (resolved via the same precedence runTUI uses: env > flag
-// > config > built-in default; flags aren't parsed yet here so we
-// fall back to env-or-config-or-default). Returns a typed error
-// when nothing applies so the caller can exit with a helpful
-// message instead of an opaque attach-failed crash later.
+// backend that the backend can still confirm exists. Probes each
+// candidate newest-first and skips dead entries — a registry left
+// over from a backend restart shouldn't crash the TUI on attach
+// (FFFFFFFF1). Returns a typed error when nothing applies so the
+// caller can exit with a helpful message instead of an opaque
+// attach-failed crash later.
+//
+// Backend resolution mirrors runTUI's precedence: env > flag >
+// config > built-in default. Flags aren't parsed yet here so we
+// fall back to env-or-config-or-default.
 func defaultAttachTarget() (string, error) {
+	return defaultAttachTargetWithProbe(probeSessionAlive)
+}
+
+// defaultAttachTargetWithProbe is the testable variant — accepts a
+// probe func so tests can stub liveness without standing up an HTTP
+// server. defaultAttachTarget calls this with the real HTTP probe.
+func defaultAttachTargetWithProbe(probe func(backend, sid string) bool) (string, error) {
 	cfg, _, _ := config.Load()
 	envBackend := os.Getenv("GACT_BACKEND")
 	backend := config.Resolve(cfg.BackendURL, envBackend, "", defaultBackend)
@@ -483,14 +495,41 @@ func defaultAttachTarget() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("gact attach: read registry %s: %v", regPath, err)
 	}
+	skipped := 0
 	for _, r := range reg.Records {
-		if r.Backend == backend {
+		if r.Backend != backend {
+			continue
+		}
+		if !probe(r.Backend, r.SessionID) {
+			skipped++
+			continue
+		}
+		if skipped > 0 {
+			fmt.Fprintf(os.Stderr, "attaching to %s (%s) — skipped %d dead entry(ies)\n",
+				r.SessionID, r.Title, skipped)
+		} else {
 			fmt.Fprintf(os.Stderr, "attaching to most-recent detach: %s (%s)\n",
 				r.SessionID, r.Title)
-			return r.SessionID, nil
 		}
+		return r.SessionID, nil
+	}
+	if skipped > 0 {
+		return "", fmt.Errorf("gact attach: %d detached entry(ies) on %s but none are still alive — `gact detached --probe` to inspect, or attach by sid explicitly", skipped, backend)
 	}
 	return "", fmt.Errorf("gact attach: no detached sessions on %s — Ctrl+Z in the TUI records one, or `gact detached` to inspect across backends", backend)
+}
+
+// probeSessionAlive is the production probe — a 2-second HTTP GET
+// against /v1/sessions/{sid}. Any error or non-2xx response means
+// "not alive" so a transient backend hiccup is treated the same as
+// a deleted session. Slightly conservative but safer than letting
+// the TUI hang on a bad attach target.
+func probeSessionAlive(backend, sid string) bool {
+	c := client.New(backend)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, err := c.GetSession(ctx, sid)
+	return err == nil
 }
 
 func runTUI() {
