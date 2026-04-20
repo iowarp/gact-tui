@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase GGGGGGGGG — `gact list` carries detached marker
+
+- [x] **GGGGGGGGG1.** `gact list` output now carries a detached marker on every row — mirrors SSSSSSSS1 + CCCCCCCC2 on dashboard. TSV format: new 5th column with `yes` or empty string; JSON format: new top-level `detached: bool` field. Same registry source filtered to current backend. Additive change — JSON callers see a new key alongside existing ones, TSV callers slicing cols 1..4 with awk/cut stay correct. End-to-end against live emulator with 2-session backend + 1-entry registry: walked row shows `yes` / `true`, plain row shows empty / `false`. TestCLI_ListFilters + TestCLI_ListDetachedOnlyAndSort still pass.
+
 ## Phase FFFFFFFFF — `gact list` gets --detached-only + --sort
 
 - [x] **FFFFFFFFF1.** `gact list` gains two flags mirroring dashboard: `--detached-only` (filter to sessions in the local registry — YYYYYYYY1 on dashboard, BBBBBBBB1 on sidebar) and `--sort newest|oldest|status|tokens|backend` (KKKKKKKK1 — reuses the shared sortSessions helper). Default sort remains backend-order to preserve TSV-consuming script stability; --sort must be passed explicitly to reorder. Unknown --sort value fails fast. Filter ordering: status → detached-only → sort → limit. TestCLI_ListDetachedOnlyAndSort: 3 sessions with monotonic UpdatedAt verifies --sort oldest flips order; bogus --sort exits 2; --detached-only + seeded registry keeps only the registered sid. Existing TestCLI_ListFilters still green.
