@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T17:00Z
-**Current phase:** DDDDDDDDD1 + EEEEEEEEE1 shipped — `gact grep --role` + `gact follow --since`
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `afb4f08` (pushed)
+**Last updated:** 2026-04-20T17:30Z
+**Current phase:** FFFFFFFFF1 + GGGGGGGGG1 shipped — `gact list` gains --detached-only + --sort + detached marker column
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `789449d` (pushed)
+
+### Phase GGGGGGGGG1 — `gact list` detached marker
+- TSV gains 5th column (`yes`/empty), JSON gains `detached: bool` field. Same registry source as other surfaces. Additive — existing callers unaffected.
+
+### Phase FFFFFFFFF1 — `gact list` filters + sort
+- New `--detached-only` mirrors YYYYYYYY1 on dashboard, `--sort` reuses KKKKKKKK1 helper. Default sort stays backend-order for script stability. TestCLI_ListDetachedOnlyAndSort covers.
 
 ### Phase EEEEEEEEE1 — `gact follow --since`
 - Trim initial snapshot to messages within the DUR cutoff. Streamed messages always emit. Seen tracking stays on full listing to prevent SSE replay re-emitting trimmed messages.
