@@ -33,10 +33,8 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// be skipped because no sid is in scope.
 		SessionID:         "ses_conformance",
 		SkipCreateSession: true,
-		// Goose's POST + SSE wiring lands in subsequent iterations
-		// (NNNNNNN+) — out of scope for this conformance check.
-		SkipPostMessage: true,
-		SkipSSE:         true,
+		// OOOOOOO1: POST + SSE wired; conformance now exercises the
+		// upstream /reply path through the mocked goosed.
 		// Endpoints the adapter doesn't proxy yet — they'd 501 and
 		// the conformance suite treats 501 as failure.
 		SkipCommands:      true,
@@ -56,6 +54,17 @@ func mockCompleteGoose(t *testing.T) *httptest.Server {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"healthy":true}`))
+	})
+	// OOOOOOO1: /reply emits a single Message + Finish so the
+	// conformance SSE check sees a real frame within the budget.
+	mux.HandleFunc("POST /reply", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fl := w.(http.Flusher)
+		_, _ = w.Write([]byte("data: " + `{"type":"Message","message":{"role":"Assistant","created":1735689700,"content":[{"type":"text","text":"hi"}]},"token_state":{}}` + "\n\n"))
+		fl.Flush()
+		_, _ = w.Write([]byte("data: " + `{"type":"Finish","reason":"end_turn","token_state":{}}` + "\n\n"))
+		fl.Flush()
 	})
 	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase OOOOOOO — Goose POST messages + SSE
+
+- [ ] **OOOOOOO1.** Wire POST `/v1/sessions/{sid}/messages` → POST `/reply` upstream (adapter translates GACT Part[] body → Goose `ChatRequest{user_message, session_id}`). Pump the upstream SSE response into per-session subscribers. Wire GET `/v1/sessions/{sid}/events` to fan-out to those subscribers as SPEC §7.2 envelopes. Translate Goose's MessageEvent variants: `Message`→`message.created`, `Finish`→`session.status_changed:idle`, `Error`→`session.status_changed:error`, `Notification`→`notification`, `Ping`→`server.heartbeat`. Drop `UpdateConversation`/`ActiveRequests` (adapter-internal). Tests use a mocked goosed that emits a canned SSE stream from `/reply`. caps.sse=true.
+
 ## Phase NNNNNNN — Goose conformance test
 
 - [x] **NNNNNNN1.** New conformance_test.go mirrors opencode/crush patterns. Caught a missing per-id message endpoint; added handleGetMessage. 6 sections green: Health, Capabilities, Workspaces, Sessions_List, Sessions_Get, Messages_List (with per-id drill). Goose adapter is now conformance-validated for every section it advertises.
