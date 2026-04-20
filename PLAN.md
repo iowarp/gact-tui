@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase BBBBBBBB — Detached-session sidebar marker + auto-prune
+
+- [x] **BBBBBBBB1.** Sidebar now tags every session the user has previously Ctrl+Z-detached from with a small `↩` glyph. App.previouslyDetached map is seeded from the local detached.json registry at startup (filtered to the current backend so cross-backend entries don't leak). New `LoadDetachedRegistry([]DetachedRegistryEntry)` API on App + main.go wiring. Two-step `x/x` delete now prunes both the in-memory set and the on-disk registry via the new App.PruneDetachedRegistry callback so stale entries don't accumulate. Two new unit tests + screenshot `screenshots/BBBBBBBB1_detached_marker.png` showing one fresh + one marked session side-by-side. End-to-end VHS tape verified against live emulator.
+
 ## Phase AAAAAAAA — Detached-sessions registry + `gact detached`
 
 - [x] **AAAAAAAA1.** New `tui/internal/config/detached.go` persists Ctrl+Z detach events to `detached.json` (sibling of config.json; honours `GACT_DETACHED_PATH`). Records: session_id + title + backend + workspace + detached_at. Dedupe by (backend, sid); trim to 64 most-recent. New `gact detached [--rm SID] [--probe] [--format pretty|tsv|json]` lists the registry; `--probe` GETs each session to mark alive/dead, `--rm` drops by sid across backends. App captures DetachedTitle + DetachedWorkspace alongside DetachedSessionID at Ctrl+Z; main.go appends after p.Run() returns. End-to-end verified through VHS tape (Ctrl+Z → JSON file → `gact detached` shows row, --probe = "yes" against live emulator). 5 new config tests, all green.

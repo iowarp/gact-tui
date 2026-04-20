@@ -491,6 +491,28 @@ func runTUI() {
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
 	app.VoiceCommand = finalVoice
+	// BBBBBBBB1: seed the previously-detached set so the sidebar can
+	// mark sessions the user already walked away from. Soft-fails:
+	// missing/malformed registry just means no markers on this run.
+	if path, err := config.DetachedPath(); err == nil {
+		if reg, err := config.LoadDetached(path); err == nil {
+			entries := make([]ui.DetachedRegistryEntry, 0, len(reg.Records))
+			for _, r := range reg.Records {
+				entries = append(entries, ui.DetachedRegistryEntry{
+					SessionID: r.SessionID,
+					Backend:   r.Backend,
+				})
+			}
+			app.LoadDetachedRegistry(entries)
+		}
+		// Wire the prune callback so x/x in the sidebar removes the
+		// session from the registry too — best-effort, errors are
+		// swallowed since the user has just deleted the session and
+		// can't act on a registry-write failure.
+		app.PruneDetachedRegistry = func(sid string) {
+			_, _ = config.RemoveDetached(path, finalBackend, sid)
+		}
+	}
 	// N5: restore the persisted collapse threshold. If the file
 	// didn't have it, Theme.applyStyles already picked the 5-line
 	// default in NewWithTheme above.

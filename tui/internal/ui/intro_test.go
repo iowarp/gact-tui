@@ -63,6 +63,75 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	}
 }
 
+// BBBBBBBB1: sidebar shows ↩ marker when the user previously
+// detached from a session (loaded from the local registry at
+// startup). Filters by backend so cross-backend entries don't
+// leak into the wrong sidebar.
+func TestSidebar_DetachedMarker(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_walked", Title: "walked-away", Status: gact.StatusIdle},
+		{ID: "sess_fresh", Title: "fresh", Status: gact.StatusIdle},
+	}, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_walked", Backend: "http://localhost:7777"},
+		{SessionID: "sess_other_backend", Backend: "http://other:9999"},
+	})
+	a.width, a.height = 100, 30
+	out := a.renderSidebar(40, 25)
+	walkedIdx := strings.Index(out, "walked-away")
+	freshIdx := strings.Index(out, "fresh")
+	if walkedIdx < 0 || freshIdx < 0 {
+		t.Fatalf("expected both sessions rendered: %q", out)
+	}
+	walkedLine := out[walkedIdx:]
+	if eol := strings.IndexByte(walkedLine, '\n'); eol > 0 {
+		walkedLine = walkedLine[:eol]
+	}
+	if !strings.Contains(walkedLine, "↩") {
+		t.Errorf("walked-away should carry ↩ marker: %q", walkedLine)
+	}
+	freshLine := out[freshIdx:]
+	if eol := strings.IndexByte(freshLine, '\n'); eol > 0 {
+		freshLine = freshLine[:eol]
+	}
+	if strings.Contains(freshLine, "↩") {
+		t.Errorf("fresh session should NOT carry marker: %q", freshLine)
+	}
+}
+
+// BBBBBBBB1: deleting a marked session (x/x in the sidebar) prunes
+// the in-memory set and fires the prune callback so the registry
+// stays in sync.
+func TestSidebar_DeletePrunesDetached(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_walked", Title: "walked-away", Status: gact.StatusIdle},
+	}, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.wsID = "ws_default"
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_walked", Backend: "http://localhost:7777"},
+	})
+	a.focus = FocusSidebar
+	a.selected = 0
+
+	pruned := ""
+	a.PruneDetachedRegistry = func(sid string) { pruned = sid }
+
+	// First x arms.
+	if _, _ = a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"}); a.pendingDeleteSessionID != "sess_walked" {
+		t.Fatalf("first x should arm; got pendingDelete=%q", a.pendingDeleteSessionID)
+	}
+	// Second x confirms; should fire the prune.
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	if pruned != "sess_walked" {
+		t.Errorf("PruneDetachedRegistry not called; pruned=%q", pruned)
+	}
+	if a.previouslyDetached["sess_walked"] {
+		t.Error("in-memory set should drop the deleted sid")
+	}
+}
+
 // UUU1: sidebar shows `(N tasks)` badge when the session has open
 // tasks. Counts pending+running; completed/failed don't count.
 func TestSidebar_TaskBadge(t *testing.T) {
