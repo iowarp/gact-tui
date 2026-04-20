@@ -274,91 +274,12 @@ func runEmitConfig() {
 // version, contract version, Go runtime, resolved config path + its
 // fields, resolved theme, and whether a custom theme file was found.
 // Non-interactive; exits zero after printing. Useful for bug reports.
-func runDiag() {
-	fmt.Printf("gact %s\n", binaryVersion)
-	fmt.Printf("  contract:   %s\n", contractVersion)
-	fmt.Printf("  runtime:    %s\n", runtime.Version())
-	fmt.Printf("  platform:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
-	if rev, when, dirty := readVCSInfo(); rev != "" {
-		suffix := ""
-		if dirty {
-			suffix = " (dirty)"
-		}
-		fmt.Printf("  revision:   %s%s\n", rev, suffix)
-		if when != "" {
-			fmt.Printf("  built:      %s\n", when)
-		}
-	}
-
-	cfgPath, err := config.DefaultPath()
-	if err != nil {
-		fmt.Printf("  config path: (error: %v)\n", err)
-	} else {
-		fmt.Printf("  config path: %s\n", cfgPath)
-	}
-	cfg, _, cfgErr := config.Load()
-	if cfgErr != nil {
-		fmt.Printf("  config load: (error: %v)\n", cfgErr)
-	}
-	print := func(label string, val *string) {
-		if val != nil && *val != "" {
-			fmt.Printf("  %s: %s\n", label, *val)
-		} else {
-			fmt.Printf("  %s: (unset)\n", label)
-		}
-	}
-	print("backend_url", cfg.BackendURL)
-	print("theme      ", cfg.Theme)
-	print("voice_cmd  ", cfg.VoiceCommand)
-	if cfg.CollapseThreshold != nil {
-		fmt.Printf("  collapse_threshold: %d\n", *cfg.CollapseThreshold)
-	}
-	if cfg.CostWarnTokens != nil {
-		fmt.Printf("  cost_warn_tokens:   %d\n", *cfg.CostWarnTokens)
-	}
-	if cfg.CostDangerTokens != nil {
-		fmt.Printf("  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
-	}
-
-	// Custom theme file.
-	themePath, _ := ui.CustomThemeDefaultPath()
-	if themePath != "" {
-		if _, err := os.Stat(themePath); err == nil {
-			fmt.Printf("  custom theme: %s (present)\n", themePath)
-			if _, err := ui.LoadCustomTheme(themePath); err != nil {
-				fmt.Printf("    parse error: %v\n", err)
-			}
-		} else {
-			fmt.Printf("  custom theme: %s (not present)\n", themePath)
-		}
-	}
-
-	// Environment.
-	for _, name := range []string{
-		"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD",
-		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
-	} {
-		if v := os.Getenv(name); v != "" {
-			fmt.Printf("  env %s: %s\n", name, v)
-		}
-	}
-	// HHHHHHHHH1: one-line summary of the local detached registry
-	// (AAAAAAAA1) so bug reports on resume/attach UX carry the
-	// state without a separate `gact detached` run.
-	if regPath, err := config.DetachedPath(); err == nil {
-		fmt.Printf("  detached_path: %s\n", regPath)
-		if reg, err := config.LoadDetached(regPath); err == nil {
-			backends := map[string]bool{}
-			for _, r := range reg.Records {
-				backends[r.Backend] = true
-			}
-			fmt.Printf("  detached_count: %d record(s) across %d backend(s)\n",
-				len(reg.Records), len(backends))
-		} else {
-			fmt.Printf("  detached_count: (unreadable: %v)\n", err)
-		}
-	}
-}
+// runDiag prints the diag report to stdout. IIIIIIIII1: delegates
+// to writeDiagTo(os.Stdout, verbose=true) so there's exactly one
+// place that knows the report shape. `verbose=true` adds the
+// "custom theme" + "config load error" rows that the dump-bundle
+// variant historically omitted.
+func runDiag() { writeDiagToVerbose(os.Stdout) }
 
 const (
 	// binaryVersion is bumped manually for now. A future enhancement
@@ -5232,10 +5153,22 @@ func runDumpBundle(args []string) int {
 	return 0
 }
 
-// writeDiagTo writes the same content `runDiag` prints, but into an
-// arbitrary writer. Extracted from runDiag so dump-bundle can capture
-// the diag report into a file without process re-exec or pipes.
-func writeDiagTo(w io.Writer) {
+// writeDiagTo writes the terse diag report to an arbitrary writer.
+// Used by dump-bundle (TTTTTTTT1). Use writeDiagToVerbose (runDiag)
+// for the stdout path — it adds custom-theme + config-load rows.
+//
+// IIIIIIIII1: both variants share writeDiagCore so future rows
+// (new env vars, new counters) land in one place automatically.
+func writeDiagTo(w io.Writer) { writeDiagCore(w, false) }
+
+// writeDiagToVerbose is the stdout variant runDiag uses. Includes
+// the config-load error line + the custom-theme probe that
+// dump-bundle intentionally omits.
+func writeDiagToVerbose(w io.Writer) { writeDiagCore(w, true) }
+
+// writeDiagCore is the single source of truth for diag output.
+// verbose=true adds custom-theme probe + config-load error row.
+func writeDiagCore(w io.Writer, verbose bool) {
 	fmt.Fprintf(w, "gact %s\n", binaryVersion)
 	fmt.Fprintf(w, "  contract:   %s\n", contractVersion)
 	fmt.Fprintf(w, "  runtime:    %s\n", runtime.Version())
@@ -5256,7 +5189,10 @@ func writeDiagTo(w io.Writer) {
 	} else {
 		fmt.Fprintf(w, "  config path: %s\n", cfgPath)
 	}
-	cfg, _, _ := config.Load()
+	cfg, _, cfgErr := config.Load()
+	if verbose && cfgErr != nil {
+		fmt.Fprintf(w, "  config load: (error: %v)\n", cfgErr)
+	}
 	print := func(label string, val *string) {
 		if val != nil && *val != "" {
 			fmt.Fprintf(w, "  %s: %s\n", label, *val)
@@ -5275,6 +5211,19 @@ func writeDiagTo(w io.Writer) {
 	}
 	if cfg.CostDangerTokens != nil {
 		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
+	}
+	if verbose {
+		themePath, _ := ui.CustomThemeDefaultPath()
+		if themePath != "" {
+			if _, err := os.Stat(themePath); err == nil {
+				fmt.Fprintf(w, "  custom theme: %s (present)\n", themePath)
+				if _, err := ui.LoadCustomTheme(themePath); err != nil {
+					fmt.Fprintf(w, "    parse error: %v\n", err)
+				}
+			} else {
+				fmt.Fprintf(w, "  custom theme: %s (not present)\n", themePath)
+			}
+		}
 	}
 	for _, name := range []string{
 		"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD",
