@@ -10,7 +10,7 @@ Goal: close out the sidecar's "Roadmap" section so capabilities the adapter adve
 
 - [x] **GGGGGGG1.** Wired `GET /v1/tools` (and `/v1/tools/{id}`) sourced from the SDK's first `SystemMessage(init)` data.tools. After one real turn, 33 tools discovered. 2 endpoint tests added.
 - [x] **GGGGGGG2.** Visual proof shipped: `screenshots/SDK-claude-tui.png` shows the gact TUI rendering real Claude assistant replies via the sidecar. Surfaced + fixed two more bugs end-to-end (SSE CRLF mismatch in gact's parser; double-wrapped user-echo in post_message broadcast).
-- [ ] **GGGGGGG3.** `file_diff` translation in bridge. When the SDK emits a `ToolUseBlock` with `name in {"Edit","Write","NotebookEdit"}`, *also* emit a sibling GACT `file_diff` part so the TUI's `a/r` apply/reject keys light up. Read the input args (path/old_string/new_string for Edit, file_path/content for Write). Read-only until the user accepts (no upstream POST yet).
+- [x] **GGGGGGG3.** Edit/Write ToolUseBlock now produces a sibling `file_diff` GACT Part. Pre-state read from disk (resolved against cwd); replace semantics match Anthropic's contract (single occurrence by default; replace_all=true does global). Language hint by extension. NotebookEdit skipped. 11 new tests including a real-LLM smoke that asks Claude to Edit a fixture file and asserts the file_diff rides alongside tool_call.
 - [ ] **GGGGGGG4.** Streaming deltas. Pass `include_partial_messages=True` in `ClaudeAgentOptions` and translate the SDK's `StreamEvent` into GACT `message.part.delta` events for char-by-char rendering. Currently the TUI sees full messages on `.receive_response()` boundaries.
 
 ## Phase DDDDDDD — claude-code / Claude Agent SDK adapter (SUPERSEDED by EEEEEEE1)
