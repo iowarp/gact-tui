@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase EEEEEEEE — Empty-state resume hint
+
+- [x] **EEEEEEEE1.** When no session is selected (fresh TUI start, deleted last session, etc.) AND App.previouslyDetached has entries, the empty-state callout now surfaces `↩ N detached session(s) on this backend — gact attach (no args) resumes the most recent` between the Press-Ctrl+N callout and the keys crib. Closes the discoverability loop: header chip + sidebar marker + dashboard column + empty-state hint + `gact attach` no-args + `gact detached` all read off the same registry. New unit test `TestEmptyState_DetachedResumeHint` (no hint when 0, "↩ 2 detached" when 2 entries match backend). Screenshot `screenshots/EEEEEEEE1_empty_state_resume_hint.png`.
+
 ## Phase DDDDDDDD — Header chip for detached count
 
 - [x] **DDDDDDDD1.** Top header now carries a small `↩ N` chip (StatusBadge-style: theme Secondary bg + theme Bg fg, padded + bold) when the user has Ctrl+Z-walked-away sessions on this backend. Reads from App.previouslyDetached so the count stays consistent with the BBBBBBBB1 sidebar markers + CCCCCCCC2 dashboard column. Hidden when N=0 to avoid noise on a fresh install. Chip renders before the status badge so the eye groups them as a pair. New unit test `TestHeader_DetachedChip` (no chip when empty, "↩ 2" when two entries match the backend, cross-backend filtered out). Screenshot `screenshots/DDDDDDDD1_header_detached_chip.png` shows the chip + sidebar markers + sessions side by side.

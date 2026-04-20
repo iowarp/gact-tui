@@ -63,6 +63,36 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	}
 }
 
+// EEEEEEEE1: empty-state callout (no session selected) surfaces
+// the detached count + resume hint when the user has detached
+// sessions on this backend.
+func TestEmptyState_DetachedResumeHint(t *testing.T) {
+	a := newReadyApp([]gact.Session{}, nil)
+	a.BackendURL = "http://localhost:7777"
+	a.width, a.height = 140, 30
+	// Without detached → no hint.
+	out := a.renderBody(a.width-40, a.height-3)
+	if strings.Contains(out, "gact attach") || strings.Contains(out, "detached session(s)") {
+		// note: the existing crib already mentions Ctrl+Z and `gact
+		// attach <sid>`, so check for the EEEEEEEE1 phrase explicitly.
+		if strings.Contains(out, "detached session(s) on this backend") {
+			t.Errorf("empty resume hint should not appear when none detached: %q", out)
+		}
+	}
+	// Two detached → resume hint appears with count.
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_a", Backend: "http://localhost:7777"},
+		{SessionID: "sess_b", Backend: "http://localhost:7777"},
+	})
+	out = a.renderBody(a.width-40, a.height-3)
+	if !strings.Contains(out, "↩ 2 detached session(s) on this backend") {
+		t.Errorf("resume hint missing or wrong count: %q", out)
+	}
+	if !strings.Contains(out, "gact attach") {
+		t.Errorf("resume hint should mention gact attach: %q", out)
+	}
+}
+
 // DDDDDDDD1: header carries a `↩ N` chip when the user has
 // detached sessions on the current backend. Hidden when N=0.
 func TestHeader_DetachedChip(t *testing.T) {
