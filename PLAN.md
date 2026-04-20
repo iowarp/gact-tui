@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase FFFFFFFF — Probe candidates before attaching
+
+- [x] **FFFFFFFF1.** `defaultAttachTarget` now probes each candidate (newest-first) with a 2s GET against /v1/sessions/{sid} before returning. Stale entries (backend deleted the session, restarted, etc.) get skipped instead of crashing the TUI on the first request after attach. New `defaultAttachTargetWithProbe(probe func)` testable variant; production wraps with the real HTTP probe `probeSessionAlive`. When dead candidates are skipped before reaching a live one, stderr prints `attaching to <sid> (<title>) — skipped N dead entry(ies)`. When EVERY candidate is dead, returns `N detached entry(ies) on <backend> but none are still alive — gact detached --probe to inspect`. 5 unit tests now (3 prior + 2 new: skip-dead, all-dead). End-to-end against live emulator: 1-dead-1-live registry skips dead and attaches to live; all-dead prints the helpful error and exits 2.
+
 ## Phase EEEEEEEE — Empty-state resume hint
 
 - [x] **EEEEEEEE1.** When no session is selected (fresh TUI start, deleted last session, etc.) AND App.previouslyDetached has entries, the empty-state callout now surfaces `↩ N detached session(s) on this backend — gact attach (no args) resumes the most recent` between the Press-Ctrl+N callout and the keys crib. Closes the discoverability loop: header chip + sidebar marker + dashboard column + empty-state hint + `gact attach` no-args + `gact detached` all read off the same registry. New unit test `TestEmptyState_DetachedResumeHint` (no hint when 0, "↩ 2 detached" when 2 entries match backend). Screenshot `screenshots/EEEEEEEE1_empty_state_resume_hint.png`.
