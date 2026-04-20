@@ -2699,12 +2699,44 @@ func (a *App) currentSessionID() string {
 // didn't match any session — caller surfaces a transient hint.
 // (OOO1; pulled out of connectedMsg so tests can target the
 // decision logic without firing the network-bound selectSession Cmd.)
+//
+// RRRRRRRR1: matching strategy is precedence-ordered:
+//  1. exact id match
+//  2. exact title match (case-sensitive — preserves OOO1 behaviour)
+//  3. id PREFIX match (so an 8-char `sess_abc1…` resolves)
+//  4. title SUBSTRING match, case-insensitive (so `attach refactor`
+//     resolves "refactor api auth")
+// Each precedence level is tried fully across the list before
+// falling through. Within a level, first match wins — backends
+// typically order sessions newest-first so this picks the most
+// recent. missing=true only when no level produced any match.
 func (a *App) pickAttachIndex() (idx int, missing bool) {
 	if a.AttachSessionID == "" {
 		return 0, false
 	}
+	target := a.AttachSessionID
+	targetLower := strings.ToLower(target)
+	// 1. exact id.
 	for i, s := range a.sessions {
-		if s.ID == a.AttachSessionID || s.Title == a.AttachSessionID {
+		if s.ID == target {
+			return i, false
+		}
+	}
+	// 2. exact title (case-sensitive — explicit > heuristic).
+	for i, s := range a.sessions {
+		if s.Title == target {
+			return i, false
+		}
+	}
+	// 3. id prefix.
+	for i, s := range a.sessions {
+		if strings.HasPrefix(s.ID, target) {
+			return i, false
+		}
+	}
+	// 4. title substring (case-insensitive).
+	for i, s := range a.sessions {
+		if strings.Contains(strings.ToLower(s.Title), targetLower) {
 			return i, false
 		}
 	}
