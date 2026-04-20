@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T11:00Z
-**Current phase:** JJJJJJJJ1 shipped + help/empty-state discoverability — sidebar `d` toggles detached-only view
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `c50b811` (pushed)
+**Last updated:** 2026-04-20T11:30Z
+**Current phase:** KKKKKKKK1 + LLLLLLLL1 shipped — dashboard --sort (newest-first default) + transient hint flicker fix
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `eef268c` (pushed)
+
+### Phase LLLLLLLL1 — Transient hint flicker fix
+- Root cause: handleKey's blanket transientHint-clear wiped background-event hints on the user's very next keystroke, flashing for ~1 frame. Fix adds transientHintAt stamp + 800ms min-dwell floor. Update() defers a tiny hook so every branch that assigns transientHint gets auto-stamped without touching 20+ call sites. Test covers pre/post-dwell behavior.
+
+### Phase KKKKKKKK1 — `gact dashboard --sort`
+- `--sort newest|oldest|status|tokens|backend` flag; default=newest. Stable sort preserves backend order within tied keys. Unknown sort keys fail fast. TestCLI_DashboardSort end-to-end covers default + oldest + error path.
 
 ### Phase JJJJJJJJ1 — Sidebar detached-only toggle
 - `d` in sidebar focus narrows list to previously-detached sessions (parallels `h` archived toggle). Sidebar title flips to `SESSIONS · detached`, transient hint reads "showing N detached session(s)". Local filter — no backend refetch. ensureSelectedVisible adjusts selection after toggle. Help overlay row + empty-state crib updated; view goldens regenerated.
