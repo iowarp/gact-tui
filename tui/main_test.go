@@ -1207,6 +1207,60 @@ func TestCLI_GrepLimit(t *testing.T) {
 	}
 }
 
+// DDDDDDDDD1: `gact grep --role` narrows hits to one or more roles.
+// Mirrors VVVVVVVV1/WWWWWWWW1 on log+follow.
+func TestCLI_GrepRoleFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+
+	sid := createSession(t, url, "grep-role-target")
+	// Send "read main.go please" — produces user + assistant + tool +
+	// assistant. The marker "please" appears only in the user turn.
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "read main.go please"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	// --role user keeps the user hit (contains "please").
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", "please", "--role", "user")
+	if code != 0 {
+		t.Fatalf("grep --role user: exit %d", code)
+	}
+	if !strings.Contains(stdout, "user\t") && !strings.Contains(stdout, "\tuser\t") {
+		t.Errorf("expected a user row: %q", stdout)
+	}
+	if strings.Contains(stdout, "\tassistant\t") || strings.Contains(stdout, "\ttool\t") {
+		t.Errorf("--role user shouldn't keep other roles: %q", stdout)
+	}
+
+	// --role assistant → assistant turn doesn't contain "please" so
+	// the result is empty (0 rows, exit 0).
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", "please", "--role", "assistant")
+	if code != 0 {
+		t.Fatalf("grep --role assistant: exit %d", code)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("--role assistant should yield empty output: %q", stdout)
+	}
+
+	// Unknown role → exit 2.
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"grep", "please", "--role", "bogus")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for unknown --role")
+	}
+	if !strings.Contains(stderr, "unknown --role") {
+		t.Errorf("stderr should mention 'unknown --role': %q", stderr)
+	}
+}
+
 // TestCLI_DashboardWatch covers BBBB1: --watch refreshes the table
 // in place. Run for 2.5s with --interval 1s, expect ≥2 ANSI clear
 // sequences in the output (initial + at least one refresh).

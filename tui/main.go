@@ -427,6 +427,7 @@ Usage:
                               --rm <sid[,sid,...]> drops one or many; --probe checks each is still on the backend
                               --prune-dead probes + removes every dead entry in one shot
   gact grep <query>          search across all sessions; --limit N to truncate (0 = unlimited)
+                              --role user,assistant,tool,system narrows hits by role
   gact follow <sid>          tail -f the conversation log; --format text|json (NDJSON)
                               --role user,assistant,tool,system filters (same shape as gact log)
                               --grep REGEX drops messages whose text doesn't match (case-insensitive)
@@ -2214,17 +2215,22 @@ func runGrep(args []string) int {
 	// (back-compat). Truncation happens AFTER sorting so the kept
 	// rows are still the lexicographically-smallest sids.
 	limit := fs.Int("limit", 0, "max hits to print (0 = unlimited)")
+	// DDDDDDDDD1: --role filter mirrors VVVVVVVV1 on log/follow.
+	// Applies AFTER the cross-session search gathers hits, so the
+	// keep-set filters the role-decorated rows built from midRoles.
+	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
 		"--limit": true, "-limit": true,
+		"--role":  true, "-role": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
 	}
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--format tsv|json] [--limit N]")
+		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--role user,assistant,...] [--format tsv|json] [--limit N]")
 		return 2
 	}
 	query := strings.Join(fs.Args(), " ")
@@ -2235,6 +2241,22 @@ func runGrep(args []string) int {
 	if *limit < 0 {
 		fmt.Fprintln(os.Stderr, "gact grep: --limit must be >= 0")
 		return 2
+	}
+	// DDDDDDDDD1: build + validate the role keep-set up front.
+	var keepRole map[string]bool
+	if *role != "" {
+		keepRole = map[string]bool{}
+		for _, r := range strings.Split(*role, ",") {
+			r = strings.TrimSpace(r)
+			switch r {
+			case "":
+			case "user", "assistant", "tool", "system":
+				keepRole[r] = true
+			default:
+				fmt.Fprintf(os.Stderr, "gact grep: unknown --role %q (want user|assistant|tool|system)\n", r)
+				return 2
+			}
+		}
 	}
 	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 	c := client.New(finalBackend)
@@ -2300,6 +2322,18 @@ func runGrep(args []string) int {
 		}(sess)
 	}
 	wg.Wait()
+	// DDDDDDDDD1: drop hits whose role isn't in the keep-set. Runs
+	// after the parallel search finishes — before sort + limit so
+	// the kept rows are the lexicographically-first post-filter.
+	if keepRole != nil {
+		kept := hits[:0]
+		for _, h := range hits {
+			if keepRole[h.Role] {
+				kept = append(kept, h)
+			}
+		}
+		hits = kept
+	}
 	sort.Slice(hits, func(i, j int) bool { return hits[i].SID < hits[j].SID })
 	if *limit > 0 && len(hits) > *limit {
 		hits = hits[:*limit]
