@@ -4,6 +4,13 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase IIIIIII — claude-agent-sdk session control + MCP
+
+Goal: round out the sidecar with the operations the TUI's footer + catalog browser already have UI for.
+
+- [ ] **IIIIIII1.** Session cancel via `client.interrupt()`. Wire `POST /v1/sessions/{sid}/cancel` to call the SDK client's `interrupt()` method, broadcast a `session.status_changed: cancelling → idle` pair so the TUI's `Ctrl+X` flow works against real Claude. Real-LLM smoke that asks for a long reply, fires cancel mid-stream, asserts the turn ends early.
+- [ ] **IIIIIII2.** MCP catalog passthrough. The SDK's `SystemMessage(init).data.mcp_servers` lists the configured MCP servers (name + status). Cache them on State; expose via `GET /v1/mcp/servers` per SPEC §6.7. Flip `capabilities.mcp=true`. Also wire `GET /v1/mcp/servers/{id}` (the conformance per-id drill). Per-server tools/resources/prompts left for later (SDK doesn't expose them through claude-agent-sdk surface).
+
 ## Phase HHHHHHH — claude-agent-sdk permission flow
 
 Goal: light up the TUI's `a/d/s/w` permission keys for SDK tool calls so `gact perms` and the inline banner work end-to-end.

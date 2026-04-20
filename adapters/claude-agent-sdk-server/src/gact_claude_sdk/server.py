@@ -244,6 +244,41 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
             except Exception:
                 pass
 
+    @app.post("/v1/sessions/{sid}/cancel", status_code=204)
+    async def cancel_session(sid: str) -> None:
+        """IIIIIII1: stop an in-flight SDK turn. Routes to
+        ClaudeSDKClient.interrupt() (which signals the underlying
+        claude CLI to abort the current generation). The bridge
+        then receives a ResultMessage with is_error=true on the
+        next iteration of receive_response, which fires
+        session.status_changed:error normally — we don't synthesize
+        an extra event here.
+        """
+        sess = state.sessions.get(sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        if sess.client is None:
+            # Nothing in flight to cancel — idempotent no-op.
+            return
+        # interrupt() is async on the SDK client. Failures during the
+        # signal (e.g. CLI already exited) are not actionable from the
+        # TUI side, so swallow them.
+        try:
+            await sess.client.interrupt()
+        except Exception:
+            pass
+        # Resolve any pending permission futures with deny so the
+        # SDK turn doesn't hang on a permission prompt.
+        for pid, fut in list(state.permission_futures.items()):
+            if fut.done():
+                continue
+            perm = state.permissions.get(pid)
+            if perm is None or perm.get("session_id") != sid:
+                continue
+            fut.set_result(False)
+            perm["resolved"] = True
+            perm["action"] = "deny"
+
     # --- §6.3 messages ----------------------------------------------
 
     @app.get("/v1/sessions/{sid}/messages")
