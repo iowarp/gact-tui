@@ -1,9 +1,22 @@
 # STATUS
 
-**Last updated:** 2026-04-20T07:30Z
-**Current phase:** TTTTTTT4 shipped — Go claude adapter has full Python sidecar parity (streaming partials + permissions + diffs + 16/16 conformance)
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `8c7a72d` (pre-TTTTTTT4 commit; this iteration about to push)
-**Open:** Python sidecar can be retired. Next: real-LLM smoke replacements for goose/crush/opencode adapters; then `gact agent deploy/list/connect` registry + native dtach session detach.
+**Last updated:** 2026-04-20T08:30Z
+**Current phase:** BBBBBBBB1 shipped — sidebar marker + auto-prune for detached sessions
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `d931ffe` (pushed)
+**Open:** Real-LLM smoke replacements for goose/crush/opencode adapters; richer `gact agent deploy/list/connect` registry + further session lifecycle UX.
+
+### Phase BBBBBBBB1 — Sidebar marker for detached sessions
+- **BBBBBBBB1.** App.previouslyDetached map seeded at startup from detached.json (filtered to current backend). Sidebar paints `↩` next to every session the user previously Ctrl+Z-detached from. Two-step `x/x` delete fires PruneDetachedRegistry callback so `gact detached` doesn't list deleted sessions next time. 2 new sidebar tests + screenshot `BBBBBBBB1_detached_marker.png`.
+
+### Phase AAAAAAAA1 — Detached-sessions registry + `gact detached`
+- **AAAAAAAA1.** New tui/internal/config/detached.go persists Ctrl+Z events to `~/.config/gact/detached.json` (overridable via GACT_DETACHED_PATH). Records: sid + title + backend + workspace + detached_at; dedupe by (backend, sid); trim to 64 newest. `gact detached [--rm SID] [--probe] [--format pretty|tsv|json]` lists/probes/prunes the registry. App captures DetachedTitle + DetachedWorkspace at Ctrl+Z; main.go appends after p.Run() returns. End-to-end VHS proof: Ctrl+Z → JSON write → `gact detached --probe` shows alive=yes against live backend. 5 new config tests.
+
+### Phase ZZZZZZZ1 — Body cursor row tint + visible-row snap
+- **ZZZZZZZ1.** Selected message now paints a t.BgSubtle background tint across the full row in addition to the existing `█` gutter (Y1/FFFFF1) — gutter alone proved invisible against tool output. Cursor navigation (up/down/g/G/n/N + maybeInitBodyCursor) snaps past pairToolResults-absorbed indices via new snapToVisibleMsg(idx, dir) so the cursor always lands on a row the renderer paints. Screenshot `ZZZZZZZ1_body_cursor_tint.png`. Closes feedback_ctrl_e_and_overflow item 5.
+
+### Phase TTTTTTT4 — Go claude adapter streaming partials
+- **TTTTTTT4.** Spawn flag `--include-partial-messages` enables claude `stream_event` frames; translateStreamEvent maps Anthropic message_start → §7.4 message.created shell, content_block_start → message.part.added, content_block_delta(text_delta) → message.part.delta(text_append), content_block_stop → message.part.completed, message_stop → message.completed. sessionState.activeStreamMsgID threads the current msg id across deltas. Real-LLM smoke `TestSmoke_RealClaudeStreamingDeltas` (~5.7s) opens SSE, posts a multi-sentence prompt, asserts ≥1 delta + added + completed. Full smoke suite green (4 passes / ~24s wall).
+- Python sidecar can now retire — Go adapter has full feature parity (16/16 conformance + can_use_tool + streaming + diffs).
 
 ### Phase TTTTTTT4 — Go claude adapter streaming partials
 - **TTTTTTT4.** Spawn flag `--include-partial-messages` enables claude `stream_event` frames; translateStreamEvent maps Anthropic message_start → §7.4 message.created shell, content_block_start → message.part.added, content_block_delta(text_delta) → message.part.delta(text_append), content_block_stop → message.part.completed, message_stop → message.completed. sessionState.activeStreamMsgID threads the current msg id across deltas. Real-LLM smoke `TestSmoke_RealClaudeStreamingDeltas` (~5.7s) opens SSE, posts a multi-sentence prompt, asserts ≥1 delta + added + completed. Full smoke suite green (4 passes / ~24s wall).
