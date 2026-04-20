@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T12:00Z
-**Current phase:** MMMMMMMM1 + NNNNNNNN1 shipped — terminal title shows detached count + batch `--rm` for detached
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3f12549` (pushed)
+**Last updated:** 2026-04-20T12:30Z
+**Current phase:** OOOOOOOO1 + PPPPPPPP1 shipped — sidebar `y` yanks session id, body `Y` yanks full conversation
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `199415d` (pushed)
+
+### Phase PPPPPPPP1 — Body Shift+Y full-conversation yank
+- Body `Y` copies entire conversation as role-prefixed markdown (`## user:` / `## assistant:` / …). Helper skips tool-only-no-text messages. Complements plain `y` (single message).
+
+### Phase OOOOOOOO1 — Sidebar y yanks sid
+- Sidebar `y` copies selected session id to clipboard. Useful for piping into `gact log/attach/rewind <sid>`. Split on focus so body `y` (copy text) and sidebar `y` (copy sid) don't collide.
 
 ### Phase NNNNNNNN1 — Batch `gact detached --rm`
 - `--rm` accepts comma-separated sid list for one-shot cleanup of multiple stale entries. Whitespace tolerant. End-to-end verified.
