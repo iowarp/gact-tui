@@ -1,8 +1,11 @@
 # STATUS
 
-**Last updated:** 2026-04-20T15:30Z
-**Current phase:** ZZZZZZZZ1 + AAAAAAAAA1 shipped — body Enter opens detail view + `gact attach --print-only` for scripting
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `5c1beac` (pushed)
+**Last updated:** 2026-04-20T16:00Z
+**Current phase:** BBBBBBBBB1 shipped — `gact log --grep REGEX` filter on flattened message text
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `11040c5` (pushed)
+
+### Phase BBBBBBBBB1 — `gact log --grep`
+- Drop messages whose flattened text doesn't match the regex (case-insensitive default). Flatten covers text + thinking + tool_name + tool_call input + tool_result body. Stacks with --role / --since / --limit. Bad regex fails fast. TestCLI_LogGrepFilter verifies 4 paths.
 
 ### Phase AAAAAAAAA1 — `gact attach --print-only`
 - Resolves target sid (no-args-default or fuzzy-match) and prints to stdout; exits 0 without TUI. Scripting: `SID=$(gact attach refactor --print-only)`. 2 new CLI tests.
