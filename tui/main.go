@@ -15,13 +15,17 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"image/color"
 	"io"
-	"path"
 	"log"
+	"net"
+	"net/http"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -29,6 +33,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -149,6 +154,11 @@ func main() {
 			// AAAAAAAA1: list (or prune) sessions the user has
 			// detached from across reboots.
 			os.Exit(runDetached(os.Args[2:]))
+		case "connect":
+			// OOOOOOOOO1: shorthand for `gact agent connect <name>`
+			// so the common "I want to attach the TUI to my
+			// registered adapter" flow is a one-word verb.
+			os.Exit(runAgentConnect(os.Args[2:]))
 		case "resume":
 			// IIIIIIII1: `gact resume` is a more-discoverable alias
 			// for `gact attach` with no arguments — attaches to the
@@ -360,6 +370,13 @@ Usage:
                               no arg = most-recent Ctrl+Z-detached on this backend
                               --print-only: resolve + print sid, no TUI (for scripting)
   gact resume                alias for gact attach (no args) — resume most-recent detach
+  gact agent deploy <kind> <name>  spawn an adapter (claudecode) detached; registers locally
+                              --bin PATH override adapter binary; --port N; --cwd DIR
+  gact agent list            show deployed agents (name, kind, port, pid, alive status)
+  gact agent stop <name>     SIGTERM the adapter process
+  gact agent rm <name>       drop the entry (stops first if running)
+  gact agent connect <name>  launch TUI pointed at a deployed agent
+  gact connect <name>        alias for gact agent connect
   gact voice <sid> <audio>   POST audio bytes to /voice/transcribe; print text
   gact bench [-n N]          run N turns; report p50/p90/p99 latency
   gact conformance           run contract/conformance suite against backend
@@ -2665,6 +2682,392 @@ const (
 	ansiDim   = "\x1b[2m"
 )
 
+// OOOOOOOOO1: local agent process manager. `gact agent deploy` spawns
+// an adapter binary detached on a free port, records (name, kind,
+// pid, port) in ~/.config/gact/agents.json; `gact connect <name>`
+// reads the entry, sets GACT_BACKEND, and runs the TUI. Closes the
+// last-night design item we let slip during the TTTTTTT pivot.
+
+func runAgent(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent show|deploy|list|stop|rm|connect …")
+		return 2
+	}
+	verb, rest := args[0], args[1:]
+	switch verb {
+	case "show":
+		// Backend-side agent metadata lookup — pre-OOOOOOOOO1 behaviour.
+		return runAgentShow(rest)
+	case "deploy":
+		return runAgentDeploy(rest)
+	case "list", "ls":
+		return runAgentList(rest)
+	case "stop":
+		return runAgentStop(rest)
+	case "rm", "remove", "delete":
+		return runAgentRm(rest)
+	case "connect":
+		return runAgentConnect(rest)
+	}
+	fmt.Fprintf(os.Stderr, "gact agent: unknown verb %q (want show|deploy|list|stop|rm|connect)\n", verb)
+	return 2
+}
+
+// adapterBinFor resolves the adapter binary to spawn for a given
+// kind. Looks first on $PATH, then in the ambient directory
+// alongside `gact` itself so `./gact` in the build tree can find
+// its sibling adapter without a full install.
+func adapterBinFor(kind string) (string, error) {
+	var exe string
+	switch kind {
+	case "claudecode":
+		exe = "gact-claudecode-adapter"
+	default:
+		return "", fmt.Errorf("unknown kind %q (supported: claudecode)", kind)
+	}
+	if p, err := exec.LookPath(exe); err == nil {
+		return p, nil
+	}
+	// Try alongside our own binary (cross-platform "next-to gact").
+	if self, err := os.Executable(); err == nil {
+		cand := filepath.Join(filepath.Dir(self), exe)
+		if _, err := os.Stat(cand); err == nil {
+			return cand, nil
+		}
+	}
+	return "", fmt.Errorf("%s not on PATH — build it with `go build -o %s ./adapters/claudecode/cmd/gact-claudecode-adapter`", exe, exe)
+}
+
+// freePort asks the kernel for an ephemeral TCP port by binding
+// :0 on loopback, reading back the assigned port, and immediately
+// closing. There's a race against another process grabbing it
+// before we re-bind in the child, but for a one-shot deploy it's
+// good enough — rarer than a cosmic ray.
+func freePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// probeAgentAlive GETs /v1/capabilities on the agent's host:port.
+// Returns true if the adapter answers any 2xx within 2s. Used by
+// `agent list` to render an "alive" column and by `agent connect`
+// to fail fast on a zombie entry.
+func probeAgentAlive(host string, port int) bool {
+	url := fmt.Sprintf("http://%s:%d/v1/capabilities", host, port)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// runAgentDeploy: `gact agent deploy <kind> <name> [--bin PATH] [--port N] [--cwd DIR]`
+func runAgentDeploy(args []string) int {
+	fs := flag.NewFlagSet("agent deploy", flag.ContinueOnError)
+	binOverride := fs.String("bin", "", "adapter binary path (default: resolve per kind)")
+	portOverride := fs.Int("port", 0, "TCP port to bind (default: kernel-picked)")
+	cwdFlag := fs.String("cwd", "", "working dir passed to the adapter (default: $PWD)")
+	hostFlag := fs.String("host", "127.0.0.1", "bind interface")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--bin": true, "-bin": true,
+		"--port": true, "-port": true,
+		"--cwd":  true, "-cwd": true,
+		"--host": true, "-host": true,
+	})); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent deploy <kind> <name> [--bin PATH] [--port N] [--cwd DIR]")
+		return 2
+	}
+	kind, name := fs.Arg(0), fs.Arg(1)
+
+	bin := *binOverride
+	if bin == "" {
+		b, err := adapterBinFor(kind)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact agent deploy: %v\n", err)
+			return 1
+		}
+		bin = b
+	}
+	if _, err := os.Stat(bin); err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent deploy: adapter binary %q: %v\n", bin, err)
+		return 1
+	}
+
+	port := *portOverride
+	if port == 0 {
+		p, err := freePort()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact agent deploy: pick free port: %v\n", err)
+			return 1
+		}
+		port = p
+	}
+
+	cwd := *cwdFlag
+	if cwd == "" {
+		var err error
+		cwd, err = os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact agent deploy: %v\n", err)
+			return 1
+		}
+	}
+
+	// Spawn detached. Stdout/stderr go to /dev/null so the parent
+	// shell isn't polluted; users can redirect to a log file via
+	// --bin "sh -c …" if they want to capture adapter chatter.
+	null, _ := os.Open(os.DevNull)
+	defer null.Close()
+	nullOut, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	defer nullOut.Close()
+
+	cmd := exec.Command(bin,
+		"--host", *hostFlag,
+		"--port", fmt.Sprintf("%d", port),
+		"--cwd", cwd,
+	)
+	cmd.Stdout = nullOut
+	cmd.Stderr = nullOut
+	cmd.Stdin = null
+	// Detach: new session so Ctrl+C on the parent doesn't kill
+	// the adapter.
+	cmd.SysProcAttr = detachedSysProcAttr()
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent deploy: start: %v\n", err)
+		return 1
+	}
+
+	// Wait up to 3s for the adapter to start listening. Poll
+	// /v1/capabilities via probeAgentAlive; if we time out, kill
+	// the orphan and error out — we don't want a dead entry in
+	// the registry.
+	deadline := time.Now().Add(3 * time.Second)
+	alive := false
+	for time.Now().Before(deadline) {
+		if probeAgentAlive(*hostFlag, port) {
+			alive = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !alive {
+		_ = cmd.Process.Kill()
+		fmt.Fprintf(os.Stderr, "gact agent deploy: adapter started but never answered %s:%d/v1/capabilities — killed pid %d\n",
+			*hostFlag, port, cmd.Process.Pid)
+		return 1
+	}
+
+	// Register.
+	path, err := config.AgentsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent deploy: %v\n", err)
+		return 1
+	}
+	rec := config.AgentRecord{
+		Name: name, Kind: kind, Bin: bin,
+		Host: *hostFlag, Port: port, PID: cmd.Process.Pid,
+		Cwd: cwd, StartedAt: time.Now().UTC(),
+	}
+	if _, err := config.UpsertAgent(path, rec); err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent deploy: register: %v\n", err)
+		return 1
+	}
+	// Release the process so it outlives us.
+	_ = cmd.Process.Release()
+	fmt.Fprintf(os.Stderr, "deployed %s (kind=%s) pid=%d at http://%s:%d\n",
+		name, kind, rec.PID, rec.Host, rec.Port)
+	fmt.Fprintf(os.Stderr, "connect with: gact connect %s\n", name)
+	return 0
+}
+
+// runAgentList prints the registry. Pretty format includes a probe
+// of each entry for an "alive" column.
+func runAgentList(args []string) int {
+	fs := flag.NewFlagSet("agent list", flag.ContinueOnError)
+	format := fs.String("format", "pretty", "pretty | tsv | json")
+	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
+		"--format": true, "-format": true,
+	})); err != nil {
+		return 2
+	}
+	switch *format {
+	case "pretty", "tsv", "json":
+	default:
+		fmt.Fprintf(os.Stderr, "gact agent list: unknown format %q\n", *format)
+		return 2
+	}
+	path, err := config.AgentsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent list: %v\n", err)
+		return 1
+	}
+	reg, err := config.LoadAgents(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent list: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if reg.Agents == nil {
+			reg.Agents = []config.AgentRecord{}
+		}
+		_ = enc.Encode(reg)
+		return 0
+	}
+	if len(reg.Agents) == 0 && *format == "pretty" {
+		fmt.Println("(no agents deployed — `gact agent deploy <kind> <name>` to start one)")
+		return 0
+	}
+	if *format == "tsv" {
+		fmt.Println("name\tkind\thost\tport\tpid\talive\tcwd")
+		for _, a := range reg.Agents {
+			alive := "no"
+			if probeAgentAlive(a.Host, a.Port) {
+				alive = "yes"
+			}
+			fmt.Printf("%s\t%s\t%s\t%d\t%d\t%s\t%s\n",
+				a.Name, a.Kind, a.Host, a.Port, a.PID, alive, a.Cwd)
+		}
+		return 0
+	}
+	// pretty
+	fmt.Printf("%-20s  %-12s  %-22s  %-6s  %-5s  %s\n",
+		"NAME", "KIND", "HOST:PORT", "PID", "ALIVE", "CWD")
+	for _, a := range reg.Agents {
+		aliveText := colorize("no", ansiRed)
+		if probeAgentAlive(a.Host, a.Port) {
+			aliveText = colorize("yes", ansiGreen)
+		}
+		fmt.Printf("%-20s  %-12s  %-22s  %-6d  %-5s  %s\n",
+			truncMid(a.Name, 20), truncMid(a.Kind, 12),
+			fmt.Sprintf("%s:%d", a.Host, a.Port), a.PID, aliveText,
+			truncMid(a.Cwd, 60))
+	}
+	return 0
+}
+
+// runAgentStop SIGTERMs the pid and keeps the registry entry (user
+// may want to redeploy). `agent rm` is the hard drop.
+func runAgentStop(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent stop <name>")
+		return 2
+	}
+	name := args[0]
+	path, err := config.AgentsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent stop: %v\n", err)
+		return 1
+	}
+	rec, ok, err := config.FindAgent(path, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent stop: %v\n", err)
+		return 1
+	}
+	if !ok {
+		fmt.Fprintf(os.Stderr, "gact agent stop: no agent named %q\n", name)
+		return 1
+	}
+	if rec.PID <= 0 {
+		fmt.Fprintf(os.Stderr, "gact agent stop: %q has no pid recorded\n", name)
+		return 1
+	}
+	proc, err := os.FindProcess(rec.PID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent stop: find pid %d: %v\n", rec.PID, err)
+		return 1
+	}
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		// ESRCH = not running; treat as already-stopped, not an error.
+		if !errors.Is(err, os.ErrProcessDone) && err.Error() != "os: process already finished" {
+			fmt.Fprintf(os.Stderr, "gact agent stop: signal: %v\n", err)
+			return 1
+		}
+	}
+	fmt.Fprintf(os.Stderr, "sent SIGTERM to %s (pid %d)\n", name, rec.PID)
+	return 0
+}
+
+// runAgentRm stops (best effort) then drops the entry.
+func runAgentRm(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact agent rm <name>")
+		return 2
+	}
+	name := args[0]
+	_ = runAgentStop([]string{name}) // best-effort; ignore result
+	path, err := config.AgentsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent rm: %v\n", err)
+		return 1
+	}
+	removed, err := config.RemoveAgent(path, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact agent rm: %v\n", err)
+		return 1
+	}
+	if !removed {
+		fmt.Fprintf(os.Stderr, "no agent named %q in registry\n", name)
+		return 0
+	}
+	fmt.Fprintf(os.Stderr, "removed %s\n", name)
+	return 0
+}
+
+// runAgentConnect resolves the agent's host:port and launches the
+// TUI pointed at it. Fails fast if the adapter isn't answering so
+// the user doesn't land in a TUI stuck at "connecting…".
+func runAgentConnect(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: gact connect <name>  (or: gact agent connect <name>)")
+		return 2
+	}
+	name := args[0]
+	path, err := config.AgentsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact connect: %v\n", err)
+		return 1
+	}
+	rec, ok, err := config.FindAgent(path, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact connect: %v\n", err)
+		return 1
+	}
+	if !ok {
+		fmt.Fprintf(os.Stderr, "gact connect: no agent named %q — `gact agent list` to see registered names\n", name)
+		return 1
+	}
+	if !probeAgentAlive(rec.Host, rec.Port) {
+		fmt.Fprintf(os.Stderr, "gact connect: %s not answering %s:%d — redeploy with `gact agent deploy %s %s`\n",
+			name, rec.Host, rec.Port, rec.Kind, name)
+		return 1
+	}
+	// Hand off to runTUI via the same GACT_BACKEND env trick other
+	// wrappers use.
+	backend := fmt.Sprintf("http://%s:%d", rec.Host, rec.Port)
+	_ = os.Setenv("GACT_BACKEND", backend)
+	fmt.Fprintf(os.Stderr, "connecting to agent %s at %s\n", name, backend)
+	os.Args = []string{os.Args[0]}
+	runTUI()
+	return 0
+}
+
+
 // colorize wraps s in an ANSI sequence when stdout is a terminal
 // (detected via file-mode check) — otherwise returns the raw string
 // so piped output isn't cluttered with escape codes. Matches the
@@ -3488,21 +3891,14 @@ func runCapabilities(args []string) int {
 	return 0
 }
 
-// runAgent dispatches the `gact agent <verb>` family. Right now only
-// `show` is implemented (list is covered by `gact catalog agents`):
+// runAgentShow is the SPEC §6.5 "agent metadata lookup" command that
+// the original `gact agent` family exposed. OOOOOOOOO1 folded it
+// under a unified `gact agent <verb>` dispatcher; this helper stays
+// as the show-specific body.
 //
 //	gact agent show <id> [--format text|json]
-func runAgent(args []string) int {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact agent show <id> [--format text|json]")
-		return 2
-	}
-	verb := args[0]
-	if verb != "show" {
-		fmt.Fprintf(os.Stderr, "gact agent: unknown verb %q (want show — list is `gact catalog agents`)\n", verb)
-		return 2
-	}
-	rest := args[1:]
+func runAgentShow(args []string) int {
+	rest := args
 	fs := flag.NewFlagSet("agent show", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
 	format := fs.String("format", "text", "text | json")
