@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T05:05Z
-**Current phase:** QQQQQQQ1 shipped — Goose file_diff Parts + diffs endpoints
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `90e9864` (pushed)
-**Open:** none — Goose now has file_diff parity with claude-agent-sdk. Permissions + MCP catalog are next natural extensions.
+**Last updated:** 2026-04-20T05:20Z
+**Current phase:** RRRRRRR1 shipped — Goose tools catalog (11/11 conformance sections)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9c08700` (pushed)
+**Open:** none — Goose now matches claude-agent-sdk on tools/diffs. Permissions/MCP/agents/metrics are next.
+
+### Phase RRRRRRR1 — Goose tools catalog
+- **RRRRRRR1.** GET /v1/tools + per-id /tools/{id} proxy /agent/tools?session_id=; firstSessionID() fallback when no query. toolToGact projects Goose ToolInfo. caps.tools=true. Conformance 11/11 sections.
 
 ### Phase QQQQQQQ1 — Goose file_diff Parts
 - **QQQQQQQ1.** developer__text_editor str_replace/write produces sibling file_diff Parts (with on-disk before/after). messageToGact threaded cwd param. New SPEC §6.10 endpoints (aggregate + per-message). caps.diffs=true. 8 new tests + conformance still passes.
