@@ -78,7 +78,8 @@ def test_assistant_message_emits_message_created_event() -> None:
     assert len(events) == 1
     ev = events[0]
     assert ev["type"] == "message.created"
-    inner = ev["payload"]["message"]
+    # SPEC §7.3: payload IS the Message (not wrapped in {"message":...})
+    inner = ev["payload"]
     assert inner["role"] == "assistant"
     assert inner["session_id"] == "sess_xyz"
     assert inner["model"] == {"provider_id": "anthropic", "model_id": "claude-opus-4-5"}

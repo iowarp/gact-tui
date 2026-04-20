@@ -158,15 +158,20 @@ def sdk_message_to_events(msg: Any, session_id: str) -> Iterable[dict[str, Any]]
         )
         return
     if isinstance(msg, AssistantMessage):
+        # SPEC §7.3: message.created payload IS the Message itself
+        # (not wrapped in {"message": {...}}). The reference emulator
+        # sets this directly; the gact TUI's applyMessageCreated does
+        # `decodeMessage(payload)` so the dict at payload must be the
+        # Message shape directly.
         yield envelope(
             "message.created",
-            {"message": assistant_message_to_gact(msg, session_id)},
+            assistant_message_to_gact(msg, session_id),
         )
         return
     if isinstance(msg, UserMessage):
         yield envelope(
             "message.created",
-            {"message": user_message_to_gact(msg, session_id)},
+            user_message_to_gact(msg, session_id),
         )
         return
     if isinstance(msg, ResultMessage):

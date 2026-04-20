@@ -118,7 +118,8 @@ def test_real_claude_one_word_reply(tmp_path: Path) -> None:
                         continue
                     et = ev.get("type")
                     if et == "message.created":
-                        msg = ev["payload"]["message"]
+                        # SPEC §7.3: payload IS the Message itself.
+                        msg = ev["payload"]
                         if msg.get("role") == "assistant":
                             saw_assistant = True
                     if et == "session.status_changed":
