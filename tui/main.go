@@ -4920,6 +4920,22 @@ func runDumpBundle(args []string) int {
 		}
 	}
 
+	// detached.json — local Ctrl+Z-detach registry. Best-effort:
+	// missing/unreadable file just doesn't add the entry. Useful for
+	// bug reports about resume / re-attach UX where the registry's
+	// state is the load-bearing context. (TTTTTTTT1)
+	if regPath, err := config.DetachedPath(); err == nil {
+		if reg, err := config.LoadDetached(regPath); err == nil {
+			f, ferr := os.Create(filepath.Join(*out, "detached.json"))
+			if ferr == nil {
+				enc := json.NewEncoder(f)
+				enc.SetIndent("", "  ")
+				_ = enc.Encode(reg)
+				f.Close()
+			}
+		}
+	}
+
 	// sessions/<sid>.json — reuse runExportAll's loop semantics.
 	sessDir := filepath.Join(*out, "sessions")
 	if err := os.MkdirAll(sessDir, 0o755); err != nil {
@@ -4994,7 +5010,7 @@ func runDumpBundle(args []string) int {
 		ok++
 	}
 
-	fmt.Fprintf(os.Stderr, "gact dump-bundle: wrote %d sessions + version + diag + metrics → %s\n", ok, *out)
+	fmt.Fprintf(os.Stderr, "gact dump-bundle: wrote %d sessions + version + diag + metrics + detached → %s\n", ok, *out)
 	return 0
 }
 

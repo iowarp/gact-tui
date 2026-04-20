@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase TTTTTTTT — dump-bundle includes detached registry
+
+- [x] **TTTTTTTT1.** `gact dump-bundle` now writes `detached.json` (the local Ctrl+Z-detach registry, sibling of config.json — same source the BBBBBBBB1 sidebar markers + AAAAAAAA1 `gact detached` use). Useful when filing bug reports about resume / re-attach UX where the registry's state is the load-bearing context. Best-effort: missing/unreadable file just doesn't add the entry. Bundle summary line updated to `wrote N sessions + version + diag + metrics + detached`. End-to-end verified: bundle dir contains detached.json with the expected records.
+
 ## Phase SSSSSSSS — Dashboard JSON carries detached field
 
 - [x] **SSSSSSSS1.** `gact dashboard --format json` now wraps each session row with a top-level `detached: bool` field so jq pipelines see the same marker the pretty/tsv DET column shows. Same source — local detached.json filtered to current backend (CCCCCCCC2). All TestCLI_Dashboard*/Watch/StatusFilter/Sort tests still pass (TestCLI_Dashboard's `"id"`/`"cost_usd"` checks unaffected — `detached` is added alongside, not replacing).
