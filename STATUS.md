@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T04:10Z
-**Current phase:** MMMMMMM1 shipped — Goose messages read
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ad1fb11` (pushed)
-**Open:** none — Goose POST messages + SSE next.
+**Last updated:** 2026-04-20T04:25Z
+**Current phase:** NNNNNNN1 shipped — Goose conformance test
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2c7c765` (pushed)
+**Open:** none — Goose POST /messages + SSE next phase work.
+
+### Phase NNNNNNN1 — Goose conformance
+- **NNNNNNN1.** Mirror of opencode/crush conformance_test.go for Goose. Caught a missing per-id message endpoint; added handleGetMessage. 6 sections green for Goose adapter.
 
 ### Phase MMMMMMM1 — Goose messages read
 - **MMMMMMM1.** GET /v1/sessions/{id}/messages reads + translates Goose's `session.conversation` array. translate.go grew gooseMessage struct + roleToGact + contentToGactPart (handles tagged + untagged serde, variants: text/thinking/toolRequest/toolResponse with Ok/Err wrapping). Stable id synthesis when Goose omits Message.id. caps.messages=true. 4 new tests.
