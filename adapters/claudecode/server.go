@@ -93,6 +93,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcp)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcp)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/export", s.handleExportSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/diffs", s.handleListDiffs)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{mid}/diffs", s.handleListMessageDiffs)
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
 
@@ -117,7 +119,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"sse":                true,
 			"tools":              true,
 			"files":              false,
-			"diffs":              false,
+			"diffs":              true,
 			"providers":          false,
 			"agents":             true,
 			"commands":           true,
@@ -364,7 +366,7 @@ func (s *Server) runTurn(sess *sessionState, text string) {
 				s.captureCatalogs(ev)
 			}
 		}
-		for _, gactEv := range translateClaudeEvent(ev, sess.id) {
+		for _, gactEv := range translateClaudeEvent(ev, sess.id, s.cwd) {
 			sess.broadcast(gactEv)
 			if gactEv.Type == "message.created" {
 				sess.appendMessage(gactEv.Payload)
@@ -615,6 +617,61 @@ func (s *Server) handleExportSession(w http.ResponseWriter, r *http.Request) {
 		"exported_at":          nowISO(),
 		"x_claudecode_version": backendVersion,
 	})
+}
+
+// handleListDiffs aggregates every file_diff Part across the
+// session's cached messages.
+func (s *Server) handleListDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.mu.Lock()
+	sess, ok := s.sessions[id]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	sess.mu.Lock()
+	msgs := append([]map[string]any{}, sess.cachedMessages...)
+	sess.mu.Unlock()
+	out := []map[string]any{}
+	for _, m := range msgs {
+		parts, _ := m["parts"].([]map[string]any)
+		for _, p := range parts {
+			if p["type"] == "file_diff" {
+				out = append(out, p)
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"diffs": out})
+}
+
+func (s *Server) handleListMessageDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	mid := r.PathValue("mid")
+	s.mu.Lock()
+	sess, ok := s.sessions[id]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	for _, m := range sess.cachedMessages {
+		if m["id"] != mid {
+			continue
+		}
+		out := []map[string]any{}
+		parts, _ := m["parts"].([]map[string]any)
+		for _, p := range parts {
+			if p["type"] == "file_diff" {
+				out = append(out, p)
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"diffs": out})
+		return
+	}
+	writeError(w, http.StatusNotFound, "message_not_found", "no message with id "+mid)
 }
 
 // slugify produces a stable URL-safe id from a free-form name —
