@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase XXXXXXXX — Sidebar busy-only toggle
+
+- [x] **XXXXXXXX1.** New `b` keybind in sidebar focus narrows list to sessions whose status is running or waiting_permission. Parallels JJJJJJJJ1's `d` detached-only. Can stack with `d` — the AND-combined filter shows sessions that are BOTH busy AND in the detached registry. Sidebar title reflects combinations: `SESSIONS · busy`, `SESSIONS · detached`, or `SESSIONS · detached + busy`. Transient hint reports the busy count. Help overlay + empty-state crib updated. Goldens regenerated. New `TestSidebar_BusyOnlyToggle` covers: default-all-visible, b-on keeps running+waiting, stacked-with-d narrows to busy-AND-detached intersection.
+
 ## Phase WWWWWWWW — `gact follow --role` filter
 
 - [x] **WWWWWWWW1.** Mirror VVVVVVVV1's `--role` plumbing on `gact follow` (tail-f). Filter runs inside the `emit` closure so both the snapshot pass + every streamed message obey it. Same validation rules — unknown role errors fast. End-to-end verified: `gact follow <sid> --role assistant` prints only [ASSISTANT @ …] rows + drops user/tool turns. Unknown --role rejected with helpful error.

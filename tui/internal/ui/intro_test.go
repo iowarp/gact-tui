@@ -131,6 +131,74 @@ func TestTransientHint_KeystrokeRespectsMinDwell(t *testing.T) {
 	}
 }
 
+// XXXXXXXX1: `b` in sidebar focus toggles busy-only view
+// (running + waiting_permission). Parallels the JJJJJJJJ1 `d`
+// detached toggle and can stack with it.
+func TestSidebar_BusyOnlyToggle(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_idle", Title: "idle-one", Status: gact.StatusIdle},
+		{ID: "sess_run", Title: "running-one", Status: gact.StatusRunning},
+		{ID: "sess_wait", Title: "waiting-one", Status: gact.StatusWaitingPermission},
+		{ID: "sess_err", Title: "error-one", Status: gact.StatusError},
+	}, nil)
+	a.focus = FocusSidebar
+	a.selected = 0
+	a.width, a.height = 100, 30
+
+	// Default: all four visible, title plain.
+	out := a.renderSidebar(40, 25)
+	for _, name := range []string{"idle-one", "running-one", "waiting-one", "error-one"} {
+		if !strings.Contains(out, name) {
+			t.Errorf("expected %q visible before toggle: %q", name, out)
+		}
+	}
+	if strings.Contains(out, "· busy") {
+		t.Error("title shouldn't carry 'busy' suffix before toggle")
+	}
+
+	// Toggle b on.
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
+	if !a.showBusyOnly {
+		t.Fatal("b didn't flip showBusyOnly")
+	}
+	vis := a.visibleSessionIndexes()
+	if len(vis) != 2 {
+		t.Errorf("expected 2 visible (running + waiting); got %d", len(vis))
+	}
+	out = a.renderSidebar(40, 25)
+	if !strings.Contains(out, "running-one") || !strings.Contains(out, "waiting-one") {
+		t.Errorf("busy entries should remain: %q", out)
+	}
+	if strings.Contains(out, "idle-one") || strings.Contains(out, "error-one") {
+		t.Errorf("idle/error should be filtered: %q", out)
+	}
+	if !strings.Contains(out, "· busy") {
+		t.Errorf("title should carry '· busy' suffix: %q", out)
+	}
+
+	// Stack with d detached — both filters on should combine (AND).
+	a.LoadDetachedRegistry([]DetachedRegistryEntry{
+		{SessionID: "sess_run", Backend: a.BackendURL},
+	})
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	vis = a.visibleSessionIndexes()
+	if len(vis) != 1 || a.sessions[vis[0]].ID != "sess_run" {
+		t.Errorf("detached+busy should keep only sess_run; got %v", vis)
+	}
+	out = a.renderSidebar(40, 25)
+	if !strings.Contains(out, "detached + busy") {
+		t.Errorf("title should show stacked 'detached + busy': %q", out)
+	}
+
+	// Toggle b off — detached filter alone, just running-one survives
+	// (the only registry entry).
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
+	vis = a.visibleSessionIndexes()
+	if len(vis) != 1 || a.sessions[vis[0]].ID != "sess_run" {
+		t.Errorf("detached alone should keep sess_run; got %v", vis)
+	}
+}
+
 // JJJJJJJJ1: `d` in sidebar focus toggles detached-only view.
 // Narrows visibleSessionIndexes to sessions in previouslyDetached
 // and changes the sidebar title to "SESSIONS · detached".
