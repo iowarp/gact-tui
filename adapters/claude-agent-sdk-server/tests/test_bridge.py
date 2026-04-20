@@ -81,7 +81,7 @@ def test_assistant_message_emits_message_created_event() -> None:
     inner = ev["payload"]["message"]
     assert inner["role"] == "assistant"
     assert inner["session_id"] == "sess_xyz"
-    assert inner["model"] == "claude-opus-4-5"
+    assert inner["model"] == {"provider_id": "anthropic", "model_id": "claude-opus-4-5"}
     assert inner["id"] == "msg_real_id"
     assert inner["parts"][0]["type"] == "text"
     assert inner["parts"][0]["text"] == "hello back"
