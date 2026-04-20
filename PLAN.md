@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQQQQQ — Default scenario variant cycling
+
+- [x] **QQQQQQQQ1.** Default happy-path script (the "read main.go" turn) now cycles through 3 coherent variants — thinking, intro, tool_result, and final reply all line up by index per turn so the voice stays consistent inside each call. Cycled per-session via `e.NextCallIndex(sessionID, "default")` (same pattern PPPPP1 uses for long-reply, GGGGG1 for big-log, RRRRR1 for diff). Closes the user's "whatever I write I always get the same text" feedback for the most-played-with scenario. Dangerous-path strings stay singular (different shape; one-and-done UX). Test `TestDefaultScriptCyclesIntroVariants`: two consecutive "read main.go" turns produce ≥2 distinct intro variants. Screenshot `QQQQQQQQ1_default_variants.png` shows both turns side-by-side in the conversation pane (println hello vs fmt.Println + greet() suggestions).
+
 ## Phase PPPPPPPP — Body Shift+Y yanks full conversation
 
 - [x] **PPPPPPPP1.** New `Y` (shift+y) keybind in body focus copies the entire conversation as role-prefixed markdown — each message opens with `## <role>:` so blocks are grammatically separable when pasted into a bug report, another LLM, or a teammate. Complements plain `y` which takes just the selected message. New `fullConversationText(msgs)` helper skips messages with no copyable text (tool-only assistant turns, etc.) so the output stays clean. Empty-conversation case surfaces `nothing to copy — conversation has no text yet`. 2 new clipboard tests + help-overlay row. Existing `y` tests untouched.

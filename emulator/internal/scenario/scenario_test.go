@@ -319,6 +319,60 @@ func TestDefaultScriptSurvivesMessageDelete(t *testing.T) {
 	}
 }
 
+// QQQQQQQQ1: repeated default-script runs in the same session
+// should produce visibly different intro/result/final text. Cycle
+// is per-session via NextCallIndex with the "default" key, so two
+// turns pull different variants. Asserts presence of two distinct
+// intro variants in the persisted assistant messages.
+func TestDefaultScriptCyclesIntroVariants(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	send := func(text string) {
+		t.Helper()
+		user, _ := st.AppendMessage(gact.Message{
+			SessionID: sid,
+			Role:      gact.RoleUser,
+			Parts:     []gact.Part{gact.NewTextPart(text)},
+		})
+		eng.OnUserMessage(sid, user.ID)
+		// Wait for idle.
+		_ = collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
+	}
+
+	send("read main.go please")
+	send("read main.go again")
+
+	// Pull every assistant message out of the store + collect every
+	// intro text we see. The script's first text-part on each turn
+	// is the intro (per defaultIntroVariants).
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: false,
+	})
+	seenIntros := map[string]bool{}
+	for _, m := range msgs {
+		if m.Role != gact.RoleAssistant {
+			continue
+		}
+		for _, p := range m.Parts {
+			if p.Type != gact.PartTypeText {
+				continue
+			}
+			for _, want := range defaultIntroVariants {
+				if strings.Contains(p.Text, want) {
+					seenIntros[want] = true
+				}
+			}
+			break // only the first text part is the intro
+		}
+	}
+	if len(seenIntros) < 2 {
+		t.Errorf("expected at least 2 distinct intro variants across two turns; got %d (seen=%v)",
+			len(seenIntros), seenIntros)
+	}
+}
+
 // Tokenize sanity (string utility).
 func TestTokenize(t *testing.T) {
 	cases := []struct {
