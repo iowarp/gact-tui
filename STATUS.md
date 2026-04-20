@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T17:30Z
-**Current phase:** FFFFFFFFF1 + GGGGGGGGG1 shipped — `gact list` gains --detached-only + --sort + detached marker column
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `789449d` (pushed)
+**Last updated:** 2026-04-20T18:00Z
+**Current phase:** HHHHHHHHH1 + IIIIIIIII1 shipped — `gact diag` summarises detached registry + diag output consolidated
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9edda52` (pushed)
+
+### Phase IIIIIIIII1 — Diag consolidation
+- Unified runDiag + writeDiagTo behind `writeDiagCore(w, verbose)`. No more drift between stdout + dump-bundle paths. verbose=true adds custom-theme + config-load-error rows; both always include the HHHHHHHHH1 detached summary.
+
+### Phase HHHHHHHHH1 — `gact diag` detached summary
+- `detached_path` + `detached_count: N record(s) across M backend(s)` lines added to both runDiag stdout + writeDiagTo dump-bundle output. `GACT_DETACHED_PATH` added to env-var roundup. Missing registry gracefully shows 0/0.
 
 ### Phase GGGGGGGGG1 — `gact list` detached marker
 - TSV gains 5th column (`yes`/empty), JSON gains `detached: bool` field. Same registry source as other surfaces. Additive — existing callers unaffected.
