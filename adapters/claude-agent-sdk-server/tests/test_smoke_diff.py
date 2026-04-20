@@ -18,6 +18,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -76,8 +77,29 @@ def test_real_claude_edit_emits_file_diff(tmp_path: Path) -> None:
     )
     try:
         _wait_healthy(port)
+        base = f"http://127.0.0.1:{port}"
 
-        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=180) as c:
+        # HHHHHHH1: auto-allow permissions in the background so Edit
+        # tool calls don't deadlock waiting for a TUI responder.
+        stop_responder = threading.Event()
+
+        def responder() -> None:
+            with httpx.Client(base_url=base, timeout=10) as rc:
+                while not stop_responder.is_set():
+                    try:
+                        perms = rc.get(
+                            "/v1/permissions", params={"status": "pending"}
+                        ).json()["permissions"]
+                        for p in perms:
+                            rc.post(f"/v1/permissions/{p['id']}", json={"action": "allow"})
+                    except httpx.HTTPError:
+                        pass
+                    time.sleep(0.2)
+
+        t = threading.Thread(target=responder, daemon=True)
+        t.start()
+
+        with httpx.Client(base_url=base, timeout=180) as c:
             sid = c.post("/v1/sessions", json={"title": "diff"}).json()["id"]
 
             r = c.post(
@@ -140,6 +162,11 @@ def test_real_claude_edit_emits_file_diff(tmp_path: Path) -> None:
                 "Claude may not have invoked Edit"
             )
     finally:
+        try:
+            stop_responder.set()
+            t.join(timeout=3)
+        except NameError:
+            pass
         proc.terminate()
         try:
             proc.wait(timeout=5)

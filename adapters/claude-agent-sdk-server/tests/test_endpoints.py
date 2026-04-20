@@ -35,6 +35,8 @@ def test_capabilities_advertises_expected_caps() -> None:
     # Wired this phase:
     for on in ("workspaces", "sessions", "messages", "sse", "tools"):
         assert caps[on] is True, f"{on} should be advertised"
+    # HHHHHHH1: permissions now wired via SDK can_use_tool callback.
+    assert caps["permissions"] is True
     # Not yet wired — must be False so the TUI hides the UI:
     for off in ("voice", "lsp", "scheduled_sessions", "hooks"):
         assert caps[off] is False, f"{off} should be off"
@@ -123,3 +125,21 @@ def test_tools_empty_before_first_turn() -> None:
 def test_tool_404_when_unknown() -> None:
     r = _client().get("/v1/tools/UnknownTool")
     assert r.status_code == 404
+
+
+def test_permissions_empty_list_before_any_call() -> None:
+    r = _client().get("/v1/permissions")
+    assert r.status_code == 200
+    assert r.json() == {"permissions": []}
+
+
+def test_permission_404_when_unknown() -> None:
+    r = _client().get("/v1/permissions/perm_nonexistent")
+    assert r.status_code == 404
+
+
+def test_permission_respond_400_on_invalid_action() -> None:
+    """No future to resolve — but we should reject bogus actions
+    before the lookup happens."""
+    r = _client().post("/v1/permissions/perm_bogus", json={"action": "burn-it-down"})
+    assert r.status_code == 400
