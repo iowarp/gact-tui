@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKKKKKKK — Completion scripts catch up with new subcommands
+
+- [x] **KKKKKKKKK1.** bash + zsh + fish completion scripts gain `detached` (AAAAAAAA1) and `resume` (IIIIIIII1) subcommands that were silently missing since those features shipped. TestCLI_Completion extended to assert both subcommand names appear in all three outputs — prevents future subcommands from silently dropping off the completion list. Also guards existing `dashboard` + `log` presence.
+
 ## Phase JJJJJJJJJ — `gact info` carries detached status
 
 - [x] **JJJJJJJJJ1.** `gact info <sid>` now reads the local detached registry and surfaces the flag alongside the session metadata — text adds `detached: yes|no` line (always present so scripts get a deterministic field), JSON adds `detached: bool` at the top level alongside `session`. Same source-of-truth as the other surfaces. 11 UX surfaces now read the single registry (header chip + sidebar marker + sidebar filter + dashboard DET column + dashboard JSON field + dashboard `--detached-only` + `gact list` column + `gact list` JSON + `gact list --detached-only` + `gact detached` + `gact info`). TestCLI_InfoDetachedField covers plain + walked + JSON for both.

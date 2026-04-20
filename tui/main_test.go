@@ -3766,7 +3766,9 @@ func TestCLI_ArchiveRoundTrip(t *testing.T) {
 }
 
 // TestCLI_Completion covers II2: each shell mode prints a script
-// with at least the canonical "completion" entry.
+// with at least the canonical "completion" entry. KKKKKKKKK1 adds
+// assertions for `detached` + `resume` subcommands so future
+// additions don't silently drop off the completion list.
 func TestCLI_Completion(t *testing.T) {
 	bin := buildGact(t)
 	for _, shell := range []string{"bash", "zsh", "fish"} {
@@ -3776,6 +3778,11 @@ func TestCLI_Completion(t *testing.T) {
 		}
 		if !strings.Contains(stdout, "gact") {
 			t.Errorf("completion %s: missing 'gact' in script: %q", shell, stdout[:120])
+		}
+		for _, subcmd := range []string{"detached", "resume", "dashboard", "log"} {
+			if !strings.Contains(stdout, subcmd) {
+				t.Errorf("completion %s: missing subcommand %q", shell, subcmd)
+			}
 		}
 	}
 	// Unknown shell → exit 2.
