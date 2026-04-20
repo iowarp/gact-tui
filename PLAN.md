@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase WWWWWW — conformance: SSE occurred_at + id strictness
+
+- [x] **WWWWWW1.** Strengthened `validateSSEEvent` (NNNNNN1 added envelope shape) with two more SPEC §7.2 envelope rules: (1) `data.occurred_at` must be present and parseable as RFC3339 — empty timestamp defeats client-side ordering and dedup; (2) if `id:` line is present, it must be non-empty — an empty id: breaks Last-Event-ID resumption (clients can't tell whether to resume from "" or skip). The id: check is gated on presence (SSE transport doesn't require it even though §7.2 documents a "monotonic event id"); occurred_at is unconditional since it's in the documented data envelope.
+
 ## Phase VVVVVV — conformance: file read endpoint
 
 - [x] **VVVVVV1.** Extended `checkFiles` (already had list-shape coverage from UUUUU1) with the per-file body endpoint per SPEC §6.9: `GET /v1/workspaces/{id}/files/read?path=<p>`. Picks the first entry with `type=file` from the list, fetches it, asserts 200 + non-empty body. Adapter authors that wired the tree but forgot the body endpoint break the @-file picker preview + `gact files read` at runtime; this catches it at conformance time. Read-only.
