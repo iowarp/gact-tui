@@ -66,6 +66,12 @@ type App struct {
 	// the stepper just updates in-memory state.
 	SaveConfig func() error
 
+	// PruneDetachedRegistry drops a session id from the local
+	// detached.json so a deleted session doesn't linger in `gact
+	// detached` output. Wired by main.go; tests leave it nil and
+	// delete is otherwise a no-op for the registry. (BBBBBBBB1)
+	PruneDetachedRegistry func(sessionID string)
+
 	// transientHint is a short banner shown above the input for ~3s
 	// (cleared by the next key press). Used for non-fatal feedback like
 	// config-reload outcomes that don't deserve the full error stage.
@@ -219,6 +225,12 @@ type App struct {
 	// walked away from.
 	DetachedTitle     string
 	DetachedWorkspace string
+	// BBBBBBBB1: SIDs the user has previously detached from (loaded
+	// from the registry at startup, prunes itself when the user
+	// destroys a session via x/x). Used by renderSidebar to draw a
+	// small marker so the user can spot "this is the one I walked
+	// away from" without leaving the TUI.
+	previouslyDetached map[string]bool
 
 	// pendingClearSessionID arms a two-step /clear confirmation on
 	// the named session. A first /clear sets this + a toast; the
@@ -412,7 +424,34 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		inputHistoryBySession: map[string][]string{},
 		historyCursor:         -1,
 		bodySelMsgIdx:         -1,
+		previouslyDetached:    map[string]bool{},
 	}
+}
+
+// LoadDetachedRegistry seeds previouslyDetached from the local
+// detached.json registry. Called by main.go before p.Run() so the
+// sidebar marker can paint as soon as sessions arrive. Soft-fails:
+// a missing or unreadable registry is not a TUI startup failure,
+// the marker just won't appear. (BBBBBBBB1)
+func (a *App) LoadDetachedRegistry(records []DetachedRegistryEntry) {
+	a.previouslyDetached = map[string]bool{}
+	for _, r := range records {
+		// Only mark sessions that belong to this TUI's backend —
+		// the registry stores entries from every backend the user
+		// has ever detached from, but the sidebar only shows the
+		// current backend's sessions.
+		if r.Backend == a.BackendURL {
+			a.previouslyDetached[r.SessionID] = true
+		}
+	}
+}
+
+// DetachedRegistryEntry is the slim shape App needs from main.go
+// (mirrors config.DetachedRecord without dragging the import into
+// internal/ui — keeps the package boundary clean).
+type DetachedRegistryEntry struct {
+	SessionID string
+	Backend   string
 }
 
 // EnableIntro flips the initial stage to StageIntro so the splash
@@ -2129,6 +2168,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.pendingDeleteSessionID == sid {
 			a.pendingDeleteSessionID = ""
 			a.transientHint = ""
+			// BBBBBBBB1: prune the registry + in-memory set so the
+			// ↩ marker disappears immediately and `gact detached`
+			// won't list a deleted session next time.
+			delete(a.previouslyDetached, sid)
+			if a.PruneDetachedRegistry != nil {
+				a.PruneDetachedRegistry(sid)
+			}
 			return a, deleteSessionCmd(a.c, a.wsID, sid)
 		}
 		a.pendingDeleteSessionID = sid
@@ -3474,12 +3520,21 @@ func (a *App) renderSidebar(width, height int) string {
 			taskBadge = "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(fmt.Sprintf("(%d tasks)", n))
 		}
-		// Reserve room for badge so title truncation doesn't collide.
-		titleBudget := width - 8 - len(indent) - lipgloss.Width(taskBadge)
+		// BBBBBBBB1: ↩ marker for sessions the user has previously
+		// detached from (loaded from the local detached.json registry
+		// at startup). Tells the user "this is one I walked away
+		// from" without leaving the TUI to run `gact detached`.
+		detachBadge := ""
+		if a.previouslyDetached[s.ID] {
+			detachBadge = " " + lipgloss.NewStyle().Foreground(t.Secondary).
+				Render("↩")
+		}
+		// Reserve room for badges so title truncation doesn't collide.
+		titleBudget := width - 8 - len(indent) - lipgloss.Width(taskBadge) - lipgloss.Width(detachBadge)
 		if titleBudget < 6 {
 			titleBudget = 6
 		}
-		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + taskBadge
+		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
 		statusLine := "  " + indent + "  " + statusStyle.Render(s.Status)
 		rows = append(rows, titleLine, statusLine, "")
 	}
