@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQQQQ — Goose file_diff Parts
+
+- [ ] **QQQQQQQ1.** When Goose's `developer__text_editor` tool produces a `str_replace` or `write` invocation, the bridge synthesises a sibling GACT `file_diff` Part alongside the `tool_call`. Mirrors the claude-agent-sdk approach (read on-disk pre-state, compute after, emit Part). Capability `diffs=true`. Tests use a mocked goosed conversation containing both variants + a fixture file.
+
 ## Phase PPPPPPP — Goose docs refresh
 
 - [x] **PPPPPPP1.** Goose adapter README replaced its 'scaffold' status block with a full endpoint feature table (every wired endpoint, what it does, conformance section count) + a Roadmap section. Root README adapter table now reads 'sessions/messages read+write + SSE; 8/8 conformance sections ✓' for Goose.

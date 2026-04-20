@@ -87,6 +87,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}", s.handleGetMessage)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/messages", s.handlePostMessage)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleSessionEvents)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/diffs", s.handleListDiffs)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}/diffs", s.handleListMessageDiffs)
 	// Catchall 501 so TUI degrades cleanly for unimplemented sections.
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
@@ -120,7 +122,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"sse":                true,
 			"tools":              false,
 			"files":              false,
-			"diffs":              false,
+			"diffs":              true,
 			"providers":          false,
 			"agents":             false,
 			"commands":           false,
@@ -244,9 +246,100 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]gact.Message, 0, len(gs.Conversation))
 	for i, gm := range gs.Conversation {
-		out = append(out, messageToGact(gm, id, i))
+		out = append(out, messageToGact(gm, id, i, s.wsRoot))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"messages": out})
+}
+
+// handleListDiffs aggregates every file_diff Part across the
+// session's conversation. SPEC §6.10: GET /v1/sessions/{id}/diffs
+// returns {diffs: FileDiff[]} of "proposed-but-not-applied" diffs.
+// Goose doesn't track applied state in the wire shape, so we emit
+// every file_diff with applied=false; the gact TUI's a/r handlers
+// will resolve them client-side.
+func (s *Server) handleListDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	msgs, err := s.fetchMessages(id)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_error", err.Error())
+		return
+	}
+	if msgs == nil {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	var diffs []gact.Part
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeFileDiff {
+				diffs = append(diffs, p)
+			}
+		}
+	}
+	if diffs == nil {
+		diffs = []gact.Part{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"diffs": diffs})
+}
+
+// handleListMessageDiffs is the per-message variant of handleListDiffs.
+// Walks the requested message's parts and emits its file_diff Parts.
+func (s *Server) handleListMessageDiffs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	mid := r.PathValue("msg_id")
+	msgs, err := s.fetchMessages(id)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_error", err.Error())
+		return
+	}
+	if msgs == nil {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	for _, m := range msgs {
+		if m.ID != mid {
+			continue
+		}
+		var diffs []gact.Part
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeFileDiff {
+				diffs = append(diffs, p)
+			}
+		}
+		if diffs == nil {
+			diffs = []gact.Part{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"diffs": diffs})
+		return
+	}
+	writeError(w, http.StatusNotFound, "message_not_found", "no message with id "+mid)
+}
+
+// fetchMessages reads the session conversation off Goose and projects
+// it to GACT messages. Returns (nil, nil) when upstream returns 404
+// (session unknown) so callers can map that to their own 404 envelope.
+func (s *Server) fetchMessages(sid string) ([]gact.Message, error) {
+	resp, err := s.client.Get(s.upstream + "/sessions/" + sid)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("upstream %s", resp.Status)
+	}
+	var gs gooseSession
+	if err := json.Unmarshal(body, &gs); err != nil {
+		return nil, err
+	}
+	out := make([]gact.Message, 0, len(gs.Conversation))
+	for i, gm := range gs.Conversation {
+		out = append(out, messageToGact(gm, sid, i, s.wsRoot))
+	}
+	return out, nil
 }
 
 // handleGetMessage walks the same conversation array
@@ -278,7 +371,7 @@ func (s *Server) handleGetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i, gm := range gs.Conversation {
-		m := messageToGact(gm, sid, i)
+		m := messageToGact(gm, sid, i, s.wsRoot)
 		if m.ID == mid {
 			writeJSON(w, http.StatusOK, m)
 			return
@@ -402,7 +495,7 @@ func (s *Server) runUpstreamReply(sid, text string) {
 				rawJSON := []byte(strings.TrimPrefix(line, "data: "))
 				var ev map[string]any
 				if jErr := json.Unmarshal(rawJSON, &ev); jErr == nil {
-					for _, gactEv := range translateMessageEvent(ev, sid) {
+					for _, gactEv := range translateMessageEvent(ev, sid, s.wsRoot) {
 						s.broadcast(sid, gactEv)
 					}
 				}
