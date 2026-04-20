@@ -1,9 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-19T19:04Z
-**Current phase:** YYYYYY1 shipped this iteration
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `02d5b2f` (pushed after status commit)
+**Last updated:** 2026-04-19T19:05Z
+**Current phase:** ZZZZZZ1 shipped this iteration
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9af02c6` (pushed after status commit)
 **Open:** none — all open feedback shipped; pull from PLAN.md.
+
+### Phase ZZZZZZ — conformance policies post-PUT GET
+- **ZZZZZZ1.** Strengthened `checkPolicies` with a GET after
+  PUT to verify the rule actually persisted (catches PUT-echoes-
+  -but-never-writes adapters; mirror of YYYYYY1's hook check).
 
 ### Phase YYYYYY — conformance hooks deeper validation
 - **YYYYYY1.** Strengthened `checkHooks`: (1) POST response
