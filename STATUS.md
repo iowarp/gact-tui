@@ -1,9 +1,23 @@
 # STATUS
 
-**Last updated:** 2026-04-20T09:00Z
-**Current phase:** CCCCCCCC1+CCCCCCCC2 shipped — `gact attach` (no args) defaults to most-recent detach + dashboard carries ↩ column
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `472960f` (pushed)
+**Last updated:** 2026-04-20T09:30Z
+**Current phase:** DDDDDDDD1 + EEEEEEEE1 shipped — header chip + empty-state hint surface detached count, closing the discoverability loop on detached-sessions
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `04f92c1` (pushed)
 **Open:** Real-LLM smoke replacements for goose/crush/opencode adapters; richer `gact agent deploy/list/connect` registry; remaining UX polish from feedback memories (GRC logo splash, footer flicker hardening).
+
+### Phase EEEEEEEE1 — Empty-state resume hint
+- Empty-state body now shows `↩ N detached session(s) — gact attach (no args) resumes` when the registry has entries for this backend. Sits between the Ctrl+N callout and the keys crib. New unit test + screenshot.
+
+### Phase DDDDDDDD1 — Header chip for detached count
+- Top header carries `↩ N` chip (StatusBadge-style) when previouslyDetached is non-empty for the backend. Renders before the status badge so the two chips group visually. New unit test.
+
+### Phase CCCCCCCC1+2 — Detach UX polish
+- **CCCCCCCC1.** `gact attach` (no args) reads detached.json + auto-attaches to most-recent record on the current backend.
+- **CCCCCCCC2.** `gact dashboard` (pretty + tsv) carries DET column with `↩` for detached sessions.
+
+### Phase BBBBBBBB1+2 — Detached-session sidebar marker + colored CLI
+- **BBBBBBBB1.** Sidebar `↩` marker on detached sessions, prunes on x/x delete.
+- **BBBBBBBB2.** `gact detached --probe` sorts live above dead, color-codes via TTY-gated ANSI, footer summary.
 
 ### Phase CCCCCCCC1+2 — Detach UX polish
 - **CCCCCCCC1.** `gact attach` (no args) reads detached.json + auto-attaches to most-recent record on the current backend. Stderr prints `attaching to most-recent detach: sess_… (title)`. 3 unit tests: newest pick (with stale + cross-backend distractors), no-match-for-backend error, missing-registry error.
