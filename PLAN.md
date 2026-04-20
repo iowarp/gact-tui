@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase FFFFFFFFF — `gact list` gets --detached-only + --sort
+
+- [x] **FFFFFFFFF1.** `gact list` gains two flags mirroring dashboard: `--detached-only` (filter to sessions in the local registry — YYYYYYYY1 on dashboard, BBBBBBBB1 on sidebar) and `--sort newest|oldest|status|tokens|backend` (KKKKKKKK1 — reuses the shared sortSessions helper). Default sort remains backend-order to preserve TSV-consuming script stability; --sort must be passed explicitly to reorder. Unknown --sort value fails fast. Filter ordering: status → detached-only → sort → limit. TestCLI_ListDetachedOnlyAndSort: 3 sessions with monotonic UpdatedAt verifies --sort oldest flips order; bogus --sort exits 2; --detached-only + seeded registry keeps only the registered sid. Existing TestCLI_ListFilters still green.
+
 ## Phase EEEEEEEEE — `gact follow --since DUR`
 
 - [x] **EEEEEEEEE1.** Mirror TTT1's `gact log --since` on the tail-f path. Trims the initial snapshot to messages whose CreatedAt is within the last DUR; streamed messages always emit (they're live by definition). Zero-CreatedAt survives (defensive against backends that don't stamp). `seen` tracking stays populated off the FULL msgs listing so SSE replay doesn't re-emit messages that were older than --since but still in the backend's history. End-to-end: default emits all 4 snapshot rows; `--since 3s` (msgs are ~6s old) emits 0; `--since 1h` emits all 4.
