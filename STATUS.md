@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T18:00Z
-**Current phase:** HHHHHHHHH1 + IIIIIIIII1 shipped — `gact diag` summarises detached registry + diag output consolidated
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `9edda52` (pushed)
+**Last updated:** 2026-04-20T18:30Z
+**Current phase:** JJJJJJJJJ1 + KKKKKKKKK1 shipped — `gact info` carries detached status + completion scripts updated
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `dd3e1a0` (pushed)
+
+### Phase KKKKKKKKK1 — Completion scripts catch up
+- bash/zsh/fish get `detached` + `resume` subcommands that shipped without completion entries. Test extended to assert them + dashboard + log.
+
+### Phase JJJJJJJJJ1 — `gact info` detached status
+- Text adds `detached: yes|no` line; JSON adds `detached: bool` at top level alongside `session`. 11 surfaces now read the single registry. TestCLI_InfoDetachedField covers plain/walked × text/json.
 
 ### Phase IIIIIIIII1 — Diag consolidation
 - Unified runDiag + writeDiagTo behind `writeDiagCore(w, verbose)`. No more drift between stdout + dump-bundle paths. verbose=true adds custom-theme + config-load-error rows; both always include the HHHHHHHHH1 detached summary.
