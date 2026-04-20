@@ -4,6 +4,11 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase KKKKKKK — richer demo + next adapter
+
+- [ ] **KKKKKKK1.** Take a richer TUI screenshot driving real Claude through a tool-using turn (Edit on a fixture file). The current `screenshots/SDK-claude-tui.png` shows a basic text reply; this one should show: USER prompt + ASSISTANT text + Edit tool call + file_diff Part rendered with the diff colours. Save as `screenshots/SDK-claude-tools.png`.
+- [ ] **KKKKKKK2.** Scaffold `adapters/goose/` — Goose has a native HTTP API like Crush, so a Go proxy adapter following the Crush pattern is the natural fit. Start with health + capabilities + workspaces against a mocked Goose upstream; wire sessions list/get next iteration.
+
 ## Phase JJJJJJJ — sidecar conformance gap-closing
 
 - [x] **JJJJJJJ1.** Ran `gact conformance` against live sidecar; 4 sections were 404 (Sessions_Export, Commands_List, Metrics, Agents). All 4 wired to real SDK data: agents from data.agents, commands from data.slash_commands, metrics synthesized from state + cached usage, session export = session record + cached_messages. caps.agents/commands/metrics flipped true. Full GACT conformance suite now passes against live Claude (14 sections green; Diffs/Files auto-skip via cap=false).
