@@ -28,6 +28,8 @@ func (a *App) sessionMatchesFilter(s gact.Session) bool {
 // visible set) and by the filter-aware selection adjusters below.
 // JJJJJJJJ1: respects showDetachedOnly — when true, keeps only
 // sessions whose id is in previouslyDetached.
+// XXXXXXXX1: respects showBusyOnly — when true, keeps only
+// sessions whose status is running or waiting_permission.
 func (a *App) visibleSessionIndexes() []int {
 	out := make([]int, 0, len(a.sessions))
 	for i, s := range a.sessions {
@@ -35,6 +37,10 @@ func (a *App) visibleSessionIndexes() []int {
 			continue
 		}
 		if a.showDetachedOnly && !a.previouslyDetached[s.ID] {
+			continue
+		}
+		if a.showBusyOnly && s.Status != gact.StatusRunning &&
+			s.Status != gact.StatusWaitingPermission {
 			continue
 		}
 		out = append(out, i)
@@ -120,9 +126,9 @@ func (a *App) stepSelectionVisible(delta int) bool {
 
 // ensureSelectedVisible moves a.selected to the first visible session
 // if the current selection isn't visible under any active filter
-// (text filter or the JJJJJJJJ1 detached-only toggle). Called after
-// filter edits commit so the user isn't silently pointing at a
-// hidden session.
+// (text filter or the JJJJJJJJ1 detached-only / XXXXXXXX1 busy-only
+// toggles). Called after filter edits commit so the user isn't
+// silently pointing at a hidden session.
 func (a *App) ensureSelectedVisible() {
 	if a.selected < 0 || a.selected >= len(a.sessions) {
 		return
@@ -130,6 +136,10 @@ func (a *App) ensureSelectedVisible() {
 	cur := a.sessions[a.selected]
 	stillVisible := a.sessionMatchesFilter(cur)
 	if stillVisible && a.showDetachedOnly && !a.previouslyDetached[cur.ID] {
+		stillVisible = false
+	}
+	if stillVisible && a.showBusyOnly && cur.Status != gact.StatusRunning &&
+		cur.Status != gact.StatusWaitingPermission {
 		stillVisible = false
 	}
 	if stillVisible {

@@ -350,6 +350,13 @@ type App struct {
 	// sessions focus on resume candidates.
 	showDetachedOnly bool
 
+	// XXXXXXXX1: showBusyOnly narrows the sidebar to sessions whose
+	// status is running or waiting_permission — useful when you have
+	// many background turns going and want to monitor just the
+	// in-progress ones. Toggled via `b` in sidebar focus. Parallels
+	// the JJJJJJJJ1 `d` detached-only pattern.
+	showBusyOnly bool
+
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
 	// sessionFilterActive is true only while the user is editing the
@@ -2309,6 +2316,28 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.transientHint = "copied " + sid + " to clipboard"
+	case "b":
+		// XXXXXXXX1: toggle busy-only sidebar view — narrows the
+		// list to sessions whose status is running or
+		// waiting_permission. Parallels the JJJJJJJJ1 `d` toggle.
+		a.showBusyOnly = !a.showBusyOnly
+		if a.showBusyOnly {
+			busyCount := 0
+			for _, s := range a.sessions {
+				if s.Status == gact.StatusRunning ||
+					s.Status == gact.StatusWaitingPermission {
+					busyCount++
+				}
+			}
+			if busyCount > 0 {
+				a.transientHint = fmt.Sprintf("showing %d busy session(s) (b to go back)", busyCount)
+			} else {
+				a.transientHint = "no busy sessions on this backend (b to go back)"
+			}
+		} else {
+			a.transientHint = "showing all sessions"
+		}
+		a.ensureSelectedVisible()
 	}
 	return a, nil
 }
@@ -3561,11 +3590,18 @@ func (a *App) renderSidebar(width, height int) string {
 	if a.focus == FocusSidebar {
 		style = t.PaneFoc.Width(width - 2).Height(height)
 	}
-	// JJJJJJJJ1: surface the detached-only filter in the title so the
-	// narrower view is visible even after the transient hint fades.
+	// JJJJJJJJ1 + XXXXXXXX1: surface the active sidebar filter in
+	// the title so the narrower view is visible even after the
+	// transient hint fades. Two mutually-non-exclusive filters —
+	// if both d and b were on, stacked suffix.
 	titleText := "SESSIONS"
-	if a.showDetachedOnly {
+	switch {
+	case a.showDetachedOnly && a.showBusyOnly:
+		titleText = "SESSIONS · detached + busy"
+	case a.showDetachedOnly:
 		titleText = "SESSIONS · detached"
+	case a.showBusyOnly:
+		titleText = "SESSIONS · busy"
 	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
 	rows := []string{title, ""}
@@ -3838,8 +3874,9 @@ func (a *App) renderBody(width, height int) string {
 				"   "+t.HintKey.Render("e")+t.HintLabel.Render(" rename")+
 				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete (x again to confirm)"),
 			"  "+t.HintKey.Render("A")+t.HintLabel.Render(" archive")+
-				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" archived view")+
-				"   "+t.HintKey.Render("d")+t.HintLabel.Render(" detached only")+
+				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" archived")+
+				"   "+t.HintKey.Render("d")+t.HintLabel.Render(" detached")+
+				"   "+t.HintKey.Render("b")+t.HintLabel.Render(" busy")+
 				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" filter"),
 			"  "+t.HintKey.Render("o")+t.HintLabel.Render(" attach a file as context")+
 				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" pick"),
@@ -4330,6 +4367,7 @@ var helpTabs = []struct {
 			{"A", "archive session (un-archive in archived view)"},
 			{"h", "toggle archived / active view"},
 			{"d", "toggle detached-only view (sessions you Ctrl+Z-walked-away-from)"},
+			{"b", "toggle busy-only view (running + waiting_permission sessions)"},
 			{"y", "yank selected session id to clipboard (pipe into gact log/attach/etc.)"},
 			{"/", "filter sessions by title"},
 			{"o", "add file to session context"},
