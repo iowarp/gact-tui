@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T16:00Z
-**Current phase:** BBBBBBBBB1 shipped — `gact log --grep REGEX` filter on flattened message text
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `11040c5` (pushed)
+**Last updated:** 2026-04-20T16:30Z
+**Current phase:** BBBBBBBBB1 + CCCCCCCCC1 shipped — `--grep REGEX` on both `gact log` and `gact follow`
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `aa8f906` (pushed)
+
+### Phase CCCCCCCCC1 — `gact follow --grep`
+- Mirror BBBBBBBBB1 on tail-f. Same flattenMessageForGrep helper used for snapshot + streamed messages. Bad regex fails fast before SSE subscribe.
+
+### Phase BBBBBBBBB1 — `gact log --grep`
+- Drop messages by regex on flattened text. Covers text + thinking + tool_name + tool_call input + tool_result body. Case-insensitive default. TestCLI_LogGrepFilter 4-scenario coverage.
 
 ### Phase BBBBBBBBB1 — `gact log --grep`
 - Drop messages whose flattened text doesn't match the regex (case-insensitive default). Flatten covers text + thinking + tool_name + tool_call input + tool_result body. Stacks with --role / --since / --limit. Bad regex fails fast. TestCLI_LogGrepFilter verifies 4 paths.
