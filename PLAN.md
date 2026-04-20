@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase MMMMMMMM — Terminal title reflects detached count
+
+- [x] **MMMMMMMM1.** windowTitle now appends `[↩N]` when App.previouslyDetached has entries — always-visible reminder on the terminal tab/window title bar even when gact isn't focused. Combines naturally with the existing T1/U2 session-title + status suffix: `GACT — demo (running) [↩3]`. Hidden when N=0 so fresh installs stay clean. TestWindowTitle_AppendsDetachedCount covers empty / detach-only / stacks-with-session-title.
+
 ## Phase LLLLLLLL — Transient hint flicker fix
 
 - [x] **LLLLLLLL1.** Root cause of residual footer flicker wasn't the SSE badge (already gated by DDDDD1) — it was the keystroke-clear in handleKey. A transient hint set by a background event (SSE reconnect outcome, session archive confirmation, plugin done, etc.) between two keystrokes got clobbered on the user's very next key, flashing for ~1 frame. Fix: new `transientHintMinDwell = 800ms` floor. Update() stamps `transientHintAt` via a deferred hook whenever transientHint changes to a new non-empty value and clears the stamp when transientHint empties. handleKey's blanket-clear now skips when age < min dwell so background-event hints get their full ~800ms read-time before any keystroke can wipe them. Test `TestTransientHint_KeystrokeRespectsMinDwell`: pre-dwell keystroke preserves hint, post-dwell keystroke clears it cleanly.
