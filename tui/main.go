@@ -2471,6 +2471,10 @@ func truncMid(s string, width int) string {
 // from runDashboard so --watch can call it on each tick. Returns
 // the exit code (non-zero on backend error). When keep is non-nil,
 // only sessions whose status is in the set are rendered (YYYY1).
+// CCCCCCCC2: cross-references the local detached.json registry so
+// pretty/tsv output marks sessions the user has previously
+// Ctrl+Z-detached from with `↩` in a new DET column. Same source of
+// truth the TUI sidebar uses (BBBBBBBB1).
 func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -2489,6 +2493,20 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		sessions = filtered
 	}
 
+	// CCCCCCCC2: build the detach lookup once per render. Soft-fails
+	// to an empty set so a missing/malformed registry just leaves
+	// the column blank instead of breaking the dashboard.
+	detached := map[string]bool{}
+	if path, err := config.DetachedPath(); err == nil {
+		if reg, err := config.LoadDetached(path); err == nil {
+			for _, r := range reg.Records {
+				if r.Backend == c.BaseURL() {
+					detached[r.SessionID] = true
+				}
+			}
+		}
+	}
+
 	if format == "json" {
 		if sessions == nil {
 			sessions = []gact.Session{}
@@ -2500,7 +2518,7 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 	}
 
 	type row struct {
-		id, status, title, model, age, tokens, cost string
+		id, status, title, model, age, tokens, cost, det string
 	}
 	rows := make([]row, 0, len(sessions))
 	now := time.Now().UTC()
@@ -2520,6 +2538,10 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		} else {
 			age = "-"
 		}
+		det := ""
+		if detached[s.ID] {
+			det = "↩"
+		}
 		rows = append(rows, row{
 			id:     s.ID,
 			status: s.Status,
@@ -2528,21 +2550,22 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 			age:    age,
 			tokens: fmt.Sprintf("%s/%s", humanTokensCLI(s.Tokens.Input), humanTokensCLI(s.Tokens.Output)),
 			cost:   fmt.Sprintf("$%.4f", s.CostUSD),
+			det:    det,
 		})
 	}
 
-	headers := []string{"ID", "STATUS", "TITLE", "MODEL", "AGE", "TOK in/out", "COST"}
+	headers := []string{"ID", "STATUS", "TITLE", "MODEL", "AGE", "TOK in/out", "COST", "DET"}
 	if format == "tsv" {
 		fmt.Println(strings.Join(headers, "\t"))
 		for _, r := range rows {
-			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost)
+			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost, r.det)
 		}
 		return 0
 	}
 	cols := [][]string{
 		{headers[0]}, {headers[1]}, {headers[2]}, {headers[3]},
-		{headers[4]}, {headers[5]}, {headers[6]},
+		{headers[4]}, {headers[5]}, {headers[6]}, {headers[7]},
 	}
 	for _, r := range rows {
 		cols[0] = append(cols[0], r.id)
@@ -2552,19 +2575,27 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		cols[4] = append(cols[4], r.age)
 		cols[5] = append(cols[5], r.tokens)
 		cols[6] = append(cols[6], r.cost)
+		cols[7] = append(cols[7], r.det)
 	}
 	widths := make([]int, len(cols))
 	for i, col := range cols {
 		for _, s := range col {
-			if len(s) > widths[i] {
-				widths[i] = len(s)
+			// Use rune count, not byte length, so the ↩ glyph
+			// (3 bytes UTF-8) doesn't widen the column.
+			w := len([]rune(s))
+			if w > widths[i] {
+				widths[i] = w
 			}
 		}
 	}
 	printRow := func(vals []string) {
 		out := make([]string, len(vals))
 		for i, v := range vals {
-			out[i] = fmt.Sprintf("%-*s", widths[i], v)
+			pad := widths[i] - len([]rune(v))
+			if pad < 0 {
+				pad = 0
+			}
+			out[i] = v + strings.Repeat(" ", pad)
 		}
 		fmt.Println(strings.Join(out, "  "))
 	}
@@ -2573,10 +2604,10 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 		strings.Repeat("-", widths[0]), strings.Repeat("-", widths[1]),
 		strings.Repeat("-", widths[2]), strings.Repeat("-", widths[3]),
 		strings.Repeat("-", widths[4]), strings.Repeat("-", widths[5]),
-		strings.Repeat("-", widths[6]),
+		strings.Repeat("-", widths[6]), strings.Repeat("-", widths[7]),
 	})
 	for _, r := range rows {
-		printRow([]string{r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost})
+		printRow([]string{r.id, r.status, r.title, r.model, r.age, r.tokens, r.cost, r.det})
 	}
 	return 0
 }
