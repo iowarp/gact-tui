@@ -75,6 +75,9 @@ class State:
     # time the SDK reveals the resolved tool list (which depends on
     # the working directory's CLAUDE.md, MCP config, agent settings).
     tool_names: list[str] = field(default_factory=list)
+    # Strong refs to in-flight background turns so the GC doesn't
+    # cancel them mid-stream (RUF006). Removed on completion.
+    background_tasks: set[asyncio.Task[None]] = field(default_factory=set)
 
 
 def workspace_record(state: State) -> dict[str, Any]:
@@ -274,8 +277,12 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
         await _broadcast(sess, envelope("message.created", user_record))
 
         # Spawn the SDK turn in the background; SSE consumers see it
-        # stream out via the per-session subscriber queues.
-        asyncio.create_task(_run_turn(sess, text, state))
+        # stream out via the per-session subscriber queues. Hold a
+        # strong reference in state.background_tasks so the GC can't
+        # cancel the task mid-stream (RUF006).
+        task = asyncio.create_task(_run_turn(sess, text, state))
+        state.background_tasks.add(task)
+        task.add_done_callback(state.background_tasks.discard)
 
         return {"message_id": user_msg_id, "accepted_at": now_iso()}
 
@@ -440,7 +447,7 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                     tools = msg.data.get("tools") if isinstance(msg.data, dict) else None
                     if isinstance(tools, list):
                         state.tool_names = [str(t) for t in tools if isinstance(t, str)]
-                for ev in sdk_message_to_events(msg, sess.id):
+                for ev in sdk_message_to_events(msg, sess.id, cwd=state.cwd):
                     await _broadcast(sess, ev)
                     # Cache assistant + user messages for GET /messages.
                     # message.created payload IS the Message itself (per
