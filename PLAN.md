@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase LLLLLLLLL — GRC logo intro splash via chafa
+
+- [x] **LLLLLLLLL1.** `chafa` generates the terminal halfblock art OFFLINE (via `make intro-logo`; binary not shipped with the TUI), output checked in as `tui/internal/intro/grc-logo.ansi`. Runtime `go:embed` bakes the ANSI text into the binary — single-binary release stays intact, no runtime image-decoding dependency. `viewIntro` now uses the embedded GRC logo as the default `IntroLogo` when the user hasn't set a custom `intro_file`. Screenshot `screenshots/LLLLLLLLL1_grc_logo_splash.png` shows the truecolor triangle centered above the figlet "GACT" name + "press any key to continue" hint. Per user's explicit preference: chafa is the one-time generator (great output), runtime is pure-Go embed. Maintainer workflow: drop the source PNG at `tui/internal/intro/grc-logo.png`, run `make intro-logo`, commit the `.ansi` update.
+
 ## Phase KKKKKKKKK — Completion scripts catch up with new subcommands
 
 - [x] **KKKKKKKKK1.** bash + zsh + fish completion scripts gain `detached` (AAAAAAAA1) and `resume` (IIIIIIII1) subcommands that were silently missing since those features shipped. TestCLI_Completion extended to assert both subcommand names appear in all three outputs — prevents future subcommands from silently dropping off the completion list. Also guards existing `dashboard` + `log` presence.
