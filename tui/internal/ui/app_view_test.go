@@ -287,6 +287,46 @@ func TestPickAttachIndex(t *testing.T) {
 			wantIdx:     0,
 			wantMissing: true,
 		},
+		// RRRRRRRR1: id-prefix match resolves an 8-char shortened sid.
+		{
+			name:   "match by id prefix",
+			attach: "sess_b",
+			sessions: []gact.Session{
+				{ID: "sess_aaaa1111", Title: "alpha"},
+				{ID: "sess_bbbb2222", Title: "bravo"},
+			},
+			wantIdx: 1,
+		},
+		// RRRRRRRR1: substring title, case-insensitive.
+		{
+			name:   "match by title substring (case-insensitive)",
+			attach: "REFACTOR",
+			sessions: []gact.Session{
+				{ID: "sess_a", Title: "fix bug"},
+				{ID: "sess_b", Title: "refactor api auth"},
+			},
+			wantIdx: 1,
+		},
+		// RRRRRRRR1: precedence — exact id beats prefix beats title sub.
+		{
+			name:   "exact id wins over title substring",
+			attach: "sess_b",
+			sessions: []gact.Session{
+				{ID: "sess_aaaa", Title: "this contains sess_b somehow"},
+				{ID: "sess_b", Title: "exact-target"},
+			},
+			wantIdx: 1,
+		},
+		// RRRRRRRR1: exact title wins over id prefix when both match.
+		{
+			name:   "exact title beats id prefix",
+			attach: "alpha",
+			sessions: []gact.Session{
+				{ID: "alphabeta", Title: "other"},
+				{ID: "sess_x", Title: "alpha"},
+			},
+			wantIdx: 1,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRRRRRR — Fuzzy attach matching
+
+- [x] **RRRRRRRR1.** `gact attach <name|sid>` (and the sidebar's pickAttachIndex used by env-var attach) now matches in precedence order: exact id → exact title → id prefix → title substring (case-insensitive). Means an 8-char `gact attach sess_abc1` resolves a 32-char sid; `gact attach refactor` finds "refactor api auth"; `attach REFACTOR` works the same. Each level scans the full list before falling through; first match wins inside a level. Exact matches always beat heuristic ones — protects scripts that assumed strict equality. 4 new sub-tests added to TestPickAttachIndex (id-prefix, case-insensitive title substring, exact-id-beats-title-substring, exact-title-beats-id-prefix). Existing 4 sub-tests untouched.
+
 ## Phase QQQQQQQQ — Default scenario variant cycling
 
 - [x] **QQQQQQQQ1.** Default happy-path script (the "read main.go" turn) now cycles through 3 coherent variants — thinking, intro, tool_result, and final reply all line up by index per turn so the voice stays consistent inside each call. Cycled per-session via `e.NextCallIndex(sessionID, "default")` (same pattern PPPPP1 uses for long-reply, GGGGG1 for big-log, RRRRR1 for diff). Closes the user's "whatever I write I always get the same text" feedback for the most-played-with scenario. Dangerous-path strings stay singular (different shape; one-and-done UX). Test `TestDefaultScriptCyclesIntroVariants`: two consecutive "read main.go" turns produce ≥2 distinct intro variants. Screenshot `QQQQQQQQ1_default_variants.png` shows both turns side-by-side in the conversation pane (println hello vs fmt.Println + greet() suggestions).
