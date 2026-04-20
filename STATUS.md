@@ -1,9 +1,12 @@
 # STATUS
 
-**Last updated:** 2026-04-20T03:55Z
-**Current phase:** LLLLLLL1 shipped — Goose sessions wired
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `2de1ab5` (pushed)
-**Open:** none — Goose messages POST + SSE next; subagents/recipes after.
+**Last updated:** 2026-04-20T04:10Z
+**Current phase:** MMMMMMM1 shipped — Goose messages read
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `ad1fb11` (pushed)
+**Open:** none — Goose POST messages + SSE next.
+
+### Phase MMMMMMM1 — Goose messages read
+- **MMMMMMM1.** GET /v1/sessions/{id}/messages reads + translates Goose's `session.conversation` array. translate.go grew gooseMessage struct + roleToGact + contentToGactPart (handles tagged + untagged serde, variants: text/thinking/toolRequest/toolResponse with Ok/Err wrapping). Stable id synthesis when Goose omits Message.id. caps.messages=true. 4 new tests.
 
 ### Phase LLLLLLL1 — Goose sessions
 - **LLLLLLL1.** New translate.go holds gooseSession → gact.Session projection. GET /v1/sessions + /v1/sessions/{id} wired with field translation (name→title, working_dir→metadata, status synthesized idle). caps.sessions=true. 4 new tests.

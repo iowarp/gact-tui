@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase MMMMMMM — Goose messages read
 
-- [ ] **MMMMMMM1.** Wire `GET /v1/sessions/{id}/messages`. Goose's `GET /sessions/{id}` already returns `conversation` (a JSON array of `Message{id, role, created, content[], metadata}`). Translate Goose Message → gact.Message + each MessageContent variant → gact Part (Text→text, Thinking→thinking, ToolRequest→tool_call, ToolResponse→tool_result; others fall back to a text placeholder). Capability `messages=true`. Tests use a richer mocked goosed conversation.
+- [x] **MMMMMMM1.** Adapter now reads conversation from GET /sessions/{id} and projects it to GACT messages via translate.go's gooseMessage + contentToGactPart helpers. Handles tagged and untagged serde shapes. Variants: text, thinking, toolRequest, toolResponse with Ok/Err result wrapping. Synthesises stable ids when Goose omits Message.id. caps.messages=true. 4 new tests.
 
 ## Phase LLLLLLL — Goose adapter sessions wiring
 
