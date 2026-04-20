@@ -8,7 +8,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 Goal: light up the TUI's `a/d/s/w` permission keys for SDK tool calls so `gact perms` and the inline banner work end-to-end.
 
-- [ ] **HHHHHHH1.** Pass a `can_use_tool` callback to `ClaudeAgentOptions`. When the SDK calls it, the bridge synthesizes a SPEC §6.11 `permission.requested` event onto the session's SSE stream and parks a future. New `POST /v1/permissions/{pid}/respond` endpoint resolves the future with allow/deny. Capability `permissions=true`. Real-LLM smoke that asks Claude to run `Bash` and verifies the permission round-trip.
+- [x] **HHHHHHH1.** can_use_tool closure captures (Session, State); synthesises SPEC §6.11 PermissionRequest, parks asyncio.Future, broadcasts permission.requested + session.status_changed:waiting_permission. New endpoints: GET /v1/permissions[?session_id&status], GET /v1/permissions/{pid}, POST /v1/permissions/{pid} {action}. Capability permissions=true. Real-LLM smoke uses Write tool (Bash auto-allowed by SDK; only "dangerous" tools route through can_use_tool). 43 tests total.
 
 ## Phase GGGGGGG — claude-agent-sdk sidecar follow-ups
 
