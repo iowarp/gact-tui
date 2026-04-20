@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase MMMMMMM — Goose messages read
+
+- [ ] **MMMMMMM1.** Wire `GET /v1/sessions/{id}/messages`. Goose's `GET /sessions/{id}` already returns `conversation` (a JSON array of `Message{id, role, created, content[], metadata}`). Translate Goose Message → gact.Message + each MessageContent variant → gact Part (Text→text, Thinking→thinking, ToolRequest→tool_call, ToolResponse→tool_result; others fall back to a text placeholder). Capability `messages=true`. Tests use a richer mocked goosed conversation.
+
 ## Phase LLLLLLL — Goose adapter sessions wiring
 
 - [x] **LLLLLLL1.** New translate.go holds gooseSession → gact.Session projection. GET /v1/sessions proxies + translates; GET /v1/sessions/{id} mirrors with upstream 404 → SPEC §6.0 envelope. caps.sessions=true. 4 new tests cover translation, 404 propagation, list loop. The TUI's sidebar populates with Goose sessions when pointed at a real goosed.

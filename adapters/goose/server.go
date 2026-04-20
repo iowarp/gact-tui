@@ -70,6 +70,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/workspaces/{id}", s.handleGetWorkspace)
 	s.mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	s.mux.HandleFunc("GET /v1/sessions/{id}", s.handleGetSession)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/messages", s.handleListMessages)
 	// Catchall 501 so TUI degrades cleanly for unimplemented sections.
 	s.mux.HandleFunc("/v1/", s.handleNotImplemented)
 }
@@ -99,7 +100,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"workspaces": true,
 			"sessions":   true,
 			// What's coming:
-			"messages":           false,
+			"messages":           true,
 			"sse":                false,
 			"tools":              false,
 			"files":              false,
@@ -197,6 +198,39 @@ func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, sessionToGact(gs, s.workspace().ID))
+}
+
+// handleListMessages reads the conversation off Goose's
+// `GET /sessions/{id}` (which already includes the conversation
+// inline) and translates each message to GACT shape.
+func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	resp, err := s.client.Get(s.upstream + "/sessions/" + id)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_unreachable", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if resp.StatusCode == http.StatusNotFound {
+		writeError(w, http.StatusNotFound, "session_not_found", "no session with id "+id)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "upstream_error",
+			"upstream returned "+resp.Status)
+		return
+	}
+	var gs gooseSession
+	if err := json.Unmarshal(body, &gs); err != nil {
+		writeError(w, http.StatusBadGateway, "upstream_invalid", err.Error())
+		return
+	}
+	out := make([]gact.Message, 0, len(gs.Conversation))
+	for i, gm := range gs.Conversation {
+		out = append(out, messageToGact(gm, id, i))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"messages": out})
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, r *http.Request) {
