@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T09:30Z
-**Current phase:** DDDDDDDD1 + EEEEEEEE1 shipped — header chip + empty-state hint surface detached count, closing the discoverability loop on detached-sessions
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `04f92c1` (pushed)
+**Last updated:** 2026-04-20T10:00Z
+**Current phase:** FFFFFFFF1 + GGGGGGGG1 shipped — attach probes-and-skips dead candidates + `--prune-dead` cleans the registry. Detached-sessions feature is now reliability-hardened end-to-end.
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `09881e6` (pushed)
+
+### Phase GGGGGGGG1 — `gact detached --prune-dead`
+- New `--prune-dead` flag probes every entry, removes the dead ones, writes survivors back. Implies `--probe` so the table after prune paints alive column. End-to-end verified: 2 dead + 1 live → file has only the survivor.
+
+### Phase FFFFFFFF1 — Attach probes candidates, skips dead
+- `defaultAttachTarget` now probes each candidate newest-first (2s GET against /v1/sessions/{sid}). Skipped dead → "attaching to <sid> — skipped N dead entry(ies)". All dead → helpful error pointing to `--probe`. 5 unit tests (3 prior + 2 new). End-to-end verified.
 **Open:** Real-LLM smoke replacements for goose/crush/opencode adapters; richer `gact agent deploy/list/connect` registry; remaining UX polish from feedback memories (GRC logo splash, footer flicker hardening).
 
 ### Phase EEEEEEEE1 — Empty-state resume hint
