@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase HHHHHHHHH — `gact diag` summarises detached registry
+
+- [x] **HHHHHHHHH1.** Extended both `runDiag` (stdout path) and `writeDiagTo` (dump-bundle path) to surface the detached registry state in two lines: `detached_path: <path>` + `detached_count: N record(s) across M backend(s)`. Also added `GACT_DETACHED_PATH` to the env-var roundup so bug reports show which override (if any) is in effect. Missing registry file shows `0 record(s) across 0 backend(s)` gracefully. End-to-end verified: 3-record 2-backend registry reports exactly that; missing file reports 0+0.
+
 ## Phase GGGGGGGGG — `gact list` carries detached marker
 
 - [x] **GGGGGGGGG1.** `gact list` output now carries a detached marker on every row — mirrors SSSSSSSS1 + CCCCCCCC2 on dashboard. TSV format: new 5th column with `yes` or empty string; JSON format: new top-level `detached: bool` field. Same registry source filtered to current backend. Additive change — JSON callers see a new key alongside existing ones, TSV callers slicing cols 1..4 with awk/cut stay correct. End-to-end against live emulator with 2-session backend + 1-entry registry: walked row shows `yes` / `true`, plain row shows empty / `false`. TestCLI_ListFilters + TestCLI_ListDetachedOnlyAndSort still pass.

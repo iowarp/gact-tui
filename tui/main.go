@@ -334,9 +334,28 @@ func runDiag() {
 	}
 
 	// Environment.
-	for _, name := range []string{"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD", "GACT_CONFIG", "GACT_THEME_FILE"} {
+	for _, name := range []string{
+		"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD",
+		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
+	} {
 		if v := os.Getenv(name); v != "" {
 			fmt.Printf("  env %s: %s\n", name, v)
+		}
+	}
+	// HHHHHHHHH1: one-line summary of the local detached registry
+	// (AAAAAAAA1) so bug reports on resume/attach UX carry the
+	// state without a separate `gact detached` run.
+	if regPath, err := config.DetachedPath(); err == nil {
+		fmt.Printf("  detached_path: %s\n", regPath)
+		if reg, err := config.LoadDetached(regPath); err == nil {
+			backends := map[string]bool{}
+			for _, r := range reg.Records {
+				backends[r.Backend] = true
+			}
+			fmt.Printf("  detached_count: %d record(s) across %d backend(s)\n",
+				len(reg.Records), len(backends))
+		} else {
+			fmt.Printf("  detached_count: (unreadable: %v)\n", err)
 		}
 	}
 }
@@ -5257,9 +5276,28 @@ func writeDiagTo(w io.Writer) {
 	if cfg.CostDangerTokens != nil {
 		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
 	}
-	for _, name := range []string{"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD", "GACT_CONFIG", "GACT_THEME_FILE"} {
+	for _, name := range []string{
+		"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD",
+		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
+	} {
 		if v := os.Getenv(name); v != "" {
 			fmt.Fprintf(w, "  env %s: %s\n", name, v)
+		}
+	}
+	// HHHHHHHHH1: one-line summary of the local detached registry
+	// (AAAAAAAA1) so bug reports on resume/attach UX carry the
+	// state without a separate `gact detached` run.
+	if regPath, err := config.DetachedPath(); err == nil {
+		fmt.Fprintf(w, "  detached_path: %s\n", regPath)
+		if reg, err := config.LoadDetached(regPath); err == nil {
+			backends := map[string]bool{}
+			for _, r := range reg.Records {
+				backends[r.Backend] = true
+			}
+			fmt.Fprintf(w, "  detached_count: %d record(s) across %d backend(s)\n",
+				len(reg.Records), len(backends))
+		} else {
+			fmt.Fprintf(w, "  detached_count: (unreadable: %v)\n", err)
 		}
 	}
 }
