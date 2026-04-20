@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase UUUUUUUU — `gact detached --watch`
+
+- [x] **UUUUUUUU1.** New `--watch` + `--interval` flags on `gact detached` — mirrors the BBBB1 `gact dashboard --watch` pattern. Load + probe + render extracted into a renderOnce closure that the watch loop calls per tick with ANSI clear-screen between frames. Reject-fast if combined with `--rm` or `--prune-dead` (write-mode flags conflict with read-loop semantics). Ctrl+C exits via default SIGINT handling. End-to-end verified: plain invocation unchanged, --watch + --rm rejected with "cannot be combined", watch mode renders the header + table each tick.
+
 ## Phase TTTTTTTT — dump-bundle includes detached registry
 
 - [x] **TTTTTTTT1.** `gact dump-bundle` now writes `detached.json` (the local Ctrl+Z-detach registry, sibling of config.json — same source the BBBBBBBB1 sidebar markers + AAAAAAAA1 `gact detached` use). Useful when filing bug reports about resume / re-attach UX where the registry's state is the load-bearing context. Best-effort: missing/unreadable file just doesn't add the entry. Bundle summary line updated to `wrote N sessions + version + diag + metrics + detached`. End-to-end verified: bundle dir contains detached.json with the expected records.
