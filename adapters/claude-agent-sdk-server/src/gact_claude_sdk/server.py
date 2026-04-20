@@ -86,6 +86,11 @@ class State:
     # time the SDK reveals the resolved tool list (which depends on
     # the working directory's CLAUDE.md, MCP config, agent settings).
     tool_names: list[str] = field(default_factory=list)
+    # IIIIIII2: MCP server catalog — same lazy-discovery story as
+    # tool_names. SystemMessage(init).data.mcp_servers gives a list
+    # of {name, status}; we slot in synthetic ids derived from name
+    # so the SPEC §6.7 per-id endpoints can address each server.
+    mcp_servers: list[dict[str, Any]] = field(default_factory=list)
     # Strong refs to in-flight background turns so the GC doesn't
     # cancel them mid-stream (RUF006). Removed on completion.
     background_tasks: set[asyncio.Task[None]] = field(default_factory=set)
@@ -157,7 +162,7 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
                 "agents": False,
                 "commands": False,
                 "metrics": False,
-                "mcp": False,
+                "mcp": True,
                 "voice": False,
                 "lsp": False,
                 "hooks": False,
@@ -369,6 +374,26 @@ def make_app(cwd: str, cli_path: str | None = None) -> FastAPI:
             "input_schema": {"type": "object"},
         }
 
+    # --- §6.7 MCP ---------------------------------------------------
+
+    @app.get("/v1/mcp/servers")
+    async def list_mcp_servers() -> dict[str, Any]:
+        """IIIIIII2: returns the SDK-discovered MCP catalog.
+
+        Empty until the first session runs a turn (the SDK reveals
+        mcp_servers only on SystemMessage(init)). Per-server tool/
+        resource/prompt drill-downs aren't surfaced through the
+        claude-agent-sdk control protocol so we don't expose them.
+        """
+        return {"servers": list(state.mcp_servers)}
+
+    @app.get("/v1/mcp/servers/{server_id}")
+    async def get_mcp_server(server_id: str) -> dict[str, Any]:
+        for s in state.mcp_servers:
+            if s["id"] == server_id:
+                return s
+        raise HTTPException(status_code=404, detail="server_not_found")
+
     # --- §6.11 permissions ------------------------------------------
 
     @app.get("/v1/permissions")
@@ -476,6 +501,17 @@ def _json_dumps(obj: Any) -> str:
     import json
 
     return json.dumps(obj, default=str)
+
+
+def _slug(name: str) -> str:
+    """Stable URL-safe id from a free-form name. Used for synthetic
+    MCP server ids since the SDK doesn't provide them. Lowercases,
+    keeps [a-z0-9] + replaces everything else with '_'.
+    """
+    out: list[str] = []
+    for ch in name.lower():
+        out.append(ch if ch.isalnum() else "_")
+    return "mcp_" + "".join(out).strip("_") or "mcp_unnamed"
 
 
 def _session_record(sess: Session) -> dict[str, Any]:
@@ -643,10 +679,46 @@ async def _run_turn(sess: Session, prompt: str, state: State) -> None:
                 # the adapter's lifetime.
                 from claude_agent_sdk import SystemMessage
 
-                if isinstance(msg, SystemMessage) and not state.tool_names:
-                    tools = msg.data.get("tools") if isinstance(msg.data, dict) else None
-                    if isinstance(tools, list):
-                        state.tool_names = [str(t) for t in tools if isinstance(t, str)]
+                if isinstance(msg, SystemMessage) and isinstance(msg.data, dict):
+                    if not state.tool_names:
+                        tools = msg.data.get("tools")
+                        if isinstance(tools, list):
+                            state.tool_names = [str(t) for t in tools if isinstance(t, str)]
+                    # IIIIIII2: capture MCP servers too. Each entry is
+                    # {name, status}; we add a stable id derived from
+                    # the name so SPEC §6.7 per-id endpoints work.
+                    if not state.mcp_servers:
+                        servers = msg.data.get("mcp_servers")
+                        if isinstance(servers, list):
+                            mapped: list[dict[str, Any]] = []
+                            for s in servers:
+                                if not isinstance(s, dict):
+                                    continue
+                                name = s.get("name")
+                                if not isinstance(name, str) or not name:
+                                    continue
+                                # SDK status values: "connected",
+                                # "needs-auth", "failed", "pending".
+                                # Map onto SPEC §6.7's enum
+                                # (connecting|ready|error|disconnected).
+                                raw = str(s.get("status") or "")
+                                status_map = {
+                                    "connected": "ready",
+                                    "needs-auth": "error",
+                                    "failed": "error",
+                                    "pending": "connecting",
+                                }
+                                mapped_status = status_map.get(raw, "disconnected")
+                                mapped.append(
+                                    {
+                                        "id": _slug(name),
+                                        "name": name,
+                                        "transport": "stdio",
+                                        "status": mapped_status,
+                                        "x_claudecode_raw_status": raw,
+                                    }
+                                )
+                            state.mcp_servers = mapped
                 # StreamEvents take a separate path because they
                 # need session-level state (active streaming msg id).
                 if isinstance(msg, StreamEvent):

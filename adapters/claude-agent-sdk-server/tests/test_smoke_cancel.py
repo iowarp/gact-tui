@@ -105,9 +105,7 @@ def test_real_claude_cancel_mid_stream(tmp_path: Path) -> None:
                     running_at = time.time()
                     break
                 time.sleep(0.1)
-            assert running_at is not None, (
-                "session never reached running status; SDK didn't start"
-            )
+            assert running_at is not None, "session never reached running status; SDK didn't start"
 
             # Let a few stream events flow so interrupt has work to
             # cut short.
@@ -134,9 +132,7 @@ def test_real_claude_cancel_mid_stream(tmp_path: Path) -> None:
             # Cancel is supposed to be quick — give it generous slack
             # (10s) but call it out if it takes much longer than a
             # typical reply would have anyway.
-            assert settle_s < 30.0, (
-                f"cancel took {settle_s:.1f}s to settle (expected <10s)"
-            )
+            assert settle_s < 30.0, f"cancel took {settle_s:.1f}s to settle (expected <10s)"
     finally:
         proc.terminate()
         try:

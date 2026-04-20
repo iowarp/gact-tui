@@ -37,6 +37,8 @@ def test_capabilities_advertises_expected_caps() -> None:
         assert caps[on] is True, f"{on} should be advertised"
     # HHHHHHH1: permissions now wired via SDK can_use_tool callback.
     assert caps["permissions"] is True
+    # IIIIIII2: MCP catalog now passthrough from SDK init.
+    assert caps["mcp"] is True
     # Not yet wired — must be False so the TUI hides the UI:
     for off in ("voice", "lsp", "scheduled_sessions", "hooks"):
         assert caps[off] is False, f"{off} should be off"
@@ -157,4 +159,17 @@ def test_session_cancel_is_idempotent_when_no_turn_in_flight() -> None:
 
 def test_session_cancel_404_when_unknown() -> None:
     r = _client().post("/v1/sessions/sess_nonexistent/cancel")
+    assert r.status_code == 404
+
+
+def test_mcp_servers_empty_before_first_turn() -> None:
+    """IIIIIII2: same lazy-discovery story as /v1/tools — empty
+    envelope before any session has run."""
+    r = _client().get("/v1/mcp/servers")
+    assert r.status_code == 200
+    assert r.json() == {"servers": []}
+
+
+def test_mcp_server_404_when_unknown() -> None:
+    r = _client().get("/v1/mcp/servers/mcp_nonexistent")
     assert r.status_code == 404

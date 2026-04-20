@@ -87,9 +87,9 @@ def test_real_claude_edit_emits_file_diff(tmp_path: Path) -> None:
             with httpx.Client(base_url=base, timeout=10) as rc:
                 while not stop_responder.is_set():
                     try:
-                        perms = rc.get(
-                            "/v1/permissions", params={"status": "pending"}
-                        ).json()["permissions"]
+                        perms = rc.get("/v1/permissions", params={"status": "pending"}).json()[
+                            "permissions"
+                        ]
                         for p in perms:
                             rc.post(f"/v1/permissions/{p['id']}", json={"action": "allow"})
                     except httpx.HTTPError:
