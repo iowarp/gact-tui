@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T11:30Z
-**Current phase:** KKKKKKKK1 + LLLLLLLL1 shipped — dashboard --sort (newest-first default) + transient hint flicker fix
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `eef268c` (pushed)
+**Last updated:** 2026-04-20T12:00Z
+**Current phase:** MMMMMMMM1 + NNNNNNNN1 shipped — terminal title shows detached count + batch `--rm` for detached
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `3f12549` (pushed)
+
+### Phase NNNNNNNN1 — Batch `gact detached --rm`
+- `--rm` accepts comma-separated sid list for one-shot cleanup of multiple stale entries. Whitespace tolerant. End-to-end verified.
+
+### Phase MMMMMMMM1 — Terminal title shows detached count
+- windowTitle appends `[↩N]` when previouslyDetached has entries, stacking with existing session-title + status suffix. Seven surfaces now show the detach count off the same registry source of truth. TestWindowTitle_AppendsDetachedCount covers empty / detach-only / combined cases.
 
 ### Phase LLLLLLLL1 — Transient hint flicker fix
 - Root cause: handleKey's blanket transientHint-clear wiped background-event hints on the user's very next keystroke, flashing for ~1 frame. Fix adds transientHintAt stamp + 800ms min-dwell floor. Update() defers a tiny hook so every branch that assigns transientHint gets auto-stamped without touching 20+ call sites. Test covers pre/post-dwell behavior.
