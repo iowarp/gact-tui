@@ -618,12 +618,103 @@ func TestDiffsListAggregatesAcrossMessages(t *testing.T) {
 	}
 }
 
+// TestToolsListProxiesAgentTools exercises GET /v1/tools — adapter
+// must look up the first session id, hit /agent/tools?session_id=,
+// and translate the upstream ToolInfo[] to GACT Tool envelopes.
+func TestToolsListProxiesAgentTools(t *testing.T) {
+	mux := http.NewServeMux()
+	// One canned session so firstSessionID() finds something.
+	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"sessions":[{"id":"sT","name":"t","working_dir":"/","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T01:00:00Z"}]}`))
+	})
+	mux.HandleFunc("GET /agent/tools", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("session_id") != "sT" {
+			t.Errorf("upstream missing session_id; got query=%q", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"name":"developer__shell","description":"run shell","parameters":["command"],"input_schema":{"type":"object","properties":{"command":{"type":"string"}}}},
+			{"name":"developer__text_editor","description":"edit","parameters":["command","path"],"input_schema":{"type":"object"}}
+		]`))
+	})
+	upstream := httptest.NewServer(mux)
+	defer upstream.Close()
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/tools")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	var got struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tools) != 2 {
+		t.Fatalf("want 2 tools, got %d", len(got.Tools))
+	}
+	if got.Tools[0]["name"] != "developer__shell" {
+		t.Errorf("tools[0].name=%v", got.Tools[0]["name"])
+	}
+	if got.Tools[0]["id"] != "developer__shell" {
+		t.Errorf("tools[0].id should equal name")
+	}
+
+	// Per-id drill round-trips.
+	r2, _ := http.Get(srv.URL + "/v1/tools/developer__shell")
+	body2, _ := io.ReadAll(r2.Body)
+	r2.Body.Close()
+	if r2.StatusCode != 200 {
+		t.Fatalf("get-tool status %d body %s", r2.StatusCode, body2)
+	}
+	var t1 map[string]any
+	_ = json.Unmarshal(body2, &t1)
+	if t1["id"] != "developer__shell" {
+		t.Errorf("get-tool id=%v", t1["id"])
+	}
+
+	// Unknown tool 404s.
+	r3, _ := http.Get(srv.URL + "/v1/tools/nope")
+	r3.Body.Close()
+	if r3.StatusCode != 404 {
+		t.Errorf("unknown-tool status %d want 404", r3.StatusCode)
+	}
+}
+
+func TestToolsListEmptyWhenNoSession(t *testing.T) {
+	// Mock with no sessions — adapter falls back to empty envelope.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"sessions":[]}`))
+	})
+	upstream := httptest.NewServer(mux)
+	defer upstream.Close()
+	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
+	defer srv.Close()
+
+	r, _ := http.Get(srv.URL + "/v1/tools")
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if r.StatusCode != 200 {
+		t.Fatalf("status %d body %s", r.StatusCode, body)
+	}
+	if !strings.Contains(string(body), `"tools":[]`) {
+		t.Errorf("expected empty envelope, got %s", body)
+	}
+}
+
 func TestNotImplementedReturns501(t *testing.T) {
 	upstream := mockGoose(t)
 	srv := httptest.NewServer(New(upstream.URL, "", nil).Handler())
 	defer srv.Close()
-	// /v1/tools isn't wired yet — should hit the catchall.
-	r, _ := http.Get(srv.URL + "/v1/tools")
+	// /v1/agents isn't wired yet — should hit the catchall.
+	r, _ := http.Get(srv.URL + "/v1/agents")
 	body, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	if r.StatusCode != http.StatusNotImplemented {

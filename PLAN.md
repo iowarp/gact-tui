@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRRRRR — Goose tools catalog
+
+- [ ] **RRRRRRR1.** Wire `GET /v1/tools` against Goose's `/agent/tools?session_id=...`. Tools are session-scoped in Goose; the adapter fetches `/sessions` to find the first session and uses its id, falling back to an empty envelope when none exists. Per-tool drill `GET /v1/tools/{id}` filters the same list. Capability `tools=true`.
+
 ## Phase QQQQQQQ — Goose file_diff Parts
 
 - [x] **QQQQQQQ1.** translate.go.fileDiffForToolRequest dispatches str_replace + write for developer__text_editor. messageToGact gained cwd param; threaded through all callers. New SPEC §6.10 endpoints: /diffs (aggregate) + /messages/{msg_id}/diffs (per-message). caps.diffs=true. 8 new tests + conformance still 8/8.

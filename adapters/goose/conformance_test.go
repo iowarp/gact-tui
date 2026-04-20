@@ -38,11 +38,12 @@ func TestConformance_AgainstMockedUpstream(t *testing.T) {
 		// Endpoints the adapter doesn't proxy yet — they'd 501 and
 		// the conformance suite treats 501 as failure.
 		SkipCommands:      true,
-		SkipTools:         true,
 		SkipMetrics:       true,
 		SkipAgents:        true,
 		SkipSessionExport: true,
 		SkipMessageList:   false, // wired in MMMMMMM1
+		// SkipTools intentionally NOT set — RRRRRRR1 wires the
+		// catalog passthrough.
 	})
 }
 
@@ -65,6 +66,13 @@ func mockCompleteGoose(t *testing.T) *httptest.Server {
 		fl.Flush()
 		_, _ = w.Write([]byte("data: " + `{"type":"Finish","reason":"end_turn","token_state":{}}` + "\n\n"))
 		fl.Flush()
+	})
+	// RRRRRRR1: tools fetched per-session against /agent/tools.
+	mux.HandleFunc("GET /agent/tools", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"name":"developer__shell","description":"shell","parameters":["command"]}
+		]`))
 	})
 	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
