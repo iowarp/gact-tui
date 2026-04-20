@@ -1,8 +1,11 @@
 # STATUS
 
-**Last updated:** 2026-04-20T12:30Z
-**Current phase:** OOOOOOOO1 + PPPPPPPP1 shipped — sidebar `y` yanks session id, body `Y` yanks full conversation
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `199415d` (pushed)
+**Last updated:** 2026-04-20T13:00Z
+**Current phase:** QQQQQQQQ1 shipped — default emulator scenario now cycles through 3 coherent variants per session
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0760de8` (pushed)
+
+### Phase QQQQQQQQ1 — Default scenario variant cycling
+- "read main.go" now produces 3 different turns (cycled per-session via NextCallIndex). Thinking + intro + tool_result + final reply all line up by index for consistent voice. Closes "whatever I write I always get the same text" feedback. New scenario test + screenshot.
 
 ### Phase PPPPPPPP1 — Body Shift+Y full-conversation yank
 - Body `Y` copies entire conversation as role-prefixed markdown (`## user:` / `## assistant:` / …). Helper skips tool-only-no-text messages. Complements plain `y` (single message).
