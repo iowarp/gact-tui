@@ -4,23 +4,36 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
-## Phase DDDDDDD — claude-code / Claude Agent SDK adapter
+## Phase GGGGGGG — claude-agent-sdk sidecar follow-ups
 
-Decision (2026-04-19): write a Go adapter that spawns `claude --output-format stream-json` directly. Rationale: matches the existing opencode/crush adapter pattern (all-Go), uses the same OAuth that the Python `claude-agent-sdk` library uses internally, no Python sidecar needed.
+Goal: close out the sidecar's "Roadmap" section so capabilities the adapter advertises actually work, plus a UI proof.
 
-- [ ] **DDDDDDD1.** Scaffold `adapters/claudecode/` package + `cmd/gact-claudecode-adapter` binary. Mirror the crush adapter's file layout (server.go, transport.go, translate.go, cmd/main.go, README.md, go.mod, conformance_test.go). Server stub: GET /v1/health, GET /v1/capabilities (advertise the realistic subset — sessions/diffs/files/tools, NOT mcp/voice/lsp until we wire them).
-- [ ] **DDDDDDD2.** Workspace + session resolution. One synthetic workspace pulled from `cwd` (Claude Code is per-cwd); sessions are adapter-side state (Claude doesn't expose a session list endpoint), so the adapter keeps a session table in memory keyed by id.
-- [ ] **DDDDDDD3.** POST /v1/sessions/{id}/messages → spawn `claude` subprocess with `--output-format stream-json --input-format stream-json`, write the user message to stdin, read JSONL events from stdout. Cache the assistant message + parts on the adapter side.
-- [ ] **DDDDDDD4.** SSE event stream: convert each Claude stream-json event into a GACT §7.3 event (text → message.part.delta, tool_use → tool_call, tool_result → tool_result, etc.). Emit through the existing /v1/sessions/{id}/events handler.
-- [ ] **DDDDDDD5.** Conformance test against a mocked `claude` binary (use a shell script that emits canned stream-json so CI doesn't need a real OAuth login). Assert all gated sections pass.
+- [ ] **GGGGGGG1.** Wire `GET /v1/tools`. The adapter advertises `capabilities.tools=true` (so the TUI's `/tools` palette renders), but the endpoint itself isn't served. Pull the tool list out of the SDK's first SystemMessage(init) (which carries `data.tools: [name…]`) and cache it on State; expose via `GET /v1/tools` as `{tools: [{id, name, source: "builtin"}]}`. Add unit + smoke coverage.
+- [ ] **GGGGGGG2.** Visual proof: drive the actual gact TUI (not just `gact quick`) against a live sidecar, send a one-word message, capture a VHS screenshot to `screenshots/SDK-claude-tui.png` showing the assistant reply rendered.
+- [ ] **GGGGGGG3.** `file_diff` translation in bridge. When the SDK emits a `ToolUseBlock` with `name in {"Edit","Write","NotebookEdit"}`, *also* emit a sibling GACT `file_diff` part so the TUI's `a/r` apply/reject keys light up. Read the input args (path/old_string/new_string for Edit, file_path/content for Write). Read-only until the user accepts (no upstream POST yet).
+- [ ] **GGGGGGG4.** Streaming deltas. Pass `include_partial_messages=True` in `ClaudeAgentOptions` and translate the SDK's `StreamEvent` into GACT `message.part.delta` events for char-by-char rendering. Currently the TUI sees full messages on `.receive_response()` boundaries.
+
+## Phase DDDDDDD — claude-code / Claude Agent SDK adapter (SUPERSEDED by EEEEEEE1)
+
+Decision (2026-04-19): originally a Go adapter that would spawn `claude --output-format stream-json` directly. User rejected the all-Go approach — they explicitly wanted the Python `claude-agent-sdk` library (which is what they have configured). Phase EEEEEEE1 ships the Python sidecar instead. The Go scaffold was deleted and these tasks are obsolete.
+
+- [x] ~~**DDDDDDD1.**~~ Superseded — see EEEEEEE1.
+- [x] ~~**DDDDDDD2.**~~ Superseded — sidecar has session table + per-session ClaudeSDKClient.
+- [x] ~~**DDDDDDD3.**~~ Superseded — sidecar's POST /messages spawns SDK turn in background, caches result.
+- [x] ~~**DDDDDDD4.**~~ Superseded — sidecar's SSE handler emits message.created + session.status_changed + heartbeats.
+- [x] ~~**DDDDDDD5.**~~ Superseded — sidecar's smoke test hits real Claude Code in ~4s; no need for a mocked CLI.
+
+## Phase EEEEEEE — claude-agent-sdk Python sidecar
+
+- [x] **EEEEEEE1.** New module `adapters/claude-agent-sdk-server/` (uv project, FastAPI, sse-starlette). Per-session ClaudeSDKClient held across HTTP requests. Bridge translates SDK dataclasses → GACT v0.1 wire envelopes. Wired endpoints: health, capabilities, workspaces list/get, sessions create/list/get/delete, messages post/list/get, SSE. 18 tests passing including a real-LLM smoke test against actual OAuth. Verified end-to-end: `gact quick "say hi in two words"` returns "Hi there", exit 0. Surfaced + fixed two real bugs (Message.model needed ModelRef wrapping, missing DELETE) that mocked tests would have hidden.
 
 ## Phase CCCCCCC — release polish
 
 Goal: README + screenshots + install infra ready for the public.
 
-- [ ] **CCCCCCC1.** Add MIT `LICENSE` at repo root. The user is sole author; MIT matches the Go ecosystem norm.
-- [ ] **CCCCCCC2.** Slim the 340-line root README to a release-friendly hero: sharper "what & why" lede; thin the screenshot grid from 99 PNGs to ~6 hero shots; add a license badge; keep the Quickstart but move the comprehensive feature catalog into a separate `docs/FEATURES.md` so the front page reads in <2 minutes.
-- [ ] **CCCCCCC3.** Add `go install` instructions to root README + per-adapter READMEs (opencode, crush). Adapters should also link back to the main repo's quickstart so a fresh clone has one obvious path to a working setup.
+- [x] **CCCCCCC1.** Added MIT `LICENSE` at repo root. Sole author; MIT matches Go ecosystem norm.
+- [x] **CCCCCCC2.** Slimmed root README from 340→~110 lines; long-form moved to `docs/FEATURES.md`; License + Go-version badges; adapter table now lists all three backends.
+- [x] **CCCCCCC3.** Added Install + `go install` sections to opencode + crush READMEs. Each links back to root README's TUI install.
 
 ## Phase AAAAAAA — conformance: tasks POST title echo
 
