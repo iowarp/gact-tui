@@ -158,6 +158,49 @@ func TestHandleBodyKey_YWithNothingToCopyShowsHint(t *testing.T) {
 	}
 }
 
+// OOOOOOOO1: sidebar-focus `y` copies the selected session's sid
+// instead of the body-y's last-assistant text. Split on focus so
+// the two yank flows don't collide.
+func TestHandleSidebarKey_YCopiesSessionID(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "sess_abc123", Title: "alpha"},
+		{ID: "sess_def456", Title: "beta"},
+	}
+	a.selected = 1
+	a.focus = FocusSidebar
+	_, _ = a.handleSidebarKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "sess_def456" {
+		t.Errorf("clipboard = %q, want 'sess_def456'", *got)
+	}
+	if !strings.Contains(a.transientHint, "copied sess_def456") {
+		t.Errorf("hint = %q, want 'copied sess_def456' confirmation", a.transientHint)
+	}
+}
+
+// OOOOOOOO1: with no session selected (index -1 or out of range),
+// sidebar `y` is a no-op toast — doesn't crash or copy garbage.
+func TestHandleSidebarKey_YNoSessionShowsHint(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.selected = -1
+	a.focus = FocusSidebar
+	_, _ = a.handleSidebarKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "" {
+		t.Errorf("clipboard should not be touched; got %q", *got)
+	}
+	if !strings.Contains(a.transientHint, "no session") {
+		t.Errorf("hint = %q, want 'no session' guidance", a.transientHint)
+	}
+}
+
 func TestHandleBodyKey_YClipboardFailureSurfacesHint(t *testing.T) {
 	mu, _, errSlot := withClipboardSpy(t)
 	mu.Lock()
