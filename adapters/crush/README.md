@@ -7,20 +7,30 @@ upstream so the TUI can drive Crush without changes.
 [ GACT TUI ] ── http (GACT v0.1) ──> [ adapter ] ── http (Crush) ──> [ crush server ]
 ```
 
-## Build & run
+## Install
 
 ```sh
+# From a clone:
 cd adapters/crush/cmd/gact-crush-adapter
 go build -o gact-crush-adapter .
 
+# Or globally with go install (once the repo is tagged):
+go install github.com/JaimeCernuda/gact-tui/adapters/crush/cmd/gact-crush-adapter@latest
+```
+
+You'll also need the [`gact` TUI](../../README.md#install) itself.
+
+## Run
+
+```sh
 # TCP upstream:
-./gact-crush-adapter \
+gact-crush-adapter \
   --upstream http://127.0.0.1:8080 \
   --default-workspace ws_default \
   --port 7779
 
 # Unix-socket upstream (Crush's production default):
-./gact-crush-adapter \
+gact-crush-adapter \
   --upstream unix:///run/crush/crush.sock \
   --default-workspace ws_default \
   --port 7779
