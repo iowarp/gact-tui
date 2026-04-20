@@ -1,8 +1,14 @@
 # STATUS
 
-**Last updated:** 2026-04-20T16:30Z
-**Current phase:** BBBBBBBBB1 + CCCCCCCCC1 shipped — `--grep REGEX` on both `gact log` and `gact follow`
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `aa8f906` (pushed)
+**Last updated:** 2026-04-20T17:00Z
+**Current phase:** DDDDDDDDD1 + EEEEEEEEE1 shipped — `gact grep --role` + `gact follow --since`
+**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `afb4f08` (pushed)
+
+### Phase EEEEEEEEE1 — `gact follow --since`
+- Trim initial snapshot to messages within the DUR cutoff. Streamed messages always emit. Seen tracking stays on full listing to prevent SSE replay re-emitting trimmed messages.
+
+### Phase DDDDDDDDD1 — `gact grep --role`
+- Drop hits by role (comma-separated). Runs after parallel search, before sort+limit so kept rows are post-filter lexicographical. TestCLI_GrepRoleFilter added — all 3 grep CLI tests green.
 
 ### Phase CCCCCCCCC1 — `gact follow --grep`
 - Mirror BBBBBBBBB1 on tail-f. Same flattenMessageForGrep helper used for snapshot + streamed messages. Bad regex fails fast before SSE subscribe.
