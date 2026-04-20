@@ -6,7 +6,7 @@ When picking, consider deps: emulator must exist before TUI can really test. Tas
 
 ## Phase QQQQQQQ — Goose file_diff Parts
 
-- [ ] **QQQQQQQ1.** When Goose's `developer__text_editor` tool produces a `str_replace` or `write` invocation, the bridge synthesises a sibling GACT `file_diff` Part alongside the `tool_call`. Mirrors the claude-agent-sdk approach (read on-disk pre-state, compute after, emit Part). Capability `diffs=true`. Tests use a mocked goosed conversation containing both variants + a fixture file.
+- [x] **QQQQQQQ1.** translate.go.fileDiffForToolRequest dispatches str_replace + write for developer__text_editor. messageToGact gained cwd param; threaded through all callers. New SPEC §6.10 endpoints: /diffs (aggregate) + /messages/{msg_id}/diffs (per-message). caps.diffs=true. 8 new tests + conformance still 8/8.
 
 ## Phase PPPPPPP — Goose docs refresh
 
