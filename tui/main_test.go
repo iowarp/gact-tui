@@ -1474,6 +1474,70 @@ func TestCLI_LogRoleFilter(t *testing.T) {
 	}
 }
 
+// BBBBBBBBB1: `gact log --grep` drops messages whose flattened text
+// doesn't match the regex. Case-insensitive by default.
+func TestCLI_LogGrepFilter(t *testing.T) {
+	url, stop := startEmulator(t)
+	defer stop()
+	bin := buildGact(t)
+	sid := createSession(t, url, "log-grep-target")
+
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"send", sid, "read main.go please"); code != 0 {
+		t.Fatalf("send: exit %d", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"wait", "--timeout", "30s", sid); code != 0 {
+		t.Fatalf("wait: exit %d", code)
+	}
+
+	// All messages — should include user + assistant + tool turns.
+	stdoutAll, _, _ := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid)
+	allRows := strings.Count(stdoutAll, "[USER @") +
+		strings.Count(stdoutAll, "[ASSISTANT @") +
+		strings.Count(stdoutAll, "[TOOL @")
+	if allRows < 3 {
+		t.Fatalf("expected ≥3 rows before filter, got %d: %q", allRows, stdoutAll)
+	}
+
+	// Grep for a string only the tool_result carries (the file
+	// content contains "println" — case-insensitive).
+	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--grep", "PRINTLN")
+	if code != 0 {
+		t.Fatalf("--grep PRINTLN: exit %d", code)
+	}
+	// At least one row survives; the user's "read main.go please"
+	// doesn't contain "println" so it shouldn't match.
+	if strings.Contains(stdout, "read main.go please") {
+		t.Errorf("--grep PRINTLN shouldn't keep the USER row: %q", stdout)
+	}
+	if !strings.Contains(strings.ToLower(stdout), "println") {
+		t.Errorf("--grep PRINTLN should have kept rows with println: %q", stdout)
+	}
+
+	// Unmatched pattern → empty output, no error.
+	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--grep", "zzznomatch")
+	if code != 0 {
+		t.Fatalf("--grep zzznomatch should still exit 0, got %d", code)
+	}
+	if strings.Contains(stdout, "[USER @") || strings.Contains(stdout, "[ASSISTANT @") {
+		t.Errorf("unmatched pattern should yield empty rows: %q", stdout)
+	}
+
+	// Bad regex → exit 2 with helpful error.
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
+		"log", sid, "--grep", "[")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for malformed regex")
+	}
+	if !strings.Contains(stderr, "bad --grep pattern") {
+		t.Errorf("stderr should mention 'bad --grep pattern': %q", stderr)
+	}
+}
+
 func TestCLI_LogSince(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()

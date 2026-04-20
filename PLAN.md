@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase BBBBBBBBB — `gact log --grep` regex filter
+
+- [x] **BBBBBBBBB1.** New `--grep PATTERN` flag on `gact log`. Drops every message whose flattened text doesn't match the regex. Case-insensitive by default (prepend `(?-i)` to override). Flatten helper covers text + thinking + tool_name + serialized tool_call input + tool_result body — so `gact log <sid> --grep "ReadFile\\("` finds tool calls, `--grep error` finds error output, etc. Stacks with --role/--since/--limit. Bad regex fails fast with `bad --grep pattern "X": ...`. New TestCLI_LogGrepFilter covers 4 scenarios: PRINTLN matches tool_result rows, unmatched returns empty, user message not present (doesn't contain pattern), malformed regex errors. All 5 log CLI tests pass (LogJSON + LogRoleFilter + LogGrepFilter + LogSince + Log).
+
 ## Phase AAAAAAAAA — `gact attach --print-only`
 
 - [x] **AAAAAAAAA1.** New `--print-only` flag on `gact attach`. Resolves the target sid using the same CCCCCCCC1 no-args-default / RRRRRRRR1 fuzzy-match rules, prints the sid to stdout, exits 0 — no TUI launch. Enables scripting: `SID=$(gact attach <prefix> --print-only)` or `SID=$(gact attach --print-only)` to pick up most-recent detach. Flag parsed ahead of positional args so it composes cleanly with any invocation form. 2 new CLI tests: explicit-sid path + no-args-reads-registry path (the latter requires a live emulator since defaultAttachTarget probes).
