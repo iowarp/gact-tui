@@ -3906,3 +3906,69 @@ func TestCLI_ExportMissingSession(t *testing.T) {
 
 // Sanity import for unused linter happy.
 var _ = io.Discard
+
+// CCCCCCCC1: defaultAttachTarget reads the detached-sessions
+// registry and picks the most-recent entry for the current
+// backend so `gact attach` (no args) just works.
+func TestDefaultAttachTarget_PicksMostRecentForBackend(t *testing.T) {
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	t.Setenv("GACT_DETACHED_PATH", regPath)
+	t.Setenv("GACT_BACKEND", "http://localhost:7777")
+	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
+
+	body := `{"records":[
+		{"session_id":"sess_old","title":"old","backend":"http://localhost:7777","detached_at":"2026-04-19T07:00:00Z"},
+		{"session_id":"sess_new","title":"new","backend":"http://localhost:7777","detached_at":"2026-04-20T07:00:00Z"},
+		{"session_id":"sess_other","title":"other","backend":"http://other:9999","detached_at":"2026-04-20T08:00:00Z"}
+	]}`
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := defaultAttachTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "sess_new" {
+		t.Errorf("got %q, want sess_new", got)
+	}
+}
+
+func TestDefaultAttachTarget_NoMatchReturnsHelpfulError(t *testing.T) {
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "detached.json")
+	t.Setenv("GACT_DETACHED_PATH", regPath)
+	t.Setenv("GACT_BACKEND", "http://localhost:7777")
+	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
+
+	// Registry exists but only has entries on a DIFFERENT backend.
+	body := `{"records":[{"session_id":"sess_a","backend":"http://other:9999","detached_at":"2026-04-20T07:00:00Z"}]}`
+	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := defaultAttachTarget()
+	if err == nil {
+		t.Fatal("expected error when no detach matches the current backend")
+	}
+	if !strings.Contains(err.Error(), "no detached sessions") ||
+		!strings.Contains(err.Error(), "http://localhost:7777") {
+		t.Errorf("error should name the backend; got %q", err.Error())
+	}
+}
+
+func TestDefaultAttachTarget_MissingRegistryIsHandled(t *testing.T) {
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "never-existed.json")
+	t.Setenv("GACT_DETACHED_PATH", regPath)
+	t.Setenv("GACT_BACKEND", "http://localhost:7777")
+	t.Setenv("GACT_CONFIG", filepath.Join(dir, "missing-config.json"))
+
+	_, err := defaultAttachTarget()
+	if err == nil {
+		t.Fatal("expected error when registry is empty/missing")
+	}
+	if !strings.Contains(err.Error(), "no detached sessions") {
+		t.Errorf("error should be the no-match message, got %q", err.Error())
+	}
+}
+
