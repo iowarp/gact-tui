@@ -783,15 +783,21 @@ func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Durati
 
 // validateSSEEvent parses an SSE event block (no trailing \n\n) and
 // asserts §7.2 envelope rules: event: line present, data: line parses
-// as JSON with a `type` field, and data.type matches the event: value.
+// as JSON with `type` + `occurred_at` (RFC3339), and data.type matches
+// the event: value. WWWWWW1 also requires id: lines (when present) to
+// be non-empty so monotonic-id stream resumption can rely on them.
 // Caller passes the full buffer for diagnostics.
 func validateSSEEvent(t Reporter, block, fullBuf string) {
 	t.Helper()
-	var eventName, dataLine string
+	var eventName, idLine, dataLine string
+	var sawID bool
 	for _, line := range strings.Split(block, "\n") {
 		switch {
 		case strings.HasPrefix(line, "event:"):
 			eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+		case strings.HasPrefix(line, "id:"):
+			sawID = true
+			idLine = strings.TrimSpace(strings.TrimPrefix(line, "id:"))
 		case strings.HasPrefix(line, "data:"):
 			dataLine = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		}
@@ -799,12 +805,18 @@ func validateSSEEvent(t Reporter, block, fullBuf string) {
 	if eventName == "" {
 		t.Errorf("SSE event missing `event:` line per SPEC §7.2: %q", block)
 	}
+	if sawID && idLine == "" {
+		// WWWWWW1: an empty id: line breaks Last-Event-ID resumption
+		// (clients can't tell whether to resume from "" or skip).
+		t.Errorf("SSE `id:` line is present but empty per SPEC §7.2: %q", block)
+	}
 	if dataLine == "" {
 		t.Errorf("SSE event missing `data:` line per SPEC §7.2: %q", block)
 		return
 	}
 	var payload struct {
-		Type string `json:"type"`
+		Type       string `json:"type"`
+		OccurredAt string `json:"occurred_at"`
 	}
 	if err := json.Unmarshal([]byte(dataLine), &payload); err != nil {
 		t.Errorf("SSE data: line not valid JSON: %v (data=%q full=%q)", err, dataLine, fullBuf)
@@ -813,6 +825,14 @@ func validateSSEEvent(t Reporter, block, fullBuf string) {
 	if payload.Type == "" {
 		t.Errorf("SSE data.type missing per SPEC §7.2: %q", dataLine)
 		return
+	}
+	// WWWWWW1: occurred_at is part of the documented envelope. Empty
+	// string defeats client-side ordering / dedup. Soft-validate as
+	// RFC3339 (or the UTC variant); just non-empty + parseable.
+	if payload.OccurredAt == "" {
+		t.Errorf("SSE data.occurred_at missing per SPEC §7.2: %q", dataLine)
+	} else if _, err := time.Parse(time.RFC3339, payload.OccurredAt); err != nil {
+		t.Errorf("SSE data.occurred_at %q is not RFC3339: %v", payload.OccurredAt, err)
 	}
 	if eventName != "" && payload.Type != eventName {
 		t.Errorf("SSE event line (%q) does not match data.type (%q) per SPEC §7.2", eventName, payload.Type)
