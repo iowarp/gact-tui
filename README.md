@@ -63,9 +63,9 @@ ships as a sidecar binary you run between the TUI and the upstream:
 
 | Backend | Adapter | Status |
 |---|---|---|
-| [Claude Code](https://github.com/anthropics/claude-code) | [`adapters/claudecode/`](adapters/claudecode/) | spawns `claude --output-format stream-json` (uses your existing OAuth) |
-| [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | proxies the OpenCode HTTP API |
-| [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | proxies the Crush HTTP API |
+| [Claude Code](https://github.com/anthropics/claude-code) | [`adapters/claude-agent-sdk-server/`](adapters/claude-agent-sdk-server/) | Python sidecar built on Anthropic's [`claude-agent-sdk`](https://github.com/anthropics/claude-agent-sdk-python) — uses your existing OAuth, real-LLM smoke test ✓ |
+| [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | Go proxy of the OpenCode HTTP API |
+| [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | Go proxy of the Crush HTTP API |
 
 Each adapter passes the [`contract/conformance`](contract/conformance/)
 test suite so the TUI behaves identically across all of them.

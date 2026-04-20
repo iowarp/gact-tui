@@ -5,6 +5,5 @@ use (
 	./tui
 	./adapters/opencode
 	./adapters/crush
-	./adapters/claudecode
 	./contract/conformance
 )
