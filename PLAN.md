@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase DDDDDDDDD — `gact grep --role` filter
+
+- [x] **DDDDDDDDD1.** `gact grep` now accepts `--role user|assistant|tool|system` (comma-separated). Mirrors VVVVVVVV1/WWWWWWWW1 semantics. Filter applies after the parallel cross-session search gathers hits (which are already role-decorated via midRoles) but BEFORE sort + --limit so the kept rows are the lexicographically-first POST-filter. Unknown role fails fast. End-to-end verified: `grep please --role user` keeps the user hit, `--role assistant` returns empty (assistants don't say "please"), `--role bogus` exits 2. New TestCLI_GrepRoleFilter alongside existing TestCLI_Grep + TestCLI_GrepLimit — all 3 pass.
+
 ## Phase CCCCCCCCC — `gact follow --grep` regex filter
 
 - [x] **CCCCCCCCC1.** Mirror BBBBBBBBB1's `--grep` plumbing onto `gact follow` (tail-f). Compiles regex up-front so a bad pattern fails fast before SSE subscribe. The emit closure drops messages whose flattened text (via shared `flattenMessageForGrep`) doesn't match — both snapshot pass and streamed messages obey. End-to-end verified against live emulator: `gact follow <sid> --grep println` prints only tool_result + assistant rows that contain "println"; bad regex exits 2 with helpful error.
