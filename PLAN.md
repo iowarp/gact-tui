@@ -4,6 +4,10 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase QQQQQQQQQ — iowarp splash + CLIO naming
+
+- [x] **QQQQQQQQQ1.** Swapped the splash animation from the earlier GRC logo-video to the new 80-frame `logo/iowarp_logo.gif`. Figlet name changed from `GACT` → `CLIO` per the user's rename ask. Cleaned up the intro package so it's asset-neutral: `grc.go` → `intro.go`; embed files `grc-logo-anim.ansi`/`grc-logo.ansi` → `intro-anim.ansi`/`intro-static.ansi`; exports renamed `AnimFrames` + `StaticLogo` (GRC shims retained as deprecated for back-compat). Makefile target parameterised with `INTRO_SRC=logo/iowarp_logo.gif` so future asset swaps are `make intro-logo-anim INTRO_SRC=logo/new.gif`. Three screenshots `QQQQQQQQQ1_iowarp_splash_{a,b,c}.png` prove the rotation. Embed grew to ~900KB (80 × ~11KB per frame vs previous 207KB / 36 frames) — acceptable for a single-binary release. All tests green.
+
 ## Phase PPPPPPPPP — `gact session <verb>` alias tree
 
 - [x] **PPPPPPPPP1.** Discoverable `gact session <verb>` namespace that mirrors `gact agent *`. Aliases existing top-level commands: `create` → runNew, `list` → runList, `show`/`info` → runInfo, `connect`/`attach` → runAttach, `rename` → runRename, `stop`/`cancel` → runCancel, `rm`/`remove`/`delete` → runDelete, `export` → runExport. No new behavior — just a cleaner grouping the user explicitly asked for last night. Unknown verbs fail fast. New TestCLI_SessionAliasCRUD exercises the create → list → show → rename → rm round-trip through the aliases + the unknown-verb error path.

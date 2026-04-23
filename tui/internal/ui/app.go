@@ -3260,7 +3260,7 @@ func (a *App) viewConnecting() string {
 var defaultIntroLogo = []string{}
 
 var defaultIntroName = func() []string {
-	out := figure.NewFigure("GACT", "slant", true).String()
+	out := figure.NewFigure("CLIO", "slant", true).String()
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
 	return lines
 }()

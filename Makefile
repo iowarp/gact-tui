@@ -67,33 +67,28 @@ ping: build-tui ## Probe the running backend (set $(PORT) to override).
 list: build-tui ## List sessions on the running backend.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) list
 
-intro-logo: ## Regenerate tui/internal/intro/grc-logo.ansi (static) from a source PNG using chafa.
-	@if ! command -v chafa >/dev/null 2>&1; then \
-		echo "chafa not installed; apt install chafa (or see https://hpjansson.org/chafa/)"; exit 1; \
-	fi
-	@if [ ! -f tui/internal/intro/grc-logo.png ]; then \
-		echo "place the source PNG at tui/internal/intro/grc-logo.png first (not checked in — keep generation reproducible)"; exit 1; \
-	fi
-	chafa --size 30x15 --symbols half --colors full --clear \
-		tui/internal/intro/grc-logo.png > tui/internal/intro/grc-logo.ansi
-	@echo "wrote tui/internal/intro/grc-logo.ansi"
+INTRO_SRC ?= logo/iowarp_logo.gif  ## Source GIF for the intro animation; override with `make intro-logo-anim INTRO_SRC=logo/other.gif`.
 
-intro-logo-anim: ## Regenerate tui/internal/intro/grc-logo-anim.ansi (animated) from logo/logo-video.gif.
+intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from $(INTRO_SRC) using chafa.
 	@if ! command -v chafa >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then \
 		echo "chafa + imagemagick required"; exit 1; \
 	fi
-	@if [ ! -f logo/logo-video.gif ]; then \
-		echo "place the source GIF at logo/logo-video.gif first"; exit 1; \
+	@if [ ! -f $(INTRO_SRC) ]; then \
+		echo "source GIF $(INTRO_SRC) not found; set INTRO_SRC=..."; exit 1; \
 	fi
 	@rm -rf /tmp/gact-intro-frames && mkdir -p /tmp/gact-intro-frames
-	convert logo/logo-video.gif -coalesce /tmp/gact-intro-frames/f%02d.png
-	@: > tui/internal/intro/grc-logo-anim.ansi
+	convert $(INTRO_SRC) -coalesce /tmp/gact-intro-frames/f%02d.png
+	@: > tui/internal/intro/intro-anim.ansi
 	@for f in /tmp/gact-intro-frames/f*.png; do \
 		chafa --size 30x15 --symbols half --colors full --threshold 0.1 --clear "$$f" 2>/dev/null | \
 		python3 -c 'import sys,re; d=sys.stdin.buffer.read(); d=re.sub(rb"\x1b\[\?25[lh]",b"",d); d=re.sub(rb"\x1b\[2J\x1b\[0H",b"",d); d=re.sub(rb"\x1b\[0H",b"",d); sys.stdout.buffer.write(d.strip(b"\n")+b"\n\x0c\n")' \
-		>> tui/internal/intro/grc-logo-anim.ansi ; \
+		>> tui/internal/intro/intro-anim.ansi ; \
 	done
-	@echo "wrote tui/internal/intro/grc-logo-anim.ansi ($$(grep -c $$'\f' tui/internal/intro/grc-logo-anim.ansi) frames)"
+	@# Static fallback = first frame only.
+	@chafa --size 30x15 --symbols half --colors full --threshold 0.1 --clear /tmp/gact-intro-frames/f00.png 2>/dev/null | \
+		python3 -c 'import sys,re; d=sys.stdin.buffer.read(); d=re.sub(rb"\x1b\[\?25[lh]",b"",d); d=re.sub(rb"\x1b\[2J\x1b\[0H",b"",d); d=re.sub(rb"\x1b\[0H",b"",d); sys.stdout.buffer.write(d.strip(b"\n")+b"\n")' \
+		> tui/internal/intro/intro-static.ansi
+	@echo "wrote tui/internal/intro/intro-anim.ansi ($$(grep -c $$'\f' tui/internal/intro/intro-anim.ansi) frames) + intro-static.ansi (fallback)"
 
 screenshots: build-tui ## Render every VHS tape under tui/ into screenshots/.
 	@if ! command -v vhs >/dev/null 2>&1; then \
