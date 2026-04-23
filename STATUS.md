@@ -13,7 +13,7 @@ User reviewed the multi-tool scenario and asked for three fixes:
 Screenshots: `TTTTTTTTT1_body_cursor_on_{diff,first_read,second_read}.png`, `TTTTTTTTT1_ctrl_e_first_read.png` (opens the 52-line main.go in the detail view), `UUUUUUUUU1_unified_diff_inline.png`.
 
 ### Known follow-up
-- Scroll-to-part: walking the cursor up into a long multi-tool message (assistant with 6+ blocks) scrolls the marker above the viewport because `scrollToSelectedMessage` only anchors the *message*. Doing it properly needs per-part row offsets from the renderer. Left as a follow-up; Ctrl+E still expands the correct block even when the marker is off-screen.
+- ~~Scroll-to-part~~ — **shipped as VVVVVVVVV1.** Nav handlers arm a `pendingPartScroll` flag; the View path, after the body is built and before scrollClip, finds the `▸` marker's row and bumps `scrollOffset` so it falls in the upper 2/3 of the viewport. No-op when already visible (no jitter on adjacent blocks). Regenerated screenshots confirm the marker paints on the correct header (ReadFile(main.go), ReadFile(handlers.go), etc.) while walking the cursor.
 
 ### Final pass summary
 - All tests green: emulator (5 packages), tui (5 packages incl. 284s CLI suite), adapters/claudecode non-smoke. Coverage: `tui/internal/ui` 67.6%, `config` 77.5%, `plugins` 72.9%, `client` 39.5%; emulator `events` 87.3%, `scenario` 83.3%, `store` 72.3%, `server` 67.5%.

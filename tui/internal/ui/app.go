@@ -182,6 +182,17 @@ type App struct {
 	// what counts as a block.
 	bodySelPartIdx int
 
+	// VVVVVVVVV1: set true by every cursor-moving handler
+	// (stepPartCursor, jumpMessageCursor, g/G, maybeInitBodyCursor
+	// on focus-in). On the next render pass, renderBody measures
+	// where the ▸ marker fell in the full body string and bumps
+	// scrollOffset so the marker stays within the viewport —
+	// fixing the "selected block scrolled above the fold" wart
+	// from TTTTTTTTT1. Cleared after the one-shot adjustment so
+	// subsequent renders don't re-thrash the scroll if the user
+	// PgDn'd past the marker deliberately.
+	pendingPartScroll bool
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -1914,6 +1925,12 @@ func (a *App) scrollToSelectedMessage() {
 	}
 	a.scrollOffset = len(a.messages) - a.bodySelMsgIdx - 1
 	a.stickyToBottom = a.scrollOffset == 0
+	// VVVVVVVVV1: arm the post-render scroll adjustment so the View
+	// path can nudge the viewport to keep the ▸ marker visible. The
+	// base message-anchored offset is rough (measures in messages,
+	// scrollClip wants lines); the per-part fine-tune reads the
+	// rendered body and lines up the marker properly.
+	a.pendingPartScroll = true
 }
 
 // maybeInitBodyCursor seeds the body message cursor when the user
@@ -4360,6 +4377,16 @@ func (a *App) renderBody(width, height int) string {
 		if conversationH < 1 {
 			conversationH = 1
 		}
+		// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
+		// flagged pendingPartScroll, find the ▸ marker in the full
+		// body and bump scrollOffset so it falls within the viewport
+		// (ideally at ~1/3 from top for context). Clear the flag so
+		// subsequent renders (e.g. SSE streaming a new message in)
+		// don't re-thrash the scroll.
+		if a.pendingPartScroll {
+			a.adjustScrollForSelectedPart(body, conversationH)
+			a.pendingPartScroll = false
+		}
 		body = a.scrollClip(body, conversationH, t)
 	}
 
@@ -4553,6 +4580,79 @@ func fitLines(s string, n int) string {
 		lines = append(lines, "")
 	}
 	return strings.Join(lines, "\n")
+}
+
+// VVVVVVVVV1: adjustScrollForSelectedPart finds the ▸ marker in the
+// rendered body and re-anchors scrollOffset so the marker lands
+// within the viewport. Called one-shot from the View path when a nav
+// handler has flagged pendingPartScroll — the base
+// scrollToSelectedMessage offset is an approximation (measures in
+// messages, scrollClip wants lines), this fine-tunes it to land the
+// actual selected row in view.
+//
+// Strategy:
+//   - If no marker (cursor off or part has no rendered content),
+//     leave scrollOffset untouched.
+//   - Otherwise place the marker at ~1/3 from the top of the viewport
+//     so there's context above it. If the marker is already visible
+//     within that target range, nudge only when it's outside — never
+//     snap the viewport back when the user paged beyond the marker
+//     with PgDn/PgUp deliberately.
+//
+// scrollClip's math is:
+//
+//	start := len(lines) - maxRows - scrollOffset
+//
+// So to place `markerRow` at offset `margin` from the top of the
+// viewport we solve:
+//
+//	markerRow == start + margin
+//	          == len(lines) - maxRows - scrollOffset + margin
+//	scrollOffset = len(lines) - markerRow - maxRows + margin
+func (a *App) adjustScrollForSelectedPart(body string, viewportH int) {
+	const marker = "▸ "
+	if !strings.Contains(body, marker) {
+		return
+	}
+	// Line index of the first ▸ occurrence. We only emit the marker
+	// on the selected part's first line, so this is unambiguous.
+	idx := strings.Index(body, marker)
+	markerRow := strings.Count(body[:idx], "\n")
+	totalLines := strings.Count(body, "\n") + 1
+	if viewportH < 1 {
+		viewportH = 1
+	}
+	margin := viewportH / 3
+	if margin < 2 {
+		margin = 2
+	}
+	if margin >= viewportH {
+		margin = viewportH - 1
+	}
+	// Current visible window:
+	var start int
+	if a.stickyToBottom {
+		start = totalLines - viewportH
+	} else {
+		start = totalLines - viewportH - a.scrollOffset
+	}
+	if start < 0 {
+		start = 0
+	}
+	end := start + viewportH
+	// If marker is already in the upper-2/3 of the viewport, leave
+	// scroll alone — nudging on a visible marker just jitters the UI
+	// as the user walks through adjacent parts.
+	if markerRow >= start && markerRow < end-margin {
+		return
+	}
+	// Target: markerRow at offset `margin` from start.
+	desired := totalLines - markerRow - viewportH + margin
+	if desired < 0 {
+		desired = 0
+	}
+	a.scrollOffset = desired
+	a.stickyToBottom = a.scrollOffset == 0
 }
 
 // scrollClip clamps body to maxRows lines, sticking to bottom by default.
