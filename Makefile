@@ -67,7 +67,7 @@ ping: build-tui ## Probe the running backend (set $(PORT) to override).
 list: build-tui ## List sessions on the running backend.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) list
 
-INTRO_SRC ?= logo/iowarp_logo.gif  ## Source GIF for the intro animation; override with `make intro-logo-anim INTRO_SRC=logo/other.gif`.
+INTRO_SRC ?= logo/logo-vide-basic.gif  ## Source GIF for the intro animation; override with `make intro-logo-anim INTRO_SRC=logo/other.gif`.
 
 intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from $(INTRO_SRC) using chafa.
 	@if ! command -v chafa >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then \

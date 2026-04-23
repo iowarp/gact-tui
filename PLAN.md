@@ -4,6 +4,12 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase RRRRRRRRR — Splash revert to GRC basic + sidebar overflow fix
+
+- [x] **RRRRRRRRR1.** Two fixes shipped together:
+  1. **Splash revert** — user didn't like the iowarp_logo.gif rendering, so rebake intro-anim.ansi from logo/logo-vide-basic.gif (36 frames, ~207KB). Makefile INTRO_SRC default reverted. CLIO figlet name stays.
+  2. **Sidebar overflow** — user reported certain (sessions × context-files) combinations pushed sibling panes down. Two root causes: (a) budget math never accounted for the R2 "N active · M archived" footer (2 rows — blank + label), (b) lipgloss `Height()` pads but doesn't truncate, so any budget overrun just spilled past the border. Fix: honest footer accounting in both `renderSidebar` and `sidebarPageSize` (so keyboard paging stays aligned); defensive `clampLines(body, height-2)` before `style.Render` as a safety net against floor-division off-by-ones. Regression test `TestSidebar_NeverExceedsPaneHeight` iterates terminal heights 15..45 × context-file counts 0..6 and asserts the rendered line count never exceeds the pane's inner budget — catches the specific "1 file breaks, 2 breaks, 3 works, 4 works" non-monotonicity the user reported.
+
 ## Phase QQQQQQQQQ — iowarp splash + CLIO naming
 
 - [x] **QQQQQQQQQ1.** Swapped the splash animation from the earlier GRC logo-video to the new 80-frame `logo/iowarp_logo.gif`. Figlet name changed from `GACT` → `CLIO` per the user's rename ask. Cleaned up the intro package so it's asset-neutral: `grc.go` → `intro.go`; embed files `grc-logo-anim.ansi`/`grc-logo.ansi` → `intro-anim.ansi`/`intro-static.ansi`; exports renamed `AnimFrames` + `StaticLogo` (GRC shims retained as deprecated for back-compat). Makefile target parameterised with `INTRO_SRC=logo/iowarp_logo.gif` so future asset swaps are `make intro-logo-anim INTRO_SRC=logo/new.gif`. Three screenshots `QQQQQQQQQ1_iowarp_splash_{a,b,c}.png` prove the rotation. Embed grew to ~900KB (80 × ~11KB per frame vs previous 207KB / 36 frames) — acceptable for a single-binary release. All tests green.

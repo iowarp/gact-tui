@@ -2390,16 +2390,33 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // sidebarPageSize returns the number of session entries that fit in the
 // visible sidebar pane — used by PgUp/PgDn so the jump matches what the
-// user sees. Mirrors the math in renderSidebar (rowsPerSession=3, plus
-// borders/title/CONTEXT block); we always return at least 1 so paging
-// still moves on a tiny window.
+// user sees. RRRRRRRRR1: reuses the same budget math as renderSidebar
+// so keyboard paging stays aligned with what's rendered (previously
+// drifted by 1-2 rows depending on context-file count + R2 footer,
+// causing PgDn to jump past the last visible session).
 func (a *App) sidebarPageSize() int {
 	const rowsPerSession = 3
 	contextLines := 0
 	if a.selected >= 0 {
-		contextLines = 4 + len(a.contextFiles)
+		if n := len(a.contextFiles); n > 0 {
+			contextLines = 2 + n
+		} else {
+			contextLines = 3
+		}
 	}
-	avail := (a.height - 4) - 2 - contextLines - 1 // -4: header+footer rows
+	footerLines := 0
+	if len(a.sessions) > 0 {
+		footerLines = 2
+	}
+	// a.height includes the header row (1) + footer hints row (1) +
+	// optional hint banner row. The pane itself gets a.height-4 outer
+	// rows (header + footer + 2 spacer rows per the layout math in
+	// renderBody). Same inner-row budget as renderSidebar.
+	inner := (a.height - 4) - 2
+	avail := inner - contextLines - footerLines
+	if contextLines > 0 {
+		avail--
+	}
 	page := avail / rowsPerSession
 	if page < 1 {
 		page = 1
@@ -3720,20 +3737,36 @@ func (a *App) renderSidebar(width, height int) string {
 
 	// Each session takes 3 rows (title + status + spacer). Scroll the
 	// session list so the selected entry stays visible. We reserve room
-	// for the SESSIONS title (2 rows) + CONTEXT section (~3-N rows)
-	// + pane border padding (2 rows). Anything not fitting is hidden,
-	// with "↑ N more" / "N more ↓" indicators at the edges.
+	// for the SESSIONS title (2 rows) + CONTEXT section (2 + N rows
+	// when N>0, 3 rows for the "(no files)" placeholder) + the R2
+	// "N active · M archived" footer (2 rows: blank + label) + pane
+	// border padding (2 rows). Anything not fitting is hidden with
+	// "↑ N more" / "N more ↓" indicators at the edges. RRRRRRRRR1:
+	// the footer used to be unaccounted for, which made certain
+	// (sessions × contextFiles) combos overflow the pane and push
+	// everything to the right of the sidebar a few rows down.
 	const rowsPerSession = 3
 	contextLines := 0
 	if a.selected >= 0 {
-		contextLines = 2 + 1 + len(a.contextFiles) // title+blank, then files (at least 1 placeholder)
-		if contextLines < 4 {
-			contextLines = 4 // accommodate "(no files)"
+		if n := len(a.contextFiles); n > 0 {
+			contextLines = 2 + n // CONTEXT header + blank + N file rows
+		} else {
+			contextLines = 3 // CONTEXT header + blank + "(no files)"
 		}
 	}
-	// Available rows for sessions inside the pane (height-2 for border,
-	// minus 2 for SESSIONS title+blank, minus contextLines, minus 1 spacer).
-	avail := (height - 2) - 2 - contextLines - 1
+	// R2 footer = blank + label = 2 rows whenever any session exists.
+	footerLines := 0
+	if len(a.sessions) > 0 {
+		footerLines = 2
+	}
+	// Available rows for sessions inside the pane: height-2 (border),
+	// minus the fixed header (SESSIONS title + blank = 2), minus
+	// contextLines, minus footerLines, minus 1 safety spacer between
+	// sessions list and CONTEXT when both render.
+	avail := (height - 2) - 2 - contextLines - footerLines
+	if contextLines > 0 {
+		avail-- // blank spacer between session list and CONTEXT
+	}
 	if avail < rowsPerSession {
 		avail = rowsPerSession
 	}
@@ -3875,6 +3908,15 @@ func (a *App) renderSidebar(width, height int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	// RRRRRRRRR1: safety clamp — budget math above can still be off
+	// by one on edge cases (certain session-count × context-file
+	// combinations), and lipgloss.Height(h) pads but doesn't
+	// truncate, so an over-tall body would draw past the border and
+	// push sibling panes down. clampLines hard-caps at the pane's
+	// inner height so the border always closes where expected.
+	if inner := height - 2; inner > 0 {
+		body = clampLines(body, inner)
+	}
 	return style.Render(body)
 }
 
