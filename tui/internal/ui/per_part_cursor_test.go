@@ -159,11 +159,11 @@ func TestPerPart_CtrlETargetsSelectedToolCall(t *testing.T) {
 	}
 }
 
-// TTTTTTTTT1: `[` / `]` are the coarse-grained message jumps. They
-// skip the per-part granularity so users who want "next turn" still
-// have a single keypress for it, without having to j through every
-// part in the current turn.
-func TestPerPart_BracketKeysJumpMessages(t *testing.T) {
+// XXXXXXXXX1: `[` / `]` removed per user feedback — the per-part
+// cursor is the only selector now. This test pins that the keys are
+// no-ops (don't move the cursor) so a future re-add of message-jump
+// nav gets a hard nudge to update the tests + docs.
+func TestPerPart_BracketKeysAreNoOp(t *testing.T) {
 	mk := func(id string) gact.Message {
 		return gact.Message{
 			ID: id, Role: gact.RoleUser,
@@ -179,22 +179,12 @@ func TestPerPart_BracketKeysJumpMessages(t *testing.T) {
 	a.bodySelMsgIdx = 0
 	a.bodySelPartIdx = 0
 
-	// `]` → m2
-	out, _ := a.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
-	a = out.(*App)
-	if a.bodySelMsgIdx != 1 {
-		t.Errorf("after ], msgIdx = %d, want 1", a.bodySelMsgIdx)
-	}
-	// `]` again → m3
-	out, _ = a.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
-	a = out.(*App)
-	if a.bodySelMsgIdx != 2 {
-		t.Errorf("after second ], msgIdx = %d, want 2", a.bodySelMsgIdx)
-	}
-	// `[` → m2
-	out, _ = a.Update(tea.KeyPressMsg{Code: '[', Text: "["})
-	a = out.(*App)
-	if a.bodySelMsgIdx != 1 {
-		t.Errorf("after [, msgIdx = %d, want 1", a.bodySelMsgIdx)
+	for _, k := range []rune{'[', ']'} {
+		out, _ := a.Update(tea.KeyPressMsg{Code: k, Text: string(k)})
+		a = out.(*App)
+		if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+			t.Errorf("%q should be a no-op now; got msgIdx=%d partIdx=%d",
+				k, a.bodySelMsgIdx, a.bodySelPartIdx)
+		}
 	}
 }

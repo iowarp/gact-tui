@@ -89,12 +89,23 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // detailPageSize estimates how many lines fit in the detail pane at
-// the current terminal height. Accounts for the border (2), the
-// title + hint rows (4), and the default padding. Keeps PgUp/PgDn
-// in lockstep with what the user can see.
+// the current terminal height. YYYYYYYYY1: previous math only
+// subtracted 6 rows for chrome, which ignored the Padding(1,2) that
+// adds 2 rows and the implicit screen margin we want around the
+// modal so it doesn't visually abut the footer. Full accounting:
+//
+//	2  border (top + bottom)
+//	2  padding (top + bottom, from Padding(1,2))
+//	1  title
+//	1  blank between title and body
+//	1  blank between body and hint
+//	1  hint
+//	4  outer screen margin (2 top, 2 bottom)
+//
+// = 12 rows reserved. Prevents the tall-file overflow the user
+// reported ("the window can overflow").
 func (a *App) detailPageSize() int {
-	// Pane inside the border = height - 2 border - 4 chrome rows.
-	n := a.height - 2 - 4
+	n := a.height - 12
 	if n < 1 {
 		n = 1
 	}
@@ -323,7 +334,9 @@ func (a *App) viewDetailView() string {
 		return ""
 	}
 	t := a.Theme
-	w := a.modalWidth()
+	// YYYYYYYYY1: use the wider detail-specific width so file content
+	// (the main payload of this modal) doesn't wrap at 72 cols.
+	w := a.detailModalWidth()
 	// Inner width: pane width - 2 padding - 2 border.
 	innerW := w - 4
 	if innerW < 10 {

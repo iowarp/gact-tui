@@ -352,12 +352,37 @@ func (t Theme) renderPartsForRoleWithResults(parts []gact.Part, width int, role 
 // and the inlined tool_result sibling so "expand this specific read
 // result" reads intuitively.
 func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width int, role string, inlineResults map[string]gact.Part, selectedPartID string) string {
+	// ZZZZZZZZZZ1: edit_file absorbs its sibling file_diff. User
+	// feedback: "EditFile returns the diff, there shouldn't be an
+	// 'ok' or a diff indicated but instead the changes". We match
+	// edit_file tool_calls to file_diff parts in the same message
+	// by path, then:
+	//   - render the file_diff's body under the edit_file header
+	//     (replacing the "⎿ ok" tool_result row),
+	//   - suppress the standalone file_diff render to avoid the
+	//     duplicate "◇ diff main.go — focus body…" block the user
+	//     explicitly called out as noise.
+	//
+	// Falls back to the previous behaviour when no match is found
+	// (e.g. a diff proposed without a preceding edit_file, or an
+	// edit_file that legitimately returns non-diff output).
+	editDiffByCall, suppressed := matchEditFileDiffs(parts)
+
 	var rows []string
 	for _, p := range parts {
+		if suppressed[p.ID] {
+			continue
+		}
 		var rendered string
-		if role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "" {
+		switch {
+		case role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "" :
 			rendered = renderMarkdown(p.Text, t, width-2)
-		} else {
+		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
+			// Always render the call header (matches CC style where
+			// you see the tool name + path even when the body IS the
+			// diff).
+			rendered = t.renderPart(p, width)
+		default:
 			rendered = t.renderPart(p, width)
 		}
 		if rendered != "" {
@@ -366,14 +391,33 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 			}
 			rows = append(rows, rendered)
 		}
-		if p.Type == gact.PartTypeToolCall && p.CallID != "" && inlineResults != nil {
-			if r, ok := inlineResults[p.CallID]; ok {
-				rr := t.renderPart(r, width)
-				if rr != "" {
-					if selectedPartID != "" && r.ID == selectedPartID {
-						rr = markSelectedBlock(rr, t)
+		// ZZZZZZZZZZ1: prefer the absorbed diff over the "ok" result.
+		if p.Type == gact.PartTypeToolCall && p.CallID != "" {
+			if diff, ok := editDiffByCall[p.CallID]; ok {
+				// Render the diff's body as if it were the tool_result
+				// so it nests visually under the edit_file header.
+				diffBody := t.renderEditDiffInline(diff, width)
+				if diffBody != "" {
+					if selectedPartID != "" && diff.ID == selectedPartID {
+						diffBody = markSelectedBlock(diffBody, t)
 					}
-					rows = append(rows, rr)
+					rows = append(rows, diffBody)
+				}
+				// Skip the normal tool_result path for this call.
+				continue
+			}
+			if inlineResults != nil {
+				if r, ok := inlineResults[p.CallID]; ok {
+					// AAAAAAAAAA1: thread the parent tool_name so
+					// grep / similar tools can take over the result
+					// layout (file:line gutter instead of raw text).
+					rr := t.renderToolResultForTool(r, width, p.ToolName)
+					if rr != "" {
+						if selectedPartID != "" && r.ID == selectedPartID {
+							rr = markSelectedBlock(rr, t)
+						}
+						rows = append(rows, rr)
+					}
 				}
 			}
 		}
@@ -381,18 +425,245 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-// markSelectedBlock prefixes the first line of a rendered block with
-// a `▸ ` arrow in the Secondary palette colour so the per-part body
-// cursor is visible. Leaves continuation lines untouched so leading
-// indentation (tool_result `│` bars etc.) keeps reading cleanly.
+// matchEditFileDiffs walks parts and pairs each edit_file tool_call
+// with a sibling file_diff for the same path. Returns:
+//
+//	byCall[call_id]        — diff to render under this call's header
+//	suppressed[part_id]    — file_diff parts to NOT render standalone
+//
+// Match by path: the tool_call's Input["path"] ↔ file_diff.Path. This
+// is loose on purpose — a one-shot edit flow that emits a diff and
+// then the matching call (or vice versa) both get paired regardless
+// of order.
+func matchEditFileDiffs(parts []gact.Part) (byCall map[string]gact.Part, suppressed map[string]bool) {
+	byCall = map[string]gact.Part{}
+	suppressed = map[string]bool{}
+	type callInfo struct {
+		id   string
+		path string
+	}
+	var calls []callInfo
+	for _, p := range parts {
+		if p.Type != gact.PartTypeToolCall || p.ToolName != "edit_file" {
+			continue
+		}
+		path := ""
+		if s, ok := p.Input["path"].(string); ok {
+			path = s
+		}
+		if path == "" || p.CallID == "" {
+			continue
+		}
+		calls = append(calls, callInfo{p.CallID, path})
+	}
+	if len(calls) == 0 {
+		return byCall, suppressed
+	}
+	used := map[string]bool{} // callID set
+	for _, p := range parts {
+		if p.Type != gact.PartTypeFileDiff {
+			continue
+		}
+		for _, c := range calls {
+			if used[c.id] {
+				continue
+			}
+			if c.path != p.Path {
+				continue
+			}
+			byCall[c.id] = p
+			suppressed[p.ID] = true
+			used[c.id] = true
+			break
+		}
+	}
+	return byCall, suppressed
+}
+
+// AAAAAAAAAA1: renderToolResultForTool dispatches on the parent
+// tool_name before falling back to the generic tool_result render.
+// User feedback: grep currently shows raw "file:line:content" text;
+// CC/crush render it with the filename + line number in a styled
+// gutter ("  26 │ content"). Adding this dispatch lets us give each
+// tool a bespoke body layout without bloating renderPart's switch.
+//
+// Currently handled tools:
+//
+//	grep — parse "path:line:content" per row, render with a right-
+//	       aligned line-number gutter + colour the file path.
+//	       Groups consecutive hits from the same file under one
+//	       header so 14 hits across 5 files don't repeat the path
+//	       on every row.
+//
+// Empty toolName (standalone tool_result, e.g. from a tool message
+// with no pairing) falls through to the generic render — same as
+// the pre-AAAAAAAAAA1 behaviour.
+func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) string {
+	if toolName == "grep" {
+		if out := t.renderGrepResult(p, width); out != "" {
+			return out
+		}
+	}
+	return t.renderPart(p, width)
+}
+
+// renderGrepResult parses grep's "path:line:content" output and
+// renders CC-style: file header + line-number gutter per hit.
+// Returns "" when parsing fails so the caller can fall back to the
+// raw tool_result render.
+func (t Theme) renderGrepResult(p gact.Part, width int) string {
+	raw := ""
+	for i, c := range p.Content {
+		if i > 0 {
+			raw += "\n"
+		}
+		if c.Type == gact.PartTypeText {
+			raw += c.Text
+		}
+	}
+	raw = strings.TrimRight(raw, "\n")
+	if raw == "" {
+		return ""
+	}
+	type hit struct {
+		path    string
+		line    string
+		content string
+	}
+	var hits []hit
+	for _, row := range strings.Split(raw, "\n") {
+		// Expect "path:line:content". Tolerate paths that contain
+		// colons by splitting only the first two.
+		p1 := strings.IndexByte(row, ':')
+		if p1 < 0 {
+			return "" // can't parse — let the caller fall back
+		}
+		p2 := strings.IndexByte(row[p1+1:], ':')
+		if p2 < 0 {
+			return ""
+		}
+		p2 += p1 + 1
+		h := hit{
+			path:    row[:p1],
+			line:    row[p1+1 : p2],
+			content: row[p2+1:],
+		}
+		// Strip a single leading tab/space from content so the
+		// gutter alignment is stable across grep invocations.
+		h.content = strings.TrimLeft(h.content, "\t ")
+		hits = append(hits, h)
+	}
+	if len(hits) == 0 {
+		return ""
+	}
+	// Pick the gutter width: the widest line number in view.
+	gutterW := 0
+	for _, h := range hits {
+		if w := lipgloss.Width(h.line); w > gutterW {
+			gutterW = w
+		}
+	}
+	if gutterW < 2 {
+		gutterW = 2
+	}
+	barColor := t.RoleTool
+	if barColor == nil {
+		barColor = t.Border
+	}
+	elbow := lipgloss.NewStyle().Foreground(barColor).Render("⎿")
+	bar := lipgloss.NewStyle().Foreground(barColor).Render("│")
+	pathStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	lineStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	contentStyle := lipgloss.NewStyle().Foreground(t.Fg)
+
+	// Total content budget: width of the inner area minus the
+	// " │ " (3) + " " (1 space between gutter + content) + gutterW.
+	bodyBudget := width - 3 - gutterW - 1 - 2
+	if bodyBudget < 10 {
+		bodyBudget = 10
+	}
+
+	var rows []string
+	rows = append(rows, elbow) // elbow on its own row so the ⎿ stays a single-line anchor
+	lastPath := ""
+	for _, h := range hits {
+		if h.path != lastPath {
+			// File header line — one blank separator between files
+			// so visual grouping is obvious.
+			if lastPath != "" {
+				rows = append(rows, " "+bar)
+			}
+			rows = append(rows, " "+bar+" "+pathStyle.Render(h.path))
+			lastPath = h.path
+		}
+		padded := strings.Repeat(" ", gutterW-lipgloss.Width(h.line)) + h.line
+		content := h.content
+		if lipgloss.Width(content) > bodyBudget {
+			content = truncateString(content, bodyBudget)
+		}
+		row := " " + bar + " " +
+			lineStyle.Render(padded) + " " + bar + " " + contentStyle.Render(content)
+		rows = append(rows, row)
+	}
+	return strings.Join(rows, "\n")
+}
+
+// renderEditDiffInline renders a file_diff part in "absorbed" mode:
+// no separate `◇ diff path` header (the edit_file call above already
+// named the file), leading `⎿` so it visually continues under the
+// tool_call header, unified-diff body indented one level.
+func (t Theme) renderEditDiffInline(p gact.Part, width int) string {
+	wrapW := width - 2
+	if wrapW < 10 {
+		wrapW = 10
+	}
+	before, after := "", ""
+	if p.Before != nil {
+		before = *p.Before
+	}
+	if p.After != nil {
+		after = *p.After
+	}
+	body := unifiedDiffView(p.Path, before, after, wrapW-2, t)
+	// Pending diffs get a one-line apply/reject hint — applied ones
+	// show a muted (applied) tag; rejected ones show muted (rejected).
+	status := ""
+	if p.Applied {
+		status = lipgloss.NewStyle().Foreground(t.Success).Render(" (applied)")
+	} else if rj, ok := p.Metadata["rejected"].(bool); ok && rj {
+		status = lipgloss.NewStyle().Foreground(t.FgMuted).Render(" (rejected)")
+	} else {
+		status = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(" — `a` apply · `r` reject")
+	}
+	head := lipgloss.NewStyle().Foreground(t.RoleTool).Render("⎿") + status
+	return lipgloss.JoinVertical(lipgloss.Left, head, indent(body, "  "))
+}
+
+// markSelectedBlock renders a per-part body-cursor marker. WWWWWWWWW1:
+// previously only the first line got a `▸ ` prefix, which shifted its
+// indentation by 2 cols while continuation rows stayed at col 0 —
+// wrapped text reads ragged. Fix: prefix the first line with `▸ ` and
+// every continuation line with two matching spaces so the whole
+// selected block indents uniformly. The marker itself stays visible
+// only on line 0 so the eye catches the start of the block, but the
+// indent runs all the way so wrap columns line up.
 func markSelectedBlock(rendered string, t Theme) string {
 	marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
+	cont := "  "
 	lines := strings.Split(rendered, "\n")
 	if len(lines) == 0 {
 		return rendered
 	}
-	lines[0] = marker + lines[0]
-	return strings.Join(lines, "\n")
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		if i == 0 {
+			out[i] = marker + l
+		} else {
+			out[i] = cont + l
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 // glamourStyle is retained for backwards compat with any caller that

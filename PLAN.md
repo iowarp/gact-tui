@@ -4,6 +4,30 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase AAAAAAAAAA — Grep output as CC-style gutter
+
+- [x] **AAAAAAAAAA1.** grep tool_result no longer renders raw "path:line:content" text. User feedback: "the line numbers should be added by us not for them to be on the file". New `renderGrepResult` parses each row into `(path, line, content)` tuples and renders CC/crush style: `⎿` elbow on its own row, file path as a bold primary header row (shown once per file group, not per hit), line numbers right-aligned in a muted gutter, `│` column separator, content in full-fg. Groups consecutive hits from the same file under one header so 14 hits across 5 files don't repeat the path 14 times. Falls through to the generic tool_result render if parsing fails. `renderPartsForRoleWithResultsSelected` grew a `renderToolResultForTool` dispatch so future tools (bash, fetch) can take over their body layout similarly.
+
+## Phase ZZZZZZZZZZ — EditFile absorbs sibling file_diff
+
+- [x] **ZZZZZZZZZZ1.** User feedback: "EditFile returns the diff, there shouldn't be an 'ok' or a diff indicated but instead the changes". When an edit_file tool_call has a matching (by path) sibling file_diff in the same assistant message, the diff now renders UNDER the EditFile header as its body. Dropped: the `⎿ ok` tool_result row (replaced by the diff), the standalone `◇ diff main.go — focus body, then 'a' apply / 'r' reject` header (redundant with the tool_call above). New `matchEditFileDiffs` helper returns `byCall map` + `suppressed set`; `renderEditDiffInline` renders the diff with a `⎿` elbow + apply/reject hint inline. Lone file_diffs (no matching edit call) keep their standalone render. Two tests: `TestEditFile_AbsorbsSiblingDiff`, `TestEditFile_LoneFileDiffStillRendersStandalone`.
+
+## Phase ZZZZZZZZZ — Ctrl+C confirmation overlay
+
+- [x] **ZZZZZZZZZ1.** User feedback: "ctrl+c should have a confirmation window, close? yes no detach". First Ctrl+C now opens a small 3-option modal (close / no / detach) instead of quitting immediately. `close` preserves the original JJJJJ1 "stop everything" path (cancel in-flight turn + quit); `no` dismisses; `detach` mirrors Ctrl+Z's IIIII1 clean-detach flow (captures DetachedSessionID + quit, session stays alive on the backend). Keybindings: `←/→` move highlight, `Enter` fire, `y/n/d` direct-select each option, `Esc` dismiss, and double Ctrl+C accepts the current selection so the pre-ZZZZZZZZZ1 "spam ctrl+c to quit" muscle memory still works. Five tests cover open-modal / kbd-nav / Esc-dismiss / detach-path / double-Ctrl+C-accepts. Two existing e2e + unit tests updated to send Ctrl+C twice for the new flow.
+
+## Phase YYYYYYYYY — Detail modal width + overflow
+
+- [x] **YYYYYYYYY1.** User feedback: "when opening a file, the window can overflow, and it is not wide enough for most lines". New `detailModalWidth()` uses 90% of terminal width (capped 80–160) instead of the shared 72-col `modalWidth`, so source-code content doesn't wrap at 72. Tightened `detailPageSize` from `a.height - 6` to `a.height - 12` to fully account for border (2) + padding (2) + title (1) + 2 blank separators + hint (1) + 4-row screen margin, preventing the modal from overflowing the viewport. Other modals (settings, help, palette) unchanged.
+
+## Phase XXXXXXXXX — Single selector (drop message-level cursor + [/])
+
+- [x] **XXXXXXXXX1.** User feedback: "i also dont see the value with the message selector and global turn selector rather just have the message selector". Removed the full-message █ gutter bar + BgSubtle row tint in `renderBody`. Dropped the `[` / `]` coarse-grained message-jump keys and their `jumpMessageCursor` helper. Now the per-part `▸ ` from TTTTTTTTT1 is the ONLY selection indicator — single selector, clearer signal. `TestPerPart_BracketKeysAreNoOp` replaces the old message-jump test, pinning the removal so a future re-add hits a test failure.
+
+## Phase WWWWWWWWW — ▸ marker wrap alignment
+
+- [x] **WWWWWWWWW1.** User reported the ▸ prefix making text "scroll and jump line" — the first line got `▸ ` (shifted 2 cols right) while continuation rows stayed at col 0, so wrapped text read ragged. Fix in `markSelectedBlock`: prefix line 0 with `▸ ` (marker, Secondary bold) and every continuation line with two matching spaces so the whole selected block indents uniformly. Marker stays visible only on line 0 (eye catches the block start); indent runs all the way so wrap columns line up.
+
 ## Phase VVVVVVVVV — Scroll-to-part visibility
 
 - [x] **VVVVVVVVV1.** Fixed the "selected block scrolled above the fold" wart flagged as a follow-up on TTTTTTTTT1. New `pendingPartScroll` flag gets armed by every cursor-moving handler (stepPartCursor, jumpMessageCursor, g/G, maybeInitBodyCursor). The View path, after building the full body string and before scrollClip, calls `adjustScrollForSelectedPart` which finds the `▸ ` marker's line offset and bumps `scrollOffset` so it falls within the viewport (target: ~1/3 from top for context). No-op when the marker is already in the upper 2/3 of the viewport so walking through adjacent on-screen parts doesn't jitter. Three regression tests: `TestAdjustScrollForSelectedPart_BringsMarkerIntoView` (marker above fold → scroll nudges it in), `TestAdjustScrollForSelectedPart_NoOpWhenVisible` (already-visible marker → no scroll change), `TestAdjustScrollForSelectedPart_NoMarkerIsNoOp` (no `▸ ` → leave scroll alone). Regenerated screenshots: walking `k` through the 6-block multi-tool turn now paints the marker on the correct header (ReadFile main.go, then ReadFile handlers.go, etc.) visible in-frame.

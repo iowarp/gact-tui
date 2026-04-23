@@ -125,6 +125,9 @@ func TestE2E_TUI_HappyPath(t *testing.T) {
 			strings.Contains(s, "⎿")
 	}, 8*time.Second)
 
+	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// the second press accepts the default "close" option and quits.
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	_, _ = io.ReadAll(tm.FinalOutput(t, teatest.WithFinalTimeout(3*time.Second)))
 }
@@ -158,6 +161,9 @@ func TestE2E_TUI_PermissionFlow(t *testing.T) {
 		return strings.Contains(s, "Removed") || strings.Contains(s, "directory was removed")
 	}, 5*time.Second)
 
+	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// the second press accepts the default "close" option and quits.
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	_, _ = io.ReadAll(tm.FinalOutput(t, teatest.WithFinalTimeout(3*time.Second)))
 }
@@ -187,6 +193,9 @@ func TestE2E_TUI_PaletteAndHelp(t *testing.T) {
 	}, 2*time.Second)
 
 	tm.Send(tea.KeyPressMsg{Code: tea.KeyEscape})
+	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// the second press accepts the default "close" option and quits.
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	_, _ = io.ReadAll(tm.FinalOutput(t, teatest.WithFinalTimeout(3*time.Second)))
 }

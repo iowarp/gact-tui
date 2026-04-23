@@ -183,7 +183,7 @@ type App struct {
 	bodySelPartIdx int
 
 	// VVVVVVVVV1: set true by every cursor-moving handler
-	// (stepPartCursor, jumpMessageCursor, g/G, maybeInitBodyCursor
+	// (stepPartCursor, g/G, maybeInitBodyCursor
 	// on focus-in). On the next render pass, renderBody measures
 	// where the ▸ marker fell in the full body string and bumps
 	// scrollOffset so the marker stays within the viewport —
@@ -322,6 +322,14 @@ type App struct {
 	// Help overlay
 	helpOpen bool
 	helpTab  int // active tab index when helpOpen; see helpTabs
+
+	// ZZZZZZZZZ1: Ctrl+C confirmation overlay. User feedback: "ctrl+c
+	// should have a confirmation window, close? yes no detach". Opens
+	// a small 3-option modal on first Ctrl+C; the selected option
+	// fires on Enter. Second Ctrl+C while open accepts the current
+	// selection so muscle-memory "ctrl+c ctrl+c" still quits.
+	quitConfirmOpen     bool
+	quitConfirmSelected int // 0=close, 1=cancel-modal, 2=detach
 
 	// Settings overlay
 	settingsOpen bool
@@ -802,7 +810,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
@@ -1481,6 +1489,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
+	if a.quitConfirmOpen {
+		return a.handleQuitConfirmKey(k)
+	}
 	if a.helpOpen {
 		switch k.String() {
 		case "?", "esc", "ctrl+c":
@@ -1519,25 +1530,21 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch k.String() {
 	case "ctrl+c":
-		// JJJJJ1: "stop everything" semantics — if a session is
-		// actively running or waiting for a permission, fire a
-		// cancel so the backend stops the in-flight turn instead
-		// of being left orphaned. The user explicitly asked for
-		// '/exit or ctrl+c shoudl exit us anbd stop everyuthign'.
-		// Detach (Ctrl+Z, IIIII1) is the path for "leave it
-		// running"; Ctrl+C is the path for "kill the work".
-		if a.sseCancel != nil {
-			a.sseCancel()
+		// ZZZZZZZZZ1: Ctrl+C now opens a confirmation overlay instead
+		// of exiting immediately. User feedback: "ctrl+c should have
+		// a confirmation window, close? yes no detach". Prevents
+		// accidental quit mid-turn and surfaces the detach path
+		// (previously buried under Ctrl+Z) as a first-class option.
+		//
+		// Second Ctrl+C while the confirm is already open accepts
+		// the currently-highlighted option — preserves the old
+		// "spam ctrl+c to quit" muscle memory.
+		if a.quitConfirmOpen {
+			return a.applyQuitConfirmSelection()
 		}
-		var cmds []tea.Cmd
-		if sid := a.currentSessionID(); sid != "" && a.c != nil {
-			switch a.currentStatus {
-			case gact.StatusRunning, gact.StatusWaitingPermission:
-				cmds = append(cmds, cancelCmd(a.c, sid))
-			}
-		}
-		cmds = append(cmds, tea.Quit)
-		return a, tea.Batch(cmds...)
+		a.quitConfirmOpen = true
+		a.quitConfirmSelected = 0 // default: close
+		return a, nil
 	case "?":
 		a.helpOpen = true
 		return a, nil
@@ -2141,47 +2148,6 @@ func (a *App) stepPartCursor(dir int) {
 	// At the conversation end — stay put.
 }
 
-// TTTTTTTTT1: jumpMessageCursor moves the body cursor to the next or
-// previous non-absorbed message's boundary part. Coarse-grained
-// shortcut bound to `[` / `]` — the fine-grained j/k walks parts.
-func (a *App) jumpMessageCursor(dir int) {
-	if len(a.messages) == 0 {
-		return
-	}
-	if dir == 0 {
-		dir = 1
-	}
-	_, absorbed := pairToolResults(a.messages)
-	start := a.bodySelMsgIdx
-	if start < 0 {
-		if dir > 0 {
-			start = -1
-		} else {
-			start = len(a.messages)
-		}
-	}
-	ni := start + dir
-	for ni >= 0 && ni < len(a.messages) {
-		if absorbed[ni] {
-			ni += dir
-			continue
-		}
-		if len(addressablePartsOf(a.messages[ni])) == 0 {
-			ni += dir
-			continue
-		}
-		a.bodySelMsgIdx = ni
-		if dir > 0 {
-			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[ni])
-		} else {
-			a.bodySelPartIdx = lastAddressablePartIdx(a.messages[ni])
-		}
-		a.scrollToSelectedMessage()
-		return
-	}
-	// No non-absorbed message in that direction — stay put.
-}
-
 // firstAddressablePartIdx returns the index into m's addressable parts
 // of the first one. -1 when none exist (caller should skip this msg).
 func firstAddressablePartIdx(m gact.Message) int {
@@ -2739,20 +2705,11 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.stepPartCursor(-1)
-	case "[":
-		// TTTTTTTTT1: `[` / `]` are coarse-grained jumps — walk to the
-		// previous/next message's boundary part. Preserves the
-		// message-level nav for users who want to jump turns quickly,
-		// complementing the default part-by-part j/k motion.
-		if len(a.messages) == 0 {
-			return a, nil
-		}
-		a.jumpMessageCursor(-1)
-	case "]":
-		if len(a.messages) == 0 {
-			return a, nil
-		}
-		a.jumpMessageCursor(+1)
+		// XXXXXXXXX1: `[` / `]` removed — user feedback: "i also dont
+		// see the value with the message selector and global turn
+		// selector rather just have the message selector". The
+		// part-by-part j/k is the single selector now; message-jump
+		// was redundant with g/G + the per-part walk.
 	case "a":
 		// Apply all unapplied diffs in the current session.
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
@@ -3683,6 +3640,13 @@ func (a *App) viewMain() string {
 	if a.catalogBrowserOpen {
 		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
 	}
+	// ZZZZZZZZZ1: quit-confirm sits on top of every other overlay so
+	// Ctrl+C inside (say) the palette always surfaces the "are you
+	// sure" prompt, not an ambiguous "quit this modal or the TUI"
+	// decision.
+	if a.quitConfirmOpen {
+		base = overlay(base, a.viewQuitConfirm(), a.width, a.height)
+	}
 	return base
 }
 
@@ -4334,30 +4298,14 @@ func (a *App) renderBody(width, height int) string {
 				selPartID = a.selectedPartID()
 			}
 			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
-			// Y1 + FFFFF1 + ZZZZZZZ1: body cursor marker — full-block `█` in
-			// the secondary palette colour with the same colour reused as
-			// background, so the gutter reads as a solid bar that runs
-			// the full height of the selected message. Plus a faint
-			// row-wide background tint (ZZZZZZZ1) so the selected
-			// message is unmistakable against tool output and dense
-			// content — feedback_ctrl_e_and_overflow item 5: user
-			// reported "have not seen this, nor can I see it now" with
-			// the gutter alone. Tint matches BgSubtle (theme-aware) so
-			// foreground colours stay legible on every palette.
-			// Takes precedence over the V3 search-hit marker if both
-			// apply, because the cursor is the active state.
-			if i == a.bodySelMsgIdx && a.focus == FocusBody {
-				marker := lipgloss.NewStyle().
-					Foreground(t.Secondary).
-					Background(t.Secondary).
-					Bold(true).
-					Render("█")
-				row = prependGutter(row, marker+" ")
-				row = tintRowBg(row, t.BgSubtle, width-4)
-			} else if m.ID != "" && m.ID == a.searchHitMessageID {
-				// V3: left-gutter marker for the message the user jumped to
-				// from the palette's `?search` results. Applied after the
-				// full row render so it prepends cleanly to every line.
+			// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
+			// per user feedback: "i also dont see the value with the
+			// message selector and global turn selector rather just have
+			// the message selector". The per-block `▸ ` cursor from
+			// TTTTTTTTT1 is now the only selection indicator — single
+			// selector, clearer signal. Search-hit marker still paints
+			// (different colour + glyph, independent UX).
+			if m.ID != "" && m.ID == a.searchHitMessageID {
 				marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
 				row = prependGutter(row, marker)
 			}
@@ -4846,7 +4794,6 @@ var helpTabs = []struct {
 		title: "Conversation",
 		keys: [][2]string{
 			{"↑/↓ · j/k", "move block cursor — walks part-by-part across turns (▸ marks the selected block)"},
-			{"[ / ]", "jump to previous / next message (coarse-grained, skips within-turn parts)"},
 			{"g / G", "cursor to first / last block"},
 			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
 			{"y", "copy selected (or last assistant) message to clipboard"},

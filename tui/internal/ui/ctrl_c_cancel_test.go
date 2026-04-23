@@ -38,15 +38,19 @@ func TestCtrlC_CancelsRunningSession(t *testing.T) {
 	a.c = client.New(srv.URL)
 	a.currentStatus = gact.StatusRunning
 
-	_, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
-	if cmd == nil {
-		t.Fatalf("expected non-nil cmd from Ctrl+C")
+	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. First press opens
+	// with "close" highlighted (the original quit-everything option);
+	// second press accepts and fires the cancel+quit fan-out.
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
+	if cmd != nil {
+		t.Fatalf("first Ctrl+C should open the modal without firing a cmd")
 	}
-	// tea.Batch returns an opaque cmd — invoke it to fan out the
-	// nested commands and resolve them. The cancel request fires
-	// from one of those nested cmds.
+	a = out.(*App)
+	out, cmd = a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
+	if cmd == nil {
+		t.Fatalf("second Ctrl+C should fire the quit-family cmd")
+	}
 	msg := cmd()
-	// tea.Batch packs into a BatchMsg of cmds; run them all.
 	if batch, ok := msg.(tea.BatchMsg); ok {
 		for _, c := range batch {
 			if c != nil {
@@ -54,6 +58,7 @@ func TestCtrlC_CancelsRunningSession(t *testing.T) {
 			}
 		}
 	}
+	_ = out
 
 	// Cancel HTTP call may complete asynchronously — short poll.
 	deadline := time.Now().Add(2 * time.Second)
@@ -89,9 +94,18 @@ func TestCtrlC_NoCancelWhenIdle(t *testing.T) {
 	a.c = client.New(srv.URL)
 	a.currentStatus = gact.StatusIdle
 
-	_, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
+	// ZZZZZZZZZ1: double-Ctrl+C preserves the old "quit immediately"
+	// UX. The first press opens the modal, the second accepts and
+	// runs the close path — which on an idle session must NOT POST
+	// /cancel.
+	out, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
+	if cmd != nil {
+		t.Fatalf("first Ctrl+C should open the modal without firing a cmd")
+	}
+	a = out.(*App)
+	out, cmd = a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
 	if cmd == nil {
-		t.Fatalf("expected non-nil cmd from Ctrl+C")
+		t.Fatalf("second Ctrl+C should fire a quit-family cmd")
 	}
 	msg := cmd()
 	if batch, ok := msg.(tea.BatchMsg); ok {
@@ -101,6 +115,7 @@ func TestCtrlC_NoCancelWhenIdle(t *testing.T) {
 			}
 		}
 	}
+	_ = out
 	time.Sleep(150 * time.Millisecond) // let any stray request land
 	if got := atomic.LoadInt32(&cancelHits); got != 0 {
 		t.Errorf("idle session Ctrl+C should NOT POST cancel, got %d hits", got)

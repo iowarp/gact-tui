@@ -24,3 +24,25 @@ func (a *App) modalWidth() int {
 	}
 	return w
 }
+
+// YYYYYYYYY1: detailModalWidth is a wider variant used by the floating
+// file-content detail view. User feedback: "when opening a file, the
+// window can overflow, and it is not wide enough for most lines".
+// The standard 72-col modal is fine for settings/help/palette (plain
+// text + key tables) but cramps source code where 100+ columns is
+// common.
+//
+// Target: 90% of terminal width, capped between 80 (minimum useful)
+// and 160 (anything wider and the reader's eyes stop tracking).
+// Falls back to modalWidth() on tiny terminals where 80 would exceed
+// the screen.
+func (a *App) detailModalWidth() int {
+	w := a.width * 9 / 10
+	if w > 160 {
+		w = 160
+	}
+	if w < 80 {
+		return a.modalWidth()
+	}
+	return w
+}

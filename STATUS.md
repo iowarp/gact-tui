@@ -1,8 +1,20 @@
 # STATUS
 
-**Last updated:** 2026-04-20T21:15Z
-**Current phase:** Block-to-block navigation (SSSSSSSSS1 + TTTTTTTTT1 + UUUUUUUUU1) — richer multi-tool scenario with two bulky reads + a real file_diff; per-part body cursor (j/k walks blocks, [/] jumps messages, Ctrl+E targets the selected block); unified-diff view (hunk headers + context lines)
+**Last updated:** 2026-04-20T22:45Z
+**Current phase:** Cursor UX polish round (WWWWWWWWW1 + XXXXXXXXX1 + YYYYYYYYY1 + ZZZZZZZZZ1 + ZZZZZZZZZZ1 + AAAAAAAAAA1) — fixed ▸ wrap jump, dropped dual-selector noise, widened detail modal, added Ctrl+C confirm, EditFile now renders the diff inline, grep output uses a CC-style gutter
 **Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, feature branch ahead
+
+### Latest feedback loop
+User hit six issues in the per-part nav flow + related rendering:
+1. "The text jumps line on selection" — WWWWWWWWW1 fixes ▸ prefix alignment so wrapped continuation rows indent to match.
+2. "I don't see the value with the message selector AND global turn selector; just have the message selector" — XXXXXXXXX1 drops the full-message █ tint + `[`/`]` keys.
+3. "When opening a file, the window can overflow, and it is not wide enough" — YYYYYYYYY1 widens the detail modal to 90% (cap 80–160) and honestly accounts for all chrome in `detailPageSize`.
+4. "Ctrl+C should have a confirmation window: close / no / detach" — ZZZZZZZZZ1 adds the 3-option modal; double Ctrl+C preserves muscle memory.
+5. "EditFile returns the diff — there shouldn't be an 'ok' or a diff indicated, but the changes" — ZZZZZZZZZZ1 pairs edit_file tool_calls with sibling file_diffs by path and renders the diff under the EditFile header (replacing the ⎿ ok + suppressing the standalone ◇ diff block).
+6. "Line numbers should be added by us not for them to be on the file" — AAAAAAAAAA1 parses grep output into (path, line, content) tuples and renders CC/crush style with a muted line-number gutter + file header grouping.
+
+### Known follow-up
+- Tool-call input summary: second + subsequent tool_calls of the same tool in one message render with empty parens (`ReadFile()`, `Grep()` instead of `ReadFile(internal/handlers/handlers.go)`). SSE input_json_append delta may not be updating the client-side Part.Input for non-first calls. Not caused by this round; pre-existing. Split as separate follow-up task.
 
 ### Latest feedback loop
 User reviewed the multi-tool scenario and asked for three fixes:
