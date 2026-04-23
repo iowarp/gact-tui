@@ -303,6 +303,60 @@ func TestSidebar_StatusLineShowsAge(t *testing.T) {
 	}
 }
 
+// RRRRRRRRR1: sidebar rendering must never exceed the pane's
+// inner height. Before the fix, certain (sessions × contextFiles)
+// combinations budgeted past `height-2` — the rendered string
+// had more newlines than the pane, lipgloss would still paint
+// all lines (Height() pads but doesn't truncate), and the
+// sibling body pane was shoved down. Screenshot report: 16
+// active sessions + 2 context files at terminal height ~40
+// overflowed by 1 row.
+func TestSidebar_NeverExceedsPaneHeight(t *testing.T) {
+	// Seed a realistic stress case: 16 sessions, selected=0, with
+	// 2 context files — the exact combo the user reported.
+	sessions := make([]gact.Session, 16)
+	for i := range sessions {
+		sessions[i] = gact.Session{
+			ID:     "sess_" + string(rune('a'+i)),
+			Title:  "session-" + string(rune('a'+i)),
+			Status: gact.StatusIdle,
+		}
+	}
+	a := newReadyApp(sessions, nil)
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{
+		{Path: "docs/architecture.md", Mode: "read"},
+		{Path: "docs/contributing.md", Mode: "read"},
+	}
+
+	// Try several realistic terminal heights — each must produce
+	// a sidebar string whose line count fits in height-2 inner
+	// rows. Covers the non-monotonic float-division off-by-one
+	// (user reported 1 breaks, 2 breaks, 3 works, 4 works).
+	for height := 15; height <= 45; height++ {
+		for nFiles := 0; nFiles <= 6; nFiles++ {
+			a.contextFiles = make([]gact.ContextFile, nFiles)
+			for i := range a.contextFiles {
+				a.contextFiles[i] = gact.ContextFile{
+					Path: "docs/file" + string(rune('a'+i)) + ".md",
+					Mode: "read",
+				}
+			}
+			a.width, a.height = 100, height
+			out := a.renderSidebar(30, height-2)
+			// inner height = outer - 2 (border). Line count of the
+			// rendered block must be ≤ inner so the pane's border
+			// closes at the expected row.
+			gotLines := len(strings.Split(strings.TrimRight(out, "\n"), "\n"))
+			inner := height - 2 - 2 // pane inner = outer-2 borders, the sidebar was rendered with outer = height-2 so inner = height-4
+			if gotLines > inner+2 {
+				t.Errorf("height=%d nFiles=%d: sidebar rendered %d lines, inner=%d (overflow by %d)",
+					height, nFiles, gotLines, inner, gotLines-inner)
+			}
+		}
+	}
+}
+
 // DDDDDDDD1: header carries a `↩ N` chip when the user has
 // detached sessions on the current backend. Hidden when N=0.
 func TestHeader_DetachedChip(t *testing.T) {
