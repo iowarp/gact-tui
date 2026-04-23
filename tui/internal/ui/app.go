@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	figure "github.com/common-nighthawk/go-figure"
@@ -106,9 +106,9 @@ type App struct {
 	commands   []gact.Command
 
 	// Loaded messages for the currently selected session.
-	messages         []gact.Message
-	scrollOffset     int // 0 = stick to bottom; >0 = scrolled up
-	stickyToBottom   bool
+	messages       []gact.Message
+	scrollOffset   int // 0 = stick to bottom; >0 = scrolled up
+	stickyToBottom bool
 
 	// Context files for the currently selected session (fetched on select).
 	contextFiles []gact.ContextFile
@@ -169,6 +169,18 @@ type App struct {
 	// selection (the pane behaves as before). `n` / `N` walk it
 	// forward/backward. Reset on session switch.
 	bodySelMsgIdx int
+
+	// TTTTTTTTT1: bodySelPartIdx is the body cursor's *part* index
+	// within the selected message's addressable parts — feedback:
+	// "your selector goes conversation turn to conversation turn
+	// instead of logical block to logical block". When an assistant
+	// reads two files in one turn, each read_file/tool_result is a
+	// distinct addressable block; up/down/j/k now walk them flat
+	// across message boundaries. -1 = auto (picks the first bulky
+	// part at open time, preserves pre-TTTTTTTTT1 Ctrl+E behaviour
+	// for the unset case). 0-based; addressablePartsOf() defines
+	// what counts as a block.
+	bodySelPartIdx int
 
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
@@ -448,17 +460,18 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	)
 	ta.Focus()
 	return &App{
-		BackendURL:     backendURL,
-		Theme:          theme,
-		c:              client.New(backendURL),
-		stage:          StageConnecting,
-		focus:          FocusInput,
+		BackendURL:            backendURL,
+		Theme:                 theme,
+		c:                     client.New(backendURL),
+		stage:                 StageConnecting,
+		focus:                 FocusInput,
 		selected:              -1,
 		stickyToBottom:        true,
 		input:                 ta,
 		inputHistoryBySession: map[string][]string{},
 		historyCursor:         -1,
 		bodySelMsgIdx:         -1,
+		bodySelPartIdx:        -1,
 		previouslyDetached:    map[string]bool{},
 	}
 }
@@ -565,7 +578,6 @@ func connectCmd(c *client.Client) tea.Cmd {
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
 	}
 }
-
 
 // loadMessagesCmd fetches messages for a session.
 func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
@@ -1887,6 +1899,15 @@ func (a *App) isSearchMode() bool {
 // scrollToSelectedMessage shifts scrollOffset so the selected message
 // sits inside the visible window. Uses the same bottom-anchored math
 // jumpToMessage does.
+//
+// TTTTTTTTT1: the basic offset only pins the *message*, not the
+// selected part within it. For long messages (multi-tool assistants
+// with two bulky reads), walking the part cursor up with `k` can
+// leave the ▸ marker scrolled above the viewport. The caller can
+// detect that with `selectedPartEarlyInMessage` — for now this
+// function keeps the pre-TTTTTTTTT1 message-anchoring behaviour and
+// the visibility-of-part refinement is punted to a follow-up, since
+// doing it right needs per-part row metadata from the renderer.
 func (a *App) scrollToSelectedMessage() {
 	if a.bodySelMsgIdx < 0 || a.bodySelMsgIdx >= len(a.messages) {
 		return
@@ -1912,12 +1933,21 @@ func (a *App) maybeInitBodyCursor() {
 	}
 	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
 		a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx, -1)
+		// TTTTTTTTT1: reseat the part cursor on the snapped msg. If the
+		// old partIdx is still valid for the new msg, keep it; else
+		// fall back to last-part so Ctrl+E targets the bulky block at
+		// the bottom of the turn (matches pre-TTTTTTTTT1 default).
+		addr := addressablePartsOf(a.messages[a.bodySelMsgIdx])
+		if a.bodySelPartIdx < 0 || a.bodySelPartIdx >= len(addr) {
+			a.bodySelPartIdx = len(addr) - 1
+		}
 		return
 	}
 	if len(a.messages) == 0 {
 		return
 	}
 	a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
+	a.bodySelPartIdx = lastAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 	a.scrollToSelectedMessage()
 }
 
@@ -1951,6 +1981,207 @@ func (a *App) snapToVisibleMsg(idx, dir int) int {
 		i += dir
 	}
 	return idx
+}
+
+// TTTTTTTTT1: addressablePartsOf returns the indexes (into m.Parts) of
+// parts that count as navigable "logical blocks" for body-cursor
+// stepping. Skipped:
+//   - thinking parts (too minor, visually muted)
+//   - empty text parts (they'd be zero-height blocks)
+//   - tool_call parts whose matching tool_result will be inlined under
+//     them — the PAIR is one block, so we address it via the tool_call
+//     index and let findBulkyPartFor drill to the result
+//
+// When a message has no addressable parts (e.g. a tool message whose
+// result was absorbed), returns an empty slice and the caller should
+// skip past it.
+func addressablePartsOf(m gact.Message) []int {
+	out := make([]int, 0, len(m.Parts))
+	for i, p := range m.Parts {
+		switch p.Type {
+		case gact.PartTypeThinking:
+			continue
+		case gact.PartTypeText:
+			if strings.TrimSpace(p.Text) == "" {
+				continue
+			}
+		}
+		out = append(out, i)
+	}
+	return out
+}
+
+// TTTTTTTTT1: selectedPartID returns the gact.Part.ID of the block the
+// body cursor currently points at, or "" when no part is selected
+// (either the cursor is off, or the selected message has no
+// addressable parts). Used by the renderer to draw the per-block
+// marker and by Ctrl+E/Enter to route the detail view to the right
+// part.
+func (a *App) selectedPartID() string {
+	if a.bodySelMsgIdx < 0 || a.bodySelMsgIdx >= len(a.messages) {
+		return ""
+	}
+	if a.bodySelPartIdx < 0 {
+		return ""
+	}
+	m := a.messages[a.bodySelMsgIdx]
+	addr := addressablePartsOf(m)
+	if len(addr) == 0 || a.bodySelPartIdx >= len(addr) {
+		return ""
+	}
+	pi := addr[a.bodySelPartIdx]
+	if pi < 0 || pi >= len(m.Parts) {
+		return ""
+	}
+	return m.Parts[pi].ID
+}
+
+// TTTTTTTTT1: stepPartCursor walks the body cursor one addressable
+// part forward (dir=+1) or backward (dir=-1), crossing message
+// boundaries as needed. Called by j/k/↑/↓/n/N on FocusBody.
+//
+// Semantics:
+//   - If the cursor is off (msg < 0), seed to the last message's last
+//     part (dir=-1) or first message's first part (dir=+1).
+//   - If stepping past the current message's part range, jump to the
+//     next visible (non-absorbed) message and land on its boundary
+//     part (first when moving forward, last when moving backward).
+//   - Absorbed tool messages are skipped silently.
+//   - At the conversation ends, stay on the current part (no wrap).
+func (a *App) stepPartCursor(dir int) {
+	if len(a.messages) == 0 {
+		return
+	}
+	if dir == 0 {
+		dir = 1
+	}
+	// Seed case: cursor is off — park on the natural end and return
+	// without further motion, matching the pre-TTTTTTTTT1 behaviour
+	// where the first keypress revealed the marker.
+	if a.bodySelMsgIdx < 0 {
+		if dir < 0 {
+			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
+			a.bodySelPartIdx = lastAddressablePartIdx(a.messages[a.bodySelMsgIdx])
+		} else {
+			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
+			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[a.bodySelMsgIdx])
+		}
+		a.scrollToSelectedMessage()
+		return
+	}
+
+	_, absorbed := pairToolResults(a.messages)
+	msgIdx := a.bodySelMsgIdx
+	partIdx := a.bodySelPartIdx
+	addr := addressablePartsOf(a.messages[msgIdx])
+
+	if partIdx < 0 {
+		// Unset partIdx — treat the cursor as sitting on the exit
+		// boundary for this direction, so the step immediately
+		// advances (matching the pre-TTTTTTTTT1 message-walk feel
+		// where the first keypress moved the cursor). dir<0 → pretend
+		// we were at partIdx=0, so step goes to -1 and crosses back.
+		// dir>0 → pretend we were at partIdx=last, so step crosses
+		// forward. For empty messages, fall through to cross-message.
+		if len(addr) > 0 {
+			if dir < 0 {
+				partIdx = 0
+			} else {
+				partIdx = len(addr) - 1
+			}
+		}
+	}
+
+	// Try moving within the current message first.
+	next := partIdx + dir
+	if next >= 0 && next < len(addr) {
+		a.bodySelPartIdx = next
+		a.scrollToSelectedMessage()
+		return
+	}
+
+	// Need to cross to the next/previous non-absorbed message.
+	ni := msgIdx + dir
+	for ni >= 0 && ni < len(a.messages) {
+		if absorbed[ni] {
+			ni += dir
+			continue
+		}
+		newAddr := addressablePartsOf(a.messages[ni])
+		if len(newAddr) == 0 {
+			ni += dir
+			continue
+		}
+		a.bodySelMsgIdx = ni
+		if dir > 0 {
+			a.bodySelPartIdx = 0
+		} else {
+			a.bodySelPartIdx = len(newAddr) - 1
+		}
+		a.scrollToSelectedMessage()
+		return
+	}
+	// At the conversation end — stay put.
+}
+
+// TTTTTTTTT1: jumpMessageCursor moves the body cursor to the next or
+// previous non-absorbed message's boundary part. Coarse-grained
+// shortcut bound to `[` / `]` — the fine-grained j/k walks parts.
+func (a *App) jumpMessageCursor(dir int) {
+	if len(a.messages) == 0 {
+		return
+	}
+	if dir == 0 {
+		dir = 1
+	}
+	_, absorbed := pairToolResults(a.messages)
+	start := a.bodySelMsgIdx
+	if start < 0 {
+		if dir > 0 {
+			start = -1
+		} else {
+			start = len(a.messages)
+		}
+	}
+	ni := start + dir
+	for ni >= 0 && ni < len(a.messages) {
+		if absorbed[ni] {
+			ni += dir
+			continue
+		}
+		if len(addressablePartsOf(a.messages[ni])) == 0 {
+			ni += dir
+			continue
+		}
+		a.bodySelMsgIdx = ni
+		if dir > 0 {
+			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[ni])
+		} else {
+			a.bodySelPartIdx = lastAddressablePartIdx(a.messages[ni])
+		}
+		a.scrollToSelectedMessage()
+		return
+	}
+	// No non-absorbed message in that direction — stay put.
+}
+
+// firstAddressablePartIdx returns the index into m's addressable parts
+// of the first one. -1 when none exist (caller should skip this msg).
+func firstAddressablePartIdx(m gact.Message) int {
+	if len(addressablePartsOf(m)) == 0 {
+		return -1
+	}
+	return 0
+}
+
+// lastAddressablePartIdx returns the index of the last addressable
+// part. -1 when none exist.
+func lastAddressablePartIdx(m gact.Message) int {
+	addr := addressablePartsOf(m)
+	if len(addr) == 0 {
+		return -1
+	}
+	return len(addr) - 1
 }
 
 // jumpToMessage scrolls the conversation pane so the message with the
@@ -2434,33 +2665,23 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.openDetailForSelection()
 		return a, nil
 	case "up", "k":
-		// WWWWW1: up/k navigate the cursor through messages now,
-		// not the raw scroll. User feedback was that "the window
-		// scrolls but the cursor remains there" — the cursor would
-		// scroll offscreen, leaving an orphan marker. Cursor-driven
-		// scroll keeps the marker visible. Raw page scroll stays
-		// available via PgUp/PgDn for big single-message bodies.
-		// ZZZZZZZ1: snap past absorbed tool messages so the cursor
-		// always lands on a row the renderer paints.
+		// TTTTTTTTT1: up/k walks the body cursor one addressable part
+		// backward, crossing message boundaries. User feedback:
+		// "selector goes conversation turn to conversation turn
+		// instead of logical block to logical block". When an
+		// assistant reads two files in one turn, each read_file +
+		// matching tool_result is a distinct block; this lets the
+		// user step through them individually. Message-jump shortcuts
+		// (`[` / `]`) still exist for the coarse-grained case.
 		if len(a.messages) == 0 {
 			return a, nil
 		}
-		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
-		} else if a.bodySelMsgIdx > 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx-1, -1)
-		}
-		a.scrollToSelectedMessage()
+		a.stepPartCursor(-1)
 	case "down", "j":
 		if len(a.messages) == 0 {
 			return a, nil
 		}
-		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
-		} else if a.bodySelMsgIdx < len(a.messages)-1 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx+1, 1)
-		}
-		a.scrollToSelectedMessage()
+		a.stepPartCursor(+1)
 	case "pgup", "ctrl+u":
 		// Page-scroll for the within-message use case. Doesn't move
 		// the cursor — when the user wants to read a long single
@@ -2474,43 +2695,47 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.stickyToBottom = true
 		}
 	case "g":
-		// g jumps the cursor to the first (oldest) message. ZZZZZZZ1:
-		// snap forward past any absorbed tool message so the cursor
-		// lands on a visible row.
+		// g jumps the cursor to the first addressable block. TTTTTTTTT1:
+		// also lands on the first part of that message so the per-block
+		// marker is immediately meaningful.
 		if len(a.messages) > 0 {
 			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
+			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 			a.scrollToSelectedMessage()
 		}
 	case "G":
-		// G jumps the cursor to the latest message. ZZZZZZZ1: snap
-		// backward past any absorbed tool message.
 		if len(a.messages) > 0 {
 			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
+			a.bodySelPartIdx = lastAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 			a.scrollToSelectedMessage()
 		}
 	case "n":
-		// Y1: advance the body message cursor forward. Off (idx=-1)
-		// until the user starts navigating — matches the body's
-		// default "read-only pane" mode.
+		// Y1 + TTTTTTTTT1: n/N advance the part cursor the same way
+		// j/k do. Kept as a second binding because the keyboard map
+		// long-documented n/N as body-cursor nav.
 		if len(a.messages) == 0 {
 			return a, nil
 		}
-		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
-		} else if a.bodySelMsgIdx < len(a.messages)-1 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx+1, 1)
-		}
-		a.scrollToSelectedMessage()
+		a.stepPartCursor(+1)
 	case "N":
 		if len(a.messages) == 0 {
 			return a, nil
 		}
-		if a.bodySelMsgIdx < 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
-		} else if a.bodySelMsgIdx > 0 {
-			a.bodySelMsgIdx = a.snapToVisibleMsg(a.bodySelMsgIdx-1, -1)
+		a.stepPartCursor(-1)
+	case "[":
+		// TTTTTTTTT1: `[` / `]` are coarse-grained jumps — walk to the
+		// previous/next message's boundary part. Preserves the
+		// message-level nav for users who want to jump turns quickly,
+		// complementing the default part-by-part j/k motion.
+		if len(a.messages) == 0 {
+			return a, nil
 		}
-		a.scrollToSelectedMessage()
+		a.jumpMessageCursor(-1)
+	case "]":
+		if len(a.messages) == 0 {
+			return a, nil
+		}
+		a.jumpMessageCursor(+1)
 	case "a":
 		// Apply all unapplied diffs in the current session.
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
@@ -2618,6 +2843,16 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.bodySelMsgIdx >= 0 {
 			if a.bodySelMsgIdx >= len(a.messages) {
 				a.bodySelMsgIdx = len(a.messages) - 1
+			}
+			// TTTTTTTTT1: re-clamp the part index against the new
+			// selected message's addressable-parts list.
+			if a.bodySelMsgIdx >= 0 {
+				addr := addressablePartsOf(a.messages[a.bodySelMsgIdx])
+				if a.bodySelPartIdx >= len(addr) {
+					a.bodySelPartIdx = len(addr) - 1
+				}
+			} else {
+				a.bodySelPartIdx = -1
 			}
 		}
 		a.transientHint = "deleted message"
@@ -2805,6 +3040,7 @@ func (a *App) currentSessionID() string {
 //  3. id PREFIX match (so an 8-char `sess_abc1…` resolves)
 //  4. title SUBSTRING match, case-insensitive (so `attach refactor`
 //     resolves "refactor api auth")
+//
 // Each precedence level is tried fully across the list before
 // falling through. Within a level, first match wins — backends
 // typically order sessions newest-first so this picks the most
@@ -2859,6 +3095,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.pendingClearSessionID = ""  // same for /clear confirmation
 	a.searchHitMessageID = ""     // V3 marker doesn't travel across sessions
 	a.bodySelMsgIdx = -1          // Y1 cursor resets to off on session switch
+	a.bodySelPartIdx = -1         // TTTTTTTTT1: part cursor resets too
 	// New session ⇒ new event stream, no replay. Starting at 0 makes
 	// the adapter/emulator send the full current event history from
 	// the ring buffer (per SPEC §7.3 replay semantics).
@@ -4071,7 +4308,15 @@ func (a *App) renderBody(width, height int) string {
 			if i > 0 {
 				prev = &a.messages[i-1]
 			}
-			row := t.renderMessageInContextWithResults(m, prev, width-4, inlineResults[i])
+			// TTTTTTTTT1: pass the selected part ID so the per-block
+			// `▸ ` marker paints on the currently focused part. Only
+			// honoured on the selected message; empty string on every
+			// other row so unrelated messages render untouched.
+			selPartID := ""
+			if i == a.bodySelMsgIdx && a.focus == FocusBody {
+				selPartID = a.selectedPartID()
+			}
+			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
 			// Y1 + FFFFF1 + ZZZZZZZ1: body cursor marker — full-block `█` in
 			// the secondary palette colour with the same colour reused as
 			// background, so the gutter reads as a solid bar that runs
@@ -4500,15 +4745,16 @@ var helpTabs = []struct {
 	{
 		title: "Conversation",
 		keys: [][2]string{
-			{"↑/↓ · j/k", "move message cursor (▌ gutter; cursor stays visible)"},
-			{"g / G", "cursor to first / last message"},
+			{"↑/↓ · j/k", "move block cursor — walks part-by-part across turns (▸ marks the selected block)"},
+			{"[ / ]", "jump to previous / next message (coarse-grained, skips within-turn parts)"},
+			{"g / G", "cursor to first / last block"},
 			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
 			{"y", "copy selected (or last assistant) message to clipboard"},
 			{"Y", "copy full conversation as role-prefixed markdown"},
 			{"R", "retry — resend last user message"},
 			{"d", "delete last message (optimistic; targets newest)"},
 			{"t", "toggle per-message timestamps"},
-			{"n / N", "next / prev message (alias for ↓/↑)"},
+			{"n / N", "next / prev block (alias for ↓/↑)"},
 			{"Ctrl+E · Enter", "expand the cursor's bulky output in floating detail view"},
 			{"a / r", "apply / reject pending diff"},
 		},
@@ -4746,7 +4992,6 @@ type errMsg struct {
 	err   error
 	stage string
 }
-
 
 type messagesLoadedMsg struct {
 	sessionID string
