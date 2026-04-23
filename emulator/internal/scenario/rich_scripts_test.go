@@ -255,15 +255,36 @@ func TestRichScripts_MultiTool(t *testing.T) {
 	eng.OnUserMessage(sid, user.ID)
 
 	got := collectStatusEvents(sub, 5000, 30*time.Second, gact.StatusIdle)
-	// Three tool.call.completed events expected (read_file, grep, edit_file).
+	// SSSSSSSSS1: variant[0] now reads TWO files + greps + proposes an
+	// edit = 4 tool.call.completed events. The later variants still
+	// emit 3, so assert ≥3 here and leave the variant-cycle test to
+	// police the exact shape per-variant.
 	n := 0
 	for _, e := range got {
 		if e == "tool.call.completed" {
 			n++
 		}
 	}
-	if n != 3 {
-		t.Errorf("expected 3 tool.call.completed events, got %d in %v", n, got)
+	if n < 3 {
+		t.Errorf("expected ≥3 tool.call.completed events, got %d in %v", n, got)
+	}
+	// SSSSSSSSS1: variant[0] must also emit a file_diff part after the
+	// tool loop so "many tools" demonstrates the full edit flow.
+	msgs, _, _ := st.ListMessages(findMessagesFilter(sid))
+	hasDiff := false
+	for _, m := range msgs {
+		if m.Role != gact.RoleAssistant {
+			continue
+		}
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeFileDiff {
+				hasDiff = true
+				break
+			}
+		}
+	}
+	if !hasDiff {
+		t.Errorf("expected variant[0] to emit a file_diff part; none found")
 	}
 }
 
@@ -310,12 +331,13 @@ func TestRichScripts_MultiToolVariantsCycle(t *testing.T) {
 		t.Fatalf("expected ≥2 multi-tool assistants, got %d (%v)",
 			len(toolNamesPerAsst), toolNamesPerAsst)
 	}
-	// Each variant emits 3 tool calls. (ListMessages is newest-first
-	// so order in toolNamesPerAsst is reverse-chronological — assert
-	// the cycle order-agnostically.)
+	// SSSSSSSSS1: variant[0] now emits 4 tool calls (two read_file +
+	// grep + edit_file); variants 1 & 2 keep their 3-call shapes.
+	// Assert each turn emits at least 3 tool calls and leave the
+	// variant-specific tool *name* checks below to police identity.
 	for i, names := range toolNamesPerAsst[:2] {
-		if len(names) != 3 {
-			t.Errorf("turn %d: expected 3 tool calls, got %d (%v)", i, len(names), names)
+		if len(names) < 3 {
+			t.Errorf("turn %d: expected ≥3 tool calls, got %d (%v)", i, len(names), names)
 		}
 	}
 	// The two turns must have different tool-call sequences (variant

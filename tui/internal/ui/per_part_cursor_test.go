@@ -1,0 +1,200 @@
+package ui
+
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+// TTTTTTTTT1: the body cursor must walk *parts*, not whole messages.
+// User feedback: "you are currently making your selector go
+// conversation turn to conversation turn instead of logical block to
+// logical block. what happens if an agent reads two large files?"
+//
+// Fixture: one assistant turn that reads TWO files (so two distinct
+// tool_result blocks inside the paired view). j/k should step through
+// them individually before crossing to the next message.
+func TestPerPart_JKWalksPartsWithinMessage(t *testing.T) {
+	bulky := strings.Repeat("line\n", 60)
+	asst := gact.Message{
+		ID:   "a1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "p_intro", Type: gact.PartTypeText, Text: "Reading two files."},
+			{ID: "p_call1", Type: gact.PartTypeToolCall, CallID: "c1", ToolName: "read_file"},
+			{ID: "p_call2", Type: gact.PartTypeToolCall, CallID: "c2", ToolName: "read_file"},
+		},
+	}
+	tool1 := gact.Message{
+		ID: "t1", Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID: "p_res1", Type: gact.PartTypeToolResult, CallID: "c1",
+			Content: []gact.Part{{Type: gact.PartTypeText, Text: "FILE_ONE\n" + bulky}},
+		}},
+	}
+	tool2 := gact.Message{
+		ID: "t2", Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID: "p_res2", Type: gact.PartTypeToolResult, CallID: "c2",
+			Content: []gact.Part{{Type: gact.PartTypeText, Text: "FILE_TWO\n" + bulky}},
+		}},
+	}
+
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{asst, tool1, tool2},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	// Simulate Tab-into-body seeding: cursor on last NON-absorbed
+	// message, land on that msg's last part.
+	a.maybeInitBodyCursor()
+
+	// Absorbed-tool pairing merges tool1 + tool2 into asst, so the
+	// last visible message is asst (idx=0) and its addressable parts
+	// are [p_intro, p_call1, p_call2] — three blocks.
+	addr := addressablePartsOf(a.messages[a.bodySelMsgIdx])
+	if len(addr) != 3 {
+		t.Fatalf("expected 3 addressable parts in the paired assistant msg; got %d (%v)", len(addr), addr)
+	}
+	// Seeded on last part (p_call2).
+	if a.selectedPartID() != "p_call2" {
+		t.Errorf("after seed, selectedPartID = %q, want p_call2", a.selectedPartID())
+	}
+
+	// Step up: should land on p_call1 (still same message, different block).
+	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = out.(*App)
+	if a.selectedPartID() != "p_call1" {
+		t.Errorf("after up, selectedPartID = %q, want p_call1", a.selectedPartID())
+	}
+	if a.bodySelMsgIdx != 0 {
+		t.Errorf("after up within-msg, msgIdx = %d, want 0 (no cross yet)", a.bodySelMsgIdx)
+	}
+
+	// Step up again: land on p_intro (first part of msg 0).
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = out.(*App)
+	if a.selectedPartID() != "p_intro" {
+		t.Errorf("after second up, selectedPartID = %q, want p_intro", a.selectedPartID())
+	}
+
+	// Step down twice: back to p_call2.
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = out.(*App)
+	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = out.(*App)
+	if a.selectedPartID() != "p_call2" {
+		t.Errorf("after two downs, selectedPartID = %q, want p_call2", a.selectedPartID())
+	}
+}
+
+// TTTTTTTTT1: when the body cursor sits on a specific tool_call, Ctrl+E
+// must expand THAT call's tool_result — not the first bulky in the
+// message and not the latest in the conversation. Gives the user the
+// promised "each read gets its own expand" behaviour.
+func TestPerPart_CtrlETargetsSelectedToolCall(t *testing.T) {
+	bulky := strings.Repeat("line\n", 60)
+	asst := gact.Message{
+		ID: "a1", Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "p_call1", Type: gact.PartTypeToolCall, CallID: "c1", ToolName: "read_file"},
+			{ID: "p_call2", Type: gact.PartTypeToolCall, CallID: "c2", ToolName: "read_file"},
+		},
+	}
+	tool1 := gact.Message{
+		ID: "t1", Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID: "p_res1", Type: gact.PartTypeToolResult, CallID: "c1",
+			Content: []gact.Part{{Type: gact.PartTypeText, Text: "FILE_ONE_MARKER\n" + bulky}},
+		}},
+	}
+	tool2 := gact.Message{
+		ID: "t2", Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID: "p_res2", Type: gact.PartTypeToolResult, CallID: "c2",
+			Content: []gact.Part{{Type: gact.PartTypeText, Text: "FILE_TWO_MARKER\n" + bulky}},
+		}},
+	}
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{asst, tool1, tool2},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0 // points at p_call1 (the FIRST read)
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
+	got := out.(*App)
+	if !got.detailViewOpen || got.detailView == nil {
+		t.Fatalf("Ctrl+E should open detail view; open=%v", got.detailViewOpen)
+	}
+	if !strings.Contains(got.detailView.fullText, "FILE_ONE_MARKER") {
+		t.Errorf("expected FILE_ONE content (cursor on first call); got title=%q preview=%q",
+			got.detailView.title,
+			got.detailView.fullText[:min(80, len(got.detailView.fullText))])
+	}
+	if strings.Contains(got.detailView.fullText, "FILE_TWO_MARKER") {
+		t.Errorf("should NOT have expanded the second read; got content with FILE_TWO")
+	}
+
+	// Close, move to the second tool_call, Ctrl+E again — should now
+	// show FILE_TWO.
+	got.detailViewOpen = false
+	got.detailView = nil
+	got.bodySelPartIdx = 1
+
+	out, _ = got.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
+	got = out.(*App)
+	if got.detailView == nil {
+		t.Fatalf("second Ctrl+E should reopen detail view")
+	}
+	if !strings.Contains(got.detailView.fullText, "FILE_TWO_MARKER") {
+		t.Errorf("cursor on second call should expand FILE_TWO; got %q",
+			got.detailView.fullText[:min(80, len(got.detailView.fullText))])
+	}
+}
+
+// TTTTTTTTT1: `[` / `]` are the coarse-grained message jumps. They
+// skip the per-part granularity so users who want "next turn" still
+// have a single keypress for it, without having to j through every
+// part in the current turn.
+func TestPerPart_BracketKeysJumpMessages(t *testing.T) {
+	mk := func(id string) gact.Message {
+		return gact.Message{
+			ID: id, Role: gact.RoleUser,
+			Parts: []gact.Part{{ID: id + "_t", Type: gact.PartTypeText, Text: id}},
+		}
+	}
+	a := newReadyApp(
+		[]gact.Session{{ID: "sess_1", Title: "t", Status: gact.StatusIdle}},
+		[]gact.Message{mk("m1"), mk("m2"), mk("m3")},
+	)
+	a.width, a.height = 120, 30
+	a.focus = FocusBody
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+
+	// `]` → m2
+	out, _ := a.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 1 {
+		t.Errorf("after ], msgIdx = %d, want 1", a.bodySelMsgIdx)
+	}
+	// `]` again → m3
+	out, _ = a.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 2 {
+		t.Errorf("after second ], msgIdx = %d, want 2", a.bodySelMsgIdx)
+	}
+	// `[` → m2
+	out, _ = a.Update(tea.KeyPressMsg{Code: '[', Text: "["})
+	a = out.(*App)
+	if a.bodySelMsgIdx != 1 {
+		t.Errorf("after [, msgIdx = %d, want 1", a.bodySelMsgIdx)
+	}
+}

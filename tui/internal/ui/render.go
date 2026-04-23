@@ -10,6 +10,7 @@ import (
 	"charm.land/glamour/v2/ansi"
 	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
+	udiff "github.com/aymanbagabas/go-udiff"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -246,6 +247,36 @@ func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width 
 	return t.renderMessageInContextWithResults(m, prev, width, nil)
 }
 
+// TTTTTTTTT1: renderMessageInContextWithResultsSelected is the
+// renderMessageInContextWithResults variant the conversation pane
+// uses — it takes an extra selectedPartID so the per-part body
+// cursor can paint a `▸ ` marker on the currently-selected block.
+// Passing "" falls back to the pre-TTTTTTTTT1 behaviour (no marker).
+func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
+	hideHeader := m.Role == gact.RoleTool && prev != nil &&
+		(prev.Role == gact.RoleTool ||
+			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
+	body := t.renderPartsForRoleWithResultsSelected(m.Parts, width, m.Role, inlineResults, selectedPartID)
+	if body == "" {
+		body = t.HintLabel.Render("(no parts)")
+	}
+	ts := ""
+	if t.ShowTimestamps && !m.CreatedAt.IsZero() && !hideHeader {
+		ts = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+			Render("  " + m.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+	if hideHeader {
+		return lipgloss.JoinVertical(lipgloss.Left, body, "")
+	}
+	header := t.renderRoleHeader(m.Role)
+	parts := []string{header}
+	if ts != "" {
+		parts = append(parts, ts)
+	}
+	parts = append(parts, body, "")
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
 // renderMessageInContextWithResults extends renderMessageInContext by
 // inlining tool_result parts under their matching tool_call parts.
 // `inlineResults` is keyed by Part.CallID; pass nil to disable.
@@ -311,6 +342,16 @@ func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) str
 // output visually hangs off its own header. Without this map the
 // behaviour is identical to renderPartsForRole.
 func (t Theme) renderPartsForRoleWithResults(parts []gact.Part, width int, role string, inlineResults map[string]gact.Part) string {
+	return t.renderPartsForRoleWithResultsSelected(parts, width, role, inlineResults, "")
+}
+
+// TTTTTTTTT1: renderPartsForRoleWithResultsSelected is the per-part
+// marker-aware variant. When selectedPartID matches a part's ID, its
+// first rendered line is prefixed with `▸ ` so the user can see
+// which addressable block has focus. Works for both the outer part
+// and the inlined tool_result sibling so "expand this specific read
+// result" reads intuitively.
+func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width int, role string, inlineResults map[string]gact.Part, selectedPartID string) string {
 	var rows []string
 	for _, p := range parts {
 		var rendered string
@@ -320,19 +361,38 @@ func (t Theme) renderPartsForRoleWithResults(parts []gact.Part, width int, role 
 			rendered = t.renderPart(p, width)
 		}
 		if rendered != "" {
+			if selectedPartID != "" && p.ID == selectedPartID {
+				rendered = markSelectedBlock(rendered, t)
+			}
 			rows = append(rows, rendered)
 		}
-		// Interleave: if this is a tool_call we have a result for,
-		// emit the matching result right after.
 		if p.Type == gact.PartTypeToolCall && p.CallID != "" && inlineResults != nil {
 			if r, ok := inlineResults[p.CallID]; ok {
-				if rr := t.renderPart(r, width); rr != "" {
+				rr := t.renderPart(r, width)
+				if rr != "" {
+					if selectedPartID != "" && r.ID == selectedPartID {
+						rr = markSelectedBlock(rr, t)
+					}
 					rows = append(rows, rr)
 				}
 			}
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+// markSelectedBlock prefixes the first line of a rendered block with
+// a `▸ ` arrow in the Secondary palette colour so the per-part body
+// cursor is visible. Leaves continuation lines untouched so leading
+// indentation (tool_result `│` bars etc.) keeps reading cleanly.
+func markSelectedBlock(rendered string, t Theme) string {
+	marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
+	lines := strings.Split(rendered, "\n")
+	if len(lines) == 0 {
+		return rendered
+	}
+	lines[0] = marker + lines[0]
+	return strings.Join(lines, "\n")
 }
 
 // glamourStyle is retained for backwards compat with any caller that
@@ -518,7 +578,12 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		if p.After != nil {
 			after = *p.After
 		}
-		body := simpleDiff(before, after, wrapW-2)
+		// UUUUUUUUU1: render a real unified diff with hunk headers +
+		// context lines (Claude Code / Crush style — "this is what we
+		// changed"). Falls back to the primitive row-aligned diff when
+		// the content is tiny (<= 3 lines either side) since the LCS
+		// output is overkill for a one-liner.
+		body := unifiedDiffView(p.Path, before, after, wrapW-2, t)
 		return lipgloss.JoinVertical(lipgloss.Left, head+status, indent(body, "  "))
 
 	case gact.PartTypeSubagentCall:
@@ -746,6 +811,83 @@ func indentWithGlyph(s, glyph, cont string) string {
 			out[i] = glyph + " " + l
 		} else {
 			out[i] = cont + l
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+// UUUUUUUUU1: unifiedDiffView renders a real hunk-aware diff
+// (Myers/LCS via go-udiff) instead of the primitive row-aligned diff
+// simpleDiff produces. Output mirrors `git diff --no-color` in
+// structure:
+//
+//	@@ -A,B +C,D @@                    ← hunk header (muted primary)
+//	   context line                    ← 2-space gutter, dim fg
+//	 - removed line                    ← red
+//	 + added line                      ← green
+//
+// For tiny changes (before+after <= 6 lines combined) it short-
+// circuits to simpleDiff — the unified diff's hunk header is more
+// noise than signal on a one-liner. width is the inner column budget
+// before the caller's indent — each line is truncated to width-2 so
+// the gutter glyph always fits.
+func unifiedDiffView(path, before, after string, width int, t Theme) string {
+	lineCount := func(s string) int {
+		if s == "" {
+			return 0
+		}
+		return strings.Count(s, "\n") + 1
+	}
+	if lineCount(before)+lineCount(after) <= 6 {
+		return simpleDiff(before, after, width)
+	}
+	// go-udiff's Unified() uses 3 context lines, which matches git's
+	// default and is what Crush/CC use.
+	raw := udiff.Unified(path, path, before, after)
+	if raw == "" {
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("(no changes)")
+	}
+	// Strip the `--- path` / `+++ path` header rows; we already
+	// rendered the file name in the part head above, and the
+	// redundant row wastes vertical budget.
+	var out []string
+	dimStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	hunkStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	delStyle := lipgloss.NewStyle().Foreground(red)
+	addStyle := lipgloss.NewStyle().Foreground(green)
+	ctxStyle := lipgloss.NewStyle().Foreground(t.Fg)
+	for _, ln := range strings.Split(strings.TrimRight(raw, "\n"), "\n") {
+		if strings.HasPrefix(ln, "--- ") || strings.HasPrefix(ln, "+++ ") {
+			continue
+		}
+		if strings.HasPrefix(ln, "@@") {
+			// Hunk header: keep the whole line, coloured to stand out.
+			out = append(out, hunkStyle.Render(truncateString(ln, width)))
+			continue
+		}
+		if len(ln) == 0 {
+			out = append(out, "")
+			continue
+		}
+		prefix, rest := ln[:1], ln[1:]
+		// Pad/truncate rest to width-2 so the gutter stays visible on
+		// long lines (keep the leading `- ` / `+ ` marker).
+		rest = truncateString(rest, width-2)
+		switch prefix {
+		case "-":
+			out = append(out, delStyle.Render("- "+rest))
+		case "+":
+			out = append(out, addStyle.Render("+ "+rest))
+		case " ":
+			// Context lines: dim but readable. `·` at the start so the
+			// gutter reads as a 2-char prefix like the +/- cases.
+			out = append(out, ctxStyle.Render("  "+rest))
+		case "\\":
+			// "\ No newline at end of file" — muted, rare.
+			out = append(out, dimStyle.Italic(true).Render(truncateString(ln, width)))
+		default:
+			out = append(out, truncateString(ln, width))
 		}
 	}
 	return strings.Join(out, "\n")

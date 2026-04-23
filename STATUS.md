@@ -1,8 +1,19 @@
 # STATUS
 
-**Last updated:** 2026-04-20T19:00Z
-**Current phase:** Final pass — README rewritten with contract-first framing, FEATURES.md refreshed with new CLI surface, full test + coverage run
-**Repo:** https://github.com/JaimeCernuda/gact-tui — main is `0433964` (about to push README/docs refresh)
+**Last updated:** 2026-04-20T21:15Z
+**Current phase:** Block-to-block navigation (SSSSSSSSS1 + TTTTTTTTT1 + UUUUUUUUU1) — richer multi-tool scenario with two bulky reads + a real file_diff; per-part body cursor (j/k walks blocks, [/] jumps messages, Ctrl+E targets the selected block); unified-diff view (hunk headers + context lines)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, feature branch ahead
+
+### Latest feedback loop
+User reviewed the multi-tool scenario and asked for three fixes:
+1. "The test is too shallow, a read file would return many issues" — **shipped as SSSSSSSSS1**: multi-tool variant[0] now reads main.go (52 lines) + handlers.go (48 lines), greps for `println\(` (14 hits across 5 files), and emits a file_diff as a sibling part on the assistant message.
+2. "I would like to be able to work with an edit with diff view, this is what we changed kind of thing" — **shipped as UUUUUUUUU1**: file_diff parts render via real unified diff (go-udiff Myers/LCS) with `@@ -A,B +C,D @@` hunk headers, red `-` deletions, green `+` insertions, dim context lines. Tiny diffs (≤ 6 lines) short-circuit to the old simpleDiff.
+3. "You are currently making your selector go conversation turn to conversation turn instead of logical block to logical block. What happens if an agent reads two large files?" — **shipped as TTTTTTTTT1**: body cursor now tracks `bodySelPartIdx` within the selected message's addressable parts; j/k/↑/↓/n/N walk parts flat across message boundaries; `[`/`]` remain as coarse message-jump shortcuts; Ctrl+E/Enter route through `findBulkyPartForSelected` so cursor-on-first-read expands file one, cursor-on-second-read expands file two; renderer grew a `selectedPartID` pathway that prefixes `▸ ` to the selected block.
+
+Screenshots: `TTTTTTTTT1_body_cursor_on_{diff,first_read,second_read}.png`, `TTTTTTTTT1_ctrl_e_first_read.png` (opens the 52-line main.go in the detail view), `UUUUUUUUU1_unified_diff_inline.png`.
+
+### Known follow-up
+- Scroll-to-part: walking the cursor up into a long multi-tool message (assistant with 6+ blocks) scrolls the marker above the viewport because `scrollToSelectedMessage` only anchors the *message*. Doing it properly needs per-part row offsets from the renderer. Left as a follow-up; Ctrl+E still expands the correct block even when the marker is off-screen.
 
 ### Final pass summary
 - All tests green: emulator (5 packages), tui (5 packages incl. 284s CLI suite), adapters/claudecode non-smoke. Coverage: `tui/internal/ui` 67.6%, `config` 77.5%, `plugins` 72.9%, `client` 39.5%; emulator `events` 87.3%, `scenario` 83.3%, `store` 72.3%, `server` 67.5%.

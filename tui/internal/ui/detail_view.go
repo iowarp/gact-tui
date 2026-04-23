@@ -25,13 +25,25 @@ type bulkyPartRef struct {
 // body cursor's bulky part, falling back to the latest bulky in
 // the whole conversation (Z1 + L3 behaviour). Shared by Ctrl+E
 // and ZZZZZZZZ1 body-Enter so both paths stay in lockstep.
+//
+// TTTTTTTTT1: when bodySelPartIdx points at a specific addressable
+// part, target THAT part directly — so if the assistant read two
+// large files in one turn, the user can expand either one
+// individually. The old findBulkyPartIn fallback (first bulky in
+// the selected message) still covers the unset-partIdx case.
 func (a *App) openDetailForSelection() {
 	var (
 		ref bulkyPartRef
 		ok  bool
 	)
 	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
-		ref, ok = findBulkyPartIn(a.messages[a.bodySelMsgIdx])
+		m := a.messages[a.bodySelMsgIdx]
+		if a.bodySelPartIdx >= 0 {
+			ref, ok = findBulkyPartForSelected(m, a.bodySelPartIdx, a.messages, a.bodySelMsgIdx)
+		}
+		if !ok {
+			ref, ok = findBulkyPartIn(m)
+		}
 	}
 	if !ok {
 		ref, ok = findLatestBulkyPart(a.messages)
@@ -87,6 +99,127 @@ func (a *App) detailPageSize() int {
 		n = 1
 	}
 	return n
+}
+
+// TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
+// specific addressable part the body cursor points at. Handles three
+// cases:
+//
+//   - the selected part is a tool_call: drill forward through sibling
+//     tool messages (pairToolResults-style) to find the matching
+//     tool_result. Expands the *output*, not the call header — that's
+//     what the user wants to see when there are two bulky reads.
+//   - the selected part is a tool_result / text / file_diff: expand
+//     it directly (same flattenToolResult for tool_result).
+//   - the selected part is below the bulky threshold: return !ok so
+//     the caller can decide to toast or fall through.
+//
+// Input:
+//
+//	m       — the currently selected message
+//	addrIdx — bodySelPartIdx (index into addressablePartsOf(m))
+//	allMsgs — full messages slice, needed to walk forward into
+//	          sibling tool messages for tool_call pairing
+//	msgIdx  — m's position in allMsgs
+func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Message, msgIdx int) (bulkyPartRef, bool) {
+	addr := addressablePartsOf(m)
+	if addrIdx < 0 || addrIdx >= len(addr) {
+		return bulkyPartRef{}, false
+	}
+	partIdx := addr[addrIdx]
+	if partIdx < 0 || partIdx >= len(m.Parts) {
+		return bulkyPartRef{}, false
+	}
+	p := m.Parts[partIdx]
+
+	switch p.Type {
+	case gact.PartTypeToolCall:
+		// Find the matching tool_result in the same message or the
+		// following sibling tool messages. Mirrors pairToolResults.
+		if p.CallID == "" {
+			return bulkyPartRef{}, false
+		}
+		// Same-message scan.
+		for _, sib := range m.Parts {
+			if sib.Type == gact.PartTypeToolResult && sib.CallID == p.CallID {
+				text := flattenToolResult(sib)
+				if lineCount(text) <= toolResultPreviewLines {
+					return bulkyPartRef{}, false
+				}
+				return bulkyPartRef{
+					messageID: m.ID,
+					partID:    sib.ID,
+					title:     fmt.Sprintf("%s · %d lines", p.ToolName, lineCount(text)),
+					fullText:  text,
+				}, true
+			}
+		}
+		// Walk forward through sibling tool messages.
+		for j := msgIdx + 1; j < len(allMsgs); j++ {
+			tm := allMsgs[j]
+			if tm.Role != gact.RoleTool {
+				break
+			}
+			for _, rp := range tm.Parts {
+				if rp.Type == gact.PartTypeToolResult && rp.CallID == p.CallID {
+					text := flattenToolResult(rp)
+					if lineCount(text) <= toolResultPreviewLines {
+						return bulkyPartRef{}, false
+					}
+					return bulkyPartRef{
+						messageID: tm.ID,
+						partID:    rp.ID,
+						title:     fmt.Sprintf("%s · %d lines", p.ToolName, lineCount(text)),
+						fullText:  text,
+					}, true
+				}
+			}
+		}
+		return bulkyPartRef{}, false
+
+	case gact.PartTypeToolResult:
+		text := flattenToolResult(p)
+		if lineCount(text) <= toolResultPreviewLines {
+			return bulkyPartRef{}, false
+		}
+		return bulkyPartRef{
+			messageID: m.ID,
+			partID:    p.ID,
+			title:     fmt.Sprintf("tool_result · %d lines", lineCount(text)),
+			fullText:  text,
+		}, true
+
+	case gact.PartTypeText:
+		if lineCount(p.Text) <= toolResultPreviewLines {
+			return bulkyPartRef{}, false
+		}
+		return bulkyPartRef{
+			messageID: m.ID,
+			partID:    p.ID,
+			title:     fmt.Sprintf("%s text · %d lines", strings.ToLower(m.Role), lineCount(p.Text)),
+			fullText:  p.Text,
+		}, true
+
+	case gact.PartTypeFileDiff:
+		// For diffs, "expanding" shows the concatenated before+after
+		// so the modal can scroll both sides. Keep the title helpful
+		// by naming the path.
+		before, after := "", ""
+		if p.Before != nil {
+			before = *p.Before
+		}
+		if p.After != nil {
+			after = *p.After
+		}
+		body := "--- before ---\n" + before + "\n\n+++ after +++\n" + after
+		return bulkyPartRef{
+			messageID: m.ID,
+			partID:    p.ID,
+			title:     fmt.Sprintf("file_diff · %s", p.Path),
+			fullText:  body,
+		}, true
+	}
+	return bulkyPartRef{}, false
 }
 
 // findBulkyPartIn scans a single message for a bulky tool_result or
