@@ -50,7 +50,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 ### Phase 2 — streaming
 
-- [ ] **CLIO-BBBBBBBBBB13.** Implement SSE on `GET /v1/sessions/{sid}/events`. Stream v0.2 events driven by `ClioAgent.forward(stream=True)`: session.status_changed, message.created, message.part.added (including routing_decision), message.part.delta, message.completed. Real token streaming deferred until CLIO issue #6 lands (tracked at CLIO-BBBBBBBBBB18 below).
+- [x] **CLIO-BBBBBBBBBB13.** Implement SSE on `GET /v1/sessions/{sid}/events`. Stream v0.2 events driven by `ClioAgent.forward(stream=True)`: session.status_changed, message.created, message.part.added (including routing_decision), message.part.delta, message.completed. Real token streaming deferred until CLIO issue #6 lands (tracked at CLIO-BBBBBBBBBB18 below). [✓ Landed on tui-integration: EventBus + per-session queues, message.created/completed wired, 15s heartbeat. 55 tests green.]
 
 - [ ] **CLIO-BBBBBBBBBB14.** End-to-end smoke: `gact agent deploy clio && gact connect` creates session, sends prompt, receives streaming answer, TUI renders agent badge + routing explanation + memory footer. VHS screenshot committed.
 
