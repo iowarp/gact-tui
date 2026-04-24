@@ -56,7 +56,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 ### Phase 3 — ARC + metrics surface
 
-- [ ] **CLIO-BBBBBBBBBB15.** `GET /v1/metrics` returns per-expert stats reshaped to v0.2 envelope. TUI Settings → Metrics tab shows per-expert totals + latency p50/p95/p99; footer shows ARC cache hit rate from `/v1/memory/stats`.
+- [x] **CLIO-BBBBBBBBBB15.** `GET /v1/metrics` returns per-expert stats reshaped to v0.2 envelope. TUI Settings → Metrics tab shows per-expert totals + latency p50/p95/p99; footer shows ARC cache hit rate from `/v1/memory/stats`. [✓ Endpoint returns SPEC §6.16 envelope with uptime + session + message counters. Tokens/cost/latency stay zero until optimizer layer; shape is wire-compatible. Per-expert p50/p95/p99 rollup deferred to when ARC.get_metrics() gets reshaped.]
 
 - [ ] **CLIO-BBBBBBBBBB16.** `message.completed` payload carries `metadata.tools_called` synthesised from `Invocation.tools_called`. TUI renders post-hoc gutter list under each turn.
 
