@@ -57,16 +57,27 @@ type Tool struct {
 }
 
 // AgentDef is a reusable agent persona/recipe (SPEC §6.5).
+//
+// v0.2 (SPEC §4.3.1): Tier, Specialization, Keywords are optional
+// fields that let a backend advertise a multi-tier agent hierarchy.
+// Backends with capabilities.agent_routing = true populate them on
+// tier-2 specialists so the TUI can render a routing badge and
+// colour it by specialization.
 type AgentDef struct {
-	ID            string           `json:"id"`
-	Source        string           `json:"source"` // builtin|user|recipe|skill
-	Title         string           `json:"title"`
-	Description   string           `json:"description,omitempty"`
-	SystemPrompt  string           `json:"system_prompt,omitempty"`
-	Parameters    []AgentParameter `json:"parameters,omitempty"`
-	DefaultModel  *ModelRef        `json:"default_model,omitempty"`
-	Tools         []string         `json:"tools,omitempty"`
-	Metadata      map[string]any   `json:"metadata,omitempty"`
+	ID             string           `json:"id"`
+	Source         string           `json:"source"` // builtin|user|recipe|skill
+	Title          string           `json:"title"`
+	Description    string           `json:"description,omitempty"`
+	SystemPrompt   string           `json:"system_prompt,omitempty"`
+	Parameters     []AgentParameter `json:"parameters,omitempty"`
+	DefaultModel   *ModelRef        `json:"default_model,omitempty"`
+	Tools          []string         `json:"tools,omitempty"`
+	Metadata       map[string]any   `json:"metadata,omitempty"`
+
+	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
+	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
+	Specialization string   `json:"specialization,omitempty"` // free-form tag — UI palette hint (code_editing, data_analysis, research, …)
+	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
 }
 
 // AgentParameter is a fillable input on an agent recipe.

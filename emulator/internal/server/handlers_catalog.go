@@ -181,7 +181,33 @@ func staticTools() []gact.Tool {
 // --- §6.5 Agents -----------------------------------------------------------
 
 func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"agents": staticAgents()})
+	agents := staticAgents()
+	// v0.2 — SPEC §4.3.1: `?tier=N` filters to a specific tier.
+	// Absent = return all tiers (backwards-compat with v0.1).
+	if tierStr := r.URL.Query().Get("tier"); tierStr != "" {
+		var filtered []gact.AgentDef
+		for _, a := range agents {
+			if atoi(tierStr) == a.Tier {
+				filtered = append(filtered, a)
+			}
+		}
+		agents = filtered
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"agents": agents})
+}
+
+// atoi is a small helper for query-string int parsing — returns 0 on
+// anything we don't like so `?tier=bogus` silently returns no tier-0
+// matches (i.e. no results) rather than 500ing.
+func atoi(s string) int {
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return 0
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
 }
 
 func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
@@ -229,6 +255,39 @@ func staticAgents() []gact.AgentDef {
 			Description:  "Summarizes git diffs since a tag into changelog entries.",
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
 			Tools:        []string{"bash", "read_file"},
+		},
+
+		// v0.2 — SPEC §4.3.1: three tier-2 specialists wired with
+		// tier/specialization/keywords so clients can exercise the
+		// multi-tier agent catalog without a CLIO backend handy.
+		// Names stay generic (code / research / data) — not domain-
+		// specific.
+		{
+			ID: "code_expert", Source: "builtin", Title: "Code Expert",
+			Description:  "Source-level editing, review, refactoring.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file", "edit_file", "grep"},
+			Tier:         2,
+			Specialization: "code_editing",
+			Keywords:       []string{"edit", "refactor", "fix", "review", "patch"},
+		},
+		{
+			ID: "research_expert", Source: "builtin", Title: "Research Expert",
+			Description:  "Web search + document retrieval + synthesis.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"web_search", "read_file"},
+			Tier:         2,
+			Specialization: "knowledge_retrieval",
+			Keywords:       []string{"search", "find", "look up", "research", "citations"},
+		},
+		{
+			ID: "data_expert", Source: "builtin", Title: "Data Expert",
+			Description:  "Profile and analyse structured data files.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file", "bash"},
+			Tier:         2,
+			Specialization: "data_analysis",
+			Keywords:       []string{"analyze", "profile", "inspect", "data", "csv", "parquet"},
 		},
 	}
 }

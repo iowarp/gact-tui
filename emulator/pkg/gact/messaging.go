@@ -58,6 +58,7 @@ const (
 	PartTypeCitation         = "citation"
 	PartTypeError            = "error"
 	PartTypeCompaction       = "compaction"
+	PartTypeRoutingDecision  = "routing_decision" // v0.2 §4.5
 )
 
 // Workspace is the parent of sessions (SPEC §4.1).
@@ -115,6 +116,10 @@ type Session struct {
 }
 
 // Message is a turn in a session (SPEC §4.4).
+//
+// v0.2 (§14): ErrorInfo carries structured error context for backends
+// advertising capabilities.structured_errors. Null on success;
+// populated when stop_reason == "error" or the turn degraded mid-stream.
 type Message struct {
 	ID         string         `json:"id"`
 	SessionID  string         `json:"session_id"`
@@ -126,7 +131,28 @@ type Message struct {
 	CostUSD    float64        `json:"cost_usd"`
 	StopReason string         `json:"stop_reason,omitempty"`
 	Parts      []Part         `json:"parts"`
+	ErrorInfo  *ErrorInfo     `json:"error_info,omitempty"` // v0.2 §14
 	Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
+// ErrorInfo is the v0.2 structured error envelope (SPEC §14). Flows
+// through Message.ErrorInfo, the body of an error Part, or the HTTP
+// response body on 4xx/5xx.
+//
+// Error is a machine-readable taxonomy tag:
+//
+//	"provider_error" · "routing_error" · "agent_error" · "tool_error"
+//	"permission_error" · "config_error" · "cancelled" · "rate_limited"
+//	"internal_error" · "x_<vendor>_<custom>"
+//
+// Recoverable hints whether a retry could succeed (true) or whether
+// user/operator intervention is required (false).
+type ErrorInfo struct {
+	Error        string         `json:"error"`
+	Message      string         `json:"message"`
+	Details      map[string]any `json:"details,omitempty"`
+	Recoverable  bool           `json:"recoverable"`
+	RetryAfterS  *int           `json:"retry_after_s,omitempty"`
 }
 
 // Part is a single content block within a Message (SPEC §4.5).
@@ -175,6 +201,16 @@ type Part struct {
 	// tool_result (recursive; can hold text, image, resource, ...)
 	Content []Part `json:"content,omitempty"`
 	IsError bool   `json:"is_error,omitempty"`
+
+	// v0.2 — tool_result telemetry (capabilities.tool_telemetry)
+	Cached     bool    `json:"cached,omitempty"`      // result came from a memory cache hit
+	DurationMS float64 `json:"duration_ms,omitempty"` // wall-clock ms including cache lookup
+
+	// v0.2 — routing_decision part (capabilities.agent_routing)
+	SelectedAgent string  `json:"selected_agent,omitempty"` // matches AgentDef.id
+	Rationale     string  `json:"rationale,omitempty"`
+	Confidence    float64 `json:"confidence,omitempty"` // 0..1
+	Heuristic     bool    `json:"heuristic,omitempty"`  // true = keyword match, false = LM router
 
 	// subagent_call, subagent_result
 	SubsessionID string `json:"subsession_id,omitempty"`
@@ -300,6 +336,20 @@ func NewTextPart(text string) Part {
 // NewThinkingPart constructs a thinking part.
 func NewThinkingPart(thinking string) Part {
 	return Part{Type: PartTypeThinking, Thinking: thinking}
+}
+
+// NewRoutingDecisionPart constructs a routing_decision part (v0.2 —
+// SPEC §4.5). Emitted as the first part of an assistant message when
+// the backend's tier-1 orchestrator picked a tier-2 agent. heuristic
+// = true for keyword-match routing; false for LM-driven routing.
+func NewRoutingDecisionPart(selectedAgent, rationale string, confidence float64, heuristic bool) Part {
+	return Part{
+		Type:          PartTypeRoutingDecision,
+		SelectedAgent: selectedAgent,
+		Rationale:     rationale,
+		Confidence:    confidence,
+		Heuristic:     heuristic,
+	}
 }
 
 // NewToolCallPart constructs a tool_call part. Input may be nil.
