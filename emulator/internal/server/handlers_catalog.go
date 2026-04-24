@@ -511,6 +511,7 @@ func staticCommands() []gact.Command {
 		{ID: "/theme", Title: "Pick a colour theme (live preview)", Source: "builtin"},
 		{ID: "/theme-export", Title: "Export current palette to ~/.config/gact/theme.json", Source: "builtin"},
 		{ID: "/metrics", Title: "Open backend metrics modal", Source: "builtin"},
+		{ID: "/doctor", Title: "Open backend health + integrations modal", Source: "builtin"},
 		{ID: "/theme-next", Title: "Cycle to the next colour theme", Source: "builtin"},
 		{ID: "/theme-prev", Title: "Cycle to the previous colour theme", Source: "builtin"},
 		{ID: "/duplicate", Title: "Copy current session's title/model/agent to a fresh session", Source: "builtin"},

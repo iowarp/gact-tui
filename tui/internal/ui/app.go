@@ -345,6 +345,12 @@ type App struct {
 	metricsOpen bool
 	metrics     *metricsState
 
+	// Doctor overlay (v0.2 §3.4 — CLIO-BBBBBBBBBB4). Shows the
+	// backend's integrations[] array + overall_status in a per-
+	// subsystem table. Opens via /doctor; closes with Esc / q.
+	doctorOpen bool
+	doctor     *doctorState
+
 	// Workspace switcher overlay — ↑/↓ to navigate the current
 	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
 	// already-loaded workspace list (connectCmd populates it) so the
@@ -831,7 +837,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
@@ -886,6 +892,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// CLIO-BBBBBBBBBB4: cache the latest snapshot; the footer's
 		// render path reads this each frame.
 		a.memoryStats = m.stats
+		return a, nil
+
+	case doctorFetchedMsg:
+		// CLIO-BBBBBBBBBB4: /doctor modal finished its /v1/health
+		// fetch. Update the modal state if it's still open (user may
+		// have dismissed during the fetch — drop the response in that
+		// case to avoid a flash of old data on re-open).
+		if a.doctorOpen && a.doctor != nil {
+			a.doctor.loading = false
+			a.doctor.err = m.err
+			a.doctor.health = m.health
+		}
 		return a, nil
 
 	case errMsg:
@@ -1533,6 +1551,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.metricsOpen {
 		return a.handleMetricsKey(k)
 	}
+	if a.doctorOpen {
+		return a.handleDoctorKey(k)
+	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
@@ -1791,6 +1812,23 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.metricsOpen = true
 				a.metrics = &metricsState{loading: true}
 				return a, loadMetricsCmd(a.c)
+			}
+
+			// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor opens the backend
+			// health modal — integrations array + overall_status so
+			// the user can see at a glance which subsystems are
+			// ready/degraded/unavailable. Gated on
+			// capabilities.integration_health; unsupported backends
+			// get a transient "doctor view unsupported by this
+			// backend" hint.
+			if cmd.ID == "/doctor" {
+				if !a.caps.Capabilities.IntegrationHealth {
+					a.transientHint = "doctor view unsupported by this backend (v0.1)"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				a.doctorOpen = true
+				a.doctor = &doctorState{loading: true}
+				return a, doctorFetchCmd(a.c)
 			}
 
 			// /theme-export writes the currently-active palette to
@@ -3665,6 +3703,9 @@ func (a *App) viewMain() string {
 	}
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)
+	}
+	if a.doctorOpen {
+		base = overlay(base, a.viewDoctor(), a.width, a.height)
 	}
 	if a.workspaceSwitchOpen {
 		base = overlay(base, a.viewWorkspaceSwitch(), a.width, a.height)
