@@ -80,7 +80,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [x] **CLIO-BBBBBBBBBB24.** Cost tracking — closes iowarp/clio-agent#8. Per-turn + per-session tokens + cost_usd. Flip `capabilities.cost_tracking = true`. [✓ Prediction.tokens + cost_usd propagate to assistant_message, message.completed event, Session rollup (persisted), /v1/metrics tokens + cost totals.]
 
-- [ ] **CLIO-BBBBBBBBBB25.** Tier-3 Nanoagents — closes iowarp/clio-agent#9. `spawn_nanoagents` primitive on Tier-2 experts. Flip `capabilities.subagents = true`.
+- [x] **CLIO-BBBBBBBBBB25.** Tier-3 Nanoagents — closes iowarp/clio-agent#9. `spawn_nanoagents` primitive on Tier-2 experts. Flip `capabilities.subagents = true`. [✓ Prediction.nanoagents_spawned materialises as child sessions with parent_session_id; user/assistant exchange stored under child; subagent.started/completed events fire on the parent. Real Tier-2 expert using dspy.Parallel shares the same wire shape.]
 
 - [x] **CLIO-BBBBBBBBBB26.** Session forks — closes iowarp/clio-agent#10. `POST /sessions/{sid}/fork`. Flip `capabilities.session_branching = true`. [✓ Deep-copies message log into a new session with parent_session_id; optional at_message_id truncates. Session type gained parent_session_id field.]
 
