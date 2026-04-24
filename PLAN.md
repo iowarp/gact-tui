@@ -16,75 +16,83 @@ Integration target tracked by [iowarp/clio-agent#1](https://github.com/iowarp/cl
 - gact-tui: `clio` — GACT v0.2 spec, TUI renderers for new primitives, `gact agent deploy clio`.
 - clio-agent: `tui-integration` off `develop` — Python/FastAPI implementation of v0.2, gap tracking.
 
-### Phase 0 — spec + gap inventory
+### Phase 0 — spec, gaps, emulator + TUI support, conformance
 
-- [x] **CLIO-BBBBBBBBBB1.** GACT v0.2 drafted in `contract/SPEC.md`. Additive-only: bumped `contract_version` to `"0.2"`, added capability flags (`agent_routing`, `memory`, `structured_errors`, `integration_health`, `tool_telemetry`), extended `AgentDef` with optional tier/specialization/keywords for multi-tier routing (not CLIO-specific — any MoE backend qualifies), added `routing_decision` part type, extended `tool_result` with `cached`/`duration_ms`, added message-level `error_info`, new `/v1/memory/stats` endpoint (§6.19), new events (`session.agent_routed`, `memory.cache.updated`, `integration.status_changed`), new §14 Error Taxonomy (provider/routing/agent/tool/permission/config/cancelled/rate_limited/internal). Naming stays generic; examples use generic role names (code_expert) — CLIO materialises them as DataExpert etc. when implementing. Gold-standard clause notes CLIO as the reference v0.2 backend. v0.1 backends keep working unchanged.
+The spec lands first, then we grow the **emulator** (gact-tui's in-house reference backend) + **TUI renderers** for every v0.2 primitive BEFORE CLIO implements it. That way the TUI can iterate fast in-house (with tests + screenshots) and CLIO just has to satisfy a proven contract when it implements. Meanwhile, capability gaps between v0.1 and CLIO are filed as individual CLIO issues (framed around CLIO's mission).
 
-- [ ] **CLIO-BBBBBBBBBB2.** Inventory the gap between GACT v0.1 and CLIO's current capabilities. For each missing primitive (permissions, file_diff apply/reject, context-files CRUD, workspace switching, cancellation, per-tool telemetry, artifact retrieval), file an issue on iowarp/clio-agent framed around **CLIO's own mission** — not the TUI integration. Example: "permission gating" becomes an issue about scientific-data-safety guardrails on risky tool operations; "artifacts" becomes an issue about VisualizationExpert's output-retrieval story. Each issue stands on its own merits and would be worth doing even without gact-tui. Locally, track which PLAN item each issue unblocks in `/home/jcernuda/tui/clio-agent/docs/tui/GAPS.md` (on `tui-integration`) — bookkeeping only, the canonical artefact is the issue set.
+- [x] **CLIO-BBBBBBBBBB1.** GACT v0.2 drafted in `contract/SPEC.md`. Additive-only: bumped `contract_version` to `"0.2"`, added capability flags (`agent_routing`, `memory`, `structured_errors`, `integration_health`, `tool_telemetry`), extended `AgentDef` with optional tier/specialization/keywords, added `routing_decision` part type, extended `tool_result` with `cached`/`duration_ms`, added message-level `error_info`, new `/v1/memory/stats` endpoint (§6.19), new events (`session.agent_routed`, `memory.cache.updated`, `integration.status_changed`), new §14 Error Taxonomy. Naming stays generic on the GACT side; CLIO materialises them concretely. v0.1 backends keep working unchanged.
 
-- [ ] **CLIO-BBBBBBBBBB3.** Update `/home/jcernuda/tui/contract/conformance/` to support v0.2: add new suites for expert routing, ARC metrics, tool-call events. v0.1 suites keep passing unchanged. Existing adapters (claudecode/opencode/crush/goose) declare v0.2 capabilities as `unsupported` until they catch up.
+- [x] **CLIO-BBBBBBBBBB2.** Gap inventory filed as 10 native-merit issues on iowarp/clio-agent (#2–#11): tool telemetry events, cooperative cancellation, two-phase edits, context files, token streaming, interactive safety gate, cost tracking, nanoagents, session forks, message search. Each framed around CLIO's mission, none reference gact-tui. Bookkeeping map at `docs/tui/GAPS.md` on `tui-integration` branch.
 
-### Phase 1 — smoke path (CLIO speaks v0.2)
+- [ ] **CLIO-BBBBBBBBBB3.** Emulator v0.2 — grow `emulator/` to speak every v0.2 primitive. Additions: capabilities endpoint advertises new flags; `/v1/agents` supports `?tier=2` with `AgentDef.tier/specialization/keywords` populated; `/v1/memory/stats` returns a realistic (fake but internally-consistent) stats envelope; `/v1/health` integrations array with per-subsystem rows; new event types (`session.agent_routed`, `memory.cache.updated`, `integration.status_changed`); `routing_decision` part type emitted at turn start of any scenario; `tool_result` carries `cached`/`duration_ms`; error_info populated on failure scenarios. New scenario: `expert_routing` — user asks a DataExpert-ish query, emulator picks a tier-2 agent via keyword match, emits routing_decision + agent_routed event, streams response. pytest + existing emulator tests all green.
 
-- [ ] **CLIO-BBBBBBBBBB4.** Scaffold `src/clio_agent/gact/` (`__init__.py`, `app.py`, `types.py`, `sessions.py`) on `tui-integration`. `app.py` exposes a `FastAPI` app implementing GACT v0.2 with all routes stubbed as 501s. Extend `pyproject.toml` with console script `clio-agent-gact = "clio_agent.gact.app:main"`. Baseline CLI + existing `clio-agent-api` must still work. pytest asserts the 501 shapes match v0.2 error envelope.
+- [ ] **CLIO-BBBBBBBBBB4.** TUI renders v0.2 primitives. Render paths for: agent badge in assistant header (uses `AgentDef.specialization` for palette hint); routing_decision part (thinking-style block, collapsed by default); memory stats footer chip (cache hit rate); integrations table in a new `/doctor` modal; error_info rendering using the v0.2 taxonomy (colour + glyph per error type). Tests for each render path; teatest coverage for the new modal; VHS screenshots committed. Tied to capability flags so v0.1 backends degrade cleanly.
 
-- [ ] **CLIO-BBBBBBBBBB5.** Implement session registry in `src/clio_agent/gact/sessions.py`: in-memory store with optional JSON persistence to `~/.config/clio-agent/sessions.json`. Shape matches GACT v0.2 `Session`: `{id, title, status, created_at, updated_at, metadata, expert_stats?}`. Tests cover Create/Get/List/Delete + roundtrip.
+- [ ] **CLIO-BBBBBBBBBB5.** Update `contract/conformance/` for v0.2. New suites: `v0_2/agent_routing` (capabilities flag + `AgentDef.tier=2` + routing_decision part + agent_routed event), `v0_2/memory` (`/v1/memory/stats` shape), `v0_2/integration_health` (`/v1/health.integrations[]`), `v0_2/structured_errors` (error_info envelope + taxonomy), `v0_2/tool_telemetry` (cached + duration_ms). v0.1 suites keep passing unchanged; existing adapters (claudecode/opencode/crush/goose) declare v0.2 capabilities `false` and skip those suites.
 
-- [ ] **CLIO-BBBBBBBBBB6.** Wire core endpoints: `GET /v1/health`, `GET /v1/capabilities` (advertises v0.2 + CLIO-specific feature flags), `POST /v1/sessions`, `GET /v1/sessions`, `GET /v1/sessions/{sid}`, `DELETE /v1/sessions/{sid}`. `/v1/capabilities` is the crucial bit — it tells the TUI which v0.2 features this backend actually supports.
+### Phase 1 — CLIO speaks v0.2 (smoke path)
 
-- [ ] **CLIO-BBBBBBBBBB7.** Implement `POST /v1/sessions/{sid}/messages` (non-streaming). Calls `ClioAgent.forward(question, session_id=sid)`, translates `dspy.Prediction` → GACT v0.2 message shape with text part + routing thinking part + expert metadata. pytest TestClient covers happy path + error_info mapping.
+CLIO catches up to what emulator + TUI already support. Every item here is implementation-on-the-CLIO-side against an already-proven spec.
 
-- [ ] **CLIO-BBBBBBBBBB8.** Expose `GET /v1/catalog/agents` (wraps `/experts`) and `GET /v1/catalog/tools`. Shapes per v0.2; tests assert all 3 current experts show up with keywords + tool counts.
+- [ ] **CLIO-BBBBBBBBBB6.** Scaffold `src/clio_agent/gact/` (`__init__.py`, `app.py`, `types.py`) on `tui-integration`. `app.py` exposes a FastAPI app implementing GACT v0.2 with all routes stubbed as 501s that return the v0.2 error envelope. Extend `pyproject.toml` with console script `clio-agent-gact = "clio_agent.gact.app:main"`. Baseline CLI + existing `clio-agent-api` must still work. pytest asserts the 501 shapes + import path.
 
-- [ ] **CLIO-BBBBBBBBBB9.** On gact-tui `clio`: add `kind=clio` to `runAgentDeploy` so `gact agent deploy clio my-clio` spawns `clio-agent-gact --host 127.0.0.1 --port <free>`, probes `/v1/capabilities` up to 10 s, records registry entry. Completion scripts updated. Smoke test skips when `clio-agent-gact` not on PATH.
+- [ ] **CLIO-BBBBBBBBBB7.** Session registry in `src/clio_agent/gact/sessions.py`: in-memory store with JSON persistence to `~/.config/clio-agent/sessions.json`. Shape matches GACT v0.2 `Session`. Create/Get/List/Delete + disk roundtrip tests.
 
-- [ ] **CLIO-BBBBBBBBBB2.** Implement adapter-side session registry in `src/clio_agent/gact/sessions.py`: in-memory store with optional JSON persistence to `~/.config/clio-agent/sessions.json`. Matches GACT `Session` shape: `{id, title, status, created_at, updated_at, metadata}`. Tests cover Create/Get/List/Delete/roundtrip-to-disk.
+- [ ] **CLIO-BBBBBBBBBB8.** Wire core v0.2 endpoints: `GET /v1/health` (with integrations), `GET /v1/capabilities` (v0.2 flags set correctly — true for CLIO-native, false for CLIO-unsupported like workspaces/permissions/diffs/forks), `POST /v1/sessions`, `GET /v1/sessions`, `GET /v1/sessions/{sid}`, `DELETE /v1/sessions/{sid}`. TestClient integration tests.
 
-- [ ] **CLIO-BBBBBBBBBB3.** Wire GACT endpoints `GET /v1/health`, `GET /v1/capabilities`, `POST /v1/sessions`, `GET /v1/sessions`, `GET /v1/sessions/{sid}`, `DELETE /v1/sessions/{sid}`. `/v1/health` composes CLIO's internal health integrations into the GACT shape. Integration tests using `TestClient`.
+- [ ] **CLIO-BBBBBBBBBB9.** `POST /v1/sessions/{sid}/messages` (non-streaming). Calls `ClioAgent.forward(question, session_id=sid)`, translates `dspy.Prediction` → GACT v0.2 message shape with routing_decision part + text part; populates `error_info` on failure per §14 taxonomy. pytest covers happy path + mapped error paths.
 
-- [ ] **CLIO-BBBBBBBBBB4.** Implement `POST /v1/sessions/{sid}/messages` (non-streaming). Calls `ClioAgent.forward(question, session_id=sid)`, translates `dspy.Prediction` → GACT message shape (assistant message with `text` part carrying `answer` + optional thinking part for routing rationale). Updates session `updated_at + status`. Tests verify the mapping and the stored conversation count.
+- [ ] **CLIO-BBBBBBBBBB10.** `GET /v1/agents?tier=2` returns the 3 experts with `tier: 2`, `specialization`, `keywords`, `tools` populated from the registry. `GET /v1/agents` without filter includes the tier-1 orchestrator if present, else just tier-2. `GET /v1/catalog/tools` enumerates gateway tools.
 
-- [ ] **CLIO-BBBBBBBBBB5.** Expose `GET /v1/catalog/agents` (wraps `GET /experts`) and `GET /v1/catalog/tools` (enumerates gateway tools). Shapes per GACT spec; tests assert the 3 current experts show up.
+- [ ] **CLIO-BBBBBBBBBB11.** `GET /v1/memory/stats` returns ARC cache stats + per-session budget (when `?session_id=` set) + global counters. Matches §6.19 shape exactly. pytest against a seeded ARC confirms the numbers.
 
-- [ ] **CLIO-BBBBBBBBBB6.** On gact-tui `clio` branch: add `kind=clio` to `tui/main.go`'s `runAgentDeploy` so `gact agent deploy clio my-clio` spawns `clio-agent-gact --host 127.0.0.1 --port <free>`, probes `/v1/capabilities` up to 10 s, records the registry entry. Completion scripts updated. Smoke test skips when `clio-agent-gact` not on PATH.
+- [ ] **CLIO-BBBBBBBBBB12.** On gact-tui `clio`: add `kind=clio` to `runAgentDeploy` so `gact agent deploy clio my-clio` spawns `clio-agent-gact --host 127.0.0.1 --port <free>`, probes `/v1/capabilities` up to 10 s, records registry entry. Completion scripts updated. Smoke test skips when `clio-agent-gact` not on PATH.
 
-### Phase 2 — streaming + experts
+### Phase 2 — streaming
 
-- [ ] **CLIO-BBBBBBBBBB7.** Implement SSE on `GET /v1/sessions/{sid}/events`. Stream real GACT events (`session.status_changed`, `message.created`, `message.part.added`, `message.part.delta`, `message.completed`) produced by driving `ClioAgent.forward(stream=True)`. For now, routing + full-answer-as-delta + done (matches CLIO's current SSE fidelity); real token streaming deferred to Phase 4. Tests consume the SSE stream in-process.
+- [ ] **CLIO-BBBBBBBBBB13.** Implement SSE on `GET /v1/sessions/{sid}/events`. Stream v0.2 events driven by `ClioAgent.forward(stream=True)`: session.status_changed, message.created, message.part.added (including routing_decision), message.part.delta, message.completed. Real token streaming deferred until CLIO issue #6 lands (tracked at CLIO-BBBBBBBBBB18 below).
 
-- [ ] **CLIO-BBBBBBBBBB8.** TUI renders the CLIO expert badge. The `thinking` part "Routing to {expert}…" produces a badge in the assistant header, palette-coloured per specialisation (`data_io` / `data_analysis` / `data_visualization` / `chat`).
-
-- [ ] **CLIO-BBBBBBBBBB9.** `gact connect clio` passes a regression smoke through the full happy path: create session, send prompt, receive streaming answer, render expert badge, session list updates. VHS screenshot committed.
+- [ ] **CLIO-BBBBBBBBBB14.** End-to-end smoke: `gact agent deploy clio && gact connect` creates session, sends prompt, receives streaming answer, TUI renders agent badge + routing explanation + memory footer. VHS screenshot committed.
 
 ### Phase 3 — ARC + metrics surface
 
-- [ ] **CLIO-BBBBBBBBBB13.** `GET /v1/metrics` returns per-expert stats from CLIO's existing `/metrics`, reshaped to the v0.2 envelope. TUI footer surfaces ARC cache hit rate; Settings → Metrics tab shows per-expert totals + latency p50/p95/p99.
+- [ ] **CLIO-BBBBBBBBBB15.** `GET /v1/metrics` returns per-expert stats reshaped to v0.2 envelope. TUI Settings → Metrics tab shows per-expert totals + latency p50/p95/p99; footer shows ARC cache hit rate from `/v1/memory/stats`.
 
-- [ ] **CLIO-BBBBBBBBBB14.** Per-turn introspection: the `message.completed` event payload carries a `metadata.tools_called` array (synthesised from `Invocation.tools_called`). TUI renders those post-hoc under the turn — CC-style gutter via the existing grep-gutter renderer.
+- [ ] **CLIO-BBBBBBBBBB16.** `message.completed` payload carries `metadata.tools_called` synthesised from `Invocation.tools_called`. TUI renders post-hoc gutter list under each turn.
 
-- [ ] **CLIO-BBBBBBBBBB15.** `/doctor` view in TUI reads `/v1/health`'s integrations array and renders a tidy table (LM, gateway, ARC, file policy, API, clio_core). Status colouring per integration.
+- [ ] **CLIO-BBBBBBBBBB17.** TUI `/doctor` view reads `/v1/health.integrations[]` and renders the status table.
 
-### Phase 4 — catch-up work in CLIO
+### Phase 4 — CLIO catch-up (filed as upstream issues)
 
-Each item here is an upstream issue already filed in phase 0 (CLIO-BBBBBBBBBB2). The PLAN item here closes the loop by implementing the capability on the CLIO side and then flipping the corresponding v0.2 feature flag in the `/v1/capabilities` response.
+Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item covers the CLIO Python implementation + flipping the corresponding capability flag on.
 
-- [ ] **CLIO-BBBBBBBBBB16.** Per-tool telemetry: instrument `MCPToolBridge.call_tool` / the ReAct loop to emit `tool.call.started` / `tool.call.completed` events over the session stream. TUI already renders these.
+- [ ] **CLIO-BBBBBBBBBB18.** Per-tool telemetry events — closes iowarp/clio-agent#2. Instruments `MCPToolBridge.call_tool` to emit `tool.call.started` / `tool.call.completed`. Flip `capabilities.tool_telemetry.events = true`.
 
-- [ ] **CLIO-BBBBBBBBBB17.** Real token streaming: pass-through from `dspy.LM` during the ReAct loop, replacing the current "synthesise chunks from final answer" shim.
+- [ ] **CLIO-BBBBBBBBBB19.** Real token streaming — closes iowarp/clio-agent#6. DSPy stream pass-through through `/query?stream=true`. TUI already renders chunks live.
 
-- [ ] **CLIO-BBBBBBBBBB18.** Cooperative cancellation: a cancel hook in the ReAct loop checked between iterations + between tool calls; `POST /v1/sessions/{sid}/cancel` triggers it.
+- [ ] **CLIO-BBBBBBBBBB20.** Cooperative cancellation — closes iowarp/clio-agent#3. `POST /v1/sessions/{sid}/cancel`. Flip `capabilities.cancellation = true`.
 
-- [ ] **CLIO-BBBBBBBBBB19.** Server-owned sessions: move session state into ARC (under `/conversations/` — it's already there). `GET /v1/sessions` reads from ARC; drop the JSON file. Migration path for pre-existing local sessions.
+- [ ] **CLIO-BBBBBBBBBB21.** Two-phase edits — closes iowarp/clio-agent#4. file_diff records + apply/reject endpoints. Flip `capabilities.diffs = true`.
 
-- [ ] **CLIO-BBBBBBBBBB20.** Artifacts: `GET /v1/artifacts/{id}` for VisualizationExpert plots + any other generated files. Artifact id carried in `message.part` metadata.
+- [ ] **CLIO-BBBBBBBBBB22.** Session context files — closes iowarp/clio-agent#5. Attach/detach APIs + mode hints. Flip `capabilities.files = true`.
+
+- [ ] **CLIO-BBBBBBBBBB23.** Interactive safety gate — closes iowarp/clio-agent#7. Destructive-tool permission prompts. Flip `capabilities.permissions = true`.
+
+- [ ] **CLIO-BBBBBBBBBB24.** Cost tracking — closes iowarp/clio-agent#8. Per-turn + per-session tokens + cost_usd. Flip `capabilities.cost_tracking = true`.
+
+- [ ] **CLIO-BBBBBBBBBB25.** Tier-3 Nanoagents — closes iowarp/clio-agent#9. `spawn_nanoagents` primitive on Tier-2 experts. Flip `capabilities.subagents = true`.
+
+- [ ] **CLIO-BBBBBBBBBB26.** Session forks — closes iowarp/clio-agent#10. `POST /sessions/{sid}/fork`. Flip `capabilities.session_branching = true`.
+
+- [ ] **CLIO-BBBBBBBBBB27.** Message search — closes iowarp/clio-agent#11. `GET /search?q=`. Flip `capabilities.search_messages = true`.
 
 ### Phase 5 — provider + packaging polish
 
-- [ ] **CLIO-BBBBBBBBBB21.** Meridian provider recipe: `docs/providers/meridian.md` in gact-tui + a `--auto-meridian` flag on `clio-agent-gact` that spawns Meridian alongside + points `CLIO_LM_API_BASE` at it.
+- [ ] **CLIO-BBBBBBBBBB28.** Meridian provider recipe: `docs/providers/meridian.md` in gact-tui + a `--auto-meridian` flag on `clio-agent-gact` that spawns Meridian alongside + points `CLIO_LM_API_BASE` at it.
 
-- [ ] **CLIO-BBBBBBBBBB22.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`.
+- [ ] **CLIO-BBBBBBBBBB29.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`.
 
-- [ ] **CLIO-BBBBBBBBBB23.** End-to-end screenshot set: `screenshots/clio-{landing,expert-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO.
+- [ ] **CLIO-BBBBBBBBBB30.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO.
 
 ### Acceptance
 

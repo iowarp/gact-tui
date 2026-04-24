@@ -93,10 +93,11 @@ If an item needs something upstream that doesn't exist yet (e.g., CLIO doesn't e
 
 ## Kickoff — current state
 
-- Setup done. `docs/tui/` lives on CLIO's `tui-integration` branch; issue #1 tracks the work end-to-end.
+- Setup done. `docs/tui/` + `docs/tui/GAPS.md` live on CLIO's `tui-integration` branch. Issue #1 tracks integration end-to-end; #2–#11 track gap capabilities (native-merit, no TUI references).
 - **No Go adapter.** The GACT surface lives inside clio-agent as a Python module.
-- PLAN phase `CLIO-BBBBBBBBBB` has 23 items, rewritten around v0.2 spec → CLIO implementation → TUI renderer work.
-- **Pick-up entry: `CLIO-BBBBBBBBBB1`** — draft GACT v0.2 in `/home/jcernuda/tui/contract/SPEC.md`, additively bolting on CLIO-native primitives.
+- PLAN phase `CLIO-BBBBBBBBBB` has 30 items, rewritten around the order: spec → emulator + TUI (in-house iteration) → conformance → CLIO Python implementation → CLIO catch-up for each filed gap issue.
+- **Done: CLIO-BBBBBBBBBB1 (v0.2 spec), CLIO-BBBBBBBBBB2 (gap issues filed).**
+- **Pick-up entry: `CLIO-BBBBBBBBBB3`** — grow the emulator (`/home/jcernuda/tui/emulator/`) to speak v0.2. New capabilities flags, `AgentDef.tier`, `/v1/memory/stats`, `/v1/health` integrations, new events, routing_decision part, error_info envelope. The emulator is gact-tui's in-house reference backend — making it speak v0.2 first lets the TUI iterate fast before CLIO catches up.
 
 ## Known running questions (update as answered)
 
