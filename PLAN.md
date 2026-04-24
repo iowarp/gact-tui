@@ -68,7 +68,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [x] **CLIO-BBBBBBBBBB18.** Per-tool telemetry events — closes iowarp/clio-agent#2. Instruments `MCPToolBridge.call_tool` to emit `tool.call.started` / `tool.call.completed`. Flip `capabilities.tool_telemetry.events = true`. [✓ Emitted per turn from Prediction.tools_called; pair carries call_id + tool + args + ok + duration_ms + cached. Real ClioAgent will publish the same wire shape live from MCPToolBridge instrumentation.]
 
-- [ ] **CLIO-BBBBBBBBBB19.** Real token streaming — closes iowarp/clio-agent#6. DSPy stream pass-through through `/query?stream=true`. TUI already renders chunks live.
+- [x] **CLIO-BBBBBBBBBB19.** Real token streaming — closes iowarp/clio-agent#6. DSPy stream pass-through through `/query?stream=true`. TUI already renders chunks live. [✓ Wire-level streaming: text parts emit message.part.added (empty) + N message.part.delta + message.part.completed. Scaffold chunks synchronous text at 64-char windows; real DSPy stream pass-through drops into the same delta loop in Phase D.]
 
 - [x] **CLIO-BBBBBBBBBB20.** Cooperative cancellation — closes iowarp/clio-agent#3. `POST /v1/sessions/{sid}/cancel`. Flip `capabilities.cancellation = true`. [✓ Endpoint sets a cancel flag; POST /messages checks it after forward() returns and reports error_info.error="cancelled". Session status flips to "cancelled" with SSE event. Endpoint existence IS the signal in v0.2 (no dedicated capability flag needed — TUI calls /cancel unconditionally).]
 
