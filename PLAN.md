@@ -66,7 +66,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item covers the CLIO Python implementation + flipping the corresponding capability flag on.
 
-- [ ] **CLIO-BBBBBBBBBB18.** Per-tool telemetry events — closes iowarp/clio-agent#2. Instruments `MCPToolBridge.call_tool` to emit `tool.call.started` / `tool.call.completed`. Flip `capabilities.tool_telemetry.events = true`.
+- [x] **CLIO-BBBBBBBBBB18.** Per-tool telemetry events — closes iowarp/clio-agent#2. Instruments `MCPToolBridge.call_tool` to emit `tool.call.started` / `tool.call.completed`. Flip `capabilities.tool_telemetry.events = true`. [✓ Emitted per turn from Prediction.tools_called; pair carries call_id + tool + args + ok + duration_ms + cached. Real ClioAgent will publish the same wire shape live from MCPToolBridge instrumentation.]
 
 - [ ] **CLIO-BBBBBBBBBB19.** Real token streaming — closes iowarp/clio-agent#6. DSPy stream pass-through through `/query?stream=true`. TUI already renders chunks live.
 
