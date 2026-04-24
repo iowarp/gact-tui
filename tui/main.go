@@ -2759,12 +2759,21 @@ func runAgent(args []string) int {
 // alongside `gact` itself so `./gact` in the build tree can find
 // its sibling adapter without a full install.
 func adapterBinFor(kind string) (string, error) {
-	var exe string
+	var exe, buildHint string
 	switch kind {
 	case "claudecode":
 		exe = "gact-claudecode-adapter"
+		buildHint = "go build -o gact-claudecode-adapter ./adapters/claudecode/cmd/gact-claudecode-adapter"
+	case "clio":
+		// CLIO-BBBBBBBBBB12: clio-agent-gact is a Python console
+		// script published by iowarp/clio-agent's pyproject.toml on
+		// the tui-integration branch. Operators install via
+		// `uv pip install -e /path/to/clio-agent` (or the eventual
+		// `uv tool install clio-agent`).
+		exe = "clio-agent-gact"
+		buildHint = "uv pip install -e /path/to/clio-agent  (tui-integration branch)"
 	default:
-		return "", fmt.Errorf("unknown kind %q (supported: claudecode)", kind)
+		return "", fmt.Errorf("unknown kind %q (supported: claudecode, clio)", kind)
 	}
 	if p, err := exec.LookPath(exe); err == nil {
 		return p, nil
@@ -2776,7 +2785,7 @@ func adapterBinFor(kind string) (string, error) {
 			return cand, nil
 		}
 	}
-	return "", fmt.Errorf("%s not on PATH — build it with `go build -o %s ./adapters/claudecode/cmd/gact-claudecode-adapter`", exe, exe)
+	return "", fmt.Errorf("%s not on PATH — install with: %s", exe, buildHint)
 }
 
 // freePort asks the kernel for an ephemeral TCP port by binding
@@ -2876,11 +2885,16 @@ func runAgentDeploy(args []string) int {
 	nullOut, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	defer nullOut.Close()
 
-	cmd := exec.Command(bin,
-		"--host", *hostFlag,
-		"--port", fmt.Sprintf("%d", port),
-		"--cwd", cwd,
-	)
+	// CLIO-BBBBBBBBBB12: per-kind spawn arg shapes. claudecode +
+	// future Go adapters take --cwd; clio-agent-gact's main() only
+	// supports --host + --port + --reload (CLIO doesn't model a
+	// per-deploy working directory the way the local-process Go
+	// adapters do — its file-policy comes from CLIO_ALLOWED_ROOTS).
+	spawnArgs := []string{"--host", *hostFlag, "--port", fmt.Sprintf("%d", port)}
+	if kind != "clio" {
+		spawnArgs = append(spawnArgs, "--cwd", cwd)
+	}
+	cmd := exec.Command(bin, spawnArgs...)
 	cmd.Stdout = nullOut
 	cmd.Stderr = nullOut
 	cmd.Stdin = null
@@ -2892,11 +2906,16 @@ func runAgentDeploy(args []string) int {
 		return 1
 	}
 
-	// Wait up to 3s for the adapter to start listening. Poll
-	// /v1/capabilities via probeAgentAlive; if we time out, kill
-	// the orphan and error out — we don't want a dead entry in
-	// the registry.
-	deadline := time.Now().Add(3 * time.Second)
+	// Wait for the adapter to start listening. CLIO-BBBBBBBBBB12:
+	// CLIO is a Python+DSPy backend with substantially slower cold-
+	// start (model load, ARC index hydration); 3s is fine for the
+	// Go adapters but cuts CLIO off mid-import. Use 10s for clio,
+	// 3s for everyone else.
+	probeBudget := 3 * time.Second
+	if kind == "clio" {
+		probeBudget = 10 * time.Second
+	}
+	deadline := time.Now().Add(probeBudget)
 	alive := false
 	for time.Now().Before(deadline) {
 		if probeAgentAlive(*hostFlag, port) {
