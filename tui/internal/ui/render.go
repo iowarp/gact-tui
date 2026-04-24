@@ -648,6 +648,24 @@ func (t Theme) renderEditDiffInline(p gact.Part, width int) string {
 // selected block indents uniformly. The marker itself stays visible
 // only on line 0 so the eye catches the start of the block, but the
 // indent runs all the way so wrap columns line up.
+// CLIO-BBBBBBBBBB4: agentColor picks a palette slot based on a tier-2
+// agent id. Lightweight hint — the spec lets backends carry a free-
+// form `specialization` string, which we hash into one of three
+// accent colours. Unknown ids fall back to the Secondary accent so a
+// v0.2 backend that invents new agent ids still renders correctly.
+func agentColor(t Theme, agentID string) color.Color {
+	switch agentID {
+	case "code_expert", "code", "coder", "reviewer":
+		return t.Primary
+	case "research_expert", "research", "search":
+		return t.Warning
+	case "data_expert", "data", "analysis":
+		return t.Success
+	default:
+		return t.Secondary
+	}
+}
+
 func markSelectedBlock(rendered string, t Theme) string {
 	marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
 	cont := "  "
@@ -729,6 +747,36 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 			Render(indent(wrap(p.Thinking, wrapW-2), "  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
+	case gact.PartTypeRoutingDecision:
+		// CLIO-BBBBBBBBBB4 (v0.2 §4.5): the tier-1 orchestrator's pick
+		// for the current turn. Rendered as a compact badge + one-line
+		// rationale — not a full block (the answer text is the real
+		// content; this is metadata).
+		//
+		//   ▸ code_expert  ·  heuristic  ·  confidence 0.85
+		//   rationale (dim)
+		glyph := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
+		agentName := lipgloss.NewStyle().Foreground(agentColor(t, p.SelectedAgent)).
+			Bold(true).Render(p.SelectedAgent)
+		parts := []string{glyph + agentName}
+		if p.Heuristic {
+			parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("heuristic"))
+		} else {
+			parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("LM-routed"))
+		}
+		if p.Confidence > 0 {
+			parts = append(parts,
+				lipgloss.NewStyle().Foreground(t.FgMuted).
+					Render(fmt.Sprintf("confidence %.2f", p.Confidence)))
+		}
+		head := strings.Join(parts, lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  "))
+		if p.Rationale == "" {
+			return head
+		}
+		rationale := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(indent(wrap(p.Rationale, wrapW-2), "  "))
+		return lipgloss.JoinVertical(lipgloss.Left, head, rationale)
 
 	case gact.PartTypeToolCall:
 		// Claude-Code style: `ToolName(summary_of_input)` header with

@@ -134,6 +134,19 @@ func (c *Client) Capabilities(ctx context.Context) (gact.Capabilities, error) {
 	return out, err
 }
 
+// MemoryStats calls GET /v1/memory/stats (v0.2 §6.19 — CLIO-BBBBBBBBBB4).
+// sessionID is optional; pass "" for global-only stats. Backends without
+// capabilities.memory return 501 — the caller should gate on that flag.
+func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.MemoryStats, error) {
+	path := "/v1/memory/stats"
+	if sessionID != "" {
+		path += "?session_id=" + sessionID
+	}
+	var out gact.MemoryStats
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
 // --- §6.1 workspaces -------------------------------------------------------
 
 // ListWorkspacesResponse is the response shape for GET /v1/workspaces.

@@ -99,7 +99,13 @@ type App struct {
 	focus         FocusZone
 
 	caps       gact.Capabilities
-	workspaces []gact.Workspace
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): last-known memory stats from
+	// the backend. Populated when capabilities.memory = true and
+	// the client fetches GET /v1/memory/stats on session-status
+	// changes. Renders as a small cache hit-rate chip in the footer.
+	// Zero-value renders as nothing (no chip).
+	memoryStats gact.MemoryStats
+	workspaces  []gact.Workspace
 	wsID       string
 	sessions   []gact.Session
 	selected   int // index into sessions; -1 if none
@@ -598,6 +604,21 @@ func connectCmd(c *client.Client) tea.Cmd {
 	}
 }
 
+// CLIO-BBBBBBBBBB4: memoryStatsCmd fetches GET /v1/memory/stats.
+// sessionID is optional (pass "" for global-only). Errors land as a
+// transient hint rather than blowing up — stats are decorative.
+func memoryStatsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		stats, err := c.MemoryStats(ctx, sessionID)
+		if err != nil {
+			return errMsg{err: err, stage: "memory_stats"}
+		}
+		return memoryStatsMsg{stats: stats}
+	}
+}
+
 // loadMessagesCmd fetches messages for a session.
 func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
@@ -844,6 +865,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// rescheduling on anySessionRunning(), so this fires exactly
 		// once per connect even if nothing is currently active.
 		cmds := []tea.Cmd{spinnerCmd()}
+		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): if the backend advertises
+		// memory, pull an initial snapshot so the footer chip paints
+		// right away. Session-scoped refresh happens on status_changed.
+		if a.caps.Capabilities.Memory {
+			cmds = append(cmds, memoryStatsCmd(a.c, ""))
+		}
 		if len(a.sessions) > 0 {
 			pick, missing := a.pickAttachIndex()
 			a.selected = pick
@@ -855,6 +882,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(cmds...)
 
+	case memoryStatsMsg:
+		// CLIO-BBBBBBBBBB4: cache the latest snapshot; the footer's
+		// render path reads this each frame.
+		a.memoryStats = m.stats
+		return a, nil
+
 	case errMsg:
 		// Search failures shouldn't blow away the whole UI — clear the
 		// in-flight flag and surface a single empty result so the user
@@ -862,6 +895,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.stage == "search" {
 			a.searching = false
 			a.searchMatches = nil
+			return a, nil
+		}
+		// CLIO-BBBBBBBBBB4: memory stats are decorative; a failure
+		// just hides the chip until the next refresh.
+		if m.stage == "memory_stats" {
 			return a, nil
 		}
 		a.stage = StageError
@@ -1091,8 +1129,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lastSeenSeqID = seq
 		}
 		prevRunning := a.anySessionRunning()
+		prevStatus := a.currentStatus
 		a.applySSE(m.Event)
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
+		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled
+		// back to idle AND the backend has memory, refresh the cache
+		// stats. Piggy-backs on the status_changed event loop — one
+		// fetch per turn completion, no extra polling.
+		if a.caps.Capabilities.Memory &&
+			prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
+			cmds = append(cmds, memoryStatsCmd(a.c, a.currentSessionID()))
+		}
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
 			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
@@ -3844,6 +3891,34 @@ func (a *App) renderFooter() string {
 	}
 
 	right := ""
+
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): memory cache-hit-rate chip.
+	// Gated on capabilities.memory so v0.1 backends render nothing.
+	// A non-zero memoryStats.Cache (either hits or misses) means we've
+	// actually seen stats; until then, don't show the chip.
+	if a.caps.Capabilities.Memory {
+		total := a.memoryStats.Cache.Hits + a.memoryStats.Cache.Misses
+		if total > 0 {
+			hr := a.memoryStats.Cache.HitRate
+			// Traffic-light the hit rate: green ≥ 0.75, amber ≥ 0.50,
+			// red otherwise. Matches the CLIO target of >85%.
+			hrColor := t.Danger
+			switch {
+			case hr >= 0.75:
+				hrColor = t.Success
+			case hr >= 0.50:
+				hrColor = t.Warning
+			}
+			chip := lipgloss.NewStyle().Background(t.Bg).
+				Foreground(t.FgMuted).Padding(0, 1).
+				Render("cache")
+			rate := lipgloss.NewStyle().Background(t.Bg).
+				Foreground(hrColor).Bold(true).Padding(0, 1).
+				Render(fmt.Sprintf("%.0f%%", hr*100))
+			right = chip + rate + "  "
+		}
+	}
+
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		if s.CostUSD > 0 || s.Tokens.Input > 0 {
@@ -3871,7 +3946,10 @@ func (a *App) renderFooter() string {
 				Render(fmt.Sprintf("%s in / %s out",
 					humanTokens(s.Tokens.Input),
 					humanTokens(s.Tokens.Output)))
-			right = chip + tokens
+			// CLIO-BBBBBBBBBB4: concatenate onto any existing right-
+			// side chip (e.g. the v0.2 memory chip) instead of
+			// clobbering it.
+			right += chip + tokens
 		}
 	}
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
@@ -5033,6 +5111,13 @@ type connectedMsg struct {
 	wsID     string
 	sessions []gact.Session
 	commands []gact.Command
+}
+
+// CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats
+// snapshot. Fired after connect + after every session.status_changed
+// → idle event for backends with capabilities.memory = true.
+type memoryStatsMsg struct {
+	stats gact.MemoryStats
 }
 
 type errMsg struct {

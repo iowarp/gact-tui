@@ -144,7 +144,14 @@ func main() {
 	if *timingMode == "fast" {
 		timing = scenario.Fast
 	}
-	engine := scenario.New(srv.Bus(), srv.Store(), srv.Permissions(), scenario.Config{Timing: timing})
+	// CLIO-BBBBBBBBBB4: wire the scenario engine to the server's
+	// synthetic memory-cache counters so /v1/memory/stats has real
+	// data. Scripts call engine.NoteMemoryHit/Miss.
+	engine := scenario.New(srv.Bus(), srv.Store(), srv.Permissions(), scenario.Config{
+		Timing:       timing,
+		OnMemoryHit:  srv.BumpMemoryHit,
+		OnMemoryMiss: srv.BumpMemoryMiss,
+	})
 	srv.SetOnUserMessage(engine.OnUserMessage)
 	srv.SetOnCancel(engine.Cancel)
 
