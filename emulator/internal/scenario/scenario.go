@@ -45,6 +45,13 @@ type Config struct {
 	Timing Timing
 	// Script overrides DefaultScript when non-nil.
 	Script Script
+
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): optional hooks scripts use to
+	// bump the server's synthetic memory-cache counters. Left nil in
+	// tests where GET /v1/memory/stats isn't under test. Wired by
+	// server.New() to point at Server.BumpMemoryHit/Miss.
+	OnMemoryHit  func()
+	OnMemoryMiss func()
 }
 
 // Script is one full user-turn handler. It must:
@@ -149,6 +156,20 @@ func (e *Engine) Permissions() *store.Permissions { return e.perms }
 
 // Timing exposes the engine's timing config (for scripts).
 func (e *Engine) Timing() Timing { return e.cfg.Timing }
+
+// CLIO-BBBBBBBBBB4: hooks scripts can call to nudge the server's
+// synthetic memory-cache counters. Safe to call when the server
+// didn't wire the hooks — no-ops in that case.
+func (e *Engine) NoteMemoryHit() {
+	if e.cfg.OnMemoryHit != nil {
+		e.cfg.OnMemoryHit()
+	}
+}
+func (e *Engine) NoteMemoryMiss() {
+	if e.cfg.OnMemoryMiss != nil {
+		e.cfg.OnMemoryMiss()
+	}
+}
 
 // --- Helpers callable by Scripts -------------------------------------------
 

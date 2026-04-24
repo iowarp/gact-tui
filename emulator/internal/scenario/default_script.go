@@ -100,6 +100,17 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 
 	e.publishStatus(sessionID, gact.StatusRunning)
 
+	// CLIO-BBBBBBBBBB4: every default-script turn counts as a single
+	// cache lookup (miss on first turn, hit on subsequent repeated
+	// queries) so /v1/memory/stats has something to chart. Real
+	// backends will have genuine hit/miss bookkeeping; this keeps
+	// the emulator's footer chip non-zero.
+	if e.NextCallIndex(sessionID, "default_cache_seed") == 0 {
+		e.NoteMemoryMiss()
+	} else {
+		e.NoteMemoryHit()
+	}
+
 	// QQQQQQQQ1: pick variant index once per turn so all four
 	// strings (thinking, intro, result, final) line up — gives the
 	// turn a coherent "voice" instead of mixing-and-matching.

@@ -32,6 +32,18 @@ func runRoutingScript(ctx context.Context, e *Engine, sessionID string, userMsg 
 	e.publishStatus(sessionID, gact.StatusRunning)
 	text := strings.ToLower(extractFirstText(userMsg))
 
+	// CLIO-BBBBBBBBBB4: nudge the synthetic memory counters so the
+	// TUI's cache chip has non-zero data to render. The routing
+	// decision itself is a cacheable lookup (Tier-1 hands out to
+	// Tier-2 experts based on keyword match) — model it as a hit
+	// when the prompt contains a strongly-matched keyword, miss
+	// otherwise.
+	if strongKeywordMatch(text) {
+		e.NoteMemoryHit()
+	} else {
+		e.NoteMemoryMiss()
+	}
+
 	selectedAgent, rationale := pickTier2Agent(text)
 
 	asst, err := e.createAssistantMessage(sessionID)
@@ -76,6 +88,17 @@ func runRoutingScript(ctx context.Context, e *Engine, sessionID string, userMsg 
 	e.completePart(sessionID, asst.ID, body.ID)
 	e.completeMessage(sessionID, asst.ID, gact.StopReasonEndTurn)
 	e.publishStatus(sessionID, gact.StatusIdle)
+}
+
+// strongKeywordMatch returns true when the prompt contains a
+// high-confidence routing keyword (one that the pickTier2Agent
+// heuristic acts on directly). Used only to decide whether to
+// model the routing lookup as a memory-cache hit.
+func strongKeywordMatch(text string) bool {
+	return containsAny(text,
+		"analyze", "profile", "inspect", "csv", "parquet",
+		"refactor", "review", "edit",
+		"search", "look up", "research")
 }
 
 // pickTier2Agent is the emulator's heuristic router — same shape as
