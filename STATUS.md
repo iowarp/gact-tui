@@ -1,8 +1,24 @@
 # STATUS
 
-**Last updated:** 2026-04-20T22:45Z
-**Current phase:** Cursor UX polish round (WWWWWWWWW1 + XXXXXXXXX1 + YYYYYYYYY1 + ZZZZZZZZZ1 + ZZZZZZZZZZ1 + AAAAAAAAAA1) — fixed ▸ wrap jump, dropped dual-selector noise, widened detail modal, added Ctrl+C confirm, EditFile now renders the diff inline, grep output uses a CC-style gutter
-**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, feature branch ahead
+**Last updated:** 2026-04-24T12:30Z
+**Current phase:** **CLIO integration setup done.** Branch `clio` carries the adapter scaffolding at `adapters/clio/` plus PLAN phases CLIO-BBBBBBBBBB1–20. Upstream work lives at [iowarp/clio-agent#1](https://github.com/iowarp/clio-agent/issues/1) with the integration reference pinned at [`docs/tui/` on `develop`](https://github.com/iowarp/clio-agent/tree/develop/docs/tui).
+**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, `clio` branch ahead (docs-move + adapter scaffolding)
+
+### Integration scaffold (new)
+- `adapters/clio/` skeleton checked in: `doc.go` / `client.go` / `server.go` / `translate.go` / `sessions.go` / `subprocess.go` / `cmd/gact-clio-adapter/main.go` / `README.md` — all build, all placeholder.
+- `go.work` gained `./adapters/clio`.
+- `gact-clio-adapter` binary runs today as a "not implemented" stub pointing at the CLIO issue + docs.
+- PLAN.md phase `CLIO-BBBBBBBBBB` added: 20 items split across smoke-path (1–6), streaming + experts (7–9), ARC + metrics (10–12), upstream asks (13–17), meridian (18–20).
+- Pick-up entry: next unchecked is CLIO-BBBBBBBBBB1 (REST client).
+
+### CLIO-side setup (pushed to iowarp/clio-agent)
+- `develop` branch created off `main` on iowarp/clio-agent.
+- `docs/tui/` (10 files) ships the integration reference: overview, agent graph, experts, ARC memory, tools, endpoints, providers/config, semantics/lifecycle, integration plan, README. All path references adjusted to live inside the CLIO repo.
+- `07-providers-config.md` gained a Meridian section — proxy pattern for Claude Max OAuth → CLIO `openai` provider.
+- Issue #1 opened: "New TUI frontend for CLIO via the GACT contract" with the full phased plan.
+
+### Previous phase summary
+Cursor UX polish (WWWWWWWWW1 + XXXXXXXXX1 + YYYYYYYYY1 + ZZZZZZZZZ1 + ZZZZZZZZZZ1 + AAAAAAAAAA1) — ▸ wrap fix, single selector, wider detail modal, Ctrl+C confirm, EditFile-absorbs-diff, grep gutter. All shipped + pushed.
 
 ### Latest feedback loop
 User hit six issues in the per-part nav flow + related rendering:
