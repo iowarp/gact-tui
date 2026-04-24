@@ -72,7 +72,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [x] **CLIO-BBBBBBBBBB20.** Cooperative cancellation — closes iowarp/clio-agent#3. `POST /v1/sessions/{sid}/cancel`. Flip `capabilities.cancellation = true`. [✓ Endpoint sets a cancel flag; POST /messages checks it after forward() returns and reports error_info.error="cancelled". Session status flips to "cancelled" with SSE event. Endpoint existence IS the signal in v0.2 (no dedicated capability flag needed — TUI calls /cancel unconditionally).]
 
-- [ ] **CLIO-BBBBBBBBBB21.** Two-phase edits — closes iowarp/clio-agent#4. file_diff records + apply/reject endpoints. Flip `capabilities.diffs = true`.
+- [x] **CLIO-BBBBBBBBBB21.** Two-phase edits — closes iowarp/clio-agent#4. file_diff records + apply/reject endpoints. Flip `capabilities.diffs = true`. [✓ file_diff Part type (path/unified_diff/status), pending_diffs index per session, POST /diffs/apply + /diffs/reject with optional paths, SSE events file.diff.applied/rejected. Real filesystem-write stays out of scope — agent's job.]
 
 - [x] **CLIO-BBBBBBBBBB22.** Session context files — closes iowarp/clio-agent#5. Attach/detach APIs + mode hints. Flip `capabilities.files = true`. [✓ GET / POST / DELETE /v1/sessions/{sid}/context/files; upsert semantics; mode=edit|read|pin; SSE events context.file.added / context.file.removed.]
 
