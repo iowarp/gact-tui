@@ -52,7 +52,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 - [x] **CLIO-BBBBBBBBBB13.** Implement SSE on `GET /v1/sessions/{sid}/events`. Stream v0.2 events driven by `ClioAgent.forward(stream=True)`: session.status_changed, message.created, message.part.added (including routing_decision), message.part.delta, message.completed. Real token streaming deferred until CLIO issue #6 lands (tracked at CLIO-BBBBBBBBBB18 below). [✓ Landed on tui-integration: EventBus + per-session queues, message.created/completed wired, 15s heartbeat. 55 tests green.]
 
-- [ ] **CLIO-BBBBBBBBBB14.** End-to-end smoke: `gact agent deploy clio && gact connect` creates session, sends prompt, receives streaming answer, TUI renders agent badge + routing explanation + memory footer. VHS screenshot committed.
+- [x] **CLIO-BBBBBBBBBB14.** End-to-end smoke: `gact agent deploy clio && gact connect` creates session, sends prompt, receives streaming answer, TUI renders agent badge + routing explanation + memory footer. VHS screenshot committed. [✓ Landed: `screenshots/clio_e2e.png` shows USER + ASSISTANT + `▸ data_expert · LM-routed` badge + rationale + answer + `cache 87%` footer chip, driven by `screenshot_clio_e2e.tape` against `clio-agent/scripts/gact_smoke_server.py`. Fixed along the way: TUI hard-required `/v1/workspaces` even when `capabilities.workspaces=false`; CLIO used a non-standard `text:` body shape instead of `parts[]`; `Part.id` was required on the wire; GET /messages was a 501 stub; SSE payload wrapped messages under `{message:...}` instead of sending them inline; EventBus replay double-delivered events published during the replay loop.]
 
 ### Phase 3 — ARC + metrics surface
 
