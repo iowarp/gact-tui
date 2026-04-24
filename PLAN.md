@@ -58,7 +58,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 - [x] **CLIO-BBBBBBBBBB15.** `GET /v1/metrics` returns per-expert stats reshaped to v0.2 envelope. TUI Settings → Metrics tab shows per-expert totals + latency p50/p95/p99; footer shows ARC cache hit rate from `/v1/memory/stats`. [✓ Endpoint returns SPEC §6.16 envelope with uptime + session + message counters. Tokens/cost/latency stay zero until optimizer layer; shape is wire-compatible. Per-expert p50/p95/p99 rollup deferred to when ARC.get_metrics() gets reshaped.]
 
-- [ ] **CLIO-BBBBBBBBBB16.** `message.completed` payload carries `metadata.tools_called` synthesised from `Invocation.tools_called`. TUI renders post-hoc gutter list under each turn.
+- [x] **CLIO-BBBBBBBBBB16.** `message.completed` payload carries `metadata.tools_called` synthesised from `Invocation.tools_called`. TUI renders post-hoc gutter list under each turn. [✓ Prediction.tools_called (dict/attr/msgspec all normalised) propagates to `assistant_message.metadata.tools_called` in the POST body AND `message.completed.metadata.tools_called` on SSE. Smoke server emits believable rows (cached + fresh, with durations).]
 
 - [ ] **CLIO-BBBBBBBBBB17.** TUI `/doctor` view reads `/v1/health.integrations[]` and renders the status table.
 
