@@ -64,6 +64,13 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	wantsLong := containsAny(userText, "long", "explain", "writeup")
 	wantsBigTool := containsAny(userText, "log", "dump", "traceback", "logs")
 	wantsMultiTool := containsAny(userText, "many tools", "multi tool")
+	// CLIO-BBBBBBBBBB3: v0.2 routing demo — triggers the script that
+	// emits a routing_decision part + session.agent_routed event.
+	wantsRouting := containsAny(userText,
+		"route this", "pick an agent", "agent routing",
+		"analyze", "profile", "inspect",
+		"refactor", "review",
+		"search the web", "look up", "research")
 
 	// Subagent path takes precedence and demonstrates the multi-agent flow.
 	if wantsSubagent {
@@ -84,6 +91,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 	if wantsMultiTool {
 		runMultiToolScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsRouting {
+		runRoutingScript(ctx, e, sessionID, userMsg)
 		return
 	}
 

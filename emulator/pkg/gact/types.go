@@ -5,9 +5,54 @@ package gact
 import "time"
 
 // HealthResponse is returned by GET /v1/health (SPEC §3.4).
+//
+// v0.2: OverallStatus + Integrations are optional fields. Backends
+// advertising capabilities.integration_health = true SHOULD populate
+// them; clients that don't understand them ignore harmlessly.
 type HealthResponse struct {
-	Healthy bool `json:"healthy"`
-	UptimeS int  `json:"uptime_s"`
+	Healthy       bool          `json:"healthy"`
+	UptimeS       int           `json:"uptime_s"`
+	OverallStatus string        `json:"overall_status,omitempty"` // v0.2 — "ready" | "degraded" | "unavailable"
+	Integrations  []Integration `json:"integrations,omitempty"`   // v0.2
+}
+
+// Integration is one subsystem status row in /v1/health (v0.2).
+// Name is free-form (e.g. "lm", "gateway", "memory", "file_policy",
+// "api"); unknown names render as a generic row in the TUI.
+type Integration struct {
+	Name   string `json:"name"`
+	Status string `json:"status"` // "ready" | "degraded" | "unavailable"
+	Detail string `json:"detail,omitempty"`
+}
+
+// MemoryStats is returned by GET /v1/memory/stats (SPEC §6.19, v0.2).
+// Backends without an introspectable memory layer set
+// capabilities.memory = false and return 501 instead.
+type MemoryStats struct {
+	Cache    CacheStats          `json:"cache"`
+	Session  *SessionMemoryStats `json:"session,omitempty"` // only set when ?session_id= was supplied
+	Global   GlobalMemoryStats   `json:"global"`
+	Metadata map[string]any      `json:"metadata,omitempty"`
+}
+
+type CacheStats struct {
+	Hits     int     `json:"hits"`
+	Misses   int     `json:"misses"`
+	HitRate  float64 `json:"hit_rate"` // [0..1]
+	Capacity int     `json:"capacity"`
+}
+
+type SessionMemoryStats struct {
+	SessionID         string `json:"session_id"`
+	MessagesRetained  int    `json:"messages_retained"`
+	TokensRetained    int    `json:"tokens_retained"`
+	TokensBudget      *int   `json:"tokens_budget,omitempty"` // null = unbounded
+	ProfilesAttached  int    `json:"profiles_attached"`       // opaque to the TUI
+}
+
+type GlobalMemoryStats struct {
+	ConversationsTotal int `json:"conversations_total"`
+	InvocationsTotal   int `json:"invocations_total"`
 }
 
 // Capabilities is returned by GET /v1/capabilities (SPEC §3.3).
@@ -53,6 +98,13 @@ type CapabilityFlags struct {
 	SearchMessages    bool `json:"search_messages"`
 	AgentWrite        bool `json:"agent_write"`
 	SkillsExtraction  bool `json:"skills_extraction"`
+
+	// v0.2 additions — SPEC §3.2.1
+	AgentRouting       bool `json:"agent_routing"`       // multi-tier agents + routing_decision part + session.agent_routed event
+	Memory             bool `json:"memory"`              // /v1/memory/stats endpoint (§6.19)
+	StructuredErrors   bool `json:"structured_errors"`   // §14 typed error_info taxonomy
+	IntegrationHealth  bool `json:"integration_health"`  // /v1/health integrations[] + overall_status
+	ToolTelemetry      bool `json:"tool_telemetry"`      // tool_result.cached + duration_ms
 }
 
 type TransportFlags struct {
