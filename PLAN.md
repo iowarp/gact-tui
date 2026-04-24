@@ -60,7 +60,7 @@ CLIO catches up to what emulator + TUI already support. Every item here is imple
 
 - [x] **CLIO-BBBBBBBBBB16.** `message.completed` payload carries `metadata.tools_called` synthesised from `Invocation.tools_called`. TUI renders post-hoc gutter list under each turn. [✓ Prediction.tools_called (dict/attr/msgspec all normalised) propagates to `assistant_message.metadata.tools_called` in the POST body AND `message.completed.metadata.tools_called` on SSE. Smoke server emits believable rows (cached + fresh, with durations).]
 
-- [ ] **CLIO-BBBBBBBBBB17.** TUI `/doctor` view reads `/v1/health.integrations[]` and renders the status table.
+- [x] **CLIO-BBBBBBBBBB17.** TUI `/doctor` view reads `/v1/health.integrations[]` and renders the status table. [✓ clio_doctor.png shows api/sessions/agent/arc rows with per-row status chips, overall degraded because FakeClioAgent is flagged as dev harness. Fixed en route: slash palette didn't show built-in commands when the backend 501s /v1/commands.]
 
 ### Phase 4 — CLIO catch-up (filed as upstream issues)
 
