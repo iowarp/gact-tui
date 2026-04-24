@@ -592,15 +592,31 @@ func connectCmd(c *client.Client) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err, stage: "capabilities"}
 		}
-		wss, err := c.ListWorkspaces(ctx)
-		if err != nil {
-			return errMsg{err: err, stage: "workspaces"}
+		// Only hit /v1/workspaces when the backend advertises the
+		// capability. Backends that don't model workspaces (e.g.
+		// clio-agent-gact) advertise workspaces=false and 501 on
+		// the endpoint; the TUI used to blow up on the error
+		// before gating. CLIO-BBBBBBBBBB14.
+		var wss []gact.Workspace
+		if caps.Capabilities.Workspaces {
+			wss, err = c.ListWorkspaces(ctx)
+			if err != nil {
+				return errMsg{err: err, stage: "workspaces"}
+			}
 		}
 		var sessions []gact.Session
 		var wsID string
 		if len(wss) > 0 {
 			wsID = wss[0].ID
 			sessions, err = c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
+			if err != nil {
+				return errMsg{err: err, stage: "sessions"}
+			}
+		} else if caps.Capabilities.Sessions {
+			// No workspace dimension — list sessions scoped only
+			// by backend. ListSessions with empty WorkspaceID
+			// omits the filter.
+			sessions, err = c.ListSessions(ctx, client.SessionFilter{})
 			if err != nil {
 				return errMsg{err: err, stage: "sessions"}
 			}
