@@ -74,7 +74,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [ ] **CLIO-BBBBBBBBBB21.** Two-phase edits — closes iowarp/clio-agent#4. file_diff records + apply/reject endpoints. Flip `capabilities.diffs = true`.
 
-- [ ] **CLIO-BBBBBBBBBB22.** Session context files — closes iowarp/clio-agent#5. Attach/detach APIs + mode hints. Flip `capabilities.files = true`.
+- [x] **CLIO-BBBBBBBBBB22.** Session context files — closes iowarp/clio-agent#5. Attach/detach APIs + mode hints. Flip `capabilities.files = true`. [✓ GET / POST / DELETE /v1/sessions/{sid}/context/files; upsert semantics; mode=edit|read|pin; SSE events context.file.added / context.file.removed.]
 
 - [ ] **CLIO-BBBBBBBBBB23.** Interactive safety gate — closes iowarp/clio-agent#7. Destructive-tool permission prompts. Flip `capabilities.permissions = true`.
 
