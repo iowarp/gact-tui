@@ -70,7 +70,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [ ] **CLIO-BBBBBBBBBB19.** Real token streaming — closes iowarp/clio-agent#6. DSPy stream pass-through through `/query?stream=true`. TUI already renders chunks live.
 
-- [ ] **CLIO-BBBBBBBBBB20.** Cooperative cancellation — closes iowarp/clio-agent#3. `POST /v1/sessions/{sid}/cancel`. Flip `capabilities.cancellation = true`.
+- [x] **CLIO-BBBBBBBBBB20.** Cooperative cancellation — closes iowarp/clio-agent#3. `POST /v1/sessions/{sid}/cancel`. Flip `capabilities.cancellation = true`. [✓ Endpoint sets a cancel flag; POST /messages checks it after forward() returns and reports error_info.error="cancelled". Session status flips to "cancelled" with SSE event. Endpoint existence IS the signal in v0.2 (no dedicated capability flag needed — TUI calls /cancel unconditionally).]
 
 - [ ] **CLIO-BBBBBBBBBB21.** Two-phase edits — closes iowarp/clio-agent#4. file_diff records + apply/reject endpoints. Flip `capabilities.diffs = true`.
 
