@@ -38,6 +38,9 @@ loop-test/testdata/
 
 # Emulator / TUI build outputs (added once those exist)
 emulator/emulator-server
+# Stray binary that occasionally lands at the repo root from
+# `go build -o emulator-server ./emulator/...` run from the root.
+/emulator-server
 emulator/coverage.txt
 tui/gact
 tui/coverage.txt
