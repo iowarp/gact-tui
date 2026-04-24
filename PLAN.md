@@ -76,7 +76,7 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [x] **CLIO-BBBBBBBBBB22.** Session context files — closes iowarp/clio-agent#5. Attach/detach APIs + mode hints. Flip `capabilities.files = true`. [✓ GET / POST / DELETE /v1/sessions/{sid}/context/files; upsert semantics; mode=edit|read|pin; SSE events context.file.added / context.file.removed.]
 
-- [ ] **CLIO-BBBBBBBBBB23.** Interactive safety gate — closes iowarp/clio-agent#7. Destructive-tool permission prompts. Flip `capabilities.permissions = true`.
+- [x] **CLIO-BBBBBBBBBB23.** Interactive safety gate — closes iowarp/clio-agent#7. Destructive-tool permission prompts. Flip `capabilities.permissions = true`. [✓ GET /v1/permissions (+session_id+status filters) + POST /v1/permissions/{pid}. Prediction.permissions_requested seeds pending rows; permission.requested/resolved SSE events. Scaffold records the decision; real blocking lives in ClioAgent's tool bridge.]
 
 - [x] **CLIO-BBBBBBBBBB24.** Cost tracking — closes iowarp/clio-agent#8. Per-turn + per-session tokens + cost_usd. Flip `capabilities.cost_tracking = true`. [✓ Prediction.tokens + cost_usd propagate to assistant_message, message.completed event, Session rollup (persisted), /v1/metrics tokens + cost totals.]
 
