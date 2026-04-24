@@ -7,5 +7,6 @@ use (
 	./adapters/crush
 	./adapters/goose
 	./adapters/claudecode
+	./adapters/clio
 	./contract/conformance
 )

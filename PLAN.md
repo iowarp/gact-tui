@@ -4,6 +4,66 @@ Pick the **first unchecked item**. When done: check it, commit, push, move to th
 
 When picking, consider deps: emulator must exist before TUI can really test. Tasks marked `(parallel)` can be done before the prior one completes.
 
+## Phase CLIO-BBBBBBBBBB — gact-tui adapter for iowarp/clio-agent
+
+Integration target tracked by [iowarp/clio-agent#1](https://github.com/iowarp/clio-agent/issues/1) and [`docs/tui/`](https://github.com/iowarp/clio-agent/tree/develop/docs/tui) on the CLIO `develop` branch. The CLIO-side reference documents the full surface; every phase below is a gact-tui-side deliverable.
+
+**North-star**: CLIO is the gold standard of compatibility. Everything CLIO can do the TUI must support. The GACT contract evolves to match CLIO's semantics, not the other way around.
+
+**Branch**: all CLIO-* work lands on the `clio` branch here; upstream asks land as issues on iowarp/clio-agent.
+
+### Phase 1 — smoke path (adapter skeleton → single-turn round-trip)
+
+- [ ] **CLIO-BBBBBBBBBB1.** Implement the REST client in `adapters/clio/client.go`: `Query(ctx, QueryReq) (*QueryResp, error)` for non-streaming, `Health / Experts / Metrics` getters. Request + response shapes mirror CLIO's FastAPI schemas per `docs/tui/06-endpoints.md`. Unit tests with a fake HTTP server covering happy path + 503 degraded + 500 error paths.
+
+- [ ] **CLIO-BBBBBBBBBB2.** Implement `adapters/clio/subprocess.go`: spawn + supervise `clio-agent-api` with detached process group, readiness probe via `GET /health`, graceful SIGTERM. Pattern per `adapters/claudecode/subprocess.go`. Unit test skips when `clio-agent-api` not on PATH.
+
+- [ ] **CLIO-BBBBBBBBBB3.** Implement `adapters/clio/sessions.go`: in-memory + file-backed (`~/.config/gact/clio-sessions.json`) `SessionStore`. `Create(title) → Session`, `Get(sid)`, `List()`, `Delete(sid)`. Updates `LastUsedAt + Status` during turns.
+
+- [ ] **CLIO-BBBBBBBBBB4.** Implement `adapters/clio/server.go`: GACT v0.1 HTTP mux using `net/http` + `http.ServeMux`. Route table: `/v1/health`, `/v1/capabilities`, `/v1/sessions` CRUD, `/v1/sessions/{id}/messages` POST, `/v1/sessions/{id}/events` GET (SSE), `/v1/catalog/{agents,tools}`, `/v1/metrics`. Non-streaming path first.
+
+- [ ] **CLIO-BBBBBBBBBB5.** Wire `cmd/gact-clio-adapter/main.go`: CLI flags (`--clio-bin`, `--clio-host`, `--clio-port`, `--listen`, `--auto-meridian`), start subprocess, start GACT server, signal-handler shutdown. Smoke-test verifies `POST /v1/sessions/{id}/messages` round-trips to `POST /query` on a mock CLIO.
+
+- [ ] **CLIO-BBBBBBBBBB6.** Add `clio` to `tui/main.go`'s `runAgentDeploy` dispatcher so `gact agent deploy clio my-clio` works. Registry entry records `(name, kind=clio, bin, host, port, pid, cwd)`. Probe up to 10 s (CLIO cold-start can exceed claudecode's 3 s). Update completion scripts.
+
+### Phase 2 — streaming + experts
+
+- [ ] **CLIO-BBBBBBBBBB7.** Implement `adapters/clio/translate.go`: SSE-over-SSE. Consume CLIO's `routing` / `chunk` / `done` / `error` events, emit GACT `message.part.added` (thinking, "Routing to {expert}…"), `message.part.delta` (streaming text), `message.completed` (+ `session.status_changed` → idle). Error events preserve `error_info` structure. Unit test with a fake CLIO SSE producer.
+
+- [ ] **CLIO-BBBBBBBBBB8.** Expose `/v1/catalog/agents` → `GET /experts`; `/v1/catalog/tools` → enumerate gateway tools from `experts[].tools` union. TUI `/experts` view renders expert tiles with keywords + tool count.
+
+- [ ] **CLIO-BBBBBBBBBB9.** Render routing explanation: adapter surfaces CLIO's routing decision as a `thinking` part at the top of each assistant message; TUI paints the expert-name badge (palette-coloured by specialisation: `data_io`, `data_analysis`, `data_visualization`, `chat`).
+
+### Phase 3 — ARC + metrics surface
+
+- [ ] **CLIO-BBBBBBBBBB10.** Proxy `GET /v1/metrics` → CLIO `/metrics`. Footer shows ARC cache hit rate; Settings → Metrics tab shows per-expert `total_invocations`, `success_rate`, `p50/p95/p99` latency.
+
+- [ ] **CLIO-BBBBBBBBBB11.** Post-hoc render `Invocation.tools_called`: on `done` event, adapter fetches `GET /invocations?session_id=&limit=1&agent_id=` (or back-fills from the turn's response if CLIO adds a `tools_called` field inline) and synthesises `tool.call.started` + `tool.call.completed` events. Gate on availability; skip if CLIO doesn't expose the endpoint yet.
+
+- [ ] **CLIO-BBBBBBBBBB12.** `/doctor` view: `/v1/health` on the adapter returns CLIO's integration list verbatim; TUI renders a tidy table (LM, gateway, ARC, file policy, API, clio_core).
+
+### Phase 4 — upstream asks (track via new issues on iowarp/clio-agent)
+
+Blocked on CLIO-side work. Each opens its own issue; the adapter carries a feature-flag off them.
+
+- [ ] **CLIO-BBBBBBBBBB13.** Upstream issue: per-tool SSE events (`tool.started` / `tool.completed`). Unblocks live tool-call rendering.
+- [ ] **CLIO-BBBBBBBBBB14.** Upstream issue: pass-through token streaming from `dspy.LM`. Unblocks real mid-turn text streaming.
+- [ ] **CLIO-BBBBBBBBBB15.** Upstream issue: `POST /task/{id}/cancel` + cancel hook in ReAct loop. Unblocks Ctrl+C cancellation mid-turn.
+- [ ] **CLIO-BBBBBBBBBB16.** Upstream issue: `GET /sessions` + `DELETE /sessions/{id}`. Lets the adapter drop its local session registry and rely on CLIO state.
+- [ ] **CLIO-BBBBBBBBBB17.** Upstream issue: `/artifacts/{id}` for plots / reports. Unblocks VisualizationExpert output rendering.
+
+### Phase 5 — Meridian-assisted provider path
+
+- [ ] **CLIO-BBBBBBBBBB18.** Document Meridian setup in `adapters/clio/README.md` + `/docs/providers/meridian.md` (new). Step-by-step: install, OAuth, launch, point CLIO at it.
+- [ ] **CLIO-BBBBBBBBBB19.** `--auto-meridian` flag on `gact-clio-adapter`: when set, adapter spawns Meridian alongside `clio-agent-api` and stitches envs automatically. Readiness probes both.
+- [ ] **CLIO-BBBBBBBBBB20.** Screenshot: `screenshots/clio-integration.png` — TUI conversation pane showing DataExpert badge + HDF5 analyse-file turn + ARC cache footer. Proof of the happy path.
+
+### Acceptance
+
+`gact agent deploy clio my-clio && gact connect my-clio` lands in a working conversation against a locally-running CLIO. TUI renders expert badge, tool calls (post-hoc in Phase 3, live in Phase 4), unified diff for file_diff outputs, ARC cache hit rate. Conformance: `contract/conformance` on gact-tui passes for everything except `permission` / `diff` / `context` suites (documented as unsupported for CLIO backend).
+
+---
+
 ## Phase AAAAAAAAAA — Grep output as CC-style gutter
 
 - [x] **AAAAAAAAAA1.** grep tool_result no longer renders raw "path:line:content" text. User feedback: "the line numbers should be added by us not for them to be on the file". New `renderGrepResult` parses each row into `(path, line, content)` tuples and renders CC/crush style: `⎿` elbow on its own row, file path as a bold primary header row (shown once per file group, not per hit), line numbers right-aligned in a muted gutter, `│` column separator, content in full-fg. Groups consecutive hits from the same file under one header so 14 hits across 5 files don't repeat the path 14 times. Falls through to the generic tool_result render if parsing fails. `renderPartsForRoleWithResultsSelected` grew a `renderToolResultForTool` dispatch so future tools (bash, fetch) can take over their body layout similarly.
