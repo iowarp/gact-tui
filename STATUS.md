@@ -1,15 +1,22 @@
 # STATUS
 
-**Last updated:** 2026-04-24T12:30Z
-**Current phase:** **CLIO integration setup done.** Branch `clio` carries the adapter scaffolding at `adapters/clio/` plus PLAN phases CLIO-BBBBBBBBBB1–20. Upstream work lives at [iowarp/clio-agent#1](https://github.com/iowarp/clio-agent/issues/1) with the integration reference pinned at [`docs/tui/` on `develop`](https://github.com/iowarp/clio-agent/tree/develop/docs/tui).
-**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, `clio` branch ahead (docs-move + adapter scaffolding)
+**Last updated:** 2026-04-24T13:00Z
+**Current phase:** **Pivot: GACT v0.2 spec-first + Python-native surface.** No Go adapter. CLIO implements v0.2 inside `src/clio_agent/gact/` on `tui-integration`. Gap tracking is a set of natural-merit GitHub issues on iowarp/clio-agent (each framed around CLIO's own mission, not the TUI integration). PLAN `CLIO-BBBBBBBBBB` rewritten around 23 items — spec + gaps + conformance first, then implementation, then catch-up, then packaging.
+**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, `clio` branch ahead (pivot landed)
 
-### Integration scaffold (new)
-- `adapters/clio/` skeleton checked in: `doc.go` / `client.go` / `server.go` / `translate.go` / `sessions.go` / `subprocess.go` / `cmd/gact-clio-adapter/main.go` / `README.md` — all build, all placeholder.
-- `go.work` gained `./adapters/clio`.
-- `gact-clio-adapter` binary runs today as a "not implemented" stub pointing at the CLIO issue + docs.
-- PLAN.md phase `CLIO-BBBBBBBBBB` added: 20 items split across smoke-path (1–6), streaming + experts (7–9), ARC + metrics (10–12), upstream asks (13–17), meridian (18–20).
-- Pick-up entry: next unchecked is CLIO-BBBBBBBBBB1 (REST client).
+### Pivot rationale
+A Go adapter supervising a Python agent is just another layer. CLIO is Python; the REST boundary IS the bridge. So: kill the Go adapter, ship the GACT-v0.2 contract as a Python module inside CLIO (`src/clio_agent/gact/`), and let gact-tui's existing GACT client talk to it directly. The contract itself bumps to v0.2 to natively express CLIO's full capability surface — expert routing, ARC memory, per-tool telemetry, routing rationale. v0.1-only backends declare the new features as `unsupported` in `/v1/capabilities` until they catch up.
+
+### Integration scaffold (replaced)
+- `adapters/clio/` removed. `go.work` cleaned up.
+- PLAN `CLIO-BBBBBBBBBB` rewritten around 23 items across five phases:
+  - Phase 0 (1–3): v0.2 spec draft + gap issues + conformance extensions.
+  - Phase 1 (4–9): CLIO `src/clio_agent/gact/` smoke path (scaffold → sessions → core routes → query → catalog → deploy wiring).
+  - Phase 2 (10–12): streaming + experts + end-to-end smoke.
+  - Phase 3 (13–15): ARC + metrics + doctor view.
+  - Phase 4 (16–20): CLIO catch-up (per-tool telemetry, real token streaming, cancellation, server-owned sessions, artifacts).
+  - Phase 5 (21–23): Meridian + packaging + screenshot set.
+- Pick-up entry: **CLIO-BBBBBBBBBB1** — draft GACT v0.2 in `contract/SPEC.md`.
 
 ### CLIO-side setup (pushed to iowarp/clio-agent)
 - `develop` branch created off `main` on iowarp/clio-agent.

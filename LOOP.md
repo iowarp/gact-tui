@@ -4,9 +4,15 @@
 
 ## Mission
 
-Close CLIO ↔ GACT feature parity one capability at a time, across **all four surfaces** (spec, CLIO Python, Go adapter, TUI). End state: everything CLIO can do is driveable from gact-tui through GACT v0.1. **The contract evolves to match CLIO, not the other way around** — CLIO is the gold standard.
+Close CLIO ↔ GACT feature parity one capability at a time, across the **three surfaces** (spec → CLIO Python → TUI). End state: everything CLIO can do is driveable from gact-tui through **GACT v0.2** — the new CLIO-aligned contract. **The contract evolves to match CLIO, not the other way around** — CLIO is the gold standard.
 
 Two repos are in play simultaneously. Both need the same branch discipline: feature-branched off an integration branch.
+
+### v0.1 → v0.2 policy
+
+- **v0.2 is a superset of v0.1** with CLIO-native primitives promoted to first-class (expert routing + selection, ARC memory surface, per-tool telemetry, routing rationale, provider integrations, etc.).
+- **Anything v0.1 has but CLIO doesn't support yet** → file a GitHub issue on iowarp/clio-agent framed around CLIO's own mission, NOT around the TUI integration. Each issue stands on its own merits. Bookkeeping tracker at `clio-agent/docs/tui/GAPS.md` on `tui-integration` — but the canonical artefacts are the issues, not the list.
+- **Other v0.1 adapters** (claudecode/opencode/crush/goose) declare v0.2 features as `unsupported` via `/v1/capabilities` until they catch up. TUI gates rendering on the advertised capabilities.
 
 ## Branches (important — don't commit to the wrong one)
 
@@ -17,14 +23,17 @@ Two repos are in play simultaneously. Both need the same branch discipline: feat
 
 `develop` (on clio-agent) is the stable integration trunk. `tui-integration` is where this loop lands commits. Once a phase completes + is reviewed, we merge `tui-integration` → `develop`. Do **not** commit directly to `develop` or `main` on either repo.
 
-## The four surfaces
+## The three surfaces
 
-Not every iteration touches all four. Walk them in the order below — if step 1 sufficiently defines the feature, skip ahead.
+No Go adapter. CLIO is Python; the GACT-conformant REST surface lives **inside** clio-agent as `src/clio_agent/gact/` on `tui-integration`. The TUI points `GACT_BACKEND` directly at it. The REST boundary IS the bridge — we don't need a second process to translate.
 
-1. **`/home/jcernuda/tui/contract/SPEC.md`** — extend GACT v0.1 when CLIO has a primitive the contract can't express. Example: per-tool SSE events, token streaming, cancellation.
-2. **`/home/jcernuda/tui/clio-agent/`** (`tui-integration` branch) — CLIO Python + FastAPI. Add endpoints, emit event shapes, expose introspection. The Python ↔ Go gap is the whole *point* of REST — don't paper over it in the adapter.
-3. **`/home/jcernuda/tui/adapters/clio/`** — Go adapter. Supervise `clio-agent-api`, translate REST + SSE, own session registry, surface `--auto-meridian`.
-4. **`/home/jcernuda/tui/tui/`** — Bubbletea TUI. Render whatever new primitive landed upstream. Visual verification mandatory (see "Verification" below).
+Not every iteration touches all three. Walk them in the order below — if step 1 sufficiently defines the feature, skip ahead.
+
+1. **`/home/jcernuda/tui/contract/SPEC.md`** — extend GACT v0.1 when CLIO has a primitive the contract can't express (per-tool SSE events, token streaming, cancellation, ARC introspection).
+2. **`/home/jcernuda/tui/clio-agent/src/clio_agent/gact/`** (on `tui-integration`) — CLIO Python + FastAPI. Implement the GACT v0.1 surface by wrapping `ClioAgent`. This is the main code output of most iterations.
+3. **`/home/jcernuda/tui/tui/`** — Bubbletea TUI. Render whatever new primitive lands. Visual verification mandatory (see Quality gates).
+
+Deployment shape: `gact agent deploy clio my-clio` spawns the `clio-agent-gact` console script (CLIO's new entry point), probes `/v1/capabilities`, records a registry entry. `gact connect my-clio` points the TUI at it — same UX as `claudecode`, no middle-man process.
 
 ## Iteration source
 
@@ -84,14 +93,16 @@ If an item needs something upstream that doesn't exist yet (e.g., CLIO doesn't e
 
 ## Kickoff — current state
 
-- Setup done (see last gact-tui commit `9f9704f` and clio-agent commit on `tui-integration`).
-- `adapters/clio/` has 8 placeholder files that build + a stub binary.
-- PLAN phase `CLIO-BBBBBBBBBB` has 20 items.
-- **Pick-up entry: `CLIO-BBBBBBBBBB1`** — REST client in `adapters/clio/client.go`.
+- Setup done. `docs/tui/` lives on CLIO's `tui-integration` branch; issue #1 tracks the work end-to-end.
+- **No Go adapter.** The GACT surface lives inside clio-agent as a Python module.
+- PLAN phase `CLIO-BBBBBBBBBB` has 23 items, rewritten around v0.2 spec → CLIO implementation → TUI renderer work.
+- **Pick-up entry: `CLIO-BBBBBBBBBB1`** — draft GACT v0.2 in `/home/jcernuda/tui/contract/SPEC.md`, additively bolting on CLIO-native primitives.
 
 ## Known running questions (update as answered)
 
-- [ ] `--auto-meridian` — should Meridian run as a child of the adapter, or a sibling supervised by `gact agent deploy`? Leaning child (simpler UX, one process tree to reason about). Decide in CLIO-BBBBBBBBBB19.
-- [ ] Session persistence — adapter-owned today (CLIO has no `/sessions` endpoint). Upstream ask CLIO-BBBBBBBBBB16 flips this. Until then, decide how the TUI surfaces the difference (probably doesn't — adapter looks like any other GACT backend).
-- [ ] Token streaming fidelity — if Meridian forwards Anthropic's native token stream but CLIO's FastAPI layer flattens it to synthesised chunks, we lose fidelity. Check where the bottleneck is during CLIO-BBBBBBBBBB7 and decide if the token-streaming upstream ask (CLIO-BBBBBBBBBB14) needs to change shape.
-- [ ] Expert badge colour per specialisation — pick the palette in CLIO-BBBBBBBBBB9.
+- [ ] `clio-agent-gact` vs extending `clio-agent-api` — decided: **new entry point**. Keeps the existing REPL-friendly API intact and names the GACT-v0.2 server clearly. Revisit if packaging duplication hurts.
+- [ ] Session persistence — JSON file on disk for Phase 1–3, move to ARC `/conversations/` in CLIO-BBBBBBBBBB19.
+- [ ] Token streaming fidelity — CLIO currently synthesises chunks in the FastAPI layer. Phase 2 lives with that; Phase 4 CLIO-BBBBBBBBBB17 replaces it with real LM-level streaming.
+- [ ] Expert badge colour per specialisation — pick palette in CLIO-BBBBBBBBBB11.
+- [ ] Meridian — recipe + `--auto-meridian` in CLIO-BBBBBBBBBB21.
+- [ ] When filing gap issues on iowarp/clio-agent, the title + body are about the capability as it benefits CLIO's mission. Don't mention gact-tui. Example: "Permission gating on risky file-policy-sensitive operations" — not "Add permission events for the TUI integration".
