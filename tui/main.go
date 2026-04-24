@@ -2785,6 +2785,26 @@ func adapterBinFor(kind string) (string, error) {
 			return cand, nil
 		}
 	}
+	// CLIO-BBBBBBBBBB28: dev-friendly fallback for the Python adapter.
+	// If CLIO_AGENT_SRC points at a clio-agent checkout, run the
+	// entry point via `uv run --project $dir clio-agent-gact` without
+	// requiring a system-wide install. Writes a tiny shim to a temp
+	// dir and returns its path; the deploy supervises the shim just
+	// like a real binary.
+	if kind == "clio" {
+		if src := os.Getenv("CLIO_AGENT_SRC"); src != "" {
+			if st, err := os.Stat(src); err == nil && st.IsDir() {
+				shim := filepath.Join(os.TempDir(), "gact-clio-shim.sh")
+				body := fmt.Sprintf(
+					"#!/usr/bin/env bash\nexec uv run --project %q clio-agent-gact \"$@\"\n",
+					src,
+				)
+				if err := os.WriteFile(shim, []byte(body), 0o755); err == nil {
+					return shim, nil
+				}
+			}
+		}
+	}
 	return "", fmt.Errorf("%s not on PATH — install with: %s", exe, buildHint)
 }
 

@@ -92,6 +92,7 @@ so the TUI behaves identically across all of them.
 | [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | Go proxy of the OpenCode HTTP API |
 | [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | Go proxy of the Crush HTTP API |
 | [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API — sessions/messages read+write + SSE; 8/8 conformance sections ✓ |
+| [CLIO Agent](https://github.com/iowarp/clio-agent) | *(in-process, Python)* — `clio-agent-gact` console script ships with clio-agent's `tui-integration` branch | v0.2 native: agent_routing (tier-1 → tier-2 experts), memory stats, integration_health (`/doctor`), tool_telemetry events, cost tracking, forks, search, permissions, two-phase edits, nanoagent spawns. `gact agent deploy clio my-clio` deploys it. |
 
 ## Build it for your own backend
 
