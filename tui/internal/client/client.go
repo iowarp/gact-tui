@@ -367,6 +367,65 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 	return out.Providers, err
 }
 
+// LMProviderPreset is a row in CLIO's provider picker. ``RequiresAPIKey``
+// tells the TUI's modal whether to render the api_key field.
+type LMProviderPreset struct {
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	Provider        string `json:"provider"`
+	APIBase         string `json:"api_base"`
+	SuggestedModel  string `json:"suggested_model"`
+	RequiresAPIKey  bool   `json:"requires_api_key"`
+	Description     string `json:"description"`
+}
+
+// LMProviderInfo is the GET /v1/providers/lm body — current LM
+// config + presets to populate the picker. Backends that don't
+// expose this surface (every non-CLIO backend today) return 404,
+// which the TUI handles as "no in-app config available".
+type LMProviderInfo struct {
+	Configured bool               `json:"configured"`
+	Provider   string             `json:"provider,omitempty"`
+	APIBase    string             `json:"api_base,omitempty"`
+	Model      string             `json:"model,omitempty"`
+	Presets    []LMProviderPreset `json:"presets,omitempty"`
+}
+
+// LMProviderRequest is the PUT /v1/providers/lm body.
+type LMProviderRequest struct {
+	Provider string `json:"provider"`
+	APIBase  string `json:"api_base"`
+	Model    string `json:"model"`
+	APIKey   string `json:"api_key"`
+}
+
+// GetLMProvider fetches /v1/providers/lm. Returns nil + nil error
+// when the endpoint isn't supported by this backend (404) so the
+// caller can decide whether to show the modal or skip it.
+func (c *Client) GetLMProvider(ctx context.Context) (*LMProviderInfo, error) {
+	var out LMProviderInfo
+	err := c.do(ctx, http.MethodGet, "/v1/providers/lm", nil, &out)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "501") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PutLMProvider PUTs the user's LM choice, returning the updated
+// LMProviderInfo. The backend builds the LM + agent in-place;
+// errors come back as the v0.2 envelope (HTTP 400 with detail).
+func (c *Client) PutLMProvider(ctx context.Context, req LMProviderRequest) (*LMProviderInfo, error) {
+	var out LMProviderInfo
+	err := c.do(ctx, http.MethodPut, "/v1/providers/lm", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]gact.Model, error) {
 	var out struct {
 		Models []gact.Model `json:"models"`

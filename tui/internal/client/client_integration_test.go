@@ -81,8 +81,8 @@ func TestClientFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Capabilities: %v", err)
 	}
-	if caps.ContractVersion != "0.1" {
-		t.Errorf("contract_version = %q", caps.ContractVersion)
+	if caps.ContractVersion != "0.1" && caps.ContractVersion != "0.2" {
+		t.Errorf("contract_version = %q (want 0.1 or 0.2)", caps.ContractVersion)
 	}
 
 	// Workspaces + create session in seeded ws
