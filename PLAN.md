@@ -88,9 +88,9 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 ### Phase 5 — packaging polish
 
-- [ ] **CLIO-BBBBBBBBBB28.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`.
+- [x] **CLIO-BBBBBBBBBB28.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`. [✓ Console script already published in pyproject.toml. adapterBinFor gained a dev-friendly fallback — `CLIO_AGENT_SRC=/path/to/clio-agent` writes a uv-run shim to /tmp so contributors can work off the repo without installing.]
 
-- [ ] **CLIO-BBBBBBBBBB29.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO.
+- [x] **CLIO-BBBBBBBBBB29.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO. [✓ Captured clio_e2e, clio_doctor, clio_diff, clio_metrics, clio_subagent. README gained a CLIO Agent row listing the v0.2 capabilities it advertises. Smoke server's fake agent learned scripted side-effects (propose→diff, delete→permission, split→subagent) so the tapes drive by intent, not orchestration.]
 
 ### Phase D — real e2e tests with clio-agent + Meridian + Claude Code
 
