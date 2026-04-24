@@ -82,9 +82,9 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [ ] **CLIO-BBBBBBBBBB25.** Tier-3 Nanoagents — closes iowarp/clio-agent#9. `spawn_nanoagents` primitive on Tier-2 experts. Flip `capabilities.subagents = true`.
 
-- [ ] **CLIO-BBBBBBBBBB26.** Session forks — closes iowarp/clio-agent#10. `POST /sessions/{sid}/fork`. Flip `capabilities.session_branching = true`.
+- [x] **CLIO-BBBBBBBBBB26.** Session forks — closes iowarp/clio-agent#10. `POST /sessions/{sid}/fork`. Flip `capabilities.session_branching = true`. [✓ Deep-copies message log into a new session with parent_session_id; optional at_message_id truncates. Session type gained parent_session_id field.]
 
-- [ ] **CLIO-BBBBBBBBBB27.** Message search — closes iowarp/clio-agent#11. `GET /search?q=`. Flip `capabilities.search_messages = true`.
+- [x] **CLIO-BBBBBBBBBB27.** Message search — closes iowarp/clio-agent#11. `GET /search?q=`. Flip `capabilities.search_messages = true`. [✓ Case-insensitive substring match across stored text parts; snippets with 60-char window; recency-biased score.]
 
 ### Phase 5 — packaging polish
 
