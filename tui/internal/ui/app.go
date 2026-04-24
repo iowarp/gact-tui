@@ -349,6 +349,14 @@ type App struct {
 	// backend's integrations[] array + overall_status in a per-
 	// subsystem table. Opens via /doctor; closes with Esc / q.
 	doctorOpen bool
+
+	// CLIO-BBBBBBBBBB-D: LM-config modal — opened on first connect
+	// when /v1/health reports the agent (or "lm" subsystem) as
+	// unavailable, so the user picks a provider/model before they
+	// type anything. Backends that don't expose /v1/providers/lm
+	// (everything except clio-agent-gact) skip this entirely.
+	lmConfigOpen bool
+	lmConfig     *lmConfigState
 	doctor     *doctorState
 
 	// Workspace switcher overlay — ↑/↓ to navigate the current
@@ -858,7 +866,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen && !a.lmConfigOpen {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
@@ -898,6 +906,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.caps.Capabilities.Memory {
 			cmds = append(cmds, memoryStatsCmd(a.c, ""))
 		}
+		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
+		// whether the backend exposes runtime LM config + whether
+		// it needs the user to configure one. Failures (404 from
+		// non-CLIO backends) are silent.
+		cmds = append(cmds, lmConfigFetchCmd(a.c))
 		if len(a.sessions) > 0 {
 			pick, missing := a.pickAttachIndex()
 			a.selected = pick
@@ -914,6 +927,46 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// render path reads this each frame.
 		a.memoryStats = m.stats
 		return a, nil
+
+	case lmConfigFetchedMsg:
+		// CLIO-BBBBBBBBBB-D: backend's response to GET /v1/providers/lm.
+		// Three outcomes:
+		//   1. err != nil → backend failed; keep silent (the
+		//      adjacent /v1/health probe will surface the failure).
+		//   2. info == nil → endpoint not supported (404). Backends
+		//      that don't expose runtime LM config (every adapter
+		//      except clio-agent-gact today) get here; nothing to do.
+		//   3. info != nil + configured == false → pop the modal so
+		//      the user can pick a provider before they type.
+		if m.err != nil || m.info == nil {
+			return a, nil
+		}
+		if !m.info.Configured && !a.lmConfigOpen {
+			a.lmConfigOpen = true
+			a.lmConfig = &lmConfigState{
+				info: m.info,
+			}
+			a.lmConfigSyncFromPreset()
+		}
+		return a, nil
+
+	case lmConfigSavedMsg:
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		a.lmConfig.saving = false
+		if m.err != nil {
+			a.lmConfig.err = m.err
+			return a, nil
+		}
+		// Success: dismiss the modal + retry whatever the user
+		// was waiting on. A reconnect refreshes capabilities +
+		// sessions in case the agent reload changed something.
+		a.lmConfigOpen = false
+		a.lmConfig = nil
+		a.transientHint = "LM configured: " +
+			m.info.Provider + "/" + m.info.Model
+		return a, scheduleHintExpire(a.transientHint)
 
 	case doctorFetchedMsg:
 		// CLIO-BBBBBBBBBB4: /doctor modal finished its /v1/health
@@ -1575,6 +1628,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.doctorOpen {
 		return a.handleDoctorKey(k)
 	}
+	if a.lmConfigOpen {
+		return a.handleLMConfigKey(k)
+	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
@@ -1651,11 +1707,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "ctrl+n":
-		// New session in current workspace.
-		if a.wsID != "" {
-			return a, createSessionCmd(a.c, a.wsID)
-		}
-		return a, nil
+		// New session in current workspace, or against a backend
+		// that doesn't model workspaces (CLIO advertises
+		// capabilities.workspaces=false). The server defaults
+		// missing workspace_id to its own ws_default — passing
+		// "" is honest about not having one.
+		return a, createSessionCmd(a.c, a.wsID)
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
@@ -3758,6 +3815,9 @@ func (a *App) viewMain() string {
 	}
 	if a.doctorOpen {
 		base = overlay(base, a.viewDoctor(), a.width, a.height)
+	}
+	if a.lmConfigOpen {
+		base = overlay(base, a.viewLMConfig(), a.width, a.height)
 	}
 	if a.workspaceSwitchOpen {
 		base = overlay(base, a.viewWorkspaceSwitch(), a.width, a.height)
