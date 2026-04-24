@@ -2364,7 +2364,7 @@ func (a *App) paletteMatches() []gact.Command {
 	// MMM8b: merge plugin commands in alongside the backend-provided
 	// commands. Plugin commands get source="plugin" so the dispatch
 	// branch can short-circuit before runCommandCmd.
-	all := make([]gact.Command, 0, len(a.commands)+len(a.plugins))
+	all := make([]gact.Command, 0, len(a.commands)+len(a.plugins)+8)
 	all = append(all, a.commands...)
 	for _, p := range a.plugins {
 		all = append(all, gact.Command{
@@ -2373,6 +2373,37 @@ func (a *App) paletteMatches() []gact.Command {
 			Description: p.Description,
 			Source:      "plugin",
 		})
+	}
+	// Built-in local commands always show, independent of whether
+	// the backend advertises /v1/commands. Skipped for commands the
+	// current backend's capabilities don't support (/doctor for
+	// backends that don't advertise integration_health, etc.) so
+	// the user doesn't see greyed-out entries they can't actually
+	// run. CLIO-BBBBBBBBBB17.
+	seen := map[string]bool{}
+	for _, c := range all {
+		seen[c.ID] = true
+	}
+	localCmds := []gact.Command{
+		{ID: "/metrics", Title: "Metrics", Description: "Backend latency/cost/token totals", Source: "builtin"},
+		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette", Source: "builtin"},
+		{ID: "/theme-next", Title: "Theme →", Description: "Cycle to next palette", Source: "builtin"},
+		{ID: "/theme-prev", Title: "Theme ←", Description: "Cycle to previous palette", Source: "builtin"},
+		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
+	}
+	if a.caps.Capabilities.IntegrationHealth {
+		localCmds = append(localCmds, gact.Command{
+			ID:          "/doctor",
+			Title:       "Doctor",
+			Description: "Backend health + per-subsystem status",
+			Source:      "builtin",
+		})
+	}
+	for _, c := range localCmds {
+		if !seen[c.ID] {
+			all = append(all, c)
+			seen[c.ID] = true
+		}
 	}
 	if a.paletteFilter == "" {
 		return all
