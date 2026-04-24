@@ -43,17 +43,35 @@ The contract is large. No backend will implement every part of it. The TUI must 
 - **Minor versions are additive**: new optional endpoints, new optional fields, new optional event types, new optional part types — these do NOT bump the major version. Clients MUST tolerate them.
 - The contract version is reported by `GET /v1/capabilities` (see below).
 
+#### 3.2.1 v0.2 additions (CLIO-aligned)
+
+v0.2 extends v0.1 additively — no existing field, event, part type, or endpoint changes shape. The additions stay at the platform level: they describe generic agentic-coder primitives (multi-tier agent routing, memory introspection, integration health, typed errors, per-tool telemetry) rather than any backend's specific vocabulary. A backend MAY materialise these primitives as concrete domain agents (e.g. a "DataExpert" for HDF5 work, a "CodeReviewer" for PR review) — the spec stays neutral on what those domains are.
+
+New additions:
+
+- §3.3 new capability flags: `agent_routing`, `memory`, `structured_errors`, `integration_health`, `tool_telemetry`.
+- §3.4 new optional `integrations[]` field in the health response.
+- §4.3.1 new fields on the existing `AgentDef` (§6.5): `tier`, `specialization`, `keywords`. Plus a new concept: **multi-tier agents** (Tier-1 orchestrator → Tier-2 specialists → Tier-3 ephemeral subsessions).
+- §4.5 new part type: `routing_decision`. Extended fields on `tool_result` (`cached`, `duration_ms`) and on `message` (`error_info`).
+- §6.19 new endpoint: `GET /v1/memory/stats`.
+- §7.3 new events: `session.agent_routed`, `memory.cache.updated`, `integration.status_changed`.
+- §14 new section: **Error Taxonomy**.
+
+v0.2 does NOT deprecate anything in v0.1. A v0.1 client talking to a v0.2 backend works unchanged (it ignores new capability flags, new fields, new events). A v0.2 client talking to a v0.1 backend reads `capabilities.agent_routing == false` etc. and disables the related UI affordances.
+
+**Gold-standard clause**: v0.2 is drafted so that **every** primitive a modern agentic-coder exposes natively has a place on the wire. The first reference backend is `clio-agent-gact` (iowarp/clio-agent, `tui-integration` branch) — any v0.2 primitive CLIO implements is by definition *supported*. Any v0.1 primitive CLIO doesn't yet implement is declared `unsupported` in its capabilities response and tracked as a native CLIO capability request (framed around CLIO's own mission, not "TUI-integration ask") until it lands.
+
 ### 3.3 `GET /v1/capabilities`
 
 Returns what THIS backend supports. The TUI calls this on startup and uses it to enable/disable UI features.
 
 ```json
 {
-  "contract_version": "0.1",
+  "contract_version": "0.2",
   "backend": {
-    "name": "string",                 // e.g. "crush"
-    "version": "string",              // e.g. "0.4.2"
-    "vendor": "string",               // e.g. "charmbracelet"
+    "name": "string",                 // e.g. "clio" / "crush" / "claudecode"
+    "version": "string",              // e.g. "0.2.0"
+    "vendor": "string",               // e.g. "iowarp" / "charmbracelet"
     "homepage": "https://..."         // optional
   },
   "capabilities": {
@@ -79,7 +97,14 @@ Returns what THIS backend supports. The TUI calls this on startup and uses it to
     "plan_mode": false,               // Gemini-style read-only plan mode
     "search_messages": true,          // §6.3 — full-text search across messages
     "agent_write": false,             // §6.5 — POST/PUT/DELETE on /v1/agents
-    "skills_extraction": false        // §6.5 — POST /v1/agents/extract
+    "skills_extraction": false,       // §6.5 — POST /v1/agents/extract
+
+    // v0.2 — generic additions for modern agentic-coder backends
+    "agent_routing": true,            // §4.3.1 — multi-tier agents + routing decisions
+    "memory": true,                   // §6.19 — /v1/memory/stats introspection
+    "structured_errors": true,        // §14 — typed error_info taxonomy
+    "integration_health": true,       // §3.4 — /v1/health `integrations[]` array
+    "tool_telemetry": true            // §4.5 + §7.3 — tool_result.cached + duration_ms
   },
   "transports": {
     "events_sse": true,               // §7
@@ -100,6 +125,27 @@ A capability set to `false` (or absent) means the corresponding endpoints MUST r
 ### 3.4 `GET /v1/health`
 
 Returns 200 with `{"healthy": true, "uptime_s": <int>}` if the backend can serve requests. Used for connection probing.
+
+**v0.2 extension** (`capabilities.integration_health == true`): the response MAY include an `integrations` array and a coarse `overall_status` field:
+
+```json
+{
+  "healthy": true,
+  "uptime_s": 1234,
+  "overall_status": "ready",              // "ready" | "degraded" | "unavailable"
+  "integrations": [
+    {"name": "lm",         "status": "ready",       "detail": "openai/gpt-4o-mini ready"},
+    {"name": "gateway",    "status": "ready",       "detail": "5 tools mounted"},
+    {"name": "arc",        "status": "ready",       "detail": "cache 87% hit rate"},
+    {"name": "file_policy","status": "ready",       "detail": "CLIO_ALLOWED_ROOTS: /tmp, /home/..."},
+    {"name": "clio_core",  "status": "unavailable", "detail": "iowarp binary not found"}
+  ]
+}
+```
+
+Integrations are backend-specific — a backend MAY expose any combination of names the TUI can display tabularly. Common names: `lm` (model provider), `gateway` (tool gateway), `arc` (memory backend), `file_policy` (path whitelist), `api` (HTTP surface), `clio_core` (IOWarp integration). Unknown names MUST render as a generic row without special handling.
+
+`overall_status` is the worst status across integrations (ready if all ready; degraded if any degraded and none unavailable; unavailable if any unavailable). Used by the TUI to colour a single top-level health chip.
 
 ---
 
@@ -188,6 +234,46 @@ A **SubSession** is a child agent invocation spawned by a parent session, e.g. v
 
 Subsessions appear in `GET /v1/sessions?parent_session_id=sess_parent` AND are referenced by `subagent_call` parts in the parent's message stream (§4.5). The TUI is expected to render them inline (collapsible thread under the parent message) OR as a separate pane — implementation choice.
 
+### 4.3.1 Multi-tier agents (v0.2)
+
+v0.1 described agents as a flat catalog (§6.5 `AgentDef`). v0.2 adds a **tier** dimension to the same `AgentDef`, letting backends that route user queries through multiple specialised agents advertise the hierarchy on the wire.
+
+Tier definitions:
+
+| Tier | Role | Lifetime | Count per backend |
+|---|---|---|---|
+| 1 | Orchestrator — parses the query and selects which tier-2 agent to dispatch | Long-lived | Typically 1 |
+| 2 | Specialist — handles a class of queries (one domain, one capability family) with a curated tool set | Long-lived | N (0..many) |
+| 3 | Ephemeral worker — spawned per turn via `subagent_call` (§4.5), maps to a SubSession (§4.3) | Per-turn | Unlimited |
+
+A backend without tiered routing (single agent per backend — most v0.1 adapters) sets `capabilities.agent_routing = false`. The catalog then contains only tier-1 (or untagged) `AgentDef` rows and the TUI skips per-turn routing-badge rendering.
+
+Extended `AgentDef` shape (all new fields optional; see §6.5 for the base shape):
+
+```json
+{
+  "id": "code_expert",
+  "source": "builtin",
+  "title": "Code Expert",
+  "description": "Source-level editing, review, refactoring",
+  "tools": ["edit_file", "read_file", "grep", "..."],
+
+  // v0.2 additions (all optional; absent = tier-1 or untagged):
+  "tier": 2,
+  "specialization": "code_editing",       // free-form domain tag — UI palette hints
+  "keywords": ["edit", "refactor", "fix", "review"],
+  "metadata": {}
+}
+```
+
+`specialization` is a short free-form identifier (e.g. `code_editing`, `data_analysis`, `research`, `visualization`) that the TUI MAY use to colour the per-turn agent badge from a palette. Unknown specialisations render with a default accent — it's a hint, not a taxonomy the TUI needs to know exhaustively.
+
+`keywords` are the intent tokens the tier-1 orchestrator matches against. Exposed so the TUI can show *why* a given agent was picked (heuristic routing) or render a searchable agent picker.
+
+Backends with `agent_routing = true` MUST emit a `routing_decision` part (§4.5) as the first part of every assistant message AND a `session.agent_routed` event (§7.3) at the same moment. The decision references `AgentDef.id`.
+
+Discovery: `GET /v1/agents?tier=2` lists tier-2 specialists; the base `/v1/agents` query returns all tiers.
+
 ### 4.4 Message
 
 A **Message** is a turn in a session, owned by a role.
@@ -208,11 +294,14 @@ A **Message** is a turn in a session, owned by a role.
   "cost_usd": 0.0,
   "stop_reason": "end_turn|tool_use|max_tokens|cancelled|error|permission_denied|null",
   "parts": [ /* Part[]; see §4.5 */ ],
+  "error_info": null,                                      // v0.2 — see §14
   "metadata": {}
 }
 ```
 
 While streaming, a message's `parts` array grows; clients MUST accept partial messages and update them via SSE deltas (§7.4).
+
+**v0.2 `error_info`**: when `stop_reason` is `"error"` or a degraded success with trailing failure context, backends with `capabilities.structured_errors = true` MUST set `error_info` to a typed error envelope per §14. v0.1 backends leave the field null and emit `error` parts in the content stream instead — both paths remain valid.
 
 ### 4.5 Part (Content Block)
 
@@ -228,7 +317,8 @@ The content of a message is an ordered list of typed parts. The discriminator is
 | `image` | Image content | `source: {kind: "base64"\|"url"\|"file_id", media_type, data?, url?, file_id?}` |
 | `document` | Document content | `source: {...same}`, `title?`, `context?`, `citations?: {enabled: bool}` |
 | `tool_call` | Model invokes a tool | `call_id: string`, `tool_name: string`, `input: object`, `server_id?: string` (for MCP), `annotations?: {readOnlyHint, destructiveHint, idempotentHint, openWorldHint, title}` |
-| `tool_result` | Result of a tool | `call_id: string`, `content: Part[]` (recursive — text, image, resource, etc.), `is_error: bool` |
+| `tool_result` | Result of a tool | `call_id: string`, `content: Part[]` (recursive — text, image, resource, etc.), `is_error: bool`, **v0.2 optional**: `cached: bool` (result came from a memory cache hit, not fresh execution), `duration_ms: number` (wall-clock) |
+| `routing_decision` (v0.2) | Tier-1 orchestrator picked a tier-2 agent for this turn | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = picked by deterministic keyword match; false = picked by LM router). Emitted as the first part of the assistant message when `capabilities.agent_routing` is true. |
 | `subagent_call` | Spawn a subagent | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object` |
 | `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
 | `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?` |
@@ -669,6 +759,42 @@ If `capabilities.hooks = true`:
 
 A hook fires whenever an event matching `event` is published; if both `command` and `url` are set, `url` wins. The backend MUST run hooks asynchronously (no back-pressure on the main loop) and SHOULD time them out at 10s. Failures are logged but never propagated to the originating request. Hooks scoped to `session_id` or `workspace_id` only fire on events for that scope.
 
+### §6.19 Memory stats (v0.2, optional)
+
+If `capabilities.memory = true`:
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/memory/stats` | query: `session_id?` | `MemoryStats` |
+
+```json
+// MemoryStats
+{
+  "cache": {
+    "hits": 1284,
+    "misses": 192,
+    "hit_rate": 0.87,                    // [0..1]
+    "capacity": 1000
+  },
+  "session": {                           // present only when session_id query set
+    "session_id": "sess_...",
+    "messages_retained": 42,
+    "tokens_retained": 3584,
+    "tokens_budget": 4000,               // null if unbounded
+    "profiles_attached": 3               // session-scoped knowledge records, opaque to TUI
+  },
+  "global": {                            // overall backend state
+    "conversations_total": 128,
+    "invocations_total": 2048
+  },
+  "metadata": {}                         // backend-specific
+}
+```
+
+Backends without an introspectable memory layer set `capabilities.memory = false` and return 501. Backends that maintain memory but can't meaningfully report hit/miss (e.g. a pure context-window recap) SHOULD return zeros rather than omit the field — zeros are a valid signal.
+
+The TUI uses this to surface a cache hit-rate indicator, show per-session context budget pressure, and power the `memory.cache.updated` event (§7.3) when the backend prefers polling over pushing.
+
 ---
 
 ## §7 Streaming Events (SSE)
@@ -735,6 +861,9 @@ Event types are namespaced by resource. Unknown types MUST be tolerated and igno
 | `diff.generated` | New diffs available for current session | `{session_id, count}` |
 | `cost.updated` | Per-session cost rolled forward | `{session_id, tokens, cost_usd}` |
 | `notification` | Generic banner-worthy message | `{level: "info"\|"warning"\|"error", title, body?}` |
+| `session.agent_routed` (v0.2) | Tier-1 orchestrator picked a tier-2 agent for the current turn | `{session_id, message_id, selected_agent, rationale?, confidence?, heuristic: bool}` |
+| `memory.cache.updated` (v0.2) | Memory-cache stats snapshot | `{cache: {hits, misses, hit_rate, capacity}, scope: "global"\|"session", session_id?}` |
+| `integration.status_changed` (v0.2) | One of /v1/health's integrations flipped status | `{integration: {name, status, detail}, prev_status}` |
 
 ### §7.4 Streaming a message
 
@@ -864,6 +993,63 @@ The 10 questions raised during design review are decided here. Several are expli
 9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI.
 
 10. **Telemetry: yes, `GET /v1/metrics`** (§6.16). Standard counters (sessions, messages, tokens, cost, by-provider), gated by `capabilities.metrics`. Vendor-specific counters go under `x_<vendor>_<key>`.
+
+---
+
+## §14 Error Taxonomy (v0.2)
+
+v0.1 surfaces errors two ways: an `error` part type in a message's content stream (§4.5), and a global `error` response envelope (§6.0). Neither pins a shape for *categorising* errors — clients end up string-matching `message` fields to decide whether an error is retryable, the user's fault, or the platform's.
+
+v0.2 adds a **typed error taxonomy** used by backends reporting `capabilities.structured_errors = true`. The same envelope flows through three surfaces:
+
+- `message.error_info` (§4.4) — set when a message stops with `stop_reason: "error"` or degrades mid-stream.
+- `error` part content (§4.5) — still valid; carries the same envelope as its body.
+- HTTP response body on 4xx/5xx — §6.0's `error` object gains the same fields.
+
+### 14.1 Error envelope
+
+```json
+{
+  "error": "tool_error",                    // machine-readable type (see §14.2)
+  "message": "Read of /tmp/x.h5 exceeded CLIO_MAX_FILE_SIZE_BYTES",
+  "details": {                              // free-form context — opaque to the TUI
+    "tool": "hdf5_analyze",
+    "call_id": "c_42",
+    "file_policy": "outside_allowed_roots"
+  },
+  "recoverable": true,                      // may the user retry meaningfully?
+  "retry_after_s": null                     // hint for auto-retry UI; null if unknown
+}
+```
+
+`error`, `message`, and `recoverable` are required. `details` is always an object (possibly empty) — clients treat it as display-only metadata and never rely on specific keys.
+
+### 14.2 Canonical error types
+
+| `error` | Meaning | TUI default rendering |
+|---|---|---|
+| `provider_error` | Upstream LM / model provider failed (timeout, auth, rate-limit) | Red toast, offer retry, surface provider name |
+| `routing_error` | Tier-1 orchestrator (§4.3.1) couldn't classify the query | Transient warning; backend typically falls back gracefully |
+| `agent_error` | A tier-2 agent's loop failed | Red per-turn badge, keep session open |
+| `tool_error` | Tool invocation returned an error dict or raised | Inline under the tool row, don't kill the turn |
+| `permission_error` | Backend's file/path/capability policy rejected the request | Modal with policy name + which op was blocked |
+| `config_error` | Env/config invalid (missing API key, bad endpoint) | Route to Settings / `/v1/health` doctor view |
+| `cancelled` | User cancelled (§6.11 / Ctrl+C) | Silent; just show the session returned to idle |
+| `rate_limited` | Soft-limit backoff, not a hard failure | Transient; auto-retry after `retry_after_s` |
+| `internal_error` | Unclassified backend failure | Generic red toast; backends MUST NOT leak stack traces via `message` |
+
+Backends MAY add vendor-specific types prefixed `x_<vendor>_`. The TUI treats unknown types as `internal_error` for rendering while preserving the original in round-trips.
+
+### 14.3 `recoverable` semantics
+
+- `true` — user or auto-retry may succeed (network blip, transient provider outage, tool error on missing arg).
+- `false` — retry is pointless without user intervention (config_error, permission_error, cancelled).
+
+Used by the TUI's retry affordances: `R` re-sends the last user message when `recoverable = true`; Settings/doctor surface the error otherwise.
+
+### 14.4 Interaction with v0.1
+
+A v0.1 backend leaves `error_info` null and emits a v0.1 `error` part (§4.5) with the free-form `{code, message, recoverable}` shape. v0.2 clients accept both paths. A v0.2 backend SHOULD additionally populate `error_info` on the message so v0.2 clients see the richer shape.
 
 ---
 
