@@ -86,17 +86,29 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [ ] **CLIO-BBBBBBBBBB27.** Message search — closes iowarp/clio-agent#11. `GET /search?q=`. Flip `capabilities.search_messages = true`.
 
-### Phase 5 — provider + packaging polish
+### Phase 5 — packaging polish
 
-- [ ] **CLIO-BBBBBBBBBB28.** Meridian provider recipe: `docs/providers/meridian.md` in gact-tui + a `--auto-meridian` flag on `clio-agent-gact` that spawns Meridian alongside + points `CLIO_LM_API_BASE` at it.
+- [ ] **CLIO-BBBBBBBBBB28.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`.
 
-- [ ] **CLIO-BBBBBBBBBB29.** Packaging: CLIO publishes `clio-agent-gact` as a first-class entry point. `gact agent deploy clio` probes for it on PATH, falls back to `uv run --project <dir> python -m clio_agent.gact.app`.
+- [ ] **CLIO-BBBBBBBBBB29.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO.
 
-- [ ] **CLIO-BBBBBBBBBB30.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO.
+### Phase D — real e2e tests with clio-agent + Meridian + Claude Code
+
+Phase D in the A→B→C→D workflow: end-to-end validation that the full stack (gact-tui → GACT v0.2 wire → clio-agent-gact → Meridian → Claude Code via Claude Max OAuth) works for real, against a non-trivial scientific data workflow. Phases C ships the wiring; Phase D proves the wiring + provider + LM behaviour all line up.
+
+- [ ] **CLIO-BBBBBBBBBB-D1.** Meridian setup recipe in `docs/providers/meridian.md`: install Meridian, OAuth bootstrap to Claude Max, point CLIO at it (`CLIO_LM_PROVIDER=openai` + `CLIO_LM_API_BASE=http://127.0.0.1:<meridian_port>/v1` + `CLIO_LM_MODEL=claude-sonnet-4-5`). Verify with a trivial `clio-agent --query "hello"` round-trip.
+
+- [ ] **CLIO-BBBBBBBBBB-D2.** `--auto-meridian` flag on `gact-clio-adapter` (or its successor in the Python entry point): when set, the deploy spawns Meridian alongside `clio-agent-gact` and stitches the env vars automatically. Readiness probes both processes. Removes the manual setup step from the happy path.
+
+- [ ] **CLIO-BBBBBBBBBB-D3.** Real-LM smoke test: `gact agent deploy clio prod --auto-meridian && gact connect prod`, run a turn that exercises a tier-2 expert (e.g. "analyze /tmp/sample.parquet"), assert the routing badge paints, the expert produces a real response, ARC cache stats update, the assistant reply renders cleanly. Skipped in CI when Claude Max OAuth + Meridian aren't available; runs locally as a manual verification step.
+
+- [ ] **CLIO-BBBBBBBBBB-D4.** VHS recording + screenshot set capturing the full stack: launching, sending a query, agent badge appearing live, streaming response, doctor modal showing all integrations ready, memory chip ticking up. Committed as `screenshots/clio-e2e-*.png` + `screenshots/clio-e2e.gif`.
+
+- [ ] **CLIO-BBBBBBBBBB-D5.** README gains a "Quick start with CLIO + Claude Max" section walking through Meridian + clio-agent-gact + gact in three commands. Targets the user who wants to try the integration without reading the full integration plan.
 
 ### Acceptance
 
-`gact agent deploy clio my-clio && gact connect my-clio` lands in a working conversation against a locally-running CLIO. TUI renders expert badge, tool calls (post-hoc in Phase 3, live in Phase 4), unified diff for file_diff outputs, ARC cache hit rate. Conformance: `contract/conformance` passes for CLIO where supported; unsupported capabilities declared via the capabilities endpoint.
+After Phase D: `gact agent deploy clio my-clio --auto-meridian && gact connect my-clio` lands in a working conversation against a locally-running CLIO backed by Claude Max via Meridian. TUI renders agent badge, tool calls (post-hoc in Phase 3, live in Phase 4), ARC cache hit rate, doctor modal. Conformance: `contract/conformance` passes for CLIO where supported; unsupported capabilities declared via the capabilities endpoint. End-to-end recording demonstrates the full stack.
 
 ---
 
