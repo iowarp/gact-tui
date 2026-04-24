@@ -774,7 +774,12 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
+		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
+		// the TUI enough patience without hanging forever on a wedged
+		// backend — SSE is the source of truth for in-flight
+		// progress anyway.
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
 			Parts: []gact.Part{gact.NewTextPart(text)},
