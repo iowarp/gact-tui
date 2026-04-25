@@ -16,7 +16,11 @@ Enter
 Show
 
 Sleep 2500ms
-# Tab through fields to Save (3 tabs: preset → model → key → save)
+# Tab through fields to Save. Modal layout (post-temp/max-tokens
+# knobs): preset → model → key → temperature → max_tokens → save.
+# Five Tabs lands on Save.
+Tab
+Tab
 Tab
 Tab
 Tab
@@ -27,11 +31,11 @@ Sleep 8000ms
 # Now the modal is gone and the agent is wired. Create session + ask.
 Ctrl+n
 Sleep 2000ms
-Type "Tell me in one sentence what HDF5 is."
+Type "Hello CLIO. Tell me your name in one sentence."
 Sleep 500ms
 Enter
 
-Sleep 35000ms
+Sleep 60000ms
 Screenshot "/home/jcernuda/tui/screenshots/clio_lm_e2e.png"
 
 Sleep 500ms
