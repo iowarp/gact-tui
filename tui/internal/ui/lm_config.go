@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,18 +34,23 @@ const (
 	lmFieldPreset lmConfigField = iota
 	lmFieldModel
 	lmFieldAPIKey
+	lmFieldTemperature
+	lmFieldMaxTokens
 	lmFieldSave
+	lmFieldCount
 )
 
 type lmConfigState struct {
 	loading bool
 	err     error
 
-	info     *client.LMProviderInfo
-	selected int    // index into info.Presets
-	model    string // editable model override
-	apiKey   string // user-entered key
-	field    lmConfigField
+	info        *client.LMProviderInfo
+	selected    int    // index into info.Presets
+	model       string // editable model override
+	apiKey      string // user-entered key
+	temperature string // string-edited; parsed on save
+	maxTokens   string // string-edited; parsed on save
+	field       lmConfigField
 
 	saving bool
 }
@@ -93,16 +99,16 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.lmConfig = nil
 		return a, nil
 	case "tab", "down":
-		a.lmConfig.field = (a.lmConfig.field + 1) % 4
+		a.lmConfig.field = (a.lmConfig.field + 1) % lmFieldCount
 		return a, nil
 	case "shift+tab", "up":
-		a.lmConfig.field = (a.lmConfig.field + 3) % 4
+		a.lmConfig.field = (a.lmConfig.field + lmFieldCount - 1) % lmFieldCount
 		return a, nil
 	case "enter":
 		if a.lmConfig.field == lmFieldSave {
 			return a, a.lmConfigDispatch()
 		}
-		a.lmConfig.field = (a.lmConfig.field + 1) % 4
+		a.lmConfig.field = (a.lmConfig.field + 1) % lmFieldCount
 		return a, nil
 	case "left", "right":
 		if a.lmConfig.field == lmFieldPreset && a.lmConfig.info != nil {
@@ -128,6 +134,14 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if len(a.lmConfig.apiKey) > 0 {
 				a.lmConfig.apiKey = a.lmConfig.apiKey[:len(a.lmConfig.apiKey)-1]
 			}
+		case lmFieldTemperature:
+			if len(a.lmConfig.temperature) > 0 {
+				a.lmConfig.temperature = a.lmConfig.temperature[:len(a.lmConfig.temperature)-1]
+			}
+		case lmFieldMaxTokens:
+			if len(a.lmConfig.maxTokens) > 0 {
+				a.lmConfig.maxTokens = a.lmConfig.maxTokens[:len(a.lmConfig.maxTokens)-1]
+			}
 		}
 		return a, nil
 	}
@@ -138,9 +152,34 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.lmConfig.model += k.Text
 		case lmFieldAPIKey:
 			a.lmConfig.apiKey += k.Text
+		case lmFieldTemperature:
+			// Only accept digits + ".".
+			if isNumericInput(k.Text, true) {
+				a.lmConfig.temperature += k.Text
+			}
+		case lmFieldMaxTokens:
+			if isNumericInput(k.Text, false) {
+				a.lmConfig.maxTokens += k.Text
+			}
 		}
 	}
 	return a, nil
+}
+
+// isNumericInput accepts digits, plus a decimal point when allowFloat
+// is true. Anything else is silently dropped — protects the field
+// from typos that would later fail strconv.
+func isNumericInput(s string, allowFloat bool) bool {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if allowFloat && r == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // lmConfigSyncFromPreset copies the selected preset's defaults
@@ -159,6 +198,15 @@ func (a *App) lmConfigSyncFromPreset() {
 		a.lmConfig.model = p.SuggestedModel
 	}
 	// Don't auto-fill api_key — user has to type it.
+	// Temperature + max_tokens fall back to backend defaults when
+	// blank; pre-fill with current values so the user can see the
+	// active config and tweak from there.
+	if a.lmConfig.temperature == "" && a.lmConfig.info.Temperature > 0 {
+		a.lmConfig.temperature = fmt.Sprintf("%g", a.lmConfig.info.Temperature)
+	}
+	if a.lmConfig.maxTokens == "" && a.lmConfig.info.MaxTokens > 0 {
+		a.lmConfig.maxTokens = fmt.Sprintf("%d", a.lmConfig.info.MaxTokens)
+	}
 }
 
 func (a *App) lmConfigDispatch() tea.Cmd {
@@ -179,12 +227,23 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 	}
 	a.lmConfig.saving = true
 	a.lmConfig.err = nil
-	return lmConfigSaveCmd(a.c, client.LMProviderRequest{
+	req := client.LMProviderRequest{
 		Provider: p.Provider,
 		APIBase:  p.APIBase,
 		Model:    model,
 		APIKey:   apiKey,
-	})
+	}
+	if a.lmConfig.temperature != "" {
+		if v, err := strconv.ParseFloat(a.lmConfig.temperature, 64); err == nil {
+			req.Temperature = v
+		}
+	}
+	if a.lmConfig.maxTokens != "" {
+		if v, err := strconv.Atoi(a.lmConfig.maxTokens); err == nil {
+			req.MaxTokens = v
+		}
+	}
+	return lmConfigSaveCmd(a.c, req)
 }
 
 // viewLMConfig renders the modal.
@@ -289,6 +348,20 @@ func (a *App) renderLMConfigBody(innerW int) string {
 	rows = append(rows, lmConfigField_render(
 		"API key"+apiHint, a.lmConfig.apiKey, true,
 		a.lmConfig.field == lmFieldAPIKey, t,
+	))
+
+	// Temperature + max_tokens — model_config knobs forwarded to
+	// the upstream LM via PUT /v1/providers/lm. Blank = backend
+	// defaults (temperature=1.0, max_tokens=32000).
+	rows = append(rows, lmConfigField_render(
+		"Temperature  (0.0-2.0; blank for default 1.0)",
+		a.lmConfig.temperature, false,
+		a.lmConfig.field == lmFieldTemperature, t,
+	))
+	rows = append(rows, lmConfigField_render(
+		"Max tokens   (output cap; blank for default 32000)",
+		a.lmConfig.maxTokens, false,
+		a.lmConfig.field == lmFieldMaxTokens, t,
 	))
 
 	// Save button row.
