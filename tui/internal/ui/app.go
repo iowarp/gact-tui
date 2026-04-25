@@ -977,6 +977,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.doctor.loading = false
 			a.doctor.err = m.err
 			a.doctor.health = m.health
+			a.doctor.caps = m.caps
 		}
 		return a, nil
 
