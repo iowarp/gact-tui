@@ -301,8 +301,8 @@ func runDiag() { writeDiagToVerbose(os.Stdout) }
 const (
 	// binaryVersion is bumped manually for now. A future enhancement
 	// could thread version info from the build via -ldflags.
-	binaryVersion   = "0.1.0"
-	contractVersion = "0.1"
+	binaryVersion   = "0.2.0"
+	contractVersion = "0.2"
 )
 
 func printUsage() {

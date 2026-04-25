@@ -23,11 +23,14 @@ Show
 
 Sleep 1500ms
 
-# Matches data_expert via the scripted keyword table.
-Type "please analyze /tmp/sample.parquet"
+# Matches analysis_expert via the .parquet heuristic. Real Parquet
+# tools run server-side via the deterministic short-circuit (no LM
+# round-trip needed for an obvious file question), so the answer
+# lands in <5s.
+Type "Inspect the schema of /tmp/clio-demo/clio_demo.parquet"
 Enter
 
-Sleep 4500ms
+Sleep 12000ms
 Screenshot "/home/jcernuda/tui/screenshots/clio_e2e.png"
 
 Sleep 500ms
