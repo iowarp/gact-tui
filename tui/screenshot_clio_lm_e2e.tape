@@ -27,10 +27,10 @@ Tab
 Sleep 300ms
 # Enter on Save dispatches PUT /v1/providers/lm
 Enter
-Sleep 8000ms
-# Now the modal is gone and the agent is wired. Create session + ask.
-Ctrl+n
-Sleep 2000ms
+Sleep 10000ms
+# Modal dismissed; input is auto-focused. Send the first turn —
+# Ctrl+N is unnecessary because Save+dismiss leaves us on the
+# default session ready to receive input.
 Type "Hello CLIO. Tell me your name in one sentence."
 Sleep 500ms
 Enter
