@@ -11,12 +11,12 @@ Enter
 Show
 
 Sleep 1500ms
-# Chat-path question — heuristic routes to "chat" via "hi" rule
-# fallback so the screenshot lands a real assistant reply within
-# the sleep window instead of catching the running spinner.
-Type "Hi! what is the best HDF5 chunk size for 3D arrays? one sentence."
+# Heuristic routes "hello" → chat path so the screenshot lands a
+# real assistant reply within the sleep window instead of catching
+# the running spinner. Avoid "?" — the TUI binds it to global help.
+Type "Hello CLIO. Tell me in one sentence what HDF5 is."
 Enter
-Sleep 60000ms
+Sleep 90000ms
 Screenshot "/home/jcernuda/tui/screenshots/clio_real_turn.png"
 
 Sleep 500ms
