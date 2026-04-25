@@ -3332,6 +3332,11 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.applyPartCompleted(e)
 	case "message.completed":
 		// Final part-state already in store; the assistant turn is done.
+		// CLIO embeds tokens + cost_usd in the completed payload, but
+		// doesn't emit a dedicated cost.updated event — promote those
+		// fields into the cost-updated path so the footer's $ meter
+		// catches up live without waiting for a session reload.
+		a.applyCostUpdated(e)
 	case "session.status_changed":
 		if pl != nil {
 			v, _ := pl["status"].(string)
@@ -3538,6 +3543,15 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					if len(p.Metadata) == 0 {
 						p.Metadata = nil
 					}
+				}
+			}
+			// CLIO ships ``final_text`` on streamed text parts so we
+			// can replace the raw streamed buffer (which carries
+			// adapter format markers like ``[[ ## answer ## ]]``)
+			// with the parsed clean answer once the LM finishes.
+			if p.Type == gact.PartTypeText {
+				if final, ok := pl["final_text"].(string); ok && final != "" {
+					p.Text = final
 				}
 			}
 			return
