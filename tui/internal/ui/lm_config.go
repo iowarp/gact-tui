@@ -36,6 +36,7 @@ const (
 	lmFieldAPIKey
 	lmFieldTemperature
 	lmFieldMaxTokens
+	lmFieldThinkingBudget
 	lmFieldSave
 	lmFieldCount
 )
@@ -44,13 +45,14 @@ type lmConfigState struct {
 	loading bool
 	err     error
 
-	info        *client.LMProviderInfo
-	selected    int    // index into info.Presets
-	model       string // editable model override
-	apiKey      string // user-entered key
-	temperature string // string-edited; parsed on save
-	maxTokens   string // string-edited; parsed on save
-	field       lmConfigField
+	info            *client.LMProviderInfo
+	selected        int    // index into info.Presets
+	model           string // editable model override
+	apiKey          string // user-entered key
+	temperature     string // string-edited; parsed on save
+	maxTokens       string // string-edited; parsed on save
+	thinkingBudget  string // string-edited; 0 disables, mapped to provider-specific reasoning param
+	field           lmConfigField
 
 	saving bool
 }
@@ -142,6 +144,10 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if len(a.lmConfig.maxTokens) > 0 {
 				a.lmConfig.maxTokens = a.lmConfig.maxTokens[:len(a.lmConfig.maxTokens)-1]
 			}
+		case lmFieldThinkingBudget:
+			if len(a.lmConfig.thinkingBudget) > 0 {
+				a.lmConfig.thinkingBudget = a.lmConfig.thinkingBudget[:len(a.lmConfig.thinkingBudget)-1]
+			}
 		}
 		return a, nil
 	}
@@ -160,6 +166,10 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case lmFieldMaxTokens:
 			if isNumericInput(k.Text, false) {
 				a.lmConfig.maxTokens += k.Text
+			}
+		case lmFieldThinkingBudget:
+			if isNumericInput(k.Text, false) {
+				a.lmConfig.thinkingBudget += k.Text
 			}
 		}
 	}
@@ -207,6 +217,11 @@ func (a *App) lmConfigSyncFromPreset() {
 	if a.lmConfig.maxTokens == "" && a.lmConfig.info.MaxTokens > 0 {
 		a.lmConfig.maxTokens = fmt.Sprintf("%d", a.lmConfig.info.MaxTokens)
 	}
+	// Thinking budget: empty string means "let backend decide / disable".
+	// Pre-fill with the active value so users can see + edit.
+	if a.lmConfig.thinkingBudget == "" && a.lmConfig.info.ThinkingBudget > 0 {
+		a.lmConfig.thinkingBudget = fmt.Sprintf("%d", a.lmConfig.info.ThinkingBudget)
+	}
 }
 
 func (a *App) lmConfigDispatch() tea.Cmd {
@@ -241,6 +256,11 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 	if a.lmConfig.maxTokens != "" {
 		if v, err := strconv.Atoi(a.lmConfig.maxTokens); err == nil {
 			req.MaxTokens = v
+		}
+	}
+	if a.lmConfig.thinkingBudget != "" {
+		if v, err := strconv.Atoi(a.lmConfig.thinkingBudget); err == nil {
+			req.ThinkingBudget = v
 		}
 	}
 	return lmConfigSaveCmd(a.c, req)
@@ -362,6 +382,11 @@ func (a *App) renderLMConfigBody(innerW int) string {
 		"Max tokens   (output cap; blank for default 32000)",
 		a.lmConfig.maxTokens, false,
 		a.lmConfig.field == lmFieldMaxTokens, t,
+	))
+	rows = append(rows, lmConfigField_render(
+		"Thinking budget  (0=off; Anthropic uses tokens, OpenAI maps to low/med/high)",
+		a.lmConfig.thinkingBudget, false,
+		a.lmConfig.field == lmFieldThinkingBudget, t,
 	))
 
 	// Save button row.

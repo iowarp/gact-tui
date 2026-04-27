@@ -384,13 +384,14 @@ type LMProviderPreset struct {
 // expose this surface (every non-CLIO backend today) return 404,
 // which the TUI handles as "no in-app config available".
 type LMProviderInfo struct {
-	Configured  bool               `json:"configured"`
-	Provider    string             `json:"provider,omitempty"`
-	APIBase     string             `json:"api_base,omitempty"`
-	Model       string             `json:"model,omitempty"`
-	Temperature float64            `json:"temperature,omitempty"`
-	MaxTokens   int                `json:"max_tokens,omitempty"`
-	Presets     []LMProviderPreset `json:"presets,omitempty"`
+	Configured     bool               `json:"configured"`
+	Provider       string             `json:"provider,omitempty"`
+	APIBase        string             `json:"api_base,omitempty"`
+	Model          string             `json:"model,omitempty"`
+	Temperature    float64            `json:"temperature,omitempty"`
+	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 
 // LMProviderRequest is the PUT /v1/providers/lm body.
@@ -399,13 +400,18 @@ type LMProviderInfo struct {
 // 0/0 means "use server defaults" — the JSON omitempty drops the
 // fields so the Python side falls back to LMProviderRequest's
 // defaults (temperature=1.0, max_tokens=32000).
+//
+// ThinkingBudget controls reasoning effort/budget (0 = disabled). On
+// Anthropic it maps to thinking.budget_tokens; on OpenAI/Codex it's
+// bucketed into reasoning_effort low/medium/high.
 type LMProviderRequest struct {
-	Provider    string  `json:"provider"`
-	APIBase     string  `json:"api_base"`
-	Model       string  `json:"model"`
-	APIKey      string  `json:"api_key"`
-	Temperature float64 `json:"temperature,omitempty"`
-	MaxTokens   int     `json:"max_tokens,omitempty"`
+	Provider       string  `json:"provider"`
+	APIBase        string  `json:"api_base"`
+	Model          string  `json:"model"`
+	APIKey         string  `json:"api_key"`
+	Temperature    float64 `json:"temperature,omitempty"`
+	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ThinkingBudget int     `json:"thinking_budget,omitempty"`
 }
 
 // GetLMProvider fetches /v1/providers/lm. Returns nil + nil error
