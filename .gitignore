@@ -54,3 +54,4 @@ tui/coverage.txt
 # Allow committed screenshots
 !screenshots/
 !screenshots/**/*.png
+.clio_agent/
