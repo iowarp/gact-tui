@@ -344,6 +344,22 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.sel < len(cb.items)-1 {
 			cb.sel++
 		}
+	case "i":
+		// Install a third-party MCP server. Closes the catalog and
+		// opens the small inline install overlay. Only meaningful in
+		// the MCP server list view (top-level /mcp).
+		if cb.kind == catalogKindMcp {
+			a.closeCatalogBrowser()
+			a.openMcpInstallModal()
+		}
+	case "d":
+		// Delete the highlighted MCP server. Bundled in_process
+		// servers are non-removable; the existing remove flow already
+		// filters those out and reports the "no third-party MCPs" toast.
+		if cb.kind == catalogKindMcp {
+			a.closeCatalogBrowser()
+			return a, a.openMcpRemoveModal()
+		}
 	}
 	return a, nil
 }
@@ -471,7 +487,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindTools:
 		hintText = "↑/↓ navigate · Space toggle · Esc close"
 	case catalogKindMcp:
-		hintText = "↑/↓ navigate · Enter drill in · Esc close"
+		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
 	case catalogKindMcpDetail:
 		hintText = "↑/↓ navigate · Esc/Backspace back"
 	default:
