@@ -667,8 +667,12 @@ func agentColor(t Theme, agentID string) color.Color {
 }
 
 func markSelectedBlock(rendered string, t Theme) string {
-	marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
-	cont := "  "
+	// Selection cursor uses a vertical bar so it doesn't visually collide
+	// with the routing-decision triangle (▸ chat · LM-routed) drawn inside
+	// message bodies. Continuation lines get a matching bar without the
+	// foreground colour so the eye can still trace the highlighted block.
+	marker := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
+	cont := lipgloss.NewStyle().Foreground(t.FgFaint).Render("▎ ")
 	lines := strings.Split(rendered, "\n")
 	if len(lines) == 0 {
 		return rendered

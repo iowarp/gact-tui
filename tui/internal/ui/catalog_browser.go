@@ -73,6 +73,13 @@ type catalogBrowserLoadedMsg struct {
 	mcpServerID string
 }
 
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // loadCatalogBrowserCmd dispatches the right fetch based on kind.
 func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 	return func() tea.Msg {
@@ -94,11 +101,11 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			if s.Status == "ready" || s.Status == "connected" {
 				status = "connected"
 			}
-				// Name + command give the user a sense of what the
-				// server provides; Transport rounds it out.
-				desc := fmt.Sprintf("%s (%s)", s.Name, s.Transport)
+				// Title already shows the server name; description is just
+				// the transport so each row reads as a single line plus a
+				// muted transport hint (was repeating the name twice).
 				items = append(items, catalogItem{
-					id: s.ID, title: s.Name, desc: desc, statusTag: status,
+					id: s.ID, title: s.Name, desc: s.Transport, statusTag: status,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -172,7 +179,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				items = append(items, catalogItem{
 					id:    "none",
 					title: "(no skills on this backend)",
-					desc:  "Skills are agents with source=\"skill\". Backends doing automated extraction expose them via /v1/agents.",
+					desc:  "skills are agents with source=skill",
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}

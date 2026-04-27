@@ -16,12 +16,13 @@ import (
 // when settingsOpen is true.
 type settingsState struct {
 	tab       int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs
-	modelSel  int // index into modelList
+	modelSel  int // index into modelList; -1 means the "Change provider…" row
 	agentSel  int // index into agentList
 	themeSel  int // 0 = dark, 1 = light
 	tuiRow    int // TUI tab active row (0 = collapse threshold)
 	modelList []settingsModelEntry
 	agentList []gact.AgentDef
+	loadErr   string // set when loadSettingsCmd surfaces failures
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
@@ -60,20 +61,42 @@ type settingsModelEntry struct {
 }
 
 // loadSettingsCmd fetches providers + models + agents in parallel-ish (one
-// goroutine, sequential calls) and returns a settingsLoadedMsg.
+// goroutine, sequential calls) and returns a settingsLoadedMsg. Backends
+// without /v1/providers/{id}/models still get a populated settings modal —
+// each provider falls back to its declared default_model.
 func loadSettingsCmd(c *client.Client) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		providers, err := c.ListProviders(ctx)
 		if err != nil {
-			return errMsg{err: err, stage: "providers"}
+			return settingsLoadedMsg{loadErr: "providers: " + err.Error()}
 		}
 		var entries []settingsModelEntry
+		var perProviderErrs []string
 		for _, p := range providers {
-			models, err := c.ListProviderModels(ctx, p.ID)
-			if err != nil {
-				continue // skip provider on error rather than failing the whole modal
+			models, mErr := c.ListProviderModels(ctx, p.ID)
+			if mErr != nil {
+				perProviderErrs = append(perProviderErrs, p.ID+": "+mErr.Error())
+				if p.DefaultModel != "" {
+					entries = append(entries, settingsModelEntry{
+						provider: p.ID,
+						model: gact.Model{
+							ID:   p.DefaultModel,
+							Name: p.DefaultModel + " (default)",
+						},
+					})
+				}
+				continue
+			}
+			if len(models) == 0 && p.DefaultModel != "" {
+				entries = append(entries, settingsModelEntry{
+					provider: p.ID,
+					model: gact.Model{
+						ID:   p.DefaultModel,
+						Name: p.DefaultModel + " (default)",
+					},
+				})
 			}
 			for _, m := range models {
 				entries = append(entries, settingsModelEntry{provider: p.ID, model: m})
@@ -81,9 +104,16 @@ func loadSettingsCmd(c *client.Client) tea.Cmd {
 		}
 		agents, err := c.ListAgents(ctx)
 		if err != nil {
-			return errMsg{err: err, stage: "agents"}
+			return settingsLoadedMsg{
+				models:  entries,
+				loadErr: "agents: " + err.Error(),
+			}
 		}
-		return settingsLoadedMsg{models: entries, agents: agents}
+		loadErr := ""
+		if len(perProviderErrs) > 0 && len(entries) == 0 {
+			loadErr = "no model catalogs available: " + strings.Join(perProviderErrs, "; ")
+		}
+		return settingsLoadedMsg{models: entries, agents: agents, loadErr: loadErr}
 	}
 }
 
@@ -102,8 +132,9 @@ func applySettingsCmd(c *client.Client, sessionID string, model *gact.ModelRef, 
 }
 
 type settingsLoadedMsg struct {
-	models []settingsModelEntry
-	agents []gact.AgentDef
+	models  []settingsModelEntry
+	agents  []gact.AgentDef
+	loadErr string
 }
 
 type sessionUpdatedMsg struct {
@@ -129,7 +160,8 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		switch s.tab {
 		case 0:
-			if s.modelSel > 0 {
+			// modelSel == -1 is the "Change provider…" header row.
+			if s.modelSel > -1 {
 				s.modelSel--
 			}
 		case 1:
@@ -248,6 +280,16 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "enter":
 		switch s.tab {
+		case 0:
+			// modelSel == -1 → user is on the "Change provider…" row.
+			// Open the LM-config modal so the provider/model/key picker
+			// is reachable mid-session, not only on first connect.
+			if s.modelSel == -1 {
+				a.settingsOpen = false
+				a.lmConfigOpen = true
+				a.lmConfig = &lmConfigState{}
+				return a, lmConfigFetchCmd(a.c)
+			}
 		case 2:
 			// Theme apply is local — no backend PATCH. Live-swap the
 			// lipgloss Theme so the conversation redraws with the new
@@ -370,8 +412,23 @@ func (a *App) viewSettings() string {
 	case 0:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
 		rows = append(rows, "")
-		if len(s.modelList) == 0 {
+		// First row: explicit "Change provider…" entry that opens the
+		// LM-config modal. Surfaces the lm_config flow without forcing
+		// users to disconnect/reconnect to find it.
+		rows = append(rows, rowLine(s.modelSel == -1,
+			"Change provider…",
+			"open the LM provider/model picker"))
+		rows = append(rows, "")
+		if s.loadErr != "" {
+			rows = append(rows, lipgloss.NewStyle().
+				Foreground(t.Danger).Italic(true).Render(s.loadErr))
+			rows = append(rows, "")
+		}
+		if len(s.modelList) == 0 && s.loadErr == "" {
 			rows = append(rows, t.HintLabel.Render("loading…"))
+		} else if len(s.modelList) == 0 {
+			rows = append(rows, t.HintLabel.Italic(true).Render(
+				"backend reported no models. Use Change provider… above."))
 		}
 		for i, e := range s.modelList {
 			rows = append(rows, rowLine(i == s.modelSel,
