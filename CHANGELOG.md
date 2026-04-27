@@ -4,6 +4,26 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.2.1] — 2026-04-27
+
+The "lab-ready" release. Pairs with clio-agent v0.3.1 — every advertised
+capability is verified end-to-end through the TUI against the live CLIO.
+
+### Added
+- `/mcp`, `/tools`, `/catalog`, `/skills`, `/agents-list` registered as
+  builtin slash-commands in the palette so the user can discover them
+  without remembering the magic string. Each routes to its
+  `catalogBrowser` modal as before.
+- `SCREENSHOTS.md` index — every PNG under `screenshots/` paired with
+  the capability it proves and the tape that produced it.
+- `screenshots/clio_diff.png` — real CLIO diff path rendered inline.
+- `screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers
+  visible in the `/mcp` modal.
+
+### Notes
+- Test golden `TestView_PaletteOpen.golden` regenerated to include
+  the new builtin commands.
+
 ## [0.2.0] — 2026-04-25
 
 ### Added
