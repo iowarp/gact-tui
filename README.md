@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
-[![Contract: v0.1](https://img.shields.io/badge/Contract-v0.1-blueviolet.svg)](contract/SPEC.md)
+[![Contract: v0.2](https://img.shields.io/badge/Contract-v0.2-blueviolet.svg)](contract/SPEC.md)
 
 **Building a TUI for an agentic loop is hard.** Permission prompts, streaming
 partials, tool gating, diff apply/reject, MCP catalogs, SSE reconnects,
@@ -11,8 +11,12 @@ re-solves these in a slightly different way and locks you into their UI.
 
 **GACT inverts that:** define the wire contract once, build one good TUI,
 then write thin adapters for each backend. If your agent speaks
-[**GACT v0.1**](contract/SPEC.md) — REST + SSE, 16 conformance sections —
-the TUI works. **Extendable** (drop in a new adapter), **modifiable**
+[**GACT v0.2**](contract/SPEC.md) — REST + SSE — the TUI works. The
+canonical reference implementation is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
+a scientific-data agent that supports **28 of 30** v0.2 capabilities
+end-to-end (only LSP + voice intentionally out). See
+[`SCREENSHOTS.md`](SCREENSHOTS.md) for live captures of every advertised
+feature working through the TUI. **Extendable** (drop in a new adapter), **modifiable**
 (lipgloss themes + Bubbletea components all the way down), **scriptable**
 (~70 CLI subcommands alongside the interactive TUI).
 
