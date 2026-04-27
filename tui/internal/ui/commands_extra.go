@@ -111,6 +111,50 @@ func (a *App) openWorkspaceDiff() string {
 	return "git diff: " + strings.TrimSpace(string(statOut))
 }
 
+// currentRoutingMode reads the active session's routing_mode field, falling
+// back to "auto" when unset or no session is selected. Used by the /mode
+// cycle so each invocation moves to the next mode in sequence.
+func (a *App) currentRoutingMode() string {
+	if a.selected < 0 || a.selected >= len(a.sessions) {
+		return "auto"
+	}
+	mode := a.sessions[a.selected].RoutingMode
+	if mode == "" {
+		return "auto"
+	}
+	return mode
+}
+
+// nextRoutingMode rotates auto → chat → experts → auto. Three states is
+// enough that a quick cycle reaches the desired one without modal UI.
+func nextRoutingMode(cur string) string {
+	switch cur {
+	case "auto":
+		return "chat"
+	case "chat":
+		return "experts"
+	default:
+		return "auto"
+	}
+}
+
+// patchRoutingModeCmd PATCHes /v1/sessions/{id} with the new routing_mode.
+// On success the backend publishes session.updated which the SSE handler
+// already mirrors back into a.sessions.
+func patchRoutingModeCmd(c *client.Client, sessionID, mode string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := c.PatchSession(ctx, sessionID, client.PatchSessionRequest{
+			RoutingMode: &mode,
+		})
+		if err != nil {
+			return errMsg{err: err, stage: "patch-routing-mode"}
+		}
+		return nil
+	}
+}
+
 // requestCompactCmd POSTs to a (provisional) backend endpoint that asks the
 // server to summarise the conversation and reclaim context. CLIO doesn't
 // expose this endpoint yet — call returns 501/404 — but plumbing the

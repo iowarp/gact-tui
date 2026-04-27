@@ -476,6 +476,10 @@ type PatchSessionRequest struct {
 	Model    *gact.ModelRef  `json:"model,omitempty"`
 	Status   *string         `json:"status,omitempty"`
 	Metadata map[string]any  `json:"metadata,omitempty"`
+	// RoutingMode toggles the agent's routing override per session.
+	// "auto" = LM-based router; "chat" = force chat path (no /chat
+	// prefix needed); "experts" = reject chat/none routes.
+	RoutingMode *string `json:"routing_mode,omitempty"`
 }
 
 // --- §6.9 context files ----------------------------------------------------
