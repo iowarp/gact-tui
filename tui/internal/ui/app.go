@@ -357,6 +357,9 @@ type App struct {
 	// (everything except clio-agent-gact) skip this entirely.
 	lmConfigOpen bool
 	lmConfig     *lmConfigState
+	// Cached LM provider info (set on every lmConfigFetchedMsg). Powers
+	// the header model chip (#363) so we don't need a per-render fetch.
+	lmProviderInfo *client.LMProviderInfo
 	doctor     *doctorState
 
 	// MCP install / remove overlays. Tied to the /mcp-install +
@@ -975,6 +978,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.err != nil || m.info == nil {
 			return a, nil
 		}
+		// Cache for the header chip (#363) so renderHeader can show the
+		// active model without poking lmConfig (which is only populated
+		// when the modal is open).
+		a.lmProviderInfo = m.info
 		if a.lmConfigOpen {
 			// Modal was opened by the user (Settings → Change provider…)
 			// or already showing — populate with the freshly-fetched info.
@@ -4163,6 +4170,28 @@ func (a *App) renderHeader() string {
 			optional = append(optional, "agent: "+s.Agent.ID)
 		}
 	}
+	// CLIO-style backends ship a global LM config (PUT /v1/providers/lm)
+	// rather than a per-session ModelRef, so the per-session chip above
+	// stays empty. Surface the global config in the header too — strip
+	// any provider/ prefix for compactness.
+	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		bare := a.lmProviderInfo.Model
+		if i := strings.Index(bare, "/"); i >= 0 {
+			bare = bare[i+1:]
+		}
+		// Avoid duplicating when the per-session ModelRef already
+		// surfaced the same model id.
+		alreadyShown := false
+		for _, o := range optional {
+			if strings.HasPrefix(o, "model: ") && strings.HasSuffix(o, bare) {
+				alreadyShown = true
+				break
+			}
+		}
+		if !alreadyShown {
+			optional = append(optional, "model: "+bare)
+		}
+	}
 	statusBadge := ""
 	if a.currentStatus != "" {
 		statusBadge = t.StatusBadge.Render(a.currentStatus)
@@ -4273,9 +4302,13 @@ func (a *App) renderFooter() string {
 			case hr >= 0.50:
 				hrColor = t.Warning
 			}
+			// Label is "mem" (memory cache hit rate) — was bare "cache"
+			// which users reasonably read as context-window cache.
+			// Memory here = the agent's ARC memory layer; the rate is
+			// hits / (hits+misses).
 			chip := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(t.FgMuted).Padding(0, 1).
-				Render("cache")
+				Render("mem")
 			rate := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(hrColor).Bold(true).Padding(0, 1).
 				Render(fmt.Sprintf("%.0f%%", hr*100))
