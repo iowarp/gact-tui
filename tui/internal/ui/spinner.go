@@ -60,6 +60,42 @@ func (a *App) anySessionRunning() bool {
 	return false
 }
 
+// shouldShowThinkingIndicator decides whether to append a "thinking…"
+// row to the conversation. True when the current session is running AND
+// the latest visible message has no rendered text/tool parts yet — i.e.
+// the user is staring at their own message wondering if anything is
+// happening. Once the assistant streams a delta or fires a tool call,
+// the placeholder vanishes (real content takes over).
+func (a *App) shouldShowThinkingIndicator() bool {
+	if a.currentStatus != gact.StatusRunning &&
+		a.currentStatus != gact.StatusWaitingPermission {
+		return false
+	}
+	if len(a.messages) == 0 {
+		return true
+	}
+	last := a.messages[len(a.messages)-1]
+	// User just sent something; no assistant turn has started yet.
+	if last.Role == gact.RoleUser {
+		return true
+	}
+	// Assistant turn started but emitted no body yet (thinking parts on
+	// their own don't count as "visible content" for this signal — the
+	// thinking pane already conveys progress).
+	if last.Role == gact.RoleAssistant {
+		for _, p := range last.Parts {
+			switch p.Type {
+			case gact.PartTypeText, gact.PartTypeToolCall,
+				gact.PartTypeToolResult, gact.PartTypeFileDiff,
+				gact.PartTypeRoutingDecision:
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // sessionStatusDot renders the leading glyph for a session row in the
 // sidebar. Animates for running; static for waiting_permission and
 // idle. Colours are theme-aware so the light/dark palettes both read

@@ -941,11 +941,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.err != nil || m.info == nil {
 			return a, nil
 		}
-		if !m.info.Configured && !a.lmConfigOpen {
-			a.lmConfigOpen = true
-			a.lmConfig = &lmConfigState{
-				info: m.info,
+		if a.lmConfigOpen {
+			// Modal was opened by the user (Settings → Change provider…)
+			// or already showing — populate with the freshly-fetched info.
+			if a.lmConfig == nil {
+				a.lmConfig = &lmConfigState{}
 			}
+			a.lmConfig.info = m.info
+			a.lmConfigSyncFromPreset()
+			return a, nil
+		}
+		if !m.info.Configured {
+			a.lmConfigOpen = true
+			a.lmConfig = &lmConfigState{info: m.info}
 			a.lmConfigSyncFromPreset()
 		}
 		return a, nil
@@ -1320,6 +1328,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.settings.modelList = m.models
 		a.settings.agentList = m.agents
+		a.settings.loadErr = m.loadErr
 		// Pre-select current model/agent if present.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
@@ -1692,8 +1701,14 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.quitConfirmSelected = 0 // default: close
 		return a, nil
 	case "?":
-		a.helpOpen = true
-		return a, nil
+		// Only treat ? as help when focus is NOT on the input pane —
+		// otherwise we steal '?' from anyone trying to type a question
+		// mark. Sidebar/body navigation has no use for typed text.
+		if a.focus != FocusInput {
+			a.helpOpen = true
+			return a, nil
+		}
+		// Fall through to focus dispatch so the textarea consumes it.
 	case "tab":
 		a.focus = (a.focus + 1) % 3
 		a.maybeInitBodyCursor()
@@ -4593,6 +4608,17 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
+		}
+		// Pending-turn indicator: when the session is running but the latest
+		// message hasn't produced any visible parts yet (e.g. user just
+		// pressed Enter and the assistant hasn't streamed a delta), show a
+		// "● thinking…" stub so the user knows the system isn't dead.
+		if a.shouldShowThinkingIndicator() {
+			thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
+				Render(a.spinnerChar()) + " " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+					Render("CLIO is thinking…")
+			rows = append(rows, "", thinkLine)
 		}
 		body = strings.Join(rows, "\n")
 		// The pane's inner content height is msgH-2 (two border rows).

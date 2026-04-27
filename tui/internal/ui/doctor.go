@@ -297,12 +297,15 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 		return strings.Join(rows, "\n")
 	}
 
-	// Column widths: name 16, status 14, detail = rest. Clamp to innerW.
-	nameW := 16
-	statusW := 14
+	// Column widths: name 12, status 12, detail = rest. Clamp to innerW.
+	// Detail wraps onto continuation rows when it would otherwise truncate
+	// — better to read a long lm config across two lines than to lose the
+	// model id behind an ellipsis.
+	nameW := 12
+	statusW := 12
 	detailW := innerW - nameW - statusW - 4 // 4 = padding
-	if detailW < 20 {
-		detailW = 20
+	if detailW < 30 {
+		detailW = 30
 	}
 
 	tableHead := lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
@@ -311,10 +314,20 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 
 	for _, integ := range h.Integrations {
 		statusCell := doctorStatusCell(integ.Status, t)
-		row := padRight(integ.Name, nameW) +
-			padRight(statusCell, statusW) +
-			truncateString(integ.Detail, detailW)
-		rows = append(rows, row)
+		// Wrap the detail to detailW and indent continuation lines so the
+		// table grid stays aligned.
+		wrapped := wrap(integ.Detail, detailW)
+		wlines := strings.Split(wrapped, "\n")
+		for i, wl := range wlines {
+			if i == 0 {
+				rows = append(rows,
+					padRight(integ.Name, nameW)+
+						padRight(statusCell, statusW)+wl)
+			} else {
+				rows = append(rows,
+					strings.Repeat(" ", nameW+statusW)+wl)
+			}
+		}
 	}
 
 	return strings.Join(rows, "\n")
