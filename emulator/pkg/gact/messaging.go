@@ -113,6 +113,13 @@ type Session struct {
 	Agent              AgentRef       `json:"agent"`
 	Status             string         `json:"status"`
 	Metadata           map[string]any `json:"metadata,omitempty"`
+	// Mode + RoutingMode are CLIO-specific session knobs; other backends
+	// are free to omit them. RoutingMode "auto" runs the LM router;
+	// "chat" forces every turn through the chat path; "experts"
+	// rejects chat/none routes.
+	Mode        string `json:"mode,omitempty"`
+	EditMode    string `json:"edit_mode,omitempty"`
+	RoutingMode string `json:"routing_mode,omitempty"`
 }
 
 // Message is a turn in a session (SPEC §4.4).

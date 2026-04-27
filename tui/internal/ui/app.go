@@ -2143,6 +2143,19 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.transientHint = toast
 				extraCmds = append(extraCmds, scheduleHintExpire(toast))
 				return a, tea.Batch(extraCmds...)
+			case "/mode":
+				if sid == "" {
+					a.transientHint = "no active session — open or create one first"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				next := nextRoutingMode(a.currentRoutingMode())
+				a.transientHint = "routing mode → " + next
+				extraCmds = append(extraCmds,
+					scheduleHintExpire(a.transientHint),
+					patchRoutingModeCmd(a.c, sid, next),
+				)
+				return a, tea.Batch(extraCmds...)
 			case "/diff":
 				toast := a.openWorkspaceDiff()
 				a.transientHint = toast
@@ -2593,6 +2606,7 @@ func (a *App) paletteMatches() []gact.Command {
 		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
 		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
 		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
+		{ID: "/mode", Title: "Routing mode", Description: "Cycle: auto → chat → experts → auto (forces chat path or expert-only routing)", Source: "builtin"},
 		{ID: "/clear", Title: "Clear conversation", Description: "Wipe the on-screen conversation; session keeps its ID + settings", Source: "builtin"},
 		{ID: "/copy", Title: "Copy last reply", Description: "Copy the most recent assistant message to clipboard (or /tmp if no DISPLAY)", Source: "builtin"},
 		{ID: "/diff", Title: "Workspace diff", Description: "Show `git diff --stat` of the current working directory in a modal", Source: "builtin"},
