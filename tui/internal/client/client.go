@@ -556,6 +556,22 @@ func (c *Client) McpReconnect(ctx context.Context, serverID string) error {
 	return c.do(ctx, http.MethodPost, "/v1/mcp/servers/"+serverID+"/reconnect", nil, nil)
 }
 
+// McpInstall POSTs /v1/mcp/servers with a stdio or http transport spec.
+// Body shape (stdio): {name, transport:"stdio", command, args:[...], env:{...}}
+// Body shape (http):  {name, transport:"http",  url}
+// Returns the installed server's ID + tools list.
+func (c *Client) McpInstall(ctx context.Context, body map[string]any) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/mcp/servers", body, &out)
+	return out, err
+}
+
+// McpUninstall DELETEs /v1/mcp/servers/{id}. Bundled in-process servers
+// (mcp_fs/hdf5/parquet) cannot be removed and return 404.
+func (c *Client) McpUninstall(ctx context.Context, serverID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/mcp/servers/"+serverID, nil, nil)
+}
+
 // McpServerTools fetches the tools advertised by one MCP server via
 // /v1/mcp/servers/{id}/tools.
 func (c *Client) McpServerTools(ctx context.Context, serverID string) ([]gact.Tool, error) {

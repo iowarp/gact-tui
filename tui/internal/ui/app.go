@@ -359,6 +359,23 @@ type App struct {
 	lmConfig     *lmConfigState
 	doctor     *doctorState
 
+	// MCP install / remove overlays. Tied to the /mcp-install +
+	// /mcp-remove slash commands. State is intentionally tiny — install
+	// is a one-line input, remove is a picker over the current
+	// a.mcpServers slice (filtered to third-party).
+	mcpInstallOpen   bool
+	mcpInstallInput  string
+	mcpInstallErr    string
+	mcpInstallSaving bool
+	mcpRemoveOpen    bool
+	mcpRemoveOptions []gact.McpServer
+	mcpRemoveSel     int
+	mcpRemoveSaving  bool
+
+	// Cached MCP server list, populated each time /mcp opens. The remove
+	// modal reads from this so it doesn't need an extra round-trip.
+	mcpServers []gact.McpServer
+
 	// Workspace switcher overlay — ↑/↓ to navigate the current
 	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
 	// already-loaded workspace list (connectCmd populates it) so the
@@ -1322,6 +1339,56 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case mcpServersFetchedMsg:
+		a.mcpServers = m.servers
+		if a.mcpRemoveOpen {
+			a.mcpRemoveSaving = false
+			if m.err != nil {
+				a.transientHint = "mcp list failed: " + m.err.Error()
+				a.mcpRemoveOpen = false
+				return a, scheduleHintExpire(a.transientHint)
+			}
+			var removable []gact.McpServer
+			for _, s := range m.servers {
+				if s.Transport == "in_process" {
+					continue
+				}
+				removable = append(removable, s)
+			}
+			a.mcpRemoveOptions = removable
+			if len(removable) == 0 {
+				a.mcpRemoveOpen = false
+				a.transientHint = "no third-party MCPs installed (bundled servers cannot be removed)"
+				return a, scheduleHintExpire(a.transientHint)
+			}
+		}
+		return a, nil
+
+	case mcpInstallDoneMsg:
+		a.mcpInstallSaving = false
+		if m.err != nil {
+			a.mcpInstallErr = m.err.Error()
+			return a, nil
+		}
+		a.mcpInstallOpen = false
+		a.mcpInstallInput = ""
+		a.mcpInstallErr = ""
+		name, _ := m.result["name"].(string)
+		id, _ := m.result["id"].(string)
+		a.transientHint = fmt.Sprintf("installed MCP %s (%s)", name, id)
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
+
+	case mcpUninstallDoneMsg:
+		a.mcpRemoveSaving = false
+		if m.err != nil {
+			a.transientHint = "uninstall failed: " + m.err.Error()
+		} else {
+			a.transientHint = "removed " + m.serverID
+		}
+		a.mcpRemoveOpen = false
+		a.mcpRemoveOptions = nil
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
+
 	case settingsLoadedMsg:
 		if a.settings == nil {
 			a.settings = &settingsState{}
@@ -1640,6 +1707,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.lmConfigOpen {
 		return a.handleLMConfigKey(k)
+	}
+	if a.mcpInstallOpen {
+		return a.handleMcpInstallKey(k)
+	}
+	if a.mcpRemoveOpen {
+		return a.handleMcpRemoveKey(k)
 	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
@@ -2041,6 +2114,31 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case "/cancel":
 				a.transientHint = "cancelling run…"
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+			case "/copy":
+				toast := a.copyLastAssistantReplyToClipboard()
+				a.transientHint = toast
+				extraCmds = append(extraCmds, scheduleHintExpire(toast))
+				return a, tea.Batch(extraCmds...)
+			case "/diff":
+				toast := a.openWorkspaceDiff()
+				a.transientHint = toast
+				extraCmds = append(extraCmds, scheduleHintExpire(toast))
+				return a, tea.Batch(extraCmds...)
+			case "/compact":
+				if sid == "" {
+					a.transientHint = "no active session to compact"
+				} else {
+					a.transientHint = "compact requested — backend support is provisional"
+					extraCmds = append(extraCmds, requestCompactCmd(a.c, sid))
+				}
+				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+				return a, tea.Batch(extraCmds...)
+			case "/mcp-install":
+				a.openMcpInstallModal()
+				return a, tea.Batch(extraCmds...)
+			case "/mcp-remove":
+				extraCmds = append(extraCmds, a.openMcpRemoveModal())
+				return a, tea.Batch(extraCmds...)
 			}
 			// Any non-/clear action cancels a pending clear — same
 			// anti-accident pattern as K5's armed delete.
@@ -2464,15 +2562,19 @@ func (a *App) paletteMatches() []gact.Command {
 	}
 	localCmds := []gact.Command{
 		{ID: "/metrics", Title: "Metrics", Description: "Backend latency/cost/token totals", Source: "builtin"},
-		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette", Source: "builtin"},
-		{ID: "/theme-next", Title: "Theme →", Description: "Cycle to next palette", Source: "builtin"},
-		{ID: "/theme-prev", Title: "Theme ←", Description: "Cycle to previous palette", Source: "builtin"},
+		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette (Ctrl+Alt+T cycles without modal)", Source: "builtin"},
 		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
 		{ID: "/mcp", Title: "MCP servers", Description: "List bundled + installed MCP servers and their tools", Source: "builtin"},
+		{ID: "/mcp-install", Title: "Install MCP server", Description: "POST /v1/mcp/servers — opens a stdio/http install modal", Source: "builtin"},
+		{ID: "/mcp-remove", Title: "Remove MCP server", Description: "DELETE /v1/mcp/servers/{id} — pick from installed list", Source: "builtin"},
 		{ID: "/tools", Title: "Tools catalog", Description: "Unified catalog of every tool the agent can invoke", Source: "builtin"},
 		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
 		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
 		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
+		{ID: "/clear", Title: "Clear conversation", Description: "Wipe the on-screen conversation; session keeps its ID + settings", Source: "builtin"},
+		{ID: "/copy", Title: "Copy last reply", Description: "Copy the most recent assistant message to clipboard (or /tmp if no DISPLAY)", Source: "builtin"},
+		{ID: "/diff", Title: "Workspace diff", Description: "Show `git diff --stat` of the current working directory in a modal", Source: "builtin"},
+		{ID: "/compact", Title: "Compact session", Description: "Ask the backend to summarise the conversation and reclaim context", Source: "builtin"},
 	}
 	if a.caps.Capabilities.IntegrationHealth {
 		localCmds = append(localCmds, gact.Command{
@@ -3906,6 +4008,12 @@ func (a *App) viewMain() string {
 	}
 	if a.catalogBrowserOpen {
 		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
+	}
+	if a.mcpInstallOpen {
+		base = overlay(base, a.viewMcpInstall(), a.width, a.height)
+	}
+	if a.mcpRemoveOpen {
+		base = overlay(base, a.viewMcpRemove(), a.width, a.height)
 	}
 	// ZZZZZZZZZ1: quit-confirm sits on top of every other overlay so
 	// Ctrl+C inside (say) the palette always surfaces the "are you
