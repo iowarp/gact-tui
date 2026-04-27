@@ -2453,6 +2453,11 @@ func (a *App) paletteMatches() []gact.Command {
 		{ID: "/theme-next", Title: "Theme →", Description: "Cycle to next palette", Source: "builtin"},
 		{ID: "/theme-prev", Title: "Theme ←", Description: "Cycle to previous palette", Source: "builtin"},
 		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
+		{ID: "/mcp", Title: "MCP servers", Description: "List bundled + installed MCP servers and their tools", Source: "builtin"},
+		{ID: "/tools", Title: "Tools catalog", Description: "Unified catalog of every tool the agent can invoke", Source: "builtin"},
+		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
+		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
+		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
 	}
 	if a.caps.Capabilities.IntegrationHealth {
 		localCmds = append(localCmds, gact.Command{
