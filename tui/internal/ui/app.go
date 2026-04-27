@@ -758,22 +758,39 @@ func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 }
 
 // startSSECmd opens the SSE stream and returns the first event.
+//
+// Connection setup (StreamEvents → http.Client.Do) blocks until the
+// server returns the SSE response headers — for a healthy backend
+// that's <50 ms, but a wedged or slow-to-accept server can stall the
+// Update loop for the full HTTP timeout. Wrap the whole open inside
+// the returned tea.Cmd so the goroutine takes the hit, never the
+// render thread. The first event lands as a sseConnectedMsg that
+// stashes the channels on the app and arms waitForSSE.
 func (a *App) startSSECmd(sessionID string) tea.Cmd {
 	if a.sseCancel != nil {
 		a.sseCancel()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.sseCancel = cancel
-	events, errs, err := a.c.StreamEvents(ctx, client.EventStreamScope{
-		SessionID:   sessionID,
-		LastEventID: a.lastSeenSeqID,
-	})
-	if err != nil {
-		return func() tea.Msg { return errMsg{err: err, stage: "sse"} }
+	lastSeen := a.lastSeenSeqID
+	c := a.c
+	return func() tea.Msg {
+		events, errs, err := c.StreamEvents(ctx, client.EventStreamScope{
+			SessionID:   sessionID,
+			LastEventID: lastSeen,
+		})
+		if err != nil {
+			return errMsg{err: err, stage: "sse"}
+		}
+		return sseConnectedMsg{events: events, errs: errs}
 	}
-	a.sseEvents = events
-	a.sseErrs = errs
-	return waitForSSE(events, errs)
+}
+
+// sseConnectedMsg carries the freshly-opened SSE channels back to the
+// Update loop so it can stash them on App and arm waitForSSE.
+type sseConnectedMsg struct {
+	events <-chan client.SSEEvent
+	errs   <-chan error
 }
 
 func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
@@ -1231,6 +1248,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.selected = newIdx
 		return a, a.selectSession(newIdx)
+
+	case sseConnectedMsg:
+		// Stream just finished its handshake (off the Update goroutine).
+		// Stash the channels on App and start blocking on the first event.
+		a.sseEvents = m.events
+		a.sseErrs = m.errs
+		return a, waitForSSE(m.events, m.errs)
 
 	case sseEventMsg:
 		// Event arrival means the stream is healthy — reset the
