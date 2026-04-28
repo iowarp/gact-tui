@@ -2109,11 +2109,21 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// title filter so the user can immediately type to
 			// narrow the session list. Cheaper than a second
 			// dedicated modal and reuses the filter code path the
-			// sidebar already exercises on `/`.
+			// sidebar already exercises on 'f' (was '/').
+			//
+			// Critical: close the palette before handing focus to
+			// the sidebar, otherwise subsequent keystrokes keep
+			// landing in the palette filter (we just verified this
+			// with verify_plan_filter.png — typing 'PLAN' after
+			// /sessions ended up as palette filter 'sessionsPLAN').
 			if cmd.ID == "/sessions" {
+				a.paletteOpen = false
+				a.paletteFilter = ""
+				a.paletteSel = 0
 				a.focus = FocusSidebar
 				a.sessionFilterActive = true
 				a.filterSnapshot = a.sessionFilter
+				a.sessionFilter = ""
 				return a, nil
 			}
 
