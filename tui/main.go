@@ -2810,8 +2810,46 @@ func adapterBinFor(kind string) (string, error) {
 				}
 			}
 		}
+		// Discover common clio-agent install layouts so users who
+		// followed install.sh (~/.local/share/clio/...) or who keep
+		// the sibling layout (~/tui/clio-agent or alongside gact)
+		// don't have to set CLIO_AGENT_SRC manually.
+		home, _ := os.UserHomeDir()
+		candidates := []string{
+			filepath.Join(home, ".local/share/clio/clio-agent/.venv/bin/clio-agent-gact"),
+			filepath.Join(home, "tui/clio-agent/.venv/bin/clio-agent-gact"),
+		}
+		// Also probe directories adjacent to the gact binary itself.
+		if self, err := os.Executable(); err == nil {
+			selfDir := filepath.Dir(self)
+			candidates = append(candidates,
+				filepath.Join(selfDir, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+				filepath.Join(selfDir, "..", "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+			)
+		}
+		// And probe relative to CWD (e.g. user is sitting in /tui).
+		if cwd, err := os.Getwd(); err == nil {
+			candidates = append(candidates,
+				filepath.Join(cwd, "clio-agent", ".venv/bin/clio-agent-gact"),
+				filepath.Join(cwd, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+			)
+		}
+		for _, c := range candidates {
+			if st, err := os.Stat(c); err == nil && !st.IsDir() {
+				if abs, err := filepath.Abs(c); err == nil {
+					return abs, nil
+				}
+				return c, nil
+			}
+		}
 	}
-	return "", fmt.Errorf("%s not on PATH — install with: %s", exe, buildHint)
+	return "", fmt.Errorf(
+		"%s not on PATH and no install detected — try one of:\n"+
+			"  • install: %s\n"+
+			"  • set CLIO_AGENT_SRC=/path/to/clio-agent\n"+
+			"  • pass --bin /path/to/clio-agent-gact explicitly",
+		exe, buildHint,
+	)
 }
 
 // freePort asks the kernel for an ephemeral TCP port by binding
