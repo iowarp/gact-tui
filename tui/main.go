@@ -905,7 +905,13 @@ func runDiffApplyReject(args []string, apply bool) int {
 		err error
 	)
 	if apply {
-		hit, err = c.ApplyDiffs(ctx, sid, paths)
+		var werr map[string]string
+		hit, werr, err = c.ApplyDiffs(ctx, sid, paths)
+		if err == nil && len(werr) > 0 {
+			for p, e := range werr {
+				fmt.Fprintf(os.Stderr, "gact diff apply %s: %s\n", p, e)
+			}
+		}
 	} else {
 		hit, err = c.RejectDiffs(ctx, sid, paths)
 	}

@@ -681,17 +681,21 @@ func (c *Client) ImportSession(ctx context.Context, blob SessionExportBlob) (gac
 }
 
 // ApplyDiffs POST /v1/sessions/{id}/diffs/apply. paths is optional —
-// nil/empty means "apply all pending diffs".
-func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, error) {
+// nil/empty means "apply all pending diffs". Returns (applied, write_errors)
+// so the caller can surface per-path failures (workspace-scope refusals,
+// disk-full, permission errors etc) to the user instead of silently
+// dropping them.
+func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, map[string]string, error) {
 	body := map[string]any{}
 	if len(paths) > 0 {
 		body["paths"] = paths
 	}
 	var out struct {
-		Applied []string `json:"applied"`
+		Applied     []string          `json:"applied"`
+		WriteErrors map[string]string `json:"write_errors,omitempty"`
 	}
 	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/diffs/apply", body, &out)
-	return out.Applied, err
+	return out.Applied, out.WriteErrors, err
 }
 
 // RejectDiffs POST /v1/sessions/{id}/diffs/reject.

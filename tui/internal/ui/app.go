@@ -1484,6 +1484,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		// Surface write_errors as a transient hint. Was previously
+		// dropped silently — user pressed 'a' on a diff, backend
+		// recorded a write_error (e.g. workspace-scope refusal), and
+		// the user got no signal the write didn't happen.
+		if len(m.writeErrors) > 0 {
+			parts := make([]string, 0, len(m.writeErrors))
+			for path, err := range m.writeErrors {
+				parts = append(parts, fmt.Sprintf("%s: %s", path, err))
+			}
+			a.transientHint = "⚠ apply failed — " + strings.Join(parts, " · ")
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if len(m.paths) > 0 {
+			a.transientHint = fmt.Sprintf("applied %d file%s", len(m.paths), plural(len(m.paths)))
+			return a, scheduleHintExpire(a.transientHint)
+		}
 		return a, nil
 
 	case diffsRejectedMsg:
@@ -3215,11 +3231,11 @@ func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		applied, err := c.ApplyDiffs(ctx, sessionID, nil)
+		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, nil)
 		if err != nil {
 			return errMsg{err: err, stage: "apply-diffs"}
 		}
-		return diffsAppliedMsg{paths: applied}
+		return diffsAppliedMsg{paths: applied, writeErrors: writeErrors}
 	}
 }
 
@@ -5572,7 +5588,8 @@ type voiceTranscribedMsg struct {
 }
 
 type diffsAppliedMsg struct {
-	paths []string
+	paths       []string
+	writeErrors map[string]string
 }
 
 type diffsRejectedMsg struct {
