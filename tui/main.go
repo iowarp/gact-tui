@@ -3157,11 +3157,26 @@ func runAgentRm(args []string) int {
 // TUI pointed at it. Fails fast if the adapter isn't answering so
 // the user doesn't land in a TUI stuck at "connecting…".
 func runAgentConnect(args []string) int {
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact connect <name>  (or: gact agent connect <name>)")
+	// Split positional args from TUI passthrough flags. The agent name
+	// is the only positional we own; everything else (--no-intro,
+	// --backend override, etc.) gets forwarded to runTUI via os.Args.
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact connect <name> [--no-intro|...]  (or: gact agent connect <name>)")
 		return 2
 	}
-	name := args[0]
+	var name string
+	var passthrough []string
+	for _, a := range args {
+		if name == "" && !strings.HasPrefix(a, "-") {
+			name = a
+			continue
+		}
+		passthrough = append(passthrough, a)
+	}
+	if name == "" {
+		fmt.Fprintln(os.Stderr, "usage: gact connect <name> [--no-intro|...]  (or: gact agent connect <name>)")
+		return 2
+	}
 	path, err := config.AgentsPath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact connect: %v\n", err)
@@ -3182,11 +3197,13 @@ func runAgentConnect(args []string) int {
 		return 1
 	}
 	// Hand off to runTUI via the same GACT_BACKEND env trick other
-	// wrappers use.
+	// wrappers use. Forward any TUI passthrough flags the user
+	// supplied (--no-intro etc.) so `gact connect aurora-demo
+	// --no-intro` works without remembering to env-export.
 	backend := fmt.Sprintf("http://%s:%d", rec.Host, rec.Port)
 	_ = os.Setenv("GACT_BACKEND", backend)
 	fmt.Fprintf(os.Stderr, "connecting to agent %s at %s\n", name, backend)
-	os.Args = []string{os.Args[0]}
+	os.Args = append([]string{os.Args[0]}, passthrough...)
 	runTUI()
 	return 0
 }
