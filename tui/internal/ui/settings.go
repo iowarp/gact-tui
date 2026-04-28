@@ -367,6 +367,12 @@ func (a *App) viewSettings() string {
 			currentAgent = sess.Agent.ID
 		}
 	}
+	// CLIO-style backends ship a global LM config rather than per-session
+	// ModelRefs; surface it so the Settings 'current' line doesn't read
+	// '(unset)' even when /v1/providers/lm clearly has a model wired.
+	if currentModel == "" && a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		currentModel = a.lmProviderInfo.Provider + "/" + a.lmProviderInfo.Model
+	}
 
 	// LLL4: title bar — full-width Primary-background strip with the
 	// modal title in inverted text. Reads as a real header instead of
