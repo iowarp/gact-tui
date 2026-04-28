@@ -86,6 +86,15 @@ func (a *App) openWorkspaceDiff() string {
 		return "git diff: git not on PATH"
 	}
 
+	// Detect whether CWD is inside a git work tree first. Without
+	// this the "workspace clean" path also fires when CWD has no
+	// .git at all — confusing because "clean" implies a known repo.
+	check := exec.Command("git", "-C", cwd, "rev-parse", "--is-inside-work-tree")
+	if checkOut, checkErr := check.CombinedOutput(); checkErr != nil ||
+		strings.TrimSpace(string(checkOut)) != "true" {
+		return "git diff: " + cwd + " is not a git repo"
+	}
+
 	stat := exec.Command("git", "-C", cwd, "diff", "--stat")
 	statOut, statErr := stat.CombinedOutput()
 	if statErr != nil {

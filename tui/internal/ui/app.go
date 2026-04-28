@@ -2883,8 +2883,20 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.renameCursor = len(a.renameDraft)
 		return a, nil
 	case "/":
-		// Enter filter mode. Remember the current filter so Esc can
-		// restore it (the slash wasn't meant as a destructive action).
+		// User feedback: typing /<cmd> from sidebar focus used to
+		// enter sidebar filter mode and silently swallow the rest of
+		// the slash command (e.g. /clear became filter "clear" with
+		// "no matches"). Match the universal TUI convention: '/' opens
+		// the global command palette regardless of focus. Sidebar
+		// filter is now bound to 'f' (see below).
+		a.paletteOpen = true
+		a.paletteFilter = ""
+		a.paletteSel = 0
+		return a, nil
+	case "f":
+		// Sidebar filter — was '/' before. Same semantics: enter
+		// inline edit; Enter commits, Esc cancels + restores the
+		// previous filter.
 		a.sessionFilterActive = true
 		a.filterSnapshot = a.sessionFilter
 		return a, nil
