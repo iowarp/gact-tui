@@ -1012,23 +1012,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lmConfig.modelCatalogWarnings = map[string]string{}
 		}
 		if m.err == nil {
-			a.lmConfig.modelCatalogs[m.providerKind] = m.models
+			a.lmConfig.modelCatalogs[m.presetID] = m.models
 		} else {
-			a.lmConfig.modelCatalogs[m.providerKind] = nil
+			a.lmConfig.modelCatalogs[m.presetID] = nil
 		}
 		// Stash the backend's fallback reason (or transport error) so
 		// the picker can render an actionable banner. Empty string
 		// when the catalog came back live.
 		switch {
 		case m.err != nil:
-			a.lmConfig.modelCatalogWarnings[m.providerKind] =
+			a.lmConfig.modelCatalogWarnings[m.presetID] =
 				"transport error: " + m.err.Error()
 		case m.warning != "":
-			a.lmConfig.modelCatalogWarnings[m.providerKind] = m.warning
+			a.lmConfig.modelCatalogWarnings[m.presetID] = m.warning
 		default:
-			a.lmConfig.modelCatalogWarnings[m.providerKind] = ""
+			a.lmConfig.modelCatalogWarnings[m.presetID] = ""
 		}
-		if a.lmConfigCurrentProviderKind() == m.providerKind && len(m.models) > 0 {
+		if a.lmConfigCurrentPresetID() == m.presetID && len(m.models) > 0 {
 			suggested := ""
 			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
 				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel

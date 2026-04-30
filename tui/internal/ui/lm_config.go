@@ -61,16 +61,20 @@ type lmConfigState struct {
 	thinkingBudget string // empty = disabled
 	field          lmConfigField
 
-	// Model catalog cache, keyed by provider kind (multiple presets
-	// sharing a kind get the same catalog from the backend today).
+	// Model catalog cache, keyed by PRESET ID (not provider kind):
+	// argonne_sophia and argonne_metis share kind=argonne but hit
+	// totally different /jobs endpoints, so they MUST cache
+	// independently — otherwise switching presets shows the wrong
+	// cluster's data. Keyed-by-id also handles the future case of
+	// per-preset api_key overrides cleanly.
 	modelCatalogs map[string][]gact.Model
-	modelIndex    int // index into modelCatalogs[current kind]; -1 = "custom" (typed)
+	modelIndex    int // index into modelCatalogs[current preset id]; -1 = "custom"
 
 	// modelCatalogWarnings holds the backend's "we fell back because…"
-	// message keyed by provider kind. Rendered as a yellow banner above
-	// the model list when non-empty so the user sees actionable hints
-	// like "ALCF token expired — re-auth with X" instead of a silently
-	// stale catalog.
+	// message keyed by preset ID (same rationale as modelCatalogs).
+	// Rendered as a yellow banner above the model list so the user
+	// sees actionable hints like "ALCF token expired — re-auth with
+	// X" instead of a silently stale catalog.
 	modelCatalogWarnings map[string]string
 
 	// advancedExpanded gates the Temperature / Max tokens / Thinking
@@ -211,8 +215,8 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if a.lmConfig.info == nil {
 				return a, nil
 			}
-			kind := a.lmConfigCurrentProviderKind()
-			catalog := a.lmConfig.modelCatalogs[kind]
+			pid := a.lmConfigCurrentPresetID()
+			catalog := a.lmConfig.modelCatalogs[pid]
 			n := len(catalog)
 			if n == 0 {
 				return a, nil
@@ -342,20 +346,35 @@ func (a *App) lmConfigSyncFromPreset() tea.Cmd {
 		return nil
 	}
 	p := a.lmConfig.info.Presets[a.lmConfig.selected]
-	if a.lmConfig.model == "" {
-		a.lmConfig.model = p.SuggestedModel
-	}
+	// Always reset to this preset's suggested model on a preset
+	// switch — otherwise stale values like "gpt-4o-mini" linger after
+	// the user navigates from openai → argonne_metis. The user can
+	// still type a custom id (which flips modelIndex to -1); the
+	// modelCatalog-loaded handler then snaps back to the suggested
+	// row when the catalog arrives.
+	a.lmConfig.model = p.SuggestedModel
 	a.lmConfig.modelIndex = -1
-	kind := p.Provider
-	if kind != "" {
-		if a.lmConfig.modelCatalogs == nil {
-			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
-		}
-		if _, cached := a.lmConfig.modelCatalogs[kind]; !cached {
-			return lmConfigFetchModelsCmd(a.c, kind)
-		}
+	if a.lmConfig.modelCatalogs == nil {
+		a.lmConfig.modelCatalogs = map[string][]gact.Model{}
+	}
+	if _, cached := a.lmConfig.modelCatalogs[p.ID]; !cached {
+		return lmConfigFetchModelsCmd(a.c, p.ID)
 	}
 	return nil
+}
+
+// lmConfigCurrentPresetID returns the preset id (e.g. "argonne_sophia",
+// "argonne_metis", "anthropic") for the highlighted preset, or "" if
+// nothing is selected. Used as the catalog cache key so presets that
+// share a provider kind don't trample each other's catalogs.
+func (a *App) lmConfigCurrentPresetID() string {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return ""
+	}
+	if a.lmConfig.selected < 0 || a.lmConfig.selected >= len(a.lmConfig.info.Presets) {
+		return ""
+	}
+	return a.lmConfig.info.Presets[a.lmConfig.selected].ID
 }
 
 // lmConfigCurrentProviderKind returns the provider kind for the
@@ -370,33 +389,36 @@ func (a *App) lmConfigCurrentProviderKind() string {
 	return a.lmConfig.info.Presets[a.lmConfig.selected].Provider
 }
 
-// lmConfigModelsLoadedMsg carries the model catalog for one provider
-// kind so the modal can populate the Model picker. Source/warning
-// surface fallback context (e.g. "ALCF token expired — re-auth")
-// when the backend couldn't talk to the upstream catalog endpoint.
+// lmConfigModelsLoadedMsg carries the model catalog for one PRESET so
+// the modal can populate the Model picker. Source/warning surface
+// fallback context (e.g. "ALCF token expired — re-auth") when the
+// backend couldn't talk to the upstream catalog endpoint.
+//
+// Keyed by preset id, NOT provider kind, so multiple Argonne clusters
+// (sophia / metis) keep independent catalogs even though they share
+// kind="argonne".
 type lmConfigModelsLoadedMsg struct {
-	providerKind string
-	models       []gact.Model
-	source       string // "live" / "static_fallback" / ""
-	warning      string // backend error message, empty when live
-	err          error  // transport-level failure (different from a backend warning)
+	presetID string
+	models   []gact.Model
+	source   string // "live" / "static_fallback" / ""
+	warning  string // backend error message, empty when live
+	err      error  // transport-level failure (different from a backend warning)
 }
 
-// lmConfigFetchModelsCmd issues GET /v1/providers/{kind}/models and
-// surfaces the source + warning fields so the picker can render
-// "this is stale because X" instead of silently pretending stale data
-// is fresh.
-func lmConfigFetchModelsCmd(c *client.Client, providerKind string) tea.Cmd {
+// lmConfigFetchModelsCmd issues GET /v1/providers/{preset_id}/models
+// (the backend resolves preset id → cluster + framework path) and
+// surfaces source + warning so the picker can render "stale because X".
+func lmConfigFetchModelsCmd(c *client.Client, presetID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		resp, err := c.ListProviderModelsDetailed(ctx, providerKind)
+		resp, err := c.ListProviderModelsDetailed(ctx, presetID)
 		return lmConfigModelsLoadedMsg{
-			providerKind: providerKind,
-			models:       resp.Models,
-			source:       resp.Source,
-			warning:      resp.Error,
-			err:          err,
+			presetID: presetID,
+			models:   resp.Models,
+			source:   resp.Source,
+			warning:  resp.Error,
+			err:      err,
 		}
 	}
 }
@@ -628,15 +650,15 @@ func (a *App) renderLMConfigModelList(innerW int) string {
 		headerStyle = headerStyle.Foreground(t.Secondary)
 	}
 
-	kind := a.lmConfigCurrentProviderKind()
-	catalog := a.lmConfig.modelCatalogs[kind]
+	pid := a.lmConfigCurrentPresetID()
+	catalog := a.lmConfig.modelCatalogs[pid]
 
 	// Build the warning banner first so it sits ABOVE the picker
 	// header — the user sees "stale because X, run Y" before the
 	// list and can act before they pick the wrong row. Banner is
 	// only rendered when the backend told us it fell back; if the
 	// list is live (or we never tried to fetch), it stays empty.
-	warning := a.lmConfig.modelCatalogWarnings[kind]
+	warning := a.lmConfig.modelCatalogWarnings[pid]
 	bannerLine := ""
 	if warning != "" {
 		bannerLine = lipgloss.NewStyle().
