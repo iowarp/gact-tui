@@ -449,6 +449,27 @@ func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]g
 	return out.Models, err
 }
 
+// ProviderModelsResponse is the full /v1/providers/{id}/models body —
+// includes Source ("live"/"static_fallback") and a human-readable
+// Error string when the backend fell back. Lets the TUI render an
+// actionable banner ("token expired, run …") instead of silently
+// pretending a stale catalog is the truth.
+type ProviderModelsResponse struct {
+	Models []gact.Model `json:"models"`
+	Source string       `json:"source,omitempty"`
+	Error  string       `json:"error,omitempty"`
+}
+
+// ListProviderModelsDetailed returns the full response so callers
+// can surface fallback warnings. Newer call sites should prefer this
+// over ListProviderModels (which discards the source/error fields
+// for backward compat).
+func (c *Client) ListProviderModelsDetailed(ctx context.Context, providerID string) (ProviderModelsResponse, error) {
+	var out ProviderModelsResponse
+	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
+	return out, err
+}
+
 // ProviderAuthRequest is the body of POST /v1/providers/{id}/auth.
 // Both fields are optional and provider-specific:
 //
