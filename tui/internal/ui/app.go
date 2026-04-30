@@ -1515,6 +1515,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		// Close the Settings modal if it was driving the PATCH (the
+		// shared LM-config widgets dispatch through here in session-
+		// patch mode). Surface a transient hint so the user has a
+		// confirmation cue without needing to re-open the modal.
+		if a.settingsOpen && a.lmConfig != nil && a.lmConfig.sessionPatchMode {
+			a.settingsOpen = false
+			a.lmConfig.saving = false
+			ref := m.session.Model
+			if ref.ProviderID != "" {
+				a.transientHint = "model: " + ref.ProviderID + "/" + ref.ModelID
+			}
+		}
 		return a, nil
 
 	case diffsAppliedMsg:
@@ -1931,7 +1943,24 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if themeName(a.Theme) == "light" {
 			a.settings.themeSel = 1
 		}
-		return a, loadSettingsCmd(a.c)
+		// Tab 0 (Model) reuses the LM-config picker widgets — pre-
+		// initialise lmConfig state in session-patch mode so Save
+		// PATCHes the current session (not the global LM config).
+		// targetSessionID captured here so navigating the sidebar
+		// mid-pick doesn't accidentally retarget.
+		if a.lmConfig == nil {
+			a.lmConfig = &lmConfigState{
+				sessionPatchMode: true,
+				targetSessionID:  a.currentSessionID(),
+			}
+		} else {
+			a.lmConfig.sessionPatchMode = true
+			a.lmConfig.targetSessionID = a.currentSessionID()
+		}
+		return a, tea.Batch(
+			loadSettingsCmd(a.c),
+			lmConfigFetchCmd(a.c),
+		)
 	case "ctrl+t":
 		// Open Metrics modal.
 		a.metricsOpen = true

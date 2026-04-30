@@ -79,6 +79,20 @@ type lmConfigState struct {
 	// numeric tuning.
 	advancedExpanded bool
 
+	// sessionPatchMode chooses where Save dispatches. When true, the
+	// modal is acting as a per-session model picker (PATCH
+	// /v1/sessions/{sid} with just a ModelRef) — the global LM config
+	// stays untouched, and api_key / temperature / max_tokens /
+	// thinking_budget are ignored at save time. When false (default,
+	// the on-startup case), Save calls PUT /v1/providers/lm to
+	// reconfigure the backend's global LM. Wired by Settings → Model
+	// (PATCH) vs lifecycle-prompt (PUT).
+	sessionPatchMode bool
+	// targetSessionID is the session to PATCH when sessionPatchMode
+	// is true. Captured at modal-open time so the user navigating
+	// the sidebar mid-pick doesn't accidentally retarget the save.
+	targetSessionID string
+
 	saving bool
 }
 
@@ -399,12 +413,35 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 	if model == "" {
 		model = p.SuggestedModel
 	}
+	a.lmConfig.saving = true
+	a.lmConfig.err = nil
+
+	// Two save paths share the same picker UI:
+	//   1. session-patch: PATCH /v1/sessions/{sid} with just a
+	//      ModelRef. Used when the modal was opened from Settings →
+	//      Model tab; the global LM config stays untouched. API key /
+	//      temperature / max_tokens / thinking_budget are ignored at
+	//      save time (PATCH endpoint doesn't take them).
+	//   2. global-PUT: PUT /v1/providers/lm with the full set. Used
+	//      on the first-connect lifecycle prompt to wire CLIO's LM
+	//      from scratch.
+	if a.lmConfig.sessionPatchMode {
+		sid := a.lmConfig.targetSessionID
+		if sid == "" {
+			sid = a.currentSessionID()
+		}
+		if sid == "" {
+			a.lmConfig.saving = false
+			return nil
+		}
+		ref := &gact.ModelRef{ProviderID: p.Provider, ModelID: model}
+		return applySettingsCmd(a.c, sid, ref, nil)
+	}
+
 	apiKey := a.lmConfig.apiKey
 	if apiKey == "" {
 		apiKey = "x"
 	}
-	a.lmConfig.saving = true
-	a.lmConfig.err = nil
 	req := client.LMProviderRequest{
 		Provider: p.Provider,
 		APIBase:  p.APIBase,
