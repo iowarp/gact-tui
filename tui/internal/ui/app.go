@@ -1008,10 +1008,25 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.lmConfig.modelCatalogs == nil {
 			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
 		}
+		if a.lmConfig.modelCatalogWarnings == nil {
+			a.lmConfig.modelCatalogWarnings = map[string]string{}
+		}
 		if m.err == nil {
 			a.lmConfig.modelCatalogs[m.providerKind] = m.models
 		} else {
 			a.lmConfig.modelCatalogs[m.providerKind] = nil
+		}
+		// Stash the backend's fallback reason (or transport error) so
+		// the picker can render an actionable banner. Empty string
+		// when the catalog came back live.
+		switch {
+		case m.err != nil:
+			a.lmConfig.modelCatalogWarnings[m.providerKind] =
+				"transport error: " + m.err.Error()
+		case m.warning != "":
+			a.lmConfig.modelCatalogWarnings[m.providerKind] = m.warning
+		default:
+			a.lmConfig.modelCatalogWarnings[m.providerKind] = ""
 		}
 		if a.lmConfigCurrentProviderKind() == m.providerKind && len(m.models) > 0 {
 			suggested := ""

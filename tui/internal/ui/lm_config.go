@@ -66,6 +66,13 @@ type lmConfigState struct {
 	modelCatalogs map[string][]gact.Model
 	modelIndex    int // index into modelCatalogs[current kind]; -1 = "custom" (typed)
 
+	// modelCatalogWarnings holds the backend's "we fell back because…"
+	// message keyed by provider kind. Rendered as a yellow banner above
+	// the model list when non-empty so the user sees actionable hints
+	// like "ALCF token expired — re-auth with X" instead of a silently
+	// stale catalog.
+	modelCatalogWarnings map[string]string
+
 	// advancedExpanded gates the Temperature / Max tokens / Thinking
 	// budget fields. Collapsed by default — most users want
 	// "the model's defaults" and shouldn't have to think about
@@ -350,22 +357,31 @@ func (a *App) lmConfigCurrentProviderKind() string {
 }
 
 // lmConfigModelsLoadedMsg carries the model catalog for one provider
-// kind so the modal can populate the Model picker.
+// kind so the modal can populate the Model picker. Source/warning
+// surface fallback context (e.g. "ALCF token expired — re-auth")
+// when the backend couldn't talk to the upstream catalog endpoint.
 type lmConfigModelsLoadedMsg struct {
 	providerKind string
 	models       []gact.Model
-	err          error
+	source       string // "live" / "static_fallback" / ""
+	warning      string // backend error message, empty when live
+	err          error  // transport-level failure (different from a backend warning)
 }
 
-// lmConfigFetchModelsCmd issues GET /v1/providers/{kind}/models.
+// lmConfigFetchModelsCmd issues GET /v1/providers/{kind}/models and
+// surfaces the source + warning fields so the picker can render
+// "this is stale because X" instead of silently pretending stale data
+// is fresh.
 func lmConfigFetchModelsCmd(c *client.Client, providerKind string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		models, err := c.ListProviderModels(ctx, providerKind)
+		resp, err := c.ListProviderModelsDetailed(ctx, providerKind)
 		return lmConfigModelsLoadedMsg{
 			providerKind: providerKind,
-			models:       models,
+			models:       resp.Models,
+			source:       resp.Source,
+			warning:      resp.Error,
 			err:          err,
 		}
 	}
@@ -577,12 +593,28 @@ func (a *App) renderLMConfigModelList(innerW int) string {
 
 	kind := a.lmConfigCurrentProviderKind()
 	catalog := a.lmConfig.modelCatalogs[kind]
+
+	// Build the warning banner first so it sits ABOVE the picker
+	// header — the user sees "stale because X, run Y" before the
+	// list and can act before they pick the wrong row. Banner is
+	// only rendered when the backend told us it fell back; if the
+	// list is live (or we never tried to fetch), it stays empty.
+	warning := a.lmConfig.modelCatalogWarnings[kind]
+	bannerLine := ""
+	if warning != "" {
+		bannerLine = lipgloss.NewStyle().
+			Foreground(t.Warning).Bold(true).
+			Render("⚠ stale catalog · ") +
+			lipgloss.NewStyle().Foreground(t.Warning).
+				Render(truncateString(warning, innerW-4)) + "\n"
+	}
+
 	if len(catalog) == 0 {
 		header := headerStyle.Render("Model") + "   " +
 			lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(
 				"(no catalog — type a model id manually)",
 			)
-		return header + "\n" + lmConfigField_render(
+		return bannerLine + header + "\n" + lmConfigField_render(
 			"", a.lmConfig.model, false, focused, t,
 		)
 	}
@@ -624,7 +656,7 @@ func (a *App) renderLMConfigModelList(innerW int) string {
 			fmt.Sprintf("    … %d more (←/→ to scroll)", len(catalog)-end),
 		))
 	}
-	return strings.Join(rows, "\n")
+	return bannerLine + strings.Join(rows, "\n")
 }
 
 // renderLMConfigAdvancedToggle renders the ▶/▼ row.
