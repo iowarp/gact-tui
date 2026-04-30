@@ -449,6 +449,39 @@ func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]g
 	return out.Models, err
 }
 
+// ProviderAuthRequest is the body of POST /v1/providers/{id}/auth.
+// Both fields are optional and provider-specific:
+//
+//   - Force re-drives the OAuth handshake even if a cached token is
+//     still valid.
+//   - APIKey carries a user-pasted API key for AuthMethodAPIKey
+//     providers; the backend persists it on the running process.
+type ProviderAuthRequest struct {
+	Force  bool   `json:"force,omitempty"`
+	APIKey string `json:"api_key,omitempty"`
+}
+
+// ProviderAuthResponse is what the backend returns after an auth
+// attempt. RedirectURL is set when the backend wants the TUI to open
+// a browser tab; Instructions is a human-readable fallback when the
+// backend can only print to its own terminal.
+type ProviderAuthResponse struct {
+	IsAuthenticated bool   `json:"is_authenticated"`
+	ProviderID      string `json:"provider_id"`
+	RedirectURL     string `json:"redirect_url,omitempty"`
+	Instructions    string `json:"instructions,omitempty"`
+}
+
+// AuthProvider drives POST /v1/providers/{id}/auth. The caller's
+// responsibility to gate on AuthProvider.NeedsLogin() before invoking.
+func (c *Client) AuthProvider(
+	ctx context.Context, providerID string, req ProviderAuthRequest,
+) (ProviderAuthResponse, error) {
+	var out ProviderAuthResponse
+	err := c.do(ctx, http.MethodPost, "/v1/providers/"+providerID+"/auth", req, &out)
+	return out, err
+}
+
 // --- §6.13 commands --------------------------------------------------------
 
 func (c *Client) ListCommands(ctx context.Context) ([]gact.Command, error) {

@@ -56,7 +56,10 @@ const (
 const settingsTabCount = 4
 
 type settingsModelEntry struct {
-	provider string
+	// provider carries the full provider record (auth_methods +
+	// is_authenticated) so the model picker can render a 🔒 badge
+	// next to entries from providers that still need login.
+	provider gact.AuthProvider
 	model    gact.Model
 }
 
@@ -75,12 +78,13 @@ func loadSettingsCmd(c *client.Client) tea.Cmd {
 		var entries []settingsModelEntry
 		var perProviderErrs []string
 		for _, p := range providers {
+			ap := gact.WrapProvider(p)
 			models, mErr := c.ListProviderModels(ctx, p.ID)
 			if mErr != nil {
 				perProviderErrs = append(perProviderErrs, p.ID+": "+mErr.Error())
 				if p.DefaultModel != "" {
 					entries = append(entries, settingsModelEntry{
-						provider: p.ID,
+						provider: ap,
 						model: gact.Model{
 							ID:   p.DefaultModel,
 							Name: p.DefaultModel + " (default)",
@@ -91,7 +95,7 @@ func loadSettingsCmd(c *client.Client) tea.Cmd {
 			}
 			if len(models) == 0 && p.DefaultModel != "" {
 				entries = append(entries, settingsModelEntry{
-					provider: p.ID,
+					provider: ap,
 					model: gact.Model{
 						ID:   p.DefaultModel,
 						Name: p.DefaultModel + " (default)",
@@ -99,7 +103,7 @@ func loadSettingsCmd(c *client.Client) tea.Cmd {
 				})
 			}
 			for _, m := range models {
-				entries = append(entries, settingsModelEntry{provider: p.ID, model: m})
+				entries = append(entries, settingsModelEntry{provider: ap, model: m})
 			}
 		}
 		agents, err := c.ListAgents(ctx)
@@ -322,7 +326,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		var agentRef *gact.AgentRef
 		if s.tab == 0 && s.modelSel < len(s.modelList) {
 			e := s.modelList[s.modelSel]
-			modelRef = &gact.ModelRef{ProviderID: e.provider, ModelID: e.model.ID}
+			modelRef = &gact.ModelRef{ProviderID: e.provider.ID, ModelID: e.model.ID}
 		}
 		if s.tab == 1 && s.agentSel < len(s.agentList) {
 			a := s.agentList[s.agentSel]
@@ -438,7 +442,7 @@ func (a *App) viewSettings() string {
 		}
 		for i, e := range s.modelList {
 			rows = append(rows, rowLine(i == s.modelSel,
-				e.provider+"/"+e.model.ID, e.model.Name))
+				e.provider.ID+"/"+e.model.ID, e.model.Name))
 		}
 	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
