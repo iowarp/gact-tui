@@ -151,6 +151,18 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.settings = &settingsState{}
 	}
 	s := a.settings
+	// Tab 0 (Model) reuses the LM-config picker widgets — same render,
+	// same handler, just dispatched in session-patch mode (PATCH
+	// /v1/sessions/{sid} with just the ModelRef). No replication: the
+	// lm_config codepath is the single source of truth for the picker
+	// UX. Tab/Shift+Tab still cycle Settings tabs; everything else
+	// goes to handleLMConfigKey when on tab 0.
+	if s.tab == 0 && a.lmConfig != nil {
+		key := k.String()
+		if key != "tab" && key != "shift+tab" && key != "esc" && key != "ctrl+s" {
+			return a.handleLMConfigKey(k)
+		}
+	}
 	switch k.String() {
 	case "esc", "ctrl+s":
 		a.settingsOpen = false
@@ -345,7 +357,14 @@ func (a *App) viewSettings() string {
 		a.settings = &settingsState{}
 	}
 	s := a.settings
+	// Wider modal for the Model tab so the LM-config picker's lists
+	// fit HF-style ids without wrapping. Other tabs use the standard
+	// modalWidth. Settings users get the wide layout exactly when
+	// they need it, not always.
 	w := a.modalWidth()
+	if s.tab == 0 {
+		w = a.detailModalWidth()
+	}
 
 	tabs := func(i int) string {
 		labels := []string{"Model", "Agent", "Theme", "TUI"}
@@ -420,29 +439,19 @@ func (a *App) viewSettings() string {
 
 	switch s.tab {
 	case 0:
+		// Tab 0 (Model) reuses the LM-config picker widgets verbatim.
+		// Same render, same handler, same per-row scrollable list view
+		// the lifecycle modal uses on first connect. ONE picker
+		// implementation; this tab and that lifecycle prompt share it.
+		// Save here PATCHes the session (sessionPatchMode=true,
+		// targetSessionID=current); save there PUTs global.
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
 		rows = append(rows, "")
-		// First row: explicit "Change provider…" entry that opens the
-		// LM-config modal. Surfaces the lm_config flow without forcing
-		// users to disconnect/reconnect to find it.
-		rows = append(rows, rowLine(s.modelSel == -1,
-			"Change provider…",
-			"open the LM provider/model picker"))
-		rows = append(rows, "")
-		if s.loadErr != "" {
-			rows = append(rows, lipgloss.NewStyle().
-				Foreground(t.Danger).Italic(true).Render(s.loadErr))
-			rows = append(rows, "")
-		}
-		if len(s.modelList) == 0 && s.loadErr == "" {
-			rows = append(rows, t.HintLabel.Render("loading…"))
-		} else if len(s.modelList) == 0 {
+		if a.lmConfig == nil {
 			rows = append(rows, t.HintLabel.Italic(true).Render(
-				"backend reported no models. Use Change provider… above."))
-		}
-		for i, e := range s.modelList {
-			rows = append(rows, rowLine(i == s.modelSel,
-				e.provider.ID+"/"+e.model.ID, e.model.Name))
+				"loading provider catalog…"))
+		} else {
+			rows = append(rows, a.renderLMConfigBody(w-4))
 		}
 	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
