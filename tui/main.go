@@ -2941,13 +2941,38 @@ func runAgentDeploy(args []string) int {
 		}
 	}
 
-	// Spawn detached. Stdout/stderr go to /dev/null so the parent
-	// shell isn't polluted; users can redirect to a log file via
-	// --bin "sh -c …" if they want to capture adapter chatter.
+	// Spawn detached. Stdin → /dev/null. Stdout/stderr go to a
+	// per-deploy log file under $XDG_CONFIG_HOME/gact/logs/ so a
+	// crashed adapter leaves a forensic trail instead of vanishing
+	// into the void. Path is stamped on the AgentRecord and printed
+	// to the user; falls back to /dev/null if the logs dir can't be
+	// created (rare — read-only home, etc.).
 	null, _ := os.Open(os.DevNull)
 	defer null.Close()
-	nullOut, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	defer nullOut.Close()
+	var spawnOut *os.File
+	logPath := ""
+	{
+		agentsCfgPath, perr := config.AgentsPath()
+		if perr == nil {
+			logsDir := filepath.Join(filepath.Dir(agentsCfgPath), "logs")
+			if mkErr := os.MkdirAll(logsDir, 0o755); mkErr == nil {
+				stamp := time.Now().UTC().Format("20060102-150405")
+				logPath = filepath.Join(logsDir, fmt.Sprintf("%s-%s.log", name, stamp))
+				if f, openErr := os.OpenFile(
+					logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644,
+				); openErr == nil {
+					spawnOut = f
+					_, _ = fmt.Fprintf(spawnOut,
+						"=== %s deploy %s pid=? bin=%s ===\n",
+						stamp, name, bin)
+				}
+			}
+		}
+	}
+	if spawnOut == nil {
+		spawnOut, _ = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		logPath = ""
+	}
 
 	// CLIO-BBBBBBBBBB12: per-kind spawn arg shapes. claudecode +
 	// future Go adapters take --cwd; clio-agent-gact's main() only
@@ -2959,8 +2984,8 @@ func runAgentDeploy(args []string) int {
 		spawnArgs = append(spawnArgs, "--cwd", cwd)
 	}
 	cmd := exec.Command(bin, spawnArgs...)
-	cmd.Stdout = nullOut
-	cmd.Stderr = nullOut
+	cmd.Stdout = spawnOut
+	cmd.Stderr = spawnOut
 	cmd.Stdin = null
 	// Detach: new session so Ctrl+C on the parent doesn't kill
 	// the adapter.
@@ -3005,6 +3030,7 @@ func runAgentDeploy(args []string) int {
 		Name: name, Kind: kind, Bin: bin,
 		Host: *hostFlag, Port: port, PID: cmd.Process.Pid,
 		Cwd: cwd, StartedAt: time.Now().UTC(),
+		LogPath: logPath,
 	}
 	if _, err := config.UpsertAgent(path, rec); err != nil {
 		fmt.Fprintf(os.Stderr, "gact agent deploy: register: %v\n", err)
@@ -3014,6 +3040,9 @@ func runAgentDeploy(args []string) int {
 	_ = cmd.Process.Release()
 	fmt.Fprintf(os.Stderr, "deployed %s (kind=%s) pid=%d at http://%s:%d\n",
 		name, kind, rec.PID, rec.Host, rec.Port)
+	if logPath != "" {
+		fmt.Fprintf(os.Stderr, "logs: %s\n", logPath)
+	}
 	fmt.Fprintf(os.Stderr, "connect with: gact connect %s\n", name)
 	return 0
 }

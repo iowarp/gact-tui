@@ -24,6 +24,10 @@ type AgentRecord struct {
 	PID       int       `json:"pid"`      // OS pid of the adapter process (0 if unknown)
 	Cwd       string    `json:"cwd"`      // working directory passed at spawn time
 	StartedAt time.Time `json:"started_at"`
+	// LogPath is where the spawn's stdout/stderr were redirected at
+	// deploy time. Empty for adapters spawned before the log-redirect
+	// feature landed (registry rows persist across upgrades).
+	LogPath string `json:"log_path,omitempty"`
 }
 
 // AgentRegistry is the on-disk shape: a JSON object with a single
