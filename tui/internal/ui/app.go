@@ -989,13 +989,46 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.lmConfig = &lmConfigState{}
 			}
 			a.lmConfig.info = m.info
-			a.lmConfigSyncFromPreset()
-			return a, nil
+			return a, a.lmConfigSyncFromPreset()
 		}
 		if !m.info.Configured {
 			a.lmConfigOpen = true
 			a.lmConfig = &lmConfigState{info: m.info}
-			a.lmConfigSyncFromPreset()
+			return a, a.lmConfigSyncFromPreset()
+		}
+		return a, nil
+
+	case lmConfigModelsLoadedMsg:
+		// Cache catalog for current provider kind. If still on the
+		// matching preset and not typing custom, snap modelIndex to
+		// suggested model.
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		if a.lmConfig.modelCatalogs == nil {
+			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
+		}
+		if m.err == nil {
+			a.lmConfig.modelCatalogs[m.providerKind] = m.models
+		} else {
+			a.lmConfig.modelCatalogs[m.providerKind] = nil
+		}
+		if a.lmConfigCurrentProviderKind() == m.providerKind && len(m.models) > 0 {
+			suggested := ""
+			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
+				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel
+			}
+			idx := 0
+			for i, mm := range m.models {
+				if mm.ID == suggested || mm.ID == a.lmConfig.model {
+					idx = i
+					break
+				}
+			}
+			a.lmConfig.modelIndex = idx
+			if a.lmConfig.model == "" || a.lmConfig.model == suggested {
+				a.lmConfig.model = m.models[idx].ID
+			}
 		}
 		return a, nil
 

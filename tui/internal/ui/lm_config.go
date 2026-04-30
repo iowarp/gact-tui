@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -34,6 +35,8 @@ const (
 	lmFieldPreset lmConfigField = iota
 	lmFieldModel
 	lmFieldAPIKey
+	lmFieldAdvancedToggle
+	// Following three only reachable when advancedExpanded is true.
 	lmFieldTemperature
 	lmFieldMaxTokens
 	lmFieldThinkingBudget
@@ -41,20 +44,70 @@ const (
 	lmFieldCount
 )
 
+// lmConfigVisibleRows is the number of catalog rows the provider /
+// model lists show at once.
+const lmConfigVisibleRows = 6
+
 type lmConfigState struct {
 	loading bool
 	err     error
 
-	info            *client.LMProviderInfo
-	selected        int    // index into info.Presets
-	model           string // editable model override
-	apiKey          string // user-entered key
-	temperature     string // string-edited; parsed on save
-	maxTokens       string // string-edited; parsed on save
-	thinkingBudget  string // string-edited; 0 disables, mapped to provider-specific reasoning param
-	field           lmConfigField
+	info           *client.LMProviderInfo
+	selected       int    // index into info.Presets
+	model          string // editable model override
+	apiKey         string // user-entered key
+	temperature    string // empty = backend default
+	maxTokens      string // empty = backend default (per-provider)
+	thinkingBudget string // empty = disabled
+	field          lmConfigField
+
+	// Model catalog cache, keyed by provider kind (multiple presets
+	// sharing a kind get the same catalog from the backend today).
+	modelCatalogs map[string][]gact.Model
+	modelIndex    int // index into modelCatalogs[current kind]; -1 = "custom" (typed)
+
+	// advancedExpanded gates the Temperature / Max tokens / Thinking
+	// budget fields. Collapsed by default — most users want
+	// "the model's defaults" and shouldn't have to think about
+	// numeric tuning.
+	advancedExpanded bool
 
 	saving bool
+}
+
+// lmConfigVisibleFields returns the slice of fields the user can
+// Tab through in the current state — collapsing advanced removes
+// the three numeric knobs from the navigation order.
+func (s *lmConfigState) lmConfigVisibleFields() []lmConfigField {
+	out := []lmConfigField{
+		lmFieldPreset, lmFieldModel, lmFieldAPIKey, lmFieldAdvancedToggle,
+	}
+	if s.advancedExpanded {
+		out = append(out,
+			lmFieldTemperature, lmFieldMaxTokens, lmFieldThinkingBudget,
+		)
+	}
+	out = append(out, lmFieldSave)
+	return out
+}
+
+// lmConfigStepField moves the cursor by ``delta`` (±1) through the
+// visible-field list, wrapping at both ends.
+func (s *lmConfigState) lmConfigStepField(delta int) {
+	visible := s.lmConfigVisibleFields()
+	cur := -1
+	for i, f := range visible {
+		if f == s.field {
+			cur = i
+			break
+		}
+	}
+	if cur < 0 {
+		s.field = visible[0]
+		return
+	}
+	n := len(visible)
+	s.field = visible[((cur+delta)%n+n)%n]
 }
 
 // Msgs.
@@ -101,29 +154,111 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.lmConfig = nil
 		return a, nil
 	case "tab", "down":
-		a.lmConfig.field = (a.lmConfig.field + 1) % lmFieldCount
+		a.lmConfig.lmConfigStepField(1)
 		return a, nil
 	case "shift+tab", "up":
-		a.lmConfig.field = (a.lmConfig.field + lmFieldCount - 1) % lmFieldCount
+		a.lmConfig.lmConfigStepField(-1)
 		return a, nil
 	case "enter":
 		if a.lmConfig.field == lmFieldSave {
 			return a, a.lmConfigDispatch()
 		}
-		a.lmConfig.field = (a.lmConfig.field + 1) % lmFieldCount
+		if a.lmConfig.field == lmFieldAdvancedToggle {
+			a.lmConfig.advancedExpanded = !a.lmConfig.advancedExpanded
+			return a, nil
+		}
+		a.lmConfig.lmConfigStepField(1)
 		return a, nil
 	case "left", "right":
-		if a.lmConfig.field == lmFieldPreset && a.lmConfig.info != nil {
+		delta := 1
+		if k.String() == "left" {
+			delta = -1
+		}
+		switch a.lmConfig.field {
+		case lmFieldPreset:
+			if a.lmConfig.info == nil {
+				return a, nil
+			}
 			n := len(a.lmConfig.info.Presets)
 			if n == 0 {
 				return a, nil
 			}
-			delta := 1
-			if k.String() == "left" {
-				delta = n - 1
+			a.lmConfig.selected = ((a.lmConfig.selected+delta)%n + n) % n
+			cmd := a.lmConfigSyncFromPreset()
+			return a, cmd
+		case lmFieldModel:
+			if a.lmConfig.info == nil {
+				return a, nil
 			}
-			a.lmConfig.selected = (a.lmConfig.selected + delta) % n
-			a.lmConfigSyncFromPreset()
+			kind := a.lmConfigCurrentProviderKind()
+			catalog := a.lmConfig.modelCatalogs[kind]
+			n := len(catalog)
+			if n == 0 {
+				return a, nil
+			}
+			cur := a.lmConfig.modelIndex
+			if cur < 0 {
+				for i, m := range catalog {
+					if m.ID == a.lmConfig.model {
+						cur = i
+						break
+					}
+				}
+				if cur < 0 {
+					cur = 0
+				}
+			}
+			a.lmConfig.modelIndex = ((cur+delta)%n + n) % n
+			a.lmConfig.model = catalog[a.lmConfig.modelIndex].ID
+		case lmFieldAdvancedToggle:
+			a.lmConfig.advancedExpanded = !a.lmConfig.advancedExpanded
+		case lmFieldTemperature:
+			cur := 1.0
+			if v, err := strconv.ParseFloat(a.lmConfig.temperature, 64); err == nil {
+				cur = v
+			}
+			cur += float64(delta) * 0.1
+			if cur < 0 {
+				cur = 0
+			}
+			if cur > 2 {
+				cur = 2
+			}
+			a.lmConfig.temperature = fmt.Sprintf("%.1f", cur)
+		case lmFieldMaxTokens:
+			cur := 0
+			if v, err := strconv.Atoi(a.lmConfig.maxTokens); err == nil {
+				cur = v
+			}
+			cur += delta * 512
+			if cur < 0 {
+				cur = 0
+			}
+			if cur > 64000 {
+				cur = 64000
+			}
+			if cur == 0 {
+				a.lmConfig.maxTokens = ""
+			} else {
+				a.lmConfig.maxTokens = fmt.Sprintf("%d", cur)
+			}
+		case lmFieldThinkingBudget:
+			cur := 0
+			if v, err := strconv.Atoi(a.lmConfig.thinkingBudget); err == nil {
+				cur = v
+			}
+			cur += delta * 1024
+			if cur < 0 {
+				cur = 0
+			}
+			if cur > 32000 {
+				cur = 32000
+			}
+			if cur == 0 {
+				a.lmConfig.thinkingBudget = ""
+			} else {
+				a.lmConfig.thinkingBudget = fmt.Sprintf("%d", cur)
+			}
 		}
 		return a, nil
 	case "backspace":
@@ -131,46 +266,24 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case lmFieldModel:
 			if len(a.lmConfig.model) > 0 {
 				a.lmConfig.model = a.lmConfig.model[:len(a.lmConfig.model)-1]
+				a.lmConfig.modelIndex = -1
 			}
 		case lmFieldAPIKey:
 			if len(a.lmConfig.apiKey) > 0 {
 				a.lmConfig.apiKey = a.lmConfig.apiKey[:len(a.lmConfig.apiKey)-1]
 			}
-		case lmFieldTemperature:
-			if len(a.lmConfig.temperature) > 0 {
-				a.lmConfig.temperature = a.lmConfig.temperature[:len(a.lmConfig.temperature)-1]
-			}
-		case lmFieldMaxTokens:
-			if len(a.lmConfig.maxTokens) > 0 {
-				a.lmConfig.maxTokens = a.lmConfig.maxTokens[:len(a.lmConfig.maxTokens)-1]
-			}
-		case lmFieldThinkingBudget:
-			if len(a.lmConfig.thinkingBudget) > 0 {
-				a.lmConfig.thinkingBudget = a.lmConfig.thinkingBudget[:len(a.lmConfig.thinkingBudget)-1]
-			}
 		}
 		return a, nil
 	}
-	// Plain text input.
+	// Plain text input — only Model + API key still take free text.
+	// Numeric fields are now driven by ←/→ in the Advanced section.
 	if k.Text != "" {
 		switch a.lmConfig.field {
 		case lmFieldModel:
 			a.lmConfig.model += k.Text
+			a.lmConfig.modelIndex = -1
 		case lmFieldAPIKey:
 			a.lmConfig.apiKey += k.Text
-		case lmFieldTemperature:
-			// Only accept digits + ".".
-			if isNumericInput(k.Text, true) {
-				a.lmConfig.temperature += k.Text
-			}
-		case lmFieldMaxTokens:
-			if isNumericInput(k.Text, false) {
-				a.lmConfig.maxTokens += k.Text
-			}
-		case lmFieldThinkingBudget:
-			if isNumericInput(k.Text, false) {
-				a.lmConfig.thinkingBudget += k.Text
-			}
 		}
 	}
 	return a, nil
@@ -192,35 +305,69 @@ func isNumericInput(s string, allowFloat bool) bool {
 	return true
 }
 
-// lmConfigSyncFromPreset copies the selected preset's defaults
-// into the editable model + apiKey fields, but only when the
-// field is currently empty (so the user's typed override survives
-// when they navigate around).
-func (a *App) lmConfigSyncFromPreset() {
+// lmConfigSyncFromPreset copies the selected preset's defaults into
+// the editable model + apiKey fields. Returns a tea.Cmd that fetches
+// the model catalog for the new preset's provider kind, OR nil if
+// the catalog is already cached.
+//
+// Temperature / Max tokens / Thinking budget are intentionally LEFT
+// BLANK so the backend resolves per-provider defaults (argonne caps
+// max_tokens at 4096, others 32000; temperature 1.0; thinking off).
+func (a *App) lmConfigSyncFromPreset() tea.Cmd {
 	if a.lmConfig == nil || a.lmConfig.info == nil {
-		return
+		return nil
 	}
 	if a.lmConfig.selected < 0 || a.lmConfig.selected >= len(a.lmConfig.info.Presets) {
-		return
+		return nil
 	}
 	p := a.lmConfig.info.Presets[a.lmConfig.selected]
 	if a.lmConfig.model == "" {
 		a.lmConfig.model = p.SuggestedModel
 	}
-	// Don't auto-fill api_key — user has to type it.
-	// Temperature + max_tokens fall back to backend defaults when
-	// blank; pre-fill with current values so the user can see the
-	// active config and tweak from there.
-	if a.lmConfig.temperature == "" && a.lmConfig.info.Temperature > 0 {
-		a.lmConfig.temperature = fmt.Sprintf("%g", a.lmConfig.info.Temperature)
+	a.lmConfig.modelIndex = -1
+	kind := p.Provider
+	if kind != "" {
+		if a.lmConfig.modelCatalogs == nil {
+			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
+		}
+		if _, cached := a.lmConfig.modelCatalogs[kind]; !cached {
+			return lmConfigFetchModelsCmd(a.c, kind)
+		}
 	}
-	if a.lmConfig.maxTokens == "" && a.lmConfig.info.MaxTokens > 0 {
-		a.lmConfig.maxTokens = fmt.Sprintf("%d", a.lmConfig.info.MaxTokens)
+	return nil
+}
+
+// lmConfigCurrentProviderKind returns the provider kind for the
+// highlighted preset, or "" if no preset is selected.
+func (a *App) lmConfigCurrentProviderKind() string {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return ""
 	}
-	// Thinking budget: empty string means "let backend decide / disable".
-	// Pre-fill with the active value so users can see + edit.
-	if a.lmConfig.thinkingBudget == "" && a.lmConfig.info.ThinkingBudget > 0 {
-		a.lmConfig.thinkingBudget = fmt.Sprintf("%d", a.lmConfig.info.ThinkingBudget)
+	if a.lmConfig.selected < 0 || a.lmConfig.selected >= len(a.lmConfig.info.Presets) {
+		return ""
+	}
+	return a.lmConfig.info.Presets[a.lmConfig.selected].Provider
+}
+
+// lmConfigModelsLoadedMsg carries the model catalog for one provider
+// kind so the modal can populate the Model picker.
+type lmConfigModelsLoadedMsg struct {
+	providerKind string
+	models       []gact.Model
+	err          error
+}
+
+// lmConfigFetchModelsCmd issues GET /v1/providers/{kind}/models.
+func lmConfigFetchModelsCmd(c *client.Client, providerKind string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		models, err := c.ListProviderModels(ctx, providerKind)
+		return lmConfigModelsLoadedMsg{
+			providerKind: providerKind,
+			models:       models,
+			err:          err,
+		}
 	}
 }
 
@@ -272,12 +419,14 @@ func (a *App) viewLMConfig() string {
 		return ""
 	}
 	t := a.Theme
-	w := a.modalWidth()
+	// detailModalWidth() (90% of terminal, capped 80..160) so the
+	// provider/model lists actually fit catalog ids without truncation.
+	w := a.detailModalWidth()
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
 		Render("Configure CLIO's LM Provider")
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Render("CLIO needs an LM endpoint before it can answer questions. Pick a preset and (if needed) supply an API key.")
+		Render("Pick a provider + model. Advanced numeric tuning is collapsed below; defaults work for most users.")
 
 	var body string
 	switch {
@@ -296,7 +445,9 @@ func (a *App) viewLMConfig() string {
 		body = a.renderLMConfigBody(w - 4)
 	}
 
-	hint := t.HintLabel.Render("Tab/↑↓ navigate  ←/→ pick preset  Enter save/next  Esc close")
+	hint := t.HintLabel.Render(
+		"Tab/↑↓ section  ←/→ pick within list / adjust value  Enter save/expand  Esc close",
+	)
 	parts := []string{title, "", intro, "", body}
 	if a.lmConfig.saving {
 		parts = append(parts, "",
@@ -322,41 +473,25 @@ func (a *App) renderLMConfigBody(innerW int) string {
 
 	rows := []string{}
 
-	// Preset row.
-	presetMarker := "  "
-	if a.lmConfig.field == lmFieldPreset {
-		presetMarker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-	}
+	// ---- Provider section: windowed list ---------------------------
+	rows = append(rows, a.renderLMConfigProviderList(innerW))
 	if len(a.lmConfig.info.Presets) > 0 {
 		p := a.lmConfig.info.Presets[a.lmConfig.selected]
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
-		if a.lmConfig.field == lmFieldPreset {
-			labelStyle = labelStyle.Foreground(t.Secondary)
-		}
 		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
 		rows = append(rows,
-			fmt.Sprintf("%sProvider: %s    (%d/%d)",
-				presetMarker,
-				labelStyle.Render(p.Label),
-				a.lmConfig.selected+1,
-				len(a.lmConfig.info.Presets),
-			),
 			"  "+descStyle.Render(truncateString(p.Description, innerW-4)),
-			"  "+lipgloss.NewStyle().Foreground(t.FgFaint).
-				Render(fmt.Sprintf("%s  →  %s", p.Provider, p.APIBase)),
+			"  "+lipgloss.NewStyle().Foreground(t.FgFaint).Render(
+				fmt.Sprintf("%s  →  %s", p.Provider, p.APIBase),
+			),
 		)
-	} else {
-		rows = append(rows, "  (no presets reported)")
 	}
 	rows = append(rows, "")
 
-	// Model row.
-	rows = append(rows, lmConfigField_render(
-		"Model", a.lmConfig.model, false,
-		a.lmConfig.field == lmFieldModel, t,
-	))
+	// ---- Model section: windowed list ------------------------------
+	rows = append(rows, a.renderLMConfigModelList(innerW))
+	rows = append(rows, "")
 
-	// API key row.
+	// ---- API key (typed) -------------------------------------------
 	requiresKey := false
 	if len(a.lmConfig.info.Presets) > 0 {
 		requiresKey = a.lmConfig.info.Presets[a.lmConfig.selected].RequiresAPIKey
@@ -369,38 +504,206 @@ func (a *App) renderLMConfigBody(innerW int) string {
 		"API key"+apiHint, a.lmConfig.apiKey, true,
 		a.lmConfig.field == lmFieldAPIKey, t,
 	))
-
-	// Temperature + max_tokens — model_config knobs forwarded to
-	// the upstream LM via PUT /v1/providers/lm. Blank = backend
-	// defaults (temperature=1.0, max_tokens=32000).
-	rows = append(rows, lmConfigField_render(
-		"Temperature  (0.0-2.0; blank for default 1.0)",
-		a.lmConfig.temperature, false,
-		a.lmConfig.field == lmFieldTemperature, t,
-	))
-	rows = append(rows, lmConfigField_render(
-		"Max tokens   (output cap; blank for default 32000)",
-		a.lmConfig.maxTokens, false,
-		a.lmConfig.field == lmFieldMaxTokens, t,
-	))
-	rows = append(rows, lmConfigField_render(
-		"Thinking budget  (0=off; Anthropic uses tokens, OpenAI maps to low/med/high)",
-		a.lmConfig.thinkingBudget, false,
-		a.lmConfig.field == lmFieldThinkingBudget, t,
-	))
-
-	// Save button row.
 	rows = append(rows, "")
+
+	// ---- Advanced toggle + collapsible numerics --------------------
+	rows = append(rows, a.renderLMConfigAdvancedToggle())
+	if a.lmConfig.advancedExpanded {
+		rows = append(rows, a.renderLMConfigAdvanced(innerW)...)
+	}
+	rows = append(rows, "")
+
+	// ---- Save ------------------------------------------------------
 	saveLabel := "  Save and connect"
-	saveStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
 	if a.lmConfig.field == lmFieldSave {
 		saveLabel = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ") +
 			lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Save and connect")
-		_ = saveStyle
 	}
 	rows = append(rows, saveLabel)
 
 	return strings.Join(rows, "\n")
+}
+
+// renderLMConfigProviderList paints the provider section as a
+// windowed list — lmConfigVisibleRows around the selection.
+func (a *App) renderLMConfigProviderList(innerW int) string {
+	t := a.Theme
+	presets := a.lmConfig.info.Presets
+	if len(presets) == 0 {
+		return "  (no presets reported)"
+	}
+	focused := a.lmConfig.field == lmFieldPreset
+	headerStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	if focused {
+		headerStyle = headerStyle.Foreground(t.Secondary)
+	}
+	header := fmt.Sprintf("%s   (%d/%d)",
+		headerStyle.Render("Provider"),
+		a.lmConfig.selected+1, len(presets))
+	rows := []string{header}
+
+	start, end := lmConfigWindow(a.lmConfig.selected, len(presets))
+	for i := start; i < end; i++ {
+		p := presets[i]
+		marker := "    "
+		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		if i == a.lmConfig.selected {
+			if focused {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("  ▌ ")
+				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+			} else {
+				marker = lipgloss.NewStyle().Foreground(t.FgMuted).Render("  · ")
+				labelStyle = labelStyle.Bold(true)
+			}
+		}
+		rows = append(rows, marker+labelStyle.Render(truncateString(p.Label, innerW-6)))
+	}
+	if end < len(presets) {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
+			fmt.Sprintf("    … %d more (←/→ to scroll)", len(presets)-end),
+		))
+	}
+	return strings.Join(rows, "\n")
+}
+
+// renderLMConfigModelList paints the model picker as a windowed list.
+func (a *App) renderLMConfigModelList(innerW int) string {
+	t := a.Theme
+	focused := a.lmConfig.field == lmFieldModel
+	headerStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	if focused {
+		headerStyle = headerStyle.Foreground(t.Secondary)
+	}
+
+	kind := a.lmConfigCurrentProviderKind()
+	catalog := a.lmConfig.modelCatalogs[kind]
+	if len(catalog) == 0 {
+		header := headerStyle.Render("Model") + "   " +
+			lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(
+				"(no catalog — type a model id manually)",
+			)
+		return header + "\n" + lmConfigField_render(
+			"", a.lmConfig.model, false, focused, t,
+		)
+	}
+
+	idx := a.lmConfig.modelIndex
+	if idx < 0 {
+		idx = 0
+	}
+	header := fmt.Sprintf("%s   (%d/%d)%s",
+		headerStyle.Render("Model"),
+		idx+1, len(catalog),
+		func() string {
+			if a.lmConfig.modelIndex < 0 {
+				return "  " + lipgloss.NewStyle().Foreground(t.FgFaint).
+					Italic(true).Render("(typed — ←/→ to snap back to catalog)")
+			}
+			return ""
+		}(),
+	)
+	rows := []string{header}
+	start, end := lmConfigWindow(idx, len(catalog))
+	for i := start; i < end; i++ {
+		m := catalog[i]
+		marker := "    "
+		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		if i == idx && a.lmConfig.modelIndex >= 0 {
+			if focused {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("  ▌ ")
+				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+			} else {
+				marker = lipgloss.NewStyle().Foreground(t.FgMuted).Render("  · ")
+				labelStyle = labelStyle.Bold(true)
+			}
+		}
+		rows = append(rows, marker+labelStyle.Render(truncateString(m.ID, innerW-6)))
+	}
+	if end < len(catalog) {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
+			fmt.Sprintf("    … %d more (←/→ to scroll)", len(catalog)-end),
+		))
+	}
+	return strings.Join(rows, "\n")
+}
+
+// renderLMConfigAdvancedToggle renders the ▶/▼ row.
+func (a *App) renderLMConfigAdvancedToggle() string {
+	t := a.Theme
+	focused := a.lmConfig.field == lmFieldAdvancedToggle
+	indicator := "▶"
+	if a.lmConfig.advancedExpanded {
+		indicator = "▼"
+	}
+	marker := "  "
+	labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+	if focused {
+		marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+		labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+	}
+	hint := ""
+	if !a.lmConfig.advancedExpanded {
+		hint = "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(
+			"Temperature, Max tokens, Thinking budget — defaults work for most",
+		)
+	}
+	return marker + labelStyle.Render(indicator+" Advanced") + hint
+}
+
+// renderLMConfigAdvanced renders the three numeric knobs as ←/→
+// adjusters. Empty value displays "default" so the user knows blank
+// is intentional.
+func (a *App) renderLMConfigAdvanced(innerW int) []string {
+	t := a.Theme
+	row := func(field lmConfigField, label, value, defaultText string) string {
+		marker := "    "
+		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		if a.lmConfig.field == field {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("    ▌ ")
+			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
+		}
+		display := value
+		if display == "" {
+			display = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+				Render(defaultText)
+		} else {
+			display = lipgloss.NewStyle().Foreground(t.Fg).Bold(true).Render(display)
+		}
+		hint := ""
+		if a.lmConfig.field == field {
+			hint = "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+				Render("(←/→ to adjust)")
+		}
+		return marker + labelStyle.Render(label) + "  " + display + hint
+	}
+	return []string{
+		row(lmFieldTemperature, "Temperature",
+			a.lmConfig.temperature, "default 1.0"),
+		row(lmFieldMaxTokens, "Max tokens",
+			a.lmConfig.maxTokens, "backend default (4096 ALCF / 32000 elsewhere)"),
+		row(lmFieldThinkingBudget, "Thinking budget",
+			a.lmConfig.thinkingBudget, "default disabled"),
+	}
+}
+
+// lmConfigWindow returns [start, end) — the window of catalog rows
+// to render around ``cursor``, ensuring the cursor sits roughly mid-
+// window.
+func lmConfigWindow(cursor, total int) (int, int) {
+	if total <= lmConfigVisibleRows {
+		return 0, total
+	}
+	half := lmConfigVisibleRows / 2
+	start := cursor - half
+	if start < 0 {
+		start = 0
+	}
+	end := start + lmConfigVisibleRows
+	if end > total {
+		end = total
+		start = end - lmConfigVisibleRows
+	}
+	return start, end
 }
 
 func lmConfigField_render(
