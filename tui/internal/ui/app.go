@@ -1472,18 +1472,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.settings == nil {
 			a.settings = &settingsState{}
 		}
-		a.settings.modelList = m.models
 		a.settings.agentList = m.agents
 		a.settings.loadErr = m.loadErr
-		// Pre-select current model/agent if present.
+		// Pre-select current agent if present. Model selection lives in
+		// the lifecycle LM-config modal, not here — Tab 0 just shows
+		// the active model and a "Change provider…" entry point.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
-			for i, e := range m.models {
-				if e.provider.ID == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
-					a.settings.modelSel = i
-					break
-				}
-			}
 			for i, ag := range m.agents {
 				if ag.ID == cur.Agent.ID {
 					a.settings.agentSel = i
@@ -1943,24 +1938,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if themeName(a.Theme) == "light" {
 			a.settings.themeSel = 1
 		}
-		// Tab 0 (Model) reuses the LM-config picker widgets — pre-
-		// initialise lmConfig state in session-patch mode so Save
-		// PATCHes the current session (not the global LM config).
-		// targetSessionID captured here so navigating the sidebar
-		// mid-pick doesn't accidentally retarget.
-		if a.lmConfig == nil {
-			a.lmConfig = &lmConfigState{
-				sessionPatchMode: true,
-				targetSessionID:  a.currentSessionID(),
-			}
-		} else {
-			a.lmConfig.sessionPatchMode = true
-			a.lmConfig.targetSessionID = a.currentSessionID()
-		}
-		return a, tea.Batch(
-			loadSettingsCmd(a.c),
-			lmConfigFetchCmd(a.c),
-		)
+		// Tab 0 (Model) is now a thin "Change provider…" entry point —
+		// the heavy lmConfig fetch only fires when the user actually
+		// presses Enter on that row, not on every Ctrl+S.
+		return a, loadSettingsCmd(a.c)
 	case "ctrl+t":
 		// Open Metrics modal.
 		a.metricsOpen = true
