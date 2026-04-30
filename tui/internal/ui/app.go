@@ -1431,7 +1431,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
 			for i, e := range m.models {
-				if e.provider == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
+				if e.provider.ID == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
 					a.settings.modelSel = i
 					break
 				}
