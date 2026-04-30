@@ -1821,10 +1821,14 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.quitConfirmSelected = 0 // default: close
 		return a, nil
 	case "?":
-		// Only treat ? as help when focus is NOT on the input pane —
-		// otherwise we steal '?' from anyone trying to type a question
-		// mark. Sidebar/body navigation has no use for typed text.
-		if a.focus != FocusInput {
+		// Open help when there's nothing to type into — covers both
+		// "focus is sidebar/body" and the empty-input case so the
+		// reflex "press ? to find out what this does" works from any
+		// fresh state. Mirrors the same input-empty gate `/` uses to
+		// open the palette. Once the user has typed anything, ? falls
+		// through to the textarea so messages like "what does this do?"
+		// still compose normally.
+		if a.focus != FocusInput || a.input.Value() == "" {
 			a.helpOpen = true
 			return a, nil
 		}
