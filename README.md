@@ -5,7 +5,7 @@
 [![Contract: v0.2](https://img.shields.io/badge/Contract-v0.2-blueviolet.svg)](contract/SPEC.md)
 
 <p align="center">
-  <img src="assets/gact-banner.gif" alt="GACT banner" width="100%" />
+  <img src="logo/gact-banner.gif" alt="GACT banner" width="100%" />
 </p>
 
 **Building a TUI for an agentic loop is hard.** Permission prompts, streaming
