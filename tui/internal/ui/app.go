@@ -989,13 +989,61 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.lmConfig = &lmConfigState{}
 			}
 			a.lmConfig.info = m.info
-			a.lmConfigSyncFromPreset()
-			return a, nil
+			return a, a.lmConfigSyncFromPreset()
 		}
 		if !m.info.Configured {
 			a.lmConfigOpen = true
 			a.lmConfig = &lmConfigState{info: m.info}
-			a.lmConfigSyncFromPreset()
+			return a, a.lmConfigSyncFromPreset()
+		}
+		return a, nil
+
+	case lmConfigModelsLoadedMsg:
+		// Cache catalog for current provider kind. If still on the
+		// matching preset and not typing custom, snap modelIndex to
+		// suggested model.
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		if a.lmConfig.modelCatalogs == nil {
+			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
+		}
+		if a.lmConfig.modelCatalogWarnings == nil {
+			a.lmConfig.modelCatalogWarnings = map[string]string{}
+		}
+		if m.err == nil {
+			a.lmConfig.modelCatalogs[m.presetID] = m.models
+		} else {
+			a.lmConfig.modelCatalogs[m.presetID] = nil
+		}
+		// Stash the backend's fallback reason (or transport error) so
+		// the picker can render an actionable banner. Empty string
+		// when the catalog came back live.
+		switch {
+		case m.err != nil:
+			a.lmConfig.modelCatalogWarnings[m.presetID] =
+				"transport error: " + m.err.Error()
+		case m.warning != "":
+			a.lmConfig.modelCatalogWarnings[m.presetID] = m.warning
+		default:
+			a.lmConfig.modelCatalogWarnings[m.presetID] = ""
+		}
+		if a.lmConfigCurrentPresetID() == m.presetID && len(m.models) > 0 {
+			suggested := ""
+			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
+				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel
+			}
+			idx := 0
+			for i, mm := range m.models {
+				if mm.ID == suggested || mm.ID == a.lmConfig.model {
+					idx = i
+					break
+				}
+			}
+			a.lmConfig.modelIndex = idx
+			if a.lmConfig.model == "" || a.lmConfig.model == suggested {
+				a.lmConfig.model = m.models[idx].ID
+			}
 		}
 		return a, nil
 
@@ -1424,18 +1472,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.settings == nil {
 			a.settings = &settingsState{}
 		}
-		a.settings.modelList = m.models
 		a.settings.agentList = m.agents
 		a.settings.loadErr = m.loadErr
-		// Pre-select current model/agent if present.
+		// Pre-select current agent if present. Model selection lives in
+		// the lifecycle LM-config modal, not here — Tab 0 just shows
+		// the active model and a "Change provider…" entry point.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
-			for i, e := range m.models {
-				if e.provider == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
-					a.settings.modelSel = i
-					break
-				}
-			}
 			for i, ag := range m.agents {
 				if ag.ID == cur.Agent.ID {
 					a.settings.agentSel = i
@@ -1465,6 +1508,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s.ID == m.session.ID {
 				a.sessions[i] = m.session
 				break
+			}
+		}
+		// Close the Settings modal if it was driving the PATCH (the
+		// shared LM-config widgets dispatch through here in session-
+		// patch mode). Surface a transient hint so the user has a
+		// confirmation cue without needing to re-open the modal.
+		if a.settingsOpen && a.lmConfig != nil && a.lmConfig.sessionPatchMode {
+			a.settingsOpen = false
+			a.lmConfig.saving = false
+			ref := m.session.Model
+			if ref.ProviderID != "" {
+				a.transientHint = "model: " + ref.ProviderID + "/" + ref.ModelID
 			}
 		}
 		return a, nil
@@ -1821,10 +1876,14 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.quitConfirmSelected = 0 // default: close
 		return a, nil
 	case "?":
-		// Only treat ? as help when focus is NOT on the input pane —
-		// otherwise we steal '?' from anyone trying to type a question
-		// mark. Sidebar/body navigation has no use for typed text.
-		if a.focus != FocusInput {
+		// Open help when there's nothing to type into — covers both
+		// "focus is sidebar/body" and the empty-input case so the
+		// reflex "press ? to find out what this does" works from any
+		// fresh state. Mirrors the same input-empty gate `/` uses to
+		// open the palette. Once the user has typed anything, ? falls
+		// through to the textarea so messages like "what does this do?"
+		// still compose normally.
+		if a.focus != FocusInput || a.input.Value() == "" {
 			a.helpOpen = true
 			return a, nil
 		}
@@ -1879,6 +1938,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if themeName(a.Theme) == "light" {
 			a.settings.themeSel = 1
 		}
+		// Tab 0 (Model) is now a thin "Change provider…" entry point —
+		// the heavy lmConfig fetch only fires when the user actually
+		// presses Enter on that row, not on every Ctrl+S.
 		return a, loadSettingsCmd(a.c)
 	case "ctrl+t":
 		// Open Metrics modal.

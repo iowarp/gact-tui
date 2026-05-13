@@ -449,6 +449,60 @@ func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]g
 	return out.Models, err
 }
 
+// ProviderModelsResponse is the full /v1/providers/{id}/models body —
+// includes Source ("live"/"static_fallback") and a human-readable
+// Error string when the backend fell back. Lets the TUI render an
+// actionable banner ("token expired, run …") instead of silently
+// pretending a stale catalog is the truth.
+type ProviderModelsResponse struct {
+	Models []gact.Model `json:"models"`
+	Source string       `json:"source,omitempty"`
+	Error  string       `json:"error,omitempty"`
+}
+
+// ListProviderModelsDetailed returns the full response so callers
+// can surface fallback warnings. Newer call sites should prefer this
+// over ListProviderModels (which discards the source/error fields
+// for backward compat).
+func (c *Client) ListProviderModelsDetailed(ctx context.Context, providerID string) (ProviderModelsResponse, error) {
+	var out ProviderModelsResponse
+	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
+	return out, err
+}
+
+// ProviderAuthRequest is the body of POST /v1/providers/{id}/auth.
+// Both fields are optional and provider-specific:
+//
+//   - Force re-drives the OAuth handshake even if a cached token is
+//     still valid.
+//   - APIKey carries a user-pasted API key for AuthMethodAPIKey
+//     providers; the backend persists it on the running process.
+type ProviderAuthRequest struct {
+	Force  bool   `json:"force,omitempty"`
+	APIKey string `json:"api_key,omitempty"`
+}
+
+// ProviderAuthResponse is what the backend returns after an auth
+// attempt. RedirectURL is set when the backend wants the TUI to open
+// a browser tab; Instructions is a human-readable fallback when the
+// backend can only print to its own terminal.
+type ProviderAuthResponse struct {
+	IsAuthenticated bool   `json:"is_authenticated"`
+	ProviderID      string `json:"provider_id"`
+	RedirectURL     string `json:"redirect_url,omitempty"`
+	Instructions    string `json:"instructions,omitempty"`
+}
+
+// AuthProvider drives POST /v1/providers/{id}/auth. The caller's
+// responsibility to gate on AuthProvider.NeedsLogin() before invoking.
+func (c *Client) AuthProvider(
+	ctx context.Context, providerID string, req ProviderAuthRequest,
+) (ProviderAuthResponse, error) {
+	var out ProviderAuthResponse
+	err := c.do(ctx, http.MethodPost, "/v1/providers/"+providerID+"/auth", req, &out)
+	return out, err
+}
+
 // --- §6.13 commands --------------------------------------------------------
 
 func (c *Client) ListCommands(ctx context.Context) ([]gact.Command, error) {
