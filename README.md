@@ -4,6 +4,10 @@
 [![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
 [![Contract: v0.2](https://img.shields.io/badge/Contract-v0.2-blueviolet.svg)](contract/SPEC.md)
 
+<p align="center">
+  <img src="assets/gact-banner.gif" alt="GACT banner" width="100%" />
+</p>
+
 **Building a TUI for an agentic loop is hard.** Permission prompts, streaming
 partials, tool gating, diff apply/reject, MCP catalogs, SSE reconnects,
 per-session state — every coder (Claude Code, OpenCode, Crush, Goose, …)
