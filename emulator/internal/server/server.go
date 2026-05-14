@@ -46,6 +46,12 @@ type Server struct {
 	hooks        *hooksStore // §6.17 — MMM3
 	tasks        *tasksStore // §6.18 — MMM5
 
+	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
+	// The emulator has no real cache; these are bumped by scenario
+	// code to produce realistic-looking /v1/memory/stats output.
+	memHits   int64
+	memMisses int64
+
 	onUserMessage func(sessionID, messageID string)
 	onCancel      func(sessionID string)
 }
@@ -205,6 +211,9 @@ func (s *Server) routes() {
 
 	// §6.16 — Metrics
 	s.mux.HandleFunc("GET /v1/metrics", s.handleMetrics)
+
+	// §6.19 — Memory stats (v0.2 — CLIO-BBBBBBBBBB3)
+	s.mux.HandleFunc("GET /v1/memory/stats", s.handleMemoryStats)
 
 	// §6.17 — Hooks (MMM3)
 	s.mux.HandleFunc("GET /v1/hooks", s.handleListHooks)

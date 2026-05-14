@@ -2,7 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
-[![Contract: v0.1](https://img.shields.io/badge/Contract-v0.1-blueviolet.svg)](contract/SPEC.md)
+[![Contract: v0.2](https://img.shields.io/badge/Contract-v0.2-blueviolet.svg)](contract/SPEC.md)
+
+<p align="center">
+  <img src="logo/Banner.png" alt="GACT banner" width="100%" />
+</p>
 
 **Building a TUI for an agentic loop is hard.** Permission prompts, streaming
 partials, tool gating, diff apply/reject, MCP catalogs, SSE reconnects,
@@ -11,8 +15,12 @@ re-solves these in a slightly different way and locks you into their UI.
 
 **GACT inverts that:** define the wire contract once, build one good TUI,
 then write thin adapters for each backend. If your agent speaks
-[**GACT v0.1**](contract/SPEC.md) — REST + SSE, 16 conformance sections —
-the TUI works. **Extendable** (drop in a new adapter), **modifiable**
+[**GACT v0.2**](contract/SPEC.md) — REST + SSE — the TUI works. The
+canonical reference implementation is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
+a scientific-data agent that supports **28 of 30** v0.2 capabilities
+end-to-end (only LSP + voice intentionally out). See
+[`SCREENSHOTS.md`](SCREENSHOTS.md) for live captures of every advertised
+feature working through the TUI. **Extendable** (drop in a new adapter), **modifiable**
 (lipgloss themes + Bubbletea components all the way down), **scriptable**
 (~70 CLI subcommands alongside the interactive TUI).
 
@@ -92,6 +100,42 @@ so the TUI behaves identically across all of them.
 | [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | Go proxy of the OpenCode HTTP API |
 | [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | Go proxy of the Crush HTTP API |
 | [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API — sessions/messages read+write + SSE; 8/8 conformance sections ✓ |
+| [CLIO Agent](https://github.com/iowarp/clio-agent) | *(in-process, Python)* — `clio-agent-gact` console script ships with clio-agent's `tui-integration` branch | v0.2 native: agent_routing (tier-1 → tier-2 experts), memory stats, integration_health (`/doctor`), tool_telemetry events, cost tracking, forks, search, permissions, two-phase edits, nanoagent spawns. `gact agent deploy clio my-clio` deploys it. See [Quick start with CLIO + Claude Max](#quick-start-with-clio--claude-max) below. |
+
+## Quick start with CLIO + Claude Max
+
+Three processes + an env block — Meridian translates your Claude
+Max OAuth session into the OpenAI-compatible endpoint CLIO's DSPy
+runtime wants.
+
+```sh
+# 1. Install Meridian and authenticate (once). Reuses Claude Code's
+#    OAuth if you already run it locally.
+npm install -g @rynfar/meridian
+CLAUDE_CONFIG_DIR=$HOME/.claude meridian &
+# (or: meridian profile add personal    for a fresh browser login)
+
+# 2. Install CLIO's tui-integration branch (once).
+git clone -b tui-integration https://github.com/iowarp/clio-agent
+cd clio-agent && uv pip install -e '.[api]'
+
+# 3. Point CLIO at Meridian and deploy it as a GACT backend. Haiku
+#    keeps cost down; Sonnet/Opus are available via Meridian's
+#    /v1/models.
+export CLIO_LM_PROVIDER=openai
+export CLIO_LM_API_BASE=http://127.0.0.1:3456/v1
+export CLIO_LM_MODEL=claude-haiku-4-5-20251001
+export CLIO_LM_API_KEY=x
+gact agent deploy clio my-clio
+gact connect my-clio
+```
+
+The TUI now renders a real Claude turn through CLIO's tier-1 router
+→ tier-2 expert → answer + routing badge + ARC cache chip + live
+token/cost rollup in the footer. Tools (HDF5, Parquet MCP servers)
+need additional config — see [CLIO's Meridian
+doc](https://github.com/iowarp/clio-agent/blob/tui-integration/docs/providers/meridian.md)
+for the full recipe.
 
 ## Build it for your own backend
 

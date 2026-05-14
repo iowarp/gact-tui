@@ -134,6 +134,19 @@ func (c *Client) Capabilities(ctx context.Context) (gact.Capabilities, error) {
 	return out, err
 }
 
+// MemoryStats calls GET /v1/memory/stats (v0.2 §6.19 — CLIO-BBBBBBBBBB4).
+// sessionID is optional; pass "" for global-only stats. Backends without
+// capabilities.memory return 501 — the caller should gate on that flag.
+func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.MemoryStats, error) {
+	path := "/v1/memory/stats"
+	if sessionID != "" {
+		path += "?session_id=" + sessionID
+	}
+	var out gact.MemoryStats
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
 // --- §6.1 workspaces -------------------------------------------------------
 
 // ListWorkspacesResponse is the response shape for GET /v1/workspaces.
@@ -354,12 +367,140 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 	return out.Providers, err
 }
 
+// LMProviderPreset is a row in CLIO's provider picker. ``RequiresAPIKey``
+// tells the TUI's modal whether to render the api_key field.
+type LMProviderPreset struct {
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	Provider        string `json:"provider"`
+	APIBase         string `json:"api_base"`
+	SuggestedModel  string `json:"suggested_model"`
+	RequiresAPIKey  bool   `json:"requires_api_key"`
+	Description     string `json:"description"`
+}
+
+// LMProviderInfo is the GET /v1/providers/lm body — current LM
+// config + presets to populate the picker. Backends that don't
+// expose this surface (every non-CLIO backend today) return 404,
+// which the TUI handles as "no in-app config available".
+type LMProviderInfo struct {
+	Configured     bool               `json:"configured"`
+	Provider       string             `json:"provider,omitempty"`
+	APIBase        string             `json:"api_base,omitempty"`
+	Model          string             `json:"model,omitempty"`
+	Temperature    float64            `json:"temperature,omitempty"`
+	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	Presets        []LMProviderPreset `json:"presets,omitempty"`
+}
+
+// LMProviderRequest is the PUT /v1/providers/lm body.
+//
+// Temperature + MaxTokens are forwarded to the upstream LM. Sending
+// 0/0 means "use server defaults" — the JSON omitempty drops the
+// fields so the Python side falls back to LMProviderRequest's
+// defaults (temperature=1.0, max_tokens=32000).
+//
+// ThinkingBudget controls reasoning effort/budget (0 = disabled). On
+// Anthropic it maps to thinking.budget_tokens; on OpenAI/Codex it's
+// bucketed into reasoning_effort low/medium/high.
+type LMProviderRequest struct {
+	Provider       string  `json:"provider"`
+	APIBase        string  `json:"api_base"`
+	Model          string  `json:"model"`
+	APIKey         string  `json:"api_key"`
+	Temperature    float64 `json:"temperature,omitempty"`
+	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ThinkingBudget int     `json:"thinking_budget,omitempty"`
+}
+
+// GetLMProvider fetches /v1/providers/lm. Returns nil + nil error
+// when the endpoint isn't supported by this backend (404) so the
+// caller can decide whether to show the modal or skip it.
+func (c *Client) GetLMProvider(ctx context.Context) (*LMProviderInfo, error) {
+	var out LMProviderInfo
+	err := c.do(ctx, http.MethodGet, "/v1/providers/lm", nil, &out)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "501") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PutLMProvider PUTs the user's LM choice, returning the updated
+// LMProviderInfo. The backend builds the LM + agent in-place;
+// errors come back as the v0.2 envelope (HTTP 400 with detail).
+func (c *Client) PutLMProvider(ctx context.Context, req LMProviderRequest) (*LMProviderInfo, error) {
+	var out LMProviderInfo
+	err := c.do(ctx, http.MethodPut, "/v1/providers/lm", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]gact.Model, error) {
 	var out struct {
 		Models []gact.Model `json:"models"`
 	}
 	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
 	return out.Models, err
+}
+
+// ProviderModelsResponse is the full /v1/providers/{id}/models body —
+// includes Source ("live"/"static_fallback") and a human-readable
+// Error string when the backend fell back. Lets the TUI render an
+// actionable banner ("token expired, run …") instead of silently
+// pretending a stale catalog is the truth.
+type ProviderModelsResponse struct {
+	Models []gact.Model `json:"models"`
+	Source string       `json:"source,omitempty"`
+	Error  string       `json:"error,omitempty"`
+}
+
+// ListProviderModelsDetailed returns the full response so callers
+// can surface fallback warnings. Newer call sites should prefer this
+// over ListProviderModels (which discards the source/error fields
+// for backward compat).
+func (c *Client) ListProviderModelsDetailed(ctx context.Context, providerID string) (ProviderModelsResponse, error) {
+	var out ProviderModelsResponse
+	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
+	return out, err
+}
+
+// ProviderAuthRequest is the body of POST /v1/providers/{id}/auth.
+// Both fields are optional and provider-specific:
+//
+//   - Force re-drives the OAuth handshake even if a cached token is
+//     still valid.
+//   - APIKey carries a user-pasted API key for AuthMethodAPIKey
+//     providers; the backend persists it on the running process.
+type ProviderAuthRequest struct {
+	Force  bool   `json:"force,omitempty"`
+	APIKey string `json:"api_key,omitempty"`
+}
+
+// ProviderAuthResponse is what the backend returns after an auth
+// attempt. RedirectURL is set when the backend wants the TUI to open
+// a browser tab; Instructions is a human-readable fallback when the
+// backend can only print to its own terminal.
+type ProviderAuthResponse struct {
+	IsAuthenticated bool   `json:"is_authenticated"`
+	ProviderID      string `json:"provider_id"`
+	RedirectURL     string `json:"redirect_url,omitempty"`
+	Instructions    string `json:"instructions,omitempty"`
+}
+
+// AuthProvider drives POST /v1/providers/{id}/auth. The caller's
+// responsibility to gate on AuthProvider.NeedsLogin() before invoking.
+func (c *Client) AuthProvider(
+	ctx context.Context, providerID string, req ProviderAuthRequest,
+) (ProviderAuthResponse, error) {
+	var out ProviderAuthResponse
+	err := c.do(ctx, http.MethodPost, "/v1/providers/"+providerID+"/auth", req, &out)
+	return out, err
 }
 
 // --- §6.13 commands --------------------------------------------------------
@@ -389,6 +530,10 @@ type PatchSessionRequest struct {
 	Model    *gact.ModelRef  `json:"model,omitempty"`
 	Status   *string         `json:"status,omitempty"`
 	Metadata map[string]any  `json:"metadata,omitempty"`
+	// RoutingMode toggles the agent's routing override per session.
+	// "auto" = LM-based router; "chat" = force chat path (no /chat
+	// prefix needed); "experts" = reject chat/none routes.
+	RoutingMode *string `json:"routing_mode,omitempty"`
 }
 
 // --- §6.9 context files ----------------------------------------------------
@@ -473,6 +618,22 @@ func (c *Client) McpResourceRead(ctx context.Context, serverID, uri string) ([]g
 // MCP server. Returns nil on 2xx (server may respond 204).
 func (c *Client) McpReconnect(ctx context.Context, serverID string) error {
 	return c.do(ctx, http.MethodPost, "/v1/mcp/servers/"+serverID+"/reconnect", nil, nil)
+}
+
+// McpInstall POSTs /v1/mcp/servers with a stdio or http transport spec.
+// Body shape (stdio): {name, transport:"stdio", command, args:[...], env:{...}}
+// Body shape (http):  {name, transport:"http",  url}
+// Returns the installed server's ID + tools list.
+func (c *Client) McpInstall(ctx context.Context, body map[string]any) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/mcp/servers", body, &out)
+	return out, err
+}
+
+// McpUninstall DELETEs /v1/mcp/servers/{id}. Bundled in-process servers
+// (mcp_fs/hdf5/parquet) cannot be removed and return 404.
+func (c *Client) McpUninstall(ctx context.Context, serverID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/mcp/servers/"+serverID, nil, nil)
 }
 
 // McpServerTools fetches the tools advertised by one MCP server via
@@ -574,17 +735,21 @@ func (c *Client) ImportSession(ctx context.Context, blob SessionExportBlob) (gac
 }
 
 // ApplyDiffs POST /v1/sessions/{id}/diffs/apply. paths is optional —
-// nil/empty means "apply all pending diffs".
-func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, error) {
+// nil/empty means "apply all pending diffs". Returns (applied, write_errors)
+// so the caller can surface per-path failures (workspace-scope refusals,
+// disk-full, permission errors etc) to the user instead of silently
+// dropping them.
+func (c *Client) ApplyDiffs(ctx context.Context, sessionID string, paths []string) ([]string, map[string]string, error) {
 	body := map[string]any{}
 	if len(paths) > 0 {
 		body["paths"] = paths
 	}
 	var out struct {
-		Applied []string `json:"applied"`
+		Applied     []string          `json:"applied"`
+		WriteErrors map[string]string `json:"write_errors,omitempty"`
 	}
 	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/diffs/apply", body, &out)
-	return out.Applied, err
+	return out.Applied, out.WriteErrors, err
 }
 
 // RejectDiffs POST /v1/sessions/{id}/diffs/reject.

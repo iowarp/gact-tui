@@ -1,8 +1,40 @@
 # STATUS
 
-**Last updated:** 2026-04-20T22:45Z
-**Current phase:** Cursor UX polish round (WWWWWWWWW1 + XXXXXXXXX1 + YYYYYYYYY1 + ZZZZZZZZZ1 + ZZZZZZZZZZ1 + AAAAAAAAAA1) — fixed ▸ wrap jump, dropped dual-selector noise, widened detail modal, added Ctrl+C confirm, EditFile now renders the diff inline, grep output uses a CC-style gutter
-**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, feature branch ahead
+**Last updated:** 2026-04-27T06:40Z
+**Current phase:** **v0.3.1 lab-ready.** clio-agent v0.3.1 + gact-tui v0.2.1 shipped. Every advertised capability (28/30 — only LSP + voice intentionally `false`) verified end-to-end with curl trace, screenshot, or strict integration test pass. Full integration_v0_2 suite is 16/16 strict in 95s. Zero `xfail` markers anywhere. Lab users can clone, install, point at OpenAI/Meridian/OpenRouter, and drive any capability — see `clio-agent/docs/SETUP.md` and `clio-agent/docs/CAPABILITIES_MATRIX.md`.
+
+### v0.3.1 highlights (vs v0.3.0)
+- Third-party MCP install end-to-end (#13): `POST /v1/mcp/servers` (stdio/http), `POST /v1/mcp/servers/{id}/call`, `DELETE`. Verified live against `@modelcontextprotocol/server-everything` (13 tools enumerated, echo/get-sum round-tripped). `clio_mcp_servers.png` shows bundled + third-party in one modal.
+- All 5 previously-xfailed integration tests now pass strict: tool.call.* SSE (#2), context_files influence answer (#5), streaming deltas (#6), permission audit row (#7), nanoagents (#9 — closed in 0.3.0).
+- Generic tool observer in `_call_tool_function` covers ALL tool paths (in-process direct, ReAct via MCPToolBridge, third-party MCP) — no hand-coding per expert.
+- `plan_mode` actually blocks `/diffs/apply` with PermissionError; `edit_modes` (diff/whole/patch) produces three distinct file_diff Part shapes.
+- Live cost meter + cost accumulation across mid-session provider swaps verified (haiku ↔ sonnet ↔ openrouter, cost ratio matches model price tables).
+
+### Earlier phase notes (kept for historical context)
+**Repo:** https://github.com/JaimeCernuda/gact-tui — `main` is `0433964`, `clio` branch ahead (pivot landed)
+
+### Pivot rationale
+A Go adapter supervising a Python agent is just another layer. CLIO is Python; the REST boundary IS the bridge. So: kill the Go adapter, ship the GACT-v0.2 contract as a Python module inside CLIO (`src/clio_agent/gact/`), and let gact-tui's existing GACT client talk to it directly. The contract itself bumps to v0.2 to natively express CLIO's full capability surface — expert routing, ARC memory, per-tool telemetry, routing rationale. v0.1-only backends declare the new features as `unsupported` in `/v1/capabilities` until they catch up.
+
+### Integration scaffold (replaced)
+- `adapters/clio/` removed. `go.work` cleaned up.
+- PLAN `CLIO-BBBBBBBBBB` rewritten around 23 items across five phases:
+  - Phase 0 (1–3): v0.2 spec draft + gap issues + conformance extensions.
+  - Phase 1 (4–9): CLIO `src/clio_agent/gact/` smoke path (scaffold → sessions → core routes → query → catalog → deploy wiring).
+  - Phase 2 (10–12): streaming + experts + end-to-end smoke.
+  - Phase 3 (13–15): ARC + metrics + doctor view.
+  - Phase 4 (16–20): CLIO catch-up (per-tool telemetry, real token streaming, cancellation, server-owned sessions, artifacts).
+  - Phase 5 (21–23): Meridian + packaging + screenshot set.
+- Pick-up entry: **CLIO-BBBBBBBBBB1** — draft GACT v0.2 in `contract/SPEC.md`.
+
+### CLIO-side setup (pushed to iowarp/clio-agent)
+- `develop` branch created off `main` on iowarp/clio-agent.
+- `docs/tui/` (10 files) ships the integration reference: overview, agent graph, experts, ARC memory, tools, endpoints, providers/config, semantics/lifecycle, integration plan, README. All path references adjusted to live inside the CLIO repo.
+- `07-providers-config.md` gained a Meridian section — proxy pattern for Claude Max OAuth → CLIO `openai` provider.
+- Issue #1 opened: "New TUI frontend for CLIO via the GACT contract" with the full phased plan.
+
+### Previous phase summary
+Cursor UX polish (WWWWWWWWW1 + XXXXXXXXX1 + YYYYYYYYY1 + ZZZZZZZZZ1 + ZZZZZZZZZZ1 + AAAAAAAAAA1) — ▸ wrap fix, single selector, wider detail modal, Ctrl+C confirm, EditFile-absorbs-diff, grep gutter. All shipped + pushed.
 
 ### Latest feedback loop
 User hit six issues in the per-part nav flow + related rendering:

@@ -115,6 +115,19 @@ type Options struct {
 	// search` don't drift at the wire level.
 	SkipMessageSearch bool
 
+	// CLIO-BBBBBBBBBB5 (v0.2): the five v0.2 capability suites.
+	// Each gated on its capabilities.* flag — backends that don't
+	// claim the capability get auto-skipped.
+	//
+	// Skip flags here let a caller force-skip even when the flag is
+	// true (useful for integration tests that don't want to round-trip
+	// through one of these endpoints).
+	SkipAgentRouting      bool // capabilities.agent_routing (§4.3.1) — AgentDef.tier/specialization/keywords populated; `?tier=2` filter works
+	SkipMemoryStats       bool // capabilities.memory (§6.19) — /v1/memory/stats returns the expected envelope
+	SkipStructuredErrors  bool // capabilities.structured_errors (§14) — 404/501 responses carry the typed error envelope
+	SkipIntegrationHealth bool // capabilities.integration_health (§3.4) — /v1/health has overall_status + integrations[]
+	SkipToolTelemetry     bool // capabilities.tool_telemetry (§4.5) — no endpoint to hit; asserted via the capabilities self-report + presence of the capability flag
+
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
 
@@ -259,11 +272,29 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipFiles && caps.Files && wsID != "" {
 			t.Run("Repo_Map", func(t Reporter) { checkRepoMap(t, c, wsID) })
 		}
+
+		// CLIO-BBBBBBBBBB5: v0.2 suites.
+		if !opts.SkipAgentRouting && caps.AgentRouting {
+			t.Run("V0_2_AgentRouting", func(t Reporter) { checkAgentRouting(t, c) })
+		}
+		if !opts.SkipMemoryStats && caps.Memory {
+			t.Run("V0_2_MemoryStats", func(t Reporter) { checkMemoryStats(t, c, sid) })
+		}
+		if !opts.SkipIntegrationHealth && caps.IntegrationHealth {
+			t.Run("V0_2_IntegrationHealth", func(t Reporter) { checkIntegrationHealth(t, c) })
+		}
+		if !opts.SkipStructuredErrors && caps.StructuredErrors {
+			t.Run("V0_2_StructuredErrors", func(t Reporter) { checkStructuredErrors(t, c) })
+		}
+		if !opts.SkipToolTelemetry && caps.ToolTelemetry {
+			t.Run("V0_2_ToolTelemetry", func(t Reporter) { checkToolTelemetry(t, c) })
+		}
 	}
 }
 
 // minimalCaps holds just the flags we need for AAAA1 + BBBBB1 +
-// TTTTT1 + UUUUU1 + BBBBBB1 + QQQQQQ1 gating.
+// TTTTT1 + UUUUU1 + BBBBBB1 + QQQQQQ1 gating, plus the v0.2 suites
+// (CLIO-BBBBBBBBBB5).
 type minimalCaps struct {
 	Hooks          bool
 	Permissions    bool
@@ -273,6 +304,13 @@ type minimalCaps struct {
 	Files          bool
 	Diffs          bool
 	SearchMessages bool
+
+	// v0.2
+	AgentRouting      bool
+	Memory            bool
+	StructuredErrors  bool
+	IntegrationHealth bool
+	ToolTelemetry     bool
 }
 
 func fetchCapabilities(c *conformClient) minimalCaps {
@@ -292,6 +330,13 @@ func fetchCapabilities(c *conformClient) minimalCaps {
 			Files          bool `json:"files"`
 			Diffs          bool `json:"diffs"`
 			SearchMessages bool `json:"search_messages"`
+
+			// v0.2 — CLIO-BBBBBBBBBB5
+			AgentRouting      bool `json:"agent_routing"`
+			Memory            bool `json:"memory"`
+			StructuredErrors  bool `json:"structured_errors"`
+			IntegrationHealth bool `json:"integration_health"`
+			ToolTelemetry     bool `json:"tool_telemetry"`
 		} `json:"capabilities"`
 	}
 	_ = json.Unmarshal(body, &raw)

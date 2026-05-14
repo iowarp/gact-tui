@@ -16,12 +16,11 @@ import (
 // when settingsOpen is true.
 type settingsState struct {
 	tab       int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs
-	modelSel  int // index into modelList
 	agentSel  int // index into agentList
 	themeSel  int // 0 = dark, 1 = light
 	tuiRow    int // TUI tab active row (0 = collapse threshold)
-	modelList []settingsModelEntry
 	agentList []gact.AgentDef
+	loadErr   string // set when loadSettingsCmd surfaces failures
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
@@ -54,36 +53,22 @@ const (
 // caused Tab to go stale in past iterations. Single source of truth.
 const settingsTabCount = 4
 
-type settingsModelEntry struct {
-	provider string
-	model    gact.Model
-}
-
-// loadSettingsCmd fetches providers + models + agents in parallel-ish (one
-// goroutine, sequential calls) and returns a settingsLoadedMsg.
+// loadSettingsCmd fetches the agent catalog for the Agent tab. Model
+// data is intentionally NOT fetched here — Tab 0 hands off to the
+// lifecycle LM-config modal which has its own catalog logic and is the
+// single source of truth for provider/model state. Removing the
+// per-provider /v1/providers/{id}/models calls also drops Ctrl+S
+// latency from seconds (fan-out across every preset) to one
+// round-trip.
 func loadSettingsCmd(c *client.Client) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		providers, err := c.ListProviders(ctx)
-		if err != nil {
-			return errMsg{err: err, stage: "providers"}
-		}
-		var entries []settingsModelEntry
-		for _, p := range providers {
-			models, err := c.ListProviderModels(ctx, p.ID)
-			if err != nil {
-				continue // skip provider on error rather than failing the whole modal
-			}
-			for _, m := range models {
-				entries = append(entries, settingsModelEntry{provider: p.ID, model: m})
-			}
-		}
 		agents, err := c.ListAgents(ctx)
 		if err != nil {
-			return errMsg{err: err, stage: "agents"}
+			return settingsLoadedMsg{loadErr: "agents: " + err.Error()}
 		}
-		return settingsLoadedMsg{models: entries, agents: agents}
+		return settingsLoadedMsg{agents: agents}
 	}
 }
 
@@ -102,8 +87,8 @@ func applySettingsCmd(c *client.Client, sessionID string, model *gact.ModelRef, 
 }
 
 type settingsLoadedMsg struct {
-	models []settingsModelEntry
-	agents []gact.AgentDef
+	agents  []gact.AgentDef
+	loadErr string
 }
 
 type sessionUpdatedMsg struct {
@@ -129,9 +114,8 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		switch s.tab {
 		case 0:
-			if s.modelSel > 0 {
-				s.modelSel--
-			}
+			// Tab 0 has a single row (the change-provider action) — no
+			// list to navigate.
 		case 1:
 			if s.agentSel > 0 {
 				s.agentSel--
@@ -150,9 +134,8 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		switch s.tab {
 		case 0:
-			if s.modelSel < len(s.modelList)-1 {
-				s.modelSel++
-			}
+			// Tab 0 has a single row (the change-provider action) — no
+			// list to navigate.
 		case 1:
 			if s.agentSel < len(s.agentList)-1 {
 				s.agentSel++
@@ -248,6 +231,19 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "enter":
 		switch s.tab {
+		case 0:
+			// Tab 0 is a single "Change provider…" entry point — Enter
+			// hands off to the lifecycle LM-config modal in session-
+			// patch mode. targetSessionID is captured here (not at
+			// Ctrl+S time) so navigating the sidebar between opening
+			// Settings and pressing Enter retargets correctly.
+			a.settingsOpen = false
+			a.lmConfigOpen = true
+			a.lmConfig = &lmConfigState{
+				sessionPatchMode: true,
+				targetSessionID:  a.currentSessionID(),
+			}
+			return a, lmConfigFetchCmd(a.c)
 		case 2:
 			// Theme apply is local — no backend PATCH. Live-swap the
 			// lipgloss Theme so the conversation redraws with the new
@@ -276,18 +272,13 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.settingsOpen = false
 			return a, nil
 		}
-		var modelRef *gact.ModelRef
 		var agentRef *gact.AgentRef
-		if s.tab == 0 && s.modelSel < len(s.modelList) {
-			e := s.modelList[s.modelSel]
-			modelRef = &gact.ModelRef{ProviderID: e.provider, ModelID: e.model.ID}
-		}
 		if s.tab == 1 && s.agentSel < len(s.agentList) {
-			a := s.agentList[s.agentSel]
-			agentRef = &gact.AgentRef{ID: a.ID}
+			ag := s.agentList[s.agentSel]
+			agentRef = &gact.AgentRef{ID: ag.ID}
 		}
 		a.settingsOpen = false
-		return a, applySettingsCmd(a.c, sid, modelRef, agentRef)
+		return a, applySettingsCmd(a.c, sid, nil, agentRef)
 	}
 	return a, nil
 }
@@ -324,6 +315,12 @@ func (a *App) viewSettings() string {
 		if sess.Agent.ID != "" {
 			currentAgent = sess.Agent.ID
 		}
+	}
+	// CLIO-style backends ship a global LM config rather than per-session
+	// ModelRefs; surface it so the Settings 'current' line doesn't read
+	// '(unset)' even when /v1/providers/lm clearly has a model wired.
+	if currentModel == "" && a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		currentModel = a.lmProviderInfo.Provider + "/" + a.lmProviderInfo.Model
 	}
 
 	// LLL4: title bar — full-width Primary-background strip with the
@@ -368,15 +365,22 @@ func (a *App) viewSettings() string {
 
 	switch s.tab {
 	case 0:
+		// Tab 0 (Model) is intentionally a thin shim: show the active
+		// provider/model and a single "change provider" action that
+		// hands off to the lifecycle LM-config modal in session-patch
+		// mode. ONE picker implementation; this tab is just an entry
+		// point. Embedding the full picker inside Settings duplicated
+		// state and produced a cramped layout — the standalone modal
+		// already has the wide list view + advanced collapse.
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
 		rows = append(rows, "")
-		if len(s.modelList) == 0 {
-			rows = append(rows, t.HintLabel.Render("loading…"))
-		}
-		for i, e := range s.modelList {
-			rows = append(rows, rowLine(i == s.modelSel,
-				e.provider+"/"+e.model.ID, e.model.Name))
-		}
+		rows = append(rows, rowLine(true, "Change provider…",
+			"open the provider/model picker (PATCH this session)"))
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			"Enter opens the same picker shown on first connect — "+
+				"saving there PATCHes only the current session, "+
+				"not the global LM config."))
 	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
 		rows = append(rows, "")

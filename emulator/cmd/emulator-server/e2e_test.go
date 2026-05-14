@@ -95,8 +95,8 @@ func TestE2E_HealthAndCapabilities(t *testing.T) {
 	defer resp2.Body.Close()
 	var caps map[string]any
 	_ = json.NewDecoder(resp2.Body).Decode(&caps)
-	if caps["contract_version"] != "0.1" {
-		t.Errorf("contract_version = %v", caps["contract_version"])
+	if caps["contract_version"] != "0.2" {
+		t.Errorf("contract_version = %v, want \"0.2\"", caps["contract_version"])
 	}
 }
 
