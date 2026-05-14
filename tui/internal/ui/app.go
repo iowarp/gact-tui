@@ -99,7 +99,13 @@ type App struct {
 	focus         FocusZone
 
 	caps       gact.Capabilities
-	workspaces []gact.Workspace
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): last-known memory stats from
+	// the backend. Populated when capabilities.memory = true and
+	// the client fetches GET /v1/memory/stats on session-status
+	// changes. Renders as a small cache hit-rate chip in the footer.
+	// Zero-value renders as nothing (no chip).
+	memoryStats gact.MemoryStats
+	workspaces  []gact.Workspace
 	wsID       string
 	sessions   []gact.Session
 	selected   int // index into sessions; -1 if none
@@ -338,6 +344,40 @@ type App struct {
 	// Metrics overlay
 	metricsOpen bool
 	metrics     *metricsState
+
+	// Doctor overlay (v0.2 §3.4 — CLIO-BBBBBBBBBB4). Shows the
+	// backend's integrations[] array + overall_status in a per-
+	// subsystem table. Opens via /doctor; closes with Esc / q.
+	doctorOpen bool
+
+	// CLIO-BBBBBBBBBB-D: LM-config modal — opened on first connect
+	// when /v1/health reports the agent (or "lm" subsystem) as
+	// unavailable, so the user picks a provider/model before they
+	// type anything. Backends that don't expose /v1/providers/lm
+	// (everything except clio-agent-gact) skip this entirely.
+	lmConfigOpen bool
+	lmConfig     *lmConfigState
+	// Cached LM provider info (set on every lmConfigFetchedMsg). Powers
+	// the header model chip (#363) so we don't need a per-render fetch.
+	lmProviderInfo *client.LMProviderInfo
+	doctor     *doctorState
+
+	// MCP install / remove overlays. Tied to the /mcp-install +
+	// /mcp-remove slash commands. State is intentionally tiny — install
+	// is a one-line input, remove is a picker over the current
+	// a.mcpServers slice (filtered to third-party).
+	mcpInstallOpen   bool
+	mcpInstallInput  string
+	mcpInstallErr    string
+	mcpInstallSaving bool
+	mcpRemoveOpen    bool
+	mcpRemoveOptions []gact.McpServer
+	mcpRemoveSel     int
+	mcpRemoveSaving  bool
+
+	// Cached MCP server list, populated each time /mcp opens. The remove
+	// modal reads from this so it doesn't need an extra round-trip.
+	mcpServers []gact.McpServer
 
 	// Workspace switcher overlay — ↑/↓ to navigate the current
 	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
@@ -580,9 +620,17 @@ func connectCmd(c *client.Client) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err, stage: "capabilities"}
 		}
-		wss, err := c.ListWorkspaces(ctx)
-		if err != nil {
-			return errMsg{err: err, stage: "workspaces"}
+		// Only hit /v1/workspaces when the backend advertises the
+		// capability. Backends that don't model workspaces (e.g.
+		// clio-agent-gact) advertise workspaces=false and 501 on
+		// the endpoint; the TUI used to blow up on the error
+		// before gating. CLIO-BBBBBBBBBB14.
+		var wss []gact.Workspace
+		if caps.Capabilities.Workspaces {
+			wss, err = c.ListWorkspaces(ctx)
+			if err != nil {
+				return errMsg{err: err, stage: "workspaces"}
+			}
 		}
 		var sessions []gact.Session
 		var wsID string
@@ -592,9 +640,32 @@ func connectCmd(c *client.Client) tea.Cmd {
 			if err != nil {
 				return errMsg{err: err, stage: "sessions"}
 			}
+		} else if caps.Capabilities.Sessions {
+			// No workspace dimension — list sessions scoped only
+			// by backend. ListSessions with empty WorkspaceID
+			// omits the filter.
+			sessions, err = c.ListSessions(ctx, client.SessionFilter{})
+			if err != nil {
+				return errMsg{err: err, stage: "sessions"}
+			}
 		}
 		commands, _ := c.ListCommands(ctx)
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
+	}
+}
+
+// CLIO-BBBBBBBBBB4: memoryStatsCmd fetches GET /v1/memory/stats.
+// sessionID is optional (pass "" for global-only). Errors land as a
+// transient hint rather than blowing up — stats are decorative.
+func memoryStatsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		stats, err := c.MemoryStats(ctx, sessionID)
+		if err != nil {
+			return errMsg{err: err, stage: "memory_stats"}
+		}
+		return memoryStatsMsg{stats: stats}
 	}
 }
 
@@ -690,22 +761,39 @@ func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 }
 
 // startSSECmd opens the SSE stream and returns the first event.
+//
+// Connection setup (StreamEvents → http.Client.Do) blocks until the
+// server returns the SSE response headers — for a healthy backend
+// that's <50 ms, but a wedged or slow-to-accept server can stall the
+// Update loop for the full HTTP timeout. Wrap the whole open inside
+// the returned tea.Cmd so the goroutine takes the hit, never the
+// render thread. The first event lands as a sseConnectedMsg that
+// stashes the channels on the app and arms waitForSSE.
 func (a *App) startSSECmd(sessionID string) tea.Cmd {
 	if a.sseCancel != nil {
 		a.sseCancel()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.sseCancel = cancel
-	events, errs, err := a.c.StreamEvents(ctx, client.EventStreamScope{
-		SessionID:   sessionID,
-		LastEventID: a.lastSeenSeqID,
-	})
-	if err != nil {
-		return func() tea.Msg { return errMsg{err: err, stage: "sse"} }
+	lastSeen := a.lastSeenSeqID
+	c := a.c
+	return func() tea.Msg {
+		events, errs, err := c.StreamEvents(ctx, client.EventStreamScope{
+			SessionID:   sessionID,
+			LastEventID: lastSeen,
+		})
+		if err != nil {
+			return errMsg{err: err, stage: "sse"}
+		}
+		return sseConnectedMsg{events: events, errs: errs}
 	}
-	a.sseEvents = events
-	a.sseErrs = errs
-	return waitForSSE(events, errs)
+}
+
+// sseConnectedMsg carries the freshly-opened SSE channels back to the
+// Update loop so it can stash them on App and arm waitForSSE.
+type sseConnectedMsg struct {
+	events <-chan client.SSEEvent
+	errs   <-chan error
 }
 
 func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
@@ -731,7 +819,12 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
+		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
+		// the TUI enough patience without hanging forever on a wedged
+		// backend — SSE is the source of truth for in-flight
+		// progress anyway.
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
 			Parts: []gact.Part{gact.NewTextPart(text)},
@@ -810,7 +903,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen && !a.lmConfigOpen {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
@@ -844,6 +937,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// rescheduling on anySessionRunning(), so this fires exactly
 		// once per connect even if nothing is currently active.
 		cmds := []tea.Cmd{spinnerCmd()}
+		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): if the backend advertises
+		// memory, pull an initial snapshot so the footer chip paints
+		// right away. Session-scoped refresh happens on status_changed.
+		if a.caps.Capabilities.Memory {
+			cmds = append(cmds, memoryStatsCmd(a.c, ""))
+		}
+		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
+		// whether the backend exposes runtime LM config + whether
+		// it needs the user to configure one. Failures (404 from
+		// non-CLIO backends) are silent.
+		cmds = append(cmds, lmConfigFetchCmd(a.c))
 		if len(a.sessions) > 0 {
 			pick, missing := a.pickAttachIndex()
 			a.selected = pick
@@ -855,6 +959,125 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(cmds...)
 
+	case memoryStatsMsg:
+		// CLIO-BBBBBBBBBB4: cache the latest snapshot; the footer's
+		// render path reads this each frame.
+		a.memoryStats = m.stats
+		return a, nil
+
+	case lmConfigFetchedMsg:
+		// CLIO-BBBBBBBBBB-D: backend's response to GET /v1/providers/lm.
+		// Three outcomes:
+		//   1. err != nil → backend failed; keep silent (the
+		//      adjacent /v1/health probe will surface the failure).
+		//   2. info == nil → endpoint not supported (404). Backends
+		//      that don't expose runtime LM config (every adapter
+		//      except clio-agent-gact today) get here; nothing to do.
+		//   3. info != nil + configured == false → pop the modal so
+		//      the user can pick a provider before they type.
+		if m.err != nil || m.info == nil {
+			return a, nil
+		}
+		// Cache for the header chip (#363) so renderHeader can show the
+		// active model without poking lmConfig (which is only populated
+		// when the modal is open).
+		a.lmProviderInfo = m.info
+		if a.lmConfigOpen {
+			// Modal was opened by the user (Settings → Change provider…)
+			// or already showing — populate with the freshly-fetched info.
+			if a.lmConfig == nil {
+				a.lmConfig = &lmConfigState{}
+			}
+			a.lmConfig.info = m.info
+			return a, a.lmConfigSyncFromPreset()
+		}
+		if !m.info.Configured {
+			a.lmConfigOpen = true
+			a.lmConfig = &lmConfigState{info: m.info}
+			return a, a.lmConfigSyncFromPreset()
+		}
+		return a, nil
+
+	case lmConfigModelsLoadedMsg:
+		// Cache catalog for current provider kind. If still on the
+		// matching preset and not typing custom, snap modelIndex to
+		// suggested model.
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		if a.lmConfig.modelCatalogs == nil {
+			a.lmConfig.modelCatalogs = map[string][]gact.Model{}
+		}
+		if a.lmConfig.modelCatalogWarnings == nil {
+			a.lmConfig.modelCatalogWarnings = map[string]string{}
+		}
+		if m.err == nil {
+			a.lmConfig.modelCatalogs[m.presetID] = m.models
+		} else {
+			a.lmConfig.modelCatalogs[m.presetID] = nil
+		}
+		// Stash the backend's fallback reason (or transport error) so
+		// the picker can render an actionable banner. Empty string
+		// when the catalog came back live.
+		switch {
+		case m.err != nil:
+			a.lmConfig.modelCatalogWarnings[m.presetID] =
+				"transport error: " + m.err.Error()
+		case m.warning != "":
+			a.lmConfig.modelCatalogWarnings[m.presetID] = m.warning
+		default:
+			a.lmConfig.modelCatalogWarnings[m.presetID] = ""
+		}
+		if a.lmConfigCurrentPresetID() == m.presetID && len(m.models) > 0 {
+			suggested := ""
+			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
+				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel
+			}
+			idx := 0
+			for i, mm := range m.models {
+				if mm.ID == suggested || mm.ID == a.lmConfig.model {
+					idx = i
+					break
+				}
+			}
+			a.lmConfig.modelIndex = idx
+			if a.lmConfig.model == "" || a.lmConfig.model == suggested {
+				a.lmConfig.model = m.models[idx].ID
+			}
+		}
+		return a, nil
+
+	case lmConfigSavedMsg:
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		a.lmConfig.saving = false
+		if m.err != nil {
+			a.lmConfig.err = m.err
+			return a, nil
+		}
+		// Success: dismiss the modal + retry whatever the user
+		// was waiting on. A reconnect refreshes capabilities +
+		// sessions in case the agent reload changed something.
+		a.lmConfigOpen = false
+		a.lmConfig = nil
+		a.transientHint = "LM configured: " +
+			m.info.Provider + "/" + m.info.Model
+		return a, scheduleHintExpire(a.transientHint)
+
+	case doctorFetchedMsg:
+		// CLIO-BBBBBBBBBB4: /doctor modal finished its /v1/health
+		// fetch. Update the modal state if it's still open (user may
+		// have dismissed during the fetch — drop the response in that
+		// case to avoid a flash of old data on re-open).
+		if a.doctorOpen && a.doctor != nil {
+			a.doctor.loading = false
+			a.doctor.err = m.err
+			a.doctor.health = m.health
+			a.doctor.caps = m.caps
+		}
+		return a, nil
+
 	case errMsg:
 		// Search failures shouldn't blow away the whole UI — clear the
 		// in-flight flag and surface a single empty result so the user
@@ -862,6 +1085,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.stage == "search" {
 			a.searching = false
 			a.searchMatches = nil
+			return a, nil
+		}
+		// CLIO-BBBBBBBBBB4: memory stats are decorative; a failure
+		// just hides the chip until the next refresh.
+		if m.stage == "memory_stats" {
 			return a, nil
 		}
 		a.stage = StageError
@@ -1076,6 +1304,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.selected = newIdx
 		return a, a.selectSession(newIdx)
 
+	case sseConnectedMsg:
+		// Stream just finished its handshake (off the Update goroutine).
+		// Stash the channels on App and start blocking on the first event.
+		a.sseEvents = m.events
+		a.sseErrs = m.errs
+		return a, waitForSSE(m.events, m.errs)
+
 	case sseEventMsg:
 		// Event arrival means the stream is healthy — reset the
 		// reconnect backoff so the NEXT disconnect waits 250 ms, not
@@ -1091,8 +1326,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lastSeenSeqID = seq
 		}
 		prevRunning := a.anySessionRunning()
+		prevStatus := a.currentStatus
 		a.applySSE(m.Event)
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
+		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled
+		// back to idle AND the backend has memory, refresh the cache
+		// stats. Piggy-backs on the status_changed event loop — one
+		// fetch per turn completion, no extra polling.
+		if a.caps.Capabilities.Memory &&
+			prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
+			cmds = append(cmds, memoryStatsCmd(a.c, a.currentSessionID()))
+		}
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
 			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
@@ -1174,21 +1418,67 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case mcpServersFetchedMsg:
+		a.mcpServers = m.servers
+		if a.mcpRemoveOpen {
+			a.mcpRemoveSaving = false
+			if m.err != nil {
+				a.transientHint = "mcp list failed: " + m.err.Error()
+				a.mcpRemoveOpen = false
+				return a, scheduleHintExpire(a.transientHint)
+			}
+			var removable []gact.McpServer
+			for _, s := range m.servers {
+				if s.Transport == "in_process" {
+					continue
+				}
+				removable = append(removable, s)
+			}
+			a.mcpRemoveOptions = removable
+			if len(removable) == 0 {
+				a.mcpRemoveOpen = false
+				a.transientHint = "no third-party MCPs installed (bundled servers cannot be removed)"
+				return a, scheduleHintExpire(a.transientHint)
+			}
+		}
+		return a, nil
+
+	case mcpInstallDoneMsg:
+		a.mcpInstallSaving = false
+		if m.err != nil {
+			a.mcpInstallErr = m.err.Error()
+			return a, nil
+		}
+		a.mcpInstallOpen = false
+		a.mcpInstallInput = ""
+		a.mcpInstallErr = ""
+		name, _ := m.result["name"].(string)
+		id, _ := m.result["id"].(string)
+		a.transientHint = fmt.Sprintf("installed MCP %s (%s)", name, id)
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
+
+	case mcpUninstallDoneMsg:
+		a.mcpRemoveSaving = false
+		if m.err != nil {
+			a.transientHint = "uninstall failed: " + m.err.Error()
+		} else {
+			a.transientHint = "removed " + m.serverID
+		}
+		a.mcpRemoveOpen = false
+		a.mcpRemoveOptions = nil
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
+
 	case settingsLoadedMsg:
 		if a.settings == nil {
 			a.settings = &settingsState{}
 		}
-		a.settings.modelList = m.models
 		a.settings.agentList = m.agents
-		// Pre-select current model/agent if present.
+		a.settings.loadErr = m.loadErr
+		// Pre-select current agent if present. Model selection lives in
+		// the lifecycle LM-config modal, not here — Tab 0 just shows
+		// the active model and a "Change provider…" entry point.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
-			for i, e := range m.models {
-				if e.provider == cur.Model.ProviderID && e.model.ID == cur.Model.ModelID {
-					a.settings.modelSel = i
-					break
-				}
-			}
 			for i, ag := range m.agents {
 				if ag.ID == cur.Agent.ID {
 					a.settings.agentSel = i
@@ -1220,6 +1510,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		// Close the Settings modal if it was driving the PATCH (the
+		// shared LM-config widgets dispatch through here in session-
+		// patch mode). Surface a transient hint so the user has a
+		// confirmation cue without needing to re-open the modal.
+		if a.settingsOpen && a.lmConfig != nil && a.lmConfig.sessionPatchMode {
+			a.settingsOpen = false
+			a.lmConfig.saving = false
+			ref := m.session.Model
+			if ref.ProviderID != "" {
+				a.transientHint = "model: " + ref.ProviderID + "/" + ref.ModelID
+			}
+		}
 		return a, nil
 
 	case diffsAppliedMsg:
@@ -1236,6 +1538,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					p.Applied = true
 				}
 			}
+		}
+		// Surface write_errors as a transient hint. Was previously
+		// dropped silently — user pressed 'a' on a diff, backend
+		// recorded a write_error (e.g. workspace-scope refusal), and
+		// the user got no signal the write didn't happen.
+		if len(m.writeErrors) > 0 {
+			parts := make([]string, 0, len(m.writeErrors))
+			for path, err := range m.writeErrors {
+				parts = append(parts, fmt.Sprintf("%s: %s", path, err))
+			}
+			a.transientHint = "⚠ apply failed — " + strings.Join(parts, " · ")
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if len(m.paths) > 0 {
+			a.transientHint = fmt.Sprintf("applied %d file%s", len(m.paths), plural(len(m.paths)))
+			return a, scheduleHintExpire(a.transientHint)
 		}
 		return a, nil
 
@@ -1486,6 +1804,18 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.metricsOpen {
 		return a.handleMetricsKey(k)
 	}
+	if a.doctorOpen {
+		return a.handleDoctorKey(k)
+	}
+	if a.lmConfigOpen {
+		return a.handleLMConfigKey(k)
+	}
+	if a.mcpInstallOpen {
+		return a.handleMcpInstallKey(k)
+	}
+	if a.mcpRemoveOpen {
+		return a.handleMcpRemoveKey(k)
+	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
@@ -1546,8 +1876,18 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.quitConfirmSelected = 0 // default: close
 		return a, nil
 	case "?":
-		a.helpOpen = true
-		return a, nil
+		// Open help when there's nothing to type into — covers both
+		// "focus is sidebar/body" and the empty-input case so the
+		// reflex "press ? to find out what this does" works from any
+		// fresh state. Mirrors the same input-empty gate `/` uses to
+		// open the palette. Once the user has typed anything, ? falls
+		// through to the textarea so messages like "what does this do?"
+		// still compose normally.
+		if a.focus != FocusInput || a.input.Value() == "" {
+			a.helpOpen = true
+			return a, nil
+		}
+		// Fall through to focus dispatch so the textarea consumes it.
 	case "tab":
 		a.focus = (a.focus + 1) % 3
 		a.maybeInitBodyCursor()
@@ -1562,11 +1902,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "ctrl+n":
-		// New session in current workspace.
-		if a.wsID != "" {
-			return a, createSessionCmd(a.c, a.wsID)
-		}
-		return a, nil
+		// New session in current workspace, or against a backend
+		// that doesn't model workspaces (CLIO advertises
+		// capabilities.workspaces=false). The server defaults
+		// missing workspace_id to its own ws_default — passing
+		// "" is honest about not having one.
+		return a, createSessionCmd(a.c, a.wsID)
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, connectCmd(a.c)
@@ -1597,6 +1938,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if themeName(a.Theme) == "light" {
 			a.settings.themeSel = 1
 		}
+		// Tab 0 (Model) is now a thin "Change provider…" entry point —
+		// the heavy lmConfig fetch only fires when the user actually
+		// presses Enter on that row, not on every Ctrl+S.
 		return a, loadSettingsCmd(a.c)
 	case "ctrl+t":
 		// Open Metrics modal.
@@ -1746,6 +2090,23 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, loadMetricsCmd(a.c)
 			}
 
+			// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor opens the backend
+			// health modal — integrations array + overall_status so
+			// the user can see at a glance which subsystems are
+			// ready/degraded/unavailable. Gated on
+			// capabilities.integration_health; unsupported backends
+			// get a transient "doctor view unsupported by this
+			// backend" hint.
+			if cmd.ID == "/doctor" {
+				if !a.caps.Capabilities.IntegrationHealth {
+					a.transientHint = "doctor view unsupported by this backend (v0.1)"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				a.doctorOpen = true
+				a.doctor = &doctorState{loading: true}
+				return a, doctorFetchCmd(a.c)
+			}
+
 			// /theme-export writes the currently-active palette to
 			// ~/.config/gact/theme.json so users who like a built-in
 			// + a couple of tweaks have a starting point to edit. No
@@ -1810,11 +2171,21 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// title filter so the user can immediately type to
 			// narrow the session list. Cheaper than a second
 			// dedicated modal and reuses the filter code path the
-			// sidebar already exercises on `/`.
+			// sidebar already exercises on 'f' (was '/').
+			//
+			// Critical: close the palette before handing focus to
+			// the sidebar, otherwise subsequent keystrokes keep
+			// landing in the palette filter (we just verified this
+			// with verify_plan_filter.png — typing 'PLAN' after
+			// /sessions ended up as palette filter 'sessionsPLAN').
 			if cmd.ID == "/sessions" {
+				a.paletteOpen = false
+				a.paletteFilter = ""
+				a.paletteSel = 0
 				a.focus = FocusSidebar
 				a.sessionFilterActive = true
 				a.filterSnapshot = a.sessionFilter
+				a.sessionFilter = ""
 				return a, nil
 			}
 
@@ -1862,6 +2233,44 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case "/cancel":
 				a.transientHint = "cancelling run…"
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+			case "/copy":
+				toast := a.copyLastAssistantReplyToClipboard()
+				a.transientHint = toast
+				extraCmds = append(extraCmds, scheduleHintExpire(toast))
+				return a, tea.Batch(extraCmds...)
+			case "/mode":
+				if sid == "" {
+					a.transientHint = "no active session — open or create one first"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				next := nextRoutingMode(a.currentRoutingMode())
+				a.transientHint = "routing mode → " + next
+				extraCmds = append(extraCmds,
+					scheduleHintExpire(a.transientHint),
+					patchRoutingModeCmd(a.c, sid, next),
+				)
+				return a, tea.Batch(extraCmds...)
+			case "/diff":
+				toast := a.openWorkspaceDiff()
+				a.transientHint = toast
+				extraCmds = append(extraCmds, scheduleHintExpire(toast))
+				return a, tea.Batch(extraCmds...)
+			case "/compact":
+				if sid == "" {
+					a.transientHint = "no active session to compact"
+				} else {
+					a.transientHint = "compact requested — backend support is provisional"
+					extraCmds = append(extraCmds, requestCompactCmd(a.c, sid))
+				}
+				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+				return a, tea.Batch(extraCmds...)
+			case "/mcp-install":
+				a.openMcpInstallModal()
+				return a, tea.Batch(extraCmds...)
+			case "/mcp-remove":
+				extraCmds = append(extraCmds, a.openMcpRemoveModal())
+				return a, tea.Batch(extraCmds...)
 			}
 			// Any non-/clear action cancels a pending clear — same
 			// anti-accident pattern as K5's armed delete.
@@ -2263,7 +2672,7 @@ func (a *App) paletteMatches() []gact.Command {
 	// MMM8b: merge plugin commands in alongside the backend-provided
 	// commands. Plugin commands get source="plugin" so the dispatch
 	// branch can short-circuit before runCommandCmd.
-	all := make([]gact.Command, 0, len(a.commands)+len(a.plugins))
+	all := make([]gact.Command, 0, len(a.commands)+len(a.plugins)+8)
 	all = append(all, a.commands...)
 	for _, p := range a.plugins {
 		all = append(all, gact.Command{
@@ -2272,6 +2681,45 @@ func (a *App) paletteMatches() []gact.Command {
 			Description: p.Description,
 			Source:      "plugin",
 		})
+	}
+	// Built-in local commands always show, independent of whether
+	// the backend advertises /v1/commands. Skipped for commands the
+	// current backend's capabilities don't support (/doctor for
+	// backends that don't advertise integration_health, etc.) so
+	// the user doesn't see greyed-out entries they can't actually
+	// run. CLIO-BBBBBBBBBB17.
+	seen := map[string]bool{}
+	for _, c := range all {
+		seen[c.ID] = true
+	}
+	localCmds := []gact.Command{
+		{ID: "/metrics", Title: "Metrics", Description: "Backend latency/cost/token totals", Source: "builtin"},
+		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette (Ctrl+Alt+T cycles without modal)", Source: "builtin"},
+		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
+		{ID: "/mcp", Title: "MCP servers", Description: "Browse bundled + installed MCP servers (i = install, d = delete)", Source: "builtin"},
+		{ID: "/tools", Title: "Tools catalog", Description: "Unified catalog of every tool the agent can invoke", Source: "builtin"},
+		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
+		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
+		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
+		{ID: "/mode", Title: "Routing mode", Description: "Cycle: auto → chat → experts → auto (forces chat path or expert-only routing)", Source: "builtin"},
+		{ID: "/clear", Title: "Clear conversation", Description: "Wipe the on-screen conversation; session keeps its ID + settings", Source: "builtin"},
+		{ID: "/copy", Title: "Copy last reply", Description: "Copy the most recent assistant message to clipboard (or /tmp if no DISPLAY)", Source: "builtin"},
+		{ID: "/diff", Title: "Workspace diff", Description: "Show `git diff --stat` of the current working directory in a modal", Source: "builtin"},
+		{ID: "/compact", Title: "Compact session", Description: "Ask the backend to summarise the conversation and reclaim context", Source: "builtin"},
+	}
+	if a.caps.Capabilities.IntegrationHealth {
+		localCmds = append(localCmds, gact.Command{
+			ID:          "/doctor",
+			Title:       "Doctor",
+			Description: "Backend health + per-subsystem status",
+			Source:      "builtin",
+		})
+	}
+	for _, c := range localCmds {
+		if !seen[c.ID] {
+			all = append(all, c)
+			seen[c.ID] = true
+		}
 	}
 	if a.paletteFilter == "" {
 		return all
@@ -2507,8 +2955,20 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.renameCursor = len(a.renameDraft)
 		return a, nil
 	case "/":
-		// Enter filter mode. Remember the current filter so Esc can
-		// restore it (the slash wasn't meant as a destructive action).
+		// User feedback: typing /<cmd> from sidebar focus used to
+		// enter sidebar filter mode and silently swallow the rest of
+		// the slash command (e.g. /clear became filter "clear" with
+		// "no matches"). Match the universal TUI convention: '/' opens
+		// the global command palette regardless of focus. Sidebar
+		// filter is now bound to 'f' (see below).
+		a.paletteOpen = true
+		a.paletteFilter = ""
+		a.paletteSel = 0
+		return a, nil
+	case "f":
+		// Sidebar filter — was '/' before. Same semantics: enter
+		// inline edit; Enter commits, Esc cancels + restores the
+		// previous filter.
 		a.sessionFilterActive = true
 		a.filterSnapshot = a.sessionFilter
 		return a, nil
@@ -2855,11 +3315,11 @@ func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		applied, err := c.ApplyDiffs(ctx, sessionID, nil)
+		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, nil)
 		if err != nil {
 			return errMsg{err: err, stage: "apply-diffs"}
 		}
-		return diffsAppliedMsg{paths: applied}
+		return diffsAppliedMsg{paths: applied, writeErrors: writeErrors}
 	}
 }
 
@@ -3137,6 +3597,11 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.applyPartCompleted(e)
 	case "message.completed":
 		// Final part-state already in store; the assistant turn is done.
+		// CLIO embeds tokens + cost_usd in the completed payload, but
+		// doesn't emit a dedicated cost.updated event — promote those
+		// fields into the cost-updated path so the footer's $ meter
+		// catches up live without waiting for a session reload.
+		a.applyCostUpdated(e)
 	case "session.status_changed":
 		if pl != nil {
 			v, _ := pl["status"].(string)
@@ -3211,12 +3676,22 @@ func (a *App) applySSE(e client.SSEEvent) {
 
 // applyCostUpdated rolls the latest cost/tokens into the local sessions
 // slice so the footer's meter and the sidebar status both stay live.
+//
+// Accepts either a dedicated cost.updated event (session_id inside
+// the inner payload) OR a message.completed event (session_id at the
+// outer envelope level — payload only carries cost_usd + tokens).
+// Falls back to the outer envelope's session_id when the inner one
+// is absent so both shapes flow through the same accumulator.
 func (a *App) applyCostUpdated(e client.SSEEvent) {
 	pl, ok := e.Payload["payload"].(map[string]any)
 	if !ok {
 		return
 	}
 	sid, _ := pl["session_id"].(string)
+	if sid == "" {
+		// message.completed shape: session_id sits one level up.
+		sid, _ = e.Payload["session_id"].(string)
+	}
 	if sid == "" {
 		return
 	}
@@ -3225,14 +3700,36 @@ func (a *App) applyCostUpdated(e client.SSEEvent) {
 			continue
 		}
 		if c, ok := pl["cost_usd"].(float64); ok {
-			a.sessions[i].CostUSD = c
+			// Cumulative meter: add the per-message increment to the
+			// session's running total. cost.updated events already
+			// carry running totals (treat as set); message.completed
+			// carries per-turn delta (treat as add). We can tell
+			// them apart by whether ``tokens`` looks like a delta
+			// (small) vs total (large) — easier heuristic: if the
+			// session already had a non-zero CostUSD and the inner
+			// payload omits session_id, it's a delta.
+			_, hasInnerSID := pl["session_id"].(string)
+			if hasInnerSID {
+				a.sessions[i].CostUSD = c
+			} else {
+				a.sessions[i].CostUSD += c
+			}
 		}
 		if tokens, ok := pl["tokens"].(map[string]any); ok {
+			_, hasInnerSID := pl["session_id"].(string)
 			if v, ok := tokens["input"].(float64); ok {
-				a.sessions[i].Tokens.Input = int(v)
+				if hasInnerSID {
+					a.sessions[i].Tokens.Input = int(v)
+				} else {
+					a.sessions[i].Tokens.Input += int(v)
+				}
 			}
 			if v, ok := tokens["output"].(float64); ok {
-				a.sessions[i].Tokens.Output = int(v)
+				if hasInnerSID {
+					a.sessions[i].Tokens.Output = int(v)
+				} else {
+					a.sessions[i].Tokens.Output += int(v)
+				}
 			}
 		}
 		return
@@ -3343,6 +3840,15 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					if len(p.Metadata) == 0 {
 						p.Metadata = nil
 					}
+				}
+			}
+			// CLIO ships ``final_text`` on streamed text parts so we
+			// can replace the raw streamed buffer (which carries
+			// adapter format markers like ``[[ ## answer ## ]]``)
+			// with the parsed clean answer once the LM finishes.
+			if p.Type == gact.PartTypeText {
+				if final, ok := pl["final_text"].(string); ok && final != "" {
+					p.Text = final
 				}
 			}
 			return
@@ -3619,6 +4125,12 @@ func (a *App) viewMain() string {
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)
 	}
+	if a.doctorOpen {
+		base = overlay(base, a.viewDoctor(), a.width, a.height)
+	}
+	if a.lmConfigOpen {
+		base = overlay(base, a.viewLMConfig(), a.width, a.height)
+	}
 	if a.workspaceSwitchOpen {
 		base = overlay(base, a.viewWorkspaceSwitch(), a.width, a.height)
 	}
@@ -3639,6 +4151,12 @@ func (a *App) viewMain() string {
 	}
 	if a.catalogBrowserOpen {
 		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
+	}
+	if a.mcpInstallOpen {
+		base = overlay(base, a.viewMcpInstall(), a.width, a.height)
+	}
+	if a.mcpRemoveOpen {
+		base = overlay(base, a.viewMcpRemove(), a.width, a.height)
 	}
 	// ZZZZZZZZZ1: quit-confirm sits on top of every other overlay so
 	// Ctrl+C inside (say) the palette always surfaces the "are you
@@ -3752,6 +4270,28 @@ func (a *App) renderHeader() string {
 			optional = append(optional, "agent: "+s.Agent.ID)
 		}
 	}
+	// CLIO-style backends ship a global LM config (PUT /v1/providers/lm)
+	// rather than a per-session ModelRef, so the per-session chip above
+	// stays empty. Surface the global config in the header too — strip
+	// any provider/ prefix for compactness.
+	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		bare := a.lmProviderInfo.Model
+		if i := strings.Index(bare, "/"); i >= 0 {
+			bare = bare[i+1:]
+		}
+		// Avoid duplicating when the per-session ModelRef already
+		// surfaced the same model id.
+		alreadyShown := false
+		for _, o := range optional {
+			if strings.HasPrefix(o, "model: ") && strings.HasSuffix(o, bare) {
+				alreadyShown = true
+				break
+			}
+		}
+		if !alreadyShown {
+			optional = append(optional, "model: "+bare)
+		}
+	}
 	statusBadge := ""
 	if a.currentStatus != "" {
 		statusBadge = t.StatusBadge.Render(a.currentStatus)
@@ -3844,6 +4384,38 @@ func (a *App) renderFooter() string {
 	}
 
 	right := ""
+
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): memory cache-hit-rate chip.
+	// Gated on capabilities.memory so v0.1 backends render nothing.
+	// A non-zero memoryStats.Cache (either hits or misses) means we've
+	// actually seen stats; until then, don't show the chip.
+	if a.caps.Capabilities.Memory {
+		total := a.memoryStats.Cache.Hits + a.memoryStats.Cache.Misses
+		if total > 0 {
+			hr := a.memoryStats.Cache.HitRate
+			// Traffic-light the hit rate: green ≥ 0.75, amber ≥ 0.50,
+			// red otherwise. Matches the CLIO target of >85%.
+			hrColor := t.Danger
+			switch {
+			case hr >= 0.75:
+				hrColor = t.Success
+			case hr >= 0.50:
+				hrColor = t.Warning
+			}
+			// Label is "mem" (memory cache hit rate) — was bare "cache"
+			// which users reasonably read as context-window cache.
+			// Memory here = the agent's ARC memory layer; the rate is
+			// hits / (hits+misses).
+			chip := lipgloss.NewStyle().Background(t.Bg).
+				Foreground(t.FgMuted).Padding(0, 1).
+				Render("mem")
+			rate := lipgloss.NewStyle().Background(t.Bg).
+				Foreground(hrColor).Bold(true).Padding(0, 1).
+				Render(fmt.Sprintf("%.0f%%", hr*100))
+			right = chip + rate + "  "
+		}
+	}
+
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		if s.CostUSD > 0 || s.Tokens.Input > 0 {
@@ -3871,7 +4443,10 @@ func (a *App) renderFooter() string {
 				Render(fmt.Sprintf("%s in / %s out",
 					humanTokens(s.Tokens.Input),
 					humanTokens(s.Tokens.Output)))
-			right = chip + tokens
+			// CLIO-BBBBBBBBBB4: concatenate onto any existing right-
+			// side chip (e.g. the v0.2 memory chip) instead of
+			// clobbering it.
+			right += chip + tokens
 		}
 	}
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
@@ -4310,6 +4885,17 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
+		}
+		// Pending-turn indicator: when the session is running but the latest
+		// message hasn't produced any visible parts yet (e.g. user just
+		// pressed Enter and the assistant hasn't streamed a delta), show a
+		// "● thinking…" stub so the user knows the system isn't dead.
+		if a.shouldShowThinkingIndicator() {
+			thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
+				Render(a.spinnerChar()) + " " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+					Render("CLIO is thinking…")
+			rows = append(rows, "", thinkLine)
 		}
 		body = strings.Join(rows, "\n")
 		// The pane's inner content height is msgH-2 (two border rows).
@@ -5035,6 +5621,13 @@ type connectedMsg struct {
 	commands []gact.Command
 }
 
+// CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats
+// snapshot. Fired after connect + after every session.status_changed
+// → idle event for backends with capabilities.memory = true.
+type memoryStatsMsg struct {
+	stats gact.MemoryStats
+}
+
 type errMsg struct {
 	err   error
 	stage string
@@ -5079,7 +5672,8 @@ type voiceTranscribedMsg struct {
 }
 
 type diffsAppliedMsg struct {
-	paths []string
+	paths       []string
+	writeErrors map[string]string
 }
 
 type diffsRejectedMsg struct {

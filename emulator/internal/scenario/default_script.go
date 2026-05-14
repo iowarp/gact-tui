@@ -64,6 +64,13 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	wantsLong := containsAny(userText, "long", "explain", "writeup")
 	wantsBigTool := containsAny(userText, "log", "dump", "traceback", "logs")
 	wantsMultiTool := containsAny(userText, "many tools", "multi tool")
+	// CLIO-BBBBBBBBBB3: v0.2 routing demo — triggers the script that
+	// emits a routing_decision part + session.agent_routed event.
+	wantsRouting := containsAny(userText,
+		"route this", "pick an agent", "agent routing",
+		"analyze", "profile", "inspect",
+		"refactor", "review",
+		"search the web", "look up", "research")
 
 	// Subagent path takes precedence and demonstrates the multi-agent flow.
 	if wantsSubagent {
@@ -86,8 +93,23 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 		runMultiToolScript(ctx, e, sessionID, userMsg)
 		return
 	}
+	if wantsRouting {
+		runRoutingScript(ctx, e, sessionID, userMsg)
+		return
+	}
 
 	e.publishStatus(sessionID, gact.StatusRunning)
+
+	// CLIO-BBBBBBBBBB4: every default-script turn counts as a single
+	// cache lookup (miss on first turn, hit on subsequent repeated
+	// queries) so /v1/memory/stats has something to chart. Real
+	// backends will have genuine hit/miss bookkeeping; this keeps
+	// the emulator's footer chip non-zero.
+	if e.NextCallIndex(sessionID, "default_cache_seed") == 0 {
+		e.NoteMemoryMiss()
+	} else {
+		e.NoteMemoryHit()
+	}
 
 	// QQQQQQQQ1: pick variant index once per turn so all four
 	// strings (thinking, intro, result, final) line up — gives the

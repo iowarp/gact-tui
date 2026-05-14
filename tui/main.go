@@ -301,8 +301,8 @@ func runDiag() { writeDiagToVerbose(os.Stdout) }
 const (
 	// binaryVersion is bumped manually for now. A future enhancement
 	// could thread version info from the build via -ldflags.
-	binaryVersion   = "0.1.0"
-	contractVersion = "0.1"
+	binaryVersion   = "0.2.1"
+	contractVersion = "0.2"
 )
 
 func printUsage() {
@@ -905,7 +905,13 @@ func runDiffApplyReject(args []string, apply bool) int {
 		err error
 	)
 	if apply {
-		hit, err = c.ApplyDiffs(ctx, sid, paths)
+		var werr map[string]string
+		hit, werr, err = c.ApplyDiffs(ctx, sid, paths)
+		if err == nil && len(werr) > 0 {
+			for p, e := range werr {
+				fmt.Fprintf(os.Stderr, "gact diff apply %s: %s\n", p, e)
+			}
+		}
 	} else {
 		hit, err = c.RejectDiffs(ctx, sid, paths)
 	}
@@ -2759,12 +2765,21 @@ func runAgent(args []string) int {
 // alongside `gact` itself so `./gact` in the build tree can find
 // its sibling adapter without a full install.
 func adapterBinFor(kind string) (string, error) {
-	var exe string
+	var exe, buildHint string
 	switch kind {
 	case "claudecode":
 		exe = "gact-claudecode-adapter"
+		buildHint = "go build -o gact-claudecode-adapter ./adapters/claudecode/cmd/gact-claudecode-adapter"
+	case "clio":
+		// CLIO-BBBBBBBBBB12: clio-agent-gact is a Python console
+		// script published by iowarp/clio-agent's pyproject.toml on
+		// the tui-integration branch. Operators install via
+		// `uv pip install -e /path/to/clio-agent` (or the eventual
+		// `uv tool install clio-agent`).
+		exe = "clio-agent-gact"
+		buildHint = "uv pip install -e /path/to/clio-agent  (tui-integration branch)"
 	default:
-		return "", fmt.Errorf("unknown kind %q (supported: claudecode)", kind)
+		return "", fmt.Errorf("unknown kind %q (supported: claudecode, clio)", kind)
 	}
 	if p, err := exec.LookPath(exe); err == nil {
 		return p, nil
@@ -2776,7 +2791,65 @@ func adapterBinFor(kind string) (string, error) {
 			return cand, nil
 		}
 	}
-	return "", fmt.Errorf("%s not on PATH — build it with `go build -o %s ./adapters/claudecode/cmd/gact-claudecode-adapter`", exe, exe)
+	// CLIO-BBBBBBBBBB28: dev-friendly fallback for the Python adapter.
+	// If CLIO_AGENT_SRC points at a clio-agent checkout, run the
+	// entry point via `uv run --project $dir clio-agent-gact` without
+	// requiring a system-wide install. Writes a tiny shim to a temp
+	// dir and returns its path; the deploy supervises the shim just
+	// like a real binary.
+	if kind == "clio" {
+		if src := os.Getenv("CLIO_AGENT_SRC"); src != "" {
+			if st, err := os.Stat(src); err == nil && st.IsDir() {
+				shim := filepath.Join(os.TempDir(), "gact-clio-shim.sh")
+				body := fmt.Sprintf(
+					"#!/usr/bin/env bash\nexec uv run --project %q clio-agent-gact \"$@\"\n",
+					src,
+				)
+				if err := os.WriteFile(shim, []byte(body), 0o755); err == nil {
+					return shim, nil
+				}
+			}
+		}
+		// Discover common clio-agent install layouts so users who
+		// followed install.sh (~/.local/share/clio/...) or who keep
+		// the sibling layout (~/tui/clio-agent or alongside gact)
+		// don't have to set CLIO_AGENT_SRC manually.
+		home, _ := os.UserHomeDir()
+		candidates := []string{
+			filepath.Join(home, ".local/share/clio/clio-agent/.venv/bin/clio-agent-gact"),
+			filepath.Join(home, "tui/clio-agent/.venv/bin/clio-agent-gact"),
+		}
+		// Also probe directories adjacent to the gact binary itself.
+		if self, err := os.Executable(); err == nil {
+			selfDir := filepath.Dir(self)
+			candidates = append(candidates,
+				filepath.Join(selfDir, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+				filepath.Join(selfDir, "..", "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+			)
+		}
+		// And probe relative to CWD (e.g. user is sitting in /tui).
+		if cwd, err := os.Getwd(); err == nil {
+			candidates = append(candidates,
+				filepath.Join(cwd, "clio-agent", ".venv/bin/clio-agent-gact"),
+				filepath.Join(cwd, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+			)
+		}
+		for _, c := range candidates {
+			if st, err := os.Stat(c); err == nil && !st.IsDir() {
+				if abs, err := filepath.Abs(c); err == nil {
+					return abs, nil
+				}
+				return c, nil
+			}
+		}
+	}
+	return "", fmt.Errorf(
+		"%s not on PATH and no install detected — try one of:\n"+
+			"  • install: %s\n"+
+			"  • set CLIO_AGENT_SRC=/path/to/clio-agent\n"+
+			"  • pass --bin /path/to/clio-agent-gact explicitly",
+		exe, buildHint,
+	)
 }
 
 // freePort asks the kernel for an ephemeral TCP port by binding
@@ -2868,21 +2941,51 @@ func runAgentDeploy(args []string) int {
 		}
 	}
 
-	// Spawn detached. Stdout/stderr go to /dev/null so the parent
-	// shell isn't polluted; users can redirect to a log file via
-	// --bin "sh -c …" if they want to capture adapter chatter.
+	// Spawn detached. Stdin → /dev/null. Stdout/stderr go to a
+	// per-deploy log file under $XDG_CONFIG_HOME/gact/logs/ so a
+	// crashed adapter leaves a forensic trail instead of vanishing
+	// into the void. Path is stamped on the AgentRecord and printed
+	// to the user; falls back to /dev/null if the logs dir can't be
+	// created (rare — read-only home, etc.).
 	null, _ := os.Open(os.DevNull)
 	defer null.Close()
-	nullOut, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	defer nullOut.Close()
+	var spawnOut *os.File
+	logPath := ""
+	{
+		agentsCfgPath, perr := config.AgentsPath()
+		if perr == nil {
+			logsDir := filepath.Join(filepath.Dir(agentsCfgPath), "logs")
+			if mkErr := os.MkdirAll(logsDir, 0o755); mkErr == nil {
+				stamp := time.Now().UTC().Format("20060102-150405")
+				logPath = filepath.Join(logsDir, fmt.Sprintf("%s-%s.log", name, stamp))
+				if f, openErr := os.OpenFile(
+					logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644,
+				); openErr == nil {
+					spawnOut = f
+					_, _ = fmt.Fprintf(spawnOut,
+						"=== %s deploy %s pid=? bin=%s ===\n",
+						stamp, name, bin)
+				}
+			}
+		}
+	}
+	if spawnOut == nil {
+		spawnOut, _ = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		logPath = ""
+	}
 
-	cmd := exec.Command(bin,
-		"--host", *hostFlag,
-		"--port", fmt.Sprintf("%d", port),
-		"--cwd", cwd,
-	)
-	cmd.Stdout = nullOut
-	cmd.Stderr = nullOut
+	// CLIO-BBBBBBBBBB12: per-kind spawn arg shapes. claudecode +
+	// future Go adapters take --cwd; clio-agent-gact's main() only
+	// supports --host + --port + --reload (CLIO doesn't model a
+	// per-deploy working directory the way the local-process Go
+	// adapters do — its file-policy comes from CLIO_ALLOWED_ROOTS).
+	spawnArgs := []string{"--host", *hostFlag, "--port", fmt.Sprintf("%d", port)}
+	if kind != "clio" {
+		spawnArgs = append(spawnArgs, "--cwd", cwd)
+	}
+	cmd := exec.Command(bin, spawnArgs...)
+	cmd.Stdout = spawnOut
+	cmd.Stderr = spawnOut
 	cmd.Stdin = null
 	// Detach: new session so Ctrl+C on the parent doesn't kill
 	// the adapter.
@@ -2892,11 +2995,16 @@ func runAgentDeploy(args []string) int {
 		return 1
 	}
 
-	// Wait up to 3s for the adapter to start listening. Poll
-	// /v1/capabilities via probeAgentAlive; if we time out, kill
-	// the orphan and error out — we don't want a dead entry in
-	// the registry.
-	deadline := time.Now().Add(3 * time.Second)
+	// Wait for the adapter to start listening. CLIO-BBBBBBBBBB12:
+	// CLIO is a Python+DSPy backend with substantially slower cold-
+	// start (model load, ARC index hydration); 3s is fine for the
+	// Go adapters but cuts CLIO off mid-import. Use 10s for clio,
+	// 3s for everyone else.
+	probeBudget := 3 * time.Second
+	if kind == "clio" {
+		probeBudget = 10 * time.Second
+	}
+	deadline := time.Now().Add(probeBudget)
 	alive := false
 	for time.Now().Before(deadline) {
 		if probeAgentAlive(*hostFlag, port) {
@@ -2922,6 +3030,7 @@ func runAgentDeploy(args []string) int {
 		Name: name, Kind: kind, Bin: bin,
 		Host: *hostFlag, Port: port, PID: cmd.Process.Pid,
 		Cwd: cwd, StartedAt: time.Now().UTC(),
+		LogPath: logPath,
 	}
 	if _, err := config.UpsertAgent(path, rec); err != nil {
 		fmt.Fprintf(os.Stderr, "gact agent deploy: register: %v\n", err)
@@ -2931,6 +3040,9 @@ func runAgentDeploy(args []string) int {
 	_ = cmd.Process.Release()
 	fmt.Fprintf(os.Stderr, "deployed %s (kind=%s) pid=%d at http://%s:%d\n",
 		name, kind, rec.PID, rec.Host, rec.Port)
+	if logPath != "" {
+		fmt.Fprintf(os.Stderr, "logs: %s\n", logPath)
+	}
 	fmt.Fprintf(os.Stderr, "connect with: gact connect %s\n", name)
 	return 0
 }
@@ -3074,11 +3186,26 @@ func runAgentRm(args []string) int {
 // TUI pointed at it. Fails fast if the adapter isn't answering so
 // the user doesn't land in a TUI stuck at "connecting…".
 func runAgentConnect(args []string) int {
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact connect <name>  (or: gact agent connect <name>)")
+	// Split positional args from TUI passthrough flags. The agent name
+	// is the only positional we own; everything else (--no-intro,
+	// --backend override, etc.) gets forwarded to runTUI via os.Args.
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gact connect <name> [--no-intro|...]  (or: gact agent connect <name>)")
 		return 2
 	}
-	name := args[0]
+	var name string
+	var passthrough []string
+	for _, a := range args {
+		if name == "" && !strings.HasPrefix(a, "-") {
+			name = a
+			continue
+		}
+		passthrough = append(passthrough, a)
+	}
+	if name == "" {
+		fmt.Fprintln(os.Stderr, "usage: gact connect <name> [--no-intro|...]  (or: gact agent connect <name>)")
+		return 2
+	}
 	path, err := config.AgentsPath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact connect: %v\n", err)
@@ -3099,11 +3226,13 @@ func runAgentConnect(args []string) int {
 		return 1
 	}
 	// Hand off to runTUI via the same GACT_BACKEND env trick other
-	// wrappers use.
+	// wrappers use. Forward any TUI passthrough flags the user
+	// supplied (--no-intro etc.) so `gact connect aurora-demo
+	// --no-intro` works without remembering to env-export.
 	backend := fmt.Sprintf("http://%s:%d", rec.Host, rec.Port)
 	_ = os.Setenv("GACT_BACKEND", backend)
 	fmt.Fprintf(os.Stderr, "connecting to agent %s at %s\n", name, backend)
-	os.Args = []string{os.Args[0]}
+	os.Args = append([]string{os.Args[0]}, passthrough...)
 	runTUI()
 	return 0
 }

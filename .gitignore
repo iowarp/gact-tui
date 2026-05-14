@@ -1,6 +1,10 @@
 # Local research clones — read-only references, not part of the project
 research/
 
+# iowarp/clio-agent clone — exploration only, integration target for
+# the TUI. Not part of this repo's distribution; kept out of tracking.
+clio-agent/
+
 # Go build artifacts
 bin/
 *.test
@@ -34,6 +38,9 @@ loop-test/testdata/
 
 # Emulator / TUI build outputs (added once those exist)
 emulator/emulator-server
+# Stray binary that occasionally lands at the repo root from
+# `go build -o emulator-server ./emulator/...` run from the root.
+/emulator-server
 emulator/coverage.txt
 tui/gact
 tui/coverage.txt
@@ -47,3 +54,4 @@ tui/coverage.txt
 # Allow committed screenshots
 !screenshots/
 !screenshots/**/*.png
+.clio_agent/

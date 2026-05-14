@@ -73,6 +73,13 @@ type catalogBrowserLoadedMsg struct {
 	mcpServerID string
 }
 
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // loadCatalogBrowserCmd dispatches the right fetch based on kind.
 func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 	return func() tea.Msg {
@@ -94,11 +101,11 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			if s.Status == "ready" || s.Status == "connected" {
 				status = "connected"
 			}
-				// Name + command give the user a sense of what the
-				// server provides; Transport rounds it out.
-				desc := fmt.Sprintf("%s (%s)", s.Name, s.Transport)
+				// Title already shows the server name; description is just
+				// the transport so each row reads as a single line plus a
+				// muted transport hint (was repeating the name twice).
 				items = append(items, catalogItem{
-					id: s.ID, title: s.Name, desc: desc, statusTag: status,
+					id: s.ID, title: s.Name, desc: s.Transport, statusTag: status,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -172,7 +179,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				items = append(items, catalogItem{
 					id:    "none",
 					title: "(no skills on this backend)",
-					desc:  "Skills are agents with source=\"skill\". Backends doing automated extraction expose them via /v1/agents.",
+					desc:  "skills are agents with source=skill",
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -337,6 +344,22 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.sel < len(cb.items)-1 {
 			cb.sel++
 		}
+	case "i":
+		// Install a third-party MCP server. Closes the catalog and
+		// opens the small inline install overlay. Only meaningful in
+		// the MCP server list view (top-level /mcp).
+		if cb.kind == catalogKindMcp {
+			a.closeCatalogBrowser()
+			a.openMcpInstallModal()
+		}
+	case "d":
+		// Delete the highlighted MCP server. Bundled in_process
+		// servers are non-removable; the existing remove flow already
+		// filters those out and reports the "no third-party MCPs" toast.
+		if cb.kind == catalogKindMcp {
+			a.closeCatalogBrowser()
+			return a, a.openMcpRemoveModal()
+		}
 	}
 	return a, nil
 }
@@ -464,7 +487,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindTools:
 		hintText = "↑/↓ navigate · Space toggle · Esc close"
 	case catalogKindMcp:
-		hintText = "↑/↓ navigate · Enter drill in · Esc close"
+		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
 	case catalogKindMcpDetail:
 		hintText = "↑/↓ navigate · Esc/Backspace back"
 	default:

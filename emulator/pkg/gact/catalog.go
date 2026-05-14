@@ -14,6 +14,70 @@ type Provider struct {
 	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
+// AuthMethod is one of the spec's enumerated authentication schemes
+// for §6.12 providers. The wire is a string so future schemes (device
+// codes, mTLS, …) Just Work; the constants below are the cases the
+// TUI knows how to drive interactively today.
+type AuthMethod string
+
+const (
+	// AuthMethodNone — provider needs no credentials (lm_studio /
+	// ollama on localhost, meridian, codex bridges, ALCF compute-node
+	// vLLMs that accept the literal "EMPTY" key).
+	AuthMethodNone AuthMethod = "none"
+
+	// AuthMethodAPIKey — user pastes a long-lived API key (Anthropic,
+	// OpenAI, OpenRouter, and any other cloud provider behind a
+	// static bearer).
+	AuthMethodAPIKey AuthMethod = "api_key"
+
+	// AuthMethodOAuth — backend drives a multi-step browser flow on
+	// the user's behalf (ALCF Sophia / Polaris via Globus Auth).
+	AuthMethodOAuth AuthMethod = "oauth"
+)
+
+// AuthProvider wraps Provider with typed helpers for the auth flow.
+// Embeds Provider so every wire field stays accessible by direct
+// field access; method dispatch (NeedsLogin, Method) keeps the
+// modal's render code free of slice-scanning.
+type AuthProvider struct {
+	Provider
+}
+
+// WrapProvider lifts a wire Provider into an AuthProvider.
+func WrapProvider(p Provider) AuthProvider {
+	return AuthProvider{Provider: p}
+}
+
+// Method returns the primary auth method this provider declares.
+// Falls back to AuthMethodNone when the slice is empty or contains
+// only unknown values, so the settings modal never crashes on a
+// malformed catalog.
+func (a AuthProvider) Method() AuthMethod {
+	for _, raw := range a.AuthMethods {
+		switch m := AuthMethod(raw); m {
+		case AuthMethodOAuth, AuthMethodAPIKey, AuthMethodNone:
+			return m
+		}
+	}
+	return AuthMethodNone
+}
+
+// NeedsLogin reports whether the user must take action before the
+// provider can serve traffic. Always false for AuthMethodNone, false
+// when IsAuthenticated, true otherwise.
+func (a AuthProvider) NeedsLogin() bool {
+	if a.IsAuthenticated {
+		return false
+	}
+	switch a.Method() {
+	case AuthMethodOAuth, AuthMethodAPIKey:
+		return true
+	default:
+		return false
+	}
+}
+
 // Model is one LLM offered by a provider (SPEC §6.12).
 type Model struct {
 	ID               string          `json:"id"`
@@ -57,16 +121,27 @@ type Tool struct {
 }
 
 // AgentDef is a reusable agent persona/recipe (SPEC §6.5).
+//
+// v0.2 (SPEC §4.3.1): Tier, Specialization, Keywords are optional
+// fields that let a backend advertise a multi-tier agent hierarchy.
+// Backends with capabilities.agent_routing = true populate them on
+// tier-2 specialists so the TUI can render a routing badge and
+// colour it by specialization.
 type AgentDef struct {
-	ID            string           `json:"id"`
-	Source        string           `json:"source"` // builtin|user|recipe|skill
-	Title         string           `json:"title"`
-	Description   string           `json:"description,omitempty"`
-	SystemPrompt  string           `json:"system_prompt,omitempty"`
-	Parameters    []AgentParameter `json:"parameters,omitempty"`
-	DefaultModel  *ModelRef        `json:"default_model,omitempty"`
-	Tools         []string         `json:"tools,omitempty"`
-	Metadata      map[string]any   `json:"metadata,omitempty"`
+	ID             string           `json:"id"`
+	Source         string           `json:"source"` // builtin|user|recipe|skill
+	Title          string           `json:"title"`
+	Description    string           `json:"description,omitempty"`
+	SystemPrompt   string           `json:"system_prompt,omitempty"`
+	Parameters     []AgentParameter `json:"parameters,omitempty"`
+	DefaultModel   *ModelRef        `json:"default_model,omitempty"`
+	Tools          []string         `json:"tools,omitempty"`
+	Metadata       map[string]any   `json:"metadata,omitempty"`
+
+	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
+	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
+	Specialization string   `json:"specialization,omitempty"` // free-form tag — UI palette hint (code_editing, data_analysis, research, …)
+	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
 }
 
 // AgentParameter is a fillable input on an agent recipe.

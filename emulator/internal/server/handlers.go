@@ -12,10 +12,10 @@ import (
 )
 
 // ContractVersion is the GACT contract version this emulator implements.
-const ContractVersion = "0.1"
+const ContractVersion = "0.2"
 
 // EmulatorVersion is the emulator binary's own version (SemVer).
-const EmulatorVersion = "0.1.0"
+const EmulatorVersion = "0.2.0"
 
 // --- Encoding helpers -------------------------------------------------------
 
@@ -72,9 +72,21 @@ func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 // --- §3 health + capabilities ----------------------------------------------
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	// v0.2 — integrations[] + overall_status advertise per-subsystem
+	// health. The emulator is always healthy (it's in-memory) so we
+	// populate all rows as "ready"; backends with real dependencies
+	// (model provider, MCP gateway, memory backend) would reflect
+	// their actual state here.
 	writeJSON(w, http.StatusOK, gact.HealthResponse{
-		Healthy: true,
-		UptimeS: int(time.Since(s.started).Seconds()),
+		Healthy:       true,
+		UptimeS:       int(time.Since(s.started).Seconds()),
+		OverallStatus: "ready",
+		Integrations: []gact.Integration{
+			{Name: "api", Status: "ready", Detail: "gact-emulator " + EmulatorVersion},
+			{Name: "store", Status: "ready", Detail: "in-memory"},
+			{Name: "events", Status: "ready", Detail: "SSE bus active"},
+			{Name: "scenarios", Status: "ready", Detail: "all scripts loaded"},
+		},
 	})
 }
 
@@ -113,6 +125,13 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			SearchMessages:    true,
 			AgentWrite:        false,
 			SkillsExtraction:  false,
+
+			// v0.2 additions — SPEC §3.2.1
+			AgentRouting:      true,
+			Memory:            true,
+			StructuredErrors:  true,
+			IntegrationHealth: true,
+			ToolTelemetry:     true,
 		},
 		Transports: gact.TransportFlags{
 			EventsSSE:       true,
