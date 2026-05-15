@@ -9,16 +9,16 @@
 //
 // Example ~/.config/gact/theme.json:
 //
-//     {
-//       "name": "my-theme",
-//       "bg": "#0F0F14",
-//       "fg": "#EDEDED",
-//       "primary": "#FF79C6",
-//       "secondary": "#8BE9FD",
-//       "warning": "#F2C94C",
-//       "role_user": "#5BC0EB",
-//       "role_assistant": "#FF79C6"
-//     }
+//	{
+//	  "name": "my-theme",
+//	  "bg": "#0F0F14",
+//	  "fg": "#EDEDED",
+//	  "primary": "#FF79C6",
+//	  "secondary": "#8BE9FD",
+//	  "warning": "#F2C94C",
+//	  "role_user": "#5BC0EB",
+//	  "role_assistant": "#FF79C6"
+//	}
 //
 // The fields mirror the Theme struct's colour-only fields. Style
 // objects (Pane, Header, etc.) are rebuilt via applyStyles so users

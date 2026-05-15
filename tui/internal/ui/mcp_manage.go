@@ -123,8 +123,9 @@ func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // parseMcpInstallLine parses one line of user input into the request body
 // the backend expects. Supported shapes:
-//   <name> stdio <command> [args...]
-//   <name> http <url>
+//
+//	<name> stdio <command> [args...]
+//	<name> http <url>
 func parseMcpInstallLine(line string) (map[string]any, error) {
 	tokens := strings.Fields(strings.TrimSpace(line))
 	if len(tokens) < 3 {

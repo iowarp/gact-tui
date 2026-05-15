@@ -7,9 +7,10 @@ import (
 )
 
 // runDiffScript demonstrates the file_diff part flow:
-//   parent assistant turn proposes a code change as a file_diff part with
-//   before/after content. The TUI renders the diff inline and lets the
-//   user apply or reject via /v1/sessions/{id}/diffs/{apply,reject}.
+//
+//	parent assistant turn proposes a code change as a file_diff part with
+//	before/after content. The TUI renders the diff inline and lets the
+//	user apply or reject via /v1/sessions/{id}/diffs/{apply,reject}.
 //
 // Triggered by "diff" / "edit" / "patch" in the user's message.
 //

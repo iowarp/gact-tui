@@ -247,6 +247,7 @@ func roleToGact(r string) string {
 // handles both shapes:
 //   - {"text": {"text": "..."}}                       (untagged)
 //   - {"type": "text", "text": "..."}                 (internally tagged)
+//
 // Unknown variants serialise as a text placeholder per the SPEC §5.4
 // forward-compat rule.
 func contentToGactPart(raw map[string]any) gact.Part {

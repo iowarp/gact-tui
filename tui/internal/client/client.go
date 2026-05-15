@@ -367,7 +367,7 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 	return out.Providers, err
 }
 
-// LMProviderPreset is a row in CLIO's provider picker. ``RequiresAPIKey``
+// LMProviderPreset is a row in CLIO's provider picker. “RequiresAPIKey“
 // tells the TUI's modal whether to render the api_key field.
 type LMProviderPreset struct {
 	ID             string `json:"id"`
