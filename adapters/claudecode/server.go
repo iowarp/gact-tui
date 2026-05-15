@@ -67,8 +67,8 @@ type sessionState struct {
 // to send back in the control_response and a chan to wake up the
 // goroutine that's blocking on the user's decision.
 type pendingPerm struct {
-	id        string         // GACT permission id (perm_xxx)
-	requestID string         // claude's control_request request_id
+	id        string // GACT permission id (perm_xxx)
+	requestID string // claude's control_request request_id
 	sessionID string
 	record    map[string]any // PermissionRequest dict for GET /v1/permissions
 	resp      chan permResp
@@ -666,11 +666,11 @@ func (s *Server) captureCatalogs(initEv map[string]any) {
 					gactStatus = "disconnected"
 				}
 				s.mcpServers = append(s.mcpServers, map[string]any{
-					"id":                       slugify(name),
-					"name":                     name,
-					"transport":                "stdio",
-					"status":                   gactStatus,
-					"x_claudecode_raw_status":  rawStatus,
+					"id":                      slugify(name),
+					"name":                    name,
+					"transport":               "stdio",
+					"status":                  gactStatus,
+					"x_claudecode_raw_status": rawStatus,
 				})
 			}
 		}

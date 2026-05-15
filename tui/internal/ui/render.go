@@ -375,7 +375,7 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 		}
 		var rendered string
 		switch {
-		case role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "" :
+		case role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
 			rendered = renderMarkdown(p.Text, t, width-2)
 		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
 			// Always render the call header (matches CC style where

@@ -43,7 +43,7 @@ func TestSessionToGact(t *testing.T) {
 	in := CrushSession{
 		ID: "ses_1", Title: "fix it", PromptTokens: 1500, CompletionTokens: 600, Cost: 0.0135,
 		SummaryMessageID: "msg_summary",
-		CreatedAt: 1700000000,
+		CreatedAt:        1700000000,
 	}
 	g := SessionToGact(in, "ws_default")
 	if g.WorkspaceID != "ws_default" {

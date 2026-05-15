@@ -31,16 +31,16 @@ func TestDoctor_RendersIntegrationsTable(t *testing.T) {
 
 	out := stripANSI(a.viewDoctor())
 	for _, want := range []string{
-		"Doctor",                   // modal title
-		"degraded",                 // overall_status chip
-		"uptime 1h 2m",             // header formatted
-		"lm",                       // integration row
-		"ready",                    // status cell
-		"openai/gpt-4o-mini",       // detail column
-		"clio_core",                // another row
-		"unavailable",              // degraded row status
-		"binary missing",           // its detail
-		"Esc",                      // keybinding hint
+		"Doctor",             // modal title
+		"degraded",           // overall_status chip
+		"uptime 1h 2m",       // header formatted
+		"lm",                 // integration row
+		"ready",              // status cell
+		"openai/gpt-4o-mini", // detail column
+		"clio_core",          // another row
+		"unavailable",        // degraded row status
+		"binary missing",     // its detail
+		"Esc",                // keybinding hint
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("viewDoctor output missing %q; full:\n%s", want, out)

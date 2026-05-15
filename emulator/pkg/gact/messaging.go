@@ -155,11 +155,11 @@ type Message struct {
 // Recoverable hints whether a retry could succeed (true) or whether
 // user/operator intervention is required (false).
 type ErrorInfo struct {
-	Error        string         `json:"error"`
-	Message      string         `json:"message"`
-	Details      map[string]any `json:"details,omitempty"`
-	Recoverable  bool           `json:"recoverable"`
-	RetryAfterS  *int           `json:"retry_after_s,omitempty"`
+	Error       string         `json:"error"`
+	Message     string         `json:"message"`
+	Details     map[string]any `json:"details,omitempty"`
+	Recoverable bool           `json:"recoverable"`
+	RetryAfterS *int           `json:"retry_after_s,omitempty"`
 }
 
 // Part is a single content block within a Message (SPEC §4.5).
@@ -316,12 +316,12 @@ const (
 // PermissionRequest is the wire-level shape of a pending permission request
 // (SPEC §4.7). The server's store wraps this with status + resolution.
 type PermissionRequest struct {
-	ID            string             `json:"id"`
-	SessionID     string             `json:"session_id"`
-	SubsessionID  string             `json:"subsession_id,omitempty"`
-	ToolCall      PermissionToolCall `json:"tool_call"`
-	Summary       string             `json:"summary,omitempty"`
-	CreatedAt     time.Time          `json:"created_at"`
+	ID           string             `json:"id"`
+	SessionID    string             `json:"session_id"`
+	SubsessionID string             `json:"subsession_id,omitempty"`
+	ToolCall     PermissionToolCall `json:"tool_call"`
+	Summary      string             `json:"summary,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
 }
 
 // PermissionToolCall is the subset of a tool call that needs user approval.

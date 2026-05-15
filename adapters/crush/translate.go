@@ -34,17 +34,17 @@ type CrushWorkspace struct {
 
 // CrushSession mirrors crush proto.Session.
 type CrushSession struct {
-	ID                string  `json:"id"`
-	WorkspaceID       string  `json:"workspace_id,omitempty"`
-	ParentSessionID   string  `json:"parent_session_id,omitempty"`
-	Title             string  `json:"title,omitempty"`
-	MessageCount      int     `json:"message_count,omitempty"`
-	PromptTokens      int     `json:"prompt_tokens,omitempty"`
-	CompletionTokens  int     `json:"completion_tokens,omitempty"`
-	Cost              float64 `json:"cost,omitempty"`
-	SummaryMessageID  string  `json:"summary_message_id,omitempty"`
-	CreatedAt         int64   `json:"created_at,omitempty"`
-	UpdatedAt         int64   `json:"updated_at,omitempty"`
+	ID               string  `json:"id"`
+	WorkspaceID      string  `json:"workspace_id,omitempty"`
+	ParentSessionID  string  `json:"parent_session_id,omitempty"`
+	Title            string  `json:"title,omitempty"`
+	MessageCount     int     `json:"message_count,omitempty"`
+	PromptTokens     int     `json:"prompt_tokens,omitempty"`
+	CompletionTokens int     `json:"completion_tokens,omitempty"`
+	Cost             float64 `json:"cost,omitempty"`
+	SummaryMessageID string  `json:"summary_message_id,omitempty"`
+	CreatedAt        int64   `json:"created_at,omitempty"`
+	UpdatedAt        int64   `json:"updated_at,omitempty"`
 }
 
 // WorkspaceToGact maps Crush workspace → GACT workspace. Crush carries

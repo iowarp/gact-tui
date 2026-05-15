@@ -107,12 +107,12 @@ func TestResolvePrecedence(t *testing.T) {
 
 	// flag wins over env wins over file wins over fallback.
 	cases := []struct {
-		name   string
-		file   *string
-		env    string
-		flag   string
-		fb     string
-		want   string
+		name string
+		file *string
+		env  string
+		flag string
+		fb   string
+		want string
 	}{
 		{"all unset", nil, "", "", "default", "default"},
 		{"flag only", nil, "", "set-flag", "default", "set-flag"},

@@ -130,17 +130,17 @@ func WorkspaceFromProject(p OcProjectInfo) gact.Workspace {
 // packages/opencode/src/session/message-v2.ts. The TS shape is
 // discriminated by `role`. We carry only the fields we translate.
 type OcMessage struct {
-	ID        string  `json:"id"`
-	SessionID string  `json:"sessionID"`
-	Role      string  `json:"role"` // "user" | "assistant"
-	Time      OcTimes `json:"time"`
-	ParentID  string  `json:"parentID,omitempty"`
-	ProviderID string `json:"providerID,omitempty"`
-	ModelID    string `json:"modelID,omitempty"`
-	Agent      string `json:"agent,omitempty"`
-	Cost       float64 `json:"cost,omitempty"`
+	ID         string   `json:"id"`
+	SessionID  string   `json:"sessionID"`
+	Role       string   `json:"role"` // "user" | "assistant"
+	Time       OcTimes  `json:"time"`
+	ParentID   string   `json:"parentID,omitempty"`
+	ProviderID string   `json:"providerID,omitempty"`
+	ModelID    string   `json:"modelID,omitempty"`
+	Agent      string   `json:"agent,omitempty"`
+	Cost       float64  `json:"cost,omitempty"`
 	Tokens     OcTokens `json:"tokens,omitempty"`
-	Finish     string  `json:"finish,omitempty"`
+	Finish     string   `json:"finish,omitempty"`
 }
 
 // OcTokens mirrors OpenCode's tokens sub-object on assistant messages.

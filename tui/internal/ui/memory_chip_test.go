@@ -16,9 +16,9 @@ func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
 	a.caps.Capabilities.Memory = true
 	a.memoryStats = gact.MemoryStats{
 		Cache: gact.CacheStats{
-			Hits:    80,
-			Misses:  20,
-			HitRate: 0.80,
+			Hits:     80,
+			Misses:   20,
+			HitRate:  0.80,
 			Capacity: 1000,
 		},
 	}

@@ -60,23 +60,23 @@ var diffVariants = []struct {
 	after  string
 }{
 	{
-		intro: "Here's the change. Press **a** to apply or **r** to reject from the conversation pane.",
-		path:  "main.go",
-		lang:  "go",
+		intro:  "Here's the change. Press **a** to apply or **r** to reject from the conversation pane.",
+		path:   "main.go",
+		lang:   "go",
 		before: "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n",
 		after:  "package main\n\nimport \"log\"\n\nfunc main() {\n\tlog.Println(\"hello, world\")\n}\n",
 	},
 	{
-		intro: "Wrap the network call in a try/except so a transient DNS blip doesn't kill the worker. **a**=apply, **r**=reject.",
-		path:  "worker/fetch.py",
-		lang:  "python",
+		intro:  "Wrap the network call in a try/except so a transient DNS blip doesn't kill the worker. **a**=apply, **r**=reject.",
+		path:   "worker/fetch.py",
+		lang:   "python",
 		before: "import requests\n\n\ndef fetch_user(uid: str) -> dict:\n    r = requests.get(f\"https://api.example.com/users/{uid}\", timeout=5)\n    return r.json()\n",
 		after:  "import logging\nimport requests\n\nlog = logging.getLogger(__name__)\n\n\ndef fetch_user(uid: str) -> dict:\n    try:\n        r = requests.get(f\"https://api.example.com/users/{uid}\", timeout=5)\n        r.raise_for_status()\n        return r.json()\n    except requests.RequestException as exc:\n        log.warning(\"fetch_user(%s) failed: %s\", uid, exc)\n        return {}\n",
 	},
 	{
-		intro: "Swap the callback chain for async/await — same semantics, an order of magnitude less indentation. **a**=apply, **r**=reject.",
-		path:  "src/loader.js",
-		lang:  "javascript",
+		intro:  "Swap the callback chain for async/await — same semantics, an order of magnitude less indentation. **a**=apply, **r**=reject.",
+		path:   "src/loader.js",
+		lang:   "javascript",
 		before: "function loadUser(id, cb) {\n  db.get('users', id, function (err, row) {\n    if (err) return cb(err);\n    cache.set(id, row, function (err2) {\n      if (err2) return cb(err2);\n      cb(null, row);\n    });\n  });\n}\n",
 		after:  "async function loadUser(id) {\n  const row = await db.get('users', id);\n  await cache.set(id, row);\n  return row;\n}\n",
 	},
