@@ -263,7 +263,7 @@ func readVCSInfo() (rev, when string, dirty bool) {
 // value — JSON doesn't allow comments, so the field names themselves
 // serve as documentation. Users redirect to the canonical path:
 //
-//     gact emit-config > ~/.config/gact/config.json
+//	gact emit-config > ~/.config/gact/config.json
 func runEmitConfig() {
 	bk := "http://localhost:7777"
 	th := "dark"
@@ -3524,9 +3524,10 @@ func humanTokensCLI(n int) string {
 // SPEC without writing test code (SSS1).
 //
 // Exit codes:
-//   0 — every section passed (or was explicitly skipped)
-//   1 — at least one section failed
-//   2 — bad usage
+//
+//	0 — every section passed (or was explicitly skipped)
+//	1 — at least one section failed
+//	2 — bad usage
 func runConformance(args []string) int {
 	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
