@@ -161,4 +161,3 @@ func (a *App) viewQuitConfirm() string {
 		Width(w).
 		Render(box)
 }
-

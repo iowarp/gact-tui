@@ -1,0 +1,13 @@
+# Normalize line endings. Go tooling (gofmt, go vet) treats CRLF as
+# unformatted, so everything textual is stored and checked out as LF
+# regardless of the contributor's platform.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings.
+*.png  binary
+*.gif  binary
+*.jpg  binary
+*.jpeg binary
+*.webm binary
+*.mp4  binary
+*.ico  binary

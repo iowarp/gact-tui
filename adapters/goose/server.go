@@ -537,9 +537,9 @@ func (s *Server) runUpstreamReply(sid, text string) {
 
 	// Mark session running.
 	s.broadcast(sid, eventEnvelope("session.status_changed", map[string]any{
-		"session_id":   sid,
-		"status":       gact.StatusRunning,
-		"prev_status":  gact.StatusIdle,
+		"session_id":  sid,
+		"status":      gact.StatusRunning,
+		"prev_status": gact.StatusIdle,
 	}))
 
 	resp, err := s.client.Post(s.upstream+"/reply",

@@ -77,8 +77,8 @@ func TestRoutingScript_EmitsRoutingDecisionPart(t *testing.T) {
 // distinct keyword hints.
 func TestRoutingScript_PicksByKeyword(t *testing.T) {
 	cases := []struct {
-		prompt        string
-		wantAgent     string
+		prompt    string
+		wantAgent string
 	}{
 		{"please refactor this function", "code_expert"},
 		{"can you search the web for pandas", "research_expert"},

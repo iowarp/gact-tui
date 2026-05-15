@@ -2,19 +2,19 @@
 // new word in the input opens a floating fuzzy-file picker scoped to the
 // current workspace. Selecting a file:
 //
-//   1. Inserts `@path/to/file` into the input at the cursor position.
-//   2. Attaches the file to the session's context via POST
-//      /v1/sessions/{id}/context/files (mode=read) so the backend sees
-//      it as extra context on the next send. Same plumbing as the K14
-//      sidebar `o` key, reached from the input side.
+//  1. Inserts `@path/to/file` into the input at the cursor position.
+//  2. Attaches the file to the session's context via POST
+//     /v1/sessions/{id}/context/files (mode=read) so the backend sees
+//     it as extra context on the next send. Same plumbing as the K14
+//     sidebar `o` key, reached from the input side.
 //
 // Design:
-//   * Fuzzy matching is simple case-insensitive substring scoring. Good
+//   - Fuzzy matching is simple case-insensitive substring scoring. Good
 //     enough for the sizes we're dealing with (workspace listings are
 //     typically hundreds of entries, not thousands) and debuggable.
-//   * Files only — directories are skipped. The @-syntax refers to
+//   - Files only — directories are skipped. The @-syntax refers to
 //     concrete files; directories confuse the context-attach semantics.
-//   * The picker modal sits above the input and uses the same centred
+//   - The picker modal sits above the input and uses the same centred
 //     spliceRow overlay as every other modal so the base view stays
 //     visible behind the gutter.
 package ui
@@ -91,13 +91,13 @@ func (a *App) closeFilePicker() {
 // ordering is deterministic across renders.
 //
 // Scoring rules (lower is better):
-//   * a direct substring match beats a scattered-char match — the
+//   - a direct substring match beats a scattered-char match — the
 //     substring score is its 0-based start index plus a small
 //     constant, so "rout" against "router.go" scores 0, a skip-match
 //     scores in the hundreds.
-//   * for skip-match, we prefer matches that start earlier in the
+//   - for skip-match, we prefer matches that start earlier in the
 //     path and have less gap between characters.
-//   * matches on the basename (after the last '/') beat matches that
+//   - matches on the basename (after the last '/') beat matches that
 //     land earlier in a directory component — users typing "picker"
 //     mean the file, not a directory called "picker-notes".
 func (a *App) filePickerMatches() []gact.FileEntry {
@@ -140,10 +140,10 @@ func (a *App) filePickerMatches() []gact.FileEntry {
 // match hay at all. Both inputs must be lowercased.
 //
 // The score blends:
-//   * substring bonus: needle is a direct substring → base_cost + idx
-//   * basename bonus: matches in the filename component beat matches
+//   - substring bonus: needle is a direct substring → base_cost + idx
+//   - basename bonus: matches in the filename component beat matches
 //     in parent directories
-//   * skip penalty: for scattered matches, each gap costs 10 so
+//   - skip penalty: for scattered matches, each gap costs 10 so
 //     "router" beats "r...o...u..t..e..r" in an unrelated file
 //
 // This intentionally avoids a proper edit-distance algorithm; the

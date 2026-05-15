@@ -14,14 +14,14 @@ import (
 //
 // What it emits (in order):
 //
-//   1. session.status_changed → running
-//   2. routing_decision part as the FIRST part of the assistant
-//      message — selected_agent matched by keyword against the
-//      catalog's tier-2 entries (code_expert / research_expert /
-//      data_expert). heuristic = true, confidence = 0.85.
-//   3. session.agent_routed event carrying selected_agent + rationale.
-//   4. A text part answering with the picked agent's voice.
-//   5. message.completed.
+//  1. session.status_changed → running
+//  2. routing_decision part as the FIRST part of the assistant
+//     message — selected_agent matched by keyword against the
+//     catalog's tier-2 entries (code_expert / research_expert /
+//     data_expert). heuristic = true, confidence = 0.85.
+//  3. session.agent_routed event carrying selected_agent + rationale.
+//  4. A text part answering with the picked agent's voice.
+//  5. message.completed.
 //
 // This is the end-to-end path a TUI consumer exercises for badge
 // rendering + routing rationale display. Pairs with

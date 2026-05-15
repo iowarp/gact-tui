@@ -64,10 +64,10 @@ func (l *latencyTracker) Record(pattern string, d time.Duration) {
 // Snapshot returns a copy of the current per-route stats. Safe to call
 // concurrently with Record.
 type latencyStat struct {
-	Count   int     `json:"count"`
-	P50Ms   float64 `json:"p50_ms"`
-	P95Ms   float64 `json:"p95_ms"`
-	MaxMs   float64 `json:"max_ms"`
+	Count int     `json:"count"`
+	P50Ms float64 `json:"p50_ms"`
+	P95Ms float64 `json:"p95_ms"`
+	MaxMs float64 `json:"max_ms"`
 }
 
 func (l *latencyTracker) Snapshot() map[string]latencyStat {

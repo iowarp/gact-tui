@@ -263,7 +263,7 @@ func readVCSInfo() (rev, when string, dirty bool) {
 // value — JSON doesn't allow comments, so the field names themselves
 // serve as documentation. Users redirect to the canonical path:
 //
-//     gact emit-config > ~/.config/gact/config.json
+//	gact emit-config > ~/.config/gact/config.json
 func runEmitConfig() {
 	bk := "http://localhost:7777"
 	th := "dark"
@@ -2034,9 +2034,9 @@ func runFollow(args []string) int {
 	known := map[string]bool{
 		"--backend": true, "-backend": true,
 		"--format": true, "-format": true,
-		"--role":   true, "-role": true,
-		"--grep":   true, "-grep": true,
-		"--since":  true, "-since": true,
+		"--role": true, "-role": true,
+		"--grep": true, "-grep": true,
+		"--since": true, "-since": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
@@ -2230,7 +2230,7 @@ func runGrep(args []string) int {
 		"--workspace": true, "-workspace": true,
 		"--format": true, "-format": true,
 		"--limit": true, "-limit": true,
-		"--role":  true, "-role": true,
+		"--role": true, "-role": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
@@ -2321,7 +2321,7 @@ func runGrep(args []string) int {
 				}
 				hits = append(hits, hit{
 					SID: s.ID, Title: s.Title, MID: m.MessageID,
-					Role: role,
+					Role:    role,
 					Snippet: strings.ReplaceAll(m.Snippet, "\n", " "),
 				})
 			}
@@ -2385,7 +2385,7 @@ func runDashboard(args []string) int {
 		"--format": true, "-format": true,
 		"--interval": true, "-interval": true,
 		"--status": true, "-status": true,
-		"--sort":   true, "-sort": true,
+		"--sort": true, "-sort": true,
 		"--detached-only": true, "-detached-only": true,
 	})); err != nil {
 		return 2
@@ -2471,10 +2471,10 @@ func runDetached(args []string) int {
 	interval := fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--rm": true, "-rm": true,
-		"--probe":      true, "-probe": true,
+		"--probe": true, "-probe": true,
 		"--prune-dead": true, "-prune-dead": true,
-		"--format":   true, "-format": true,
-		"--watch":    true, "-watch": true,
+		"--format": true, "-format": true,
+		"--watch": true, "-watch": true,
 		"--interval": true, "-interval": true,
 	})); err != nil {
 		return 2
@@ -2547,122 +2547,122 @@ func runDetached(args []string) int {
 				liveness[i] = &alive
 			}
 		}
-	// GGGGGGGG1: --prune-dead removes every entry whose probe came
-	// back negative. Done after the probe pass so the rendered table
-	// (below) shows the survivors with their (alive=yes) column,
-	// confirming what's left. The dead rows themselves are dropped
-	// silently from the rendered output but counted in stderr.
-	if *pruneDead {
-		survivors := reg.Records[:0]
-		survivorLive := liveness[:0]
-		removed := 0
-		for i, r := range reg.Records {
-			if liveness[i] != nil && !*liveness[i] {
-				removed++
-				continue
+		// GGGGGGGG1: --prune-dead removes every entry whose probe came
+		// back negative. Done after the probe pass so the rendered table
+		// (below) shows the survivors with their (alive=yes) column,
+		// confirming what's left. The dead rows themselves are dropped
+		// silently from the rendered output but counted in stderr.
+		if *pruneDead {
+			survivors := reg.Records[:0]
+			survivorLive := liveness[:0]
+			removed := 0
+			for i, r := range reg.Records {
+				if liveness[i] != nil && !*liveness[i] {
+					removed++
+					continue
+				}
+				survivors = append(survivors, r)
+				survivorLive = append(survivorLive, liveness[i])
 			}
-			survivors = append(survivors, r)
-			survivorLive = append(survivorLive, liveness[i])
-		}
-		reg.Records = survivors
-		liveness = survivorLive
-		if removed > 0 {
-			if err := config.SaveDetached(reg, path); err != nil {
-				fmt.Fprintf(os.Stderr, "gact detached: prune-dead: write %s: %v\n", path, err)
-				return 1
-			}
-		}
-		fmt.Fprintf(os.Stderr, "pruned %d dead entr(y/ies); %d alive remain\n",
-			removed, len(reg.Records))
-	}
-	switch *format {
-	case "json":
-		type row struct {
-			config.DetachedRecord
-			Alive *bool `json:"alive,omitempty"`
-		}
-		rows := make([]row, len(reg.Records))
-		for i, r := range reg.Records {
-			rows[i] = row{DetachedRecord: r, Alive: liveness[i]}
-		}
-		b, _ := json.MarshalIndent(rows, "", "  ")
-		fmt.Println(string(b))
-	case "tsv":
-		fmt.Println("session_id\ttitle\tbackend\tworkspace\tdetached_at\talive")
-		for i, r := range reg.Records {
-			alive := ""
-			if liveness[i] != nil {
-				if *liveness[i] {
-					alive = "yes"
-				} else {
-					alive = "no"
+			reg.Records = survivors
+			liveness = survivorLive
+			if removed > 0 {
+				if err := config.SaveDetached(reg, path); err != nil {
+					fmt.Fprintf(os.Stderr, "gact detached: prune-dead: write %s: %v\n", path, err)
+					return 1
 				}
 			}
-			fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\n",
-				r.SessionID, r.Title, r.Backend, r.Workspace,
-				r.DetachedAt.Format(time.RFC3339), alive)
+			fmt.Fprintf(os.Stderr, "pruned %d dead entr(y/ies); %d alive remain\n",
+				removed, len(reg.Records))
 		}
-	default: // pretty
-		if len(reg.Records) == 0 {
-			fmt.Println("(no detached sessions — Ctrl+Z in the TUI records one here)")
-			return 0
-		}
-		// BBBBBBBB2: reorder so dead entries sink to the bottom when
-		// --probe is set — the user's next reattach target is almost
-		// always one of the live ones. Stable sort preserves the
-		// newest-first ordering within each group.
-		order := make([]int, len(reg.Records))
-		for i := range order {
-			order[i] = i
-		}
-		sort.SliceStable(order, func(i, j int) bool {
-			ai, aj := liveness[order[i]], liveness[order[j]]
-			// Both unprobed or same liveness → preserve index order.
-			if ai == nil && aj == nil {
+		switch *format {
+		case "json":
+			type row struct {
+				config.DetachedRecord
+				Alive *bool `json:"alive,omitempty"`
+			}
+			rows := make([]row, len(reg.Records))
+			for i, r := range reg.Records {
+				rows[i] = row{DetachedRecord: r, Alive: liveness[i]}
+			}
+			b, _ := json.MarshalIndent(rows, "", "  ")
+			fmt.Println(string(b))
+		case "tsv":
+			fmt.Println("session_id\ttitle\tbackend\tworkspace\tdetached_at\talive")
+			for i, r := range reg.Records {
+				alive := ""
+				if liveness[i] != nil {
+					if *liveness[i] {
+						alive = "yes"
+					} else {
+						alive = "no"
+					}
+				}
+				fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\n",
+					r.SessionID, r.Title, r.Backend, r.Workspace,
+					r.DetachedAt.Format(time.RFC3339), alive)
+			}
+		default: // pretty
+			if len(reg.Records) == 0 {
+				fmt.Println("(no detached sessions — Ctrl+Z in the TUI records one here)")
+				return 0
+			}
+			// BBBBBBBB2: reorder so dead entries sink to the bottom when
+			// --probe is set — the user's next reattach target is almost
+			// always one of the live ones. Stable sort preserves the
+			// newest-first ordering within each group.
+			order := make([]int, len(reg.Records))
+			for i := range order {
+				order[i] = i
+			}
+			sort.SliceStable(order, func(i, j int) bool {
+				ai, aj := liveness[order[i]], liveness[order[j]]
+				// Both unprobed or same liveness → preserve index order.
+				if ai == nil && aj == nil {
+					return order[i] < order[j]
+				}
+				// Alive-or-unknown ranks above known-dead.
+				iDead := ai != nil && !*ai
+				jDead := aj != nil && !*aj
+				if iDead != jDead {
+					return !iDead
+				}
 				return order[i] < order[j]
-			}
-			// Alive-or-unknown ranks above known-dead.
-			iDead := ai != nil && !*ai
-			jDead := aj != nil && !*aj
-			if iDead != jDead {
-				return !iDead
-			}
-			return order[i] < order[j]
-		})
-		fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
-			"SESSION", "TITLE", "BACKEND", "DETACHED", "ALIVE")
-		alive, dead, unknown := 0, 0, 0
-		for _, idx := range order {
-			r := reg.Records[idx]
-			aliveText := "?"
-			col := ansiDim
-			if liveness[idx] != nil {
-				if *liveness[idx] {
-					aliveText, col = "yes", ansiGreen
-					alive++
-				} else {
-					aliveText, col = "no", ansiRed
-					dead++
-				}
-			} else {
-				unknown++
-			}
-			when := humanizeAge(time.Since(r.DetachedAt))
-			title := r.Title
-			if title == "" {
-				title = "(untitled)"
-			}
+			})
 			fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
-				truncMid(r.SessionID, 20), truncMid(title, 30),
-				truncMid(r.Backend, 30), when, colorize(aliveText, col))
-		}
-		fmt.Println()
-		// Footer summary — only show probe counts if at least one
-		// row was probed (otherwise the zeros are noise).
-		if alive+dead > 0 {
-			fmt.Printf("%d alive · %d dead · %d unprobed\n", alive, dead, unknown)
-		}
-		fmt.Println("Reattach: gact attach <session>")
+				"SESSION", "TITLE", "BACKEND", "DETACHED", "ALIVE")
+			alive, dead, unknown := 0, 0, 0
+			for _, idx := range order {
+				r := reg.Records[idx]
+				aliveText := "?"
+				col := ansiDim
+				if liveness[idx] != nil {
+					if *liveness[idx] {
+						aliveText, col = "yes", ansiGreen
+						alive++
+					} else {
+						aliveText, col = "no", ansiRed
+						dead++
+					}
+				} else {
+					unknown++
+				}
+				when := humanizeAge(time.Since(r.DetachedAt))
+				title := r.Title
+				if title == "" {
+					title = "(untitled)"
+				}
+				fmt.Printf("%-20s  %-30s  %-30s  %-12s  %s\n",
+					truncMid(r.SessionID, 20), truncMid(title, 30),
+					truncMid(r.Backend, 30), when, colorize(aliveText, col))
+			}
+			fmt.Println()
+			// Footer summary — only show probe counts if at least one
+			// row was probed (otherwise the zeros are noise).
+			if alive+dead > 0 {
+				fmt.Printf("%d alive · %d dead · %d unprobed\n", alive, dead, unknown)
+			}
+			fmt.Println("Reattach: gact attach <session>")
 		}
 		return 0
 	}
@@ -2896,7 +2896,7 @@ func runAgentDeploy(args []string) int {
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--bin": true, "-bin": true,
 		"--port": true, "-port": true,
-		"--cwd":  true, "-cwd": true,
+		"--cwd": true, "-cwd": true,
 		"--host": true, "-host": true,
 	})); err != nil {
 		return 2
@@ -3237,7 +3237,6 @@ func runAgentConnect(args []string) int {
 	return 0
 }
 
-
 // colorize wraps s in an ANSI sequence when stdout is a terminal
 // (detected via file-mode check) — otherwise returns the raw string
 // so piped output isn't cluttered with escape codes. Matches the
@@ -3525,9 +3524,10 @@ func humanTokensCLI(n int) string {
 // SPEC without writing test code (SSS1).
 //
 // Exit codes:
-//   0 — every section passed (or was explicitly skipped)
-//   1 — at least one section failed
-//   2 — bad usage
+//
+//	0 — every section passed (or was explicitly skipped)
+//	1 — at least one section failed
+//	2 — bad usage
 func runConformance(args []string) int {
 	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
@@ -6717,8 +6717,8 @@ func runLog(args []string) int {
 		"--limit": true, "-limit": true,
 		"--since": true, "-since": true,
 		"--format": true, "-format": true,
-		"--role":   true, "-role": true,
-		"--grep":   true, "-grep": true,
+		"--role": true, "-role": true,
+		"--grep": true, "-grep": true,
 	}
 	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
 		return 2
@@ -7513,7 +7513,7 @@ func runExport(args []string) int {
 	}
 
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: gact export <session_id> [-o path] [--backend URL]\n" +
+		fmt.Fprintln(os.Stderr, "usage: gact export <session_id> [-o path] [--backend URL]\n"+
 			"   or: gact export --all -o DIR [--workspace WS_ID] [--backend URL]")
 		return 2
 	}

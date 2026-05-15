@@ -94,13 +94,13 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			items := make([]catalogItem, 0, len(servers))
 			for _, s := range servers {
 				// McpServer.Status covers connecting|ready|error|
-			// disconnected. Simplify to connected vs not for the
-			// modal's status tag so the glance interpretation is
-			// unambiguous.
-			status := "disconnected"
-			if s.Status == "ready" || s.Status == "connected" {
-				status = "connected"
-			}
+				// disconnected. Simplify to connected vs not for the
+				// modal's status tag so the glance interpretation is
+				// unambiguous.
+				status := "disconnected"
+				if s.Status == "ready" || s.Status == "connected" {
+					status = "connected"
+				}
 				// Title already shows the server name; description is just
 				// the transport so each row reads as a single line plus a
 				// muted transport hint (was repeating the name twice).

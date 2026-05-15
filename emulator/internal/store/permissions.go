@@ -205,7 +205,7 @@ func (p *Permissions) Get(id string) (*PermissionRequest, bool) {
 
 // PermissionFilter narrows a list query.
 type PermissionFilter struct {
-	SessionID string // empty = all sessions
+	SessionID   string // empty = all sessions
 	OnlyPending bool
 }
 

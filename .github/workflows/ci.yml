@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Match the toolchain pinned in go.work.
+          go-version: "1.26.x"
+          cache-dependency-path: |
+            **/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needs to run on:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+
+      # The repo root is a go.work workspace, not a module, so
+      # `go <cmd> ./...` from the root doesn't span the members.
+      # Run vet / build / test inside each workspace module instead;
+      # the module list is read from go.work so it stays in sync as
+      # modules are added or removed.
+      - name: Build, vet, and test each workspace module
+        run: |
+          set -e
+          for m in $(grep -oE '\./[^ ]+' go.work); do
+            echo "::group::$m"
+            ( cd "$m" && go vet ./... && go build ./... && go test ./... -count=1 )
+            echo "::endgroup::"
+          done

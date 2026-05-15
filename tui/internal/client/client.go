@@ -277,9 +277,9 @@ func (c *Client) PostMessage(ctx context.Context, sessionID string, req PostMess
 
 // SearchMatch mirrors SPEC §6.3 — one hit from /messages/search.
 type SearchMatch struct {
-	MessageID string `json:"message_id"`
-	PartID    string `json:"part_id"`
-	Snippet   string `json:"snippet"`
+	MessageID string  `json:"message_id"`
+	PartID    string  `json:"part_id"`
+	Snippet   string  `json:"snippet"`
 	Score     float64 `json:"score"`
 }
 
@@ -332,9 +332,9 @@ func (c *Client) ListTools(ctx context.Context) ([]gact.Tool, error) {
 // internally; the TUI sees this shape over the wire.
 type PermissionWire struct {
 	gact.PermissionRequest
-	Status     string                 `json:"status"`
-	Action     gact.PermissionAction  `json:"action,omitempty"`
-	ResolvedAt time.Time              `json:"resolved_at,omitempty"`
+	Status     string                `json:"status"`
+	Action     gact.PermissionAction `json:"action,omitempty"`
+	ResolvedAt time.Time             `json:"resolved_at,omitempty"`
 }
 
 func (c *Client) ListPermissions(ctx context.Context, sessionID string, onlyPending bool) ([]PermissionWire, error) {
@@ -367,16 +367,16 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 	return out.Providers, err
 }
 
-// LMProviderPreset is a row in CLIO's provider picker. ``RequiresAPIKey``
+// LMProviderPreset is a row in CLIO's provider picker. “RequiresAPIKey“
 // tells the TUI's modal whether to render the api_key field.
 type LMProviderPreset struct {
-	ID              string `json:"id"`
-	Label           string `json:"label"`
-	Provider        string `json:"provider"`
-	APIBase         string `json:"api_base"`
-	SuggestedModel  string `json:"suggested_model"`
-	RequiresAPIKey  bool   `json:"requires_api_key"`
-	Description     string `json:"description"`
+	ID             string `json:"id"`
+	Label          string `json:"label"`
+	Provider       string `json:"provider"`
+	APIBase        string `json:"api_base"`
+	SuggestedModel string `json:"suggested_model"`
+	RequiresAPIKey bool   `json:"requires_api_key"`
+	Description    string `json:"description"`
 }
 
 // LMProviderInfo is the GET /v1/providers/lm body — current LM
@@ -524,12 +524,12 @@ func (c *Client) RunCommand(ctx context.Context, sessionID, cmdID string) error 
 // PatchSessionRequest mirrors server.UpdateSessionRequest fields the TUI
 // needs (avoids importing server internals into the client).
 type PatchSessionRequest struct {
-	Title    *string         `json:"title,omitempty"`
-	Archived *bool           `json:"archived,omitempty"`
-	Agent    *gact.AgentRef  `json:"agent,omitempty"`
-	Model    *gact.ModelRef  `json:"model,omitempty"`
-	Status   *string         `json:"status,omitempty"`
-	Metadata map[string]any  `json:"metadata,omitempty"`
+	Title    *string        `json:"title,omitempty"`
+	Archived *bool          `json:"archived,omitempty"`
+	Agent    *gact.AgentRef `json:"agent,omitempty"`
+	Model    *gact.ModelRef `json:"model,omitempty"`
+	Status   *string        `json:"status,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 	// RoutingMode toggles the agent's routing override per session.
 	// "auto" = LM-based router; "chat" = force chat path (no /chat
 	// prefix needed); "experts" = reject chat/none routes.
