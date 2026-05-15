@@ -35,11 +35,14 @@ func makeFilterApp(t *testing.T) *App {
 	return a
 }
 
-func TestSessionFilter_SlashEntersFilterMode(t *testing.T) {
+func TestSessionFilter_FEntersFilterMode(t *testing.T) {
+	// `/` opens the global command palette regardless of focus
+	// (universal TUI convention). The sidebar filter is bound to
+	// `f` instead -- see handleSidebarKey in app.go.
 	a := makeFilterApp(t)
-	a.handleSidebarKey(tea.KeyPressMsg{Code: '/', Text: "/"})
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'f', Text: "f"})
 	if !a.sessionFilterActive {
-		t.Fatal("/ should enter filter mode")
+		t.Fatal("f should enter sidebar filter mode")
 	}
 }
 
@@ -100,12 +103,12 @@ func TestSessionFilter_EnterCommitsExitsMode(t *testing.T) {
 }
 
 func TestSessionFilter_EscRestoresSnapshot(t *testing.T) {
-	// User had a committed filter "auth", pressed / to re-edit, typed
+	// User had a committed filter "auth", pressed `f` to re-edit, typed
 	// more chars, then Esc'd. Should revert to "auth", not clear.
 	a := makeFilterApp(t)
 	a.sessionFilter = "auth"
-	// Entering edit mode via `/` snapshots the current filter.
-	a.handleSidebarKey(tea.KeyPressMsg{Code: '/', Text: "/"})
+	// Entering edit mode via `f` snapshots the current filter.
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'f', Text: "f"})
 	if a.filterSnapshot != "auth" {
 		t.Errorf("snapshot after / = %q, want 'auth'", a.filterSnapshot)
 	}
