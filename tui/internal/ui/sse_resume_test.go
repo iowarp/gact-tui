@@ -74,15 +74,23 @@ func TestSSEResume_PassesLastEventIDOnReconnect(t *testing.T) {
 	a.selected = 0
 	a.lastSeenSeqID = 42
 
-	if cmd := a.startSSECmd("ses_resume"); cmd == nil {
+	cmd1 := a.startSSECmd("ses_resume")
+	if cmd1 == nil {
 		t.Fatal("first startSSECmd returned nil")
 	}
+	// startSSECmd returns a tea.Cmd; the HTTP request only fires when
+	// the cmd is invoked. The mock closes the connection immediately,
+	// so cmd1() returns once headers are received -- by which point
+	// Last-Event-ID has already been recorded server-side.
+	_ = cmd1()
 
 	// Second connect — pretend we processed event 99 in between.
 	a.lastSeenSeqID = 99
-	if cmd := a.startSSECmd("ses_resume"); cmd == nil {
+	cmd2 := a.startSSECmd("ses_resume")
+	if cmd2 == nil {
 		t.Fatal("second startSSECmd returned nil")
 	}
+	_ = cmd2()
 
 	// Give the goroutines a moment to flush headers — both requests
 	// have been issued synchronously at this point but the wg-less

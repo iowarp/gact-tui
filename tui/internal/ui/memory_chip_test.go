@@ -24,8 +24,10 @@ func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
 	}
 
 	got := stripANSI(a.renderFooter())
-	if !strings.Contains(got, "cache") {
-		t.Errorf("footer should contain 'cache' label; got:\n%s", got)
+	// Label was renamed from "cache" to "mem" (see renderFooter
+	// in app.go); the chip still carries the hit-rate readout.
+	if !strings.Contains(got, "mem") {
+		t.Errorf("footer should contain 'mem' label; got:\n%s", got)
 	}
 	if !strings.Contains(got, "80%") {
 		t.Errorf("footer should contain '80%%' hit-rate readout; got:\n%s", got)
