@@ -1,6 +1,6 @@
 # GACT TUI — Claude project instructions
 
-This file is loaded into every Claude Code session in `/home/jcernuda/tui`. **Read it fully before doing anything.**
+This file is loaded into every Claude Code session for this repo. **Read it fully before doing anything.**
 
 ## Project
 
@@ -12,7 +12,7 @@ Two Go modules in this repo:
 
 ## Stack
 
-- Go 1.26.2 (user-local at `~/sdk/go1.26.2`, on PATH via `~/.zshrc`)
+- Go 1.26+ — install from [go.dev/dl](https://go.dev/dl/) or a package manager; must be on PATH. The repo is a `go.work` workspace, so `go build ./...` / `go test ./...` from the repo root cover every module.
 - TUI framework: `charm.land/bubbletea/v2`
 - Styling: `charm.land/lipgloss/v2`
 - Components: `charm.land/bubbles/v2`
@@ -35,7 +35,7 @@ Two Go modules in this repo:
 
 You — Opus 4.7 — have a documented tendency to procrastinate, defer decisions, and stop early. The user has called this out repeatedly. The following rules are not suggestions:
 
-1. **No deferring.** If a design question comes up, decide it per the rationale in `~/.claude/projects/-home-jcernuda-tui/memory/feedback_decide_dont_defer.md`. Document the decision and move on. Do not write "TBD" or "open question" anywhere except `STATUS.md` blockers section.
+1. **No deferring.** If a design question comes up, decide it per the rationale in the project's Claude memory (`feedback_decide_dont_defer.md`). Document the decision and move on. Do not write "TBD" or "open question" anywhere except `STATUS.md` blockers section.
 
 2. **No over-research.** Research is done. The contract is written. The notes are written. Build now. If you find yourself reading research/ for more than 5 minutes per session, stop and code.
 
@@ -58,10 +58,14 @@ You — Opus 4.7 — have a documented tendency to procrastinate, defer decision
 ## Build / test commands
 
 ```sh
-# Emulator
+# Whole workspace (go.work covers emulator/, tui/, adapters/*, …)
+go build ./...
+go test ./...
+
+# Emulator only
 cd emulator && go build ./... && go test ./...
 
-# TUI
+# TUI only
 cd tui && go build -o gact . && go test ./...
 
 # Run emulator (from emulator/)
@@ -76,7 +80,7 @@ cd tui && vhs <tape>.tape   # produces hello.gif + screenshots/...
 
 ## Memory
 
-User feedback memories live at `~/.claude/projects/-home-jcernuda-tui/memory/`. The harness loads `MEMORY.md` automatically. Read the linked files for rules-of-engagement.
+User feedback memories live in this project's Claude memory directory. The harness loads `MEMORY.md` automatically. Read the linked files for rules-of-engagement.
 
 ## Personal note from the original session
 
