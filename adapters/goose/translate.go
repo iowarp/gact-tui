@@ -170,11 +170,11 @@ func languageFor(path string) string {
 // counts, recipe, extension data) are left out so JSON decode is
 // tolerant to additions on the upstream side.
 type gooseSession struct {
-	ID         string         `json:"id"`
-	Name       string         `json:"name"`
-	WorkingDir string         `json:"working_dir"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	WorkingDir string    `json:"working_dir"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	// MMMMMMM1: conversation is included on per-id session reads (it's
 	// Option<Conversation> upstream, where Conversation is a newtype
 	// over Vec<Message>). When absent we just expose an empty
@@ -186,10 +186,10 @@ type gooseSession struct {
 // the fields the bridge needs are decoded; metadata + everything else
 // flows through opaquely.
 type gooseMessage struct {
-	ID      *string                  `json:"id,omitempty"`
-	Role    string                   `json:"role"`
-	Created int64                    `json:"created"`
-	Content []map[string]any         `json:"content"`
+	ID      *string          `json:"id,omitempty"`
+	Role    string           `json:"role"`
+	Created int64            `json:"created"`
+	Content []map[string]any `json:"content"`
 }
 
 // gooseSessionList is the shape returned by Goose's GET /sessions.
@@ -247,6 +247,7 @@ func roleToGact(r string) string {
 // handles both shapes:
 //   - {"text": {"text": "..."}}                       (untagged)
 //   - {"type": "text", "text": "..."}                 (internally tagged)
+//
 // Unknown variants serialise as a text placeholder per the SPEC §5.4
 // forward-compat rule.
 func contentToGactPart(raw map[string]any) gact.Part {
@@ -352,9 +353,9 @@ func toolRespToGact(raw map[string]any) gact.Part {
 		contentParts = append(contentParts, gact.NewTextPart("[empty tool response]"))
 	}
 	return gact.Part{
-		Type:     gact.PartTypeToolResult,
-		CallID:   id,
-		Content:  contentParts,
+		Type:    gact.PartTypeToolResult,
+		CallID:  id,
+		Content: contentParts,
 	}
 }
 

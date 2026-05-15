@@ -98,7 +98,7 @@ type App struct {
 	stageError    string
 	focus         FocusZone
 
-	caps       gact.Capabilities
+	caps gact.Capabilities
 	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): last-known memory stats from
 	// the backend. Populated when capabilities.memory = true and
 	// the client fetches GET /v1/memory/stats on session-status
@@ -106,10 +106,10 @@ type App struct {
 	// Zero-value renders as nothing (no chip).
 	memoryStats gact.MemoryStats
 	workspaces  []gact.Workspace
-	wsID       string
-	sessions   []gact.Session
-	selected   int // index into sessions; -1 if none
-	commands   []gact.Command
+	wsID        string
+	sessions    []gact.Session
+	selected    int // index into sessions; -1 if none
+	commands    []gact.Command
 
 	// Loaded messages for the currently selected session.
 	messages       []gact.Message
@@ -360,7 +360,7 @@ type App struct {
 	// Cached LM provider info (set on every lmConfigFetchedMsg). Powers
 	// the header model chip (#363) so we don't need a per-render fetch.
 	lmProviderInfo *client.LMProviderInfo
-	doctor     *doctorState
+	doctor         *doctorState
 
 	// MCP install / remove overlays. Tied to the /mcp-install +
 	// /mcp-remove slash commands. State is intentionally tiny — install

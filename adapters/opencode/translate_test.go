@@ -114,10 +114,10 @@ func TestWorkspaceFromProject_DefaultsName(t *testing.T) {
 
 func TestSanitizeID(t *testing.T) {
 	cases := map[string]string{
-		"abc123":    "abc123",
-		"a_b-c":     "a_b-c",
+		"abc123":     "abc123",
+		"a_b-c":      "a_b-c",
 		"with/slash": "withslash",
-		"emoji🎉":    "emoji",
+		"emoji🎉":     "emoji",
 	}
 	for in, want := range cases {
 		if got := sanitizeID(in); got != want {

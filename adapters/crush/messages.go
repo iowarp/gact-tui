@@ -175,9 +175,9 @@ func translatePart(w crushPartWrapper, index int) (gact.Part, string, error) {
 		}
 		return gact.Part{
 			ID: id, Type: gact.PartTypeToolResult,
-			CallID:  d.ToolCallID,
-			IsError: d.IsError,
-			Content: []gact.Part{{Type: gact.PartTypeText, Text: d.Content}},
+			CallID:   d.ToolCallID,
+			IsError:  d.IsError,
+			Content:  []gact.Part{{Type: gact.PartTypeText, Text: d.Content}},
 			Metadata: meta,
 		}, "", nil
 

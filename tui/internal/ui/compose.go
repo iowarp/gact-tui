@@ -2,15 +2,15 @@
 // current input draft, useful for long prompts or reviewing pasted
 // code. The user's flow:
 //
-//   Input focus → Ctrl+G (or Ctrl+Shift+P on terminals that send it)
-//       opens the compose modal with the current draft.
-//   Inside the modal → normal textarea editing, ALL pastes land
-//       expanded (no compression) so users can see everything.
-//       Ctrl+S commits the modal body back to the base input and
-//       closes the modal. Esc cancels and preserves the pre-modal
-//       draft.
-//   From the base input after Ctrl+S → Enter still sends, same as
-//       before.
+//	Input focus → Ctrl+G (or Ctrl+Shift+P on terminals that send it)
+//	    opens the compose modal with the current draft.
+//	Inside the modal → normal textarea editing, ALL pastes land
+//	    expanded (no compression) so users can see everything.
+//	    Ctrl+S commits the modal body back to the base input and
+//	    closes the modal. Esc cancels and preserves the pre-modal
+//	    draft.
+//	From the base input after Ctrl+S → Enter still sends, same as
+//	    before.
 //
 // Design note: we deliberately reuse bubbles/v2/textarea rather than
 // building a second editor. The base input is single-line-ish by
@@ -22,9 +22,9 @@ package ui
 import (
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 

@@ -39,10 +39,10 @@ func FromTest(t *testing.T) Reporter {
 
 type testTReporter struct{ t *testing.T }
 
-func (r *testTReporter) Helper()                              { r.t.Helper() }
-func (r *testTReporter) Errorf(format string, args ...any)    { r.t.Errorf(format, args...) }
-func (r *testTReporter) Fatal(args ...any)                    { r.t.Fatal(args...) }
-func (r *testTReporter) Fatalf(format string, args ...any)    { r.t.Fatalf(format, args...) }
+func (r *testTReporter) Helper()                           { r.t.Helper() }
+func (r *testTReporter) Errorf(format string, args ...any) { r.t.Errorf(format, args...) }
+func (r *testTReporter) Fatal(args ...any)                 { r.t.Fatal(args...) }
+func (r *testTReporter) Fatalf(format string, args ...any) { r.t.Fatalf(format, args...) }
 func (r *testTReporter) Run(name string, fn func(Reporter)) {
 	r.t.Run(name, func(child *testing.T) {
 		fn(&testTReporter{t: child})

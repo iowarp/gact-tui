@@ -136,7 +136,9 @@ func createSession(t *testing.T, baseURL, title string) string {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create session: status %d", resp.StatusCode)
 	}
-	var s struct{ ID string `json:"id"` }
+	var s struct {
+		ID string `json:"id"`
+	}
 	_ = json.NewDecoder(resp.Body).Decode(&s)
 	if s.ID == "" {
 		t.Fatal("create session: no id in response")
@@ -164,8 +166,8 @@ func TestCLI_ExportToStdout(t *testing.T) {
 		t.Fatalf("exit %d, stderr=%q", code, stderr)
 	}
 	var blob struct {
-		Format   string         `json:"format"`
-		Messages []any          `json:"messages"`
+		Format   string `json:"format"`
+		Messages []any  `json:"messages"`
 	}
 	if err := json.Unmarshal([]byte(stdout), &blob); err != nil {
 		t.Fatalf("decode: %v\nstdout: %s", err, stdout)
@@ -229,9 +231,9 @@ func TestCLI_Ping(t *testing.T) {
 		t.Fatalf("ping --json live: exit %d, stdout=%q", code, stdout)
 	}
 	var ok struct {
-		OK       bool   `json:"ok"`
-		Backend  string `json:"backend"`
-		UptimeS  int    `json:"uptime_s"`
+		OK      bool   `json:"ok"`
+		Backend string `json:"backend"`
+		UptimeS int    `json:"uptime_s"`
 	}
 	if err := json.Unmarshal([]byte(stdout), &ok); err != nil {
 		t.Fatalf("ping --json parse: %v (raw=%q)", err, stdout)
@@ -2756,11 +2758,11 @@ func TestCLI_WatchJSON(t *testing.T) {
 		t.Fatalf("expected ≥2 NDJSON rows, got %d: %q", len(rows), stdout)
 	}
 	type rec struct {
-		TS      string `json:"ts"`
-		SID     string `json:"sid"`
-		Status  string `json:"status"`
-		Msgs    int    `json:"message_count"`
-		Tokens  int    `json:"tokens_out"`
+		TS     string `json:"ts"`
+		SID    string `json:"sid"`
+		Status string `json:"status"`
+		Msgs   int    `json:"message_count"`
+		Tokens int    `json:"tokens_out"`
 	}
 	sawIdle := false
 	for i, line := range rows {
@@ -4521,8 +4523,8 @@ func TestCLI_AttachPrintOnly_NoArgsReadsRegistry(t *testing.T) {
 	}
 
 	stdout, stderr, code := runGact(t, bin, map[string]string{
-		"GACT_BACKEND":         url,
-		"GACT_DETACHED_PATH":   regPath,
+		"GACT_BACKEND":       url,
+		"GACT_DETACHED_PATH": regPath,
 	}, "attach", "--print-only")
 	if code != 0 {
 		t.Fatalf("attach --print-only no args: exit %d stderr=%q", code, stderr)
@@ -4646,4 +4648,3 @@ func TestDefaultAttachTarget_AllDeadReturnsHelpfulError(t *testing.T) {
 		t.Errorf("error should point to --probe for cleanup; got %q", err.Error())
 	}
 }
-

@@ -202,7 +202,7 @@ func TestDetailView_CtrlEOpensWithNewest(t *testing.T) {
 	a.focus = FocusBody
 	a.messages = []gact.Message{{
 		Role: gact.RoleTool, Parts: []gact.Part{{
-			Type: gact.PartTypeToolResult,
+			Type:    gact.PartTypeToolResult,
 			Content: []gact.Part{{Type: gact.PartTypeText, Text: strings.Repeat("x\n", 20)}},
 		}},
 	}}

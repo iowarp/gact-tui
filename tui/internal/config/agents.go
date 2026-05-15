@@ -17,12 +17,12 @@ import (
 // machine. (OOOOOOOOO1)
 type AgentRecord struct {
 	Name      string    `json:"name"`
-	Kind      string    `json:"kind"`     // "claudecode", "opencode", "crush", "goose", ...
-	Bin       string    `json:"bin"`      // path to the adapter binary
-	Host      string    `json:"host"`     // usually 127.0.0.1
-	Port      int       `json:"port"`     // tcp port the adapter listens on
-	PID       int       `json:"pid"`      // OS pid of the adapter process (0 if unknown)
-	Cwd       string    `json:"cwd"`      // working directory passed at spawn time
+	Kind      string    `json:"kind"` // "claudecode", "opencode", "crush", "goose", ...
+	Bin       string    `json:"bin"`  // path to the adapter binary
+	Host      string    `json:"host"` // usually 127.0.0.1
+	Port      int       `json:"port"` // tcp port the adapter listens on
+	PID       int       `json:"pid"`  // OS pid of the adapter process (0 if unknown)
+	Cwd       string    `json:"cwd"`  // working directory passed at spawn time
 	StartedAt time.Time `json:"started_at"`
 	// LogPath is where the spawn's stdout/stderr were redirected at
 	// deploy time. Empty for adapters spawned before the log-redirect

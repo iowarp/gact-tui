@@ -80,22 +80,22 @@ func (a AuthProvider) NeedsLogin() bool {
 
 // Model is one LLM offered by a provider (SPEC §6.12).
 type Model struct {
-	ID               string          `json:"id"`
-	Name             string          `json:"name"`
-	ContextWindow    int             `json:"context_window"`
-	MaxOutputTokens  int             `json:"max_output_tokens"`
-	Supports         ModelSupports   `json:"supports"`
-	Pricing          *ModelPricing   `json:"pricing,omitempty"`
-	Metadata         map[string]any  `json:"metadata,omitempty"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	ContextWindow   int            `json:"context_window"`
+	MaxOutputTokens int            `json:"max_output_tokens"`
+	Supports        ModelSupports  `json:"supports"`
+	Pricing         *ModelPricing  `json:"pricing,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 // ModelSupports captures capability flags for a model.
 type ModelSupports struct {
-	Tools          bool `json:"tools"`
-	Vision         bool `json:"vision"`
-	Thinking       bool `json:"thinking"`
-	ComputerUse    bool `json:"computer_use"`
-	PromptCaching  bool `json:"prompt_caching"`
+	Tools         bool `json:"tools"`
+	Vision        bool `json:"vision"`
+	Thinking      bool `json:"thinking"`
+	ComputerUse   bool `json:"computer_use"`
+	PromptCaching bool `json:"prompt_caching"`
 }
 
 // ModelPricing is per-million-token pricing.
@@ -128,15 +128,15 @@ type Tool struct {
 // tier-2 specialists so the TUI can render a routing badge and
 // colour it by specialization.
 type AgentDef struct {
-	ID             string           `json:"id"`
-	Source         string           `json:"source"` // builtin|user|recipe|skill
-	Title          string           `json:"title"`
-	Description    string           `json:"description,omitempty"`
-	SystemPrompt   string           `json:"system_prompt,omitempty"`
-	Parameters     []AgentParameter `json:"parameters,omitempty"`
-	DefaultModel   *ModelRef        `json:"default_model,omitempty"`
-	Tools          []string         `json:"tools,omitempty"`
-	Metadata       map[string]any   `json:"metadata,omitempty"`
+	ID           string           `json:"id"`
+	Source       string           `json:"source"` // builtin|user|recipe|skill
+	Title        string           `json:"title"`
+	Description  string           `json:"description,omitempty"`
+	SystemPrompt string           `json:"system_prompt,omitempty"`
+	Parameters   []AgentParameter `json:"parameters,omitempty"`
+	DefaultModel *ModelRef        `json:"default_model,omitempty"`
+	Tools        []string         `json:"tools,omitempty"`
+	Metadata     map[string]any   `json:"metadata,omitempty"`
 
 	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
@@ -155,24 +155,24 @@ type AgentParameter struct {
 
 // McpServer is one connected MCP server (SPEC §6.7).
 type McpServer struct {
-	ID                  string             `json:"id"`
-	Name                string             `json:"name"`
-	Version             string             `json:"version,omitempty"`
-	Transport           string             `json:"transport"` // "stdio" | "http"
-	ProtocolVersion     string             `json:"protocol_version"`
-	Status              string             `json:"status"` // connecting|ready|error|disconnected
-	ServerInfo          map[string]any     `json:"server_info,omitempty"`
-	Instructions        string             `json:"instructions,omitempty"`
-	DeclaredCapabilities McpCapabilities   `json:"declared_capabilities"`
-	LastError           string             `json:"last_error,omitempty"`
+	ID                   string          `json:"id"`
+	Name                 string          `json:"name"`
+	Version              string          `json:"version,omitempty"`
+	Transport            string          `json:"transport"` // "stdio" | "http"
+	ProtocolVersion      string          `json:"protocol_version"`
+	Status               string          `json:"status"` // connecting|ready|error|disconnected
+	ServerInfo           map[string]any  `json:"server_info,omitempty"`
+	Instructions         string          `json:"instructions,omitempty"`
+	DeclaredCapabilities McpCapabilities `json:"declared_capabilities"`
+	LastError            string          `json:"last_error,omitempty"`
 }
 
 // McpCapabilities describes which MCP capabilities a server declares.
 type McpCapabilities struct {
-	Tools     bool                   `json:"tools"`
+	Tools     bool                    `json:"tools"`
 	Resources *McpResourcesCapability `json:"resources,omitempty"`
 	Prompts   *McpPromptsCapability   `json:"prompts,omitempty"`
-	Logging   bool                   `json:"logging"`
+	Logging   bool                    `json:"logging"`
 }
 
 type McpResourcesCapability struct {
@@ -215,11 +215,11 @@ type McpContent struct {
 
 // McpPrompt is a templated prompt exposed by a server (SPEC §6.7).
 type McpPrompt struct {
-	ServerID    string             `json:"server_id"`
-	Name        string             `json:"name"`
-	Title       string             `json:"title,omitempty"`
-	Description string             `json:"description,omitempty"`
-	Arguments   []McpPromptArg     `json:"arguments,omitempty"`
+	ServerID    string         `json:"server_id"`
+	Name        string         `json:"name"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Arguments   []McpPromptArg `json:"arguments,omitempty"`
 }
 
 type McpPromptArg struct {
@@ -272,22 +272,22 @@ type FileDiff struct {
 
 // Command is one slash command available in the catalog (SPEC §6.13).
 type Command struct {
-	ID          string             `json:"id"`
-	Title       string             `json:"title"`
-	Description string             `json:"description,omitempty"`
-	Source      string             `json:"source"` // builtin|mcp_prompt|recipe|user
-	ServerID    string             `json:"server_id,omitempty"`
-	Arguments   []AgentParameter   `json:"arguments,omitempty"`
-	Shortcut    string             `json:"shortcut,omitempty"`
+	ID          string           `json:"id"`
+	Title       string           `json:"title"`
+	Description string           `json:"description,omitempty"`
+	Source      string           `json:"source"` // builtin|mcp_prompt|recipe|user
+	ServerID    string           `json:"server_id,omitempty"`
+	Arguments   []AgentParameter `json:"arguments,omitempty"`
+	Shortcut    string           `json:"shortcut,omitempty"`
 }
 
 // Metrics is the body of GET /v1/metrics (SPEC §6.16).
 type Metrics struct {
-	UptimeS   int                          `json:"uptime_s"`
-	Sessions  MetricsSessions              `json:"sessions"`
-	Messages  MetricsMessages              `json:"messages"`
-	Tokens    MetricsTokens                `json:"tokens"`
-	Cost      MetricsCost                  `json:"cost"`
+	UptimeS   int                           `json:"uptime_s"`
+	Sessions  MetricsSessions               `json:"sessions"`
+	Messages  MetricsMessages               `json:"messages"`
+	Tokens    MetricsTokens                 `json:"tokens"`
+	Cost      MetricsCost                   `json:"cost"`
 	Latencies map[string]MetricsLatencyStat `json:"latencies,omitempty"`
 }
 

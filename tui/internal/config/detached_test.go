@@ -84,8 +84,8 @@ func TestDetached_AppendTrimsToMaxRecords(t *testing.T) {
 	path := filepath.Join(dir, "detached.json")
 	for i := 0; i < 10; i++ {
 		if err := AppendDetached(path, DetachedRecord{
-			SessionID: "sess_" + string(rune('0'+i)),
-			Backend:   "http://b",
+			SessionID:  "sess_" + string(rune('0'+i)),
+			Backend:    "http://b",
 			DetachedAt: time.Now().Add(time.Duration(i) * time.Second).UTC(),
 		}, 5); err != nil {
 			t.Fatal(err)

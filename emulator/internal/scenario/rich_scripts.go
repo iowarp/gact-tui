@@ -573,11 +573,11 @@ type multiToolStep struct {
 // empty the script skips emitting it — variants 1 + 2 that don't
 // centre on an edit keep their old shape.
 var multiToolVariants = []struct {
-	intro     string
-	tools     []multiToolStep
-	followup  string
-	diffPath  string
-	diffLang  string
+	intro      string
+	tools      []multiToolStep
+	followup   string
+	diffPath   string
+	diffLang   string
 	diffBefore string
 	diffAfter  string
 }{

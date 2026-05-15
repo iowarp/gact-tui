@@ -116,7 +116,7 @@ func (s *lmConfigState) lmConfigVisibleFields() []lmConfigField {
 	return out
 }
 
-// lmConfigStepField moves the cursor by ``delta`` (±1) through the
+// lmConfigStepField moves the cursor by “delta“ (±1) through the
 // visible-field list, wrapping at both ends.
 func (s *lmConfigState) lmConfigStepField(delta int) {
 	visible := s.lmConfigVisibleFields()
@@ -778,7 +778,7 @@ func (a *App) renderLMConfigAdvanced(innerW int) []string {
 }
 
 // lmConfigWindow returns [start, end) — the window of catalog rows
-// to render around ``cursor``, ensuring the cursor sits roughly mid-
+// to render around “cursor“, ensuring the cursor sits roughly mid-
 // window.
 func lmConfigWindow(cursor, total int) (int, int) {
 	if total <= lmConfigVisibleRows {

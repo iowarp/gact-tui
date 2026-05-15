@@ -43,11 +43,11 @@ type CacheStats struct {
 }
 
 type SessionMemoryStats struct {
-	SessionID         string `json:"session_id"`
-	MessagesRetained  int    `json:"messages_retained"`
-	TokensRetained    int    `json:"tokens_retained"`
-	TokensBudget      *int   `json:"tokens_budget,omitempty"` // null = unbounded
-	ProfilesAttached  int    `json:"profiles_attached"`       // opaque to the TUI
+	SessionID        string `json:"session_id"`
+	MessagesRetained int    `json:"messages_retained"`
+	TokensRetained   int    `json:"tokens_retained"`
+	TokensBudget     *int   `json:"tokens_budget,omitempty"` // null = unbounded
+	ProfilesAttached int    `json:"profiles_attached"`       // opaque to the TUI
 }
 
 type GlobalMemoryStats struct {
@@ -100,11 +100,11 @@ type CapabilityFlags struct {
 	SkillsExtraction  bool `json:"skills_extraction"`
 
 	// v0.2 additions — SPEC §3.2.1
-	AgentRouting       bool `json:"agent_routing"`       // multi-tier agents + routing_decision part + session.agent_routed event
-	Memory             bool `json:"memory"`              // /v1/memory/stats endpoint (§6.19)
-	StructuredErrors   bool `json:"structured_errors"`   // §14 typed error_info taxonomy
-	IntegrationHealth  bool `json:"integration_health"`  // /v1/health integrations[] + overall_status
-	ToolTelemetry      bool `json:"tool_telemetry"`      // tool_result.cached + duration_ms
+	AgentRouting      bool `json:"agent_routing"`      // multi-tier agents + routing_decision part + session.agent_routed event
+	Memory            bool `json:"memory"`             // /v1/memory/stats endpoint (§6.19)
+	StructuredErrors  bool `json:"structured_errors"`  // §14 typed error_info taxonomy
+	IntegrationHealth bool `json:"integration_health"` // /v1/health integrations[] + overall_status
+	ToolTelemetry     bool `json:"tool_telemetry"`     // tool_result.cached + duration_ms
 }
 
 type TransportFlags struct {
@@ -129,9 +129,9 @@ type Extension struct {
 // patterns: `*` matches any chars except `/`, `**` matches across
 // path segments. (MMM4)
 type Policy struct {
-	Scope             string         `json:"scope"`             // "workspace" | "session"
+	Scope             string         `json:"scope"`              // "workspace" | "session"
 	ScopeID           string         `json:"scope_id,omitempty"` // empty = any scope
-	ToolNamePattern   string         `json:"tool_name_pattern"` // e.g. "shell" or "*"
+	ToolNamePattern   string         `json:"tool_name_pattern"`  // e.g. "shell" or "*"
 	PathPattern       string         `json:"path_pattern,omitempty"`
 	Action            string         `json:"action"` // "allow" | "deny" | "ask"
 	AnnotationsFilter map[string]any `json:"annotations_filter,omitempty"`
