@@ -55,3 +55,6 @@ tui/coverage.txt
 !screenshots/
 !screenshots/**/*.png
 .clio_agent/
+
+# Backup files
+*.bak
