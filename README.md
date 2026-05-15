@@ -1,4 +1,4 @@
-# GACT — Generic Agentic-Coder TUI
+# GACT — Generic Agentic TUI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
