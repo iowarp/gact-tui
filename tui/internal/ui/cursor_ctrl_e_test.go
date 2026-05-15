@@ -154,7 +154,7 @@ func TestCtrlE_FallbackLatestWhenNoCursor(t *testing.T) {
 		return gact.Message{
 			ID: id, Role: "tool",
 			Parts: []gact.Part{{
-				Type: gact.PartTypeToolResult,
+				Type:    gact.PartTypeToolResult,
 				Content: []gact.Part{{Type: gact.PartTypeText, Text: id + "\n" + bulky}},
 			}},
 		}

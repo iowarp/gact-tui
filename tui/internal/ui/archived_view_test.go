@@ -55,8 +55,8 @@ func TestArchivedView_HTogglesFetchesWithFilter(t *testing.T) {
 	// Spy on ListSessions requests so we can assert the `archived=true`
 	// filter was sent when the view is toggled.
 	var (
-		mu       sync.Mutex
-		queries  []string
+		mu      sync.Mutex
+		queries []string
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/sessions" {

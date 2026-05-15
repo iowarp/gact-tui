@@ -12,13 +12,13 @@ import (
 
 // CreateSessionRequest is the body for POST /v1/sessions (SPEC §6.2).
 type CreateSessionRequest struct {
-	WorkspaceID      string         `json:"workspace_id"`
-	Title            string         `json:"title,omitempty"`
-	Agent            *gact.AgentRef `json:"agent,omitempty"`
-	Model            *gact.ModelRef `json:"model,omitempty"`
-	ParentSessionID  string         `json:"parent_session_id,omitempty"`
-	ForkAtMessageID  string         `json:"fork_at_message_id,omitempty"`
-	Metadata         map[string]any `json:"metadata,omitempty"`
+	WorkspaceID     string         `json:"workspace_id"`
+	Title           string         `json:"title,omitempty"`
+	Agent           *gact.AgentRef `json:"agent,omitempty"`
+	Model           *gact.ModelRef `json:"model,omitempty"`
+	ParentSessionID string         `json:"parent_session_id,omitempty"`
+	ForkAtMessageID string         `json:"fork_at_message_id,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 // UpdateSessionRequest is the body for PATCH /v1/sessions/{id}.
@@ -53,7 +53,7 @@ type ListSessionsResponse struct {
 // /v1/sessions/import. Carries the session and all its messages, with a
 // format tag so future versions can migrate.
 type SessionExport struct {
-	Format     string         `json:"format"`     // "gact-v1"
+	Format     string         `json:"format"` // "gact-v1"
 	ExportedAt time.Time      `json:"exported_at"`
 	Session    gact.Session   `json:"session"`
 	Messages   []gact.Message `json:"messages"` // chronological (oldest-first)

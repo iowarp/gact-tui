@@ -193,4 +193,3 @@ func (cp *claudeProcess) close() {
 	_ = cp.stdin.Close()
 	_ = cp.cmd.Wait()
 }
-

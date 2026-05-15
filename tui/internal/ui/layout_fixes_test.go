@@ -750,7 +750,7 @@ func TestTimestampToggle_FlipsAndRenders(t *testing.T) {
 		{
 			ID: "m1", SessionID: "sess_1", Role: gact.RoleUser,
 			CreatedAt: ts,
-			Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "hi"}},
+			Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "hi"}},
 		},
 	}
 	a := newReadyApp(sessions, msgs)
@@ -849,11 +849,11 @@ func TestPaletteCurrentValue_HintsForKnownCommands(t *testing.T) {
 	a.currentStatus = gact.StatusRunning
 
 	cases := map[string]string{
-		"/theme":       "current: dracula",
-		"/clear":       "1 messages",
-		"/cancel":      "status: running",
-		"/agent":       "current: code_reviewer",
-		"/rename":      "current: refactor auth",
+		"/theme":                  "current: dracula",
+		"/clear":                  "1 messages",
+		"/cancel":                 "status: running",
+		"/agent":                  "current: code_reviewer",
+		"/rename":                 "current: refactor auth",
 		"/completely_unknown_cmd": "",
 	}
 	for id, want := range cases {
@@ -1162,8 +1162,8 @@ func TestInputPane_GrowsWithContent(t *testing.T) {
 // Settings tab 1, everything else falls through to RunCommand.
 func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 	cases := []struct {
-		in      string
-		wantOk  bool
+		in       string
+		wantOk   bool
 		wantKind catalogBrowserKind
 	}{
 		{"/mcp", true, catalogKindMcp},

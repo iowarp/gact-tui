@@ -123,7 +123,7 @@ func staticTools() []gact.Tool {
 			ID: "read_file", Source: "builtin", Name: "read_file", Title: "Read file",
 			Description: "Read the contents of a file.",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":       "object",
 				"properties": map[string]any{"path": stringSchema()},
 				"required":   []string{"path"},
 			},
@@ -148,7 +148,7 @@ func staticTools() []gact.Tool {
 			ID: "web_search", Source: "builtin", Name: "web_search", Title: "Search the web",
 			Description: "Search the web for relevant pages.",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":       "object",
 				"properties": map[string]any{"query": stringSchema()},
 				"required":   []string{"query"},
 			},
@@ -159,7 +159,7 @@ func staticTools() []gact.Tool {
 			ID: "fake-mcp.fetch", Source: "mcp", ServerID: "mcp_fake", Name: "fetch", Title: "Fetch URL",
 			Description: "(MCP) Download a URL and return its contents.",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":       "object",
 				"properties": map[string]any{"url": stringSchema()},
 				"required":   []string{"url"},
 			},
@@ -264,28 +264,28 @@ func staticAgents() []gact.AgentDef {
 		// specific.
 		{
 			ID: "code_expert", Source: "builtin", Title: "Code Expert",
-			Description:  "Source-level editing, review, refactoring.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
-			Tools:        []string{"read_file", "edit_file", "grep"},
-			Tier:         2,
+			Description:    "Source-level editing, review, refactoring.",
+			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:          []string{"read_file", "edit_file", "grep"},
+			Tier:           2,
 			Specialization: "code_editing",
 			Keywords:       []string{"edit", "refactor", "fix", "review", "patch"},
 		},
 		{
 			ID: "research_expert", Source: "builtin", Title: "Research Expert",
-			Description:  "Web search + document retrieval + synthesis.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
-			Tools:        []string{"web_search", "read_file"},
-			Tier:         2,
+			Description:    "Web search + document retrieval + synthesis.",
+			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:          []string{"web_search", "read_file"},
+			Tier:           2,
 			Specialization: "knowledge_retrieval",
 			Keywords:       []string{"search", "find", "look up", "research", "citations"},
 		},
 		{
 			ID: "data_expert", Source: "builtin", Title: "Data Expert",
-			Description:  "Profile and analyse structured data files.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
-			Tools:        []string{"read_file", "bash"},
-			Tier:         2,
+			Description:    "Profile and analyse structured data files.",
+			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:          []string{"read_file", "bash"},
+			Tier:           2,
 			Specialization: "data_analysis",
 			Keywords:       []string{"analyze", "profile", "inspect", "data", "csv", "parquet"},
 		},
@@ -450,7 +450,7 @@ func staticMcpServers() []gact.McpServer {
 		{
 			ID: "mcp_fake", Name: "fake-mcp", Version: "0.1.0",
 			Transport: "stdio", ProtocolVersion: "2025-06-18", Status: "ready",
-			ServerInfo: map[string]any{"name": "fake-mcp", "version": "0.1.0"},
+			ServerInfo:   map[string]any{"name": "fake-mcp", "version": "0.1.0"},
 			Instructions: "Demo MCP server. Two tools (fetch, dbquery), one resource, one prompt.",
 			DeclaredCapabilities: gact.McpCapabilities{
 				Tools:     true,
@@ -1137,7 +1137,7 @@ func (s *Server) handleSessionUndo(w http.ResponseWriter, r *http.Request) {
 
 func collectDiffs(s *Server, sessionID, onlyMsgID string) []gact.FileDiff {
 	out := []gact.FileDiff{}
-	walkDiffParts(s, sessionID, onlyMsgID, func(_ , _ string, p *gact.Part) {
+	walkDiffParts(s, sessionID, onlyMsgID, func(_, _ string, p *gact.Part) {
 		out = append(out, gact.FileDiff{
 			Path:     p.Path,
 			Before:   p.Before,

@@ -45,11 +45,11 @@ func (a *App) copyLastAssistantReplyToClipboard() string {
 	}
 
 	candidates := [][]string{
-		{"wl-copy"},                      // Wayland
+		{"wl-copy"}, // Wayland
 		{"xclip", "-selection", "clipboard"},
 		{"xsel", "--clipboard", "--input"},
-		{"pbcopy"},                       // macOS
-		{"clip.exe"},                     // Windows / WSL
+		{"pbcopy"},   // macOS
+		{"clip.exe"}, // Windows / WSL
 	}
 	for _, c := range candidates {
 		if _, err := exec.LookPath(c[0]); err != nil {

@@ -188,8 +188,8 @@ func (e *Engine) publishStatus(sessionID, status string) {
 		WorkspaceID: updated.WorkspaceID,
 		SessionID:   sessionID,
 		Payload: map[string]any{
-			"session_id": sessionID,
-			"status":     status,
+			"session_id":  sessionID,
+			"status":      status,
 			"prev_status": prev,
 		},
 	})

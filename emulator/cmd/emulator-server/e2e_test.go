@@ -139,13 +139,13 @@ func TestE2E_FullScenarioFlow(t *testing.T) {
 
 	// Read events until message.completed (then the wrap-up status_changed).
 	wantSeen := map[string]bool{
-		"message.created":         false,
-		"message.part.added":      false,
-		"message.part.delta":      false,
-		"message.part.completed":  false,
-		"tool.call.started":       false,
-		"tool.call.completed":     false,
-		"message.completed":       false,
+		"message.created":        false,
+		"message.part.added":     false,
+		"message.part.delta":     false,
+		"message.part.completed": false,
+		"tool.call.started":      false,
+		"tool.call.completed":    false,
+		"message.completed":      false,
 	}
 	deadline := time.After(8 * time.Second)
 	doneEvents := 0
