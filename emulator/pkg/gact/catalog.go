@@ -22,8 +22,8 @@ type AuthMethod string
 
 const (
 	// AuthMethodNone — provider needs no credentials (lm_studio /
-	// ollama on localhost, meridian, codex bridges, ALCF compute-node
-	// vLLMs that accept the literal "EMPTY" key).
+	// ollama on localhost, codex via the CLI subscription, ALCF
+	// compute-node vLLMs that accept the literal "EMPTY" key).
 	AuthMethodNone AuthMethod = "none"
 
 	// AuthMethodAPIKey — user pastes a long-lived API key (Anthropic,

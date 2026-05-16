@@ -105,5 +105,5 @@ If an item needs something upstream that doesn't exist yet (e.g., CLIO doesn't e
 - [ ] Session persistence — JSON file on disk for Phase 1–3, move to ARC `/conversations/` in CLIO-BBBBBBBBBB19.
 - [ ] Token streaming fidelity — CLIO currently synthesises chunks in the FastAPI layer. Phase 2 lives with that; Phase 4 CLIO-BBBBBBBBBB17 replaces it with real LM-level streaming.
 - [ ] Expert badge colour per specialisation — pick palette in CLIO-BBBBBBBBBB11.
-- [ ] Meridian — recipe + `--auto-meridian` in CLIO-BBBBBBBBBB21.
+- [x] LM provider config in the TUI — modal-driven preset picker landed (CLIO-BBBBBBBBBB21+). Provider catalog drives off CLIO's registry; see CLIO repo's `docs/providers/README.md`.
 - [ ] When filing gap issues on iowarp/clio-agent, the title + body are about the capability as it benefits CLIO's mission. Don't mention gact-tui. Example: "Permission gating on risky file-policy-sensitive operations" — not "Add permission events for the TUI integration".
