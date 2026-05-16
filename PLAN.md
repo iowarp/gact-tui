@@ -92,9 +92,9 @@ Each item here CLOSES one of the issues filed in CLIO-BBBBBBBBBB2. The PLAN item
 
 - [x] **CLIO-BBBBBBBBBB29.** End-to-end screenshot set: `screenshots/clio-{landing,agent-badge,turn,diff,metrics,doctor}.png`. README gets a "Supported agents" row for CLIO. [✓ Captured clio_e2e, clio_doctor, clio_diff, clio_metrics, clio_subagent. README gained a CLIO Agent row listing the v0.2 capabilities it advertises. Smoke server's fake agent learned scripted side-effects (propose→diff, delete→permission, split→subagent) so the tapes drive by intent, not orchestration.]
 
-### Phase D — real e2e tests with clio-agent + Meridian + Claude Code
+### Phase D — real e2e tests with clio-agent + a real LM provider
 
-Phase D in the A→B→C→D workflow: end-to-end validation that the full stack (gact-tui → GACT v0.2 wire → clio-agent-gact → Meridian → Claude Code via Claude Max OAuth) works for real, against a non-trivial scientific data workflow. Phases C ships the wiring; Phase D proves the wiring + provider + LM behaviour all line up.
+Phase D in the A→B→C→D workflow: end-to-end validation that the full stack (gact-tui → GACT v0.2 wire → clio-agent-gact → a real LM provider) works for real, against a non-trivial scientific data workflow. Phases C ships the wiring; Phase D proves the wiring + provider + LM behaviour all line up. (Historical note: the original Phase D used a Meridian proxy to translate a Claude Max OAuth session into an OpenAI-compatible endpoint; CLIO v0.6 replaced that with direct Anthropic / OpenAI / Codex providers, see clio-agent#48.)
 
 - [x] **CLIO-BBBBBBBBBB-D1.** Meridian setup recipe in `docs/providers/meridian.md`: install Meridian, OAuth bootstrap to Claude Max, point CLIO at it (`CLIO_LM_PROVIDER=openai` + `CLIO_LM_API_BASE=http://127.0.0.1:<meridian_port>/v1` + `CLIO_LM_MODEL=claude-sonnet-4-5`). Verify with a trivial `clio-agent --query "hello"` round-trip. [✓ docs/providers/meridian.md walks through `npm install -g @rynfar/meridian`, `CLAUDE_CONFIG_DIR=$HOME/.claude meridian` (reuse Claude Code creds), env vars, troubleshooting + cost discipline.]
 
@@ -108,7 +108,7 @@ Phase D in the A→B→C→D workflow: end-to-end validation that the full stack
 
 ### Acceptance
 
-After Phase D: `gact agent deploy clio my-clio --auto-meridian && gact connect my-clio` lands in a working conversation against a locally-running CLIO backed by Claude Max via Meridian. TUI renders agent badge, tool calls (post-hoc in Phase 3, live in Phase 4), ARC cache hit rate, doctor modal. Conformance: `contract/conformance` passes for CLIO where supported; unsupported capabilities declared via the capabilities endpoint. End-to-end recording demonstrates the full stack.
+After Phase D: `gact agent deploy clio my-clio && gact connect my-clio` (or `clio` from the v0.6+ launcher) lands in a working conversation against a locally-running CLIO backed by the configured LM provider (Anthropic / OpenAI / Codex subscription / ALCF / etc.). TUI renders agent badge, tool calls (post-hoc in Phase 3, live in Phase 4), ARC cache hit rate, doctor modal. Conformance: `contract/conformance` passes for CLIO where supported; unsupported capabilities declared via the capabilities endpoint. End-to-end recording demonstrates the full stack.
 
 ---
 

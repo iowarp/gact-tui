@@ -2,7 +2,7 @@
 # 1. Connect → modal auto-pops (CLIO ships unconfigured)
 # 2. User Tabs to Save and Enters
 # 3. Modal dismisses, transient hint confirms
-# 4. User asks a real question; Claude (via Meridian/Haiku) answers
+# 4. User asks a real question; Claude (Anthropic Haiku) answers
 Output "/tmp/gact-clio-lm-e2e.gif"
 
 Set Shell "bash"

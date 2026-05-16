@@ -15,7 +15,7 @@ Ctrl+N
 Sleep 800ms
 Screenshot "/home/jcernuda/tui/screenshots/aurora_01_fresh_session.png"
 
-# 1. CLIO identity (intercept; should not hit Meridian)
+# 1. CLIO identity (intercept; should not hit the upstream LM)
 Type "who are you?"
 Sleep 200ms
 Enter

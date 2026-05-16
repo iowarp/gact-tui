@@ -102,39 +102,32 @@ so the TUI behaves identically across all of them.
 | [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API — sessions/messages read+write + SSE; 8/8 conformance sections ✓ |
 | [CLIO Agent](https://github.com/iowarp/clio-agent) | *(in-process, Python)* — `clio-agent-gact` console script ships with clio-agent's `tui-integration` branch | v0.2 native: agent_routing (tier-1 → tier-2 experts), memory stats, integration_health (`/doctor`), tool_telemetry events, cost tracking, forks, search, permissions, two-phase edits, nanoagent spawns. `gact agent deploy clio my-clio` deploys it. See [Quick start with CLIO + Claude Max](#quick-start-with-clio--claude-max) below. |
 
-## Quick start with CLIO + Claude Max
+## Quick start with CLIO
 
-Three processes + an env block — Meridian translates your Claude
-Max OAuth session into the OpenAI-compatible endpoint CLIO's DSPy
-runtime wants.
+The one-line clio installer (released in v0.6 — drops a `clio`
+launcher onto your PATH) is the supported path:
 
 ```sh
-# 1. Install Meridian and authenticate (once). Reuses Claude Code's
-#    OAuth if you already run it locally.
-npm install -g @rynfar/meridian
-CLAUDE_CONFIG_DIR=$HOME/.claude meridian &
-# (or: meridian profile add personal    for a fresh browser login)
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash
+clio                                          # ensures server up, attaches TUI
 
-# 2. Install CLIO's tui-integration branch (once).
-git clone -b tui-integration https://github.com/iowarp/clio-agent
-cd clio-agent && uv pip install -e '.[api]'
-
-# 3. Point CLIO at Meridian and deploy it as a GACT backend. Haiku
-#    keeps cost down; Sonnet/Opus are available via Meridian's
-#    /v1/models.
-export CLIO_LM_PROVIDER=openai
-export CLIO_LM_API_BASE=http://127.0.0.1:3456/v1
-export CLIO_LM_MODEL=claude-haiku-4-5-20251001
-export CLIO_LM_API_KEY=x
-gact agent deploy clio my-clio
-gact connect my-clio
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
+clio
 ```
 
-The TUI now renders a real Claude turn through CLIO's tier-1 router
-→ tier-2 expert → answer + routing badge + ARC cache chip + live
-token/cost rollup in the footer. Tools (HDF5, Parquet MCP servers)
-need additional config — see [CLIO's Meridian
-doc](https://github.com/iowarp/clio-agent/blob/tui-integration/docs/providers/meridian.md)
+On first launch the TUI pops the LM-provider modal — pick a preset
+(OpenAI, Anthropic, OpenRouter, LM Studio, Ollama, Codex
+subscription, ALCF Sophia/Metis), paste an API key if needed, save.
+The next turn uses the new LM. To swap mid-session: `Ctrl+S` →
+Settings → Model → Change provider.
+
+The TUI renders a real LM turn through CLIO's planner → tier-2
+expert → answer + routing badge + ARC cache chip + live token/cost
+rollup in the footer. Tools (HDF5, Parquet MCP servers) need
+additional config — see [CLIO's provider
+docs](https://github.com/iowarp/clio-agent/blob/main/docs/providers/README.md)
 for the full recipe.
 
 ## Build it for your own backend
