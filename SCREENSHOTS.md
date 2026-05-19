@@ -13,7 +13,7 @@ dev setup). No emulator stubs.
 | `clio_lm_config.png` | LM provider modal — preset list, model field, temperature + max_tokens knobs | `tui/screenshot_clio_lm_config.tape` |
 | `clio_lm_e2e.png` | Auto-popped LM modal → Save → real chat reply — full first-time setup flow | `tui/screenshot_clio_lm_e2e.tape` |
 | `clio_e2e.png` | Analysis expert route + real Parquet schema inline | `tui/screenshot_clio_e2e.tape` |
-| `clio_claude_live.png` | Multi-turn conversation against live Claude/Meridian | `tui/screenshot_clio_claude.tape` |
+| `clio_claude_live.png` | Multi-turn conversation against live Anthropic Claude | `tui/screenshot_clio_claude.tape` |
 | `clio_subagent.png` | Two `analysis_validator subagent` rows indented with `└` under the parent that spawned them via AnalysisExpert's parallel detection (#9) | `tui/screenshot_clio_subagent.tape` |
 | `clio_diff.png` | Real CLIO turn produces a unified-diff Part rendered inline; apply/reject paths verified end-to-end via curl + integration test | `tui/screenshot_clio_diff.tape` |
 | `clio_mcp_servers.png` | `/mcp` slash command shows fs / hdf5 / parquet (in_process) AND a third-party `everything` server installed via `npx @modelcontextprotocol/server-everything` (#13) | `tui/screenshot_clio_mcp.tape` |
