@@ -1,4 +1,4 @@
-# Real Claude turn against CLIO+Meridian — the headline path.
+# Real Claude turn against CLIO+Anthropic — the headline path.
 Output "/tmp/gact-real-turn.gif"
 Set Shell "bash"
 Set FontSize 14

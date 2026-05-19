@@ -1,7 +1,7 @@
 # STATUS
 
 **Last updated:** 2026-04-27T06:40Z
-**Current phase:** **v0.3.1 lab-ready.** clio-agent v0.3.1 + gact-tui v0.2.1 shipped. Every advertised capability (28/30 — only LSP + voice intentionally `false`) verified end-to-end with curl trace, screenshot, or strict integration test pass. Full integration_v0_2 suite is 16/16 strict in 95s. Zero `xfail` markers anywhere. Lab users can clone, install, point at OpenAI/Meridian/OpenRouter, and drive any capability — see `clio-agent/docs/SETUP.md` and `clio-agent/docs/CAPABILITIES_MATRIX.md`.
+**Current phase:** **v0.3.1 lab-ready.** clio-agent v0.3.1 + gact-tui v0.2.1 shipped. Every advertised capability (28/30 — only LSP + voice intentionally `false`) verified end-to-end with curl trace, screenshot, or strict integration test pass. Full integration_v0_2 suite is 16/16 strict in 95s. Zero `xfail` markers anywhere. Lab users can clone, install, point at OpenAI / Anthropic / OpenRouter / Codex / ALCF, and drive any capability — see `clio-agent/docs/SETUP.md` and `clio-agent/docs/CAPABILITIES_MATRIX.md`.
 
 ### v0.3.1 highlights (vs v0.3.0)
 - Third-party MCP install end-to-end (#13): `POST /v1/mcp/servers` (stdio/http), `POST /v1/mcp/servers/{id}/call`, `DELETE`. Verified live against `@modelcontextprotocol/server-everything` (13 tools enumerated, echo/get-sum round-tripped). `clio_mcp_servers.png` shows bundled + third-party in one modal.
@@ -24,13 +24,13 @@ A Go adapter supervising a Python agent is just another layer. CLIO is Python; t
   - Phase 2 (10–12): streaming + experts + end-to-end smoke.
   - Phase 3 (13–15): ARC + metrics + doctor view.
   - Phase 4 (16–20): CLIO catch-up (per-tool telemetry, real token streaming, cancellation, server-owned sessions, artifacts).
-  - Phase 5 (21–23): Meridian + packaging + screenshot set.
+  - Phase 5 (21–23): provider configuration + packaging + screenshot set.
 - Pick-up entry: **CLIO-BBBBBBBBBB1** — draft GACT v0.2 in `contract/SPEC.md`.
 
 ### CLIO-side setup (pushed to iowarp/clio-agent)
 - `develop` branch created off `main` on iowarp/clio-agent.
 - `docs/tui/` (10 files) ships the integration reference: overview, agent graph, experts, ARC memory, tools, endpoints, providers/config, semantics/lifecycle, integration plan, README. All path references adjusted to live inside the CLIO repo.
-- `07-providers-config.md` gained a Meridian section — proxy pattern for Claude Max OAuth → CLIO `openai` provider.
+- `07-providers-config.md` documents the LM-provider modal flow + the supported provider presets (OpenAI / Anthropic / OpenRouter / LM Studio / Ollama / Codex subscription / ALCF).
 - Issue #1 opened: "New TUI frontend for CLIO via the GACT contract" with the full phased plan.
 
 ### Previous phase summary
