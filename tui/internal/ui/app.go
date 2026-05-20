@@ -2861,20 +2861,19 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 	}
 }
 
-// deleteMessageCmd fires a background DELETE /v1/messages/{id}. The
-// TUI already dropped the message locally so there's no message for
-// us to emit on success; failures are silently swallowed because the
-// user's next session switch or Ctrl+R will re-sync from the backend.
-// If delete failures become a real problem, switch to an errMsg-
-// returning command with a retry UX.
-func deleteMessageCmd(c *client.Client, messageID string) tea.Cmd {
+// deleteMessageCmd fires a background DELETE for a message. The TUI already
+// dropped the message locally so there's no message for us to emit on success;
+// failures are silently swallowed because the user's next session switch or
+// Ctrl+R will re-sync from the backend. If delete failures become a real
+// problem, switch to an errMsg-returning command with a retry UX.
+func deleteMessageCmd(c *client.Client, sessionID, messageID string) tea.Cmd {
 	return func() tea.Msg {
 		if messageID == "" {
 			return nil
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = c.DeleteMessage(ctx, messageID)
+		_ = c.DeleteMessage(ctx, sessionID, messageID)
 		return nil
 	}
 }
@@ -3298,8 +3297,12 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		a.transientHint = "deleted message"
+		deleteSessionID := target.SessionID
+		if deleteSessionID == "" {
+			deleteSessionID = a.currentSessionID()
+		}
 		return a, tea.Batch(
-			deleteMessageCmd(a.c, target.ID),
+			deleteMessageCmd(a.c, deleteSessionID, target.ID),
 			scheduleHintExpire(a.transientHint),
 		)
 	}
