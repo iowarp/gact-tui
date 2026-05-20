@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -32,7 +33,8 @@ func captureVoice(cmd string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, "sh", "-c", cmd)
+	shell, args := voiceShellCommand(cmd)
+	c := exec.CommandContext(ctx, shell, args...)
 	var stderr bytes.Buffer
 	c.Stderr = &stderr
 
@@ -65,4 +67,11 @@ func captureVoice(cmd string) ([]byte, error) {
 		return nil, errors.New("voice: recorder produced no audio")
 	}
 	return buf, nil
+}
+
+func voiceShellCommand(cmd string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/C", cmd}
+	}
+	return "sh", []string{"-c", cmd}
 }

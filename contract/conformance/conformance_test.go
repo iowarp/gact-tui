@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -59,8 +60,8 @@ func TestConformance_AgainstEmulator(t *testing.T) {
 func findEmulatorBinary(t *testing.T) string {
 	t.Helper()
 	candidates := []string{
-		"../../emulator/emulator-server",
-		"emulator/emulator-server",
+		testBinaryPath("../../emulator", "emulator-server"),
+		testBinaryPath("emulator", "emulator-server"),
 	}
 	for _, p := range candidates {
 		if abs, err := filepath.Abs(p); err == nil {
@@ -80,7 +81,7 @@ func findEmulatorBinary(t *testing.T) string {
 	if _, err := os.Stat(filepath.Join(srcDir, "go.mod")); err != nil {
 		return ""
 	}
-	out := filepath.Join(t.TempDir(), "emulator-server")
+	out := testBinaryPath(t.TempDir(), "emulator-server")
 	cmd := exec.Command("go", "build", "-o", out, "./cmd/emulator-server")
 	cmd.Dir = srcDir
 	cmd.Stdout = os.Stderr
@@ -90,6 +91,13 @@ func findEmulatorBinary(t *testing.T) string {
 		return ""
 	}
 	return out
+}
+
+func testBinaryPath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
 }
 
 func freePort() (int, error) {

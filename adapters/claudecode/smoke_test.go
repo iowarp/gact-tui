@@ -12,6 +12,18 @@ import (
 	"time"
 )
 
+func newClaudeSmokeServer(t *testing.T) (*Server, *httptest.Server) {
+	t.Helper()
+	adapter := New(t.TempDir(), "claude")
+	srv := httptest.NewServer(adapter.Handler())
+	t.Cleanup(func() {
+		srv.CloseClientConnections()
+		srv.Close()
+		adapter.Close()
+	})
+	return adapter, srv
+}
+
 // TestSmoke_RealClaude drives the Go adapter end-to-end against the
 // real `claude` CLI. Skips when claude isn't installed (CI / fresh
 // machines) — same pattern as the Python sidecar's smoke tests.
@@ -23,8 +35,7 @@ func TestSmoke_RealClaude(t *testing.T) {
 	if _, err := exec.LookPath("claude"); err != nil {
 		t.Skip("claude CLI not on PATH; smoke test requires real Claude Code install")
 	}
-	srv := httptest.NewServer(New(t.TempDir(), "claude").Handler())
-	defer srv.Close()
+	_, srv := newClaudeSmokeServer(t)
 
 	// Create session
 	r, err := http.Post(srv.URL+"/v1/sessions",
@@ -121,8 +132,7 @@ func TestSmoke_RealClaudePermissionFlow(t *testing.T) {
 	if _, err := exec.LookPath("claude"); err != nil {
 		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
 	}
-	srv := httptest.NewServer(New(t.TempDir(), "claude").Handler())
-	defer srv.Close()
+	_, srv := newClaudeSmokeServer(t)
 
 	r, _ := http.Post(srv.URL+"/v1/sessions",
 		"application/json", strings.NewReader(`{"title":"perm"}`))
@@ -229,11 +239,7 @@ func TestSmoke_RealClaudeStreamingDeltas(t *testing.T) {
 	if _, err := exec.LookPath("claude"); err != nil {
 		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
 	}
-	srv := httptest.NewServer(New(t.TempDir(), "claude").Handler())
-	defer func() {
-		srv.CloseClientConnections()
-		srv.Close()
-	}()
+	_, srv := newClaudeSmokeServer(t)
 
 	// Create session.
 	r, _ := http.Post(srv.URL+"/v1/sessions",

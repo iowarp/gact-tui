@@ -64,7 +64,8 @@ func TestDefaultPathHonorsXDG(t *testing.T) {
 	t.Setenv("GACT_CONFIG", "")
 	t.Setenv("XDG_CONFIG_HOME", "/somewhere/x")
 	got, _ := DefaultPath()
-	if got != "/somewhere/x/gact/config.json" {
+	want := filepath.Join("/somewhere/x", "gact", "config.json")
+	if got != want {
 		t.Errorf("path = %q", got)
 	}
 }
@@ -76,7 +77,7 @@ func TestDefaultPathFallsBackToHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(got, "/.config/gact/config.json") {
+	if !strings.HasSuffix(got, filepath.Join(".config", "gact", "config.json")) {
 		t.Errorf("expected ~/.config/gact/config.json suffix, got %q", got)
 	}
 }

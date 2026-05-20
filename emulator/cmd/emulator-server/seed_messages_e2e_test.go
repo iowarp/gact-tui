@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"path/filepath"
 	"testing"
 )
 
@@ -16,7 +15,7 @@ import (
 // process level.
 func TestE2E_SeedMessagesFlag_RejectsUnknownSession(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
@@ -40,7 +39,7 @@ func TestE2E_SeedMessagesFlag_RejectsUnknownSession(t *testing.T) {
 // fewer messages than the operator asked for.
 func TestE2E_SeedMessagesFlag_BadSyntaxFailsBoot(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}

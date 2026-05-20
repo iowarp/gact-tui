@@ -31,10 +31,25 @@ func pickPort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+func testBinaryPath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
+func stopTestProcess(p *os.Process) {
+	if runtime.GOOS == "windows" {
+		_ = p.Kill()
+		return
+	}
+	_ = p.Signal(os.Interrupt)
+}
+
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..", "..")
 	build := exec.Command("go", "build", "-o", bin, "./emulator/cmd/emulator-server")
@@ -57,7 +72,7 @@ func startEmulator(t *testing.T) (string, func()) {
 		if err == nil && resp.StatusCode == 200 {
 			resp.Body.Close()
 			return url, func() {
-				_ = cmd.Process.Signal(os.Interrupt)
+				stopTestProcess(cmd.Process)
 				_ = cmd.Wait()
 			}
 		}
