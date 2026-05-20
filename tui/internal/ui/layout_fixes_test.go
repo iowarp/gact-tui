@@ -7,6 +7,7 @@
 package ui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -336,6 +337,42 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatalf("expected addContextFile cmd after insert")
+	}
+}
+
+// TestFilePicker_LoadFailureStaysInPicker verifies a workspace file
+// listing failure is local to the picker. The picker is an optional
+// convenience path; a backend 404/500 here should not knock the whole
+// TUI into StageError.
+func TestFilePicker_LoadFailureStaysInPicker(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width = 110
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: '@', Text: "@"})
+	a = out.(*App)
+	if !a.filePickerOpen {
+		t.Fatalf("@ on empty didn't open picker")
+	}
+
+	out, cmd := a.Update(filePickerLoadedMsg{err: errors.New("gact: 500 backend down")})
+	a = out.(*App)
+	if cmd != nil {
+		t.Fatalf("file picker load failure returned unexpected cmd")
+	}
+	if a.stage != StageReady {
+		t.Fatalf("stage = %v, want StageReady", a.stage)
+	}
+	if !a.filePickerOpen || a.filePicker == nil {
+		t.Fatalf("file picker should stay open on load failure")
+	}
+	if a.filePicker.errText == "" {
+		t.Fatalf("file picker error text was not recorded")
+	}
+	view := a.viewFilePicker()
+	if !strings.Contains(view, "file picker unavailable") {
+		t.Fatalf("picker view did not surface error: %q", view)
 	}
 }
 
