@@ -376,7 +376,7 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 		var rendered string
 		switch {
 		case role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
-			rendered = renderMarkdown(p.Text, t, width-2)
+			rendered = withStreamProvenanceNote(t, p, renderMarkdown(p.Text, t, width-2))
 		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
 			// Always render the call header (matches CC style where
 			// you see the tool name + path even when the body IS the
@@ -741,7 +741,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 	}
 	switch p.Type {
 	case gact.PartTypeText:
-		return wrap(p.Text, wrapW)
+		return withStreamProvenanceNote(t, p, wrap(p.Text, wrapW))
 
 	case gact.PartTypeThinking:
 		// Thinking stays muted + italic; "⎿" turns it into a continuation
@@ -942,6 +942,26 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		return lipgloss.NewStyle().Foreground(t.FgMuted).
 			Render("[" + p.Type + "]")
 	}
+}
+
+func withStreamProvenanceNote(t Theme, p gact.Part, rendered string) string {
+	if rendered == "" || p.Metadata == nil {
+		return rendered
+	}
+	source, _ := p.Metadata["stream_source"].(string)
+	if source != "synthetic_posthoc" {
+		return rendered
+	}
+	reason := ""
+	if fallback, ok := p.Metadata["stream_fallback"].(map[string]any); ok {
+		reason, _ = fallback["reason"].(string)
+	}
+	label := "synthetic stream"
+	if reason != "" {
+		label += ": " + reason
+	}
+	note := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(label)
+	return lipgloss.JoinVertical(lipgloss.Left, note, rendered)
 }
 
 // wrap wraps s to width cells. Word-aware where possible. Newlines preserved.
