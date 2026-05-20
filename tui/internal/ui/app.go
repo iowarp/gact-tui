@@ -1396,8 +1396,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.filePicker == nil {
 			return a, nil
 		}
-		a.filePicker.entries = m.entries
 		a.filePicker.loaded = true
+		if m.err != nil {
+			a.filePicker.entries = nil
+			a.filePicker.errText = m.err.Error()
+			return a, nil
+		}
+		a.filePicker.entries = m.entries
+		a.filePicker.errText = ""
 		return a, nil
 
 	case catalogBrowserLoadedMsg:
