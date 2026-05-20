@@ -38,11 +38,13 @@ type filePickerState struct {
 	filter  string           // user-typed filter; empty = show all
 	sel     int              // index into the filtered slice
 	loaded  bool             // true once entries have been fetched
+	errText string           // non-empty when the workspace file fetch failed
 }
 
 // filePickerLoadedMsg delivers the initial fetch result.
 type filePickerLoadedMsg struct {
 	entries []gact.FileEntry
+	err     error
 }
 
 // loadFilePickerCmd hits /v1/workspaces/{id}/files and converts the
@@ -54,7 +56,7 @@ func loadFilePickerCmd(c *client.Client, workspaceID string) tea.Cmd {
 		defer cancel()
 		entries, err := c.ListWorkspaceFiles(ctx, workspaceID)
 		if err != nil {
-			return errMsg{err: err, stage: "file-picker"}
+			return filePickerLoadedMsg{err: err}
 		}
 		out := entries[:0:0]
 		for _, e := range entries {
@@ -74,6 +76,8 @@ func (a *App) openFilePicker() tea.Cmd {
 	a.filePickerOpen = true
 	a.filePicker = &filePickerState{}
 	if a.wsID == "" {
+		a.filePicker.loaded = true
+		a.filePicker.errText = "no workspace selected"
 		return nil
 	}
 	return loadFilePickerCmd(a.c, a.wsID)
@@ -102,6 +106,9 @@ func (a *App) closeFilePicker() {
 //     mean the file, not a directory called "picker-notes".
 func (a *App) filePickerMatches() []gact.FileEntry {
 	if a.filePicker == nil {
+		return nil
+	}
+	if a.filePicker.errText != "" {
 		return nil
 	}
 	if a.filePicker.filter == "" {
@@ -249,12 +256,15 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "backspace":
+		if a.filePicker.errText != "" {
+			return a, nil
+		}
 		if len(a.filePicker.filter) > 0 {
 			a.filePicker.filter = a.filePicker.filter[:len(a.filePicker.filter)-1]
 			a.filePicker.sel = 0
 		}
 	default:
-		if k.Text != "" {
+		if k.Text != "" && a.filePicker.errText == "" {
 			a.filePicker.filter += k.Text
 			a.filePicker.sel = 0
 		}
@@ -284,7 +294,10 @@ func (a *App) viewFilePicker() string {
 	// surrounding chrome as the user types.
 	const resultRows = 10
 	rows := make([]string, 0, resultRows)
-	if !a.filePicker.loaded && len(matches) == 0 {
+	if a.filePicker.errText != "" {
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			"file picker unavailable: "+truncate(a.filePicker.errText, w-6)))
+	} else if !a.filePicker.loaded && len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading workspace files…"))
 	} else if len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("no matches"))
