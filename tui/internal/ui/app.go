@@ -3805,6 +3805,18 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 			if v, ok := delta["text_append"].(string); ok {
 				a.messages[i].Parts[j].Text += v
 			}
+			if v, ok := pl["stream_source"].(string); ok && v != "" {
+				if a.messages[i].Parts[j].Metadata == nil {
+					a.messages[i].Parts[j].Metadata = map[string]any{}
+				}
+				a.messages[i].Parts[j].Metadata["stream_source"] = v
+			}
+			if v, ok := pl["stream_fallback"].(map[string]any); ok && len(v) > 0 {
+				if a.messages[i].Parts[j].Metadata == nil {
+					a.messages[i].Parts[j].Metadata = map[string]any{}
+				}
+				a.messages[i].Parts[j].Metadata["stream_fallback"] = v
+			}
 			if v, ok := delta["thinking_append"].(string); ok {
 				a.messages[i].Parts[j].Thinking += v
 			}
