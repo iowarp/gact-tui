@@ -22,6 +22,7 @@ import (
 	"io"
 	"os/exec"
 	"sync"
+	"time"
 )
 
 // claudeProcess wraps a long-lived `claude` subprocess for one
@@ -69,6 +70,7 @@ func newClaudeProcess(ctx context.Context, opts claudeOptions) (*claudeProcess, 
 		"--input-format", "stream-json",
 		"--verbose",
 		"-p",
+		"--permission-mode", "default",
 		"--permission-prompt-tool", "stdio",
 		// TTTTTTT4: claude emits stream_event frames carrying the
 		// Anthropic content_block_delta deltas — that's what the
@@ -191,5 +193,17 @@ func (cp *claudeProcess) close() {
 	cp.closed = true
 	cp.mu.Unlock()
 	_ = cp.stdin.Close()
-	_ = cp.cmd.Wait()
+	done := make(chan struct{})
+	go func() {
+		_ = cp.cmd.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		if cp.cmd.Process != nil {
+			_ = cp.cmd.Process.Kill()
+		}
+		<-done
+	}
 }

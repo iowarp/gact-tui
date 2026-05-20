@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -34,12 +35,27 @@ func pickPort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+func testBinaryPath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
+func stopTestProcess(p *os.Process) {
+	if runtime.GOOS == "windows" {
+		_ = p.Kill()
+		return
+	}
+	_ = p.Signal(os.Interrupt)
+}
+
 // startEmulator builds and runs the binary, returning a base URL and a
 // cleanup function.
 func startEmulator(t *testing.T) (baseURL string, cleanup func()) {
 	t.Helper()
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
@@ -62,7 +78,7 @@ func startEmulator(t *testing.T) (baseURL string, cleanup func()) {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
 				return url, func() {
-					_ = cmd.Process.Signal(os.Interrupt)
+					stopTestProcess(cmd.Process)
 					_ = cmd.Wait()
 				}
 			}

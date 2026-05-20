@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestE2E_SeedSessionsFlag(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
@@ -33,7 +31,7 @@ func TestE2E_SeedSessionsFlag(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 	defer func() {
-		_ = cmd.Process.Signal(os.Interrupt)
+		stopTestProcess(cmd.Process)
 		_ = cmd.Wait()
 	}()
 
@@ -90,7 +88,7 @@ func TestE2E_SeedSessionsFlag(t *testing.T) {
 
 func TestE2E_SeedSessionsFlag_UnknownWorkspaceFailsBoot(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
@@ -116,7 +114,7 @@ func TestE2E_SeedSessionsFlag_UnknownWorkspaceFailsBoot(t *testing.T) {
 
 func TestE2E_SeedSessionsFlag_BadSyntaxFailsBoot(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
+	bin := testBinaryPath(tmp, "emulator-server")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
