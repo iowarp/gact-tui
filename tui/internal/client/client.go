@@ -290,12 +290,16 @@ type SearchMatch struct {
 // SearchMessages issues GET /v1/sessions/{id}/messages/search?q=...
 // and returns the matches in score order. Empty query returns no
 // matches — callers should validate that before dispatching.
-// DeleteMessage issues DELETE /v1/messages/{id}. The SSE stream
-// doesn't emit a dedicated message.deleted event in v0.1 so callers
-// that care about UI follow-up should drop the local entry
-// optimistically after a successful call.
-func (c *Client) DeleteMessage(ctx context.Context, messageID string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/messages/"+messageID, nil, nil)
+// DeleteMessage issues DELETE /v1/sessions/{sid}/messages/{id}. If
+// sessionID is empty it falls back to the legacy global route for older
+// backends. Callers that care about immediate UI follow-up can still drop
+// the local entry optimistically after a successful call.
+func (c *Client) DeleteMessage(ctx context.Context, sessionID, messageID string) error {
+	if sessionID == "" {
+		return c.do(ctx, http.MethodDelete, "/v1/messages/"+url.PathEscape(messageID), nil, nil)
+	}
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/messages/" + url.PathEscape(messageID)
+	return c.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([]SearchMatch, error) {
