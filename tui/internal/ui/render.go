@@ -956,7 +956,7 @@ func withStreamProvenanceNote(t Theme, p gact.Part, rendered string) string {
 	if fallback, ok := p.Metadata["stream_fallback"].(map[string]any); ok {
 		reason, _ = fallback["reason"].(string)
 	}
-	label := "synthetic stream"
+	label := "post-hoc text"
 	if reason != "" {
 		label += ": " + reason
 	}
