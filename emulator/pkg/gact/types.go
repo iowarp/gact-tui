@@ -172,6 +172,7 @@ type Error struct {
 
 type ErrorBody struct {
 	Code    string         `json:"code"`
+	Error   string         `json:"error,omitempty"`
 	Message string         `json:"message"`
 	Details map[string]any `json:"details,omitempty"`
 }

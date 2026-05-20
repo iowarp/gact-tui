@@ -93,9 +93,13 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	if resp.StatusCode >= 400 {
 		var e gact.Error
 		_ = json.NewDecoder(resp.Body).Decode(&e)
+		code := e.Error.Code
+		if code == "" {
+			code = e.Error.Error
+		}
 		return &Error{
 			Status:  resp.StatusCode,
-			Code:    e.Error.Code,
+			Code:    code,
 			Message: e.Error.Message,
 		}
 	}

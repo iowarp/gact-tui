@@ -2848,7 +2848,9 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = c.RunCommand(ctx, sessionID, cmdID)
+		if err := c.RunCommand(ctx, sessionID, cmdID); err != nil {
+			return errMsg{err: err, stage: "command"}
+		}
 		return nil
 	}
 }
