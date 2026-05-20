@@ -10,13 +10,13 @@
 
 ## Phase 0 — Triage + setup (15 min)
 
-- [ ] Confirm Meridian healthy: `curl http://127.0.0.1:3456/v1/chat/completions -d '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"hi"}],"max_tokens":4}'` returns 200 + non-zero usage. If unhealthy, Phase 3 (diff) and any LM-bound verification slip until it recovers.
-- [ ] Confirm OpenRouter key still works (memory: ~1 day left). Backup provider for any verification Meridian flakes on.
+- [ ] Confirm the primary CLIO provider is healthy: run a trivial chat completion through the configured provider and verify a 200 response plus non-zero usage when the provider reports usage.
+- [ ] Confirm the backup provider still works. Backup provider covers any LM-bound verification if the primary provider is unavailable.
 - [ ] Re-create `/tmp/clio-demo/{example.py, clio_demo.h5, clio_demo.parquet, scratch.txt}`.
 - [ ] Pull latest `tui-integration` (clio-agent) + `clio` (gact-tui), wipe `.venv` if dependency churn, `uv pip install -e '.[api]'`, `go build -o /tmp/gact .`.
 - [ ] Restart `clio-agent-gact --port 17800` from HEAD with no stale state.
 
-**Exit:** Meridian + OpenRouter both responsive, demo files in place, fresh server up.
+**Exit:** primary and backup providers both responsive, demo files in place, fresh server up.
 
 ---
 
@@ -43,7 +43,7 @@ There is no third state.
 - provider listing
 - slash commands
 - subagent spawn (#9 — fixed yesterday)
-- mid-conversation provider swap (Meridian ↔ OpenRouter)
+- mid-conversation provider swap between the primary and backup providers
 
 ### Never observed end-to-end — must verify or fix (90 min)
 
@@ -138,14 +138,14 @@ These xfails are honest TODOs from yesterday. Each is a real promise the contrac
 
 ## Phase 3 — Diff path end-to-end (60 min)
 
-- [ ] Drive `propose an edit to /tmp/clio-demo/example.py — replace string concatenation with an f-string` against a healthy LM. Retry until clean (Meridian was throwing 500s yesterday; OpenRouter as fallback).
+- [ ] Drive `propose an edit to /tmp/clio-demo/example.py — replace string concatenation with an f-string` against a healthy LM. Retry against the backup provider if the primary provider is unavailable.
 - [ ] Confirm assistant message has a `file_diff` Part with `unified_diff` populated AND `new_content` populated.
 - [ ] POST `/v1/sessions/{sid}/diffs/apply` with the path → confirm `/tmp/clio-demo/example.py` actually changed on disk to the f-string version.
 - [ ] POST `/v1/sessions/{sid}/diffs/reject` (on a fresh diff) → confirm file unchanged.
 - [ ] Capture `clio_diff.png` — TUI showing the diff inline (red `-` / green `+` lines).
 - [ ] Capture `clio_diff_applied.png` — TUI confirming the apply succeeded; `cat /tmp/clio-demo/example.py` next to it shows the new content.
 
-**No fallback:** if neither Meridian nor OpenRouter can produce a clean turn, that's a Phase 0 environmental issue and Phase 3 waits.
+**No fallback:** if neither configured provider can produce a clean turn, that's a Phase 0 environmental issue and Phase 3 waits.
 
 ---
 
@@ -200,8 +200,8 @@ Pretend to be a lab user on a fresh box.
 - [ ] Connect TUI: `GACT_BACKEND=http://127.0.0.1:17999 ./gact`
 - [ ] Configure each provider in turn via the modal AND drive at least one turn through each:
   - **OpenAI direct** (using the lab's `OPENAI_API_KEY` if available; document with-key path even if untested without one)
-  - **Meridian** (Claude Max)
-  - **OpenRouter free** (the test key from memory)
+  - **LM Studio/local OpenAI-compatible** (when available)
+  - **OpenRouter or another backup provider**
 - [ ] Run the smoke-test commands from `docs/SETUP.md` — confirm each one returns the documented response
 - [ ] `docs/LAB_USER_NOTES.md` — write down every rough edge encountered (slow install step, confusing UI moment, etc.)
 
