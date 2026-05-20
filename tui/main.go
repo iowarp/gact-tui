@@ -33,7 +33,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -381,7 +380,7 @@ Usage:
   gact agent deploy <kind> <name>  spawn an adapter (claudecode) detached; registers locally
                               --bin PATH override adapter binary; --port N; --cwd DIR
   gact agent list            show deployed agents (name, kind, port, pid, alive status)
-  gact agent stop <name>     SIGTERM the adapter process
+  gact agent stop <name>     stop the adapter process
   gact agent rm <name>       drop the entry (stops first if running)
   gact agent connect <name>  launch TUI pointed at a deployed agent
   gact connect <name>        alias for gact agent connect
@@ -3114,8 +3113,8 @@ func runAgentList(args []string) int {
 	return 0
 }
 
-// runAgentStop SIGTERMs the pid and keeps the registry entry (user
-// may want to redeploy). `agent rm` is the hard drop.
+// runAgentStop stops the pid and keeps the registry entry (user may
+// want to redeploy). `agent rm` is the hard drop.
 func runAgentStop(args []string) int {
 	if len(args) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact agent stop <name>")
@@ -3145,14 +3144,14 @@ func runAgentStop(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact agent stop: find pid %d: %v\n", rec.PID, err)
 		return 1
 	}
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
+	if err := stopAgentProcess(proc); err != nil {
 		// ESRCH = not running; treat as already-stopped, not an error.
 		if !errors.Is(err, os.ErrProcessDone) && err.Error() != "os: process already finished" {
-			fmt.Fprintf(os.Stderr, "gact agent stop: signal: %v\n", err)
+			fmt.Fprintf(os.Stderr, "gact agent stop: stop pid %d: %v\n", rec.PID, err)
 			return 1
 		}
 	}
-	fmt.Fprintf(os.Stderr, "sent SIGTERM to %s (pid %d)\n", name, rec.PID)
+	fmt.Fprintf(os.Stderr, "stopped %s (pid %d)\n", name, rec.PID)
 	return 0
 }
 

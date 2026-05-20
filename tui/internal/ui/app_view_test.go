@@ -43,9 +43,11 @@ func assertGolden(t *testing.T, got string) {
 	if err != nil {
 		t.Fatalf("read golden %s: %v (run with -update)", path, err)
 	}
-	if got != string(want) {
+	got = strings.ReplaceAll(got, "\r\n", "\n")
+	wantText := strings.ReplaceAll(string(want), "\r\n", "\n")
+	if got != wantText {
 		t.Errorf("output diverges from %s\n--- got ---\n%s\n--- want ---\n%s",
-			path, got, string(want))
+			path, got, wantText)
 	}
 }
 
