@@ -51,9 +51,27 @@ const (
 )
 
 func main() {
-	// Subcommand dispatch — preserve all flags after the subcommand for
-	// the subcommand's own flag set.
 	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version", "--version", "-v":
+			runVersion()
+			return
+		case "diag", "--diag":
+			runDiag()
+			return
+		case "emit-config", "--emit-config":
+			runEmitConfig()
+			return
+		case "-h", "--help":
+			printUsage()
+			return
+		}
+	}
+
+	// Subcommand dispatch — preserve all flags after the subcommand for
+	// the subcommand's own flag set. Leading flags belong to the
+	// default interactive TUI path, e.g. `gact --backend URL`.
+	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		switch os.Args[1] {
 		case "export":
 			os.Exit(runExport(os.Args[2:]))
@@ -116,6 +134,8 @@ func main() {
 			os.Exit(runFork(os.Args[2:]))
 		case "models", "model":
 			os.Exit(runModels(os.Args[2:]))
+		case "man", "manual":
+			os.Exit(runMan(os.Args[2:]))
 		case "info":
 			os.Exit(runInfo(os.Args[2:]))
 		case "undo":
@@ -132,6 +152,10 @@ func main() {
 			os.Exit(runTool(os.Args[2:]))
 		case "agent", "agents":
 			os.Exit(runAgent(os.Args[2:]))
+		case "deploy":
+			// Shorthand for the common local-agent flow:
+			// `gact deploy clio myclio` mirrors `gact connect myclio`.
+			os.Exit(runAgentDeploy(os.Args[2:]))
 		case "watch":
 			os.Exit(runWatch(os.Args[2:]))
 		case "capabilities", "caps":
@@ -158,6 +182,12 @@ func main() {
 			// so the common "I want to attach the TUI to my
 			// registered adapter" flow is a one-word verb.
 			os.Exit(runAgentConnect(os.Args[2:]))
+		case "stop":
+			// Shorthand for the common deployed-agent lifecycle.
+			os.Exit(runAgentStop(os.Args[2:]))
+		case "rm":
+			// Shorthand for `gact agent rm <name>`.
+			os.Exit(runAgentRm(os.Args[2:]))
 		case "session":
 			// PPPPPPPPP1: `gact session <verb>` alias layer over
 			// the existing session CRUD commands. Parallels `gact
@@ -193,18 +223,19 @@ func main() {
 			os.Exit(runTasks(os.Args[2:]))
 		case "plugins", "plugin":
 			os.Exit(runPlugins(os.Args[2:]))
-		case "version", "--version", "-v":
+		case "version":
 			runVersion()
 			return
-		case "diag", "--diag":
+		case "diag":
 			runDiag()
 			return
-		case "emit-config", "--emit-config":
+		case "emit-config":
 			runEmitConfig()
 			return
-		case "-h", "--help":
+		default:
+			fmt.Fprintf(os.Stderr, "gact: unknown command %q\n\n", os.Args[1])
 			printUsage()
-			return
+			os.Exit(2)
 		}
 	}
 	runTUI()
@@ -308,14 +339,38 @@ func printUsage() {
 	fmt.Println(`gact — GACT TUI client
 
 Usage:
-  gact                       run the interactive TUI
+  gact                       run the interactive TUI against the configured backend
+  gact deploy <kind> <name>  spawn an adapter detached; registers locally
+                              alias: gact agent deploy <kind> <name>
+                              --bin PATH override adapter binary; --port N; --cwd DIR
+  gact connect <name>        launch TUI pointed at a deployed agent
+                              alias: gact agent connect <name>
+  gact agent list            show deployed agents (name, kind, port, pid, alive status)
+  gact agent stop <name>     stop the adapter process
+                              alias: gact stop <name>
+  gact agent rm <name>       drop the entry (stops first if running)
+                              alias: gact rm <name>
+  gact man                   print the manual; --install wires man(1)/PowerShell
+
+Common:
+  gact new [--title T]       create a session; print id to stdout
+  gact ask <sid> <q|->       send + wait + print assistant reply
+  gact send <sid> <text|->   post a user message to a session
+  gact run <sid> <text|->    send + wait in one command
+  gact log <sid>             dump conversation messages (text by default; --format json for NDJSON)
+                              --role user,assistant,tool,system filters to one or more roles
+                              --grep REGEX drops messages whose text doesn't match (case-insensitive)
+  gact list                  list recent sessions (tab-separated)
+                              --detached-only, --sort newest|oldest|status|tokens|backend, --limit N
+
+All Commands:
+  gact list                  list recent sessions (tab-separated)
+                              --detached-only, --sort newest|oldest|status|tokens|backend, --limit N
   gact export <session_id>   download a session blob (JSON) to stdout
   gact import <file|->       upload a previously-exported session blob
   gact version               print version + contract version
   gact diag                  print environment + config for bug reports
   gact emit-config           print sample config.json to stdout
-  gact list                  list recent sessions (tab-separated)
-                              --detached-only, --sort newest|oldest|status|tokens|backend, --limit N
   gact export --all -o DIR   bulk-export every session as JSON files
   gact tail [SID]            stream SSE events (NDJSON default; --format text for human one-liners)
   gact ping                  probe /v1/health (exit 0 if healthy)
@@ -351,6 +406,7 @@ Usage:
   gact workspaces list       list workspaces (TSV: id  name  root_path)
   gact fork <sid> [--at MID] spawn a child session forked from another
   gact models list           list providers + models (TSV: pid mid name ctx)
+  gact man                   print the manual; --format text|roff; --install
   gact info <sid>            print one session's metadata; --include tasks,hooks,perms for composite view
   gact undo <sid> [--count N] revert the last N messages (default 1)
   gact rewind <sid> <mid>    delete every message after <mid> [--include-target]
@@ -377,8 +433,10 @@ Usage:
   gact session <verb>        backend-side session lifecycle alias:
                               create | list | show | connect | rename | stop | rm
                               (parallels "gact agent *"; wraps new/list/info/attach/rename/cancel/delete)
-  gact agent deploy <kind> <name>  spawn an adapter (claudecode) detached; registers locally
+  gact deploy <kind> <name>  spawn an adapter detached; registers locally
+                              alias: gact agent deploy <kind> <name>
                               --bin PATH override adapter binary; --port N; --cwd DIR
+  gact agent deploy <kind> <name>  same as gact deploy
   gact agent list            show deployed agents (name, kind, port, pid, alive status)
   gact agent stop <name>     stop the adapter process
   gact agent rm <name>       drop the entry (stops first if running)
@@ -421,6 +479,357 @@ TUI-only flags:
   --voice-cmd STR  shell command that records audio to stdout, run on
                    Ctrl+Y. See scripts/voice-record.sh for an example.
                    (env: GACT_VOICE_CMD, config: voice_command)`)
+}
+
+const gactManualText = `GACT(1)
+
+NAME
+  gact - GACT terminal client and local agent launcher
+
+SYNOPSIS
+  gact
+  gact deploy <kind> <name> [--port N] [--cwd DIR] [--bin PATH]
+  gact connect <name>
+  gact agent list
+  gact agent stop <name>
+  gact agent rm <name>
+  gact ask <sid> <q|->
+  gact man [--format text|roff] [--install]
+
+DESCRIPTION
+  gact is a terminal client for GACT-compatible agent backends. It can
+  run the interactive TUI, deploy local adapters such as CLIO, connect
+  to a registered adapter, manage sessions, inspect logs, and call
+  backend contract surfaces from scripts.
+
+TOP COMMANDS
+  gact
+      Start the interactive TUI against the configured backend.
+
+  gact deploy <kind> <name>
+      Spawn an adapter in the background and register it locally.
+      For CLIO, the common flow is:
+          gact deploy clio myclio
+          gact connect myclio
+
+  gact connect <name>
+      Launch the TUI pointed at a deployed agent.
+
+  gact agent list
+      Show deployed agents, including host, port, pid, and liveness.
+
+  gact agent stop <name>
+      Stop a deployed adapter process.
+
+  gact agent rm <name>
+      Remove the local registry entry. Stops the process first if it is
+      still running.
+
+COMMON SESSION COMMANDS
+  gact new [--title T]
+      Create a session and print its id.
+
+  gact ask <sid> <q|->
+      Send a question, wait for completion, and print the assistant
+      reply.
+
+  gact send <sid> <text|->
+      Post a user message to a session.
+
+  gact run <sid> <text|->
+      Send and wait in one command.
+
+  gact log <sid>
+      Dump conversation messages. Use --format json for NDJSON,
+      --role to filter roles, and --grep to filter text.
+
+  gact list
+      List recent sessions.
+
+CONFIGURATION
+  Backend resolution order:
+      built-in default < config file < GACT_BACKEND < --backend
+
+  Theme resolution order:
+      built-in default < config file < GACT_THEME < --theme
+
+  The sample config can be printed with:
+      gact emit-config
+
+MANUAL INTEGRATION
+  gact man
+      Print this manual on every supported platform.
+
+  gact man --format roff
+      Print the Unix manpage source.
+
+  gact man --install
+      On Linux/macOS, install gact.1 under the user's man directory so
+      man gact can resolve it. On Windows PowerShell, install an
+      explicit profile shim because man is an alias for Get-Help, not a
+      real manpage reader.
+
+SEE ALSO
+  gact --help
+  gact diag
+  gact capabilities
+`
+
+const gactManualRoff = `.TH GACT 1 "May 2026" "gact 0.2" "User Commands"
+.SH NAME
+gact \- GACT terminal client and local agent launcher
+.SH SYNOPSIS
+.B gact
+.br
+.B gact deploy
+.I kind name
+.RI [ --port " N" ]
+.RI [ --cwd " DIR" ]
+.RI [ --bin " PATH" ]
+.br
+.B gact connect
+.I name
+.br
+.B gact agent list
+.br
+.B gact agent stop
+.I name
+.br
+.B gact agent rm
+.I name
+.br
+.B gact ask
+.I sid q|-
+.br
+.B gact man
+.RI [ --format " text|roff]"
+.RI [ --install ]
+.SH DESCRIPTION
+.B gact
+is a terminal client for GACT-compatible agent backends. It can run the
+interactive TUI, deploy local adapters such as CLIO, connect to a registered
+adapter, manage sessions, inspect logs, and call backend contract surfaces from
+scripts.
+.SH TOP COMMANDS
+.TP
+.B gact
+Start the interactive TUI against the configured backend.
+.TP
+.B gact deploy <kind> <name>
+Spawn an adapter in the background and register it locally. For CLIO, the
+common flow is:
+.RS
+.EX
+gact deploy clio myclio
+gact connect myclio
+.EE
+.RE
+.TP
+.B gact connect <name>
+Launch the TUI pointed at a deployed agent.
+.TP
+.B gact agent list
+Show deployed agents, including host, port, pid, and liveness.
+.TP
+.B gact agent stop <name>
+Stop a deployed adapter process.
+.TP
+.B gact agent rm <name>
+Remove the local registry entry. Stops the process first if it is still running.
+.SH COMMON SESSION COMMANDS
+.TP
+.B gact new [--title T]
+Create a session and print its id.
+.TP
+.B gact ask <sid> <q|->
+Send a question, wait for completion, and print the assistant reply.
+.TP
+.B gact send <sid> <text|->
+Post a user message to a session.
+.TP
+.B gact run <sid> <text|->
+Send and wait in one command.
+.TP
+.B gact log <sid>
+Dump conversation messages. Use
+.B --format json
+for NDJSON,
+.B --role
+to filter roles, and
+.B --grep
+to filter text.
+.TP
+.B gact list
+List recent sessions.
+.SH CONFIGURATION
+Backend resolution order:
+.RS
+built-in default < config file < GACT_BACKEND < --backend
+.RE
+.PP
+Theme resolution order:
+.RS
+built-in default < config file < GACT_THEME < --theme
+.RE
+.PP
+The sample config can be printed with:
+.RS
+.EX
+gact emit-config
+.EE
+.RE
+.SH MANUAL INTEGRATION
+.TP
+.B gact man
+Print this manual on every supported platform.
+.TP
+.B gact man --format roff
+Print the Unix manpage source.
+.TP
+.B gact man --install
+On Linux/macOS, install
+.B gact.1
+under the user's man directory so
+.B man gact
+can resolve it. On Windows PowerShell, install an explicit profile shim because
+.B man
+is an alias for
+.B Get-Help,
+not a real manpage reader.
+.SH SEE ALSO
+.BR gact (1),
+.BR gact\ --help ,
+.BR gact\ diag ,
+.BR gact\ capabilities
+`
+
+func runMan(args []string) int {
+	fs := flag.NewFlagSet("man", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	format := fs.String("format", "text", "output format: text or roff")
+	install := fs.Bool("install", false, "install shell-native man integration for this user")
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintln(os.Stderr, "usage: gact man [--format text|roff] [--install]")
+		return 2
+	}
+	if *install {
+		return installManIntegration()
+	}
+	switch strings.ToLower(*format) {
+	case "text", "":
+		fmt.Print(gactManualText)
+	case "roff", "man":
+		fmt.Print(gactManualRoff)
+	default:
+		fmt.Fprintf(os.Stderr, "gact man: unsupported format %q (expected text or roff)\n", *format)
+		return 2
+	}
+	return 0
+}
+
+func installManIntegration() int {
+	if runtime.GOOS == "windows" {
+		return installPowerShellManShim()
+	}
+	return installUnixManPage()
+}
+
+func installUnixManPage() int {
+	base := os.Getenv("XDG_DATA_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact man --install: resolve home: %v\n", err)
+			return 1
+		}
+		base = filepath.Join(home, ".local", "share")
+	}
+	dir := filepath.Join(base, "man", "man1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "gact man --install: create %s: %v\n", dir, err)
+		return 1
+	}
+	target := filepath.Join(dir, "gact.1")
+	if err := os.WriteFile(target, []byte(gactManualRoff), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "gact man --install: write %s: %v\n", target, err)
+		return 1
+	}
+	fmt.Printf("installed %s\n", target)
+	fmt.Println("try: man gact")
+	fmt.Println("if your man(1) cannot find it, add this to your shell profile:")
+	fmt.Printf("  export MANPATH=\"%s:${MANPATH}\"\n", filepath.Join(base, "man"))
+	return 0
+}
+
+func installPowerShellManShim() int {
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact man --install: resolve executable: %v\n", err)
+		return 1
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact man --install: resolve home: %v\n", err)
+		return 1
+	}
+	profiles := []string{
+		filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+		filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+	}
+	escapedExe := strings.ReplaceAll(exe, "'", "''")
+	shim := "\n# >>> gact man shim >>>\n" +
+		"function man {\n" +
+		"    param(\n" +
+		"        [Parameter(Position=0)] [string] $Name,\n" +
+		"        [Parameter(ValueFromRemainingArguments=$true)] [string[]] $RemainingArgs\n" +
+		"    )\n" +
+		"    if ($Name -eq 'gact') { & '" + escapedExe + "' man @RemainingArgs; return }\n" +
+		"    Get-Help $Name @RemainingArgs | more\n" +
+		"}\n" +
+		"# <<< gact man shim <<<\n"
+
+	installed := 0
+	for _, profile := range profiles {
+		if err := os.MkdirAll(filepath.Dir(profile), 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "gact man --install: create %s: %v\n", filepath.Dir(profile), err)
+			continue
+		}
+		contentBytes, _ := os.ReadFile(profile)
+		content := string(contentBytes)
+		if strings.Contains(content, "# >>> gact man shim >>>") {
+			fmt.Printf("already installed in %s\n", profile)
+			installed++
+			continue
+		}
+		if strings.Contains(content, "function man") {
+			fmt.Printf("skipped %s: profile already defines function man\n", profile)
+			continue
+		}
+		f, err := os.OpenFile(profile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gact man --install: open %s: %v\n", profile, err)
+			continue
+		}
+		_, writeErr := f.WriteString(shim)
+		closeErr := f.Close()
+		if writeErr != nil || closeErr != nil {
+			if writeErr != nil {
+				fmt.Fprintf(os.Stderr, "gact man --install: write %s: %v\n", profile, writeErr)
+			}
+			if closeErr != nil {
+				fmt.Fprintf(os.Stderr, "gact man --install: close %s: %v\n", profile, closeErr)
+			}
+			continue
+		}
+		fmt.Printf("installed PowerShell man shim in %s\n", profile)
+		installed++
+	}
+	if installed == 0 {
+		fmt.Fprintln(os.Stderr, "gact man --install: no PowerShell profile was updated")
+		return 1
+	}
+	fmt.Println("restart PowerShell, then run: man gact")
+	return 0
 }
 
 // runAttach: `gact attach [<name|sid>]` — launch the TUI pre-selected
@@ -2799,6 +3208,11 @@ func adapterBinFor(kind string) (string, error) {
 	if kind == "clio" {
 		if src := os.Getenv("CLIO_AGENT_SRC"); src != "" {
 			if st, err := os.Stat(src); err == nil && st.IsDir() {
+				for _, cand := range clioAgentGactCandidates(src) {
+					if st, err := os.Stat(cand); err == nil && !st.IsDir() {
+						return cand, nil
+					}
+				}
 				shim := filepath.Join(os.TempDir(), "gact-clio-shim.sh")
 				body := fmt.Sprintf(
 					"#!/usr/bin/env bash\nexec uv run --project %q clio-agent-gact \"$@\"\n",
@@ -2814,23 +3228,30 @@ func adapterBinFor(kind string) (string, error) {
 		// the sibling layout (~/tui/clio-agent or alongside gact)
 		// don't have to set CLIO_AGENT_SRC manually.
 		home, _ := os.UserHomeDir()
-		candidates := []string{
-			filepath.Join(home, ".local/share/clio/clio-agent/.venv/bin/clio-agent-gact"),
-			filepath.Join(home, "tui/clio-agent/.venv/bin/clio-agent-gact"),
-		}
+		candidates := append(
+			clioAgentGactCandidates(filepath.Join(home, ".local/share/clio/clio-agent")),
+			clioAgentGactCandidates(filepath.Join(home, "tui/clio-agent"))...,
+		)
 		// Also probe directories adjacent to the gact binary itself.
 		if self, err := os.Executable(); err == nil {
 			selfDir := filepath.Dir(self)
 			candidates = append(candidates,
-				filepath.Join(selfDir, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
-				filepath.Join(selfDir, "..", "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+				clioAgentGactCandidates(filepath.Join(selfDir, "..", "clio-agent"))...,
+			)
+			candidates = append(candidates,
+				clioAgentGactCandidates(filepath.Join(selfDir, "..", "..", "clio-agent"))...,
 			)
 		}
 		// And probe relative to CWD (e.g. user is sitting in /tui).
 		if cwd, err := os.Getwd(); err == nil {
 			candidates = append(candidates,
-				filepath.Join(cwd, "clio-agent", ".venv/bin/clio-agent-gact"),
-				filepath.Join(cwd, "..", "clio-agent", ".venv/bin/clio-agent-gact"),
+				clioAgentGactCandidates(cwd)...,
+			)
+			candidates = append(candidates,
+				clioAgentGactCandidates(filepath.Join(cwd, "clio-agent"))...,
+			)
+			candidates = append(candidates,
+				clioAgentGactCandidates(filepath.Join(cwd, "..", "clio-agent"))...,
 			)
 		}
 		for _, c := range candidates {
@@ -2849,6 +3270,14 @@ func adapterBinFor(kind string) (string, error) {
 			"  • pass --bin /path/to/clio-agent-gact explicitly",
 		exe, buildHint,
 	)
+}
+
+func clioAgentGactCandidates(root string) []string {
+	return []string{
+		filepath.Join(root, ".venv", "Scripts", "clio-agent-gact.exe"),
+		filepath.Join(root, ".venv", "Scripts", "clio-agent-gact"),
+		filepath.Join(root, ".venv", "bin", "clio-agent-gact"),
+	}
 }
 
 // freePort asks the kernel for an ephemeral TCP port by binding

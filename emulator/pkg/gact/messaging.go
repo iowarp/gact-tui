@@ -1,6 +1,10 @@
 package gact
 
-import "time"
+import (
+	"bytes"
+	"encoding/json"
+	"time"
+)
 
 // ID prefixes used by the emulator for opaque resource IDs.
 const (
@@ -77,6 +81,33 @@ type ModelRef struct {
 	ProviderID string `json:"provider_id,omitempty"`
 	ModelID    string `json:"model_id,omitempty"`
 	Variant    string `json:"variant,omitempty"`
+}
+
+// UnmarshalJSON accepts both the structured ModelRef shape and older
+// CLIO-style string model identifiers. Some backends historically
+// emitted AgentDef.default_model as "model-id" while sessions used the
+// structured {provider_id, model_id, variant} object; clients should
+// not fail the entire agents catalog over that representation mismatch.
+func (m *ModelRef) UnmarshalJSON(data []byte) error {
+	if m == nil {
+		return nil
+	}
+	if bytes.Equal(data, []byte("null")) {
+		*m = ModelRef{}
+		return nil
+	}
+	var modelID string
+	if err := json.Unmarshal(data, &modelID); err == nil {
+		*m = ModelRef{ModelID: modelID}
+		return nil
+	}
+	type alias ModelRef
+	var out alias
+	if err := json.Unmarshal(data, &out); err != nil {
+		return err
+	}
+	*m = ModelRef(out)
+	return nil
 }
 
 // AgentRef identifies which agent persona/recipe is active in a session.
