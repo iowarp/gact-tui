@@ -1231,7 +1231,7 @@ func (a *App) lmConfigLayout(innerW int, bodyRows int) lmConfigLayout {
 	stacked := leftW < 38 || rightW < 38
 
 	buttonRows := 0
-	if bodyRows >= 16 {
+	if bodyRows >= 12 {
 		buttonRows = 3
 	}
 	gridRows := bodyRows - buttonRows
