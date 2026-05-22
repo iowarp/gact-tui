@@ -1,0 +1,8 @@
+{
+  "post.failure.retry": "メッセージは送信されませんでした — Enter で再試行",
+  "post.failure.retry_with_error": "メッセージは送信されませんでした — Enter で再試行 · {{error}}",
+  "post.failure.agent.starting": "メッセージは送信されませんでした — CLIO エージェントは起動中です。Enter で再試行",
+  "post.failure.agent.failed": "メッセージは送信されませんでした — CLIO エージェントの起動に失敗しました。プロバイダー設定またはサーバーログを確認してください",
+  "post.failure.agent.not_configured": "メッセージは送信されませんでした — CLIO エージェントが設定されていません。先にエージェントを設定または起動してください",
+  "post.failure.agent.unknown": "メッセージは送信されませんでした — CLIO エージェントはまだ利用できません。Enter で再試行"
+}
