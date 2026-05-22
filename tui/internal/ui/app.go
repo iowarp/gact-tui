@@ -1140,14 +1140,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lmConfig.err = m.err
 			return a, nil
 		}
-		// Success: dismiss the modal + retry whatever the user
-		// was waiting on. A reconnect refreshes capabilities +
-		// sessions in case the agent reload changed something.
+		// Success: the backend has already loaded/swapped the global
+		// LM. Mirror that state locally now, before the next user send,
+		// so stale per-session ModelRefs cannot leak into headers,
+		// Settings, or a later PATCH flow.
+		a.lmProviderInfo = m.info
+		a.clearLocalSessionModelRefs()
 		a.lmConfigOpen = false
 		a.lmConfig = nil
 		a.transientHint = "LM configured: " +
 			m.info.Provider + "/" + m.info.Model
-		return a, scheduleHintExpire(a.transientHint)
+		cmds := []tea.Cmd{scheduleHintExpire(a.transientHint)}
+		if a.wsID != "" {
+			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+		}
+		return a, tea.Batch(cmds...)
 
 	case doctorFetchedMsg:
 		// CLIO-BBBBBBBBBB4: /doctor modal finished its /v1/health
@@ -2860,6 +2867,12 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 			return errMsg{err: err, stage: "create-session"}
 		}
 		return sessionCreatedMsg{session: s}
+	}
+}
+
+func (a *App) clearLocalSessionModelRefs() {
+	for i := range a.sessions {
+		a.sessions[i].Model = gact.ModelRef{}
 	}
 }
 
