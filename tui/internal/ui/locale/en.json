@@ -1,0 +1,8 @@
+{
+  "post.failure.retry": "message not sent — press Enter to retry",
+  "post.failure.retry_with_error": "message not sent — press Enter to retry · {{error}}",
+  "post.failure.agent.starting": "message not sent — CLIO agent is still starting; press Enter to retry",
+  "post.failure.agent.failed": "message not sent — CLIO agent startup failed; check provider config or server logs",
+  "post.failure.agent.not_configured": "message not sent — no CLIO agent is configured; configure or start an agent first",
+  "post.failure.agent.unknown": "message not sent — no CLIO agent is ready; press Enter to retry"
+}

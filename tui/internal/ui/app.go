@@ -89,6 +89,7 @@ type App struct {
 	// (cleared by the next key press). Used for non-fatal feedback like
 	// config-reload outcomes that don't deserve the full error stage.
 	transientHint string
+	localizer     Localizer
 
 	// DisableAltScreen turns off the alternate-screen-buffer mode. Used
 	// by tests because teatest's PTY simulation doesn't capture writes
@@ -525,6 +526,7 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	return &App{
 		BackendURL:            backendURL,
 		Theme:                 theme,
+		localizer:             newLocalizer(os.Getenv("GACT_LOCALE")),
 		c:                     client.New(backendURL),
 		stage:                 StageConnecting,
 		focus:                 FocusInput,
@@ -848,24 +850,24 @@ type postFailedMsg struct {
 	err  error
 }
 
-func postFailureHint(err error) string {
+func (a *App) postFailureHint(err error) string {
 	if err == nil {
-		return "message not sent — press Enter to retry"
+		return a.localizer.t(msgPostFailureRetry, nil)
 	}
 	var backendErr *client.Error
 	if errors.As(err, &backendErr) && backendErr.Code == "agent_not_available" {
 		switch stringDetail(backendErr.Details, "agent_status") {
 		case "starting":
-			return "message not sent — CLIO agent is still starting; press Enter to retry"
+			return a.localizer.t(msgPostFailureAgentStarting, nil)
 		case "failed":
-			return "message not sent — CLIO agent startup failed; check provider config or server logs"
+			return a.localizer.t(msgPostFailureAgentFailed, nil)
 		case "not_configured":
-			return "message not sent — no CLIO agent is configured; configure or start an agent first"
+			return a.localizer.t(msgPostFailureAgentNotConfigured, nil)
 		default:
-			return "message not sent — no CLIO agent is ready; press Enter to retry"
+			return a.localizer.t(msgPostFailureAgentUnknown, nil)
 		}
 	}
-	return "message not sent — press Enter to retry · " + err.Error()
+	return a.localizer.t(msgPostFailureRetryWithError, map[string]string{"error": err.Error()})
 }
 
 func stringDetail(details map[string]any, key string) string {
@@ -1321,7 +1323,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just press Enter again once the backend is back. Surface a
 		// transient hint so they know what happened.
 		a.input.SetValue(m.text)
-		a.transientHint = postFailureHint(m.err)
+		a.transientHint = a.postFailureHint(m.err)
 		return a, nil
 
 	case msgPostedAck:
