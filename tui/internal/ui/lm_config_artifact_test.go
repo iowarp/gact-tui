@@ -471,6 +471,52 @@ func TestLMConfigUnsupportedEndpointReturnsToSettings(t *testing.T) {
 	}
 }
 
+func TestLMConfigSavedMirrorsGlobalProviderAndClearsSessionModels(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.wsID = "ws_default"
+	a.sessions = []gact.Session{
+		{
+			ID:    "sess_1",
+			Title: "old model",
+			Model: gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Agent: gact.AgentRef{ID: "default"},
+		},
+		{
+			ID:    "sess_2",
+			Title: "also old",
+			Model: gact.ModelRef{ProviderID: "openai", ModelID: "gpt-4o-mini"},
+			Agent: gact.AgentRef{ID: "default"},
+		},
+	}
+
+	info := &client.LMProviderInfo{
+		Configured: true,
+		Provider:   "lm_studio",
+		APIBase:    "http://127.0.0.1:1234/v1",
+		Model:      "qwopus3.5-9b-v3",
+	}
+	updated, cmd := a.Update(lmConfigSavedMsg{info: info})
+	a = updated.(*App)
+
+	if a.lmConfigOpen || a.lmConfig != nil {
+		t.Fatal("successful save should close the provider modal")
+	}
+	if a.lmProviderInfo == nil || a.lmProviderInfo.Model != "qwopus3.5-9b-v3" {
+		t.Fatalf("provider info was not mirrored locally: %#v", a.lmProviderInfo)
+	}
+	for _, sess := range a.sessions {
+		if sess.Model.ProviderID != "" || sess.Model.ModelID != "" || sess.Model.Variant != "" {
+			t.Fatalf("stale session model was not cleared: %#v", sess.Model)
+		}
+	}
+	if a.transientHint != "LM configured: lm_studio/qwopus3.5-9b-v3" {
+		t.Fatalf("transient hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("successful save should schedule hint expiry and session refresh")
+	}
+}
+
 func TestRenderLMConfigPolishArtifact(t *testing.T) {
 	if os.Getenv("GACT_RENDER_LM_CONFIG_ARTIFACT") == "" {
 		t.Skip("set GACT_RENDER_LM_CONFIG_ARTIFACT=1 to write the visual artifact")
