@@ -256,6 +256,27 @@ func TestLMConfigModalHeightDoesNotExceedTerminal(t *testing.T) {
 	}
 }
 
+func TestLMConfigShortModalKeepsSaveActionVisible(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.width = 132
+	a.height = 24
+	a.lmConfig.selected = 0 // LM Studio has no API-key detour and exposes model settings.
+	a.lmConfig.modelCatalogWarnings = map[string]string{}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{ID: "qwopus3.5-9b-v3"}}
+	a.lmConfig.model = "qwopus3.5-9b-v3"
+	a.lmConfig.modelIndex = 0
+
+	out := ansi.Strip(a.viewLMConfig())
+
+	if !strings.Contains(out, "Save and connect") {
+		t.Fatalf("short modal should keep save action visible\n%s", out)
+	}
+	if renderedHeight := len(strings.Split(out, "\n")); renderedHeight > a.height {
+		t.Fatalf("short modal height = %d, want <= %d", renderedHeight, a.height)
+	}
+}
+
 func TestLMConfigPasteRoutesToAPIKeyField(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.selected = 2 // OpenAI / ChatGPT
