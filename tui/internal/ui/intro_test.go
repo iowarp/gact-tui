@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -63,6 +64,19 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	// (≥ 4 rows of forward-slash ornament from the slant font).
 	if strings.Count(out, "/") < 8 {
 		t.Errorf("expected slant-style ASCII art in splash: %q", out)
+	}
+}
+
+func TestViewIntro_CompactHeightDoesNotOverflow(t *testing.T) {
+	for _, height := range []int{6, 10, 16} {
+		a := New("http://test.local")
+		a.EnableIntro()
+		a.width, a.height = 80, height
+
+		renderedHeight := len(strings.Split(ansi.Strip(a.viewIntro()), "\n"))
+		if renderedHeight > height {
+			t.Fatalf("intro height at terminal height %d = %d", height, renderedHeight)
+		}
 	}
 }
 

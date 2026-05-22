@@ -25,9 +25,25 @@ dev setup). No emulator stubs.
 cd clio-agent && uv run --extra api clio-agent-gact --port 17800 &
 curl -X PUT http://127.0.0.1:17800/v1/providers/lm -d '{...}'
 
-# Build the TUI binary somewhere VHS can find it.
-cd ../gact-tui/tui && go build -o /tmp/gact .
+# Build the TUI binary and put it on PATH for the tape.
+cd ../gact-tui/tui && go build -o gact .
+cd ..
 
 # Run any tape against the running CLIO.
-GACT_BACKEND=http://127.0.0.1:17800 vhs screenshot_clio_e2e.tape
+PATH="$PWD/tui:$PATH" GACT_BACKEND=http://127.0.0.1:17800 vhs tui/screenshot_clio_e2e.tape
 ```
+
+### Windows VHS
+
+VHS v0.10 hangs with the WinGet `ttyd` 1.7.7 package because that ttyd
+frontend initializes xterm's DOM renderer while VHS waits for canvas layers.
+Use the helper to pin the compatible ttyd 1.7.2 binary for the current run:
+
+```powershell
+cd D:\Libraries\Documents\projects\gact-tui
+.\scripts\vhs-windows.ps1 .\tui\screenshot_clio_e2e.tape -Backend http://127.0.0.1:17800
+```
+
+The Windows helper also rewrites legacy bash-oriented tapes at runtime:
+`Set Shell "bash"` becomes `cmd`, `/tmp/gact` becomes `gact`, and old
+absolute screenshot paths are redirected under `screenshots/`.

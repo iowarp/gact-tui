@@ -233,16 +233,12 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch s.tab {
 		case 0:
 			// Tab 0 is a single "Change provider…" entry point — Enter
-			// hands off to the lifecycle LM-config modal in session-
-			// patch mode. targetSessionID is captured here (not at
-			// Ctrl+S time) so navigating the sidebar between opening
-			// Settings and pressing Enter retargets correctly.
+			// hands off to the lifecycle LM-config modal. CLIO exposes
+			// runtime model changes as a global LM provider swap
+			// (PUT /v1/providers/lm), not as per-session model refs.
 			a.settingsOpen = false
 			a.lmConfigOpen = true
-			a.lmConfig = &lmConfigState{
-				sessionPatchMode: true,
-				targetSessionID:  a.currentSessionID(),
-			}
+			a.lmConfig = &lmConfigState{}
 			return a, lmConfigFetchCmd(a.c)
 		case 2:
 			// Theme apply is local — no backend PATCH. Live-swap the
@@ -336,6 +332,12 @@ func (a *App) viewSettings() string {
 		tabs(s.tab),
 		"",
 	}
+	if s.loadErr != "" {
+		rows = append(rows,
+			lipgloss.NewStyle().Foreground(t.Warning).Render(s.loadErr),
+			"",
+		)
+	}
 	// LLL4: shared row renderer — selected row gets a Bg background
 	// strip + Secondary-bold text; non-selected just plain Fg. The
 	// `▌` marker stays for keyboard-only users who want to verify
@@ -367,7 +369,7 @@ func (a *App) viewSettings() string {
 	case 0:
 		// Tab 0 (Model) is intentionally a thin shim: show the active
 		// provider/model and a single "change provider" action that
-		// hands off to the lifecycle LM-config modal in session-patch
+		// hands off to the lifecycle LM-config modal in global-provider
 		// mode. ONE picker implementation; this tab is just an entry
 		// point. Embedding the full picker inside Settings duplicated
 		// state and produced a cramped layout — the standalone modal
@@ -375,12 +377,11 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
 		rows = append(rows, "")
 		rows = append(rows, rowLine(true, "Change provider…",
-			"open the provider/model picker (PATCH this session)"))
+			"open the provider/model picker (global CLIO LM)"))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			"Enter opens the same picker shown on first connect — "+
-				"saving there PATCHes only the current session, "+
-				"not the global LM config."))
+				"saving there reconfigures CLIO's active global LM."))
 	case 1:
 		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
 		rows = append(rows, "")

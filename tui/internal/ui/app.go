@@ -893,6 +893,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.inPaste = false
 		return a, nil
 	case tea.PasteMsg:
+		if a.lmConfigOpen && a.lmConfig != nil {
+			a.handleLMConfigPaste(m.Content)
+			return a, nil
+		}
 		// Compose modal takes paste routing whenever it's open — that's
 		// the whole point of "pastes render expanded" there.
 		if a.composeOpen && a.compose != nil {
@@ -975,7 +979,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//      except clio-agent-gact today) get here; nothing to do.
 		//   3. info != nil + configured == false → pop the modal so
 		//      the user can pick a provider before they type.
-		if m.err != nil || m.info == nil {
+		if m.err != nil {
+			if a.lmConfigOpen {
+				a.lmConfigOpen = false
+				a.lmConfig = nil
+				a.settingsOpen = true
+				if a.settings == nil {
+					a.settings = &settingsState{}
+				}
+				a.settings.tab = 0
+				a.settings.loadErr = "provider config unavailable: " + m.err.Error()
+			}
+			return a, nil
+		}
+		if m.info == nil {
+			if a.lmConfigOpen {
+				a.lmConfigOpen = false
+				a.lmConfig = nil
+				a.settingsOpen = true
+				if a.settings == nil {
+					a.settings = &settingsState{}
+				}
+				a.settings.tab = 0
+				a.settings.loadErr = "this backend does not support runtime LM provider config (/v1/providers/lm)"
+			}
 			return a, nil
 		}
 		// Cache for the header chip (#363) so renderHeader can show the
@@ -989,12 +1016,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.lmConfig = &lmConfigState{}
 			}
 			a.lmConfig.info = m.info
-			return a, a.lmConfigSyncFromPreset()
+			a.lmConfigSelectDefaultPreset()
+			cmds := []tea.Cmd{}
+			if cmd := a.lmConfigSyncFromPreset(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			cmds = append(cmds, a.lmConfigBackgroundProbeCmds()...)
+			return a, tea.Batch(cmds...)
 		}
 		if !m.info.Configured {
 			a.lmConfigOpen = true
 			a.lmConfig = &lmConfigState{info: m.info}
-			return a, a.lmConfigSyncFromPreset()
+			a.lmConfigSelectDefaultPreset()
+			cmds := []tea.Cmd{}
+			if cmd := a.lmConfigSyncFromPreset(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			cmds = append(cmds, a.lmConfigBackgroundProbeCmds()...)
+			return a, tea.Batch(cmds...)
 		}
 		return a, nil
 
@@ -1011,11 +1050,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.lmConfig.modelCatalogWarnings == nil {
 			a.lmConfig.modelCatalogWarnings = map[string]string{}
 		}
-		if m.err == nil {
-			a.lmConfig.modelCatalogs[m.presetID] = m.models
+		if a.lmConfig.modelCatalogSources == nil {
+			a.lmConfig.modelCatalogSources = map[string]string{}
+		}
+		if a.lmConfig.modelCatalogPending == nil {
+			a.lmConfig.modelCatalogPending = map[string]bool{}
+		}
+		if a.lmConfig.modelCatalogRetries == nil {
+			a.lmConfig.modelCatalogRetries = map[string]int{}
+		}
+		delete(a.lmConfig.modelCatalogPending, m.presetID)
+		if m.err == nil && m.warning == "" {
+			a.lmConfig.modelCatalogs[m.presetID] = lmConfigSortModels(m.models)
+			a.lmConfig.modelCatalogRetries[m.presetID] = 0
 		} else {
 			a.lmConfig.modelCatalogs[m.presetID] = nil
 		}
+		a.lmConfig.modelCatalogSources[m.presetID] = m.source
 		// Stash the backend's fallback reason (or transport error) so
 		// the picker can render an actionable banner. Empty string
 		// when the catalog came back live.
@@ -1028,22 +1079,52 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			a.lmConfig.modelCatalogWarnings[m.presetID] = ""
 		}
-		if a.lmConfigCurrentPresetID() == m.presetID && len(m.models) > 0 {
-			suggested := ""
-			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
-				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel
+		if a.lmConfigCurrentPresetID() == m.presetID && m.warning == "" && len(m.models) > 0 {
+			if p := a.lmConfigCurrentPreset(); p != nil {
+				a.lmConfigSnapModelToCatalog(*p)
 			}
-			idx := 0
-			for i, mm := range m.models {
-				if mm.ID == suggested || mm.ID == a.lmConfig.model {
-					idx = i
-					break
+		}
+		a.lmConfig.lmConfigEnsureVisibleField()
+		if cmd := a.lmConfigMaybeRetryModelFetch(m.presetID); cmd != nil {
+			return a, cmd
+		}
+		return a, nil
+
+	case lmConfigAuthedMsg:
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		a.lmConfig.authenticating = false
+		if m.err != nil {
+			a.lmConfig.authMessage = "auth failed: " + m.err.Error()
+			return a, nil
+		}
+		if m.resp.IsAuthenticated {
+			a.lmConfig.authMessage = "ALCF Globus token ready"
+			if a.lmConfig.info != nil {
+				for i := range a.lmConfig.info.Presets {
+					if a.lmConfig.info.Presets[i].ID == m.providerID {
+						a.lmConfig.info.Presets[i].Status = "ready"
+						a.lmConfig.info.Presets[i].StatusMessage = "Globus token ready"
+						a.lmConfig.info.Presets[i].IsAuthenticated = true
+						break
+					}
 				}
 			}
-			a.lmConfig.modelIndex = idx
-			if a.lmConfig.model == "" || a.lmConfig.model == suggested {
-				a.lmConfig.model = m.models[idx].ID
+			delete(a.lmConfig.modelCatalogs, m.providerID)
+			delete(a.lmConfig.modelCatalogWarnings, m.providerID)
+			delete(a.lmConfig.modelCatalogSources, m.providerID)
+			delete(a.lmConfig.modelCatalogPending, m.providerID)
+			if p := a.lmConfigCurrentPreset(); p != nil && p.ID == m.providerID {
+				a.lmConfig.lmConfigEnsureVisibleField()
+				return a, a.lmConfigQueueModelFetch(*p, a.lmConfig.apiBase)
 			}
+			return a, nil
+		}
+		if m.resp.Instructions != "" {
+			a.lmConfig.authMessage = m.resp.Instructions
+		} else {
+			a.lmConfig.authMessage = "ALCF auth did not complete"
 		}
 		return a, nil
 
@@ -2763,15 +2844,13 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		// Default model + agent so the user can send a message immediately
-		// without first opening Settings. The defaults match the emulator's
-		// best-tier capabilities (Anthropic Claude Opus 4.7) — adapters
-		// for other backends should fall through gracefully if they don't
-		// know this model and either map it or surface an error.
+		// Default agent only. CLIO-style backends use one global LM
+		// configured through /v1/providers/lm; sending an Anthropic
+		// per-session ModelRef here makes later global-provider swaps
+		// fail because the stale session model no longer matches.
 		s, err := c.CreateSession(ctx, client.CreateSessionRequest{
 			WorkspaceID: wsID,
 			Title:       "new session " + time.Now().UTC().Format("15:04:05"),
-			Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
 			Agent:       &gact.AgentRef{ID: "default"},
 		})
 		if err != nil {
@@ -2782,8 +2861,9 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 }
 
 // duplicateSessionCmd creates a new session carrying over the source
-// session's title + model + agent but with zero messages. "Same kind
-// of work, fresh context."
+// session's title + agent but with zero messages. Model refs are not
+// copied because CLIO uses a global LM provider; preserving a stale
+// per-session model ref makes the next send fail after provider swaps.
 func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -2796,10 +2876,6 @@ func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cm
 		req := client.CreateSessionRequest{
 			WorkspaceID: wsID,
 			Title:       title,
-		}
-		if src.Model.ModelID != "" {
-			m := src.Model
-			req.Model = &m
 		}
 		if src.Agent.ID != "" {
 			ag := src.Agent
@@ -4096,17 +4172,31 @@ func (a *App) viewIntro() string {
 		logoBlock = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render(logoStr)
 	}
 	nameStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	nameText := strings.Join(name, "\n")
+	if a.width > 0 && lipgloss.Width(nameText) > a.width-4 {
+		nameText = "CLIO"
+	}
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
 		Align(lipgloss.Center, lipgloss.Center).
 		Foreground(t.Fg).Background(t.Bg)
-	body := lipgloss.JoinVertical(lipgloss.Center,
-		logoBlock,
-		"",
-		nameStyle.Render(strings.Join(name, "\n")),
-		"",
-		t.HintLabel.Italic(true).Render("press any key to continue"),
-	)
+	nameBlock := nameStyle.Render(nameText)
+	hint := t.HintLabel.Italic(true).Render("press any key to continue")
+	parts := []string{}
+	if strings.TrimSpace(ansi.Strip(logoBlock)) != "" {
+		parts = append(parts, logoBlock)
+	}
+	if len(parts) > 0 {
+		parts = append(parts, "")
+	}
+	parts = append(parts, nameBlock, "", hint)
+	body := lipgloss.JoinVertical(lipgloss.Center, parts...)
+	if a.height > 0 && lipgloss.Height(body) > a.height {
+		body = lipgloss.JoinVertical(lipgloss.Center, nameBlock, "", hint)
+	}
+	if a.height > 0 && lipgloss.Height(body) > a.height {
+		body = lipgloss.JoinVertical(lipgloss.Center, nameStyle.Render("CLIO"), hint)
+	}
 	return box.Render(body)
 }
 
@@ -4387,7 +4477,11 @@ func (a *App) renderFooter() string {
 	}
 	hintLine := strings.Join(parts, pipe)
 
-	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
+	focus := focusLabel(a.focus)
+	if a.lmConfigOpen {
+		focus = "provider setup"
+	}
+	left := t.HintLabel.Render("focus: " + focus)
 	// Surface SSE reconnect state: while the backoff counter is > 0
 	// the stream is down and we're waiting to retry. J2's reset-on-
 	// event drops this back to nothing as soon as the stream is

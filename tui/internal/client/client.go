@@ -378,13 +378,19 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 // LMProviderPreset is a row in CLIO's provider picker. “RequiresAPIKey“
 // tells the TUI's modal whether to render the api_key field.
 type LMProviderPreset struct {
-	ID             string `json:"id"`
-	Label          string `json:"label"`
-	Provider       string `json:"provider"`
-	APIBase        string `json:"api_base"`
-	SuggestedModel string `json:"suggested_model"`
-	RequiresAPIKey bool   `json:"requires_api_key"`
-	Description    string `json:"description"`
+	ID                  string `json:"id"`
+	Label               string `json:"label"`
+	Provider            string `json:"provider"`
+	APIBase             string `json:"api_base"`
+	SuggestedModel      string `json:"suggested_model"`
+	RequiresAPIKey      bool   `json:"requires_api_key"`
+	APIKeyEnv           string `json:"api_key_env,omitempty"`
+	AuthMethod          string `json:"auth_method,omitempty"`
+	IsAuthenticated     bool   `json:"is_authenticated,omitempty"`
+	Description         string `json:"description"`
+	Status              string `json:"status,omitempty"`
+	StatusMessage       string `json:"status_message,omitempty"`
+	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
 }
 
 // LMProviderInfo is the GET /v1/providers/lm body — current LM
@@ -398,6 +404,7 @@ type LMProviderInfo struct {
 	Model          string             `json:"model,omitempty"`
 	Temperature    float64            `json:"temperature,omitempty"`
 	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ContextLength  int                `json:"context_length,omitempty"`
 	ThinkingBudget int                `json:"thinking_budget,omitempty"`
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
@@ -419,6 +426,7 @@ type LMProviderRequest struct {
 	APIKey         string  `json:"api_key"`
 	Temperature    float64 `json:"temperature,omitempty"`
 	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ContextLength  int     `json:"context_length,omitempty"`
 	ThinkingBudget int     `json:"thinking_budget,omitempty"`
 }
 
@@ -458,7 +466,7 @@ func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]g
 }
 
 // ProviderModelsResponse is the full /v1/providers/{id}/models body —
-// includes Source ("live"/"static_fallback") and a human-readable
+// includes Source ("live"/"static_catalog"/"unavailable") and a human-readable
 // Error string when the backend fell back. Lets the TUI render an
 // actionable banner ("token expired, run …") instead of silently
 // pretending a stale catalog is the truth.
@@ -472,9 +480,19 @@ type ProviderModelsResponse struct {
 // can surface fallback warnings. Newer call sites should prefer this
 // over ListProviderModels (which discards the source/error fields
 // for backward compat).
-func (c *Client) ListProviderModelsDetailed(ctx context.Context, providerID string) (ProviderModelsResponse, error) {
+func (c *Client) ListProviderModelsDetailed(
+	ctx context.Context,
+	providerID string,
+	apiBaseOverride string,
+) (ProviderModelsResponse, error) {
 	var out ProviderModelsResponse
-	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
+	path := "/v1/providers/" + providerID + "/models"
+	if strings.TrimSpace(apiBaseOverride) != "" {
+		q := url.Values{}
+		q.Set("api_base", apiBaseOverride)
+		path += "?" + q.Encode()
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
 }
 

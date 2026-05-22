@@ -1,5 +1,11 @@
 package gact
 
+import (
+	"bytes"
+	"encoding/json"
+	"sort"
+)
+
 // Catalog types — providers, models, tools, MCP servers, agents, commands.
 // These reflect SPEC §6.5 (agents), §6.6 (tools), §6.7 (MCP), §6.12
 // (providers), §6.13 (commands), §6.16 (metrics).
@@ -22,8 +28,8 @@ type AuthMethod string
 
 const (
 	// AuthMethodNone — provider needs no credentials (lm_studio /
-	// ollama on localhost, codex via the CLI subscription, ALCF
-	// compute-node vLLMs that accept the literal "EMPTY" key).
+	// ollama on localhost, codex via the CLI subscription, and local
+	// OpenAI-compatible vLLM servers that accept the literal "EMPTY" key).
 	AuthMethodNone AuthMethod = "none"
 
 	// AuthMethodAPIKey — user pastes a long-lived API key (Anthropic,
@@ -82,6 +88,7 @@ func (a AuthProvider) NeedsLogin() bool {
 type Model struct {
 	ID              string         `json:"id"`
 	Name            string         `json:"name"`
+	Description     string         `json:"description,omitempty"`
 	ContextWindow   int            `json:"context_window"`
 	MaxOutputTokens int            `json:"max_output_tokens"`
 	Supports        ModelSupports  `json:"supports"`
@@ -142,6 +149,71 @@ type AgentDef struct {
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
 	Specialization string   `json:"specialization,omitempty"` // free-form tag — UI palette hint (code_editing, data_analysis, research, …)
 	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
+}
+
+// UnmarshalJSON accepts both the shared GACT array shape for
+// parameters and CLIO's current object/map shape. Settings must not
+// fail the whole agent catalog because one backend serializes
+// parameters as {"name": value} instead of [{"name": "..."}].
+func (a *AgentDef) UnmarshalJSON(data []byte) error {
+	type alias AgentDef
+	var raw struct {
+		alias
+		Parameters json.RawMessage `json:"parameters,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	out := AgentDef(raw.alias)
+	if len(raw.Parameters) > 0 && !bytes.Equal(raw.Parameters, []byte("null")) {
+		params, err := decodeAgentParameters(raw.Parameters)
+		if err != nil {
+			return err
+		}
+		out.Parameters = params
+	}
+	*a = out
+	return nil
+}
+
+func decodeAgentParameters(data []byte) ([]AgentParameter, error) {
+	var list []AgentParameter
+	if err := json.Unmarshal(data, &list); err == nil {
+		return list, nil
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]AgentParameter, 0, len(keys))
+	for _, key := range keys {
+		param := AgentParameter{Name: key, Type: "string"}
+		if spec, ok := obj[key].(map[string]any); ok {
+			if typ, ok := spec["type"].(string); ok && typ != "" {
+				param.Type = typ
+			}
+			if desc, ok := spec["description"].(string); ok {
+				param.Description = desc
+			}
+			if required, ok := spec["required"].(bool); ok {
+				param.Required = required
+			}
+			if opts, ok := spec["options"].([]any); ok {
+				for _, opt := range opts {
+					if s, ok := opt.(string); ok {
+						param.Options = append(param.Options, s)
+					}
+				}
+			}
+		}
+		out = append(out, param)
+	}
+	return out, nil
 }
 
 // AgentParameter is a fillable input on an agent recipe.
