@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestPostFailed_RestoresTextAndShowsHint(t *testing.T) {
@@ -35,6 +37,35 @@ func TestPostFailed_DoesNotGoToStageError(t *testing.T) {
 	_, _ = a.Update(postFailedMsg{text: "hi", err: errors.New("boom")})
 	if a.stage == StageError {
 		t.Error("post failure should not send the UI to StageError")
+	}
+}
+
+func TestPostFailed_AgentNotAvailableUsesHumanHint(t *testing.T) {
+	a := New("http://unused")
+	a.input.SetValue("")
+
+	msg := postFailedMsg{
+		text: "hi",
+		err: &client.Error{
+			Status:  503,
+			Code:    "agent_not_available",
+			Message: "CLIO is still starting its agent; no agent is ready to accept messages yet.",
+			Details: map[string]any{
+				"agent_status": "starting",
+			},
+		},
+	}
+	model, _ := a.Update(msg)
+	a = model.(*App)
+
+	if a.input.Value() != "hi" {
+		t.Errorf("input text = %q, want hi", a.input.Value())
+	}
+	if !strings.Contains(a.transientHint, "CLIO agent is still starting") {
+		t.Errorf("hint = %q, want startup-specific text", a.transientHint)
+	}
+	if strings.Contains(a.transientHint, "gact: 503") {
+		t.Errorf("hint should not expose raw GACT status: %q", a.transientHint)
 	}
 }
 
