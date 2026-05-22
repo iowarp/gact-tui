@@ -38,7 +38,25 @@ $tapeText = [System.IO.File]::ReadAllText($resolvedTape)
 $tapeText = $tapeText -replace 'Set Shell "bash"', 'Set Shell "cmd"'
 $tapeText = $tapeText -replace '/tmp/gact', 'gact'
 $tapeText = $tapeText -replace '/home/[^/]+/tui/screenshots/', 'screenshots/'
-$tapeText = $tapeText -replace 'Type "GACT_BACKEND=([^ ]+) gact ([^"]*)"', 'Type "set GACT_BACKEND=$1&& gact $2"'
+
+# VHS tapes are usually authored for bash, where a command can be prefixed with
+# one or more environment assignments:
+#
+#   Type "GACT_BACKEND=$GACT_BACKEND GACT_NO_INTRO=1 gact"
+#
+# cmd.exe treats that as a command named "GACT_BACKEND=...", so rewrite these
+# Type lines into chained `set` commands before running the tape on Windows.
+$typeEnvPrefix = [regex]'(?m)^Type "((?:[A-Za-z_][A-Za-z0-9_]*=[^ "\t]+\s+)+)([^"]+)"$'
+$tapeText = $typeEnvPrefix.Replace($tapeText, {
+    param($match)
+    $assignments = $match.Groups[1].Value.Trim() -split '\s+'
+    $command = $match.Groups[2].Value
+    $sets = foreach ($assignment in $assignments) {
+        "set $assignment"
+    }
+    'Type "' + (($sets + $command) -join '&& ') + '"'
+})
+
 if ($env:GACT_BACKEND) {
     $tapeText = $tapeText.Replace('$GACT_BACKEND', $env:GACT_BACKEND)
 }
