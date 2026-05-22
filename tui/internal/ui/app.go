@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/color"
 	"math/rand"
@@ -847,6 +848,38 @@ type postFailedMsg struct {
 	err  error
 }
 
+func postFailureHint(err error) string {
+	if err == nil {
+		return "message not sent — press Enter to retry"
+	}
+	var backendErr *client.Error
+	if errors.As(err, &backendErr) && backendErr.Code == "agent_not_available" {
+		switch stringDetail(backendErr.Details, "agent_status") {
+		case "starting":
+			return "message not sent — CLIO agent is still starting; press Enter to retry"
+		case "failed":
+			return "message not sent — CLIO agent startup failed; check provider config or server logs"
+		case "not_configured":
+			return "message not sent — no CLIO agent is configured; configure or start an agent first"
+		default:
+			return "message not sent — no CLIO agent is ready; press Enter to retry"
+		}
+	}
+	return "message not sent — press Enter to retry · " + err.Error()
+}
+
+func stringDetail(details map[string]any, key string) string {
+	if details == nil {
+		return ""
+	}
+	value, ok := details[key]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return text
+}
+
 // --- Update ---------------------------------------------------------------
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -1288,7 +1321,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just press Enter again once the backend is back. Surface a
 		// transient hint so they know what happened.
 		a.input.SetValue(m.text)
-		a.transientHint = "message not sent — press Enter to retry · " + m.err.Error()
+		a.transientHint = postFailureHint(m.err)
 		return a, nil
 
 	case msgPostedAck:
