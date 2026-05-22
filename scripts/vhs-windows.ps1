@@ -4,7 +4,9 @@ param(
 
     [string] $Backend,
 
-    [string] $TtydVersion = "1.7.2"
+    [string] $TtydVersion = "1.7.2",
+
+    [int] $TimeoutSeconds = 180
 )
 
 $ErrorActionPreference = "Stop"
@@ -71,7 +73,20 @@ $generatedTape = Join-Path $generatedDir ([System.IO.Path]::GetFileName($resolve
 Write-Host "Using $(& $ttydExe --version)"
 Push-Location $repoRoot
 try {
-    vhs $generatedTape
+    $vhsExe = (Get-Command vhs -ErrorAction Stop).Source
+    $process = Start-Process `
+        -FilePath $vhsExe `
+        -ArgumentList @($generatedTape) `
+        -NoNewWindow `
+        -PassThru
+    $timeoutMs = [Math]::Min([int64] $TimeoutSeconds * 1000, [int64] [int]::MaxValue)
+    if (-not $process.WaitForExit([int] $timeoutMs)) {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        throw "vhs timed out after $TimeoutSeconds second(s): $generatedTape"
+    }
+    if ($process.ExitCode -ne 0) {
+        exit $process.ExitCode
+    }
 }
 finally {
     Pop-Location
