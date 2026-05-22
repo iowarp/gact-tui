@@ -1098,6 +1098,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lmConfig.modelCatalogRetries = map[string]int{}
 		}
 		delete(a.lmConfig.modelCatalogPending, m.presetID)
+		preferredModel := ""
+		if len(m.models) > 0 {
+			preferredModel = strings.TrimSpace(m.models[0].ID)
+		}
 		if m.err == nil && m.warning == "" {
 			a.lmConfig.modelCatalogs[m.presetID] = lmConfigSortModels(m.models)
 			a.lmConfig.modelCatalogRetries[m.presetID] = 0
@@ -1119,6 +1123,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.lmConfigCurrentPresetID() == m.presetID && m.warning == "" && len(m.models) > 0 {
 			if p := a.lmConfigCurrentPreset(); p != nil {
+				if strings.TrimSpace(a.lmConfig.model) == "" &&
+					strings.TrimSpace(p.SuggestedModel) == "" &&
+					preferredModel != "" {
+					a.lmConfig.model = preferredModel
+				}
 				a.lmConfigSnapModelToCatalog(*p)
 			}
 		}

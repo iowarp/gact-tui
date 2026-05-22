@@ -309,6 +309,34 @@ func TestLMConfigFallbackCatalogDoesNotOverwriteModel(t *testing.T) {
 	}
 }
 
+func TestLMConfigLiveCatalogPreservesProviderDefaultBeforeSorting(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0 // LM Studio has no suggested model in CLIO's live response.
+	a.lmConfig.info.Presets[0].SuggestedModel = ""
+	a.lmConfig.model = ""
+	a.lmConfig.modelIndex = -1
+
+	_, _ = a.Update(lmConfigModelsLoadedMsg{
+		presetID: "lm_studio",
+		models: []gact.Model{
+			{ID: "qwopus3.5-9b-v3"},
+			{ID: "ibm/granite-4-h-tiny"},
+		},
+		source: "live",
+	})
+
+	if a.lmConfig.model != "qwopus3.5-9b-v3" {
+		t.Fatalf("live provider default was not preserved; selected %q", a.lmConfig.model)
+	}
+	if got := a.lmConfig.modelCatalogs["lm_studio"][0].ID; got != "ibm/granite-4-h-tiny" {
+		t.Fatalf("catalog should still render sorted alphabetically, first=%q", got)
+	}
+	out := ansi.Strip(a.viewLMConfig())
+	if !strings.Contains(out, "✓ qwopus3.5-9b-v3") {
+		t.Fatalf("render did not mark provider default selected after sorting\n%s", out)
+	}
+}
+
 func TestLMConfigStaticCatalogShowsForUnavailableCLIProvider(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
