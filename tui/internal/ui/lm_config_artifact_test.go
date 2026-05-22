@@ -93,6 +93,41 @@ func TestLMConfigNavigationUsesVerticalKeysInsideFocusedList(t *testing.T) {
 	}
 }
 
+func TestLMConfigAdvancedRowsUseVerticalNavigation(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0 // LM Studio exposes temperature/max output/context length.
+	a.lmConfig.field = lmFieldTemperature
+	a.lmConfig.temperature = "1.0"
+	a.lmConfig.maxTokens = "4096"
+	a.lmConfig.contextLength = "32768"
+
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if a.lmConfig.field != lmFieldMaxTokens {
+		t.Fatalf("down should move from temperature to max output, got %v", a.lmConfig.field)
+	}
+	if a.lmConfig.temperature != "1.0" {
+		t.Fatalf("down should not adjust temperature, got %q", a.lmConfig.temperature)
+	}
+
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if a.lmConfig.field != lmFieldContextLength {
+		t.Fatalf("down should move from max output to context length, got %v", a.lmConfig.field)
+	}
+
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	if a.lmConfig.field != lmFieldMaxTokens {
+		t.Fatalf("up should move from context length to max output, got %v", a.lmConfig.field)
+	}
+
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyRight})
+	if a.lmConfig.field != lmFieldMaxTokens {
+		t.Fatalf("right should keep focus on max output, got %v", a.lmConfig.field)
+	}
+	if a.lmConfig.maxTokens != "4608" {
+		t.Fatalf("right should adjust max output by one step, got %q", a.lmConfig.maxTokens)
+	}
+}
+
 func TestLMConfigAPIKeyOnlyShowsWhenProviderRequiresIt(t *testing.T) {
 	a := newLMConfigTestApp()
 	for _, field := range a.lmConfig.lmConfigVisibleFields() {
