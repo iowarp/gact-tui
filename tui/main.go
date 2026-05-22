@@ -1005,6 +1005,7 @@ func runTUI() {
 	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
+	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")
 	app.VoiceCommand = finalVoice
 	// BBBBBBBB1: seed the previously-detached set so the sidebar can
 	// mark sessions the user already walked away from. Soft-fails:
@@ -3659,6 +3660,7 @@ func runAgentConnect(args []string) int {
 	// --no-intro` works without remembering to env-export.
 	backend := fmt.Sprintf("http://%s:%d", rec.Host, rec.Port)
 	_ = os.Setenv("GACT_BACKEND", backend)
+	_ = os.Setenv("GACT_BACKEND_LABEL", fmt.Sprintf("%s (%s)", rec.Name, rec.Kind))
 	fmt.Fprintf(os.Stderr, "connecting to agent %s at %s\n", name, backend)
 	os.Args = append([]string{os.Args[0]}, passthrough...)
 	runTUI()

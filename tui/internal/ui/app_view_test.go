@@ -207,8 +207,8 @@ func newReadyApp(sessions []gact.Session, msgs []gact.Message) *App {
 	return a
 }
 
-// HHH1: model + agent labels appear in the header for the selected session.
-func TestRenderHeader_ModelAndAgent(t *testing.T) {
+// HHH1: connected deployment labels should replace raw backend URLs.
+func TestRenderHeader_DeploymentLabel(t *testing.T) {
 	a := newReadyApp([]gact.Session{
 		{
 			ID: "sess_1", Title: "demo", Status: gact.StatusIdle,
@@ -216,13 +216,64 @@ func TestRenderHeader_ModelAndAgent(t *testing.T) {
 			Agent: gact.AgentRef{ID: "default"},
 		},
 	}, nil)
+	a.BackendLabel = "myclio (clio)"
 	a.width = 200
 	got := a.renderHeader()
-	if !strings.Contains(got, "model: claude-opus-4-7") {
-		t.Errorf("expected model label in header, got: %q", got)
+	if !strings.Contains(got, "myclio (clio)") {
+		t.Errorf("expected deployment label in header, got: %q", got)
 	}
-	if !strings.Contains(got, "agent: default") {
-		t.Errorf("expected agent label in header, got: %q", got)
+	if strings.Contains(got, "http://test.local") {
+		t.Errorf("raw backend URL should be hidden when deployment label is available: %q", got)
+	}
+}
+
+func TestRenderHeader_GlobalLMWinsOverStaleSessionModel(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{
+			ID: "sess_1", Title: "demo", Status: gact.StatusIdle,
+			Model: gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
+			Agent: gact.AgentRef{ID: "default"},
+		},
+	}, nil)
+	a.lmProviderInfo = &client.LMProviderInfo{
+		Configured: true,
+		Provider:   "lm_studio",
+		Model:      "qwopus3.5-9b-v3",
+	}
+	a.width = 200
+	got := a.renderHeader()
+	if !strings.Contains(got, "model: lm_studio/qwopus3.5-9b-v3") {
+		t.Errorf("expected global LM model label in header, got: %q", got)
+	}
+	if strings.Contains(got, "claude-opus-4-7") {
+		t.Errorf("stale per-session model should not appear when global LM is configured: %q", got)
+	}
+	if strings.Count(got, "model:") != 1 {
+		t.Errorf("expected exactly one model label, got: %q", got)
+	}
+	if strings.Contains(got, "agent: default") {
+		t.Errorf("default agent label should be suppressed, got: %q", got)
+	}
+	if !strings.Contains(got, "workspace: default") {
+		t.Errorf("workspace label should be spelled out, got: %q", got)
+	}
+}
+
+func TestRenderHeader_NonDefaultAgentAndRouting(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{
+			ID: "sess_1", Title: "demo", Status: gact.StatusIdle,
+			Agent:       gact.AgentRef{ID: "analysis", Mode: "review"},
+			RoutingMode: "experts",
+		},
+	}, nil)
+	a.width = 200
+	got := a.renderHeader()
+	if !strings.Contains(got, "agent: analysis (review)") {
+		t.Errorf("expected non-default agent label in header, got: %q", got)
+	}
+	if !strings.Contains(got, "routing: experts") {
+		t.Errorf("expected routing label in header, got: %q", got)
 	}
 }
 
