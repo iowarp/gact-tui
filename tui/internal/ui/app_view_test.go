@@ -104,6 +104,26 @@ func TestView_ReadyWithSessions(t *testing.T) {
 	assertGolden(t, got)
 }
 
+func TestView_EmptyConversationHasNoHardcodedScenarioPrompts(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_1", Title: "CLIO work", Status: gact.StatusIdle},
+	}, nil)
+
+	got := renderAtSize(a, 110, 30)
+
+	for _, unwanted := range []string{
+		"Try one of these",
+		"read main.go",
+		"delete the temp dir",
+		"propose an edit to main.go",
+		"many tools please",
+	} {
+		if strings.Contains(got, unwanted) {
+			t.Fatalf("empty conversation includes hardcoded scenario prompt %q\n%s", unwanted, got)
+		}
+	}
+}
+
 func TestView_StreamingConversation(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusRunning}}
 	msgs := []gact.Message{
