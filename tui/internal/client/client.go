@@ -101,6 +101,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 			Status:  resp.StatusCode,
 			Code:    code,
 			Message: e.Error.Message,
+			Details: e.Error.Details,
 		}
 	}
 	if out != nil && resp.StatusCode != http.StatusNoContent {
@@ -116,6 +117,7 @@ type Error struct {
 	Status  int
 	Code    string
 	Message string
+	Details map[string]any
 }
 
 func (e *Error) Error() string {
