@@ -3704,6 +3704,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 		// doesn't emit a dedicated cost.updated event — promote those
 		// fields into the cost-updated path so the footer's $ meter
 		// catches up live without waiting for a session reload.
+		a.applyMessageCompleted(e)
 		a.applyCostUpdated(e)
 	case "session.status_changed":
 		if pl != nil {
@@ -3774,6 +3775,33 @@ func (a *App) applySSE(e client.SSEEvent) {
 				a.pendingReload = true
 			}
 		}
+	}
+}
+
+func (a *App) applyMessageCompleted(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	msgID, _ := pl["message_id"].(string)
+	if msgID == "" {
+		return
+	}
+	for i := range a.messages {
+		if a.messages[i].ID != msgID {
+			continue
+		}
+		metadata, ok := pl["metadata"].(map[string]any)
+		if !ok || len(metadata) == 0 {
+			return
+		}
+		if a.messages[i].Metadata == nil {
+			a.messages[i].Metadata = map[string]any{}
+		}
+		for k, v := range metadata {
+			a.messages[i].Metadata[k] = v
+		}
+		return
 	}
 }
 
