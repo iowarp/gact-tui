@@ -2282,16 +2282,6 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 
-			// /scenarios jumps to the Scenarios help tab. Saves the
-			// user from pressing ? then → five times to get the
-			// trigger keyword cheat sheet — especially useful mid-
-			// conversation after the empty-state crib disappears.
-			if cmd.ID == "/scenarios" {
-				a.helpOpen = true
-				a.helpTab = helpTabIndex("Scenarios")
-				return a, nil
-			}
-
 			// /new creates a new session inline so users don't have
 			// to remember Ctrl+N or tab into the sidebar.
 			if cmd.ID == "/new" {
@@ -5061,23 +5051,6 @@ func (a *App) renderBody(width, height int) string {
 		body = lipgloss.JoinVertical(lipgloss.Left,
 			t.HintLabel.Render("(no messages yet — type below to send the first one)"),
 			"",
-			t.HintLabel.Render("Try one of these to see different flows:"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("read main.go")+
-				"           "+t.HintLabel.Render("normal turn (text + tool call + result)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("delete the temp dir")+
-				"    "+t.HintLabel.Render("triggers a permission prompt (a/d/s/w to respond)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("propose an edit to main.go")+
-				" "+t.HintLabel.Render("triggers a diff (a/r in body to apply/reject)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("split this with a sub-agent")+
-				" "+t.HintLabel.Render("spawns a code_reviewer subagent"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("write a long explain")+
-				"       "+t.HintLabel.Render("long assistant reply (~60 lines)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("dump the log")+
-				"              "+t.HintLabel.Render("large tool output (~80 lines)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("many tools please")+
-				"         "+t.HintLabel.Render("3 tool calls in one turn"),
-			"",
-			t.HintLabel.Render("Also try:"),
 			"  "+t.HintKey.Render("@")+t.HintLabel.Render(" to attach a workspace file  ·  ")+
 				t.HintKey.Render("Ctrl+G")+t.HintLabel.Render(" to compose in a big window"),
 			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" settings  ·  ")+
@@ -5584,7 +5557,7 @@ var helpTabs = []struct {
 			{"Ctrl+Alt+T", "cycle colour theme (Kitty-only; else /theme-next)"},
 			{"Ctrl+R", "refresh / reconnect"},
 			{"Ctrl+L", "reload config from disk"},
-			{"Ctrl+X", "cancel running scenario"},
+			{"Ctrl+X", "cancel running turn"},
 			{"Ctrl+Y", "voice transcribe"},
 			{"Ctrl+Z", "detach (TUI exits; `gact attach <sid>` reattaches)"},
 			{"?", "toggle this help"},
@@ -5656,7 +5629,6 @@ var helpTabs = []struct {
 			{"/catalog", "alias for /tools — same unified view"},
 			{"/skills", "list available skills (backend-dependent)"},
 			{"/agents", "switch agent (opens Settings > Agent)"},
-			{"/scenarios", "jump to the Scenarios help tab"},
 			{"/sessions", "focus sidebar + start title filter"},
 			{"/theme", "open Theme picker (dark/light/dracula/…) "},
 			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
@@ -5676,26 +5648,9 @@ var helpTabs = []struct {
 			{"w", "allow for this workspace"},
 		},
 	},
-	{
-		// Scenario triggers — the emulator routes messages by keyword
-		// into different scripts. The empty-state crib listed these
-		// but disappeared once a message landed. Surfacing them here
-		// means users can always remember "how do I get a long reply
-		// again?" even mid-conversation (issue #4).
-		title: "Scenarios",
-		keys: [][2]string{
-			{"read main.go", "normal turn (text + tool call + result)"},
-			{"delete the temp dir", "triggers a permission prompt (a/d/s/w)"},
-			{"propose an edit to main.go", "file_diff part — a / r in body to apply/reject"},
-			{"split this with a sub-agent", "spawns a code_reviewer subagent"},
-			{"write a long explain", "long assistant reply (~60 lines)"},
-			{"dump the log", "large tool output (~80 lines) — Ctrl+E to expand"},
-			{"many tools please", "3 tool calls in one turn"},
-		},
-	},
 }
 
-const helpTabCount = 7
+var helpTabCount = len(helpTabs)
 
 // helpTabIndex returns the slice position of the tab with the given
 // title, or 0 (Global) if not found. Lets slash-command handlers
