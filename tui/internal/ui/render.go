@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"strings"
@@ -257,7 +258,13 @@ func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *g
 		(prev.Role == gact.RoleTool ||
 			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
 	body := t.renderPartsForRoleWithResultsSelected(m.Parts, width, m.Role, inlineResults, selectedPartID)
-	if body == "" {
+	evidence := t.renderToolEvidence(m, width)
+	switch {
+	case body != "" && evidence != "":
+		body = lipgloss.JoinVertical(lipgloss.Left, body, evidence)
+	case body == "" && evidence != "":
+		body = evidence
+	case body == "":
 		body = t.HintLabel.Render("(no parts)")
 	}
 	ts := ""
@@ -292,7 +299,13 @@ func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Mess
 			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
 
 	body := t.renderPartsForRoleWithResults(m.Parts, width, m.Role, inlineResults)
-	if body == "" {
+	evidence := t.renderToolEvidence(m, width)
+	switch {
+	case body != "" && evidence != "":
+		body = lipgloss.JoinVertical(lipgloss.Left, body, evidence)
+	case body == "" && evidence != "":
+		body = evidence
+	case body == "":
 		body = t.HintLabel.Render("(no parts)")
 	}
 	// Optional timestamp row (S1). Rendered in a faint style under the
@@ -330,6 +343,151 @@ func assistantCarriedToolCall(m *gact.Message) bool {
 		}
 	}
 	return false
+}
+
+type toolEvidenceRow struct {
+	Name            string
+	Args            any
+	Result          any
+	OK              *bool
+	DurationMS      *float64
+	Cached          *bool
+	TelemetrySource string
+}
+
+func (t Theme) renderToolEvidence(m gact.Message, width int) string {
+	if m.Role != gact.RoleAssistant || assistantCarriedToolCall(&m) {
+		return ""
+	}
+	rows := normalizeToolEvidenceRows(m.Metadata["tools_called"])
+	if len(rows) == 0 {
+		return ""
+	}
+
+	wrapW := width - 2
+	if wrapW < 20 {
+		wrapW = width
+	}
+	title := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
+		Render("Tool evidence")
+	sourceNote := lipgloss.NewStyle().Foreground(t.FgMuted).
+		Render("summary metadata; no live tool transcript was sent")
+	out := []string{title + lipgloss.NewStyle().Foreground(t.FgFaint).Render(" · ") + sourceNote}
+	for _, row := range rows {
+		status := "seen"
+		if row.OK != nil {
+			if *row.OK {
+				status = "ok"
+			} else {
+				status = "error"
+			}
+		}
+		head := status + " " + row.Name
+		if args := compactJSON(row.Args); args != "" {
+			head += "(" + truncateString(args, 120) + ")"
+		}
+		var meta []string
+		if row.TelemetrySource != "" {
+			meta = append(meta, row.TelemetrySource)
+		}
+		if row.DurationMS != nil {
+			meta = append(meta, fmt.Sprintf("%.0fms", *row.DurationMS))
+		}
+		if row.Cached != nil && *row.Cached {
+			meta = append(meta, "cached")
+		}
+		if len(meta) > 0 {
+			head += " · " + strings.Join(meta, " · ")
+		}
+		out = append(out, lipgloss.NewStyle().Foreground(t.RoleTool).
+			Render(indent(wrap(head, wrapW-2), "  ")))
+		if result := compactJSON(row.Result); result != "" {
+			out = append(out, lipgloss.NewStyle().Foreground(t.FgMuted).
+				Render(indent(wrap("result: "+truncateString(result, 180), wrapW-4), "    ")))
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, out...)
+}
+
+func normalizeToolEvidenceRows(raw any) []toolEvidenceRow {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	rows := make([]toolEvidenceRow, 0, len(items))
+	for _, item := range items {
+		rowMap, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := rowMap["name"].(string)
+		if name == "" {
+			name, _ = rowMap["tool"].(string)
+		}
+		if name == "" {
+			continue
+		}
+		row := toolEvidenceRow{
+			Name:            name,
+			Args:            rowMap["args"],
+			Result:          rowMap["result"],
+			TelemetrySource: stringValue(rowMap["telemetry_source"]),
+		}
+		if row.Args == nil {
+			row.Args = rowMap["arguments"]
+		}
+		if row.Args == nil {
+			row.Args = rowMap["params"]
+		}
+		if okValue, ok := rowMap["ok"].(bool); ok {
+			row.OK = &okValue
+		}
+		if duration, ok := floatValue(rowMap["duration_ms"]); ok {
+			row.DurationMS = &duration
+		}
+		if cached, ok := rowMap["cached"].(bool); ok {
+			row.Cached = &cached
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func compactJSON(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprint(v)
+	}
+	return string(b)
+}
+
+func stringValue(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func floatValue(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case json.Number:
+		f, err := n.Float64()
+		return f, err == nil
+	default:
+		return 0, false
+	}
 }
 
 func (t Theme) renderPartsForRole(parts []gact.Part, width int, role string) string {
