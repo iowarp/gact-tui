@@ -46,7 +46,10 @@ const (
 // App is the root Bubbletea model.
 type App struct {
 	BackendURL string
-	Theme      Theme
+	// BackendLabel is an optional human-readable deployment identity,
+	// such as "myclio (clio)", supplied by `gact connect <name>`.
+	BackendLabel string
+	Theme        Theme
 
 	// VoiceCommand is a shell command line that records audio and writes
 	// the bytes to stdout. Invoked by Ctrl+Y. Empty ⇒ Ctrl+Y posts a tiny
@@ -4357,52 +4360,30 @@ func (a *App) viewMainBase() string {
 
 func (a *App) renderHeader() string {
 	t := a.Theme
-	// Required parts (badge + URL + SSE health dot) always render.
+	// Required parts (badge + connection label + SSE health dot) always render.
 	// Optional parts (workspace + session + status) are dropped when
 	// there's no room.
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
-	url := t.Header.Render(a.BackendURL)
-	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, url)
+	backend := t.Header.Render(a.headerBackendLabel())
+	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
 	avail := a.width - lipgloss.Width(required)
 
 	optional := []string{}
 	if len(a.workspaces) > 0 {
-		optional = append(optional, "ws: "+a.workspaces[0].Name)
+		optional = append(optional, "workspace: "+a.workspaces[0].Name)
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		optional = append(optional, "session: "+s.Title)
-		// Model/agent surface what's actually running. Drop down to
-		// just the model_id so the header stays compact (the provider
-		// is rarely ambiguous in practice).
-		if s.Model.ModelID != "" {
-			optional = append(optional, "model: "+s.Model.ModelID)
+		if model := a.headerModelLabel(s); model != "" {
+			optional = append(optional, "model: "+model)
 		}
-		if s.Agent.ID != "" {
-			optional = append(optional, "agent: "+s.Agent.ID)
+		if agent := headerAgentLabel(s.Agent); agent != "" {
+			optional = append(optional, agent)
 		}
-	}
-	// CLIO-style backends ship a global LM config (PUT /v1/providers/lm)
-	// rather than a per-session ModelRef, so the per-session chip above
-	// stays empty. Surface the global config in the header too — strip
-	// any provider/ prefix for compactness.
-	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
-		bare := a.lmProviderInfo.Model
-		if i := strings.Index(bare, "/"); i >= 0 {
-			bare = bare[i+1:]
-		}
-		// Avoid duplicating when the per-session ModelRef already
-		// surfaced the same model id.
-		alreadyShown := false
-		for _, o := range optional {
-			if strings.HasPrefix(o, "model: ") && strings.HasSuffix(o, bare) {
-				alreadyShown = true
-				break
-			}
-		}
-		if !alreadyShown {
-			optional = append(optional, "model: "+bare)
+		if routing := headerRoutingLabel(s); routing != "" {
+			optional = append(optional, routing)
 		}
 	}
 	statusBadge := ""
@@ -4451,6 +4432,57 @@ func (a *App) renderHeader() string {
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
 	return line + bg
+}
+
+func (a *App) headerBackendLabel() string {
+	if label := strings.TrimSpace(a.BackendLabel); label != "" {
+		return label
+	}
+	return a.BackendURL
+}
+
+func (a *App) headerModelLabel(s gact.Session) string {
+	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		return compactModelLabel(a.lmProviderInfo.Provider, a.lmProviderInfo.Model)
+	}
+	if s.Model.ModelID == "" {
+		return ""
+	}
+	return compactModelLabel(s.Model.ProviderID, s.Model.ModelID)
+}
+
+func compactModelLabel(provider, model string) string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ""
+	}
+	provider = strings.TrimSpace(provider)
+	if provider == "" || strings.HasPrefix(model, provider+"/") {
+		return model
+	}
+	return provider + "/" + model
+}
+
+func headerAgentLabel(agent gact.AgentRef) string {
+	id := strings.TrimSpace(agent.ID)
+	if id == "" || id == "default" || id == "main" {
+		return ""
+	}
+	if mode := strings.TrimSpace(agent.Mode); mode != "" {
+		return "agent: " + id + " (" + mode + ")"
+	}
+	return "agent: " + id
+}
+
+func headerRoutingLabel(s gact.Session) string {
+	mode := strings.TrimSpace(s.RoutingMode)
+	if mode == "" {
+		mode = strings.TrimSpace(s.Mode)
+	}
+	if mode == "" {
+		return ""
+	}
+	return "routing: " + mode
 }
 
 func (a *App) renderFooter() string {

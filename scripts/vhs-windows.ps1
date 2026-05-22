@@ -39,6 +39,12 @@ $tapeText = $tapeText -replace 'Set Shell "bash"', 'Set Shell "cmd"'
 $tapeText = $tapeText -replace '/tmp/gact', 'gact'
 $tapeText = $tapeText -replace '/home/[^/]+/tui/screenshots/', 'screenshots/'
 $tapeText = $tapeText -replace 'Type "GACT_BACKEND=([^ ]+) gact ([^"]*)"', 'Type "set GACT_BACKEND=$1&& gact $2"'
+if ($env:GACT_BACKEND) {
+    $tapeText = $tapeText.Replace('$GACT_BACKEND', $env:GACT_BACKEND)
+}
+if ($env:GACT_BACKEND_LABEL) {
+    $tapeText = $tapeText.Replace('$GACT_BACKEND_LABEL', $env:GACT_BACKEND_LABEL)
+}
 
 New-Item -ItemType Directory -Force -Path $generatedDir | Out-Null
 $generatedTape = Join-Path $generatedDir ([System.IO.Path]::GetFileName($resolvedTape))
