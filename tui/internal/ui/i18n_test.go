@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -113,6 +114,26 @@ func TestLocalizerLoadsJapaneseCatalog(t *testing.T) {
 	}
 	if strings.Contains(got, "message not sent") {
 		t.Fatalf("localized string fell back to English: %q", got)
+	}
+}
+
+func TestInputPlaceholderUsesActiveLocale(t *testing.T) {
+	a := New("http://unused")
+	if !strings.Contains(a.input.Placeholder, "type a message") {
+		t.Fatalf("English placeholder = %q, want English text", a.input.Placeholder)
+	}
+
+	a.SetLocale("es")
+	if !strings.Contains(a.input.Placeholder, "escribe un mensaje") {
+		t.Fatalf("Spanish placeholder = %q, want translated text", a.input.Placeholder)
+	}
+	if strings.Contains(a.input.Placeholder, "type a message") {
+		t.Fatalf("Spanish placeholder fell back to English: %q", a.input.Placeholder)
+	}
+
+	a.SetLocale("ja")
+	if !strings.Contains(a.input.Placeholder, "メッセージを入力") {
+		t.Fatalf("Japanese placeholder = %q, want translated text", a.input.Placeholder)
 	}
 }
 
@@ -263,5 +284,93 @@ func TestSpanishHighVisibilityChromeDoesNotFallBackToEnglish(t *testing.T) {
 	quit := ansi.Strip(a.viewQuitConfirm())
 	if !strings.Contains(quit, "¿Cerrar la TUI?") || strings.Contains(quit, "Close the TUI?") {
 		t.Fatalf("Spanish quit modal not localized: %q", quit)
+	}
+}
+
+func TestSpanishSettingsHelpCommandsAndProviderDescriptionsAreLocalized(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.SetLocale("es")
+	a.width = 150
+	a.height = 42
+
+	a.settings = &settingsState{
+		tab: 1,
+		agentList: []gact.AgentDef{
+			{ID: "analysis", Title: "Analysis Expert"},
+			{ID: "data_validator", Title: "Data Validator"},
+		},
+	}
+	agentView := ansi.Strip(a.viewSettings())
+	if !strings.Contains(agentView, "Experto de análisis") || strings.Contains(agentView, "Analysis Expert") {
+		t.Fatalf("Spanish agent settings not localized:\n%s", agentView)
+	}
+
+	a.settings = &settingsState{tab: 2}
+	themeView := ansi.Strip(a.viewSettings())
+	if !strings.Contains(themeView, "Oscuro") || strings.Contains(themeView, "default - purple") {
+		t.Fatalf("Spanish theme settings not localized:\n%s", themeView)
+	}
+
+	a.settings = &settingsState{tab: 3}
+	tuiView := ansi.Strip(a.viewSettings())
+	if !strings.Contains(tuiView, "umbral de colapso") || strings.Contains(tuiView, "collapse threshold") {
+		t.Fatalf("Spanish TUI settings not localized:\n%s", tuiView)
+	}
+
+	helpView := ansi.Strip(a.viewHelp())
+	if !strings.Contains(helpView, "cambiar foco entre paneles") || strings.Contains(helpView, "cycle focus") {
+		t.Fatalf("Spanish help descriptions not localized:\n%s", helpView)
+	}
+
+	commands := a.paletteMatches()
+	foundTheme := false
+	for _, cmd := range commands {
+		if cmd.ID == "/theme" {
+			foundTheme = true
+			if cmd.Title != "Tema" || strings.Contains(cmd.Description, "Pick a color") || strings.Contains(cmd.Description, "Pick a colour") {
+				t.Fatalf("Spanish command palette entry not localized: %#v", cmd)
+			}
+		}
+	}
+	if !foundTheme {
+		t.Fatal("did not find /theme command")
+	}
+
+	a.lmConfig = &lmConfigState{
+		info: &client.LMProviderInfo{Presets: []client.LMProviderPreset{{
+			ID:          "lm_studio",
+			Label:       "LM Studio (localhost)",
+			Provider:    "lm_studio",
+			APIBase:     "http://127.0.0.1:1234/v1",
+			Description: "Locally-hosted models via LM Studio.",
+			Status:      "ready",
+		}}},
+		selected:             0,
+		modelCatalogs:        map[string][]gact.Model{},
+		modelCatalogWarnings: map[string]string{},
+		modelCatalogSources:  map[string]string{},
+	}
+	providerView := ansi.Strip(a.renderLMConfigProviderDetails(72, 8))
+	if !strings.Contains(providerView, "Modelos locales servidos por LM Studio") ||
+		strings.Contains(providerView, "Locally-hosted models") {
+		t.Fatalf("Spanish provider description not localized:\n%s", providerView)
+	}
+}
+
+func TestJapaneseLMConfigBoxKeepsBorderWidthWithWideText(t *testing.T) {
+	a := New("http://unused")
+	a.SetLocale("ja")
+	width := 44
+	box := a.lmConfigBox(
+		"プロバイダー",
+		[]string{"プロバイダーの説明がとても長い場合でも罫線は揃う必要があります"},
+		width,
+		2,
+	)
+	for _, line := range strings.Split(box, "\n") {
+		stripped := ansi.Strip(line)
+		if got := lipgloss.Width(stripped); got != width {
+			t.Fatalf("line width = %d, want %d for %q in:\n%s", got, width, stripped, box)
+		}
 	}
 }

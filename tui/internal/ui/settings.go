@@ -427,7 +427,7 @@ func (a *App) viewSettings() string {
 			rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsLoading, nil)))
 		}
 		for i, ag := range s.agentList {
-			rows = append(rows, rowLine(i == s.agentSel, ag.ID, ag.Title))
+			rows = append(rows, rowLine(i == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
 		}
 	case 2:
 		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
@@ -435,18 +435,14 @@ func (a *App) viewSettings() string {
 		// before committing. Enter commits + persists via N5's
 		// config hook.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
-			map[string]string{"value": themeName(a.Theme)})))
+			map[string]string{"value": a.localizedThemeName(ThemeModeFor(a.Theme))})))
 		rows = append(rows, "")
 		for i, mode := range AllThemeModes {
-			label := ThemeModeName(mode)
-			if mode == ModeCustom {
-				label = customThemeDisplayName
-			}
-			rows = append(rows, rowLine(i == s.themeSel, label, themeDescription(mode)))
+			rows = append(rows, rowLine(i == s.themeSel, a.localizedThemeName(mode), a.localizedThemeDescription(mode)))
 		}
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"↑/↓ previews live · Enter commits + persists to ~/.config/gact/config.json"))
+			a.localizer.t(messageID("settings.theme.hint"), nil)))
 	case 3:
 		// TUI preferences. Mix of editable knobs and read-only runtime
 		// state. Editable rows have ◀/▶ affordances; the selected row
@@ -475,30 +471,26 @@ func (a *App) viewSettings() string {
 		}
 
 		rows = append(rows, editableRow(0,
-			"collapse threshold",
-			"◀ "+itoa2(a.Theme.CollapseThreshold)+" lines ▶",
-			"tool_result bodies longer than N lines collapse to a preview. "+
-				"Ctrl+E opens the full content.")...)
+			a.localizer.t(messageID("settings.tui.collapse_threshold"), nil),
+			"◀ "+itoa2(a.Theme.CollapseThreshold)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))...)
 		rows = append(rows, editableRow(1,
-			"cost warn tokens   ",
+			a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil),
 			"◀ "+humanTokens(a.Theme.CostWarnTokens)+" ▶",
-			"footer turns yellow when input tokens cross this threshold "+
-				"(approaching the model's context window).")...)
+			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))...)
 		rows = append(rows, editableRow(2,
-			"cost danger tokens ",
+			a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil),
 			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
-			"footer turns red — usually the hard ceiling of typical "+
-				"frontier-model context windows.")...)
+			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))...)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
 			pt = 3
 		}
 		rows = append(rows, editableRow(3,
-			"paste compress     ",
-			"◀ "+itoa2(pt)+" lines ▶",
-			"bracketed pastes ≥ N lines collapse to a "+
-				"`[pasted content: N lines]` placeholder; Ctrl+P to expand.")...)
+			a.localizer.t(messageID("settings.tui.paste_compress"), nil),
+			"◀ "+itoa2(pt)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))...)
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
 			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
@@ -506,18 +498,18 @@ func (a *App) viewSettings() string {
 			introState = a.localizer.t(msgSettingsOff, nil) + " (" + a.localizer.t(messageID("settings.tui.show_splash"), nil) + ")"
 		}
 		rows = append(rows, editableRow(4,
-			"intro splash skip  ",
+			a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil),
 			"◀ "+introState+" ▶",
-			"persists to config; --no-intro CLI flag still wins as override.")...)
+			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))...)
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
 		if !a.MouseEnabled {
 			mouseState = a.localizer.t(msgSettingsOff, nil)
 		}
 		rows = append(rows, editableRow(5,
-			"mouse controls     ",
+			a.localizer.t(messageID("settings.tui.mouse_controls"), nil),
 			"◀ "+mouseState+" ▶",
-			"enables wheel scrolling and click-to-focus/select; turn off when terminal mouse capture is intrusive.")...)
+			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))...)
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
@@ -527,7 +519,7 @@ func (a *App) viewSettings() string {
 		} else {
 			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+a.VoiceCommand)
 		}
-		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUITheme, nil)+"        ")+themeName(a.Theme))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUITheme, nil)+"        ")+a.localizedThemeName(ThemeModeFor(a.Theme)))
 		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIAltScreen, nil)+"    ")+a.boolPretty(!a.DisableAltScreen))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
@@ -573,6 +565,88 @@ func orPlaceholder(s, placeholder string) string {
 // adding new themes doesn't silently mislabel them.
 func themeName(t Theme) string {
 	return ThemeModeName(ThemeModeFor(t))
+}
+
+func (a *App) localizedThemeName(mode ThemeMode) string {
+	switch mode {
+	case ModeDark:
+		return a.localizer.t(messageID("settings.theme.dark"), nil)
+	case ModeLight:
+		return a.localizer.t(messageID("settings.theme.light"), nil)
+	case ModeDracula:
+		return a.localizer.t(messageID("settings.theme.dracula"), nil)
+	case ModeSolarizedDark:
+		return a.localizer.t(messageID("settings.theme.solarized_dark"), nil)
+	case ModeSolarizedLight:
+		return a.localizer.t(messageID("settings.theme.solarized_light"), nil)
+	case ModeNord:
+		return a.localizer.t(messageID("settings.theme.nord"), nil)
+	case ModeTokyoNight:
+		return a.localizer.t(messageID("settings.theme.tokyo_night"), nil)
+	case ModeCustom:
+		return a.localizer.t(messageID("settings.theme.custom"), nil)
+	default:
+		return ThemeModeName(mode)
+	}
+}
+
+func (a *App) localizedThemeDescription(mode ThemeMode) string {
+	switch mode {
+	case ModeDark:
+		return a.localizer.t(messageID("settings.theme.desc.dark"), nil)
+	case ModeLight:
+		return a.localizer.t(messageID("settings.theme.desc.light"), nil)
+	case ModeDracula:
+		return a.localizer.t(messageID("settings.theme.desc.dracula"), nil)
+	case ModeSolarizedDark:
+		return a.localizer.t(messageID("settings.theme.desc.solarized_dark"), nil)
+	case ModeSolarizedLight:
+		return a.localizer.t(messageID("settings.theme.desc.solarized_light"), nil)
+	case ModeNord:
+		return a.localizer.t(messageID("settings.theme.desc.nord"), nil)
+	case ModeTokyoNight:
+		return a.localizer.t(messageID("settings.theme.desc.tokyo_night"), nil)
+	case ModeCustom:
+		return a.localizer.t(messageID("settings.theme.desc.custom"), nil)
+	default:
+		return ""
+	}
+}
+
+func (a *App) localizedAgentTitle(ag gact.AgentDef) string {
+	if key := knownAgentLocaleKey(ag.ID, false); key != "" {
+		return a.localizer.t(messageID(key), nil)
+	}
+	if strings.TrimSpace(ag.Title) != "" {
+		return ag.Title
+	}
+	return ag.ID
+}
+
+func (a *App) localizedAgentDescription(ag gact.AgentDef) string {
+	if key := knownAgentLocaleKey(ag.ID, true); key != "" {
+		return a.localizer.t(messageID(key), nil)
+	}
+	return ag.Title
+}
+
+func knownAgentLocaleKey(id string, description bool) string {
+	normalized := strings.ToLower(strings.TrimSpace(id))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, ".", "_")
+	normalized = strings.ReplaceAll(normalized, ":", "_")
+	if normalized == "" {
+		return ""
+	}
+	switch normalized {
+	case "default", "main", "chat", "data", "analysis", "visualization", "utility", "adios_validator", "data_validator":
+	default:
+		return ""
+	}
+	if description {
+		return "settings.agent.desc." + normalized
+	}
+	return "settings.agent." + normalized
 }
 
 // boolPretty renders a bool as "on"/"off" for the TUI-prefs tab.

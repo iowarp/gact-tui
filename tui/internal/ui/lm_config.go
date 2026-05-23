@@ -1556,7 +1556,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgLMConfigLocalCLI, nil)))
 	}
 	appendLines(statusLines, lipgloss.NewStyle().Foreground(statusColor), visibleRows)
-	if desc := strings.TrimSpace(p.Description); desc != "" {
+	if desc := strings.TrimSpace(a.localizedProviderDescription(*p)); desc != "" {
 		remaining := visibleRows - len(rows)
 		if remaining > 0 {
 			descLines := wrapPlainRows(desc, bodyW, "")
@@ -1687,6 +1687,66 @@ func lmConfigShortStatus(s string) string {
 		return strings.TrimSpace(parts[0])
 	}
 	return truncateString(s, 72)
+}
+
+func (a *App) localizedProviderDescription(p client.LMProviderPreset) string {
+	if key := providerDescriptionLocaleKey(p); key != "" {
+		return a.localizer.t(messageID(key), nil)
+	}
+	return p.Description
+}
+
+func providerDescriptionLocaleKey(p client.LMProviderPreset) string {
+	id := strings.ToLower(strings.TrimSpace(p.ID))
+	provider := strings.ToLower(strings.TrimSpace(p.Provider))
+	switch id {
+	case "lm_studio":
+		return "lm_config.provider_desc.lm_studio"
+	case "ollama":
+		return "lm_config.provider_desc.ollama"
+	case "openai":
+		return "lm_config.provider_desc.openai"
+	case "anthropic":
+		return "lm_config.provider_desc.anthropic"
+	case "openrouter":
+		return "lm_config.provider_desc.openrouter"
+	case "codex", "openai_codex":
+		return "lm_config.provider_desc.codex"
+	case "claude_code":
+		return "lm_config.provider_desc.claude_code"
+	case "local_vllm", "vllm":
+		return "lm_config.provider_desc.local_vllm"
+	case "argonne_sophia":
+		return "lm_config.provider_desc.argonne_sophia"
+	case "argonne_metis":
+		return "lm_config.provider_desc.argonne_metis"
+	}
+	switch provider {
+	case "lm_studio":
+		return "lm_config.provider_desc.lm_studio"
+	case "ollama":
+		return "lm_config.provider_desc.ollama"
+	case "openai":
+		return "lm_config.provider_desc.openai"
+	case "anthropic":
+		return "lm_config.provider_desc.anthropic"
+	case "openrouter":
+		return "lm_config.provider_desc.openrouter"
+	case "codex":
+		return "lm_config.provider_desc.codex"
+	case "claude_code":
+		return "lm_config.provider_desc.claude_code"
+	case "local_vllm", "vllm":
+		return "lm_config.provider_desc.local_vllm"
+	case "argonne":
+		if strings.Contains(id, "metis") {
+			return "lm_config.provider_desc.argonne_metis"
+		}
+		if strings.Contains(id, "sophia") {
+			return "lm_config.provider_desc.argonne_sophia"
+		}
+	}
+	return ""
 }
 
 // renderLMConfigModelList paints the model picker as a windowed list.
@@ -1957,7 +2017,7 @@ func (a *App) lmConfigBox(title string, rows []string, width int, height int) st
 	}
 	bodyLines := make([]string, 0, height)
 	for _, row := range rows {
-		bodyLines = append(bodyLines, padANSI(ansi.Truncate(row, bodyW, ""), bodyW))
+		bodyLines = append(bodyLines, fitANSI(row, bodyW))
 		if len(bodyLines) == height {
 			break
 		}
@@ -1971,7 +2031,7 @@ func (a *App) lmConfigBox(title string, rows []string, width int, height int) st
 	top := lineStyle.Render(borderStyle.Render("╭" + strings.Repeat("─", width-2) + "╮"))
 	bottom := lineStyle.Render(borderStyle.Render("╰" + strings.Repeat("─", width-2) + "╯"))
 	titleLine := lineStyle.Render(
-		"│ " + padANSI(titleStyle.Render(ansi.Truncate(title, bodyW, "")), bodyW) + " │",
+		"│ " + fitANSI(titleStyle.Render(title), bodyW) + " │",
 	)
 	out := []string{top, titleLine}
 	for _, line := range bodyLines {
@@ -1990,6 +2050,17 @@ func padANSI(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-w)
+}
+
+func fitANSI(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	fitted := ansi.Truncate(s, width, "")
+	for target := width - 1; lipgloss.Width(fitted) > width && target >= 0; target-- {
+		fitted = ansi.Truncate(s, target, "")
+	}
+	return padANSI(fitted, width)
 }
 
 func wrapPlainRows(text string, width int, indent string) []string {

@@ -498,12 +498,6 @@ func New(backendURL string) *App {
 // NewWithTheme constructs an App with a specific theme.
 func NewWithTheme(backendURL string, theme Theme) *App {
 	ta := textarea.New()
-	// ZZZZZ1: placeholder leads with the always-works newline option
-	// (\\<Enter>) because Shift+Enter requires terminal support
-	// (kitty/xterm extended modifiers / modifyOtherKeys); not all
-	// terminals send the modifier through. \\<Enter> works everywhere
-	// since it's just a literal char + Enter the handler intercepts.
-	ta.Placeholder = "type a message — Enter to send · \\<Enter> for newline (Shift+Enter on supporting terminals)"
 	// VVVVV1: render `> ` only on the first row of the input. Wrapped /
 	// multi-line input previously got a `>` gutter on every visible
 	// row, which the user called "ugly". Continuation rows now use
@@ -529,7 +523,7 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		key.WithHelp("shift+enter", "newline"),
 	)
 	ta.Focus()
-	return &App{
+	app := &App{
 		BackendURL:            backendURL,
 		Theme:                 theme,
 		localizer:             newLocalizer(os.Getenv("GACT_LOCALE")),
@@ -546,6 +540,8 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		bodySelPartIdx:        -1,
 		previouslyDetached:    map[string]bool{},
 	}
+	app.refreshLocalizedPlaceholders()
+	return app
 }
 
 // LoadDetachedRegistry seeds previouslyDetached from the local
@@ -3006,28 +3002,31 @@ func (a *App) paletteMatches() []gact.Command {
 	for _, c := range all {
 		seen[c.ID] = true
 	}
+	localCmd := func(id, titleKey, descKey string) gact.Command {
+		return gact.Command{
+			ID:          id,
+			Title:       a.localizer.t(messageID(titleKey), nil),
+			Description: a.localizer.t(messageID(descKey), nil),
+			Source:      "builtin",
+		}
+	}
 	localCmds := []gact.Command{
-		{ID: "/metrics", Title: "Metrics", Description: "Backend latency/cost/token totals", Source: "builtin"},
-		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette (Ctrl+Alt+T cycles without modal)", Source: "builtin"},
-		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
-		{ID: "/mcp", Title: "MCP servers", Description: "Browse bundled + installed MCP servers (i = install, d = delete)", Source: "builtin"},
-		{ID: "/tools", Title: "Tools catalog", Description: "Unified catalog of every tool the agent can invoke", Source: "builtin"},
-		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
-		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
-		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
-		{ID: "/mode", Title: "Routing mode", Description: "Cycle: auto → chat → experts → auto (forces chat path or expert-only routing)", Source: "builtin"},
-		{ID: "/clear", Title: "Clear conversation", Description: "Wipe the on-screen conversation; session keeps its ID + settings", Source: "builtin"},
-		{ID: "/copy", Title: "Copy last reply", Description: "Copy the most recent assistant message to clipboard (or /tmp if no DISPLAY)", Source: "builtin"},
-		{ID: "/diff", Title: "Workspace diff", Description: "Show `git diff --stat` of the current working directory in a modal", Source: "builtin"},
-		{ID: "/compact", Title: "Compact session", Description: "Ask the backend to summarise the conversation and reclaim context", Source: "builtin"},
+		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
+		localCmd("/theme", "command.theme.title", "command.theme.desc"),
+		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
+		localCmd("/mcp", "command.mcp.title", "command.mcp.desc"),
+		localCmd("/tools", "command.tools.title", "command.tools.desc"),
+		localCmd("/catalog", "command.catalog.title", "command.catalog.desc"),
+		localCmd("/skills", "command.skills.title", "command.skills.desc"),
+		localCmd("/agents-list", "command.agents.title", "command.agents.desc"),
+		localCmd("/mode", "command.mode.title", "command.mode.desc"),
+		localCmd("/clear", "command.clear.title", "command.clear.desc"),
+		localCmd("/copy", "command.copy.title", "command.copy.desc"),
+		localCmd("/diff", "command.diff.title", "command.diff.desc"),
+		localCmd("/compact", "command.compact.title", "command.compact.desc"),
 	}
 	if a.caps.Capabilities.IntegrationHealth {
-		localCmds = append(localCmds, gact.Command{
-			ID:          "/doctor",
-			Title:       "Doctor",
-			Description: "Backend health + per-subsystem status",
-			Source:      "builtin",
-		})
+		localCmds = append(localCmds, localCmd("/doctor", "command.doctor.title", "command.doctor.desc"))
 	}
 	for _, c := range localCmds {
 		if !seen[c.ID] {
@@ -5867,76 +5866,81 @@ func shortID(id string) string {
 
 // helpTabs is the fixed list of help-overlay tabs. Keep the slice sorted
 // by pane-discovery order (global → where the cursor is → deeper modes).
+type helpKey struct {
+	key    string
+	descID messageID
+}
+
 var helpTabs = []struct {
 	title string
-	keys  [][2]string // {key, description}
+	keys  []helpKey
 }{
 	{
 		title: "Global",
-		keys: [][2]string{
-			{"Tab / ⇧Tab", "cycle focus (sidebar → body → input)"},
-			{"Ctrl+N", "new session"},
-			{"Ctrl+W", "switch workspace"},
-			{"Ctrl+S", "settings (model / agent / theme / TUI)"},
-			{"Ctrl+T", "backend metrics"},
-			{"Ctrl+Alt+T", "cycle colour theme (Kitty-only; else /theme-next)"},
-			{"Ctrl+R", "refresh / reconnect"},
-			{"Ctrl+L", "reload config from disk"},
-			{"Ctrl+X", "cancel running turn"},
-			{"Ctrl+Y", "voice transcribe"},
-			{"Ctrl+Z", "detach (TUI exits; `gact attach <sid>` reattaches)"},
-			{"?", "toggle this help"},
-			{"Esc", "close overlay / clear input"},
-			{"Ctrl+C", "quit (cancels in-flight turn before exit)"},
+		keys: []helpKey{
+			{"Tab / ⇧Tab", "help.global.cycle_focus"},
+			{"Ctrl+N", "help.global.new_session"},
+			{"Ctrl+W", "help.global.switch_workspace"},
+			{"Ctrl+S", "help.global.settings"},
+			{"Ctrl+T", "help.global.metrics"},
+			{"Ctrl+Alt+T", "help.global.cycle_theme"},
+			{"Ctrl+R", "help.global.refresh"},
+			{"Ctrl+L", "help.global.reload_config"},
+			{"Ctrl+X", "help.global.cancel_turn"},
+			{"Ctrl+Y", "help.global.voice"},
+			{"Ctrl+Z", "help.global.detach"},
+			{"?", "help.global.toggle_help"},
+			{"Esc", "help.global.escape"},
+			{"Ctrl+C", "help.global.quit"},
 		},
 	},
 	{
 		title: "Sidebar",
-		keys: [][2]string{
-			{"↑/↓ · j/k", "pick session (auto-loads messages)"},
-			{"g / G", "jump to first / last session"},
-			{"PgUp/PgDn", "page up / down"},
-			{"n", "new session"},
-			{"e", "rename session"},
-			{"x", "delete session (press x again to confirm)"},
-			{"A", "archive session (un-archive in archived view)"},
-			{"h", "toggle archived / active view"},
-			{"d", "toggle detached-only view (sessions you Ctrl+Z-walked-away-from)"},
-			{"b", "toggle busy-only view (running + waiting_permission sessions)"},
-			{"y", "yank selected session id to clipboard (pipe into gact log/attach/etc.)"},
-			{"/", "filter sessions by title"},
-			{"o", "add file to session context"},
+		keys: []helpKey{
+			{"↑/↓ · j/k", "help.sidebar.pick"},
+			{"g / G", "help.sidebar.jump"},
+			{"PgUp/PgDn", "help.sidebar.page"},
+			{"n", "help.sidebar.new"},
+			{"e", "help.sidebar.rename"},
+			{"x", "help.sidebar.delete"},
+			{"A", "help.sidebar.archive"},
+			{"h", "help.sidebar.toggle_archived"},
+			{"d", "help.sidebar.toggle_detached"},
+			{"b", "help.sidebar.toggle_busy"},
+			{"y", "help.sidebar.yank"},
+			{"/", "help.sidebar.filter"},
+			{"o", "help.sidebar.context"},
 		},
 	},
 	{
 		title: "Conversation",
-		keys: [][2]string{
-			{"↑/↓ · j/k", "move block cursor — walks part-by-part across turns (▸ marks the selected block)"},
-			{"g / G", "cursor to first / last block"},
-			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
-			{"y", "copy selected (or last assistant) message to clipboard"},
-			{"Y", "copy full conversation as role-prefixed markdown"},
-			{"R", "retry — resend last user message"},
-			{"d", "delete last message (optimistic; targets newest)"},
-			{"t", "toggle per-message timestamps"},
-			{"n / N", "next / prev block (alias for ↓/↑)"},
-			{"Ctrl+E · Enter", "expand the cursor's bulky output in floating detail view"},
-			{"a / r", "apply / reject pending diff"},
+		keys: []helpKey{
+			{"↑/↓ · j/k", "help.conversation.move_cursor"},
+			{"g / G", "help.conversation.jump"},
+			{"PgUp/PgDn · Ctrl+U/D", "help.conversation.page"},
+			{"y", "help.conversation.copy_selected"},
+			{"Y", "help.conversation.copy_full"},
+			{"R", "help.conversation.retry"},
+			{"d", "help.conversation.delete"},
+			{"t", "help.conversation.timestamps"},
+			{"n / N", "help.conversation.next_prev"},
+			{"Ctrl+E · Enter", "help.conversation.expand"},
+			{"a / r", "help.conversation.diff"},
 		},
 	},
 	{
 		title: "Input",
-		keys: [][2]string{
-			{"Enter", "send"},
-			{"\\<Enter>", "newline (always works — Claude-Code style)"},
-			{"Shift+Enter · Alt+Enter · Ctrl+J", "newline (terminal-dependent)"},
-			{"↑ on empty", "recall prior prompt (per-session history)"},
-			{"/", "open command palette"},
-			{"/?<query>", "search session messages in palette"},
-			{"Paste ≥ N lines", "auto-compresses (N = Settings → TUI → paste compress)"},
-			{"Ctrl+P", "expand most recent compressed paste in-place"},
-			{"Ctrl+G · Ctrl+⇧P", "open compose modal (long-form editor)"},
-			{"@", "open fuzzy workspace-file picker (inserts @path)"},
+		keys: []helpKey{
+			{"Enter", "help.input.send"},
+			{"\\<Enter>", "help.input.newline_always"},
+			{"Shift+Enter · Alt+Enter · Ctrl+J", "help.input.newline_terminal"},
+			{"↑ on empty", "help.input.recall"},
+			{"/", "help.input.palette"},
+			{"/?<query>", "help.input.search"},
+			{"Paste ≥ N lines", "help.input.paste"},
+			{"Ctrl+P", "help.input.expand_paste"},
+			{"Ctrl+G · Ctrl+⇧P", "help.input.compose"},
+			{"@", "help.input.file_picker"},
 		},
 	},
 	{
@@ -5944,33 +5948,33 @@ var helpTabs = []struct {
 		// shows them all; this tab serves as a quick-reference for
 		// the newer ones that might not jump out of the flat list.
 		title: "Commands",
-		keys: [][2]string{
-			{"/clear", "wipe messages in this session"},
-			{"/cancel", "halt the running assistant turn"},
-			{"/new", "create a new session"},
-			{"/rename", "rename the current session"},
-			{"/mcp", "list connected MCP servers (server health/reconnect)"},
-			{"/tools", "unified catalog: built-in tools + every MCP-exposed tool"},
-			{"/catalog", "alias for /tools — same unified view"},
-			{"/skills", "list available skills (backend-dependent)"},
-			{"/agents", "switch agent (opens Settings > Agent)"},
-			{"/sessions", "focus sidebar + start title filter"},
-			{"/theme", "open Theme picker (dark/light/dracula/…) "},
-			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
-			{"/metrics", "open metrics modal (same as Ctrl+T)"},
-			{"/theme-next", "cycle to next theme (Ctrl+Alt+T on Kitty)"},
-			{"/theme-prev", "cycle to previous theme"},
-			{"/duplicate", "copy current session (title/model/agent; fresh messages)"},
-			{"/help", "show help message from backend"},
-			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
+		keys: []helpKey{
+			{"/clear", "help.commands.clear"},
+			{"/cancel", "help.commands.cancel"},
+			{"/new", "help.commands.new"},
+			{"/rename", "help.commands.rename"},
+			{"/mcp", "help.commands.mcp"},
+			{"/tools", "help.commands.tools"},
+			{"/catalog", "help.commands.catalog"},
+			{"/skills", "help.commands.skills"},
+			{"/agents", "help.commands.agents"},
+			{"/sessions", "help.commands.sessions"},
+			{"/theme", "help.commands.theme"},
+			{"/theme-export", "help.commands.theme_export"},
+			{"/metrics", "help.commands.metrics"},
+			{"/theme-next", "help.commands.theme_next"},
+			{"/theme-prev", "help.commands.theme_prev"},
+			{"/duplicate", "help.commands.duplicate"},
+			{"/help", "help.commands.help"},
+			{"/diff", "help.commands.diff"},
 		},
 	},
 	{
 		title: "Permission",
-		keys: [][2]string{
-			{"a / d", "allow / deny once"},
-			{"s", "allow for this session"},
-			{"w", "allow for this workspace"},
+		keys: []helpKey{
+			{"a / d", "help.permission.once"},
+			{"s", "help.permission.session"},
+			{"w", "help.permission.workspace"},
 		},
 	},
 }
@@ -6041,7 +6045,7 @@ func (a *App) viewHelp() string {
 	rows := make([]string, 0, len(helpTabs[idx].keys))
 	for _, kp := range helpTabs[idx].keys {
 		rows = append(rows,
-			t.HintKey.Render(kp[0])+"  "+t.HintLabel.Render(kp[1]))
+			t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
 	}
 	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
 

@@ -58,6 +58,7 @@ const (
 	msgFooterCommand                 messageID = "footer.command"
 	msgFooterHelp                    messageID = "footer.help"
 	msgFooterQuit                    messageID = "footer.quit"
+	msgInputPlaceholder              messageID = "input.placeholder"
 	msgLMConfigTitle                 messageID = "lm_config.title"
 	msgLMConfigIntro                 messageID = "lm_config.intro"
 	msgLMConfigFetching              messageID = "lm_config.fetching"
@@ -228,11 +229,16 @@ func newLocalizer(locale string) Localizer {
 // SetLocale switches the active UI locale immediately.
 func (a *App) SetLocale(locale string) {
 	a.localizer = newLocalizer(locale)
+	a.refreshLocalizedPlaceholders()
 }
 
 // Locale returns the normalized active locale code.
 func (a *App) Locale() string {
 	return a.localizer.locale
+}
+
+func (a *App) refreshLocalizedPlaceholders() {
+	a.input.Placeholder = a.localizer.t(msgInputPlaceholder, nil)
 }
 
 func (l Localizer) languageOptionLabel(opt languageOption) string {
