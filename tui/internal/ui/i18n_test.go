@@ -28,7 +28,7 @@ func TestLocaleCatalogsHaveTheSameMessageIDs(t *testing.T) {
 		t.Fatal("English locale catalog missing")
 	}
 	want := sortedCatalogKeys(en)
-	for _, locale := range []string{"es", "ja"} {
+	for _, locale := range []string{"el", "es", "ja"} {
 		catalog, ok := loadLocaleCatalog(locale)
 		if !ok {
 			t.Fatalf("%s locale catalog missing", locale)
@@ -53,8 +53,8 @@ func sortedCatalogKeys(catalog map[string]string) []string {
 
 func TestAvailableLanguageOptionsComeFromLocaleFiles(t *testing.T) {
 	options := availableLanguageOptions()
-	if len(options) < 3 {
-		t.Fatalf("language options = %v, want at least en/es/ja", options)
+	if len(options) < 4 {
+		t.Fatalf("language options = %v, want at least en/el/es/ja", options)
 	}
 	if options[0].Locale != "en" {
 		t.Fatalf("first language = %q, want en as fallback/default", options[0].Locale)
@@ -66,7 +66,7 @@ func TestAvailableLanguageOptionsComeFromLocaleFiles(t *testing.T) {
 			t.Fatalf("language option %q has empty native name: %#v", opt.Locale, opt)
 		}
 	}
-	if seen["es"].Machine != true || seen["ja"].Machine != true {
+	if seen["el"].Machine != true || seen["es"].Machine != true || seen["ja"].Machine != true {
 		t.Fatalf("machine metadata not loaded from locale files: %#v", seen)
 	}
 	if seen["en"].Machine {
@@ -111,6 +111,17 @@ func TestLocalizerLoadsJapaneseCatalog(t *testing.T) {
 	got := l.t(msgPostFailureAgentStarting, nil)
 	if !strings.Contains(got, "起動中") {
 		t.Fatalf("localized string = %q, want Japanese startup text", got)
+	}
+	if strings.Contains(got, "message not sent") {
+		t.Fatalf("localized string fell back to English: %q", got)
+	}
+}
+
+func TestLocalizerLoadsGreekCatalog(t *testing.T) {
+	l := newLocalizer("el-GR")
+	got := l.t(msgPostFailureAgentStarting, nil)
+	if !strings.Contains(got, "εκκινεί") {
+		t.Fatalf("localized string = %q, want Greek startup text", got)
 	}
 	if strings.Contains(got, "message not sent") {
 		t.Fatalf("localized string fell back to English: %q", got)

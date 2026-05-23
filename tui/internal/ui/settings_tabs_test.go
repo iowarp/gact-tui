@@ -107,8 +107,9 @@ func TestSettings_ThemeAndLanguageSelectionsPreSeed(t *testing.T) {
 	if a.settings.themeSel != 1 {
 		t.Errorf("themeSel pre-seed = %d, want 1 when Theme is light", a.settings.themeSel)
 	}
-	if a.settings.languageSel != 2 {
-		t.Errorf("languageSel pre-seed = %d, want 2 when locale is ja", a.settings.languageSel)
+	wantLanguageSel := languageIndex("ja")
+	if a.settings.languageSel != wantLanguageSel {
+		t.Errorf("languageSel pre-seed = %d, want %d when locale is ja", a.settings.languageSel, wantLanguageSel)
 	}
 }
 
@@ -123,6 +124,15 @@ func TestSettings_LanguageTabPreviewsAndPersists(t *testing.T) {
 	a.SaveConfig = func() error {
 		called++
 		return nil
+	}
+
+	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if got := a.Locale(); got != "el" {
+		t.Fatalf("preview locale = %q, want el", got)
+	}
+	if got := ansi.Strip(a.viewSettings()); !strings.Contains(got, "Ελληνικά") ||
+		!strings.Contains(got, "μηχανική") {
+		t.Fatalf("Greek settings view did not show language options/status: %q", got)
 	}
 
 	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
