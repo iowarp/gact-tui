@@ -166,6 +166,63 @@ func (t Theme) renderMessage(m gact.Message, width int) string {
 	return t.renderMessageInContext(m, nil, width)
 }
 
+func isModelSwapMarker(m gact.Message) bool {
+	if m.Metadata == nil {
+		return false
+	}
+	kind, _ := m.Metadata["gact_tui_kind"].(string)
+	return kind == modelSwapMarkerKind
+}
+
+func modelSwapMarkerLabel(m gact.Message) string {
+	if m.Metadata == nil {
+		return ""
+	}
+	label, _ := m.Metadata["label"].(string)
+	return strings.TrimSpace(label)
+}
+
+func modelRefLabel(m gact.Message) string {
+	if m.Model == nil {
+		return ""
+	}
+	return joinModelLabel(m.Model.ProviderID, m.Model.ModelID)
+}
+
+func joinModelLabel(provider, model string) string {
+	provider = strings.TrimSpace(provider)
+	model = strings.TrimSpace(model)
+	switch {
+	case provider != "" && model != "":
+		return provider + "/" + model
+	case model != "":
+		return model
+	case provider != "":
+		return provider
+	default:
+		return ""
+	}
+}
+
+func (t Theme) renderModelSwapDivider(m gact.Message, width int) string {
+	label := modelSwapMarkerLabel(m)
+	if label == "" {
+		label = "unknown model"
+	}
+	text := " model/provider switched: " + label + " "
+	if width < 20 {
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render(text)
+	}
+	available := width - lipgloss.Width(text)
+	if available < 4 {
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render(truncate(text, width))
+	}
+	left := available / 2
+	right := available - left
+	line := strings.Repeat("-", left) + text + strings.Repeat("-", right)
+	return lipgloss.NewStyle().Foreground(t.FgMuted).Render(line)
+}
+
 // pairToolResults walks a slice of messages and, for each assistant
 // message that contains tool_call parts, builds a map from call_id →
 // tool_result Part by absorbing the consecutive role=tool messages
@@ -254,6 +311,9 @@ func (t Theme) renderMessageInContext(m gact.Message, prev *gact.Message, width 
 // cursor can paint a `▸ ` marker on the currently-selected block.
 // Passing "" falls back to the pre-TTTTTTTTT1 behaviour (no marker).
 func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
+	if isModelSwapMarker(m) {
+		return t.renderModelSwapDivider(m, width)
+	}
 	hideHeader := m.Role == gact.RoleTool && prev != nil &&
 		(prev.Role == gact.RoleTool ||
 			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
@@ -288,6 +348,9 @@ func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *g
 // inlining tool_result parts under their matching tool_call parts.
 // `inlineResults` is keyed by Part.CallID; pass nil to disable.
 func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part) string {
+	if isModelSwapMarker(m) {
+		return t.renderModelSwapDivider(m, width)
+	}
 	// Hide the TOOL role header when this message is a result following
 	// either (a) an assistant-with-tool-calls OR (b) another TOOL
 	// message — the latter covers the multi-tool case where one

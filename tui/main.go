@@ -297,21 +297,25 @@ func readVCSInfo() (rev, when string, dirty bool) {
 func runEmitConfig() {
 	bk := "http://localhost:7777"
 	th := "dark"
+	locale := "en"
 	vc := ""
 	ct := 5
 	cw := 100_000
 	cd := 150_000
 	pt := 3
 	ifd := 90
+	mouse := true
 	sample := config.Config{
 		BackendURL:             &bk,
 		Theme:                  &th,
+		Locale:                 &locale,
 		VoiceCommand:           &vc,
 		CollapseThreshold:      &ct,
 		CostWarnTokens:         &cw,
 		CostDangerTokens:       &cd,
 		PasteCompressThreshold: &pt,
 		IntroFrameDelayMs:      &ifd,
+		MouseEnabled:           &mouse,
 	}
 	buf, _ := json.MarshalIndent(sample, "", "  ")
 	fmt.Println(string(buf))
@@ -1005,6 +1009,8 @@ func runTUI() {
 	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
+	finalLocale := config.Resolve(cfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
+	app.SetLocale(finalLocale)
 	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")
 	app.VoiceCommand = finalVoice
 	// BBBBBBBB1: seed the previously-detached set so the sidebar can
@@ -1047,6 +1053,9 @@ func runTUI() {
 	// Theme.applyStyles when nil/zero).
 	if cfg.PasteCompressThreshold != nil && *cfg.PasteCompressThreshold > 0 {
 		app.Theme.PasteCompressThreshold = *cfg.PasteCompressThreshold
+	}
+	if cfg.MouseEnabled != nil {
+		app.MouseEnabled = *cfg.MouseEnabled
 	}
 	// NNNNNNNNN1: restore animated-splash per-frame delay. App
 	// clamps to [20ms, 1s]; zero falls back to the 90ms default.
@@ -1120,6 +1129,8 @@ func runTUI() {
 		cur.CollapseThreshold = &ct
 		themeName := ui.ThemeModeName(ui.ThemeModeFor(app.Theme))
 		cur.Theme = &themeName
+		locale := app.Locale()
+		cur.Locale = &locale
 		warn := app.Theme.CostWarnTokens
 		danger := app.Theme.CostDangerTokens
 		cur.CostWarnTokens = &warn
@@ -1131,6 +1142,8 @@ func runTUI() {
 		cur.PasteCompressThreshold = &paste
 		introSkip := app.IntroDisabled
 		cur.IntroSkip = &introSkip
+		mouseEnabled := app.MouseEnabled
+		cur.MouseEnabled = &mouseEnabled
 		cur.DisabledTools = app.GetDisabledTools()
 		return config.Save(cur, persistPath)
 	}
@@ -1144,14 +1157,19 @@ func runTUI() {
 			return "", err
 		}
 		nextTheme := config.Resolve(newCfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+		nextLocale := config.Resolve(newCfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
 		nextVoice := config.Resolve(newCfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 		nextBackend := config.Resolve(newCfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
 		app.Theme = ui.ThemeForMode(ui.ParseThemeMode(nextTheme))
+		app.SetLocale(nextLocale)
 		app.VoiceCommand = nextVoice
-		if nextBackend != startBackend {
-			return fmt.Sprintf("config reloaded (theme=%s); backend changed — restart to apply", nextTheme), nil
+		if newCfg.MouseEnabled != nil {
+			app.MouseEnabled = *newCfg.MouseEnabled
 		}
-		return fmt.Sprintf("config reloaded (theme=%s, voice=%t)", nextTheme, nextVoice != ""), nil
+		if nextBackend != startBackend {
+			return fmt.Sprintf("config reloaded (theme=%s, locale=%s); backend changed — restart to apply", nextTheme, nextLocale), nil
+		}
+		return fmt.Sprintf("config reloaded (theme=%s, locale=%s, voice=%t)", nextTheme, nextLocale, nextVoice != ""), nil
 	}
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
@@ -2308,6 +2326,7 @@ func runEnv(args []string) int {
 	pairs := [][2]string{
 		{"BACKEND_URL", resolved(cfg.BackendURL, "GACT_BACKEND", defaultBackend)},
 		{"THEME", resolved(cfg.Theme, "GACT_THEME", defaultTheme)},
+		{"LOCALE", resolved(cfg.Locale, "GACT_LOCALE", "en")},
 		{"VOICE_CMD", resolved(cfg.VoiceCommand, "GACT_VOICE_CMD", "")},
 		{"INTRO_FILE", resolved(cfg.IntroFile, "GACT_INTRO_FILE", "")},
 		{"CONFIG_PATH", cfgPath},
@@ -3315,6 +3334,29 @@ func probeAgentAlive(host string, port int) bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
+func defaultAgentDeployStartupTimeout(kind string) time.Duration {
+	if raw := strings.TrimSpace(os.Getenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			return d
+		}
+	}
+	if kind == "clio" {
+		return 60 * time.Second
+	}
+	return 3 * time.Second
+}
+
+func clioPythonEntrypoint(bin string) (string, []string, bool) {
+	dir := filepath.Dir(bin)
+	for _, name := range []string{"python.exe", "python"} {
+		cand := filepath.Join(dir, name)
+		if st, err := os.Stat(cand); err == nil && !st.IsDir() {
+			return cand, []string{"-c", "import clio_agent.gact.app as app; app.main()"}, true
+		}
+	}
+	return "", nil, false
+}
+
 // runAgentDeploy: `gact agent deploy <kind> <name> [--bin PATH] [--port N] [--cwd DIR]`
 func runAgentDeploy(args []string) int {
 	fs := flag.NewFlagSet("agent deploy", flag.ContinueOnError)
@@ -3322,19 +3364,25 @@ func runAgentDeploy(args []string) int {
 	portOverride := fs.Int("port", 0, "TCP port to bind (default: kernel-picked)")
 	cwdFlag := fs.String("cwd", "", "working dir passed to the adapter (default: $PWD)")
 	hostFlag := fs.String("host", "127.0.0.1", "bind interface")
+	startupTimeout := fs.Duration("startup-timeout", 0, "wait this long for /v1/capabilities (default: 60s for clio, 3s otherwise)")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--bin": true, "-bin": true,
 		"--port": true, "-port": true,
 		"--cwd": true, "-cwd": true,
 		"--host": true, "-host": true,
+		"--startup-timeout": true, "-startup-timeout": true,
 	})); err != nil {
 		return 2
 	}
 	if fs.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, "usage: gact agent deploy <kind> <name> [--bin PATH] [--port N] [--cwd DIR]")
+		fmt.Fprintln(os.Stderr, "usage: gact agent deploy <kind> <name> [--bin PATH] [--port N] [--cwd DIR] [--startup-timeout DUR]")
 		return 2
 	}
 	kind, name := fs.Arg(0), fs.Arg(1)
+	if *startupTimeout < 0 {
+		fmt.Fprintln(os.Stderr, "gact agent deploy: --startup-timeout must be non-negative")
+		return 2
+	}
 
 	bin := *binOverride
 	if bin == "" {
@@ -3412,7 +3460,15 @@ func runAgentDeploy(args []string) int {
 	if kind != "clio" {
 		spawnArgs = append(spawnArgs, "--cwd", cwd)
 	}
-	cmd := exec.Command(bin, spawnArgs...)
+	cmdBin := bin
+	cmdArgs := spawnArgs
+	if kind == "clio" {
+		if py, pyArgs, ok := clioPythonEntrypoint(bin); ok {
+			cmdBin = py
+			cmdArgs = append(pyArgs, spawnArgs...)
+		}
+	}
+	cmd := exec.Command(cmdBin, cmdArgs...)
 	cmd.Stdout = spawnOut
 	cmd.Stderr = spawnOut
 	cmd.Stdin = null
@@ -3424,14 +3480,15 @@ func runAgentDeploy(args []string) int {
 		return 1
 	}
 
-	// Wait for the adapter to start listening. CLIO-BBBBBBBBBB12:
-	// CLIO is a Python+DSPy backend with substantially slower cold-
-	// start (model load, ARC index hydration); 3s is fine for the
-	// Go adapters but cuts CLIO off mid-import. Use 10s for clio,
-	// 3s for everyone else.
-	probeBudget := 3 * time.Second
-	if kind == "clio" {
-		probeBudget = 10 * time.Second
+	// Wait for the adapter to start listening. CLIO's Python import path can
+	// exceed 20s on cold Windows starts before uvicorn binds the port, even
+	// though agent construction is deferred after /v1/capabilities. Keep this
+	// startup-readiness budget separate from per-message turn watchdogs: a
+	// deployment that never binds is an operational start failure, not an
+	// agent response timeout.
+	probeBudget := *startupTimeout
+	if probeBudget == 0 {
+		probeBudget = defaultAgentDeployStartupTimeout(kind)
 	}
 	deadline := time.Now().Add(probeBudget)
 	alive := false
@@ -3444,8 +3501,12 @@ func runAgentDeploy(args []string) int {
 	}
 	if !alive {
 		_ = cmd.Process.Kill()
-		fmt.Fprintf(os.Stderr, "gact agent deploy: adapter started but never answered %s:%d/v1/capabilities — killed pid %d\n",
-			*hostFlag, port, cmd.Process.Pid)
+		fmt.Fprintf(os.Stderr, "gact agent deploy: adapter started but never answered %s:%d/v1/capabilities within %s; killed pid %d",
+			*hostFlag, port, probeBudget, cmd.Process.Pid)
+		if logPath != "" {
+			fmt.Fprintf(os.Stderr, " (logs: %s)", logPath)
+		}
+		fmt.Fprintln(os.Stderr)
 		return 1
 	}
 
@@ -6228,6 +6289,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	}
 	print("backend_url", cfg.BackendURL)
 	print("theme      ", cfg.Theme)
+	print("locale     ", cfg.Locale)
 	print("voice_cmd  ", cfg.VoiceCommand)
 	if cfg.CollapseThreshold != nil {
 		fmt.Fprintf(w, "  collapse_threshold: %d\n", *cfg.CollapseThreshold)
@@ -6252,7 +6314,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 		}
 	}
 	for _, name := range []string{
-		"GACT_BACKEND", "GACT_THEME", "GACT_VOICE_CMD",
+		"GACT_BACKEND", "GACT_THEME", "GACT_LOCALE", "GACT_VOICE_CMD",
 		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
 	} {
 		if v := os.Getenv(name); v != "" {

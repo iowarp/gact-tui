@@ -408,6 +408,10 @@ type LMProviderInfo struct {
 	MaxTokens      int                `json:"max_tokens,omitempty"`
 	ContextLength  int                `json:"context_length,omitempty"`
 	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	State          string             `json:"state,omitempty"`
+	StatusMessage  string             `json:"status_message,omitempty"`
+	Error          string             `json:"error,omitempty"`
+	OperationID    string             `json:"operation_id,omitempty"`
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 

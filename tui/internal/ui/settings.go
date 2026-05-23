@@ -15,19 +15,21 @@ import (
 // settingsState holds the Settings modal's internal state. Lives on App
 // when settingsOpen is true.
 type settingsState struct {
-	tab       int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs
-	agentSel  int // index into agentList
-	themeSel  int // 0 = dark, 1 = light
-	tuiRow    int // TUI tab active row (0 = collapse threshold)
-	agentList []gact.AgentDef
-	loadErr   string // set when loadSettingsCmd surfaces failures
+	tab         int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs, 4 = Language
+	agentSel    int // index into agentList
+	themeSel    int // index into AllThemeModes
+	tuiRow      int // TUI tab active row (0 = collapse threshold)
+	languageSel int // index into availableLanguageOptions()
+	agentList   []gact.AgentDef
+	loadErr     string // set when loadSettingsCmd surfaces failures
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
-// 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1).
-const tuiPrefsRowCount = 5
+// 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1),
+// 5=terminal mouse capture.
+const tuiPrefsRowCount = 6
 
 // YYYYY1: paste-compress threshold steps by 1 line (small range
 // — 2 means "compress almost everything", 20 means "rarely
@@ -51,7 +53,7 @@ const (
 // settingsTabCount is the canonical number of tabs — updating the list
 // in viewSettings without touching the wrap-around in handleSettingsKey
 // caused Tab to go stale in past iterations. Single source of truth.
-const settingsTabCount = 4
+const settingsTabCount = 5
 
 // loadSettingsCmd fetches the agent catalog for the Agent tab. Model
 // data is intentionally NOT fetched here — Tab 0 hands off to the
@@ -129,6 +131,11 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.tuiRow > 0 {
 				s.tuiRow--
 			}
+		case 4:
+			if s.languageSel > 0 {
+				s.languageSel--
+			}
+			a.previewLanguage(s.languageSel)
 		}
 		return a, nil
 	case "down", "j":
@@ -149,6 +156,11 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.tuiRow < tuiPrefsRowCount-1 {
 				s.tuiRow++
 			}
+		case 4:
+			if s.languageSel < len(availableLanguageOptions())-1 {
+				s.languageSel++
+			}
+			a.previewLanguage(s.languageSel)
 		}
 		return a, nil
 	case "left", "h":
@@ -193,6 +205,9 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				// YYYYY1: intro toggle is bool — left/right both flip.
 				a.IntroDisabled = !a.IntroDisabled
 				a.persistPrefs()
+			case 5:
+				a.MouseEnabled = !a.MouseEnabled
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -225,6 +240,9 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				}
 			case 4:
 				a.IntroDisabled = !a.IntroDisabled
+				a.persistPrefs()
+			case 5:
+				a.MouseEnabled = !a.MouseEnabled
 				a.persistPrefs()
 			}
 		}
@@ -263,6 +281,19 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.settingsOpen = false
 			return a, nil
 		}
+		if s.tab == 4 {
+			opt := activeLanguageOption(a.Locale())
+			options := availableLanguageOptions()
+			if s.languageSel >= 0 && s.languageSel < len(options) {
+				opt = options[s.languageSel]
+			}
+			a.SetLocale(opt.Locale)
+			a.settingsOpen = false
+			a.transientHint = a.localizer.t(msgLanguageApplied,
+				map[string]string{"label": a.localizer.languageOptionLabel(opt)})
+			a.persistPrefs()
+			return a, nil
+		}
 		sid := a.currentSessionID()
 		if sid == "" {
 			a.settingsOpen = false
@@ -289,7 +320,13 @@ func (a *App) viewSettings() string {
 	w := a.modalWidth()
 
 	tabs := func(i int) string {
-		labels := []string{"Model", "Agent", "Theme", "TUI"}
+		labels := []string{
+			a.localizer.t(msgSettingsTabModel, nil),
+			a.localizer.t(msgSettingsTabAgent, nil),
+			a.localizer.t(msgSettingsTabTheme, nil),
+			a.localizer.t(msgSettingsTabTUI, nil),
+			a.localizer.t(msgSettingsTabLanguage, nil),
+		}
 		var rendered []string
 		for j, l := range labels {
 			st := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
@@ -324,7 +361,7 @@ func (a *App) viewSettings() string {
 	// a floating dim word.
 	titleBar := lipgloss.NewStyle().
 		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render("Settings")
+		Padding(0, 2).Width(w - 4).Render(a.localizer.t(msgSettingsTitle, nil))
 
 	rows := []string{
 		titleBar,
@@ -374,19 +411,20 @@ func (a *App) viewSettings() string {
 		// point. Embedding the full picker inside Settings duplicated
 		// state and produced a cramped layout — the standalone modal
 		// already has the wide list view + advanced collapse.
-		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": orPlaceholder(currentModel, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
-		rows = append(rows, rowLine(true, "Change provider…",
-			"open the provider/model picker (global CLIO LM)"))
+		rows = append(rows, rowLine(true, a.localizer.t(msgSettingsModelChange, nil),
+			a.localizer.t(msgSettingsModelChangeDesc, nil)))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"Enter opens the same picker shown on first connect — "+
-				"saving there reconfigures CLIO's active global LM."))
+			a.localizer.t(msgSettingsModelHint, nil)))
 	case 1:
-		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": orPlaceholder(currentAgent, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
 		if len(s.agentList) == 0 {
-			rows = append(rows, t.HintLabel.Render("loading…"))
+			rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsLoading, nil)))
 		}
 		for i, ag := range s.agentList {
 			rows = append(rows, rowLine(i == s.agentSel, ag.ID, ag.Title))
@@ -396,7 +434,8 @@ func (a *App) viewSettings() string {
 		// previews live so users can see what they're picking
 		// before committing. Enter commits + persists via N5's
 		// config hook.
-		rows = append(rows, t.HintLabel.Render("current: "+themeName(a.Theme)))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": themeName(a.Theme)})))
 		rows = append(rows, "")
 		for i, mode := range AllThemeModes {
 			label := ThemeModeName(mode)
@@ -412,7 +451,7 @@ func (a *App) viewSettings() string {
 		// TUI preferences. Mix of editable knobs and read-only runtime
 		// state. Editable rows have ◀/▶ affordances; the selected row
 		// is highlighted so ←/→ target is unambiguous.
-		rows = append(rows, t.HintLabel.Render("Display preferences"))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIDisplayPrefs, nil)))
 		rows = append(rows, "")
 
 		// LLLLL1: shared editable-row renderer for the TUI tab so
@@ -460,32 +499,54 @@ func (a *App) viewSettings() string {
 			"◀ "+itoa2(pt)+" lines ▶",
 			"bracketed pastes ≥ N lines collapse to a "+
 				"`[pasted content: N lines]` placeholder; Ctrl+P to expand.")...)
-		introState := "off"
+		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
-			introState = "on  (skip splash)"
+			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
 		} else {
-			introState = "off (show splash)"
+			introState = a.localizer.t(msgSettingsOff, nil) + " (" + a.localizer.t(messageID("settings.tui.show_splash"), nil) + ")"
 		}
 		rows = append(rows, editableRow(4,
 			"intro splash skip  ",
 			"◀ "+introState+" ▶",
 			"persists to config; --no-intro CLI flag still wins as override.")...)
 
-		// Read-only runtime state for confirmation.
-		rows = append(rows, t.HintLabel.Render("Runtime state (edit config.json to change)"))
-		rows = append(rows, "  "+t.HintKey.Render("backend URL  ")+a.BackendURL)
-		if a.VoiceCommand == "" {
-			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+t.HintLabel.Render("(unset — Ctrl+Y sends placeholder)"))
-		} else {
-			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+a.VoiceCommand)
+		mouseState := a.localizer.t(msgSettingsOn, nil)
+		if !a.MouseEnabled {
+			mouseState = a.localizer.t(msgSettingsOff, nil)
 		}
-		rows = append(rows, "  "+t.HintKey.Render("theme        ")+themeName(a.Theme))
-		rows = append(rows, "  "+t.HintKey.Render("AltScreen    ")+boolPretty(!a.DisableAltScreen))
+		rows = append(rows, editableRow(5,
+			"mouse controls     ",
+			"◀ "+mouseState+" ▶",
+			"enables wheel scrolling and click-to-focus/select; turn off when terminal mouse capture is intrusive.")...)
+
+		// Read-only runtime state for confirmation.
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIBackendURL, nil)+"  ")+a.BackendURL)
+		if a.VoiceCommand == "" {
+			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+t.HintLabel.Render(a.localizer.t(msgSettingsTUIVoiceUnset, nil)))
+		} else {
+			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+a.VoiceCommand)
+		}
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUITheme, nil)+"        ")+themeName(a.Theme))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIAltScreen, nil)+"    ")+a.boolPretty(!a.DisableAltScreen))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"←/→ on the selected row adjusts the value. Ctrl+L reloads the config file."))
+			a.localizer.t(msgSettingsTUIAdjustHint, nil)))
 	}
-	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Tab switch tab  Enter apply  Esc close"))
+	if s.tab == 4 {
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageCurrent, nil)+": "+
+			a.localizer.activeLanguageLabel()))
+		rows = append(rows, "")
+		for i, opt := range availableLanguageOptions() {
+			rows = append(rows, rowLine(i == s.languageSel,
+				a.localizer.languageOptionLabel(opt), opt.Locale))
+		}
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageDescription, nil)))
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
+	}
+	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return lipgloss.NewStyle().
@@ -522,6 +583,27 @@ func boolPretty(b bool) string {
 	return "off"
 }
 
+func (a *App) boolPretty(b bool) string {
+	if b {
+		return a.localizer.t(msgSettingsOn, nil)
+	}
+	return a.localizer.t(msgSettingsOff, nil)
+}
+
+func (a *App) seedSettingsSelections() {
+	if a.settings == nil {
+		a.settings = &settingsState{}
+	}
+	cur := ThemeModeFor(a.Theme)
+	for i, mode := range AllThemeModes {
+		if mode == cur {
+			a.settings.themeSel = i
+			break
+		}
+	}
+	a.settings.languageSel = languageIndex(a.Locale())
+}
+
 // previewTheme live-swaps a.Theme as the user steps through the
 // theme picker with ↑/↓. The current CollapseThreshold survives the
 // swap — no one wants their pref reset just because they're
@@ -534,6 +616,14 @@ func (a *App) previewTheme(idx int) {
 	a.Theme = ThemeForMode(AllThemeModes[idx])
 	a.Theme.CollapseThreshold = prev
 	a.Theme.applyStyles()
+}
+
+func (a *App) previewLanguage(idx int) {
+	options := availableLanguageOptions()
+	if idx < 0 || idx >= len(options) {
+		return
+	}
+	a.SetLocale(options[idx].Locale)
 }
 
 // themeDescription returns a one-line hint shown next to each palette

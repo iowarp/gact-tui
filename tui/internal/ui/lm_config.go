@@ -143,6 +143,28 @@ func (s *lmConfigState) lmConfigVisibleFields() []lmConfigField {
 	return out
 }
 
+// lmConfigSectionFields returns the coarser focus stops used by Tab.
+// Vertical navigation still moves within each list/panel; Tab changes
+// between the modal's main sections.
+func (s *lmConfigState) lmConfigSectionFields() []lmConfigField {
+	out := []lmConfigField{lmFieldPreset}
+	if s.lmConfigSelectedRequiresAPIKey() {
+		out = append(out, lmFieldAPIKey)
+	} else if s.lmConfigSelectedUsesOAuth() {
+		out = append(out, lmFieldAuth)
+	} else if s.lmConfigSelectedCanEditAPIBase() {
+		out = append(out, lmFieldAPIBase)
+	}
+	if s.lmConfigSelectedModelSelectable() {
+		out = append(out, lmFieldModel)
+	}
+	if advanced := s.lmConfigAdvancedFields(); len(advanced) > 0 {
+		out = append(out, advanced[0])
+	}
+	out = append(out, lmFieldSave)
+	return out
+}
+
 func (s *lmConfigState) lmConfigSelectedModelSelectable() bool {
 	if s == nil || s.info == nil || s.selected < 0 || s.selected >= len(s.info.Presets) {
 		return false
@@ -211,19 +233,39 @@ func (s *lmConfigState) lmConfigSelectedCanEditAPIBase() bool {
 // visible-field list, wrapping at both ends.
 func (s *lmConfigState) lmConfigStepField(delta int) {
 	visible := s.lmConfigVisibleFields()
+	s.field = lmConfigStepInFields(s.field, visible, delta)
+}
+
+func (s *lmConfigState) lmConfigStepSection(delta int) {
+	sections := s.lmConfigSectionFields()
+	current := s.field
+	if advanced := s.lmConfigAdvancedFields(); len(advanced) > 0 {
+		for _, field := range advanced {
+			if field == current {
+				current = advanced[0]
+				break
+			}
+		}
+	}
+	s.field = lmConfigStepInFields(current, sections, delta)
+}
+
+func lmConfigStepInFields(current lmConfigField, visible []lmConfigField, delta int) lmConfigField {
+	if len(visible) == 0 {
+		return current
+	}
 	cur := -1
 	for i, f := range visible {
-		if f == s.field {
+		if f == current {
 			cur = i
 			break
 		}
 	}
 	if cur < 0 {
-		s.field = visible[0]
-		return
+		return visible[0]
 	}
 	n := len(visible)
-	s.field = visible[((cur+delta)%n+n)%n]
+	return visible[((cur+delta)%n+n)%n]
 }
 
 func (s *lmConfigState) lmConfigEnsureVisibleField() {
@@ -299,9 +341,20 @@ func lmConfigSaveCmd(c *client.Client, req client.LMProviderRequest) tea.Cmd {
 	}
 }
 
+func lmConfigPollCmd(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(1 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		info, err := c.GetLMProvider(ctx)
+		lmConfigNormalizeInfo(info)
+		return lmConfigFetchedMsg{info: info, err: err}
+	}
+}
+
 func lmConfigAuthCmd(c *client.Client, providerID string, force bool) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		resp, err := c.AuthProvider(ctx, providerID, client.ProviderAuthRequest{Force: force})
 		return lmConfigAuthedMsg{providerID: providerID, resp: resp, err: err}
@@ -338,10 +391,10 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, lmConfigFetchCmd(a.c)
 	case "tab":
-		a.lmConfig.lmConfigStepField(1)
+		a.lmConfig.lmConfigStepSection(1)
 		return a, nil
 	case "shift+tab":
-		a.lmConfig.lmConfigStepField(-1)
+		a.lmConfig.lmConfigStepSection(-1)
 		return a, nil
 	case "down", "j":
 		return a.handleLMConfigVertical(1)
@@ -356,15 +409,15 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.lmConfig.authenticating = true
 				force := p.IsAuthenticated || p.Status == "ready"
 				if force {
-					a.lmConfig.authMessage = "refreshing ALCF Globus token..."
+					a.lmConfig.authMessage = "launching ALCF Globus re-auth terminal..."
 				} else {
-					a.lmConfig.authMessage = "checking ALCF Globus token..."
+					a.lmConfig.authMessage = "launching ALCF Globus login terminal..."
 				}
 				return a, lmConfigAuthCmd(a.c, p.ID, force)
 			}
 			return a, nil
 		}
-		a.lmConfig.lmConfigStepField(1)
+		a.lmConfig.lmConfigStepSection(1)
 		return a, nil
 	case "left", "right":
 		delta := 1
@@ -728,7 +781,11 @@ func (a *App) lmConfigSyncFromPreset() tea.Cmd {
 	a.lmConfig.maxTokens = ""
 	a.lmConfig.contextLength = ""
 	a.lmConfig.thinkingBudget = ""
-	if a.lmConfig.info.Provider == p.Provider {
+	currentAPIBase := strings.TrimRight(strings.TrimSpace(a.lmConfig.info.APIBase), "/")
+	presetAPIBase := strings.TrimRight(strings.TrimSpace(p.APIBase), "/")
+	samePreset := a.lmConfig.info.Provider == p.Provider &&
+		(currentAPIBase == "" || presetAPIBase == "" || strings.EqualFold(currentAPIBase, presetAPIBase))
+	if samePreset {
 		if strings.TrimSpace(a.lmConfig.info.Model) != "" {
 			a.lmConfig.model = a.lmConfig.info.Model
 		}
@@ -1014,8 +1071,8 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 		return applySettingsCmd(a.c, sid, ref, nil)
 	}
 
-	apiKey := a.lmConfig.apiKey
-	if apiKey == "" {
+	apiKey := strings.TrimSpace(a.lmConfig.apiKey)
+	if apiKey == "" && lmConfigNeedsPlaceholderAPIKey(p, a.lmConfig.apiBase) {
 		apiKey = "x"
 	}
 	req := client.LMProviderRequest{
@@ -1047,6 +1104,21 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 	return lmConfigSaveCmd(a.c, req)
 }
 
+func lmConfigNeedsPlaceholderAPIKey(p client.LMProviderPreset, apiBase string) bool {
+	if p.RequiresAPIKey || p.AuthMethod == "oauth" || p.Provider == "argonne" {
+		return false
+	}
+	switch p.Provider {
+	case "lm_studio", "ollama":
+		return true
+	case "openai":
+		base := strings.ToLower(strings.TrimSpace(apiBase))
+		return strings.Contains(base, "127.0.0.1") || strings.Contains(base, "localhost")
+	default:
+		return false
+	}
+}
+
 func (a *App) lmConfigCanSave(p client.LMProviderPreset) bool {
 	if a.lmConfig == nil {
 		return false
@@ -1074,37 +1146,42 @@ func (a *App) viewLMConfig() string {
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
 		Background(t.Bg).Width(contentW).
-		Render("Configure CLIO's LM Provider")
+		Render(a.localizer.t(msgLMConfigTitle, nil))
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).
-		Render("Pick a provider + model. Provider status and editable model settings are shown on the right.")
+		Render(a.localizer.t(msgLMConfigIntro, nil))
 
 	var body string
 	switch {
 	case a.lmConfig.loading:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-			Render("fetching /v1/providers/lm…")
+			Render(a.localizer.t(msgLMConfigFetching, nil))
 	case a.lmConfig.err != nil:
 		body = lipgloss.NewStyle().Foreground(t.Danger).
-			Render("save failed: "+a.lmConfig.err.Error()) + "\n\n" +
+			Render(a.localizer.t(msgLMConfigSaveFailed,
+				map[string]string{"error": a.lmConfig.err.Error()})) + "\n\n" +
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("press Tab to navigate, Esc to close, Enter on Save to retry")
+				Render(a.localizer.t(msgLMConfigSaveRetry, nil))
 	case a.lmConfig.info == nil:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-			Render("no LM config endpoint on this backend (404)")
+			Render(a.localizer.t(msgLMConfigNoEndpoint, nil))
 	default:
 		body = a.renderLMConfigBody(contentW, a.lmConfigBodyRows())
 	}
 
 	hint := lipgloss.NewStyle().Background(t.Bg).Width(contentW).
 		Render(t.HintLabel.Render(
-			"↑/↓ choose  type filter  Tab next section  Ctrl+R reload  Enter select/expand/save  Esc close",
+			a.localizer.t(msgLMConfigHint, nil),
 		))
 	parts := []string{title, "", intro, "", body}
 	if a.lmConfig.saving {
+		savingText := a.localizer.t(msgLMConfigSaving, nil)
+		if a.lmConfig.info != nil && a.lmConfig.info.State == "configuring" {
+			savingText = a.localizer.t(msgLMConfigConfiguring, nil)
+		}
 		parts = append(parts, "",
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("saving…"))
+				Render(savingText))
 	}
 	parts = append(parts, "", hint)
 	box := lipgloss.JoinVertical(lipgloss.Left, parts...)
@@ -1340,7 +1417,7 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 	t := a.Theme
 	presets := a.lmConfig.info.Presets
 	if len(presets) == 0 {
-		return "  (no presets reported)"
+		return "  " + a.localizer.t(msgLMConfigNoPresets, nil)
 	}
 	focused := a.lmConfig.field == lmFieldPreset
 	headerStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
@@ -1359,8 +1436,8 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 	if focused {
 		filterText += "_"
 	}
-	filterSuffix := "  filter: " + filterText
-	title := fmt.Sprintf("Provider (%d/%d)%s", pos, len(indexes), filterSuffix)
+	filterSuffix := "  " + a.localizer.t(msgLMConfigFilter, nil) + " " + filterText
+	title := fmt.Sprintf("%s (%d/%d)%s", a.localizer.t(msgLMConfigProviderTitle, nil), pos, len(indexes), filterSuffix)
 	if focused {
 		title = headerStyle.Render(title)
 	}
@@ -1394,12 +1471,12 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 	}
 	if end < len(indexes) && len(rows) < visibleRows {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-			fmt.Sprintf("    … %d more (type to filter)", len(indexes)-end),
+			"    "+a.localizer.tf(msgLMConfigProviderMore, map[string]any{"count": len(indexes) - end}),
 		))
 	}
 	if len(indexes) == 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-			Render("    no providers match"))
+			Render("    "+a.localizer.t(msgLMConfigNoProvidersMatch, nil)))
 	}
 	return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
 }
@@ -1408,7 +1485,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 	t := a.Theme
 	p := a.lmConfigCurrentPreset()
 	if p == nil {
-		return a.lmConfigBox("Selection", []string{"No provider selected"}, innerW, visibleRows)
+		return a.lmConfigBox(a.localizer.t(msgLMConfigSelectedTitle, nil), []string{a.localizer.t(msgLMConfigNoProviderSelected, nil)}, innerW, visibleRows)
 	}
 	statusText := a.lmConfigPresetStatusDetail(*p)
 	statusColor := t.Success
@@ -1431,19 +1508,19 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 		}
 	}
 	if p.RequiresAPIKey {
-		rows = append(rows, lmConfigField_render("API key", a.lmConfig.apiKey, true,
+		rows = append(rows, lmConfigField_render(a.localizer.t(msgLMConfigAPIKey, nil), a.lmConfig.apiKey, true,
 			a.lmConfig.field == lmFieldAPIKey, t))
 	} else if a.lmConfig.lmConfigSelectedUsesOAuth() {
-		authText := "auth: Globus login required"
+		authText := a.localizer.t(msgLMConfigAuthRequired, nil)
 		authColor := t.Warning
 		if p.IsAuthenticated || p.Status == "ready" {
-			authText = "auth: Globus token ready"
+			authText = a.localizer.t(msgLMConfigAuthReady, nil)
 			authColor = t.Success
 		}
 		rows = append(rows, lipgloss.NewStyle().Foreground(authColor).Render(authText))
-		label := "Authenticate"
+		label := a.localizer.t(msgLMConfigAuthenticate, nil)
 		if p.IsAuthenticated || p.Status == "ready" {
-			label = "Refresh token"
+			label = a.localizer.t(msgLMConfigRefreshToken, nil)
 		}
 		marker := "    "
 		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
@@ -1452,7 +1529,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
 		}
 		if a.lmConfig.authenticating {
-			label = "Checking token..."
+			label = a.localizer.t(msgLMConfigLaunchingLogin, nil)
 		}
 		rows = append(rows, marker+labelStyle.Render(label))
 		if msg := strings.TrimSpace(a.lmConfig.authMessage); msg != "" {
@@ -1460,14 +1537,14 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 				lipgloss.NewStyle().Foreground(t.FgMuted), visibleRows)
 		}
 	} else {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render("auth: no key required"))
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgLMConfigNoKeyRequired, nil)))
 	}
-	statusLines := wrapPlainRows("status: "+statusText, bodyW, "  ")
+	statusLines := wrapPlainRows(a.localizer.t(msgLMConfigStatus, map[string]string{"status": statusText}), bodyW, "  ")
 	if a.lmConfig.lmConfigSelectedCanEditAPIBase() {
 		if a.lmConfig.field == lmFieldAPIBase {
-			rows = append(rows, lmConfigField_render("API base", a.lmConfig.apiBase, false, true, t))
+			rows = append(rows, lmConfigField_render(a.localizer.t(msgLMConfigAPIBase, nil), a.lmConfig.apiBase, false, true, t))
 		} else {
-			apiLines := []string{"API base:"}
+			apiLines := []string{a.localizer.t(msgLMConfigAPIBase, nil) + ":"}
 			apiLines = append(apiLines, wrapPlainRows(a.lmConfig.apiBase, bodyW, "  ")...)
 			apiLimit := visibleRows - maxInt(1, len(statusLines))
 			if apiLimit < len(rows)+1 {
@@ -1476,7 +1553,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 			appendLines(apiLines, lipgloss.NewStyle().Foreground(t.Fg), apiLimit)
 		}
 	} else {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render("transport: local CLI"))
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgLMConfigLocalCLI, nil)))
 	}
 	appendLines(statusLines, lipgloss.NewStyle().Foreground(statusColor), visibleRows)
 	if desc := strings.TrimSpace(p.Description); desc != "" {
@@ -1489,7 +1566,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 			appendLines(descLines, lipgloss.NewStyle().Foreground(t.FgMuted), visibleRows)
 		}
 	}
-	return a.lmConfigBox("Selected", rows, innerW, visibleRows)
+	return a.lmConfigBox(a.localizer.t(msgLMConfigSelectedTitle, nil), rows, innerW, visibleRows)
 }
 
 func (a *App) lmConfigProviderDetailsRowCount() int {
@@ -1629,9 +1706,9 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 	}
 
 	source := a.lmConfig.modelCatalogSources[pid]
-	titleText := "Model"
+	titleText := a.localizer.t(msgLMConfigModelTitle, nil)
 	if source == "static_catalog" {
-		titleText = "Model candidates"
+		titleText = a.localizer.t(msgLMConfigModelCandidatesTitle, nil)
 	}
 	modelIndexes := a.lmConfigModelIndexes()
 	filterText := a.lmConfig.modelFilter
@@ -1639,40 +1716,49 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 		filterText += "_"
 	}
 	if strings.TrimSpace(filterText) != "" {
-		titleText += "  filter: " + filterText
+		titleText += "  " + a.localizer.t(msgLMConfigFilter, nil) + " " + filterText
 	}
 	title := headerStyle.Render(titleText)
 	if len(catalog) == 0 {
 		rows := []string{}
+		bodyW := innerW - 4
+		if bodyW < 10 {
+			bodyW = 10
+		}
 		if p := a.lmConfigCurrentPreset(); p != nil {
 			switch {
 			case a.lmConfigPresetPending(*p):
 				rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render("Checking provider catalog..."))
+					Render(a.localizer.t(msgLMConfigCheckingCatalog, nil)))
 			case source == "":
 				rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render("Checking provider catalog..."))
+					Render(a.localizer.t(msgLMConfigCheckingCatalog, nil)))
 			case source == "live" && p.Provider == "ollama":
 				rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render("Ollama is reachable, but no local models are installed."))
+					Render(a.localizer.t(msgLMConfigOllamaNoModels, nil)))
 			case a.lmConfigPresetProblem(*p) != "":
-				rows = append(rows, lipgloss.NewStyle().Foreground(t.Warning).
-					Render("Provider unavailable: "+a.lmConfigPresetProblem(*p)))
+				for _, line := range wrapPlainRows(
+					a.localizer.t(msgLMConfigProviderUnavailable, map[string]string{"reason": a.lmConfigPresetProblem(*p)}),
+					bodyW,
+					"  ",
+				) {
+					rows = append(rows, lipgloss.NewStyle().Foreground(t.Warning).Render(line))
+				}
 			default:
 				rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render("No selectable model catalog is available."))
+					Render(a.localizer.t(msgLMConfigNoSelectableCatalog, nil)))
 			}
 		}
 		if len(rows) == 0 {
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("No selectable model catalog is available."))
+				Render(a.localizer.t(msgLMConfigNoSelectableCatalog, nil)))
 		}
 		return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
 	}
 	if len(modelIndexes) == 0 {
 		rows := []string{
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("No models match the current filter."),
+				Render(a.localizer.t(msgLMConfigNoModelsMatch, nil)),
 		}
 		return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
 	}
@@ -1694,7 +1780,7 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 		func() string {
 			if a.lmConfig.modelIndex < 0 {
 				return "  " + lipgloss.NewStyle().Foreground(t.FgFaint).
-					Italic(true).Render("(typed — ↑/↓ to snap back to catalog)")
+					Italic(true).Render(a.localizer.t(msgLMConfigTypedSnapBack, nil))
 			}
 			return ""
 		}(),
@@ -1723,7 +1809,7 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 	}
 	if end < len(modelIndexes) && len(rows) < visibleRows {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-			fmt.Sprintf("    … %d more (↑/↓ to move)", len(modelIndexes)-end),
+			"    "+a.localizer.tf(msgLMConfigModelMore, map[string]any{"count": len(modelIndexes) - end}),
 		))
 	}
 	return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
@@ -1765,7 +1851,7 @@ func (a *App) renderLMConfigAdvanced(innerW int) []string {
 		hint := ""
 		if a.lmConfig.field == field {
 			hint = "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-				Render("(←/→ to adjust)")
+				Render(a.localizer.t(msgLMConfigAdjustHint, nil))
 		}
 		return marker + labelStyle.Render(label) + "  " + display + hint
 	}
@@ -1773,17 +1859,17 @@ func (a *App) renderLMConfigAdvanced(innerW int) []string {
 	for _, field := range a.lmConfig.lmConfigAdvancedFields() {
 		switch field {
 		case lmFieldTemperature:
-			rows = append(rows, row(lmFieldTemperature, "Temperature",
-				a.lmConfig.temperature, "backend default"))
+			rows = append(rows, row(lmFieldTemperature, a.localizer.t(msgLMConfigTemperature, nil),
+				a.lmConfig.temperature, a.localizer.t(msgLMConfigBackendDefault, nil)))
 		case lmFieldMaxTokens:
-			rows = append(rows, row(lmFieldMaxTokens, "Max output",
-				a.lmConfig.maxTokens, "provider default"))
+			rows = append(rows, row(lmFieldMaxTokens, a.localizer.t(msgLMConfigMaxOutput, nil),
+				a.lmConfig.maxTokens, a.localizer.t(msgLMConfigProviderDefault, nil)))
 		case lmFieldContextLength:
-			rows = append(rows, row(lmFieldContextLength, "Context length",
-				a.lmConfig.contextLength, "loaded model default"))
+			rows = append(rows, row(lmFieldContextLength, a.localizer.t(msgLMConfigLoadContext, nil),
+				a.lmConfig.contextLength, a.localizer.t(msgLMConfigLMStudioDefault, nil)))
 		case lmFieldThinkingBudget:
-			rows = append(rows, row(lmFieldThinkingBudget, "Thinking budget",
-				a.lmConfig.thinkingBudget, "default disabled"))
+			rows = append(rows, row(lmFieldThinkingBudget, a.localizer.t(msgLMConfigThinkingBudget, nil),
+				a.lmConfig.thinkingBudget, a.localizer.t(msgLMConfigDefaultDisabled, nil)))
 		}
 	}
 	return rows
@@ -1792,7 +1878,7 @@ func (a *App) renderLMConfigAdvanced(innerW int) []string {
 func (a *App) renderLMConfigAdvancedBox(innerW int, visibleRows int) string {
 	t := a.Theme
 	fields := a.lmConfig.lmConfigAdvancedFields()
-	title := "Model configuration"
+	title := a.localizer.t(msgLMConfigAdvancedTitle, nil)
 	if a.lmConfig.field == lmFieldTemperature ||
 		a.lmConfig.field == lmFieldMaxTokens ||
 		a.lmConfig.field == lmFieldContextLength ||
@@ -1803,14 +1889,14 @@ func (a *App) renderLMConfigAdvancedBox(innerW int, visibleRows int) string {
 	if len(fields) == 0 {
 		rows = []string{
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("Managed by this provider."),
+				Render(a.localizer.t(msgLMConfigManagedByProvider, nil)),
 		}
 	}
 	if details := a.renderLMConfigModelDetails(innerW - 4); len(details) > 0 {
 		if len(rows) > 0 {
 			rows = append(rows, "")
 		}
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Bold(true).Render("Model details"))
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Bold(true).Render(a.localizer.t(msgLMConfigModelDetails, nil)))
 		rows = append(rows, details...)
 	}
 	return a.lmConfigBox(title, rows, innerW, visibleRows)
@@ -1830,24 +1916,29 @@ func (a *App) renderLMConfigModelDetails(bodyW int) []string {
 	rows := []string{}
 	name := strings.TrimSpace(m.Name)
 	if name != "" && name != m.ID {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render("Name: "+name))
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(a.localizer.t(msgLMConfigModelName, map[string]string{"name": name})))
 	}
 	if m.ContextWindow > 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
-			fmt.Sprintf("Context: %d tokens", m.ContextWindow),
+			a.localizer.tf(msgLMConfigMaxContext, map[string]any{"tokens": m.ContextWindow}),
 		))
+		if strings.TrimSpace(a.lmConfig.contextLength) != "" {
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
+				a.localizer.t(msgLMConfigRequestedContext, map[string]string{"tokens": strings.TrimSpace(a.lmConfig.contextLength)}),
+			))
+		}
 	} else if strings.TrimSpace(a.lmConfig.contextLength) != "" {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
-			"Context: configured "+strings.TrimSpace(a.lmConfig.contextLength)+" tokens",
+			a.localizer.t(msgLMConfigRequestedContext, map[string]string{"tokens": strings.TrimSpace(a.lmConfig.contextLength)}),
 		))
 	} else {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(
-			"Context: not reported by provider",
+			a.localizer.t(msgLMConfigMaxContextUnknown, nil),
 		))
 	}
 	if m.MaxOutputTokens > 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
-			fmt.Sprintf("Max output: %d tokens", m.MaxOutputTokens),
+			a.localizer.tf(msgLMConfigMaxOutputDetail, map[string]any{"tokens": m.MaxOutputTokens}),
 		))
 	}
 	if desc := strings.TrimSpace(m.Description); desc != "" {
