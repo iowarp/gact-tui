@@ -38,6 +38,18 @@ func testBinaryPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
+func stableTestBinaryPath(t *testing.T, repoRoot, name string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	dir := filepath.Join(repoRoot, ".tools", "test-bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create test bin dir: %v", err)
+	}
+	return filepath.Join(dir, name)
+}
+
 func stopTestProcess(p *os.Process) {
 	if runtime.GOOS == "windows" {
 		_ = p.Kill()
@@ -48,10 +60,9 @@ func stopTestProcess(p *os.Process) {
 
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
-	tmp := t.TempDir()
-	bin := testBinaryPath(tmp, "emulator-server")
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..", "..")
+	bin := stableTestBinaryPath(t, repoRoot, "emulator-server-tui-ui")
 	build := exec.Command("go", "build", "-o", bin, "./emulator/cmd/emulator-server")
 	build.Dir = repoRoot
 	if out, err := build.CombinedOutput(); err != nil {

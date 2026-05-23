@@ -128,6 +128,109 @@ func TestLMConfigAdvancedRowsUseVerticalNavigation(t *testing.T) {
 	}
 }
 
+func TestLMConfigPlaceholderAPIKeyIsOnlyForLocalNoAuthProviders(t *testing.T) {
+	cases := []struct {
+		name    string
+		preset  client.LMProviderPreset
+		apiBase string
+		want    bool
+	}{
+		{
+			name:    "lm studio",
+			preset:  client.LMProviderPreset{Provider: "lm_studio", AuthMethod: "none"},
+			apiBase: "http://127.0.0.1:1234/v1",
+			want:    true,
+		},
+		{
+			name:    "local vllm",
+			preset:  client.LMProviderPreset{Provider: "openai", AuthMethod: "none"},
+			apiBase: "http://127.0.0.1:8000/v1",
+			want:    true,
+		},
+		{
+			name:    "argonne oauth",
+			preset:  client.LMProviderPreset{Provider: "argonne", AuthMethod: "oauth"},
+			apiBase: "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			want:    false,
+		},
+		{
+			name:    "codex cli",
+			preset:  client.LMProviderPreset{Provider: "codex", AuthMethod: "none"},
+			apiBase: "codex://exec",
+			want:    false,
+		},
+		{
+			name:    "cloud openai key required",
+			preset:  client.LMProviderPreset{Provider: "openai", AuthMethod: "api_key", RequiresAPIKey: true},
+			apiBase: "https://api.openai.com/v1",
+			want:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := lmConfigNeedsPlaceholderAPIKey(tc.preset, tc.apiBase)
+			if got != tc.want {
+				t.Fatalf("placeholder decision = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLMConfigTabMovesBetweenSectionsNotAdvancedRows(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0 // LM Studio exposes model + model configuration sections.
+	a.lmConfig.modelCatalogWarnings = map[string]string{}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{ID: "qwopus3.5-9b-v3"}}
+	a.lmConfig.model = "qwopus3.5-9b-v3"
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.field = lmFieldTemperature
+
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if a.lmConfig.field != lmFieldSave {
+		t.Fatalf("tab from model configuration should jump to save, got %v", a.lmConfig.field)
+	}
+
+	a.lmConfig.field = lmFieldContextLength
+	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
+	if a.lmConfig.field != lmFieldModel {
+		t.Fatalf("shift+tab from model configuration should jump to model, got %v", a.lmConfig.field)
+	}
+}
+
+func TestLMConfigContextLabelsDistinguishMaxFromRequestedLoad(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldContextLength
+	a.lmConfig.contextLength = "8192"
+	a.lmConfig.modelCatalogWarnings = map[string]string{}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{
+		ID:            "qwopus3.5-9b-v3",
+		Name:          "Qwopus3.5 9B v3",
+		ContextWindow: 262144,
+	}}
+	a.lmConfig.model = "qwopus3.5-9b-v3"
+	a.lmConfig.modelIndex = 0
+
+	out := ansi.Strip(a.renderLMConfigAdvancedBox(60, 12))
+
+	for _, want := range []string{
+		"Load context",
+		"8192",
+		"Max context: 262144 tokens",
+		"Requested load context: 8192 tokens",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("context render missing %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Context length") || strings.Contains(out, "Context: 262144") {
+		t.Fatalf("context render still uses ambiguous wording\n%s", out)
+	}
+}
+
 func TestLMConfigAPIKeyOnlyShowsWhenProviderRequiresIt(t *testing.T) {
 	a := newLMConfigTestApp()
 	for _, field := range a.lmConfig.lmConfigVisibleFields() {
@@ -189,6 +292,36 @@ func TestLMConfigRenderHidesStaleCatalogAndUnsupportedKnobs(t *testing.T) {
 	} {
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("render should not include %q\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestLMConfigModelUnavailableWarningWraps(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:            "argonne_sophia",
+		Label:         "ALCF Sophia (Globus Auth)",
+		Provider:      "argonne",
+		APIBase:       "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		AuthMethod:    "oauth",
+		Status:        "auth_check_required",
+		StatusMessage: "Globus token stored; validate or refresh before using ALCF",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.modelCatalogWarnings = map[string]string{
+		"argonne_sophia": "Globus token stored; validate or refresh before using ALCF",
+	}
+	a.lmConfig.modelCatalogSources = map[string]string{"argonne_sophia": "unavailable"}
+
+	out := ansi.Strip(a.renderLMConfigModelList(42, 5))
+
+	for _, want := range []string{
+		"Provider unavailable:",
+		"validate or refresh",
+		"using ALCF",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("wrapped unavailable warning missing %q\n%s", want, out)
 		}
 	}
 }
@@ -368,6 +501,43 @@ func TestLMConfigStaticCatalogShowsForUnavailableCLIProvider(t *testing.T) {
 	}
 }
 
+func TestLMConfigPresetSwitchUsesPresetAPIBaseForSameProviderKind(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Provider = "argonne"
+	a.lmConfig.info.APIBase = "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1"
+	a.lmConfig.info.Model = "openai/gpt-oss-120b"
+	a.lmConfig.info.Presets = []client.LMProviderPreset{
+		{
+			ID:             "argonne_metis",
+			Label:          "ALCF Metis (Globus Auth)",
+			Provider:       "argonne",
+			APIBase:        "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+			SuggestedModel: "gpt-oss-120b",
+			AuthMethod:     "oauth",
+			Status:         "ready",
+		},
+		{
+			ID:             "argonne_sophia",
+			Label:          "ALCF Sophia (Globus Auth)",
+			Provider:       "argonne",
+			APIBase:        "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			SuggestedModel: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+			AuthMethod:     "oauth",
+			Status:         "ready",
+		},
+	}
+	a.lmConfig.selected = 0
+
+	_ = a.lmConfigSyncFromPreset()
+
+	if a.lmConfig.apiBase != "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1" {
+		t.Fatalf("metis preset inherited stale Sophia api_base: %q", a.lmConfig.apiBase)
+	}
+	if a.lmConfig.model != "gpt-oss-120b" {
+		t.Fatalf("metis preset inherited stale Sophia model: %q", a.lmConfig.model)
+	}
+}
+
 func TestLMConfigArgonneShowsAuthActionAndBlocksUntilAuthenticated(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
@@ -407,6 +577,46 @@ func TestLMConfigArgonneShowsAuthActionAndBlocksUntilAuthenticated(t *testing.T)
 		if !strings.Contains(out, want) {
 			t.Fatalf("render missing %q\n%s", want, out)
 		}
+	}
+}
+
+func TestLMConfigArgonneReadyTokenRendersAsUsable(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:              "argonne_sophia",
+		Label:           "ALCF Sophia (Globus Auth)",
+		Provider:        "argonne",
+		APIBase:         "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		SuggestedModel:  "meta-llama/Meta-Llama-3.1-8B-Instruct",
+		RequiresAPIKey:  false,
+		AuthMethod:      "oauth",
+		IsAuthenticated: true,
+		Description:     "Argonne Sophia inference gateway.",
+		Status:          "ready",
+		StatusMessage:   "Globus token validated",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.modelCatalogs["argonne_sophia"] = []gact.Model{
+		{ID: "meta-llama/Meta-Llama-3.1-8B-Instruct", Name: "Meta-Llama-3.1-8B-Instruct"},
+	}
+	a.lmConfig.modelCatalogSources["argonne_sophia"] = "live"
+
+	if !a.lmConfigCanSave(a.lmConfig.info.Presets[a.lmConfig.selected]) {
+		t.Fatal("ready argonne provider should be saveable")
+	}
+	out := ansi.Strip(a.viewLMConfig())
+	for _, want := range []string{
+		"auth: Globus token ready",
+		"Refresh token",
+		"status: ready",
+		"Meta-Llama-3.1-8B-Instruct",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("render missing %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Globus login required") || strings.Contains(out, "Authenticate") {
+		t.Fatalf("ready argonne provider still looks unauthenticated\n%s", out)
 	}
 }
 
@@ -598,6 +808,66 @@ func TestLMConfigSavedMirrorsGlobalProviderAndClearsSessionModels(t *testing.T) 
 	}
 	if cmd == nil {
 		t.Fatal("successful save should schedule hint expiry and session refresh")
+	}
+}
+
+func TestLMConfigAsyncSavePollsUntilReady(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfigOpen = true
+	a.lmConfig.saving = true
+
+	configuring := &client.LMProviderInfo{
+		Configured:    false,
+		Provider:      "lm_studio",
+		Model:         "qwopus3.5-9b-v3",
+		State:         "configuring",
+		StatusMessage: "LM Studio provider configuration is in progress.",
+		OperationID:   "lmcfg_test",
+		ContextLength: 32768,
+	}
+	updated, cmd := a.Update(lmConfigSavedMsg{info: configuring})
+	a = updated.(*App)
+
+	if a.lmConfigOpen || a.lmConfig != nil {
+		t.Fatalf(
+			"configuring save should close modal and continue in background: open=%v state=%#v",
+			a.lmConfigOpen,
+			a.lmConfig,
+		)
+	}
+	if a.lmProviderInfo == nil || a.lmProviderInfo.State != "configuring" {
+		t.Fatalf("configuring provider info was not mirrored: %#v", a.lmProviderInfo)
+	}
+	if a.transientHint != "LM configuration in progress: lm_studio/qwopus3.5-9b-v3" {
+		t.Fatalf("transient hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("configuring save should schedule provider-status polling")
+	}
+
+	a.focus = FocusInput
+	updated, _ = a.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	a = updated.(*App)
+	if a.input.Value() != "d" {
+		t.Fatalf("input should remain usable during background provider load, got %q", a.input.Value())
+	}
+
+	ready := &client.LMProviderInfo{
+		Configured: true,
+		Provider:   "lm_studio",
+		Model:      "qwopus3.5-9b-v3",
+		State:      "ready",
+	}
+	updated, cmd = a.Update(lmConfigFetchedMsg{info: ready})
+	a = updated.(*App)
+	if a.lmConfigOpen || a.lmConfig != nil {
+		t.Fatal("ready poll should close the provider modal")
+	}
+	if a.transientHint != "LM configured: lm_studio/qwopus3.5-9b-v3" {
+		t.Fatalf("transient hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("ready poll should schedule hint expiry/session refresh")
 	}
 }
 

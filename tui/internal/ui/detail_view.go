@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -147,15 +148,16 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 	case gact.PartTypeToolCall:
 		// Find the matching tool_result in the same message or the
 		// following sibling tool messages. Mirrors pairToolResults.
+		callRef := toolCallDetailRef(m.ID, p)
 		if p.CallID == "" {
-			return bulkyPartRef{}, false
+			return callRef, true
 		}
 		// Same-message scan.
 		for _, sib := range m.Parts {
 			if sib.Type == gact.PartTypeToolResult && sib.CallID == p.CallID {
 				text := flattenToolResult(sib)
 				if lineCount(text) <= toolResultPreviewLines {
-					return bulkyPartRef{}, false
+					return callRef, true
 				}
 				return bulkyPartRef{
 					messageID: m.ID,
@@ -175,7 +177,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 				if rp.Type == gact.PartTypeToolResult && rp.CallID == p.CallID {
 					text := flattenToolResult(rp)
 					if lineCount(text) <= toolResultPreviewLines {
-						return bulkyPartRef{}, false
+						return callRef, true
 					}
 					return bulkyPartRef{
 						messageID: tm.ID,
@@ -186,12 +188,12 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 				}
 			}
 		}
-		return bulkyPartRef{}, false
+		return callRef, true
 
 	case gact.PartTypeToolResult:
 		text := flattenToolResult(p)
 		if lineCount(text) <= toolResultPreviewLines {
-			return bulkyPartRef{}, false
+			return partDetailRef(m.ID, p), true
 		}
 		return bulkyPartRef{
 			messageID: m.ID,
@@ -202,7 +204,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 
 	case gact.PartTypeText:
 		if lineCount(p.Text) <= toolResultPreviewLines {
-			return bulkyPartRef{}, false
+			return partDetailRef(m.ID, p), true
 		}
 		return bulkyPartRef{
 			messageID: m.ID,
@@ -229,8 +231,218 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 			title:     fmt.Sprintf("file_diff · %s", p.Path),
 			fullText:  body,
 		}, true
+
+	case gact.PartTypeRoutingDecision, gact.PartTypeThinking,
+		gact.PartTypeSubagentCall, gact.PartTypeSubagentResult,
+		gact.PartTypeError, gact.PartTypeCompaction,
+		gact.PartTypeResource, gact.PartTypeResourceLink,
+		gact.PartTypeImage, gact.PartTypeDocument, gact.PartTypeCitation:
+		return partDetailRef(m.ID, p), true
+	}
+	if p.Type != "" {
+		return partDetailRef(m.ID, p), true
 	}
 	return bulkyPartRef{}, false
+}
+
+func toolCallDetailRef(messageID string, p gact.Part) bulkyPartRef {
+	return bulkyPartRef{
+		messageID: messageID,
+		partID:    p.ID,
+		title:     fmt.Sprintf("%s input", p.ToolName),
+		fullText:  toolCallDetailText(p),
+	}
+}
+
+func toolCallDetailText(p gact.Part) string {
+	rows := []string{fmt.Sprintf("tool: %s", p.ToolName)}
+	if p.CallID != "" {
+		rows = append(rows, fmt.Sprintf("call_id: %s", p.CallID))
+	}
+	if len(p.Input) > 0 {
+		if payload, err := json.MarshalIndent(p.Input, "", "  "); err == nil {
+			rows = append(rows, "", "input:", string(payload))
+		} else {
+			rows = append(rows, "", "input:", fmt.Sprint(p.Input))
+		}
+	}
+	if len(p.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(p.Metadata, "", "  "); err == nil {
+			rows = append(rows, "", "metadata:", string(payload))
+		}
+	}
+	return strings.Join(rows, "\n")
+}
+
+func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
+	title := p.Type
+	switch p.Type {
+	case gact.PartTypeRoutingDecision:
+		title = "routing decision"
+	case gact.PartTypeToolResult:
+		title = "tool result"
+	case gact.PartTypeText:
+		title = "message text"
+	case gact.PartTypeThinking:
+		title = "thinking"
+	case gact.PartTypeSubagentCall:
+		title = "subagent call"
+	case gact.PartTypeSubagentResult:
+		title = "subagent result"
+	case gact.PartTypeError:
+		title = "error"
+	case "":
+		title = "message part"
+	}
+	return bulkyPartRef{
+		messageID: messageID,
+		partID:    p.ID,
+		title:     title,
+		fullText:  partDetailText(p),
+	}
+}
+
+func partDetailText(p gact.Part) string {
+	rows := []string{fmt.Sprintf("type: %s", orPlaceholder(p.Type, "unknown"))}
+	if p.ID != "" {
+		rows = append(rows, fmt.Sprintf("part_id: %s", p.ID))
+	}
+	if p.CallID != "" {
+		rows = append(rows, fmt.Sprintf("call_id: %s", p.CallID))
+	}
+
+	switch p.Type {
+	case gact.PartTypeRoutingDecision:
+		rows = append(rows,
+			fmt.Sprintf("selected_agent: %s", orPlaceholder(p.SelectedAgent, "unknown")),
+			fmt.Sprintf("route_source: %s", routeSourceLabel(p)),
+		)
+		if p.Confidence > 0 {
+			rows = append(rows, fmt.Sprintf("confidence: %.2f", p.Confidence))
+		}
+		if p.Rationale != "" {
+			rows = append(rows, "", "rationale:", p.Rationale)
+		}
+	case gact.PartTypeToolResult:
+		rows = append(rows,
+			fmt.Sprintf("is_error: %v", p.IsError),
+			fmt.Sprintf("cached: %v", p.Cached),
+		)
+		if p.DurationMS > 0 {
+			rows = append(rows, fmt.Sprintf("duration_ms: %.0f", p.DurationMS))
+		}
+		text := flattenToolResult(p)
+		if text != "" {
+			rows = append(rows, "", "content:", text)
+		}
+	case gact.PartTypeText:
+		if p.Text != "" {
+			rows = append(rows, "", "text:", p.Text)
+		}
+	case gact.PartTypeThinking:
+		if p.Thinking != "" {
+			rows = append(rows, "", "thinking:", p.Thinking)
+		}
+		if p.Signature != "" {
+			rows = append(rows, "", "signature:", p.Signature)
+		}
+	case gact.PartTypeSubagentCall:
+		rows = append(rows,
+			fmt.Sprintf("agent_id: %s", orPlaceholder(p.AgentID, "unknown")),
+			fmt.Sprintf("subsession_id: %s", orPlaceholder(p.SubsessionID, "none")),
+		)
+		if p.Prompt != "" {
+			rows = append(rows, "", "prompt:", p.Prompt)
+		}
+		rows = appendJSONSection(rows, "params", p.Params)
+	case gact.PartTypeSubagentResult:
+		rows = append(rows,
+			fmt.Sprintf("subsession_id: %s", orPlaceholder(p.SubsessionID, "none")),
+			fmt.Sprintf("final_message_id: %s", orPlaceholder(p.FinalMessageID, "none")),
+		)
+		if p.Summary != "" {
+			rows = append(rows, "", "summary:", p.Summary)
+		}
+	case gact.PartTypeError:
+		rows = append(rows,
+			fmt.Sprintf("code: %s", orPlaceholder(p.Code, "unknown")),
+			fmt.Sprintf("recoverable: %v", p.Recoverable),
+		)
+		if p.Message != "" {
+			rows = append(rows, "", "message:", p.Message)
+		}
+	case gact.PartTypeCompaction:
+		rows = append(rows, fmt.Sprintf("auto: %v", p.Auto))
+		if p.Summary != "" {
+			rows = append(rows, "", "summary:", p.Summary)
+		}
+		if len(p.CompactedMessageIDs) > 0 {
+			rows = append(rows, "", "compacted_message_ids:", strings.Join(p.CompactedMessageIDs, "\n"))
+		}
+	case gact.PartTypeResourceLink, gact.PartTypeResource:
+		rows = append(rows,
+			fmt.Sprintf("uri: %s", orPlaceholder(p.URI, "none")),
+			fmt.Sprintf("mime_type: %s", orPlaceholder(p.MimeType, "unknown")),
+		)
+		if p.Name != "" {
+			rows = append(rows, fmt.Sprintf("name: %s", p.Name))
+		}
+		if p.Description != "" {
+			rows = append(rows, "", "description:", p.Description)
+		}
+	case gact.PartTypeImage, gact.PartTypeDocument, gact.PartTypeCitation:
+		if p.Title != "" {
+			rows = append(rows, fmt.Sprintf("title: %s", p.Title))
+		}
+		if p.Context != "" {
+			rows = append(rows, "", "context:", p.Context)
+		}
+		if p.Text != "" {
+			rows = append(rows, "", "text:", p.Text)
+		}
+		rows = appendAnyJSONSection(rows, "source", p.Source)
+		rows = appendAnyJSONSection(rows, "citations", p.Citations)
+	default:
+		if p.Text != "" {
+			rows = append(rows, "", "text:", p.Text)
+		}
+		if p.Summary != "" {
+			rows = append(rows, "", "summary:", p.Summary)
+		}
+	}
+
+	rows = appendJSONSection(rows, "metadata", p.Metadata)
+	return strings.Join(rows, "\n")
+}
+
+func routeSourceLabel(p gact.Part) string {
+	if p.Heuristic {
+		return "heuristic"
+	}
+	if source, ok := p.Metadata["route_source"].(string); ok && source != "" {
+		return source
+	}
+	return "LM-routed"
+}
+
+func appendJSONSection(rows []string, label string, payload map[string]any) []string {
+	if len(payload) == 0 {
+		return rows
+	}
+	if body, err := json.MarshalIndent(payload, "", "  "); err == nil {
+		return append(rows, "", label+":", string(body))
+	}
+	return append(rows, "", label+":", fmt.Sprint(payload))
+}
+
+func appendAnyJSONSection(rows []string, label string, payload any) []string {
+	if payload == nil {
+		return rows
+	}
+	if body, err := json.MarshalIndent(payload, "", "  "); err == nil {
+		return append(rows, "", label+":", string(body))
+	}
+	return append(rows, "", label+":", fmt.Sprint(payload))
 }
 
 // findBulkyPartIn scans a single message for a bulky tool_result or

@@ -93,16 +93,67 @@ func TestCatalogBrowser_EscPopsMcpDetail(t *testing.T) {
 // TestCatalogBrowserTitle_AgentsAndDetail: new kinds get titles.
 func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
 	cases := map[catalogBrowserKind]string{
-		catalogKindMcp:       "MCP servers",
-		catalogKindTools:     "Tools (built-in + MCP)",
-		catalogKindSkills:    "Skills",
-		catalogKindMcpDetail: "MCP detail",
-		catalogKindAgents:    "Agents",
+		catalogKindMcp:         "MCP servers",
+		catalogKindTools:       "Tools (built-in + MCP)",
+		catalogKindSkills:      "Skills",
+		catalogKindMcpDetail:   "MCP detail",
+		catalogKindAgentDetail: "Agent detail",
+		catalogKindAgents:      "Agents",
 	}
 	for k, want := range cases {
 		if got := catalogBrowserTitle(k); got != want {
 			t.Errorf("kind %d: title=%q, want %q", k, got, want)
 		}
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentDrillsIntoDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	parent := &catalogBrowserState{
+		kind:  catalogKindAgents,
+		title: "Agents",
+		items: []catalogItem{{id: "analysis", title: "Analysis expert"}},
+	}
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = parent
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if a.catalogBrowser == parent {
+		t.Fatal("enter on agent row did not replace browser with detail state")
+	}
+	if a.catalogBrowser.kind != catalogKindAgentDetail {
+		t.Fatalf("browser kind = %v, want catalogKindAgentDetail", a.catalogBrowser.kind)
+	}
+	if a.catalogBrowser.agentID != "analysis" {
+		t.Fatalf("agentID = %q, want analysis", a.catalogBrowser.agentID)
+	}
+	if a.catalogBrowser.parent != parent {
+		t.Fatal("detail browser did not retain parent for back navigation")
+	}
+	if cmd == nil {
+		t.Fatal("expected detail load command")
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentDetailRowOpensDetailModal(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent · Main Agent",
+		items: []catalogItem{
+			{id: "prompt", title: "Prompt", desc: "Route to the right expert."},
+		},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("enter on agent detail row should open detail modal")
+	}
+	if a.detailView.title != "Prompt" || !strings.Contains(a.detailView.fullText, "Route to") {
+		t.Fatalf("unexpected detail view: %#v", a.detailView)
 	}
 }
 
@@ -125,5 +176,34 @@ func TestCatalogBrowser_DisabledRowRendersDim(t *testing.T) {
 	out := a.viewCatalogBrowser()
 	if !strings.Contains(out, "(disabled)") {
 		t.Errorf("expected '(disabled)' in render of disabled tool, got: %q", out)
+	}
+}
+
+func TestCatalogBrowserScrollsSelectionIntoView(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := make([]catalogItem, 20)
+	for i := range items {
+		items[i] = catalogItem{id: itoa2(i), title: "item-" + itoa2(i)}
+	}
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindSkills,
+		title: "Skills",
+		items: items,
+		sel:   0,
+	}
+	for i := 0; i < 15; i++ {
+		_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+
+	if a.catalogBrowser.offset == 0 {
+		t.Fatal("catalog browser offset did not move after selection passed visible budget")
+	}
+	out := a.viewCatalogBrowser()
+	if !strings.Contains(out, "item-15") {
+		t.Fatalf("selected item not visible after scrolling:\n%s", out)
+	}
+	if strings.Contains(out, "item-0") {
+		t.Fatalf("top item still visible after scrolling past viewport:\n%s", out)
 	}
 }

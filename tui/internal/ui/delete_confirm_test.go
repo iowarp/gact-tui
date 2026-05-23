@@ -130,3 +130,53 @@ func TestDeleteConfirm_XOnDifferentSessionRearmsNotCommit(t *testing.T) {
 		t.Errorf("no DELETE should fire, got %d", deletes.Load())
 	}
 }
+
+func TestDeleteRefresh_SelectedDeletedPicksSessionBelow(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "first"},
+		{ID: "s2", Title: "second"},
+		{ID: "s3", Title: "third"},
+	}
+	a.selected = 1
+
+	model, _ := a.Update(sessionsRefreshedMsg{
+		sessions: []gact.Session{
+			{ID: "s1", Title: "first"},
+			{ID: "s3", Title: "third"},
+		},
+	})
+	a = model.(*App)
+
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.selected)
+	}
+	if got := a.sessions[a.selected].ID; got != "s3" {
+		t.Fatalf("selected session = %q, want s3 below deleted row", got)
+	}
+}
+
+func TestDeleteRefresh_SelectedDeletedLastPicksPrevious(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "first"},
+		{ID: "s2", Title: "second"},
+		{ID: "s3", Title: "third"},
+	}
+	a.selected = 2
+
+	model, _ := a.Update(sessionsRefreshedMsg{
+		sessions: []gact.Session{
+			{ID: "s1", Title: "first"},
+			{ID: "s2", Title: "second"},
+		},
+	})
+	a = model.(*App)
+
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.selected)
+	}
+	if got := a.sessions[a.selected].ID; got != "s2" {
+		t.Fatalf("selected session = %q, want s2 previous row", got)
+	}
+}

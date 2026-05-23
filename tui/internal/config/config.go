@@ -25,6 +25,7 @@ import (
 type Config struct {
 	BackendURL        *string `json:"backend_url,omitempty"`
 	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
+	Locale            *string `json:"locale,omitempty"`        // "en" | "es" | "ja"
 	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
@@ -40,6 +41,8 @@ type Config struct {
 	// IntroSkip suppresses the JJJ1 splash screen. Default behaviour
 	// (nil/false) is to show the splash on TUI startup.
 	IntroSkip *bool `json:"intro_skip,omitempty"`
+	// MouseEnabled controls terminal mouse reporting. Nil means on.
+	MouseEnabled *bool `json:"mouse_enabled,omitempty"`
 	// IntroFile points at a custom splash file (`logo` block followed
 	// by a blank line and a `name` block, both ASCII art). Empty =
 	// use the baked-in default. Resolves relative paths against

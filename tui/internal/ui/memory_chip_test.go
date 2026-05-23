@@ -7,7 +7,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: the footer shows a `cache <pct>%` chip when the
+// CLIO-BBBBBBBBBB4: the footer shows an ARC memory hit-rate chip when the
 // backend advertises capabilities.memory AND memoryStats has at
 // least one hit-or-miss recorded.
 func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
@@ -24,10 +24,8 @@ func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
 	}
 
 	got := stripANSI(a.renderFooter())
-	// Label was renamed from "cache" to "mem" (see renderFooter
-	// in app.go); the chip still carries the hit-rate readout.
-	if !strings.Contains(got, "mem") {
-		t.Errorf("footer should contain 'mem' label; got:\n%s", got)
+	if !strings.Contains(got, "ARC hit") {
+		t.Errorf("footer should contain ARC hit label; got:\n%s", got)
 	}
 	if !strings.Contains(got, "80%") {
 		t.Errorf("footer should contain '80%%' hit-rate readout; got:\n%s", got)
@@ -61,5 +59,48 @@ func TestFooter_MemoryChip_HiddenWithZeroStats(t *testing.T) {
 	got := stripANSI(a.renderFooter())
 	if strings.Contains(got, "cache") {
 		t.Errorf("zero stats should hide the chip; got:\n%s", got)
+	}
+}
+
+func TestFooter_ContextHintsChangeByFocus(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 180
+
+	a.focus = FocusSidebar
+	sidebar := stripANSI(a.renderFooter())
+	for _, want := range []string{"Enter open", "e rename", "d delete"} {
+		if !strings.Contains(sidebar, want) {
+			t.Fatalf("sidebar footer missing %q:\n%s", want, sidebar)
+		}
+	}
+
+	a.focus = FocusBody
+	body := stripANSI(a.renderFooter())
+	for _, want := range []string{"select part", "Enter/Ctrl+E details", "G bottom"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("conversation footer missing %q:\n%s", want, body)
+		}
+	}
+
+	a.focus = FocusInput
+	input := stripANSI(a.renderFooter())
+	for _, want := range []string{"Enter send", "\\+Enter newline", "Ctrl+G compose"} {
+		if !strings.Contains(input, want) {
+			t.Fatalf("input footer missing %q:\n%s", want, input)
+		}
+	}
+}
+
+func TestFooter_NarrowKeepsQuitVisible(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 100
+	a.focus = FocusInput
+
+	got := stripANSI(a.renderFooter())
+	if !strings.Contains(got, "Ctrl+C quit") {
+		t.Fatalf("narrow footer should keep quit visible:\n%s", got)
+	}
+	if strings.Contains(got, "compose") {
+		t.Fatalf("narrow footer should drop low-priority compose hint:\n%s", got)
 	}
 }
