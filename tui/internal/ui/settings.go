@@ -17,6 +17,7 @@ import (
 type settingsState struct {
 	tab         int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs, 4 = Language
 	agentSel    int // index into agentList
+	agentScroll int // first visible row in the Agent tab list
 	themeSel    int // index into AllThemeModes
 	tuiRow      int // TUI tab active row (0 = collapse threshold)
 	languageSel int // index into availableLanguageOptions()
@@ -84,7 +85,15 @@ func applySettingsCmd(c *client.Client, sessionID string, model *gact.ModelRef, 
 		if err != nil {
 			return errMsg{err: err, stage: "patch-session"}
 		}
-		return sessionUpdatedMsg{session: updated}
+		msg := sessionUpdatedMsg{session: updated}
+		if model != nil {
+			ref := *model
+			msg.model = &ref
+		}
+		if agent != nil {
+			msg.agentID = agent.ID
+		}
+		return msg
 	}
 }
 
@@ -95,6 +104,19 @@ type settingsLoadedMsg struct {
 
 type sessionUpdatedMsg struct {
 	session gact.Session
+	model   *gact.ModelRef
+	agentID string
+}
+
+func selectableSessionAgents(agents []gact.AgentDef) []gact.AgentDef {
+	out := make([]gact.AgentDef, 0, len(agents))
+	for _, ag := range agents {
+		if ag.Source == "skill" || ag.Tier == 3 {
+			continue
+		}
+		out = append(out, ag)
+	}
+	return out
 }
 
 // handleSettingsKey routes keypresses while the Settings modal is open.
@@ -122,6 +144,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.agentSel > 0 {
 				s.agentSel--
 			}
+			a.ensureAgentSelectionVisible()
 		case 2:
 			if s.themeSel > 0 {
 				s.themeSel--
@@ -147,6 +170,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.agentSel < len(s.agentList)-1 {
 				s.agentSel++
 			}
+			a.ensureAgentSelectionVisible()
 		case 2:
 			if s.themeSel < len(AllThemeModes)-1 {
 				s.themeSel++
@@ -275,6 +299,9 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.settingsOpen = false
 			a.transientHint = "theme: " + ThemeModeName(mode)
 			a.persistPrefs()
+			return a, nil
+		case 1:
+			a.openSettingsAgentDetail()
 			return a, nil
 		case 3:
 			// TUI prefs tab is read-only for now — Enter just closes.
@@ -426,8 +453,30 @@ func (a *App) viewSettings() string {
 		if len(s.agentList) == 0 {
 			rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsLoading, nil)))
 		}
-		for i, ag := range s.agentList {
-			rows = append(rows, rowLine(i == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+		if s.agentSel >= len(s.agentList) {
+			s.agentSel = max(0, len(s.agentList)-1)
+		}
+		a.ensureAgentSelectionVisible()
+		start, end := a.visibleAgentRange()
+		if start > 0 {
+			rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(start)))
+		}
+		for i, ag := range s.agentList[start:end] {
+			absolute := start + i
+			rows = append(rows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+		}
+		if end < len(s.agentList) {
+			rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(s.agentList)-end)))
+		}
+		if len(s.agentList) > 0 {
+			rows = append(rows, "")
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Details"))
+			detailLines := a.agentDetailLines(s.agentList[s.agentSel], w-4)
+			maxDetails := max(3, (a.height-4)/4)
+			if len(detailLines) > maxDetails {
+				detailLines = append(detailLines[:maxDetails], t.HintLabel.Render("  …"))
+			}
+			rows = append(rows, detailLines...)
 		}
 	case 2:
 		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
@@ -627,7 +676,188 @@ func (a *App) localizedAgentDescription(ag gact.AgentDef) string {
 	if key := knownAgentLocaleKey(ag.ID, true); key != "" {
 		return a.localizer.t(messageID(key), nil)
 	}
-	return ag.Title
+	return ag.Description
+}
+
+func (a *App) visibleAgentRange() (int, int) {
+	if a.settings == nil || len(a.settings.agentList) == 0 {
+		return 0, 0
+	}
+	visible := a.maxVisibleAgentRows()
+	if visible > len(a.settings.agentList) {
+		visible = len(a.settings.agentList)
+	}
+	start := a.settings.agentScroll
+	if start < 0 {
+		start = 0
+	}
+	if start > len(a.settings.agentList)-visible {
+		start = len(a.settings.agentList) - visible
+	}
+	end := start + visible
+	a.settings.agentScroll = start
+	return start, end
+}
+
+func (a *App) maxVisibleAgentRows() int {
+	visible := a.height - 24
+	if visible < 4 {
+		visible = 4
+	}
+	if visible > 12 {
+		visible = 12
+	}
+	return visible
+}
+
+func (a *App) ensureAgentSelectionVisible() {
+	if a.settings == nil {
+		return
+	}
+	if a.settings.agentSel < 0 {
+		a.settings.agentSel = 0
+	}
+	if a.settings.agentSel >= len(a.settings.agentList) {
+		a.settings.agentSel = max(0, len(a.settings.agentList)-1)
+	}
+	visible := a.maxVisibleAgentRows()
+	if a.settings.agentSel < a.settings.agentScroll {
+		a.settings.agentScroll = a.settings.agentSel
+	}
+	if a.settings.agentSel >= a.settings.agentScroll+visible {
+		a.settings.agentScroll = a.settings.agentSel - visible + 1
+	}
+	if a.settings.agentScroll < 0 {
+		a.settings.agentScroll = 0
+	}
+}
+
+func (a *App) openSettingsAgentDetail() {
+	if a.settings == nil || a.settings.agentSel < 0 || a.settings.agentSel >= len(a.settings.agentList) {
+		return
+	}
+	ag := a.settings.agentList[a.settings.agentSel]
+	ref := bulkyPartRef{
+		messageID: "settings",
+		partID:    "agent-" + ag.ID,
+		title:     "Agent · " + a.localizedAgentTitle(ag),
+		fullText:  a.agentDetailText(ag),
+	}
+	a.detailView = &ref
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
+	t := a.Theme
+	lines := make([]string, 0, 8)
+	add := func(label string, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		line := lipgloss.NewStyle().Foreground(t.FgMuted).Render("  "+label+": ") +
+			lipgloss.NewStyle().Foreground(t.Fg).Render(value)
+		lines = append(lines, truncate(line, width))
+	}
+	add("ID", ag.ID)
+	add("Source", ag.Source)
+	if ag.Tier > 0 {
+		add("Tier", itoa2(ag.Tier))
+	}
+	add("Specialization", ag.Specialization)
+	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
+		add("Routes to", strings.Join(routes, ", "))
+	}
+	if delegates := stringListFromMetadata(ag.Metadata, "delegates_to"); len(delegates) > 0 {
+		add("Delegates to", strings.Join(delegates, ", "))
+	}
+	if ag.DefaultModel != nil && ag.DefaultModel.ModelID != "" {
+		model := ag.DefaultModel.ModelID
+		if ag.DefaultModel.ProviderID != "" {
+			model = ag.DefaultModel.ProviderID + "/" + model
+		}
+		add("Default model", model)
+	}
+	if len(ag.Tools) > 0 {
+		add("Tools", strings.Join(ag.Tools, ", "))
+	} else {
+		add("Tools", "none declared")
+	}
+	if len(ag.Keywords) > 0 {
+		add("Keywords", strings.Join(ag.Keywords, ", "))
+	}
+	add("Prompt", ag.SystemPrompt)
+	return lines
+}
+
+func (a *App) agentDetailText(ag gact.AgentDef) string {
+	lines := []string{
+		"Title: " + a.localizedAgentTitle(ag),
+		"ID: " + ag.ID,
+		"Source: " + ag.Source,
+	}
+	if ag.Tier > 0 {
+		lines = append(lines, "Tier: "+itoa2(ag.Tier))
+	}
+	if ag.Specialization != "" {
+		lines = append(lines, "Specialization: "+ag.Specialization)
+	}
+	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
+		lines = append(lines, "", "Routes to:")
+		lines = append(lines, bulletLines(routes)...)
+	}
+	if delegates := stringListFromMetadata(ag.Metadata, "delegates_to"); len(delegates) > 0 {
+		lines = append(lines, "", "Delegates to:")
+		lines = append(lines, bulletLines(delegates)...)
+	}
+	if len(ag.Tools) > 0 {
+		lines = append(lines, "", "Tools:")
+		lines = append(lines, bulletLines(ag.Tools)...)
+	}
+	if len(ag.Keywords) > 0 {
+		lines = append(lines, "", "Routing keywords:")
+		lines = append(lines, bulletLines(ag.Keywords)...)
+	}
+	if strings.TrimSpace(ag.SystemPrompt) != "" {
+		lines = append(lines, "", "Prompt:", strings.TrimSpace(ag.SystemPrompt))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func bulletLines(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			out = append(out, "  - "+item)
+		}
+	}
+	return out
+}
+
+func stringListFromMetadata(metadata map[string]any, key string) []string {
+	if len(metadata) == 0 {
+		return nil
+	}
+	raw, ok := metadata[key]
+	if !ok {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func knownAgentLocaleKey(id string, description bool) string {

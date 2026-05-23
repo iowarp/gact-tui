@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func TestSettings_TabCycleWrapsAround(t *testing.T) {
@@ -92,6 +94,167 @@ func TestSettings_TUITabEnterClosesWithoutSideEffects(t *testing.T) {
 	}
 	if themeName(a.Theme) != themeName(before) {
 		t.Errorf("TUI tab Enter shouldn't change theme")
+	}
+}
+
+func TestSessionUpdatedAgentPatchShowsConfirmation(t *testing.T) {
+	a := newReadyApp([]gact.Session{{
+		ID:     "sess_1",
+		Title:  "demo",
+		Status: gact.StatusIdle,
+		Agent:  gact.AgentRef{ID: "main"},
+	}}, nil)
+	a.settingsOpen = false
+
+	model, cmd := a.Update(sessionUpdatedMsg{
+		session: gact.Session{
+			ID:     "sess_1",
+			Title:  "demo",
+			Status: gact.StatusIdle,
+			Agent:  gact.AgentRef{ID: "tui-test"},
+		},
+		agentID: "tui-test",
+	})
+	a = model.(*App)
+
+	if got := a.sessions[0].Agent.ID; got != "tui-test" {
+		t.Fatalf("session agent = %q, want tui-test", got)
+	}
+	if !strings.Contains(a.transientHint, "agent: tui-test") {
+		t.Fatalf("transientHint = %q, want agent confirmation", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("expected hint-expiration command")
+	}
+}
+
+func TestSelectableSessionAgentsExcludesSkillsAndNanoagents(t *testing.T) {
+	agents := []gact.AgentDef{
+		{ID: "main", Source: "builtin", Tier: 1},
+		{ID: "analysis", Source: "builtin", Tier: 2},
+		{ID: "tui-test", Source: "skill", Tier: 2},
+		{ID: "worker-1", Source: "builtin", Tier: 3},
+		{ID: "custom", Source: "user", Tier: 2},
+	}
+
+	got := selectableSessionAgents(agents)
+	ids := make([]string, 0, len(got))
+	for _, ag := range got {
+		ids = append(ids, ag.ID)
+	}
+	want := []string{"main", "analysis", "custom"}
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("selectable ids = %v, want %v", ids, want)
+	}
+}
+
+func TestSettingsAgentTabShowsSelectedAgentDetails(t *testing.T) {
+	a := newReadyApp([]gact.Session{{
+		ID:     "sess_1",
+		Title:  "demo",
+		Status: gact.StatusIdle,
+		Agent:  gact.AgentRef{ID: "analysis"},
+	}}, nil)
+	a.width = 140
+	a.height = 42
+	a.settingsOpen = true
+	a.settings = &settingsState{
+		tab:      1,
+		agentSel: 0,
+		agentList: []gact.AgentDef{{
+			ID:             "analysis",
+			Source:         "builtin",
+			Title:          "Analysis Expert",
+			Description:    "Scientific reasoning and quantitative analysis",
+			SystemPrompt:   "You are the CLIO Analysis Expert.",
+			Tier:           2,
+			Specialization: "data_analysis",
+			Keywords:       []string{"statistics", "parquet"},
+			Tools:          []string{"parquet_analyze_schema", "csv_read_table"},
+		}},
+	}
+
+	out := ansi.Strip(a.viewSettings())
+
+	for _, want := range []string{
+		"Details",
+		"ID: analysis",
+		"Source: builtin",
+		"Tier: 2",
+		"Specialization: data_analysis",
+		"Tools: parquet_analyze_schema, csv_read_table",
+		"Keywords: statistics, parquet",
+		"Prompt: You are the CLIO Analysis Expert.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("settings agent details missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestSettingsAgentTabScrollsSelectionIntoView(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 30
+	a.settingsOpen = true
+	agents := make([]gact.AgentDef, 0, 18)
+	for i := 0; i < 18; i++ {
+		agents = append(agents, gact.AgentDef{
+			ID:          "agent-" + itoa2(i),
+			Source:      "builtin",
+			Title:       "Agent " + itoa2(i),
+			Description: "desc",
+			Tier:        2,
+		})
+	}
+	a.settings = &settingsState{tab: 1, agentList: agents}
+
+	for i := 0; i < 14; i++ {
+		a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+
+	if a.settings.agentSel != 14 {
+		t.Fatalf("agentSel = %d, want 14", a.settings.agentSel)
+	}
+	if a.settings.agentScroll == 0 {
+		t.Fatalf("agentScroll was not advanced for long list")
+	}
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "Agent 14") || strings.Contains(out, "Agent 0  desc") {
+		t.Fatalf("agent tab did not render a scrolled viewport:\n%s", out)
+	}
+}
+
+func TestSettingsAgentTabEnterOpensDetailView(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 40
+	a.settingsOpen = true
+	a.settings = &settingsState{
+		tab:      1,
+		agentSel: 0,
+		agentList: []gact.AgentDef{{
+			ID:           "main",
+			Source:       "builtin",
+			Title:        "Main Agent",
+			Description:  "orchestrator",
+			SystemPrompt: "Route to the right expert.",
+			Tier:         1,
+			Metadata: map[string]any{
+				"routes_to": []any{"data", "analysis", "visualization", "utility"},
+			},
+		}},
+	}
+
+	a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("Enter on Agent tab should open detail view")
+	}
+	if !strings.Contains(a.detailView.fullText, "Routes to:") ||
+		!strings.Contains(a.detailView.fullText, "- analysis") ||
+		!strings.Contains(a.detailView.fullText, "Prompt:") {
+		t.Fatalf("agent detail missing routing/prompt data:\n%s", a.detailView.fullText)
 	}
 }
 

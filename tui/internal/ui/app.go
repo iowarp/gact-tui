@@ -694,6 +694,7 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 		// Reverse so we have chronological (oldest-first) order for display.
 		out := make([]gact.Message, len(msgs))
 		for i, m := range msgs {
+			normalizeMessageToolEvidence(&m)
 			out[len(msgs)-1-i] = m
 		}
 		return messagesLoadedMsg{sessionID: sessionID, messages: out}
@@ -1660,12 +1661,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindMcpDetail && m.mcpServerID != a.catalogBrowser.mcpServerID {
 			return a, nil
 		}
+		if m.kind == catalogKindAgentDetail && m.mcpServerID != a.catalogBrowser.agentID {
+			return a, nil
+		}
 		a.catalogBrowser.loading = false
 		a.catalogBrowser.items = m.items
 		a.catalogBrowser.errText = m.errText
 		if a.catalogBrowser.sel >= len(m.items) {
 			a.catalogBrowser.sel = 0
 		}
+		a.catalogBrowser.offset = catalogBrowserClampOffset(
+			a.catalogBrowser.sel,
+			a.catalogBrowser.offset,
+			len(m.items),
+		)
 		return a, nil
 
 	case mcpServersFetchedMsg:
@@ -1722,14 +1731,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.settings == nil {
 			a.settings = &settingsState{}
 		}
-		a.settings.agentList = m.agents
+		a.settings.agentList = selectableSessionAgents(m.agents)
 		a.settings.loadErr = m.loadErr
 		// Pre-select current agent if present. Model selection lives in
 		// the lifecycle LM-config modal, not here — Tab 0 just shows
 		// the active model and a "Change provider…" entry point.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
-			for i, ag := range m.agents {
+			for i, ag := range a.settings.agentList {
 				if ag.ID == cur.Agent.ID {
 					a.settings.agentSel = i
 					break
@@ -1760,6 +1769,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		if m.agentID != "" {
+			a.transientHint = "agent: " + m.agentID
+			return a, scheduleHintExpire(a.transientHint)
+		}
 		// Close the Settings modal if it was driving the PATCH (the
 		// shared LM-config widgets dispatch through here in session-
 		// patch mode). Surface a transient hint so the user has a
@@ -1768,8 +1781,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.settingsOpen = false
 			a.lmConfig.saving = false
 			ref := m.session.Model
+			if m.model != nil {
+				ref = *m.model
+			}
 			if ref.ProviderID != "" {
 				a.transientHint = "model: " + ref.ProviderID + "/" + ref.ModelID
+				return a, scheduleHintExpire(a.transientHint)
 			}
 		}
 		return a, nil
@@ -4052,8 +4069,103 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 		for k, v := range metadata {
 			a.messages[i].Metadata[k] = v
 		}
+		normalizeMessageToolEvidence(&a.messages[i])
 		return
 	}
+}
+
+// normalizeMessageToolEvidence promotes CLIO's metadata-only tool telemetry
+// into first-class tool_call/tool_result parts so conversation order matches
+// execution order and the body cursor can focus/expand the tool details.
+func normalizeMessageToolEvidence(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || assistantCarriedToolCall(m) {
+		return
+	}
+	rows := normalizeToolEvidenceRows(m.Metadata["tools_called"])
+	if len(rows) == 0 {
+		return
+	}
+	var synthetic []gact.Part
+	for i, row := range rows {
+		if row.Name == "" {
+			continue
+		}
+		callID := fmt.Sprintf("tool_evidence_%d", i+1)
+		synthetic = append(synthetic, gact.Part{
+			ID:       "synthetic_" + callID + "_call",
+			Type:     gact.PartTypeToolCall,
+			CallID:   callID,
+			ToolName: row.Name,
+			Input:    toolEvidenceInput(row.Args),
+			Metadata: map[string]any{
+				"synthetic_from": "tools_called_metadata",
+			},
+		})
+		resultPart := gact.Part{
+			ID:      "synthetic_" + callID + "_result",
+			Type:    gact.PartTypeToolResult,
+			CallID:  callID,
+			IsError: row.OK != nil && !*row.OK,
+			Content: []gact.Part{{
+				ID:   "synthetic_" + callID + "_result_text",
+				Type: gact.PartTypeText,
+				Text: toolEvidenceResultText(row.Result),
+			}},
+			Metadata: map[string]any{
+				"synthetic_from": "tools_called_metadata",
+			},
+		}
+		if row.DurationMS != nil {
+			resultPart.DurationMS = *row.DurationMS
+		}
+		if row.Cached != nil {
+			resultPart.Cached = *row.Cached
+		}
+		synthetic = append(synthetic, resultPart)
+	}
+	if len(synthetic) == 0 {
+		return
+	}
+	insertAt := len(m.Parts)
+	for i, part := range m.Parts {
+		if part.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+len(synthetic))
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, synthetic...)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func toolEvidenceInput(raw any) map[string]any {
+	if raw == nil {
+		return nil
+	}
+	if input, ok := raw.(map[string]any); ok {
+		return input
+	}
+	return map[string]any{"args": raw}
+}
+
+func toolEvidenceResultText(raw any) string {
+	if raw == nil {
+		return ""
+	}
+	if result, ok := raw.(map[string]any); ok {
+		if stdout, ok := result["stdout"].(string); ok && strings.TrimSpace(stdout) != "" {
+			return strings.TrimSpace(stdout)
+		}
+		if errorText, ok := result["error"].(string); ok && strings.TrimSpace(errorText) != "" {
+			return strings.TrimSpace(errorText)
+		}
+	}
+	if text := compactJSON(raw); text != "" {
+		return text
+	}
+	return fmt.Sprint(raw)
 }
 
 // applyCostUpdated rolls the latest cost/tokens into the local sessions
@@ -4803,16 +4915,7 @@ func (a *App) renderFooter() string {
 	mk := func(key, label string) string {
 		return t.HintKey.Render(key) + t.HintLabel.Render(" "+label)
 	}
-	clusters := [][]string{
-		{mk("Ctrl+N", a.localizer.t(msgFooterNew, nil))},
-		{
-			mk("Tab", a.localizer.t(msgFooterPane, nil)),
-			mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
-			mk("/", a.localizer.t(msgFooterCommand, nil)),
-			mk("?", a.localizer.t(msgFooterHelp, nil)),
-		},
-		{mk("ctrl+c", a.localizer.t(msgFooterQuit, nil))},
-	}
+	clusters := a.footerHintClusters(mk)
 	parts := make([]string, 0, len(clusters))
 	for _, c := range clusters {
 		parts = append(parts, strings.Join(c, dot))
@@ -4862,13 +4965,9 @@ func (a *App) renderFooter() string {
 			case hr >= 0.50:
 				hrColor = t.Warning
 			}
-			// Label is "mem" (memory cache hit rate) — was bare "cache"
-			// which users reasonably read as context-window cache.
-			// Memory here = the agent's ARC memory layer; the rate is
-			// hits / (hits+misses).
 			chip := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(t.FgMuted).Padding(0, 1).
-				Render("mem")
+				Render(a.localizer.t(msgFooterMemoryHit, nil))
 			rate := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(hrColor).Bold(true).Padding(0, 1).
 				Render(fmt.Sprintf("%.0f%%", hr*100))
@@ -4918,6 +5017,78 @@ func (a *App) renderFooter() string {
 		Padding(0, 1).Render(
 		left + "  " + hintLine + strings.Repeat(" ", gap) + right,
 	)
+}
+
+func (a *App) footerContextHints(mk func(string, string) string) []string {
+	switch a.focus {
+	case FocusSidebar:
+		if a.width < 120 {
+			return []string{
+				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
+				mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+			}
+		}
+		return []string{
+			mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
+			mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+			mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
+			mk("d", a.localizer.t(msgFooterSidebarDelete, nil)),
+			mk("o", a.localizer.t(msgFooterSidebarContext, nil)),
+		}
+	case FocusBody:
+		if a.width < 120 {
+			return []string{
+				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+			}
+		}
+		return []string{
+			mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
+			mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+			mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
+		}
+	case FocusInput:
+		if a.width < 120 {
+			return []string{
+				mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+				mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+			}
+		}
+		return []string{
+			mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+			mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+			mk("Ctrl+G", a.localizer.t(msgFooterInputCompose, nil)),
+		}
+	default:
+		return nil
+	}
+}
+
+func (a *App) footerHintClusters(mk func(string, string) string) [][]string {
+	global := []string{
+		mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+		mk("Tab", a.localizer.t(msgFooterPane, nil)),
+		mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
+		mk("/", a.localizer.t(msgFooterCommand, nil)),
+		mk("?", a.localizer.t(msgFooterHelp, nil)),
+	}
+	if a.width < 150 {
+		global = []string{
+			mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+			mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
+			mk("?", a.localizer.t(msgFooterHelp, nil)),
+		}
+	}
+	if a.width < 120 {
+		global = []string{
+			mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+		}
+	}
+	return [][]string{
+		a.footerContextHints(mk),
+		global,
+		{mk("Ctrl+C", a.localizer.t(msgFooterQuit, nil))},
+	}
 }
 
 func (a *App) focusLabel(f FocusZone) string {
@@ -5753,7 +5924,7 @@ func truncate(s string, max int) string {
 	if max <= 1 {
 		return "…"
 	}
-	return s[:max-1] + "…"
+	return ansi.Truncate(s, max, "…")
 }
 
 // viewPalette renders the slash-command palette as a centered modal.

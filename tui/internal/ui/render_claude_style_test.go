@@ -42,6 +42,7 @@ func TestToolCallSummary_KnownTools(t *testing.T) {
 		want  string
 	}{
 		{"bash", map[string]any{"command": "ls -la"}, "ls -la"},
+		{"shell_bash", map[string]any{"command": "date", "cwd": ".", "timeout_s": 5}, "date"},
 		{"shell", map[string]any{"cmd": "pwd"}, "pwd"},
 		{"read_file", map[string]any{"path": "cmd/main.go"}, "cmd/main.go"},
 		{"grep", map[string]any{"pattern": "TODO"}, "TODO"},
@@ -58,6 +59,21 @@ func TestToolCallSummary_KnownTools(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("tool=%q input=%v → %q, want %q", tc.tool, tc.input, got, tc.want)
 		}
+	}
+}
+
+func TestToolCallSummaryFallbackSortsKeys(t *testing.T) {
+	got := toolCallSummary(gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "future_thing",
+		Input: map[string]any{
+			"zeta":  2,
+			"alpha": 1,
+			"mid":   3,
+		},
+	})
+	if got != "{alpha: 1, mid: 3, zeta: 2}" {
+		t.Fatalf("fallback summary should be stable and sorted, got %q", got)
 	}
 }
 

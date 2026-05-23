@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
+	"sort"
 	"strings"
 	"sync"
 
@@ -1242,7 +1243,13 @@ func jsonOneLine(m map[string]any) string {
 		return "{}"
 	}
 	parts := []string{}
-	for k, v := range m {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := m[k]
 		parts = append(parts, fmt.Sprintf("%s: %v", k, v))
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
@@ -1260,7 +1267,7 @@ func toolCallSummary(p gact.Part) string {
 	tool := strings.ToLower(p.ToolName)
 	primary := ""
 	switch tool {
-	case "bash", "shell", "exec":
+	case "bash", "shell", "shell_bash", "exec":
 		if v, ok := p.Input["command"].(string); ok {
 			primary = v
 		} else if v, ok := p.Input["cmd"].(string); ok {

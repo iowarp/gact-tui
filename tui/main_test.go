@@ -4477,6 +4477,9 @@ func TestCLI_AgentDeployLifecycle(t *testing.T) {
 	if !strings.Contains(stdout, "testagent\t") {
 		t.Errorf("list should include testagent row: %q", stdout)
 	}
+	if !strings.Contains(stdout, "started_at") {
+		t.Errorf("list should include started_at column: %q", stdout)
+	}
 	if !strings.Contains(stdout, "\tyes\t") {
 		t.Errorf("list should report alive=yes tsv: %q", stdout)
 	}
@@ -4539,6 +4542,9 @@ func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "testclio\tclio\t") {
 		t.Errorf("list should show 'testclio\\tclio\\t...' row: %q", stdout)
+	}
+	if !strings.Contains(stdout, "started_at") {
+		t.Errorf("list should include started_at column: %q", stdout)
 	}
 	if !strings.Contains(stdout, "\tyes\t") {
 		t.Errorf("list should report alive=yes after deploy: %q", stdout)

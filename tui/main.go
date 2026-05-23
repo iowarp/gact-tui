@@ -3577,31 +3577,39 @@ func runAgentList(args []string) int {
 		return 0
 	}
 	if *format == "tsv" {
-		fmt.Println("name\tkind\thost\tport\tpid\talive\tcwd")
+		fmt.Println("name\tkind\thost\tport\tpid\talive\tstarted_at\tcwd")
 		for _, a := range reg.Agents {
 			alive := "no"
 			if probeAgentAlive(a.Host, a.Port) {
 				alive = "yes"
 			}
-			fmt.Printf("%s\t%s\t%s\t%d\t%d\t%s\t%s\n",
-				a.Name, a.Kind, a.Host, a.Port, a.PID, alive, a.Cwd)
+			fmt.Printf("%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s\n",
+				a.Name, a.Kind, a.Host, a.Port, a.PID, alive,
+				formatAgentStartedAt(a.StartedAt), a.Cwd)
 		}
 		return 0
 	}
 	// pretty
-	fmt.Printf("%-20s  %-12s  %-22s  %-6s  %-5s  %s\n",
-		"NAME", "KIND", "HOST:PORT", "PID", "ALIVE", "CWD")
+	fmt.Printf("%-20s  %-12s  %-22s  %-6s  %-5s  %-16s  %s\n",
+		"NAME", "KIND", "HOST:PORT", "PID", "ALIVE", "STARTED", "CWD")
 	for _, a := range reg.Agents {
 		aliveText := colorize("no", ansiRed)
 		if probeAgentAlive(a.Host, a.Port) {
 			aliveText = colorize("yes", ansiGreen)
 		}
-		fmt.Printf("%-20s  %-12s  %-22s  %-6d  %-5s  %s\n",
+		fmt.Printf("%-20s  %-12s  %-22s  %-6d  %-5s  %-16s  %s\n",
 			truncMid(a.Name, 20), truncMid(a.Kind, 12),
 			fmt.Sprintf("%s:%d", a.Host, a.Port), a.PID, aliveText,
-			truncMid(a.Cwd, 60))
+			formatAgentStartedAt(a.StartedAt), truncMid(a.Cwd, 60))
 	}
 	return 0
+}
+
+func formatAgentStartedAt(startedAt time.Time) string {
+	if startedAt.IsZero() {
+		return "unknown"
+	}
+	return startedAt.Local().Format("2006-01-02 15:04")
 }
 
 // runAgentStop stops the pid and keeps the registry entry (user may
