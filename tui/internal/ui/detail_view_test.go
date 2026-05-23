@@ -197,6 +197,132 @@ func TestFindLatestBulkyPart_NoneAvailable(t *testing.T) {
 	}
 }
 
+func TestFindBulkyPartForSelectedShortToolCallShowsInput(t *testing.T) {
+	msg := gact.Message{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				ID:       "call",
+				Type:     gact.PartTypeToolCall,
+				CallID:   "c1",
+				ToolName: "shell_bash",
+				Input: map[string]any{
+					"command":          "date",
+					"cwd":              ".",
+					"max_output_bytes": 1000,
+					"timeout_s":        5,
+				},
+			},
+			{
+				ID:     "result",
+				Type:   gact.PartTypeToolResult,
+				CallID: "c1",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: "Saturday, May 23, 2026 3:49:03 PM",
+				}},
+			},
+		},
+	}
+
+	ref, ok := findBulkyPartForSelected(msg, 0, []gact.Message{msg}, 0)
+	if !ok {
+		t.Fatal("selected tool_call should open detail view even when output is short")
+	}
+	for _, want := range []string{
+		"shell_bash input",
+		"tool: shell_bash",
+		`"command": "date"`,
+		`"max_output_bytes": 1000`,
+	} {
+		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
+			t.Fatalf("tool call detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
+		}
+	}
+}
+
+func TestFindBulkyPartForSelectedRoutingDecisionShowsDetails(t *testing.T) {
+	msg := gact.Message{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:            "route",
+			Type:          gact.PartTypeRoutingDecision,
+			SelectedAgent: "utility",
+			Rationale:     "The user asked for current system time.",
+			Confidence:    0.92,
+			Metadata: map[string]any{
+				"route_source": "planner",
+			},
+		}},
+	}
+
+	ref, ok := findBulkyPartForSelected(msg, 0, []gact.Message{msg}, 0)
+	if !ok {
+		t.Fatal("selected routing decision should open detail view")
+	}
+	for _, want := range []string{
+		"routing decision",
+		"selected_agent: utility",
+		"route_source: planner",
+		"confidence: 0.92",
+		"The user asked for current system time.",
+	} {
+		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
+			t.Fatalf("routing detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
+		}
+	}
+}
+
+func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
+	msg := gact.Message{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:         "result",
+			Type:       gact.PartTypeToolResult,
+			CallID:     "c1",
+			DurationMS: 123,
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "Saturday, May 23, 2026 3:49:03 PM",
+			}},
+		}},
+	}
+
+	ref, ok := findBulkyPartForSelected(msg, 0, []gact.Message{msg}, 0)
+	if !ok {
+		t.Fatal("selected short tool_result should open detail view")
+	}
+	for _, want := range []string{
+		"tool result",
+		"call_id: c1",
+		"duration_ms: 123",
+		"Saturday, May 23, 2026 3:49:03 PM",
+	} {
+		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
+			t.Fatalf("tool result detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
+		}
+	}
+}
+
+func TestDetailModalWidthIsReadableButNotHuge(t *testing.T) {
+	a := New("http://unused")
+	a.width = 180
+	if got := a.detailModalWidth(); got != 112 {
+		t.Fatalf("wide terminal detail width = %d, want capped 112", got)
+	}
+	a.width = 120
+	if got := a.detailModalWidth(); got != 80 {
+		t.Fatalf("medium terminal detail width = %d, want two thirds", got)
+	}
+	a.width = 70
+	if got := a.detailModalWidth(); got > a.width-8 {
+		t.Fatalf("small terminal detail width = %d, should fit width %d", got, a.width)
+	}
+}
+
 func TestDetailView_CtrlEOpensWithNewest(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody

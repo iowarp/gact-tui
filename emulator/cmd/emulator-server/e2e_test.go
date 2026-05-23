@@ -42,6 +42,29 @@ func testBinaryPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
+func stableEmulatorBinaryPath(t *testing.T) string {
+	t.Helper()
+	name := "emulator-server-emulator"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	dir := filepath.Join("..", "..", "..", ".tools", "test-bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create test bin dir: %v", err)
+	}
+	return filepath.Join(dir, name)
+}
+
+func buildStableEmulatorBinary(t *testing.T) string {
+	t.Helper()
+	bin := stableEmulatorBinaryPath(t)
+	build := exec.Command("go", "build", "-o", bin, ".")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	return bin
+}
+
 func stopTestProcess(p *os.Process) {
 	if runtime.GOOS == "windows" {
 		_ = p.Kill()
@@ -54,12 +77,7 @@ func stopTestProcess(p *os.Process) {
 // cleanup function.
 func startEmulator(t *testing.T) (baseURL string, cleanup func()) {
 	t.Helper()
-	tmp := t.TempDir()
-	bin := testBinaryPath(tmp, "emulator-server")
-	build := exec.Command("go", "build", "-o", bin, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	port := pickPort(t)
 	cmd := exec.Command(bin, "-port", fmt.Sprintf("%d", port), "-timing", "fast")
 	cmd.Stdout = io.Discard

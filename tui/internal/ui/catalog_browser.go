@@ -1,9 +1,7 @@
 // Catalog-browser modal (L5). Used by the /mcp, /tools, /agents, and
 // /skills slash commands to open a scoped list of items from the
-// corresponding catalog endpoint. /agents routes straight to the
-// Settings > Agent tab since the picker there already does exactly
-// the right thing; the other three open a read-only list modal with
-// title + description per item.
+// corresponding catalog endpoint. /agents-list shows a browseable
+// hierarchy; Settings > Agent remains the narrow session-agent picker.
 package ui
 
 import (
@@ -30,6 +28,7 @@ const (
 	// catalogKindMcpDetail shows one MCP server's tools+resources+prompts
 	// in a single list. Pushed on Enter from the MCP server list (LLL2).
 	catalogKindMcpDetail
+	catalogKindAgentDetail
 	// catalogKindAgents lists all agents from /v1/agents. Distinct from
 	// the Settings > Agent picker which is for selecting; this one is
 	// for browsing. LLL3.
@@ -44,11 +43,13 @@ type catalogBrowserState struct {
 	loading bool
 	errText string
 	sel     int
+	offset  int
 	// LLL2: when kind=catalogKindMcpDetail, mcpServerID identifies
 	// which server's catalog we're viewing. parent is preserved so
 	// Esc/Backspace can pop back to the server list rather than
 	// closing the whole modal.
 	mcpServerID string
+	agentID     string
 	parent      *catalogBrowserState
 }
 
@@ -163,6 +164,9 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				if kind == catalogKindSkills && a.Source != "skill" {
 					continue
 				}
+				if kind == catalogKindAgents && (a.Source == "skill" || a.Tier == 3) {
+					continue
+				}
 				desc := a.Description
 				if a.DefaultModel != nil && a.DefaultModel.ModelID != "" {
 					if desc != "" {
@@ -214,6 +218,22 @@ func (a *App) openMcpDetail(serverID, serverName string) tea.Cmd {
 		parent:      parent,
 	}
 	return loadMcpDetailCmd(a.c, serverID)
+}
+
+func (a *App) openAgentDetail(agentID, agentTitle string) tea.Cmd {
+	parent := a.catalogBrowser
+	title := agentTitle
+	if title == "" {
+		title = agentID
+	}
+	a.catalogBrowser = &catalogBrowserState{
+		kind:    catalogKindAgentDetail,
+		title:   "Agent · " + title,
+		loading: true,
+		agentID: agentID,
+		parent:  parent,
+	}
+	return loadAgentDetailCmd(a.c, agentID)
 }
 
 // loadMcpDetailCmd fetches tools, resources, and prompts for one MCP
@@ -273,6 +293,58 @@ func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
 	}
 }
 
+func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		agent, err := c.GetAgent(ctx, agentID)
+		if err != nil {
+			return catalogBrowserLoadedMsg{
+				kind: catalogKindAgentDetail, errText: err.Error(), mcpServerID: agentID,
+			}
+		}
+		items := []catalogItem{{
+			id:        "agent/" + agent.ID,
+			title:     "Agent · " + agent.Title,
+			desc:      agent.Description,
+			statusTag: agent.Source,
+		}}
+		if agent.Specialization != "" {
+			items = append(items, catalogItem{
+				id: "specialization", title: "Specialization · " + agent.Specialization,
+			})
+		}
+		if routes := stringListFromMetadata(agent.Metadata, "routes_to"); len(routes) > 0 {
+			items = append(items, catalogItem{
+				id: "routes", title: "Routes to", desc: strings.Join(routes, ", "),
+			})
+		}
+		if delegates := stringListFromMetadata(agent.Metadata, "delegates_to"); len(delegates) > 0 {
+			items = append(items, catalogItem{
+				id: "delegates", title: "Delegates to", desc: strings.Join(delegates, ", "),
+			})
+		}
+		if len(agent.Keywords) > 0 {
+			items = append(items, catalogItem{
+				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
+			})
+		}
+		if len(agent.Tools) == 0 {
+			items = append(items, catalogItem{id: "tools/none", title: "Tools · none declared"})
+		} else {
+			for _, toolID := range agent.Tools {
+				items = append(items, catalogItem{id: "tool/" + toolID, title: "Tool · " + toolID})
+			}
+		}
+		if agent.SystemPrompt != "" {
+			items = append(items, catalogItem{id: "prompt", title: "Prompt", desc: agent.SystemPrompt})
+		}
+		return catalogBrowserLoadedMsg{
+			kind: catalogKindAgentDetail, items: items, mcpServerID: agentID,
+		}
+	}
+}
+
 func catalogBrowserTitle(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindMcp:
@@ -283,6 +355,8 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Skills"
 	case catalogKindMcpDetail:
 		return "MCP detail"
+	case catalogKindAgentDetail:
+		return "Agent detail"
 	case catalogKindAgents:
 		return "Agents"
 	}
@@ -310,13 +384,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// LLL2: in MCP detail, esc pops back to parent server list
 		// rather than closing the whole modal — gives back-out
 		// affordance without juggling separate keys.
-		if cb.kind == catalogKindMcpDetail && cb.parent != nil {
+		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 			return a, nil
 		}
 		a.closeCatalogBrowser()
 	case "backspace":
-		if cb.kind == catalogKindMcpDetail && cb.parent != nil {
+		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 		}
 	case "enter":
@@ -324,6 +398,26 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindMcp && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			return a, a.openMcpDetail(it.id, it.title)
+		}
+		if cb.kind == catalogKindAgents && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, a.openAgentDetail(it.id, it.title)
+		}
+		if cb.kind == catalogKindAgentDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			text := strings.TrimSpace(it.desc)
+			if text == "" {
+				text = it.title
+			}
+			a.detailView = &bulkyPartRef{
+				messageID: "catalog",
+				partID:    it.id,
+				title:     it.title,
+				fullText:  text,
+			}
+			a.detailViewOpen = true
+			a.detailScroll = 0
+			return a, nil
 		}
 		// Other kinds: enter still closes (back-compat).
 		a.closeCatalogBrowser()
@@ -340,10 +434,12 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.sel > 0 {
 			cb.sel--
 		}
+		cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
 	case "down", "j":
 		if cb.sel < len(cb.items)-1 {
 			cb.sel++
 		}
+		cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
 	case "i":
 		// Install a third-party MCP server. Closes the catalog and
 		// opens the small inline install overlay. Only meaningful in
@@ -378,6 +474,28 @@ func (a *App) toggleToolDisabled(id string) {
 	if a.SaveConfig != nil {
 		_ = a.SaveConfig()
 	}
+}
+
+const catalogBrowserRowBudget = 12
+
+func catalogBrowserClampOffset(sel, offset, itemCount int) int {
+	if itemCount <= catalogBrowserRowBudget {
+		return 0
+	}
+	maxOffset := itemCount - catalogBrowserRowBudget
+	if offset > maxOffset {
+		offset = maxOffset
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if sel < offset {
+		return sel
+	}
+	if sel >= offset+catalogBrowserRowBudget {
+		return sel - catalogBrowserRowBudget + 1
+	}
+	return offset
 }
 
 // SetDisabledTools seeds the disabled-tools set from main on startup
@@ -416,8 +534,7 @@ func (a *App) viewCatalogBrowser() string {
 	title := lipgloss.NewStyle().
 		Background(t.Primary).Foreground(t.Bg).Bold(true).
 		Padding(0, 2).Width(w - 4).Render(a.catalogBrowser.title)
-	const rowBudget = 12
-	rows := make([]string, 0, rowBudget)
+	rows := make([]string, 0, catalogBrowserRowBudget)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
 	}
@@ -425,12 +542,19 @@ func (a *App) viewCatalogBrowser() string {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).
 			Render("error: "+a.catalogBrowser.errText))
 	}
-	for i, item := range a.catalogBrowser.items {
-		if i >= rowBudget {
-			rows = append(rows, t.HintLabel.Italic(true).Render(
-				fmt.Sprintf("… and %d more", len(a.catalogBrowser.items)-rowBudget)))
-			break
-		}
+	a.catalogBrowser.offset = catalogBrowserClampOffset(
+		a.catalogBrowser.sel,
+		a.catalogBrowser.offset,
+		len(a.catalogBrowser.items),
+	)
+	start := a.catalogBrowser.offset
+	end := min(len(a.catalogBrowser.items), start+catalogBrowserRowBudget)
+	if start > 0 {
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			fmt.Sprintf("… %d above", start)))
+	}
+	for i := start; i < end; i++ {
+		item := a.catalogBrowser.items[i]
 		marker := "  "
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
 		// LLL2: dim disabled tools so the user can scan what's off
@@ -475,8 +599,12 @@ func (a *App) viewCatalogBrowser() string {
 			rows = append(rows, descLine)
 		}
 	}
+	if end < len(a.catalogBrowser.items) {
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			fmt.Sprintf("… and %d more", len(a.catalogBrowser.items)-end)))
+	}
 	// Pad to fixed height.
-	for len(rows) < rowBudget {
+	for len(rows) < catalogBrowserRowBudget {
 		rows = append(rows, "")
 	}
 
@@ -488,7 +616,11 @@ func (a *App) viewCatalogBrowser() string {
 		hintText = "↑/↓ navigate · Space toggle · Esc close"
 	case catalogKindMcp:
 		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
+	case catalogKindAgents:
+		hintText = "↑/↓ navigate · Enter details · Esc close"
 	case catalogKindMcpDetail:
+		hintText = "↑/↓ navigate · Esc/Backspace back"
+	case catalogKindAgentDetail:
 		hintText = "↑/↓ navigate · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"

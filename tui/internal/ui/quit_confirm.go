@@ -115,18 +115,17 @@ func (a *App) viewQuitConfirm() string {
 	}
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Warning).
-		Render("Close the TUI?")
+		Render(a.localizer.t(msgQuitTitle, nil))
 	hint := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Render("The session stays alive on the backend regardless.\n" +
-			"`close` cancels the current turn; `detach` leaves it running.")
+		Render(a.localizer.t(msgQuitHint, nil))
 
 	// Three option chips. Selected has Secondary fg + bg tint so it
 	// reads as a button; others are muted.
 	var chips []string
 	labels := []string{
-		"close",  // 0 — yes, quit
-		"no",     // 1 — keep running
-		"detach", // 2 — Ctrl+Z style
+		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
+		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
+		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
 	}
 	keyHints := []string{"y", "n", "d"}
 	for i, label := range labels {
@@ -149,7 +148,7 @@ func (a *App) viewQuitConfirm() string {
 	row := lipgloss.JoinHorizontal(lipgloss.Top, chips...)
 
 	keyLine := lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-		"←/→ move  ·  Enter fire  ·  Esc cancel  ·  Ctrl+C accept")
+		a.localizer.t(msgQuitKeyHint, nil))
 
 	box := lipgloss.JoinVertical(lipgloss.Left,
 		title, "", hint, "", row, "", keyLine)

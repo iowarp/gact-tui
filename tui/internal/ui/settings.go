@@ -15,19 +15,22 @@ import (
 // settingsState holds the Settings modal's internal state. Lives on App
 // when settingsOpen is true.
 type settingsState struct {
-	tab       int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs
-	agentSel  int // index into agentList
-	themeSel  int // 0 = dark, 1 = light
-	tuiRow    int // TUI tab active row (0 = collapse threshold)
-	agentList []gact.AgentDef
-	loadErr   string // set when loadSettingsCmd surfaces failures
+	tab         int // 0 = Model, 1 = Agent, 2 = Theme, 3 = TUI prefs, 4 = Language
+	agentSel    int // index into agentList
+	agentScroll int // first visible row in the Agent tab list
+	themeSel    int // index into AllThemeModes
+	tuiRow      int // TUI tab active row (0 = collapse threshold)
+	languageSel int // index into availableLanguageOptions()
+	agentList   []gact.AgentDef
+	loadErr     string // set when loadSettingsCmd surfaces failures
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
-// 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1).
-const tuiPrefsRowCount = 5
+// 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1),
+// 5=terminal mouse capture.
+const tuiPrefsRowCount = 6
 
 // YYYYY1: paste-compress threshold steps by 1 line (small range
 // — 2 means "compress almost everything", 20 means "rarely
@@ -51,7 +54,7 @@ const (
 // settingsTabCount is the canonical number of tabs — updating the list
 // in viewSettings without touching the wrap-around in handleSettingsKey
 // caused Tab to go stale in past iterations. Single source of truth.
-const settingsTabCount = 4
+const settingsTabCount = 5
 
 // loadSettingsCmd fetches the agent catalog for the Agent tab. Model
 // data is intentionally NOT fetched here — Tab 0 hands off to the
@@ -82,7 +85,15 @@ func applySettingsCmd(c *client.Client, sessionID string, model *gact.ModelRef, 
 		if err != nil {
 			return errMsg{err: err, stage: "patch-session"}
 		}
-		return sessionUpdatedMsg{session: updated}
+		msg := sessionUpdatedMsg{session: updated}
+		if model != nil {
+			ref := *model
+			msg.model = &ref
+		}
+		if agent != nil {
+			msg.agentID = agent.ID
+		}
+		return msg
 	}
 }
 
@@ -93,6 +104,19 @@ type settingsLoadedMsg struct {
 
 type sessionUpdatedMsg struct {
 	session gact.Session
+	model   *gact.ModelRef
+	agentID string
+}
+
+func selectableSessionAgents(agents []gact.AgentDef) []gact.AgentDef {
+	out := make([]gact.AgentDef, 0, len(agents))
+	for _, ag := range agents {
+		if ag.Source == "skill" || ag.Tier == 3 {
+			continue
+		}
+		out = append(out, ag)
+	}
+	return out
 }
 
 // handleSettingsKey routes keypresses while the Settings modal is open.
@@ -120,6 +144,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.agentSel > 0 {
 				s.agentSel--
 			}
+			a.ensureAgentSelectionVisible()
 		case 2:
 			if s.themeSel > 0 {
 				s.themeSel--
@@ -129,6 +154,11 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.tuiRow > 0 {
 				s.tuiRow--
 			}
+		case 4:
+			if s.languageSel > 0 {
+				s.languageSel--
+			}
+			a.previewLanguage(s.languageSel)
 		}
 		return a, nil
 	case "down", "j":
@@ -140,6 +170,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.agentSel < len(s.agentList)-1 {
 				s.agentSel++
 			}
+			a.ensureAgentSelectionVisible()
 		case 2:
 			if s.themeSel < len(AllThemeModes)-1 {
 				s.themeSel++
@@ -149,6 +180,11 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.tuiRow < tuiPrefsRowCount-1 {
 				s.tuiRow++
 			}
+		case 4:
+			if s.languageSel < len(availableLanguageOptions())-1 {
+				s.languageSel++
+			}
+			a.previewLanguage(s.languageSel)
 		}
 		return a, nil
 	case "left", "h":
@@ -193,6 +229,9 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				// YYYYY1: intro toggle is bool — left/right both flip.
 				a.IntroDisabled = !a.IntroDisabled
 				a.persistPrefs()
+			case 5:
+				a.MouseEnabled = !a.MouseEnabled
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -226,6 +265,9 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case 4:
 				a.IntroDisabled = !a.IntroDisabled
 				a.persistPrefs()
+			case 5:
+				a.MouseEnabled = !a.MouseEnabled
+				a.persistPrefs()
 			}
 		}
 		return a, nil
@@ -258,9 +300,25 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "theme: " + ThemeModeName(mode)
 			a.persistPrefs()
 			return a, nil
+		case 1:
+			a.openSettingsAgentDetail()
+			return a, nil
 		case 3:
 			// TUI prefs tab is read-only for now — Enter just closes.
 			a.settingsOpen = false
+			return a, nil
+		}
+		if s.tab == 4 {
+			opt := activeLanguageOption(a.Locale())
+			options := availableLanguageOptions()
+			if s.languageSel >= 0 && s.languageSel < len(options) {
+				opt = options[s.languageSel]
+			}
+			a.SetLocale(opt.Locale)
+			a.settingsOpen = false
+			a.transientHint = a.localizer.t(msgLanguageApplied,
+				map[string]string{"label": a.localizer.languageOptionLabel(opt)})
+			a.persistPrefs()
 			return a, nil
 		}
 		sid := a.currentSessionID()
@@ -289,7 +347,13 @@ func (a *App) viewSettings() string {
 	w := a.modalWidth()
 
 	tabs := func(i int) string {
-		labels := []string{"Model", "Agent", "Theme", "TUI"}
+		labels := []string{
+			a.localizer.t(msgSettingsTabModel, nil),
+			a.localizer.t(msgSettingsTabAgent, nil),
+			a.localizer.t(msgSettingsTabTheme, nil),
+			a.localizer.t(msgSettingsTabTUI, nil),
+			a.localizer.t(msgSettingsTabLanguage, nil),
+		}
 		var rendered []string
 		for j, l := range labels {
 			st := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
@@ -324,7 +388,7 @@ func (a *App) viewSettings() string {
 	// a floating dim word.
 	titleBar := lipgloss.NewStyle().
 		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render("Settings")
+		Padding(0, 2).Width(w - 4).Render(a.localizer.t(msgSettingsTitle, nil))
 
 	rows := []string{
 		titleBar,
@@ -374,45 +438,65 @@ func (a *App) viewSettings() string {
 		// point. Embedding the full picker inside Settings duplicated
 		// state and produced a cramped layout — the standalone modal
 		// already has the wide list view + advanced collapse.
-		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentModel, "(unset)")))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": orPlaceholder(currentModel, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
-		rows = append(rows, rowLine(true, "Change provider…",
-			"open the provider/model picker (global CLIO LM)"))
+		rows = append(rows, rowLine(true, a.localizer.t(msgSettingsModelChange, nil),
+			a.localizer.t(msgSettingsModelChangeDesc, nil)))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"Enter opens the same picker shown on first connect — "+
-				"saving there reconfigures CLIO's active global LM."))
+			a.localizer.t(msgSettingsModelHint, nil)))
 	case 1:
-		rows = append(rows, t.HintLabel.Render("current: "+orPlaceholder(currentAgent, "(unset)")))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": orPlaceholder(currentAgent, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
 		if len(s.agentList) == 0 {
-			rows = append(rows, t.HintLabel.Render("loading…"))
+			rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsLoading, nil)))
 		}
-		for i, ag := range s.agentList {
-			rows = append(rows, rowLine(i == s.agentSel, ag.ID, ag.Title))
+		if s.agentSel >= len(s.agentList) {
+			s.agentSel = max(0, len(s.agentList)-1)
+		}
+		a.ensureAgentSelectionVisible()
+		start, end := a.visibleAgentRange()
+		if start > 0 {
+			rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(start)))
+		}
+		for i, ag := range s.agentList[start:end] {
+			absolute := start + i
+			rows = append(rows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+		}
+		if end < len(s.agentList) {
+			rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(s.agentList)-end)))
+		}
+		if len(s.agentList) > 0 {
+			rows = append(rows, "")
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Details"))
+			detailLines := a.agentDetailLines(s.agentList[s.agentSel], w-4)
+			maxDetails := max(3, (a.height-4)/4)
+			if len(detailLines) > maxDetails {
+				detailLines = append(detailLines[:maxDetails], t.HintLabel.Render("  …"))
+			}
+			rows = append(rows, detailLines...)
 		}
 	case 2:
 		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
 		// previews live so users can see what they're picking
 		// before committing. Enter commits + persists via N5's
 		// config hook.
-		rows = append(rows, t.HintLabel.Render("current: "+themeName(a.Theme)))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
+			map[string]string{"value": a.localizedThemeName(ThemeModeFor(a.Theme))})))
 		rows = append(rows, "")
 		for i, mode := range AllThemeModes {
-			label := ThemeModeName(mode)
-			if mode == ModeCustom {
-				label = customThemeDisplayName
-			}
-			rows = append(rows, rowLine(i == s.themeSel, label, themeDescription(mode)))
+			rows = append(rows, rowLine(i == s.themeSel, a.localizedThemeName(mode), a.localizedThemeDescription(mode)))
 		}
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"↑/↓ previews live · Enter commits + persists to ~/.config/gact/config.json"))
+			a.localizer.t(messageID("settings.theme.hint"), nil)))
 	case 3:
 		// TUI preferences. Mix of editable knobs and read-only runtime
 		// state. Editable rows have ◀/▶ affordances; the selected row
 		// is highlighted so ←/→ target is unambiguous.
-		rows = append(rows, t.HintLabel.Render("Display preferences"))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIDisplayPrefs, nil)))
 		rows = append(rows, "")
 
 		// LLLLL1: shared editable-row renderer for the TUI tab so
@@ -436,56 +520,74 @@ func (a *App) viewSettings() string {
 		}
 
 		rows = append(rows, editableRow(0,
-			"collapse threshold",
-			"◀ "+itoa2(a.Theme.CollapseThreshold)+" lines ▶",
-			"tool_result bodies longer than N lines collapse to a preview. "+
-				"Ctrl+E opens the full content.")...)
+			a.localizer.t(messageID("settings.tui.collapse_threshold"), nil),
+			"◀ "+itoa2(a.Theme.CollapseThreshold)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))...)
 		rows = append(rows, editableRow(1,
-			"cost warn tokens   ",
+			a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil),
 			"◀ "+humanTokens(a.Theme.CostWarnTokens)+" ▶",
-			"footer turns yellow when input tokens cross this threshold "+
-				"(approaching the model's context window).")...)
+			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))...)
 		rows = append(rows, editableRow(2,
-			"cost danger tokens ",
+			a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil),
 			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
-			"footer turns red — usually the hard ceiling of typical "+
-				"frontier-model context windows.")...)
+			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))...)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
 			pt = 3
 		}
 		rows = append(rows, editableRow(3,
-			"paste compress     ",
-			"◀ "+itoa2(pt)+" lines ▶",
-			"bracketed pastes ≥ N lines collapse to a "+
-				"`[pasted content: N lines]` placeholder; Ctrl+P to expand.")...)
-		introState := "off"
+			a.localizer.t(messageID("settings.tui.paste_compress"), nil),
+			"◀ "+itoa2(pt)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))...)
+		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
-			introState = "on  (skip splash)"
+			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
 		} else {
-			introState = "off (show splash)"
+			introState = a.localizer.t(msgSettingsOff, nil) + " (" + a.localizer.t(messageID("settings.tui.show_splash"), nil) + ")"
 		}
 		rows = append(rows, editableRow(4,
-			"intro splash skip  ",
+			a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil),
 			"◀ "+introState+" ▶",
-			"persists to config; --no-intro CLI flag still wins as override.")...)
+			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))...)
+
+		mouseState := a.localizer.t(msgSettingsOn, nil)
+		if !a.MouseEnabled {
+			mouseState = a.localizer.t(msgSettingsOff, nil)
+		}
+		rows = append(rows, editableRow(5,
+			a.localizer.t(messageID("settings.tui.mouse_controls"), nil),
+			"◀ "+mouseState+" ▶",
+			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))...)
 
 		// Read-only runtime state for confirmation.
-		rows = append(rows, t.HintLabel.Render("Runtime state (edit config.json to change)"))
-		rows = append(rows, "  "+t.HintKey.Render("backend URL  ")+a.BackendURL)
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIBackendURL, nil)+"  ")+a.BackendURL)
 		if a.VoiceCommand == "" {
-			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+t.HintLabel.Render("(unset — Ctrl+Y sends placeholder)"))
+			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+t.HintLabel.Render(a.localizer.t(msgSettingsTUIVoiceUnset, nil)))
 		} else {
-			rows = append(rows, "  "+t.HintKey.Render("voice cmd    ")+a.VoiceCommand)
+			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+a.VoiceCommand)
 		}
-		rows = append(rows, "  "+t.HintKey.Render("theme        ")+themeName(a.Theme))
-		rows = append(rows, "  "+t.HintKey.Render("AltScreen    ")+boolPretty(!a.DisableAltScreen))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUITheme, nil)+"        ")+a.localizedThemeName(ThemeModeFor(a.Theme)))
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIAltScreen, nil)+"    ")+a.boolPretty(!a.DisableAltScreen))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"←/→ on the selected row adjusts the value. Ctrl+L reloads the config file."))
+			a.localizer.t(msgSettingsTUIAdjustHint, nil)))
 	}
-	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Tab switch tab  Enter apply  Esc close"))
+	if s.tab == 4 {
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageCurrent, nil)+": "+
+			a.localizer.activeLanguageLabel()))
+		rows = append(rows, "")
+		for i, opt := range availableLanguageOptions() {
+			rows = append(rows, rowLine(i == s.languageSel,
+				a.localizer.languageOptionLabel(opt), opt.Locale))
+		}
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageDescription, nil)))
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
+	}
+	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return lipgloss.NewStyle().
@@ -514,12 +616,296 @@ func themeName(t Theme) string {
 	return ThemeModeName(ThemeModeFor(t))
 }
 
+func (a *App) localizedThemeName(mode ThemeMode) string {
+	switch mode {
+	case ModeDark:
+		return a.localizer.t(messageID("settings.theme.dark"), nil)
+	case ModeLight:
+		return a.localizer.t(messageID("settings.theme.light"), nil)
+	case ModeDracula:
+		return a.localizer.t(messageID("settings.theme.dracula"), nil)
+	case ModeSolarizedDark:
+		return a.localizer.t(messageID("settings.theme.solarized_dark"), nil)
+	case ModeSolarizedLight:
+		return a.localizer.t(messageID("settings.theme.solarized_light"), nil)
+	case ModeNord:
+		return a.localizer.t(messageID("settings.theme.nord"), nil)
+	case ModeTokyoNight:
+		return a.localizer.t(messageID("settings.theme.tokyo_night"), nil)
+	case ModeCustom:
+		return a.localizer.t(messageID("settings.theme.custom"), nil)
+	default:
+		return ThemeModeName(mode)
+	}
+}
+
+func (a *App) localizedThemeDescription(mode ThemeMode) string {
+	switch mode {
+	case ModeDark:
+		return a.localizer.t(messageID("settings.theme.desc.dark"), nil)
+	case ModeLight:
+		return a.localizer.t(messageID("settings.theme.desc.light"), nil)
+	case ModeDracula:
+		return a.localizer.t(messageID("settings.theme.desc.dracula"), nil)
+	case ModeSolarizedDark:
+		return a.localizer.t(messageID("settings.theme.desc.solarized_dark"), nil)
+	case ModeSolarizedLight:
+		return a.localizer.t(messageID("settings.theme.desc.solarized_light"), nil)
+	case ModeNord:
+		return a.localizer.t(messageID("settings.theme.desc.nord"), nil)
+	case ModeTokyoNight:
+		return a.localizer.t(messageID("settings.theme.desc.tokyo_night"), nil)
+	case ModeCustom:
+		return a.localizer.t(messageID("settings.theme.desc.custom"), nil)
+	default:
+		return ""
+	}
+}
+
+func (a *App) localizedAgentTitle(ag gact.AgentDef) string {
+	if key := knownAgentLocaleKey(ag.ID, false); key != "" {
+		return a.localizer.t(messageID(key), nil)
+	}
+	if strings.TrimSpace(ag.Title) != "" {
+		return ag.Title
+	}
+	return ag.ID
+}
+
+func (a *App) localizedAgentDescription(ag gact.AgentDef) string {
+	if key := knownAgentLocaleKey(ag.ID, true); key != "" {
+		return a.localizer.t(messageID(key), nil)
+	}
+	return ag.Description
+}
+
+func (a *App) visibleAgentRange() (int, int) {
+	if a.settings == nil || len(a.settings.agentList) == 0 {
+		return 0, 0
+	}
+	visible := a.maxVisibleAgentRows()
+	if visible > len(a.settings.agentList) {
+		visible = len(a.settings.agentList)
+	}
+	start := a.settings.agentScroll
+	if start < 0 {
+		start = 0
+	}
+	if start > len(a.settings.agentList)-visible {
+		start = len(a.settings.agentList) - visible
+	}
+	end := start + visible
+	a.settings.agentScroll = start
+	return start, end
+}
+
+func (a *App) maxVisibleAgentRows() int {
+	visible := a.height - 24
+	if visible < 4 {
+		visible = 4
+	}
+	if visible > 12 {
+		visible = 12
+	}
+	return visible
+}
+
+func (a *App) ensureAgentSelectionVisible() {
+	if a.settings == nil {
+		return
+	}
+	if a.settings.agentSel < 0 {
+		a.settings.agentSel = 0
+	}
+	if a.settings.agentSel >= len(a.settings.agentList) {
+		a.settings.agentSel = max(0, len(a.settings.agentList)-1)
+	}
+	visible := a.maxVisibleAgentRows()
+	if a.settings.agentSel < a.settings.agentScroll {
+		a.settings.agentScroll = a.settings.agentSel
+	}
+	if a.settings.agentSel >= a.settings.agentScroll+visible {
+		a.settings.agentScroll = a.settings.agentSel - visible + 1
+	}
+	if a.settings.agentScroll < 0 {
+		a.settings.agentScroll = 0
+	}
+}
+
+func (a *App) openSettingsAgentDetail() {
+	if a.settings == nil || a.settings.agentSel < 0 || a.settings.agentSel >= len(a.settings.agentList) {
+		return
+	}
+	ag := a.settings.agentList[a.settings.agentSel]
+	ref := bulkyPartRef{
+		messageID: "settings",
+		partID:    "agent-" + ag.ID,
+		title:     "Agent · " + a.localizedAgentTitle(ag),
+		fullText:  a.agentDetailText(ag),
+	}
+	a.detailView = &ref
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
+	t := a.Theme
+	lines := make([]string, 0, 8)
+	add := func(label string, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		line := lipgloss.NewStyle().Foreground(t.FgMuted).Render("  "+label+": ") +
+			lipgloss.NewStyle().Foreground(t.Fg).Render(value)
+		lines = append(lines, truncate(line, width))
+	}
+	add("ID", ag.ID)
+	add("Source", ag.Source)
+	if ag.Tier > 0 {
+		add("Tier", itoa2(ag.Tier))
+	}
+	add("Specialization", ag.Specialization)
+	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
+		add("Routes to", strings.Join(routes, ", "))
+	}
+	if delegates := stringListFromMetadata(ag.Metadata, "delegates_to"); len(delegates) > 0 {
+		add("Delegates to", strings.Join(delegates, ", "))
+	}
+	if ag.DefaultModel != nil && ag.DefaultModel.ModelID != "" {
+		model := ag.DefaultModel.ModelID
+		if ag.DefaultModel.ProviderID != "" {
+			model = ag.DefaultModel.ProviderID + "/" + model
+		}
+		add("Default model", model)
+	}
+	if len(ag.Tools) > 0 {
+		add("Tools", strings.Join(ag.Tools, ", "))
+	} else {
+		add("Tools", "none declared")
+	}
+	if len(ag.Keywords) > 0 {
+		add("Keywords", strings.Join(ag.Keywords, ", "))
+	}
+	add("Prompt", ag.SystemPrompt)
+	return lines
+}
+
+func (a *App) agentDetailText(ag gact.AgentDef) string {
+	lines := []string{
+		"Title: " + a.localizedAgentTitle(ag),
+		"ID: " + ag.ID,
+		"Source: " + ag.Source,
+	}
+	if ag.Tier > 0 {
+		lines = append(lines, "Tier: "+itoa2(ag.Tier))
+	}
+	if ag.Specialization != "" {
+		lines = append(lines, "Specialization: "+ag.Specialization)
+	}
+	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
+		lines = append(lines, "", "Routes to:")
+		lines = append(lines, bulletLines(routes)...)
+	}
+	if delegates := stringListFromMetadata(ag.Metadata, "delegates_to"); len(delegates) > 0 {
+		lines = append(lines, "", "Delegates to:")
+		lines = append(lines, bulletLines(delegates)...)
+	}
+	if len(ag.Tools) > 0 {
+		lines = append(lines, "", "Tools:")
+		lines = append(lines, bulletLines(ag.Tools)...)
+	}
+	if len(ag.Keywords) > 0 {
+		lines = append(lines, "", "Routing keywords:")
+		lines = append(lines, bulletLines(ag.Keywords)...)
+	}
+	if strings.TrimSpace(ag.SystemPrompt) != "" {
+		lines = append(lines, "", "Prompt:", strings.TrimSpace(ag.SystemPrompt))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func bulletLines(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			out = append(out, "  - "+item)
+		}
+	}
+	return out
+}
+
+func stringListFromMetadata(metadata map[string]any, key string) []string {
+	if len(metadata) == 0 {
+		return nil
+	}
+	raw, ok := metadata[key]
+	if !ok {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func knownAgentLocaleKey(id string, description bool) string {
+	normalized := strings.ToLower(strings.TrimSpace(id))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, ".", "_")
+	normalized = strings.ReplaceAll(normalized, ":", "_")
+	if normalized == "" {
+		return ""
+	}
+	switch normalized {
+	case "default", "main", "chat", "data", "analysis", "visualization", "utility", "adios_validator", "data_validator":
+	default:
+		return ""
+	}
+	if description {
+		return "settings.agent.desc." + normalized
+	}
+	return "settings.agent." + normalized
+}
+
 // boolPretty renders a bool as "on"/"off" for the TUI-prefs tab.
 func boolPretty(b bool) string {
 	if b {
 		return "on"
 	}
 	return "off"
+}
+
+func (a *App) boolPretty(b bool) string {
+	if b {
+		return a.localizer.t(msgSettingsOn, nil)
+	}
+	return a.localizer.t(msgSettingsOff, nil)
+}
+
+func (a *App) seedSettingsSelections() {
+	if a.settings == nil {
+		a.settings = &settingsState{}
+	}
+	cur := ThemeModeFor(a.Theme)
+	for i, mode := range AllThemeModes {
+		if mode == cur {
+			a.settings.themeSel = i
+			break
+		}
+	}
+	a.settings.languageSel = languageIndex(a.Locale())
 }
 
 // previewTheme live-swaps a.Theme as the user steps through the
@@ -534,6 +920,14 @@ func (a *App) previewTheme(idx int) {
 	a.Theme = ThemeForMode(AllThemeModes[idx])
 	a.Theme.CollapseThreshold = prev
 	a.Theme.applyStyles()
+}
+
+func (a *App) previewLanguage(idx int) {
+	options := availableLanguageOptions()
+	if idx < 0 || idx >= len(options) {
+		return
+	}
+	a.SetLocale(options[idx].Locale)
 }
 
 // themeDescription returns a one-line hint shown next to each palette
