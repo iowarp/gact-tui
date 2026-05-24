@@ -6,6 +6,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -72,6 +74,42 @@ type catalogBrowserLoadedMsg struct {
 	// loads — protects against late-arriving messages overwriting a
 	// browser the user has since navigated back from.
 	mcpServerID string
+}
+
+type catalogDetailLoadedMsg struct {
+	title string
+	text  string
+	err   error
+}
+
+func loadToolDetailCmd(c *client.Client, toolID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		tool, err := c.GetTool(ctx, toolID)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: "Tool · " + toolID, err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: "Tool · " + firstNonEmpty(tool.Title, tool.Name, tool.ID),
+			text:  formatToolDetail(tool),
+		}
+	}
+}
+
+func loadMcpResourceDetailCmd(c *client.Client, serverID, uri, title string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		contents, err := c.McpResourceRead(ctx, serverID, uri)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: firstNonEmpty(title, uri), err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: firstNonEmpty(title, uri),
+			text:  formatMcpResourceContents(contents),
+		}
+	}
 }
 
 func plural(n int) string {
@@ -164,7 +202,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				if kind == catalogKindSkills && a.Source != "skill" {
 					continue
 				}
-				if kind == catalogKindAgents && (a.Source == "skill" || a.Tier == 3) {
+				if kind == catalogKindAgents && a.Source == "skill" {
 					continue
 				}
 				desc := a.Description
@@ -174,8 +212,23 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 					}
 					desc += "model: " + a.DefaultModel.ModelID
 				}
+				title := a.Title
+				if kind == catalogKindAgents {
+					if parent := stringFromMetadata(a.Metadata, "parent"); parent != "" {
+						title = "  -> " + title
+						if desc != "" {
+							desc += " "
+						}
+						desc += "(child of " + parent + ")"
+					} else if a.Tier > 0 {
+						if desc != "" {
+							desc += " "
+						}
+						desc += "(tier " + itoa2(a.Tier) + ")"
+					}
+				}
 				items = append(items, catalogItem{
-					id: a.ID, title: a.Title, desc: desc,
+					id: a.ID, title: title, desc: desc,
 					statusTag: a.Source,
 				})
 			}
@@ -251,8 +304,9 @@ func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
 			errs = append(errs, "tools: "+err.Error())
 		} else {
 			for _, t := range tools {
+				toolID := firstNonEmpty(t.ID, t.Name)
 				items = append(items, catalogItem{
-					id: "tool/" + t.ID, title: "[tool] " + t.Name, desc: t.Description,
+					id: "tool/" + toolID, title: "[tool] " + firstNonEmpty(t.Name, toolID), desc: t.Description,
 				})
 			}
 		}
@@ -303,17 +357,33 @@ func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
 				kind: catalogKindAgentDetail, errText: err.Error(), mcpServerID: agentID,
 			}
 		}
+		allAgents, _ := c.ListAgents(ctx)
+		allTools, _ := c.ListTools(ctx)
+		visibleTools := toolsForAgent(agent, allTools)
 		items := []catalogItem{{
 			id:        "agent/" + agent.ID,
 			title:     "Agent · " + agent.Title,
 			desc:      agent.Description,
 			statusTag: agent.Source,
 		}}
+		if parent := agentParentID(agent); parent != "" {
+			items = append(items, catalogItem{
+				id: "agent/" + parent, title: "Parent agent · " + agentTitleByID(allAgents, parent),
+			})
+		}
+		for _, child := range childAgentsOf(allAgents, agent.ID) {
+			items = append(items, catalogItem{
+				id: "agent/" + child.ID, title: "Child agent · " + firstNonEmpty(child.Title, child.ID), desc: child.Description, statusTag: child.Source,
+			})
+		}
 		if agent.Specialization != "" {
 			items = append(items, catalogItem{
 				id: "specialization", title: "Specialization · " + agent.Specialization,
 			})
 		}
+		items = append(items, catalogItem{
+			id: "model", title: "Default model", desc: agentModelText(agent),
+		})
 		if routes := stringListFromMetadata(agent.Metadata, "routes_to"); len(routes) > 0 {
 			items = append(items, catalogItem{
 				id: "routes", title: "Routes to", desc: strings.Join(routes, ", "),
@@ -329,11 +399,24 @@ func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
 				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
 			})
 		}
-		if len(agent.Tools) == 0 {
+		if len(visibleTools) == 0 {
 			items = append(items, catalogItem{id: "tools/none", title: "Tools · none declared"})
 		} else {
-			for _, toolID := range agent.Tools {
-				items = append(items, catalogItem{id: "tool/" + toolID, title: "Tool · " + toolID})
+			for _, tool := range visibleTools {
+				toolID := firstNonEmpty(tool.ID, tool.Name)
+				items = append(items, catalogItem{
+					id:        "tool/" + toolID,
+					title:     "Tool · " + firstNonEmpty(tool.Name, toolID),
+					desc:      toolSummary(tool),
+					statusTag: tool.Owner,
+				})
+			}
+			for _, server := range mcpServersForTools(visibleTools) {
+				items = append(items, catalogItem{
+					id:    "mcpserver/" + server,
+					title: "MCP server · " + server,
+					desc:  "source server for visible tools",
+				})
 			}
 		}
 		if agent.SystemPrompt != "" {
@@ -399,24 +482,51 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			it := cb.items[cb.sel]
 			return a, a.openMcpDetail(it.id, it.title)
 		}
-		if cb.kind == catalogKindAgents && cb.sel >= 0 && cb.sel < len(cb.items) {
+		if (cb.kind == catalogKindAgents || cb.kind == catalogKindSkills) && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			if it.id == "none" {
+				return a, nil
+			}
 			return a, a.openAgentDetail(it.id, it.title)
+		}
+		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, loadToolDetailCmd(a.c, it.id)
+		}
+		if cb.kind == catalogKindMcpDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			switch {
+			case strings.HasPrefix(it.id, "tool/"):
+				return a, loadToolDetailCmd(a.c, strings.TrimPrefix(it.id, "tool/"))
+			case strings.HasPrefix(it.id, "res/"):
+				uri := strings.TrimPrefix(it.id, "res/")
+				return a, loadMcpResourceDetailCmd(a.c, cb.mcpServerID, uri, it.title)
+			default:
+				text := strings.TrimSpace(it.desc)
+				if text == "" {
+					text = it.title
+				}
+				a.openCatalogDetail(it.title, text)
+				return a, nil
+			}
 		}
 		if cb.kind == catalogKindAgentDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			if strings.HasPrefix(it.id, "agent/") {
+				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+			}
+			if strings.HasPrefix(it.id, "tool/") {
+				return a, loadToolDetailCmd(a.c, strings.TrimPrefix(it.id, "tool/"))
+			}
+			if strings.HasPrefix(it.id, "mcpserver/") {
+				serverID := strings.TrimPrefix(it.id, "mcpserver/")
+				return a, a.openMcpDetail(serverID, it.title)
+			}
 			text := strings.TrimSpace(it.desc)
 			if text == "" {
 				text = it.title
 			}
-			a.detailView = &bulkyPartRef{
-				messageID: "catalog",
-				partID:    it.id,
-				title:     it.title,
-				fullText:  text,
-			}
-			a.detailViewOpen = true
-			a.detailScroll = 0
+			a.openCatalogDetail(it.title, text)
 			return a, nil
 		}
 		// Other kinds: enter still closes (back-compat).
@@ -474,6 +584,17 @@ func (a *App) toggleToolDisabled(id string) {
 	if a.SaveConfig != nil {
 		_ = a.SaveConfig()
 	}
+}
+
+func (a *App) openCatalogDetail(title, text string) {
+	a.detailView = &bulkyPartRef{
+		messageID: "catalog",
+		partID:    strings.ToLower(strings.ReplaceAll(title, " ", "-")),
+		title:     title,
+		fullText:  text,
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
 }
 
 const catalogBrowserRowBudget = 12
@@ -662,4 +783,209 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		return catalogKindAgents, true
 	}
 	return 0, false
+}
+
+func stringFromMetadata(metadata map[string]any, key string) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	if value, ok := metadata[key].(string); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+func agentParentID(agent gact.AgentDef) string {
+	if parent := stringFromMetadata(agent.Metadata, "parent"); parent != "" {
+		return parent
+	}
+	return stringFromMetadata(agent.Metadata, "parent_id")
+}
+
+func childAgentsOf(agents []gact.AgentDef, parentID string) []gact.AgentDef {
+	out := make([]gact.AgentDef, 0)
+	for _, agent := range agents {
+		if agent.ID == parentID {
+			continue
+		}
+		if agentParentID(agent) == parentID {
+			out = append(out, agent)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return firstNonEmpty(out[i].Title, out[i].ID) < firstNonEmpty(out[j].Title, out[j].ID)
+	})
+	return out
+}
+
+func agentTitleByID(agents []gact.AgentDef, id string) string {
+	for _, agent := range agents {
+		if agent.ID == id {
+			return firstNonEmpty(agent.Title, agent.ID)
+		}
+	}
+	return id
+}
+
+func agentModelText(agent gact.AgentDef) string {
+	if agent.DefaultModel == nil {
+		return "backend/session default"
+	}
+	parts := make([]string, 0, 3)
+	if agent.DefaultModel.ProviderID != "" {
+		parts = append(parts, "provider: "+agent.DefaultModel.ProviderID)
+	}
+	if agent.DefaultModel.ModelID != "" {
+		parts = append(parts, "model: "+agent.DefaultModel.ModelID)
+	}
+	if agent.DefaultModel.Variant != "" {
+		parts = append(parts, "variant: "+agent.DefaultModel.Variant)
+	}
+	if len(parts) == 0 {
+		return "backend/session default"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func toolsForAgent(agent gact.AgentDef, tools []gact.Tool) []gact.Tool {
+	declared := map[string]bool{}
+	for _, toolID := range agent.Tools {
+		declared[toolID] = true
+	}
+	out := make([]gact.Tool, 0)
+	seen := map[string]bool{}
+	for _, tool := range tools {
+		toolID := firstNonEmpty(tool.ID, tool.Name)
+		if toolID == "" || seen[toolID] {
+			continue
+		}
+		if declared[toolID] || stringInSlice(tool.VisibleTo, agent.ID) {
+			out = append(out, tool)
+			seen[toolID] = true
+		}
+	}
+	if len(out) == 0 && len(declared) > 0 {
+		for _, toolID := range agent.Tools {
+			if toolID != "" && !seen[toolID] {
+				out = append(out, gact.Tool{ID: toolID, Name: toolID})
+				seen[toolID] = true
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return firstNonEmpty(out[i].Name, out[i].ID) < firstNonEmpty(out[j].Name, out[j].ID)
+	})
+	return out
+}
+
+func toolSummary(tool gact.Tool) string {
+	parts := make([]string, 0, 4)
+	if strings.TrimSpace(tool.Description) != "" {
+		parts = append(parts, strings.TrimSpace(tool.Description))
+	}
+	if tool.ServerID != "" {
+		parts = append(parts, "server: "+tool.ServerID)
+	}
+	if len(tool.Tags) > 0 {
+		parts = append(parts, "tags: "+strings.Join(tool.Tags, ", "))
+	}
+	if len(tool.VisibleTo) > 0 {
+		parts = append(parts, "visible to: "+strings.Join(tool.VisibleTo, ", "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func mcpServersForTools(tools []gact.Tool) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0)
+	for _, tool := range tools {
+		serverID := strings.TrimSpace(tool.ServerID)
+		if serverID == "" || seen[serverID] {
+			continue
+		}
+		seen[serverID] = true
+		out = append(out, serverID)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func stringInSlice(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func formatToolDetail(tool gact.Tool) string {
+	rows := []string{
+		"name: " + firstNonEmpty(tool.Name, tool.ID),
+		"id: " + tool.ID,
+		"source: " + firstNonEmpty(tool.Source, "unknown"),
+	}
+	if tool.ServerID != "" {
+		rows = append(rows, "mcp_server: "+tool.ServerID)
+	}
+	if tool.Owner != "" {
+		rows = append(rows, "owner: "+tool.Owner)
+	}
+	if len(tool.VisibleTo) > 0 {
+		rows = append(rows, "visible_to: "+strings.Join(tool.VisibleTo, ", "))
+	}
+	if len(tool.Tags) > 0 {
+		rows = append(rows, "tags: "+strings.Join(tool.Tags, ", "))
+	}
+	if tool.PermissionDefault != "" {
+		rows = append(rows, "permission: "+tool.PermissionDefault)
+	}
+	if strings.TrimSpace(tool.Description) != "" {
+		rows = append(rows, "", "description:", strings.TrimSpace(tool.Description))
+	}
+	rows = appendJSONMapSection(rows, "input_schema", tool.InputSchema)
+	rows = appendJSONMapSection(rows, "output_schema", tool.OutputSchema)
+	if tool.Annotations != nil {
+		if payload, err := json.MarshalIndent(tool.Annotations, "", "  "); err == nil {
+			rows = append(rows, "", "annotations:", string(payload))
+		}
+	}
+	return strings.Join(rows, "\n")
+}
+
+func appendJSONMapSection(rows []string, label string, payload map[string]any) []string {
+	if len(payload) == 0 {
+		return rows
+	}
+	if body, err := json.MarshalIndent(payload, "", "  "); err == nil {
+		return append(rows, "", label+":", string(body))
+	}
+	return append(rows, "", label+":", fmt.Sprint(payload))
+}
+
+func formatMcpResourceContents(contents []gact.McpContent) string {
+	if len(contents) == 0 {
+		return "(resource returned no content)"
+	}
+	rows := make([]string, 0, len(contents)*5)
+	for i, content := range contents {
+		if i > 0 {
+			rows = append(rows, "")
+		}
+		title := content.URI
+		if title == "" {
+			title = fmt.Sprintf("content[%d]", i)
+		}
+		rows = append(rows, title)
+		if content.MimeType != "" {
+			rows = append(rows, "mime_type: "+content.MimeType)
+		}
+		if content.Text != "" {
+			rows = append(rows, "", content.Text)
+		}
+		if content.Data != "" {
+			rows = append(rows, "", fmt.Sprintf("base64_data: %d bytes encoded", len(content.Data)))
+		}
+	}
+	return strings.Join(rows, "\n")
 }

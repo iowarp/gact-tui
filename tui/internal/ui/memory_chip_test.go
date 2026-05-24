@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
@@ -88,6 +90,71 @@ func TestFooter_ContextHintsChangeByFocus(t *testing.T) {
 		if !strings.Contains(input, want) {
 			t.Fatalf("input footer missing %q:\n%s", want, input)
 		}
+	}
+}
+
+func TestFormatMemoryInspectorShowsSessionAndGlobalContext(t *testing.T) {
+	budget := 4000
+	out := formatMemoryInspector(gact.MemoryStats{
+		Cache: gact.CacheStats{Hits: 3, Misses: 1, HitRate: 0.75, Capacity: 64},
+		Global: gact.GlobalMemoryStats{
+			ConversationsTotal: 5,
+			InvocationsTotal:   9,
+		},
+		Session: &gact.SessionMemoryStats{
+			SessionID:        "sess_1",
+			MessagesRetained: 7,
+			TokensRetained:   1234,
+			TokensBudget:     &budget,
+			ProfilesAttached: 2,
+		},
+	})
+
+	for _, want := range []string{
+		"ARC cache",
+		"hit_rate: 75.0%",
+		"Global memory",
+		"conversations_total: 5",
+		"Current session context",
+		"messages_retained: 7",
+		"tokens_budget: 4000",
+		"profiles_attached: 2",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestPaletteMemoryCommandLoadsInspectorWhenSupported(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.Memory = true
+	a.paletteOpen = true
+	a.paletteFilter = "/memory"
+
+	_, cmd := a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("/memory should load the memory inspector when capabilities.memory is true")
+	}
+	if a.paletteOpen {
+		t.Fatal("/memory should close the command palette before opening detail")
+	}
+}
+
+func TestPaletteMemoryCommandExplainsUnsupportedBackend(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.Memory = false
+	a.paletteOpen = true
+	a.paletteFilter = "/memory"
+
+	_, cmd := a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("unsupported /memory should return a hint-expiry command")
+	}
+	if !strings.Contains(a.transientHint, "unsupported") {
+		t.Fatalf("unsupported /memory should explain the missing backend capability, got %q", a.transientHint)
 	}
 }
 
