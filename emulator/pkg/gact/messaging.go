@@ -63,6 +63,7 @@ const (
 	PartTypeError            = "error"
 	PartTypeCompaction       = "compaction"
 	PartTypeRoutingDecision  = "routing_decision" // v0.2 §4.5
+	PartTypeExpertHandoff    = "expert_handoff"
 )
 
 // Workspace is the parent of sessions (SPEC §4.1).
