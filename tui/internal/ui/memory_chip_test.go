@@ -70,7 +70,7 @@ func TestFooter_ContextHintsChangeByFocus(t *testing.T) {
 
 	a.focus = FocusSidebar
 	sidebar := stripANSI(a.renderFooter())
-	for _, want := range []string{"Enter open", "e rename", "d delete"} {
+	for _, want := range []string{"Enter open", "e rename", "x delete", "c children"} {
 		if !strings.Contains(sidebar, want) {
 			t.Fatalf("sidebar footer missing %q:\n%s", want, sidebar)
 		}

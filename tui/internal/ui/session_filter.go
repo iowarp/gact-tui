@@ -33,6 +33,9 @@ func (a *App) sessionMatchesFilter(s gact.Session) bool {
 func (a *App) visibleSessionIndexes() []int {
 	out := make([]int, 0, len(a.sessions))
 	for i, s := range a.sessions {
+		if isChildSession(s) && !a.showChildSessions {
+			continue
+		}
 		if !a.sessionMatchesFilter(s) {
 			continue
 		}

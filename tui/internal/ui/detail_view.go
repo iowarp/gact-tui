@@ -233,6 +233,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 		}, true
 
 	case gact.PartTypeRoutingDecision, gact.PartTypeThinking,
+		gact.PartTypeExpertHandoff,
 		gact.PartTypeSubagentCall, gact.PartTypeSubagentResult,
 		gact.PartTypeError, gact.PartTypeCompaction,
 		gact.PartTypeResource, gact.PartTypeResourceLink,
@@ -279,6 +280,8 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
 		title = "routing decision"
+	case gact.PartTypeExpertHandoff:
+		title = "expert handoff"
 	case gact.PartTypeToolResult:
 		title = "tool result"
 	case gact.PartTypeText:
@@ -322,6 +325,22 @@ func partDetailText(p gact.Part) string {
 		}
 		if p.Rationale != "" {
 			rows = append(rows, "", "rationale:", p.Rationale)
+		}
+	case gact.PartTypeExpertHandoff:
+		rows = append(rows, fmt.Sprintf("summary: %s", orPlaceholder(p.Text, "none")))
+		for _, key := range []string{
+			"agent_id",
+			"parent_id",
+			"dispatch_target",
+			"stage",
+			"status",
+			"duration_ms",
+			"input_summary",
+			"output_summary",
+		} {
+			if value, ok := p.Metadata[key]; ok && value != nil {
+				rows = append(rows, fmt.Sprintf("%s: %v", key, value))
+			}
 		}
 	case gact.PartTypeToolResult:
 		rows = append(rows,

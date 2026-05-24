@@ -46,6 +46,31 @@ func TestAdjustScrollForSelectedPart_BringsMarkerIntoView(t *testing.T) {
 	}
 }
 
+func TestAdjustScrollForSelectedPart_UsesCurrentSelectionMarker(t *testing.T) {
+	var lines []string
+	for i := 0; i < 60; i++ {
+		if i == 9 {
+			lines = append(lines, "▌ selected tool call")
+		} else {
+			lines = append(lines, "line "+itos(i))
+		}
+	}
+	body := strings.Join(lines, "\n")
+
+	a := &App{stickyToBottom: true}
+	a.adjustScrollForSelectedPart(body, 12)
+
+	start := 60 - 12 - a.scrollOffset
+	if a.stickyToBottom {
+		start = 60 - 12
+	}
+	end := start + 12
+	if 9 < start || 9 >= end {
+		t.Fatalf("current selection marker row not visible [%d,%d); scrollOffset=%d sticky=%v",
+			start, end, a.scrollOffset, a.stickyToBottom)
+	}
+}
+
 // VVVVVVVVV1: when the marker is ALREADY in the upper 2/3 of the
 // viewport the adjustment should be a no-op (no UI jitter as the
 // user walks through adjacent parts that happen to be on-screen).

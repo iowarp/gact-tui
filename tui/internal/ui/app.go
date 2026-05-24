@@ -452,6 +452,11 @@ type App struct {
 	// the JJJJJJJJ1 `d` detached-only pattern.
 	showBusyOnly bool
 
+	// showChildSessions expands materialized child/nanoagent sessions
+	// in the sidebar. Default is collapsed so benchmark runs with many
+	// child sessions keep top-level conversations scannable.
+	showChildSessions bool
+
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
 	// sessionFilterActive is true only while the user is editing the
@@ -694,7 +699,7 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 		// Reverse so we have chronological (oldest-first) order for display.
 		out := make([]gact.Message, len(msgs))
 		for i, m := range msgs {
-			normalizeMessageToolEvidence(&m)
+			normalizeMessagePresentation(&m)
 			out[len(msgs)-1-i] = m
 		}
 		return messagesLoadedMsg{sessionID: sessionID, messages: out}
@@ -3409,6 +3414,14 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "showing all sessions"
 		}
 		a.ensureSelectedVisible()
+	case "c":
+		a.showChildSessions = !a.showChildSessions
+		if a.showChildSessions {
+			a.transientHint = "showing child sessions (c to collapse)"
+		} else {
+			a.transientHint = "child sessions collapsed (c to show)"
+		}
+		a.ensureSelectedVisible()
 	}
 	return a, nil
 }
@@ -4088,9 +4101,106 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 		for k, v := range metadata {
 			a.messages[i].Metadata[k] = v
 		}
-		normalizeMessageToolEvidence(&a.messages[i])
+		normalizeMessagePresentation(&a.messages[i])
 		return
 	}
+}
+
+func normalizeMessagePresentation(m *gact.Message) {
+	normalizeMessageExpertHandoffs(m)
+	normalizeMessageToolEvidence(m)
+}
+
+func normalizeMessageExpertHandoffs(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartType(m, gact.PartTypeExpertHandoff) {
+		return
+	}
+	rows := normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])
+	if len(rows) == 0 {
+		return
+	}
+	synthetic := make([]gact.Part, 0, len(rows))
+	for i, row := range rows {
+		md := map[string]any{}
+		for k, v := range row {
+			md[k] = v
+		}
+		md["synthetic_from"] = "expert_handoffs_metadata"
+		synthetic = append(synthetic, gact.Part{
+			ID:       fmt.Sprintf("synthetic_expert_handoff_%d", i+1),
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     expertHandoffSummary(row),
+			Metadata: md,
+		})
+	}
+	insertAt := len(m.Parts)
+	for i, part := range m.Parts {
+		if part.Type == gact.PartTypeThinking || part.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+len(synthetic))
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, synthetic...)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func messageHasPartType(m *gact.Message, partType string) bool {
+	for _, part := range m.Parts {
+		if part.Type == partType {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeExpertHandoffRows(raw any) []map[string]any {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	rows := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if row, ok := item.(map[string]any); ok {
+			rows = append(rows, row)
+		}
+	}
+	return rows
+}
+
+func expertHandoffSummary(row map[string]any) string {
+	agent := firstNonEmpty(
+		stringValue(row["agent_id"]),
+		stringValue(row["expert"]),
+		"expert",
+	)
+	parent := firstNonEmpty(
+		stringValue(row["parent_id"]),
+		stringValue(row["parent"]),
+	)
+	stage := firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["dispatch_target"]),
+	)
+	status := firstNonEmpty(stringValue(row["status"]), "observed")
+	output := firstNonEmpty(
+		stringValue(row["output_summary"]),
+		stringValue(row["summary"]),
+	)
+	route := agent
+	if parent != "" {
+		route = parent + " -> " + agent
+	}
+	bits := []string{route, status}
+	if stage != "" {
+		bits = append(bits, stage)
+	}
+	if output != "" {
+		bits = append(bits, output)
+	}
+	return strings.Join(bits, " | ")
 }
 
 // normalizeMessageToolEvidence promotes CLIO's metadata-only tool telemetry
@@ -4128,10 +4238,11 @@ func normalizeMessageToolEvidence(m *gact.Message) {
 			Content: []gact.Part{{
 				ID:   "synthetic_" + callID + "_result_text",
 				Type: gact.PartTypeText,
-				Text: toolEvidenceResultText(row.Result),
+				Text: toolEvidenceResultText(row.Name, row.Result),
 			}},
 			Metadata: map[string]any{
 				"synthetic_from": "tools_called_metadata",
+				"raw_result":     row.Result,
 			},
 		}
 		if row.DurationMS != nil {
@@ -4169,9 +4280,12 @@ func toolEvidenceInput(raw any) map[string]any {
 	return map[string]any{"args": raw}
 }
 
-func toolEvidenceResultText(raw any) string {
+func toolEvidenceResultText(toolName string, raw any) string {
 	if raw == nil {
 		return ""
+	}
+	if summary := summarizeToolResult(toolName, raw); summary != "" {
+		return summary
 	}
 	if result, ok := raw.(map[string]any); ok {
 		if stdout, ok := result["stdout"].(string); ok && strings.TrimSpace(stdout) != "" {
@@ -4185,6 +4299,123 @@ func toolEvidenceResultText(raw any) string {
 		return text
 	}
 	return fmt.Sprint(raw)
+}
+
+func summarizeToolResult(toolName string, raw any) string {
+	result, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	lowerTool := strings.ToLower(toolName)
+	if strings.HasPrefix(lowerTool, "ndp_") {
+		if text := summarizeNDPResult(result); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func summarizeNDPResult(result map[string]any) string {
+	var rows []string
+	if status := stringValue(result["status"]); status != "" {
+		rows = append(rows, "status: "+status)
+	} else if meta, ok := result["_meta"].(map[string]any); ok {
+		if status := stringValue(meta["status"]); status != "" {
+			rows = append(rows, "status: "+status)
+		}
+	}
+	if count, ok := floatValue(result["count"]); ok {
+		rows = append(rows, fmt.Sprintf("count: %.0f", count))
+	}
+	if ds, ok := result["datasets"].(map[string]any); ok {
+		if items, ok := ds["items"].([]any); ok {
+			rows = append(rows, summarizeNDPItems("datasets", items)...)
+		}
+	}
+	if orgs, ok := result["organizations"].(map[string]any); ok {
+		if items, ok := orgs["items"].([]any); ok {
+			rows = append(rows, summarizeNDPItems("organizations", items)...)
+		}
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	return strings.Join(rows, "\n")
+}
+
+func summarizeNDPItems(label string, items []any) []string {
+	rows := []string{fmt.Sprintf("%s:", label)}
+	limit := min(len(items), 5)
+	for i := 0; i < limit; i++ {
+		item, ok := items[i].(map[string]any)
+		if !ok {
+			continue
+		}
+		title := firstNonEmpty(
+			stringValue(item["title"]),
+			stringValue(item["name"]),
+			stringValue(item["id"]),
+		)
+		if title == "" {
+			title = "(untitled)"
+		}
+		var bits []string
+		if org := stringValue(item["owner_org"]); org != "" {
+			bits = append(bits, "org: "+org)
+		}
+		if n, ok := floatValue(item["resource_count"]); ok {
+			bits = append(bits, fmt.Sprintf("resources: %.0f", n))
+		}
+		if formats := compactStringItems(item["resource_formats"]); formats != "" {
+			bits = append(bits, "formats: "+formats)
+		}
+		if url := firstCompactStringItem(item["resource_urls"]); url != "" {
+			bits = append(bits, "url: "+url)
+		}
+		suffix := ""
+		if len(bits) > 0 {
+			suffix = " · " + strings.Join(bits, " · ")
+		}
+		rows = append(rows, "- "+title+suffix)
+	}
+	if hidden := len(items) - limit; hidden > 0 {
+		rows = append(rows, fmt.Sprintf("... %d more", hidden))
+	}
+	return rows
+}
+
+func compactStringItems(raw any) string {
+	container, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	items, ok := container["items"].([]any)
+	if !ok {
+		return ""
+	}
+	values := make([]string, 0, min(len(items), 4))
+	for _, item := range items {
+		value := strings.TrimSpace(fmt.Sprint(item))
+		if value != "" {
+			values = append(values, value)
+		}
+		if len(values) >= 4 {
+			break
+		}
+	}
+	return strings.Join(values, ", ")
+}
+
+func firstCompactStringItem(raw any) string {
+	container, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	items, ok := container["items"].([]any)
+	if !ok || len(items) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(items[0]))
 }
 
 // applyCostUpdated rolls the latest cost/tokens into the local sessions
@@ -5051,7 +5282,8 @@ func (a *App) footerContextHints(mk func(string, string) string) []string {
 			mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
 			mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
 			mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
-			mk("d", a.localizer.t(msgFooterSidebarDelete, nil)),
+			mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
+			mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
 			mk("o", a.localizer.t(msgFooterSidebarContext, nil)),
 		}
 	case FocusBody:
@@ -5144,6 +5376,9 @@ func (a *App) renderSidebar(width, height int) string {
 		titleText = a.localizer.t(msgSidebarTitleDetached, nil)
 	case a.showBusyOnly:
 		titleText = a.localizer.t(msgSidebarTitleBusy, nil)
+	}
+	if a.showChildSessions {
+		titleText += " · " + a.localizer.t(msgSidebarTitleChildren, nil)
 	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
 	rows := []string{title, ""}
@@ -5242,11 +5477,13 @@ func (a *App) renderSidebar(width, height int) string {
 		sIdx := visIdx[i]
 		s := a.sessions[sIdx]
 		marker := "  "
-		indent := ""
+		titleIndent := ""
+		statusIndent := "    "
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
 		statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
-		if s.ParentSessionID != "" {
-			indent = "  └ "
+		if isChildSession(s) {
+			titleIndent = "  └─ "
+			statusIndent = "     "
 			titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
 		}
 		if sIdx == a.selected {
@@ -5281,11 +5518,12 @@ func (a *App) renderSidebar(width, height int) string {
 				Render("↩")
 		}
 		// Reserve room for badges so title truncation doesn't collide.
-		titleBudget := width - 8 - len(indent) - lipgloss.Width(taskBadge) - lipgloss.Width(detachBadge)
+		titleBudget := width - 8 - lipgloss.Width(titleIndent) -
+			lipgloss.Width(taskBadge) - lipgloss.Width(detachBadge)
 		if titleBudget < 6 {
 			titleBudget = 6
 		}
-		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
+		titleLine := marker + titleIndent + dot + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
 		// HHHHHHHH1: append humanized "Nm ago" to the status line so
 		// users can tell which sessions are stale at a glance. Sits
 		// next to the status word in the same muted italic — same
@@ -5293,10 +5531,21 @@ func (a *App) renderSidebar(width, height int) string {
 		// the backend hasn't filled in yet) renders without the age
 		// suffix so the row isn't a lie.
 		statusText := s.Status
+		if isChildSession(s) {
+			statusText = firstNonEmpty(sessionChildKind(s), "child") + " · " + statusText
+		}
+		if !a.showChildSessions && !isChildSession(s) {
+			if children := a.childSessionCount(s.ID); children > 0 {
+				statusText += fmt.Sprintf(" · %d child session%s collapsed", children, plural(children))
+			}
+		}
+		if tools := sessionToolCount(s); tools > 0 {
+			statusText += fmt.Sprintf(" · %d tool%s", tools, plural(tools))
+		}
 		if !s.UpdatedAt.IsZero() {
 			statusText += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
 		}
-		statusLine := "  " + indent + "  " + statusStyle.Render(statusText)
+		statusLine := statusIndent + statusStyle.Render(statusText)
 		rows = append(rows, titleLine, statusLine, "")
 	}
 	if endIdx < len(visIdx) {
@@ -5772,6 +6021,44 @@ func humanAgeShort(d time.Duration) string {
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 }
 
+func sessionChildKind(s gact.Session) string {
+	for _, key := range []string{"session_type", "kind", "runtime_type"} {
+		if value := stringValue(s.Metadata[key]); value != "" {
+			return value
+		}
+	}
+	if s.Agent.Mode != "" {
+		return s.Agent.Mode
+	}
+	return ""
+}
+
+func isChildSession(s gact.Session) bool {
+	return s.ParentSessionID != ""
+}
+
+func (a *App) childSessionCount(parentID string) int {
+	if parentID == "" {
+		return 0
+	}
+	count := 0
+	for _, s := range a.sessions {
+		if s.ParentSessionID == parentID {
+			count++
+		}
+	}
+	return count
+}
+
+func sessionToolCount(s gact.Session) int {
+	for _, key := range []string{"tool_count", "tools_count"} {
+		if n, ok := floatValue(s.Metadata[key]); ok && n > 0 {
+			return int(n)
+		}
+	}
+	return 0
+}
+
 // prependGutter inserts gutter at the start of every line of s.
 // Used by the V3 search-hit marker so a message's gutter shows up
 // on every wrapped row, not just the first.
@@ -5865,15 +6152,24 @@ func fitLines(s string, n int) string {
 //	          == len(lines) - maxRows - scrollOffset + margin
 //	scrollOffset = len(lines) - markerRow - maxRows + margin
 func (a *App) adjustScrollForSelectedPart(body string, viewportH int) {
-	const marker = "▸ "
-	if !strings.Contains(body, marker) {
+	plainBody := ansi.Strip(body)
+	marker := "▌ "
+	idx := strings.Index(plainBody, marker)
+	if idx < 0 {
+		// Older tests and historical render paths used the routing
+		// triangle as the cursor marker. Prefer the current bar marker
+		// so routing-decision triangles do not steal the scroll target,
+		// but keep this fallback for compatibility.
+		marker = "▸ "
+		idx = strings.Index(plainBody, marker)
+	}
+	if !strings.Contains(plainBody, marker) {
 		return
 	}
-	// Line index of the first ▸ occurrence. We only emit the marker
+	// Line index of the first cursor occurrence. We only emit the marker
 	// on the selected part's first line, so this is unambiguous.
-	idx := strings.Index(body, marker)
-	markerRow := strings.Count(body[:idx], "\n")
-	totalLines := strings.Count(body, "\n") + 1
+	markerRow := strings.Count(plainBody[:idx], "\n")
+	totalLines := strings.Count(plainBody, "\n") + 1
 	if viewportH < 1 {
 		viewportH = 1
 	}

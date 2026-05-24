@@ -1004,6 +1004,48 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			Render(indent(wrap(p.Rationale, wrapW-2), "  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, rationale)
 
+	case gact.PartTypeExpertHandoff:
+		agent := firstNonEmpty(
+			stringValue(p.Metadata["agent_id"]),
+			stringValue(p.Metadata["expert"]),
+			"expert",
+		)
+		parent := firstNonEmpty(
+			stringValue(p.Metadata["parent_id"]),
+			stringValue(p.Metadata["parent"]),
+		)
+		stage := firstNonEmpty(
+			stringValue(p.Metadata["stage"]),
+			stringValue(p.Metadata["dispatch_target"]),
+		)
+		status := firstNonEmpty(stringValue(p.Metadata["status"]), "observed")
+		route := agent
+		if parent != "" {
+			route = parent + " -> " + agent
+		}
+		glyph := lipgloss.NewStyle().Foreground(agentColor(t, agent)).Bold(true).Render("↳ ")
+		head := glyph + lipgloss.NewStyle().Foreground(agentColor(t, agent)).Bold(true).Render(route)
+		meta := []string{status}
+		if stage != "" {
+			meta = append(meta, stage)
+		}
+		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
+			meta = append(meta, fmt.Sprintf("%.0fms", duration))
+		}
+		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+			lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
+		output := firstNonEmpty(
+			stringValue(p.Metadata["output_summary"]),
+			stringValue(p.Metadata["summary"]),
+			p.Text,
+		)
+		if output == "" {
+			return head
+		}
+		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(indent(wrap(output, wrapW-2), "  "))
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
 	case gact.PartTypeToolCall:
 		// Claude-Code style: `ToolName(summary_of_input)` header with
 		// the input inlined as a one-liner when it fits, "…" when it
@@ -1070,7 +1112,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			bodyStyle = bodyStyle.Foreground(t.Danger)
 		}
 
-		raw := text.String()
+		raw := wrap(text.String(), wrapW-3)
 		threshold := t.CollapseThreshold
 		if threshold <= 0 {
 			threshold = toolResultPreviewLines
@@ -1202,6 +1244,23 @@ func wrap(s string, width int) string {
 		words := strings.Fields(line)
 		cur := ""
 		for _, w := range words {
+			if lipgloss.Width(w) > width {
+				if cur != "" {
+					out.WriteString(cur)
+					out.WriteString("\n")
+					cur = ""
+				}
+				chunks := hardWrapWord(w, width)
+				for i, chunk := range chunks {
+					if i == len(chunks)-1 {
+						cur = chunk
+					} else {
+						out.WriteString(chunk)
+						out.WriteString("\n")
+					}
+				}
+				continue
+			}
 			if lipgloss.Width(cur)+lipgloss.Width(w)+1 > width {
 				if cur != "" {
 					out.WriteString(cur)
@@ -1222,6 +1281,29 @@ func wrap(s string, width int) string {
 		}
 	}
 	return strings.TrimRight(out.String(), "\n")
+}
+
+func hardWrapWord(word string, width int) []string {
+	if width <= 0 || lipgloss.Width(word) <= width {
+		return []string{word}
+	}
+	var chunks []string
+	var cur strings.Builder
+	curW := 0
+	for _, r := range word {
+		rw := lipgloss.Width(string(r))
+		if curW > 0 && curW+rw > width {
+			chunks = append(chunks, cur.String())
+			cur.Reset()
+			curW = 0
+		}
+		cur.WriteRune(r)
+		curW += rw
+	}
+	if cur.Len() > 0 {
+		chunks = append(chunks, cur.String())
+	}
+	return chunks
 }
 
 // indent prefixes every line of s with prefix.

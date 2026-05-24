@@ -3,9 +3,11 @@ package ui
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -88,5 +90,84 @@ func TestSidebarNav_GIsNoopAtFirst(t *testing.T) {
 	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	if cmd != nil {
 		t.Error("g at first should not emit a Cmd (no reload)")
+	}
+}
+
+func TestSidebarRendersChildSessionKindAndToolCount(t *testing.T) {
+	a := makeSidebarApp(t, 2)
+	a.showChildSessions = true
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{
+			ID:              "child",
+			Title:           "csv_validator subagent",
+			ParentSessionID: "parent",
+			Status:          gact.StatusIdle,
+			Agent:           gact.AgentRef{ID: "csv_validator", Mode: "subagent"},
+			Metadata: map[string]any{
+				"session_type": "nanoagent",
+				"tool_count":   2.0,
+			},
+		},
+	}
+	a.selected = 1
+
+	out := ansi.Strip(a.renderSidebar(42, 20))
+	for _, want := range []string{"└─", "csv_validator subagent", "nanoagent · idle · 2 tools"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("sidebar missing child metadata %q:\n%s", want, out)
+		}
+	}
+	if strings.Count(out, "└") != 1 {
+		t.Fatalf("child connector should render once per row, got:\n%s", out)
+	}
+}
+
+func TestSidebarCollapsesChildSessionsByDefault(t *testing.T) {
+	a := makeSidebarApp(t, 2)
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{
+			ID:              "child",
+			Title:           "csv_validator subagent",
+			ParentSessionID: "parent",
+			Status:          gact.StatusIdle,
+			Metadata:        map[string]any{"session_type": "nanoagent"},
+		},
+	}
+	a.selected = 0
+
+	vis := a.visibleSessionIndexes()
+	if len(vis) != 1 || vis[0] != 0 {
+		t.Fatalf("collapsed children should leave only parent visible, got %v", vis)
+	}
+	out := ansi.Strip(a.renderSidebar(52, 20))
+	if strings.Contains(out, "csv_validator subagent") {
+		t.Fatalf("collapsed child title should not render:\n%s", out)
+	}
+	if !strings.Contains(out, "1 child session collapsed") {
+		t.Fatalf("parent should show collapsed child count:\n%s", out)
+	}
+}
+
+func TestSidebarToggleChildSessions(t *testing.T) {
+	a := makeSidebarApp(t, 2)
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child", Title: "child", ParentSessionID: "parent", Status: gact.StatusIdle},
+	}
+
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	if !a.showChildSessions {
+		t.Fatal("c should expand child sessions")
+	}
+	vis := a.visibleSessionIndexes()
+	if len(vis) != 2 {
+		t.Fatalf("expanded children should be visible, got %v", vis)
+	}
+
+	a.handleSidebarKey(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	if a.showChildSessions {
+		t.Fatal("second c should collapse child sessions")
 	}
 }
