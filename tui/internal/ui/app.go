@@ -1677,6 +1677,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 		return a, nil
 
+	case catalogDetailLoadedMsg:
+		text := m.text
+		if m.err != nil {
+			text = "error: " + m.err.Error()
+		}
+		if strings.TrimSpace(text) == "" {
+			text = "(no detail returned)"
+		}
+		a.openCatalogDetail(m.title, text)
+		return a, nil
+
 	case mcpServersFetchedMsg:
 		a.mcpServers = m.servers
 		if a.mcpRemoveOpen {
@@ -2421,6 +2432,13 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.metrics = &metricsState{loading: true}
 				return a, loadMetricsCmd(a.c)
 			}
+			if cmd.ID == "/memory" {
+				if !a.caps.Capabilities.Memory {
+					a.transientHint = "memory inspector unsupported by this backend"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				return a, loadMemoryInspectorCmd(a.c, a.currentSessionID())
+			}
 
 			// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor opens the backend
 			// health modal — integrations array + overall_status so
@@ -3029,6 +3047,7 @@ func (a *App) paletteMatches() []gact.Command {
 	}
 	localCmds := []gact.Command{
 		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
+		localCmd("/memory", "command.memory.title", "command.memory.desc"),
 		localCmd("/theme", "command.theme.title", "command.theme.desc"),
 		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
 		localCmd("/mcp", "command.mcp.title", "command.mcp.desc"),
@@ -6133,6 +6152,7 @@ var helpTabs = []struct {
 			{"/theme", "help.commands.theme"},
 			{"/theme-export", "help.commands.theme_export"},
 			{"/metrics", "help.commands.metrics"},
+			{"/memory", "help.commands.memory"},
 			{"/theme-next", "help.commands.theme_next"},
 			{"/theme-prev", "help.commands.theme_prev"},
 			{"/duplicate", "help.commands.duplicate"},

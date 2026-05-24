@@ -1,10 +1,15 @@
 package ui
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // TestToggleToolDisabled_persists toggles a tool id and verifies the
@@ -136,6 +141,110 @@ func TestCatalogBrowser_EnterOnAgentDrillsIntoDetail(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	parent := &catalogBrowserState{
+		kind:  catalogKindSkills,
+		title: "Skills",
+		items: []catalogItem{{id: "tui-test", title: "TUI Test", statusTag: "skill"}},
+	}
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = parent
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if a.catalogBrowser == parent {
+		t.Fatal("enter on skill row did not replace browser with agent detail state")
+	}
+	if a.catalogBrowser.kind != catalogKindAgentDetail {
+		t.Fatalf("browser kind = %v, want catalogKindAgentDetail", a.catalogBrowser.kind)
+	}
+	if a.catalogBrowser.agentID != "tui-test" {
+		t.Fatalf("agentID = %q, want tui-test", a.catalogBrowser.agentID)
+	}
+	if cmd == nil {
+		t.Fatal("expected skill detail load command")
+	}
+}
+
+func TestLoadAgentsCatalogIncludesChildAgents(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/agents" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"agents": [
+				{"id":"data","source":"builtin","title":"Data expert","tier":2},
+				{"id":"ndp_catalog","source":"builtin","title":"NDP catalog","tier":3,"metadata":{"parent":"data"}},
+				{"id":"tui-test","source":"skill","title":"TUI Test","tier":3}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	msg := loadCatalogBrowserCmd(client.New(server.URL), catalogKindAgents)()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" {
+		t.Fatalf("unexpected catalog load error: %s", loaded.errText)
+	}
+
+	ids := map[string]bool{}
+	var childDesc string
+	for _, item := range loaded.items {
+		ids[item.id] = true
+		if item.id == "ndp_catalog" {
+			childDesc = item.desc
+		}
+	}
+	if !ids["data"] || !ids["ndp_catalog"] {
+		t.Fatalf("agents catalog should include parent and child agents, got %#v", loaded.items)
+	}
+	if ids["tui-test"] {
+		t.Fatalf("agents catalog should exclude skills, got %#v", loaded.items)
+	}
+	if !strings.Contains(childDesc, "child of data") {
+		t.Fatalf("child agent row should expose parent relationship, got %q", childDesc)
+	}
+}
+
+func TestCatalogBrowser_EnterOnToolRowLoadsToolDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{{id: "shell_bash", title: "shell_bash"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("enter on tool row should fetch tool detail")
+	}
+}
+
+func TestCatalogDetailLoadedOpensScrollableDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+
+	model, _ := a.Update(catalogDetailLoadedMsg{
+		title: "Tool · shell_bash",
+		text:  "owner: utility\nvisible_to: chat, planner, utility\ninput_schema:\n{}",
+	})
+	got := model.(*App)
+
+	if !got.detailViewOpen || got.detailView == nil {
+		t.Fatal("catalog detail should open detail view")
+	}
+	if !strings.Contains(got.detailView.fullText, "owner: utility") ||
+		!strings.Contains(got.detailView.fullText, "visible_to: chat") {
+		t.Fatalf("detail missing tool inspector metadata:\n%s", got.detailView.fullText)
+	}
+}
+
 func TestCatalogBrowser_EnterOnAgentDetailRowOpensDetailModal(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.catalogBrowserOpen = true
@@ -154,6 +263,215 @@ func TestCatalogBrowser_EnterOnAgentDetailRowOpensDetailModal(t *testing.T) {
 	}
 	if a.detailView.title != "Prompt" || !strings.Contains(a.detailView.fullText, "Route to") {
 		t.Fatalf("unexpected detail view: %#v", a.detailView)
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentDetailToolLoadsToolDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent · Utility",
+		items: []catalogItem{{id: "tool/shell_bash", title: "Tool · shell_bash"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("enter on agent tool row should fetch tool detail")
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentDetailChildDrills(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent · Data",
+		items: []catalogItem{{id: "agent/ndp_catalog", title: "Child agent · NDP Catalog"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if a.catalogBrowser.kind != catalogKindAgentDetail || a.catalogBrowser.agentID != "ndp_catalog" {
+		t.Fatalf("child drill did not open ndp_catalog detail: %#v", a.catalogBrowser)
+	}
+	if cmd == nil {
+		t.Fatal("expected child agent detail load command")
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentDetailMcpServerDrills(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent · Data",
+		items: []catalogItem{{id: "mcpserver/mcp_ndp", title: "MCP server · mcp_ndp"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if a.catalogBrowser.kind != catalogKindMcpDetail || a.catalogBrowser.mcpServerID != "mcp_ndp" {
+		t.Fatalf("MCP drill did not open mcp_ndp detail: %#v", a.catalogBrowser)
+	}
+	if cmd == nil {
+		t.Fatal("expected MCP detail load command")
+	}
+}
+
+func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/agents/data":
+			_, _ = w.Write([]byte(`{
+				"id":"data",
+				"source":"builtin",
+				"title":"Data expert",
+				"description":"Dataset inspection",
+				"default_model":{"provider_id":"lm_studio","model_id":"qwopus3.5-9b-v3"},
+				"tools":["ndp_search_datasets"]
+			}`))
+		case "/v1/agents":
+			_, _ = w.Write([]byte(`{"agents":[
+				{"id":"data","source":"builtin","title":"Data expert"},
+				{"id":"ndp_catalog","source":"builtin","title":"NDP catalog","metadata":{"parent":"data"}}
+			]}`))
+		case "/v1/tools":
+			_, _ = w.Write([]byte(`{"tools":[
+				{
+					"id":"ndp_search_datasets",
+					"name":"ndp_search_datasets",
+					"source":"mcp",
+					"server_id":"mcp_ndp",
+					"description":"Search NDP datasets",
+					"owner":"ndp_catalog",
+					"tags":["catalog"],
+					"visible_to":["data","ndp_catalog"],
+					"input_schema":{"type":"object"}
+				}
+			]}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	msg := loadAgentDetailCmd(client.New(server.URL), "data")()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" {
+		t.Fatalf("unexpected agent detail load error: %s", loaded.errText)
+	}
+
+	var hasTool, hasServer, hasChild, hasModel bool
+	for _, item := range loaded.items {
+		switch item.id {
+		case "model":
+			hasModel = strings.Contains(item.desc, "provider: lm_studio") &&
+				strings.Contains(item.desc, "model: qwopus3.5-9b-v3")
+		case "tool/ndp_search_datasets":
+			hasTool = strings.Contains(item.desc, "server: mcp_ndp") &&
+				strings.Contains(item.desc, "visible to: data, ndp_catalog")
+		case "mcpserver/mcp_ndp":
+			hasServer = true
+		case "agent/ndp_catalog":
+			hasChild = true
+		}
+	}
+	if !hasTool || !hasServer || !hasChild || !hasModel {
+		t.Fatalf("agent detail missing tool/server/child mapping: %#v", loaded.items)
+	}
+}
+
+func TestCatalogBrowser_EnterOnMcpResourceLoadsResourceDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "docs",
+		items:       []catalogItem{{id: "res/" + "file://resource", title: "[res] resource"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("enter on MCP resource should fetch resource contents")
+	}
+}
+
+func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/tools/shell_bash" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"shell_bash",
+			"name":"shell_bash",
+			"source":"mcp",
+			"server_id":"mcp_shell",
+			"description":"Run a shell command",
+			"permission_default":"ask",
+			"owner":"utility",
+			"tags":["shell","diagnostic"],
+			"visible_to":["chat","utility"],
+			"input_schema":{"type":"object","properties":{"command":{"type":"string"}}}
+		}`))
+	}))
+	defer server.Close()
+
+	msg := loadToolDetailCmd(client.New(server.URL), "shell_bash")()
+	detail, ok := msg.(catalogDetailLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogDetailLoadedMsg", msg)
+	}
+	if detail.err != nil {
+		t.Fatalf("unexpected detail load error: %v", detail.err)
+	}
+	for _, want := range []string{
+		"owner: utility",
+		"visible_to: chat, utility",
+		"input_schema:",
+		"command",
+	} {
+		if !strings.Contains(detail.text, want) {
+			t.Fatalf("loaded tool detail missing %q:\n%s", want, detail.text)
+		}
+	}
+}
+
+func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
+	out := formatToolDetail(gact.Tool{
+		ID:                "shell_bash",
+		Name:              "shell_bash",
+		Source:            "mcp",
+		ServerID:          "mcp_shell",
+		Description:       "Run a shell command",
+		PermissionDefault: "ask",
+		Owner:             "utility",
+		Tags:              []string{"shell", "diagnostic"},
+		VisibleTo:         []string{"chat", "planner", "utility"},
+		InputSchema: map[string]any{
+			"type": "object",
+		},
+	})
+
+	for _, want := range []string{
+		"owner: utility",
+		"visible_to: chat, planner, utility",
+		"tags: shell, diagnostic",
+		"permission: ask",
+		"mcp_server: mcp_shell",
+		"input_schema:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("tool detail missing %q:\n%s", want, out)
+		}
 	}
 }
 
