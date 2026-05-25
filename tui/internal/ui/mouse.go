@@ -352,10 +352,7 @@ func (a *App) handleDoctorMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, 
 }
 
 func (a *App) handleLMConfigMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, func() {
-		a.lmConfigOpen = false
-		a.lmConfig = nil
-	})
+	return a.closeOverlayOnOutside(rect, mouse, a.closeLMConfigModal)
 }
 
 func (a *App) handleRenameMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
