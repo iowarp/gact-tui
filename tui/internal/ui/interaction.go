@@ -242,6 +242,28 @@ func (a *App) registerModalListHits(modal string, rowOffset int, col int, width 
 	}
 }
 
+func moveSelection(sel int, count int, delta int) int {
+	if count <= 0 || delta == 0 {
+		return sel
+	}
+	sel += delta
+	if sel < 0 {
+		return 0
+	}
+	if sel >= count {
+		return count - 1
+	}
+	return sel
+}
+
+func moveScrollOffset(scroll int, delta int) int {
+	scroll += delta
+	if scroll < 0 {
+		return 0
+	}
+	return scroll
+}
+
 func boundedScrollWindow(total int, budget int, scroll int) scrollWindow {
 	if total < 0 {
 		total = 0

@@ -71,6 +71,34 @@ func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
 	}
 }
 
+func TestSelectionAndScrollMovementClamp(t *testing.T) {
+	selectionCases := []struct {
+		name  string
+		sel   int
+		count int
+		delta int
+		want  int
+	}{
+		{name: "moves down", sel: 1, count: 4, delta: 1, want: 2},
+		{name: "clamps first", sel: 0, count: 4, delta: -1, want: 0},
+		{name: "clamps last", sel: 3, count: 4, delta: 1, want: 3},
+		{name: "keeps empty", sel: 5, count: 0, delta: 1, want: 5},
+		{name: "keeps neutral", sel: 2, count: 4, delta: 0, want: 2},
+	}
+	for _, tc := range selectionCases {
+		if got := moveSelection(tc.sel, tc.count, tc.delta); got != tc.want {
+			t.Fatalf("%s: moveSelection = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+
+	if got := moveScrollOffset(0, -1); got != 0 {
+		t.Fatalf("moveScrollOffset should clamp at zero, got %d", got)
+	}
+	if got := moveScrollOffset(4, 1); got != 5 {
+		t.Fatalf("moveScrollOffset should increment, got %d", got)
+	}
+}
+
 func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

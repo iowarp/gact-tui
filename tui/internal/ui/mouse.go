@@ -156,6 +156,14 @@ func mouseWheelDelta(button tea.MouseButton) int {
 	}
 }
 
+func moveSelectionByWheel(sel int, count int, button tea.MouseButton) int {
+	return moveSelection(sel, count, mouseWheelDelta(button))
+}
+
+func moveScrollOffsetByWheel(scroll int, button tea.MouseButton) int {
+	return moveScrollOffset(scroll, mouseWheelDelta(button))
+}
+
 func keyMsg(s string) tea.KeyPressMsg {
 	switch s {
 	case "enter":
@@ -197,14 +205,7 @@ func (a *App) closeOverlayOnOutside(rect mouseRect, mouse tea.Mouse, close func(
 }
 
 func (a *App) handleDetailMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	switch m.Mouse().Button {
-	case tea.MouseWheelUp:
-		if a.detailScroll > 0 {
-			a.detailScroll--
-		}
-	case tea.MouseWheelDown:
-		a.detailScroll++
-	}
+	a.detailScroll = moveScrollOffsetByWheel(a.detailScroll, m.Mouse().Button)
 	return nil, true
 }
 
@@ -220,16 +221,7 @@ func (a *App) handleWorkspaceSwitchMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, boo
 	if len(a.workspaces) == 0 {
 		return nil, true
 	}
-	switch m.Mouse().Button {
-	case tea.MouseWheelUp:
-		if a.workspaceSwitchSel > 0 {
-			a.workspaceSwitchSel--
-		}
-	case tea.MouseWheelDown:
-		if a.workspaceSwitchSel < len(a.workspaces)-1 {
-			a.workspaceSwitchSel++
-		}
-	}
+	a.workspaceSwitchSel = moveSelectionByWheel(a.workspaceSwitchSel, len(a.workspaces), m.Mouse().Button)
 	return nil, true
 }
 
@@ -251,21 +243,12 @@ func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.
 }
 
 func (a *App) handlePaletteMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	delta := mouseWheelDelta(m.Mouse().Button)
-	if delta == 0 {
-		return nil, true
-	}
 	searchMode := a.isSearchMode()
 	rowCount := len(a.paletteMatches())
 	if searchMode {
 		rowCount = len(a.searchMatches)
 	}
-	if delta < 0 && a.paletteSel > 0 {
-		a.paletteSel--
-	}
-	if delta > 0 && a.paletteSel < rowCount-1 {
-		a.paletteSel++
-	}
+	a.paletteSel = moveSelectionByWheel(a.paletteSel, rowCount, m.Mouse().Button)
 	return nil, true
 }
 
@@ -290,16 +273,7 @@ func (a *App) handleFilePickerMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
 		return nil, true
 	}
 	matches := a.filePickerMatches()
-	switch m.Mouse().Button {
-	case tea.MouseWheelUp:
-		if a.filePicker.sel > 0 {
-			a.filePicker.sel--
-		}
-	case tea.MouseWheelDown:
-		if a.filePicker.sel < len(matches)-1 {
-			a.filePicker.sel++
-		}
-	}
+	a.filePicker.sel = moveSelectionByWheel(a.filePicker.sel, len(matches), m.Mouse().Button)
 	return nil, true
 }
 
@@ -320,16 +294,7 @@ func (a *App) handleCatalogBrowserMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool
 		return nil, true
 	}
 	cb := a.catalogBrowser
-	switch m.Mouse().Button {
-	case tea.MouseWheelUp:
-		if cb.sel > 0 {
-			cb.sel--
-		}
-	case tea.MouseWheelDown:
-		if cb.sel < len(cb.items)-1 {
-			cb.sel++
-		}
-	}
+	cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), m.Mouse().Button)
 	cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
 	return nil, true
 }
