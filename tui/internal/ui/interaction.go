@@ -159,6 +159,22 @@ func (a *App) registerModalButtons(modal string, row int, startCol int, buttons 
 	}
 }
 
+func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
+	cells := make([]string, 0, len(buttons))
+	for i, button := range buttons {
+		style := lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Padding(0, 2)
+		if i == selected {
+			style = lipgloss.NewStyle().
+				Foreground(a.Theme.Bg).
+				Background(a.Theme.Secondary).
+				Bold(true).
+				Padding(0, 2)
+		}
+		cells = append(cells, style.Render(button.label))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+}
+
 func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
 	t := a.Theme
 	width := opts.width

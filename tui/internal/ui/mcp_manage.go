@@ -194,6 +194,26 @@ type mcpUninstallDoneMsg struct {
 func (a *App) viewMcpInstall() string {
 	t := a.Theme
 	w := a.modalWidth()
+	buttons := []menuButton{
+		{
+			id:    "mcp-install:install",
+			label: "install",
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.handleMcpInstallKey(keyMsg("enter"))
+				return cmd
+			},
+		},
+		{
+			id:    "mcp-install:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.mcpInstallOpen = false
+				app.mcpInstallInput = ""
+				app.mcpInstallErr = ""
+				return nil
+			},
+		},
+	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Install MCP server")
 	hint := t.HintLabel.Render(
 		"  stdio: files stdio mcp-files /tmp\n" +
@@ -221,31 +241,12 @@ func (a *App) viewMcpInstall() string {
 		)
 	}
 	rows = append(rows,
-		mcpActionButtonRow(t, []string{"install", "cancel"}, 0),
+		a.renderModalButtons(buttons, 0),
 		"",
 		t.HintLabel.Render("Enter install · Esc cancel"),
 	)
 	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
-	a.registerModalButtons(modal, len(rows)-3, 0, []menuButton{
-		{
-			id:    "mcp-install:install",
-			label: "install",
-			action: func(app *App) tea.Cmd {
-				_, cmd := app.handleMcpInstallKey(keyMsg("enter"))
-				return cmd
-			},
-		},
-		{
-			id:    "mcp-install:cancel",
-			label: "cancel",
-			action: func(app *App) tea.Cmd {
-				app.mcpInstallOpen = false
-				app.mcpInstallInput = ""
-				app.mcpInstallErr = ""
-				return nil
-			},
-		},
-	})
+	a.registerModalButtons(modal, len(rows)-3, 0, buttons)
 	return modal
 }
 
@@ -253,41 +254,7 @@ func (a *App) viewMcpInstall() string {
 func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Remove MCP server")
-	rows := []string{title, ""}
-	for i, s := range a.mcpRemoveOptions {
-		marker := "  "
-		style := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.mcpRemoveSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
-			style = style.Foreground(t.Secondary).Bold(true)
-		}
-		rows = append(rows,
-			marker+style.Render(fmt.Sprintf("%s  (%s · %s)", s.Name, s.ID, s.Transport)),
-		)
-	}
-	if a.mcpRemoveSaving {
-		rows = append(rows, "",
-			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-				Render(a.spinnerChar()+" removing…"),
-		)
-	}
-	rows = append(rows, "",
-		mcpActionButtonRow(t, []string{"remove", "cancel"}, 0),
-		"",
-		t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
-	)
-	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
-	for i := range a.mcpRemoveOptions {
-		idx := i
-		a.registerModalContentHit(modal, fmt.Sprintf("mcp-remove:item:%d", idx), 2+idx, 0, w-4, 1, func(app *App) tea.Cmd {
-			app.mcpRemoveSel = idx
-			_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
-			return cmd
-		})
-	}
-	actionRow := len(rows) - 3
-	a.registerModalButtons(modal, actionRow, 0, []menuButton{
+	buttons := []menuButton{
 		{
 			id:    "mcp-remove:remove",
 			label: "remove",
@@ -305,18 +272,52 @@ func (a *App) viewMcpRemove() string {
 				return nil
 			},
 		},
-	})
-	return modal
-}
-
-func mcpActionButtonRow(t Theme, labels []string, selected int) string {
-	cells := make([]string, 0, len(labels))
-	for i, label := range labels {
-		style := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
-		if i == selected {
-			style = lipgloss.NewStyle().Foreground(t.Bg).Background(t.Secondary).Bold(true).Padding(0, 2)
-		}
-		cells = append(cells, style.Render(label))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Remove MCP server")
+	rows := []string{title, ""}
+	listStartRow := len(rows)
+	listItems := make([]modalListItem, 0, len(a.mcpRemoveOptions))
+	for i, server := range a.mcpRemoveOptions {
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:          fmt.Sprintf("mcp-remove:item:%d", idx),
+			title:       server.Name,
+			description: server.ID,
+			status:      server.Transport,
+			selected:    i == a.mcpRemoveSel,
+			action: func(app *App) tea.Cmd {
+				app.mcpRemoveSel = idx
+				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
+				return cmd
+			},
+		})
+	}
+	list := a.renderModalList(listItems, modalListOptions{
+		width:            w - 4,
+		rowBudget:        12,
+		descriptionLines: 1,
+	})
+	if len(list.rows) > 0 {
+		rows = append(rows, list.rows...)
+	} else {
+		rows = append(rows, t.HintLabel.Render("(no removable MCP servers)"))
+	}
+	if a.mcpRemoveSaving {
+		rows = append(rows, "",
+			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+				Render(a.spinnerChar()+" removing…"),
+		)
+	}
+	rows = append(rows, "",
+		a.renderModalButtons(buttons, 0),
+		"",
+		t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
+	)
+	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
+	if len(list.hits) > 0 {
+		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
+	}
+	actionRow := len(rows) - 3
+	a.registerModalButtons(modal, actionRow, 0, buttons)
+	return modal
 }

@@ -48,6 +48,29 @@ func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	}
 }
 
+func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	buttons := []menuButton{
+		{id: "primary", label: "apply", action: func(*App) tea.Cmd { return nil }},
+		{id: "cancel", label: "cancel", action: func(*App) tea.Cmd { return nil }},
+	}
+	row := a.renderModalButtons(buttons, 0)
+	if !strings.Contains(ansi.Strip(row), "apply") || !strings.Contains(ansi.Strip(row), "cancel") {
+		t.Fatalf("button row did not render labels: %q", ansi.Strip(row))
+	}
+	modal := a.renderDefaultModalSurface(50, row)
+	a.beginHitFrame()
+	a.registerModalButtons(modal, 0, 0, buttons)
+	if _, ok := findHitTargetForTest(a, "button:primary"); !ok {
+		t.Fatal("missing primary button hit")
+	}
+	if _, ok := findHitTargetForTest(a, "button:cancel"); !ok {
+		t.Fatal("missing cancel button hit")
+	}
+}
+
 func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -944,6 +967,37 @@ func TestMcpRemoveRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("clicking a remove row should dispatch uninstall command")
+	}
+}
+
+func TestMcpRemoveDescriptionRowUsesSameSemanticHit(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveOptions = []gact.McpServer{
+		{ID: "srv_one", Name: "one", Transport: "stdio"},
+		{ID: "srv_two", Name: "two", Transport: "http"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "mcp-remove:item:1")
+	if !ok {
+		t.Fatal("missing semantic MCP remove row target")
+	}
+	if target.rect.h < 2 {
+		t.Fatalf("MCP remove target height = %d, want title and description rows", target.rect.h)
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y + target.rect.h - 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.mcpRemoveSel != 1 || !a.mcpRemoveSaving || cmd == nil {
+		t.Fatalf("description-row click should remove row 1, sel=%d saving=%v cmd=%v", a.mcpRemoveSel, a.mcpRemoveSaving, cmd)
 	}
 }
 
