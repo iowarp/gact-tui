@@ -219,6 +219,12 @@ type App struct {
 	// PgDn'd past the marker deliberately.
 	pendingPartScroll bool
 
+	// hits is rebuilt during View() and maps rendered terminal cells
+	// back to semantic UI actions. Mouse Update paths consult it first
+	// so components can own their own click semantics instead of
+	// scattering view-specific coordinate math through mouse.go.
+	hits *uiHitRegistry
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -2355,10 +2361,15 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	if !a.MouseEnabled {
 		return a, nil
 	}
+	mouse := m.Mouse()
+	if mouse.Button == tea.MouseLeft {
+		if cmd, handled := a.activateHitAt(mouse.X, mouse.Y); handled {
+			return a, cmd
+		}
+	}
 	if cmd, handled := a.handleOverlayMouseClick(m); handled {
 		return a, cmd
 	}
-	mouse := m.Mouse()
 	if mouse.Button != tea.MouseLeft {
 		return a, nil
 	}
@@ -5685,6 +5696,7 @@ func (a *App) View() tea.View {
 		v.AltScreen = true
 		return v
 	}
+	a.beginHitFrame()
 	var content string
 	switch a.stage {
 	case StageIntro:
