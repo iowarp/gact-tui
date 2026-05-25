@@ -79,6 +79,32 @@ func (a *App) renderDefaultModalSurface(width int, body string) string {
 	return a.renderModalSurface(width, a.Theme.Primary, a.Theme.BgSubtle, body)
 }
 
+func (a *App) renderModalHeader(title string, innerW int, buttons []menuButton) (string, int) {
+	if innerW < 1 {
+		innerW = 1
+	}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	buttonW := lipgloss.Width(buttonRow)
+	buttonCol := innerW - buttonW
+	titleBudget := buttonCol - 2
+	if titleBudget < 1 {
+		titleBudget = innerW
+		buttonCol = innerW
+	}
+	titleText := truncate(title, titleBudget)
+	renderedTitle := lipgloss.NewStyle().Bold(true).Foreground(a.Theme.Primary).Render(titleText)
+	gap := buttonCol - lipgloss.Width(renderedTitle)
+	if gap < 1 {
+		gap = 1
+	}
+	row := lipgloss.JoinHorizontal(lipgloss.Top,
+		renderedTitle,
+		strings.Repeat(" ", gap),
+		buttonRow,
+	)
+	return row, buttonCol
+}
+
 func (a *App) registerModalContentHit(modal, id string, row, col, w, h int, action uiHitAction) {
 	rect := overlayMouseRect(modal, a.width, a.height)
 	a.registerScreenHit(id, mouseRect{

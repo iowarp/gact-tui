@@ -121,18 +121,7 @@ func (a *App) viewDoctor() string {
 			},
 		},
 	}
-	buttonRow := a.renderModalButtons(buttons, 0)
-	titleText := "Doctor — Backend Health"
-	buttonCol := innerW - lipgloss.Width(buttonRow)
-	if buttonCol < lipgloss.Width(titleText)+2 {
-		buttonCol = lipgloss.Width(titleText) + 2
-	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
-	titleRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		title,
-		strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
-		buttonRow,
-	)
+	titleRow, buttonCol := a.renderModalHeader("Doctor — Backend Health", innerW, buttons)
 	tabs := []menuTab{
 		{
 			id:     "doctor-health",
