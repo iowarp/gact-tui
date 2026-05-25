@@ -42,6 +42,10 @@ Enter
 Wait+Screen /Tools/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_menu_tools_catalog.png"
+Enter
+Wait+Screen /Tool/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_menu_tool_detail.png"
 Escape
 Sleep 300ms
 

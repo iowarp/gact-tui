@@ -1009,40 +1009,42 @@ func formatToolDetail(tool gact.Tool) string {
 }
 
 func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
-	rows := []string{
-		"name: " + firstNonEmpty(tool.Name, tool.ID),
-		"id: " + tool.ID,
-		"source: " + firstNonEmpty(tool.Source, "unknown"),
+	fields := []detailField{
+		{"name", firstNonEmpty(tool.Name, tool.ID)},
+		{"id", tool.ID},
+		{"source", firstNonEmpty(tool.Source, "unknown")},
 	}
 	if tool.ServerID != "" {
-		rows = append(rows, "mcp_server: "+tool.ServerID)
+		fields = append(fields, detailField{"mcp_server", tool.ServerID})
 	}
 	if tool.Owner != "" {
-		rows = append(rows, "owner: "+tool.Owner)
+		fields = append(fields, detailField{"owner", tool.Owner})
 	}
 	if len(tool.VisibleTo) > 0 {
-		rows = append(rows, "visible_to: "+strings.Join(tool.VisibleTo, ", "))
+		fields = append(fields, detailField{"visible_to", strings.Join(tool.VisibleTo, ", ")})
 	}
 	if len(tool.Tags) > 0 {
-		rows = append(rows, "tags: "+strings.Join(tool.Tags, ", "))
+		fields = append(fields, detailField{"tags", strings.Join(tool.Tags, ", ")})
 	}
 	if tool.PermissionDefault != "" {
-		rows = append(rows, "permission: "+tool.PermissionDefault)
+		fields = append(fields, detailField{"permission", tool.PermissionDefault})
 	}
+	rows := appendDetailSection(nil, "Tool", fields...)
 	if strings.TrimSpace(tool.Description) != "" {
-		rows = append(rows, "", "description:", strings.TrimSpace(tool.Description))
+		rows = append(rows, detailFieldRows("description", strings.TrimSpace(tool.Description))...)
 	}
 	if owners := owningAgentsForTool(tool, agents); len(owners) > 0 {
-		rows = append(rows, "", "owning agents:")
+		ownerRows := make([]string, 0, len(owners))
 		for _, owner := range owners {
-			rows = append(rows, "- "+owner)
+			ownerRows = append(ownerRows, "- "+owner)
 		}
+		rows = append(rows, detailFieldRows("owning agents", strings.Join(ownerRows, "\n"))...)
 	}
 	rows = appendSchemaSection(rows, "input_schema", tool.InputSchema)
 	rows = appendSchemaSection(rows, "output_schema", tool.OutputSchema)
 	if tool.Annotations != nil {
 		if payload, err := json.MarshalIndent(tool.Annotations, "", "  "); err == nil {
-			rows = append(rows, "", "annotations:", string(payload))
+			rows = append(rows, detailFieldRows("annotations", string(payload))...)
 		}
 	}
 	return strings.Join(rows, "\n")
@@ -1112,8 +1114,7 @@ func appendSchemaSection(rows []string, label string, payload map[string]any) []
 	if len(summary) == 0 {
 		return appendJSONMapSection(rows, label, payload)
 	}
-	rows = append(rows, "", label+":")
-	return append(rows, summary...)
+	return append(rows, detailFieldRows(label, strings.Join(summary, "\n"))...)
 }
 
 func summarizeJSONSchema(schema map[string]any) []string {
