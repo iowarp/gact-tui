@@ -200,10 +200,13 @@ func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "file-picker:item:1")
+	if !ok {
+		t.Fatal("missing semantic file picker row target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + 5,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -213,6 +216,40 @@ func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if got := a.input.Value(); !strings.Contains(got, "@beta.parquet ") {
 		t.Fatalf("input = %q, want clicked beta path inserted", got)
+	}
+}
+
+func TestFilePickerNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		entries: []gact.FileEntry{
+			{Path: "alpha.csv"},
+			{Path: "beta.parquet"},
+		},
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2 + 3,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside file picker should not dispatch")
+	}
+	if !a.filePickerOpen {
+		t.Fatal("non-row click inside file picker should keep picker open")
+	}
+	if got := a.input.Value(); strings.Contains(got, "@") {
+		t.Fatalf("non-row click should not insert a file, input=%q", got)
 	}
 }
 

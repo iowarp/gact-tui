@@ -340,18 +340,6 @@ func (a *App) handleFilePickerMouseClick(rect mouseRect, mouse tea.Mouse) (tea.C
 		a.closeFilePicker()
 		return nil, true
 	}
-	const resultRows = 10
-	matches := a.filePickerMatches()
-	start := 0
-	if a.filePicker.sel >= resultRows {
-		start = a.filePicker.sel - resultRows + 1
-	}
-	idx := start + rect.contentRow(mouse.Y) - 4
-	if idx >= 0 && idx < len(matches) {
-		a.filePicker.sel = idx
-		_, cmd := a.handleFilePickerKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
 }
 
