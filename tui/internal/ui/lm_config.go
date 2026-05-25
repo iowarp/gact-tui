@@ -1148,14 +1148,7 @@ func (a *App) viewLMConfig() string {
 		contentW = 20
 	}
 
-	buttons := []menuButton{{
-		id:    "lm-config:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeLMConfigModal()
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("lm-config:close", func(app *App) { app.closeLMConfigModal() })}
 	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgLMConfigTitle, nil), contentW, buttons)
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).

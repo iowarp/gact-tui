@@ -698,14 +698,7 @@ func (a *App) viewDetailView() string {
 			win.start+1, win.end, win.total)
 	}
 
-	buttons := []menuButton{{
-		id:    "detail:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeDetailView()
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("detail:close", func(app *App) { app.closeDetailView() })}
 	titleRow, buttonCol := a.renderModalHeader(ref.title+scrollHint, innerW, buttons)
 
 	hint := t.HintLabel.Render(

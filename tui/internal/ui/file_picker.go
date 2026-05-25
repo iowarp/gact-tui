@@ -283,14 +283,7 @@ func (a *App) viewFilePicker() string {
 		return ""
 	}
 
-	buttons := []menuButton{{
-		id:    "file-picker:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeFilePicker()
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("file-picker:close", func(app *App) { app.closeFilePicker() })}
 	titleRow, buttonCol := a.renderModalHeader("Insert file reference", w-4, buttons)
 
 	filterRow := t.HintKey.Render("@") + t.HintLabel.Render(a.filePicker.filter) +

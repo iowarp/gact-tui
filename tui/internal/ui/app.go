@@ -2850,14 +2850,7 @@ func (a *App) closePalette() {
 }
 
 func (a *App) paletteCloseButtons() []menuButton {
-	return []menuButton{{
-		id:    "palette:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closePalette()
-			return nil
-		},
-	}}
+	return []menuButton{closeMenuButton("palette:close", func(app *App) { app.closePalette() })}
 }
 
 // isSearchMode reports whether the palette filter is in message-search
@@ -8213,15 +8206,10 @@ func (a *App) viewHelp() string {
 	}
 	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	buttons := []menuButton{{
-		id:    "help:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.helpOpen = false
-			app.helpTab = 0
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
+		app.helpOpen = false
+		app.helpTab = 0
+	})}
 	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgHelpTitle, nil), innerW, buttons)
 	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
 		Render(a.localizer.t(msgHelpHint, nil))
