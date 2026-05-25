@@ -312,21 +312,11 @@ func (a *App) handleCatalogBrowserMouseClick(rect mouseRect, mouse tea.Mouse) (t
 }
 
 func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.mcpRemoveOpen = false
-		a.mcpRemoveOptions = nil
-		return nil, true
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpRemoveModal)
 }
 
 func (a *App) handleMcpInstallMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.mcpInstallOpen = false
-		a.mcpInstallInput = ""
-		a.mcpInstallErr = ""
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpInstallModal)
 }
 
 func (a *App) handleSettingsMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {

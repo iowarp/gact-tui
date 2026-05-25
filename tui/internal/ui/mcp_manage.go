@@ -32,6 +32,13 @@ func (a *App) openMcpInstallModal() {
 	a.mcpInstallSaving = false
 }
 
+func (a *App) closeMcpInstallModal() {
+	a.mcpInstallOpen = false
+	a.mcpInstallInput = ""
+	a.mcpInstallErr = ""
+	a.mcpInstallSaving = false
+}
+
 // openMcpRemoveModal opens the remove picker. Always re-fetches the server
 // list so the picker reflects current backend state (catalog cache may be
 // stale after a recent install/remove). Returns a tea.Cmd that triggers
@@ -42,6 +49,13 @@ func (a *App) openMcpRemoveModal() tea.Cmd {
 	a.mcpRemoveSel = 0
 	a.mcpRemoveSaving = false
 	return mcpListServersCmd(a.c)
+}
+
+func (a *App) closeMcpRemoveModal() {
+	a.mcpRemoveOpen = false
+	a.mcpRemoveOptions = nil
+	a.mcpRemoveSel = 0
+	a.mcpRemoveSaving = false
 }
 
 // mcpListServersCmd refreshes the cached MCP server list. Used by both the
@@ -67,9 +81,7 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		a.mcpInstallOpen = false
-		a.mcpInstallInput = ""
-		a.mcpInstallErr = ""
+		a.closeMcpInstallModal()
 		return a, nil
 	case "enter":
 		body, err := parseMcpInstallLine(a.mcpInstallInput)
@@ -99,8 +111,7 @@ func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		a.mcpRemoveOpen = false
-		a.mcpRemoveOptions = nil
+		a.closeMcpRemoveModal()
 		return a, nil
 	case "up", "k":
 		if a.mcpRemoveSel > 0 {
@@ -207,9 +218,7 @@ func (a *App) viewMcpInstall() string {
 			id:    "mcp-install:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.mcpInstallOpen = false
-				app.mcpInstallInput = ""
-				app.mcpInstallErr = ""
+				app.closeMcpInstallModal()
 				return nil
 			},
 		},
@@ -267,8 +276,7 @@ func (a *App) viewMcpRemove() string {
 			id:    "mcp-remove:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.mcpRemoveOpen = false
-				app.mcpRemoveOptions = nil
+				app.closeMcpRemoveModal()
 				return nil
 			},
 		},
