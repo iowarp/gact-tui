@@ -108,6 +108,10 @@ type sessionUpdatedMsg struct {
 	agentID string
 }
 
+func (a *App) closeSettingsModal() {
+	a.settingsOpen = false
+}
+
 func selectableSessionAgents(agents []gact.AgentDef) []gact.AgentDef {
 	out := make([]gact.AgentDef, 0, len(agents))
 	for _, ag := range agents {
@@ -127,7 +131,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := a.settings
 	switch k.String() {
 	case "esc", "ctrl+s":
-		a.settingsOpen = false
+		a.closeSettingsModal()
 		return a, nil
 	case "tab":
 		s.tab = (s.tab + 1) % settingsTabCount
@@ -415,15 +419,18 @@ func (a *App) viewSettings() string {
 		currentModel = a.lmProviderInfo.Provider + "/" + a.lmProviderInfo.Model
 	}
 
-	// LLL4: title bar — full-width Primary-background strip with the
-	// modal title in inverted text. Reads as a real header instead of
-	// a floating dim word.
-	titleBar := lipgloss.NewStyle().
-		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render(a.localizer.t(msgSettingsTitle, nil))
+	buttons := []menuButton{{
+		id:    "settings:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.closeSettingsModal()
+			return nil
+		},
+	}}
+	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgSettingsTitle, nil), w-4, buttons)
 
 	rows := []string{
-		titleBar,
+		titleRow,
 		"",
 		tabRow,
 		"",
@@ -731,6 +738,7 @@ func (a *App) viewSettings() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	a.registerModalTabs(modal, 2, tabHits)
 	for _, hit := range rowHits {
 		a.registerModalContentHit(modal, hit.id, hit.row, 0, w-4, hit.height, hit.action)

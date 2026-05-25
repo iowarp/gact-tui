@@ -312,6 +312,58 @@ func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:settings:close")
+	if !ok {
+		t.Fatal("missing semantic settings close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("settings close should not dispatch a command")
+	}
+	if a.settingsOpen {
+		t.Fatal("settings close should close the modal")
+	}
+}
+
+func TestSettingsOutsideClickUsesSharedCloseState(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside settings click should not dispatch a command")
+	}
+	if a.settingsOpen {
+		t.Fatal("outside settings click should close the modal")
+	}
+}
+
 func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

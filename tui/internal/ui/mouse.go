@@ -332,11 +332,7 @@ func (a *App) handleSettingsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd
 	if a.settings == nil {
 		a.settings = &settingsState{}
 	}
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.settingsOpen = false
-		return nil, true
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeSettingsModal)
 }
 
 func (a *App) handleMetricsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
