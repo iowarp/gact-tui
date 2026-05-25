@@ -698,6 +698,121 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
+type conversationPartHitBlock struct {
+	msgIdx      int
+	addrIdx     int
+	fullStart   int
+	height      int
+	messageID   string
+	partID      string
+	opensDetail bool
+}
+
+func (t Theme) conversationPartHitBlocks(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part) []conversationPartHitBlock {
+	normalizeMessagePresentation(&m)
+	if isModelSwapMarker(m) {
+		return nil
+	}
+	hideHeader := m.Role == gact.RoleTool && prev != nil &&
+		(prev.Role == gact.RoleTool ||
+			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev)))
+	row := 0
+	if !hideHeader {
+		row++ // role header
+		if t.ShowTimestamps && !m.CreatedAt.IsZero() {
+			row++
+		}
+	}
+	blocks := t.partHitBlocks(m, width, inlineResults)
+	for i := range blocks {
+		blocks[i].fullStart += row
+		blocks[i].messageID = m.ID
+	}
+	return blocks
+}
+
+func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string]gact.Part) []conversationPartHitBlock {
+	editDiffByCall, suppressed := matchEditFileDiffs(m.Parts)
+	duplicateSkip, duplicateNotice := compactDuplicateToolRuns(m.Parts, inlineResults)
+	addr := addressablePartsOf(m)
+	addrByPart := make(map[int]int, len(addr))
+	for i, partIdx := range addr {
+		addrByPart[partIdx] = i
+	}
+	row := 0
+	var blocks []conversationPartHitBlock
+	for i, p := range m.Parts {
+		if suppressed[p.ID] || duplicateSkip[p.ID] {
+			continue
+		}
+		start := row
+		height := 0
+		var rendered string
+		switch {
+		case m.Role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
+			rendered = t.renderAssistantTextPart(p, width)
+		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
+			rendered = t.renderPart(p, width)
+		default:
+			rendered = t.renderPart(p, width)
+		}
+		if rendered != "" {
+			h := renderedStringLineCount(rendered)
+			height += h
+			row += h
+		}
+		if p.Type == gact.PartTypeToolCall && p.CallID != "" {
+			if diff, ok := editDiffByCall[p.CallID]; ok {
+				diffBody := t.renderEditDiffInline(diff, width)
+				if diffBody != "" {
+					h := renderedStringLineCount(diffBody)
+					height += h
+					row += h
+				}
+			} else if inlineResults != nil {
+				if r, ok := inlineResults[p.CallID]; ok {
+					rr := t.renderToolResultForTool(r, width, p.ToolName)
+					if rr != "" {
+						h := renderedStringLineCount(rr)
+						height += h
+						row += h
+						if repeat := duplicateNotice[r.ID]; repeat > 0 {
+							notice := t.renderDuplicateToolNotice(p.ToolName, repeat)
+							h := renderedStringLineCount(notice)
+							height += h
+							row += h
+						}
+					}
+				}
+			}
+		} else if repeat := duplicateNotice[p.ID]; repeat > 0 {
+			notice := t.renderDuplicateToolNotice(p.ToolName, repeat)
+			h := renderedStringLineCount(notice)
+			height += h
+			row += h
+		}
+		addrIdx, ok := addrByPart[i]
+		if ok && height > 0 {
+			_, opens := findBulkyPartForSelected(m, addrIdx, nil, 0)
+			blocks = append(blocks, conversationPartHitBlock{
+				addrIdx:     addrIdx,
+				fullStart:   start,
+				height:      height,
+				partID:      p.ID,
+				opensDetail: opens,
+			})
+		}
+	}
+	return blocks
+}
+
+func renderedStringLineCount(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
+}
+
 func (t Theme) renderAssistantTextPart(p gact.Part, width int) string {
 	body := withStreamProvenanceNote(t, p, renderMarkdown(summarizeAssistantInlineText(p.Text), t, width-2))
 	if !partMetadataBool(p, "partial_after_error") {

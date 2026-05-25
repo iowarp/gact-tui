@@ -214,6 +214,87 @@ func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConversationPartsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("missing conversation hit target for second message")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.focus != FocusBody {
+		t.Fatalf("focus = %v, want body", a.focus)
+	}
+	if a.bodySelMsgIdx != 1 || a.bodySelPartIdx != 0 {
+		t.Fatalf("body cursor = msg %d part %d, want msg 1 part 0", a.bodySelMsgIdx, a.bodySelPartIdx)
+	}
+}
+
+func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "p1",
+			Type: gact.PartTypeText,
+			Text: strings.Repeat("detail line\n", 20),
+		}},
+	}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:part:0:0")
+	if !ok {
+		t.Fatal("missing conversation hit target")
+	}
+	click := tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft})
+	model, _ := a.Update(click)
+	a = model.(*App)
+	_ = a.View()
+	model, _ = a.Update(click)
+	a = model.(*App)
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("second click on selected conversation part should open detail")
+	}
+	if a.detailView.partID != "p1" {
+		t.Fatalf("detail partID = %q, want p1", a.detailView.partID)
+	}
+}
+
+func findHitTargetForTest(a *App, id string) (uiHitTarget, bool) {
+	if a.hits == nil {
+		return uiHitTarget{}, false
+	}
+	for _, target := range a.hits.targets {
+		if target.id == id {
+			return target, true
+		}
+	}
+	return uiHitTarget{}, false
+}
+
 func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
