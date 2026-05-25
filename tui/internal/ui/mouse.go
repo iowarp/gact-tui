@@ -431,12 +431,6 @@ func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cm
 		a.mcpRemoveOptions = nil
 		return nil, true
 	}
-	idx := rect.contentRow(mouse.Y) - 2
-	if idx >= 0 && idx < len(a.mcpRemoveOptions) {
-		a.mcpRemoveSel = idx
-		_, cmd := a.handleMcpRemoveKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
 }
 
