@@ -122,13 +122,16 @@ func (a *App) viewWorkspaceSwitch() string {
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	for i := range a.workspaces {
+		idx := i
+		a.registerModalContentHit(modal, "workspace-switch:item:"+a.workspaces[i].ID, 2+idx, 0, w-4, 1, func(app *App) tea.Cmd {
+			app.workspaceSwitchSel = idx
+			_, cmd := app.handleWorkspaceSwitchKey(keyMsg("enter"))
+			return cmd
+		})
+	}
+	return modal
 }
 
 // workspaceLabel renders a workspace as "name id" with the ID
