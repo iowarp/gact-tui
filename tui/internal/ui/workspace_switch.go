@@ -98,39 +98,36 @@ func (a *App) viewWorkspaceSwitch() string {
 	if len(a.workspaces) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
 	}
-	// Reserve space for the marker (2 cols) + the optional "(current)"
-	// suffix (10 cols when present). Truncate the plain label first,
-	// THEN style — `truncate` operates on byte indices and would cut
-	// inside an ANSI escape if we styled before slicing.
-	for i, ws := range a.workspaces {
-		marker := "  "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.workspaceSwitchSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-		}
-		curSuffix := ""
-		curSuffixWidth := 0
-		if ws.ID == a.wsID {
-			curSuffix = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("  (current)")
-			curSuffixWidth = 11
-		}
-		labelMax := w - 2 - 2 /* marker */ - curSuffixWidth
-		label := truncate(workspaceLabelPlain(ws), labelMax)
-		rows = append(rows, marker+labelStyle.Render(label)+curSuffix)
+	innerW := w - 4
+	if innerW < 1 {
+		innerW = 1
 	}
+	items := make([]modalListItem, 0, len(a.workspaces))
+	for i, ws := range a.workspaces {
+		status := ""
+		if ws.ID == a.wsID {
+			status = "current"
+		}
+		idx := i
+		items = append(items, modalListItem{
+			id:       "workspace-switch:item:" + ws.ID,
+			title:    workspaceLabelPlain(ws),
+			status:   status,
+			selected: i == a.workspaceSwitchSel,
+			action: func(app *App) tea.Cmd {
+				app.workspaceSwitchSel = idx
+				_, cmd := app.handleWorkspaceSwitchKey(keyMsg("enter"))
+				return cmd
+			},
+		})
+	}
+	list := a.renderModalList(items, modalListOptions{width: innerW, rowBudget: len(a.workspaces)})
+	rows = append(rows, list.rows...)
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	for i := range a.workspaces {
-		idx := i
-		a.registerModalContentHit(modal, "workspace-switch:item:"+a.workspaces[i].ID, 2+idx, 0, w-4, 1, func(app *App) tea.Cmd {
-			app.workspaceSwitchSel = idx
-			_, cmd := app.handleWorkspaceSwitchKey(keyMsg("enter"))
-			return cmd
-		})
-	}
+	a.registerModalListHits(modal, 2, 0, innerW, list.hits)
 	return modal
 }
 
