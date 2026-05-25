@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
@@ -250,6 +251,102 @@ func TestFilePickerNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 	if got := a.input.Value(); strings.Contains(got, "@") {
 		t.Fatalf("non-row click should not insert a file, input=%q", got)
+	}
+}
+
+func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/theme"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "palette:command:0")
+	if !ok {
+		t.Fatal("missing semantic palette command target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("/theme palette click should not dispatch command")
+	}
+	if a.paletteOpen {
+		t.Fatal("palette command click should close palette")
+	}
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
+		t.Fatalf("palette command click should open theme settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+}
+
+func TestPaletteNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/theme"
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewPalette(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2 + 3,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside palette should not dispatch")
+	}
+	if !a.paletteOpen {
+		t.Fatal("non-row click inside palette should keep palette open")
+	}
+	if a.settingsOpen {
+		t.Fatal("non-row click inside palette should not choose /theme")
+	}
+}
+
+func TestPaletteSearchRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "?needle"
+	a.searchMatches = []client.SearchMatch{{MessageID: "m2", Snippet: "needle hit"}}
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser},
+		{ID: "m2", Role: gact.RoleAssistant},
+		{ID: "m3", Role: gact.RoleAssistant},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "palette:search:0")
+	if !ok {
+		t.Fatal("missing semantic palette search target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("search result click should not dispatch command")
+	}
+	if a.paletteOpen {
+		t.Fatal("search result click should close palette")
+	}
+	if a.scrollOffset != 1 {
+		t.Fatalf("search result click should jump to m2, scrollOffset=%d", a.scrollOffset)
 	}
 }
 
