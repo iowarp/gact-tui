@@ -1645,26 +1645,33 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 		windowRows = visibleRows - 1
 	}
 	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
+	items := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
 		idx := indexes[i]
 		p := presets[idx]
-		marker := "    "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		if a.lmConfigPresetProblem(p) != "" {
-			labelStyle = labelStyle.Foreground(t.FgFaint)
+		disabled := a.lmConfigPresetProblem(p) != ""
+		status := ""
+		if disabled {
+			status = "unavailable"
 		} else if a.lmConfigPresetPending(p) || a.lmConfigPresetUnchecked(p) {
-			labelStyle = labelStyle.Foreground(t.FgMuted)
+			status = "checking"
 		}
-		if idx == a.lmConfig.selected {
-			if focused {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("  ▌ ")
-				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-			} else {
-				marker = lipgloss.NewStyle().Foreground(t.Success).Render("  ✓ ")
-				labelStyle = labelStyle.Bold(true)
-			}
-		}
-		rows = append(rows, marker+labelStyle.Render(truncateString(p.Label, innerW-6)))
+		items = append(items, modalListItem{
+			id:             fmt.Sprintf("lm-config-provider-%d", idx),
+			title:          p.Label,
+			status:         status,
+			selected:       idx == a.lmConfig.selected,
+			selectedMarker: lmConfigSelectedMarker(focused),
+			disabled:       disabled,
+		})
+	}
+	if len(items) > 0 {
+		list := a.renderModalList(items, modalListOptions{
+			width:            innerW - 4,
+			rowBudget:        windowRows,
+			descriptionLines: 0,
+		})
+		rows = append(rows, list.rows...)
 	}
 	if end < len(indexes) && len(rows) < visibleRows {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
@@ -2048,21 +2055,24 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 		windowRows = visibleRows - 1
 	}
 	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
+	items := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
 		modelIdx := modelIndexes[i]
 		m := catalog[modelIdx]
-		marker := "    "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		if modelIdx == idx && a.lmConfig.modelIndex >= 0 {
-			if focused {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("  ▌ ")
-				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-			} else {
-				marker = lipgloss.NewStyle().Foreground(t.Success).Render("  ✓ ")
-				labelStyle = labelStyle.Bold(true)
-			}
-		}
-		rows = append(rows, marker+labelStyle.Render(truncateString(m.ID, innerW-6)))
+		items = append(items, modalListItem{
+			id:             fmt.Sprintf("lm-config-model-%d", modelIdx),
+			title:          m.ID,
+			selected:       modelIdx == idx && a.lmConfig.modelIndex >= 0,
+			selectedMarker: lmConfigSelectedMarker(focused),
+		})
+	}
+	if len(items) > 0 {
+		list := a.renderModalList(items, modalListOptions{
+			width:            innerW - 4,
+			rowBudget:        windowRows,
+			descriptionLines: 0,
+		})
+		rows = append(rows, list.rows...)
 	}
 	if end < len(modelIndexes) && len(rows) < visibleRows {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
@@ -2084,6 +2094,13 @@ func (a *App) lmConfigSelectableModelCount() int {
 		return len(a.lmConfigModelIndexes())
 	}
 	return len(a.lmConfig.modelCatalogs[pid])
+}
+
+func lmConfigSelectedMarker(focused bool) string {
+	if focused {
+		return "▌ "
+	}
+	return "✓ "
 }
 
 // renderLMConfigAdvanced renders the numeric knobs as ←/→
