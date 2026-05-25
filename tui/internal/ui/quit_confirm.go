@@ -31,6 +31,29 @@ import (
 // quitConfirmOptions is the canonical option order + labels.
 var quitConfirmOptions = []string{"close", "no", "detach"}
 
+func (a *App) quitConfirmButtons() []menuButton {
+	labels := []string{
+		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
+		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
+		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
+	}
+	keyHints := []string{"y", "n", "d"}
+	buttons := make([]menuButton, 0, len(labels))
+	for i, label := range labels {
+		idx := i
+		buttons = append(buttons, menuButton{
+			id:    "quit:" + quitConfirmOptions[i],
+			label: label + "  (" + keyHints[i] + ")",
+			action: func(app *App) tea.Cmd {
+				app.quitConfirmSelected = idx
+				_, cmd := app.applyQuitConfirmSelection()
+				return cmd
+			},
+		})
+	}
+	return buttons
+}
+
 // handleQuitConfirmKey drives the modal while it's open.
 func (a *App) handleQuitConfirmKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
@@ -119,54 +142,14 @@ func (a *App) viewQuitConfirm() string {
 	hint := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Render(a.localizer.t(msgQuitHint, nil))
 
-	// Three option chips. Selected has Secondary fg + bg tint so it
-	// reads as a button; others are muted.
-	var chips []string
-	labels := []string{
-		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
-		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
-		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
-	}
-	keyHints := []string{"y", "n", "d"}
-	for i, label := range labels {
-		key := keyHints[i]
-		rendered := label + "  (" + key + ")"
-		if i == a.quitConfirmSelected {
-			chips = append(chips, lipgloss.NewStyle().
-				Foreground(t.Bg).
-				Background(t.Secondary).
-				Bold(true).
-				Padding(0, 2).
-				Render(rendered))
-		} else {
-			chips = append(chips, lipgloss.NewStyle().
-				Foreground(t.FgMuted).
-				Padding(0, 2).
-				Render(rendered))
-		}
-	}
-	row := lipgloss.JoinHorizontal(lipgloss.Top, chips...)
-
+	buttons := a.quitConfirmButtons()
+	row := a.renderModalButtons(buttons, a.quitConfirmSelected)
 	keyLine := lipgloss.NewStyle().Foreground(t.FgFaint).Render(
 		a.localizer.t(msgQuitKeyHint, nil))
 
 	box := lipgloss.JoinVertical(lipgloss.Left,
 		title, "", hint, "", row, "", keyLine)
 	modal := a.renderModalSurface(w, t.Warning, t.BgSubtle, box)
-	buttons := make([]menuButton, 0, len(labels))
-	for i, label := range labels {
-		idx := i
-		buttonLabel := label + "  (" + keyHints[i] + ")"
-		buttons = append(buttons, menuButton{
-			id:    "quit:" + quitConfirmOptions[i],
-			label: buttonLabel,
-			action: func(app *App) tea.Cmd {
-				app.quitConfirmSelected = idx
-				_, cmd := app.applyQuitConfirmSelection()
-				return cmd
-			},
-		})
-	}
 	a.registerModalButtons(modal, 4, 0, buttons)
 	return modal
 }

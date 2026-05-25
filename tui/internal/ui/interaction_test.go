@@ -908,6 +908,28 @@ func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestQuitConfirmButtonsUseSharedLabels(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	buttons := a.quitConfirmButtons()
+	if len(buttons) != len(quitConfirmOptions) {
+		t.Fatalf("buttons = %d, want %d", len(buttons), len(quitConfirmOptions))
+	}
+	for i, button := range buttons {
+		if button.id != "quit:"+quitConfirmOptions[i] {
+			t.Fatalf("button %d id = %q", i, button.id)
+		}
+		if button.label == "" || button.action == nil {
+			t.Fatalf("button %d should carry render label and action: %+v", i, button)
+		}
+	}
+	row := ansi.Strip(a.renderModalButtons(buttons, 1))
+	for _, want := range []string{"close", "no", "detach"} {
+		if !strings.Contains(row, want) {
+			t.Fatalf("quit button row missing %q: %q", want, row)
+		}
+	}
+}
+
 func TestQuitConfirmNonButtonClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
