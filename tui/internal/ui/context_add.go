@@ -12,6 +12,12 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
+func (a *App) closeContextAddModal() {
+	a.contextAddOpen = false
+	a.contextAddDraft = ""
+	a.contextAddCursor = 0
+}
+
 // handleContextAddKey drives the inline "add to context" prompt —
 // a narrower sibling of handleRenameKey. Same editor primitives
 // (rune-indexed cursor, arrow/home/end/backspace/delete) so muscle
@@ -19,9 +25,7 @@ import (
 func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.contextAddOpen = false
-		a.contextAddDraft = ""
-		a.contextAddCursor = 0
+		a.closeContextAddModal()
 		return a, nil
 	case "enter":
 		return a.commitContextAdd()
@@ -78,9 +82,7 @@ func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // would 400 the backend anyway.
 func (a *App) commitContextAdd() (tea.Model, tea.Cmd) {
 	path := strings.TrimSpace(a.contextAddDraft)
-	a.contextAddOpen = false
-	a.contextAddDraft = ""
-	a.contextAddCursor = 0
+	a.closeContextAddModal()
 	if path == "" {
 		a.transientHint = "add cancelled (empty path)"
 		return a, nil
@@ -145,9 +147,7 @@ func (a *App) viewContextAdd() string {
 			id:    "context-add:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.contextAddOpen = false
-				app.contextAddDraft = ""
-				app.contextAddCursor = 0
+				app.closeContextAddModal()
 				return nil
 			},
 		},

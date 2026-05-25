@@ -132,6 +132,32 @@ func TestContextAddButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestContextAddCancelButtonUsesSharedCloseState(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "discard/me.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:context-add:cancel")
+	if !ok {
+		t.Fatal("missing context-add cancel button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cancel button should not dispatch a command")
+	}
+	if a.contextAddOpen || a.contextAddDraft != "" || a.contextAddCursor != 0 {
+		t.Fatalf("cancel should clear context-add state, open=%v draft=%q cursor=%d", a.contextAddOpen, a.contextAddDraft, a.contextAddCursor)
+	}
+}
+
 func TestContextAdd_EmptyPathCancels(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
 	a.contextAddOpen = true

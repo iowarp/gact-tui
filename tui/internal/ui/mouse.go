@@ -363,27 +363,13 @@ func (a *App) handleLMConfigMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd
 }
 
 func (a *App) handleRenameMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.renameOpen = false
-		a.renameDraft = ""
-		a.renameCursor = 0
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeRenameModal)
 }
 
 func (a *App) handleContextAddMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.contextAddOpen = false
-		a.contextAddDraft = ""
-		a.contextAddCursor = 0
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeContextAddModal)
 }
 
 func (a *App) handleComposeMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.composeOpen = false
-		a.compose = nil
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.cancelCompose)
 }
