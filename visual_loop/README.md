@@ -220,6 +220,86 @@ Test-Path tmp/visual-loop-full.md
 Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
 ```
 
+## Current Visual Loop Corpus
+
+The current Linux/WSL visual loop reuses the persisted CLIO benchmark sessions;
+do not rerun the ALCF benchmark unless the CLIO trace-capture semantics change.
+Rebuild `tui/gact`, run the VHS tapes under `visual_loop/tapes/`, and inspect
+the resulting PNGs under `visual_loop/screenshots/`.
+
+Fresh ALCF corpus from 2026-05-25:
+
+- Backend used for capture: `http://127.0.0.1:41918`
+- Report: `/home/jcernuda/clio-agent/docs/ALCF_DEMO_BENCHMARK_REPORT.md`
+- JSONL evidence: `/home/jcernuda/clio-agent/tmp/clio-demo-benchmark-alcf-metis-20260525-visual-loop2.jsonl`
+- Result: 16/21 clean passes, 2 expected surfaced errors, 1 partial recovery, 2 failures.
+- Stress coverage: meets the documented benchmark standard.
+
+Fresh high-value sessions:
+
+| Case | Session | Notes |
+| --- | --- | --- |
+| `workflow_hdf5_overview`, `workflow_parquet_profile`, `workflow_memory_followup`, `workflow_csv_event_schema`, `workflow_visual_dashboard` | `sess_0075ece46770` | multi-turn workflow memory and mixed HDF5/Parquet/CSV/visualization evidence |
+| `csv_status_visual_summary` | `sess_8ad20b4688f7` | visualization error/failure with repeated chart attempts and explicit missing-column error |
+| `cross_file_triage_nanoagents` | `sess_3b3102631306` | nanoagent child-session pressure |
+| `cross_file_dirty_quality_gate_nanoagents` | `sess_34f692e3217e` | dirty-data nanoagent pressure |
+| `reasoning_cross_file_triage_nanoagents` | `sess_bd30728fcc95` | reasoning-only nanoagent routing |
+| `ndp_catalog_discovery` | `sess_482be4bf076e` | NDP catalog/tool summaries |
+| `ndp_seismic_waveform_to_plot` | `sess_aae8071afb04` | NDP plus SAC/seismic plus artifact path |
+| `missing_hdf5_error`, `missing_csv_error` | `sess_cd8fc09979a7` | expected surfaced errors; no fake assistant answer |
+| `provider_swap_memory_followup` | `sess_286ec4360014` | provider/model swap plus retained context |
+| `context_pressure_compaction_followup` | `sess_f2eb419f7ca0` | explicit compaction marker plus retained evidence follow-up |
+
+`visual_scatter_artifact` originally produced `sess_2c4a75e36258`, but the
+live `/messages` endpoint for that session is empty even though the benchmark
+JSONL and ARC conversation contain the partial answer/evidence. For TUI
+rendering work, use the rehydrated GACT import fixture:
+
+- Fixture: `visual_loop/fixtures/alcf_20260525_scatter_rehydrated.json`
+- Imported session used in current screenshots: `sess_8ec382da38a3`
+- Tape: `visual_loop/tapes/live_alcf_20260525_scatter.tape`
+- Screenshots: `visual_loop/screenshots/live_alcf_20260525_scatter_partial.png`,
+  `visual_loop/screenshots/live_alcf_20260525_scatter_bottom.png`,
+  `visual_loop/screenshots/live_alcf_20260525_scatter_detail.png`
+
+The current scatter screenshot verifies that repeated identical `plot_scatter`
+tool calls collapse to one semantic preview plus a repetition notice, the
+partial planner error is readable, and raw metadata detail remains advertised.
+
+Current tape targets:
+
+| Tape | Session | Purpose |
+| --- | --- | --- |
+| `live_alcf_20260525_scatter.tape` | `sess_8ec382da38a3` | rehydrated ALCF scatter partial; repeated tool-call compaction, readable partial planner error, and recovered prose marked partial after the surfaced error |
+| `live_alcf_20260525_errors.tape` | `sess_cd8fc09979a7` | fresh expected surfaced errors from the ALCF run |
+| `live_alcf_20260525_ndp_scroll.tape` | `sess_aae8071afb04` | fresh NDP/SAC transcript; verifies `G`/PageDown return to the artifact bottom, long scientific paths stay readable inline, and SAC plot evidence shows artifact plus trace counts |
+| `live_alcf_20260525_csv_failure.tape` | `sess_8ad20b4688f7` | failed CSV visualization; verifies message-level `error_info` remains visible and expandable and later recovered prose is marked as partial after the surfaced error |
+| `live_alcf_20260525_nanoagents.tape` | `sess_3b3102631306` | fresh cross-file nanoagent case; verifies collapsed/expanded child sessions, child drill-down, compact child labels, and shortened Parquet tool paths |
+| `live_alcf_20260525_provider_swap.tape` | `sess_286ec4360014` | fresh provider-swap follow-up; verifies retained Parquet context, readable tool evidence, and exact duplicate tool telemetry compaction after the swap |
+| `live_alcf_20260525_compaction.tape` | `sess_f2eb419f7ca0` | fresh context-pressure case; verifies the compacted summary marker, compaction detail modal, and `G` bottom behavior |
+| `live_alcf_20260525_catalogs.tape` | `sess_aae8071afb04` | fresh NDP/SAC session catalog drill-down; verifies agents, local Codex skills, tool metadata, MCP servers, and per-tool/per-server detail views |
+| `live_alcf_20260525_memory.tape` | `sess_f2eb419f7ca0` | fresh context-pressure memory view; verifies `/memory` palette discovery, ARC hit-rate stats, retained-token pressure, budget overrun, and transcript-derived compaction retention |
+| `live_alcf_20260525_sidebar_sections.tape` | `sess_3b3102631306` | fresh sidebar outline pass; verifies compact session rows, continuous child branches, hollow-circle status markers, and independent sessions/context section collapse |
+| `live_clio_ndp.tape` | `sess_674829ad532b` | NDP/seismic workflow, scroll return-to-bottom, long assistant detail |
+| `live_clio_ndp_top.tape` | `sess_674829ad532b` | NDP top-of-transcript smoke view |
+| `live_clio_provenance_detail.tape` | `sess_674829ad532b` | promoted tool evidence and raw provenance detail |
+| `live_clio_catalogs.tape` | `sess_674829ad532b` | agents, tools, MCP catalog drill-down |
+| `live_clio_catalogs_narrow.tape` | `sess_674829ad532b` | narrow catalog/tool-detail layout |
+| `live_clio_memory.tape` | `sess_674829ad532b` | memory command palette entry point |
+| `live_clio_artifacts.tape` | `sess_d993083e3584` | visualization artifact summary and raw plot-result detail |
+| `live_clio_sidebar_errors.tape` | `sess_08ebaf83905e` | missing-file errors, raw error detail, child toggle footer |
+| `live_clio_nanoagents.tape` | `sess_1fb7b4b568f2` | child/nanoagent grouping and opening a child session |
+| `live_clio_compaction.tape` | `sess_530d7025d35f` | compaction marker and detail modal |
+| `live_clio_memory_pressure.tape` | `sess_530d7025d35f` | over-budget context and retained compaction evidence |
+| `live_clio_state_markers.tape` | `sess_a6c3a15a2a78`, `sess_530d7025d35f` | provider-swap transcript and compaction state markers |
+
+Note: `provider_swap_memory_followup` proves retained context visually through
+the follow-up prompt, Parquet tool evidence, and final answer. The persisted
+GACT session export does not currently include a provider-transition event or
+per-message model metadata, so an explicit provider/model switch banner would
+require a CLIO capture-semantics change and a fresh benchmark run. Do not fake
+that marker from the benchmark title or prompt text.
+
 ## Important Files
 
 - `tui/internal/ui/app.go`

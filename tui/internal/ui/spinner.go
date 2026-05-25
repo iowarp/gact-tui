@@ -111,7 +111,7 @@ func (a *App) sessionStatusDot(status string) string {
 	case gact.StatusWaitingPermission:
 		return lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("⚠") + " "
 	case gact.StatusIdle, "":
-		return lipgloss.NewStyle().Foreground(t.FgMuted).Render("·") + " "
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render("○") + " "
 	default:
 		// Forward-compat: unknown statuses get a neutral dot so nothing
 		// is "broken" if the backend adds new values.

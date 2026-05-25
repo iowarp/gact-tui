@@ -206,7 +206,7 @@ func TestLoadAgentsCatalogIncludesChildAgents(t *testing.T) {
 	if ids["tui-test"] {
 		t.Fatalf("agents catalog should exclude skills, got %#v", loaded.items)
 	}
-	if !strings.Contains(childDesc, "child of data") {
+	if !strings.Contains(childDesc, "child of Data expert") {
 		t.Fatalf("child agent row should expose parent relationship, got %q", childDesc)
 	}
 }
@@ -229,6 +229,8 @@ func TestCatalogBrowser_EnterOnToolRowLoadsToolDetail(t *testing.T) {
 
 func TestCatalogDetailLoadedOpensScrollableDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{kind: catalogKindTools, title: "Tools"}
 
 	model, _ := a.Update(catalogDetailLoadedMsg{
 		title: "Tool · shell_bash",
@@ -238,6 +240,9 @@ func TestCatalogDetailLoadedOpensScrollableDetail(t *testing.T) {
 
 	if !got.detailViewOpen || got.detailView == nil {
 		t.Fatal("catalog detail should open detail view")
+	}
+	if got.catalogBrowserOpen || got.catalogBrowser != nil {
+		t.Fatal("catalog detail should become the foreground view, not render behind the catalog")
 	}
 	if !strings.Contains(got.detailView.fullText, "owner: utility") ||
 		!strings.Contains(got.detailView.fullText, "visible_to: chat") {
@@ -317,6 +322,53 @@ func TestCatalogBrowser_EnterOnAgentDetailMcpServerDrills(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("expected MCP detail load command")
+	}
+}
+
+func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/agents":
+			_, _ = w.Write([]byte(`{"agents":[
+				{"id":"data","source":"builtin","title":"Data expert","specialization":"data_analysis","tools":["adios_inspect_file"]}
+			]}`))
+		case "/v1/mcp/servers/mcp_adios/tools":
+			_, _ = w.Write([]byte(`{"tools":[
+				{
+					"id":"adios_inspect_file",
+					"name":"adios_inspect_file",
+					"source":"mcp",
+					"server_id":"mcp_adios",
+					"description":"Inspect ADIOS containers",
+					"visible_to":["data"]
+				}
+			]}`))
+		case "/v1/mcp/servers/mcp_adios/resources":
+			_, _ = w.Write([]byte(`{"resources":[]}`))
+		case "/v1/mcp/servers/mcp_adios/prompts":
+			_, _ = w.Write([]byte(`{"prompts":[]}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	msg := loadMcpDetailCmd(client.New(server.URL), "mcp_adios")()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" {
+		t.Fatalf("unexpected MCP detail error: %s", loaded.errText)
+	}
+	if len(loaded.items) != 1 {
+		t.Fatalf("items = %#v, want one tool row", loaded.items)
+	}
+	for _, want := range []string{"server: mcp_adios", "agents: Data expert · data_analysis"} {
+		if !strings.Contains(loaded.items[0].desc, want) {
+			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[0])
+		}
 	}
 }
 
@@ -406,6 +458,16 @@ func TestCatalogBrowser_EnterOnMcpResourceLoadsResourceDetail(t *testing.T) {
 
 func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/agents" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"agents": [
+					{"id":"utility","title":"Utility Expert","source":"builtin","tier":2,"specialization":"utility","tools":["shell_bash"]},
+					{"id":"planner","title":"Planner","source":"builtin","tier":1}
+				]
+			}`))
+			return
+		}
 		if r.URL.Path != "/v1/tools/shell_bash" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -436,6 +498,8 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	for _, want := range []string{
 		"owner: utility",
 		"visible_to: chat, utility",
+		"owning agents:",
+		"Utility Expert · utility",
 		"input_schema:",
 		"command",
 	} {
@@ -446,7 +510,7 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 }
 
 func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
-	out := formatToolDetail(gact.Tool{
+	out := formatToolDetailWithAgents(gact.Tool{
 		ID:                "shell_bash",
 		Name:              "shell_bash",
 		Source:            "mcp",
@@ -459,11 +523,15 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 		InputSchema: map[string]any{
 			"type": "object",
 		},
+	}, []gact.AgentDef{
+		{ID: "utility", Title: "Utility Expert", Specialization: "utility", Tools: []string{"shell_bash"}},
 	})
 
 	for _, want := range []string{
 		"owner: utility",
 		"visible_to: chat, planner, utility",
+		"owning agents:",
+		"Utility Expert · utility",
 		"tags: shell, diagnostic",
 		"permission: ask",
 		"mcp_server: mcp_shell",
@@ -471,6 +539,52 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("tool detail missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
+	out := formatToolDetailWithAgents(gact.Tool{
+		ID:          "adios_inspect_file",
+		Name:        "adios_inspect_file",
+		Source:      "mcp",
+		Description: "Inspect an ADIOS/BP container.",
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []any{"filepath"},
+			"properties": map[string]any{
+				"filepath": map[string]any{
+					"type":        "string",
+					"description": "Path to the ADIOS/BP container to inspect.",
+				},
+				"include_variables": map[string]any{
+					"type":        "boolean",
+					"description": "Include variable-level metadata.",
+				},
+			},
+		},
+	}, nil)
+
+	for _, want := range []string{
+		"input_schema:",
+		"type: object",
+		"required: filepath",
+		"additional_properties: disabled",
+		"fields:",
+		"- filepath: string · required · Path to the ADIOS/BP container to inspect.",
+		"- include_variables: boolean · Include variable-level metadata.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("tool detail schema summary missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{
+		`"properties"`,
+		`"additionalProperties"`,
+	} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("tool detail should not expose raw schema JSON %q:\n%s", notWant, out)
 		}
 	}
 }
@@ -494,6 +608,49 @@ func TestCatalogBrowser_DisabledRowRendersDim(t *testing.T) {
 	out := a.viewCatalogBrowser()
 	if !strings.Contains(out, "(disabled)") {
 		t.Errorf("expected '(disabled)' in render of disabled tool, got: %q", out)
+	}
+}
+
+func TestCatalogBrowserCompactsMultilineDescriptions(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{{
+			id:    "fs_apply_edit_write",
+			title: "fs_apply_edit_write",
+			desc:  "Write new_content to filepath.\n\nDesigned for accepted diffs.\nReturns path, unified_diff, new_content, lines_added, lines_removed.",
+		}},
+	}
+	a.width = 100
+	a.height = 30
+
+	out := stripANSI(a.viewCatalogBrowser())
+	if strings.Contains(out, "\n\nDesigned for accepted diffs") {
+		t.Fatalf("catalog description kept embedded newlines:\n%s", out)
+	}
+	if strings.Count(out, "Designed for") != 1 {
+		t.Fatalf("catalog description should preserve compact content on one visual row:\n%s", out)
+	}
+}
+
+func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
+	for _, kind := range []catalogBrowserKind{catalogKindMcpDetail, catalogKindAgentDetail} {
+		a := newReadyApp(nil, nil)
+		a.catalogBrowserOpen = true
+		a.catalogBrowser = &catalogBrowserState{
+			kind:  kind,
+			title: "Detail",
+			items: []catalogItem{{id: "tool/shell_bash", title: "Tool · shell_bash"}},
+		}
+		a.width = 120
+		a.height = 40
+
+		out := stripANSI(a.viewCatalogBrowser())
+		if !strings.Contains(out, "Enter details") {
+			t.Fatalf("detail catalog kind %v should advertise Enter details:\n%s", kind, out)
+		}
 	}
 }
 

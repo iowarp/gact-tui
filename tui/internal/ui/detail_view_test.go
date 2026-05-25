@@ -283,6 +283,7 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 			ID:         "result",
 			Type:       gact.PartTypeToolResult,
 			CallID:     "c1",
+			ToolName:   "shell_bash",
 			DurationMS: 123,
 			Content: []gact.Part{{
 				Type: gact.PartTypeText,
@@ -296,7 +297,8 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		t.Fatal("selected short tool_result should open detail view")
 	}
 	for _, want := range []string{
-		"tool result",
+		"shell_bash result",
+		"tool: shell_bash",
 		"call_id: c1",
 		"duration_ms: 123",
 		"Saturday, May 23, 2026 3:49:03 PM",
@@ -304,6 +306,58 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
 			t.Fatalf("tool result detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
 		}
+	}
+}
+
+func TestPartDetailShowsPromotedEvidenceProvenance(t *testing.T) {
+	out := partDetailText(gact.Part{
+		ID:     "result",
+		Type:   gact.PartTypeToolResult,
+		CallID: "c1",
+		Metadata: map[string]any{
+			"synthetic_from": "tools_called_metadata",
+			"raw_result":     map[string]any{"status": "success"},
+		},
+		Content: []gact.Part{{Type: gact.PartTypeText, Text: "status: success"}},
+	})
+	if !strings.Contains(out, "provenance: trace metadata") {
+		t.Fatalf("tool detail should surface promoted evidence provenance:\n%s", out)
+	}
+	if strings.Count(out, "raw_result:") != 1 {
+		t.Fatalf("tool detail should show raw_result once, not repeat it inside metadata:\n%s", out)
+	}
+	if strings.Contains(out, "synthetic_from") {
+		t.Fatalf("tool detail should not repeat provenance transport metadata:\n%s", out)
+	}
+
+	out = partDetailText(gact.Part{
+		ID:   "handoff",
+		Type: gact.PartTypeExpertHandoff,
+		Metadata: map[string]any{
+			"synthetic_from": "expert_handoffs_metadata",
+			"agent_id":       "data",
+		},
+	})
+	if !strings.Contains(out, "provenance: handoff metadata") {
+		t.Fatalf("handoff detail should surface promoted evidence provenance:\n%s", out)
+	}
+}
+
+func TestPartDetailHidesPartialAnswerRenderFlag(t *testing.T) {
+	out := partDetailText(gact.Part{
+		ID:   "answer",
+		Type: gact.PartTypeText,
+		Text: "Recovered answer.",
+		Metadata: map[string]any{
+			"partial_after_error": true,
+			"stream_source":       "batch",
+		},
+	})
+	if strings.Contains(out, "partial_after_error") {
+		t.Fatalf("detail should not expose UI-only partial answer marker:\n%s", out)
+	}
+	if !strings.Contains(out, "Recovered answer.") || !strings.Contains(out, "stream_source") {
+		t.Fatalf("detail should retain text and real metadata:\n%s", out)
 	}
 }
 

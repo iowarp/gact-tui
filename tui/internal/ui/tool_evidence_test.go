@@ -33,13 +33,12 @@ func TestRenderAssistantToolEvidenceFromMetadata(t *testing.T) {
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
 	for _, want := range []string{
-		"Tool evidence",
-		"summary metadata; no live tool transcript was sent",
-		"hdf5_list_datasets",
-		`{"path":"run.h5"}`,
-		"live_observer",
-		"18ms",
-		`result: ["/entry/current","/entry/voltage"]`,
+		"Hdf5ListDatasets(path: run.h5)",
+		"trace metadata",
+		`["/entry/current","/entry/voltage"]`,
+		"raw detail",
+		"Ctrl+E",
+		"I inspected the file.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered tool evidence missing %q:\n%s", want, out)
@@ -140,6 +139,9 @@ func TestNormalizeMessageToolEvidenceInsertsBeforeFinalText(t *testing.T) {
 	if msg.Parts[1].ToolName != "shell_bash" || msg.Parts[1].Input["command"] != "date" {
 		t.Fatalf("tool call not populated from metadata: %#v", msg.Parts[1])
 	}
+	if msg.Parts[2].ToolName != "shell_bash" {
+		t.Fatalf("tool result should retain tool name for detail views: %#v", msg.Parts[2])
+	}
 	if got := msg.Parts[2].Content[0].Text; got != "Saturday, May 23, 2026 3:04:13 PM" {
 		t.Fatalf("tool result should prefer stdout text, got %q", got)
 	}
@@ -194,14 +196,212 @@ func TestNormalizeMessagePresentationPromotesExpertHandoffsBeforeToolsAndText(t 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 110, nil))
 	for _, want := range []string{
 		"↳ data",
+		"handoff metadata",
 		"found NDP waveform archive",
 		"data -> ndp_catalog",
 		"NdpSearchDatasets",
+		"trace metadata",
 		"Plot written.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered promoted handoff missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestNormalizeMessagePresentationSkipsRedundantDirectToolSuccessHandoffs(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "route", Type: gact.PartTypeRoutingDecision, SelectedAgent: "analysis"},
+			{ID: "answer", Type: gact.PartTypeText, Text: "Stats are ready."},
+		},
+		Metadata: map[string]any{
+			"expert_handoffs": []any{
+				map[string]any{
+					"agent_id":       "analysis",
+					"stage":          "direct_tool",
+					"status":         "success",
+					"input_summary":  "parquet_compute_statistics(column, filepath)",
+					"duration_ms":    5.0,
+					"output_summary": "",
+				},
+				map[string]any{
+					"agent_id":       "analysis",
+					"stage":          "direct_tool",
+					"status":         "failure",
+					"error":          "column missing",
+					"duration_ms":    4.0,
+					"output_summary": "",
+				},
+				map[string]any{
+					"agent_id":       "analysis",
+					"stage":          "planner_dispatch",
+					"status":         "success",
+					"output_summary": "computed parquet statistics",
+				},
+			},
+			"tools_called": []any{
+				map[string]any{
+					"name": "parquet_compute_statistics",
+					"args": map[string]any{
+						"filepath": "facility_measurements.parquet",
+						"column":   "temperature_k",
+					},
+					"result": map[string]any{
+						"column":     "temperature_k",
+						"dtype":      "double",
+						"null_count": 0,
+						"mean":       293.98,
+						"ok":         true,
+					},
+					"ok": true,
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+
+	got := []string{}
+	for _, part := range msg.Parts {
+		got = append(got, part.Type)
+	}
+	if strings.Join(got, ",") != "routing_decision,expert_handoff,expert_handoff,tool_call,tool_result,text" {
+		t.Fatalf("unexpected filtered part order: %#v", got)
+	}
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 130, nil))
+	if strings.Contains(out, "success · direct_tool") {
+		t.Fatalf("empty successful direct_tool handoff duplicates promoted tool evidence:\n%s", out)
+	}
+	for _, want := range []string{
+		"failure",
+		"direct_tool",
+		"computed parquet statistics",
+		"ParquetComputeStatistics",
+		"Stats are ready.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("filtered render missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestNormalizeMessagePresentationFiltersExistingRedundantDirectToolHandoffs(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "route", Type: gact.PartTypeRoutingDecision, SelectedAgent: "analysis"},
+			{
+				ID:   "handoff_direct",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "analysis | success | direct_tool",
+				Metadata: map[string]any{
+					"agent_id":    "analysis",
+					"stage":       "direct_tool",
+					"status":      "success",
+					"duration_ms": 5.0,
+				},
+			},
+			{
+				ID:   "handoff_planner",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "analysis | success | planner_dispatch | inspected parquet",
+				Metadata: map[string]any{
+					"agent_id":       "analysis",
+					"stage":          "planner_dispatch",
+					"status":         "success",
+					"output_summary": "inspected parquet",
+				},
+			},
+			{ID: "answer", Type: gact.PartTypeText, Text: "Done."},
+		},
+		Metadata: map[string]any{
+			"tools_called": []any{
+				map[string]any{
+					"name":   "parquet_compute_statistics",
+					"args":   map[string]any{"column": "pressure_pa"},
+					"result": map[string]any{"column": "pressure_pa", "mean": 101231.17, "ok": true},
+					"ok":     true,
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+
+	got := []string{}
+	for _, part := range msg.Parts {
+		got = append(got, part.ID)
+	}
+	if strings.Join(got, ",") != "route,handoff_planner,synthetic_tool_evidence_1_call,synthetic_tool_evidence_1_result,answer" {
+		t.Fatalf("unexpected filtered part ids: %#v", got)
+	}
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 130, nil))
+	if strings.Contains(out, "success · direct_tool") {
+		t.Fatalf("existing successful direct_tool handoff duplicates promoted tool evidence:\n%s", out)
+	}
+	for _, want := range []string{
+		"planner_dispatch",
+		"inspected parquet",
+		"ParquetComputeStatistics",
+		"Done.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("existing handoff filter render missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestNormalizeMessagePresentationCompactsDuplicateToolEvidenceRows(t *testing.T) {
+	duplicateTool := func() map[string]any {
+		return map[string]any{
+			"name": "parquet_compute_statistics",
+			"args": map[string]any{
+				"filepath": "facility_measurements.parquet",
+				"column":   "temperature_k",
+			},
+			"result": map[string]any{
+				"column":     "temperature_k",
+				"dtype":      "double",
+				"null_count": 0,
+				"mean":       293.98,
+				"ok":         true,
+			},
+			"ok":          true,
+			"duration_ms": 5.0,
+		}
+	}
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "answer", Type: gact.PartTypeText, Text: "Stats are ready."},
+		},
+		Metadata: map[string]any{
+			"tools_called": []any{
+				duplicateTool(),
+				map[string]any{
+					"name":   "parquet_compute_statistics",
+					"args":   map[string]any{"filepath": "facility_measurements.parquet", "column": "pressure_pa"},
+					"result": map[string]any{"column": "pressure_pa", "dtype": "double", "mean": 101231.17, "ok": true},
+					"ok":     true,
+				},
+				duplicateTool(),
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 150, nil))
+	if got := strings.Count(out, "ParquetComputeStatistics("); got != 2 {
+		t.Fatalf("expected duplicate tool evidence rows to compact to two calls, got %d:\n%s", got, out)
+	}
+	if !strings.Contains(out, "trace repeated 1 more time with the same call/result") {
+		t.Fatalf("expected repeat notice on retained duplicate evidence:\n%s", out)
+	}
+	if !strings.Contains(out, "column: pressure_pa") || !strings.Contains(out, "Stats are ready.") {
+		t.Fatalf("distinct evidence and final answer should remain visible:\n%s", out)
 	}
 }
 
@@ -240,7 +440,7 @@ func TestToolEvidenceNDPSearchRendersReadableDatasetSummary(t *testing.T) {
 	}
 
 	normalizeMessagePresentation(&msg)
-	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 180, nil))
 	for _, want := range []string{
 		"status: success",
 		"datasets:",
@@ -255,6 +455,9 @@ func TestToolEvidenceNDPSearchRendersReadableDatasetSummary(t *testing.T) {
 	if strings.Contains(out, `"_meta"`) || strings.Contains(out, `resource_urls`) {
 		t.Fatalf("inline NDP summary should not be raw JSON:\n%s", out)
 	}
+	if !strings.Contains(out, "trace metadata · raw detail") {
+		t.Fatalf("promoted tool result should advertise provenance and raw detail:\n%s", out)
+	}
 	foundRaw := false
 	for _, part := range msg.Parts {
 		if part.Type == gact.PartTypeToolResult && part.Metadata["raw_result"] != nil {
@@ -263,6 +466,478 @@ func TestToolEvidenceNDPSearchRendersReadableDatasetSummary(t *testing.T) {
 	}
 	if !foundRaw {
 		t.Fatal("raw NDP result should remain available in tool detail metadata")
+	}
+	if !strings.Contains(out, "[trace metadata · raw detail") {
+		t.Fatalf("inline NDP summary should advertise raw detail expansion:\n%s", out)
+	}
+}
+
+func TestToolEvidenceVisualizationArtifactRendersReadableSummary(t *testing.T) {
+	msg := gact.Message{
+		Role:  gact.RoleAssistant,
+		Parts: []gact.Part{{ID: "answer", Type: gact.PartTypeText, Text: "Scatter plot saved."}},
+		Metadata: map[string]any{
+			"tools_called": []any{
+				map[string]any{
+					"name": "plot_scatter",
+					"args": map[string]any{
+						"filepath":    "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/facility_measurements.parquet",
+						"output_path": "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/facility_measurements_scatter.png",
+						"x_column":    "vibration_mm_s",
+						"y_column":    "anomaly_score",
+					},
+					"result": map[string]any{
+						"ok":    true,
+						"value": "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/facility_measurements_scatter.png",
+					},
+					"ok": true,
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 180, nil))
+	for _, want := range []string{
+		"PlotScatter(output_path: .../clio-benchmark-data/facility_measurements_scatter.png",
+		"x_column: vibration_mm_s",
+		"y_column: anomaly_score",
+		"artifact result:",
+		"artifact: .../clio-benchmark-data/facility_measurements_scatter.png",
+		"raw detail",
+		"Scatter plot saved.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("visualization artifact summary missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `{"ok":true`) || strings.Contains(out, `"value":`) {
+		t.Fatalf("inline visualization summary should not be raw JSON:\n%s", out)
+	}
+}
+
+func TestRepeatedIdenticalToolRunsCollapseInline(t *testing.T) {
+	var parts []gact.Part
+	for i := 0; i < 5; i++ {
+		callID := "plot_" + itos(i)
+		parts = append(parts,
+			gact.Part{
+				ID:       "call_" + itos(i),
+				Type:     gact.PartTypeToolCall,
+				CallID:   callID,
+				ToolName: "plot_scatter",
+				Input: map[string]any{
+					"output_path": "/home/jcernuda/clio-agent/tmp/scatter_plot.png",
+					"x_column":    "vibration_mm_s",
+					"y_column":    "anomaly_score",
+				},
+			},
+			gact.Part{
+				ID:       "result_" + itos(i),
+				Type:     gact.PartTypeToolResult,
+				CallID:   callID,
+				ToolName: "plot_scatter",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: "artifact result:\nartifact: /home/jcernuda/clio-agent/tmp/scatter_plot.png",
+				}},
+			},
+		)
+	}
+	parts = append(parts, gact.Part{ID: "answer", Type: gact.PartTypeText, Text: "Scatter plot saved."})
+
+	out := ansi.Strip(DefaultTheme().renderPartsForRoleWithResultsSelected(parts, 150, gact.RoleAssistant, nil, ""))
+	if got := strings.Count(out, "PlotScatter("); got != 1 {
+		t.Fatalf("expected one visible repeated tool call, got %d:\n%s", got, out)
+	}
+	if got := strings.Count(out, "artifact result:"); got != 1 {
+		t.Fatalf("expected one visible repeated tool result, got %d:\n%s", got, out)
+	}
+	if !strings.Contains(out, "PlotScatter repeated 4 more times") {
+		t.Fatalf("expected duplicate tool notice:\n%s", out)
+	}
+	if !strings.Contains(out, "Scatter plot saved.") {
+		t.Fatalf("final answer should remain visible after duplicate compaction:\n%s", out)
+	}
+}
+
+func TestExpertHandoffInlinePreviewStaysConcise(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: "analysis | success | data_handoff_analysis | Computed SAC waveform statistics for " +
+			"/home/jcernuda/clio-agent/tmp/clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar. " +
+			"The file exposes 11260 SAC traces; 6 traces were sampled for statistics. - " +
+			"AS01 SCP: npts=801, delta_s=0.05, peak_abs=1, member=Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir/01-02-2013_10:39:48.540/SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC - " +
+			"AS02 SCP: npts=801, delta_s=0.05, peak_abs=1, member=Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir/01-02-2013_10:39:48.540/SCP/01-02-2013_10:39:48.540.AS02.ScP.aligned.SAC",
+		Metadata: map[string]any{
+			"agent_id":       "analysis",
+			"stage":          "data_handoff_analysis",
+			"status":         "success",
+			"duration_ms":    886.0,
+			"output_summary": "Computed SAC waveform statistics for /home/jcernuda/clio-agent/tmp/clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar. The file exposes 11260 SAC traces; 6 traces were sampled for statistics. - AS01 SCP: npts=801, delta_s=0.05, peak_abs=1, member=Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir/01-02-2013_10:39:48.540/SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalized := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(normalized, "11260 SAC traces") {
+		t.Fatalf("handoff preview should retain the important scientific count:\n%s", out)
+	}
+	if strings.Contains(out, "01-02-2013_10:39:48.540.AS01") {
+		t.Fatalf("handoff preview should not inline long member paths:\n%s", out)
+	}
+}
+
+func TestScientificToolCallSummaryUsesPrimaryArgs(t *testing.T) {
+	part := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "sac_compute_trace_statistics",
+		Input: map[string]any{
+			"filepath":   "/home/jcernuda/clio-agent/tmp/clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar",
+			"max_traces": 6.0,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	if !strings.Contains(out, "filepath: .../clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar") ||
+		!strings.Contains(out, "max_traces: 6") {
+		t.Fatalf("scientific tool call summary should use named primary args:\n%s", out)
+	}
+	if strings.Contains(out, `{"filepath"`) {
+		t.Fatalf("scientific tool call summary should not fall back to raw JSON:\n%s", out)
+	}
+}
+
+func TestScientificToolCallSummaryShortensParquetFilepath(t *testing.T) {
+	part := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "parquet_analyze_schema",
+		Input: map[string]any{
+			"filepath": "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/facility_measurements.parquet",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	if !strings.Contains(out, "filepath: .../clio-benchmark-data/facility_measurements.parquet") {
+		t.Fatalf("Parquet tool call should summarize filepath with shortened path:\n%s", out)
+	}
+	if strings.Contains(out, "/home/jcernuda/clio-agent/tmp") {
+		t.Fatalf("Parquet tool call should not inline full absolute path:\n%s", out)
+	}
+}
+
+func TestScientificToolCallSummaryShortensHDF5Filepath(t *testing.T) {
+	part := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "hdf5_list_datasets",
+		Input: map[string]any{
+			"filepath": "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	if !strings.Contains(out, "filepath: .../clio-benchmark-data/missing_fusion_run.h5") {
+		t.Fatalf("HDF5 tool call should summarize filepath with shortened path:\n%s", out)
+	}
+	if strings.Contains(out, "/home/jcernuda/clio-agent/tmp") {
+		t.Fatalf("HDF5 tool call should not inline full absolute path:\n%s", out)
+	}
+}
+
+func TestCompactSummaryTextPromotesToCompactionPart(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				ID:   "compact_1",
+				Type: gact.PartTypeText,
+				Text: "[compact summary]\nEvidence-Preserving Compact Memory\nkept tool evidence",
+				Metadata: map[string]any{
+					"synthetic": "compact_summary",
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	part := msg.Parts[0]
+	if part.Type != gact.PartTypeCompaction {
+		t.Fatalf("compact summary should promote to compaction part, got %s", part.Type)
+	}
+	if part.Text != "" {
+		t.Fatalf("promoted compaction should clear text body, got %q", part.Text)
+	}
+	if strings.Contains(part.Summary, "[compact summary]") ||
+		!strings.Contains(part.Summary, "Evidence-Preserving Compact Memory") {
+		t.Fatalf("summary should strip transport marker and preserve content: %q", part.Summary)
+	}
+	if got := part.Metadata["synthetic_from"]; got != "compact_summary_text" {
+		t.Fatalf("promoted compaction should keep provenance, got %v", got)
+	}
+}
+
+func TestCompactionSummaryPreviewCollapsesAndAdvertisesDetail(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeCompaction,
+		Summary: strings.Join([]string{
+			"Evidence-Preserving Compact Memory",
+			"line 1",
+			"line 2",
+			"line 3",
+			"line 4",
+			"line 5",
+			"line 6",
+			"line 7",
+		}, "\n"),
+		Metadata: map[string]any{
+			"synthetic_from": "compact_summary_text",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 100))
+	if !strings.Contains(out, "compacted context summary") {
+		t.Fatalf("compaction should render as a state marker:\n%s", out)
+	}
+	if !strings.Contains(out, "compact summary · full summary") || !strings.Contains(out, "Ctrl+E") {
+		t.Fatalf("collapsed compaction should advertise detail expansion:\n%s", out)
+	}
+	if strings.Contains(out, "line 7") {
+		t.Fatalf("long compaction summary should be collapsed inline:\n%s", out)
+	}
+}
+
+func TestToolEvidenceErrorResultRendersStructuredSummary(t *testing.T) {
+	msg := gact.Message{
+		Role:  gact.RoleAssistant,
+		Parts: []gact.Part{{Type: gact.PartTypeText, Text: "The file is unavailable."}},
+		Metadata: map[string]any{
+			"tools_called": []any{
+				map[string]any{
+					"name": "hdf5_list_datasets",
+					"args": map[string]any{"filepath": "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5"},
+					"ok":   true,
+					"result": map[string]any{
+						"ok": false,
+						"error": map[string]any{
+							"code":        "file_not_found",
+							"field":       "filepath",
+							"message":     "File does not exist: /home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5",
+							"next_action": "Provide an existing file inside an allowed root.",
+							"path":        "/home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5",
+							"tool":        "hdf5_list_datasets",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	foundErrorResult := false
+	for _, part := range msg.Parts {
+		if part.Type == gact.PartTypeToolResult && part.IsError {
+			foundErrorResult = true
+		}
+	}
+	if !foundErrorResult {
+		t.Fatal("tool evidence result with nested ok=false/error should be marked as IsError")
+	}
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		"(error)",
+		"error result:",
+		"code: file_not_found",
+		"message: File does not exist:",
+		"path: .../clio-benchmark-data/missing_fusion_run.h5",
+		"next action: Provide an existing file",
+		"Ctrl+E",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("structured error summary missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `{"error"`) || strings.Contains(out, `"next_action"`) {
+		t.Fatalf("inline error summary should not be raw JSON:\n%s", out)
+	}
+}
+
+func TestMessageErrorInfoPromotesToExpandableErrorPart(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "answer",
+			Type: gact.PartTypeText,
+			Text: "Chart saved.",
+		}},
+		ErrorInfo: &gact.ErrorInfo{
+			Error:       "tool_error",
+			Message:     "Column 'event_status' not found. Available: ['event_id', 'status']",
+			Recoverable: true,
+			Details: map[string]any{
+				"tool": "plot_bar_chart",
+				"tool_error": map[string]any{
+					"next_action": "Retry with the status column.",
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	if len(msg.Parts) < 2 || msg.Parts[0].Type != gact.PartTypeError || msg.Parts[1].Type != gact.PartTypeText {
+		t.Fatalf("message error_info should be inserted before final text: %#v", msg.Parts)
+	}
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		"✗ tool_error",
+		"Column 'event_status' not found.",
+		"error detail",
+		"Ctrl+E",
+		"partial answer after surfaced error",
+		"Chart saved.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("message error_info render missing %q:\n%s", want, out)
+		}
+	}
+	ref := partDetailRef("msg", msg.Parts[0])
+	for _, want := range []string{
+		"type: error",
+		"code: tool_error",
+		"recoverable: true",
+		"Column 'event_status' not found",
+		"plot_bar_chart",
+		"Retry with the status column.",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("message error detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
+func TestStopReasonErrorMarksFinalTextAsPartial(t *testing.T) {
+	msg := gact.Message{
+		Role:       gact.RoleAssistant,
+		StopReason: gact.StopReasonError,
+		Parts: []gact.Part{
+			{
+				ID:   "handoff",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "visualization | partial | planner",
+				Metadata: map[string]any{
+					"agent_id":       "visualization",
+					"stage":          "planner",
+					"status":         "partial",
+					"output_summary": "Agent planner reached the step limit after partial observations.",
+				},
+			},
+			{
+				ID:   "answer",
+				Type: gact.PartTypeText,
+				Text: "Scatter plot saved.",
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	if !strings.Contains(out, "partial answer after surfaced error") {
+		t.Fatalf("stop_reason=error final text should be explicitly marked partial:\n%s", out)
+	}
+}
+
+func TestExpertHandoffFailureShowsParsedErrorSummary(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: "data | failure | direct_tool",
+		Metadata: map[string]any{
+			"agent_id":    "data",
+			"stage":       "direct_tool",
+			"status":      "failure",
+			"duration_ms": 4.0,
+			"error":       `{"error":{"code":"file_not_found","message":"File does not exist: /home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5","next_action":"Provide an existing file inside an allowed root.","path":"/home/jcernuda/clio-agent/tmp/clio-benchmark-data/missing_fusion_run.h5","tool":"hdf5_list_datasets"}}`,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalized := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{
+		"✗ data",
+		"failure",
+		"direct_tool",
+		"error result:",
+		"code: file_not_found",
+		"next action: Provide an existing file",
+	} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("failed handoff should surface parsed error summary %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `{"error"`) {
+		t.Fatalf("failed handoff should not show raw error JSON inline:\n%s", out)
+	}
+}
+
+func TestExpertHandoffPartialJSONShowsReadableSummary(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: "visualization | partial | planner",
+		Metadata: map[string]any{
+			"agent_id":       "visualization",
+			"stage":          "planner",
+			"status":         "partial",
+			"output_summary": `{"error":"routing_error","message":"Agent planner reached the step limit after partial observations.","details":{"partial":true,"stage":"step_limit_after_observations","step_limit":12,"recovery_actions":["retry","reconfigure_provider","exit"]},"recoverable":true}`,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	for _, want := range []string{
+		"visualization",
+		"partial",
+		"status: routing_error",
+		"message: Agent planner reached the step limit",
+		"stage: step_limit_after_observations",
+		"step limit: 12",
+		"recovery: retry, reconfigure_provider, exit",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("partial handoff should surface readable summary %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `{"error"`) || strings.Contains(out, `"recoverable"`) {
+		t.Fatalf("partial handoff should not show raw JSON inline:\n%s", out)
+	}
+}
+
+func TestAssistantInlineTextShortensLongScientificPaths(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "answer",
+			Type: gact.PartTypeText,
+			Text: "Analysis stage: Computed SAC waveform statistics for /home/jcernuda/clio-agent/tmp/clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar.\n\n" +
+				"AS01 SCP: npts=801, member=Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir/01-02-2013_10:39:48.540/SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
+		}},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		".../clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar",
+		".../SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("assistant inline text should retain shortened scientific path %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{
+		"/home/jcernuda/clio-agent/tmp/clio-ndp-staging",
+		"member=Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir",
+	} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("assistant inline text should not expose long path %q:\n%s", notWant, out)
+		}
+	}
+	if !strings.Contains(out, "data.tar.") || !strings.Contains(out, "\n  AS01 SCP") {
+		t.Fatalf("assistant inline text should preserve paragraph breaks:\n%s", out)
 	}
 }
 
@@ -280,5 +955,154 @@ func TestToolResultRenderHardWrapsLongUnbrokenOutput(t *testing.T) {
 		if w := lipgloss.Width(line); w > 52 {
 			t.Fatalf("tool result line width = %d, want <= 52:\n%s", w, ansi.Strip(out))
 		}
+	}
+}
+
+func TestLiveParquetToolResultRendersSemanticPreview(t *testing.T) {
+	assistant := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				ID:       "call",
+				Type:     gact.PartTypeToolCall,
+				CallID:   "c1",
+				ToolName: "parquet_compute_statistics",
+				Input:    map[string]any{"path": "facility_measurements.parquet", "column": "pressure_pa"},
+			},
+		},
+	}
+	toolMsg := gact.Message{
+		Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID:     "result",
+			Type:   gact.PartTypeToolResult,
+			CallID: "c1",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: strings.Join([]string{
+					`{`,
+					`  "status":"success",`,
+					`  "path":"facility_measurements.parquet",`,
+					`  "column":"pressure_pa",`,
+					`  "dtype":"double",`,
+					`  "count":3000,`,
+					`  "nulls":0,`,
+					`  "unique":3000,`,
+					`  "mean":101231.18,`,
+					`  "std":766.51,`,
+					`  "min":98435.39,`,
+					`  "median":101229.29,`,
+					`  "max":103998.63`,
+					`}`,
+				}, "\n"),
+			}},
+		}},
+	}
+	messages := []gact.Message{assistant, toolMsg}
+	inline, _ := pairToolResults(messages)
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(assistant, nil, 120, inline[0]))
+	for _, want := range []string{
+		"parquet result:",
+		"file: facility_measurements.parquet",
+		"column: pressure_pa",
+		"type: double",
+		"mean: 1.012e+05",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("parquet semantic preview missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"status"`) || strings.Contains(out, `"pressure_pa"`) {
+		t.Fatalf("inline parquet preview should not be raw JSON:\n%s", out)
+	}
+	ref, ok := findBulkyPartForSelected(assistant, 0, messages, 0)
+	if !ok {
+		t.Fatal("selected live tool result should still open detail")
+	}
+	if !strings.Contains(ref.fullText, `"status":"success"`) {
+		t.Fatalf("detail should preserve raw tool result, got:\n%s", ref.fullText)
+	}
+}
+
+func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
+	cases := []struct {
+		name string
+		tool string
+		raw  any
+		want []string
+	}{
+		{
+			name: "csv",
+			tool: "csv_read_schema",
+			raw: map[string]any{
+				"status": "success",
+				"path":   "measurements.csv",
+				"rows":   12.0,
+				"columns": []any{
+					map[string]any{"name": "time", "dtype": "string"},
+					map[string]any{"name": "pressure_pa", "dtype": "float64"},
+				},
+			},
+			want: []string{"csv result:", "rows: 12", "columns: time string, pressure_pa float64"},
+		},
+		{
+			name: "hdf5",
+			tool: "hdf5_analyze_file",
+			raw: map[string]any{
+				"file":     "run.h5",
+				"datasets": []any{"/entry/current", "/entry/voltage"},
+			},
+			want: []string{"hdf5 result:", "file: run.h5", "datasets: /entry/current, /entry/voltage"},
+		},
+		{
+			name: "sac",
+			tool: "sac_inspect",
+			raw: map[string]any{
+				"path":           "waveform.sac",
+				"station":        "SALTON",
+				"channel":        "BHZ",
+				"npts":           4000.0,
+				"sample_rate_hz": 100.0,
+				"duration_s":     40.0,
+			},
+			want: []string{"sac result:", "station: SALTON", "channel: BHZ", "sample_rate_hz: 100"},
+		},
+		{
+			name: "sac plot",
+			tool: "sac_plot_traces",
+			raw: map[string]any{
+				"filepath":        "/home/jcernuda/clio-agent/tmp/clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar",
+				"output_path":     "/home/jcernuda/clio-agent/.clio-agent-artifacts/charts/sac_traces_Pachhai_etal_2023_ScP_data.png",
+				"sac_trace_count": 11260.0,
+				"traces_plotted":  3.0,
+				"members": map[string]any{
+					"items": []any{
+						"Pachhai_etal_2023_ScP_data/ASAR_ScP_data.dir/01-02-2013_10:39:48.540/SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
+					},
+				},
+				"_meta": map[string]any{"status": "success"},
+			},
+			want: []string{
+				"sac result:",
+				"status: success",
+				"artifact: .../charts/sac_traces_Pachhai_etal_2023_ScP_data.png",
+				"sac_trace_count: 11260",
+				"traces_plotted: 3",
+				"file: .../clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar",
+				".../SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			summary := summarizeToolResult(tc.tool, tc.raw)
+			for _, want := range tc.want {
+				if !strings.Contains(summary, want) {
+					t.Fatalf("summary missing %q:\n%s", want, summary)
+				}
+			}
+		})
 	}
 }

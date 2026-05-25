@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -71,9 +72,9 @@ func TestSessionStatusDot_MatchesStatus(t *testing.T) {
 	if !strings.Contains(a.sessionStatusDot(gact.StatusWaitingPermission), "⚠") {
 		t.Error("waiting_permission dot should contain ⚠")
 	}
-	// Idle gets a muted dot.
-	if !strings.Contains(a.sessionStatusDot(gact.StatusIdle), "·") {
-		t.Error("idle dot should contain middot")
+	// Idle gets the same neutral hollow marker as forward-compatible states.
+	if !strings.Contains(a.sessionStatusDot(gact.StatusIdle), "○") {
+		t.Error("idle dot should contain hollow circle")
 	}
 	// Unknown status → forward-compat neutral glyph.
 	if !strings.Contains(a.sessionStatusDot("future_state"), "○") {
@@ -112,5 +113,161 @@ func TestSpinner_RearmsOnIdleToRunningTransition(t *testing.T) {
 	// continue rescheduling.
 	if !a.anySessionRunning() {
 		t.Error("applySSE should have flipped currentStatus to running")
+	}
+}
+
+func TestSSEStatusChangedDoesNotOverwriteHeaderForSiblingSession(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "selected", Status: gact.StatusIdle},
+		{ID: "sibling", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.currentStatus = gact.StatusIdle
+
+	a.applySSE(client.SSEEvent{
+		Type: "session.status_changed",
+		Payload: map[string]any{
+			"payload": map[string]any{
+				"session_id": "sibling",
+				"status":     gact.StatusRunning,
+			},
+		},
+	})
+
+	if a.currentStatus != gact.StatusIdle {
+		t.Fatalf("currentStatus = %q, want selected session to stay idle", a.currentStatus)
+	}
+	if a.sessions[1].Status != gact.StatusRunning {
+		t.Fatalf("sibling status = %q, want running", a.sessions[1].Status)
+	}
+}
+
+func TestSSEStatusReplayCannotRegressTerminalSessionToRunning(t *testing.T) {
+	updatedAt := time.Date(2026, 5, 25, 4, 37, 48, 0, time.UTC)
+	a := New("http://unused")
+	a.sessions = []gact.Session{{
+		ID:        "s1",
+		Status:    gact.StopReasonCancelled,
+		UpdatedAt: updatedAt,
+	}}
+	a.selected = 0
+	a.currentStatus = gact.StopReasonCancelled
+
+	a.applySSE(client.SSEEvent{
+		Type: "session.status_changed",
+		Payload: map[string]any{
+			"occurred_at": updatedAt.Add(-time.Minute).Format(time.RFC3339Nano),
+			"payload": map[string]any{
+				"session_id": "s1",
+				"status":     gact.StatusRunning,
+			},
+		},
+	})
+
+	if a.currentStatus != gact.StopReasonCancelled {
+		t.Fatalf("currentStatus = %q, want cancelled after stale replay", a.currentStatus)
+	}
+	if a.sessions[0].Status != gact.StopReasonCancelled {
+		t.Fatalf("session status = %q, want cancelled after stale replay", a.sessions[0].Status)
+	}
+}
+
+func TestSSEMessageReplayCannotResurrectArchivedTranscript(t *testing.T) {
+	updatedAt := time.Date(2026, 5, 25, 4, 37, 48, 0, time.UTC)
+	a := New("http://unused")
+	a.sessions = []gact.Session{{
+		ID:        "s1",
+		Status:    gact.StatusIdle,
+		UpdatedAt: updatedAt,
+	}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:        "msg_compact",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type:    gact.PartTypeCompaction,
+			Summary: "retained compact summary",
+		}},
+	}}
+
+	a.applyMessageCreated(client.SSEEvent{
+		Type: "message.created",
+		Payload: map[string]any{
+			"occurred_at": updatedAt.Add(-time.Minute).Format(time.RFC3339Nano),
+			"payload": map[string]any{
+				"id":         "msg_archived_setup",
+				"session_id": "s1",
+				"role":       gact.RoleUser,
+				"parts": []any{map[string]any{
+					"type": "text",
+					"text": "old setup message",
+				}},
+			},
+		},
+	})
+
+	if len(a.messages) != 1 {
+		t.Fatalf("stale replay appended archived message, messages=%#v", a.messages)
+	}
+	if a.messages[0].ID != "msg_compact" {
+		t.Fatalf("current compact ledger was changed: %#v", a.messages)
+	}
+
+	a.applyMessageCreated(client.SSEEvent{
+		Type: "message.created",
+		Payload: map[string]any{
+			"occurred_at": updatedAt.Add(time.Minute).Format(time.RFC3339Nano),
+			"payload": map[string]any{
+				"id":         "msg_live",
+				"session_id": "s1",
+				"role":       gact.RoleAssistant,
+				"parts": []any{map[string]any{
+					"type": "text",
+					"text": "new live message",
+				}},
+			},
+		},
+	})
+
+	if len(a.messages) != 2 || a.messages[1].ID != "msg_live" {
+		t.Fatalf("fresh event should append, messages=%#v", a.messages)
+	}
+}
+
+func TestSSEMessageReplayWithoutSessionIDUsesCurrentSession(t *testing.T) {
+	updatedAt := time.Date(2026, 5, 25, 4, 37, 48, 0, time.UTC)
+	a := New("http://unused")
+	a.sessions = []gact.Session{{
+		ID:        "s1",
+		Status:    gact.StatusError,
+		UpdatedAt: updatedAt,
+	}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:        "msg_current",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Parts:     []gact.Part{{Type: gact.PartTypeText, Text: "current ledger"}},
+	}}
+
+	a.applyMessageCreated(client.SSEEvent{
+		Type: "message.created",
+		Payload: map[string]any{
+			"occurred_at": updatedAt.Add(-time.Minute).Format(time.RFC3339Nano),
+			"payload": map[string]any{
+				"id":   "msg_old_replay",
+				"role": gact.RoleAssistant,
+				"parts": []any{map[string]any{
+					"type": "text",
+					"text": "old replay",
+				}},
+			},
+		},
+	})
+
+	if len(a.messages) != 1 || a.messages[0].ID != "msg_current" {
+		t.Fatalf("session-scoped stale replay should be ignored, messages=%#v", a.messages)
 	}
 }

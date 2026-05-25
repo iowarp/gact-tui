@@ -113,15 +113,77 @@ func TestFormatMemoryInspectorShowsSessionAndGlobalContext(t *testing.T) {
 	for _, want := range []string{
 		"ARC cache",
 		"hit_rate: 75.0%",
+		"role: recent-context retrieval cache",
 		"Global memory",
 		"conversations_total: 5",
 		"Current session context",
 		"messages_retained: 7",
 		"tokens_budget: 4000",
+		"context_usage: 1234 / 4000 tokens (30.9%)",
+		"remaining_budget: 2766 tokens",
+		"pressure: low (30.9%)",
 		"profiles_attached: 2",
+		"Compaction",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("memory inspector missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatMemoryInspectorShowsOverBudgetAmount(t *testing.T) {
+	budget := 4000
+	out := formatMemoryInspector(gact.MemoryStats{
+		Session: &gact.SessionMemoryStats{
+			SessionID:        "sess_pressure",
+			MessagesRetained: 10,
+			TokensRetained:   48294,
+			TokensBudget:     &budget,
+		},
+	})
+
+	for _, want := range []string{
+		"context_usage: 48294 / 4000 tokens (1207.3%)",
+		"remaining_budget: 0 tokens (44294 over budget)",
+		"pressure: over budget (1207.3%)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing over-budget detail %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatMemoryInspectorShowsCompactionMetadata(t *testing.T) {
+	out := formatMemoryInspector(gact.MemoryStats{
+		Metadata: map[string]any{"compaction_state": "recent summary retained"},
+	})
+	if !strings.Contains(out, "state: recent summary retained") {
+		t.Fatalf("memory inspector should surface backend compaction metadata:\n%s", out)
+	}
+}
+
+func TestFormatMemoryInspectorInfersRetainedCompactionSummary(t *testing.T) {
+	out := formatMemoryInspectorWithMessages(gact.MemoryStats{}, []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type: gact.PartTypeText,
+			Text: "[compact summary]\nEvidence-Preserving Compact Memory\nkept tool evidence",
+			Metadata: map[string]any{
+				"synthetic": "compact_summary",
+			},
+		}},
+	}})
+
+	for _, want := range []string{
+		"state: not reported by backend",
+		"summary_retained: yes",
+		"summary_parts: 1",
+		"summary_lines: 2",
+		"detail: compact summary is retained in the transcript",
+		"Ctrl+E on the compaction marker",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing transcript-derived compaction detail %q:\n%s", want, out)
 		}
 	}
 }
@@ -139,6 +201,20 @@ func TestPaletteMemoryCommandLoadsInspectorWhenSupported(t *testing.T) {
 	}
 	if a.paletteOpen {
 		t.Fatal("/memory should close the command palette before opening detail")
+	}
+}
+
+func TestPaletteMemoryFilterPrioritizesExactCommand(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.commands = []gact.Command{
+		{ID: "/clear", Title: "Clear session messages", Description: "clear memory-like transcript text"},
+		{ID: "/memory", Title: "Memory", Description: "inspect ARC memory and context"},
+	}
+	a.paletteFilter = "memory"
+
+	matches := a.paletteMatches()
+	if len(matches) == 0 || matches[0].ID != "/memory" {
+		t.Fatalf("exact /memory match should be first, got %#v", matches)
 	}
 }
 
@@ -169,5 +245,25 @@ func TestFooter_NarrowKeepsQuitVisible(t *testing.T) {
 	}
 	if strings.Contains(got, "compose") {
 		t.Fatalf("narrow footer should drop low-priority compose hint:\n%s", got)
+	}
+}
+
+func TestFooter_SidebarWithMemoryChipKeepsHelpAndQuitVisible(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 150
+	a.focus = FocusSidebar
+	a.caps.Capabilities.Memory = true
+	a.memoryStats = gact.MemoryStats{
+		Cache: gact.CacheStats{Hits: 99, Misses: 64, HitRate: 0.607},
+	}
+
+	got := stripANSI(a.renderFooter())
+	for _, want := range []string{"? help", "Ctrl+C quit", "ARC hit"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("footer should keep %q visible with right-side chips:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "o add context") {
+		t.Fatalf("footer should drop low-priority sidebar hints before help/quit:\n%s", got)
 	}
 }

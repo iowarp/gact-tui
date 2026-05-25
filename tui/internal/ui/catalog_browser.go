@@ -90,9 +90,10 @@ func loadToolDetailCmd(c *client.Client, toolID string) tea.Cmd {
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Tool · " + toolID, err: err}
 		}
+		agents, _ := c.ListAgents(ctx)
 		return catalogDetailLoadedMsg{
 			title: "Tool · " + firstNonEmpty(tool.Title, tool.Name, tool.ID),
-			text:  formatToolDetail(tool),
+			text:  formatToolDetailWithAgents(tool, agents),
 		}
 	}
 }
@@ -197,41 +198,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
-			items := make([]catalogItem, 0, len(agents))
-			for _, a := range agents {
-				if kind == catalogKindSkills && a.Source != "skill" {
-					continue
-				}
-				if kind == catalogKindAgents && a.Source == "skill" {
-					continue
-				}
-				desc := a.Description
-				if a.DefaultModel != nil && a.DefaultModel.ModelID != "" {
-					if desc != "" {
-						desc += " · "
-					}
-					desc += "model: " + a.DefaultModel.ModelID
-				}
-				title := a.Title
-				if kind == catalogKindAgents {
-					if parent := stringFromMetadata(a.Metadata, "parent"); parent != "" {
-						title = "  -> " + title
-						if desc != "" {
-							desc += " "
-						}
-						desc += "(child of " + parent + ")"
-					} else if a.Tier > 0 {
-						if desc != "" {
-							desc += " "
-						}
-						desc += "(tier " + itoa2(a.Tier) + ")"
-					}
-				}
-				items = append(items, catalogItem{
-					id: a.ID, title: title, desc: desc,
-					statusTag: a.Source,
-				})
-			}
+			items := agentCatalogItems(agents, kind)
 			if len(items) == 0 && kind == catalogKindSkills {
 				items = append(items, catalogItem{
 					id:    "none",
@@ -299,14 +266,25 @@ func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
 		defer cancel()
 		var items []catalogItem
 		var errs []string
+		agents, _ := c.ListAgents(ctx)
 
 		if tools, err := c.McpServerTools(ctx, serverID); err != nil {
 			errs = append(errs, "tools: "+err.Error())
 		} else {
 			for _, t := range tools {
 				toolID := firstNonEmpty(t.ID, t.Name)
+				desc := toolSummary(t)
+				if desc == "" {
+					desc = t.Description
+				}
+				if owners := owningAgentsForTool(t, agents); len(owners) > 0 {
+					if desc != "" {
+						desc += " · "
+					}
+					desc += "agents: " + strings.Join(owners, ", ")
+				}
 				items = append(items, catalogItem{
-					id: "tool/" + toolID, title: "[tool] " + firstNonEmpty(t.Name, toolID), desc: t.Description,
+					id: "tool/" + toolID, title: "[tool] " + firstNonEmpty(t.Name, toolID), desc: desc,
 				})
 			}
 		}
@@ -587,6 +565,8 @@ func (a *App) toggleToolDisabled(id string) {
 }
 
 func (a *App) openCatalogDetail(title, text string) {
+	a.catalogBrowserOpen = false
+	a.catalogBrowser = nil
 	a.detailView = &bulkyPartRef{
 		messageID: "catalog",
 		partID:    strings.ToLower(strings.ReplaceAll(title, " ", "-")),
@@ -648,7 +628,10 @@ func (a *App) viewCatalogBrowser() string {
 	if a.catalogBrowser == nil {
 		return ""
 	}
-	w := a.modalWidth() + 6 // slightly wider than standard modals for descriptions
+	// Catalog rows carry descriptions, routing metadata, and source tags.
+	// Use the inspection-pane width so lists remain readable without
+	// consuming the whole application frame.
+	w := a.detailModalWidth()
 
 	// LLL4: title bar matching the Settings modal — full-width Primary
 	// background with inverted text. Reads as a real header.
@@ -703,7 +686,7 @@ func (a *App) viewCatalogBrowser() string {
 			}
 			line += "  " + tagStyle.Render("["+item.statusTag+"]")
 		}
-		out := truncate(line, w-4)
+		out := truncate(line, w-8)
 		// LLL4: row-bg highlight for the selected row, mirroring the
 		// Settings modal pattern.
 		if isSelected {
@@ -712,7 +695,8 @@ func (a *App) viewCatalogBrowser() string {
 		rows = append(rows, out)
 		if item.desc != "" {
 			descStyle := t.HintLabel.Italic(true)
-			descLine := "  " + truncate(descStyle.Render(item.desc), w-4)
+			descText := truncate(compactCatalogText(item.desc), w-22)
+			descLine := "  " + descStyle.Render(descText)
 			if isSelected {
 				descLine = lipgloss.NewStyle().Background(t.Bg).
 					Width(w - 4).Render(descLine)
@@ -740,9 +724,9 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindAgents:
 		hintText = "↑/↓ navigate · Enter details · Esc close"
 	case catalogKindMcpDetail:
-		hintText = "↑/↓ navigate · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
 	case catalogKindAgentDetail:
-		hintText = "↑/↓ navigate · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -800,6 +784,123 @@ func agentParentID(agent gact.AgentDef) string {
 		return parent
 	}
 	return stringFromMetadata(agent.Metadata, "parent_id")
+}
+
+func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalogItem {
+	filtered := make([]gact.AgentDef, 0, len(agents))
+	for _, agent := range agents {
+		if kind == catalogKindSkills && agent.Source != "skill" {
+			continue
+		}
+		if kind == catalogKindAgents && agent.Source == "skill" {
+			continue
+		}
+		filtered = append(filtered, agent)
+	}
+	if kind != catalogKindAgents {
+		items := make([]catalogItem, 0, len(filtered))
+		for _, agent := range filtered {
+			items = append(items, agentCatalogItem(agent, agents, 0))
+		}
+		return items
+	}
+
+	byParent := map[string][]gact.AgentDef{}
+	topLevel := make([]gact.AgentDef, 0)
+	for _, agent := range filtered {
+		parent := agentParentID(agent)
+		if parent == "" {
+			topLevel = append(topLevel, agent)
+			continue
+		}
+		byParent[parent] = append(byParent[parent], agent)
+	}
+	sortAgentsForCatalog(topLevel)
+	for parent := range byParent {
+		sortAgentsForCatalog(byParent[parent])
+	}
+
+	items := make([]catalogItem, 0, len(filtered))
+	seen := map[string]bool{}
+	var appendAgent func(gact.AgentDef, int)
+	appendAgent = func(agent gact.AgentDef, depth int) {
+		if seen[agent.ID] {
+			return
+		}
+		seen[agent.ID] = true
+		items = append(items, agentCatalogItem(agent, agents, depth))
+		for _, child := range byParent[agent.ID] {
+			appendAgent(child, depth+1)
+		}
+	}
+	for _, agent := range topLevel {
+		appendAgent(agent, 0)
+	}
+	for _, agent := range filtered {
+		appendAgent(agent, 0)
+	}
+	return items
+}
+
+func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int) catalogItem {
+	title := firstNonEmpty(agent.Title, agent.ID)
+	if depth > 0 {
+		title = strings.Repeat("  ", min(depth, 3)) + "└─ " + title
+	}
+	return catalogItem{
+		id:        agent.ID,
+		title:     title,
+		desc:      agentCatalogDescription(agent, allAgents),
+		statusTag: firstNonEmpty(agent.Source, "agent"),
+	}
+}
+
+func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) string {
+	parts := make([]string, 0, 6)
+	if agent.Tier > 0 {
+		parts = append(parts, "tier "+itoa2(agent.Tier))
+	}
+	if agent.Specialization != "" {
+		parts = append(parts, agent.Specialization)
+	}
+	if parent := agentParentID(agent); parent != "" {
+		parts = append(parts, "child of "+agentTitleByID(allAgents, parent))
+	}
+	if routes := stringListFromMetadata(agent.Metadata, "routes_to"); len(routes) > 0 {
+		parts = append(parts, "routes: "+strings.Join(routes, ", "))
+	}
+	if delegates := stringListFromMetadata(agent.Metadata, "delegates_to"); len(delegates) > 0 {
+		parts = append(parts, "delegates: "+strings.Join(delegates, ", "))
+	}
+	if len(agent.Tools) > 0 {
+		parts = append(parts, fmt.Sprintf("%d tools", len(agent.Tools)))
+	}
+	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
+		parts = append(parts, "model: "+agent.DefaultModel.ModelID)
+	}
+	if desc := compactCatalogText(agent.Description); desc != "" {
+		parts = append(parts, desc)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func sortAgentsForCatalog(agents []gact.AgentDef) {
+	sort.SliceStable(agents, func(i, j int) bool {
+		if agents[i].Tier != agents[j].Tier {
+			if agents[i].Tier == 0 {
+				return false
+			}
+			if agents[j].Tier == 0 {
+				return true
+			}
+			return agents[i].Tier < agents[j].Tier
+		}
+		return firstNonEmpty(agents[i].Title, agents[i].ID) < firstNonEmpty(agents[j].Title, agents[j].ID)
+	})
+}
+
+func compactCatalogText(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func childAgentsOf(agents []gact.AgentDef, parentID string) []gact.AgentDef {
@@ -920,6 +1021,10 @@ func stringInSlice(values []string, needle string) bool {
 }
 
 func formatToolDetail(tool gact.Tool) string {
+	return formatToolDetailWithAgents(tool, nil)
+}
+
+func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
 	rows := []string{
 		"name: " + firstNonEmpty(tool.Name, tool.ID),
 		"id: " + tool.ID,
@@ -943,14 +1048,66 @@ func formatToolDetail(tool gact.Tool) string {
 	if strings.TrimSpace(tool.Description) != "" {
 		rows = append(rows, "", "description:", strings.TrimSpace(tool.Description))
 	}
-	rows = appendJSONMapSection(rows, "input_schema", tool.InputSchema)
-	rows = appendJSONMapSection(rows, "output_schema", tool.OutputSchema)
+	if owners := owningAgentsForTool(tool, agents); len(owners) > 0 {
+		rows = append(rows, "", "owning agents:")
+		for _, owner := range owners {
+			rows = append(rows, "- "+owner)
+		}
+	}
+	rows = appendSchemaSection(rows, "input_schema", tool.InputSchema)
+	rows = appendSchemaSection(rows, "output_schema", tool.OutputSchema)
 	if tool.Annotations != nil {
 		if payload, err := json.MarshalIndent(tool.Annotations, "", "  "); err == nil {
 			rows = append(rows, "", "annotations:", string(payload))
 		}
 	}
 	return strings.Join(rows, "\n")
+}
+
+func owningAgentsForTool(tool gact.Tool, agents []gact.AgentDef) []string {
+	toolIDs := map[string]bool{}
+	for _, id := range []string{tool.ID, tool.Name, tool.Title} {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			toolIDs[id] = true
+		}
+	}
+	visible := map[string]bool{}
+	for _, id := range tool.VisibleTo {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			visible[id] = true
+		}
+	}
+	owners := make([]string, 0)
+	seen := map[string]bool{}
+	for _, agent := range agents {
+		if agent.ID == "" {
+			continue
+		}
+		usesTool := visible[agent.ID]
+		for _, declared := range agent.Tools {
+			if toolIDs[strings.TrimSpace(declared)] {
+				usesTool = true
+				break
+			}
+		}
+		if !usesTool {
+			continue
+		}
+		label := firstNonEmpty(agent.Title, agent.ID)
+		if agent.Specialization != "" {
+			label += " · " + agent.Specialization
+		} else if agent.Tier > 0 {
+			label += " · tier " + itoa2(agent.Tier)
+		}
+		if !seen[label] {
+			seen[label] = true
+			owners = append(owners, label)
+		}
+	}
+	sort.Strings(owners)
+	return owners
 }
 
 func appendJSONMapSection(rows []string, label string, payload map[string]any) []string {
@@ -961,6 +1118,178 @@ func appendJSONMapSection(rows []string, label string, payload map[string]any) [
 		return append(rows, "", label+":", string(body))
 	}
 	return append(rows, "", label+":", fmt.Sprint(payload))
+}
+
+func appendSchemaSection(rows []string, label string, payload map[string]any) []string {
+	if len(payload) == 0 {
+		return rows
+	}
+	summary := summarizeJSONSchema(payload)
+	if len(summary) == 0 {
+		return appendJSONMapSection(rows, label, payload)
+	}
+	rows = append(rows, "", label+":")
+	return append(rows, summary...)
+}
+
+func summarizeJSONSchema(schema map[string]any) []string {
+	rows := make([]string, 0, 8)
+	schemaType := jsonSchemaType(schema)
+	if schemaType != "" {
+		rows = append(rows, "type: "+schemaType)
+	}
+	required := requiredFieldSet(schema["required"])
+	if len(required) > 0 {
+		rows = append(rows, "required: "+strings.Join(sortedMapKeys(required), ", "))
+	}
+	if disabledAdditionalProperties(schema["additionalProperties"]) {
+		rows = append(rows, "additional_properties: disabled")
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok || len(props) == 0 {
+		if desc := strings.TrimSpace(stringFromAny(schema["description"])); desc != "" {
+			rows = append(rows, "description: "+truncate(desc, 120))
+		}
+		if enum := schemaEnumSummary(schema["enum"]); enum != "" {
+			rows = append(rows, "enum: "+enum)
+		}
+		return rows
+	}
+
+	rows = append(rows, "fields:")
+	for _, name := range sortedAnyMapKeys(props) {
+		prop, _ := props[name].(map[string]any)
+		rows = append(rows, "- "+name+": "+jsonSchemaPropertySummary(prop, required[name]))
+	}
+	return rows
+}
+
+func jsonSchemaPropertySummary(prop map[string]any, required bool) string {
+	parts := make([]string, 0, 5)
+	typ := jsonSchemaType(prop)
+	if typ == "" {
+		typ = "value"
+	}
+	parts = append(parts, typ)
+	if required {
+		parts = append(parts, "required")
+	}
+	if nested, ok := prop["properties"].(map[string]any); ok && len(nested) > 0 {
+		parts = append(parts, "fields: "+strings.Join(sortedAnyMapKeys(nested), ", "))
+	}
+	if items, ok := prop["items"].(map[string]any); ok {
+		if itemType := jsonSchemaType(items); itemType != "" {
+			parts = append(parts, "items: "+itemType)
+		}
+	}
+	if enum := schemaEnumSummary(prop["enum"]); enum != "" {
+		parts = append(parts, "enum: "+enum)
+	}
+	if desc := strings.TrimSpace(stringFromAny(prop["description"])); desc != "" {
+		parts = append(parts, truncate(desc, 96))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func jsonSchemaType(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	switch v := schema["type"].(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case []any:
+		types := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := strings.TrimSpace(stringFromAny(item)); s != "" {
+				types = append(types, s)
+			}
+		}
+		return strings.Join(types, " | ")
+	case []string:
+		return strings.Join(v, " | ")
+	default:
+		return ""
+	}
+}
+
+func requiredFieldSet(value any) map[string]bool {
+	out := map[string]bool{}
+	switch v := value.(type) {
+	case []any:
+		for _, item := range v {
+			if s := strings.TrimSpace(stringFromAny(item)); s != "" {
+				out[s] = true
+			}
+		}
+	case []string:
+		for _, item := range v {
+			if s := strings.TrimSpace(item); s != "" {
+				out[s] = true
+			}
+		}
+	}
+	return out
+}
+
+func disabledAdditionalProperties(value any) bool {
+	v, ok := value.(bool)
+	return ok && !v
+}
+
+func sortedMapKeys(values map[string]bool) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sortedAnyMapKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func schemaEnumSummary(value any) string {
+	var values []string
+	switch v := value.(type) {
+	case []any:
+		values = make([]string, 0, len(v))
+		for _, item := range v {
+			values = append(values, stringFromAny(item))
+		}
+	case []string:
+		values = append(values, v...)
+	}
+	if len(values) == 0 {
+		return ""
+	}
+	for i, value := range values {
+		values[i] = truncate(value, 28)
+	}
+	if len(values) > 5 {
+		return strings.Join(values[:5], ", ") + fmt.Sprintf(" (+%d more)", len(values)-5)
+	}
+	return strings.Join(values, ", ")
+}
+
+func stringFromAny(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(v)
+	}
 }
 
 func formatMcpResourceContents(contents []gact.McpContent) string {

@@ -45,10 +45,20 @@ func assertGolden(t *testing.T, got string) {
 	}
 	got = strings.ReplaceAll(got, "\r\n", "\n")
 	wantText := strings.ReplaceAll(string(want), "\r\n", "\n")
+	got = trimLineRightSpace(got)
+	wantText = trimLineRightSpace(wantText)
 	if got != wantText {
 		t.Errorf("output diverges from %s\n--- got ---\n%s\n--- want ---\n%s",
 			path, got, wantText)
 	}
+}
+
+func trimLineRightSpace(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // renderAtSize calls View() with the given dimensions and returns Content.
@@ -276,6 +286,26 @@ func TestRenderHeader_GlobalLMWinsOverStaleSessionModel(t *testing.T) {
 	}
 	if !strings.Contains(got, "workspace: default") {
 		t.Errorf("workspace label should be spelled out, got: %q", got)
+	}
+}
+
+func TestRenderHeader_HistoricalSessionWithoutModelDoesNotBorrowCurrentLM(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{
+			ID: "sess_1", Title: "persisted trace", Status: gact.StatusIdle,
+			MessageCount: 4,
+		},
+	}, nil)
+	a.lmProviderInfo = &client.LMProviderInfo{
+		Configured: true,
+		Provider:   "argonne",
+		Model:      "gpt-oss-120b",
+	}
+	a.width = 200
+
+	got := a.renderHeader()
+	if strings.Contains(got, "model:") {
+		t.Fatalf("historical session without recorded model should not borrow current backend model: %q", got)
 	}
 }
 
