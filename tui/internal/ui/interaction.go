@@ -228,3 +228,9 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 	}
 	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
 }
+
+func (a *App) registerModalListHits(modal string, rowOffset int, col int, width int, hits []modalListHit) {
+	for _, hit := range hits {
+		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, col, width, hit.height, hit.action)
+	}
+}
