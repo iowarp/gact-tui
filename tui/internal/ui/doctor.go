@@ -118,13 +118,36 @@ func (a *App) viewDoctor() string {
 
 	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
 	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabs, "", body, "", hint)
-	return lipgloss.NewStyle().
+	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.Primary).
 		Background(t.BgSubtle).
 		Padding(1, 2).
 		Width(w).
 		Render(box)
+	a.registerModalTabs(modal, 2, []menuTab{
+		{
+			id:    "doctor-health",
+			label: "Health",
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabHealth
+				}
+				return nil
+			},
+		},
+		{
+			id:    "doctor-capabilities",
+			label: "Capabilities",
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabCapabilities
+				}
+				return nil
+			},
+		},
+	})
+	return modal
 }
 
 // renderDoctorTabs draws the two-tab strip at the top of the modal.
