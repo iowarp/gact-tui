@@ -295,11 +295,7 @@ func (a *App) viewFilePicker() string {
 	// surrounding chrome as the user types.
 	const resultRows = 10
 	rows := make([]string, 0, resultRows)
-	type rowHit struct {
-		row int
-		idx int
-	}
-	var rowHits []rowHit
+	var list modalListRender
 	if a.filePicker.errText != "" {
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			"file picker unavailable: "+truncate(a.filePicker.errText, w-6)))
@@ -312,6 +308,7 @@ func (a *App) viewFilePicker() string {
 	if a.filePicker.sel >= resultRows {
 		start = a.filePicker.sel - resultRows + 1
 	}
+	listItems := make([]modalListItem, 0, min(len(matches), resultRows))
 	for i, m := range matches {
 		if i < start {
 			continue
@@ -319,16 +316,32 @@ func (a *App) viewFilePicker() string {
 		if i-start >= resultRows {
 			break
 		}
-		row := len(rows)
-		marker := "  "
-		style := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.filePicker.sel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			style = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-		}
-		rows = append(rows, marker+style.Render(truncate(m.Path, w-6)))
-		rowHits = append(rowHits, rowHit{row: row, idx: i})
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:       fmt.Sprintf("file-picker:item:%d", idx),
+			title:    m.Path,
+			selected: i == a.filePicker.sel,
+			action: func(app *App) tea.Cmd {
+				if app.filePicker == nil {
+					app.closeFilePicker()
+					return nil
+				}
+				matches := app.filePickerMatches()
+				if idx < 0 || idx >= len(matches) {
+					return nil
+				}
+				app.filePicker.sel = idx
+				_, cmd := app.handleFilePickerKey(keyMsg("enter"))
+				return cmd
+			},
+		})
 	}
+	listStartRow := len(rows)
+	list = a.renderModalList(listItems, modalListOptions{
+		width:     w - 4,
+		rowBudget: resultRows - len(rows),
+	})
+	rows = append(rows, list.rows...)
 	// Pad to fixed height so the hint bar doesn't jump.
 	for len(rows) < resultRows {
 		rows = append(rows, "")
@@ -343,21 +356,8 @@ func (a *App) viewFilePicker() string {
 		"", hint,
 	)
 	modal := a.renderDefaultModalSurface(w, body)
-	for _, hit := range rowHits {
-		idx := hit.idx
-		a.registerModalContentHit(modal, fmt.Sprintf("file-picker:item:%d", idx), 4+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
-			if app.filePicker == nil {
-				app.closeFilePicker()
-				return nil
-			}
-			matches := app.filePickerMatches()
-			if idx < 0 || idx >= len(matches) {
-				return nil
-			}
-			app.filePicker.sel = idx
-			_, cmd := app.handleFilePickerKey(keyMsg("enter"))
-			return cmd
-		})
+	for _, hit := range list.hits {
+		a.registerModalContentHit(modal, hit.id, 4+listStartRow+hit.row, 0, w-4, hit.height, hit.action)
 	}
 	return modal
 }
