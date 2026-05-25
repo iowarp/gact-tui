@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -79,13 +78,7 @@ func (a *App) viewMetrics() string {
 			},
 		},
 	}
-	buttonRow := a.renderModalButtons(buttons, 0)
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Backend Metrics")
-	buttonCol := innerW - lipgloss.Width(buttonRow)
-	if buttonCol < lipgloss.Width(title)+2 {
-		buttonCol = lipgloss.Width(title) + 2
-	}
-	titleRow := lipgloss.JoinHorizontal(lipgloss.Top, title, strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))), buttonRow)
+	titleRow, buttonCol := a.renderModalHeader("Backend Metrics", innerW, buttons)
 
 	rows := []string{titleRow, ""}
 	switch {

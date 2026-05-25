@@ -27,6 +27,28 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 }
 
+func TestRenderModalHeaderKeepsActionButtonsReachable(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	buttons := []menuButton{{
+		id:     "sample:close",
+		label:  "close",
+		action: func(*App) tea.Cmd { return nil },
+	}}
+
+	row, buttonCol := a.renderModalHeader("Very long modal title that should truncate", 24, buttons)
+	plain := ansi.Strip(row)
+
+	if !strings.Contains(plain, "close") {
+		t.Fatalf("header should keep action button visible: %q", plain)
+	}
+	if strings.Contains(plain, "Very long modal title that should truncate") {
+		t.Fatalf("header should truncate title before it collides with buttons: %q", plain)
+	}
+	if buttonCol <= 0 {
+		t.Fatalf("buttonCol = %d, want positive registration column", buttonCol)
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{
