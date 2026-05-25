@@ -7680,18 +7680,12 @@ func (a *App) scrollClip(body string, maxRows int, _ Theme) string {
 	if len(lines) <= maxRows {
 		return body
 	}
-	if a.stickyToBottom {
-		return strings.Join(lines[len(lines)-maxRows:], "\n")
+	start := len(lines) - maxRows
+	if !a.stickyToBottom {
+		start -= a.scrollOffset
 	}
-	start := len(lines) - maxRows - a.scrollOffset
-	if start < 0 {
-		start = 0
-	}
-	end := start + maxRows
-	if end > len(lines) {
-		end = len(lines)
-	}
-	return strings.Join(lines[start:end], "\n")
+	win := boundedScrollWindow(len(lines), maxRows, start)
+	return strings.Join(lines[win.start:win.end], "\n")
 }
 
 func (a *App) conversationScrollStart(body string, maxRows int) int {
@@ -7702,20 +7696,11 @@ func (a *App) conversationScrollStart(body string, maxRows int) int {
 	if len(lines) <= maxRows {
 		return 0
 	}
-	if a.stickyToBottom {
-		return len(lines) - maxRows
-	}
 	start := len(lines) - maxRows - a.scrollOffset
-	if start < 0 {
-		start = 0
-	}
-	if start+maxRows > len(lines) {
+	if a.stickyToBottom {
 		start = len(lines) - maxRows
 	}
-	if start < 0 {
-		start = 0
-	}
-	return start
+	return boundedScrollWindow(len(lines), maxRows, start).start
 }
 
 func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, body string, viewportRows int, bodyWidth int, hasPermissionBanner bool) {

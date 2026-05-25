@@ -48,6 +48,29 @@ func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	}
 }
 
+func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
+	tests := []struct {
+		name       string
+		total      int
+		budget     int
+		scroll     int
+		wantStart  int
+		wantEnd    int
+		wantScroll int
+	}{
+		{name: "negative scroll", total: 10, budget: 4, scroll: -3, wantStart: 0, wantEnd: 4, wantScroll: 0},
+		{name: "past end", total: 10, budget: 4, scroll: 99, wantStart: 6, wantEnd: 10, wantScroll: 6},
+		{name: "content shorter than budget", total: 3, budget: 10, scroll: 4, wantStart: 0, wantEnd: 3, wantScroll: 0},
+		{name: "zero budget", total: 3, budget: 0, scroll: 2, wantStart: 2, wantEnd: 3, wantScroll: 2},
+	}
+	for _, tc := range tests {
+		got := boundedScrollWindow(tc.total, tc.budget, tc.scroll)
+		if got.start != tc.wantStart || got.end != tc.wantEnd || got.scroll != tc.wantScroll || got.total != tc.total {
+			t.Fatalf("%s: got %+v, want start=%d end=%d scroll=%d total=%d", tc.name, got, tc.wantStart, tc.wantEnd, tc.wantScroll, tc.total)
+		}
+	}
+}
+
 func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

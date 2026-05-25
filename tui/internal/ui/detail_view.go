@@ -661,32 +661,14 @@ func (a *App) viewDetailView() string {
 	wrapped := wrap(ref.fullText, innerW)
 	lines := strings.Split(wrapped, "\n")
 	budget := a.detailPageSize()
-	if budget < 1 {
-		budget = 1
-	}
-
-	// Clamp scroll against the new content size.
-	maxScroll := len(lines) - budget
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if a.detailScroll > maxScroll {
-		a.detailScroll = maxScroll
-	}
-	if a.detailScroll < 0 {
-		a.detailScroll = 0
-	}
-
-	end := a.detailScroll + budget
-	if end > len(lines) {
-		end = len(lines)
-	}
-	visible := strings.Join(lines[a.detailScroll:end], "\n")
+	win := boundedScrollWindow(len(lines), budget, a.detailScroll)
+	a.detailScroll = win.scroll
+	visible := strings.Join(lines[win.start:win.end], "\n")
 
 	scrollHint := ""
 	if len(lines) > budget {
 		scrollHint = fmt.Sprintf("  (line %d–%d of %d)",
-			a.detailScroll+1, end, len(lines))
+			win.start+1, win.end, win.total)
 	}
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
