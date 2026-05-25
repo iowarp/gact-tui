@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -198,6 +199,26 @@ func TestWorkspaceSwitcherRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("clicking a different workspace should dispatch listSessions cmd")
+	}
+}
+
+func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+
+	out := stripANSI(a.viewWorkspaceSwitch())
+
+	for _, want := range []string{
+		"Switch workspace",
+		"▌ alpha  ws_a",
+		"[current]",
+		"bravo  ws_b",
+		"Enter switch",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workspace switcher missing %q:\n%s", want, out)
+		}
 	}
 }
 
