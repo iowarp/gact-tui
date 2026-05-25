@@ -1163,6 +1163,34 @@ func TestComposeButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestComposeOutsideClickUsesSharedCancelState(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("original")
+	a.openCompose()
+	a.compose.ta.SetValue("discarded edit")
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside click should not dispatch a command")
+	}
+	if a.composeOpen || a.compose != nil {
+		t.Fatalf("outside click should close compose, open=%v compose=%v", a.composeOpen, a.compose)
+	}
+	if got := a.input.Value(); got != "original" {
+		t.Fatalf("outside click should cancel without changing base input, got %q", got)
+	}
+}
+
 // TestCompose_ExpandsPastesOnOpen ensures compressed paste placeholders
 // get inlined when the compose modal opens — "where everything
 // renders expanded" is the point of the view.

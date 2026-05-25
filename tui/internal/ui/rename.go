@@ -7,6 +7,12 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+func (a *App) closeRenameModal() {
+	a.renameOpen = false
+	a.renameDraft = ""
+	a.renameCursor = 0
+}
+
 // handleRenameKey drives the rename-session overlay. Minimal line
 // editor — backspace/delete, home/end, arrow keys, printable chars,
 // Enter to commit, Esc to cancel. Deliberately narrower than a full
@@ -14,9 +20,7 @@ import (
 func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.renameOpen = false
-		a.renameDraft = ""
-		a.renameCursor = 0
+		a.closeRenameModal()
 		return a, nil
 	case "enter":
 		return a.commitRename()
@@ -75,9 +79,7 @@ func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // don't want to clobber a session title with "" by accident.
 func (a *App) commitRename() (tea.Model, tea.Cmd) {
 	title := strings.TrimSpace(a.renameDraft)
-	a.renameOpen = false
-	a.renameDraft = ""
-	a.renameCursor = 0
+	a.closeRenameModal()
 	if title == "" {
 		a.transientHint = "rename cancelled (empty title)"
 		return a, nil
@@ -135,9 +137,7 @@ func (a *App) viewRename() string {
 			id:    "rename:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.renameOpen = false
-				app.renameDraft = ""
-				app.renameCursor = 0
+				app.closeRenameModal()
 				return nil
 			},
 		},

@@ -138,6 +138,32 @@ func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestRenameCancelButtonUsesSharedCloseState(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "discard me"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:cancel")
+	if !ok {
+		t.Fatal("missing rename cancel button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cancel button should not dispatch a command")
+	}
+	if a.renameOpen || a.renameDraft != "" || a.renameCursor != 0 {
+		t.Fatalf("cancel should clear rename state, open=%v draft=%q cursor=%d", a.renameOpen, a.renameDraft, a.renameCursor)
+	}
+}
+
 func TestRename_EmptyInputCancels(t *testing.T) {
 	a, mu, got := makeRenameApp(t)
 	a.renameOpen = true
