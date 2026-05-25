@@ -63,6 +63,7 @@ Type "/doctor"
 Enter
 Wait+Screen /Doctor/
 Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_menu_doctor_health.png"
 Tab
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_menu_doctor_capabilities.png"

@@ -275,7 +275,6 @@ func capBucketLabel(b capBucket, t Theme) string {
 // renderDoctorBody formats a HealthResponse into the modal body —
 // header (overall_status + uptime + version) + integrations table.
 func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
-	// Header row: overall_status chip + uptime + version if present.
 	overall := h.OverallStatus
 	if overall == "" {
 		if h.Healthy {
@@ -284,53 +283,54 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 			overall = "unavailable"
 		}
 	}
-	chip := doctorStatusChip(overall, t)
-	header := chip + "  " +
-		lipgloss.NewStyle().Foreground(t.FgMuted).
-			Render(fmt.Sprintf("uptime %s", formatUptime(h.UptimeS)))
-
-	rows := []string{header, ""}
+	rows := appendDetailSection(nil, "Overview",
+		detailField{"status", doctorStatusText(overall)},
+		detailField{"uptime", formatUptime(h.UptimeS)},
+	)
 	if len(h.Integrations) == 0 {
-		rows = append(rows,
-			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("(no integrations reported by this backend)"))
+		rows = appendDetailSection(rows, "Integrations",
+			detailField{"", "(no integrations reported by this backend)"},
+		)
 		return strings.Join(rows, "\n")
 	}
 
-	// Column widths: name 12, status 12, detail = rest. Clamp to innerW.
-	// Detail wraps onto continuation rows when it would otherwise truncate
-	// — better to read a long lm config across two lines than to lose the
-	// model id behind an ellipsis.
-	nameW := 12
-	statusW := 12
-	detailW := innerW - nameW - statusW - 4 // 4 = padding
-	if detailW < 30 {
-		detailW = 30
-	}
-
-	tableHead := lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
-		Render(padRight("NAME", nameW) + padRight("STATUS", statusW) + "DETAIL")
-	rows = append(rows, tableHead)
-
+	fields := make([]detailField, 0, len(h.Integrations))
 	for _, integ := range h.Integrations {
-		statusCell := doctorStatusCell(integ.Status, t)
-		// Wrap the detail to detailW and indent continuation lines so the
-		// table grid stays aligned.
-		wrapped := wrap(integ.Detail, detailW)
-		wlines := strings.Split(wrapped, "\n")
-		for i, wl := range wlines {
-			if i == 0 {
-				rows = append(rows,
-					padRight(integ.Name, nameW)+
-						padRight(statusCell, statusW)+wl)
-			} else {
-				rows = append(rows,
-					strings.Repeat(" ", nameW+statusW)+wl)
-			}
-		}
+		value := doctorIntegrationValue(integ, innerW)
+		fields = append(fields, detailField{integ.Name, value})
 	}
-
+	rows = appendDetailSection(rows, "Integrations", fields...)
 	return strings.Join(rows, "\n")
+}
+
+func doctorIntegrationValue(integ gact.Integration, innerW int) string {
+	status := doctorStatusText(integ.Status)
+	detail := strings.TrimSpace(integ.Detail)
+	if detail == "" {
+		return status
+	}
+	w := innerW - lipgloss.Width(integ.Name) - lipgloss.Width(status) - 8
+	if w < 24 {
+		w = 24
+	}
+	lines := wrapPlainRows(detail, w, "")
+	if len(lines) == 0 {
+		return status
+	}
+	out := status + " · " + lines[0]
+	if len(lines) > 1 {
+		out += "\n" + strings.Join(lines[1:], "\n")
+	}
+	return out
+}
+
+func doctorStatusText(status string) string {
+	switch strings.TrimSpace(status) {
+	case "":
+		return "unknown"
+	default:
+		return status
+	}
 }
 
 // doctorStatusChip is the pill-shaped overall_status indicator in
