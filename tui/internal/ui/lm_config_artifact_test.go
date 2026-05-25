@@ -841,6 +841,29 @@ func TestLMConfigSaveButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:lm-config:close")
+	if !ok {
+		t.Fatal("missing semantic LM close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("close click should not dispatch a command")
+	}
+	if a.lmConfigOpen || a.lmConfig != nil {
+		t.Fatal("close click should close LM config modal")
+	}
+}
+
 func TestLMConfigUnsupportedEndpointReturnsToSettings(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.settingsOpen = false
