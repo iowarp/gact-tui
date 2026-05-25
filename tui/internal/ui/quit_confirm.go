@@ -152,13 +152,7 @@ func (a *App) viewQuitConfirm() string {
 
 	box := lipgloss.JoinVertical(lipgloss.Left,
 		title, "", hint, "", row, "", keyLine)
-	modal := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Warning).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	modal := a.renderModalSurface(w, t.Warning, t.BgSubtle, box)
 	col := 0
 	for i, label := range labels {
 		idx := i

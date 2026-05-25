@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image/color"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -62,6 +64,20 @@ func (a *App) registerScreenHit(id string, rect mouseRect, action uiHitAction) {
 	a.hits.add(uiHitTarget{id: id, rect: rect, action: action})
 }
 
+func (a *App) renderModalSurface(width int, border color.Color, background color.Color, body string) string {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(border).
+		Background(background).
+		Padding(1, 2).
+		Width(width).
+		Render(body)
+}
+
+func (a *App) renderDefaultModalSurface(width int, body string) string {
+	return a.renderModalSurface(width, a.Theme.Primary, a.Theme.BgSubtle, body)
+}
+
 func (a *App) registerModalContentHit(modal, id string, row, col, w, h int, action uiHitAction) {
 	rect := overlayMouseRect(modal, a.width, a.height)
 	a.registerScreenHit(id, mouseRect{
@@ -80,10 +96,14 @@ type menuTab struct {
 }
 
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
+	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
+}
+
+func (a *App) registerModalTabsWithLayout(modal string, row int, tabs []menuTab, horizontalPadding, spacing int) {
 	col := 0
 	for _, tab := range tabs {
-		w := lipgloss.Width(tab.label) + 4
+		w := lipgloss.Width(tab.label) + horizontalPadding*2
 		a.registerModalContentHit(modal, "tab:"+tab.id, row, col, w, 1, tab.action)
-		col += w + 2
+		col += w + spacing
 	}
 }

@@ -661,13 +661,7 @@ func (a *App) viewSettings() string {
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
 	a.registerModalTabs(modal, 2, []menuTab{
 		{id: "settings-model", label: tabLabels[0], action: func(app *App) tea.Cmd {
 			if app.settings == nil {
