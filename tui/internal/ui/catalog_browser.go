@@ -638,15 +638,7 @@ func (a *App) viewCatalogBrowser() string {
 	title := lipgloss.NewStyle().
 		Background(t.Primary).Foreground(t.Bg).Bold(true).
 		Padding(0, 2).Width(w - 4).Render(a.catalogBrowser.title)
-	rows := make([]string, 0, catalogBrowserRowBudget)
-	type rowHit struct {
-		row int
-		idx int
-	}
-	var rowHits []rowHit
-	addItemHit := func(row, idx int) {
-		rowHits = append(rowHits, rowHit{row: row, idx: idx})
-	}
+	rows := make([]string, 0, catalogBrowserRowBudget*2)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
 	}
@@ -665,63 +657,47 @@ func (a *App) viewCatalogBrowser() string {
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			fmt.Sprintf("… %d above", start)))
 	}
+	listItems := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
-		titleRow := len(rows)
 		item := a.catalogBrowser.items[i]
-		marker := "  "
-		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
 		// LLL2: dim disabled tools so the user can scan what's off
 		// at a glance. Selected highlight still wins so the cursor
 		// never disappears on a disabled row.
 		isDisabled := a.catalogBrowser.kind == catalogKindTools &&
 			a.disabledTools != nil && a.disabledTools[item.id]
-		if isDisabled {
-			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
-		}
-		isSelected := i == a.catalogBrowser.sel
-		if isSelected {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			titleStyle = titleStyle.Foreground(t.Secondary)
-		}
-		line := marker + titleStyle.Render(item.title)
-		if isDisabled {
-			line += "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-				Render("(disabled)")
-		}
-		if item.statusTag != "" {
-			tagStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
-			if item.statusTag == "connected" {
-				tagStyle = lipgloss.NewStyle().Foreground(t.Success).Bold(true)
-			}
-			line += "  " + tagStyle.Render("["+item.statusTag+"]")
-		}
-		out := truncate(line, w-8)
-		// LLL4: row-bg highlight for the selected row, mirroring the
-		// Settings modal pattern.
-		if isSelected {
-			out = lipgloss.NewStyle().Background(t.Bg).Width(w - 4).Render(out)
-		}
-		rows = append(rows, out)
-		addItemHit(titleRow, i)
-		if item.desc != "" {
-			descRow := len(rows)
-			descStyle := t.HintLabel.Italic(true)
-			descText := truncate(compactCatalogText(item.desc), w-22)
-			descLine := "  " + descStyle.Render(descText)
-			if isSelected {
-				descLine = lipgloss.NewStyle().Background(t.Bg).
-					Width(w - 4).Render(descLine)
-			}
-			rows = append(rows, descLine)
-			addItemHit(descRow, i)
-		}
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:          fmt.Sprintf("catalog:item:%d", idx),
+			title:       item.title,
+			description: compactCatalogText(item.desc),
+			status:      item.statusTag,
+			selected:    i == a.catalogBrowser.sel,
+			disabled:    isDisabled,
+			action: func(app *App) tea.Cmd {
+				if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
+					return nil
+				}
+				app.catalogBrowser.sel = idx
+				app.catalogBrowser.offset = catalogBrowserClampOffset(idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
+				return cmd
+			},
+		})
 	}
+	list := a.renderModalList(listItems, modalListOptions{
+		width:            w - 4,
+		rowBudget:        catalogBrowserRowBudget * 2,
+		descriptionLines: 2,
+	})
+	listStartRow := len(rows)
+	rows = append(rows, list.rows...)
+	end = start + list.renderedItems
 	if end < len(a.catalogBrowser.items) {
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			fmt.Sprintf("… and %d more", len(a.catalogBrowser.items)-end)))
 	}
 	// Pad to fixed height.
-	for len(rows) < catalogBrowserRowBudget {
+	for len(rows) < catalogBrowserRowBudget*2 {
 		rows = append(rows, "")
 	}
 
@@ -750,17 +726,8 @@ func (a *App) viewCatalogBrowser() string {
 		"", hint,
 	)
 	modal := a.renderDefaultModalSurface(w, body)
-	for _, hit := range rowHits {
-		idx := hit.idx
-		a.registerModalContentHit(modal, fmt.Sprintf("catalog:item:%d", idx), 2+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
-			if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
-				return nil
-			}
-			app.catalogBrowser.sel = idx
-			app.catalogBrowser.offset = catalogBrowserClampOffset(idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
-			_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
-			return cmd
-		})
+	for _, hit := range list.hits {
+		a.registerModalContentHit(modal, hit.id, 2+listStartRow+hit.row, 0, w-4, hit.height, hit.action)
 	}
 	return modal
 }
