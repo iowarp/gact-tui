@@ -936,6 +936,66 @@ func TestPaletteNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestPaletteCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/theme"
+	a.paletteSel = 1
+	a.searchMatches = []client.SearchMatch{{MessageID: "m1", Snippet: "stale"}}
+	a.searching = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:palette:close")
+	if !ok {
+		t.Fatal("missing semantic palette close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("palette close should not dispatch a command")
+	}
+	if a.paletteOpen || a.paletteFilter != "" || a.paletteSel != 0 || len(a.searchMatches) != 0 || a.searching {
+		t.Fatalf("palette close should reset state, open=%v filter=%q sel=%d matches=%d searching=%v", a.paletteOpen, a.paletteFilter, a.paletteSel, len(a.searchMatches), a.searching)
+	}
+}
+
+func TestPaletteSearchCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "?needle"
+	a.searchMatches = []client.SearchMatch{{MessageID: "m1", Snippet: "needle"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:palette:close")
+	if !ok {
+		t.Fatal("missing semantic palette search close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("palette search close should not dispatch a command")
+	}
+	if a.paletteOpen || a.paletteFilter != "" || len(a.searchMatches) != 0 {
+		t.Fatalf("palette search close should reset state, open=%v filter=%q matches=%d", a.paletteOpen, a.paletteFilter, len(a.searchMatches))
+	}
+}
+
 func TestPaletteSearchRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

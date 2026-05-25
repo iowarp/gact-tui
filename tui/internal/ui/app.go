@@ -2849,6 +2849,17 @@ func (a *App) closePalette() {
 	a.searching = false
 }
 
+func (a *App) paletteCloseButtons() []menuButton {
+	return []menuButton{{
+		id:    "palette:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.closePalette()
+			return nil
+		},
+	}}
+}
+
 // isSearchMode reports whether the palette filter is in message-search
 // mode (`?` prefix).
 func (a *App) isSearchMode() bool {
@@ -7876,8 +7887,10 @@ func (a *App) viewPalette() string {
 	}
 
 	matches := a.paletteMatches()
+	buttons := a.paletteCloseButtons()
+	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgPaletteCommandsTitle, nil), w-4, buttons)
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(a.localizer.t(msgPaletteCommandsTitle, nil)),
+		titleRow,
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteFilter, nil) + " " + a.paletteFilter + "_"),
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteSearchHint, nil)),
 		"",
@@ -7925,6 +7938,7 @@ func (a *App) viewPalette() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	if len(listItems) > 0 {
 		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
 	}
@@ -7941,8 +7955,10 @@ func (a *App) viewPaletteSearch(w int) string {
 	query := strings.TrimSpace(a.paletteFilter[1:])
 	listStartRow := -1
 	var list modalListRender
+	buttons := a.paletteCloseButtons()
+	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgPaletteSearchTitle, nil), w-4, buttons)
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(a.localizer.t(msgPaletteSearchTitle, nil)),
+		titleRow,
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteQuery, nil) + " " + query + "_"),
 		"",
 	}
@@ -7994,6 +8010,7 @@ func (a *App) viewPaletteSearch(w int) string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	if len(list.hits) > 0 && listStartRow >= 0 {
 		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
 	}
