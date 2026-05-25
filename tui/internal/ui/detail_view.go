@@ -694,15 +694,42 @@ func (a *App) viewDetailView() string {
 			win.start+1, win.end, win.total)
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render(ref.title) +
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render(scrollHint)
+	buttons := []menuButton{{
+		id:    "detail:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.detailViewOpen = false
+			app.detailView = nil
+			app.detailScroll = 0
+			return nil
+		},
+	}}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	buttonCol := innerW - lipgloss.Width(buttonRow)
+	titleBudget := buttonCol - 2
+	if titleBudget < 1 {
+		titleBudget = innerW
+		buttonCol = innerW
+	}
+	titleText := truncate(ref.title+scrollHint, titleBudget)
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
+	if scrollHint != "" && titleText == ref.title+scrollHint {
+		title = lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(ref.title) +
+			lipgloss.NewStyle().Foreground(t.FgMuted).Render(scrollHint)
+	}
+	titleRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		title,
+		strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
+		buttonRow,
+	)
 
 	hint := t.HintLabel.Render(
 		"↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close")
 
 	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
 
-	box := lipgloss.JoinVertical(lipgloss.Left, title, "", body, "", hint)
-	return a.renderDefaultModalSurface(w, box)
+	box := lipgloss.JoinVertical(lipgloss.Left, titleRow, "", body, "", hint)
+	modal := a.renderDefaultModalSurface(w, box)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
+	return modal
 }
