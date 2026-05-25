@@ -37,6 +37,8 @@ Read these files before editing:
 - `gact-tui/visual_loop/README.md`
 - `clio-agent/visual_loop/README.md`
 - `clio-agent/TASK.md`
+- `clio-agent/docs/ALCF_DEMO_BENCHMARK_REPORT.md`
+- `clio-agent/scripts/run_demo_benchmark.py`
 - `gact-tui/tui/internal/ui/app.go`
 - `gact-tui/tui/internal/ui/render.go`
 - `gact-tui/tui/internal/ui/detail_view.go`
@@ -92,6 +94,73 @@ Create deterministic screenshot fixtures for:
 
 Save screenshots under `gact-tui/visual_loop/screenshots/`. Inspect the images
 before claiming a layout is fixed.
+
+## Recreate Real CLIO Benchmark Sessions
+
+Do not rely only on synthetic fixtures. Recreate the real session shapes from
+the CLIO benchmark harness so the TUI has to deal with long transcripts,
+nanoagents, child sessions, multi-tool turns, provider swaps, compaction, and
+surfaced errors.
+
+From `clio-agent`, deploy or reuse a GACT backend:
+
+```powershell
+$env:CLIO_AGENT_SRC = "D:\Libraries\Documents\projects\clio-agent"
+$env:CLIO_AGENT_MAX_STEPS = "12"
+$env:CLIO_GACT_TURN_TIMEOUT_S = "900"
+$env:CLIO_TRANSIENT_PROVIDER_RETRY_DELAYS = "5,15"
+gact agent deploy clio visual-benchmark
+gact agent list
+```
+
+Configure a provider through the TUI, then run selected benchmark cases against
+the backend `HOST:PORT`:
+
+```powershell
+# Long NDP/seismic workflow with tier-3 handoffs and many tool results.
+uv run python scripts/run_demo_benchmark.py --base-url http://127.0.0.1:<PORT> `
+  --case ndp_seismic_waveform_to_plot `
+  --output-jsonl tmp/visual-loop-ndp.jsonl `
+  --report tmp/visual-loop-ndp.md
+
+# Multiple materialized child/nanoagent sessions.
+uv run python scripts/run_demo_benchmark.py --base-url http://127.0.0.1:<PORT> `
+  --case cross_file_triage_nanoagents `
+  --case cross_file_dirty_quality_gate_nanoagents `
+  --case reasoning_cross_file_triage_nanoagents `
+  --output-jsonl tmp/visual-loop-nanoagents.jsonl `
+  --report tmp/visual-loop-nanoagents.md
+
+# Provider swap, context pressure, compaction, and surfaced errors.
+uv run python scripts/run_demo_benchmark.py --base-url http://127.0.0.1:<PORT> `
+  --case provider_swap_memory_followup `
+  --case context_pressure_compaction_followup `
+  --case missing_hdf5_error `
+  --case missing_csv_error `
+  --output-jsonl tmp/visual-loop-state-errors.jsonl `
+  --report tmp/visual-loop-state-errors.md
+```
+
+For a full high-pressure transcript set:
+
+```powershell
+uv run python scripts/run_demo_benchmark.py --base-url http://127.0.0.1:<PORT> `
+  --output-jsonl tmp/visual-loop-full.jsonl `
+  --report tmp/visual-loop-full.md `
+  --case-delay-s 2 `
+  --require-stress-criteria
+```
+
+Then run:
+
+```powershell
+gact connect visual-benchmark
+```
+
+Use the generated sessions for screenshot review. The target visual issues are:
+sidebar scale, child-session collapse/expand, nested expert handoffs, long raw
+tool output, detail expansion, bottom scrolling, provider-switch markers,
+compaction visibility, and error surfacing.
 
 ## Primary Task
 
