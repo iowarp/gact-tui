@@ -475,11 +475,13 @@ func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	a.quitConfirmSelected = 0
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewQuitConfirm(), a.width, a.height)
-	closeW := len([]rune(a.localizer.t(msgQuitClose, nil)+"  (y)")) + 4
+	target, ok := findHitTargetForTest(a, "button:quit:no")
+	if !ok {
+		t.Fatal("missing semantic no button hit target")
+	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + closeW + 2,
-		Y:      rect.y + 2 + 4,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -489,5 +491,33 @@ func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.quitConfirmOpen {
 		t.Fatal("clicking no should close quit confirmation")
+	}
+}
+
+func TestQuitConfirmNonButtonClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.quitConfirmOpen = true
+	a.quitConfirmSelected = 0
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewQuitConfirm(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2 + 4,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-button click inside quit modal should not fire a command")
+	}
+	if !a.quitConfirmOpen {
+		t.Fatal("non-button click inside quit modal should keep the modal open")
+	}
+	if a.quitConfirmSelected != 0 {
+		t.Fatalf("non-button click should not change selection, got %d", a.quitConfirmSelected)
 	}
 }

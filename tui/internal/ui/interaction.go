@@ -95,6 +95,12 @@ type menuTab struct {
 	action uiHitAction
 }
 
+type menuButton struct {
+	id     string
+	label  string
+	action uiHitAction
+}
+
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
 }
@@ -105,5 +111,14 @@ func (a *App) registerModalTabsWithLayout(modal string, row int, tabs []menuTab,
 		w := lipgloss.Width(tab.label) + horizontalPadding*2
 		a.registerModalContentHit(modal, "tab:"+tab.id, row, col, w, 1, tab.action)
 		col += w + spacing
+	}
+}
+
+func (a *App) registerModalButtons(modal string, row int, startCol int, buttons []menuButton) {
+	col := startCol
+	for _, button := range buttons {
+		w := lipgloss.Width(button.label) + 4
+		a.registerModalContentHit(modal, "button:"+button.id, row, col, w, 1, button.action)
+		col += w
 	}
 }
