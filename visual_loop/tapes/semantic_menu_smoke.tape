@@ -36,6 +36,14 @@ Screenshot "visual_loop/screenshots/semantic_menu_settings_tui.png"
 Escape
 Sleep 300ms
 
+# Metrics modal: verifies informational detail sections use shared modal chrome.
+Ctrl+T
+Wait+Screen /Backend Metrics/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_menu_metrics.png"
+Escape
+Sleep 300ms
+
 # Catalog list: verifies render-derived selectable rows and shared chrome.
 Type "/tools"
 Enter

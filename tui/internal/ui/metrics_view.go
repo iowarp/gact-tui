@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -72,76 +71,61 @@ func (a *App) viewMetrics() string {
 		rows = append(rows, t.HintLabel.Render("loading…"))
 	default:
 		m := a.metrics.data
-		rows = append(rows,
-			row(t, "uptime", fmt.Sprintf("%ds", m.UptimeS)),
-			"",
-			lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Sessions"),
-			row(t, "  total", fmt.Sprintf("%d", m.Sessions.Total)),
-			row(t, "  active", fmt.Sprintf("%d", m.Sessions.Active)),
+		rows = appendDetailSection(rows, "Overview",
+			detailField{"uptime", fmt.Sprintf("%ds", m.UptimeS)},
 		)
+		sessionFields := []detailField{
+			{"total", fmt.Sprintf("%d", m.Sessions.Total)},
+			{"active", fmt.Sprintf("%d", m.Sessions.Active)},
+		}
 		for _, name := range sortedKeys(m.Sessions.ByStatus) {
-			rows = append(rows, row(t, "  "+name, fmt.Sprintf("%d", m.Sessions.ByStatus[name])))
+			sessionFields = append(sessionFields, detailField{name, fmt.Sprintf("%d", m.Sessions.ByStatus[name])})
 		}
-		rows = append(rows,
-			"",
-			lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Messages"),
-			row(t, "  total", fmt.Sprintf("%d", m.Messages.Total)),
-		)
+		rows = appendDetailSection(rows, "Sessions", sessionFields...)
+
+		messageFields := []detailField{
+			{"total", fmt.Sprintf("%d", m.Messages.Total)},
+		}
 		for _, name := range sortedKeys(m.Messages.ByRole) {
-			rows = append(rows, row(t, "  "+name, fmt.Sprintf("%d", m.Messages.ByRole[name])))
+			messageFields = append(messageFields, detailField{name, fmt.Sprintf("%d", m.Messages.ByRole[name])})
 		}
-		rows = append(rows,
-			"",
-			lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Tokens"),
-			row(t, "  input", fmt.Sprintf("%d", m.Tokens.InputTotal)),
-			row(t, "  output", fmt.Sprintf("%d", m.Tokens.OutputTotal)),
-			row(t, "  cache read", fmt.Sprintf("%d", m.Tokens.CacheReadTotal)),
-			row(t, "  cache write", fmt.Sprintf("%d", m.Tokens.CacheWriteTotal)),
-			"",
-			lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Cost"),
-			row(t, "  total", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)),
+		rows = appendDetailSection(rows, "Messages", messageFields...)
+
+		rows = appendDetailSection(rows, "Tokens",
+			detailField{"input", fmt.Sprintf("%d", m.Tokens.InputTotal)},
+			detailField{"output", fmt.Sprintf("%d", m.Tokens.OutputTotal)},
+			detailField{"cache_read", fmt.Sprintf("%d", m.Tokens.CacheReadTotal)},
+			detailField{"cache_write", fmt.Sprintf("%d", m.Tokens.CacheWriteTotal)},
 		)
-		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
-			rows = append(rows, row(t, "  "+name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])))
+
+		costFields := []detailField{
+			{"total", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
 		}
+		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
+			costFields = append(costFields, detailField{name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])})
+		}
+		rows = appendDetailSection(rows, "Cost", costFields...)
+
 		// Latencies — show top 6 routes by p95 so the modal stays compact.
 		// Backends running an older contract might omit this field; render
 		// nothing in that case rather than an empty section.
 		if len(m.Latencies) > 0 {
-			rows = append(rows,
-				"",
-				lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render("Latencies (top 6 by p95, ms)"))
+			latencyFields := make([]detailField, 0, 6)
 			for _, pat := range topLatencyRoutes(m.Latencies, 6) {
 				st := m.Latencies[pat]
-				rows = append(rows, row(t,
-					"  "+truncate(pat, 32),
+				latencyFields = append(latencyFields, detailField{
+					truncate(pat, 32),
 					fmt.Sprintf("p50 %.1f / p95 %.1f / max %.1f (n=%d)",
-						st.P50Ms, st.P95Ms, st.MaxMs, st.Count)))
+						st.P50Ms, st.P95Ms, st.MaxMs, st.Count),
+				})
 			}
+			rows = appendDetailSection(rows, "Latencies (top 6 by p95, ms)", latencyFields...)
 		}
 	}
 	rows = append(rows, "", t.HintLabel.Render("r refresh   Esc / Ctrl+T close"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
-}
-
-// row renders "label: value" with a wide gap between them. Width-aware so
-// the value right-aligns nicely in the modal.
-func row(t Theme, label, value string) string {
-	const lineWidth = 50
-	gap := lineWidth - lipgloss.Width(label) - lipgloss.Width(value)
-	if gap < 1 {
-		gap = 1
-	}
-	return label + strings.Repeat(" ", gap) +
-		lipgloss.NewStyle().Foreground(t.Secondary).Render(value)
+	return a.renderDefaultModalSurface(w, body)
 }
 
 func sortedKeys(m map[string]int) []string {
