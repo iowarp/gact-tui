@@ -577,6 +577,31 @@ func (a *App) openCatalogDetail(title, text string) {
 	a.detailScroll = 0
 }
 
+func (a *App) catalogBrowserHeaderButtons() []menuButton {
+	if a.catalogBrowser != nil &&
+		(a.catalogBrowser.kind == catalogKindMcpDetail || a.catalogBrowser.kind == catalogKindAgentDetail) &&
+		a.catalogBrowser.parent != nil {
+		return []menuButton{{
+			id:    "catalog:back",
+			label: "back",
+			action: func(app *App) tea.Cmd {
+				if app.catalogBrowser != nil && app.catalogBrowser.parent != nil {
+					app.catalogBrowser = app.catalogBrowser.parent
+				}
+				return nil
+			},
+		}}
+	}
+	return []menuButton{{
+		id:    "catalog:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.closeCatalogBrowser()
+			return nil
+		},
+	}}
+}
+
 const catalogBrowserRowBudget = 12
 
 func catalogBrowserClampOffset(sel, offset, itemCount int) int {
@@ -632,12 +657,10 @@ func (a *App) viewCatalogBrowser() string {
 	// Use the inspection-pane width so lists remain readable without
 	// consuming the whole application frame.
 	w := a.detailModalWidth()
+	innerW := w - 4
 
-	// LLL4: title bar matching the Settings modal — full-width Primary
-	// background with inverted text. Reads as a real header.
-	title := lipgloss.NewStyle().
-		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render(a.catalogBrowser.title)
+	buttons := a.catalogBrowserHeaderButtons()
+	titleRow, buttonCol := a.renderModalHeader(a.catalogBrowser.title, innerW, buttons)
 	rows := make([]string, 0, catalogBrowserRowBudget*2)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
@@ -721,11 +744,12 @@ func (a *App) viewCatalogBrowser() string {
 	hint := t.HintLabel.Italic(true).Render(hintText)
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "",
+		titleRow, "",
 		lipgloss.JoinVertical(lipgloss.Left, rows...),
 		"", hint,
 	)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	a.registerModalListHits(modal, 2+listStartRow, 0, w-4, list.hits)
 	return modal
 }

@@ -625,6 +625,79 @@ func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestCatalogCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{{id: "shell_bash", title: "shell_bash"}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:catalog:close")
+	if !ok {
+		t.Fatal("missing semantic catalog close button target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("catalog close button should not dispatch a command")
+	}
+	if a.catalogBrowserOpen || a.catalogBrowser != nil {
+		t.Fatalf("catalog close button should close browser, open=%v browser=%v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+}
+
+func TestCatalogBackButtonUsesSemanticHitTarget(t *testing.T) {
+	parent := &catalogBrowserState{
+		kind:  catalogKindMcp,
+		title: "MCP servers",
+		items: []catalogItem{{id: "mcp_fs", title: "Filesystem"}},
+	}
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:   catalogKindMcpDetail,
+		title:  "MCP detail",
+		parent: parent,
+		items:  []catalogItem{{id: "summary", title: "Summary"}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:catalog:back")
+	if !ok {
+		t.Fatal("missing semantic catalog back button target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("catalog back button should not dispatch a command")
+	}
+	if !a.catalogBrowserOpen {
+		t.Fatal("catalog back button should keep browser open")
+	}
+	if a.catalogBrowser != parent {
+		t.Fatalf("catalog back button should restore parent browser, got %#v", a.catalogBrowser)
+	}
+}
+
 func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
