@@ -33,7 +33,9 @@ func TestDoctor_RendersIntegrationsTable(t *testing.T) {
 	for _, want := range []string{
 		"Doctor",             // modal title
 		"degraded",           // overall_status chip
-		"uptime 1h 2m",       // header formatted
+		"Overview",           // shared section heading
+		"uptime: 1h 2m",      // shared detail field
+		"Integrations",       // shared integration section
 		"lm",                 // integration row
 		"ready",              // status cell
 		"openai/gpt-4o-mini", // detail column
@@ -45,6 +47,9 @@ func TestDoctor_RendersIntegrationsTable(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("viewDoctor output missing %q; full:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "NAME") || strings.Contains(out, "STATUS") || strings.Contains(out, "DETAIL") {
+		t.Errorf("health tab should use shared detail sections, not a bespoke table:\n%s", out)
 	}
 }
 
