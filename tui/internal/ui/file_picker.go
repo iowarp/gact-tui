@@ -356,8 +356,6 @@ func (a *App) viewFilePicker() string {
 		"", hint,
 	)
 	modal := a.renderDefaultModalSurface(w, body)
-	for _, hit := range list.hits {
-		a.registerModalContentHit(modal, hit.id, 4+listStartRow+hit.row, 0, w-4, hit.height, hit.action)
-	}
+	a.registerModalListHits(modal, 4+listStartRow, 0, w-4, list.hits)
 	return modal
 }

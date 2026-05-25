@@ -752,10 +752,13 @@ func TestLMConfigProviderRowsUseSemanticHitTargets(t *testing.T) {
 	a := newLMConfigTestApp()
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "lm-config:provider:0")
+	if !ok {
+		t.Fatal("missing semantic LM provider target")
+	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + 6,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -784,14 +787,13 @@ func TestLMConfigModelRowsUseSemanticHitTargets(t *testing.T) {
 	a.lmConfig.model = "alpha-model"
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
-	contentW := a.lmConfigModalWidth() - 6
-	bodyRows := a.lmConfigBodyRows()
-	layout := a.lmConfigLayout(contentW, bodyRows)
-	modelTop := 4 + lmConfigBoxHeight(layout.providerRows) + layout.gridGapRows
+	target, ok := findHitTargetForTest(a, "lm-config:model:1")
+	if !ok {
+		t.Fatal("missing semantic LM model target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + modelTop + 3,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -817,11 +819,13 @@ func TestLMConfigSaveButtonUsesSemanticHitTarget(t *testing.T) {
 	a.lmConfig.model = "alpha-model"
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
-	bodyRows := a.lmConfigBodyRows()
+	target, ok := findHitTargetForTest(a, "lm-config:save")
+	if !ok {
+		t.Fatal("missing semantic LM save target")
+	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 10,
-		Y:      rect.y + 2 + 4 + bodyRows - 2,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)

@@ -1261,18 +1261,25 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 		windowRows = visibleRows - 1
 	}
 	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
+	hits := make([]modalListHit, 0, end-start)
 	for i := start; i < end; i++ {
 		presetIdx := indexes[i]
-		row := top + 2 + (i - start)
-		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:provider:%d", presetIdx), row, col, width, 1, func(app *App) tea.Cmd {
-			if app.lmConfig == nil || app.lmConfig.info == nil || presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
-				return nil
-			}
-			app.lmConfig.field = lmFieldPreset
-			app.lmConfig.selected = presetIdx
-			return app.lmConfigSyncFromPreset()
+		row := i - start
+		hits = append(hits, modalListHit{
+			id:     fmt.Sprintf("lm-config:provider:%d", presetIdx),
+			row:    row,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig == nil || app.lmConfig.info == nil || presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
+					return nil
+				}
+				app.lmConfig.field = lmFieldPreset
+				app.lmConfig.selected = presetIdx
+				return app.lmConfigSyncFromPreset()
+			},
 		})
 	}
+	a.registerModalListHits(modal, top+2, col, width, hits)
 }
 
 func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width int) {
@@ -1322,24 +1329,31 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 		windowRows = visibleRows - 1
 	}
 	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
+	hits := make([]modalListHit, 0, end-start)
 	for i := start; i < end; i++ {
 		modelIdx := modelIndexes[i]
-		row := top + 2 + (i - start)
-		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:model:%d", modelIdx), row, col, width, 1, func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
+		row := i - start
+		hits = append(hits, modalListHit{
+			id:     fmt.Sprintf("lm-config:model:%d", modelIdx),
+			row:    row,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig == nil {
+					return nil
+				}
+				pid := app.lmConfigCurrentPresetID()
+				catalog := app.lmConfig.modelCatalogs[pid]
+				if modelIdx < 0 || modelIdx >= len(catalog) {
+					return nil
+				}
+				app.lmConfig.field = lmFieldModel
+				app.lmConfig.modelIndex = modelIdx
+				app.lmConfig.model = catalog[modelIdx].ID
 				return nil
-			}
-			pid := app.lmConfigCurrentPresetID()
-			catalog := app.lmConfig.modelCatalogs[pid]
-			if modelIdx < 0 || modelIdx >= len(catalog) {
-				return nil
-			}
-			app.lmConfig.field = lmFieldModel
-			app.lmConfig.modelIndex = modelIdx
-			app.lmConfig.model = catalog[modelIdx].ID
-			return nil
+			},
 		})
 	}
+	a.registerModalListHits(modal, top+2, col, width, hits)
 }
 
 func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
