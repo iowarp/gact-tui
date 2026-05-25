@@ -109,6 +109,35 @@ func TestRename_EnterCommitsAndPatches(t *testing.T) {
 	}
 }
 
+func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "clicked title"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:save")
+	if !ok {
+		t.Fatal("missing rename save button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.renameOpen {
+		t.Fatal("save button should close rename modal")
+	}
+	if a.sessions[0].Title != "clicked title" {
+		t.Fatalf("save button did not commit title: %q", a.sessions[0].Title)
+	}
+	if cmd == nil {
+		t.Fatal("save button should dispatch patch command")
+	}
+}
+
 func TestRename_EmptyInputCancels(t *testing.T) {
 	a, mu, got := makeRenameApp(t)
 	a.renameOpen = true
