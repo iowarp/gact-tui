@@ -592,14 +592,7 @@ func (a *App) catalogBrowserHeaderButtons() []menuButton {
 			},
 		}}
 	}
-	return []menuButton{{
-		id:    "catalog:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeCatalogBrowser()
-			return nil
-		},
-	}}
+	return []menuButton{closeMenuButton("catalog:close", func(app *App) { app.closeCatalogBrowser() })}
 }
 
 const catalogBrowserRowBudget = 12

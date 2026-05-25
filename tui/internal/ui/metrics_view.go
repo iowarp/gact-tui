@@ -69,14 +69,7 @@ func (a *App) viewMetrics() string {
 				return loadMetricsCmd(app.c)
 			},
 		},
-		{
-			id:    "metrics:close",
-			label: "close",
-			action: func(app *App) tea.Cmd {
-				app.metricsOpen = false
-				return nil
-			},
-		},
+		closeMenuButton("metrics:close", func(app *App) { app.metricsOpen = false }),
 	}
 	titleRow, buttonCol := a.renderModalHeader("Backend Metrics", innerW, buttons)
 

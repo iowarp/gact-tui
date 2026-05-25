@@ -419,14 +419,7 @@ func (a *App) viewSettings() string {
 		currentModel = a.lmProviderInfo.Provider + "/" + a.lmProviderInfo.Model
 	}
 
-	buttons := []menuButton{{
-		id:    "settings:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeSettingsModal()
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("settings:close", func(app *App) { app.closeSettingsModal() })}
 	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgSettingsTitle, nil), w-4, buttons)
 
 	rows := []string{

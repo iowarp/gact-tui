@@ -95,14 +95,7 @@ func (a *App) closeWorkspaceSwitchModal() {
 func (a *App) viewWorkspaceSwitch() string {
 	t := a.Theme
 	w := a.modalWidth()
-	buttons := []menuButton{{
-		id:    "workspace-switch:close",
-		label: "close",
-		action: func(app *App) tea.Cmd {
-			app.closeWorkspaceSwitchModal()
-			return nil
-		},
-	}}
+	buttons := []menuButton{closeMenuButton("workspace-switch:close", func(app *App) { app.closeWorkspaceSwitchModal() })}
 	titleRow, buttonCol := a.renderModalHeader("Switch workspace", w-4, buttons)
 	rows := []string{
 		titleRow,

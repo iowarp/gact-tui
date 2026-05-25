@@ -128,6 +128,17 @@ type menuButton struct {
 	action uiHitAction
 }
 
+func closeMenuButton(id string, close func(*App)) menuButton {
+	return menuButton{
+		id:    id,
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			close(app)
+			return nil
+		},
+	}
+}
+
 type modalListItem struct {
 	id             string
 	title          string

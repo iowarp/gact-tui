@@ -111,15 +111,10 @@ func (a *App) viewDoctor() string {
 				return doctorFetchCmd(app.c)
 			},
 		},
-		{
-			id:    "doctor:close",
-			label: "close",
-			action: func(app *App) tea.Cmd {
-				app.doctorOpen = false
-				app.doctor = nil
-				return nil
-			},
-		},
+		closeMenuButton("doctor:close", func(app *App) {
+			app.doctorOpen = false
+			app.doctor = nil
+		}),
 	}
 	titleRow, buttonCol := a.renderModalHeader("Doctor — Backend Health", innerW, buttons)
 	tabs := []menuTab{
