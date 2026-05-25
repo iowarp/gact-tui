@@ -274,20 +274,6 @@ func (a *App) handlePaletteMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd,
 		a.paletteOpen = false
 		return nil, true
 	}
-	row := rect.contentRow(mouse.Y)
-	searchMode := a.isSearchMode()
-	startRow := 4
-	count := len(a.paletteMatches())
-	if searchMode {
-		startRow = 3
-		count = len(a.searchMatches)
-	}
-	idx := row - startRow
-	if idx >= 0 && idx < count {
-		a.paletteSel = idx
-		_, cmd := a.handlePaletteKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
 }
 

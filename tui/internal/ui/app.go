@@ -7801,7 +7801,13 @@ func (a *App) viewPalette() string {
 	if len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteNoMatches, nil)))
 	}
+	type paletteHit struct {
+		row int
+		idx int
+	}
+	var rowHits []paletteHit
 	for i, c := range matches {
+		row := len(rows)
 		marker := "  "
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
 		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
@@ -7819,17 +7825,25 @@ func (a *App) viewPalette() string {
 			line += "  " + valStyle.Render("· "+hint)
 		}
 		rows = append(rows, truncate(line, w-2))
+		rowHits = append(rowHits, paletteHit{row: row, idx: i})
 	}
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	for _, hit := range rowHits {
+		idx := hit.idx
+		a.registerModalContentHit(modal, fmt.Sprintf("palette:command:%d", idx), hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
+			matches := app.paletteMatches()
+			if idx < 0 || idx >= len(matches) {
+				return nil
+			}
+			app.paletteSel = idx
+			_, cmd := app.handlePaletteKey(keyMsg("enter"))
+			return cmd
+		})
+	}
+	return modal
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -7873,13 +7887,22 @@ func (a *App) viewPaletteSearch(w int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	if len(a.searchMatches) > 0 {
+		for i := range a.searchMatches {
+			idx := i
+			row := 3 + i
+			a.registerModalContentHit(modal, fmt.Sprintf("palette:search:%d", idx), row, 0, w-4, 1, func(app *App) tea.Cmd {
+				if idx < 0 || idx >= len(app.searchMatches) {
+					return nil
+				}
+				app.paletteSel = idx
+				_, cmd := app.handlePaletteKey(keyMsg("enter"))
+				return cmd
+			})
+		}
+	}
+	return modal
 }
 
 // shortID truncates a message ID for display (e.g. "msg_1a2b3c4d…").
