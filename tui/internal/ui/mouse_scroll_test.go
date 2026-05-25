@@ -393,11 +393,15 @@ func TestMouseClickCatalogBrowserUsesRenderedDescRowGeometry(t *testing.T) {
 			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
 		},
 	}
-	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:item:1")
+	if !ok {
+		t.Fatal("missing semantic catalog target")
+	}
 
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 5,
-		Y:      rect.y + 2 + 4,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)

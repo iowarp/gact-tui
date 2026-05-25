@@ -282,20 +282,6 @@ func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bo
 		a.helpOpen = false
 		return nil, true
 	}
-	if rect.contentRow(mouse.Y) == 2 {
-		col := rect.contentCol(mouse.X)
-		if col < 0 {
-			return nil, true
-		}
-		switch {
-		case col < 16:
-			a.helpTab = 0
-		case col < 34:
-			a.helpTab = 1
-		default:
-			a.helpTab = 2
-		}
-	}
 	return nil, true
 }
 
@@ -357,39 +343,7 @@ func (a *App) handleCatalogBrowserMouseClick(rect mouseRect, mouse tea.Mouse) (t
 		a.closeCatalogBrowser()
 		return nil, true
 	}
-	if idx, ok := a.catalogBrowserIndexAtContentRow(rect.contentRow(mouse.Y)); ok {
-		a.catalogBrowser.sel = idx
-		a.catalogBrowser.offset = catalogBrowserClampOffset(idx, a.catalogBrowser.offset, len(a.catalogBrowser.items))
-		_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
-}
-
-func (a *App) catalogBrowserIndexAtContentRow(row int) (int, bool) {
-	if a.catalogBrowser == nil {
-		return 0, false
-	}
-	cb := a.catalogBrowser
-	renderRow := 2
-	if cb.offset > 0 {
-		if row == renderRow {
-			return 0, false
-		}
-		renderRow++
-	}
-	start := cb.offset
-	end := min(len(cb.items), start+catalogBrowserRowBudget)
-	for i := start; i < end; i++ {
-		if row == renderRow || (cb.items[i].desc != "" && row == renderRow+1) {
-			return i, true
-		}
-		renderRow++
-		if cb.items[i].desc != "" {
-			renderRow++
-		}
-	}
-	return 0, false
 }
 
 func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
@@ -431,93 +385,7 @@ func (a *App) handleSettingsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd
 		a.settingsOpen = false
 		return nil, true
 	}
-	row := rect.contentRow(mouse.Y)
-	if row == 2 {
-		col := rect.contentCol(mouse.X)
-		tab := settingsTabAtColumn(a, col)
-		if tab >= 0 {
-			a.settings.tab = tab
-		}
-		return nil, true
-	}
-	if idx, ok := a.settingsSelectableIndexAtContentRow(row); ok {
-		switch a.settings.tab {
-		case 1:
-			a.settings.agentSel = idx
-		case 2:
-			a.settings.themeSel = idx
-			a.previewTheme(idx)
-		case 3:
-			a.settings.tuiRow = idx
-		case 4:
-			a.settings.languageSel = idx
-			a.previewLanguage(idx)
-		}
-		_, cmd := a.handleSettingsKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
-}
-
-func settingsTabAtColumn(a *App, col int) int {
-	if col < 0 {
-		return -1
-	}
-	labels := []string{
-		a.localizer.t(msgSettingsTabModel, nil),
-		a.localizer.t(msgSettingsTabAgent, nil),
-		a.localizer.t(msgSettingsTabTheme, nil),
-		a.localizer.t(msgSettingsTabTUI, nil),
-		a.localizer.t(msgSettingsTabLanguage, nil),
-	}
-	x := 0
-	for i, label := range labels {
-		w := lipgloss.Width(label) + 4
-		if col >= x && col < x+w {
-			return i
-		}
-		x += w + 1
-	}
-	return -1
-}
-
-func (a *App) settingsSelectableIndexAtContentRow(row int) (int, bool) {
-	if a.settings == nil {
-		return 0, false
-	}
-	switch a.settings.tab {
-	case 0:
-		if row == 6 {
-			return 0, true
-		}
-	case 1:
-		start, end := a.visibleAgentRange()
-		base := 6
-		if start > 0 {
-			base++
-		}
-		idx := start + row - base
-		if idx >= start && idx < end {
-			return idx, true
-		}
-	case 2:
-		idx := row - 6
-		if idx >= 0 && idx < len(AllThemeModes) {
-			return idx, true
-		}
-	case 3:
-		// TUI preference rows render as label, hint, blank triples.
-		idx := (row - 6) / 3
-		if row >= 6 && idx >= 0 && idx < tuiPrefsRowCount {
-			return idx, true
-		}
-	case 4:
-		idx := row - 4
-		if idx >= 0 && idx < len(availableLanguageOptions()) {
-			return idx, true
-		}
-	}
-	return 0, false
 }
 
 func (a *App) handleMetricsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
@@ -528,15 +396,6 @@ func (a *App) handleDoctorMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, 
 	if !rect.contains(mouse.X, mouse.Y) {
 		a.doctorOpen = false
 		return nil, true
-	}
-	row := rect.contentRow(mouse.Y)
-	col := rect.contentCol(mouse.X)
-	if row == 2 && a.doctor != nil {
-		if col < 24 {
-			a.doctor.tab = 0
-		} else {
-			a.doctor.tab = 1
-		}
 	}
 	return nil, true
 }

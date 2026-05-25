@@ -450,8 +450,15 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
 			map[string]string{"value": orPlaceholder(currentModel, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
+		row := len(rows)
 		rows = append(rows, rowLine(true, a.localizer.t(msgSettingsModelChange, nil),
 			a.localizer.t(msgSettingsModelChangeDesc, nil)))
+		addRowHit("settings:model:change-provider", row, func(app *App) tea.Cmd {
+			app.settingsOpen = false
+			app.lmConfigOpen = true
+			app.lmConfig = &lmConfigState{}
+			return lmConfigFetchCmd(app.c)
+		})
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			a.localizer.t(msgSettingsModelHint, nil)))
@@ -472,7 +479,20 @@ func (a *App) viewSettings() string {
 		}
 		for i, ag := range s.agentList[start:end] {
 			absolute := start + i
+			row := len(rows)
+			idx := absolute
 			rows = append(rows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+			addRowHit("settings:agent:"+ag.ID, row, func(app *App) tea.Cmd {
+				if app.settings == nil {
+					app.settings = &settingsState{tab: 1}
+				}
+				if idx < 0 || idx >= len(app.settings.agentList) {
+					return nil
+				}
+				app.settings.agentSel = idx
+				app.openSettingsAgentDetail()
+				return nil
+			})
 		}
 		if end < len(s.agentList) {
 			rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(s.agentList)-end)))

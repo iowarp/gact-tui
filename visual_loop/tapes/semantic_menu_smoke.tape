@@ -45,4 +45,16 @@ Screenshot "visual_loop/screenshots/semantic_menu_tools_catalog.png"
 Escape
 Sleep 300ms
 
+# Doctor tabs: verifies the health/capability tab strip uses the shared
+# modal surface and render-time hit geometry.
+Type "/doctor"
+Enter
+Wait+Screen /Doctor/
+Sleep 500ms
+Tab
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_menu_doctor_capabilities.png"
+Escape
+Sleep 300ms
+
 Type "q"
