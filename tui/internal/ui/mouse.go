@@ -245,11 +245,7 @@ func (a *App) handlePaletteMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
 }
 
 func (a *App) handlePaletteMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.paletteOpen = false
-		return nil, true
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closePalette)
 }
 
 func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
