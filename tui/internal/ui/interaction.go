@@ -216,6 +216,15 @@ func (a *App) registerModalButtons(modal string, row int, startCol int, buttons 
 	}
 }
 
+func (a *App) appendModalActionRow(rows []string, buttons []menuButton, selected int) ([]string, int) {
+	actionRow := len(rows)
+	return append(rows, a.renderModalButtons(buttons, selected)), actionRow
+}
+
+func (a *App) registerModalActionRow(modal string, row int, buttons []menuButton) {
+	a.registerModalButtons(modal, row, 0, buttons)
+}
+
 func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
 	cells := make([]string, 0, len(buttons))
 	for i, button := range buttons {

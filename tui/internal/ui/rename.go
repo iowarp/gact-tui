@@ -147,13 +147,13 @@ func (a *App) viewRename() string {
 		"",
 		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
 		"",
-		a.renderModalButtons(buttons, 0),
-		"",
-		t.HintLabel.Render("Enter save  Esc cancel  ←/→ move  Home/End jump"),
 	}
-	actionRow := len(rows) - 3
+	rows, actionRow := a.appendModalActionRow(rows, buttons, 0)
+	rows = append(rows, "",
+		t.HintLabel.Render("Enter save  Esc cancel  ←/→ move  Home/End jump"),
+	)
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, actionRow, 0, buttons)
+	a.registerModalActionRow(modal, actionRow, buttons)
 	return modal
 }

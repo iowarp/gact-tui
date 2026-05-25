@@ -249,13 +249,13 @@ func (a *App) viewMcpInstall() string {
 			"",
 		)
 	}
-	rows = append(rows,
-		a.renderModalButtons(buttons, 0),
-		"",
+	var actionRow int
+	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
+	rows = append(rows, "",
 		t.HintLabel.Render("Enter install · Esc cancel"),
 	)
 	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
-	a.registerModalButtons(modal, len(rows)-3, 0, buttons)
+	a.registerModalActionRow(modal, actionRow, buttons)
 	return modal
 }
 
@@ -316,16 +316,16 @@ func (a *App) viewMcpRemove() string {
 				Render(a.spinnerChar()+" removing…"),
 		)
 	}
+	rows = append(rows, "")
+	var actionRow int
+	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
 	rows = append(rows, "",
-		a.renderModalButtons(buttons, 0),
-		"",
 		t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
 	)
 	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
 	if len(list.hits) > 0 {
 		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
 	}
-	actionRow := len(rows) - 3
-	a.registerModalButtons(modal, actionRow, 0, buttons)
+	a.registerModalActionRow(modal, actionRow, buttons)
 	return modal
 }

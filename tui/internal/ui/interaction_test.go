@@ -111,6 +111,32 @@ func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	}
 }
 
+func TestModalActionRowAppendsAndRegistersConsistently(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	buttons := []menuButton{
+		{id: "save", label: "save", action: func(*App) tea.Cmd { return nil }},
+		{id: "cancel", label: "cancel", action: func(*App) tea.Cmd { return nil }},
+	}
+	rows, row := a.appendModalActionRow([]string{"title", ""}, buttons, 1)
+	if row != 2 {
+		t.Fatalf("action row = %d, want appended row index 2", row)
+	}
+	if got := ansi.Strip(rows[row]); !strings.Contains(got, "save") || !strings.Contains(got, "cancel") {
+		t.Fatalf("action row did not render labels: %q", got)
+	}
+	modal := a.renderDefaultModalSurface(50, strings.Join(rows, "\n"))
+	a.beginHitFrame()
+	a.registerModalActionRow(modal, row, buttons)
+	if _, ok := findHitTargetForTest(a, "button:save"); !ok {
+		t.Fatal("missing save button hit")
+	}
+	if _, ok := findHitTargetForTest(a, "button:cancel"); !ok {
+		t.Fatal("missing cancel button hit")
+	}
+}
+
 func TestModalTabsRenderAndRegisterWithSameLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

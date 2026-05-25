@@ -157,13 +157,13 @@ func (a *App) viewContextAdd() string {
 		"",
 		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
 		"",
-		a.renderModalButtons(buttons, 0),
-		"",
-		t.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
 	}
-	actionRow := len(rows) - 3
+	rows, actionRow := a.appendModalActionRow(rows, buttons, 0)
+	rows = append(rows, "",
+		t.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
+	)
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, actionRow, 0, buttons)
+	a.registerModalActionRow(modal, actionRow, buttons)
 	return modal
 }

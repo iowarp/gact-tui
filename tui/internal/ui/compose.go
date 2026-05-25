@@ -170,17 +170,17 @@ func (a *App) viewCompose() string {
 			},
 		},
 	}
-	buttonRow := 3 + lipgloss.Height(a.compose.ta.View()) + 1
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
+	rows := []string{
 		title, subtitle, "",
 		a.compose.ta.View(),
-		"", a.renderModalButtons(buttons, 0),
-		"", hint,
-	)
+		"",
+	}
+	rows, buttonRow := a.appendModalActionRow(rows, buttons, 0)
+	rows = append(rows, "", hint)
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
 	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, buttonRow, 0, buttons)
+	a.registerModalActionRow(modal, buttonRow, buttons)
 	return modal
 }
 

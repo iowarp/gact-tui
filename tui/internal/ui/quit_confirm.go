@@ -143,13 +143,14 @@ func (a *App) viewQuitConfirm() string {
 		Render(a.localizer.t(msgQuitHint, nil))
 
 	buttons := a.quitConfirmButtons()
-	row := a.renderModalButtons(buttons, a.quitConfirmSelected)
 	keyLine := lipgloss.NewStyle().Foreground(t.FgFaint).Render(
 		a.localizer.t(msgQuitKeyHint, nil))
 
-	box := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", hint, "", row, "", keyLine)
+	rows := []string{title, "", hint, ""}
+	rows, actionRow := a.appendModalActionRow(rows, buttons, a.quitConfirmSelected)
+	rows = append(rows, "", keyLine)
+	box := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderModalSurface(w, t.Warning, t.BgSubtle, box)
-	a.registerModalButtons(modal, 4, 0, buttons)
+	a.registerModalActionRow(modal, actionRow, buttons)
 	return modal
 }
