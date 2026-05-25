@@ -7773,13 +7773,21 @@ func (a *App) viewHelp() string {
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		title, "", tabRow, "", keys, "", hint,
 	)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(a.modalWidth()).
-		Render(body)
+	modal := a.renderDefaultModalSurface(a.modalWidth(), body)
+	tabHits := make([]menuTab, 0, len(helpTabs))
+	for i, tab := range helpTabs {
+		tabIdx := i
+		tabHits = append(tabHits, menuTab{
+			id:    "help-" + strings.ToLower(tab.title),
+			label: a.localizedHelpTabTitle(tab.title),
+			action: func(app *App) tea.Cmd {
+				app.helpTab = tabIdx
+				return nil
+			},
+		})
+	}
+	a.registerModalTabsWithLayout(modal, 2, tabHits, 1, 0)
+	return modal
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have

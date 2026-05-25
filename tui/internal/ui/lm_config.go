@@ -1185,13 +1185,7 @@ func (a *App) viewLMConfig() string {
 	}
 	parts = append(parts, "", hint)
 	box := lipgloss.JoinVertical(lipgloss.Left, parts...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.Bg).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	return a.renderModalSurface(w, t.Primary, t.Bg, box)
 }
 
 func (a *App) renderLMConfigBody(innerW int, bodyRows int) string {

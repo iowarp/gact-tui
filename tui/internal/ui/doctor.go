@@ -118,13 +118,7 @@ func (a *App) viewDoctor() string {
 
 	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
 	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabs, "", body, "", hint)
-	modal := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	modal := a.renderDefaultModalSurface(w, box)
 	a.registerModalTabs(modal, 2, []menuTab{
 		{
 			id:    "doctor-health",

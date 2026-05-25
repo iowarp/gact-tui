@@ -639,6 +639,14 @@ func (a *App) viewCatalogBrowser() string {
 		Background(t.Primary).Foreground(t.Bg).Bold(true).
 		Padding(0, 2).Width(w - 4).Render(a.catalogBrowser.title)
 	rows := make([]string, 0, catalogBrowserRowBudget)
+	type rowHit struct {
+		row int
+		idx int
+	}
+	var rowHits []rowHit
+	addItemHit := func(row, idx int) {
+		rowHits = append(rowHits, rowHit{row: row, idx: idx})
+	}
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
 	}
@@ -658,6 +666,7 @@ func (a *App) viewCatalogBrowser() string {
 			fmt.Sprintf("… %d above", start)))
 	}
 	for i := start; i < end; i++ {
+		titleRow := len(rows)
 		item := a.catalogBrowser.items[i]
 		marker := "  "
 		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
@@ -693,7 +702,9 @@ func (a *App) viewCatalogBrowser() string {
 			out = lipgloss.NewStyle().Background(t.Bg).Width(w - 4).Render(out)
 		}
 		rows = append(rows, out)
+		addItemHit(titleRow, i)
 		if item.desc != "" {
+			descRow := len(rows)
 			descStyle := t.HintLabel.Italic(true)
 			descText := truncate(compactCatalogText(item.desc), w-22)
 			descLine := "  " + descStyle.Render(descText)
@@ -702,6 +713,7 @@ func (a *App) viewCatalogBrowser() string {
 					Width(w - 4).Render(descLine)
 			}
 			rows = append(rows, descLine)
+			addItemHit(descRow, i)
 		}
 	}
 	if end < len(a.catalogBrowser.items) {
@@ -737,13 +749,20 @@ func (a *App) viewCatalogBrowser() string {
 		lipgloss.JoinVertical(lipgloss.Left, rows...),
 		"", hint,
 	)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	for _, hit := range rowHits {
+		idx := hit.idx
+		a.registerModalContentHit(modal, fmt.Sprintf("catalog:item:%d", idx), 2+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
+			if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
+				return nil
+			}
+			app.catalogBrowser.sel = idx
+			app.catalogBrowser.offset = catalogBrowserClampOffset(idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+			_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
+			return cmd
+		})
+	}
+	return modal
 }
 
 // catalogCommandForID maps a slash-command ID into a browser kind.

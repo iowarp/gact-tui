@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
@@ -114,6 +118,99 @@ func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if !a.settingsOpen {
 		t.Fatal("clicking a language row should select without closing settings")
+	}
+}
+
+func TestHelpTabsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.helpOpen = true
+	a.helpTab = 0
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewHelp(), a.width, a.height)
+	targetTab := helpTabIndex("Commands")
+	col := 0
+	for i := 0; i < targetTab; i++ {
+		col += lipgloss.Width(a.localizedHelpTabTitle(helpTabs[i].title)) + 2
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + col + 1,
+		Y:      rect.y + 2 + 2,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.helpTab != targetTab {
+		t.Fatalf("helpTab = %d, want %d", a.helpTab, targetTab)
+	}
+	if !a.helpOpen {
+		t.Fatal("clicking a help tab should not close help")
+	}
+}
+
+func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent detail",
+		items: []catalogItem{
+			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
+			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
+		},
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + 4,
+		Y:      rect.y + 2 + 5,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("catalog row click should open detail view")
+	}
+	if a.detailView.title != "Handoffs" {
+		t.Fatalf("detail title = %q, want Handoffs", a.detailView.title)
+	}
+}
+
+func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		entries: []gact.FileEntry{
+			{Path: "alpha.csv"},
+			{Path: "beta.parquet"},
+		},
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + 4,
+		Y:      rect.y + 2 + 5,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.filePickerOpen {
+		t.Fatal("file picker should close after clicked insert")
+	}
+	if got := a.input.Value(); !strings.Contains(got, "@beta.parquet ") {
+		t.Fatalf("input = %q, want clicked beta path inserted", got)
 	}
 }
 

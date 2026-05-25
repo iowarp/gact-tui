@@ -294,6 +294,11 @@ func (a *App) viewFilePicker() string {
 	// surrounding chrome as the user types.
 	const resultRows = 10
 	rows := make([]string, 0, resultRows)
+	type rowHit struct {
+		row int
+		idx int
+	}
+	var rowHits []rowHit
 	if a.filePicker.errText != "" {
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			"file picker unavailable: "+truncate(a.filePicker.errText, w-6)))
@@ -313,6 +318,7 @@ func (a *App) viewFilePicker() string {
 		if i-start >= resultRows {
 			break
 		}
+		row := len(rows)
 		marker := "  "
 		style := lipgloss.NewStyle().Foreground(t.Fg)
 		if i == a.filePicker.sel {
@@ -320,6 +326,7 @@ func (a *App) viewFilePicker() string {
 			style = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 		}
 		rows = append(rows, marker+style.Render(truncate(m.Path, w-6)))
+		rowHits = append(rowHits, rowHit{row: row, idx: i})
 	}
 	// Pad to fixed height so the hint bar doesn't jump.
 	for len(rows) < resultRows {
@@ -334,11 +341,22 @@ func (a *App) viewFilePicker() string {
 		lipgloss.JoinVertical(lipgloss.Left, rows...),
 		"", hint,
 	)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	for _, hit := range rowHits {
+		idx := hit.idx
+		a.registerModalContentHit(modal, "file-picker:item", 4+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
+			if app.filePicker == nil {
+				app.closeFilePicker()
+				return nil
+			}
+			matches := app.filePickerMatches()
+			if idx < 0 || idx >= len(matches) {
+				return nil
+			}
+			app.filePicker.sel = idx
+			_, cmd := app.handleFilePickerKey(keyMsg("enter"))
+			return cmd
+		})
+	}
+	return modal
 }
