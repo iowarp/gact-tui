@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -58,11 +59,35 @@ func (a *App) viewMetrics() string {
 		a.metrics = &metricsState{loading: true}
 	}
 	w := a.modalWidth()
+	innerW := w - 4
 
-	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Backend Metrics"),
-		"",
+	buttons := []menuButton{
+		{
+			id:    "metrics:refresh",
+			label: "refresh",
+			action: func(app *App) tea.Cmd {
+				app.metrics = &metricsState{loading: true}
+				return loadMetricsCmd(app.c)
+			},
+		},
+		{
+			id:    "metrics:close",
+			label: "close",
+			action: func(app *App) tea.Cmd {
+				app.metricsOpen = false
+				return nil
+			},
+		},
 	}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Backend Metrics")
+	buttonCol := innerW - lipgloss.Width(buttonRow)
+	if buttonCol < lipgloss.Width(title)+2 {
+		buttonCol = lipgloss.Width(title) + 2
+	}
+	titleRow := lipgloss.JoinHorizontal(lipgloss.Top, title, strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))), buttonRow)
+
+	rows := []string{titleRow, ""}
 	switch {
 	case a.metrics.err != nil:
 		rows = append(rows,
@@ -125,7 +150,9 @@ func (a *App) viewMetrics() string {
 	rows = append(rows, "", t.HintLabel.Render("r refresh   Esc / Ctrl+T close"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return a.renderDefaultModalSurface(w, body)
+	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
+	return modal
 }
 
 func sortedKeys(m map[string]int) []string {
