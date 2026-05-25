@@ -101,6 +101,35 @@ type menuButton struct {
 	action uiHitAction
 }
 
+type modalListItem struct {
+	id          string
+	title       string
+	description string
+	status      string
+	selected    bool
+	disabled    bool
+	action      uiHitAction
+}
+
+type modalListOptions struct {
+	width            int
+	rowBudget        int
+	descriptionLines int
+}
+
+type modalListHit struct {
+	id     string
+	row    int
+	height int
+	action uiHitAction
+}
+
+type modalListRender struct {
+	rows          []string
+	hits          []modalListHit
+	renderedItems int
+}
+
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
 }
@@ -121,4 +150,81 @@ func (a *App) registerModalButtons(modal string, row int, startCol int, buttons 
 		a.registerModalContentHit(modal, "button:"+button.id, row, col, w, 1, button.action)
 		col += w
 	}
+}
+
+func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
+	t := a.Theme
+	width := opts.width
+	if width < 1 {
+		width = 1
+	}
+	rowBudget := opts.rowBudget
+	if rowBudget < 1 {
+		rowBudget = len(items) * 2
+	}
+	descriptionLines := opts.descriptionLines
+	if descriptionLines < 0 {
+		descriptionLines = 0
+	}
+	rows := make([]string, 0, rowBudget)
+	hits := make([]modalListHit, 0, len(items))
+	for _, item := range items {
+		if len(rows) >= rowBudget {
+			break
+		}
+		startRow := len(rows)
+		marker := "  "
+		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+		if item.disabled {
+			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
+		}
+		if item.selected {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			titleStyle = titleStyle.Foreground(t.Secondary)
+		}
+		line := marker + titleStyle.Render(item.title)
+		if item.disabled {
+			line += "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render("(disabled)")
+		}
+		if item.status != "" {
+			statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
+			if item.status == "connected" {
+				statusStyle = lipgloss.NewStyle().Foreground(t.Success).Bold(true)
+			}
+			line += "  " + statusStyle.Render("["+item.status+"]")
+		}
+		row := truncate(line, width)
+		if item.selected {
+			row = lipgloss.NewStyle().Background(t.Bg).Width(width).Render(row)
+		}
+		rows = append(rows, row)
+
+		if item.description != "" && descriptionLines > 0 {
+			descRows := wrapPlainRows(item.description, width-2, "  ")
+			if len(descRows) > descriptionLines {
+				descRows = descRows[:descriptionLines]
+				last := descRows[len(descRows)-1]
+				descRows[len(descRows)-1] = truncate(last+" ...", width-2)
+			}
+			for _, desc := range descRows {
+				if len(rows) >= rowBudget {
+					break
+				}
+				descLine := "  " + t.HintLabel.Italic(true).Render(desc)
+				if item.selected {
+					descLine = lipgloss.NewStyle().Background(t.Bg).Width(width).Render(descLine)
+				}
+				rows = append(rows, descLine)
+			}
+		}
+		if item.action != nil {
+			hits = append(hits, modalListHit{
+				id:     item.id,
+				row:    startRow,
+				height: len(rows) - startRow,
+				action: item.action,
+			})
+		}
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
 }

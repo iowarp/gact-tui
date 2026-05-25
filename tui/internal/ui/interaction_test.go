@@ -26,6 +26,27 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 }
 
+func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	rendered := a.renderModalList([]modalListItem{{
+		id:          "row:alpha",
+		title:       "alpha",
+		description: "long description that should wrap onto more than one rendered row so mouse hits cover the whole item",
+		selected:    true,
+		action:      func(*App) tea.Cmd { return nil },
+	}}, modalListOptions{width: 36, rowBudget: 4, descriptionLines: 2})
+
+	if len(rendered.rows) != 3 {
+		t.Fatalf("rows = %d, want title plus two description rows: %#v", len(rendered.rows), rendered.rows)
+	}
+	if len(rendered.hits) != 1 {
+		t.Fatalf("hits = %d, want one item hit", len(rendered.hits))
+	}
+	if rendered.hits[0].id != "row:alpha" || rendered.hits[0].row != 0 || rendered.hits[0].height != 3 {
+		t.Fatalf("hit = %+v, want one hit spanning all rendered rows", rendered.hits[0])
+	}
+}
+
 func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
