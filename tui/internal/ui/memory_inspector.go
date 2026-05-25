@@ -34,47 +34,40 @@ func formatMemoryInspector(stats gact.MemoryStats) string {
 
 func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.Message) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
-	rows := []string{
-		"ARC cache",
-		"role: recent-context retrieval cache",
-		fmt.Sprintf("hits: %d", stats.Cache.Hits),
-		fmt.Sprintf("misses: %d", stats.Cache.Misses),
-		fmt.Sprintf("hit_rate: %.1f%%", stats.Cache.HitRate*100),
-		fmt.Sprintf("capacity: %d", stats.Cache.Capacity),
-		fmt.Sprintf("lookups: %d", totalLookups),
-		"",
-		"Global memory",
-		fmt.Sprintf("conversations_total: %d", stats.Global.ConversationsTotal),
-		fmt.Sprintf("invocations_total: %d", stats.Global.InvocationsTotal),
-	}
+	rows := appendDetailSection(nil, "ARC cache",
+		detailField{"role", "recent-context retrieval cache"},
+		detailField{"hits", fmt.Sprintf("%d", stats.Cache.Hits)},
+		detailField{"misses", fmt.Sprintf("%d", stats.Cache.Misses)},
+		detailField{"hit_rate", fmt.Sprintf("%.1f%%", stats.Cache.HitRate*100)},
+		detailField{"capacity", fmt.Sprintf("%d", stats.Cache.Capacity)},
+		detailField{"lookups", fmt.Sprintf("%d", totalLookups)},
+	)
+	rows = appendDetailSection(rows, "Global memory",
+		detailField{"conversations_total", fmt.Sprintf("%d", stats.Global.ConversationsTotal)},
+		detailField{"invocations_total", fmt.Sprintf("%d", stats.Global.InvocationsTotal)},
+	)
 	if stats.Session != nil {
 		usage := memoryUsageText(stats.Session.TokensRetained, stats.Session.TokensBudget)
-		rows = append(rows,
-			"",
-			"Current session context",
-			"session_id: "+stats.Session.SessionID,
-			fmt.Sprintf("messages_retained: %d", stats.Session.MessagesRetained),
-			fmt.Sprintf("tokens_retained: %d", stats.Session.TokensRetained),
-			"tokens_budget: "+memoryBudgetText(stats.Session.TokensBudget),
-			"context_usage: "+usage,
-			"remaining_budget: "+memoryRemainingText(stats.Session.TokensRetained, stats.Session.TokensBudget),
-			"pressure: "+memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget),
-			fmt.Sprintf("profiles_attached: %d", stats.Session.ProfilesAttached),
+		rows = appendDetailSection(rows, "Current session context",
+			detailField{"session_id", stats.Session.SessionID},
+			detailField{"messages_retained", fmt.Sprintf("%d", stats.Session.MessagesRetained)},
+			detailField{"tokens_retained", fmt.Sprintf("%d", stats.Session.TokensRetained)},
+			detailField{"tokens_budget", memoryBudgetText(stats.Session.TokensBudget)},
+			detailField{"context_usage", usage},
+			detailField{"remaining_budget", memoryRemainingText(stats.Session.TokensRetained, stats.Session.TokensBudget)},
+			detailField{"pressure", memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget)},
+			detailField{"profiles_attached", fmt.Sprintf("%d", stats.Session.ProfilesAttached)},
 		)
 	}
-	rows = append(rows,
-		"",
-		"Compaction",
-		"state: "+memoryCompactionText(stats.Metadata),
+	rows = appendDetailSection(rows, "Compaction",
+		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
 	if evidence := compactionEvidenceFromMessages(messages); evidence.count > 0 {
-		rows = append(rows,
-			"summary_retained: yes",
-			fmt.Sprintf("summary_parts: %d", evidence.count),
-			fmt.Sprintf("summary_lines: %d", evidence.lines),
-			"detail: compact summary is retained in the transcript",
-			"open: focus conversation; press Ctrl+E on the compaction marker",
-		)
+		rows = append(rows, detailFieldRows("summary_retained", "yes")...)
+		rows = append(rows, detailFieldRows("summary_parts", fmt.Sprintf("%d", evidence.count))...)
+		rows = append(rows, detailFieldRows("summary_lines", fmt.Sprintf("%d", evidence.lines))...)
+		rows = append(rows, detailFieldRows("detail", "compact summary is retained in the transcript")...)
+		rows = append(rows, detailFieldRows("open", "focus conversation; press Ctrl+E on the compaction marker")...)
 	}
 	if len(stats.Metadata) > 0 {
 		rows = appendJSONMapSection(rows, "metadata", stats.Metadata)

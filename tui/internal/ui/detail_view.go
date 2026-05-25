@@ -22,6 +22,49 @@ type bulkyPartRef struct {
 	fullText  string
 }
 
+type detailField struct {
+	label string
+	value string
+}
+
+func appendDetailSection(rows []string, title string, fields ...detailField) []string {
+	if len(rows) > 0 {
+		rows = append(rows, "")
+	}
+	rows = append(rows, title)
+	for _, field := range fields {
+		value := strings.TrimSpace(field.value)
+		if value == "" {
+			continue
+		}
+		if strings.TrimSpace(field.label) == "" {
+			rows = append(rows, detailBodyRows(value)...)
+			continue
+		}
+		rows = append(rows, detailFieldRows(field.label, value)...)
+	}
+	return rows
+}
+
+func detailFieldRows(label string, value string) []string {
+	label = strings.TrimSpace(label)
+	if !strings.Contains(value, "\n") {
+		return []string{"  " + label + ": " + value}
+	}
+	rows := []string{"  " + label + ":"}
+	rows = append(rows, detailBodyRows(value)...)
+	return rows
+}
+
+func detailBodyRows(value string) []string {
+	lines := strings.Split(strings.TrimSpace(value), "\n")
+	rows := make([]string, 0, len(lines))
+	for _, line := range lines {
+		rows = append(rows, "    "+line)
+	}
+	return rows
+}
+
 // openDetailForSelection opens the floating detail view on the
 // body cursor's bulky part, falling back to the latest bulky in
 // the whole conversation (Z1 + L3 behaviour). Shared by Ctrl+E
