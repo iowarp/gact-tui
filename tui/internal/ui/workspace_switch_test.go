@@ -202,6 +202,34 @@ func TestWorkspaceSwitcherRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcherCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 1
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:workspace-switch:close")
+	if !ok {
+		t.Fatal("missing semantic workspace close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("workspace close should not dispatch a command")
+	}
+	if a.workspaceSwitchOpen {
+		t.Fatal("workspace close should close switcher")
+	}
+	if a.wsID != "ws_a" {
+		t.Fatalf("workspace close changed workspace to %q", a.wsID)
+	}
+}
+
 func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaceSwitchOpen = true
