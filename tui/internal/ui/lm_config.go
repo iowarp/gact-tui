@@ -1144,9 +1144,31 @@ func (a *App) viewLMConfig() string {
 		contentW = 20
 	}
 
+	buttons := []menuButton{{
+		id:    "lm-config:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.lmConfigOpen = false
+			app.lmConfig = nil
+			return nil
+		},
+	}}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	buttonCol := contentW - lipgloss.Width(buttonRow)
+	if buttonCol < 1 {
+		buttonCol = contentW
+	}
+	titleText := truncate(a.localizer.t(msgLMConfigTitle, nil), max(1, buttonCol-2))
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Background(t.Bg).Width(contentW).
-		Render(a.localizer.t(msgLMConfigTitle, nil))
+		Background(t.Bg).
+		Render(titleText)
+	titleRow := lipgloss.NewStyle().Background(t.Bg).Width(contentW).Render(
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			title,
+			strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
+			buttonRow,
+		),
+	)
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).
 		Render(a.localizer.t(msgLMConfigIntro, nil))
@@ -1173,7 +1195,7 @@ func (a *App) viewLMConfig() string {
 		Render(t.HintLabel.Render(
 			a.localizer.t(msgLMConfigHint, nil),
 		))
-	parts := []string{title, "", intro, "", body}
+	parts := []string{titleRow, "", intro, "", body}
 	if a.lmConfig.saving {
 		savingText := a.localizer.t(msgLMConfigSaving, nil)
 		if a.lmConfig.info != nil && a.lmConfig.info.State == "configuring" {
@@ -1186,6 +1208,9 @@ func (a *App) viewLMConfig() string {
 	parts = append(parts, "", hint)
 	box := lipgloss.JoinVertical(lipgloss.Left, parts...)
 	modal := a.renderModalSurface(w, t.Primary, t.Bg, box)
+	if !a.lmConfig.saving && !a.lmConfig.authenticating {
+		a.registerModalButtons(modal, 0, buttonCol, buttons)
+	}
 	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
 		a.registerLMConfigHitTargets(modal, contentW, a.lmConfigBodyRows())
 	}
