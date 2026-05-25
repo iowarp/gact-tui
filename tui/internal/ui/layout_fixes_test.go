@@ -1134,6 +1134,35 @@ func TestCompose_OpenCommitCancel(t *testing.T) {
 	}
 }
 
+func TestComposeButtonsUseSemanticHitTargets(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+	a.compose.ta.SetValue("seed from button")
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:commit")
+	if !ok {
+		t.Fatal("missing compose commit button hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.composeOpen {
+		t.Fatal("commit button should close compose modal")
+	}
+	if got := a.input.Value(); got != "seed from button" {
+		t.Fatalf("commit button wrote %q", got)
+	}
+}
+
 // TestCompose_ExpandsPastesOnOpen ensures compressed paste placeholders
 // get inlined when the compose modal opens — "where everything
 // renders expanded" is the point of the view.
