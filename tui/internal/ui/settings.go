@@ -348,11 +348,22 @@ func (a *App) viewSettings() string {
 	type rowHit struct {
 		id     string
 		row    int
+		height int
 		action uiHitAction
 	}
 	var rowHits []rowHit
 	addRowHit := func(id string, row int, action uiHitAction) {
-		rowHits = append(rowHits, rowHit{id: id, row: row, action: action})
+		rowHits = append(rowHits, rowHit{id: id, row: row, height: 1, action: action})
+	}
+	addListHits := func(list modalListRender, rowOffset int) {
+		for _, hit := range list.hits {
+			rowHits = append(rowHits, rowHit{
+				id:     hit.id,
+				row:    rowOffset + hit.row,
+				height: hit.height,
+				action: hit.action,
+			})
+		}
 	}
 	tabLabels := []string{
 		a.localizer.t(msgSettingsTabModel, nil),
@@ -515,19 +526,32 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
 			map[string]string{"value": a.localizedThemeName(ThemeModeFor(a.Theme))})))
 		rows = append(rows, "")
+		listStart := len(rows)
+		items := make([]modalListItem, 0, len(AllThemeModes))
 		for i, mode := range AllThemeModes {
-			row := len(rows)
 			idx := i
-			rows = append(rows, rowLine(i == s.themeSel, a.localizedThemeName(mode), a.localizedThemeDescription(mode)))
-			addRowHit("settings:theme:"+ThemeModeName(mode), row, func(app *App) tea.Cmd {
-				if app.settings == nil {
-					app.settings = &settingsState{tab: 2}
-				}
-				app.settings.themeSel = idx
-				app.previewTheme(idx)
-				return nil
+			items = append(items, modalListItem{
+				id:          "settings:theme:" + ThemeModeName(mode),
+				title:       a.localizedThemeName(mode),
+				description: a.localizedThemeDescription(mode),
+				selected:    i == s.themeSel,
+				action: func(app *App) tea.Cmd {
+					if app.settings == nil {
+						app.settings = &settingsState{tab: 2}
+					}
+					app.settings.themeSel = idx
+					app.previewTheme(idx)
+					return nil
+				},
 			})
 		}
+		list := a.renderModalList(items, modalListOptions{
+			width:            w - 4,
+			rowBudget:        len(items) * 2,
+			descriptionLines: 1,
+		})
+		rows = append(rows, list.rows...)
+		addListHits(list, listStart)
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			a.localizer.t(messageID("settings.theme.hint"), nil)))
@@ -659,20 +683,33 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageCurrent, nil)+": "+
 			a.localizer.activeLanguageLabel()))
 		rows = append(rows, "")
-		for i, opt := range availableLanguageOptions() {
-			row := len(rows)
+		options := availableLanguageOptions()
+		listStart := len(rows)
+		items := make([]modalListItem, 0, len(options))
+		for i, opt := range options {
 			idx := i
-			rows = append(rows, rowLine(i == s.languageSel,
-				a.localizer.languageOptionLabel(opt), opt.Locale))
-			addRowHit("settings:language:"+opt.Locale, row, func(app *App) tea.Cmd {
-				if app.settings == nil {
-					app.settings = &settingsState{tab: 4}
-				}
-				app.settings.languageSel = idx
-				app.previewLanguage(idx)
-				return nil
+			items = append(items, modalListItem{
+				id:          "settings:language:" + opt.Locale,
+				title:       a.localizer.languageOptionLabel(opt),
+				description: opt.Locale,
+				selected:    i == s.languageSel,
+				action: func(app *App) tea.Cmd {
+					if app.settings == nil {
+						app.settings = &settingsState{tab: 4}
+					}
+					app.settings.languageSel = idx
+					app.previewLanguage(idx)
+					return nil
+				},
 			})
 		}
+		list := a.renderModalList(items, modalListOptions{
+			width:            w - 4,
+			rowBudget:        len(items) * 2,
+			descriptionLines: 1,
+		})
+		rows = append(rows, list.rows...)
+		addListHits(list, listStart)
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageDescription, nil)))
 		rows = append(rows, "")
@@ -720,7 +757,7 @@ func (a *App) viewSettings() string {
 		}},
 	})
 	for _, hit := range rowHits {
-		a.registerModalContentHit(modal, hit.id, hit.row, 0, w-4, 1, hit.action)
+		a.registerModalContentHit(modal, hit.id, hit.row, 0, w-4, hit.height, hit.action)
 	}
 	return modal
 }
