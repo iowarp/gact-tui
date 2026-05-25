@@ -456,6 +456,31 @@ func TestCatalogBrowser_EnterOnMcpResourceLoadsResourceDetail(t *testing.T) {
 	}
 }
 
+func TestFormatMcpResourceContentsUsesDetailSections(t *testing.T) {
+	out := formatMcpResourceContents([]gact.McpContent{{
+		URI:      "file://resource",
+		MimeType: "text/markdown",
+		Text:     "first line\nsecond line",
+	}, {
+		Data: "YWJjZA==",
+	}})
+
+	for _, want := range []string{
+		"Resource content",
+		"uri: file://resource",
+		"mime_type: text/markdown",
+		"text:",
+		"first line",
+		"second line",
+		"uri: content[1]",
+		"base64_data: 8 bytes encoded",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("resource detail missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/agents" {

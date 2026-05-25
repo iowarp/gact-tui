@@ -1283,23 +1283,19 @@ func formatMcpResourceContents(contents []gact.McpContent) string {
 	}
 	rows := make([]string, 0, len(contents)*5)
 	for i, content := range contents {
-		if i > 0 {
-			rows = append(rows, "")
-		}
 		title := content.URI
 		if title == "" {
 			title = fmt.Sprintf("content[%d]", i)
 		}
-		rows = append(rows, title)
-		if content.MimeType != "" {
-			rows = append(rows, "mime_type: "+content.MimeType)
-		}
+		fields := []detailField{{"uri", title}}
+		fields = append(fields, detailField{"mime_type", content.MimeType})
 		if content.Text != "" {
-			rows = append(rows, "", content.Text)
+			fields = append(fields, detailField{"text", content.Text})
 		}
 		if content.Data != "" {
-			rows = append(rows, "", fmt.Sprintf("base64_data: %d bytes encoded", len(content.Data)))
+			fields = append(fields, detailField{"base64_data", fmt.Sprintf("%d bytes encoded", len(content.Data))})
 		}
+		rows = appendDetailSection(rows, "Resource content", fields...)
 	}
 	return strings.Join(rows, "\n")
 }
