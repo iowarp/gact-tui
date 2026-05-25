@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -148,6 +149,24 @@ func (a *App) registerModalTabsWithLayout(modal string, row int, tabs []menuTab,
 		a.registerModalContentHit(modal, "tab:"+tab.id, row, col, w, 1, tab.action)
 		col += w + spacing
 	}
+}
+
+func (a *App) renderModalTabsWithLayout(tabs []menuTab, horizontalPadding, spacing int) string {
+	cells := make([]string, 0, len(tabs))
+	for _, tab := range tabs {
+		style := lipgloss.NewStyle().
+			Padding(0, horizontalPadding).
+			Foreground(a.Theme.FgMuted)
+		if tab.active {
+			style = lipgloss.NewStyle().
+				Padding(0, horizontalPadding).
+				Foreground(a.Theme.Bg).
+				Background(a.Theme.Primary).
+				Bold(true)
+		}
+		cells = append(cells, style.Render(tab.label))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", spacing)))
 }
 
 func (a *App) registerModalButtons(modal string, row int, startCol int, buttons []menuButton) {

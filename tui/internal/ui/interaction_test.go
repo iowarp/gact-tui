@@ -71,6 +71,29 @@ func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	}
 }
 
+func TestModalTabsRenderAndRegisterWithSameLabels(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	tabs := []menuTab{
+		{id: "one", label: "One", active: true, action: func(*App) tea.Cmd { return nil }},
+		{id: "two", label: "Two", action: func(*App) tea.Cmd { return nil }},
+	}
+	row := a.renderModalTabsWithLayout(tabs, 1, 0)
+	if !strings.Contains(ansi.Strip(row), "One") || !strings.Contains(ansi.Strip(row), "Two") {
+		t.Fatalf("tab row did not render labels: %q", ansi.Strip(row))
+	}
+	modal := a.renderDefaultModalSurface(50, row)
+	a.beginHitFrame()
+	a.registerModalTabsWithLayout(modal, 0, tabs, 1, 0)
+	if _, ok := findHitTargetForTest(a, "tab:one"); !ok {
+		t.Fatal("missing first tab hit")
+	}
+	if _, ok := findHitTargetForTest(a, "tab:two"); !ok {
+		t.Fatal("missing second tab hit")
+	}
+}
+
 func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
 	tests := []struct {
 		name       string

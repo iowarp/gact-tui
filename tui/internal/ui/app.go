@@ -8082,17 +8082,20 @@ func (a *App) viewHelp() string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
 		Render(a.localizer.t(msgHelpTitle, nil))
 
-	// Tab header — highlight the active tab.
-	tabCells := make([]string, 0, len(helpTabs))
+	tabHits := make([]menuTab, 0, len(helpTabs))
 	for i, tab := range helpTabs {
-		style := lipgloss.NewStyle().Padding(0, 1).Foreground(t.FgMuted)
-		if i == a.helpTab {
-			style = lipgloss.NewStyle().Padding(0, 1).
-				Foreground(t.Bg).Background(t.Primary).Bold(true)
-		}
-		tabCells = append(tabCells, style.Render(a.localizedHelpTabTitle(tab.title)))
+		tabIdx := i
+		tabHits = append(tabHits, menuTab{
+			id:     "help-" + strings.ToLower(tab.title),
+			label:  a.localizedHelpTabTitle(tab.title),
+			active: i == a.helpTab,
+			action: func(app *App) tea.Cmd {
+				app.helpTab = tabIdx
+				return nil
+			},
+		})
 	}
-	tabRow := lipgloss.JoinHorizontal(lipgloss.Top, tabCells...)
+	tabRow := a.renderModalTabsWithLayout(tabHits, 1, 0)
 
 	// Body — the current tab's key list. Clamp helpTab defensively so a
 	// future out-of-range value doesn't crash the render.
@@ -8114,18 +8117,6 @@ func (a *App) viewHelp() string {
 		title, "", tabRow, "", keys, "", hint,
 	)
 	modal := a.renderDefaultModalSurface(a.modalWidth(), body)
-	tabHits := make([]menuTab, 0, len(helpTabs))
-	for i, tab := range helpTabs {
-		tabIdx := i
-		tabHits = append(tabHits, menuTab{
-			id:    "help-" + strings.ToLower(tab.title),
-			label: a.localizedHelpTabTitle(tab.title),
-			action: func(app *App) tea.Cmd {
-				app.helpTab = tabIdx
-				return nil
-			},
-		})
-	}
 	a.registerModalTabsWithLayout(modal, 2, tabHits, 1, 0)
 	return modal
 }
