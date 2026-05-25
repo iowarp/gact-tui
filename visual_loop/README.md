@@ -143,6 +143,18 @@ artifacts, elapsed time, and caveats. The most useful cases for TUI work are:
 - `missing_hdf5_error` and `missing_csv_error`: surfaced-error presentation with
   no fake answer.
 
+Important distinction:
+
+- `--output-jsonl` and `--report` save benchmark evidence artifacts.
+- They do not, by themselves, create TUI-visible sessions.
+- TUI-visible sessions are created because the harness talks to a live backend
+  through `POST /v1/sessions` and `POST /v1/sessions/{id}/messages`.
+- Keep that backend process alive and run `gact connect visual-benchmark` to
+  inspect the generated sessions in the TUI.
+- If the backend is stopped, transcript recovery depends on the backend's
+  session/message persistence. The JSONL/report are audit artifacts, not a
+  session-import format.
+
 From `clio-agent`, create or reuse a live backend:
 
 ```powershell
@@ -199,6 +211,14 @@ gact connect visual-benchmark
 Use those sessions for visual review. They exercise exactly the hard surfaces:
 hundreds of sessions, collapsed child sessions, nested handoffs, many tool
 blocks, long JSON/URLs, provider switch markers, compaction, and surfaced errors.
+
+Before opening the TUI, verify both artifact and backend state:
+
+```powershell
+Test-Path tmp/visual-loop-full.jsonl
+Test-Path tmp/visual-loop-full.md
+Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
+```
 
 ## Important Files
 

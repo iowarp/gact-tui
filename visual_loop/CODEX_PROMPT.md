@@ -102,6 +102,15 @@ the CLIO benchmark harness so the TUI has to deal with long transcripts,
 nanoagents, child sessions, multi-tool turns, provider swaps, compaction, and
 surfaced errors.
 
+Do not confuse benchmark artifacts with live sessions:
+
+- `--output-jsonl` and `--report` write audit files.
+- The sessions that the TUI displays are created by the harness through the live
+  backend API.
+- Keep the backend alive after the harness finishes, then connect to that same
+  agent with `gact connect visual-benchmark`.
+- Verify `/v1/sessions` before assuming the TUI has something to inspect.
+
 From `clio-agent`, deploy or reuse a GACT backend:
 
 ```powershell
@@ -155,6 +164,14 @@ Then run:
 
 ```powershell
 gact connect visual-benchmark
+```
+
+Before visual review, verify:
+
+```powershell
+Test-Path tmp/visual-loop-full.jsonl
+Test-Path tmp/visual-loop-full.md
+Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
 ```
 
 Use the generated sessions for screenshot review. The target visual issues are:
