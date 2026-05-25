@@ -284,6 +284,9 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 		title = "expert handoff"
 	case gact.PartTypeToolResult:
 		title = "tool result"
+		if p.ToolName != "" {
+			title = p.ToolName + " result"
+		}
 	case gact.PartTypeText:
 		title = "message text"
 	case gact.PartTypeThinking:
@@ -313,6 +316,9 @@ func partDetailText(p gact.Part) string {
 	if p.CallID != "" {
 		rows = append(rows, fmt.Sprintf("call_id: %s", p.CallID))
 	}
+	if provenance := promotedEvidenceLabel(p); provenance != "" {
+		rows = append(rows, fmt.Sprintf("provenance: %s", provenance))
+	}
 
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
@@ -327,22 +333,49 @@ func partDetailText(p gact.Part) string {
 			rows = append(rows, "", "rationale:", p.Rationale)
 		}
 	case gact.PartTypeExpertHandoff:
-		rows = append(rows, fmt.Sprintf("summary: %s", orPlaceholder(p.Text, "none")))
+		route := firstNonEmpty(
+			stringValue(p.Metadata["agent_id"]),
+			stringValue(p.Metadata["expert"]),
+			"expert",
+		)
+		if parent := firstNonEmpty(stringValue(p.Metadata["parent_id"]), stringValue(p.Metadata["parent"])); parent != "" {
+			route = parent + " -> " + route
+		}
+		rows = append(rows,
+			fmt.Sprintf("route: %s", route),
+			fmt.Sprintf("status: %s", orPlaceholder(stringValue(p.Metadata["status"]), "observed")),
+		)
+		if stage := firstNonEmpty(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["dispatch_target"])); stage != "" {
+			rows = append(rows, fmt.Sprintf("stage: %s", stage))
+		}
+		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
+			rows = append(rows, fmt.Sprintf("duration_ms: %.0f", duration))
+		}
+		if input := strings.TrimSpace(stringValue(p.Metadata["input_summary"])); input != "" {
+			rows = append(rows, "", "input:", input)
+		}
+		output := firstNonEmpty(
+			stringValue(p.Metadata["output_summary"]),
+			stringValue(p.Metadata["summary"]),
+			p.Text,
+		)
+		if output != "" {
+			rows = append(rows, "", "output:", output)
+		}
+		rows = append(rows, "", "inline_preview:", orPlaceholder(summarizeExpertHandoffOutput(output), "none"))
 		for _, key := range []string{
 			"agent_id",
 			"parent_id",
 			"dispatch_target",
-			"stage",
-			"status",
-			"duration_ms",
-			"input_summary",
-			"output_summary",
 		} {
 			if value, ok := p.Metadata[key]; ok && value != nil {
 				rows = append(rows, fmt.Sprintf("%s: %v", key, value))
 			}
 		}
 	case gact.PartTypeToolResult:
+		if p.ToolName != "" {
+			rows = append(rows, fmt.Sprintf("tool: %s", p.ToolName))
+		}
 		rows = append(rows,
 			fmt.Sprintf("is_error: %v", p.IsError),
 			fmt.Sprintf("cached: %v", p.Cached),
@@ -353,6 +386,9 @@ func partDetailText(p gact.Part) string {
 		text := flattenToolResult(p)
 		if text != "" {
 			rows = append(rows, "", "content:", text)
+		}
+		if raw := p.Metadata["raw_result"]; raw != nil {
+			rows = appendAnyJSONSection(rows, "raw_result", raw)
 		}
 	case gact.PartTypeText:
 		if p.Text != "" {
@@ -430,8 +466,53 @@ func partDetailText(p gact.Part) string {
 		}
 	}
 
-	rows = appendJSONSection(rows, "metadata", p.Metadata)
+	rows = appendJSONSection(rows, "metadata", detailMetadataRemainder(p))
 	return strings.Join(rows, "\n")
+}
+
+func detailMetadataRemainder(p gact.Part) map[string]any {
+	if len(p.Metadata) == 0 {
+		return nil
+	}
+	used := map[string]bool{}
+	used["partial_after_error"] = true
+	if promotedEvidenceLabel(p) != "" {
+		used["synthetic_from"] = true
+	}
+	switch p.Type {
+	case gact.PartTypeToolResult:
+		used["raw_result"] = true
+	case gact.PartTypeExpertHandoff:
+		for _, key := range []string{
+			"agent_id",
+			"parent_id",
+			"parent",
+			"expert",
+			"status",
+			"stage",
+			"dispatch_target",
+			"duration_ms",
+			"input_summary",
+			"output_summary",
+			"summary",
+		} {
+			used[key] = true
+		}
+	case gact.PartTypeCompaction:
+		used["synthetic_from"] = true
+		used["synthetic"] = true
+	}
+	remaining := map[string]any{}
+	for key, value := range p.Metadata {
+		if used[key] || value == nil {
+			continue
+		}
+		remaining[key] = value
+	}
+	if len(remaining) == 0 {
+		return nil
+	}
+	return remaining
 }
 
 func routeSourceLabel(p gact.Part) string {

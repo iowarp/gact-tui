@@ -3,6 +3,11 @@ package ui
 import (
 	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 // VVVVVVVVV1: adjustScrollForSelectedPart must bump scrollOffset so
@@ -109,6 +114,110 @@ func TestAdjustScrollForSelectedPart_NoMarkerIsNoOp(t *testing.T) {
 		t.Errorf("no-marker should leave scroll state untouched; got offset=%d sticky=%v",
 			a.scrollOffset, a.stickyToBottom)
 	}
+}
+
+func TestBodyEndKeepsLongTranscriptAtTrueBottom(t *testing.T) {
+	a := newLongToolTranscriptApp()
+	a.scrollOffset = 30
+	a.stickyToBottom = false
+	a.bodySelMsgIdx = 1
+	a.bodySelPartIdx = 3
+
+	a.handleBodyKey(tea.KeyPressMsg{Code: 'G', Text: "G", Mod: tea.ModShift})
+	rendered := ansi.Strip(a.renderBody(100, 34))
+
+	if a.scrollOffset != 0 || !a.stickyToBottom {
+		t.Fatalf("G should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+		t.Fatalf("true bottom sentinel not visible after G:\n%s", rendered)
+	}
+}
+
+func TestBodyDownRepeatedlyReachesTrueBottomOnLongToolTranscript(t *testing.T) {
+	a := newLongToolTranscriptApp()
+	a.scrollOffset = 30
+	a.stickyToBottom = false
+	a.bodySelMsgIdx = 1
+	a.bodySelPartIdx = 0
+
+	for i := 0; i < 40; i++ {
+		a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyDown})
+		_ = a.renderBody(100, 34)
+	}
+	rendered := ansi.Strip(a.renderBody(100, 34))
+
+	if a.scrollOffset != 0 || !a.stickyToBottom {
+		t.Fatalf("repeated Down should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+		t.Fatalf("true bottom sentinel not visible after repeated Down:\n%s", rendered)
+	}
+}
+
+func TestBodyPageDownReattachesLongTranscriptToTrueBottom(t *testing.T) {
+	a := newLongToolTranscriptApp()
+	a.scrollOffset = 30
+	a.stickyToBottom = false
+	a.bodySelMsgIdx = 1
+	a.bodySelPartIdx = 0
+
+	a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	rendered := ansi.Strip(a.renderBody(100, 34))
+
+	if a.scrollOffset != 0 || !a.stickyToBottom {
+		t.Fatalf("PageDown should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+		t.Fatalf("true bottom sentinel not visible after PageDown:\n%s", rendered)
+	}
+}
+
+func newLongToolTranscriptApp() *App {
+	sessions := []gact.Session{{ID: "s1", Title: "long tools", Status: gact.StatusIdle}}
+	parts := []gact.Part{
+		{ID: "route", Type: gact.PartTypeRoutingDecision, SelectedAgent: "analysis"},
+	}
+	for i := 0; i < 14; i++ {
+		callID := "call_" + itos(i)
+		parts = append(parts,
+			gact.Part{
+				ID:       "call_" + itos(i),
+				Type:     gact.PartTypeToolCall,
+				CallID:   callID,
+				ToolName: "parquet_compute_statistics",
+				Input: map[string]any{
+					"path":   "/tmp/science/facility_measurements.parquet",
+					"column": "pressure_pa",
+				},
+			},
+			gact.Part{
+				ID:     "result_" + itos(i),
+				Type:   gact.PartTypeToolResult,
+				CallID: callID,
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: strings.Join([]string{
+						`{"column":"pressure_pa","count":3000,"nulls":0,"mean":101231.18,"std":766.51}`,
+						`{"min":98435.39,"median":101229.29,"max":103998.63}`,
+						`{"path":"/tmp/science/facility_measurements.parquet","status":"success"}`,
+					}, "\n"),
+				}},
+			},
+		)
+	}
+	parts = append(parts, gact.Part{
+		ID:   "final",
+		Type: gact.PartTypeText,
+		Text: "TRUE_BOTTOM_SENTINEL final assistant synthesis with caveats and artifact paths.",
+	})
+	msgs := []gact.Message{
+		{ID: "user", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "user_text", Type: gact.PartTypeText, Text: "Analyze this dataset."}}},
+		{ID: "assistant", SessionID: "s1", Role: gact.RoleAssistant, Parts: parts},
+	}
+	a := newReadyApp(sessions, msgs)
+	a.focus = FocusBody
+	return a
 }
 
 func itos(i int) string {

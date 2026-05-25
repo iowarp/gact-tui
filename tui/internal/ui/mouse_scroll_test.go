@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -45,16 +47,33 @@ func TestMouseWheelDownReturnsConversationToBottom(t *testing.T) {
 	a.scrollOffset = 5
 	a.stickyToBottom = false
 
-	for range 3 {
-		model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
-		a = model.(*App)
-	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	a = model.(*App)
 
 	if a.scrollOffset != 0 {
 		t.Fatalf("scrollOffset = %d, want 0", a.scrollOffset)
 	}
 	if !a.stickyToBottom {
 		t.Fatal("stickyToBottom = false, want true")
+	}
+}
+
+func TestMouseWheelDownShowsTrueBottomOnLongTranscript(t *testing.T) {
+	a := newLongToolTranscriptApp()
+	a.width = 100
+	a.height = 34
+	a.scrollOffset = 30
+	a.stickyToBottom = false
+
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	a = model.(*App)
+	rendered := ansi.Strip(a.renderBody(100, 34))
+
+	if a.scrollOffset != 0 || !a.stickyToBottom {
+		t.Fatalf("wheel-down should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+		t.Fatalf("true bottom sentinel not visible after wheel-down:\n%s", rendered)
 	}
 }
 
@@ -146,5 +165,98 @@ func TestMouseClickChangesFocusAndCanSelectSidebarSession(t *testing.T) {
 	a = model.(*App)
 	if a.focus != FocusInput {
 		t.Fatalf("focus = %v, want input", a.focus)
+	}
+}
+
+func TestMouseClickTogglesSidebarSections(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 2, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if !a.sidebarSessionsCollapsed {
+		t.Fatal("clicking the sessions header should collapse sessions")
+	}
+	if a.sidebarSectionFocus != sidebarSectionSessions {
+		t.Fatalf("section focus = %v, want sessions", a.sidebarSectionFocus)
+	}
+
+	_, _, convH := a.mainPaneGeometry()
+	contextRow, ok := a.sidebarContextTitleRow(convH)
+	if !ok {
+		t.Fatal("expected context section row")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: contextRow + 2, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if !a.sidebarContextCollapsed {
+		t.Fatal("clicking the context header should collapse context")
+	}
+	if a.sidebarSectionFocus != sidebarSectionContext {
+		t.Fatalf("section focus = %v, want context", a.sidebarSectionFocus)
+	}
+}
+
+func TestMouseClickSelectedParentTogglesChildSessions(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child", Title: "child", ParentSessionID: "parent", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 4, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking the already-selected parent should toggle children without selecting")
+	}
+	if !a.showChildSessions {
+		t.Fatal("clicking the selected parent should expand child sessions")
+	}
+
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 4, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if a.showChildSessions {
+		t.Fatal("clicking the selected parent again should collapse child sessions")
+	}
+}
+
+func TestMouseClickExpandedChildRowsUseRenderedRowHeights(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child-a", Title: "csv_validator subagent", ParentSessionID: "parent", Status: gact.StatusIdle},
+		{ID: "child-b", Title: "analysis_validator subagent", ParentSessionID: "parent", Status: gact.StatusIdle},
+		{ID: "after", Title: "after", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.showChildSessions = true
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 7, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if a.selected != 2 {
+		t.Fatalf("clicking second one-line child row selected %d, want child-b index 2", a.selected)
+	}
+	if cmd == nil {
+		t.Fatal("child row click should select the clicked child session")
+	}
+
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 8, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if a.selected != 3 {
+		t.Fatalf("clicking row after expanded children selected %d, want after index 3", a.selected)
 	}
 }
