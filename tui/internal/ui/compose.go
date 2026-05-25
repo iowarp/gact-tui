@@ -152,20 +152,36 @@ func (a *App) viewCompose() string {
 			"Ctrl+S commits to the input box; Esc cancels.")
 
 	hint := t.HintLabel.Render("Ctrl+S  commit    Esc  cancel")
+	buttons := []menuButton{
+		{
+			id:    "compose:commit",
+			label: "commit",
+			action: func(app *App) tea.Cmd {
+				app.commitCompose()
+				return nil
+			},
+		},
+		{
+			id:    "compose:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.cancelCompose()
+				return nil
+			},
+		},
+	}
+	buttonRow := 3 + lipgloss.Height(a.compose.ta.View()) + 1
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		title, subtitle, "",
 		a.compose.ta.View(),
+		"", a.renderModalButtons(buttons, 0),
 		"", hint,
 	)
 
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, buttonRow, 0, buttons)
+	return modal
 }
 
 // composeSummary returns a short hint like "(compose open — 12 lines)"
