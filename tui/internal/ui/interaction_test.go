@@ -1300,6 +1300,39 @@ func TestMcpRemoveNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestMcpRemoveCancelButtonUsesSharedCloseState(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveSel = 1
+	a.mcpRemoveSaving = true
+	a.mcpRemoveOptions = []gact.McpServer{
+		{ID: "srv_one", Name: "one", Transport: "stdio"},
+		{ID: "srv_two", Name: "two", Transport: "http"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:mcp-remove:cancel")
+	if !ok {
+		t.Fatal("missing semantic MCP remove cancel button target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cancel click should not dispatch a command")
+	}
+	if a.mcpRemoveOpen || a.mcpRemoveOptions != nil || a.mcpRemoveSel != 0 || a.mcpRemoveSaving {
+		t.Fatalf("cancel should clear remove modal state, open=%v options=%v sel=%d saving=%v", a.mcpRemoveOpen, a.mcpRemoveOptions, a.mcpRemoveSel, a.mcpRemoveSaving)
+	}
+}
+
 func TestMcpInstallButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -1325,5 +1358,31 @@ func TestMcpInstallButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.mcpInstallErr == "" {
 		t.Fatal("invalid install click should surface parse error")
+	}
+}
+
+func TestMcpInstallOutsideClickUsesSharedCloseState(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "bad"
+	a.mcpInstallErr = "parse failed"
+	a.mcpInstallSaving = true
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside click should not dispatch a command")
+	}
+	if a.mcpInstallOpen || a.mcpInstallInput != "" || a.mcpInstallErr != "" || a.mcpInstallSaving {
+		t.Fatalf("outside click should clear install modal state, open=%v input=%q err=%q saving=%v", a.mcpInstallOpen, a.mcpInstallInput, a.mcpInstallErr, a.mcpInstallSaving)
 	}
 }
