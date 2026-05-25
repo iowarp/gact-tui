@@ -21,6 +21,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -344,7 +345,7 @@ func (a *App) viewFilePicker() string {
 	modal := a.renderDefaultModalSurface(w, body)
 	for _, hit := range rowHits {
 		idx := hit.idx
-		a.registerModalContentHit(modal, "file-picker:item", 4+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
+		a.registerModalContentHit(modal, fmt.Sprintf("file-picker:item:%d", idx), 4+hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
 			if app.filePicker == nil {
 				app.closeFilePicker()
 				return nil

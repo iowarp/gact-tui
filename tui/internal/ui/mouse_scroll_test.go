@@ -423,11 +423,15 @@ func TestMouseClickFilePickerInsertsClickedRow(t *testing.T) {
 			{Path: "beta.parquet"},
 		},
 	}
-	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "file-picker:item:1")
+	if !ok {
+		t.Fatal("missing semantic file picker row target")
+	}
 
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 5,
-		Y:      rect.y + 2 + 5,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
