@@ -748,6 +748,95 @@ func TestLMConfigModelFilterUsesTypedTextAndCatalogIsSorted(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderRowsUseSemanticHitTargets(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + 4,
+		Y:      rect.y + 2 + 6,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("provider row click should queue provider sync/catalog fetch")
+	}
+	if a.lmConfig.selected != 0 {
+		t.Fatalf("selected provider = %d, want 0", a.lmConfig.selected)
+	}
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("field = %v, want preset", a.lmConfig.field)
+	}
+}
+
+func TestLMConfigModelRowsUseSemanticHitTargets(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{
+		{ID: "alpha-model"},
+		{ID: "zeta-model"},
+	}
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = "alpha-model"
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
+	contentW := a.lmConfigModalWidth() - 6
+	bodyRows := a.lmConfigBodyRows()
+	layout := a.lmConfigLayout(contentW, bodyRows)
+	modelTop := 4 + lmConfigBoxHeight(layout.providerRows) + layout.gridGapRows
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + 4,
+		Y:      rect.y + 2 + modelTop + 3,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.lmConfig.field != lmFieldModel {
+		t.Fatalf("field = %v, want model", a.lmConfig.field)
+	}
+	if a.lmConfig.model != "zeta-model" {
+		t.Fatalf("model = %q, want zeta-model", a.lmConfig.model)
+	}
+	if a.lmConfig.modelIndex != 1 {
+		t.Fatalf("modelIndex = %d, want 1", a.lmConfig.modelIndex)
+	}
+}
+
+func TestLMConfigSaveButtonUsesSemanticHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{ID: "alpha-model"}}
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = "alpha-model"
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewLMConfig(), a.width, a.height)
+	bodyRows := a.lmConfigBodyRows()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3 + 10,
+		Y:      rect.y + 2 + 4 + bodyRows - 2,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("save click should dispatch save command")
+	}
+	if a.lmConfig.field != lmFieldSave {
+		t.Fatalf("field = %v, want save", a.lmConfig.field)
+	}
+	if !a.lmConfig.saving {
+		t.Fatal("save click should put provider modal into saving state")
+	}
+}
+
 func TestLMConfigUnsupportedEndpointReturnsToSettings(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.settingsOpen = false

@@ -1185,7 +1185,196 @@ func (a *App) viewLMConfig() string {
 	}
 	parts = append(parts, "", hint)
 	box := lipgloss.JoinVertical(lipgloss.Left, parts...)
-	return a.renderModalSurface(w, t.Primary, t.Bg, box)
+	modal := a.renderModalSurface(w, t.Primary, t.Bg, box)
+	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
+		a.registerLMConfigHitTargets(modal, contentW, a.lmConfigBodyRows())
+	}
+	return modal
+}
+
+func (a *App) registerLMConfigHitTargets(modal string, innerW int, bodyRows int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return
+	}
+	const bodyTop = 4
+	layout := a.lmConfigLayout(innerW, bodyRows)
+	leftW, rightW := lmConfigGridWidths(innerW)
+	stacked := leftW < 38 || rightW < 38
+	providerTop := bodyTop
+	selectedTop := bodyTop
+	modelTop := bodyTop
+	advancedTop := bodyTop
+	modelCol := 0
+	selectedCol := 0
+	providerW := leftW
+	selectedW := rightW
+	modelW := leftW
+	advancedW := rightW
+	advancedCol := leftW + 2
+	if stacked {
+		providerW = innerW
+		selectedW = innerW
+		modelW = innerW
+		advancedW = innerW
+		advancedCol = 0
+		selectedTop = providerTop + lmConfigBoxHeight(layout.providerRows) + layout.gridGapRows
+		modelTop = selectedTop + lmConfigBoxHeight(layout.selectedRows) + layout.gridGapRows
+		advancedTop = modelTop + lmConfigBoxHeight(layout.modelRows) + layout.gridGapRows
+	} else {
+		selectedCol = leftW + 2
+		if layout.compact {
+			a.registerLMConfigProviderHits(modal, providerTop, 0, leftW, layout.providerRows)
+			a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, rightW)
+			return
+		}
+		modelTop = providerTop + lmConfigBoxHeight(layout.providerRows) + layout.gridGapRows
+		advancedTop = modelTop
+	}
+	a.registerLMConfigProviderHits(modal, providerTop, 0, providerW, layout.providerRows)
+	a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, selectedW)
+	a.registerLMConfigModelHits(modal, modelTop, modelCol, modelW, layout.modelRows)
+	a.registerLMConfigAdvancedHits(modal, advancedTop, advancedCol, advancedW)
+	a.registerLMConfigSaveHit(modal, bodyTop, innerW, bodyRows, layout)
+}
+
+func lmConfigBoxHeight(visibleRows int) int {
+	return maxInt(1, visibleRows) + 3
+}
+
+func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibleRows int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return
+	}
+	indexes := a.lmConfigProviderIndexes()
+	if len(indexes) == 0 {
+		return
+	}
+	pos := 0
+	for i, idx := range indexes {
+		if idx == a.lmConfig.selected {
+			pos = i + 1
+			break
+		}
+	}
+	windowRows := visibleRows
+	if len(indexes) > visibleRows && visibleRows > 1 {
+		windowRows = visibleRows - 1
+	}
+	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
+	for i := start; i < end; i++ {
+		presetIdx := indexes[i]
+		row := top + 2 + (i - start)
+		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:provider:%d", presetIdx), row, col, width, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil || app.lmConfig.info == nil || presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
+				return nil
+			}
+			app.lmConfig.field = lmFieldPreset
+			app.lmConfig.selected = presetIdx
+			return app.lmConfigSyncFromPreset()
+		})
+	}
+}
+
+func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil || !a.lmConfig.lmConfigSelectedUsesOAuth() {
+		return
+	}
+	// Provider detail rows: selected label, auth status, auth action.
+	a.registerModalContentHit(modal, "lm-config:auth", top+4, col, width, 1, func(app *App) tea.Cmd {
+		if app.lmConfig == nil {
+			return nil
+		}
+		app.lmConfig.field = lmFieldAuth
+		_, cmd := app.handleLMConfigKey(keyMsg("enter"))
+		return cmd
+	})
+}
+
+func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRows int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return
+	}
+	pid := a.lmConfigCurrentPresetID()
+	if strings.TrimSpace(a.lmConfig.modelCatalogWarnings[pid]) != "" {
+		return
+	}
+	catalog := a.lmConfig.modelCatalogs[pid]
+	if len(catalog) == 0 {
+		return
+	}
+	modelIndexes := a.lmConfigModelIndexes()
+	if len(modelIndexes) == 0 {
+		return
+	}
+	idx := a.lmConfig.modelIndex
+	if idx < 0 {
+		idx = modelIndexes[0]
+	}
+	pos := 0
+	for i, modelIdx := range modelIndexes {
+		if modelIdx == idx {
+			pos = i
+			break
+		}
+	}
+	windowRows := visibleRows
+	if len(catalog) > visibleRows && visibleRows > 1 {
+		windowRows = visibleRows - 1
+	}
+	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
+	for i := start; i < end; i++ {
+		modelIdx := modelIndexes[i]
+		row := top + 2 + (i - start)
+		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:model:%d", modelIdx), row, col, width, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			pid := app.lmConfigCurrentPresetID()
+			catalog := app.lmConfig.modelCatalogs[pid]
+			if modelIdx < 0 || modelIdx >= len(catalog) {
+				return nil
+			}
+			app.lmConfig.field = lmFieldModel
+			app.lmConfig.modelIndex = modelIdx
+			app.lmConfig.model = catalog[modelIdx].ID
+			return nil
+		})
+	}
+}
+
+func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
+	if a.lmConfig == nil {
+		return
+	}
+	for i, field := range a.lmConfig.lmConfigAdvancedFields() {
+		field := field
+		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d", field), top+2+i, col, width, 1, func(app *App) tea.Cmd {
+			if app.lmConfig != nil {
+				app.lmConfig.field = field
+			}
+			return nil
+		})
+	}
+}
+
+func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows int, layout lmConfigLayout) {
+	if layout.buttonRows <= 0 {
+		return
+	}
+	canSave := false
+	if p := a.lmConfigCurrentPreset(); p != nil {
+		canSave = a.lmConfigCanSave(*p)
+	}
+	if !canSave {
+		return
+	}
+	a.registerModalContentHit(modal, "lm-config:save", bodyTop+bodyRows-layout.buttonRows, 0, innerW, layout.buttonRows, func(app *App) tea.Cmd {
+		if app.lmConfig == nil {
+			return nil
+		}
+		app.lmConfig.field = lmFieldSave
+		return app.lmConfigDispatch()
+	})
 }
 
 func (a *App) renderLMConfigBody(innerW int, bodyRows int) string {
