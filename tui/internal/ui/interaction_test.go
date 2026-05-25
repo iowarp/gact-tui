@@ -211,6 +211,57 @@ func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestDoctorButtonsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.doctorOpen = true
+	a.doctor = &doctorState{tab: doctorTabCapabilities}
+
+	_ = a.View()
+	refreshTarget, ok := findHitTargetForTest(a, "button:doctor:refresh")
+	if !ok {
+		t.Fatal("missing semantic doctor refresh target")
+	}
+	closeTarget, ok := findHitTargetForTest(a, "button:doctor:close")
+	if !ok {
+		t.Fatal("missing semantic doctor close target")
+	}
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      refreshTarget.rect.x,
+		Y:      refreshTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("clicking doctor refresh should dispatch a fetch command")
+	}
+	if a.doctor == nil || !a.doctor.loading || a.doctor.tab != doctorTabCapabilities {
+		t.Fatalf("refresh should preserve tab and enter loading state, got %+v", a.doctor)
+	}
+
+	a.doctor = &doctorState{tab: doctorTabHealth}
+	_ = a.View()
+	closeTarget, ok = findHitTargetForTest(a, "button:doctor:close")
+	if !ok {
+		t.Fatal("missing semantic doctor close target after refresh")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      closeTarget.rect.x,
+		Y:      closeTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking doctor close should not dispatch a command")
+	}
+	if a.doctorOpen || a.doctor != nil {
+		t.Fatal("clicking doctor close should close modal and clear state")
+	}
+}
+
 func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
