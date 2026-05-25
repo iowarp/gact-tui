@@ -3966,54 +3966,51 @@ func sidebarContentRect(row int, width int) mouseRect {
 }
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) {
-	rows := []string{
-		"File",
-		"  path: " + cf.Path,
-		"  mode: " + contextModeDescription(cf.Mode),
+	fileFields := []detailField{
+		{"path", cf.Path},
+		{"mode", contextModeDescription(cf.Mode)},
 	}
 	if cf.Size > 0 {
-		rows = append(rows, fmt.Sprintf("  size: %s (%d bytes)", humanBytes(cf.Size), cf.Size))
+		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
 	}
 	if strings.TrimSpace(cf.Language) != "" {
-		rows = append(rows, "  language: "+cf.Language)
+		fileFields = append(fileFields, detailField{"language", cf.Language})
 	}
 	if strings.TrimSpace(cf.AddedAt) != "" {
-		rows = append(rows, "  added_at: "+cf.AddedAt)
+		fileFields = append(fileFields, detailField{"added_at", cf.AddedAt})
 	}
 	if strings.TrimSpace(cf.LastModified) != "" {
-		rows = append(rows, "  last_modified: "+cf.LastModified)
+		fileFields = append(fileFields, detailField{"last_modified", cf.LastModified})
 	}
+	rows := appendDetailSection(nil, "File", fileFields...)
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
-		rows = append(rows,
-			"",
-			"Session",
-			"  title: "+orPlaceholder(s.Title, a.localizer.t(msgSidebarUntitled, nil)),
-			"  id: "+s.ID,
-			"  status: "+orPlaceholder(s.Status, "unknown"),
-		)
+		sessionFields := []detailField{
+			{"title", orPlaceholder(s.Title, a.localizer.t(msgSidebarUntitled, nil))},
+			{"id", s.ID},
+			{"status", orPlaceholder(s.Status, "unknown")},
+		}
 		if s.WorkspaceID != "" {
-			rows = append(rows, "  workspace: "+s.WorkspaceID)
+			sessionFields = append(sessionFields, detailField{"workspace", s.WorkspaceID})
 		}
 		if s.ParentSessionID != "" {
-			rows = append(rows, "  parent_session_id: "+s.ParentSessionID)
+			sessionFields = append(sessionFields, detailField{"parent_session_id", s.ParentSessionID})
 		}
 		if s.Agent.ID != "" {
-			rows = append(rows, "  agent: "+s.Agent.ID)
+			sessionFields = append(sessionFields, detailField{"agent", s.Agent.ID})
 		}
 		if !s.UpdatedAt.IsZero() || !s.CreatedAt.IsZero() {
 			activity := sessionActivityTime(s)
-			rows = append(rows, "  latest_activity: "+activity.UTC().Format(time.RFC3339))
+			sessionFields = append(sessionFields, detailField{"latest_activity", activity.UTC().Format(time.RFC3339)})
 		}
 		if s.MessageCount > 0 {
-			rows = append(rows, fmt.Sprintf("  messages: %d", s.MessageCount))
+			sessionFields = append(sessionFields, detailField{"messages", fmt.Sprintf("%d", s.MessageCount)})
 		}
+		rows = appendDetailSection(rows, "Session", sessionFields...)
 	}
-	rows = append(rows,
-		"",
-		"Actions",
-		"  o: add another context file",
-		"  Esc / Ctrl+E: close detail",
+	rows = appendDetailSection(rows, "Actions",
+		detailField{"o", "add another context file"},
+		detailField{"Esc / Ctrl+E", "close detail"},
 	)
 	a.detailView = &bulkyPartRef{
 		messageID: "context",

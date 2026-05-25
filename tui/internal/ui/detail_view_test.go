@@ -377,6 +377,27 @@ func TestDetailModalWidthIsReadableButNotHuge(t *testing.T) {
 	}
 }
 
+func TestDetailSectionsRenderConsistentFieldsAndBodies(t *testing.T) {
+	rows := appendDetailSection(nil, "Section",
+		detailField{"name", "value"},
+		detailField{"description", "first\nsecond"},
+		detailField{"", "freeform"},
+	)
+	out := strings.Join(rows, "\n")
+	for _, want := range []string{
+		"Section",
+		"  name: value",
+		"  description:",
+		"    first",
+		"    second",
+		"    freeform",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("detail section missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestDetailView_CtrlEOpensWithNewest(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody
