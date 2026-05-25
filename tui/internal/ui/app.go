@@ -137,7 +137,8 @@ type App struct {
 	stickyToBottom bool
 
 	// Context files for the currently selected session (fetched on select).
-	contextFiles []gact.ContextFile
+	contextFiles   []gact.ContextFile
+	contextFileSel int
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -1454,6 +1455,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case contextFilesLoadedMsg:
 		if a.currentSessionID() == m.sessionID {
 			a.contextFiles = m.files
+			a.clampContextFileSelection()
 		}
 		return a, nil
 
@@ -1505,6 +1507,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// since-switched session get dropped.
 		if a.currentSessionID() == m.sessionID {
 			a.contextFiles = append(a.contextFiles, m.file)
+			a.clampContextFileSelection()
 		}
 		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
@@ -3400,6 +3403,15 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.focusPreviousSidebarSection()
 			return a, nil
 		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			if a.contextFileSel <= 0 {
+				a.contextFileSel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.contextFileSel--
+			return a, nil
+		}
 		if a.selected == a.firstVisibleSessionIndex() {
 			a.sidebarSectionCursor = true
 			a.sidebarSectionFocus = sidebarSectionSessions
@@ -3413,8 +3425,17 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionCursor {
 			if a.sidebarSectionFocus == sidebarSectionSessions {
 				a.sidebarSectionCursor = false
+			} else if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampContextFileSelection()
 			} else {
 				a.focusNextSidebarSection()
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			if a.contextFileSel < len(a.contextFiles)-1 {
+				a.contextFileSel++
 			}
 			return a, nil
 		}
@@ -3458,6 +3479,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if a.sidebarSectionCursor {
 			a.toggleFocusedSidebarSection()
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			a.clampContextFileSelection()
+			if a.contextFileSel >= 0 && a.contextFileSel < len(a.contextFiles) {
+				a.openContextFileDetail(a.contextFiles[a.contextFileSel])
+			}
 			return a, nil
 		}
 		a.focus = FocusInput
@@ -3676,6 +3704,19 @@ func (a *App) sidebarPageSize() int {
 	return page
 }
 
+func (a *App) clampContextFileSelection() {
+	if len(a.contextFiles) == 0 {
+		a.contextFileSel = 0
+		return
+	}
+	if a.contextFileSel < 0 {
+		a.contextFileSel = 0
+	}
+	if a.contextFileSel >= len(a.contextFiles) {
+		a.contextFileSel = len(a.contextFiles) - 1
+	}
+}
+
 func (a *App) hasContextSection() bool {
 	return a.selected >= 0 && a.selected < len(a.sessions)
 }
@@ -3882,6 +3923,136 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 		rows++
 	}
 	return rows
+}
+
+func (a *App) registerSidebarContextHeaderHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHit("sidebar:context:header", sidebarContentRect(row, width), func(app *App) tea.Cmd {
+		app.focus = FocusSidebar
+		app.sidebarSectionFocus = sidebarSectionContext
+		app.sidebarSectionCursor = true
+		app.sidebarContextCollapsed = !app.sidebarContextCollapsed
+		if app.sidebarContextCollapsed {
+			app.transientHint = "context section collapsed (C to expand)"
+		} else {
+			app.transientHint = "context section expanded"
+		}
+		return nil
+	})
+}
+
+func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf gact.ContextFile) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHit("sidebar:context:file:"+cf.Path, sidebarContentRect(row, width), func(app *App) tea.Cmd {
+		app.focus = FocusSidebar
+		app.sidebarSectionFocus = sidebarSectionContext
+		app.sidebarSectionCursor = true
+		app.contextFileSel = index
+		app.openContextFileDetail(cf)
+		return nil
+	})
+}
+
+func sidebarContentRect(row int, width int) mouseRect {
+	w := width - 4
+	if w < 1 {
+		w = 1
+	}
+	return mouseRect{x: 2, y: row + 2, w: w, h: 1}
+}
+
+func (a *App) openContextFileDetail(cf gact.ContextFile) {
+	rows := []string{
+		"path: " + cf.Path,
+		"mode: " + contextModeDescription(cf.Mode),
+	}
+	if cf.Size > 0 {
+		rows = append(rows, fmt.Sprintf("size: %s (%d bytes)", humanBytes(cf.Size), cf.Size))
+	}
+	if strings.TrimSpace(cf.Language) != "" {
+		rows = append(rows, "language: "+cf.Language)
+	}
+	if strings.TrimSpace(cf.AddedAt) != "" {
+		rows = append(rows, "added_at: "+cf.AddedAt)
+	}
+	if strings.TrimSpace(cf.LastModified) != "" {
+		rows = append(rows, "last_modified: "+cf.LastModified)
+	}
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		s := a.sessions[a.selected]
+		rows = append(rows,
+			"",
+			"session:",
+			"  title: "+orPlaceholder(s.Title, a.localizer.t(msgSidebarUntitled, nil)),
+			"  id: "+s.ID,
+		)
+		if s.ParentSessionID != "" {
+			rows = append(rows, "  parent_session_id: "+s.ParentSessionID)
+		}
+		if s.Agent.ID != "" {
+			rows = append(rows, "  agent: "+s.Agent.ID)
+		}
+	}
+	rows = append(rows,
+		"",
+		"actions:",
+		"  o: add another context file",
+		"  Esc / Ctrl+E: close detail",
+	)
+	a.detailView = &bulkyPartRef{
+		messageID: "context",
+		partID:    cf.Path,
+		title:     "Context file · " + shortContextPath(cf.Path),
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func contextModeDescription(mode string) string {
+	switch mode {
+	case "read":
+		return "read (backend may inspect contents)"
+	case "edit":
+		return "edit (backend may propose changes)"
+	case "pin":
+		return "pin (always retained in context)"
+	case "":
+		return "unknown"
+	default:
+		return mode
+	}
+}
+
+func shortContextPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "(unknown)"
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) <= 2 {
+		return path
+	}
+	return "…/" + strings.Join(parts[len(parts)-2:], "/")
+}
+
+func humanBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	value := float64(size)
+	for _, suffix := range []string{"KiB", "MiB", "GiB", "TiB"} {
+		value /= unit
+		if value < unit {
+			return fmt.Sprintf("%.1f %s", value, suffix)
+		}
+	}
+	return fmt.Sprintf("%.1f PiB", value/unit)
 }
 
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -4372,6 +4543,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 
 	a.messages = nil
 	a.contextFiles = nil
+	a.contextFileSel = 0
 	a.scrollOffset = 0
 	a.stickyToBottom = true
 	a.currentStatus = a.sessions[idx].Status
@@ -6655,7 +6827,7 @@ func (a *App) renderSidebar(width, height int) string {
 			statusIndent = "    "
 			titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
 		}
-		if sIdx == a.selected && !a.sidebarSectionCursor {
+		if sIdx == a.selected && !a.sidebarSectionCursor && a.sidebarSectionFocus == sidebarSectionSessions {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 			titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 		}
@@ -6756,6 +6928,33 @@ func (a *App) renderSidebar(width, height int) string {
 
 	// CONTEXT section — show files in the current session's context.
 	if a.selected >= 0 && a.selected < len(a.sessions) {
+		contextLines := 1
+		if !a.sidebarContextCollapsed {
+			if len(a.contextFiles) == 0 {
+				contextLines++
+			} else {
+				contextLines += len(a.contextFiles)
+			}
+		}
+		footerLines := 0
+		if len(a.sessions) > 0 {
+			footerLines = 2
+		}
+		if inner := height - 2; inner > 0 {
+			allowedBeforeContext := inner - contextLines - footerLines
+			if allowedBeforeContext < 1 {
+				allowedBeforeContext = 1
+			}
+			if len(rows) > allowedBeforeContext {
+				rows = rows[:allowedBeforeContext]
+				moreCount := len(visIdx) - endIdx
+				if moreCount < 1 {
+					moreCount = 1
+				}
+				rows[len(rows)-1] = lipgloss.NewStyle().Foreground(t.FgMuted).
+					Render(" " + a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": moreCount}))
+			}
+		}
 		contextTitle := a.localizer.t(msgSidebarContext, nil)
 		contextDisclosure := "▾ "
 		if a.sidebarContextCollapsed {
@@ -6768,11 +6967,15 @@ func (a *App) renderSidebar(width, height int) string {
 		}
 		rows = append(rows,
 			contextPrefix+lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(contextDisclosure+contextTitle))
+		contextHeaderRow := len(rows) - 1
+		a.registerSidebarContextHeaderHit(contextHeaderRow, width)
 		if !a.sidebarContextCollapsed {
 			if len(a.contextFiles) == 0 {
 				rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSidebarNoFiles, nil)))
 			}
-			for _, cf := range a.contextFiles {
+			for i, cf := range a.contextFiles {
+				row := len(rows)
+				cf := cf
 				modeChar := "?"
 				modeColor := t.FgMuted
 				switch cf.Mode {
@@ -6784,7 +6987,14 @@ func (a *App) renderSidebar(width, height int) string {
 					modeChar, modeColor = "P", t.Secondary
 				}
 				modeBadge := lipgloss.NewStyle().Foreground(modeColor).Bold(true).Render(modeChar)
-				rows = append(rows, " "+modeBadge+" "+t.HintLabel.Render(truncate(cf.Path, width-8)))
+				marker := " "
+				pathStyle := t.HintLabel
+				if a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel {
+					marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+					pathStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+				}
+				rows = append(rows, marker+modeBadge+" "+pathStyle.Render(truncate(cf.Path, width-8)))
+				a.registerSidebarContextFileHit(row, width, i, cf)
 			}
 		}
 	}

@@ -699,11 +699,5 @@ func (a *App) viewDetailView() string {
 	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
 
 	box := lipgloss.JoinVertical(lipgloss.Left, title, "", body, "", hint)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	return a.renderDefaultModalSurface(w, box)
 }

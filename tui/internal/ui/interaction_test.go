@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -280,6 +282,175 @@ func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	}
 	if a.detailView.partID != "p1" {
 		t.Fatalf("detail partID = %q, want p1", a.detailView.partID)
+	}
+}
+
+func TestContextRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{
+		ID:    "sess_1",
+		Title: "demo",
+		Agent: gact.AgentRef{ID: "analysis"},
+	}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{
+		Path:         "docs/ARC_MEMORY_LAYER.md",
+		Mode:         "read",
+		Size:         2048,
+		Language:     "markdown",
+		AddedAt:      "2026-05-25T10:00:00Z",
+		LastModified: "2026-05-24T18:30:00Z",
+	}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:docs/ARC_MEMORY_LAYER.md")
+	if !ok {
+		t.Fatal("missing context file hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("context row click should open detail")
+	}
+	for _, want := range []string{
+		"path: docs/ARC_MEMORY_LAYER.md",
+		"mode: read",
+		"size: 2.0 KiB",
+		"language: markdown",
+		"id: sess_1",
+		"agent: analysis",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestContextHeaderUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo"}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:context:header")
+	if !ok {
+		t.Fatal("missing context header hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.sidebarContextCollapsed {
+		t.Fatal("context header click should collapse context section")
+	}
+	if a.sidebarSectionFocus != sidebarSectionContext || !a.sidebarSectionCursor {
+		t.Fatalf("context focus not set: focus=%v cursor=%v", a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+}
+
+func TestContextRowsHaveKeyboardParity(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionContext
+	a.sidebarSectionCursor = true
+	a.sessions = []gact.Session{{
+		ID:    "sess_1",
+		Title: "demo",
+		Agent: gact.AgentRef{ID: "analysis"},
+	}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{
+		{Path: "docs/first.md", Mode: "read"},
+		{Path: "docs/second.md", Mode: "edit", Size: 4096},
+	}
+
+	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if a.sidebarSectionCursor || a.sidebarSectionFocus != sidebarSectionContext {
+		t.Fatalf("down from context header should focus file rows, cursor=%v section=%v", a.sidebarSectionCursor, a.sidebarSectionFocus)
+	}
+	if a.contextFileSel != 0 {
+		t.Fatalf("contextFileSel = %d, want first row", a.contextFileSel)
+	}
+
+	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if a.contextFileSel != 1 {
+		t.Fatalf("second down contextFileSel = %d, want second row", a.contextFileSel)
+	}
+
+	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("enter on selected context file should open detail")
+	}
+	if !strings.Contains(a.detailView.fullText, "path: docs/second.md") || !strings.Contains(a.detailView.fullText, "size: 4.0 KiB") {
+		t.Fatalf("detail should describe selected context file:\n%s", a.detailView.fullText)
+	}
+}
+
+func TestContextRowSelectionRendersSingleSidebarCursor(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionContext
+	a.sidebarSectionCursor = false
+	a.contextFileSel = 0
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/first.md", Mode: "read"}}
+
+	out := ansi.Strip(a.renderSidebar(42, 18))
+	if strings.Contains(out, "▌○ demo") {
+		t.Fatalf("session row should not show active cursor while context row is selected:\n%s", out)
+	}
+	if !strings.Contains(out, "▌R docs/first.md") {
+		t.Fatalf("selected context row should show active cursor:\n%s", out)
+	}
+}
+
+func TestContextSectionRemainsVisibleWhenSessionsOverflow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionContext
+	a.sidebarSectionCursor = false
+	a.sessions = []gact.Session{{ID: "sess_0", Title: "current", Status: gact.StatusIdle}}
+	for i := 1; i < 24; i++ {
+		a.sessions = append(a.sessions, gact.Session{
+			ID:              "sess_child_" + strconv.Itoa(i),
+			Title:           "analysis_validator subagent",
+			Status:          gact.StatusIdle,
+			ParentSessionID: "sess_0",
+		})
+	}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "visual_loop/README.md", Mode: "read"}}
+
+	out := ansi.Strip(a.renderSidebar(42, 24))
+	if !strings.Contains(out, "CONTEXT") || !strings.Contains(out, "▌R visual_loop/README.md") {
+		t.Fatalf("context section should remain visible below overflowing sessions:\n%s", out)
 	}
 }
 
