@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -576,9 +577,13 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	a.stage = StageReady
 	a.focus = FocusSidebar
 	a.sessions = []gact.Session{{
-		ID:    "sess_1",
-		Title: "demo",
-		Agent: gact.AgentRef{ID: "analysis"},
+		ID:           "sess_1",
+		WorkspaceID:  "ws_default",
+		Title:        "demo",
+		Agent:        gact.AgentRef{ID: "analysis"},
+		Status:       gact.StatusIdle,
+		UpdatedAt:    time.Date(2026, 5, 25, 12, 0, 0, 0, time.UTC),
+		MessageCount: 7,
 	}}
 	a.selected = 0
 	a.contextFiles = []gact.ContextFile{{
@@ -606,12 +611,19 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		t.Fatal("context row click should open detail")
 	}
 	for _, want := range []string{
+		"File",
 		"path: docs/ARC_MEMORY_LAYER.md",
 		"mode: read",
 		"size: 2.0 KiB",
 		"language: markdown",
+		"Session",
 		"id: sess_1",
+		"workspace: ws_default",
+		"status: idle",
 		"agent: analysis",
+		"latest_activity: 2026-05-25T12:00:00Z",
+		"messages: 7",
+		"Actions",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("context detail missing %q:\n%s", want, a.detailView.fullText)
