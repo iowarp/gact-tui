@@ -264,6 +264,56 @@ func moveScrollOffset(scroll int, delta int) int {
 	return scroll
 }
 
+func selectedItemWindow(total int, selected int, budget int) scrollWindow {
+	if total < 0 {
+		total = 0
+	}
+	if budget < 1 {
+		budget = 1
+	}
+	if budget > total {
+		budget = total
+	}
+	if total == 0 {
+		return scrollWindow{total: total}
+	}
+	if selected < 0 {
+		selected = 0
+	}
+	if selected >= total {
+		selected = total - 1
+	}
+	start := selected - budget/2
+	if start < 0 {
+		start = 0
+	}
+	if start+budget > total {
+		start = total - budget
+	}
+	return boundedScrollWindow(total, budget, start)
+}
+
+func (a *App) modalListItemBudget(fixedRows int, rowsPerItem int, maxItems int) int {
+	if rowsPerItem < 1 {
+		rowsPerItem = 1
+	}
+	if maxItems < 1 {
+		maxItems = 1
+	}
+	availableRows := a.height - fixedRows - 6
+	if availableRows < rowsPerItem {
+		return 1
+	}
+	budget := availableRows / rowsPerItem
+	if budget > maxItems {
+		budget = maxItems
+	}
+	if budget < 1 {
+		return 1
+	}
+	return budget
+}
+
 func boundedScrollWindow(total int, budget int, scroll int) scrollWindow {
 	if total < 0 {
 		total = 0

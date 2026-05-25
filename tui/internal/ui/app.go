@@ -7798,47 +7798,48 @@ func (a *App) viewPalette() string {
 	if len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteNoMatches, nil)))
 	}
-	type paletteHit struct {
-		row int
-		idx int
+	listStartRow := len(rows)
+	itemBudget := a.modalListItemBudget(6, 2, 8)
+	win := selectedItemWindow(len(matches), a.paletteSel, itemBudget)
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	var list modalListRender
+	for i := win.start; i < win.end; i++ {
+		c := matches[i]
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:          fmt.Sprintf("palette:command:%d", idx),
+			title:       c.ID,
+			description: c.Title,
+			status:      a.paletteCurrentValue(c.ID),
+			selected:    i == a.paletteSel,
+			action: func(app *App) tea.Cmd {
+				matches := app.paletteMatches()
+				if idx < 0 || idx >= len(matches) {
+					return nil
+				}
+				app.paletteSel = idx
+				_, cmd := app.handlePaletteKey(keyMsg("enter"))
+				return cmd
+			},
+		})
 	}
-	var rowHits []paletteHit
-	for i, c := range matches {
-		row := len(rows)
-		marker := "  "
-		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
-		if i == a.paletteSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
+	if len(listItems) > 0 {
+		list = a.renderModalList(listItems, modalListOptions{
+			width:            w - 4,
+			rowBudget:        16,
+			descriptionLines: 1,
+		})
+		rows = append(rows, list.rows...)
+		if win.start > 0 || win.end < len(matches) {
+			rows = append(rows, t.HintLabel.Render(fmt.Sprintf("showing %d-%d of %d", win.start+1, win.end, len(matches))))
 		}
-		line := marker + titleStyle.Render(c.ID) + "  " + descStyle.Render(c.Title)
-		// Q3: settings-style commands surface their current state
-		// inline so users know what they'd be changing before they
-		// hit Enter. Rendered as a faint suffix in Secondary so it
-		// stands out without competing with the title.
-		if hint := a.paletteCurrentValue(c.ID); hint != "" {
-			valStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-			line += "  " + valStyle.Render("· "+hint)
-		}
-		rows = append(rows, truncate(line, w-2))
-		rowHits = append(rowHits, paletteHit{row: row, idx: i})
 	}
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	for _, hit := range rowHits {
-		idx := hit.idx
-		a.registerModalContentHit(modal, fmt.Sprintf("palette:command:%d", idx), hit.row, 0, w-4, 1, func(app *App) tea.Cmd {
-			matches := app.paletteMatches()
-			if idx < 0 || idx >= len(matches) {
-				return nil
-			}
-			app.paletteSel = idx
-			_, cmd := app.handlePaletteKey(keyMsg("enter"))
-			return cmd
-		})
+	if len(listItems) > 0 {
+		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
 	}
 	return modal
 }
@@ -7851,6 +7852,8 @@ func (a *App) viewPalette() string {
 func (a *App) viewPaletteSearch(w int) string {
 	t := a.Theme
 	query := strings.TrimSpace(a.paletteFilter[1:])
+	listStartRow := -1
+	var list modalListRender
 	rows := []string{
 		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(a.localizer.t(msgPaletteSearchTitle, nil)),
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteQuery, nil) + " " + query + "_"),
@@ -7864,17 +7867,36 @@ func (a *App) viewPaletteSearch(w int) string {
 	case len(a.searchMatches) == 0:
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteEnterSearch, map[string]string{"query": query})))
 	default:
-		for i, m := range a.searchMatches {
-			marker := "  "
-			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			snippetStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
-			if i == a.paletteSel {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-			}
-			head := marker + titleStyle.Render(shortID(m.MessageID))
-			snippet := snippetStyle.Render(strings.ReplaceAll(strings.TrimSpace(m.Snippet), "\n", " "))
-			rows = append(rows, truncate(head+"  "+snippet, w-2))
+		listStartRow = len(rows)
+		itemBudget := a.modalListItemBudget(5, 2, 8)
+		win := selectedItemWindow(len(a.searchMatches), a.paletteSel, itemBudget)
+		listItems := make([]modalListItem, 0, win.end-win.start)
+		for i := win.start; i < win.end; i++ {
+			m := a.searchMatches[i]
+			idx := i
+			listItems = append(listItems, modalListItem{
+				id:          fmt.Sprintf("palette:search:%d", idx),
+				title:       shortID(m.MessageID),
+				description: strings.ReplaceAll(strings.TrimSpace(m.Snippet), "\n", " "),
+				selected:    i == a.paletteSel,
+				action: func(app *App) tea.Cmd {
+					if idx < 0 || idx >= len(app.searchMatches) {
+						return nil
+					}
+					app.paletteSel = idx
+					_, cmd := app.handlePaletteKey(keyMsg("enter"))
+					return cmd
+				},
+			})
+		}
+		list = a.renderModalList(listItems, modalListOptions{
+			width:            w - 4,
+			rowBudget:        12,
+			descriptionLines: 1,
+		})
+		rows = append(rows, list.rows...)
+		if win.start > 0 || win.end < len(a.searchMatches) {
+			rows = append(rows, t.HintLabel.Render(fmt.Sprintf("showing %d-%d of %d", win.start+1, win.end, len(a.searchMatches))))
 		}
 	}
 	if len(a.searchMatches) > 0 {
@@ -7885,19 +7907,8 @@ func (a *App) viewPaletteSearch(w int) string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	if len(a.searchMatches) > 0 {
-		for i := range a.searchMatches {
-			idx := i
-			row := 3 + i
-			a.registerModalContentHit(modal, fmt.Sprintf("palette:search:%d", idx), row, 0, w-4, 1, func(app *App) tea.Cmd {
-				if idx < 0 || idx >= len(app.searchMatches) {
-					return nil
-				}
-				app.paletteSel = idx
-				_, cmd := app.handlePaletteKey(keyMsg("enter"))
-				return cmd
-			})
-		}
+	if len(list.hits) > 0 && listStartRow >= 0 {
+		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
 	}
 	return modal
 }

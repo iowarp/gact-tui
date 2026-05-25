@@ -99,6 +99,29 @@ func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	}
 }
 
+func TestSelectedItemWindowKeepsSelectionVisible(t *testing.T) {
+	tests := []struct {
+		name      string
+		total     int
+		selected  int
+		budget    int
+		wantStart int
+		wantEnd   int
+	}{
+		{name: "top", total: 20, selected: 0, budget: 8, wantStart: 0, wantEnd: 8},
+		{name: "middle", total: 20, selected: 10, budget: 8, wantStart: 6, wantEnd: 14},
+		{name: "bottom", total: 20, selected: 19, budget: 8, wantStart: 12, wantEnd: 20},
+		{name: "short", total: 3, selected: 2, budget: 8, wantStart: 0, wantEnd: 3},
+		{name: "empty", total: 0, selected: 2, budget: 8, wantStart: 0, wantEnd: 0},
+	}
+	for _, tc := range tests {
+		got := selectedItemWindow(tc.total, tc.selected, tc.budget)
+		if got.start != tc.wantStart || got.end != tc.wantEnd {
+			t.Fatalf("%s: window = %+v, want start=%d end=%d", tc.name, got, tc.wantStart, tc.wantEnd)
+		}
+	}
+}
+
 func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
@@ -484,6 +507,27 @@ func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
 		t.Fatalf("palette command click should open theme settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+}
+
+func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	for i := 0; i < 14; i++ {
+		id := "/cmd" + strconv.Itoa(i)
+		a.commands = append(a.commands, gact.Command{ID: id, Title: "Command " + strconv.Itoa(i), Source: "builtin"})
+	}
+	a.paletteOpen = true
+	a.paletteSel = 10
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "palette:command:10"); !ok {
+		t.Fatal("selected offscreen palette command should be rendered with a semantic target")
+	}
+	if _, ok := findHitTargetForTest(a, "palette:command:0"); ok {
+		t.Fatal("palette command window should not keep the first row target when selection moves down-list")
 	}
 }
 
