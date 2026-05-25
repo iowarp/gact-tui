@@ -210,11 +210,7 @@ func (a *App) handleDetailMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
 }
 
 func (a *App) handleDetailMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, func() {
-		a.detailViewOpen = false
-		a.detailView = nil
-		a.detailScroll = 0
-	})
+	return a.closeOverlayOnOutside(rect, mouse, a.closeDetailView)
 }
 
 func (a *App) handleWorkspaceSwitchMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {

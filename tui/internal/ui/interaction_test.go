@@ -988,6 +988,34 @@ func TestDetailCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestDetailOutsideClickUsesSharedCloseState(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailScroll = 4
+	a.detailView = &bulkyPartRef{
+		title:    "Very long detail title that should not collide with the close action",
+		fullText: strings.Repeat("detail line\n", 20),
+	}
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside detail click should not dispatch a command")
+	}
+	if a.detailViewOpen || a.detailView != nil || a.detailScroll != 0 {
+		t.Fatalf("outside click should close detail and reset state, open=%v detail=%v scroll=%d", a.detailViewOpen, a.detailView, a.detailScroll)
+	}
+}
+
 func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
