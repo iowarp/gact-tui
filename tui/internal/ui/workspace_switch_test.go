@@ -250,6 +250,53 @@ func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcherUsesBoundedScrollWindow(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaces = nil
+	for i := 0; i < 20; i++ {
+		a.workspaces = append(a.workspaces, gact.Workspace{
+			ID:   "ws_" + itoa2(i),
+			Name: "workspace " + itoa2(i),
+		})
+	}
+	a.wsID = "ws_00"
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 18
+
+	out := stripANSI(a.viewWorkspaceSwitch())
+	if !strings.Contains(out, "workspace 18  ws_18") {
+		t.Fatalf("selected workspace should remain visible in bounded window:\n%s", out)
+	}
+	if strings.Contains(out, "workspace 00  ws_00") {
+		t.Fatalf("bounded window should not render every workspace:\n%s", out)
+	}
+	if !strings.Contains(out, "↑ ") {
+		t.Fatalf("bounded window should show rows above indicator:\n%s", out)
+	}
+}
+
+func TestWorkspaceSwitcherScrolledRowsUseSemanticHitTargets(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaces = nil
+	for i := 0; i < 20; i++ {
+		a.workspaces = append(a.workspaces, gact.Workspace{
+			ID:   "ws_" + itoa2(i),
+			Name: "workspace " + itoa2(i),
+		})
+	}
+	a.wsID = "ws_00"
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 18
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "workspace-switch:item:ws_18"); !ok {
+		t.Fatal("missing semantic target for selected row inside scrolled workspace window")
+	}
+	if _, ok := findHitTargetForTest(a, "workspace-switch:item:ws_00"); ok {
+		t.Fatal("offscreen workspace row should not register a stale hit target")
+	}
+}
+
 func TestWorkspaceSwitcherNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaceSwitchOpen = true

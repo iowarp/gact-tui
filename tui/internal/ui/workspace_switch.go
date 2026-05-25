@@ -90,6 +90,8 @@ func (a *App) closeWorkspaceSwitchModal() {
 	a.workspaceSwitchOpen = false
 }
 
+const workspaceSwitchMaxItems = 8
+
 // viewWorkspaceSwitch renders the modal. Matches the settings/metrics
 // overlay style so the user's muscle memory carries over.
 func (a *App) viewWorkspaceSwitch() string {
@@ -108,8 +110,15 @@ func (a *App) viewWorkspaceSwitch() string {
 	if innerW < 1 {
 		innerW = 1
 	}
-	items := make([]modalListItem, 0, len(a.workspaces))
-	for i, ws := range a.workspaces {
+	itemBudget := a.modalListItemBudget(4, 1, workspaceSwitchMaxItems)
+	win := selectedItemWindow(len(a.workspaces), a.workspaceSwitchSel, itemBudget)
+	if win.start > 0 {
+		rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(win.start)))
+	}
+	listStartRow := len(rows)
+	items := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		ws := a.workspaces[i]
 		status := ""
 		if ws.ID == a.wsID {
 			status = "current"
@@ -127,14 +136,17 @@ func (a *App) viewWorkspaceSwitch() string {
 			},
 		})
 	}
-	list := a.renderModalList(items, modalListOptions{width: innerW, rowBudget: len(a.workspaces)})
+	list := a.renderModalList(items, modalListOptions{width: innerW, rowBudget: itemBudget})
 	rows = append(rows, list.rows...)
+	if win.end < len(a.workspaces) {
+		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.workspaces)-win.end)))
+	}
 	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
 	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	a.registerModalListHits(modal, 2, 0, innerW, list.hits)
+	a.registerModalListHits(modal, listStartRow, 0, innerW, list.hits)
 	return modal
 }
 
