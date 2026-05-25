@@ -372,18 +372,30 @@ func (a *App) viewSettings() string {
 		a.localizer.t(msgSettingsTabTUI, nil),
 		a.localizer.t(msgSettingsTabLanguage, nil),
 	}
-
-	tabs := func(i int) string {
-		var rendered []string
-		for j, l := range tabLabels {
-			st := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
-			if j == i {
-				st = st.Foreground(t.Bg).Background(t.Primary).Bold(true)
-			}
-			rendered = append(rendered, st.Render(l))
-		}
-		return strings.Join(rendered, " ")
+	tabIDs := []string{
+		"settings-model",
+		"settings-agent",
+		"settings-theme",
+		"settings-tui",
+		"settings-language",
 	}
+	tabHits := make([]menuTab, 0, len(tabLabels))
+	for i, label := range tabLabels {
+		idx := i
+		tabHits = append(tabHits, menuTab{
+			id:     tabIDs[i],
+			label:  label,
+			active: s.tab == i,
+			action: func(app *App) tea.Cmd {
+				if app.settings == nil {
+					app.settings = &settingsState{}
+				}
+				app.settings.tab = idx
+				return nil
+			},
+		})
+	}
+	tabRow := a.renderModalTabsWithLayout(tabHits, 2, 2)
 
 	currentModel := ""
 	currentAgent := ""
@@ -413,7 +425,7 @@ func (a *App) viewSettings() string {
 	rows := []string{
 		titleBar,
 		"",
-		tabs(s.tab),
+		tabRow,
 		"",
 	}
 	if s.loadErr != "" {
@@ -719,43 +731,7 @@ func (a *App) viewSettings() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalTabs(modal, 2, []menuTab{
-		{id: "settings-model", label: tabLabels[0], action: func(app *App) tea.Cmd {
-			if app.settings == nil {
-				app.settings = &settingsState{}
-			}
-			app.settings.tab = 0
-			return nil
-		}},
-		{id: "settings-agent", label: tabLabels[1], action: func(app *App) tea.Cmd {
-			if app.settings == nil {
-				app.settings = &settingsState{}
-			}
-			app.settings.tab = 1
-			return nil
-		}},
-		{id: "settings-theme", label: tabLabels[2], action: func(app *App) tea.Cmd {
-			if app.settings == nil {
-				app.settings = &settingsState{}
-			}
-			app.settings.tab = 2
-			return nil
-		}},
-		{id: "settings-tui", label: tabLabels[3], action: func(app *App) tea.Cmd {
-			if app.settings == nil {
-				app.settings = &settingsState{}
-			}
-			app.settings.tab = 3
-			return nil
-		}},
-		{id: "settings-language", label: tabLabels[4], action: func(app *App) tea.Cmd {
-			if app.settings == nil {
-				app.settings = &settingsState{}
-			}
-			app.settings.tab = 4
-			return nil
-		}},
-	})
+	a.registerModalTabs(modal, 2, tabHits)
 	for _, hit := range rowHits {
 		a.registerModalContentHit(modal, hit.id, hit.row, 0, w-4, hit.height, hit.action)
 	}
