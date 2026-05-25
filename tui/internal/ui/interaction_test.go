@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -36,10 +35,13 @@ func TestDoctorTabsUseSemanticHitTargets(t *testing.T) {
 	a.doctor = &doctorState{tab: doctorTabHealth}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewDoctor(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "tab:doctor-capabilities")
+	if !ok {
+		t.Fatal("missing semantic doctor capabilities tab target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 15,
-		Y:      rect.y + 2 + 2,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -58,10 +60,13 @@ func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	a.settings = &settingsState{tab: 0}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewSettings(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "tab:settings-tui")
+	if !ok {
+		t.Fatal("missing semantic settings TUI tab target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 31,
-		Y:      rect.y + 2 + 2,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -83,10 +88,13 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	a.settings = &settingsState{tab: 3, tuiRow: 0}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewSettings(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "settings:tui:cost-danger")
+	if !ok {
+		t.Fatal("missing semantic settings TUI cost danger target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + 12,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -99,6 +107,83 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsModelRowUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 0}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:model:change-provider")
+	if !ok {
+		t.Fatal("missing semantic settings model target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("model row click should dispatch provider fetch command")
+	}
+	if a.settingsOpen || !a.lmConfigOpen || a.lmConfig == nil {
+		t.Fatalf("model row click should switch to provider modal, settingsOpen=%v lmConfigOpen=%v lmConfig=%+v", a.settingsOpen, a.lmConfigOpen, a.lmConfig)
+	}
+}
+
+func TestSettingsAgentRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 40
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{
+		tab:      1,
+		agentSel: 0,
+		agentList: []gact.AgentDef{{
+			ID:           "main",
+			Source:       "builtin",
+			Title:        "Main Agent",
+			Description:  "orchestrator",
+			SystemPrompt: "Route to the right expert.",
+			Tier:         1,
+		}, {
+			ID:           "analysis",
+			Source:       "builtin",
+			Title:        "Analysis Expert",
+			Description:  "scientific reasoning",
+			SystemPrompt: "Analyze the data.",
+			Tier:         2,
+		}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:agent:analysis")
+	if !ok {
+		t.Fatal("missing semantic settings agent target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("agent row click should not dispatch command")
+	}
+	if a.settings == nil || a.settings.agentSel != 1 {
+		t.Fatalf("agent row click should select analysis, settings=%+v", a.settings)
+	}
+	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.title, "Analysis") {
+		t.Fatalf("agent row click should open clicked detail, detail=%+v", a.detailView)
+	}
+}
+
 func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
@@ -108,10 +193,17 @@ func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	a.settings = &settingsState{tab: 4, languageSel: 0}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewSettings(), a.width, a.height)
+	options := availableLanguageOptions()
+	if len(options) < 3 {
+		t.Fatalf("need at least three language options, got %d", len(options))
+	}
+	target, ok := findHitTargetForTest(a, "settings:language:"+options[2].Locale)
+	if !ok {
+		t.Fatal("missing semantic settings language target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + 8,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -133,15 +225,14 @@ func TestHelpTabsUseSemanticHitTargets(t *testing.T) {
 	a.helpTab = 0
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewHelp(), a.width, a.height)
 	targetTab := helpTabIndex("Commands")
-	col := 0
-	for i := 0; i < targetTab; i++ {
-		col += lipgloss.Width(a.localizedHelpTabTitle(helpTabs[i].title)) + 2
+	target, ok := findHitTargetForTest(a, "tab:help-commands")
+	if !ok {
+		t.Fatal("missing semantic help commands tab target")
 	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + col + 1,
-		Y:      rect.y + 2 + 2,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -170,10 +261,13 @@ func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "catalog:item:1")
+	if !ok {
+		t.Fatal("missing semantic catalog item target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 3 + 4,
-		Y:      rect.y + 2 + 5,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
@@ -183,6 +277,41 @@ func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.detailView.title != "Handoffs" {
 		t.Fatalf("detail title = %q, want Handoffs", a.detailView.title)
+	}
+}
+
+func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentDetail,
+		title: "Agent detail",
+		items: []catalogItem{
+			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
+			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
+		},
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 5,
+		Y:      rect.y + 2 + 10,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside catalog should not dispatch")
+	}
+	if !a.catalogBrowserOpen {
+		t.Fatal("non-row click inside catalog should keep browser open")
+	}
+	if a.detailViewOpen {
+		t.Fatal("non-row click inside catalog should not open detail")
 	}
 }
 
