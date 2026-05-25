@@ -806,6 +806,42 @@ func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	}
 }
 
+func TestDetailCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.detailViewOpen = true
+	a.detailScroll = 3
+	a.detailView = &bulkyPartRef{
+		title:    "Context detail",
+		fullText: strings.Repeat("detail line\n", 20),
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:detail:close")
+	if !ok {
+		t.Fatal("missing semantic detail close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("clicking detail close should not dispatch a command")
+	}
+	if a.detailViewOpen || a.detailView != nil {
+		t.Fatal("clicking detail close should close detail")
+	}
+	if a.detailScroll != 0 {
+		t.Fatalf("detailScroll = %d, want reset to 0", a.detailScroll)
+	}
+}
+
 func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
