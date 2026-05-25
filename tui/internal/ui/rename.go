@@ -122,19 +122,38 @@ func (a *App) viewRename() string {
 			string(runes[cur+1:])
 	}
 
+	buttons := []menuButton{
+		{
+			id:    "rename:save",
+			label: "save",
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.commitRename()
+				return cmd
+			},
+		},
+		{
+			id:    "rename:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.renameOpen = false
+				app.renameDraft = ""
+				app.renameCursor = 0
+				return nil
+			},
+		},
+	}
 	rows := []string{
 		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Rename session"),
 		"",
 		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
 		"",
+		a.renderModalButtons(buttons, 0),
+		"",
 		t.HintLabel.Render("Enter save  Esc cancel  ←/→ move  Home/End jump"),
 	}
+	actionRow := len(rows) - 3
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, actionRow, 0, buttons)
+	return modal
 }

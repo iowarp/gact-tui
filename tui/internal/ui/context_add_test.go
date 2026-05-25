@@ -106,6 +106,32 @@ func TestContextAdd_EnterCommitsAndPOSTsPath(t *testing.T) {
 	}
 }
 
+func TestContextAddButtonsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:context-add:save")
+	if !ok {
+		t.Fatal("missing context-add save button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.contextAddOpen {
+		t.Fatal("save button should close context-add modal")
+	}
+	if cmd == nil {
+		t.Fatal("save button should dispatch addContextFileCmd")
+	}
+}
+
 func TestContextAdd_EmptyPathCancels(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
 	a.contextAddOpen = true

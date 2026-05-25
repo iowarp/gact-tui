@@ -1,0 +1,33 @@
+Output "visual_loop/screenshots/semantic_text_entry_modals.gif"
+
+Set Shell "bash"
+Set FontSize 14
+Set Width 1500
+Set Height 900
+
+Hide
+Type "GACT_ATTACH_SESSION_ID=sess_690ac12e0908 ./tui/gact --backend http://127.0.0.1:41917 --no-intro"
+Enter
+Show
+
+Wait+Screen /CONVERSATION/
+Sleep 1200ms
+
+Tab
+Sleep 300ms
+
+Type "e"
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_rename_modal.png"
+Escape
+Sleep 200ms
+
+Type "o"
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_context_add_modal.png"
+Escape
+Sleep 200ms
+
+Ctrl+C
+Sleep 100ms
+Ctrl+C
