@@ -283,8 +283,15 @@ func (a *App) viewFilePicker() string {
 		return ""
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Insert file reference")
+	buttons := []menuButton{{
+		id:    "file-picker:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.closeFilePicker()
+			return nil
+		},
+	}}
+	titleRow, buttonCol := a.renderModalHeader("Insert file reference", w-4, buttons)
 
 	filterRow := t.HintKey.Render("@") + t.HintLabel.Render(a.filePicker.filter) +
 		lipgloss.NewStyle().Foreground(t.Primary).Blink(true).Render("_")
@@ -351,11 +358,12 @@ func (a *App) viewFilePicker() string {
 		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", filterRow, "",
+		titleRow, "", filterRow, "",
 		lipgloss.JoinVertical(lipgloss.Left, rows...),
 		"", hint,
 	)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	a.registerModalListHits(modal, 4+listStartRow, 0, w-4, list.hits)
 	return modal
 }

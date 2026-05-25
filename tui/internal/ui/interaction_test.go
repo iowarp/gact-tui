@@ -784,6 +784,44 @@ func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestFilePickerCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		filter: "beta",
+		entries: []gact.FileEntry{
+			{Path: "alpha.csv"},
+			{Path: "beta.parquet"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:file-picker:close")
+	if !ok {
+		t.Fatal("missing semantic file picker close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("file picker close should not dispatch a command")
+	}
+	if a.filePickerOpen || a.filePicker != nil {
+		t.Fatalf("file picker close should clear picker state, open=%v picker=%v", a.filePickerOpen, a.filePicker)
+	}
+	if got := a.input.Value(); strings.Contains(got, "@") {
+		t.Fatalf("close should not insert a file, input=%q", got)
+	}
+}
+
 func TestFilePickerNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
