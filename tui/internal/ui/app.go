@@ -6987,6 +6987,8 @@ func (a *App) renderBody(width, height int) string {
 		)
 	} else {
 		var rows []string
+		var hitBlocks []conversationPartHitBlock
+		fullLine := 0
 		// III1: pair tool_results to their tool_calls so each call's
 		// output renders directly under it. Tool messages whose entire
 		// payload was absorbed get skipped from standalone rendering
@@ -7025,7 +7027,15 @@ func (a *App) renderBody(width, height int) string {
 			if i == a.bodySelMsgIdx && a.focus == FocusBody {
 				selPartID = a.selectedPartID()
 			}
+			if len(rows) > 0 {
+				fullLine++
+			}
 			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
+			for _, block := range t.conversationPartHitBlocks(m, prev, width-4, inlineResults[i]) {
+				block.msgIdx = i
+				block.fullStart += fullLine
+				hitBlocks = append(hitBlocks, block)
+			}
 			// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
 			// per user feedback: "i also dont see the value with the
 			// message selector and global turn selector rather just have
@@ -7038,6 +7048,7 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
+			fullLine += renderedStringLineCount(row)
 		}
 		// Pending-turn indicator: when the session is running but the latest
 		// message hasn't produced any visible parts yet (e.g. user just
@@ -7074,6 +7085,7 @@ func (a *App) renderBody(width, height int) string {
 			a.adjustScrollForSelectedPart(body, conversationH)
 			a.pendingPartScroll = false
 		}
+		a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
 		body = a.scrollClip(body, conversationH, t)
 	}
 
@@ -7458,6 +7470,93 @@ func (a *App) scrollClip(body string, maxRows int, _ Theme) string {
 		end = len(lines)
 	}
 	return strings.Join(lines[start:end], "\n")
+}
+
+func (a *App) conversationScrollStart(body string, maxRows int) int {
+	if maxRows < 1 {
+		return 0
+	}
+	lines := strings.Split(body, "\n")
+	if len(lines) <= maxRows {
+		return 0
+	}
+	if a.stickyToBottom {
+		return len(lines) - maxRows
+	}
+	start := len(lines) - maxRows - a.scrollOffset
+	if start < 0 {
+		start = 0
+	}
+	if start+maxRows > len(lines) {
+		start = len(lines) - maxRows
+	}
+	if start < 0 {
+		start = 0
+	}
+	return start
+}
+
+func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, body string, viewportRows int, bodyWidth int, hasPermissionBanner bool) {
+	if len(blocks) == 0 || viewportRows < 1 {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	contentX := sidebarW + 2
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	bodyTop := 4
+	if hasPermissionBanner {
+		bodyTop++
+	}
+	visibleStart := a.conversationScrollStart(body, viewportRows)
+	visibleEnd := visibleStart + viewportRows
+	for _, block := range blocks {
+		if block.height <= 0 || block.msgIdx < 0 || block.msgIdx >= len(a.messages) {
+			continue
+		}
+		start := block.fullStart
+		end := block.fullStart + block.height
+		if end <= visibleStart || start >= visibleEnd {
+			continue
+		}
+		screenStart := max(start, visibleStart)
+		screenEnd := min(end, visibleEnd)
+		msgIdx := block.msgIdx
+		addrIdx := block.addrIdx
+		a.registerScreenHit(
+			fmt.Sprintf("conversation:part:%d:%d", msgIdx, addrIdx),
+			mouseRect{
+				x: contentX,
+				y: bodyTop + (screenStart - visibleStart),
+				w: contentW,
+				h: screenEnd - screenStart,
+			},
+			func(app *App) tea.Cmd {
+				if msgIdx < 0 || msgIdx >= len(app.messages) {
+					return nil
+				}
+				addr := addressablePartsOf(app.messages[msgIdx])
+				if addrIdx < 0 || addrIdx >= len(addr) {
+					return nil
+				}
+				alreadySelected := app.focus == FocusBody &&
+					app.bodySelMsgIdx == msgIdx &&
+					app.bodySelPartIdx == addrIdx
+				app.focus = FocusBody
+				app.bodySelMsgIdx = msgIdx
+				app.bodySelPartIdx = addrIdx
+				app.stickyToBottom = false
+				app.pendingPartScroll = false
+				app.searchHitMessageID = ""
+				if alreadySelected {
+					app.openDetailForSelection()
+				}
+				return nil
+			},
+		)
+	}
 }
 
 func truncate(s string, max int) string {
