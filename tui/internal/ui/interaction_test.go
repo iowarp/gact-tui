@@ -921,6 +921,49 @@ func findHitTargetForTest(a *App, id string) (uiHitTarget, bool) {
 	return uiHitTarget{}, false
 }
 
+func TestPermissionBannerActionsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusWaitingPermission}}
+	a.selected = 0
+	a.currentStatus = gact.StatusWaitingPermission
+	a.pendingPermissions = []client.PermissionWire{{
+		PermissionRequest: gact.PermissionRequest{
+			ID:        "perm_1",
+			SessionID: "sess_1",
+			Summary:   "Run shell command: rm -rf /tmp/scratch",
+		},
+		Status: "pending",
+	}}
+
+	_ = a.View()
+	for _, id := range []string{
+		"permission:allow",
+		"permission:deny",
+		"permission:session",
+		"permission:workspace",
+	} {
+		if _, ok := findHitTargetForTest(a, id); !ok {
+			t.Fatalf("missing semantic permission hit target %q", id)
+		}
+	}
+
+	target, _ := findHitTargetForTest(a, "permission:allow")
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("clicking allow should dispatch a permission response command")
+	}
+}
+
 func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

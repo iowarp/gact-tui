@@ -2453,6 +2453,99 @@ func (a *App) handlePermissionKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
+type permissionBannerAction struct {
+	id     string
+	label  string
+	action gact.PermissionAction
+	col    int
+	width  int
+}
+
+func permissionBannerActions() []permissionBannerAction {
+	return []permissionBannerAction{
+		{id: "allow", label: "A:allow", action: gact.PermAllow},
+		{id: "deny", label: "D:deny", action: gact.PermDeny},
+		{id: "session", label: "S:session", action: gact.PermAllowSession},
+		{id: "workspace", label: "W:workspace", action: gact.PermAllowWorkspace},
+	}
+}
+
+func (a *App) renderPermissionBanner(summary string, contentWidth int) (string, []permissionBannerAction) {
+	t := a.Theme
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+	actions := permissionBannerActions()
+	actionLabels := make([]string, 0, len(actions))
+	for _, action := range actions {
+		actionLabels = append(actionLabels, action.label)
+	}
+	actionText := strings.Join(actionLabels, " ")
+	separator := "  "
+	message := a.localizer.t(msgConversationPermissionNeeded, map[string]string{"summary": summary})
+	if before, _, ok := strings.Cut(message, " — "); ok {
+		message = before
+	}
+	// Keep a small gutter because the conversation pane's outer fitting can
+	// wrap styled banner text a few cells before the raw content width.
+	messageWidth := contentWidth - 10 - lipgloss.Width(separator) - lipgloss.Width(actionText)
+	if messageWidth < 0 {
+		messageWidth = 0
+	}
+	message = truncate(message, messageWidth)
+	col := lipgloss.Width(message + separator)
+	for i := range actions {
+		actions[i].col = col
+		actions[i].width = lipgloss.Width(actions[i].label)
+		col += actions[i].width + 1
+	}
+	rendered := message + separator
+	for i, action := range actions {
+		if i > 0 {
+			rendered += " "
+		}
+		rendered += action.label
+	}
+	return lipgloss.NewStyle().
+		Foreground(t.Bg).
+		Background(t.Warning).
+		Padding(0, 1).
+		Bold(true).
+		Render(rendered), actions
+}
+
+func (a *App) registerPermissionBannerHits(actions []permissionBannerAction, bodyWidth int) {
+	if len(actions) == 0 || len(a.pendingPermissions) == 0 {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	contentX := sidebarW + 2
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	permissionID := a.pendingPermissions[0].ID
+	for _, action := range actions {
+		action := action
+		if action.width <= 0 || action.col >= contentW {
+			continue
+		}
+		w := min(action.width, contentW-action.col)
+		a.registerScreenHit(
+			"permission:"+action.id,
+			mouseRect{
+				x: contentX + 1 + action.col,
+				y: 3,
+				w: w,
+				h: 1,
+			},
+			func(app *App) tea.Cmd {
+				return respondPermissionCmd(app.c, permissionID, action.action)
+			},
+		)
+	}
+}
+
 // handlePaletteKey is the slash-command palette key router.
 func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	searchMode := a.isSearchMode()
@@ -7133,14 +7226,11 @@ func (a *App) renderBody(width, height int) string {
 
 	// Permission banner takes priority
 	permBanner := ""
+	var permActions []permissionBannerAction
 	if len(a.pendingPermissions) > 0 {
 		p := a.pendingPermissions[0]
-		permBanner = lipgloss.NewStyle().
-			Foreground(t.Bg).
-			Background(t.Warning).
-			Padding(0, 1).
-			Bold(true).
-			Render(a.localizer.t(msgConversationPermissionNeeded, map[string]string{"summary": p.Summary}))
+		permBanner, permActions = a.renderPermissionBanner(p.Summary, width-4)
+		a.registerPermissionBannerHits(permActions, width)
 	}
 
 	var body string
