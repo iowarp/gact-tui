@@ -436,6 +436,52 @@ func TestHelpCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestMetricsButtonsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+
+	_ = a.View()
+	refreshTarget, ok := findHitTargetForTest(a, "button:metrics:refresh")
+	if !ok {
+		t.Fatal("missing semantic metrics refresh target")
+	}
+	closeTarget, ok := findHitTargetForTest(a, "button:metrics:close")
+	if !ok {
+		t.Fatal("missing semantic metrics close target")
+	}
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      refreshTarget.rect.x,
+		Y:      refreshTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("clicking refresh should dispatch a metrics load command")
+	}
+	if a.metrics == nil || !a.metrics.loading {
+		t.Fatalf("clicking refresh should mark metrics loading, got %+v", a.metrics)
+	}
+
+	_ = a.View()
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      closeTarget.rect.x,
+		Y:      closeTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking close should not dispatch a command")
+	}
+	if a.metricsOpen {
+		t.Fatal("clicking close should close metrics")
+	}
+}
+
 func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
