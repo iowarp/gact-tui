@@ -98,7 +98,31 @@ func (a *App) viewDoctor() string {
 	w := a.modalWidth()
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Doctor — Backend Health")
-	tabs := renderDoctorTabs(a.doctor.tab, t)
+	tabs := []menuTab{
+		{
+			id:     "doctor-health",
+			label:  "Health",
+			active: a.doctor.tab == doctorTabHealth,
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabHealth
+				}
+				return nil
+			},
+		},
+		{
+			id:     "doctor-capabilities",
+			label:  "Capabilities",
+			active: a.doctor.tab == doctorTabCapabilities,
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabCapabilities
+				}
+				return nil
+			},
+		},
+	}
+	tabRow := a.renderModalTabsWithLayout(tabs, 2, 2)
 
 	var body string
 	switch {
@@ -117,51 +141,10 @@ func (a *App) viewDoctor() string {
 	}
 
 	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
-	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabs, "", body, "", hint)
+	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabRow, "", body, "", hint)
 	modal := a.renderDefaultModalSurface(w, box)
-	a.registerModalTabs(modal, 2, []menuTab{
-		{
-			id:    "doctor-health",
-			label: "Health",
-			action: func(app *App) tea.Cmd {
-				if app.doctor != nil {
-					app.doctor.tab = doctorTabHealth
-				}
-				return nil
-			},
-		},
-		{
-			id:    "doctor-capabilities",
-			label: "Capabilities",
-			action: func(app *App) tea.Cmd {
-				if app.doctor != nil {
-					app.doctor.tab = doctorTabCapabilities
-				}
-				return nil
-			},
-		},
-	})
+	a.registerModalTabs(modal, 2, tabs)
 	return modal
-}
-
-// renderDoctorTabs draws the two-tab strip at the top of the modal.
-func renderDoctorTabs(active doctorTab, t Theme) string {
-	on := lipgloss.NewStyle().
-		Background(t.Primary).
-		Foreground(t.Bg).
-		Bold(true).
-		Padding(0, 2)
-	off := lipgloss.NewStyle().
-		Foreground(t.FgMuted).
-		Padding(0, 2)
-	healthStyle, capsStyle := off, off
-	if active == doctorTabHealth {
-		healthStyle = on
-	} else {
-		capsStyle = on
-	}
-	return healthStyle.Render("Health") + "  " +
-		capsStyle.Render("Capabilities")
 }
 
 // renderDoctorCapabilities tabulates every spec capability as
