@@ -96,8 +96,43 @@ func (a *App) viewDoctor() string {
 	}
 	t := a.Theme
 	w := a.modalWidth()
+	innerW := w - 4
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Doctor — Backend Health")
+	buttons := []menuButton{
+		{
+			id:    "doctor:refresh",
+			label: "refresh",
+			action: func(app *App) tea.Cmd {
+				if app.doctor == nil {
+					return nil
+				}
+				preserve := app.doctor.tab
+				app.doctor = &doctorState{loading: true, tab: preserve}
+				return doctorFetchCmd(app.c)
+			},
+		},
+		{
+			id:    "doctor:close",
+			label: "close",
+			action: func(app *App) tea.Cmd {
+				app.doctorOpen = false
+				app.doctor = nil
+				return nil
+			},
+		},
+	}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	titleText := "Doctor — Backend Health"
+	buttonCol := innerW - lipgloss.Width(buttonRow)
+	if buttonCol < lipgloss.Width(titleText)+2 {
+		buttonCol = lipgloss.Width(titleText) + 2
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
+	titleRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		title,
+		strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
+		buttonRow,
+	)
 	tabs := []menuTab{
 		{
 			id:     "doctor-health",
@@ -141,8 +176,11 @@ func (a *App) viewDoctor() string {
 	}
 
 	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
-	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabRow, "", body, "", hint)
+	box := lipgloss.JoinVertical(lipgloss.Left, titleRow, "", tabRow, "", body, "", hint)
 	modal := a.renderDefaultModalSurface(w, box)
+	if !a.doctor.loading {
+		a.registerModalButtons(modal, 0, buttonCol, buttons)
+	}
 	a.registerModalTabs(modal, 2, tabs)
 	return modal
 }
