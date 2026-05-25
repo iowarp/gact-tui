@@ -18,7 +18,7 @@ import (
 func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.workspaceSwitchOpen = false
+		a.closeWorkspaceSwitchModal()
 		return a, nil
 	case "up", "k":
 		if a.workspaceSwitchSel > 0 {
@@ -32,11 +32,11 @@ func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "enter":
 		if a.workspaceSwitchSel < 0 || a.workspaceSwitchSel >= len(a.workspaces) {
-			a.workspaceSwitchOpen = false
+			a.closeWorkspaceSwitchModal()
 			return a, nil
 		}
 		next := a.workspaces[a.workspaceSwitchSel]
-		a.workspaceSwitchOpen = false
+		a.closeWorkspaceSwitchModal()
 		if next.ID == a.wsID {
 			// No-op pick — user hit Enter on the current workspace.
 			a.transientHint = "already on " + workspaceLabel(next)
@@ -86,13 +86,26 @@ type workspaceSwitchedMsg struct {
 	sessions []gact.Session
 }
 
+func (a *App) closeWorkspaceSwitchModal() {
+	a.workspaceSwitchOpen = false
+}
+
 // viewWorkspaceSwitch renders the modal. Matches the settings/metrics
 // overlay style so the user's muscle memory carries over.
 func (a *App) viewWorkspaceSwitch() string {
 	t := a.Theme
 	w := a.modalWidth()
+	buttons := []menuButton{{
+		id:    "workspace-switch:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.closeWorkspaceSwitchModal()
+			return nil
+		},
+	}}
+	titleRow, buttonCol := a.renderModalHeader("Switch workspace", w-4, buttons)
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Switch workspace"),
+		titleRow,
 		"",
 	}
 	if len(a.workspaces) == 0 {
@@ -127,6 +140,7 @@ func (a *App) viewWorkspaceSwitch() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	modal := a.renderDefaultModalSurface(w, body)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	a.registerModalListHits(modal, 2, 0, innerW, list.hits)
 	return modal
 }

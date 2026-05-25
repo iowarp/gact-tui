@@ -222,11 +222,7 @@ func (a *App) handleWorkspaceSwitchMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, boo
 }
 
 func (a *App) handleWorkspaceSwitchMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.workspaceSwitchOpen = false
-		return nil, true
-	}
-	return nil, true
+	return a.closeOverlayOnOutside(rect, mouse, a.closeWorkspaceSwitchModal)
 }
 
 func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
