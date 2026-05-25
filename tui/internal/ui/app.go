@@ -8166,8 +8166,6 @@ func (a *App) localizedHelpTabTitle(title string) string {
 // Navigation: ←/→ or h/l or Tab cycles tabs; ?/Esc closes.
 func (a *App) viewHelp() string {
 	t := a.Theme
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render(a.localizer.t(msgHelpTitle, nil))
 	innerW := a.modalWidth() - 4
 
 	tabHits := make([]menuTab, 0, len(helpTabs))
@@ -8207,12 +8205,7 @@ func (a *App) viewHelp() string {
 			return nil
 		},
 	}}
-	buttonRow := a.renderModalButtons(buttons, 0)
-	buttonCol := innerW - lipgloss.Width(buttonRow)
-	if buttonCol < lipgloss.Width(title)+2 {
-		buttonCol = lipgloss.Width(title) + 2
-	}
-	titleRow := lipgloss.JoinHorizontal(lipgloss.Top, title, strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))), buttonRow)
+	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgHelpTitle, nil), innerW, buttons)
 	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
 		Render(a.localizer.t(msgHelpHint, nil))
 
