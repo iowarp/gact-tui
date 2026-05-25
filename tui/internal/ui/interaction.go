@@ -103,13 +103,14 @@ type menuButton struct {
 }
 
 type modalListItem struct {
-	id          string
-	title       string
-	description string
-	status      string
-	selected    bool
-	disabled    bool
-	action      uiHitAction
+	id             string
+	title          string
+	description    string
+	status         string
+	selected       bool
+	selectedMarker string
+	disabled       bool
+	action         uiHitAction
 }
 
 type modalListOptions struct {
@@ -221,7 +222,11 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
 		}
 		if item.selected {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
+			selectedMarker := item.selectedMarker
+			if selectedMarker == "" {
+				selectedMarker = "▌ "
+			}
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render(selectedMarker)
 			titleStyle = titleStyle.Foreground(t.Secondary)
 		}
 		line := marker + titleStyle.Render(item.title)

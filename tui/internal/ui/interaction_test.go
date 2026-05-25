@@ -48,6 +48,24 @@ func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	}
 }
 
+func TestModalListSupportsCustomSelectedMarker(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	rendered := a.renderModalList([]modalListItem{{
+		id:             "row:current",
+		title:          "current",
+		selected:       true,
+		selectedMarker: "✓ ",
+		action:         func(*App) tea.Cmd { return nil },
+	}}, modalListOptions{width: 24, rowBudget: 1})
+
+	if len(rendered.rows) != 1 {
+		t.Fatalf("rows = %d, want one row", len(rendered.rows))
+	}
+	if got := ansi.Strip(rendered.rows[0]); !strings.Contains(got, "✓ current") {
+		t.Fatalf("custom selected marker not rendered: %q", got)
+	}
+}
+
 func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
