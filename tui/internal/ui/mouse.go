@@ -238,13 +238,6 @@ func (a *App) handleWorkspaceSwitchMouseClick(rect mouseRect, mouse tea.Mouse) (
 		a.workspaceSwitchOpen = false
 		return nil, true
 	}
-	row := rect.contentRow(mouse.Y)
-	idx := row - 2
-	if idx >= 0 && idx < len(a.workspaces) {
-		a.workspaceSwitchSel = idx
-		_, cmd := a.handleWorkspaceSwitchKey(keyMsg("enter"))
-		return cmd, true
-	}
 	return nil, true
 }
 

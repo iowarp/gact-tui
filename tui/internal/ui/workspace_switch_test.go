@@ -169,3 +169,59 @@ func TestWorkspaceSwitcher_EmptyWorkspacesShowsToastNotModal(t *testing.T) {
 		t.Error("expected a toast explaining why nothing opened")
 	}
 }
+
+func TestWorkspaceSwitcherRowsUseSemanticHitTargets(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "workspace-switch:item:ws_b")
+	if !ok {
+		t.Fatal("missing semantic workspace row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.workspaceSwitchSel != 1 {
+		t.Fatalf("workspaceSwitchSel = %d, want clicked row", a.workspaceSwitchSel)
+	}
+	if a.workspaceSwitchOpen {
+		t.Fatal("clicking workspace row should close switcher")
+	}
+	if a.wsID != "ws_b" {
+		t.Fatalf("wsID = %q, want ws_b", a.wsID)
+	}
+	if cmd == nil {
+		t.Fatal("clicking a different workspace should dispatch listSessions cmd")
+	}
+}
+
+func TestWorkspaceSwitcherNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewWorkspaceSwitch(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2 + 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside workspace switcher should not dispatch")
+	}
+	if !a.workspaceSwitchOpen {
+		t.Fatal("non-row click inside workspace switcher should keep modal open")
+	}
+	if a.workspaceSwitchSel != 0 || a.wsID != "ws_a" {
+		t.Fatalf("non-row click changed selection/state: sel=%d ws=%s", a.workspaceSwitchSel, a.wsID)
+	}
+}
