@@ -3967,39 +3967,51 @@ func sidebarContentRect(row int, width int) mouseRect {
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) {
 	rows := []string{
-		"path: " + cf.Path,
-		"mode: " + contextModeDescription(cf.Mode),
+		"File",
+		"  path: " + cf.Path,
+		"  mode: " + contextModeDescription(cf.Mode),
 	}
 	if cf.Size > 0 {
-		rows = append(rows, fmt.Sprintf("size: %s (%d bytes)", humanBytes(cf.Size), cf.Size))
+		rows = append(rows, fmt.Sprintf("  size: %s (%d bytes)", humanBytes(cf.Size), cf.Size))
 	}
 	if strings.TrimSpace(cf.Language) != "" {
-		rows = append(rows, "language: "+cf.Language)
+		rows = append(rows, "  language: "+cf.Language)
 	}
 	if strings.TrimSpace(cf.AddedAt) != "" {
-		rows = append(rows, "added_at: "+cf.AddedAt)
+		rows = append(rows, "  added_at: "+cf.AddedAt)
 	}
 	if strings.TrimSpace(cf.LastModified) != "" {
-		rows = append(rows, "last_modified: "+cf.LastModified)
+		rows = append(rows, "  last_modified: "+cf.LastModified)
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		rows = append(rows,
 			"",
-			"session:",
+			"Session",
 			"  title: "+orPlaceholder(s.Title, a.localizer.t(msgSidebarUntitled, nil)),
 			"  id: "+s.ID,
+			"  status: "+orPlaceholder(s.Status, "unknown"),
 		)
+		if s.WorkspaceID != "" {
+			rows = append(rows, "  workspace: "+s.WorkspaceID)
+		}
 		if s.ParentSessionID != "" {
 			rows = append(rows, "  parent_session_id: "+s.ParentSessionID)
 		}
 		if s.Agent.ID != "" {
 			rows = append(rows, "  agent: "+s.Agent.ID)
 		}
+		if !s.UpdatedAt.IsZero() || !s.CreatedAt.IsZero() {
+			activity := sessionActivityTime(s)
+			rows = append(rows, "  latest_activity: "+activity.UTC().Format(time.RFC3339))
+		}
+		if s.MessageCount > 0 {
+			rows = append(rows, fmt.Sprintf("  messages: %d", s.MessageCount))
+		}
 	}
 	rows = append(rows,
 		"",
-		"actions:",
+		"Actions",
 		"  o: add another context file",
 		"  Esc / Ctrl+E: close detail",
 	)
