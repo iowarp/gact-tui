@@ -8168,6 +8168,7 @@ func (a *App) viewHelp() string {
 	t := a.Theme
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
 		Render(a.localizer.t(msgHelpTitle, nil))
+	innerW := a.modalWidth() - 4
 
 	tabHits := make([]menuTab, 0, len(helpTabs))
 	for i, tab := range helpTabs {
@@ -8197,14 +8198,30 @@ func (a *App) viewHelp() string {
 	}
 	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
+	buttons := []menuButton{{
+		id:    "help:close",
+		label: "close",
+		action: func(app *App) tea.Cmd {
+			app.helpOpen = false
+			app.helpTab = 0
+			return nil
+		},
+	}}
+	buttonRow := a.renderModalButtons(buttons, 0)
+	buttonCol := innerW - lipgloss.Width(buttonRow)
+	if buttonCol < lipgloss.Width(title)+2 {
+		buttonCol = lipgloss.Width(title) + 2
+	}
+	titleRow := lipgloss.JoinHorizontal(lipgloss.Top, title, strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))), buttonRow)
 	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
 		Render(a.localizer.t(msgHelpHint, nil))
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", tabRow, "", keys, "", hint,
+		titleRow, "", tabRow, "", keys, "", hint,
 	)
 	modal := a.renderDefaultModalSurface(a.modalWidth(), body)
 	a.registerModalTabsWithLayout(modal, 2, tabHits, 1, 0)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
 	return modal
 }
 
