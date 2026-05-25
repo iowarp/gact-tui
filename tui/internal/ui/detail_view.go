@@ -27,6 +27,12 @@ type detailField struct {
 	value string
 }
 
+func (a *App) closeDetailView() {
+	a.detailViewOpen = false
+	a.detailView = nil
+	a.detailScroll = 0
+}
+
 func appendDetailSection(rows []string, title string, fields ...detailField) []string {
 	if len(rows) > 0 {
 		rows = append(rows, "")
@@ -107,9 +113,7 @@ func (a *App) openDetailForSelection() {
 func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c", "ctrl+e":
-		a.detailViewOpen = false
-		a.detailView = nil
-		a.detailScroll = 0
+		a.closeDetailView()
 		return a, nil
 	case "up", "k":
 		if a.detailScroll > 0 {
@@ -698,30 +702,11 @@ func (a *App) viewDetailView() string {
 		id:    "detail:close",
 		label: "close",
 		action: func(app *App) tea.Cmd {
-			app.detailViewOpen = false
-			app.detailView = nil
-			app.detailScroll = 0
+			app.closeDetailView()
 			return nil
 		},
 	}}
-	buttonRow := a.renderModalButtons(buttons, 0)
-	buttonCol := innerW - lipgloss.Width(buttonRow)
-	titleBudget := buttonCol - 2
-	if titleBudget < 1 {
-		titleBudget = innerW
-		buttonCol = innerW
-	}
-	titleText := truncate(ref.title+scrollHint, titleBudget)
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
-	if scrollHint != "" && titleText == ref.title+scrollHint {
-		title = lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(ref.title) +
-			lipgloss.NewStyle().Foreground(t.FgMuted).Render(scrollHint)
-	}
-	titleRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		title,
-		strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
-		buttonRow,
-	)
+	titleRow, buttonCol := a.renderModalHeader(ref.title+scrollHint, innerW, buttons)
 
 	hint := t.HintLabel.Render(
 		"↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close")
