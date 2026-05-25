@@ -2311,32 +2311,52 @@ func (a *App) handleMouseWheel(m tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	if !a.MouseEnabled {
 		return a, nil
 	}
-	if a.helpOpen || a.paletteOpen || a.settingsOpen || a.metricsOpen ||
-		a.workspaceSwitchOpen || a.renameOpen || a.contextAddOpen ||
-		a.detailViewOpen || a.quitConfirmOpen || a.doctorOpen || a.lmConfigOpen {
-		return a, nil
+	if cmd, handled := a.handleOverlayMouseWheel(m); handled {
+		return a, cmd
 	}
 	if len(a.messages) == 0 {
 		return a, nil
 	}
 	switch m.Mouse().Button {
 	case tea.MouseWheelUp:
-		a.scrollOffset += 3
-		a.stickyToBottom = false
+		a.scrollConversationLines(-3)
+		if a.focus == FocusBody {
+			a.stepPartCursorSelection(-1)
+		}
 	case tea.MouseWheelDown:
-		a.reattachConversationBottom()
+		a.scrollConversationLines(3)
+		if a.focus == FocusBody {
+			a.stepPartCursorSelection(+1)
+		}
 	}
 	return a, nil
+}
+
+func (a *App) scrollConversationLines(delta int) {
+	if delta == 0 {
+		return
+	}
+	a.pendingPartScroll = false
+	if delta < 0 {
+		a.scrollOffset += -delta
+		a.stickyToBottom = false
+		return
+	}
+	if a.scrollOffset <= delta {
+		a.scrollOffset = 0
+		a.stickyToBottom = true
+		return
+	}
+	a.scrollOffset -= delta
+	a.stickyToBottom = false
 }
 
 func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	if !a.MouseEnabled {
 		return a, nil
 	}
-	if a.helpOpen || a.paletteOpen || a.settingsOpen || a.metricsOpen ||
-		a.workspaceSwitchOpen || a.renameOpen || a.contextAddOpen ||
-		a.detailViewOpen || a.quitConfirmOpen || a.doctorOpen || a.lmConfigOpen {
-		return a, nil
+	if cmd, handled := a.handleOverlayMouseClick(m); handled {
+		return a, cmd
 	}
 	mouse := m.Mouse()
 	if mouse.Button != tea.MouseLeft {
@@ -2388,6 +2408,11 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 	case mouse.Y >= 1+convH:
 		a.focus = FocusInput
+		if a.mouseCommandButtonAt(mouse.X, mouse.Y, sidebarW, convH) {
+			a.paletteOpen = true
+			a.paletteFilter = ""
+			a.paletteSel = 0
+		}
 	case mouse.X >= sidebarW && mouse.Y < 1+bodyH:
 		a.focus = FocusBody
 		a.maybeInitBodyCursor()
@@ -2917,8 +2942,20 @@ func (a *App) selectedPartID() string {
 //   - Absorbed tool messages are skipped silently.
 //   - At the conversation ends, stay on the current part (no wrap).
 func (a *App) stepPartCursor(dir int) {
-	if len(a.messages) == 0 {
+	if a.stepPartCursorSelection(dir) {
+		a.scrollToSelectedMessage()
 		return
+	}
+	if dir > 0 {
+		a.scrollOffset = 0
+		a.stickyToBottom = true
+		a.pendingPartScroll = false
+	}
+}
+
+func (a *App) stepPartCursorSelection(dir int) bool {
+	if len(a.messages) == 0 {
+		return false
 	}
 	if dir == 0 {
 		dir = 1
@@ -2934,8 +2971,7 @@ func (a *App) stepPartCursor(dir int) {
 			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
 			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 		}
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 
 	_, absorbed := pairToolResults(a.messages)
@@ -2964,8 +3000,7 @@ func (a *App) stepPartCursor(dir int) {
 	next := partIdx + dir
 	if next >= 0 && next < len(addr) {
 		a.bodySelPartIdx = next
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 
 	// Need to cross to the next/previous non-absorbed message.
@@ -2986,15 +3021,10 @@ func (a *App) stepPartCursor(dir int) {
 		} else {
 			a.bodySelPartIdx = len(newAddr) - 1
 		}
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 	// At the conversation end — stay put.
-	if dir > 0 {
-		a.scrollOffset = 0
-		a.stickyToBottom = true
-		a.pendingPartScroll = false
-	}
+	return false
 }
 
 // firstAddressablePartIdx returns the index into m's addressable parts
@@ -7050,7 +7080,14 @@ func (a *App) renderBody(width, height int) string {
 	msgPane = fitLines(msgPane, msgH)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
-	a.input.SetWidth(width - 4)
+	inputTextW := width - 4
+	if a.MouseEnabled {
+		inputTextW -= mouseCommandButtonWidth
+	}
+	if inputTextW < 8 {
+		inputTextW = 8
+	}
+	a.input.SetWidth(inputTextW)
 	a.input.SetHeight(inputH - 2)
 	if a.focus == FocusInput {
 		a.input.Focus()
@@ -7062,7 +7099,11 @@ func (a *App) renderBody(width, height int) string {
 	if a.focus == FocusInput {
 		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH)
 	}
-	inputPane := fitLines(inputStyle.Render(a.input.View()), inputH)
+	inputView := a.input.View()
+	if a.MouseEnabled {
+		inputView = a.renderMouseInputCommand(inputView)
+	}
+	inputPane := fitLines(inputStyle.Render(inputView), inputH)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
