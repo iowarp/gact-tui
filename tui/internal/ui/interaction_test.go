@@ -405,6 +405,37 @@ func TestHelpTabsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestHelpCloseButtonUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.helpOpen = true
+	a.helpTab = helpTabIndex("Commands")
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:help:close")
+	if !ok {
+		t.Fatal("missing semantic help close button target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("clicking help close should not dispatch a command")
+	}
+	if a.helpOpen {
+		t.Fatal("clicking help close should close help")
+	}
+	if a.helpTab != 0 {
+		t.Fatalf("helpTab = %d, want reset to 0", a.helpTab)
+	}
+}
+
 func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
