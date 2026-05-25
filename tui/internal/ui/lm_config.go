@@ -371,8 +371,7 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		a.lmConfigOpen = false
-		a.lmConfig = nil
+		a.closeLMConfigModal()
 		return a, nil
 	case "ctrl+r":
 		a.lmConfig.err = nil
@@ -1132,6 +1131,11 @@ func (a *App) lmConfigCanSave(p client.LMProviderPreset) bool {
 	return a.lmConfig.lmConfigSelectedModelSelectable()
 }
 
+func (a *App) closeLMConfigModal() {
+	a.lmConfigOpen = false
+	a.lmConfig = nil
+}
+
 // viewLMConfig renders the modal.
 func (a *App) viewLMConfig() string {
 	if !a.lmConfigOpen || a.lmConfig == nil {
@@ -1148,27 +1152,11 @@ func (a *App) viewLMConfig() string {
 		id:    "lm-config:close",
 		label: "close",
 		action: func(app *App) tea.Cmd {
-			app.lmConfigOpen = false
-			app.lmConfig = nil
+			app.closeLMConfigModal()
 			return nil
 		},
 	}}
-	buttonRow := a.renderModalButtons(buttons, 0)
-	buttonCol := contentW - lipgloss.Width(buttonRow)
-	if buttonCol < 1 {
-		buttonCol = contentW
-	}
-	titleText := truncate(a.localizer.t(msgLMConfigTitle, nil), max(1, buttonCol-2))
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Background(t.Bg).
-		Render(titleText)
-	titleRow := lipgloss.NewStyle().Background(t.Bg).Width(contentW).Render(
-		lipgloss.JoinHorizontal(lipgloss.Top,
-			title,
-			strings.Repeat(" ", max(1, buttonCol-lipgloss.Width(title))),
-			buttonRow,
-		),
-	)
+	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgLMConfigTitle, nil), contentW, buttons)
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).
 		Render(a.localizer.t(msgLMConfigIntro, nil))

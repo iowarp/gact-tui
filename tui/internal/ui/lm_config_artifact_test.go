@@ -864,6 +864,25 @@ func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigOutsideClickUsesSharedCloseState(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside click should not dispatch a command")
+	}
+	if a.lmConfigOpen || a.lmConfig != nil {
+		t.Fatal("outside click should close LM config modal")
+	}
+}
+
 func TestLMConfigUnsupportedEndpointReturnsToSettings(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.settingsOpen = false
