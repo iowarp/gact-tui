@@ -521,3 +521,94 @@ func TestQuitConfirmNonButtonClickDoesNotChooseByCoordinates(t *testing.T) {
 		t.Fatalf("non-button click should not change selection, got %d", a.quitConfirmSelected)
 	}
 }
+
+func TestMcpRemoveRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveOptions = []gact.McpServer{
+		{ID: "srv_one", Name: "one", Transport: "stdio"},
+		{ID: "srv_two", Name: "two", Transport: "http"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "mcp-remove:item:1")
+	if !ok {
+		t.Fatal("missing semantic MCP remove row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.mcpRemoveSel != 1 {
+		t.Fatalf("mcpRemoveSel = %d, want clicked row", a.mcpRemoveSel)
+	}
+	if !a.mcpRemoveSaving {
+		t.Fatal("clicking a remove row should enter saving/removing state")
+	}
+	if cmd == nil {
+		t.Fatal("clicking a remove row should dispatch uninstall command")
+	}
+}
+
+func TestMcpRemoveNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveSel = 0
+	a.mcpRemoveOptions = []gact.McpServer{{ID: "srv_one", Name: "one", Transport: "stdio"}}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewMcpRemove(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2 + 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside MCP remove modal should not dispatch")
+	}
+	if !a.mcpRemoveOpen {
+		t.Fatal("non-row click inside MCP remove modal should keep modal open")
+	}
+	if a.mcpRemoveSaving {
+		t.Fatal("non-row click should not enter removing state")
+	}
+}
+
+func TestMcpInstallButtonsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "bad"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:mcp-install:install")
+	if !ok {
+		t.Fatal("missing semantic MCP install button target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("invalid install click should not dispatch command")
+	}
+	if a.mcpInstallErr == "" {
+		t.Fatal("invalid install click should surface parse error")
+	}
+}
