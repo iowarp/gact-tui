@@ -254,22 +254,7 @@ func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.
 		_, cmd := a.applyQuitConfirmSelection()
 		return cmd, true
 	}
-	row := rect.contentRow(mouse.Y)
-	if row < 4 || row > 6 {
-		return nil, true
-	}
-	col := rect.contentCol(mouse.X)
-	third := max(1, (rect.w-6)/3)
-	idx := col / third
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= len(quitConfirmOptions) {
-		idx = len(quitConfirmOptions) - 1
-	}
-	a.quitConfirmSelected = idx
-	_, cmd := a.applyQuitConfirmSelection()
-	return cmd, true
+	return nil, true
 }
 
 func (a *App) handlePaletteMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {

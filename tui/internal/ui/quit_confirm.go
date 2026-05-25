@@ -153,16 +153,20 @@ func (a *App) viewQuitConfirm() string {
 	box := lipgloss.JoinVertical(lipgloss.Left,
 		title, "", hint, "", row, "", keyLine)
 	modal := a.renderModalSurface(w, t.Warning, t.BgSubtle, box)
-	col := 0
+	buttons := make([]menuButton, 0, len(labels))
 	for i, label := range labels {
 		idx := i
-		chipW := lipgloss.Width(label+"  ("+keyHints[i]+")") + 4
-		a.registerModalContentHit(modal, "button:quit:"+quitConfirmOptions[i], 4, col, chipW, 1, func(app *App) tea.Cmd {
-			app.quitConfirmSelected = idx
-			_, cmd := app.applyQuitConfirmSelection()
-			return cmd
+		buttonLabel := label + "  (" + keyHints[i] + ")"
+		buttons = append(buttons, menuButton{
+			id:    "quit:" + quitConfirmOptions[i],
+			label: buttonLabel,
+			action: func(app *App) tea.Cmd {
+				app.quitConfirmSelected = idx
+				_, cmd := app.applyQuitConfirmSelection()
+				return cmd
+			},
 		})
-		col += chipW
 	}
+	a.registerModalButtons(modal, 4, 0, buttons)
 	return modal
 }
