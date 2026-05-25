@@ -130,6 +130,13 @@ type modalListRender struct {
 	renderedItems int
 }
 
+type scrollWindow struct {
+	start  int
+	end    int
+	scroll int
+	total  int
+}
+
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
 }
@@ -233,4 +240,31 @@ func (a *App) registerModalListHits(modal string, rowOffset int, col int, width 
 	for _, hit := range hits {
 		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, col, width, hit.height, hit.action)
 	}
+}
+
+func boundedScrollWindow(total int, budget int, scroll int) scrollWindow {
+	if total < 0 {
+		total = 0
+	}
+	if budget < 1 {
+		budget = 1
+	}
+	maxScroll := total - budget
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+	end := scroll + budget
+	if end > total {
+		end = total
+	}
+	if end < scroll {
+		end = scroll
+	}
+	return scrollWindow{start: scroll, end: end, scroll: scroll, total: total}
 }
