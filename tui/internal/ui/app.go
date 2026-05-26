@@ -2219,8 +2219,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.quitConfirmOpen {
 			return a.applyQuitConfirmSelection()
 		}
-		a.quitConfirmOpen = true
-		a.quitConfirmSelected = 0 // default: close
+		a.openQuitConfirm()
 		return a, nil
 	case "?":
 		// Open help when there's nothing to type into — covers both
@@ -6756,6 +6755,10 @@ func (a *App) registerFooterActionHits(rendered string) {
 		app.helpOpen = true
 		app.helpTab = 0
 		app.helpScroll = 0
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:quit", "Ctrl+C", a.localizer.t(msgFooterQuit, nil), func(app *App) tea.Cmd {
+		app.openQuitConfirm()
 		return nil
 	})
 }

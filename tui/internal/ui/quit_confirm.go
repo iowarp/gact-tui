@@ -31,6 +31,11 @@ import (
 // quitConfirmOptions is the canonical option order + labels.
 var quitConfirmOptions = []string{"close", "no", "detach"}
 
+func (a *App) openQuitConfirm() {
+	a.quitConfirmOpen = true
+	a.quitConfirmSelected = 0 // default: close
+}
+
 func (a *App) quitConfirmButtons() []menuButton {
 	labels := []string{
 		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
