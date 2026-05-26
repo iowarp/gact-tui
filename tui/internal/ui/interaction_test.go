@@ -679,6 +679,20 @@ func TestHeaderSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 30
+
+	header := ansi.Strip(a.renderHeader())
+
+	for _, want := range []string{"help", "settings"} {
+		if !strings.Contains(header, want) {
+			t.Fatalf("header action %q should be visible in top chrome: %q", want, header)
+		}
+	}
+}
+
 func TestSettingsCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

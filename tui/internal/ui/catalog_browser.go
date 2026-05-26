@@ -986,8 +986,8 @@ func toolsForAgent(agent gact.AgentDef, tools []gact.Tool) []gact.Tool {
 
 func toolSummary(tool gact.Tool) string {
 	parts := make([]string, 0, 4)
-	if strings.TrimSpace(tool.Description) != "" {
-		parts = append(parts, strings.TrimSpace(tool.Description))
+	if desc := strings.TrimSpace(tool.Description); desc != "" && !toolDescriptionRepeatsName(desc, tool) {
+		parts = append(parts, desc)
 	}
 	if tool.ServerID != "" {
 		parts = append(parts, "server: "+tool.ServerID)
@@ -999,6 +999,22 @@ func toolSummary(tool gact.Tool) string {
 		parts = append(parts, "visible to: "+strings.Join(tool.VisibleTo, ", "))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func toolDescriptionRepeatsName(desc string, tool gact.Tool) bool {
+	normalizedDesc := normalizeCatalogComparable(desc)
+	for _, candidate := range []string{tool.ID, tool.Name, tool.Title} {
+		if normalizedDesc != "" && normalizedDesc == normalizeCatalogComparable(candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeCatalogComparable(text string) string {
+	text = strings.TrimSpace(strings.ToLower(text))
+	text = strings.Trim(text, "`'\". ")
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func mcpServersForTools(tools []gact.Tool) []string {
