@@ -399,8 +399,6 @@ func (a *App) viewSettings() string {
 			},
 		})
 	}
-	tabRow := a.renderModalTabsWithLayout(tabHits, 2, 2)
-
 	currentModel := ""
 	currentAgent := ""
 	if a.selected >= 0 && a.selected < len(a.sessions) {
@@ -420,14 +418,7 @@ func (a *App) viewSettings() string {
 	}
 
 	buttons := []menuButton{closeMenuButton("settings:close", func(app *App) { app.closeSettingsModal() })}
-	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgSettingsTitle, nil), w-4, buttons)
-
-	rows := []string{
-		titleRow,
-		"",
-		tabRow,
-		"",
-	}
+	rows := []string{}
 	if s.loadErr != "" {
 		rows = append(rows,
 			lipgloss.NewStyle().Foreground(t.Warning).Render(s.loadErr),
@@ -727,16 +718,22 @@ func (a *App) viewSettings() string {
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
 	}
-	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	a.registerModalTabs(modal, 2, tabHits)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgSettingsTitle, nil),
+		buttons:    buttons,
+		tabs:       tabHits,
+		tabPadding: 2,
+		tabSpacing: 2,
+		body:       body,
+		footer:     t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)),
+	})
 	for _, hit := range rowHits {
-		a.registerModalContentHit(modal, hit.id, hit.row, 0, w-4, hit.height, hit.action)
+		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, 0, w-4, hit.height, hit.action)
 	}
-	return modal
+	return rendered.modal
 }
 
 func orPlaceholder(s, placeholder string) string {
