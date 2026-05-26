@@ -261,6 +261,10 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			app.detailScroll = moveScrollOffsetByWheel(app.detailScroll, button)
 			return nil
 		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			app.detailScroll = scroll
+			return nil
+		},
 	})
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
 }

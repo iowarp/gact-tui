@@ -304,12 +304,13 @@ Keyboard behavior:
 Mouse support exists:
 
 - Wheel scrolls detail content.
+- Click the side scroll rail to jump within long detail content.
 - Click close through the shared modal shell.
 - Click copy to copy the full detail payload without terminal chrome.
 
 Remaining gaps:
 
-- Drag/click scrollbar if one is later rendered.
+- Drag scrollbar thumb if drag semantics are later added.
 - Select text ranges or click raw paths/artifacts.
 
 ### Metrics Modal
@@ -731,7 +732,7 @@ Additional work continued from the same architectural direction:
   all open the command palette through the same helper.
 - Sidebar section headers now share `activateSidebarSection`; the sessions
   header registers a render-time `sidebar:sessions:header` target and the
-  context header, keyboard toggle, and coordinate fallback use the same action.
+  context header and keyboard toggle use the same action.
 - Memory inspector details now open as standalone palette details instead of
   being dropped by the catalog-only detail guard. The inspector surfaces ARC
   cache stats, current session pressure, transcript evidence counts, tool
@@ -756,6 +757,9 @@ Additional work continued from the same architectural direction:
   fallback logic for sidebar rows, section headers, body focus, or the input `/`
   chip. Overlay clicks are constrained to overlay-registered targets before
   base-pane targets can react underneath.
+- Shared scrollable modal frames now register semantic side-rail click targets,
+  so detail, help, doctor, and metrics panes can jump within long content
+  through the same scrollbar primitive instead of adding per-view handlers.
 
 ### 2026-05-26 user-observed follow-up queue
 

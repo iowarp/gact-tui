@@ -653,6 +653,7 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	a.beginHitFrame()
 	wheeled := false
 	closed := false
+	railScroll := -1
 	hintStyle := a.Theme.HintLabel
 
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
@@ -684,6 +685,10 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 			wheeled = true
 			return nil
 		},
+		scrollTo: func(_ *App, scroll int) tea.Cmd {
+			railScroll = scroll
+			return nil
+		},
 	})
 
 	plain := ansi.Strip(rendered.modal)
@@ -708,6 +713,16 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	}
 	if _, handled := a.activateWheelHitAt(target.rect.x, target.rect.y, tea.MouseWheelDown); !handled || !wheeled {
 		t.Fatalf("shared scroll wheel target not activated, handled=%v wheeled=%v", handled, wheeled)
+	}
+	railTarget, ok := findHitTargetForTest(a, "shared-scroll:rail:1")
+	if !ok {
+		t.Fatal("missing shared scroll rail target")
+	}
+	if _, handled := a.activateHitAt(railTarget.rect.x, railTarget.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("shared scroll rail target did not handle click")
+	}
+	if railScroll != 2 {
+		t.Fatalf("rail click scroll = %d, want bottom offset 2", railScroll)
 	}
 	if _, ok := findHitTargetForTest(a, "button:scrollable:close"); !ok {
 		t.Fatal("scrollable modal frame should register header buttons after wheel surface targets")
