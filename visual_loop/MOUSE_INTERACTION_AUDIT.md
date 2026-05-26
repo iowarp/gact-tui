@@ -614,3 +614,7 @@ Additional work continued from the same architectural direction:
   header actions are now explicit opt-in. This keeps ordinary close/back
   controls visually consistent and right-aligned while preserving the highlighted
   quit-confirmation choice.
+- The command palette now surfaces `/memory` capability status inline (`ARC
+  context` when supported, `unsupported` when the backend lacks memory), so
+  memory/context inspection does not look like a generic runnable command with a
+  hidden failure mode.

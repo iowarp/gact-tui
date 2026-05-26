@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -231,6 +232,28 @@ func TestPaletteMemoryCommandExplainsUnsupportedBackend(t *testing.T) {
 	}
 	if !strings.Contains(a.transientHint, "unsupported") {
 		t.Fatalf("unsupported /memory should explain the missing backend capability, got %q", a.transientHint)
+	}
+}
+
+func TestPaletteMemoryCommandShowsCapabilityStatus(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.Memory = false
+	a.paletteOpen = true
+	a.paletteFilter = "memory"
+
+	out := ansi.Strip(a.viewPalette())
+
+	if !strings.Contains(out, "/memory") {
+		t.Fatalf("palette should still show memory command for discoverability:\n%s", out)
+	}
+	if !strings.Contains(out, "[unsupported]") {
+		t.Fatalf("palette should mark unsupported memory command before execution:\n%s", out)
+	}
+
+	a.caps.Capabilities.Memory = true
+	out = ansi.Strip(a.viewPalette())
+	if !strings.Contains(out, "[ARC context]") {
+		t.Fatalf("palette should mark supported memory command with purpose:\n%s", out)
 	}
 }
 
