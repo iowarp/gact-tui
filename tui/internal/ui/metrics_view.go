@@ -58,7 +58,6 @@ func (a *App) viewMetrics() string {
 		a.metrics = &metricsState{loading: true}
 	}
 	w := a.modalWidth()
-	innerW := w - 4
 
 	buttons := []menuButton{
 		{
@@ -71,9 +70,8 @@ func (a *App) viewMetrics() string {
 		},
 		closeMenuButton("metrics:close", func(app *App) { app.metricsOpen = false }),
 	}
-	titleRow, buttonCol := a.renderModalHeader("Backend Metrics", innerW, buttons)
 
-	rows := []string{titleRow, ""}
+	rows := []string{}
 	switch {
 	case a.metrics.err != nil:
 		rows = append(rows,
@@ -133,12 +131,15 @@ func (a *App) viewMetrics() string {
 			rows = appendDetailSection(rows, "Latencies (top 6 by p95, ms)", latencyFields...)
 		}
 	}
-	rows = append(rows, "", t.HintLabel.Render("r refresh   Esc / Ctrl+T close"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	return modal
+	return a.renderModalFrame(modalFrameOptions{
+		width:   w,
+		title:   "Backend Metrics",
+		buttons: buttons,
+		body:    body,
+		footer:  t.HintLabel.Render("r refresh   Esc / Ctrl+T close"),
+	})
 }
 
 func sortedKeys(m map[string]int) []string {
