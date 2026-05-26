@@ -521,6 +521,15 @@ func (a *App) registerModalListHits(modal string, rowOffset int, col int, width 
 	}
 }
 
+func (a *App) registerModalListRegion(modal string, rowOffset int, col int, width int, list modalListRender, wheelID string, wheelAction uiWheelAction) {
+	if len(list.rows) > 0 && wheelID != "" && wheelAction != nil {
+		a.registerModalContentWheelHit(modal, wheelID, rowOffset, col, width, maxInt(1, len(list.rows)), wheelAction)
+	}
+	if len(list.hits) > 0 {
+		a.registerModalListHits(modal, rowOffset, col, width, list.hits)
+	}
+}
+
 func moveSelection(sel int, count int, delta int) int {
 	if count <= 0 || delta == 0 {
 		return sel

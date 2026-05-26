@@ -742,12 +742,9 @@ func (a *App) viewCatalogBrowser() string {
 		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
 		footer:  t.HintLabel.Italic(true).Render(hintText),
 	})
-	if len(list.rows) > 0 {
-		a.registerModalContentWheelHit(rendered.modal, "catalog:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
-			return app.handleCatalogBrowserWheel(button)
-		})
-	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "catalog:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleCatalogBrowserWheel(button)
+	})
 	return rendered.modal
 }
 
