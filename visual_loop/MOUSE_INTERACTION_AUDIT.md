@@ -635,3 +635,7 @@ Additional work continued from the same architectural direction:
   (`modalListHit` and `modalCellHit`) instead of private settings-only hit
   structs, keeping list rows and inline left/right controls aligned through the
   same render-relative registration model.
+- Provider setup hit registration now uses the shared list/cell primitives for
+  provider rows, model rows, OAuth/auth action, advanced left/right controls,
+  and save action. The multi-column provider layout remains custom, but its
+  mouse geometry no longer bypasses the shared hit-target model.

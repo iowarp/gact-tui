@@ -1388,7 +1388,10 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 			},
 		})
 	}
-	a.registerModalListHits(modal, top+2, col, width, hits)
+	a.registerModalListRegion(modal, top+2, col, width, modalListRender{
+		rows: make([]string, len(hits)),
+		hits: hits,
+	}, "", nil)
 }
 
 func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width int) {
@@ -1396,14 +1399,20 @@ func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width i
 		return
 	}
 	// Provider detail rows: selected label, auth status, auth action.
-	a.registerModalContentHit(modal, "lm-config:auth", top+4, col, width, 1, func(app *App) tea.Cmd {
-		if app.lmConfig == nil {
-			return nil
-		}
-		app.lmConfig.field = lmFieldAuth
-		_, cmd := app.handleLMConfigKey(keyMsg("enter"))
-		return cmd
-	})
+	a.registerModalCellHits(modal, 0, []modalCellHit{{
+		id:    "lm-config:auth",
+		row:   top + 4,
+		col:   col,
+		width: width,
+		action: func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = lmFieldAuth
+			_, cmd := app.handleLMConfigKey(keyMsg("enter"))
+			return cmd
+		},
+	}})
 }
 
 func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRows int) {
@@ -1462,40 +1471,65 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 			},
 		})
 	}
-	a.registerModalListHits(modal, top+2, col, width, hits)
+	a.registerModalListRegion(modal, top+2, col, width, modalListRender{
+		rows: make([]string, len(hits)),
+		hits: hits,
+	}, "", nil)
 }
 
 func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 	if a.lmConfig == nil {
 		return
 	}
+	hits := make([]modalCellHit, 0, len(a.lmConfigAdvancedRows())*3)
 	for i, row := range a.lmConfigAdvancedRows() {
 		field := row.field
 		rowY := top + 2 + i
-		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d", field), top+2+i, col, width, 1, func(app *App) tea.Cmd {
-			if app.lmConfig != nil {
-				app.lmConfig.field = field
-			}
-			return nil
+		hits = append(hits, modalCellHit{
+			id:    fmt.Sprintf("lm-config:advanced:%d", field),
+			row:   rowY,
+			col:   col,
+			width: width,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig != nil {
+					app.lmConfig.field = field
+				}
+				return nil
+			},
 		})
 		leftCol, rightCol := row.arrowColumns()
-		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d:dec", field), rowY, col+leftCol, 3, 1, func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
-				return nil
-			}
-			app.lmConfig.field = field
-			_, cmd := app.handleLMConfigKey(keyMsg("left"))
-			return cmd
-		})
-		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d:inc", field), rowY, col+rightCol, 3, 1, func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
-				return nil
-			}
-			app.lmConfig.field = field
-			_, cmd := app.handleLMConfigKey(keyMsg("right"))
-			return cmd
-		})
+		hits = append(hits,
+			modalCellHit{
+				id:    fmt.Sprintf("lm-config:advanced:%d:dec", field),
+				row:   rowY,
+				col:   col + leftCol,
+				width: 3,
+				action: func(app *App) tea.Cmd {
+					if app.lmConfig == nil {
+						return nil
+					}
+					app.lmConfig.field = field
+					_, cmd := app.handleLMConfigKey(keyMsg("left"))
+					return cmd
+				},
+			},
+			modalCellHit{
+				id:    fmt.Sprintf("lm-config:advanced:%d:inc", field),
+				row:   rowY,
+				col:   col + rightCol,
+				width: 3,
+				action: func(app *App) tea.Cmd {
+					if app.lmConfig == nil {
+						return nil
+					}
+					app.lmConfig.field = field
+					_, cmd := app.handleLMConfigKey(keyMsg("right"))
+					return cmd
+				},
+			},
+		)
 	}
+	a.registerModalCellHits(modal, 0, hits)
 }
 
 func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows int, layout lmConfigLayout) {
@@ -1509,13 +1543,20 @@ func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows in
 	if !canSave {
 		return
 	}
-	a.registerModalContentHit(modal, "lm-config:save", bodyTop+bodyRows-layout.buttonRows, 0, innerW, layout.buttonRows, func(app *App) tea.Cmd {
-		if app.lmConfig == nil {
-			return nil
-		}
-		app.lmConfig.field = lmFieldSave
-		return app.lmConfigDispatch()
-	})
+	a.registerModalCellHits(modal, 0, []modalCellHit{{
+		id:     "lm-config:save",
+		row:    bodyTop + bodyRows - layout.buttonRows,
+		col:    0,
+		width:  innerW,
+		height: layout.buttonRows,
+		action: func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = lmFieldSave
+			return app.lmConfigDispatch()
+		},
+	}})
 }
 
 func (a *App) renderLMConfigBody(innerW int, bodyRows int) string {
