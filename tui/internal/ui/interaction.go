@@ -15,10 +15,11 @@ type uiWheelAction func(*App, tea.MouseButton) tea.Cmd
 const modalButtonSpacing = 2
 
 type uiHitTarget struct {
-	id          string
-	rect        mouseRect
-	action      uiHitAction
-	wheelAction uiWheelAction
+	id              string
+	rect            mouseRect
+	action          uiHitAction
+	secondaryAction uiHitAction
+	wheelAction     uiWheelAction
 }
 
 type uiHitRegistry struct {
@@ -30,7 +31,8 @@ func (r *uiHitRegistry) reset() {
 }
 
 func (r *uiHitRegistry) add(target uiHitTarget) {
-	if target.rect.w <= 0 || target.rect.h <= 0 || (target.action == nil && target.wheelAction == nil) {
+	if target.rect.w <= 0 || target.rect.h <= 0 ||
+		(target.action == nil && target.secondaryAction == nil && target.wheelAction == nil) {
 		return
 	}
 	r.targets = append(r.targets, target)
@@ -52,14 +54,24 @@ func (a *App) beginHitFrame() {
 	a.hits.reset()
 }
 
-func (a *App) activateHitAt(x, y int) (tea.Cmd, bool) {
+func (a *App) activateHitAt(x, y int, button tea.MouseButton) (tea.Cmd, bool) {
 	if a.hits == nil {
 		return nil, false
 	}
 	for i := len(a.hits.targets) - 1; i >= 0; i-- {
 		target := a.hits.targets[i]
-		if target.action != nil && target.rect.contains(x, y) {
-			return target.action(a), true
+		if !target.rect.contains(x, y) {
+			continue
+		}
+		switch button {
+		case tea.MouseLeft:
+			if target.action != nil {
+				return target.action(a), true
+			}
+		case tea.MouseRight:
+			if target.secondaryAction != nil {
+				return target.secondaryAction(a), true
+			}
 		}
 	}
 	return nil, false
@@ -83,6 +95,13 @@ func (a *App) registerScreenHit(id string, rect mouseRect, action uiHitAction) {
 		return
 	}
 	a.hits.add(uiHitTarget{id: id, rect: rect, action: action})
+}
+
+func (a *App) registerScreenHitActions(id string, rect mouseRect, action uiHitAction, secondaryAction uiHitAction) {
+	if a.hits == nil {
+		return
+	}
+	a.hits.add(uiHitTarget{id: id, rect: rect, action: action, secondaryAction: secondaryAction})
 }
 
 func (a *App) registerScreenWheelHit(id string, rect mouseRect, action uiWheelAction) {

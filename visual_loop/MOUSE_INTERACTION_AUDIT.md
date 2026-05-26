@@ -81,8 +81,8 @@ Current mouse support:
 
 Most historical keyboard-only popups have been migrated to the overlay-first
 mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
-true range/text selection, future row-local context menus, and continued visual
-polish for wrapping/button alignment as new surfaces are added.
+true range/text selection, future row-specific actions beyond sessions, and
+continued visual polish for wrapping/button alignment as new surfaces are added.
 
 ## Base UI Surfaces
 
@@ -99,11 +99,10 @@ Mouse support exists:
 - Click the active/archived footer counts to toggle active vs archived sessions.
 - Click visible sidebar footer actions for open, rename, delete, child
   visibility, archive/unarchive, copy session id, add context, and filter.
-
-Remaining gaps:
-
-- No row-local right-click/context-menu behavior. The keyboard-advertised
-  session actions are mouse-addressable through the visible footer.
+- Right-click a rendered session row to open the shared session action menu.
+- Press `m` from sidebar focus to open the same action menu by keyboard.
+- Click session action rows for open, rename, add context, child visibility,
+  copy id, archive/unarchive, and two-step delete.
 
 ### Conversation Body
 
@@ -598,8 +597,9 @@ Current VHS/screenshots proving the shared interaction/menu work:
 - Transcript/detail/context workflows: `semantic_context_detail.tape`,
   `semantic_diff_actions.tape`, `semantic_conversation_footer_actions.tape`,
   `semantic_conversation_block_copy.tape`, and `semantic_detail_copy.tape`.
-- Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape` and
-  `semantic_sidebar_footer_actions.tape`.
+- Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape`,
+  `semantic_sidebar_footer_actions.tape`, and
+  `semantic_session_actions.tape`.
 - Permission and startup states: `semantic_permission_banner.tape`,
   `semantic_startup_intro.tape`, `semantic_startup_connecting.tape`, and
   `semantic_startup_error.tape`.
