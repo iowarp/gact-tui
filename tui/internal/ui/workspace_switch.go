@@ -147,16 +147,13 @@ func (a *App) viewWorkspaceSwitch() string {
 		footer:  t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"),
 	})
 	a.registerModalSurfaceWheel(rendered, "workspace-switch")
-	if len(list.hits) > 0 {
-		a.registerModalContentWheelHit(rendered.modal, "workspace-switch:list:wheel", rendered.bodyRow+listStartRow, 0, innerW, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
-			if len(app.workspaces) == 0 {
-				return nil
-			}
-			app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, innerW, list, "workspace-switch:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		if len(app.workspaces) == 0 {
 			return nil
-		})
-	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, innerW, list.hits)
+		}
+		app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
+		return nil
+	})
 	return rendered.modal
 }
 

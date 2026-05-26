@@ -148,6 +148,48 @@ func TestModalListSupportsCustomSelectedMarker(t *testing.T) {
 	}
 }
 
+func TestModalListRegionRegistersWheelAndRowHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	rowClicked := false
+	wheeled := false
+	modal := a.renderDefaultModalSurface(48, "Title\n\nalpha\n  details")
+	list := modalListRender{
+		rows: []string{"alpha", "  details"},
+		hits: []modalListHit{{
+			id:     "list:item:alpha",
+			row:    0,
+			height: 2,
+			action: func(*App) tea.Cmd {
+				rowClicked = true
+				return nil
+			},
+		}},
+	}
+
+	a.registerModalListRegion(modal, 2, 0, 42, list, "list:wheel", func(*App, tea.MouseButton) tea.Cmd {
+		wheeled = true
+		return nil
+	})
+
+	rowTarget, ok := findHitTargetForTest(a, "list:item:alpha")
+	if !ok {
+		t.Fatal("missing list row hit target")
+	}
+	if _, handled := a.activateHitAt(rowTarget.rect.x, rowTarget.rect.y+1); !handled || !rowClicked {
+		t.Fatalf("list row hit should span rendered description rows, handled=%v clicked=%v", handled, rowClicked)
+	}
+	wheelTarget, ok := findHitTargetForTest(a, "list:wheel")
+	if !ok {
+		t.Fatal("missing list wheel target")
+	}
+	if _, handled := a.activateWheelHitAt(wheelTarget.rect.x, wheelTarget.rect.y, tea.MouseWheelDown); !handled || !wheeled {
+		t.Fatalf("list wheel hit should activate, handled=%v wheeled=%v", handled, wheeled)
+	}
+}
+
 func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

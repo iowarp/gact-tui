@@ -369,11 +369,8 @@ func (a *App) viewFilePicker() string {
 		body:    body,
 		footer:  hint,
 	})
-	if len(list.rows) > 0 {
-		a.registerModalContentWheelHit(rendered.modal, "file-picker:list:wheel", rendered.bodyRow+2+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
-			return app.handleFilePickerWheel(button)
-		})
-	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow+2+listStartRow, 0, w-4, list.hits)
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow+2+listStartRow, 0, w-4, list, "file-picker:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleFilePickerWheel(button)
+	})
 	return rendered.modal
 }

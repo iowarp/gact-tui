@@ -627,3 +627,7 @@ Additional work continued from the same architectural direction:
   body wheel regions, tabs, and header buttons. Help, metrics, and doctor no
   longer suppress and manually re-register their controls just to keep them
   clickable above the scroll surface.
+- Selectable modal lists now share `registerModalListRegion`, which registers
+  row clicks and list wheel targets together from the rendered list geometry.
+  Palette, catalog, file picker, workspace switcher, and MCP removal use this
+  primitive instead of each hand-wiring row and wheel rectangles.

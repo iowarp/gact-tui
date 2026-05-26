@@ -336,11 +336,8 @@ func (a *App) viewMcpRemove() string {
 		body:    strings.Join(rows, "\n"),
 		footer:  t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
 	})
-	if len(list.hits) > 0 {
-		a.registerModalContentWheelHit(rendered.modal, "mcp-remove:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
-			return app.handleMcpRemoveWheel(button)
-		})
-		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
-	}
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "mcp-remove:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleMcpRemoveWheel(button)
+	})
 	return rendered.modal
 }

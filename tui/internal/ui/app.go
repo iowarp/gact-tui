@@ -8135,11 +8135,10 @@ func (a *App) viewPalette() string {
 	})
 	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
 	if len(listItems) > 0 {
-		a.registerModalContentWheelHit(rendered.modal, "palette:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
 			return nil
 		})
-		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
 	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
@@ -8216,11 +8215,10 @@ func (a *App) viewPaletteSearch(w int) string {
 	})
 	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
 	if len(list.hits) > 0 && listStartRow >= 0 {
-		a.registerModalContentWheelHit(rendered.modal, "palette:search:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:search:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
 			return nil
 		})
-		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
 	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
