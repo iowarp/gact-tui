@@ -364,7 +364,7 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 	tabSpacing := frame.tabSpacing
 	frame.suppressButtonHits = true
 	frame.suppressTabHits = true
-	frame.body = windowed.body
+	frame.body = padModalBody(windowed.body, opts.pageSize)
 	if opts.footerHint != "" {
 		footer := modalRangeHint(windowed.window, opts.footerHint)
 		if opts.footerStyle != nil {

@@ -102,10 +102,13 @@ func (r mouseRect) contentCol(screenX int) int {
 }
 
 type mouseOverlay struct {
-	open  bool
-	view  func() string
-	click func(mouseRect, tea.Mouse) (tea.Cmd, bool)
-	wheel func(tea.MouseWheelMsg) (tea.Cmd, bool)
+	open         bool
+	view         func() string
+	prepare      func(*App)
+	valid        func(*App) bool
+	closeOutside func(*App)
+	click        func(mouseRect, tea.Mouse) (tea.Cmd, bool)
+	wheel        func(tea.MouseWheelMsg) (tea.Cmd, bool)
 }
 
 func (a *App) mouseOverlays() []mouseOverlay {
@@ -113,21 +116,47 @@ func (a *App) mouseOverlays() []mouseOverlay {
 	// receives mouse input first.
 	return []mouseOverlay{
 		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, click: a.handleQuitConfirmMouseClick},
-		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, click: a.handleMcpRemoveMouseClick},
-		{open: a.mcpInstallOpen, view: a.viewMcpInstall, click: a.handleMcpInstallMouseClick},
-		{open: a.filePickerOpen, view: a.viewFilePicker, click: a.handleFilePickerMouseClick},
-		{open: a.composeOpen, view: a.viewCompose, click: a.handleComposeMouseClick},
-		{open: a.detailViewOpen, view: a.viewDetailView, click: a.handleDetailMouseClick},
-		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick},
-		{open: a.contextAddOpen, view: a.viewContextAdd, click: a.handleContextAddMouseClick},
-		{open: a.renameOpen, view: a.viewRename, click: a.handleRenameMouseClick},
-		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, click: a.handleWorkspaceSwitchMouseClick},
-		{open: a.lmConfigOpen, view: a.viewLMConfig, click: a.handleLMConfigMouseClick},
-		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
-		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
-		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick},
-		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick},
-		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick},
+		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, closeOutside: func(app *App) { app.closeMcpRemoveModal() }},
+		{open: a.mcpInstallOpen, view: a.viewMcpInstall, closeOutside: func(app *App) { app.closeMcpInstallModal() }},
+		{
+			open:         a.filePickerOpen,
+			view:         a.viewFilePicker,
+			valid:        func(app *App) bool { return app.filePicker != nil },
+			closeOutside: func(app *App) { app.closeFilePicker() },
+		},
+		{open: a.composeOpen, view: a.viewCompose, closeOutside: func(app *App) { app.cancelCompose() }},
+		{open: a.detailViewOpen, view: a.viewDetailView, closeOutside: func(app *App) { app.closeDetailView() }},
+		{
+			open:         a.catalogBrowserOpen,
+			view:         a.viewCatalogBrowser,
+			valid:        func(app *App) bool { return app.catalogBrowser != nil },
+			closeOutside: func(app *App) { app.closeCatalogBrowser() },
+		},
+		{open: a.contextAddOpen, view: a.viewContextAdd, closeOutside: func(app *App) { app.closeContextAddModal() }},
+		{open: a.renameOpen, view: a.viewRename, closeOutside: func(app *App) { app.closeRenameModal() }},
+		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, closeOutside: func(app *App) { app.closeWorkspaceSwitchModal() }},
+		{open: a.lmConfigOpen, view: a.viewLMConfig, closeOutside: func(app *App) { app.closeLMConfigModal() }},
+		{open: a.doctorOpen, view: a.viewDoctor, closeOutside: func(app *App) { app.doctorOpen = false }},
+		{open: a.metricsOpen, view: a.viewMetrics, closeOutside: func(app *App) { app.metricsOpen = false }},
+		{
+			open: a.settingsOpen,
+			view: a.viewSettings,
+			prepare: func(app *App) {
+				if app.settings == nil {
+					app.settings = &settingsState{}
+				}
+			},
+			closeOutside: func(app *App) { app.closeSettingsModal() },
+		},
+		{
+			open: a.helpOpen,
+			view: a.viewHelp,
+			closeOutside: func(app *App) {
+				app.helpOpen = false
+				app.helpScroll = 0
+			},
+		},
+		{open: a.paletteOpen, view: a.viewPalette, closeOutside: func(app *App) { app.closePalette() }},
 	}
 }
 
@@ -153,9 +182,21 @@ func (a *App) handleOverlayMouseClick(m tea.MouseClickMsg) (tea.Cmd, bool) {
 		if mouse.Button != tea.MouseLeft {
 			return nil, true
 		}
+		if ov.prepare != nil {
+			ov.prepare(a)
+		}
+		if ov.valid != nil && !ov.valid(a) {
+			if ov.closeOutside != nil {
+				ov.closeOutside(a)
+			}
+			return nil, true
+		}
 		rect := overlayMouseRect(ov.view(), a.width, a.height)
 		if ov.click != nil {
 			return ov.click(rect, mouse)
+		}
+		if !rect.contains(mouse.X, mouse.Y) && ov.closeOutside != nil {
+			ov.closeOutside(a)
 		}
 		return nil, true
 	}
@@ -213,22 +254,6 @@ func textKeyMsg(s string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Text: s}
 }
 
-func (a *App) closeOverlayOnOutside(rect mouseRect, mouse tea.Mouse, close func()) (tea.Cmd, bool) {
-	if rect.contains(mouse.X, mouse.Y) {
-		return nil, true
-	}
-	close()
-	return nil, true
-}
-
-func (a *App) handleDetailMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeDetailView)
-}
-
-func (a *App) handleWorkspaceSwitchMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeWorkspaceSwitchModal)
-}
-
 func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	if !rect.contains(mouse.X, mouse.Y) {
 		a.quitConfirmSelected = 1
@@ -236,84 +261,4 @@ func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.
 		return cmd, true
 	}
 	return nil, true
-}
-
-func (a *App) handlePaletteMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closePalette)
-}
-
-func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.helpOpen = false
-		a.helpScroll = 0
-		return nil, true
-	}
-	return nil, true
-}
-
-func (a *App) handleFilePickerMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if a.filePicker == nil {
-		a.closeFilePicker()
-		return nil, true
-	}
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.closeFilePicker()
-		return nil, true
-	}
-	return nil, true
-}
-
-func (a *App) handleCatalogBrowserMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if a.catalogBrowser == nil {
-		a.closeCatalogBrowser()
-		return nil, true
-	}
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.closeCatalogBrowser()
-		return nil, true
-	}
-	return nil, true
-}
-
-func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpRemoveModal)
-}
-
-func (a *App) handleMcpInstallMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpInstallModal)
-}
-
-func (a *App) handleSettingsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if a.settings == nil {
-		a.settings = &settingsState{}
-	}
-	return a.closeOverlayOnOutside(rect, mouse, a.closeSettingsModal)
-}
-
-func (a *App) handleMetricsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, func() { a.metricsOpen = false })
-}
-
-func (a *App) handleDoctorMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.doctorOpen = false
-		return nil, true
-	}
-	return nil, true
-}
-
-func (a *App) handleLMConfigMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeLMConfigModal)
-}
-
-func (a *App) handleRenameMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeRenameModal)
-}
-
-func (a *App) handleContextAddMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.closeContextAddModal)
-}
-
-func (a *App) handleComposeMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	return a.closeOverlayOnOutside(rect, mouse, a.cancelCompose)
 }

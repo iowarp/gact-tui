@@ -1008,6 +1008,63 @@ func TestSettingsTUIArrowControlsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 42
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CostWarnTokens = 50_000
+	a.Theme.CostDangerTokens = 100_000
+	a.Theme.PasteCompressThreshold = 3
+	a.MouseEnabled = true
+
+	cases := []struct {
+		rowID string
+		incID string
+		want  int
+	}{
+		{rowID: "settings:tui:cost-warn", incID: "settings:tui:cost-warn:inc", want: 1},
+		{rowID: "settings:tui:cost-danger", incID: "settings:tui:cost-danger:inc", want: 2},
+		{rowID: "settings:tui:paste-compress", incID: "settings:tui:paste-compress:inc", want: 3},
+		{rowID: "settings:tui:intro", incID: "settings:tui:intro:inc", want: 4},
+		{rowID: "settings:tui:mouse", incID: "settings:tui:mouse:inc", want: 5},
+	}
+	for _, tc := range cases {
+		a.MouseEnabled = true
+		_ = a.View()
+		row, ok := findHitTargetForTest(a, tc.rowID)
+		if !ok {
+			t.Fatalf("missing row target %s", tc.rowID)
+		}
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      row.rect.x,
+			Y:      row.rect.y + row.rect.h - 1,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if a.settings == nil || a.settings.tuiRow != tc.want {
+			t.Fatalf("%s click selected row %v, want %d", tc.rowID, a.settings, tc.want)
+		}
+
+		_ = a.View()
+		inc, ok := findHitTargetForTest(a, tc.incID)
+		if !ok {
+			t.Fatalf("missing inc target %s", tc.incID)
+		}
+		model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      inc.rect.x,
+			Y:      inc.rect.y,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if a.settings == nil || a.settings.tuiRow != tc.want || !a.settingsOpen {
+			t.Fatalf("%s click should keep row selected/open, settings=%+v open=%v", tc.incID, a.settings, a.settingsOpen)
+		}
+	}
+}
+
 func TestSettingsModelRowUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -1823,6 +1880,17 @@ func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
 	}
 	if _, ok := findHitTargetForTest(a, "palette:command:0"); ok {
 		t.Fatal("palette command window should not keep the first row target when selection moves down-list")
+	}
+}
+
+func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
+	c := gact.Command{ID: "/doctor", Title: "/doctor", Description: "Inspect backend health", Source: "builtin"}
+	if got := paletteCommandSubtitle(c); got != "Inspect backend health" {
+		t.Fatalf("subtitle = %q, want description", got)
+	}
+	c = gact.Command{ID: "/clear", Title: "clear", Source: "builtin"}
+	if got := paletteCommandSubtitle(c); got != "builtin" {
+		t.Fatalf("subtitle = %q, want source fallback for duplicate title", got)
 	}
 }
 

@@ -1,5 +1,7 @@
 package ui
 
+import "strings"
+
 type modalWidthKind int
 
 const (
@@ -52,4 +54,23 @@ func (a *App) detailModalWidth() int {
 
 func (a *App) wideModalWidth() int {
 	return a.modalWidthFor(modalWidthWide)
+}
+
+func (a *App) modalBodyRows(chromeRows int) int {
+	rows := a.height - chromeRows
+	if rows < 4 {
+		return 4
+	}
+	return rows
+}
+
+func padModalBody(body string, rows int) string {
+	if rows <= 0 {
+		return body
+	}
+	lines := strings.Split(body, "\n")
+	for len(lines) < rows {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }

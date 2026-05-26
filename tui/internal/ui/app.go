@@ -8119,7 +8119,7 @@ func (a *App) viewPalette() string {
 		listItems = append(listItems, modalListItem{
 			id:          fmt.Sprintf("palette:command:%d", idx),
 			title:       c.ID,
-			description: c.Title,
+			description: paletteCommandSubtitle(c),
 			status:      a.paletteCurrentValue(c.ID),
 			selected:    i == a.paletteSel,
 			action: func(app *App) tea.Cmd {
@@ -8146,7 +8146,7 @@ func (a *App) viewPalette() string {
 	}
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.paletteBodyPageSize())
 	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
 		width:   w,
 		title:   a.localizer.t(msgPaletteCommandsTitle, nil),
@@ -8160,6 +8160,28 @@ func (a *App) viewPalette() string {
 		})
 	}
 	return rendered.modal
+}
+
+func paletteCommandSubtitle(c gact.Command) string {
+	id := strings.TrimSpace(c.ID)
+	title := strings.TrimSpace(c.Title)
+	desc := strings.TrimSpace(c.Description)
+	if desc != "" && !samePaletteCommandText(desc, id) && !samePaletteCommandText(desc, title) {
+		return desc
+	}
+	if title != "" && !samePaletteCommandText(title, id) {
+		return title
+	}
+	if c.Source != "" {
+		return c.Source
+	}
+	return ""
+}
+
+func samePaletteCommandText(a, b string) bool {
+	a = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(a)), "/")
+	b = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(b)), "/")
+	return a != "" && a == b
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -8464,11 +8486,11 @@ func (a *App) viewHelp() string {
 }
 
 func (a *App) helpBodyPageSize() int {
-	rows := a.height - 14
-	if rows < 4 {
-		rows = 4
-	}
-	return rows
+	return a.modalBodyRows(14)
+}
+
+func (a *App) paletteBodyPageSize() int {
+	return a.modalBodyRows(14)
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have
