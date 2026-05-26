@@ -618,3 +618,8 @@ Additional work continued from the same architectural direction:
   context` when supported, `unsupported` when the backend lacks memory), so
   memory/context inspection does not look like a generic runnable command with a
   hidden failure mode.
+- Top-right global actions now render as explicit `help` and `settings` labels
+  rather than symbolic-only cells, while keeping the same semantic mouse hit
+  targets.
+- Tool catalog summaries now drop descriptions that only repeat the command
+  name, leaving row space for source, server, tags, and visibility metadata.

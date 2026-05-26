@@ -6474,7 +6474,7 @@ func (a *App) headerActions() []headerAction {
 	return []headerAction{
 		{
 			id:    "help",
-			label: "?",
+			label: "help",
 			action: func(app *App) tea.Cmd {
 				app.helpOpen = true
 				app.helpTab = 0
@@ -6484,7 +6484,7 @@ func (a *App) headerActions() []headerAction {
 		},
 		{
 			id:    "settings",
-			label: "⚙",
+			label: "settings",
 			action: func(app *App) tea.Cmd {
 				app.settingsOpen = true
 				app.settings = &settingsState{}

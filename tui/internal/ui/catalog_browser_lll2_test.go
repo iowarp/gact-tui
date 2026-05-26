@@ -660,6 +660,25 @@ func TestCatalogBrowserCompactsMultilineDescriptions(t *testing.T) {
 	}
 }
 
+func TestToolSummaryOmitsRepeatedCommandDescription(t *testing.T) {
+	got := toolSummary(gact.Tool{
+		ID:          "parquet_compute_statistics",
+		Name:        "parquet_compute_statistics",
+		Description: "parquet_compute_statistics",
+		ServerID:    "facility-data",
+		Tags:        []string{"parquet", "statistics"},
+	})
+
+	if strings.Contains(got, "parquet_compute_statistics") {
+		t.Fatalf("tool summary should omit repeated command-name description: %q", got)
+	}
+	for _, want := range []string{"server: facility-data", "tags: parquet, statistics"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("tool summary missing useful metadata %q: %q", want, got)
+		}
+	}
+}
+
 func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
 	for _, kind := range []catalogBrowserKind{catalogKindMcpDetail, catalogKindAgentDetail} {
 		a := newReadyApp(nil, nil)
