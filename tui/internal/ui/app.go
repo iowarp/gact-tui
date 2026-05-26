@@ -2347,10 +2347,14 @@ func (a *App) handleMouseWheel(m tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	if cmd, handled := a.handleOverlayMouseWheel(m); handled {
 		return a, cmd
 	}
+	return a, nil
+}
+
+func (a *App) handleConversationWheel(button tea.MouseButton) tea.Cmd {
 	if len(a.messages) == 0 {
-		return a, nil
+		return nil
 	}
-	switch m.Mouse().Button {
+	switch button {
 	case tea.MouseWheelUp:
 		a.scrollConversationLines(-3)
 		if a.focus == FocusBody {
@@ -2362,7 +2366,7 @@ func (a *App) handleMouseWheel(m tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			a.stepPartCursorSelection(+1)
 		}
 	}
-	return a, nil
+	return nil
 }
 
 func (a *App) scrollConversationLines(delta int) {
@@ -7459,6 +7463,7 @@ func (a *App) renderBody(width, height int) string {
 			a.adjustScrollForSelectedPart(body, conversationH)
 			a.pendingPartScroll = false
 		}
+		a.registerConversationWheelHit(conversationH, width, permBanner != "")
 		a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
 		body = a.scrollClip(body, conversationH, t)
 	}
@@ -7916,6 +7921,29 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 			},
 		)
 	}
+}
+
+func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {
+	if viewportRows < 1 {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	bodyTop := 4
+	if hasPermissionBanner {
+		bodyTop++
+	}
+	a.registerScreenWheelHit("conversation:body:wheel", mouseRect{
+		x: sidebarW + 2,
+		y: bodyTop,
+		w: contentW,
+		h: viewportRows,
+	}, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleConversationWheel(button)
+	})
 }
 
 func truncate(s string, max int) string {
