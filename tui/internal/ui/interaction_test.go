@@ -275,6 +275,56 @@ func TestWindowModalBodyAndRangeHintUseSharedScrollSemantics(t *testing.T) {
 	}
 }
 
+func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	wheeled := false
+	hintStyle := a.Theme.HintLabel
+
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width: 60,
+			title: "Scrollable",
+			buttons: []menuButton{{
+				id:     "scrollable:close",
+				label:  "close",
+				action: func(*App) tea.Cmd { return nil },
+			}},
+			suppressButtonHits: true,
+		},
+		content:     strings.Join([]string{"zero", "one", "two", "three"}, "\n"),
+		pageSize:    2,
+		scroll:      1,
+		wheelID:     "shared-scroll",
+		footerHint:  "Up/Down scroll",
+		footerStyle: &hintStyle,
+		wheelAction: func(*App, tea.MouseButton) tea.Cmd {
+			wheeled = true
+			return nil
+		},
+	})
+
+	plain := ansi.Strip(rendered.modal)
+	if !strings.Contains(plain, "one") || !strings.Contains(plain, "two") || strings.Contains(plain, "zero") {
+		t.Fatalf("modal should render selected body window:\n%s", plain)
+	}
+	if !strings.Contains(plain, "2-3/4  Up/Down scroll") {
+		t.Fatalf("modal footer should include visible range:\n%s", plain)
+	}
+	if rendered.window.scroll != 1 || rendered.window.start != 1 || rendered.window.end != 3 {
+		t.Fatalf("window = %+v, want rows 1-3", rendered.window)
+	}
+	target, ok := findHitTargetForTest(a, "shared-scroll:body:wheel")
+	if !ok {
+		t.Fatal("missing shared scroll body wheel target")
+	}
+	if _, handled := a.activateWheelHitAt(target.rect.x, target.rect.y, tea.MouseWheelDown); !handled || !wheeled {
+		t.Fatalf("shared scroll wheel target not activated, handled=%v wheeled=%v", handled, wheeled)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
