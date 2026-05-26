@@ -768,7 +768,11 @@ func (a *App) viewSettings() string {
 		footer:     t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)),
 	})
 	a.registerModalSurfaceWheel(rendered, "settings")
-	a.registerModalContentWheelHit(rendered.modal, "settings:body:wheel", rendered.bodyRow, 0, w-4, maxInt(1, strings.Count(body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+	bodyList := modalListRender{
+		rows: strings.Split(body, "\n"),
+		hits: rowHits,
+	}
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, w-4, bodyList, "settings:body:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 		if app.settings == nil {
 			app.settings = &settingsState{}
 		}
@@ -782,7 +786,6 @@ func (a *App) viewSettings() string {
 		}
 		return nil
 	})
-	a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, w-4, rowHits)
 	a.registerModalCellHits(rendered.modal, rendered.bodyRow, arrowHits)
 	return rendered.modal
 }
