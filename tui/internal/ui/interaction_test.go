@@ -1858,15 +1858,62 @@ func TestMcpRemoveMouseWheelMovesSelection(t *testing.T) {
 		})
 	}
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "mcp-remove:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic MCP remove list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 	if a.mcpRemoveSel != 1 {
 		t.Fatalf("wheel down should move MCP remove selection, got %d", a.mcpRemoveSel)
 	}
-	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok = findHitTargetForTest(a, "mcp-remove:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic MCP remove list wheel target after redraw")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 	if a.mcpRemoveSel != 0 {
 		t.Fatalf("wheel up should move MCP remove selection, got %d", a.mcpRemoveSel)
+	}
+}
+
+func TestMcpRemoveMouseWheelOutsideListDoesNotMoveSelection(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	for i := 0; i < 4; i++ {
+		a.mcpRemoveOptions = append(a.mcpRemoveOptions, gact.McpServer{
+			ID:        "srv_" + itoa2(i),
+			Name:      "server " + itoa2(i),
+			Transport: "stdio",
+		})
+	}
+
+	_ = a.View()
+	view := a.viewMcpRemove()
+	rect := overlayMouseRect(view, a.width, a.height)
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if a.mcpRemoveSel != 0 {
+		t.Fatalf("wheel outside list should not move MCP remove selection, got %d", a.mcpRemoveSel)
 	}
 }
 
