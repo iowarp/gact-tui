@@ -656,3 +656,6 @@ Additional work continued from the same architectural direction:
   one-line expanded child/nanoagent rows. Session selection and selected-parent
   child collapse/expand both route through one shared action instead of
   duplicating coordinate-derived behavior.
+- The mouse-mode input `/` chip now registers a render-time `input:command`
+  target, and footer, keyboard, semantic mouse, and compatibility click paths
+  all open the command palette through the same helper.

@@ -2187,6 +2187,39 @@ func TestSidebarSelectedParentSemanticHitTogglesChildren(t *testing.T) {
 	}
 }
 
+func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.focus = FocusBody
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:command")
+	if !ok {
+		t.Fatal("missing semantic input command hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("input command chip click should not dispatch a command")
+	}
+	if !a.paletteOpen || a.paletteFilter != "" || a.paletteSel != 0 {
+		t.Fatalf("input command chip should open palette, open=%v filter=%q sel=%d", a.paletteOpen, a.paletteFilter, a.paletteSel)
+	}
+	if a.focus != FocusInput {
+		t.Fatalf("focus = %v, want input", a.focus)
+	}
+}
+
 func TestDetailCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

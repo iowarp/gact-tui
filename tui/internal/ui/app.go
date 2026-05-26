@@ -2440,9 +2440,7 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	case mouse.Y >= 1+convH:
 		a.focus = FocusInput
 		if a.mouseCommandButtonAt(mouse.X, mouse.Y, sidebarW, convH) {
-			a.paletteOpen = true
-			a.paletteFilter = ""
-			a.paletteSel = 0
+			a.openCommandPalette()
 		}
 	case mouse.X >= sidebarW && mouse.Y < 1+bodyH:
 		a.focus = FocusBody
@@ -3657,9 +3655,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// "no matches"). Match the universal TUI convention: '/' opens
 		// the global command palette regardless of focus. Sidebar
 		// filter is now bound to 'f' (see below).
-		a.paletteOpen = true
-		a.paletteFilter = ""
-		a.paletteSel = 0
+		a.openCommandPalette()
 		return a, nil
 	case "f":
 		// Sidebar filter — was '/' before. Same semantics: enter
@@ -4068,6 +4064,12 @@ func (a *App) activateSidebarSession(index int) tea.Cmd {
 	return nil
 }
 
+func (a *App) openCommandPalette() {
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = 0
+}
+
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
 	if a.hits == nil || index < 0 || index >= len(a.sessions) || rowCount <= 0 {
 		return
@@ -4464,9 +4466,7 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	// Slash on empty input opens the palette.
 	if key == "/" && a.input.Value() == "" {
-		a.paletteOpen = true
-		a.paletteFilter = ""
-		a.paletteSel = 0
+		a.openCommandPalette()
 		return a, nil
 	}
 
@@ -6756,9 +6756,7 @@ func (a *App) registerFooterActionHits(rendered string) {
 		return loadSettingsCmd(app.c)
 	})
 	a.registerFooterActionHit(plain, y, "footer:command", "/", a.localizer.t(msgFooterCommand, nil), func(app *App) tea.Cmd {
-		app.paletteOpen = true
-		app.paletteFilter = ""
-		app.paletteSel = 0
+		app.openCommandPalette()
 		return nil
 	})
 	a.registerFooterActionHit(plain, y, "footer:help", "?", a.localizer.t(msgFooterHelp, nil), func(app *App) tea.Cmd {
@@ -7644,6 +7642,7 @@ func (a *App) renderBody(width, height int) string {
 	inputView := a.input.View()
 	if a.MouseEnabled {
 		inputView = a.renderMouseInputCommand(inputView)
+		a.registerInputCommandHit(msgH, hintH)
 	}
 	inputPane := fitLines(inputStyle.Render(inputView), inputH)
 
