@@ -91,6 +91,15 @@ func (a *App) closeFilePicker() {
 	a.filePicker = nil
 }
 
+func (a *App) handleFilePickerWheel(button tea.MouseButton) tea.Cmd {
+	if a.filePicker == nil {
+		return nil
+	}
+	matches := a.filePickerMatches()
+	a.filePicker.sel = moveSelectionByWheel(a.filePicker.sel, len(matches), button)
+	return nil
+}
+
 // filePickerMatches returns the entries that pass the current filter,
 // sorted by fuzzy match quality. Tie-breaker is path alphabetical so
 // ordering is deterministic across renders.
@@ -360,6 +369,11 @@ func (a *App) viewFilePicker() string {
 		body:    body,
 		footer:  hint,
 	})
+	if len(list.rows) > 0 {
+		a.registerModalContentWheelHit(rendered.modal, "file-picker:list:wheel", rendered.bodyRow+2+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleFilePickerWheel(button)
+		})
+	}
 	a.registerModalListHits(rendered.modal, rendered.bodyRow+2+listStartRow, 0, w-4, list.hits)
 	return rendered.modal
 }
