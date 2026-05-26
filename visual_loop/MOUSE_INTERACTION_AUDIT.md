@@ -33,6 +33,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   hit targets. Clicking a visible `[pasted content #N: M lines]` placeholder
   expands that exact paste in place through the same expansion path used by
   `Ctrl+P`.
+- MCP install example rows now register semantic hit targets and prefill the
+  installer input, clearing stale validation errors and placing the cursor at
+  the end of the selected example.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -441,11 +444,11 @@ Mouse support exists:
 
 - Click input field to focus/place cursor.
 - Click install/cancel.
+- Click example rows to prefill the installer input.
 
 Remaining gaps:
 
 - Select text.
-- Click example lines to prefill or copy if that is desired.
 
 ### MCP Remove Modal
 
@@ -563,9 +566,10 @@ Mouse support exists:
 6. Done: add cursor hit-testing for textarea surfaces (`input`, `compose`) and
    custom single-line text-entry modals (`rename`, `context-add`, `mcp-install`).
 
-7. Open: add a copy-mode/copy-block design for conversation content so copying raw
-   evidence, assistant text, tool summaries, and detail panes does not require
-   selecting the entire terminal frame.
+7. Done: conversation and detail copy actions now cover selected assistant text,
+   selected semantic transcript blocks, raw detail payloads, and full
+   transcript copy without requiring terminal-frame selection. Remaining work is
+   true range selection, not scoped block copy.
 
 8. Done: add top-chrome settings/help targets after the footer targets have proven
    stable, so mouse users have a predictable global entry point even when the

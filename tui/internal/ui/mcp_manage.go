@@ -253,6 +253,25 @@ type mcpUninstallDoneMsg struct {
 
 const mcpRemoveMaxItems = 6
 
+type mcpInstallExample struct {
+	id    string
+	label string
+	value string
+}
+
+func mcpInstallExamples() []mcpInstallExample {
+	return []mcpInstallExample{
+		{id: "stdio", label: "stdio:", value: "files stdio mcp-files /tmp"},
+		{id: "http", label: "http:", value: "weather http https://mcp.example.com"},
+	}
+}
+
+func (a *App) applyMcpInstallExample(value string) {
+	a.mcpInstallInput = value
+	a.mcpInstallCursor = len([]rune(value))
+	a.mcpInstallErr = ""
+}
+
 // viewMcpInstall renders the install prompt overlay. Tiny intentionally —
 // one input field, hint text, and a status line for any error.
 func (a *App) viewMcpInstall() string {
@@ -289,13 +308,16 @@ func (a *App) viewMcpInstall() string {
 				Render(a.spinnerChar()+" installing…"),
 		)
 	}
+	examples := mcpInstallExamples()
+	introRows := make([]string, 0, len(examples))
+	for _, example := range examples {
+		introRows = append(introRows, fmt.Sprintf("  %-6s %s", example.label, example.value))
+	}
 	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:   w,
-		title:   "Install MCP server",
-		buttons: buttons,
-		intro: []string{t.HintLabel.Render(
-			"  stdio: files stdio mcp-files /tmp\n" +
-				"  http:  weather http https://mcp.example.com")},
+		width:       w,
+		title:       "Install MCP server",
+		buttons:     buttons,
+		intro:       []string{t.HintLabel.Render(strings.Join(introRows, "\n"))},
 		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
 		editorID:    "mcp-install",
 		editorValue: a.mcpInstallInput,
@@ -305,6 +327,21 @@ func (a *App) viewMcpInstall() string {
 		status: statusRows,
 		footer: t.HintLabel.Render("Enter install · Esc cancel"),
 	})
+	for row, example := range examples {
+		example := example
+		a.registerModalContentHit(
+			rendered.modal,
+			"mcp-install:example:"+example.id,
+			rendered.bodyRow+row,
+			0,
+			w-4,
+			1,
+			func(app *App) tea.Cmd {
+				app.applyMcpInstallExample(example.value)
+				return nil
+			},
+		)
+	}
 	return rendered.modal
 }
 
