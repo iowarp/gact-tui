@@ -3370,6 +3370,54 @@ func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestInputPastePlaceholderUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.focus = FocusInput
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.Theme.PasteCompressThreshold = 3
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "alpha\nbeta\ngamma"})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("compressed paste should not dispatch a command")
+	}
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if !strings.Contains(a.input.Value(), "[pasted content #1: 3 lines]") {
+		t.Fatalf("input missing paste placeholder: %q", a.input.Value())
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:paste:0")
+	if !ok {
+		t.Fatal("missing semantic input paste placeholder target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("paste placeholder click should not dispatch a command")
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("pastes = %d, want expanded/cleared", len(a.pastes))
+	}
+	if got := a.input.Value(); got != "alpha\nbeta\ngamma " {
+		t.Fatalf("expanded input = %q", got)
+	}
+	if a.focus != FocusInput {
+		t.Fatalf("focus = %v, want input", a.focus)
+	}
+}
+
 func TestDetailCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

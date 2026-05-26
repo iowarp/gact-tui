@@ -29,6 +29,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   back to selected-message text. Clicking a visible tool call/result/diff/text
   block and then the footer `y copy` action copies that block's payload instead
   of depending on terminal-frame selection.
+- Compressed paste placeholders in the main input now register semantic
+  hit targets. Clicking a visible `[pasted content #N: M lines]` placeholder
+  expands that exact paste in place through the same expansion path used by
+  `Ctrl+P`.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -122,12 +126,12 @@ Mouse support exists:
 - Click focuses input.
 - Click visible text positions to place the cursor.
 - Click the mouse-mode `/` chip to open the command palette.
+- Click a compressed paste placeholder to expand/review that paste inline.
 
 Missing:
 
 - Text selection.
 - Click send if a send affordance is added later.
-- Click compressed paste placeholder to expand/review.
 - Click `@` file references or attached-context chips if surfaced.
 
 ### Header/Footer
@@ -530,14 +534,15 @@ Mouse support exists:
 12. Copy semantics should be scoped, not terminal-frame dependent. Detail
     views now copy their full payload directly, and selected transcript blocks
     copy through the conversation footer. Remaining copy work is transcript
-    range selection and textarea selection/paste review, without copying
-    sidebar borders, divider glyphs, and footer text.
+    range selection and textarea selection, without copying sidebar borders,
+    divider glyphs, and footer text.
 
 13. Text-entry paste/copy parity is still unresolved. Mouse mode should not
     make paste into the regular input or expanded compose textarea worse, and
-    users need a way to copy conversation/detail content without selecting the
-    sidebar, borders, and footer. Treat this as a product task, not a terminal
-    accident.
+    compressed paste placeholders in the main input can now be expanded by
+    click. Remaining text-entry work is true range selection and any future
+    compose-specific paste review affordance. Treat this as a product task, not
+    a terminal accident.
 
 ## Implementation Sequence Status
 

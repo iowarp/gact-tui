@@ -95,6 +95,42 @@ func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight
 			})
 		}
 	}
+	a.registerInputPastePlaceholderHits(startX, startY)
+}
+
+func (a *App) registerInputPastePlaceholderHits(startX int, startY int) {
+	if len(a.pastes) == 0 {
+		return
+	}
+	lines := splitTextareaValue(a.input.Value())
+	for pasteIdx, paste := range a.pastes {
+		placeholder := strings.TrimSpace(paste.placeholder)
+		if placeholder == "" {
+			continue
+		}
+		for lineIdx, line := range lines {
+			col := strings.Index(line, placeholder)
+			if col < 0 {
+				continue
+			}
+			pasteIdx := pasteIdx
+			lineIdx := lineIdx
+			hitCol := col
+			a.registerScreenHit("input:paste:"+itoa2(pasteIdx), mouseRect{
+				x: startX + lipgloss.Width(line[:hitCol]),
+				y: startY + lineIdx,
+				w: lipgloss.Width(placeholder),
+				h: 1,
+			}, func(app *App) tea.Cmd {
+				app.focus = FocusInput
+				app.input.Focus()
+				setTextareaCursor(&app.input, lineIdx, hitCol)
+				app.expandPasteSegment(pasteIdx)
+				return nil
+			})
+			break
+		}
+	}
 }
 
 func overlayMouseRect(top string, screenW, screenH int) mouseRect {
