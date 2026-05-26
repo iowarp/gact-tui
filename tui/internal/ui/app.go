@@ -8084,15 +8084,22 @@ func (a *App) expandMostRecentPaste() {
 	if len(a.pastes) == 0 {
 		return
 	}
-	last := a.pastes[len(a.pastes)-1]
-	buf := a.input.Value()
-	if !strings.Contains(buf, last.placeholder) {
-		// Placeholder was already deleted manually; drop the record.
-		a.pastes = a.pastes[:len(a.pastes)-1]
+	a.expandPasteSegment(len(a.pastes) - 1)
+}
+
+func (a *App) expandPasteSegment(idx int) {
+	if idx < 0 || idx >= len(a.pastes) {
 		return
 	}
-	a.input.SetValue(strings.Replace(buf, last.placeholder, last.content, 1))
-	a.pastes = a.pastes[:len(a.pastes)-1]
+	seg := a.pastes[idx]
+	buf := a.input.Value()
+	if !strings.Contains(buf, seg.placeholder) {
+		// Placeholder was already deleted manually; drop the record.
+		a.pastes = append(a.pastes[:idx], a.pastes[idx+1:]...)
+		return
+	}
+	a.input.SetValue(strings.Replace(buf, seg.placeholder, seg.content, 1))
+	a.pastes = append(a.pastes[:idx], a.pastes[idx+1:]...)
 }
 
 // humanAgeShort renders a duration as a compact 2-3 char age
