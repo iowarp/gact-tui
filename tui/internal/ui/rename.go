@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 func (a *App) closeRenameModal() {
@@ -105,25 +104,7 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 // viewRename renders the inline rename prompt. Matches the workspace-
 // switcher / settings overlay shape.
 func (a *App) viewRename() string {
-	t := a.Theme
 	w := a.modalWidth()
-
-	// Minimal cursor rendering — a reverse-video block at a.renameCursor.
-	runes := []rune(a.renameDraft)
-	cur := a.renameCursor
-	if cur > len(runes) {
-		cur = len(runes)
-	}
-	var editor string
-	cursorStyle := lipgloss.NewStyle().Reverse(true).Foreground(t.Fg)
-	if cur == len(runes) {
-		editor = string(runes) + cursorStyle.Render(" ")
-	} else {
-		editor = string(runes[:cur]) +
-			cursorStyle.Render(string(runes[cur:cur+1])) +
-			string(runes[cur+1:])
-	}
-
 	buttons := []menuButton{
 		{
 			id:    "rename:save",
@@ -142,16 +123,12 @@ func (a *App) viewRename() string {
 			},
 		},
 	}
-	rows := []string{
-		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
-	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
 		width:   w,
 		title:   "Rename session",
 		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
+		editor:  a.renderCursorEditor(a.renameDraft, a.renameCursor),
+		footer:  a.Theme.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
 	})
 	return rendered.modal
 }
