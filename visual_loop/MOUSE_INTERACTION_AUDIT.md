@@ -188,18 +188,21 @@ Keyboard behavior:
 - Enter advances, saves, or starts auth.
 - Text input filters providers/models and fills API fields.
 
-Mouse gaps:
+Mouse support now exists for:
 
 - Click provider row.
 - Click model row.
+- Click OAuth/auth row when the provider exposes one.
+- Click save and close.
+- Wheel scroll provider/model lists and the advanced section.
+- Click visible advanced-row `◀`/`▶` controls for temperature, max tokens,
+  context length, and thinking budget.
+
+Mouse gaps:
+
 - Click provider/model filter/input fields.
 - Click API base/API key fields.
-- Click numeric steppers/sliders for temperature, max tokens, context length,
-  thinking budget.
-- Click auth button.
-- Click save button.
-- Wheel scroll provider/model lists.
-- Click close/cancel.
+- Text cursor placement and selection inside editable fields.
 
 Risk note: `lmConfigOpen` blocks global click/wheel handlers.
 
@@ -506,6 +509,12 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
     for transcript/detail copy blocks: selected message, selected tool result,
     selected raw detail, and input textarea paste should work without copying
     sidebar borders, divider glyphs, and footer text.
+
+13. Text-entry paste/copy parity is still unresolved. Mouse mode should not
+    make paste into the regular input or expanded compose textarea worse, and
+    users need a way to copy conversation/detail content without selecting the
+    sidebar, borders, and footer. Treat this as a product task, not a terminal
+    accident.
 
 ## Suggested Implementation Order For Later
 

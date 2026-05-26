@@ -128,6 +128,58 @@ func TestLMConfigAdvancedRowsUseVerticalNavigation(t *testing.T) {
 	}
 }
 
+func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.lmConfig.selected = 0 // LM Studio exposes temperature/max output/context length.
+	a.lmConfig.field = lmFieldTemperature
+	a.lmConfig.temperature = "1.0"
+	a.lmConfig.maxTokens = "4096"
+	a.lmConfig.contextLength = "32768"
+
+	_ = a.View()
+	targetID := "lm-config:advanced:" + strconv.Itoa(int(lmFieldMaxTokens))
+	target, ok := findHitTargetForTest(a, targetID+":inc")
+	if !ok {
+		t.Fatal("missing semantic LM max output increment target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("advanced increment click should not dispatch a command")
+	}
+	if a.lmConfig.field != lmFieldMaxTokens {
+		t.Fatalf("field = %v, want max output", a.lmConfig.field)
+	}
+	if a.lmConfig.maxTokens != "4608" {
+		t.Fatalf("increment click max output = %q, want 4608", a.lmConfig.maxTokens)
+	}
+
+	_ = a.View()
+	target, ok = findHitTargetForTest(a, targetID+":dec")
+	if !ok {
+		t.Fatal("missing semantic LM max output decrement target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("advanced decrement click should not dispatch a command")
+	}
+	if a.lmConfig.maxTokens != "4096" {
+		t.Fatalf("decrement click max output = %q, want 4096", a.lmConfig.maxTokens)
+	}
+}
+
 func TestLMConfigPlaceholderAPIKeyIsOnlyForLocalNoAuthProviders(t *testing.T) {
 	cases := []struct {
 		name    string
