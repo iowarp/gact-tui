@@ -106,9 +106,24 @@ func addContextFileCmd(c *client.Client, sessionID, path string) tea.Cmd {
 	}
 }
 
+func removeContextFileCmd(c *client.Client, sessionID, path string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := c.RemoveContextFile(ctx, sessionID, path)
+		return contextFileRemovedMsg{sessionID: sessionID, path: path, err: err}
+	}
+}
+
 type contextFileAddedMsg struct {
 	sessionID string
 	file      gact.ContextFile
+	err       error
+}
+
+type contextFileRemovedMsg struct {
+	sessionID string
+	path      string
 	err       error
 }
 
