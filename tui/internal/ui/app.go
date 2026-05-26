@@ -7953,14 +7953,21 @@ func (a *App) viewPalette() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   a.localizer.t(msgPaletteCommandsTitle, nil),
-		buttons: buttons,
-		body:    body,
+		width:              w,
+		title:              a.localizer.t(msgPaletteCommandsTitle, nil),
+		buttons:            buttons,
+		suppressButtonHits: true,
+		body:               body,
 	})
+	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
 	if len(listItems) > 0 {
+		a.registerModalContentWheelHit(rendered.modal, "palette:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
+			return nil
+		})
 		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
+	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 
@@ -8027,14 +8034,21 @@ func (a *App) viewPaletteSearch(w int) string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   a.localizer.t(msgPaletteSearchTitle, nil),
-		buttons: buttons,
-		body:    body,
+		width:              w,
+		title:              a.localizer.t(msgPaletteSearchTitle, nil),
+		buttons:            buttons,
+		suppressButtonHits: true,
+		body:               body,
 	})
+	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
 	if len(list.hits) > 0 && listStartRow >= 0 {
+		a.registerModalContentWheelHit(rendered.modal, "palette:search:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
+			return nil
+		})
 		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
+	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 
@@ -8244,16 +8258,26 @@ func (a *App) viewHelp() string {
 	hintText := modalRangeHint(windowed.window, a.localizer.t(msgHelpHint, nil))
 	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).Render(hintText)
 
-	return a.renderModalFrame(modalFrameOptions{
-		width:      w,
-		title:      a.localizer.t(msgHelpTitle, nil),
-		buttons:    buttons,
-		tabs:       tabHits,
-		tabPadding: 1,
-		tabSpacing: 0,
-		body:       windowed.body,
-		footer:     hint,
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:              w,
+		title:              a.localizer.t(msgHelpTitle, nil),
+		buttons:            buttons,
+		suppressButtonHits: true,
+		tabs:               tabHits,
+		tabPadding:         1,
+		tabSpacing:         0,
+		body:               windowed.body,
+		footer:             hint,
 	})
+	a.registerModalSurfaceAndBodyWheel(rendered, "help", maxInt(1, strings.Count(windowed.body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+		app.helpScroll = moveScrollOffsetByWheel(app.helpScroll, button)
+		return nil
+	})
+	if rendered.tabRow >= 0 {
+		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabHits, 1, 0)
+	}
+	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
+	return rendered.modal
 }
 
 func (a *App) helpBodyPageSize() int {
