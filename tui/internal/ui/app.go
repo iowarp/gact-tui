@@ -3668,15 +3668,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// with the new filter; the result falls into the existing
 		// sessionsRefreshedMsg branch which preserves selection where
 		// possible.
-		a.showArchived = !a.showArchived
-		if a.showArchived {
-			a.transientHint = "showing archived sessions (h to go back)"
-		} else {
-			a.transientHint = "showing active sessions"
-		}
-		if a.wsID != "" {
-			return a, reloadSessionsForView(a.c, a.wsID, a.showArchived)
-		}
+		return a, a.toggleArchivedView()
 	case "d":
 		// JJJJJJJJ1: toggle detached-only sidebar view — narrows the
 		// list to sessions the user previously Ctrl+Z-walked-away
@@ -4056,6 +4048,19 @@ func (a *App) activateSidebarSection(section sidebarSection) {
 	}
 }
 
+func (a *App) toggleArchivedView() tea.Cmd {
+	a.showArchived = !a.showArchived
+	if a.showArchived {
+		a.transientHint = "showing archived sessions (h to go back)"
+	} else {
+		a.transientHint = "showing active sessions"
+	}
+	if a.wsID != "" {
+		return reloadSessionsForView(a.c, a.wsID, a.showArchived)
+	}
+	return nil
+}
+
 func (a *App) openCommandPalette() {
 	a.paletteOpen = true
 	a.paletteFilter = ""
@@ -4106,6 +4111,16 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 		app.contextFileSel = index
 		app.openContextFileDetail(cf)
 		return nil
+	})
+}
+
+func (a *App) registerSidebarCountsHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHit("sidebar:counts", sidebarContentRect(row, width), func(app *App) tea.Cmd {
+		app.focus = FocusSidebar
+		return app.toggleArchivedView()
 	})
 }
 
@@ -7331,9 +7346,11 @@ func (a *App) renderSidebar(width, height int) string {
 		if a.showArchived {
 			label = a.localizer.tf(msgSidebarCountsArchivedFirst, map[string]any{"active": active, "archived": archived})
 		}
+		countsRow := len(rows) + 1
 		rows = append(rows,
 			"",
 			lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(label))
+		a.registerSidebarCountsHit(countsRow, width)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
