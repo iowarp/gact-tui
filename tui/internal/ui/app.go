@@ -8111,6 +8111,37 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 				return nil
 			},
 		)
+		if block.opensDetail && block.detailStart >= 0 {
+			detailRow := block.detailStart
+			if detailRow >= visibleStart && detailRow < visibleEnd {
+				a.registerScreenHit(
+					fmt.Sprintf("conversation:detail:%d:%d", msgIdx, addrIdx),
+					mouseRect{
+						x: contentX,
+						y: bodyTop + (detailRow - visibleStart),
+						w: contentW,
+						h: 1,
+					},
+					func(app *App) tea.Cmd {
+						if msgIdx < 0 || msgIdx >= len(app.messages) {
+							return nil
+						}
+						addr := addressablePartsOf(app.messages[msgIdx])
+						if addrIdx < 0 || addrIdx >= len(addr) {
+							return nil
+						}
+						app.focus = FocusBody
+						app.bodySelMsgIdx = msgIdx
+						app.bodySelPartIdx = addrIdx
+						app.stickyToBottom = false
+						app.pendingPartScroll = false
+						app.searchHitMessageID = ""
+						app.openDetailForSelection()
+						return nil
+					},
+				)
+			}
+		}
 	}
 }
 

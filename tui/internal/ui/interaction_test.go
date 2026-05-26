@@ -2464,6 +2464,53 @@ func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	}
 }
 
+func TestConversationDetailHintClickOpensDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:     "p1",
+			Type:   gact.PartTypeToolResult,
+			CallID: "c1",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "summary line",
+			}},
+			Metadata: map[string]any{
+				"raw_result": map[string]any{"rows": []string{"alpha", "beta"}},
+			},
+		}},
+	}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:detail:0:0")
+	if !ok {
+		t.Fatal("missing conversation detail hint hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("clicking detail hint should open detail on first click")
+	}
+	if a.focus != FocusBody || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("body cursor = focus %v msg %d part %d, want body 0:0", a.focus, a.bodySelMsgIdx, a.bodySelPartIdx)
+	}
+	if a.detailView.partID != "p1" {
+		t.Fatalf("detail partID = %q, want p1", a.detailView.partID)
+	}
+}
+
 func TestSidebarSessionsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
