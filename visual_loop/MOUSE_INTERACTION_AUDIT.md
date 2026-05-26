@@ -28,6 +28,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
 - Sidebar footer counts now register a semantic hit target and toggle active/archived sessions through the same path as the `h` key.
 - Sidebar filtering now has semantic mouse entry points: the visible footer `f filter` hint starts filter editing, the filter-mode footer exposes clickable apply/cancel targets, and an existing filter row can be clicked to re-enter editing while preserving Esc restore semantics.
+- Header chips now register render-time semantic targets: backend opens metrics, workspace opens the workspace switcher, session focuses the selected sidebar row, model/routing open model settings, agent opens agent settings, and status opens Doctor when integration health is supported.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -106,11 +107,11 @@ Mouse support exists:
 
 - Top-right header help/settings actions are semantic targets.
 - Visible footer settings, command, help, and quit hints are semantic targets.
+- Click header backend/workspace/session/model/agent/routing/status chips to drill into the matching existing modal or focus target.
 
 Missing:
 
 - Click focus labels or panes in footer.
-- Click backend/workspace/session/status chips in header.
 - Click reconnect/error/status affordances.
 
 ### Permission Banner
@@ -482,8 +483,8 @@ Mouse support exists:
    detail text for metadata that helps users choose or diagnose the tool.
 
 10. Header/footer global affordances now include clickable settings, help,
-    command, and quit entry points. Remaining status chips such as backend,
-    workspace, session, and reconnect/error affordances still need richer
+    command, quit, backend, workspace, session, model, agent, routing, and
+    status entry points. Remaining reconnect/error affordances still need richer
     drill-down behavior.
 
 11. TUI options/configuration controls now have mouse parity for row selection,

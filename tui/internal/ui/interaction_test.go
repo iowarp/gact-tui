@@ -1040,6 +1040,168 @@ func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
 	}
 }
 
+func TestHeaderChipsUseVisibleSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 220
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.BackendLabel = "local backend"
+	a.workspaces = []gact.Workspace{
+		{ID: "ws_a", Name: "alpha"},
+		{ID: "ws_b", Name: "bravo"},
+	}
+	a.wsID = "ws_b"
+	a.sessions = []gact.Session{{
+		ID:           "sess_1",
+		Title:        "demo header target",
+		Status:       gact.StatusRunning,
+		MessageCount: 0,
+		Model:        gact.ModelRef{ProviderID: "openai", ModelID: "gpt-4.1"},
+		Agent:        gact.AgentRef{ID: "analysis", Mode: "subagent"},
+		RoutingMode:  "auto",
+	}}
+	a.selected = 0
+	a.currentStatus = gact.StatusRunning
+	a.caps.Capabilities.IntegrationHealth = true
+
+	_ = a.View()
+	if header := ansi.Strip(a.renderHeader()); !strings.Contains(header, "workspace: bravo") {
+		t.Fatalf("header should label the current workspace, got %q", header)
+	}
+	for _, id := range []string{
+		"header:chip:backend",
+		"header:chip:workspace",
+		"header:chip:session",
+		"header:chip:model",
+		"header:chip:agent",
+		"header:chip:routing",
+		"header:chip:status",
+	} {
+		target, ok := findHitTargetForTest(a, id)
+		if !ok {
+			t.Fatalf("missing semantic header chip target %q", id)
+		}
+		if target.rect.y != 0 {
+			t.Fatalf("%s target y=%d, want top chrome row", id, target.rect.y)
+		}
+	}
+
+	backendTarget, _ := findHitTargetForTest(a, "header:chip:backend")
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      backendTarget.rect.x,
+		Y:      backendTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.metricsOpen || a.metrics == nil || !a.metrics.loading {
+		t.Fatalf("backend header click should open metrics, open=%v metrics=%+v", a.metricsOpen, a.metrics)
+	}
+	if cmd == nil {
+		t.Fatal("backend header click should dispatch metrics load command")
+	}
+
+	a.metricsOpen = false
+	a.metrics = nil
+	_ = a.View()
+	workspaceTarget, _ := findHitTargetForTest(a, "header:chip:workspace")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      workspaceTarget.rect.x,
+		Y:      workspaceTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("workspace header click should not dispatch a command")
+	}
+	if !a.workspaceSwitchOpen || a.workspaceSwitchSel != 1 {
+		t.Fatalf("workspace header click should open switcher on current workspace, open=%v sel=%d", a.workspaceSwitchOpen, a.workspaceSwitchSel)
+	}
+
+	a.workspaceSwitchOpen = false
+	_ = a.View()
+	sessionTarget, _ := findHitTargetForTest(a, "header:chip:session")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      sessionTarget.rect.x,
+		Y:      sessionTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("session header click should not dispatch a command")
+	}
+	if a.focus != FocusSidebar || a.sidebarSectionFocus != sidebarSectionSessions || a.sidebarSectionCursor {
+		t.Fatalf("session header click should focus selected session, focus=%v section=%v cursor=%v", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+
+	a.focus = FocusInput
+	_ = a.View()
+	modelTarget, _ := findHitTargetForTest(a, "header:chip:model")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      modelTarget.rect.x,
+		Y:      modelTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 0 {
+		t.Fatalf("model header click should open model settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if cmd == nil {
+		t.Fatal("model header click should dispatch settings load command")
+	}
+
+	a.settingsOpen = false
+	a.settings = nil
+	_ = a.View()
+	agentTarget, _ := findHitTargetForTest(a, "header:chip:agent")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      agentTarget.rect.x,
+		Y:      agentTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 1 {
+		t.Fatalf("agent header click should open agent settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if cmd == nil {
+		t.Fatal("agent header click should dispatch settings load command")
+	}
+
+	a.settingsOpen = false
+	a.settings = nil
+	_ = a.View()
+	routingTarget, _ := findHitTargetForTest(a, "header:chip:routing")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      routingTarget.rect.x,
+		Y:      routingTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 0 {
+		t.Fatalf("routing header click should open model settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if cmd == nil {
+		t.Fatal("routing header click should dispatch settings load command")
+	}
+
+	a.settingsOpen = false
+	a.settings = nil
+	_ = a.View()
+	statusTarget, _ := findHitTargetForTest(a, "header:chip:status")
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      statusTarget.rect.x,
+		Y:      statusTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.doctorOpen || a.doctor == nil || !a.doctor.loading {
+		t.Fatalf("status header click should open doctor when supported, open=%v doctor=%+v", a.doctorOpen, a.doctor)
+	}
+	if cmd == nil {
+		t.Fatal("status header click should dispatch doctor fetch command")
+	}
+}
+
 func TestSettingsCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
