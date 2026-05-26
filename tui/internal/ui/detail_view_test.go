@@ -446,6 +446,40 @@ func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
 	}
 }
 
+func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:   72,
+		title:   "Evidence",
+		content: "detail line",
+		page:    3,
+		closeID: "detail:test-close",
+	})
+
+	target, ok := findHitTargetForTest(a, "button:detail:test-close")
+	if !ok {
+		t.Fatalf("scrollable detail modal did not register close button hit target")
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	closeLine := -1
+	for i, line := range strings.Split(ansi.Strip(rendered.modal), "\n") {
+		if strings.Contains(line, "Evidence") && strings.Contains(line, "close") {
+			closeLine = i
+			break
+		}
+	}
+	if closeLine < 0 {
+		t.Fatalf("could not find visible detail header close row in:\n%s", ansi.Strip(rendered.modal))
+	}
+	if wantY := rect.y + closeLine; target.rect.y != wantY {
+		t.Fatalf("detail close button y = %d, want visible header row %d", target.rect.y, wantY)
+	}
+}
+
 func TestDetailView_CtrlEOpensWithNewest(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody
