@@ -17,6 +17,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   bottom, selected-message copy, full-conversation copy, retry, and delete.
   Clicks route through the same body-key handlers as Enter/Ctrl+E, G, y/Y, R,
   and d, so footer mouse behavior stays aligned with keyboard semantics.
+- Sidebar footer actions now expose semantic mouse targets for open, rename,
+  delete, child visibility, archive/unarchive, copy session id, add context,
+  and filter. Clicks route through the same sidebar key handler used by
+  keyboard actions, including two-step delete confirmation.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -78,11 +82,13 @@ Mouse support exists:
 - Click an existing filter row to re-enter filter editing.
 - Click filter-mode footer apply/cancel targets to commit or restore the filter.
 - Click the active/archived footer counts to toggle active vs archived sessions.
+- Click visible sidebar footer actions for open, rename, delete, child
+  visibility, archive/unarchive, copy session id, add context, and filter.
 
 Remaining gaps:
 
-- No right-click/context-menu behavior for session actions such as rename,
-  archive, delete, copy session id, add context.
+- No row-local right-click/context-menu behavior. The keyboard-advertised
+  session actions are mouse-addressable through the visible footer.
 
 ### Conversation Body
 

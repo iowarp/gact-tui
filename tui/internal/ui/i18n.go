@@ -65,6 +65,8 @@ const (
 	msgFooterSidebarDelete           messageID = "footer.sidebar.delete"
 	msgFooterSidebarContext          messageID = "footer.sidebar.context"
 	msgFooterSidebarChildren         messageID = "footer.sidebar.children"
+	msgFooterSidebarArchive          messageID = "footer.sidebar.archive"
+	msgFooterSidebarCopyID           messageID = "footer.sidebar.copy_id"
 	msgFooterSidebarFilter           messageID = "footer.sidebar.filter"
 	msgFooterSidebarFilterType       messageID = "footer.sidebar.filter_type"
 	msgFooterSidebarApply            messageID = "footer.sidebar.apply"
