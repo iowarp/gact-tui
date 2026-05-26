@@ -1163,6 +1163,36 @@ func TestComposeButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestComposeButtonsAlignWithSharedFrameBody(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:commit")
+	if !ok {
+		t.Fatal("missing compose commit button hit target")
+	}
+	view := a.viewCompose()
+	rect := overlayMouseRect(view, a.width, a.height)
+	buttonLine := -1
+	for i, line := range strings.Split(stripANSI(view), "\n") {
+		if strings.Contains(line, "commit") && strings.Contains(line, "cancel") {
+			buttonLine = i
+			break
+		}
+	}
+	if buttonLine < 0 {
+		t.Fatalf("could not find visible compose action row in:\n%s", stripANSI(view))
+	}
+	if wantY := rect.y + buttonLine; target.rect.y != wantY {
+		t.Fatalf("compose commit button y = %d, want visible action row %d", target.rect.y, wantY)
+	}
+}
+
 func TestComposeOutsideClickUsesSharedCancelState(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
 	a := newReadyApp(sessions, nil)
