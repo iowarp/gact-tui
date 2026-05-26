@@ -628,6 +628,78 @@ func (a *App) handleLMConfigVertical(delta int) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a *App) handleLMConfigProviderWheel(button tea.MouseButton) tea.Cmd {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return nil
+	}
+	indexes := a.lmConfigProviderIndexes()
+	if len(indexes) == 0 {
+		return nil
+	}
+	pos := 0
+	for i, idx := range indexes {
+		if idx == a.lmConfig.selected {
+			pos = i
+			break
+		}
+	}
+	next := moveSelectionByWheel(pos, len(indexes), button)
+	if next == pos {
+		a.lmConfig.field = lmFieldPreset
+		return nil
+	}
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.selected = indexes[next]
+	return a.lmConfigSyncFromPreset()
+}
+
+func (a *App) handleLMConfigModelWheel(button tea.MouseButton) tea.Cmd {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return nil
+	}
+	pid := a.lmConfigCurrentPresetID()
+	catalog := a.lmConfig.modelCatalogs[pid]
+	indexes := a.lmConfigModelIndexes()
+	if len(indexes) == 0 || len(catalog) == 0 {
+		return nil
+	}
+	cur := a.lmConfig.modelIndex
+	pos := 0
+	for i, idx := range indexes {
+		if idx == cur || (idx >= 0 && idx < len(catalog) && catalog[idx].ID == a.lmConfig.model) {
+			pos = i
+			break
+		}
+	}
+	next := moveSelectionByWheel(pos, len(indexes), button)
+	a.lmConfig.field = lmFieldModel
+	modelIdx := indexes[next]
+	if modelIdx < 0 || modelIdx >= len(catalog) {
+		return nil
+	}
+	a.lmConfig.modelIndex = modelIdx
+	a.lmConfig.model = catalog[modelIdx].ID
+	return nil
+}
+
+func (a *App) handleLMConfigAdvancedWheel(button tea.MouseButton) {
+	if a.lmConfig == nil {
+		return
+	}
+	fields := a.lmConfig.lmConfigAdvancedFields()
+	if len(fields) == 0 {
+		return
+	}
+	pos := 0
+	for i, field := range fields {
+		if field == a.lmConfig.field {
+			pos = i
+			break
+		}
+	}
+	a.lmConfig.field = fields[moveSelectionByWheel(pos, len(fields), button)]
+}
+
 func (a *App) lmConfigInvalidateCurrentCatalog() {
 	if a.lmConfig == nil {
 		return
@@ -1231,6 +1303,7 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 	} else {
 		selectedCol = leftW + 2
 		if layout.compact {
+			a.registerLMConfigProviderWheelHit(modal, providerTop, 0, leftW, layout.providerRows)
 			a.registerLMConfigProviderHits(modal, providerTop, 0, leftW, layout.providerRows)
 			a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, rightW)
 			return
@@ -1238,15 +1311,43 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 		modelTop = providerTop + lmConfigBoxHeight(layout.providerRows) + layout.gridGapRows
 		advancedTop = modelTop
 	}
+	a.registerLMConfigProviderWheelHit(modal, providerTop, 0, providerW, layout.providerRows)
 	a.registerLMConfigProviderHits(modal, providerTop, 0, providerW, layout.providerRows)
 	a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, selectedW)
+	a.registerLMConfigModelWheelHit(modal, modelTop, modelCol, modelW, layout.modelRows)
 	a.registerLMConfigModelHits(modal, modelTop, modelCol, modelW, layout.modelRows)
+	a.registerLMConfigAdvancedWheelHit(modal, advancedTop, advancedCol, advancedW, layout.configRows)
 	a.registerLMConfigAdvancedHits(modal, advancedTop, advancedCol, advancedW)
 	a.registerLMConfigSaveHit(modal, bodyTop, innerW, bodyRows, layout)
 }
 
 func lmConfigBoxHeight(visibleRows int) int {
 	return maxInt(1, visibleRows) + 3
+}
+
+func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, visibleRows int) {
+	a.registerModalContentWheelHit(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleLMConfigProviderWheel(button)
+	})
+}
+
+func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visibleRows int) {
+	if visibleRows <= 0 {
+		return
+	}
+	a.registerModalContentWheelHit(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleLMConfigModelWheel(button)
+	})
+}
+
+func (a *App) registerLMConfigAdvancedWheelHit(modal string, top, col, width, visibleRows int) {
+	if visibleRows <= 0 {
+		return
+	}
+	a.registerModalContentWheelHit(modal, "lm-config:advanced:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+		app.handleLMConfigAdvancedWheel(button)
+		return nil
+	})
 }
 
 func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibleRows int) {

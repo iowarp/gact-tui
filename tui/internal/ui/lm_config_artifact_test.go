@@ -834,6 +834,68 @@ func TestLMConfigModelRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderWheelUsesSemanticSectionHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.lmConfig.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "lm-config:provider:wheel")
+	if !ok {
+		t.Fatal("missing semantic LM provider wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if a.lmConfig.selected != 1 {
+		t.Fatalf("selected provider = %d, want 1", a.lmConfig.selected)
+	}
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("field = %v, want preset", a.lmConfig.field)
+	}
+}
+
+func TestLMConfigModelWheelUsesSemanticSectionHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{
+		{ID: "alpha-model"},
+		{ID: "zeta-model"},
+	}
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = "alpha-model"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "lm-config:model:wheel")
+	if !ok {
+		t.Fatal("missing semantic LM model wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("model wheel should not dispatch a command")
+	}
+	if a.lmConfig.field != lmFieldModel {
+		t.Fatalf("field = %v, want model", a.lmConfig.field)
+	}
+	if a.lmConfig.model != "zeta-model" || a.lmConfig.modelIndex != 1 {
+		t.Fatalf("model selection = %q/%d, want zeta-model/1", a.lmConfig.model, a.lmConfig.modelIndex)
+	}
+}
+
 func TestLMConfigSaveButtonUsesSemanticHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.selected = 0

@@ -10,11 +10,13 @@ import (
 )
 
 type uiHitAction func(*App) tea.Cmd
+type uiWheelAction func(*App, tea.MouseButton) tea.Cmd
 
 type uiHitTarget struct {
-	id     string
-	rect   mouseRect
-	action uiHitAction
+	id          string
+	rect        mouseRect
+	action      uiHitAction
+	wheelAction uiWheelAction
 }
 
 type uiHitRegistry struct {
@@ -26,7 +28,7 @@ func (r *uiHitRegistry) reset() {
 }
 
 func (r *uiHitRegistry) add(target uiHitTarget) {
-	if target.rect.w <= 0 || target.rect.h <= 0 || target.action == nil {
+	if target.rect.w <= 0 || target.rect.h <= 0 || (target.action == nil && target.wheelAction == nil) {
 		return
 	}
 	r.targets = append(r.targets, target)
@@ -59,11 +61,31 @@ func (a *App) activateHitAt(x, y int) (tea.Cmd, bool) {
 	return target.action(a), true
 }
 
+func (a *App) activateWheelHitAt(x, y int, button tea.MouseButton) (tea.Cmd, bool) {
+	if a.hits == nil {
+		return nil, false
+	}
+	for i := len(a.hits.targets) - 1; i >= 0; i-- {
+		target := a.hits.targets[i]
+		if target.wheelAction != nil && target.rect.contains(x, y) {
+			return target.wheelAction(a, button), true
+		}
+	}
+	return nil, false
+}
+
 func (a *App) registerScreenHit(id string, rect mouseRect, action uiHitAction) {
 	if a.hits == nil {
 		return
 	}
 	a.hits.add(uiHitTarget{id: id, rect: rect, action: action})
+}
+
+func (a *App) registerScreenWheelHit(id string, rect mouseRect, action uiWheelAction) {
+	if a.hits == nil {
+		return
+	}
+	a.hits.add(uiHitTarget{id: id, rect: rect, wheelAction: action})
 }
 
 func (a *App) renderModalSurface(width int, border color.Color, background color.Color, body string) string {
@@ -113,6 +135,16 @@ func (a *App) renderModalHeaderWithColor(title string, innerW int, buttons []men
 func (a *App) registerModalContentHit(modal, id string, row, col, w, h int, action uiHitAction) {
 	rect := overlayMouseRect(modal, a.width, a.height)
 	a.registerScreenHit(id, mouseRect{
+		x: rect.x + 3 + col,
+		y: rect.y + 2 + row,
+		w: w,
+		h: h,
+	}, action)
+}
+
+func (a *App) registerModalContentWheelHit(modal, id string, row, col, w, h int, action uiWheelAction) {
+	rect := overlayMouseRect(modal, a.width, a.height)
+	a.registerScreenWheelHit(id, mouseRect{
 		x: rect.x + 3 + col,
 		y: rect.y + 2 + row,
 		w: w,

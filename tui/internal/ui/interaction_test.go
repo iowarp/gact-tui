@@ -27,6 +27,31 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 }
 
+func TestWheelHitTargetsCanSitBehindRowClickTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	wheeled := false
+	clicked := false
+	a.registerScreenWheelHit("section:wheel", mouseRect{x: 0, y: 0, w: 10, h: 5}, func(*App, tea.MouseButton) tea.Cmd {
+		wheeled = true
+		return nil
+	})
+	a.registerScreenHit("row:click", mouseRect{x: 0, y: 0, w: 10, h: 1}, func(*App) tea.Cmd {
+		clicked = true
+		return nil
+	})
+
+	if _, handled := a.activateWheelHitAt(1, 0, tea.MouseWheelDown); !handled {
+		t.Fatal("expected wheel hit to activate through overlaid row click target")
+	}
+	if !wheeled {
+		t.Fatal("wheel action did not run")
+	}
+	if clicked {
+		t.Fatal("wheel action should not run click handler")
+	}
+}
+
 func TestRenderModalHeaderKeepsActionButtonsReachable(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	buttons := []menuButton{{
