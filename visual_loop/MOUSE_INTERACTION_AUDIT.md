@@ -25,6 +25,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Main input and expanded compose textareas now register semantic cursor-position targets, so mouse clicks place the editor cursor without delegating to opaque coordinate patches.
 - Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
+- Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -71,11 +72,11 @@ Mouse support exists:
 
 - Click visible addressable parts to select them.
 - Click the selected part again to open detail.
+- Click visible detail affordance rows such as `raw detail · Ctrl+E` to open detail directly.
 - Wheel scrolls the transcript through render-time body-region routing.
 
 Missing:
 
-- Click tool/result/detail hint such as `raw detail · Ctrl+E`.
 - Click file diff accept/reject affordances.
 - Click retry/delete/copy actions.
 - Select text or copy block via mouse.

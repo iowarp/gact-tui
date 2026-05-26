@@ -10,10 +10,11 @@ import (
 	"sync"
 
 	"charm.land/glamour/v2"
-	"charm.land/glamour/v2/ansi"
+	glamouransi "charm.land/glamour/v2/ansi"
 	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 	udiff "github.com/aymanbagabas/go-udiff"
+	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -85,7 +86,7 @@ func renderMarkdown(s string, t Theme, width int) string {
 // replaced. Hex colours come from the lipgloss Color type which
 // implements color.Color; we pass them as pointer-to-string since that's
 // what ansi.StylePrimitive expects.
-func glamourStyleFromTheme(t Theme) ansi.StyleConfig {
+func glamourStyleFromTheme(t Theme) glamouransi.StyleConfig {
 	// Choose a reasonable base: light backgrounds get glamour's light
 	// defaults (dark text on near-white), everything else gets dark.
 	base := styles.DarkStyleConfig
@@ -703,6 +704,7 @@ type conversationPartHitBlock struct {
 	addrIdx     int
 	fullStart   int
 	height      int
+	detailStart int
 	messageID   string
 	partID      string
 	opensDetail bool
@@ -747,6 +749,7 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		}
 		start := row
 		height := 0
+		detailStart := -1
 		var rendered string
 		switch {
 		case m.Role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
@@ -758,6 +761,9 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		}
 		if rendered != "" {
 			h := renderedStringLineCount(rendered)
+			if detailLine := detailAffordanceLine(rendered); detailLine >= 0 {
+				detailStart = start + detailLine
+			}
 			height += h
 			row += h
 		}
@@ -773,7 +779,11 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 				if r, ok := inlineResults[p.CallID]; ok {
 					rr := t.renderToolResultForTool(r, width, p.ToolName)
 					if rr != "" {
+						resultStart := row
 						h := renderedStringLineCount(rr)
+						if detailLine := detailAffordanceLine(rr); detailLine >= 0 {
+							detailStart = resultStart + detailLine
+						}
 						height += h
 						row += h
 						if repeat := duplicateNotice[r.ID]; repeat > 0 {
@@ -798,12 +808,27 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 				addrIdx:     addrIdx,
 				fullStart:   start,
 				height:      height,
+				detailStart: detailStart,
 				partID:      p.ID,
 				opensDetail: opens,
 			})
 		}
 	}
 	return blocks
+}
+
+func detailAffordanceLine(rendered string) int {
+	lines := strings.Split(xansi.Strip(rendered), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if strings.Contains(line, "Ctrl+E") ||
+			strings.Contains(line, "raw detail") ||
+			strings.Contains(line, "error detail") ||
+			strings.Contains(line, "full summary") {
+			return i
+		}
+	}
+	return -1
 }
 
 func renderedStringLineCount(s string) int {
