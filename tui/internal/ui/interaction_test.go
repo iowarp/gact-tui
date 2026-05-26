@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -2708,6 +2711,111 @@ func TestConversationDetailHintClickOpensDetail(t *testing.T) {
 	}
 	if a.detailView.partID != "p1" {
 		t.Fatalf("detail partID = %q, want p1", a.detailView.partID)
+	}
+}
+
+func TestConversationDiffActionsUseSemanticHitTargets(t *testing.T) {
+	var gotEndpoint string
+	var gotPaths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotEndpoint = r.URL.Path
+		var body struct {
+			Paths []string `json:"paths"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode diff action body: %v", err)
+		}
+		gotPaths = body.Paths
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/diffs/apply"):
+			_, _ = w.Write([]byte(`{"applied":["src/main.go"]}`))
+		case strings.HasSuffix(r.URL.Path, "/diffs/reject"):
+			_, _ = w.Write([]byte(`{"rejected":["src/main.go"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	newDiffApp := func() *App {
+		before := "package main\nfunc main() {}\n"
+		after := "package main\nfunc main() { println(\"hi\") }\n"
+		a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+		a.width = 120
+		a.height = 36
+		a.stage = StageReady
+		a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+		a.selected = 0
+		a.messages = []gact.Message{{
+			ID:   "m1",
+			Role: gact.RoleAssistant,
+			Parts: []gact.Part{{
+				ID:     "diff_1",
+				Type:   gact.PartTypeFileDiff,
+				Path:   "src/main.go",
+				Before: &before,
+				After:  &after,
+			}},
+		}}
+		return a
+	}
+
+	a := newDiffApp()
+	_ = a.View()
+	applyTarget, ok := findHitTargetForTest(a, "conversation:diff:apply:src/main.go")
+	if !ok {
+		t.Fatal("missing semantic diff apply target")
+	}
+	if _, ok := findHitTargetForTest(a, "conversation:diff:reject:src/main.go"); !ok {
+		t.Fatal("missing semantic diff reject target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      applyTarget.rect.x,
+		Y:      applyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("diff apply click should dispatch a command")
+	}
+	if a.focus != FocusBody || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("diff apply click should focus selected diff, focus=%v msg=%d part=%d", a.focus, a.bodySelMsgIdx, a.bodySelPartIdx)
+	}
+	msg := cmd()
+	if _, ok := msg.(diffsAppliedMsg); !ok {
+		t.Fatalf("diff apply cmd returned %T, want diffsAppliedMsg", msg)
+	}
+	if gotEndpoint != "/v1/sessions/sess_1/diffs/apply" {
+		t.Fatalf("apply endpoint = %q", gotEndpoint)
+	}
+	if len(gotPaths) != 1 || gotPaths[0] != "src/main.go" {
+		t.Fatalf("apply paths = %#v, want src/main.go", gotPaths)
+	}
+
+	a = newDiffApp()
+	_ = a.View()
+	rejectTarget, ok := findHitTargetForTest(a, "conversation:diff:reject:src/main.go")
+	if !ok {
+		t.Fatal("missing semantic diff reject target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rejectTarget.rect.x,
+		Y:      rejectTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("diff reject click should dispatch a command")
+	}
+	msg = cmd()
+	if _, ok := msg.(diffsRejectedMsg); !ok {
+		t.Fatalf("diff reject cmd returned %T, want diffsRejectedMsg", msg)
+	}
+	if gotEndpoint != "/v1/sessions/sess_1/diffs/reject" {
+		t.Fatalf("reject endpoint = %q", gotEndpoint)
+	}
+	if len(gotPaths) != 1 || gotPaths[0] != "src/main.go" {
+		t.Fatalf("reject paths = %#v, want src/main.go", gotPaths)
 	}
 }
 

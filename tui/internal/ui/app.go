@@ -4446,11 +4446,11 @@ func (a *App) hasPendingDiffs() bool {
 	return false
 }
 
-func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+func applyDiffsCmd(c *client.Client, sessionID string, paths ...string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, nil)
+		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, paths)
 		if err != nil {
 			return errMsg{err: err, stage: "apply-diffs"}
 		}
@@ -4458,11 +4458,11 @@ func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
-func rejectDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+func rejectDiffsCmd(c *client.Client, sessionID string, paths ...string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		rejected, err := c.RejectDiffs(ctx, sessionID, nil)
+		rejected, err := c.RejectDiffs(ctx, sessionID, paths)
 		if err != nil {
 			return errMsg{err: err, stage: "reject-diffs"}
 		}
@@ -8356,6 +8356,64 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 					},
 				)
 			}
+		}
+		for _, action := range block.diffActions {
+			actionRow := action.row
+			if actionRow < visibleStart || actionRow >= visibleEnd {
+				continue
+			}
+			actionPath := action.path
+			actionName := action.action
+			actionX := contentX + action.col - 1
+			if actionX < contentX {
+				actionX = contentX
+			}
+			actionW := action.width + 2
+			if actionW < 1 {
+				actionW = 1
+			}
+			if actionX+actionW > contentX+contentW {
+				actionW = contentX + contentW - actionX
+			}
+			if actionW < 1 {
+				continue
+			}
+			a.registerScreenHit(
+				fmt.Sprintf("conversation:diff:%s:%s", actionName, actionPath),
+				mouseRect{
+					x: actionX,
+					y: bodyTop + (actionRow - visibleStart),
+					w: actionW,
+					h: 1,
+				},
+				func(app *App) tea.Cmd {
+					if msgIdx < 0 || msgIdx >= len(app.messages) {
+						return nil
+					}
+					addr := addressablePartsOf(app.messages[msgIdx])
+					if addrIdx >= 0 && addrIdx < len(addr) {
+						app.focus = FocusBody
+						app.bodySelMsgIdx = msgIdx
+						app.bodySelPartIdx = addrIdx
+						app.stickyToBottom = false
+						app.pendingPartScroll = false
+						app.searchHitMessageID = ""
+					}
+					sid := app.currentSessionID()
+					if sid == "" {
+						app.transientHint = actionName + " diff: no active session"
+						return nil
+					}
+					switch actionName {
+					case "apply":
+						return applyDiffsCmd(app.c, sid, actionPath)
+					case "reject":
+						return rejectDiffsCmd(app.c, sid, actionPath)
+					default:
+						return nil
+					}
+				},
+			)
 		}
 	}
 }
