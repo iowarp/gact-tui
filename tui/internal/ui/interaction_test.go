@@ -243,6 +243,32 @@ func TestModalListRegionRegistersWheelAndRowHits(t *testing.T) {
 	}
 }
 
+func TestModalWheelRegionRegistersRelativeToContent(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	wheeled := false
+	modal := a.renderDefaultModalSurface(48, "Title\n\nscrollable box")
+
+	a.registerModalWheelRegion(modal, "box:wheel", 2, 4, 16, 3, func(*App, tea.MouseButton) tea.Cmd {
+		wheeled = true
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "box:wheel")
+	if !ok {
+		t.Fatal("missing modal wheel region target")
+	}
+	rect := overlayMouseRect(modal, a.width, a.height)
+	if target.rect.x != rect.x+3+4 || target.rect.y != rect.y+2+2 || target.rect.w != 16 || target.rect.h != 3 {
+		t.Fatalf("wheel rect = %+v, want render-relative region", target.rect)
+	}
+	if _, handled := a.activateWheelHitAt(target.rect.x, target.rect.y, tea.MouseWheelDown); !handled || !wheeled {
+		t.Fatalf("modal wheel region should activate, handled=%v wheeled=%v", handled, wheeled)
+	}
+}
+
 func TestModalCellHitsRegisterRelativeToBody(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
