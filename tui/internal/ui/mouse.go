@@ -106,7 +106,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.renameOpen, view: a.viewRename, click: a.handleRenameMouseClick},
 		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, click: a.handleWorkspaceSwitchMouseClick, wheel: a.handleWorkspaceSwitchMouseWheel},
 		{open: a.lmConfigOpen, view: a.viewLMConfig, click: a.handleLMConfigMouseClick},
-		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
+		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick, wheel: a.handleDoctorMouseWheel},
 		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
 		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick, wheel: a.handleSettingsMouseWheel},
 		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick},
@@ -344,6 +344,14 @@ func (a *App) handleDoctorMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, 
 		a.doctorOpen = false
 		return nil, true
 	}
+	return nil, true
+}
+
+func (a *App) handleDoctorMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
+	if a.doctor == nil {
+		return nil, true
+	}
+	a.doctor.scroll = moveScrollOffsetByWheel(a.doctor.scroll, m.Mouse().Button)
 	return nil, true
 }
 
