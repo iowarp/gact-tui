@@ -260,6 +260,39 @@ func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
 	}
 }
 
+func TestTextEntryModalRegistersCursorHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	got := -1
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:       a.modalWidth(),
+		title:       "Entry",
+		editor:      a.renderCursorEditor("abcdef", 6),
+		editorID:    "sample",
+		editorValue: "abcdef",
+		cursorAction: func(_ *App, cursor int) {
+			got = cursor
+		},
+	})
+
+	target, ok := findHitTargetForTest(a, "text-entry:sample:cursor:3")
+	if !ok {
+		t.Fatal("missing shared text-entry cursor target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y); !handled {
+		t.Fatal("cursor hit target should activate")
+	}
+	if got != 3 {
+		t.Fatalf("cursor target set cursor %d, want 3", got)
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	if target.rect.y <= rect.y {
+		t.Fatalf("cursor target y=%d should be inside modal body below top=%d", target.rect.y, rect.y)
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{
@@ -3308,6 +3341,58 @@ func TestMcpInstallButtonsAlignWithSharedHeader(t *testing.T) {
 	rect := overlayMouseRect(a.viewMcpInstall(), a.width, a.height)
 	if wantY := rect.y + 2; target.rect.y != wantY {
 		t.Fatalf("MCP install button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestMcpInstallEditorClickPlacesCursor(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "files stdio mcp-files /tmp"
+	a.mcpInstallCursor = len([]rune(a.mcpInstallInput))
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:mcp-install:cursor:5")
+	if !ok {
+		t.Fatal("missing MCP install editor cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cursor click should not dispatch a command")
+	}
+	if a.mcpInstallCursor != 5 {
+		t.Fatalf("MCP install cursor = %d, want 5", a.mcpInstallCursor)
+	}
+	if !a.mcpInstallOpen {
+		t.Fatal("cursor click should keep MCP install open")
+	}
+}
+
+func TestMcpInstallLineEditorSupportsMiddleInsert(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "ab"
+	a.mcpInstallCursor = 1
+
+	_, cmd := a.handleMcpInstallKey(tea.KeyPressMsg{Text: "Z"})
+	if cmd != nil {
+		t.Fatal("typing should not dispatch a command")
+	}
+	if a.mcpInstallInput != "aZb" || a.mcpInstallCursor != 2 {
+		t.Fatalf("middle insert input=%q cursor=%d, want aZb cursor 2", a.mcpInstallInput, a.mcpInstallCursor)
+	}
+	_, _ = a.handleMcpInstallKey(keyMsg("left"))
+	_, _ = a.handleMcpInstallKey(keyMsg("backspace"))
+	if a.mcpInstallInput != "Zb" || a.mcpInstallCursor != 0 {
+		t.Fatalf("middle backspace input=%q cursor=%d, want Zb cursor 0", a.mcpInstallInput, a.mcpInstallCursor)
 	}
 }
 

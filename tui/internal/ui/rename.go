@@ -124,11 +124,16 @@ func (a *App) viewRename() string {
 		},
 	}
 	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:   w,
-		title:   "Rename session",
-		buttons: buttons,
-		editor:  a.renderCursorEditor(a.renameDraft, a.renameCursor),
-		footer:  a.Theme.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
+		width:       w,
+		title:       "Rename session",
+		buttons:     buttons,
+		editor:      a.renderCursorEditor(a.renameDraft, a.renameCursor),
+		editorID:    "rename",
+		editorValue: a.renameDraft,
+		cursorAction: func(app *App, cursor int) {
+			app.renameCursor = cursor
+		},
+		footer: a.Theme.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
 	})
 	return rendered.modal
 }

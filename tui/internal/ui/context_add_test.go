@@ -175,6 +175,35 @@ func TestContextAddCancelButtonUsesSharedCloseState(t *testing.T) {
 	}
 }
 
+func TestContextAddEditorClickPlacesCursor(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:context-add:cursor:4")
+	if !ok {
+		t.Fatal("missing context-add editor cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cursor click should not dispatch a command")
+	}
+	if a.contextAddCursor != 4 {
+		t.Fatalf("context-add cursor = %d, want 4", a.contextAddCursor)
+	}
+	if !a.contextAddOpen {
+		t.Fatal("cursor click should keep context-add open")
+	}
+}
+
 func TestContextAdd_EmptyPathCancels(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
 	a.contextAddOpen = true

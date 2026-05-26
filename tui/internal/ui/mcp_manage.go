@@ -28,6 +28,7 @@ import (
 func (a *App) openMcpInstallModal() {
 	a.mcpInstallOpen = true
 	a.mcpInstallInput = ""
+	a.mcpInstallCursor = 0
 	a.mcpInstallErr = ""
 	a.mcpInstallSaving = false
 }
@@ -35,6 +36,7 @@ func (a *App) openMcpInstallModal() {
 func (a *App) closeMcpInstallModal() {
 	a.mcpInstallOpen = false
 	a.mcpInstallInput = ""
+	a.mcpInstallCursor = 0
 	a.mcpInstallErr = ""
 	a.mcpInstallSaving = false
 }
@@ -100,13 +102,54 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.mcpInstallSaving = true
 		return a, mcpInstallCmd(a.c, body)
 	case "backspace":
-		if len(a.mcpInstallInput) > 0 {
-			a.mcpInstallInput = a.mcpInstallInput[:len(a.mcpInstallInput)-1]
+		if a.mcpInstallCursor == 0 {
+			return a, nil
 		}
+		runes := []rune(a.mcpInstallInput)
+		runes = append(runes[:a.mcpInstallCursor-1], runes[a.mcpInstallCursor:]...)
+		a.mcpInstallInput = string(runes)
+		a.mcpInstallCursor--
+		return a, nil
+	case "delete":
+		runes := []rune(a.mcpInstallInput)
+		if a.mcpInstallCursor >= len(runes) {
+			return a, nil
+		}
+		runes = append(runes[:a.mcpInstallCursor], runes[a.mcpInstallCursor+1:]...)
+		a.mcpInstallInput = string(runes)
+		return a, nil
+	case "left":
+		if a.mcpInstallCursor > 0 {
+			a.mcpInstallCursor--
+		}
+		return a, nil
+	case "right":
+		if a.mcpInstallCursor < len([]rune(a.mcpInstallInput)) {
+			a.mcpInstallCursor++
+		}
+		return a, nil
+	case "home", "ctrl+a":
+		a.mcpInstallCursor = 0
+		return a, nil
+	case "end", "ctrl+e":
+		a.mcpInstallCursor = len([]rune(a.mcpInstallInput))
 		return a, nil
 	default:
 		if k.Text != "" {
-			a.mcpInstallInput += k.Text
+			runes := []rune(a.mcpInstallInput)
+			if a.mcpInstallCursor < 0 {
+				a.mcpInstallCursor = 0
+			}
+			if a.mcpInstallCursor > len(runes) {
+				a.mcpInstallCursor = len(runes)
+			}
+			insert := []rune(k.Text)
+			out := make([]rune, 0, len(runes)+len(insert))
+			out = append(out, runes[:a.mcpInstallCursor]...)
+			out = append(out, insert...)
+			out = append(out, runes[a.mcpInstallCursor:]...)
+			a.mcpInstallInput = string(out)
+			a.mcpInstallCursor += len(insert)
 		}
 	}
 	return a, nil
@@ -253,7 +296,12 @@ func (a *App) viewMcpInstall() string {
 		intro: []string{t.HintLabel.Render(
 			"  stdio: files stdio mcp-files /tmp\n" +
 				"  http:  weather http https://mcp.example.com")},
-		editor: a.renderCursorEditor(a.mcpInstallInput, len([]rune(a.mcpInstallInput))),
+		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
+		editorID:    "mcp-install",
+		editorValue: a.mcpInstallInput,
+		cursorAction: func(app *App, cursor int) {
+			app.mcpInstallCursor = cursor
+		},
 		status: statusRows,
 		footer: t.HintLabel.Render("Enter install · Esc cancel"),
 	})

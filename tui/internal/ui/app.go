@@ -396,6 +396,7 @@ type App struct {
 	// a.mcpServers slice (filtered to third-party).
 	mcpInstallOpen   bool
 	mcpInstallInput  string
+	mcpInstallCursor int
 	mcpInstallErr    string
 	mcpInstallSaving bool
 	mcpRemoveOpen    bool
@@ -1760,6 +1761,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.mcpInstallOpen = false
 		a.mcpInstallInput = ""
+		a.mcpInstallCursor = 0
 		a.mcpInstallErr = ""
 		name, _ := m.result["name"].(string)
 		id, _ := m.result["id"].(string)

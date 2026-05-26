@@ -273,13 +273,16 @@ type scrollableModalFrameRender struct {
 }
 
 type textEntryModalOptions struct {
-	width   int
-	title   string
-	buttons []menuButton
-	intro   []string
-	editor  string
-	status  []string
-	footer  string
+	width        int
+	title        string
+	buttons      []menuButton
+	intro        []string
+	editor       string
+	editorID     string
+	editorValue  string
+	cursorAction func(*App, int)
+	status       []string
+	footer       string
 }
 
 type selectableListModalOptions struct {
@@ -412,22 +415,51 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
 	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
-	rows = append(rows, opts.intro...)
+	rows = appendModalTextRows(rows, opts.intro...)
 	if len(rows) > 0 {
 		rows = append(rows, "")
 	}
+	editorRow := len(rows)
 	rows = append(rows, lipgloss.NewStyle().Foreground(a.Theme.Fg).Render("> "+opts.editor))
 	if len(opts.status) > 0 {
 		rows = append(rows, "")
-		rows = append(rows, opts.status...)
+		rows = appendModalTextRows(rows, opts.status...)
 	}
-	return a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:   opts.width,
 		title:   opts.title,
 		buttons: opts.buttons,
 		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
 		footer:  opts.footer,
 	})
+	if opts.editorID != "" && opts.cursorAction != nil {
+		a.registerTextEntryCursorHits(rendered.modal, rendered.bodyRow+editorRow, opts.editorID, opts.editorValue, opts.cursorAction)
+	}
+	return rendered
+}
+
+func appendModalTextRows(rows []string, blocks ...string) []string {
+	for _, block := range blocks {
+		if block == "" {
+			rows = append(rows, "")
+			continue
+		}
+		rows = append(rows, strings.Split(block, "\n")...)
+	}
+	return rows
+}
+
+func (a *App) registerTextEntryCursorHits(modal string, row int, id string, value string, action func(*App, int)) {
+	runes := []rune(value)
+	promptWidth := lipgloss.Width("> ")
+	for cursor := 0; cursor <= len(runes); cursor++ {
+		idx := cursor
+		col := promptWidth + lipgloss.Width(string(runes[:cursor]))
+		a.registerModalContentHit(modal, "text-entry:"+id+":cursor:"+itoa2(idx), row, col, 1, 1, func(app *App) tea.Cmd {
+			action(app, idx)
+			return nil
+		})
+	}
 }
 
 func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
