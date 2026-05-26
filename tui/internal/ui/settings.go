@@ -424,6 +424,9 @@ func (a *App) viewSettings() string {
 
 	buttons := []menuButton{closeMenuButton("settings:close", func(app *App) { app.closeSettingsModal() })}
 	rows := []string{}
+	agentRailStart := -1
+	agentRailRows := 0
+	agentRailWindow := scrollWindow{}
 	if s.loadErr != "" {
 		rows = append(rows,
 			lipgloss.NewStyle().Foreground(t.Warning).Render(s.loadErr),
@@ -493,14 +496,14 @@ func (a *App) viewSettings() string {
 		}
 		a.ensureAgentSelectionVisible()
 		start, end := a.visibleAgentRange()
-		if start > 0 {
-			rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(start)))
-		}
+		agentRailStart = len(rows)
+		agentRailWindow = scrollWindow{start: start, end: end, total: len(s.agentList)}
+		agentRows := make([]string, 0, maxInt(1, end-start))
 		for i, ag := range s.agentList[start:end] {
 			absolute := start + i
-			row := len(rows)
+			row := agentRailStart + len(agentRows)
 			idx := absolute
-			rows = append(rows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+			agentRows = append(agentRows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
 			addRowHit("settings:agent:"+ag.ID, row, func(app *App) tea.Cmd {
 				if app.settings == nil {
 					app.settings = &settingsState{tab: 1}
@@ -513,8 +516,15 @@ func (a *App) viewSettings() string {
 				return nil
 			})
 		}
-		if end < len(s.agentList) {
-			rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(s.agentList)-end)))
+		if len(agentRows) > 0 {
+			agentRailRows = len(agentRows)
+			agentListBody := a.renderScrollableModalBody(
+				lipgloss.JoinVertical(lipgloss.Left, agentRows...),
+				agentRailRows,
+				w,
+				agentRailWindow,
+			)
+			rows = append(rows, strings.Split(agentListBody, "\n")...)
 		}
 		if len(s.agentList) > 0 {
 			rows = append(rows, "")
@@ -788,6 +798,19 @@ func (a *App) viewSettings() string {
 		}
 		return nil
 	})
+	if agentRailStart >= 0 && agentRailRows > 0 {
+		railFrame := rendered
+		railFrame.bodyRow = rendered.bodyRow + agentRailStart
+		a.registerSelectableListRailHits(railFrame, "settings:agent:list", agentRailWindow, agentRailRows, func(app *App, target int) tea.Cmd {
+			if app.settings == nil || len(app.settings.agentList) == 0 {
+				return nil
+			}
+			app.settings.tab = 1
+			app.settings.agentSel = clampSelection(target, len(app.settings.agentList))
+			app.ensureAgentSelectionVisible()
+			return nil
+		})
+	}
 	a.registerModalCellHits(rendered.modal, rendered.bodyRow, arrowHits)
 	return rendered.modal
 }
