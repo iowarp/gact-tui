@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -164,21 +163,16 @@ func (a *App) viewMetrics() string {
 		}
 	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	body, win := a.windowMetricsBody(body)
+	windowed := windowModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.metricsBodyPageSize(), a.metricsScroll())
 	if a.metrics != nil {
-		a.metrics.scroll = win.scroll
-	}
-	hintText := "Up/Down scroll  r refresh  Esc close"
-	if win.total > win.end {
-		hintText = fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hintText)
+		a.metrics.scroll = windowed.window.scroll
 	}
 	return a.renderModalFrame(modalFrameOptions{
 		width:   w,
 		title:   "Backend Metrics",
 		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Render(hintText),
+		body:    windowed.body,
+		footer:  t.HintLabel.Render(modalRangeHint(windowed.window, "Up/Down scroll  r refresh  Esc close")),
 	})
 }
 
@@ -190,14 +184,11 @@ func (a *App) metricsBodyPageSize() int {
 	return rows
 }
 
-func (a *App) windowMetricsBody(body string) (string, scrollWindow) {
-	lines := strings.Split(body, "\n")
-	scroll := 0
+func (a *App) metricsScroll() int {
 	if a.metrics != nil {
-		scroll = a.metrics.scroll
+		return a.metrics.scroll
 	}
-	win := boundedScrollWindow(len(lines), a.metricsBodyPageSize(), scroll)
-	return strings.Join(lines[win.start:win.end], "\n"), win
+	return 0
 }
 
 func sortedKeys(m map[string]int) []string {

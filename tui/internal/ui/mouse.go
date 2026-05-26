@@ -109,7 +109,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick, wheel: a.handleDoctorMouseWheel},
 		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick, wheel: a.handleMetricsMouseWheel},
 		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick, wheel: a.handleSettingsMouseWheel},
-		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick},
+		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick, wheel: a.handleHelpMouseWheel},
 		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick, wheel: a.handlePaletteMouseWheel},
 	}
 }
@@ -251,8 +251,14 @@ func (a *App) handlePaletteMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd,
 func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	if !rect.contains(mouse.X, mouse.Y) {
 		a.helpOpen = false
+		a.helpScroll = 0
 		return nil, true
 	}
+	return nil, true
+}
+
+func (a *App) handleHelpMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
+	a.helpScroll = moveScrollOffsetByWheel(a.helpScroll, m.Mouse().Button)
 	return nil, true
 }
 

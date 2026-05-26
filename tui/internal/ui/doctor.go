@@ -176,15 +176,11 @@ func (a *App) viewDoctor() string {
 		body = renderDoctorBody(a.doctor.health, t, innerW)
 	}
 
-	body, win := a.windowDoctorBody(body)
+	windowed := windowModalBody(body, a.doctorBodyPageSize(), a.doctorScroll())
 	if a.doctor != nil {
-		a.doctor.scroll = win.scroll
+		a.doctor.scroll = windowed.window.scroll
 	}
-	hintText := "Tab view  Up/Down scroll  r refresh  Esc close"
-	if win.total > win.end {
-		hintText = fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hintText)
-	}
-	hint := t.HintLabel.Render(hintText)
+	hint := t.HintLabel.Render(modalRangeHint(windowed.window, "Tab view  Up/Down scroll  r refresh  Esc close"))
 	return a.renderModalFrame(modalFrameOptions{
 		width:      w,
 		title:      "Doctor — Backend Health",
@@ -192,7 +188,7 @@ func (a *App) viewDoctor() string {
 		tabs:       tabs,
 		tabPadding: 2,
 		tabSpacing: 2,
-		body:       body,
+		body:       windowed.body,
 		footer:     hint,
 	})
 }
@@ -205,14 +201,11 @@ func (a *App) doctorBodyPageSize() int {
 	return rows
 }
 
-func (a *App) windowDoctorBody(body string) (string, scrollWindow) {
-	lines := strings.Split(body, "\n")
-	scroll := 0
+func (a *App) doctorScroll() int {
 	if a.doctor != nil {
-		scroll = a.doctor.scroll
+		return a.doctor.scroll
 	}
-	win := boundedScrollWindow(len(lines), a.doctorBodyPageSize(), scroll)
-	return strings.Join(lines[win.start:win.end], "\n"), win
+	return 0
 }
 
 // renderDoctorCapabilities tabulates every spec capability as

@@ -353,8 +353,9 @@ type App struct {
 	searching     bool // true while the SearchMessages cmd is in flight
 
 	// Help overlay
-	helpOpen bool
-	helpTab  int // active tab index when helpOpen; see helpTabs
+	helpOpen   bool
+	helpTab    int // active tab index when helpOpen; see helpTabs
+	helpScroll int
 
 	// ZZZZZZZZZ1: Ctrl+C confirmation overlay. User feedback: "ctrl+c
 	// should have a confirmation window, close? yes no detach". Opens
@@ -2153,14 +2154,29 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "?", "esc", "ctrl+c":
 			a.helpOpen = false
 			a.helpTab = 0
+			a.helpScroll = 0
 		case "left", "h":
 			if a.helpTab > 0 {
 				a.helpTab--
+				a.helpScroll = 0
 			}
 		case "right", "l", "tab":
 			if a.helpTab < helpTabCount-1 {
 				a.helpTab++
+				a.helpScroll = 0
 			}
+		case "up", "k":
+			a.helpScroll--
+		case "down", "j":
+			a.helpScroll++
+		case "pgup", "ctrl+u":
+			a.helpScroll -= a.helpBodyPageSize()
+		case "pgdown", "ctrl+d":
+			a.helpScroll += a.helpBodyPageSize()
+		case "g", "home":
+			a.helpScroll = 0
+		case "G", "end":
+			a.helpScroll = 1 << 30
 		}
 		return a, nil
 	}
@@ -2211,6 +2227,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// still compose normally.
 		if a.focus != FocusInput || a.input.Value() == "" {
 			a.helpOpen = true
+			a.helpScroll = 0
 			return a, nil
 		}
 		// Fall through to focus dispatch so the textarea consumes it.
@@ -8191,6 +8208,7 @@ func (a *App) viewHelp() string {
 			active: i == a.helpTab,
 			action: func(app *App) tea.Cmd {
 				app.helpTab = tabIdx
+				app.helpScroll = 0
 				return nil
 			},
 		})
@@ -8208,13 +8226,16 @@ func (a *App) viewHelp() string {
 			t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
 	}
 	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	windowed := windowModalBody(keys, a.helpBodyPageSize(), a.helpScroll)
+	a.helpScroll = windowed.window.scroll
 
 	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
 		app.helpOpen = false
 		app.helpTab = 0
+		app.helpScroll = 0
 	})}
-	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
-		Render(a.localizer.t(msgHelpHint, nil))
+	hintText := modalRangeHint(windowed.window, a.localizer.t(msgHelpHint, nil))
+	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).Render(hintText)
 
 	return a.renderModalFrame(modalFrameOptions{
 		width:      w,
@@ -8223,9 +8244,17 @@ func (a *App) viewHelp() string {
 		tabs:       tabHits,
 		tabPadding: 1,
 		tabSpacing: 0,
-		body:       keys,
+		body:       windowed.body,
 		footer:     hint,
 	})
+}
+
+func (a *App) helpBodyPageSize() int {
+	rows := a.height - 14
+	if rows < 4 {
+		rows = 4
+	}
+	return rows
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have
