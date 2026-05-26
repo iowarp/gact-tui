@@ -81,8 +81,8 @@ Current mouse support:
 
 Most historical keyboard-only popups have been migrated to the overlay-first
 mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
-copy/text-selection semantics, a few specialized transcript actions, sidebar
-filter editing, and richer global/status affordances.
+true range/text selection, future row-local context menus, and continued visual
+polish for wrapping/button alignment as new surfaces are added.
 
 ## Base UI Surfaces
 
@@ -575,6 +575,35 @@ Mouse support exists:
    stable, so mouse users have a predictable global entry point even when the
    footer is visually crowded.
 
+## Visual Verification Coverage
+
+Current VHS/screenshots proving the shared interaction/menu work:
+
+- Header global actions: `semantic_header_actions.tape` with
+  `semantic_header_actions_base.png`, `semantic_header_actions_help.png`, and
+  `semantic_header_actions_settings.png`.
+- Settings/TUI controls and list tabs: `semantic_settings_lists.tape` with
+  `semantic_menu_settings_tui.png`, `semantic_settings_theme.png`, and
+  `semantic_settings_language.png`.
+- Help, Doctor, Metrics, and tool catalogs: `semantic_menu_smoke.tape` with
+  `semantic_menu_help_commands.png`, `semantic_menu_doctor_health.png`,
+  `semantic_menu_doctor_capabilities.png`, `semantic_menu_metrics.png`,
+  `semantic_menu_tools_catalog.png`, and `semantic_menu_tool_detail.png`.
+- Provider setup: `semantic_provider_setup.tape` with
+  `semantic_provider_setup.png` and `semantic_provider_setup_provider_changed.png`.
+- Catalog/file/workspace/MCP/selectable-list surfaces:
+  `semantic_file_picker.tape`, `semantic_workspace_switch.tape`,
+  `semantic_mcp_install.tape`, `semantic_mcp_remove.tape`, and
+  `semantic_palette.tape`.
+- Transcript/detail/context workflows: `semantic_context_detail.tape`,
+  `semantic_diff_actions.tape`, `semantic_conversation_footer_actions.tape`,
+  `semantic_conversation_block_copy.tape`, and `semantic_detail_copy.tape`.
+- Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape` and
+  `semantic_sidebar_footer_actions.tape`.
+- Permission and startup states: `semantic_permission_banner.tape`,
+  `semantic_startup_intro.tape`, `semantic_startup_connecting.tape`, and
+  `semantic_startup_error.tape`.
+
 ## Implementation Record
 
 ### `codex/mouse-hardening` pass 1
@@ -708,26 +737,17 @@ Additional work continued from the same architectural direction:
 
 ### 2026-05-26 user-observed follow-up queue
 
-- Modal close/back controls still need visual audit across every overlay.
-  Header actions should be right-aligned and stable; centered body actions
-  should be reserved for true confirmation choices. Any remaining mixed
-  close/back placement is a bug, not a per-modal design decision.
-- Wrapped modal/list text should use the available modal width. Avoid rows that
-  break after only a few words while there is unused horizontal space, and avoid
-  double-indented continuation lines in catalog, settings, help, and provider
-  rows.
+- Continue visual polish for modal close/back controls as new overlays are
+  added. Current shared header controls are verified by the semantic screenshots
+  above; regressions should be treated as bugs in the shared modal primitives.
+- Continue watching wrapped modal/list text. Existing catalog/settings/provider
+  rows use shared wrapping and dense metadata summaries, but new rows should not
+  reintroduce repeated command-name descriptions or double-indented continuation
+  lines.
 - Tool catalog rows should stay dense. Do not spend list-view space repeating
   the command name as its own description; use row space for source, server,
   visibility, owner/agent, permission, tags, schema, or error/capability state.
-- Settings/TUI option controls need a visual-loop pass for mouse parity:
-  left/right chips, row selection, save/close/back controls, and hit targets
-  must match the rendered text at normal and narrow sizes.
-- Header settings/help affordances exist in the current branch, but need a VHS
-  capture at realistic widths to prove they remain visible and clickable rather
-  than disappearing behind crowded session/model/provider chips.
-- Copy/paste is an explicit product task. Mouse mode should allow paste into
-  the normal input and expanded compose textarea without regressing terminal
-  paste. Conversation/detail copy should offer scoped copy actions for selected
-  message, selected tool/result, visible block, raw detail, and full transcript,
-  so users do not have to select sidebar borders, divider glyphs, and footer
-  hints from the terminal frame.
+- True text/range selection remains a product-level design task. Existing
+  scoped copy actions now cover selected transcript blocks, full transcript,
+  detail payloads, and main-input paste expansion without requiring terminal
+  frame selection.
