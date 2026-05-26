@@ -30,6 +30,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Sidebar filtering now has semantic mouse entry points: the visible footer `f filter` hint starts filter editing, the filter-mode footer exposes clickable apply/cancel targets, and an existing filter row can be clicked to re-enter editing while preserving Esc restore semantics.
 - Header chips now register render-time semantic targets: backend opens metrics, workspace opens the workspace switcher, session focuses the selected sidebar row, model/routing open model settings, agent opens agent settings, and status opens Doctor when integration health is supported.
 - Footer focus and visible `Tab pane` hints now register semantic targets that cycle focus through the same helper used by keyboard Tab.
+- Footer status chips now register semantic targets: the reconnect badge dispatches the existing manual reconnect path, and the ARC memory hit-rate chip opens the memory inspector.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -109,11 +110,12 @@ Mouse support exists:
 - Top-right header help/settings actions are semantic targets.
 - Visible footer settings, command, help, and quit hints are semantic targets.
 - Click the footer focus label or visible `Tab pane` hint to cycle focus.
+- Click footer reconnect and ARC memory status chips to refresh the backend stream or inspect memory/context.
 - Click header backend/workspace/session/model/agent/routing/status chips to drill into the matching existing modal or focus target.
 
 Missing:
 
-- Click reconnect/error/status affordances.
+- Click any remaining error/status affordances that are not represented by the shared error modal buttons, header chips, or footer status chips.
 
 ### Permission Banner
 
@@ -485,8 +487,9 @@ Mouse support exists:
 
 10. Header/footer global affordances now include clickable settings, help,
     command, quit, backend, workspace, session, model, agent, routing, and
-    status entry points. Remaining reconnect/error affordances still need richer
-    drill-down behavior.
+    status entry points. Footer reconnect and ARC memory chips are clickable;
+    any remaining error/status affordances should route through the same
+    render-time target model.
 
 11. TUI options/configuration controls now have mouse parity for row selection,
     left/right adjustments, apply/save/cancel, and backward navigation. Continue
