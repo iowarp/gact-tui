@@ -368,7 +368,16 @@ func TestMouseWheelOpenDetailScrollsDetailNotConversation(t *testing.T) {
 	a.scrollOffset = 7
 	a.stickyToBottom = false
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "detail:body:wheel")
+	if !ok {
+		t.Fatal("missing detail body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 
 	if a.detailScroll != 1 {

@@ -229,12 +229,23 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	}
 	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   title,
-		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Render(hint),
+		width:              w,
+		title:              title,
+		buttons:            buttons,
+		suppressButtonHits: true,
+		body:               body,
+		footer:             t.HintLabel.Render(hint),
 	})
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	a.registerScreenHit("detail:surface", rect, func(app *App) tea.Cmd { return nil })
+	a.registerScreenWheelHit("detail:surface:wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd { return nil })
+	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
+	if len(lines) > 0 && rendered.bodyRow >= 0 {
+		a.registerModalContentWheelHit(rendered.modal, "detail:body:wheel", rendered.bodyRow, 0, innerW, maxInt(1, strings.Count(visible, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+			app.detailScroll = moveScrollOffsetByWheel(app.detailScroll, button)
+			return nil
+		})
+	}
 	return scrollableDetailRender{modal: rendered.modal, scroll: win.scroll, window: win}
 }
 

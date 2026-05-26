@@ -54,11 +54,13 @@ func (a *App) activateHitAt(x, y int) (tea.Cmd, bool) {
 	if a.hits == nil {
 		return nil, false
 	}
-	target, ok := a.hits.at(x, y)
-	if !ok {
-		return nil, false
+	for i := len(a.hits.targets) - 1; i >= 0; i-- {
+		target := a.hits.targets[i]
+		if target.action != nil && target.rect.contains(x, y) {
+			return target.action(a), true
+		}
 	}
-	return target.action(a), true
+	return nil, false
 }
 
 func (a *App) activateWheelHitAt(x, y int, button tea.MouseButton) (tea.Cmd, bool) {
@@ -237,6 +239,7 @@ type modalFrameRender struct {
 	modal     string
 	bodyRow   int
 	footerRow int
+	buttonCol int
 }
 
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
@@ -292,7 +295,7 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if tabRow >= 0 {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
-	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow}
+	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol}
 }
 
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
