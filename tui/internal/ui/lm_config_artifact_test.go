@@ -985,6 +985,41 @@ func TestLMConfigProviderWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderRailUsesSemanticSectionHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.height = 40
+	a.lmConfig.selected = 0
+	for i := 0; i < 12; i++ {
+		a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+			ID:             "provider_" + itoa2(i),
+			Label:          "Provider " + itoa2(i),
+			Provider:       "openai",
+			SuggestedModel: "model",
+		})
+	}
+	want := len(a.lmConfig.info.Presets) - 1
+
+	_ = a.View()
+	target, ok := findLastHitTargetWithPrefixForTest(a, "lm-config:provider:rail:")
+	if !ok {
+		t.Fatal("missing semantic LM provider rail target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.lmConfig.selected != want {
+		t.Fatalf("selected provider = %d, want %d", a.lmConfig.selected, want)
+	}
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("field = %v, want preset", a.lmConfig.field)
+	}
+}
+
 func TestLMConfigModelWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.MouseEnabled = true
@@ -1019,6 +1054,45 @@ func TestLMConfigModelWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	}
 	if a.lmConfig.model != "zeta-model" || a.lmConfig.modelIndex != 1 {
 		t.Fatalf("model selection = %q/%d, want zeta-model/1", a.lmConfig.model, a.lmConfig.modelIndex)
+	}
+}
+
+func TestLMConfigModelRailUsesSemanticSectionHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.height = 40
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldModel
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	var models []gact.Model
+	for i := 0; i < 12; i++ {
+		models = append(models, gact.Model{ID: "model-" + itoa2(i)})
+	}
+	a.lmConfig.modelCatalogs["lm_studio"] = models
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = models[0].ID
+
+	_ = a.View()
+	target, ok := findLastHitTargetWithPrefixForTest(a, "lm-config:model:rail:")
+	if !ok {
+		t.Fatal("missing semantic LM model rail target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("model rail should not dispatch a command")
+	}
+	if a.lmConfig.field != lmFieldModel {
+		t.Fatalf("field = %v, want model", a.lmConfig.field)
+	}
+	if a.lmConfig.model != "model-11" || a.lmConfig.modelIndex != 11 {
+		t.Fatalf("model selection = %q/%d, want model-11/11", a.lmConfig.model, a.lmConfig.modelIndex)
 	}
 }
 

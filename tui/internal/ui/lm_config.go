@@ -1349,6 +1349,7 @@ func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, vi
 	a.registerModalWheelRegion(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigProviderWheel(button)
 	})
+	a.registerLMConfigProviderRailHits(modal, top, col, width, visibleRows)
 }
 
 func (a *App) registerLMConfigProviderHeaderHit(modal string, top, col, width int) {
@@ -1373,6 +1374,74 @@ func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visib
 	a.registerModalWheelRegion(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigModelWheel(button)
 	})
+	a.registerLMConfigModelRailHits(modal, top, col, width, visibleRows)
+}
+
+func (a *App) registerLMConfigProviderRailHits(modal string, top, col, width, visibleRows int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil || visibleRows <= 1 {
+		return
+	}
+	indexes := a.lmConfigProviderIndexes()
+	if len(indexes) <= visibleRows {
+		return
+	}
+	railCol := col + width - 3
+	for row := 0; row < visibleRows; row++ {
+		row := row
+		pos := row * (len(indexes) - 1) / maxInt(1, visibleRows-1)
+		a.registerModalContentHit(modal, "lm-config:provider:rail:"+itoa2(row), top+2+row, railCol, 1, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil || app.lmConfig.info == nil {
+				return nil
+			}
+			indexes := app.lmConfigProviderIndexes()
+			if len(indexes) == 0 {
+				return nil
+			}
+			if pos >= len(indexes) {
+				pos = len(indexes) - 1
+			}
+			app.lmConfig.field = lmFieldPreset
+			app.lmConfig.selected = indexes[pos]
+			return app.lmConfigSyncFromPreset()
+		})
+	}
+}
+
+func (a *App) registerLMConfigModelRailHits(modal string, top, col, width, visibleRows int) {
+	if a.lmConfig == nil || a.lmConfig.info == nil || visibleRows <= 1 {
+		return
+	}
+	modelIndexes := a.lmConfigModelIndexes()
+	if len(modelIndexes) <= visibleRows {
+		return
+	}
+	railCol := col + width - 3
+	for row := 0; row < visibleRows; row++ {
+		row := row
+		pos := row * (len(modelIndexes) - 1) / maxInt(1, visibleRows-1)
+		a.registerModalContentHit(modal, "lm-config:model:rail:"+itoa2(row), top+2+row, railCol, 1, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			modelIndexes := app.lmConfigModelIndexes()
+			if len(modelIndexes) == 0 {
+				return nil
+			}
+			if pos >= len(modelIndexes) {
+				pos = len(modelIndexes) - 1
+			}
+			pid := app.lmConfigCurrentPresetID()
+			catalog := app.lmConfig.modelCatalogs[pid]
+			modelIdx := modelIndexes[pos]
+			if modelIdx < 0 || modelIdx >= len(catalog) {
+				return nil
+			}
+			app.lmConfig.field = lmFieldModel
+			app.lmConfig.modelIndex = modelIdx
+			app.lmConfig.model = catalog[modelIdx].ID
+			return nil
+		})
+	}
 }
 
 func (a *App) registerLMConfigModelHeaderHit(modal string, top, col, width int) {
@@ -1896,9 +1965,6 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 	rows := []string{}
 
 	windowRows := visibleRows
-	if len(indexes) > visibleRows && visibleRows > 1 {
-		windowRows = visibleRows - 1
-	}
 	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
 	items := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
@@ -1928,16 +1994,11 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 		})
 		rows = append(rows, list.rows...)
 	}
-	if end < len(indexes) && len(rows) < visibleRows {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-			"    "+a.localizer.tf(msgLMConfigProviderMore, map[string]any{"count": len(indexes) - end}),
-		))
-	}
 	if len(indexes) == 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
 			Render("    "+a.localizer.t(msgLMConfigNoProvidersMatch, nil)))
 	}
-	return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
+	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), scrollWindow{start: start, end: end, total: len(indexes)})
 }
 
 func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string {
@@ -2306,9 +2367,6 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 	)
 	rows := []string{}
 	windowRows := visibleRows
-	if len(catalog) > visibleRows && visibleRows > 1 {
-		windowRows = visibleRows - 1
-	}
 	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
 	items := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
@@ -2329,12 +2387,7 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 		})
 		rows = append(rows, list.rows...)
 	}
-	if end < len(modelIndexes) && len(rows) < visibleRows {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-			"    "+a.localizer.tf(msgLMConfigModelMore, map[string]any{"count": len(modelIndexes) - end}),
-		))
-	}
-	return a.lmConfigBox(title, rows, innerW, maxInt(1, visibleRows))
+	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), scrollWindow{start: start, end: end, total: len(modelIndexes)})
 }
 
 func (a *App) lmConfigSelectableModelCount() int {
@@ -2527,6 +2580,14 @@ func (a *App) renderLMConfigModelDetails(bodyW int) []string {
 }
 
 func (a *App) lmConfigBox(title string, rows []string, width int, height int) string {
+	return a.lmConfigBoxWithWindow(title, rows, width, height, scrollWindow{})
+}
+
+func (a *App) lmConfigListBox(title string, rows []string, width int, height int, win scrollWindow) string {
+	return a.lmConfigBoxWithWindow(title, rows, width, height, win)
+}
+
+func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, height int, win scrollWindow) string {
 	t := a.Theme
 	bodyW := width - 4
 	if bodyW < 10 {
@@ -2541,6 +2602,34 @@ func (a *App) lmConfigBox(title string, rows []string, width int, height int) st
 	}
 	for len(bodyLines) < height {
 		bodyLines = append(bodyLines, strings.Repeat(" ", bodyW))
+	}
+	if win.total > maxInt(1, win.end-win.start) && width >= 16 && height >= 2 {
+		contentW := bodyW - 2
+		if contentW >= 4 {
+			visible := maxInt(1, win.end-win.start)
+			thumbRows := height * visible / maxInt(1, win.total)
+			if thumbRows < 1 {
+				thumbRows = 1
+			}
+			if thumbRows > height {
+				thumbRows = height
+			}
+			maxScroll := win.total - visible
+			maxThumbStart := height - thumbRows
+			thumbStart := 0
+			if maxScroll > 0 && maxThumbStart > 0 {
+				thumbStart = win.start * maxThumbStart / maxScroll
+			}
+			trackStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
+			thumbStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+			for i, line := range bodyLines {
+				marker := trackStyle.Render("│")
+				if i >= thumbStart && i < thumbStart+thumbRows {
+					marker = thumbStyle.Render("┃")
+				}
+				bodyLines[i] = fitANSI(line, contentW) + " " + marker
+			}
+		}
 	}
 	titleStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Bold(true)
 	borderStyle := lipgloss.NewStyle().Foreground(t.Border)
