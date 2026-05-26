@@ -292,7 +292,7 @@
   "command.doctor.title": "Doctor",
   "command.doctor.desc": "Backend health and subsystem status",
   "settings.unset": "(unset)",
-  "settings.model.change": "Change provider…",
+  "settings.model.change": "Change provider",
   "settings.model.change_desc": "open the provider/model picker (global CLIO LM)",
   "settings.model.hint": "Enter opens the same picker shown on first connect — saving there reconfigures CLIO's active global LM.",
   "settings.loading": "loading…",

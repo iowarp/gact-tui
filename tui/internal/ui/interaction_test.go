@@ -478,8 +478,8 @@ func TestWindowModalBodyAndRangeHintUseSharedScrollSemantics(t *testing.T) {
 	}
 
 	windowed = windowModalBody(body, 2, 1)
-	if got := modalRangeHint(windowed.window, "Up/Down scroll"); got != "2-3/5  Up/Down scroll" {
-		t.Fatalf("range hint = %q, want visible range prefix", got)
+	if got := modalRangeHint(windowed.window, "Up/Down scroll"); got != "Up/Down scroll" {
+		t.Fatalf("range hint = %q, want base hint only", got)
 	}
 }
 
@@ -527,8 +527,14 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	if !strings.Contains(plain, "one") || !strings.Contains(plain, "two") || strings.Contains(plain, "zero") {
 		t.Fatalf("modal should render selected body window:\n%s", plain)
 	}
-	if !strings.Contains(plain, "2-3/4  Up/Down scroll") {
-		t.Fatalf("modal footer should include visible range:\n%s", plain)
+	if strings.Contains(plain, "2-3/4") {
+		t.Fatalf("modal footer should not include numeric range text:\n%s", plain)
+	}
+	if !strings.Contains(plain, "Up/Down scroll") {
+		t.Fatalf("modal footer should keep the base hint:\n%s", plain)
+	}
+	if !strings.Contains(plain, "┃") {
+		t.Fatalf("scrollable modal body should render a side scroll indicator:\n%s", plain)
 	}
 	if rendered.window.scroll != 1 || rendered.window.start != 1 || rendered.window.end != 3 {
 		t.Fatalf("window = %+v, want rows 1-3", rendered.window)

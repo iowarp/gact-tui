@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"image/color"
 	"strings"
 
@@ -364,7 +363,7 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 	tabSpacing := frame.tabSpacing
 	frame.suppressButtonHits = true
 	frame.suppressTabHits = true
-	frame.body = padModalBody(windowed.body, opts.pageSize)
+	frame.body = a.renderScrollableModalBody(windowed.body, opts.pageSize, frame.width, windowed.window)
 	if opts.footerHint != "" {
 		footer := modalRangeHint(windowed.window, opts.footerHint)
 		if opts.footerStyle != nil {
@@ -384,6 +383,48 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	}
 	return scrollableModalFrameRender{modalFrameRender: rendered, window: windowed.window}
+}
+
+func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, win scrollWindow) string {
+	padded := padModalBody(body, rows)
+	if win.total <= rows || modalWidth < 16 || rows < 2 {
+		return padded
+	}
+	bodyW := modalWidth - 6
+	contentW := bodyW - 2
+	if contentW < 4 {
+		return padded
+	}
+
+	lines := strings.Split(padded, "\n")
+	trackRows := len(lines)
+	if trackRows < 1 {
+		return padded
+	}
+	thumbRows := trackRows * maxInt(1, win.end-win.start) / maxInt(1, win.total)
+	if thumbRows < 1 {
+		thumbRows = 1
+	}
+	if thumbRows > trackRows {
+		thumbRows = trackRows
+	}
+	maxScroll := win.total - maxInt(1, win.end-win.start)
+	maxThumbStart := trackRows - thumbRows
+	thumbStart := 0
+	if maxScroll > 0 && maxThumbStart > 0 {
+		thumbStart = win.start * maxThumbStart / maxScroll
+	}
+
+	trackStyle := lipgloss.NewStyle().Foreground(a.Theme.FgFaint)
+	thumbStyle := lipgloss.NewStyle().Foreground(a.Theme.Secondary)
+	for i, line := range lines {
+		marker := trackStyle.Render("│")
+		if i >= thumbStart && i < thumbStart+thumbRows {
+			marker = thumbStyle.Render("┃")
+		}
+		lines[i] = fitANSI(line, contentW) + " " + marker
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id string, bodyRows int, action uiWheelAction) {
@@ -687,8 +728,5 @@ func windowModalBody(body string, budget int, scroll int) modalBodyWindow {
 }
 
 func modalRangeHint(win scrollWindow, hint string) string {
-	if win.total > win.end {
-		return fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hint)
-	}
 	return hint
 }

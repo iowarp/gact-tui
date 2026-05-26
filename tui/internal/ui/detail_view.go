@@ -194,12 +194,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 
 	wrapped := wrap(opts.content, innerW)
 	lines := strings.Split(wrapped, "\n")
-	win := boundedScrollWindow(len(lines), page, opts.scroll)
-
 	title := opts.title
-	if len(lines) > page {
-		title += fmt.Sprintf("  (line %d–%d of %d)", win.start+1, win.end, win.total)
-	}
 	closeID := opts.closeID
 	if closeID == "" {
 		closeID = "detail:close"
