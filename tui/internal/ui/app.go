@@ -2280,13 +2280,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+s":
 		// Open Settings. Seed themeSel to the currently-active theme
 		// so the Theme tab doesn't "reset" to dark on every open.
-		a.settingsOpen = true
-		a.settings = &settingsState{}
-		a.seedSettingsSelections()
 		// Tab 0 (Model) is now a thin "Change provider…" entry point —
 		// the heavy lmConfig fetch only fires when the user actually
 		// presses Enter on that row, not on every Ctrl+S.
-		return a, loadSettingsCmd(a.c)
+		return a, a.openSettingsTab(0)
 	case "ctrl+t":
 		// Open Metrics modal.
 		a.metricsOpen = true
@@ -2303,18 +2300,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// refreshCmd keeps it fresh — so the modal opens without a
 		// round-trip. Selection defaults to the current workspace so
 		// Enter is a no-op unless the user moves off it.
-		if len(a.workspaces) == 0 {
-			a.transientHint = "no workspaces available"
-			return a, nil
-		}
-		a.workspaceSwitchOpen = true
-		a.workspaceSwitchSel = 0
-		for i, w := range a.workspaces {
-			if w.ID == a.wsID {
-				a.workspaceSwitchSel = i
-				break
-			}
-		}
+		a.openWorkspaceSwitch()
 		return a, nil
 	case "ctrl+y":
 		// "Yo" — voice transcribe. If VoiceCommand is set, run it to
@@ -6497,34 +6483,81 @@ func (a *App) renderHeader() string {
 	actionW := lipgloss.Width(actionBar)
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
-	backend := t.Header.Render(a.headerBackendLabel())
+	backendLabel := a.headerBackendLabel()
+	backend := t.Header.Render(backendLabel)
 	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
 	avail := a.width - lipgloss.Width(required) - actionW
 
-	optional := []string{}
-	if len(a.workspaces) > 0 {
-		optional = append(optional, a.localizer.t(msgChromeWorkspace,
-			map[string]string{"value": a.workspaces[0].Name}))
+	optional := []headerChip{}
+	if workspaceName := a.headerWorkspaceLabel(); workspaceName != "" {
+		optional = append(optional, headerChip{
+			id: "workspace",
+			label: a.localizer.t(msgChromeWorkspace,
+				map[string]string{"value": workspaceName}),
+			action: func(app *App) tea.Cmd {
+				app.openWorkspaceSwitch()
+				return nil
+			},
+		})
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
-		optional = append(optional, a.localizer.t(msgChromeSession,
-			map[string]string{"value": s.Title}))
+		optional = append(optional, headerChip{
+			id: "session",
+			label: a.localizer.t(msgChromeSession,
+				map[string]string{"value": s.Title}),
+			action: func(app *App) tea.Cmd {
+				app.focus = FocusSidebar
+				app.sidebarSectionFocus = sidebarSectionSessions
+				app.sidebarSectionCursor = false
+				app.ensureSelectedVisible()
+				return nil
+			},
+		})
 		if model := a.headerModelLabel(s); model != "" {
-			optional = append(optional, a.localizer.t(msgChromeModel,
-				map[string]string{"value": model}))
+			optional = append(optional, headerChip{
+				id: "model",
+				label: a.localizer.t(msgChromeModel,
+					map[string]string{"value": model}),
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(0)
+				},
+			})
 		}
 		if agent := a.headerAgentLabel(s.Agent); agent != "" {
-			optional = append(optional, agent)
+			optional = append(optional, headerChip{
+				id:    "agent",
+				label: agent,
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(1)
+				},
+			})
 		}
 		if routing := a.headerRoutingLabel(s); routing != "" {
-			optional = append(optional, routing)
+			optional = append(optional, headerChip{
+				id:    "routing",
+				label: routing,
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(0)
+				},
+			})
 		}
 	}
 	statusBadge := ""
+	var statusAction uiHitAction
 	if a.currentStatus != "" {
 		statusBadge = t.StatusBadge.Render(a.currentStatus)
 		avail -= lipgloss.Width(statusBadge)
+		statusAction = func(app *App) tea.Cmd {
+			if app.caps.Capabilities.IntegrationHealth {
+				app.doctorOpen = true
+				app.doctor = &doctorState{loading: true}
+				return doctorFetchCmd(app.c)
+			}
+			app.metricsOpen = true
+			app.metrics = &metricsState{loading: true}
+			return loadMetricsCmd(app.c)
+		}
 	}
 	// DDDDDDDD1: detached-count chip — always-visible reminder that
 	// the user has Ctrl+Z-walked-away sessions on this backend that
@@ -6543,14 +6576,25 @@ func (a *App) renderHeader() string {
 		avail -= lipgloss.Width(detachChip)
 	}
 
-	rendered := []string{required}
+	rendered := []string{badge, dot, backend}
+	hits := []headerChip{{
+		id:       "backend",
+		rendered: backend,
+		action: func(app *App) tea.Cmd {
+			app.metricsOpen = true
+			app.metrics = &metricsState{loading: true}
+			return loadMetricsCmd(app.c)
+		},
+	}}
 	for _, opt := range optional {
-		styled := t.Header.Render(truncate(opt, avail-2))
+		styled := t.Header.Render(truncate(opt.label, avail-2))
 		w := lipgloss.Width(styled)
 		if w > avail {
 			break
 		}
+		opt.rendered = styled
 		rendered = append(rendered, styled)
+		hits = append(hits, opt)
 		avail -= w
 	}
 	if detachChip != "" {
@@ -6558,6 +6602,7 @@ func (a *App) renderHeader() string {
 	}
 	if statusBadge != "" {
 		rendered = append(rendered, statusBadge)
+		hits = append(hits, headerChip{id: "status", rendered: statusBadge, action: statusAction})
 	}
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
@@ -6567,8 +6612,16 @@ func (a *App) renderHeader() string {
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
 	header := line + bg + actionBar
+	a.registerHeaderChipHits(rendered, hits)
 	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions)
 	return header
+}
+
+type headerChip struct {
+	id       string
+	label    string
+	rendered string
+	action   uiHitAction
 }
 
 type headerAction struct {
@@ -6593,10 +6646,7 @@ func (a *App) headerActions() []headerAction {
 			id:    "settings",
 			label: "settings",
 			action: func(app *App) tea.Cmd {
-				app.settingsOpen = true
-				app.settings = &settingsState{}
-				app.seedSettingsSelections()
-				return loadSettingsCmd(app.c)
+				return app.openSettingsTab(0)
 			},
 		},
 	}
@@ -6637,11 +6687,67 @@ func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
 	}
 }
 
+func (a *App) registerHeaderChipHits(rendered []string, hits []headerChip) {
+	if a.height <= 0 || len(rendered) == 0 || len(hits) == 0 {
+		return
+	}
+	col := 0
+	hitIdx := 0
+	for _, segment := range rendered {
+		w := lipgloss.Width(segment)
+		if hitIdx < len(hits) && segment == hits[hitIdx].rendered && hits[hitIdx].action != nil {
+			a.registerScreenHit("header:chip:"+hits[hitIdx].id, mouseRect{x: col, y: 0, w: w, h: 1}, hits[hitIdx].action)
+			hitIdx++
+		}
+		col += w
+	}
+}
+
+func (a *App) openWorkspaceSwitch() {
+	if len(a.workspaces) == 0 {
+		a.transientHint = "no workspaces available"
+		return
+	}
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+	for i, w := range a.workspaces {
+		if w.ID == a.wsID {
+			a.workspaceSwitchSel = i
+			break
+		}
+	}
+}
+
+func (a *App) openSettingsTab(tab int) tea.Cmd {
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: tab}
+	a.seedSettingsSelections()
+	return loadSettingsCmd(a.c)
+}
+
 func (a *App) headerBackendLabel() string {
 	if label := strings.TrimSpace(a.BackendLabel); label != "" {
 		return label
 	}
 	return a.BackendURL
+}
+
+func (a *App) headerWorkspaceLabel() string {
+	if len(a.workspaces) == 0 {
+		return ""
+	}
+	for _, w := range a.workspaces {
+		if w.ID == a.wsID {
+			if name := strings.TrimSpace(w.Name); name != "" {
+				return name
+			}
+			return w.ID
+		}
+	}
+	if name := strings.TrimSpace(a.workspaces[0].Name); name != "" {
+		return name
+	}
+	return a.workspaces[0].ID
 }
 
 func (a *App) headerModelLabel(s gact.Session) string {
