@@ -2434,19 +2434,8 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		}
-		if idx, ok := a.sidebarSessionIndexAt(mouse.Y, convH); ok && idx != a.selected {
-			a.sidebarSectionCursor = false
-			a.selected = idx
-			return a, a.selectSession(idx)
-		} else if ok && idx == a.selected && a.selected >= 0 && a.selected < len(a.sessions) && a.childSessionCount(a.sessions[a.selected].ID) > 0 {
-			a.sidebarSectionCursor = false
-			a.showChildSessions = !a.showChildSessions
-			if a.showChildSessions {
-				a.transientHint = "showing child sessions (c to collapse)"
-			} else {
-				a.transientHint = "child sessions collapsed (c to show)"
-			}
-			a.ensureSelectedVisible()
+		if idx, ok := a.sidebarSessionIndexAt(mouse.Y, convH); ok {
+			return a, a.activateSidebarSession(idx)
 		}
 	case mouse.Y >= 1+convH:
 		a.focus = FocusInput
@@ -4053,6 +4042,45 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 		rows++
 	}
 	return rows
+}
+
+func (a *App) activateSidebarSession(index int) tea.Cmd {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	if index < 0 || index >= len(a.sessions) {
+		return nil
+	}
+	if index != a.selected {
+		a.sidebarSectionCursor = false
+		a.selected = index
+		return a.selectSession(index)
+	}
+	if a.childSessionCount(a.sessions[index].ID) > 0 {
+		a.sidebarSectionCursor = false
+		a.showChildSessions = !a.showChildSessions
+		if a.showChildSessions {
+			a.transientHint = "showing child sessions (c to collapse)"
+		} else {
+			a.transientHint = "child sessions collapsed (c to show)"
+		}
+		a.ensureSelectedVisible()
+	}
+	return nil
+}
+
+func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
+	if a.hits == nil || index < 0 || index >= len(a.sessions) || rowCount <= 0 {
+		return
+	}
+	id := a.sessions[index].ID
+	if id == "" {
+		id = fmt.Sprintf("%d", index)
+	}
+	rect := sidebarContentRect(row, width)
+	rect.h = rowCount
+	a.registerScreenHit("sidebar:session:"+id, rect, func(app *App) tea.Cmd {
+		return app.activateSidebarSession(index)
+	})
 }
 
 func (a *App) registerSidebarContextHeaderHit(row int, width int) {
@@ -7058,6 +7086,8 @@ func (a *App) renderSidebar(width, height int) string {
 	for i := startIdx; i < endIdx; i++ {
 		sIdx := visIdx[i]
 		s := a.sessions[sIdx]
+		row := len(rows)
+		a.registerSidebarSessionHit(row, width, sIdx, a.sidebarSessionRowCount(sIdx))
 		marker := " "
 		titleIndent := ""
 		statusIndent := "  "

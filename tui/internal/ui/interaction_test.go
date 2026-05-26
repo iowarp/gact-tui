@@ -2083,6 +2083,110 @@ func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	}
 }
 
+func TestSidebarSessionsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "first", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "second", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:sess_2")
+	if !ok {
+		t.Fatal("missing semantic sidebar session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus = %v, want sidebar", a.focus)
+	}
+	if a.sidebarSectionFocus != sidebarSectionSessions || a.sidebarSectionCursor {
+		t.Fatalf("session hit should focus session rows, section=%v cursor=%v", a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want second session", a.selected)
+	}
+	if cmd == nil {
+		t.Fatal("sidebar session click should return selectSession command")
+	}
+}
+
+func TestSidebarExpandedChildSessionsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child-a", Title: "csv_validator subagent", ParentSessionID: "parent", Status: gact.StatusIdle},
+		{ID: "child-b", Title: "analysis_validator subagent", ParentSessionID: "parent", Status: gact.StatusIdle},
+		{ID: "after", Title: "after", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.showChildSessions = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:child-b")
+	if !ok {
+		t.Fatal("missing semantic child session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.selected != 2 {
+		t.Fatalf("clicking child target selected %d, want child-b index 2", a.selected)
+	}
+	if cmd == nil {
+		t.Fatal("child session click should return selectSession command")
+	}
+}
+
+func TestSidebarSelectedParentSemanticHitTogglesChildren(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child", Title: "child", ParentSessionID: "parent", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:parent")
+	if !ok {
+		t.Fatal("missing semantic parent session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("clicking selected parent should toggle children without dispatching select command")
+	}
+	if !a.showChildSessions {
+		t.Fatal("selected parent semantic hit should expand child sessions")
+	}
+}
+
 func TestDetailCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
