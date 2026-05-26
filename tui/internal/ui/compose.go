@@ -170,6 +170,13 @@ func (a *App) viewCompose() string {
 		body:    body,
 		footer:  footer,
 	})
+	a.registerModalTextareaCursorHits(rendered.modal, rendered.bodyRow, 0, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
+		if app.compose == nil {
+			return
+		}
+		app.compose.ta.Focus()
+		setTextareaCursor(&app.compose.ta, line, col)
+	})
 	return rendered.modal
 }
 

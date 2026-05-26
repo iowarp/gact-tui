@@ -69,6 +69,34 @@ func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
 	})
 }
 
+func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight int) {
+	if !a.MouseEnabled || a.hits == nil {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	startX := sidebarW + 1 + mouseCommandButtonWidth + 2
+	startY := 1 + conversationHeight + hintHeight + 1
+	for lineIdx, line := range splitTextareaValue(a.input.Value()) {
+		runes := []rune(line)
+		for col := 0; col <= len(runes); col++ {
+			lineIdx := lineIdx
+			col := col
+			x := startX + lipgloss.Width(string(runes[:col]))
+			a.registerScreenHit("input:cursor:"+itoa2(lineIdx)+":"+itoa2(col), mouseRect{
+				x: x,
+				y: startY + lineIdx,
+				w: 1,
+				h: 1,
+			}, func(app *App) tea.Cmd {
+				app.focus = FocusInput
+				app.input.Focus()
+				setTextareaCursor(&app.input, lineIdx, col)
+				return nil
+			})
+		}
+	}
+}
+
 func overlayMouseRect(top string, screenW, screenH int) mouseRect {
 	lines := strings.Split(top, "\n")
 	h := len(lines)

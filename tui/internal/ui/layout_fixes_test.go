@@ -1076,6 +1076,42 @@ func TestFilePicker_AtMidWordPassesThrough(t *testing.T) {
 	}
 }
 
+func TestInputTextareaClickPlacesCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.width, a.height = 120, 36
+	a.focus = FocusBody
+	a.input.SetValue("abcdef")
+	a.input.CursorEnd()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:cursor:0:2")
+	if !ok {
+		t.Fatal("missing input textarea cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("input cursor click should not dispatch a command")
+	}
+	if a.focus != FocusInput {
+		t.Fatalf("focus = %v, want input", a.focus)
+	}
+	if a.input.Line() != 0 || a.input.Column() != 2 {
+		t.Fatalf("input cursor line=%d col=%d, want 0:2", a.input.Line(), a.input.Column())
+	}
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'Z', Text: "Z"})
+	a = model.(*App)
+	if got := a.input.Value(); got != "abZcdef" {
+		t.Fatalf("typing after click inserted at %q, want abZcdef", got)
+	}
+}
+
 // TestCompose_OpenCommitCancel covers M5's full state machine:
 // Ctrl+G opens with seeded draft, Ctrl+S commits the modal body back
 // to the base input, Esc cancels and preserves the pre-modal draft.
@@ -1180,6 +1216,44 @@ func TestComposeButtonsAlignWithSharedHeader(t *testing.T) {
 	rect := overlayMouseRect(view, a.width, a.height)
 	if wantY := rect.y + 2; target.rect.y != wantY {
 		t.Fatalf("compose commit button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestComposeTextareaClickPlacesCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+	a.compose.ta.SetValue("alpha\nbravo")
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "textarea:compose:cursor:1:2")
+	if !ok {
+		t.Fatal("missing compose textarea cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose cursor click should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose cursor click should keep compose open")
+	}
+	if a.compose.ta.Line() != 1 || a.compose.ta.Column() != 2 {
+		t.Fatalf("compose cursor line=%d col=%d, want 1:2", a.compose.ta.Line(), a.compose.ta.Column())
+	}
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'Z', Text: "Z"})
+	a = model.(*App)
+	if got := a.compose.ta.Value(); got != "alpha\nbrZavo" {
+		t.Fatalf("typing after compose click inserted at %q, want alpha/brZavo", got)
 	}
 }
 
