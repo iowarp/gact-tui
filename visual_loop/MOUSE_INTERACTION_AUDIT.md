@@ -120,6 +120,12 @@ Mouse support exists:
 - Click visible footer conversation actions for details, bottom, copy, copy all, retry, and delete.
 - Click a visible conversation block and then footer `y copy` to copy that
   semantic block's payload.
+- Right-click a visible conversation block to open the shared conversation
+  action menu.
+- Press `m` on a selected conversation block to open the same action menu by
+  keyboard.
+- Click conversation action rows for detail, copy block, copy full transcript,
+  retry user messages, apply/reject diff blocks, and delete message.
 - Wheel scrolls the transcript through render-time body-region routing.
 
 Missing:
@@ -601,6 +607,7 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_palette.tape`.
 - Transcript/detail/context workflows: `semantic_context_detail.tape`,
   `semantic_context_actions.tape`, `semantic_diff_actions.tape`,
+  `semantic_conversation_actions.tape`,
   `semantic_conversation_footer_actions.tape`,
   `semantic_conversation_block_copy.tape`, and `semantic_detail_copy.tape`.
 - Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape`,

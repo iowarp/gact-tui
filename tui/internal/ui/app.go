@@ -439,6 +439,13 @@ type App struct {
 	contextActionsOpen bool
 	contextActionsSel  int
 
+	// Conversation action menu. Opened from rendered transcript part
+	// secondary-click targets, or `m` in body focus. Keeps transcript
+	// row actions on the same shared selectable-list modal primitive
+	// as sidebar row-local actions.
+	conversationActionsOpen bool
+	conversationActionsSel  int
+
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
 	// /v1/sessions/{id}/context/files; Esc cancels.
@@ -2168,6 +2175,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.contextActionsOpen {
 		return a.handleContextActionsKey(k)
+	}
+	if a.conversationActionsOpen {
+		return a.handleConversationActionsKey(k)
 	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
@@ -4374,6 +4384,8 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
 			return a, rejectDiffsCmd(a.c, sid)
 		}
+	case "m":
+		return a, a.openConversationActionsForSelection()
 	case "y":
 		// Yank: when the body cursor is on an addressable part, copy
 		// that semantic block first (tool result, diff, text, etc.).
@@ -6449,6 +6461,9 @@ func (a *App) viewMain() string {
 	if a.contextActionsOpen {
 		base = overlay(base, a.viewContextActions(), a.width, a.height)
 	}
+	if a.conversationActionsOpen {
+		base = overlay(base, a.viewConversationActions(), a.width, a.height)
+	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
 	}
@@ -8475,7 +8490,7 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 		screenEnd := min(end, visibleEnd)
 		msgIdx := block.msgIdx
 		addrIdx := block.addrIdx
-		a.registerScreenHit(
+		a.registerScreenHitActions(
 			fmt.Sprintf("conversation:part:%d:%d", msgIdx, addrIdx),
 			mouseRect{
 				x: contentX,
@@ -8505,11 +8520,14 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 				}
 				return nil
 			},
+			func(app *App) tea.Cmd {
+				return app.openConversationActionsForPart(msgIdx, addrIdx)
+			},
 		)
 		if block.opensDetail && block.detailStart >= 0 {
 			detailRow := block.detailStart
 			if detailRow >= visibleStart && detailRow < visibleEnd {
-				a.registerScreenHit(
+				a.registerScreenHitActions(
 					fmt.Sprintf("conversation:detail:%d:%d", msgIdx, addrIdx),
 					mouseRect{
 						x: contentX,
@@ -8533,6 +8551,9 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 						app.searchHitMessageID = ""
 						app.openDetailForSelection()
 						return nil
+					},
+					func(app *App) tea.Cmd {
+						return app.openConversationActionsForPart(msgIdx, addrIdx)
 					},
 				)
 			}

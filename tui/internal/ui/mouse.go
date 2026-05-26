@@ -194,6 +194,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 			closeOutside: func(app *App) { app.closeCatalogBrowser() },
 		},
 		{open: a.contextAddOpen, view: a.viewContextAdd, closeOutside: func(app *App) { app.closeContextAddModal() }},
+		{open: a.conversationActionsOpen, view: a.viewConversationActions, closeOutside: func(app *App) { app.closeConversationActions() }},
 		{open: a.contextActionsOpen, view: a.viewContextActions, closeOutside: func(app *App) { app.closeContextActions() }},
 		{open: a.sessionActionsOpen, view: a.viewSessionActions, closeOutside: func(app *App) { app.closeSessionActions() }},
 		{open: a.renameOpen, view: a.viewRename, closeOutside: func(app *App) { app.closeRenameModal() }},

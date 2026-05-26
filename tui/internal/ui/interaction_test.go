@@ -2630,6 +2630,63 @@ func TestConversationPartsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConversationPartRightClickOpensSemanticActionMenu(t *testing.T) {
+	mu, copied, _ := withClipboardSpy(t)
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 160
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second block"}}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("missing conversation hit target for assistant block")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right-clicking conversation block should not dispatch a command")
+	}
+	if !a.conversationActionsOpen || a.focus != FocusBody || a.bodySelMsgIdx != 1 || a.bodySelPartIdx != 0 {
+		t.Fatalf("right-click should select block and open actions, open=%v focus=%v msg=%d part=%d", a.conversationActionsOpen, a.focus, a.bodySelMsgIdx, a.bodySelPartIdx)
+	}
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "conversation-actions:copy-block")
+	if !ok {
+		t.Fatal("missing conversation copy-block action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-block action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "second block" {
+		t.Fatalf("copy-block wrote %q", gotCopy)
+	}
+	if a.conversationActionsOpen || !strings.Contains(a.transientHint, "copied") {
+		t.Fatalf("copy-block should close menu and surface hint, open=%v hint=%q", a.conversationActionsOpen, a.transientHint)
+	}
+}
+
 func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
