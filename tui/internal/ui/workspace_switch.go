@@ -106,11 +106,12 @@ func (a *App) viewWorkspaceSwitch() string {
 	if innerW < 1 {
 		innerW = 1
 	}
+	listW := innerW - 4
+	if listW < 1 {
+		listW = innerW
+	}
 	itemBudget := a.modalListItemBudget(4, 1, workspaceSwitchMaxItems)
 	win := selectedItemWindow(len(a.workspaces), a.workspaceSwitchSel, itemBudget)
-	if win.start > 0 {
-		rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(win.start)))
-	}
 	listStartRow := len(rows)
 	items := make([]modalListItem, 0, win.end-win.start)
 	for i := win.start; i < win.end; i++ {
@@ -132,27 +133,31 @@ func (a *App) viewWorkspaceSwitch() string {
 			},
 		})
 	}
-	list := a.renderModalList(items, modalListOptions{width: innerW, rowBudget: itemBudget})
+	list := a.renderModalList(items, modalListOptions{width: listW, rowBudget: itemBudget})
 	rows = append(rows, list.rows...)
-	if win.end < len(a.workspaces) {
-		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.workspaces)-win.end)))
-	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   "Switch workspace",
-		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"),
-	})
-	a.registerModalSurfaceWheel(rendered, "workspace-switch")
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, innerW, list, "workspace-switch:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
-		if len(app.workspaces) == 0 {
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Switch workspace",
+			buttons: buttons,
+			footer:  t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"),
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       itemBudget,
+		window:         win,
+		wheelID:        "workspace-switch:list:wheel",
+		surfaceWheelID: "workspace-switch",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			if len(app.workspaces) == 0 {
+				return nil
+			}
+			app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
 			return nil
-		}
-		app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
-		return nil
+		},
 	})
 	return rendered.modal
 }

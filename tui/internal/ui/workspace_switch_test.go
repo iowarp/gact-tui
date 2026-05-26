@@ -322,8 +322,11 @@ func TestWorkspaceSwitcherUsesBoundedScrollWindow(t *testing.T) {
 	if strings.Contains(out, "workspace 00  ws_00") {
 		t.Fatalf("bounded window should not render every workspace:\n%s", out)
 	}
-	if !strings.Contains(out, "↑ ") {
-		t.Fatalf("bounded window should show rows above indicator:\n%s", out)
+	if strings.Contains(out, "↑ 12") || strings.Contains(out, "↓ 12") {
+		t.Fatalf("bounded window should not render textual scroll count rows:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("bounded window should show shared side scroll rail:\n%s", out)
 	}
 }
 
