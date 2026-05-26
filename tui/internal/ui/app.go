@@ -6985,6 +6985,36 @@ func (a *App) registerFooterActionHits(rendered string) {
 		app.helpScroll = 0
 		return nil
 	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:details", "Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("enter"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:bottom", "G", a.localizer.t(msgFooterConversationBottom, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("G"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:copy", "y", a.localizer.t(msgFooterConversationCopy, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("y"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:copy-full", "Y", a.localizer.t(msgFooterConversationCopyFull, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("Y"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:retry", "R", a.localizer.t(msgFooterConversationRetry, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("R"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:delete", "d", a.localizer.t(msgFooterConversationDelete, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("d"))
+		return cmd
+	})
 	a.registerFooterActionHit(plain, y, "footer:sidebar:filter", "f", a.localizer.t(msgFooterSidebarFilter, nil), func(app *App) tea.Cmd {
 		app.enterSidebarFilter(false)
 		return nil
@@ -7083,11 +7113,40 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 			{
 				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
 				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
 				mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
 			},
 			{
 				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
 				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+			},
+			{
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
 			},
 		}
 	case FocusInput:
