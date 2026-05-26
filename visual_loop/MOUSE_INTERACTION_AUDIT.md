@@ -673,6 +673,10 @@ Additional work continued from the same architectural direction:
   backend metadata (`owner`, `permission_default`, input schema field names,
   and tags). Command-name echo descriptions and long agent-story prose stay
   out of the list view; full descriptions/schema remain available in detail.
+- Standard and wide modal widths now share one sizing policy. Provider setup
+  and expanded compose use the shared wide-modal width instead of separate
+  viewport formulas, while settings/catalog/detail/memory keep the standard
+  width.
 
 ### 2026-05-26 user-observed follow-up queue
 

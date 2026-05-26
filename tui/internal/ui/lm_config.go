@@ -1760,20 +1760,7 @@ func lmConfigGridWidths(innerW int) (int, int) {
 }
 
 func (a *App) lmConfigModalWidth() int {
-	if a.width <= 0 {
-		return 120
-	}
-	w := a.width * 88 / 100
-	if w > 128 {
-		w = 128
-	}
-	if w > a.width-8 {
-		w = a.width - 8
-	}
-	if w < 84 {
-		w = a.modalWidth()
-	}
-	return w
+	return a.wideModalWidth()
 }
 
 // renderLMConfigProviderList paints the provider section as a
