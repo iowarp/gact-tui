@@ -138,7 +138,7 @@ func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
-func TestRenameButtonsAlignWithSharedFrameBody(t *testing.T) {
+func TestRenameButtonsAlignWithSharedHeader(t *testing.T) {
 	a, _, _ := makeRenameApp(t)
 	a.renameOpen = true
 	a.renameDraft = "clicked title"
@@ -150,8 +150,8 @@ func TestRenameButtonsAlignWithSharedFrameBody(t *testing.T) {
 		t.Fatal("missing rename save button hit target")
 	}
 	rect := overlayMouseRect(a.viewRename(), a.width, a.height)
-	if wantY := rect.y + 6; target.rect.y != wantY {
-		t.Fatalf("rename save button y = %d, want shared frame body action row %d", target.rect.y, wantY)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("rename save button y = %d, want shared frame header row %d", target.rect.y, wantY)
 	}
 }
 

@@ -132,7 +132,7 @@ func TestContextAddButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
-func TestContextAddButtonsAlignWithSharedFrameBody(t *testing.T) {
+func TestContextAddButtonsAlignWithSharedHeader(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
 	a.contextAddOpen = true
 	a.contextAddDraft = "docs/readme.md"
@@ -144,8 +144,8 @@ func TestContextAddButtonsAlignWithSharedFrameBody(t *testing.T) {
 		t.Fatal("missing context-add save button hit target")
 	}
 	rect := overlayMouseRect(a.viewContextAdd(), a.width, a.height)
-	if wantY := rect.y + 6; target.rect.y != wantY {
-		t.Fatalf("context-add save button y = %d, want shared frame body action row %d", target.rect.y, wantY)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("context-add save button y = %d, want shared frame header row %d", target.rect.y, wantY)
 	}
 }
 
