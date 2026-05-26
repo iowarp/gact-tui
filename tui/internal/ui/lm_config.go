@@ -1469,13 +1469,31 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 	if a.lmConfig == nil {
 		return
 	}
-	for i, field := range a.lmConfig.lmConfigAdvancedFields() {
-		field := field
+	for i, row := range a.lmConfigAdvancedRows() {
+		field := row.field
+		rowY := top + 2 + i
 		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d", field), top+2+i, col, width, 1, func(app *App) tea.Cmd {
 			if app.lmConfig != nil {
 				app.lmConfig.field = field
 			}
 			return nil
+		})
+		leftCol, rightCol := row.arrowColumns()
+		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d:dec", field), rowY, col+leftCol, 3, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("left"))
+			return cmd
+		})
+		a.registerModalContentHit(modal, fmt.Sprintf("lm-config:advanced:%d:inc", field), rowY, col+rightCol, 3, 1, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("right"))
+			return cmd
 		})
 	}
 }
@@ -2212,48 +2230,96 @@ func lmConfigSelectedMarker(focused bool) string {
 	return "✓ "
 }
 
-// renderLMConfigAdvanced renders the numeric knobs as ←/→
+const lmConfigAdvancedMarkerWidth = 6
+
+type lmConfigAdvancedRow struct {
+	field       lmConfigField
+	label       string
+	value       string
+	defaultText string
+}
+
+func (r lmConfigAdvancedRow) displayText() string {
+	if r.value != "" {
+		return r.value
+	}
+	return r.defaultText
+}
+
+func (r lmConfigAdvancedRow) arrowColumns() (left int, right int) {
+	valueStart := lmConfigAdvancedMarkerWidth + lipgloss.Width(r.label) + 2
+	return valueStart, valueStart + lipgloss.Width("◀ "+r.displayText()+" ")
+}
+
+func (a *App) lmConfigAdvancedRows() []lmConfigAdvancedRow {
+	if a.lmConfig == nil {
+		return nil
+	}
+	rows := []lmConfigAdvancedRow{}
+	for _, field := range a.lmConfig.lmConfigAdvancedFields() {
+		switch field {
+		case lmFieldTemperature:
+			rows = append(rows, lmConfigAdvancedRow{
+				field:       lmFieldTemperature,
+				label:       a.localizer.t(msgLMConfigTemperature, nil),
+				value:       a.lmConfig.temperature,
+				defaultText: a.localizer.t(msgLMConfigBackendDefault, nil),
+			})
+		case lmFieldMaxTokens:
+			rows = append(rows, lmConfigAdvancedRow{
+				field:       lmFieldMaxTokens,
+				label:       a.localizer.t(msgLMConfigMaxOutput, nil),
+				value:       a.lmConfig.maxTokens,
+				defaultText: a.localizer.t(msgLMConfigProviderDefault, nil),
+			})
+		case lmFieldContextLength:
+			rows = append(rows, lmConfigAdvancedRow{
+				field:       lmFieldContextLength,
+				label:       a.localizer.t(msgLMConfigLoadContext, nil),
+				value:       a.lmConfig.contextLength,
+				defaultText: a.localizer.t(msgLMConfigLMStudioDefault, nil),
+			})
+		case lmFieldThinkingBudget:
+			rows = append(rows, lmConfigAdvancedRow{
+				field:       lmFieldThinkingBudget,
+				label:       a.localizer.t(msgLMConfigThinkingBudget, nil),
+				value:       a.lmConfig.thinkingBudget,
+				defaultText: a.localizer.t(msgLMConfigDefaultDisabled, nil),
+			})
+		}
+	}
+	return rows
+}
+
+// renderLMConfigAdvanced renders the numeric knobs as visible ←/→
 // adjusters. Empty value displays "default" so the user knows blank
 // is intentional.
 func (a *App) renderLMConfigAdvanced(innerW int) []string {
 	t := a.Theme
-	row := func(field lmConfigField, label, value, defaultText string) string {
-		marker := "    "
+	row := func(spec lmConfigAdvancedRow) string {
+		marker := strings.Repeat(" ", lmConfigAdvancedMarkerWidth)
 		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		if a.lmConfig.field == field {
+		if a.lmConfig.field == spec.field {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("    ▌ ")
 			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
 		}
-		display := value
+		display := spec.value
 		if display == "" {
 			display = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-				Render(defaultText)
+				Render(spec.defaultText)
 		} else {
 			display = lipgloss.NewStyle().Foreground(t.Fg).Bold(true).Render(display)
 		}
 		hint := ""
-		if a.lmConfig.field == field {
+		if a.lmConfig.field == spec.field {
 			hint = "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
 				Render(a.localizer.t(msgLMConfigAdjustHint, nil))
 		}
-		return marker + labelStyle.Render(label) + "  " + display + hint
+		return marker + labelStyle.Render(spec.label) + "  " + t.HintLabel.Render("◀ ") + display + t.HintLabel.Render(" ▶") + hint
 	}
 	rows := []string{}
-	for _, field := range a.lmConfig.lmConfigAdvancedFields() {
-		switch field {
-		case lmFieldTemperature:
-			rows = append(rows, row(lmFieldTemperature, a.localizer.t(msgLMConfigTemperature, nil),
-				a.lmConfig.temperature, a.localizer.t(msgLMConfigBackendDefault, nil)))
-		case lmFieldMaxTokens:
-			rows = append(rows, row(lmFieldMaxTokens, a.localizer.t(msgLMConfigMaxOutput, nil),
-				a.lmConfig.maxTokens, a.localizer.t(msgLMConfigProviderDefault, nil)))
-		case lmFieldContextLength:
-			rows = append(rows, row(lmFieldContextLength, a.localizer.t(msgLMConfigLoadContext, nil),
-				a.lmConfig.contextLength, a.localizer.t(msgLMConfigLMStudioDefault, nil)))
-		case lmFieldThinkingBudget:
-			rows = append(rows, row(lmFieldThinkingBudget, a.localizer.t(msgLMConfigThinkingBudget, nil),
-				a.lmConfig.thinkingBudget, a.localizer.t(msgLMConfigDefaultDisabled, nil)))
-		}
+	for _, spec := range a.lmConfigAdvancedRows() {
+		rows = append(rows, row(spec))
 	}
 	return rows
 }
