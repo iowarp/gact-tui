@@ -246,6 +246,42 @@ func TestWorkspaceSwitcherCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcherMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "workspace-switch:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic workspace list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.workspaceSwitchSel != 1 {
+		t.Fatalf("wheel over workspace list should move selection, got %d", a.workspaceSwitchSel)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "workspace-switch:surface:wheel")
+	if !ok {
+		t.Fatal("missing workspace surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+	if a.workspaceSwitchSel != 1 {
+		t.Fatalf("wheel on workspace chrome should not move selection, got %d", a.workspaceSwitchSel)
+	}
+}
+
 func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaceSwitchOpen = true

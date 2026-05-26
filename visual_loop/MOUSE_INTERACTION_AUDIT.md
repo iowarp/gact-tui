@@ -470,6 +470,28 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
    - File picker.
    - Potentially metrics/doctor/help if content grows.
 
+7. Modal controls are visually inconsistent. Some close/back actions are
+   rendered as centered action-row chips while others are right-aligned header
+   buttons. Back, close, cancel, apply, refresh, install, remove, and detach
+   should use one visual/action model unless a modal has a strong reason to
+   differ.
+
+8. Copy/paste and terminal selection need an explicit design. With mouse mode
+   enabled, paste into the input/compose textarea and copy from the conversation
+   should remain ergonomic. With mouse mode disabled, terminal copy works but
+   captures borders/sidebar/footer text; add a future copy-mode or copy-block
+   action so users can copy transcript content without UI chrome.
+
+9. Some wrapped content wastes horizontal space. Long catalog/tool/config rows
+   sometimes break after only a few words while the modal still has room. Modal
+   body rendering should prefer semantic wrapping with the actual inner width,
+   avoid repeated command-name descriptions, and use available space for
+   meaningful metadata.
+
+10. Header/footer global affordances are still keyboard-only. Mouse mode should
+    expose clickable settings/help entry points in the top/right chrome or a
+    similarly stable global location.
+
 ## Suggested Implementation Order For Later
 
 1. Add an overlay-first mouse dispatcher that mirrors `handleKey` precedence.
@@ -489,6 +511,10 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
 6. Decide whether mouse text editing is in scope. If yes, start with textarea
    surfaces (`input`, `compose`) and then add minimal cursor hit-testing for
    custom single-line editors.
+
+7. Add a copy-mode/copy-block design for conversation content so copying raw
+   evidence, assistant text, tool summaries, and detail panes does not require
+   selecting the entire terminal frame.
 
 ## Implementation Record
 
