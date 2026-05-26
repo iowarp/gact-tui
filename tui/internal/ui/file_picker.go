@@ -377,6 +377,12 @@ func (a *App) viewFilePicker() string {
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			return app.handleFilePickerWheel(button)
 		},
+		railAction: func(app *App, index int) tea.Cmd {
+			if app.filePicker != nil {
+				app.filePicker.sel = clampSelection(index, len(app.filePickerMatches()))
+			}
+			return nil
+		},
 	})
 	return rendered.modal
 }

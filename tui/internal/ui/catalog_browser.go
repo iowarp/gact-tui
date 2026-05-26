@@ -753,6 +753,13 @@ func (a *App) viewCatalogBrowser() string {
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			return app.handleCatalogBrowserWheel(button)
 		},
+		railAction: func(app *App, index int) tea.Cmd {
+			if app.catalogBrowser != nil {
+				app.catalogBrowser.sel = clampSelection(index, len(app.catalogBrowser.items))
+				app.catalogBrowser.offset = catalogBrowserClampOffset(app.catalogBrowser.sel, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+			}
+			return nil
+		},
 	})
 	return rendered.modal
 }

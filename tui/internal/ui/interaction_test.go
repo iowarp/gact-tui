@@ -736,6 +736,55 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	}
 }
 
+func TestSelectableListModalRegistersSemanticRailTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	railSelection := -1
+	items := make([]modalListItem, 0, 8)
+	for i := 0; i < 8; i++ {
+		items = append(items, modalListItem{
+			id:       "list:item:" + itoa2(i),
+			title:    "Item " + itoa2(i),
+			selected: i == 2,
+			action:   func(*App) tea.Cmd { return nil },
+		})
+	}
+	win := selectedItemWindow(len(items), 2, 4)
+	visibleItems := items[win.start:win.end]
+	list := a.renderModalList(visibleItems, modalListOptions{width: 48, rowBudget: 4})
+
+	a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width: 60,
+			title: "List",
+		},
+		rows:      list.rows,
+		list:      list,
+		listStart: 0,
+		listWidth: 48,
+		bodyRows:  4,
+		window:    win,
+		wheelID:   "selectable:list:wheel",
+		railAction: func(_ *App, index int) tea.Cmd {
+			railSelection = index
+			return nil
+		},
+	})
+
+	target, ok := findHitTargetForTest(a, "selectable:list:wheel:rail:3")
+	if !ok {
+		t.Fatal("missing selectable list rail target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("selectable list rail target did not handle click")
+	}
+	if railSelection != 7 {
+		t.Fatalf("rail selection = %d, want final item index 7", railSelection)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string

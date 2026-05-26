@@ -427,6 +427,10 @@ func (a *App) viewMcpRemove() string {
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			return app.handleMcpRemoveWheel(button)
 		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.mcpRemoveSel = clampSelection(index, len(app.mcpRemoveOptions))
+			return nil
+		},
 	})
 	return rendered.modal
 }
