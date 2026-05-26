@@ -27,6 +27,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
 - Sidebar footer counts now register a semantic hit target and toggle active/archived sessions through the same path as the `h` key.
+- Sidebar filtering now has semantic mouse entry points: the visible footer `f filter` hint starts filter editing, the filter-mode footer exposes clickable apply/cancel targets, and an existing filter row can be clicked to re-enter editing while preserving Esc restore semantics.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -59,11 +60,13 @@ Mouse support exists:
 - Click session rows to select/open that session.
 - Click selected parent with children to expand/collapse nanoagents.
 - Click `SESSIONS` or `CONTEXT` headers to collapse/expand.
+- Click the visible footer `f filter` hint to start filtering sessions.
+- Click an existing filter row to re-enter filter editing.
+- Click filter-mode footer apply/cancel targets to commit or restore the filter.
 - Click the active/archived footer counts to toggle active vs archived sessions.
 
 Remaining gaps:
 
-- No click support for sidebar filter editing.
 - No right-click/context-menu behavior for session actions such as rename,
   archive, delete, copy session id, add context.
 

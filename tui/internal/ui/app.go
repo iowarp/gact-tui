@@ -2710,10 +2710,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.paletteOpen = false
 				a.paletteFilter = ""
 				a.paletteSel = 0
-				a.focus = FocusSidebar
-				a.sessionFilterActive = true
-				a.filterSnapshot = a.sessionFilter
-				a.sessionFilter = ""
+				a.enterSidebarFilter(true)
 				return a, nil
 			}
 
@@ -3642,8 +3639,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Sidebar filter — was '/' before. Same semantics: enter
 		// inline edit; Enter commits, Esc cancels + restores the
 		// previous filter.
-		a.sessionFilterActive = true
-		a.filterSnapshot = a.sessionFilter
+		a.enterSidebarFilter(false)
 		return a, nil
 	case "A":
 		// Archive toggle — PATCH archived to the opposite of the
@@ -4048,6 +4044,17 @@ func (a *App) activateSidebarSection(section sidebarSection) {
 	}
 }
 
+func (a *App) enterSidebarFilter(clear bool) {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = true
+	a.sessionFilterActive = true
+	a.filterSnapshot = a.sessionFilter
+	if clear {
+		a.sessionFilter = ""
+	}
+}
+
 func (a *App) toggleArchivedView() tea.Cmd {
 	a.showArchived = !a.showArchived
 	if a.showArchived {
@@ -4093,6 +4100,16 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 	rect.h = rowCount
 	a.registerScreenHit("sidebar:session:"+id, rect, func(app *App) tea.Cmd {
 		return app.activateSidebarSession(index)
+	})
+}
+
+func (a *App) registerSidebarFilterHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHit("sidebar:filter", sidebarContentRect(row, width), func(app *App) tea.Cmd {
+		app.enterSidebarFilter(false)
+		return nil
 	})
 }
 
@@ -6827,6 +6844,18 @@ func (a *App) registerFooterActionHits(rendered string) {
 		app.helpScroll = 0
 		return nil
 	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter", "f", a.localizer.t(msgFooterSidebarFilter, nil), func(app *App) tea.Cmd {
+		app.enterSidebarFilter(false)
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter:apply", "Enter", a.localizer.t(msgFooterSidebarApply, nil), func(app *App) tea.Cmd {
+		app.commitSidebarFilter()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter:cancel", "Esc", a.localizer.t(msgFooterSidebarCancel, nil), func(app *App) tea.Cmd {
+		app.cancelSidebarFilter()
+		return nil
+	})
 	a.registerFooterActionHit(plain, y, "footer:quit", "Ctrl+C", a.localizer.t(msgFooterQuit, nil), func(app *App) tea.Cmd {
 		app.openQuitConfirm()
 		return nil
@@ -6845,6 +6874,19 @@ func (a *App) registerFooterActionHit(plain string, y int, id string, key string
 func (a *App) footerContextHintVariants(mk func(string, string) string) [][]string {
 	switch a.focus {
 	case FocusSidebar:
+		if a.sessionFilterActive {
+			return [][]string{
+				{
+					mk("type", a.localizer.t(msgFooterSidebarFilterType, nil)),
+					mk("Enter", a.localizer.t(msgFooterSidebarApply, nil)),
+					mk("Esc", a.localizer.t(msgFooterSidebarCancel, nil)),
+				},
+				{
+					mk("Enter", a.localizer.t(msgFooterSidebarApply, nil)),
+					mk("Esc", a.localizer.t(msgFooterSidebarCancel, nil)),
+				},
+			}
+		}
 		if a.sidebarSessionsCollapsed || a.sidebarSectionCursor {
 			return [][]string{
 				{
@@ -6865,6 +6907,7 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
 				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
 				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
 				mk("o", a.localizer.t(msgFooterSidebarContext, nil)),
 				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
 			},
@@ -6874,11 +6917,13 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
 				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
 				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
 				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
 			},
 			{
 				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
 				mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
 			},
 		}
 	case FocusBody:
@@ -7069,6 +7114,7 @@ func (a *App) renderSidebar(width, height int) string {
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(label+filterText),
 			"")
+		a.registerSidebarFilterHit(len(rows)-2, width)
 	}
 
 	// Each top-level session takes 2 rows (title + status); child rows

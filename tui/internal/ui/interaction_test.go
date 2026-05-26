@@ -2687,6 +2687,97 @@ func TestSidebarCountsUseSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestSidebarFilterUsesSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 180
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "refactor auth", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "release notes", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	footerTarget, ok := findHitTargetForTest(a, "footer:sidebar:filter")
+	if !ok {
+		t.Fatal("missing visible footer sidebar filter target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      footerTarget.rect.x,
+		Y:      footerTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer filter click should not dispatch a command")
+	}
+	if a.focus != FocusSidebar || !a.sessionFilterActive {
+		t.Fatalf("footer filter click should focus sidebar filter, focus=%v active=%v", a.focus, a.sessionFilterActive)
+	}
+	a.sessionFilter = "ndp"
+	_ = a.View()
+	applyTarget, ok := findHitTargetForTest(a, "footer:sidebar:filter:apply")
+	if !ok {
+		t.Fatal("missing visible footer sidebar filter apply target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      applyTarget.rect.x,
+		Y:      applyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("filter apply click should not dispatch a command")
+	}
+	if a.sessionFilterActive || a.sessionFilter != "ndp" {
+		t.Fatalf("filter apply click should commit filter, active=%v filter=%q", a.sessionFilterActive, a.sessionFilter)
+	}
+
+	a.sessionFilter = "auth"
+	a.sessionFilterActive = false
+	a.filterSnapshot = ""
+	_ = a.View()
+	filterTarget, ok := findHitTargetForTest(a, "sidebar:filter")
+	if !ok {
+		t.Fatal("missing semantic sidebar filter row target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      filterTarget.rect.x,
+		Y:      filterTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("filter row click should not dispatch a command")
+	}
+	if a.focus != FocusSidebar || !a.sessionFilterActive {
+		t.Fatalf("filter row click should focus sidebar filter, focus=%v active=%v", a.focus, a.sessionFilterActive)
+	}
+	if a.filterSnapshot != "auth" || a.sessionFilter != "auth" {
+		t.Fatalf("filter row click should preserve committed filter for Esc restore, filter=%q snapshot=%q", a.sessionFilter, a.filterSnapshot)
+	}
+	a.sessionFilter = "authX"
+	_ = a.View()
+	cancelTarget, ok := findHitTargetForTest(a, "footer:sidebar:filter:cancel")
+	if !ok {
+		t.Fatal("missing visible footer sidebar filter cancel target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      cancelTarget.rect.x,
+		Y:      cancelTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("filter cancel click should not dispatch a command")
+	}
+	if a.sessionFilterActive || a.sessionFilter != "auth" {
+		t.Fatalf("filter cancel click should restore snapshot, active=%v filter=%q", a.sessionFilterActive, a.sessionFilter)
+	}
+}
+
 func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
