@@ -652,3 +652,7 @@ Additional work continued from the same architectural direction:
 - Provider setup section wheel regions now use `registerModalWheelRegion`, so
   provider, model, and advanced multi-column scrolling no longer calls the
   low-level modal content wheel API directly.
+- Sidebar session rows now register render-time semantic targets, including
+  one-line expanded child/nanoagent rows. Session selection and selected-parent
+  child collapse/expand both route through one shared action instead of
+  duplicating coordinate-derived behavior.
