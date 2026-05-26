@@ -1094,6 +1094,49 @@ func TestFilePickerNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestFilePickerMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		entries: []gact.FileEntry{
+			{Path: "alpha.csv"},
+			{Path: "beta.parquet"},
+			{Path: "gamma.txt"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "file-picker:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic file picker list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.filePicker.sel != 1 {
+		t.Fatalf("wheel over list should move file picker selection, got %d", a.filePicker.sel)
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.filePicker.sel != 1 {
+		t.Fatalf("wheel outside list should not move file picker selection, got %d", a.filePicker.sel)
+	}
+}
+
 func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

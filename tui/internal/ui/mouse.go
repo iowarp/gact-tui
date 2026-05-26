@@ -99,7 +99,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, click: a.handleMcpRemoveMouseClick},
 		{open: a.mcpInstallOpen, view: a.viewMcpInstall, click: a.handleMcpInstallMouseClick},
 		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick},
-		{open: a.filePickerOpen, view: a.viewFilePicker, click: a.handleFilePickerMouseClick, wheel: a.handleFilePickerMouseWheel},
+		{open: a.filePickerOpen, view: a.viewFilePicker, click: a.handleFilePickerMouseClick},
 		{open: a.composeOpen, view: a.viewCompose, click: a.handleComposeMouseClick},
 		{open: a.detailViewOpen, view: a.viewDetailView, click: a.handleDetailMouseClick, wheel: a.handleDetailMouseWheel},
 		{open: a.contextAddOpen, view: a.viewContextAdd, click: a.handleContextAddMouseClick},
@@ -259,15 +259,6 @@ func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bo
 
 func (a *App) handleHelpMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
 	a.helpScroll = moveScrollOffsetByWheel(a.helpScroll, m.Mouse().Button)
-	return nil, true
-}
-
-func (a *App) handleFilePickerMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if a.filePicker == nil {
-		return nil, true
-	}
-	matches := a.filePickerMatches()
-	a.filePicker.sel = moveSelectionByWheel(a.filePicker.sel, len(matches), m.Mouse().Button)
 	return nil, true
 }
 
