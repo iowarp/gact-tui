@@ -705,9 +705,18 @@ type conversationPartHitBlock struct {
 	fullStart   int
 	height      int
 	detailStart int
+	diffActions []conversationDiffActionHit
 	messageID   string
 	partID      string
 	opensDetail bool
+}
+
+type conversationDiffActionHit struct {
+	path   string
+	action string
+	row    int
+	col    int
+	width  int
 }
 
 func (t Theme) conversationPartHitBlocks(m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part) []conversationPartHitBlock {
@@ -750,6 +759,7 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		start := row
 		height := 0
 		detailStart := -1
+		var diffActions []conversationDiffActionHit
 		var rendered string
 		switch {
 		case m.Role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
@@ -769,9 +779,16 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		}
 		if p.Type == gact.PartTypeToolCall && p.CallID != "" {
 			if diff, ok := editDiffByCall[p.CallID]; ok {
+				resultStart := row
 				diffBody := t.renderEditDiffInline(diff, width)
 				if diffBody != "" {
 					h := renderedStringLineCount(diffBody)
+					if pendingFileDiff(diff) {
+						for _, action := range diffActionHits(diff.Path, diffBody) {
+							action.row += resultStart
+							diffActions = append(diffActions, action)
+						}
+					}
 					height += h
 					row += h
 				}
@@ -804,11 +821,18 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		addrIdx, ok := addrByPart[i]
 		if ok && height > 0 {
 			_, opens := findBulkyPartForSelected(m, addrIdx, nil, 0)
+			if p.Type == gact.PartTypeFileDiff && pendingFileDiff(p) {
+				for _, action := range diffActionHits(p.Path, rendered) {
+					action.row += start
+					diffActions = append(diffActions, action)
+				}
+			}
 			blocks = append(blocks, conversationPartHitBlock{
 				addrIdx:     addrIdx,
 				fullStart:   start,
 				height:      height,
 				detailStart: detailStart,
+				diffActions: diffActions,
 				partID:      p.ID,
 				opensDetail: opens,
 			})
@@ -829,6 +853,38 @@ func detailAffordanceLine(rendered string) int {
 		}
 	}
 	return -1
+}
+
+func pendingFileDiff(p gact.Part) bool {
+	if p.Type != gact.PartTypeFileDiff || p.Applied {
+		return false
+	}
+	if p.Metadata != nil {
+		if rejected, ok := p.Metadata["rejected"].(bool); ok && rejected {
+			return false
+		}
+	}
+	return strings.TrimSpace(p.Path) != ""
+}
+
+func diffActionHits(path string, rendered string) []conversationDiffActionHit {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	lines := strings.Split(xansi.Strip(rendered), "\n")
+	for row, line := range lines {
+		applyCol := strings.LastIndex(line, "apply")
+		rejectCol := strings.LastIndex(line, "reject")
+		if applyCol < 0 || rejectCol < 0 {
+			continue
+		}
+		return []conversationDiffActionHit{
+			{path: path, action: "apply", row: row, col: applyCol, width: len("apply")},
+			{path: path, action: "reject", row: row, col: rejectCol, width: len("reject")},
+		}
+	}
+	return nil
 }
 
 func renderedStringLineCount(s string) int {
@@ -1494,7 +1550,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			status = lipgloss.NewStyle().Foreground(t.FgMuted).Render(" (rejected)")
 		} else {
 			status = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render(" — focus body, then 'a' apply / 'r' reject")
+				Render(" — apply · reject")
 		}
 		before := ""
 		after := ""

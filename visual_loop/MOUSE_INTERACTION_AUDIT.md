@@ -9,6 +9,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - The connecting screen now registers a full-screen semantic retry target and
   advertises click-to-retry through localized copy, so intro, connecting, and
   connection-error states all have mouse entry/recovery semantics.
+- Pending transcript file diffs now expose render-derived semantic `apply` and
+  `reject` hit targets from the visible action row. Clicks focus the exact diff
+  block and dispatch path-scoped backend apply/reject requests instead of
+  relying on whole-session keyboard shortcuts.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -83,11 +87,11 @@ Mouse support exists:
 - Click visible addressable parts to select them.
 - Click the selected part again to open detail.
 - Click visible detail affordance rows such as `raw detail · Ctrl+E` to open detail directly.
+- Click pending file-diff `apply` / `reject` affordances to apply or reject that path.
 - Wheel scrolls the transcript through render-time body-region routing.
 
 Missing:
 
-- Click file diff accept/reject affordances.
 - Click retry/delete/copy actions.
 - Select text or copy block via mouse.
 
