@@ -69,7 +69,7 @@
   "lm_config.save_failed": "save failed: {{error}}",
   "lm_config.save_retry": "press Tab to navigate, Esc to close, Enter on Save to retry",
   "lm_config.no_endpoint": "no LM config endpoint on this backend (404)",
-  "lm_config.hint": "↑/↓ choose  type filter  Tab next section  Ctrl+R reload  Enter select/expand/save  Esc close",
+  "lm_config.hint": "Up/Down choose  type filter  Tab next section  Ctrl+R reload  Enter select/expand/save  Esc close",
   "lm_config.saving": "saving...",
   "lm_config.configuring": "configuring provider...",
   "lm_config.no_presets": "(no presets reported)",

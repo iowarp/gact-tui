@@ -1149,7 +1149,6 @@ func (a *App) viewLMConfig() string {
 	}
 
 	buttons := []menuButton{closeMenuButton("lm-config:close", func(app *App) { app.closeLMConfigModal() })}
-	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgLMConfigTitle, nil), contentW, buttons)
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).
 		Render(a.localizer.t(msgLMConfigIntro, nil))
@@ -1176,33 +1175,36 @@ func (a *App) viewLMConfig() string {
 		Render(t.HintLabel.Render(
 			a.localizer.t(msgLMConfigHint, nil),
 		))
-	parts := []string{titleRow, "", intro, "", body}
+	bodyParts := []string{intro, "", body}
 	if a.lmConfig.saving {
 		savingText := a.localizer.t(msgLMConfigSaving, nil)
 		if a.lmConfig.info != nil && a.lmConfig.info.State == "configuring" {
 			savingText = a.localizer.t(msgLMConfigConfiguring, nil)
 		}
-		parts = append(parts, "",
+		bodyParts = append(bodyParts, "",
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render(savingText))
 	}
-	parts = append(parts, "", hint)
-	box := lipgloss.JoinVertical(lipgloss.Left, parts...)
-	modal := a.renderModalSurface(w, t.Primary, t.Bg, box)
-	if !a.lmConfig.saving && !a.lmConfig.authenticating {
-		a.registerModalButtons(modal, 0, buttonCol, buttons)
-	}
+	body = lipgloss.JoinVertical(lipgloss.Left, bodyParts...)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:              w,
+		title:              a.localizer.t(msgLMConfigTitle, nil),
+		background:         t.Bg,
+		buttons:            buttons,
+		suppressButtonHits: a.lmConfig.saving || a.lmConfig.authenticating,
+		body:               body,
+		footer:             hint,
+	})
 	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
-		a.registerLMConfigHitTargets(modal, contentW, a.lmConfigBodyRows())
+		a.registerLMConfigHitTargets(rendered.modal, rendered.bodyRow+2, contentW, a.lmConfigBodyRows())
 	}
-	return modal
+	return rendered.modal
 }
 
-func (a *App) registerLMConfigHitTargets(modal string, innerW int, bodyRows int) {
+func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, bodyRows int) {
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return
 	}
-	const bodyTop = 4
 	layout := a.lmConfigLayout(innerW, bodyRows)
 	leftW, rightW := lmConfigGridWidths(innerW)
 	stacked := leftW < 38 || rightW < 38
