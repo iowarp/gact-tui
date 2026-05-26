@@ -3257,6 +3257,11 @@ func (a *App) paletteCurrentValue(id string) string {
 			return "session empty"
 		}
 		return fmt.Sprintf("%d messages", n)
+	case "/memory":
+		if !a.caps.Capabilities.Memory {
+			return "unsupported"
+		}
+		return "ARC context"
 	case "/cancel":
 		if a.currentStatus == gact.StatusRunning ||
 			a.currentStatus == gact.StatusWaitingPermission {
