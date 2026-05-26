@@ -8538,11 +8538,8 @@ func overlay(base, top string, w, h int) string {
 			tW = wl
 		}
 	}
-	startY := (h - tH) / 2
+	startY := modalOverlayTop(h, tH)
 	startX := (w - tW) / 2
-	if startY < 0 {
-		startY = 0
-	}
 	if startX < 0 {
 		startX = 0
 	}

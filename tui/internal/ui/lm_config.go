@@ -1284,7 +1284,8 @@ func (a *App) viewLMConfig() string {
 		footer:             hint,
 	})
 	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
-		a.registerLMConfigHitTargets(rendered.modal, rendered.bodyRow+2, contentW, a.lmConfigBodyRows())
+		introRows := maxInt(1, strings.Count(ansi.Strip(intro), "\n")+1)
+		a.registerLMConfigHitTargets(rendered.modal, rendered.bodyRow+introRows+1, contentW, a.lmConfigBodyRows())
 	}
 	return rendered.modal
 }
@@ -1760,11 +1761,11 @@ func (a *App) lmConfigBodyRows() int {
 	}
 	// Modal chrome is title, intro, hint, their spacing, and the outer
 	// border/padding. The body gets the remaining terminal height.
-	rows := a.height - 10
+	rows := a.height - 12
 	if a.lmConfig != nil && a.lmConfig.saving {
 		rows -= 2
 	}
-	return maxInt(6, rows)
+	return maxInt(4, rows)
 }
 
 func (a *App) lmConfigLayout(innerW int, bodyRows int) lmConfigLayout {
@@ -1859,7 +1860,7 @@ func lmConfigGridWidths(innerW int) (int, int) {
 }
 
 func (a *App) lmConfigModalWidth() int {
-	return a.wideModalWidth()
+	return a.modalWidth()
 }
 
 // renderLMConfigProviderList paints the provider section as a

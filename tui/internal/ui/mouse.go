@@ -79,12 +79,9 @@ func overlayMouseRect(top string, screenW, screenH int) mouseRect {
 		}
 	}
 	x := (screenW - w) / 2
-	y := (screenH - h) / 2
+	y := modalOverlayTop(screenH, h)
 	if x < 0 {
 		x = 0
-	}
-	if y < 0 {
-		y = 0
 	}
 	return mouseRect{x: x, y: y, w: w, h: h}
 }

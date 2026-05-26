@@ -53,7 +53,24 @@ func (a *App) detailModalWidth() int {
 }
 
 func (a *App) wideModalWidth() int {
-	return a.modalWidthFor(modalWidthWide)
+	return a.modalWidth()
+}
+
+func modalOverlayTop(screenH, modalH int) int {
+	top := 3
+	if screenH <= 0 {
+		return 0
+	}
+	if modalH >= screenH {
+		return 0
+	}
+	if top+modalH > screenH {
+		top = screenH - modalH
+	}
+	if top < 0 {
+		return 0
+	}
+	return top
 }
 
 func (a *App) modalBodyRows(chromeRows int) int {
