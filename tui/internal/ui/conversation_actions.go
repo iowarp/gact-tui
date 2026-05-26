@@ -9,14 +9,6 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-type conversationAction struct {
-	id          string
-	title       string
-	description string
-	key         string
-	action      func(*App) tea.Cmd
-}
-
 func (a *App) selectConversationPart(msgIdx int, addrIdx int) bool {
 	if msgIdx < 0 || msgIdx >= len(a.messages) {
 		return false
@@ -79,12 +71,12 @@ func (a *App) selectedConversationPart() (gact.Message, gact.Part, bool) {
 	return m, m.Parts[partIdx], true
 }
 
-func (a *App) selectedConversationActionItems() []conversationAction {
+func (a *App) selectedConversationActionItems() []actionMenuItem {
 	m, p, ok := a.selectedConversationPart()
 	if !ok {
 		return nil
 	}
-	items := []conversationAction{
+	items := []actionMenuItem{
 		{
 			id:          "detail",
 			title:       "Open detail",
@@ -120,7 +112,7 @@ func (a *App) selectedConversationActionItems() []conversationAction {
 		},
 	}
 	if m.Role == gact.RoleUser {
-		items = append(items, conversationAction{
+		items = append(items, actionMenuItem{
 			id:          "retry",
 			title:       "Retry message",
 			description: "Resend this user message.",
@@ -133,7 +125,7 @@ func (a *App) selectedConversationActionItems() []conversationAction {
 		})
 	}
 	if p.Type == gact.PartTypeFileDiff {
-		items = append(items, conversationAction{
+		items = append(items, actionMenuItem{
 			id:          "apply-diffs",
 			title:       "Apply pending diffs",
 			description: "Apply all unapplied file diffs in this session.",
@@ -143,7 +135,7 @@ func (a *App) selectedConversationActionItems() []conversationAction {
 				_, cmd := app.handleBodyKey(keyMsg("a"))
 				return cmd
 			},
-		}, conversationAction{
+		}, actionMenuItem{
 			id:          "reject-diffs",
 			title:       "Reject pending diffs",
 			description: "Reject all unapplied file diffs in this session.",
@@ -155,7 +147,7 @@ func (a *App) selectedConversationActionItems() []conversationAction {
 			},
 		})
 	}
-	items = append(items, conversationAction{
+	items = append(items, actionMenuItem{
 		id:          "delete",
 		title:       "Delete message",
 		description: "Remove the whole message containing this block.",
@@ -171,118 +163,36 @@ func (a *App) selectedConversationActionItems() []conversationAction {
 
 func (a *App) applyConversationActionSelection() tea.Cmd {
 	items := a.selectedConversationActionItems()
-	if len(items) == 0 {
-		a.closeConversationActions()
-		return nil
-	}
-	if a.conversationActionsSel < 0 {
-		a.conversationActionsSel = 0
-	}
-	if a.conversationActionsSel >= len(items) {
-		a.conversationActionsSel = len(items) - 1
-	}
-	return items[a.conversationActionsSel].action(a)
+	return a.applyActionMenuSelection(items, &a.conversationActionsSel, func(app *App) { app.closeConversationActions() })
 }
 
 func (a *App) handleConversationActionsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	items := a.selectedConversationActionItems()
-	switch k.String() {
-	case "esc", "q", "left", "h", "m":
-		a.closeConversationActions()
-		return a, nil
-	case "up", "k":
-		a.conversationActionsSel = moveSelection(a.conversationActionsSel, len(items), -1)
-		return a, nil
-	case "down", "j":
-		a.conversationActionsSel = moveSelection(a.conversationActionsSel, len(items), 1)
-		return a, nil
-	case "pgup", "ctrl+u", "g", "home":
-		a.conversationActionsSel = 0
-		return a, nil
-	case "pgdown", "ctrl+d", "G", "end":
-		if len(items) > 0 {
-			a.conversationActionsSel = len(items) - 1
-		}
-		return a, nil
-	case "enter":
-		return a, a.applyConversationActionSelection()
-	}
-	for i, item := range items {
-		if k.String() == item.key {
-			a.conversationActionsSel = i
-			return a, item.action(a)
-		}
+	if cmd, handled := a.handleActionMenuKey(k, items, &a.conversationActionsSel, func(app *App) { app.closeConversationActions() }); handled {
+		return a, cmd
 	}
 	return a, nil
 }
 
 func (a *App) viewConversationActions() string {
-	t := a.Theme
-	w := a.modalWidth()
-	listW := w - 8
-	if listW < 1 {
-		listW = w - 4
-	}
 	items := a.selectedConversationActionItems()
-	if a.conversationActionsSel < 0 {
-		a.conversationActionsSel = 0
-	}
-	if a.conversationActionsSel >= len(items) && len(items) > 0 {
-		a.conversationActionsSel = len(items) - 1
-	}
 
 	title := "Conversation actions"
-	contextLine := t.HintLabel.Render("No conversation block selected.")
+	contextLine := "No conversation block selected."
 	if m, p, ok := a.selectedConversationPart(); ok {
 		title = truncate(conversationPartActionTitle(m, p), 44)
-		contextLine = t.HintLabel.Render(conversationPartActionContext(m, p))
+		contextLine = conversationPartActionContext(m, p)
 	}
 
-	rows := []string{contextLine, ""}
-	listStartRow := len(rows)
-	win := selectedItemWindow(len(items), a.conversationActionsSel, a.modalListItemBudget(5, 2, 8))
-	listItems := make([]modalListItem, 0, win.end-win.start)
-	for i := win.start; i < win.end; i++ {
-		item := items[i]
-		idx := i
-		listItems = append(listItems, modalListItem{
-			id:          "conversation-actions:" + item.id,
-			title:       item.title,
-			description: item.description,
-			status:      item.key,
-			selected:    i == a.conversationActionsSel,
-			action: func(app *App) tea.Cmd {
-				app.conversationActionsSel = idx
-				return app.applyConversationActionSelection()
-			},
-		})
-	}
-	list := a.renderModalList(listItems, modalListOptions{
-		width:            listW,
-		rowBudget:        14,
-		descriptionLines: 1,
+	return a.renderActionMenu(actionMenuOptions{
+		prefix:      "conversation-actions",
+		title:       title,
+		contextLine: contextLine,
+		items:       items,
+		selected:    &a.conversationActionsSel,
+		rowBudget:   14,
+		close:       func(app *App) { app.closeConversationActions() },
 	})
-	rows = append(rows, list.rows...)
-
-	rendered := a.renderSelectableListModal(selectableListModalOptions{
-		frame: modalFrameOptions{
-			width:   w,
-			title:   title,
-			buttons: []menuButton{closeMenuButton("conversation-actions:close", func(app *App) { app.closeConversationActions() })},
-		},
-		rows:           rows,
-		list:           list,
-		listStart:      listStartRow,
-		listWidth:      listW,
-		window:         win,
-		wheelID:        "conversation-actions:list:wheel",
-		surfaceWheelID: "conversation-actions",
-		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
-			app.conversationActionsSel = moveSelectionByWheel(app.conversationActionsSel, len(app.selectedConversationActionItems()), button)
-			return nil
-		},
-	})
-	return rendered.modal
 }
 
 func conversationPartActionTitle(m gact.Message, p gact.Part) string {
