@@ -1621,6 +1621,47 @@ func TestSettingsAgentRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsAgentRailUsesSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.settingsOpen = true
+	agents := make([]gact.AgentDef, 0, 18)
+	for i := 0; i < 18; i++ {
+		agents = append(agents, gact.AgentDef{
+			ID:          "agent-" + itoa2(i),
+			Source:      "builtin",
+			Title:       "Agent " + itoa2(i),
+			Description: "desc",
+			Tier:        2,
+		})
+	}
+	a.settings = &settingsState{tab: 1, agentSel: 0, agentList: agents}
+
+	_ = a.View()
+	target, ok := findLastHitTargetWithPrefixForTest(a, "settings:agent:list:rail:")
+	if !ok {
+		t.Fatal("missing semantic settings agent rail target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("agent rail click should not dispatch command")
+	}
+	if a.settings == nil || a.settings.agentSel != len(agents)-1 {
+		t.Fatalf("agent rail click should jump selection near list end, settings=%+v", a.settings)
+	}
+	if !a.settingsOpen || a.detailViewOpen {
+		t.Fatalf("agent rail click should keep settings open without opening detail, settingsOpen=%v detail=%v", a.settingsOpen, a.detailViewOpen)
+	}
+}
+
 func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

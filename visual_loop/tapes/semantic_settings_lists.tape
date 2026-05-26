@@ -16,6 +16,9 @@ Sleep 1000ms
 Ctrl+S
 Sleep 300ms
 Tab
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_settings_agent.png"
+
 Tab
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_settings_theme.png"

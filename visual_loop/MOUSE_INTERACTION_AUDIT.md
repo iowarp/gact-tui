@@ -45,6 +45,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Shared selectable-list modals now register semantic side-rail click targets,
   so palettes, catalog, file picker, workspace switcher, and MCP removal can
   jump through long lists with one primitive.
+- Settings > Agent now uses the shared side-scroll rail affordance for
+  overflowing agent catalogs instead of textual up/down count rows, and rail
+  clicks jump the selected agent without opening detail.
 - Rename, add-context, and MCP-install now share a single-line text-entry modal primitive for editor prompt rendering, cursor styling, status rows, footer text, and header button geometry.
 - Workspace switching now uses a shared selectable-list modal primitive for body rendering, list hit registration, wheel regions, and side-scroll affordance.
 - Modal header/action buttons now consistently render as clickable chips again, quit confirmation uses the shared modal width, Settings > TUI first-line hit targets span the whole row, and LM provider setup labels the right-side panel as Configuration instead of Selected.
@@ -237,6 +240,7 @@ Mouse support exists:
 - Click TUI preference left/right controls or toggle rows.
 - Click theme/language/agent rows.
 - Wheel scrolls long agent lists.
+- Click the Agent tab side rail to jump through long agent catalogs.
 - Click close/cancel through the shared modal shell.
 
 ### LM Provider/Model Config Modal
@@ -507,9 +511,7 @@ Mouse support exists:
 
 3. Lists now have consistent hit-testing, wheel behavior, and shared rail-click
    jump behavior for palette, catalog, file picker, workspace rows, MCP remove
-   rows, and LM provider/model columns. Settings uses the same row/wheel
-   primitives and should use the same rail-click primitive if its body gains a
-   visible rail.
+   rows, Settings Agent rows, and LM provider/model columns.
 
 4. Text-entry modals now share a single-line editor policy for rename,
    context-add, MCP install, and provider configuration fields. Remaining work is
@@ -599,8 +601,9 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_header_actions_base.png`, `semantic_header_actions_help.png`, and
   `semantic_header_actions_settings.png`.
 - Settings/TUI controls and list tabs: `semantic_settings_lists.tape` with
-  `semantic_menu_settings_tui.png`, `semantic_settings_theme.png`, and
-  `semantic_settings_language.png`.
+  `semantic_settings_agent.png`, `semantic_settings_theme.png`, and
+  `semantic_settings_language.png`; `semantic_settings_agent_compact.tape`
+  covers the visible Agent side rail in a constrained viewport.
 - Help, Doctor, Metrics, and tool catalogs: `semantic_menu_smoke.tape` with
   `semantic_menu_help_commands.png`, `semantic_menu_doctor_health.png`,
   `semantic_menu_doctor_capabilities.png`, `semantic_menu_metrics.png`,
