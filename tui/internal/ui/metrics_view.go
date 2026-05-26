@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -164,24 +163,30 @@ func (a *App) viewMetrics() string {
 		}
 	}
 
-	windowed := windowModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.metricsBodyPageSize(), a.metricsScroll())
+	hintStyle := t.HintLabel
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:              w,
+			title:              "Backend Metrics",
+			buttons:            buttons,
+			suppressButtonHits: true,
+		},
+		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
+		pageSize:    a.metricsBodyPageSize(),
+		scroll:      a.metricsScroll(),
+		wheelID:     "metrics",
+		footerHint:  "Up/Down scroll  r refresh  Esc close",
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			if app.metrics != nil {
+				app.metrics.scroll = moveScrollOffsetByWheel(app.metrics.scroll, button)
+			}
+			return nil
+		},
+	})
 	if a.metrics != nil {
-		a.metrics.scroll = windowed.window.scroll
+		a.metrics.scroll = rendered.window.scroll
 	}
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:              w,
-		title:              "Backend Metrics",
-		buttons:            buttons,
-		suppressButtonHits: true,
-		body:               windowed.body,
-		footer:             t.HintLabel.Render(modalRangeHint(windowed.window, "Up/Down scroll  r refresh  Esc close")),
-	})
-	a.registerModalSurfaceAndBodyWheel(rendered, "metrics", maxInt(1, strings.Count(windowed.body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
-		if app.metrics != nil {
-			app.metrics.scroll = moveScrollOffsetByWheel(app.metrics.scroll, button)
-		}
-		return nil
-	})
 	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }

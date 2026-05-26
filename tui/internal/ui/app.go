@@ -8415,33 +8415,34 @@ func (a *App) viewHelp() string {
 		rows = append(rows,
 			t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
 	}
-	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	windowed := windowModalBody(keys, a.helpBodyPageSize(), a.helpScroll)
-	a.helpScroll = windowed.window.scroll
-
 	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
 		app.helpOpen = false
 		app.helpTab = 0
 		app.helpScroll = 0
 	})}
-	hintText := modalRangeHint(windowed.window, a.localizer.t(msgHelpHint, nil))
-	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).Render(hintText)
-
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:              w,
-		title:              a.localizer.t(msgHelpTitle, nil),
-		buttons:            buttons,
-		suppressButtonHits: true,
-		tabs:               tabHits,
-		tabPadding:         1,
-		tabSpacing:         0,
-		body:               windowed.body,
-		footer:             hint,
+	hintStyle := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted)
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:              w,
+			title:              a.localizer.t(msgHelpTitle, nil),
+			buttons:            buttons,
+			suppressButtonHits: true,
+			tabs:               tabHits,
+			tabPadding:         1,
+			tabSpacing:         0,
+		},
+		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
+		pageSize:    a.helpBodyPageSize(),
+		scroll:      a.helpScroll,
+		wheelID:     "help",
+		footerHint:  a.localizer.t(msgHelpHint, nil),
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			app.helpScroll = moveScrollOffsetByWheel(app.helpScroll, button)
+			return nil
+		},
 	})
-	a.registerModalSurfaceAndBodyWheel(rendered, "help", maxInt(1, strings.Count(windowed.body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
-		app.helpScroll = moveScrollOffsetByWheel(app.helpScroll, button)
-		return nil
-	})
+	a.helpScroll = rendered.window.scroll
 	if rendered.tabRow >= 0 {
 		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabHits, 1, 0)
 	}

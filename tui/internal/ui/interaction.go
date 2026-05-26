@@ -244,6 +244,22 @@ type modalFrameRender struct {
 	tabRow    int
 }
 
+type scrollableModalFrameOptions struct {
+	frame       modalFrameOptions
+	content     string
+	pageSize    int
+	scroll      int
+	wheelID     string
+	wheelAction uiWheelAction
+	footerHint  string
+	footerStyle *lipgloss.Style
+}
+
+type scrollableModalFrameRender struct {
+	modalFrameRender
+	window scrollWindow
+}
+
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	return a.renderModalFrameWithLayout(opts).modal
 }
@@ -298,6 +314,25 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
 	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol, tabRow: tabRow}
+}
+
+func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrollableModalFrameRender {
+	windowed := windowModalBody(opts.content, opts.pageSize, opts.scroll)
+	frame := opts.frame
+	frame.body = windowed.body
+	if opts.footerHint != "" {
+		footer := modalRangeHint(windowed.window, opts.footerHint)
+		if opts.footerStyle != nil {
+			footer = opts.footerStyle.Render(footer)
+		}
+		frame.footer = footer
+	}
+	rendered := a.renderModalFrameWithLayout(frame)
+	if opts.wheelID != "" {
+		bodyRows := maxInt(1, strings.Count(windowed.body, "\n")+1)
+		a.registerModalSurfaceAndBodyWheel(rendered, opts.wheelID, bodyRows, opts.wheelAction)
+	}
+	return scrollableModalFrameRender{modalFrameRender: rendered, window: windowed.window}
 }
 
 func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id string, bodyRows int, action uiWheelAction) {

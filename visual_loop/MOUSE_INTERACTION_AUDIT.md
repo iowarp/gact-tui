@@ -597,3 +597,7 @@ Additional work continued from the same architectural direction:
   region. Wheel events outside the transcript no longer move the transcript,
   while wheel events over long transcript content scroll by visual lines and can
   return to the true bottom.
+- Help, metrics, and doctor now share a reusable scrollable modal-frame helper
+  for body windowing, range hints, modal shell rendering, and body wheel target
+  registration. This keeps text-heavy informational views from each owning
+  separate scroll/body geometry.
