@@ -659,3 +659,6 @@ Additional work continued from the same architectural direction:
 - The mouse-mode input `/` chip now registers a render-time `input:command`
   target, and footer, keyboard, semantic mouse, and compatibility click paths
   all open the command palette through the same helper.
+- Sidebar section headers now share `activateSidebarSection`; the sessions
+  header registers a render-time `sidebar:sessions:header` target and the
+  context header, keyboard toggle, and coordinate fallback use the same action.
