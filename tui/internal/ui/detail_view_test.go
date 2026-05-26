@@ -412,6 +412,93 @@ func TestCatalogBackedDetailUsesBackButton(t *testing.T) {
 	}
 }
 
+func TestCatalogBackedDetailBlocksBackgroundHits(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{
+			{id: "one", title: "One"},
+			{id: "two", title: "Two"},
+			{id: "three", title: "Three"},
+		},
+	}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Tool · shell_bash",
+		fullText: strings.Repeat("detail line\n", 20),
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "detail:surface")
+	if !ok {
+		t.Fatal("missing opaque detail surface hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      surface.rect.x + surface.rect.w/2,
+		Y:      surface.rect.y + surface.rect.h/2,
+		Button: tea.MouseLeft,
+	}))
+	if cmd != nil {
+		t.Fatal("clicking detail body should not dispatch a command")
+	}
+	a = model.(*App)
+	if !a.detailViewOpen {
+		t.Fatal("clicking detail body should not close detail")
+	}
+	if a.catalogBrowser.sel != 0 {
+		t.Fatalf("detail surface click leaked into catalog selection, got sel=%d", a.catalogBrowser.sel)
+	}
+}
+
+func TestDetailWheelUsesBodyRegionOnly(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Evidence",
+		fullText: strings.Repeat("detail line\n", 40),
+	}
+
+	_ = a.View()
+	body, ok := findHitTargetForTest(a, "detail:body:wheel")
+	if !ok {
+		t.Fatal("missing detail body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      body.rect.x,
+		Y:      body.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.detailScroll != 1 {
+		t.Fatalf("wheel over detail body should scroll detail, got %d", a.detailScroll)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "detail:surface:wheel")
+	if !ok {
+		t.Fatal("missing detail surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.detailScroll != 1 {
+		t.Fatalf("wheel on detail chrome should not scroll detail, got %d", a.detailScroll)
+	}
+}
+
 func TestDetailSectionsRenderConsistentFieldsAndBodies(t *testing.T) {
 	rows := appendDetailSection(nil, "Section",
 		detailField{"name", "value"},
