@@ -115,18 +115,18 @@ func TestModalFrameWithSurfaceLayerKeepsHeaderControlsReachable(t *testing.T) {
 	if !ok {
 		t.Fatal("layered frame should register header buttons above the surface")
 	}
-	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y); !handled || !closed {
+	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y, tea.MouseLeft); !handled || !closed {
 		t.Fatalf("layered close button should remain clickable above surface target, handled=%v closed=%v", handled, closed)
 	}
 	tabTarget, ok := findHitTargetForTest(a, "tab:layered-tab")
 	if !ok {
 		t.Fatal("layered frame should register tabs above the surface")
 	}
-	if _, handled := a.activateHitAt(tabTarget.rect.x, tabTarget.rect.y); !handled || !tabbed {
+	if _, handled := a.activateHitAt(tabTarget.rect.x, tabTarget.rect.y, tea.MouseLeft); !handled || !tabbed {
 		t.Fatalf("layered tab should remain clickable above surface target, handled=%v tabbed=%v", handled, tabbed)
 	}
 	rect := overlayMouseRect(rendered.modal, a.width, a.height)
-	if _, handled := a.activateHitAt(rect.x+1, rect.y+1); !handled {
+	if _, handled := a.activateHitAt(rect.x+1, rect.y+1, tea.MouseLeft); !handled {
 		t.Fatal("non-control click inside layered modal should be absorbed by the surface")
 	}
 }
@@ -284,7 +284,7 @@ func TestTextEntryModalRegistersCursorHitTargets(t *testing.T) {
 	if !ok {
 		t.Fatal("missing shared text-entry cursor target")
 	}
-	if _, handled := a.activateHitAt(target.rect.x, target.rect.y); !handled {
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
 		t.Fatal("cursor hit target should activate")
 	}
 	if got != 3 {
@@ -388,7 +388,7 @@ func TestModalListRegionRegistersWheelAndRowHits(t *testing.T) {
 	if !ok {
 		t.Fatal("missing list row hit target")
 	}
-	if _, handled := a.activateHitAt(rowTarget.rect.x, rowTarget.rect.y+1); !handled || !rowClicked {
+	if _, handled := a.activateHitAt(rowTarget.rect.x, rowTarget.rect.y+1, tea.MouseLeft); !handled || !rowClicked {
 		t.Fatalf("list row hit should span rendered description rows, handled=%v clicked=%v", handled, rowClicked)
 	}
 	wheelTarget, ok := findHitTargetForTest(a, "list:wheel")
@@ -449,7 +449,7 @@ func TestModalCellHitsRegisterRelativeToBody(t *testing.T) {
 	if !ok {
 		t.Fatal("missing modal cell hit target")
 	}
-	if _, handled := a.activateHitAt(target.rect.x, target.rect.y); !handled || !clicked {
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
 		t.Fatalf("modal cell hit should activate, handled=%v clicked=%v", handled, clicked)
 	}
 }
@@ -683,7 +683,7 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 		t.Fatal("scrollable modal frame should register header buttons after wheel surface targets")
 	}
 	closeTarget, _ := findHitTargetForTest(a, "button:scrollable:close")
-	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y); !handled || !closed {
+	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y, tea.MouseLeft); !handled || !closed {
 		t.Fatalf("scrollable modal close button should remain clickable above surface target, handled=%v closed=%v", handled, closed)
 	}
 	if _, ok := findHitTargetForTest(a, "tab:scrollable-tab"); !ok {
@@ -3334,6 +3334,57 @@ func TestSidebarFooterActionsUseSemanticHitTargets(t *testing.T) {
 	mu.Unlock()
 	if gotCopy != "sess_1" {
 		t.Fatalf("copy-id footer click wrote %q, want sess_1", gotCopy)
+	}
+}
+
+func TestSidebarSessionRightClickOpensSemanticActionMenu(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 260
+	a.height = 34
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.MouseEnabled = true
+	a.wsID = "ws_default"
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "alpha", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "beta", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	rowTarget, ok := findHitTargetForTest(a, "sidebar:session:sess_2")
+	if !ok {
+		t.Fatal("missing semantic sidebar session row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rowTarget.rect.x,
+		Y:      rowTarget.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if !a.sessionActionsOpen || a.selected != 1 {
+		t.Fatalf("right-click should select row and open actions, open=%v selected=%d", a.sessionActionsOpen, a.selected)
+	}
+	if cmd == nil {
+		t.Fatal("right-clicking a different session should dispatch selection load")
+	}
+
+	_ = a.View()
+	renameTarget, ok := findHitTargetForTest(a, "session-actions:rename")
+	if !ok {
+		t.Fatal("missing semantic session action row target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      renameTarget.rect.x,
+		Y:      renameTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("rename action should not dispatch a backend command")
+	}
+	if a.sessionActionsOpen || !a.renameOpen || a.renameDraft != "beta" {
+		t.Fatalf("rename action should close menu and open rename, actionsOpen=%v renameOpen=%v draft=%q", a.sessionActionsOpen, a.renameOpen, a.renameDraft)
 	}
 }
 

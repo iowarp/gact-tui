@@ -424,6 +424,14 @@ type App struct {
 	renameDraft  string
 	renameCursor int
 
+	// Session action menu. Opened from a rendered session row's
+	// secondary-click target, or with `m` from sidebar focus. It uses
+	// the shared selectable-list modal so row-local actions follow the
+	// same sizing, button, wheel, and click semantics as the larger
+	// catalogs.
+	sessionActionsOpen bool
+	sessionActionsSel  int
+
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
 	// /v1/sessions/{id}/context/files; Esc cancels.
@@ -2127,6 +2135,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.renameOpen {
 		return a.handleRenameKey(k)
 	}
+	if a.sessionActionsOpen {
+		return a.handleSessionActionsKey(k)
+	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
 	}
@@ -2379,10 +2390,8 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	mouse := m.Mouse()
-	if mouse.Button == tea.MouseLeft {
-		if cmd, handled := a.activateHitAt(mouse.X, mouse.Y); handled {
-			return a, cmd
-		}
+	if cmd, handled := a.activateHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+		return a, cmd
 	}
 	if cmd, handled := a.handleOverlayMouseClick(m); handled {
 		return a, cmd
@@ -3570,6 +3579,8 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		a.focus = FocusInput
 		return a, nil
+	case "m":
+		return a, a.openSessionActionsForIndex(a.selected)
 	case "n":
 		if a.wsID != "" {
 			return a, createSessionCmd(a.c, a.wsID)
@@ -4083,9 +4094,16 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 	}
 	rect := sidebarContentRect(row, width)
 	rect.h = rowCount
-	a.registerScreenHit("sidebar:session:"+id, rect, func(app *App) tea.Cmd {
-		return app.activateSidebarSession(index)
-	})
+	a.registerScreenHitActions(
+		"sidebar:session:"+id,
+		rect,
+		func(app *App) tea.Cmd {
+			return app.activateSidebarSession(index)
+		},
+		func(app *App) tea.Cmd {
+			return app.openSessionActionsForIndex(index)
+		},
+	)
 }
 
 func (a *App) registerSidebarFilterHit(row int, width int) {
@@ -6378,6 +6396,9 @@ func (a *App) viewMain() string {
 	}
 	if a.renameOpen {
 		base = overlay(base, a.viewRename(), a.width, a.height)
+	}
+	if a.sessionActionsOpen {
+		base = overlay(base, a.viewSessionActions(), a.width, a.height)
 	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
