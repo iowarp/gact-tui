@@ -116,7 +116,6 @@ func (a *App) viewDoctor() string {
 			app.doctor = nil
 		}),
 	}
-	titleRow, buttonCol := a.renderModalHeader("Doctor — Backend Health", innerW, buttons)
 	tabs := []menuTab{
 		{
 			id:     "doctor-health",
@@ -141,8 +140,6 @@ func (a *App) viewDoctor() string {
 			},
 		},
 	}
-	tabRow := a.renderModalTabsWithLayout(tabs, 2, 2)
-
 	var body string
 	switch {
 	case a.doctor.loading:
@@ -154,19 +151,22 @@ func (a *App) viewDoctor() string {
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render("press r to retry, Esc to close")
 	case a.doctor.tab == doctorTabCapabilities:
-		body = renderDoctorCapabilities(a.doctor.caps, t, w-4)
+		body = renderDoctorCapabilities(a.doctor.caps, t, innerW)
 	default:
-		body = renderDoctorBody(a.doctor.health, t, w-4)
+		body = renderDoctorBody(a.doctor.health, t, innerW)
 	}
 
 	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
-	box := lipgloss.JoinVertical(lipgloss.Left, titleRow, "", tabRow, "", body, "", hint)
-	modal := a.renderDefaultModalSurface(w, box)
-	if !a.doctor.loading {
-		a.registerModalButtons(modal, 0, buttonCol, buttons)
-	}
-	a.registerModalTabs(modal, 2, tabs)
-	return modal
+	return a.renderModalFrame(modalFrameOptions{
+		width:      w,
+		title:      "Doctor — Backend Health",
+		buttons:    buttons,
+		tabs:       tabs,
+		tabPadding: 2,
+		tabSpacing: 2,
+		body:       body,
+		footer:     hint,
+	})
 }
 
 // renderDoctorCapabilities tabulates every spec capability as

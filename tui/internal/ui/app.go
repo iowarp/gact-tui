@@ -8176,7 +8176,7 @@ func (a *App) localizedHelpTabTitle(title string) string {
 // Navigation: ←/→ or h/l or Tab cycles tabs; ?/Esc closes.
 func (a *App) viewHelp() string {
 	t := a.Theme
-	innerW := a.modalWidth() - 4
+	w := a.modalWidth()
 
 	tabHits := make([]menuTab, 0, len(helpTabs))
 	for i, tab := range helpTabs {
@@ -8191,7 +8191,6 @@ func (a *App) viewHelp() string {
 			},
 		})
 	}
-	tabRow := a.renderModalTabsWithLayout(tabHits, 1, 0)
 
 	// Body — the current tab's key list. Clamp helpTab defensively so a
 	// future out-of-range value doesn't crash the render.
@@ -8210,17 +8209,19 @@ func (a *App) viewHelp() string {
 		app.helpOpen = false
 		app.helpTab = 0
 	})}
-	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgHelpTitle, nil), innerW, buttons)
 	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
 		Render(a.localizer.t(msgHelpHint, nil))
 
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		titleRow, "", tabRow, "", keys, "", hint,
-	)
-	modal := a.renderDefaultModalSurface(a.modalWidth(), body)
-	a.registerModalTabsWithLayout(modal, 2, tabHits, 1, 0)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	return modal
+	return a.renderModalFrame(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgHelpTitle, nil),
+		buttons:    buttons,
+		tabs:       tabHits,
+		tabPadding: 1,
+		tabSpacing: 0,
+		body:       keys,
+		footer:     hint,
+	})
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have
