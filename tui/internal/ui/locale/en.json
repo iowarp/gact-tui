@@ -357,9 +357,9 @@
   "settings.value.on": "on",
   "settings.value.off": "off",
   "quit.title": "Close the TUI?",
-  "quit.hint": "The session stays alive on the backend regardless.\n`close` cancels the current turn; `detach` leaves it running.",
+  "quit.hint": "Backend session remains alive. `close` cancels the current turn; `detach` leaves it running.",
   "quit.close": "close",
   "quit.no": "no",
   "quit.detach": "detach",
-  "quit.key_hint": "←/→ move  ·  Enter fire  ·  Esc cancel  ·  Ctrl+C accept"
+  "quit.key_hint": "Left/Right move  ·  Enter fire  ·  Esc cancel  ·  Ctrl+C accept"
 }

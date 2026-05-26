@@ -1572,6 +1572,36 @@ func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestQuitConfirmButtonsAlignWithSharedFrameBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.quitConfirmOpen = true
+	a.quitConfirmSelected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:quit:no")
+	if !ok {
+		t.Fatal("missing semantic no button hit target")
+	}
+	view := a.viewQuitConfirm()
+	rect := overlayMouseRect(view, a.width, a.height)
+	buttonLine := -1
+	for i, line := range strings.Split(stripANSI(view), "\n") {
+		if strings.Contains(line, "close") && strings.Contains(line, "no") && strings.Contains(line, "detach") {
+			buttonLine = i
+			break
+		}
+	}
+	if buttonLine < 0 {
+		t.Fatalf("could not find visible quit action row in:\n%s", stripANSI(view))
+	}
+	if wantY := rect.y + buttonLine; target.rect.y != wantY {
+		t.Fatalf("quit no button y = %d, want visible action row %d", target.rect.y, wantY)
+	}
+}
+
 func TestQuitConfirmButtonsUseSharedLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	buttons := a.quitConfirmButtons()

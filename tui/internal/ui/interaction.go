@@ -80,6 +80,10 @@ func (a *App) renderDefaultModalSurface(width int, body string) string {
 }
 
 func (a *App) renderModalHeader(title string, innerW int, buttons []menuButton) (string, int) {
+	return a.renderModalHeaderWithColor(title, innerW, buttons, a.Theme.Primary)
+}
+
+func (a *App) renderModalHeaderWithColor(title string, innerW int, buttons []menuButton, titleColor color.Color) (string, int) {
 	if innerW < 1 {
 		innerW = 1
 	}
@@ -92,7 +96,7 @@ func (a *App) renderModalHeader(title string, innerW int, buttons []menuButton) 
 		buttonCol = innerW
 	}
 	titleText := truncate(title, titleBudget)
-	renderedTitle := lipgloss.NewStyle().Bold(true).Foreground(a.Theme.Primary).Render(titleText)
+	renderedTitle := lipgloss.NewStyle().Bold(true).Foreground(titleColor).Render(titleText)
 	gap := buttonCol - lipgloss.Width(renderedTitle)
 	if gap < 1 {
 		gap = 1
@@ -179,6 +183,9 @@ type scrollWindow struct {
 type modalFrameOptions struct {
 	width      int
 	title      string
+	titleColor color.Color
+	border     color.Color
+	background color.Color
 	buttons    []menuButton
 	tabs       []menuTab
 	tabPadding int
@@ -206,7 +213,11 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if innerW < 1 {
 		innerW = 1
 	}
-	titleRow, buttonCol := a.renderModalHeader(opts.title, innerW, opts.buttons)
+	titleColor := a.Theme.Primary
+	if opts.titleColor != nil {
+		titleColor = opts.titleColor
+	}
+	titleRow, buttonCol := a.renderModalHeaderWithColor(opts.title, innerW, opts.buttons, titleColor)
 	rows := []string{titleRow}
 	tabRow := -1
 	bodyRow := -1
@@ -227,7 +238,15 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 		footerRow = len(rows) - 1
 	}
 
-	modal := a.renderDefaultModalSurface(w, lipgloss.JoinVertical(lipgloss.Left, rows...))
+	border := a.Theme.Primary
+	if opts.border != nil {
+		border = opts.border
+	}
+	background := a.Theme.BgSubtle
+	if opts.background != nil {
+		background = opts.background
+	}
+	modal := a.renderModalSurface(w, border, background, lipgloss.JoinVertical(lipgloss.Left, rows...))
 	a.registerModalButtons(modal, 0, buttonCol, opts.buttons)
 	if tabRow >= 0 {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
