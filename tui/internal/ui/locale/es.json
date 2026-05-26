@@ -87,7 +87,7 @@
   "lm_config.provider_desc.local_vllm": "Cualquier servidor vLLM local compatible con OpenAI. Cambia la API base si usa otro host o puerto.",
   "lm_config.provider_desc.argonne_sophia": "Endpoint de inferencia Sophia de Argonne con autenticación Globus.",
   "lm_config.provider_desc.argonne_metis": "Endpoint de inferencia Metis de Argonne con autenticación Globus.",
-  "lm_config.selected.title": "Seleccionado",
+  "lm_config.selected.title": "Configuración",
   "lm_config.selected.none": "Ningún proveedor seleccionado",
   "lm_config.api_key": "Clave API",
   "lm_config.api_base": "Base API",

@@ -87,7 +87,7 @@
   "lm_config.provider_desc.local_vllm": "Οποιοσδήποτε τοπικός vLLM server συμβατός με OpenAI. Αλλάξτε το API base αν χρησιμοποιεί άλλο host ή port.",
   "lm_config.provider_desc.argonne_sophia": "Endpoint inference Argonne Sophia με πιστοποίηση Globus.",
   "lm_config.provider_desc.argonne_metis": "Endpoint inference Argonne Metis με πιστοποίηση Globus.",
-  "lm_config.selected.title": "Επιλεγμένο",
+  "lm_config.selected.title": "Ρυθμίσεις",
   "lm_config.selected.none": "Δεν έχει επιλεγεί πάροχος",
   "lm_config.api_key": "Κλειδί API",
   "lm_config.api_base": "API base",

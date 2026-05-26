@@ -598,16 +598,16 @@ func (a *App) viewSettings() string {
 				}
 				app.settings.tuiRow = rowIdx
 			}
-			addArrowHit("settings:tui:"+id+":value", row, leftCol, maxInt(1, lipgloss.Width("◀ "+value+" ▶")), func(app *App) tea.Cmd {
+			addArrowHit("settings:tui:"+id+":line", row, 0, maxInt(1, w-4), func(app *App) tea.Cmd {
 				selectRow(app)
 				return nil
 			})
-			addArrowHit("settings:tui:"+id+":dec", row, leftCol, 3, func(app *App) tea.Cmd {
+			addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, leftCol-1), 4, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("left"))
 				return cmd
 			})
-			addArrowHit("settings:tui:"+id+":inc", row, rightCol, 3, func(app *App) tea.Cmd {
+			addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, rightCol-1), 4, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("right"))
 				return cmd

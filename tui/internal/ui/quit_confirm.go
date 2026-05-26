@@ -122,20 +122,14 @@ func (a *App) applyQuitConfirmSelection() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// viewQuitConfirm renders the modal. Kept narrow — this is a 3-option
-// prompt, not a content surface.
+// viewQuitConfirm renders the modal with the shared overlay width so the
+// confirmation does not introduce a one-off modal shape.
 func (a *App) viewQuitConfirm() string {
 	if !a.quitConfirmOpen {
 		return ""
 	}
 	t := a.Theme
-	w := 68
-	if w > a.width-8 {
-		w = a.width - 8
-	}
-	if w < 42 {
-		w = 42
-	}
+	w := a.modalWidth()
 
 	contentW := w - 4
 	if contentW < 1 {
