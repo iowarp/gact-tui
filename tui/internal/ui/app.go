@@ -8093,6 +8093,10 @@ func truncate(s string, max int) string {
 func (a *App) viewPalette() string {
 	t := a.Theme
 	w := a.modalWidth()
+	listW := w - 8
+	if listW < 1 {
+		listW = w - 4
+	}
 
 	if a.isSearchMode() {
 		return a.viewPaletteSearch(w)
@@ -8135,30 +8139,33 @@ func (a *App) viewPalette() string {
 	}
 	if len(listItems) > 0 {
 		list = a.renderModalList(listItems, modalListOptions{
-			width:            w - 4,
+			width:            listW,
 			rowBudget:        16,
 			descriptionLines: 1,
 		})
 		rows = append(rows, list.rows...)
-		if win.start > 0 || win.end < len(matches) {
-			rows = append(rows, t.HintLabel.Render(fmt.Sprintf("showing %d-%d of %d", win.start+1, win.end, len(matches))))
-		}
 	}
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
-	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.paletteBodyPageSize())
-	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
-		width:   w,
-		title:   a.localizer.t(msgPaletteCommandsTitle, nil),
-		buttons: buttons,
-		body:    body,
-	}, "palette")
-	if len(listItems) > 0 {
-		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   a.localizer.t(msgPaletteCommandsTitle, nil),
+			buttons: buttons,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       a.paletteBodyPageSize(),
+		window:         win,
+		wheelID:        "palette:list:wheel",
+		surfaceWheelID: "palette",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
 			return nil
-		})
-	}
+		},
+	})
 	return rendered.modal
 }
 
@@ -8194,6 +8201,11 @@ func (a *App) viewPaletteSearch(w int) string {
 	query := strings.TrimSpace(a.paletteFilter[1:])
 	listStartRow := -1
 	var list modalListRender
+	win := scrollWindow{total: len(a.searchMatches)}
+	listW := w - 8
+	if listW < 1 {
+		listW = w - 4
+	}
 	buttons := a.paletteCloseButtons()
 	rows := []string{
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteQuery, nil) + " " + query + "_"),
@@ -8209,7 +8221,7 @@ func (a *App) viewPaletteSearch(w int) string {
 	default:
 		listStartRow = len(rows)
 		itemBudget := a.modalListItemBudget(5, 2, 8)
-		win := selectedItemWindow(len(a.searchMatches), a.paletteSel, itemBudget)
+		win = selectedItemWindow(len(a.searchMatches), a.paletteSel, itemBudget)
 		listItems := make([]modalListItem, 0, win.end-win.start)
 		for i := win.start; i < win.end; i++ {
 			m := a.searchMatches[i]
@@ -8230,14 +8242,11 @@ func (a *App) viewPaletteSearch(w int) string {
 			})
 		}
 		list = a.renderModalList(listItems, modalListOptions{
-			width:            w - 4,
+			width:            listW,
 			rowBudget:        12,
 			descriptionLines: 1,
 		})
 		rows = append(rows, list.rows...)
-		if win.start > 0 || win.end < len(a.searchMatches) {
-			rows = append(rows, t.HintLabel.Render(fmt.Sprintf("showing %d-%d of %d", win.start+1, win.end, len(a.searchMatches))))
-		}
 	}
 	if len(a.searchMatches) > 0 {
 		rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteJumpHint, nil)))
@@ -8245,19 +8254,25 @@ func (a *App) viewPaletteSearch(w int) string {
 		rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteCloseHint, nil)))
 	}
 
-	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.paletteBodyPageSize())
-	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
-		width:   w,
-		title:   a.localizer.t(msgPaletteSearchTitle, nil),
-		buttons: buttons,
-		body:    body,
-	}, "palette")
-	if len(list.hits) > 0 && listStartRow >= 0 {
-		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:search:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   a.localizer.t(msgPaletteSearchTitle, nil),
+			buttons: buttons,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       a.paletteBodyPageSize(),
+		window:         win,
+		wheelID:        "palette:search:list:wheel",
+		surfaceWheelID: "palette",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
 			return nil
-		})
-	}
+		},
+	})
 	return rendered.modal
 }
 

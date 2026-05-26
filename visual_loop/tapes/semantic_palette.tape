@@ -13,14 +13,16 @@ Show
 Wait+Screen /CONVERSATION/
 Sleep 1200ms
 
-Type "/theme"
+Type "/"
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_palette_commands.png"
 
 Escape
 Sleep 200ms
 Type "/?readme"
-Sleep 500ms
+Sleep 200ms
+Enter
+Sleep 800ms
 Screenshot "visual_loop/screenshots/semantic_palette_search.png"
 
 Escape

@@ -466,7 +466,11 @@ func (a *App) renderCursorEditor(value string, cursor int) string {
 
 func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, win scrollWindow) string {
 	padded := padModalBody(body, rows)
-	if win.total <= rows || modalWidth < 16 || rows < 2 {
+	visibleUnits := rows
+	if win.end > win.start {
+		visibleUnits = win.end - win.start
+	}
+	if win.total <= visibleUnits || modalWidth < 16 || rows < 2 {
 		return padded
 	}
 	bodyW := modalWidth - 6
