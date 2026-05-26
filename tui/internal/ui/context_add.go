@@ -153,17 +153,17 @@ func (a *App) viewContextAdd() string {
 		},
 	}
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Add file to context"),
-		"",
 		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
 		"",
 	}
 	rows, actionRow := a.appendModalActionRow(rows, buttons, 0)
-	rows = append(rows, "",
-		t.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
-	)
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalActionRow(modal, actionRow, buttons)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:  w,
+		title:  "Add file to context",
+		body:   body,
+		footer: t.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
+	})
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
+	return rendered.modal
 }

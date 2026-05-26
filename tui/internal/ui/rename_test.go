@@ -138,6 +138,23 @@ func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestRenameButtonsAlignWithSharedFrameBody(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "clicked title"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:save")
+	if !ok {
+		t.Fatal("missing rename save button hit target")
+	}
+	rect := overlayMouseRect(a.viewRename(), a.width, a.height)
+	if wantY := rect.y + 6; target.rect.y != wantY {
+		t.Fatalf("rename save button y = %d, want shared frame body action row %d", target.rect.y, wantY)
+	}
+}
+
 func TestRenameCancelButtonUsesSharedCloseState(t *testing.T) {
 	a, _, _ := makeRenameApp(t)
 	a.renameOpen = true

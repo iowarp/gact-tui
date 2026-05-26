@@ -143,17 +143,17 @@ func (a *App) viewRename() string {
 		},
 	}
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Rename session"),
-		"",
 		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
 		"",
 	}
 	rows, actionRow := a.appendModalActionRow(rows, buttons, 0)
-	rows = append(rows, "",
-		t.HintLabel.Render("Enter save  Esc cancel  ←/→ move  Home/End jump"),
-	)
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalActionRow(modal, actionRow, buttons)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:  w,
+		title:  "Rename session",
+		body:   body,
+		footer: t.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
+	})
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
+	return rendered.modal
 }
