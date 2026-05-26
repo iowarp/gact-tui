@@ -109,15 +109,10 @@ func (a *App) sessionPassesSidebarFilters(s gact.Session) bool {
 func (a *App) handleSidebarFilterKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.sessionFilter = a.filterSnapshot
-		a.sessionFilterActive = false
-		a.filterSnapshot = ""
-		a.ensureSelectedVisible()
+		a.cancelSidebarFilter()
 		return a, nil
 	case "enter":
-		a.sessionFilterActive = false
-		a.filterSnapshot = ""
-		a.ensureSelectedVisible()
+		a.commitSidebarFilter()
 		return a, nil
 	case "backspace":
 		if r := []rune(a.sessionFilter); len(r) > 0 {
@@ -129,6 +124,19 @@ func (a *App) handleSidebarFilterKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.sessionFilter += k.Text
 	}
 	return a, nil
+}
+
+func (a *App) commitSidebarFilter() {
+	a.sessionFilterActive = false
+	a.filterSnapshot = ""
+	a.ensureSelectedVisible()
+}
+
+func (a *App) cancelSidebarFilter() {
+	a.sessionFilter = a.filterSnapshot
+	a.sessionFilterActive = false
+	a.filterSnapshot = ""
+	a.ensureSelectedVisible()
 }
 
 // stepSelectionVisible moves a.selected by `delta` visible positions
