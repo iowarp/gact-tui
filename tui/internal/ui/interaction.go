@@ -105,14 +105,14 @@ func (a *App) renderDefaultModalSurface(width int, body string) string {
 }
 
 func (a *App) renderModalHeader(title string, innerW int, buttons []menuButton) (string, int) {
-	return a.renderModalHeaderWithColor(title, innerW, buttons, a.Theme.Primary)
+	return a.renderModalHeaderWithColor(title, innerW, buttons, a.Theme.Primary, 0)
 }
 
-func (a *App) renderModalHeaderWithColor(title string, innerW int, buttons []menuButton, titleColor color.Color) (string, int) {
+func (a *App) renderModalHeaderWithColor(title string, innerW int, buttons []menuButton, titleColor color.Color, selectedButton int) (string, int) {
 	if innerW < 1 {
 		innerW = 1
 	}
-	buttonRow := a.renderModalButtons(buttons, 0)
+	buttonRow := a.renderModalButtons(buttons, selectedButton)
 	buttonW := lipgloss.Width(buttonRow)
 	buttonCol := innerW - buttonW
 	titleBudget := buttonCol - 2
@@ -227,6 +227,7 @@ type modalFrameOptions struct {
 	border             color.Color
 	background         color.Color
 	buttons            []menuButton
+	buttonSelected     int
 	suppressButtonHits bool
 	tabs               []menuTab
 	tabPadding         int
@@ -260,7 +261,7 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if opts.titleColor != nil {
 		titleColor = opts.titleColor
 	}
-	titleRow, buttonCol := a.renderModalHeaderWithColor(opts.title, innerW, opts.buttons, titleColor)
+	titleRow, buttonCol := a.renderModalHeaderWithColor(opts.title, innerW, opts.buttons, titleColor, opts.buttonSelected)
 	rows := []string{titleRow}
 	tabRow := -1
 	bodyRow := -1

@@ -239,30 +239,28 @@ func (a *App) viewMcpInstall() string {
 	cursor := "_"
 	box := lipgloss.NewStyle().Foreground(t.Fg).
 		Render("> " + a.mcpInstallInput + cursor)
-	rows := []string{hint, "", box, ""}
+	rows := []string{hint, "", box}
 	if a.mcpInstallErr != "" {
 		rows = append(rows,
+			"",
 			lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
 				Render("error: "+a.mcpInstallErr),
-			"",
 		)
 	}
 	if a.mcpInstallSaving {
 		rows = append(rows,
+			"",
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(a.spinnerChar()+" installing…"),
-			"",
 		)
 	}
-	var actionRow int
-	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:  w,
-		title:  "Install MCP server",
-		body:   strings.Join(rows, "\n"),
-		footer: t.HintLabel.Render("Enter install · Esc cancel"),
+		width:   w,
+		title:   "Install MCP server",
+		buttons: buttons,
+		body:    strings.Join(rows, "\n"),
+		footer:  t.HintLabel.Render("Enter install · Esc cancel"),
 	})
-	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
 	return rendered.modal
 }
 
@@ -331,14 +329,12 @@ func (a *App) viewMcpRemove() string {
 	if win.end < len(a.mcpRemoveOptions) {
 		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.mcpRemoveOptions)-win.end)))
 	}
-	rows = append(rows, "")
-	var actionRow int
-	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:  w,
-		title:  "Remove MCP server",
-		body:   strings.Join(rows, "\n"),
-		footer: t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
+		width:   w,
+		title:   "Remove MCP server",
+		buttons: buttons,
+		body:    strings.Join(rows, "\n"),
+		footer:  t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
 	})
 	if len(list.hits) > 0 {
 		a.registerModalContentWheelHit(rendered.modal, "mcp-remove:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
@@ -346,6 +342,5 @@ func (a *App) viewMcpRemove() string {
 		})
 		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
-	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
 	return rendered.modal
 }

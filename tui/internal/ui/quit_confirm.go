@@ -156,19 +156,16 @@ func (a *App) viewQuitConfirm() string {
 	}
 	keyLine := lipgloss.JoinVertical(lipgloss.Left, keyLines...)
 
-	rows := []string{hint, ""}
-	rows = append(rows, a.renderModalButtons(buttons, a.quitConfirmSelected))
-	box := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	actionRow := len(hintLines) + 2
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:      w,
-		title:      a.localizer.t(msgQuitTitle, nil),
-		titleColor: t.Warning,
-		border:     t.Warning,
-		background: t.BgSubtle,
-		body:       box,
-		footer:     keyLine,
+		width:          w,
+		title:          a.localizer.t(msgQuitTitle, nil),
+		titleColor:     t.Warning,
+		border:         t.Warning,
+		background:     t.BgSubtle,
+		buttons:        buttons,
+		buttonSelected: a.quitConfirmSelected,
+		body:           hint,
+		footer:         keyLine,
 	})
-	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
 	return rendered.modal
 }
