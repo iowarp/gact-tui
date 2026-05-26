@@ -200,6 +200,8 @@ type mcpUninstallDoneMsg struct {
 	err      error
 }
 
+const mcpRemoveMaxItems = 6
+
 // viewMcpInstall renders the install prompt overlay. Tiny intentionally —
 // one input field, hint text, and a status line for any error.
 func (a *App) viewMcpInstall() string {
@@ -283,9 +285,15 @@ func (a *App) viewMcpRemove() string {
 	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Remove MCP server")
 	rows := []string{title, ""}
+	itemBudget := a.modalListItemBudget(6, 2, mcpRemoveMaxItems)
+	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
+	if win.start > 0 {
+		rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(win.start)))
+	}
 	listStartRow := len(rows)
-	listItems := make([]modalListItem, 0, len(a.mcpRemoveOptions))
-	for i, server := range a.mcpRemoveOptions {
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		server := a.mcpRemoveOptions[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
 			id:          fmt.Sprintf("mcp-remove:item:%d", idx),
@@ -302,7 +310,7 @@ func (a *App) viewMcpRemove() string {
 	}
 	list := a.renderModalList(listItems, modalListOptions{
 		width:            w - 4,
-		rowBudget:        12,
+		rowBudget:        itemBudget * 2,
 		descriptionLines: 1,
 	})
 	if len(list.rows) > 0 {
@@ -315,6 +323,9 @@ func (a *App) viewMcpRemove() string {
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(a.spinnerChar()+" removing…"),
 		)
+	}
+	if win.end < len(a.mcpRemoveOptions) {
+		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.mcpRemoveOptions)-win.end)))
 	}
 	rows = append(rows, "")
 	var actionRow int
