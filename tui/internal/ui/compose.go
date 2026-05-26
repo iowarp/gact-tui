@@ -119,9 +119,8 @@ func (a *App) viewCompose() string {
 		return ""
 	}
 
-	// Modal dimensions — use the shared wide-modal policy so the
-	// expanded editor and provider setup do not each invent their own
-	// viewport math.
+	// Modal dimensions use the shared chrome width so expanded editor
+	// and provider setup windows do not jump horizontally.
 	w := a.wideModalWidth()
 	h := a.height * 4 / 5
 	if h < 14 {

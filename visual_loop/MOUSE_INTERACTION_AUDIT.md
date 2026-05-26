@@ -18,6 +18,8 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - MCP remove now uses the shared selectable-list modal primitive and side-scroll affordance instead of local textual overflow count rows.
 - File attach picker now uses the shared selectable-list modal primitive while preserving the filter row and stable body height; long file lists get the same side-scroll affordance and stale offscreen hit protection.
 - Slash-command and message-search palettes now use the shared selectable-list modal primitive, side-scroll affordance, and semantic row/wheel targets instead of local textual `showing x-y of n` overflow rows.
+- Catalog browsers now use the shared selectable-list modal primitive for body rendering, row/wheel hit targets, and surface wheel blocking while preserving catalog-specific footer actions.
+- Overlay placement now uses a fixed shared top row and single shared modal width policy, so short and tall modals keep the same top corners instead of vertically re-centering or switching to a separate wide chrome.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, palette, and catalog/menu surfaces.
 

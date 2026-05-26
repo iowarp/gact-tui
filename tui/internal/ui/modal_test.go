@@ -5,32 +5,51 @@ import (
 	"testing"
 )
 
-func TestWideModalWidthUsesSharedPolicy(t *testing.T) {
+func TestModalWidthsUseSingleSharedPolicy(t *testing.T) {
 	a := New("http://unused")
 
 	a.width = 180
-	if got := a.wideModalWidth(); got != 128 {
-		t.Fatalf("wide modal width at 180 = %d, want 128", got)
+	if got := a.wideModalWidth(); got != a.modalWidth() {
+		t.Fatalf("wide modal width at 180 = %d, want shared width %d", got, a.modalWidth())
 	}
-
 	a.width = 120
-	if got := a.wideModalWidth(); got != 105 {
-		t.Fatalf("wide modal width at 120 = %d, want 105", got)
+	if got := a.detailModalWidth(); got != a.modalWidth() {
+		t.Fatalf("detail modal width at 120 = %d, want shared width %d", got, a.modalWidth())
 	}
-
 	a.width = 92
 	if got := a.wideModalWidth(); got != a.modalWidth() {
 		t.Fatalf("wide modal should fall back to standard width on narrow screens, got %d want %d", got, a.modalWidth())
 	}
 }
 
-func TestLMConfigAndComposeUseSharedWideWidth(t *testing.T) {
+func TestOverlayTopIsStableAcrossModalHeights(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 40
+
+	short := a.renderModalFrame(modalFrameOptions{width: a.modalWidth(), title: "Short", body: "one"})
+	tall := a.renderModalFrame(modalFrameOptions{width: a.modalWidth(), title: "Tall", body: strings.Repeat("row\n", 12)})
+
+	shortRect := overlayMouseRect(short, a.width, a.height)
+	tallRect := overlayMouseRect(tall, a.width, a.height)
+	if shortRect.x != tallRect.x {
+		t.Fatalf("modal x positions differ: short=%d tall=%d", shortRect.x, tallRect.x)
+	}
+	if shortRect.y != tallRect.y {
+		t.Fatalf("modal y positions differ: short=%d tall=%d", shortRect.y, tallRect.y)
+	}
+	if shortRect.y != 3 {
+		t.Fatalf("modal top = %d, want fixed top row 3", shortRect.y)
+	}
+}
+
+func TestLMConfigAndComposeUseSharedWidth(t *testing.T) {
 	a := New("http://unused")
 	a.width = 160
 	a.height = 40
 
-	if got := a.lmConfigModalWidth(); got != a.wideModalWidth() {
-		t.Fatalf("lm config width = %d, want shared wide width %d", got, a.wideModalWidth())
+	if got := a.lmConfigModalWidth(); got != a.modalWidth() {
+		t.Fatalf("lm config width = %d, want shared width %d", got, a.modalWidth())
 	}
 
 	a.stage = StageReady
@@ -43,8 +62,8 @@ func TestLMConfigAndComposeUseSharedWideWidth(t *testing.T) {
 	}
 	view := a.viewCompose()
 	rect := overlayMouseRect(view, a.width, a.height)
-	if rect.w != a.wideModalWidth() {
-		t.Fatalf("compose modal width = %d, want shared wide width %d", rect.w, a.wideModalWidth())
+	if rect.w != a.modalWidth() {
+		t.Fatalf("compose modal width = %d, want shared width %d", rect.w, a.modalWidth())
 	}
 	if target.rect.y != rect.y+2 {
 		t.Fatalf("compose commit button y = %d, want header row %d", target.rect.y, rect.y+2)

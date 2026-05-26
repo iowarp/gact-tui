@@ -750,6 +750,9 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
 	}
 
+	for i, row := range rows {
+		rows[i] = fitANSI(row, w-4)
+	}
 	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.settingsBodyPageSize())
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:      w,
@@ -785,7 +788,7 @@ func (a *App) viewSettings() string {
 }
 
 func (a *App) settingsBodyPageSize() int {
-	return a.modalBodyRows(14)
+	return minInt(24, a.modalBodyRows(14))
 }
 
 func orPlaceholder(s, placeholder string) string {

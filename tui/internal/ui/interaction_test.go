@@ -1611,6 +1611,10 @@ func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	}
 
 	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "catalog:surface:wheel")
+	if !ok {
+		t.Fatal("missing catalog surface wheel blocker")
+	}
 	target, ok := findHitTargetForTest(a, "catalog:list:wheel")
 	if !ok {
 		t.Fatal("missing semantic catalog list wheel target")
@@ -1626,10 +1630,9 @@ func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	}
 
 	_ = a.View()
-	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
 	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
-		X:      rect.x + rect.w - 2,
-		Y:      rect.y + 2,
+		X:      surface.rect.x + surface.rect.w - 2,
+		Y:      surface.rect.y + 2,
 		Button: tea.MouseWheelDown,
 	}))
 	a = model.(*App)
@@ -2254,6 +2257,32 @@ func TestPaletteSearchWindowUsesSharedScrollAffordance(t *testing.T) {
 	}
 	if !strings.Contains(out, "┃") {
 		t.Fatalf("palette search should render shared side scroll affordance for long result lists:\n%s", out)
+	}
+}
+
+func TestMainModalsShareTopCornersAndWidth(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 150
+	a.height = 45
+	a.settings = &settingsState{tab: 3}
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{{id: "one", title: "One", desc: "first tool"}},
+	}
+	a.quitConfirmOpen = true
+
+	rects := map[string]mouseRect{
+		"help":     overlayMouseRect(a.viewHelp(), a.width, a.height),
+		"settings": overlayMouseRect(a.viewSettings(), a.width, a.height),
+		"catalog":  overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height),
+		"quit":     overlayMouseRect(a.viewQuitConfirm(), a.width, a.height),
+	}
+	want := rects["help"]
+	for name, rect := range rects {
+		if rect.x != want.x || rect.y != want.y || rect.w != want.w {
+			t.Fatalf("%s rect = %+v, want same top corners and width as help %+v", name, rect, want)
+		}
 	}
 }
 

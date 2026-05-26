@@ -729,22 +729,30 @@ func (a *App) viewCatalogBrowser() string {
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	body = a.renderScrollableModalBody(body, catalogBrowserBodyRows, w, scrollWindow{
+	win := scrollWindow{
 		start:  start,
 		end:    end,
 		scroll: start,
 		total:  len(a.catalogBrowser.items),
-	})
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   a.catalogBrowser.title,
-		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Italic(true).Render(hintText),
-	})
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-8, list, "catalog:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
-		return app.handleCatalogBrowserWheel(button)
+	}
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   a.catalogBrowser.title,
+			buttons: buttons,
+			footer:  t.HintLabel.Italic(true).Render(hintText),
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      w - 8,
+		bodyRows:       catalogBrowserBodyRows,
+		window:         win,
+		wheelID:        "catalog:list:wheel",
+		surfaceWheelID: "catalog",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleCatalogBrowserWheel(button)
+		},
 	})
 	return rendered.modal
 }
