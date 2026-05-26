@@ -1994,6 +1994,13 @@ func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
 	if _, ok := findHitTargetForTest(a, "palette:command:0"); ok {
 		t.Fatal("palette command window should not keep the first row target when selection moves down-list")
 	}
+	out := ansi.Strip(a.viewPalette())
+	if strings.Contains(out, "showing ") {
+		t.Fatalf("palette should use shared scroll affordance instead of textual ranges:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("palette should render shared side scroll affordance for long command lists:\n%s", out)
+	}
 }
 
 func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
@@ -2216,6 +2223,37 @@ func TestPaletteSearchRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.scrollOffset != 1 {
 		t.Fatalf("search result click should jump to m2, scrollOffset=%d", a.scrollOffset)
+	}
+}
+
+func TestPaletteSearchWindowUsesSharedScrollAffordance(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "?needle"
+	a.paletteSel = 10
+	for i := 0; i < 14; i++ {
+		a.searchMatches = append(a.searchMatches, client.SearchMatch{
+			MessageID: "msg_" + strconv.Itoa(i),
+			Snippet:   "needle hit " + strconv.Itoa(i),
+		})
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "palette:search:10"); !ok {
+		t.Fatal("selected offscreen palette search result should be rendered with a semantic target")
+	}
+	if _, ok := findHitTargetForTest(a, "palette:search:0"); ok {
+		t.Fatal("palette search window should not keep the first row target when selection moves down-list")
+	}
+	out := ansi.Strip(a.viewPalette())
+	if strings.Contains(out, "showing ") {
+		t.Fatalf("palette search should use shared scroll affordance instead of textual ranges:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("palette search should render shared side scroll affordance for long result lists:\n%s", out)
 	}
 }
 
