@@ -284,7 +284,6 @@ func (a *App) viewFilePicker() string {
 	}
 
 	buttons := []menuButton{closeMenuButton("file-picker:close", func(app *App) { app.closeFilePicker() })}
-	titleRow, buttonCol := a.renderModalHeader("Insert file reference", w-4, buttons)
 
 	filterRow := t.HintKey.Render("@") + t.HintLabel.Render(a.filePicker.filter) +
 		lipgloss.NewStyle().Foreground(t.Primary).Blink(true).Render("_")
@@ -351,12 +350,16 @@ func (a *App) viewFilePicker() string {
 		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		titleRow, "", filterRow, "",
+		filterRow, "",
 		lipgloss.JoinVertical(lipgloss.Left, rows...),
-		"", hint,
 	)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	a.registerModalListHits(modal, 4+listStartRow, 0, w-4, list.hits)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   "Insert file reference",
+		buttons: buttons,
+		body:    body,
+		footer:  hint,
+	})
+	a.registerModalListHits(rendered.modal, rendered.bodyRow+2+listStartRow, 0, w-4, list.hits)
+	return rendered.modal
 }

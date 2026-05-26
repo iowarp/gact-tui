@@ -883,6 +883,31 @@ func TestFilePickerRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestFilePickerTargetsAlignWithSharedFrameBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		entries: []gact.FileEntry{
+			{Path: "alpha.csv"},
+			{Path: "beta.parquet"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "file-picker:item:0")
+	if !ok {
+		t.Fatal("missing semantic first file picker row target")
+	}
+	rect := overlayMouseRect(a.viewFilePicker(), a.width, a.height)
+	if wantY := rect.y + 2 + 4; target.rect.y != wantY {
+		t.Fatalf("first file picker row y = %d, want shared frame body/list row %d", target.rect.y, wantY)
+	}
+}
+
 func TestFilePickerCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
