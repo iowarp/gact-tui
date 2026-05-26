@@ -47,7 +47,16 @@ func TestMouseWheelDownScrollsConversationIncrementally(t *testing.T) {
 	a.scrollOffset = 5
 	a.stickyToBottom = false
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 
 	if a.scrollOffset != 2 {
@@ -65,7 +74,16 @@ func TestMouseWheelDownOnLongTranscriptDoesNotJumpToBottom(t *testing.T) {
 	a.scrollOffset = 30
 	a.stickyToBottom = false
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 	rendered := ansi.Strip(a.renderBody(100, 34))
 
@@ -85,7 +103,16 @@ func TestRepeatedMouseWheelDownReachesTrueBottomOnLongTranscript(t *testing.T) {
 	a.stickyToBottom = false
 
 	for i := 0; i < 10; i++ {
-		model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+		_ = a.View()
+		target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+		if !ok {
+			t.Fatal("missing conversation body wheel target")
+		}
+		model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+			X:      target.rect.x,
+			Y:      target.rect.y,
+			Button: tea.MouseWheelDown,
+		}))
 		a = model.(*App)
 	}
 	rendered := ansi.Strip(a.renderBody(100, 34))
@@ -110,7 +137,16 @@ func TestMouseWheelUpLeavesBottomStickyState(t *testing.T) {
 	}
 	a.stickyToBottom = true
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 
 	if a.scrollOffset <= 0 {
@@ -129,7 +165,16 @@ func TestMouseWheelClearsPendingPartAutoScroll(t *testing.T) {
 	a.stickyToBottom = true
 	a.pendingPartScroll = true
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 
 	if a.pendingPartScroll {
@@ -159,7 +204,16 @@ func TestMouseWheelWithBodyFocusMovesCursorWithoutSnappingViewport(t *testing.T)
 	a.scrollOffset = 9
 	a.stickyToBottom = false
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 
 	if a.bodySelPartIdx != 1 {
@@ -167,6 +221,29 @@ func TestMouseWheelWithBodyFocusMovesCursorWithoutSnappingViewport(t *testing.T)
 	}
 	if a.scrollOffset != 6 || a.stickyToBottom {
 		t.Fatalf("wheel-down should preserve manual line-scroll semantics, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+}
+
+func TestMouseWheelOutsideConversationDoesNotScrollTranscript(t *testing.T) {
+	a := newLongTextTranscriptApp()
+	a.width = 100
+	a.height = 34
+	a.scrollOffset = 12
+	a.stickyToBottom = false
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "conversation:body:wheel"); !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      1,
+		Y:      a.height - 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if a.scrollOffset != 12 || a.stickyToBottom {
+		t.Fatalf("wheel outside conversation should not scroll transcript, offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
 	}
 }
 
