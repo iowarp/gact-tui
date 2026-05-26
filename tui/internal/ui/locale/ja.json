@@ -87,7 +87,7 @@
   "lm_config.provider_desc.local_vllm": "任意のローカル OpenAI 互換 vLLM サーバー。別ホストや別ポートでは API base を変更します。",
   "lm_config.provider_desc.argonne_sophia": "Globus 認証を使う Argonne Sophia 推論エンドポイント。",
   "lm_config.provider_desc.argonne_metis": "Globus 認証を使う Argonne Metis 推論エンドポイント。",
-  "lm_config.selected.title": "選択中",
+  "lm_config.selected.title": "設定",
   "lm_config.selected.none": "プロバイダー未選択",
   "lm_config.api_key": "API キー",
   "lm_config.api_base": "API ベース",

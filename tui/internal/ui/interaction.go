@@ -572,7 +572,11 @@ func (a *App) registerModalActionRow(modal string, row int, buttons []menuButton
 func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
 	cells := make([]string, 0, len(buttons))
 	for i, button := range buttons {
-		style := lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Padding(0, 2)
+		style := lipgloss.NewStyle().
+			Foreground(a.Theme.Bg).
+			Background(a.Theme.Primary).
+			Bold(true).
+			Padding(0, 2)
 		if i == selected {
 			style = lipgloss.NewStyle().
 				Foreground(a.Theme.Bg).
