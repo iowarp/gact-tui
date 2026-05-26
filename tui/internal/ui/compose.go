@@ -136,7 +136,7 @@ func (a *App) viewCompose() string {
 		h = a.height - 4
 	}
 
-	taH := h - 6 // header + hint + border padding
+	taH := h - 8 // shared frame title/footer + border padding
 	if taH < 6 {
 		taH = 6
 	}
@@ -144,14 +144,9 @@ func (a *App) viewCompose() string {
 	a.compose.ta.SetHeight(taH)
 
 	lines := strings.Count(a.compose.ta.Value(), "\n") + 1
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Compose") + "  " + t.HintLabel.Italic(true).
-		Render("("+itoa2(lines)+" lines)")
-	subtitle := t.HintLabel.Italic(true).Render(
-		"Long-form editor — pastes render expanded, newlines are literal. " +
-			"Ctrl+S commits to the input box; Esc cancels.")
-
-	hint := t.HintLabel.Render("Ctrl+S  commit    Esc  cancel")
+	title := "Compose (" + itoa2(lines) + " lines)"
+	footer := t.HintLabel.Render(
+		"Ctrl+S commit  Esc cancel  pastes render expanded; newlines are literal")
 	buttons := []menuButton{
 		{
 			id:    "compose:commit",
@@ -170,18 +165,23 @@ func (a *App) viewCompose() string {
 			},
 		},
 	}
+	textareaView := a.compose.ta.View()
 	rows := []string{
-		title, subtitle, "",
-		a.compose.ta.View(),
+		textareaView,
 		"",
 	}
-	rows, buttonRow := a.appendModalActionRow(rows, buttons, 0)
-	rows = append(rows, "", hint)
+	buttonRow := strings.Count(textareaView, "\n") + 2
+	rows = append(rows, a.renderModalButtons(buttons, 0))
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalActionRow(modal, buttonRow, buttons)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:  w,
+		title:  title,
+		body:   body,
+		footer: footer,
+	})
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+buttonRow, buttons)
+	return rendered.modal
 }
 
 // composeSummary returns a short hint like "(compose open — 12 lines)"
