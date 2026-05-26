@@ -264,6 +264,10 @@ func (a *App) viewMcpInstall() string {
 func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
+	listW := w - 8
+	if listW < 1 {
+		listW = w - 4
+	}
 	buttons := []menuButton{
 		{
 			id:    "mcp-remove:remove",
@@ -285,9 +289,6 @@ func (a *App) viewMcpRemove() string {
 	rows := []string{}
 	itemBudget := a.modalListItemBudget(6, 2, mcpRemoveMaxItems)
 	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
-	if win.start > 0 {
-		rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(win.start)))
-	}
 	listStartRow := len(rows)
 	listItems := make([]modalListItem, 0, win.end-win.start)
 	for i := win.start; i < win.end; i++ {
@@ -307,7 +308,7 @@ func (a *App) viewMcpRemove() string {
 		})
 	}
 	list := a.renderModalList(listItems, modalListOptions{
-		width:            w - 4,
+		width:            listW,
 		rowBudget:        itemBudget * 2,
 		descriptionLines: 1,
 	})
@@ -322,18 +323,25 @@ func (a *App) viewMcpRemove() string {
 				Render(a.spinnerChar()+" removing…"),
 		)
 	}
-	if win.end < len(a.mcpRemoveOptions) {
-		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.mcpRemoveOptions)-win.end)))
-	}
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   "Remove MCP server",
-		buttons: buttons,
-		body:    strings.Join(rows, "\n"),
-		footer:  t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
-	})
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "mcp-remove:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
-		return app.handleMcpRemoveWheel(button)
+
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Remove MCP server",
+			buttons: buttons,
+			footer:  t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       itemBudget * 2,
+		window:         win,
+		wheelID:        "mcp-remove:list:wheel",
+		surfaceWheelID: "mcp-remove",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleMcpRemoveWheel(button)
+		},
 	})
 	return rendered.modal
 }
