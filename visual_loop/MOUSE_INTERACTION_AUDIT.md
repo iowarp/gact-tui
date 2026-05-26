@@ -669,6 +669,10 @@ Additional work continued from the same architectural direction:
 - Modal list description wrapping now avoids double-indenting continuation
   rows, keeping catalog/settings/provider descriptions within the rendered
   modal width instead of producing short awkward line breaks.
+- Tool catalog rows now use a compact operational summary built from existing
+  backend metadata (`owner`, `permission_default`, input schema field names,
+  and tags). Command-name echo descriptions and long agent-story prose stay
+  out of the list view; full descriptions/schema remain available in detail.
 
 ### 2026-05-26 user-observed follow-up queue
 
