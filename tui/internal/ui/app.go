@@ -8695,6 +8695,10 @@ func (a *App) viewPalette() string {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
 			return nil
 		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.paletteSel = clampSelection(index, len(app.paletteMatches()))
+			return nil
+		},
 	})
 	return rendered.modal
 }
@@ -8800,6 +8804,10 @@ func (a *App) viewPaletteSearch(w int) string {
 		surfaceWheelID: "palette",
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
+			return nil
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.paletteSel = clampSelection(index, len(app.searchMatches))
 			return nil
 		},
 	})

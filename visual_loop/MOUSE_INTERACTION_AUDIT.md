@@ -42,6 +42,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.
 - Palette command rows now avoid showing the command name again as the description; they prefer useful descriptions, then non-duplicate titles, then source fallback.
 - Scrollable modals now use a shared side rail/thumb instead of footer/title line-range text, and the catalog browser reuses that affordance instead of adding textual `above` / `more` rows.
+- Shared selectable-list modals now register semantic side-rail click targets,
+  so palettes, catalog, file picker, workspace switcher, and MCP removal can
+  jump through long lists with one primitive.
 - Rename, add-context, and MCP-install now share a single-line text-entry modal primitive for editor prompt rendering, cursor styling, status rows, footer text, and header button geometry.
 - Workspace switching now uses a shared selectable-list modal primitive for body rendering, list hit registration, wheel regions, and side-scroll affordance.
 - Modal header/action buttons now consistently render as clickable chips again, quit confirmation uses the shared modal width, Settings > TUI first-line hit targets span the whole row, and LM provider setup labels the right-side panel as Configuration instead of Selected.
@@ -502,9 +505,11 @@ Mouse support exists:
    entry. Remaining bespoke surfaces should move onto those primitives before
    adding new mouse behavior.
 
-3. Lists now have consistent hit-testing and wheel behavior for palette,
-   settings, catalog, file picker, workspace rows, MCP remove rows, and LM
-   provider/model lists.
+3. Lists now have consistent hit-testing, wheel behavior, and shared rail-click
+   jump behavior for palette, catalog, file picker, workspace rows, and MCP
+   remove rows. Settings and LM provider/model lists share the same row/wheel
+   primitives and should use the same rail-click primitive when their columns
+   gain visible rails.
 
 4. Text-entry modals now share a single-line editor policy for rename,
    context-add, MCP install, and provider configuration fields. Remaining work is
@@ -760,6 +765,9 @@ Additional work continued from the same architectural direction:
 - Shared scrollable modal frames now register semantic side-rail click targets,
   so detail, help, doctor, and metrics panes can jump within long content
   through the same scrollbar primitive instead of adding per-view handlers.
+- Shared selectable-list modal frames now register semantic side-rail click
+  targets, so long palettes, catalogs, file pickers, workspace lists, and MCP
+  removal lists can jump selection through the same rendered scroll affordance.
 
 ### 2026-05-26 user-observed follow-up queue
 

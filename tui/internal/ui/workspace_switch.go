@@ -158,6 +158,10 @@ func (a *App) viewWorkspaceSwitch() string {
 			app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
 			return nil
 		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.workspaceSwitchSel = clampSelection(index, len(app.workspaces))
+			return nil
+		},
 	})
 	return rendered.modal
 }

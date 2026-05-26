@@ -334,6 +334,7 @@ type selectableListModalOptions struct {
 	window         scrollWindow
 	wheelID        string
 	wheelAction    uiWheelAction
+	railAction     func(*App, int) tea.Cmd
 	surfaceWheelID string
 }
 
@@ -593,7 +594,37 @@ func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFr
 	} else if len(opts.list.hits) > 0 {
 		a.registerModalListHits(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list.hits)
 	}
+	if opts.railAction != nil && opts.wheelID != "" {
+		a.registerSelectableListRailHits(rendered, opts.wheelID, opts.window, opts.bodyRows, opts.railAction)
+	}
 	return rendered
+}
+
+func (a *App) registerSelectableListRailHits(rendered modalFrameRender, id string, win scrollWindow, bodyRows int, action func(*App, int) tea.Cmd) {
+	if id == "" || action == nil || bodyRows <= 0 || rendered.bodyRow < 0 || win.total <= 1 || rendered.modal == "" {
+		return
+	}
+	visibleItems := win.end - win.start
+	if visibleItems < 1 {
+		visibleItems = 1
+	}
+	if win.total <= visibleItems {
+		return
+	}
+	modalWidth := lipgloss.Width(rendered.modal)
+	bodyW := modalWidth - 6
+	contentW := bodyW - 2
+	if modalWidth < 16 || contentW < 4 {
+		return
+	}
+	railCol := contentW + 1
+	for row := 0; row < bodyRows; row++ {
+		row := row
+		target := row * (win.total - 1) / maxInt(1, bodyRows-1)
+		a.registerModalContentHit(rendered.modal, id+":rail:"+itoa2(row), rendered.bodyRow+row, railCol, 1, 1, func(app *App) tea.Cmd {
+			return action(app, target)
+		})
+	}
 }
 
 func (a *App) renderCursorEditor(value string, cursor int) string {
@@ -860,6 +891,13 @@ func moveSelection(sel int, count int, delta int) int {
 		return sel
 	}
 	sel += delta
+	return clampSelection(sel, count)
+}
+
+func clampSelection(sel int, count int) int {
+	if count <= 0 {
+		return 0
+	}
 	if sel < 0 {
 		return 0
 	}
