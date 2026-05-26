@@ -558,6 +558,49 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsTUIArrowControlsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CollapseThreshold = 4
+
+	_ = a.View()
+	inc, ok := findHitTargetForTest(a, "settings:tui:collapse-threshold:inc")
+	if !ok {
+		t.Fatal("missing semantic TUI increment target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      inc.rect.x,
+		Y:      inc.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.Theme.CollapseThreshold != 5 {
+		t.Fatalf("increment click should raise collapse threshold, got %d", a.Theme.CollapseThreshold)
+	}
+	if a.settings == nil || a.settings.tuiRow != 0 || !a.settingsOpen {
+		t.Fatalf("increment click should keep settings open and row selected, settings=%+v open=%v", a.settings, a.settingsOpen)
+	}
+
+	_ = a.View()
+	dec, ok := findHitTargetForTest(a, "settings:tui:collapse-threshold:dec")
+	if !ok {
+		t.Fatal("missing semantic TUI decrement target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      dec.rect.x,
+		Y:      dec.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.Theme.CollapseThreshold != 4 {
+		t.Fatalf("decrement click should lower collapse threshold, got %d", a.Theme.CollapseThreshold)
+	}
+}
+
 func TestSettingsModelRowUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

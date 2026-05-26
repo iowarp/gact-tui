@@ -175,17 +175,12 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				if src == "" {
 					src = "builtin"
 				}
-				desc := tl.Description
+				status := src
 				if tl.ServerID != "" {
-					tag := "from " + tl.ServerID
-					if desc == "" {
-						desc = tag
-					} else {
-						desc = tag + " · " + desc
-					}
+					status = tl.ServerID
 				}
 				items = append(items, catalogItem{
-					id: tl.Name, title: tl.Name, desc: desc, statusTag: src,
+					id: tl.Name, title: tl.Name, statusTag: status,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}

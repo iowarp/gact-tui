@@ -11,8 +11,8 @@ import (
 
 // HHHHH1: catalogKindTools loads /v1/tools and renders BOTH built-in
 // and MCP-sourced tools in one list, sorted by (source, name), with
-// each row tagged by source and MCP rows showing the originating
-// server id in the description. Verifies the user's "tools and mcps
+// each row tagged by source/server while descriptions stay in detail
+// views instead of crowding the list. Verifies the user's "tools and mcps
 // were meant to be the same menu" feedback is honoured: a single
 // menu shows everything the agent can call.
 func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
@@ -27,7 +27,7 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		_, _ = w.Write([]byte(`{"tools":[
 			{"name":"docs.search","source":"mcp","server_id":"mcp_docs","description":"search docs"},
 			{"name":"bash","source":"builtin","description":"Run shell"},
-			{"name":"summarize","source":"recipe","description":"Summarize a file"},
+		{"name":"summarize","source":"recipe","description":"Summarize a file"},
 			{"name":"fetch.url","source":"mcp","server_id":"mcp_web","description":"GET a URL"}
 		]}`))
 	}))
@@ -54,11 +54,12 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		}
 	}
 
-	// Every row tagged with its source.
+	// Rows are tagged with their source; MCP tools use the server id because
+	// "[mcp]" alone is less useful in the compact list.
 	wantTag := map[string]string{
 		"bash":        "builtin",
-		"docs.search": "mcp",
-		"fetch.url":   "mcp",
+		"docs.search": "mcp_docs",
+		"fetch.url":   "mcp_web",
 		"summarize":   "recipe",
 	}
 	for _, it := range msg.items {
@@ -67,17 +68,9 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		}
 	}
 
-	// MCP rows surface the server id in the desc.
 	for _, it := range msg.items {
-		if it.id == "docs.search" && !strings.Contains(it.desc, "mcp_docs") {
-			t.Errorf("docs.search desc missing server id: %q", it.desc)
-		}
-		if it.id == "fetch.url" && !strings.Contains(it.desc, "mcp_web") {
-			t.Errorf("fetch.url desc missing server id: %q", it.desc)
-		}
-		// Built-in row has no server id and shouldn't gain a "from" tag.
-		if it.id == "bash" && strings.Contains(it.desc, "from ") {
-			t.Errorf("bash desc shouldn't carry an MCP origin: %q", it.desc)
+		if strings.TrimSpace(it.desc) != "" {
+			t.Errorf("%s list desc = %q, want empty compact list row", it.id, it.desc)
 		}
 	}
 }
