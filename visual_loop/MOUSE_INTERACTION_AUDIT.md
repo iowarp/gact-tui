@@ -646,3 +646,6 @@ Additional work continued from the same architectural direction:
   click-absorbing surface before re-registering header tabs/buttons above it.
   The command palette and message-search palette use this instead of manually
   suppressing and re-adding close button hit targets.
+- Settings now registers body wheel handling and selectable rows through the
+  shared modal list-region primitive, so theme/language/agent/TUI rows and
+  body scrolling share one render-derived geometry path.
