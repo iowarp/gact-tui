@@ -230,6 +230,26 @@ func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
 	}
 }
 
+func TestWindowModalBodyAndRangeHintUseSharedScrollSemantics(t *testing.T) {
+	body := strings.Join([]string{"zero", "one", "two", "three", "four"}, "\n")
+	windowed := windowModalBody(body, 2, 99)
+
+	if windowed.body != "three\nfour" {
+		t.Fatalf("windowed body = %q, want final two rows", windowed.body)
+	}
+	if windowed.window.scroll != 3 || windowed.window.start != 3 || windowed.window.end != 5 || windowed.window.total != 5 {
+		t.Fatalf("window = %+v, want clamped final window", windowed.window)
+	}
+	if got := modalRangeHint(windowed.window, "Up/Down scroll"); got != "Up/Down scroll" {
+		t.Fatalf("range hint at bottom = %q, want base hint only", got)
+	}
+
+	windowed = windowModalBody(body, 2, 1)
+	if got := modalRangeHint(windowed.window, "Up/Down scroll"); got != "2-3/5  Up/Down scroll" {
+		t.Fatalf("range hint = %q, want visible range prefix", got)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
@@ -631,6 +651,31 @@ func TestHelpCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 	if a.helpTab != 0 {
 		t.Fatalf("helpTab = %d, want reset to 0", a.helpTab)
+	}
+}
+
+func TestHelpOverlayUsesSharedBodyWindowAndMouseWheel(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 16
+	a.stage = StageReady
+	a.helpOpen = true
+	a.helpTab = helpTabIndex("Commands")
+	a.helpScroll = 1 << 30
+
+	out := stripANSI(a.viewHelp())
+	if !strings.Contains(out, "switch tab") {
+		t.Fatalf("help footer should keep the base hint visible:\n%s", out)
+	}
+	if a.helpScroll <= 0 {
+		t.Fatalf("render should clamp and persist positive help scroll, got %d", a.helpScroll)
+	}
+
+	before := a.helpScroll
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	a = model.(*App)
+	if a.helpScroll >= before {
+		t.Fatalf("wheel up should reduce help scroll, before=%d after=%d", before, a.helpScroll)
 	}
 }
 

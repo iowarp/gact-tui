@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"strings"
 
@@ -178,6 +179,11 @@ type scrollWindow struct {
 	end    int
 	scroll int
 	total  int
+}
+
+type modalBodyWindow struct {
+	body   string
+	window scrollWindow
 }
 
 type modalFrameOptions struct {
@@ -506,4 +512,20 @@ func boundedScrollWindow(total int, budget int, scroll int) scrollWindow {
 		end = scroll
 	}
 	return scrollWindow{start: scroll, end: end, scroll: scroll, total: total}
+}
+
+func windowModalBody(body string, budget int, scroll int) modalBodyWindow {
+	lines := strings.Split(body, "\n")
+	win := boundedScrollWindow(len(lines), budget, scroll)
+	return modalBodyWindow{
+		body:   strings.Join(lines[win.start:win.end], "\n"),
+		window: win,
+	}
+}
+
+func modalRangeHint(win scrollWindow, hint string) string {
+	if win.total > win.end {
+		return fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hint)
+	}
+	return hint
 }
