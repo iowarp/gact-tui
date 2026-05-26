@@ -21,6 +21,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Catalog browsers now use the shared selectable-list modal primitive for body rendering, row/wheel hit targets, and surface wheel blocking while preserving catalog-specific footer actions.
 - Overlay placement now uses a fixed shared top row and single shared modal width policy, so short and tall modals keep the same top corners instead of vertically re-centering or switching to a separate wide chrome.
 - Shared text-entry modals now register semantic cursor-position hit targets from the rendered editor row. Rename, add-context, and MCP-install clicks can place the cursor without each modal inventing coordinate math; MCP install now uses the same rune-indexed line editor as rename/context-add.
+- The visible footer `Ctrl+C quit` hint now registers a semantic target that opens the shared quit-confirmation modal instead of remaining keyboard-only.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -94,12 +95,11 @@ Missing:
 Mouse support exists:
 
 - Top-right header help/settings actions are semantic targets.
-- Visible footer settings, command, and help hints are semantic targets.
+- Visible footer settings, command, help, and quit hints are semantic targets.
 
 Missing:
 
 - Click focus labels or panes in footer.
-- Click quit from the footer.
 - Click backend/workspace/session/status chips in header.
 - Click reconnect/error/status affordances.
 

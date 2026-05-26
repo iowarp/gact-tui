@@ -891,7 +891,7 @@ func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
-func TestFooterSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
+func TestFooterActionsUseVisibleSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 140
 	a.height = 36
@@ -953,6 +953,25 @@ func TestFooterSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	}
 	if !a.paletteOpen || a.paletteFilter != "" || a.paletteSel != 0 {
 		t.Fatalf("footer command click should open command palette, open=%v filter=%q sel=%d", a.paletteOpen, a.paletteFilter, a.paletteSel)
+	}
+
+	a.paletteOpen = false
+	_ = a.View()
+	quitTarget, ok := findHitTargetForTest(a, "footer:quit")
+	if !ok {
+		t.Fatal("missing visible footer quit hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      quitTarget.rect.x,
+		Y:      quitTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer quit click should not immediately dispatch a command")
+	}
+	if !a.quitConfirmOpen || a.quitConfirmSelected != 0 {
+		t.Fatalf("footer quit click should open quit confirmation, open=%v selected=%d", a.quitConfirmOpen, a.quitConfirmSelected)
 	}
 }
 
