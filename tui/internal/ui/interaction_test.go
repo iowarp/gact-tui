@@ -1906,6 +1906,13 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	}}
 
 	_ = a.View()
+	sidebar := ansi.Strip(a.renderSidebar(42, 24))
+	if !strings.Contains(sidebar, "read") || !strings.Contains(sidebar, "2.0 KiB") {
+		t.Fatalf("context row should expose readable mode and size:\n%s", sidebar)
+	}
+	if strings.Contains(sidebar, " R ") {
+		t.Fatalf("context row should not use cryptic single-letter mode badges:\n%s", sidebar)
+	}
 	target, ok := findHitTargetForTest(a, "sidebar:context:file:docs/ARC_MEMORY_LAYER.md")
 	if !ok {
 		t.Fatal("missing context file hit target")
@@ -2029,7 +2036,7 @@ func TestContextRowSelectionRendersSingleSidebarCursor(t *testing.T) {
 	if strings.Contains(out, "▌○ demo") {
 		t.Fatalf("session row should not show active cursor while context row is selected:\n%s", out)
 	}
-	if !strings.Contains(out, "▌R docs/first.md") {
+	if !strings.Contains(out, "▌docs/first.md read") {
 		t.Fatalf("selected context row should show active cursor:\n%s", out)
 	}
 }
@@ -2055,7 +2062,7 @@ func TestContextSectionRemainsVisibleWhenSessionsOverflow(t *testing.T) {
 	a.contextFiles = []gact.ContextFile{{Path: "visual_loop/README.md", Mode: "read"}}
 
 	out := ansi.Strip(a.renderSidebar(42, 24))
-	if !strings.Contains(out, "CONTEXT") || !strings.Contains(out, "▌R visual_loop/README.md") {
+	if !strings.Contains(out, "CONTEXT") || !strings.Contains(out, "▌visual_loop/README.md read") {
 		t.Fatalf("context section should remain visible below overflowing sessions:\n%s", out)
 	}
 }
