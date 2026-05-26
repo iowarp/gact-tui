@@ -176,6 +176,51 @@ type scrollWindow struct {
 	total  int
 }
 
+type modalFrameOptions struct {
+	width      int
+	title      string
+	buttons    []menuButton
+	tabs       []menuTab
+	tabPadding int
+	tabSpacing int
+	body       string
+	footer     string
+}
+
+func (a *App) renderModalFrame(opts modalFrameOptions) string {
+	w := opts.width
+	if w < 12 {
+		w = 12
+	}
+	innerW := w - 4
+	if innerW < 1 {
+		innerW = 1
+	}
+	titleRow, buttonCol := a.renderModalHeader(opts.title, innerW, opts.buttons)
+	rows := []string{titleRow}
+	tabRow := -1
+	if len(opts.tabs) > 0 {
+		rows = append(rows, "")
+		tabRow = len(rows)
+		padding := opts.tabPadding
+		spacing := opts.tabSpacing
+		rows = append(rows, a.renderModalTabsWithLayout(opts.tabs, padding, spacing))
+	}
+	if opts.body != "" {
+		rows = append(rows, "", opts.body)
+	}
+	if opts.footer != "" {
+		rows = append(rows, "", opts.footer)
+	}
+
+	modal := a.renderDefaultModalSurface(w, lipgloss.JoinVertical(lipgloss.Left, rows...))
+	a.registerModalButtons(modal, 0, buttonCol, opts.buttons)
+	if tabRow >= 0 {
+		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
+	}
+	return modal
+}
+
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
 }

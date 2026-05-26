@@ -160,6 +160,46 @@ func TestModalTabsRenderAndRegisterWithSameLabels(t *testing.T) {
 	}
 }
 
+func TestModalFrameRegistersHeaderButtonsAndTabs(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+
+	buttons := []menuButton{{
+		id:     "frame:close",
+		label:  "close",
+		action: func(*App) tea.Cmd { return nil },
+	}}
+	tabs := []menuTab{
+		{id: "frame-one", label: "One", active: true, action: func(*App) tea.Cmd { return nil }},
+		{id: "frame-two", label: "Two", action: func(*App) tea.Cmd { return nil }},
+	}
+	modal := a.renderModalFrame(modalFrameOptions{
+		width:      64,
+		title:      "Frame Title",
+		buttons:    buttons,
+		tabs:       tabs,
+		tabPadding: 1,
+		tabSpacing: 0,
+		body:       "primary body",
+		footer:     "footer hint",
+	})
+
+	plain := ansi.Strip(modal)
+	for _, want := range []string{"Frame Title", "close", "One", "Two", "primary body", "footer hint"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("modal frame missing %q:\n%s", want, plain)
+		}
+	}
+	if _, ok := findHitTargetForTest(a, "button:frame:close"); !ok {
+		t.Fatal("missing frame close button hit target")
+	}
+	if _, ok := findHitTargetForTest(a, "tab:frame-two"); !ok {
+		t.Fatal("missing frame tab hit target")
+	}
+}
+
 func TestBoundedScrollWindowClampsToVisibleRange(t *testing.T) {
 	tests := []struct {
 		name       string
