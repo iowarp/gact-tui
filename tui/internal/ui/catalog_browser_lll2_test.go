@@ -241,8 +241,8 @@ func TestCatalogDetailLoadedOpensScrollableDetail(t *testing.T) {
 	if !got.detailViewOpen || got.detailView == nil {
 		t.Fatal("catalog detail should open detail view")
 	}
-	if got.catalogBrowserOpen || got.catalogBrowser != nil {
-		t.Fatal("catalog detail should become the foreground view, not render behind the catalog")
+	if !got.catalogBrowserOpen || got.catalogBrowser == nil {
+		t.Fatal("catalog detail should keep the catalog behind the foreground detail view")
 	}
 	if !strings.Contains(got.detailView.fullText, "owner: utility") ||
 		!strings.Contains(got.detailView.fullText, "visible_to: chat") {
@@ -522,10 +522,10 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	}
 	for _, want := range []string{
 		"owner: utility",
-		"visible_to: chat, utility",
+		"visible to: chat, utility",
 		"owning agents:",
 		"Utility Expert · utility",
-		"input_schema:",
+		"Inputs",
 		"command",
 	} {
 		if !strings.Contains(detail.text, want) {
@@ -554,13 +554,13 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 
 	for _, want := range []string{
 		"owner: utility",
-		"visible_to: chat, planner, utility",
+		"visible to: chat, planner, utility",
 		"owning agents:",
 		"Utility Expert · utility",
 		"tags: shell, diagnostic",
 		"permission: ask",
-		"mcp_server: mcp_shell",
-		"input_schema:",
+		"server: mcp_shell",
+		"Inputs",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("tool detail missing %q:\n%s", want, out)
@@ -592,13 +592,13 @@ func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
 	}, nil)
 
 	for _, want := range []string{
-		"input_schema:",
+		"Inputs",
 		"type: object",
 		"required: filepath",
 		"additional_properties: disabled",
 		"fields:",
-		"- filepath: string · required · Path to the ADIOS/BP container to inspect.",
-		"- include_variables: boolean · Include variable-level metadata.",
+		"- filepath — string · required · Path to the ADIOS/BP container to inspect.",
+		"- include_variables — boolean · Include variable-level metadata.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("tool detail schema summary missing %q:\n%s", want, out)
