@@ -58,6 +58,14 @@ func (a *App) closeMcpRemoveModal() {
 	a.mcpRemoveSaving = false
 }
 
+func (a *App) handleMcpRemoveWheel(button tea.MouseButton) tea.Cmd {
+	if a.mcpRemoveSaving {
+		return nil
+	}
+	a.mcpRemoveSel = moveSelectionByWheel(a.mcpRemoveSel, len(a.mcpRemoveOptions), button)
+	return nil
+}
+
 // mcpListServersCmd refreshes the cached MCP server list. Used by both the
 // remove modal and the cache-on-open path.
 func mcpListServersCmd(c *client.Client) tea.Cmd {
@@ -333,6 +341,9 @@ func (a *App) viewMcpRemove() string {
 		footer: t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
 	})
 	if len(list.hits) > 0 {
+		a.registerModalContentWheelHit(rendered.modal, "mcp-remove:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleMcpRemoveWheel(button)
+		})
 		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
 	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
