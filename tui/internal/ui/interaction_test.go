@@ -2647,6 +2647,46 @@ func TestSidebarSelectedParentSemanticHitTogglesChildren(t *testing.T) {
 	}
 }
 
+func TestSidebarCountsUseSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusBody
+	a.wsID = "ws_default"
+	archivedAt := time.Now()
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "first", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "archived", Status: gact.StatusIdle, ArchivedAt: &archivedAt},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:counts")
+	if !ok {
+		t.Fatal("missing semantic sidebar counts target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus = %v, want sidebar", a.focus)
+	}
+	if !a.showArchived {
+		t.Fatal("counts click should toggle archived view on")
+	}
+	if !strings.Contains(a.transientHint, "archived") {
+		t.Fatalf("hint = %q, want archived toggle hint", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("counts click should dispatch archived-view reload when workspace is known")
+	}
+}
+
 func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

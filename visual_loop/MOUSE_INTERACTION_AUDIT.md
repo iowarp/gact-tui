@@ -26,6 +26,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
+- Sidebar footer counts now register a semantic hit target and toggle active/archived sessions through the same path as the `h` key.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -46,8 +47,8 @@ Current mouse support:
 
 Most historical keyboard-only popups have been migrated to the overlay-first
 mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
-copy/text-selection semantics, textarea cursor placement, a few base-screen
-states, and richer global/status affordances.
+copy/text-selection semantics, a few specialized transcript actions, sidebar
+filter editing, and richer global/status affordances.
 
 ## Base UI Surfaces
 
@@ -58,11 +59,11 @@ Mouse support exists:
 - Click session rows to select/open that session.
 - Click selected parent with children to expand/collapse nanoagents.
 - Click `SESSIONS` or `CONTEXT` headers to collapse/expand.
+- Click the active/archived footer counts to toggle active vs archived sessions.
 
 Remaining gaps:
 
 - No click support for sidebar filter editing.
-- No click support for sidebar footer/status counts.
 - No right-click/context-menu behavior for session actions such as rename,
   archive, delete, copy session id, add context.
 
@@ -140,17 +141,16 @@ Keyboard behavior:
 - Enter executes command or search result.
 - Typing filters.
 
-Mouse gaps:
+Mouse support exists:
 
-- Click command/search result to select and execute.
-- Hover or click row to move selection.
-- Wheel scroll result list.
-- Click outside to close.
+- Click command/search result rows to select and execute.
+- Wheel scrolls long result lists.
+- Click outside/close uses the shared overlay policy.
+
+Remaining gaps:
+
 - Click filter field/cursor positioning is not applicable today but would matter
   if the filter becomes an editable field with cursor.
-
-Risk note: `paletteOpen` blocks global click/wheel handlers, so currently mouse
-events are discarded while the palette is open.
 
 ### Help Overlay
 
@@ -159,13 +159,11 @@ Keyboard behavior:
 - `?`, `Esc`, `Ctrl+C` close.
 - Left/right/Tab switch tabs.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click tabs.
-- Click outside or close affordance.
-- Wheel scroll if future tabs exceed visible height.
-
-Risk note: `helpOpen` blocks global click/wheel handlers.
+- Click close/outside through the shared modal shell.
+- Wheel scrolls when a tab exceeds the visible body.
 
 ### Settings Modal
 
@@ -176,17 +174,14 @@ Keyboard behavior:
 - Left/right adjust TUI preferences.
 - Enter opens provider config, applies theme/language, opens agent detail, or closes.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click tabs: Model, Agent, Theme, TUI, Language.
-- Click rows to select.
-- Double-click or click row action to apply/open.
+- Click rows to select or open/apply row actions.
 - Click TUI preference left/right controls or toggle rows.
 - Click theme/language/agent rows.
-- Wheel scroll long agent lists.
-- Click close/cancel.
-
-Risk note: `settingsOpen` blocks global click/wheel handlers.
+- Wheel scrolls long agent lists.
+- Click close/cancel through the shared modal shell.
 
 ### LM Provider/Model Config Modal
 
@@ -210,13 +205,15 @@ Mouse support now exists for:
 - Click visible advanced-row `◀`/`▶` controls for temperature, max tokens,
   context length, and thinking budget.
 
-Mouse gaps:
+Mouse support exists for:
 
-- Click provider/model filter/input fields.
-- Click API base/API key fields.
-- Text cursor placement and selection inside editable fields.
+- Click provider/model filter headers to focus filtering.
+- Click API base/API key fields to focus editing.
+- Click refresh/auth/save/close actions.
 
-Risk note: `lmConfigOpen` blocks global click/wheel handlers.
+Remaining gaps:
+
+- Text selection inside editable fields.
 
 ### Catalog Browser
 
@@ -233,19 +230,14 @@ Keyboard behavior:
 - `i` install MCP.
 - `d` remove MCP.
 
-Mouse gaps:
+Mouse support exists:
 
-- Click row to select.
-- Double-click or click row action to drill in/open detail.
+- Click rows to select and drill in/open detail.
 - Click Back/Close.
 - Click disabled toggle for tool rows.
-- Wheel scroll catalog rows.
+- Wheel scrolls catalog rows.
 - Click install/remove actions.
-- Breadcrumb/back behavior for detail views.
-
-Risk note: `catalogBrowserOpen` is not in the global mouse-block list, but there
-is still no catalog mouse handler. Clicks can fall through to base panes instead
-of the visible modal.
+- Detail views use shared modal header actions.
 
 ### Detail View
 
@@ -256,15 +248,15 @@ Keyboard behavior:
 - PgUp/PgDn page.
 - g/G jump top/bottom.
 
-Mouse gaps:
+Mouse support exists:
 
-- Wheel scroll detail content.
-- Click close.
+- Wheel scrolls detail content.
+- Click close through the shared modal shell.
+
+Remaining gaps:
+
 - Drag/click scrollbar if one is later rendered.
 - Select/copy text or click raw paths/artifacts.
-
-Risk note: `detailViewOpen` blocks global click/wheel handlers, so wheel does
-not scroll the detail view today.
 
 ### Metrics Modal
 
@@ -273,14 +265,15 @@ Keyboard behavior:
 - Esc/Ctrl+T close.
 - `r` refresh.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click close.
 - Click refresh.
-- Wheel scroll if metrics overflow.
-- Click provider/route rows if detail drill-down is added.
+- Wheel scrolls if metrics overflow.
 
-Risk note: `metricsOpen` blocks global click/wheel handlers.
+Remaining gaps:
+
+- Click provider/route rows if detail drill-down is added.
 
 ### Doctor Modal
 
@@ -290,15 +283,16 @@ Keyboard behavior:
 - r refresh.
 - Tab/right/left switch tabs.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click Health/Capabilities tabs.
 - Click refresh.
 - Click close.
-- Wheel scroll if subsystem/capability rows overflow.
-- Click individual integration/capability rows for detail if later added.
+- Wheel scrolls if subsystem/capability rows overflow.
 
-Risk note: `doctorOpen` blocks global click/wheel handlers.
+Remaining gaps:
+
+- Click individual integration/capability rows for detail if later added.
 
 ### Workspace Switcher
 
@@ -308,13 +302,11 @@ Keyboard behavior:
 - Up/down select.
 - Enter switch.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click workspace row to select/switch.
-- Wheel scroll if workspace list exceeds modal height.
-- Click current workspace or cancel/close.
-
-Risk note: `workspaceSwitchOpen` blocks global click/wheel handlers.
+- Wheel scrolls when the workspace list exceeds modal height.
+- Click cancel/close through the shared modal shell.
 
 ### Rename Session Modal
 
@@ -326,14 +318,15 @@ Keyboard behavior:
 - Left/right/Home/End move cursor.
 - Printable text edits.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click inside the text field to place cursor.
-- Select text.
 - Click save/cancel.
-- Click outside to cancel.
+- Click outside to cancel through the shared overlay policy.
 
-Risk note: `renameOpen` blocks global click/wheel handlers.
+Remaining gaps:
+
+- Select text.
 
 ### Add Context Modal
 
@@ -345,15 +338,16 @@ Keyboard behavior mirrors rename:
 - Left/right/Home/End move cursor.
 - Printable text edits.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click inside text field to place cursor.
-- Select text.
 - Click save/cancel.
-- Click mode affordance if mode selection becomes interactive.
-- Click outside to cancel.
+- Click outside to cancel through the shared overlay policy.
 
-Risk note: `contextAddOpen` blocks global click/wheel handlers.
+Remaining gaps:
+
+- Select text.
+- Click mode affordance if mode selection becomes interactive.
 
 ### Compose Modal
 
@@ -364,16 +358,16 @@ Keyboard behavior:
 - Other keys go to inner textarea.
 - Paste is routed to the compose textarea.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click textarea to place cursor.
-- Select text.
-- Wheel scroll textarea content.
+- Wheel scrolls textarea content.
 - Click commit/cancel.
-- Click outside to cancel.
+- Click outside to cancel through the shared overlay policy.
 
-Risk note: `composeOpen` is not in the global mouse-block list. There is no
-compose mouse handler, so clicks may fall through to base focus changes.
+Remaining gaps:
+
+- Select text.
 
 ### File Picker
 
@@ -385,15 +379,12 @@ Keyboard behavior:
 - Backspace edits filter.
 - Printable text edits filter.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click file row to select/insert.
-- Wheel scroll result list.
+- Wheel scrolls result list.
 - Click filter field.
-- Click close/cancel.
-
-Risk note: `filePickerOpen` is not in the global mouse-block list. There is no
-file-picker mouse handler, so clicks may fall through to base panes.
+- Click close/cancel through the shared modal shell.
 
 ### MCP Install Modal
 
@@ -405,15 +396,15 @@ Keyboard behavior:
 - Printable text edits input.
 - While saving, all keys are ignored.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click input field to focus/place cursor.
-- Select text.
 - Click install/cancel.
-- Click example lines to prefill or copy if that is desired.
 
-Risk note: `mcpInstallOpen` is not in the global mouse-block list. There is no
-MCP-install mouse handler, so clicks may fall through to base panes.
+Remaining gaps:
+
+- Select text.
+- Click example lines to prefill or copy if that is desired.
 
 ### MCP Remove Modal
 
@@ -424,14 +415,11 @@ Keyboard behavior:
 - Enter remove.
 - While saving, all keys are ignored.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click server row to select/remove.
-- Wheel scroll list.
-- Click cancel/close.
-
-Risk note: `mcpRemoveOpen` is not in the global mouse-block list. There is no
-MCP-remove mouse handler, so clicks may fall through to base panes.
+- Wheel scrolls list.
+- Click cancel/close through the shared modal shell.
 
 ### Quit Confirmation Modal
 
@@ -443,55 +431,38 @@ Keyboard behavior:
 - Enter applies selected option.
 - Ctrl+C applies selected option.
 
-Mouse gaps:
+Mouse support exists:
 
 - Click `close`, `no`, or `detach` chips.
-- Click outside/close to dismiss.
-
-Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
+- Click outside/close to dismiss through the shared modal shell.
 
 ## Cross-Cutting Problems
 
-1. There is no overlay-level mouse dispatch. Mouse handling is global and
-   base-layout oriented, while key handling has a layered modal dispatch.
+1. Overlay-level mouse dispatch is now in place through semantic hit targets and
+   shared overlay policies. Remaining work should extend the semantic primitives
+   instead of adding one-off coordinate handlers.
 
-2. The blocked overlay list is incomplete. Some overlays block mouse explicitly;
-   others let clicks fall through to the base UI:
-   - Explicitly blocked: help, palette, settings, metrics, workspace switcher,
-     rename, context-add, detail, quit-confirm, doctor, LM config.
-   - Not explicitly blocked but no mouse support: compose, file picker, catalog
-     browser, MCP install, MCP remove.
+2. Modal/list geometry is now retained for the migrated shared primitives:
+   selectable lists, scrollable bodies, header buttons, and single-line text
+   entry. Remaining bespoke surfaces should move onto those primitives before
+   adding new mouse behavior.
 
-3. Rendered modal geometry is not retained. Most views compute rows locally and
-   return a styled string. Mouse support will need hit-test helpers that share
-   row/column math with renderers, or a small layout registry generated during
-   render.
+3. Lists now have consistent hit-testing and wheel behavior for palette,
+   settings, catalog, file picker, workspace rows, MCP remove rows, and LM
+   provider/model lists.
 
-4. Lists need consistent hit-testing and wheel behavior. Repeated list patterns:
-   palette rows, settings rows, catalog rows, file picker rows, workspace rows,
-   MCP remove rows, LM provider/model lists.
+4. Text-entry modals now share a single-line editor policy for rename,
+   context-add, MCP install, and provider configuration fields. Remaining work is
+   text selection, not basic cursor placement.
 
-5. Text-entry modals need a policy. Rename/context-add/MCP install use custom
-   single-line editors, while input/compose use `textarea.Model`. Mouse cursor
-   placement may be easy for textarea only if the component exposes mouse
-   handling; custom editors need their own hit tests.
+5. Scrollable surfaces now have target-aware wheel routing for conversation,
+   detail, catalog, settings, LM provider/model lists, file picker, and modal
+   bodies that can overflow.
 
-6. Scrollable surfaces need target-aware wheel routing:
-   - Conversation body.
-   - Detail view.
-   - Catalog browser.
-   - Settings lists.
-   - LM provider/model lists.
-   - File picker.
-   - Potentially metrics/doctor/help if content grows.
-
-7. Modal controls are visually inconsistent. Some close/back actions are
-   rendered as centered action-row chips while others are right-aligned header
-   buttons. Back, close, cancel, apply, refresh, install, remove, and detach
-   should use one visual/action model unless a modal has a strong reason to
-   differ. Current direction: header actions should be stable and right aligned
-   for mouse targets; centered chips should be reserved for rare primary
-   decisions that truly belong in the body.
+6. Modal controls now use the shared header/action model for close, back,
+   cancel, apply, refresh, install, remove, and detach. Continue auditing visual
+   polish for chip spacing and centering, but the semantics are no longer
+   keyboard-only.
 
 8. Copy/paste and terminal selection need an explicit design. With mouse mode
    enabled, paste into the input/compose textarea and copy from the conversation
@@ -507,15 +478,14 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
    command name as a description; the list view should stay dense and reserve
    detail text for metadata that helps users choose or diagnose the tool.
 
-10. Header/footer global affordances are still keyboard-only. Mouse mode should
-    expose clickable settings/help entry points in the top/right chrome or a
-    similarly stable global location.
+10. Header/footer global affordances now include clickable settings, help,
+    command, and quit entry points. Remaining status chips such as backend,
+    workspace, session, and reconnect/error affordances still need richer
+    drill-down behavior.
 
-11. TUI options/configuration controls need parity between keyboard and mouse.
-    Left/right adjustments, row selection, apply/save/cancel, and backward
-    navigation should all be addressable through visible mouse targets. Click
-    regions must match the rendered row positions; earlier language clicks were
-    observed selecting rows above the visible label.
+11. TUI options/configuration controls now have mouse parity for row selection,
+    left/right adjustments, apply/save/cancel, and backward navigation. Continue
+    verifying rendered hit targets with screenshots when new options are added.
 
 12. Copy semantics should be scoped, not terminal-frame dependent. Add a task
     for transcript/detail copy blocks: selected message, selected tool result,
