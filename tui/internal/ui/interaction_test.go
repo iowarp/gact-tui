@@ -2930,8 +2930,11 @@ func TestMcpRemoveUsesBoundedScrollWindowAndVisibleHitTargets(t *testing.T) {
 	if strings.Contains(out, "server 00") {
 		t.Fatalf("bounded MCP remove window should not render every server:\n%s", out)
 	}
-	if !strings.Contains(out, "↑ ") || !strings.Contains(out, "↓ ") {
-		t.Fatalf("bounded MCP remove window should show overflow indicators:\n%s", out)
+	if strings.Contains(out, "↑ 4") || strings.Contains(out, "↓ 4") {
+		t.Fatalf("bounded MCP remove window should not render textual overflow count rows:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("bounded MCP remove window should show shared side scroll rail:\n%s", out)
 	}
 
 	_ = a.View()
