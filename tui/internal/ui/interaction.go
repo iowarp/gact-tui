@@ -187,7 +187,17 @@ type modalFrameOptions struct {
 	footer     string
 }
 
+type modalFrameRender struct {
+	modal     string
+	bodyRow   int
+	footerRow int
+}
+
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
+	return a.renderModalFrameWithLayout(opts).modal
+}
+
+func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRender {
 	w := opts.width
 	if w < 12 {
 		w = 12
@@ -199,6 +209,8 @@ func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	titleRow, buttonCol := a.renderModalHeader(opts.title, innerW, opts.buttons)
 	rows := []string{titleRow}
 	tabRow := -1
+	bodyRow := -1
+	footerRow := -1
 	if len(opts.tabs) > 0 {
 		rows = append(rows, "")
 		tabRow = len(rows)
@@ -208,9 +220,11 @@ func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	}
 	if opts.body != "" {
 		rows = append(rows, "", opts.body)
+		bodyRow = len(rows) - 1
 	}
 	if opts.footer != "" {
 		rows = append(rows, "", opts.footer)
+		footerRow = len(rows) - 1
 	}
 
 	modal := a.renderDefaultModalSurface(w, lipgloss.JoinVertical(lipgloss.Left, rows...))
@@ -218,7 +232,7 @@ func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	if tabRow >= 0 {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
-	return modal
+	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow}
 }
 
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {

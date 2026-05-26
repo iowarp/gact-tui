@@ -175,7 +175,7 @@ func TestModalFrameRegistersHeaderButtonsAndTabs(t *testing.T) {
 		{id: "frame-one", label: "One", active: true, action: func(*App) tea.Cmd { return nil }},
 		{id: "frame-two", label: "Two", action: func(*App) tea.Cmd { return nil }},
 	}
-	modal := a.renderModalFrame(modalFrameOptions{
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:      64,
 		title:      "Frame Title",
 		buttons:    buttons,
@@ -186,7 +186,14 @@ func TestModalFrameRegistersHeaderButtonsAndTabs(t *testing.T) {
 		footer:     "footer hint",
 	})
 
-	plain := ansi.Strip(modal)
+	if rendered.bodyRow != 4 {
+		t.Fatalf("bodyRow = %d, want 4 after title, spacer, tabs, spacer", rendered.bodyRow)
+	}
+	if rendered.footerRow <= rendered.bodyRow {
+		t.Fatalf("footerRow = %d should follow bodyRow %d", rendered.footerRow, rendered.bodyRow)
+	}
+
+	plain := ansi.Strip(rendered.modal)
 	for _, want := range []string{"Frame Title", "close", "One", "Two", "primary body", "footer hint"} {
 		if !strings.Contains(plain, want) {
 			t.Fatalf("modal frame missing %q:\n%s", want, plain)
