@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,6 +21,7 @@ type metricsState struct {
 	loading bool
 	err     error
 	data    gact.Metrics
+	scroll  int
 }
 
 // loadMetricsCmd fetches /v1/metrics.
@@ -47,6 +49,36 @@ func (a *App) handleMetricsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		a.metrics = &metricsState{loading: true}
 		return a, loadMetricsCmd(a.c)
+	case "up", "k":
+		if a.metrics != nil {
+			a.metrics.scroll--
+		}
+		return a, nil
+	case "down", "j":
+		if a.metrics != nil {
+			a.metrics.scroll++
+		}
+		return a, nil
+	case "pgup", "ctrl+u":
+		if a.metrics != nil {
+			a.metrics.scroll -= a.metricsBodyPageSize()
+		}
+		return a, nil
+	case "pgdown", "ctrl+d":
+		if a.metrics != nil {
+			a.metrics.scroll += a.metricsBodyPageSize()
+		}
+		return a, nil
+	case "g", "home":
+		if a.metrics != nil {
+			a.metrics.scroll = 0
+		}
+		return a, nil
+	case "G", "end":
+		if a.metrics != nil {
+			a.metrics.scroll = 1 << 30
+		}
+		return a, nil
 	}
 	return a, nil
 }
@@ -133,13 +165,39 @@ func (a *App) viewMetrics() string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body, win := a.windowMetricsBody(body)
+	if a.metrics != nil {
+		a.metrics.scroll = win.scroll
+	}
+	hintText := "Up/Down scroll  r refresh  Esc close"
+	if win.total > win.end {
+		hintText = fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hintText)
+	}
 	return a.renderModalFrame(modalFrameOptions{
 		width:   w,
 		title:   "Backend Metrics",
 		buttons: buttons,
 		body:    body,
-		footer:  t.HintLabel.Render("r refresh   Esc / Ctrl+T close"),
+		footer:  t.HintLabel.Render(hintText),
 	})
+}
+
+func (a *App) metricsBodyPageSize() int {
+	rows := a.height - 14
+	if rows < 4 {
+		rows = 4
+	}
+	return rows
+}
+
+func (a *App) windowMetricsBody(body string) (string, scrollWindow) {
+	lines := strings.Split(body, "\n")
+	scroll := 0
+	if a.metrics != nil {
+		scroll = a.metrics.scroll
+	}
+	win := boundedScrollWindow(len(lines), a.metricsBodyPageSize(), scroll)
+	return strings.Join(lines[win.start:win.end], "\n"), win
 }
 
 func sortedKeys(m map[string]int) []string {
