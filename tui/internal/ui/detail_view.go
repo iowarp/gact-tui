@@ -27,6 +27,23 @@ type detailField struct {
 	value string
 }
 
+type scrollableDetailOptions struct {
+	width   int
+	title   string
+	content string
+	scroll  int
+	page    int
+	hint    string
+	closeID string
+	close   func(*App)
+}
+
+type scrollableDetailRender struct {
+	modal  string
+	scroll int
+	window scrollWindow
+}
+
 func (a *App) closeDetailView() {
 	a.detailViewOpen = false
 	a.detailView = nil
@@ -158,6 +175,58 @@ func (a *App) detailPageSize() int {
 		n = 1
 	}
 	return n
+}
+
+func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollableDetailRender {
+	t := a.Theme
+	w := opts.width
+	if w < 12 {
+		w = 12
+	}
+	innerW := w - 4
+	if innerW < 10 {
+		innerW = 10
+	}
+	page := opts.page
+	if page < 1 {
+		page = 1
+	}
+
+	wrapped := wrap(opts.content, innerW)
+	lines := strings.Split(wrapped, "\n")
+	win := boundedScrollWindow(len(lines), page, opts.scroll)
+	visible := strings.Join(lines[win.start:win.end], "\n")
+
+	title := opts.title
+	if len(lines) > page {
+		title += fmt.Sprintf("  (line %d–%d of %d)", win.start+1, win.end, win.total)
+	}
+	closeID := opts.closeID
+	if closeID == "" {
+		closeID = "detail:close"
+	}
+	closeFn := opts.close
+	if closeFn == nil {
+		closeFn = func(app *App) { app.closeDetailView() }
+	}
+	buttons := []menuButton{closeMenuButton(closeID, closeFn)}
+	titleRow, buttonCol := a.renderModalHeader(title, innerW, buttons)
+
+	hint := opts.hint
+	if hint == "" {
+		hint = "↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close"
+	}
+	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
+	box := lipgloss.JoinVertical(lipgloss.Left,
+		titleRow,
+		"",
+		body,
+		"",
+		t.HintLabel.Render(hint),
+	)
+	modal := a.renderDefaultModalSurface(w, box)
+	a.registerModalButtons(modal, 0, buttonCol, buttons)
+	return scrollableDetailRender{modal: modal, scroll: win.scroll, window: win}
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
@@ -672,42 +741,18 @@ func (a *App) viewDetailView() string {
 	if a.detailView == nil {
 		return ""
 	}
-	t := a.Theme
 	// YYYYYYYYY1: use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
-	w := a.detailModalWidth()
-	// Inner width: pane width - 2 padding - 2 border.
-	innerW := w - 4
-	if innerW < 10 {
-		innerW = 10
-	}
-
 	ref := a.detailView
-	// Wrap the full text at the inner width so long log lines don't
-	// overflow the modal box.
-	wrapped := wrap(ref.fullText, innerW)
-	lines := strings.Split(wrapped, "\n")
-	budget := a.detailPageSize()
-	win := boundedScrollWindow(len(lines), budget, a.detailScroll)
-	a.detailScroll = win.scroll
-	visible := strings.Join(lines[win.start:win.end], "\n")
-
-	scrollHint := ""
-	if len(lines) > budget {
-		scrollHint = fmt.Sprintf("  (line %d–%d of %d)",
-			win.start+1, win.end, win.total)
-	}
-
-	buttons := []menuButton{closeMenuButton("detail:close", func(app *App) { app.closeDetailView() })}
-	titleRow, buttonCol := a.renderModalHeader(ref.title+scrollHint, innerW, buttons)
-
-	hint := t.HintLabel.Render(
-		"↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close")
-
-	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
-
-	box := lipgloss.JoinVertical(lipgloss.Left, titleRow, "", body, "", hint)
-	modal := a.renderDefaultModalSurface(w, box)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	return modal
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:   a.detailModalWidth(),
+		title:   ref.title,
+		content: ref.fullText,
+		scroll:  a.detailScroll,
+		page:    a.detailPageSize(),
+		closeID: "detail:close",
+		close:   func(app *App) { app.closeDetailView() },
+	})
+	a.detailScroll = rendered.scroll
+	return rendered.modal
 }
