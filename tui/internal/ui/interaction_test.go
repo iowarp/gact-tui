@@ -2925,6 +2925,72 @@ func TestConversationFooterActionsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConversationFooterCopyUsesSelectedSemanticBlock(t *testing.T) {
+	mu, copied, _ := withClipboardSpy(t)
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 220
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.focus = FocusBody
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{
+			ID:        "msg_assistant",
+			SessionID: "sess_1",
+			Role:      gact.RoleAssistant,
+			Parts: []gact.Part{{
+				ID:       "call_1",
+				Type:     gact.PartTypeToolCall,
+				CallID:   "call_read",
+				ToolName: "ReadFile",
+				Input:    map[string]any{"path": "main.go"},
+			}},
+		},
+		{
+			ID:        "msg_tool",
+			SessionID: "sess_1",
+			Role:      gact.RoleTool,
+			Parts: []gact.Part{{
+				ID:     "result_1",
+				Type:   gact.PartTypeToolResult,
+				CallID: "call_read",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: "package main\n\nfunc main() {}",
+				}},
+			}},
+		},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "footer:conversation:copy")
+	if !ok {
+		t.Fatal("missing semantic footer copy target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer block copy should not dispatch a command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "package main\n\nfunc main() {}" {
+		t.Fatalf("footer block copy clipboard = %q", gotCopy)
+	}
+	if !strings.Contains(a.transientHint, "copied") {
+		t.Fatalf("copy hint = %q, want copied", a.transientHint)
+	}
+}
+
 func TestSidebarSessionsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

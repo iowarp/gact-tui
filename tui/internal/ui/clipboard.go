@@ -41,6 +41,84 @@ func messageText(m gact.Message) (string, bool) {
 	return b.String(), true
 }
 
+func selectedConversationBlockText(msgs []gact.Message, msgIdx int, addrIdx int) (string, bool) {
+	if msgIdx < 0 || msgIdx >= len(msgs) {
+		return "", false
+	}
+	m := msgs[msgIdx]
+	addr := addressablePartsOf(m)
+	if addrIdx < 0 || addrIdx >= len(addr) {
+		return "", false
+	}
+	partIdx := addr[addrIdx]
+	if partIdx < 0 || partIdx >= len(m.Parts) {
+		return "", false
+	}
+	return conversationPartCopyText(msgs, msgIdx, m.Parts[partIdx])
+}
+
+func conversationPartCopyText(msgs []gact.Message, msgIdx int, p gact.Part) (string, bool) {
+	switch p.Type {
+	case gact.PartTypeText:
+		return strings.TrimSpace(p.Text), strings.TrimSpace(p.Text) != ""
+	case gact.PartTypeThinking:
+		if strings.TrimSpace(p.Thinking) == "" {
+			return "", false
+		}
+		return "<thinking>\n" + p.Thinking + "\n</thinking>", true
+	case gact.PartTypeToolCall:
+		if p.CallID != "" {
+			if result, ok := matchingToolResultForCall(msgs, msgIdx, p.CallID); ok {
+				if text := strings.TrimSpace(flattenToolResult(result)); text != "" {
+					return text, true
+				}
+				return partDetailText(result), true
+			}
+		}
+		return toolCallDetailText(p), true
+	case gact.PartTypeToolResult:
+		if text := strings.TrimSpace(flattenToolResult(p)); text != "" {
+			return text, true
+		}
+		return partDetailText(p), true
+	case gact.PartTypeFileDiff:
+		before, after := "", ""
+		if p.Before != nil {
+			before = *p.Before
+		}
+		if p.After != nil {
+			after = *p.After
+		}
+		return "--- before ---\n" + before + "\n\n+++ after +++\n" + after, true
+	default:
+		text := strings.TrimSpace(partDetailText(p))
+		return text, text != ""
+	}
+}
+
+func matchingToolResultForCall(msgs []gact.Message, msgIdx int, callID string) (gact.Part, bool) {
+	if callID == "" || msgIdx < 0 || msgIdx >= len(msgs) {
+		return gact.Part{}, false
+	}
+	for _, p := range msgs[msgIdx].Parts {
+		if p.Type == gact.PartTypeToolResult && p.CallID == callID {
+			return p, true
+		}
+	}
+	for i := msgIdx + 1; i < len(msgs); i++ {
+		m := msgs[i]
+		if m.Role != gact.RoleTool {
+			break
+		}
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolResult && p.CallID == callID {
+				return p, true
+			}
+		}
+	}
+	return gact.Part{}, false
+}
+
 // fullConversationText concatenates every message's text into a
 // single role-prefixed transcript, suitable for pasting into a
 // bug report, another LLM, or a teammate. Each message opens with
