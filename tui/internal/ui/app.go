@@ -6172,6 +6172,15 @@ func (a *App) SetIntroFromFile(path string) error {
 
 func (a *App) viewIntro() string {
 	t := a.Theme
+	a.registerScreenHit("intro:continue", mouseRect{
+		x: 0,
+		y: 0,
+		w: a.width,
+		h: a.height,
+	}, func(app *App) tea.Cmd {
+		app.stage = StageConnecting
+		return connectCmd(app.c)
+	})
 	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
 	// terminal has room, render the embedded grc.iit.edu logo. If
 	// the animation-frames embed is populated, cycle through the
@@ -6241,27 +6250,73 @@ func (a *App) viewIntro() string {
 
 func (a *App) viewError() string {
 	t := a.Theme
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Danger).
-		Render(a.localizer.t(msgChromeConnectionError, nil))
+	w := a.modalWidth()
+	contentW := w - 8
+	if contentW < 20 {
+		contentW = 20
+	}
 	hint := t.HintLabel.Render(a.localizer.t(msgChromeBackend,
 		map[string]string{"backend": a.BackendURL}))
-	keys := t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
-		t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit")
 	retryHint := ""
 	if a.connectRetryAttempts > 0 {
 		retryHint = t.HintLabel.Render(fmt.Sprintf(
 			"auto-retry pending (attempt %d)", a.connectRetryAttempts+1))
 	}
-	body := t.Pane.BorderForeground(t.Danger).Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			title, "", a.stageError, "", hint, "", retryHint, "", keys,
-		),
-	)
-	box := lipgloss.NewStyle().
-		Width(a.width).Height(a.height).
-		Align(lipgloss.Center, lipgloss.Center).
-		Foreground(t.Fg).Background(t.Bg)
-	return box.Render(body)
+	errorText := lipgloss.NewStyle().
+		Foreground(t.Fg).
+		Background(t.BgSubtle).
+		Width(contentW).
+		Render(a.stageError)
+	rows := []string{errorText, "", hint}
+	if retryHint != "" {
+		rows = append(rows, "", retryHint)
+	}
+	buttons := []menuButton{
+		{
+			id:    "error:retry",
+			label: "retry",
+			action: func(app *App) tea.Cmd {
+				app.stage = StageConnecting
+				app.connectRetryAttempts = 0
+				return connectCmd(app.c)
+			},
+		},
+		{
+			id:    "error:quit",
+			label: "quit",
+			action: func(app *App) tea.Cmd {
+				return tea.Quit
+			},
+		},
+	}
+	modal := a.renderModalFrame(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgChromeConnectionError, nil),
+		titleColor: t.Danger,
+		border:     t.Danger,
+		buttons:    buttons,
+		body:       lipgloss.JoinVertical(lipgloss.Left, rows...),
+		footer: t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
+			t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit"),
+	})
+	return lipgloss.NewStyle().
+		Width(a.width).
+		Height(a.height).
+		Foreground(t.Fg).
+		Background(t.Bg).
+		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+}
+
+func blankScreen(width int, height int) string {
+	if width < 1 || height < 1 {
+		return ""
+	}
+	line := strings.Repeat(" ", width)
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (a *App) viewMain() string {
