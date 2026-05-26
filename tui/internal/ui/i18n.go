@@ -40,6 +40,7 @@ const (
 	msgLanguageApplied               messageID = "language.applied"
 	msgChromeConnectingTitle         messageID = "chrome.connecting.title"
 	msgChromeConnectingStatus        messageID = "chrome.connecting.status"
+	msgChromeConnectingRetry         messageID = "chrome.connecting.retry"
 	msgChromeConnectionError         messageID = "chrome.connection_error"
 	msgChromeBackend                 messageID = "chrome.backend"
 	msgChromeWorkspace               messageID = "chrome.workspace"
