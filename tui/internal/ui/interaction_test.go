@@ -190,6 +190,34 @@ func TestModalListRegionRegistersWheelAndRowHits(t *testing.T) {
 	}
 }
 
+func TestModalCellHitsRegisterRelativeToBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	clicked := false
+	modal := a.renderDefaultModalSurface(48, "Title\n\ncontrol  ◀ value ▶")
+
+	a.registerModalCellHits(modal, 2, []modalCellHit{{
+		id:    "cell:inc",
+		row:   1,
+		col:   17,
+		width: 3,
+		action: func(*App) tea.Cmd {
+			clicked = true
+			return nil
+		},
+	}})
+
+	target, ok := findHitTargetForTest(a, "cell:inc")
+	if !ok {
+		t.Fatal("missing modal cell hit target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y); !handled || !clicked {
+		t.Fatalf("modal cell hit should activate, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

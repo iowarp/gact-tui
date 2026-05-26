@@ -631,3 +631,7 @@ Additional work continued from the same architectural direction:
   row clicks and list wheel targets together from the rendered list geometry.
   Palette, catalog, file picker, workspace switcher, and MCP removal use this
   primitive instead of each hand-wiring row and wheel rectangles.
+- Settings row and arrow controls now reuse shared modal hit primitives
+  (`modalListHit` and `modalCellHit`) instead of private settings-only hit
+  structs, keeping list rows and inline left/right controls aligned through the
+  same render-relative registration model.

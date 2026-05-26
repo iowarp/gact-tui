@@ -349,30 +349,17 @@ func (a *App) viewSettings() string {
 	}
 	s := a.settings
 	w := a.modalWidth()
-	type rowHit struct {
-		id     string
-		row    int
-		height int
-		action uiHitAction
-	}
-	type arrowHit struct {
-		id     string
-		row    int
-		col    int
-		width  int
-		action uiHitAction
-	}
-	var rowHits []rowHit
-	var arrowHits []arrowHit
+	var rowHits []modalListHit
+	var arrowHits []modalCellHit
 	addRowHit := func(id string, row int, action uiHitAction) {
-		rowHits = append(rowHits, rowHit{id: id, row: row, height: 1, action: action})
+		rowHits = append(rowHits, modalListHit{id: id, row: row, height: 1, action: action})
 	}
 	addArrowHit := func(id string, row int, col int, width int, action uiHitAction) {
-		arrowHits = append(arrowHits, arrowHit{id: id, row: row, col: col, width: width, action: action})
+		arrowHits = append(arrowHits, modalCellHit{id: id, row: row, col: col, width: width, height: 1, action: action})
 	}
 	addListHits := func(list modalListRender, rowOffset int) {
 		for _, hit := range list.hits {
-			rowHits = append(rowHits, rowHit{
+			rowHits = append(rowHits, modalListHit{
 				id:     hit.id,
 				row:    rowOffset + hit.row,
 				height: hit.height,
@@ -795,12 +782,8 @@ func (a *App) viewSettings() string {
 		}
 		return nil
 	})
-	for _, hit := range rowHits {
-		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, 0, w-4, hit.height, hit.action)
-	}
-	for _, hit := range arrowHits {
-		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, hit.col, hit.width, 1, hit.action)
-	}
+	a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, w-4, rowHits)
+	a.registerModalCellHits(rendered.modal, rendered.bodyRow, arrowHits)
 	return rendered.modal
 }
 

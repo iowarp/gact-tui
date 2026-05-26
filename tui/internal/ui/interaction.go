@@ -202,6 +202,15 @@ type modalListHit struct {
 	action uiHitAction
 }
 
+type modalCellHit struct {
+	id     string
+	row    int
+	col    int
+	width  int
+	height int
+	action uiHitAction
+}
+
 type modalListRender struct {
 	rows          []string
 	hits          []modalListHit
@@ -527,6 +536,16 @@ func (a *App) registerModalListRegion(modal string, rowOffset int, col int, widt
 	}
 	if len(list.hits) > 0 {
 		a.registerModalListHits(modal, rowOffset, col, width, list.hits)
+	}
+}
+
+func (a *App) registerModalCellHits(modal string, rowOffset int, hits []modalCellHit) {
+	for _, hit := range hits {
+		height := hit.height
+		if height < 1 {
+			height = 1
+		}
+		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, hit.col, hit.width, height, hit.action)
 	}
 }
 
