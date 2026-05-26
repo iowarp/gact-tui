@@ -35,6 +35,39 @@ func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
 	}
 }
 
+func TestFooter_MemoryChipUsesSemanticHitTarget(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 180
+	a.height = 30
+	a.caps.Capabilities.Memory = true
+	a.memoryStats = gact.MemoryStats{
+		Cache: gact.CacheStats{
+			Hits:    80,
+			Misses:  20,
+			HitRate: 0.80,
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "footer:memory")
+	if !ok {
+		t.Fatal("missing semantic memory footer target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("memory footer click should dispatch memory inspector load command")
+	}
+	if a.detailViewOpen {
+		t.Fatal("memory footer click should wait for async inspector result before opening detail")
+	}
+}
+
 // CLIO-BBBBBBBBBB4: v0.1 backends (capabilities.memory = false) see
 // no chip.
 func TestFooter_MemoryChip_HiddenWhenCapFalse(t *testing.T) {

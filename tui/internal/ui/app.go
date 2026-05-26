@@ -6947,6 +6947,15 @@ func (a *App) registerFooterActionHits(rendered string) {
 		app.focusNextPane()
 		return nil
 	})
+	a.registerFooterPlainHit(plain, y, "footer:reconnect", "(reconnecting…)", func(app *App) tea.Cmd {
+		return connectCmd(app.c)
+	})
+	a.registerFooterPlainHit(plain, y, "footer:memory", a.localizer.t(msgFooterMemoryHit, nil), func(app *App) tea.Cmd {
+		if !app.caps.Capabilities.Memory {
+			return nil
+		}
+		return loadMemoryInspectorCmd(app.c, app.currentSessionID(), app.messages)
+	})
 	a.registerFooterActionHit(plain, y, "footer:pane", "Tab", a.localizer.t(msgFooterPane, nil), func(app *App) tea.Cmd {
 		app.focusNextPane()
 		return nil
