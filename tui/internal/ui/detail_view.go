@@ -50,6 +50,19 @@ func (a *App) closeDetailView() {
 	a.detailScroll = 0
 }
 
+func (a *App) copyDetailViewToClipboard() tea.Cmd {
+	if a.detailView == nil {
+		a.transientHint = "nothing to copy"
+		return nil
+	}
+	if err := clipboardWrite(a.detailView.fullText); err != nil {
+		a.transientHint = "copy failed: " + err.Error()
+		return nil
+	}
+	a.transientHint = "copied detail to clipboard"
+	return nil
+}
+
 func appendDetailSection(rows []string, title string, fields ...detailField) []string {
 	if len(rows) > 0 {
 		rows = append(rows, "")
@@ -132,6 +145,8 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c", "ctrl+e":
 		a.closeDetailView()
 		return a, nil
+	case "y":
+		return a, a.copyDetailViewToClipboard()
 	case "up", "k":
 		if a.detailScroll > 0 {
 			a.detailScroll--
@@ -207,18 +222,27 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if closeLabel == "" {
 		closeLabel = "close"
 	}
-	buttons := []menuButton{{
-		id:    closeID,
-		label: closeLabel,
-		action: func(app *App) tea.Cmd {
-			closeFn(app)
-			return nil
+	buttons := []menuButton{
+		{
+			id:    "detail:copy",
+			label: "copy",
+			action: func(app *App) tea.Cmd {
+				return app.copyDetailViewToClipboard()
+			},
 		},
-	}}
+		{
+			id:    closeID,
+			label: closeLabel,
+			action: func(app *App) tea.Cmd {
+				closeFn(app)
+				return nil
+			},
+		},
+	}
 
 	hint := opts.hint
 	if hint == "" {
-		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close"
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
 	}
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
@@ -760,7 +784,7 @@ func (a *App) viewDetailView() string {
 	hint := ""
 	if a.catalogBrowserOpen && a.catalogBrowser != nil {
 		closeLabel = "back"
-		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E back"
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E back"
 	}
 	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
 		width:      a.detailModalWidth(),

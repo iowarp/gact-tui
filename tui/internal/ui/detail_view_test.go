@@ -570,6 +570,9 @@ func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
 	if _, ok := findHitTargetForTest(a, "button:detail:test-close"); !ok {
 		t.Fatalf("scrollable detail modal did not register close button hit target")
 	}
+	if _, ok := findHitTargetForTest(a, "button:detail:copy"); !ok {
+		t.Fatalf("scrollable detail modal did not register copy button hit target")
+	}
 }
 
 func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
@@ -603,6 +606,70 @@ func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
 	}
 	if wantY := rect.y + closeLine; target.rect.y != wantY {
 		t.Fatalf("detail close button y = %d, want visible header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Evidence",
+		fullText: "line one\nline two\nraw JSON remains intact",
+	}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:detail:copy")
+	if !ok {
+		t.Fatal("missing semantic detail copy target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail copy click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("detail copy click should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "line one\nline two\nraw JSON remains intact" {
+		t.Fatalf("copied detail = %q", gotCopy)
+	}
+	if !strings.Contains(a.transientHint, "copied detail") {
+		t.Fatalf("hint = %q, want copy confirmation", a.transientHint)
+	}
+}
+
+func TestDetailViewYCopiesFullContent(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Evidence", fullText: "copy by key"}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd != nil {
+		t.Fatal("detail y copy should not dispatch a command")
+	}
+	if !a.detailViewOpen {
+		t.Fatal("detail y copy should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "copy by key" {
+		t.Fatalf("copied detail = %q", gotCopy)
 	}
 }
 
