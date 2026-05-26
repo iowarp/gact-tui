@@ -2236,8 +2236,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		// Fall through to focus dispatch so the textarea consumes it.
 	case "tab":
-		a.focus = (a.focus + 1) % 3
-		a.maybeInitBodyCursor()
+		a.focusNextPane()
 		return a, nil
 	case "shift+tab":
 		a.focus = (a.focus + 2) % 3
@@ -6725,6 +6724,11 @@ func (a *App) openSettingsTab(tab int) tea.Cmd {
 	return loadSettingsCmd(a.c)
 }
 
+func (a *App) focusNextPane() {
+	a.focus = (a.focus + 1) % 3
+	a.maybeInitBodyCursor()
+}
+
 func (a *App) headerBackendLabel() string {
 	if label := strings.TrimSpace(a.BackendLabel); label != "" {
 		return label
@@ -6934,11 +6938,21 @@ func (a *App) registerFooterActionHits(rendered string) {
 	}
 	plain := ansi.Strip(rendered)
 	y := a.height - 1
+	focus := a.focusLabel(a.focus)
+	if a.lmConfigOpen {
+		focus = a.localizer.t(msgChromeFocusProviderSetup, nil)
+	}
+	focusText := a.localizer.t(msgChromeFocus, map[string]string{"value": focus})
+	a.registerFooterPlainHit(plain, y, "footer:focus", focusText, func(app *App) tea.Cmd {
+		app.focusNextPane()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:pane", "Tab", a.localizer.t(msgFooterPane, nil), func(app *App) tea.Cmd {
+		app.focusNextPane()
+		return nil
+	})
 	a.registerFooterActionHit(plain, y, "footer:settings", "Ctrl+S", a.localizer.t(msgFooterSettings, nil), func(app *App) tea.Cmd {
-		app.settingsOpen = true
-		app.settings = &settingsState{}
-		app.seedSettingsSelections()
-		return loadSettingsCmd(app.c)
+		return app.openSettingsTab(0)
 	})
 	a.registerFooterActionHit(plain, y, "footer:command", "/", a.localizer.t(msgFooterCommand, nil), func(app *App) tea.Cmd {
 		app.openCommandPalette()
@@ -6970,6 +6984,17 @@ func (a *App) registerFooterActionHits(rendered string) {
 
 func (a *App) registerFooterActionHit(plain string, y int, id string, key string, label string, action uiHitAction) {
 	target := key + " " + label
+	col := strings.Index(plain, target)
+	if col < 0 {
+		return
+	}
+	a.registerScreenHit(id, mouseRect{x: col, y: y, w: lipgloss.Width(target), h: 1}, action)
+}
+
+func (a *App) registerFooterPlainHit(plain string, y int, id string, target string, action uiHitAction) {
+	if target == "" {
+		return
+	}
 	col := strings.Index(plain, target)
 	if col < 0 {
 		return

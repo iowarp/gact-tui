@@ -899,11 +899,49 @@ func TestFooterActionsUseVisibleSemanticHitTargets(t *testing.T) {
 	a.focus = FocusInput
 
 	_ = a.View()
+	paneTarget, ok := findHitTargetForTest(a, "footer:pane")
+	if !ok {
+		t.Fatal("missing visible footer pane hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      paneTarget.rect.x,
+		Y:      paneTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer pane click should not dispatch a command")
+	}
+	if a.focus != FocusSidebar {
+		t.Fatalf("footer pane click should cycle focus to sidebar, got %v", a.focus)
+	}
+
+	a.focus = FocusInput
+	_ = a.View()
+	focusTarget, ok := findHitTargetForTest(a, "footer:focus")
+	if !ok {
+		t.Fatal("missing visible footer focus hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      focusTarget.rect.x,
+		Y:      focusTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer focus click should not dispatch a command")
+	}
+	if a.focus != FocusSidebar {
+		t.Fatalf("footer focus click should cycle focus to sidebar, got %v", a.focus)
+	}
+
+	a.focus = FocusInput
+	_ = a.View()
 	settingsTarget, ok := findHitTargetForTest(a, "footer:settings")
 	if !ok {
 		t.Fatal("missing visible footer settings hit target")
 	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      settingsTarget.rect.x,
 		Y:      settingsTarget.rect.y,
 		Button: tea.MouseLeft,
