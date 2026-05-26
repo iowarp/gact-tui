@@ -129,28 +129,46 @@ func (a *App) viewQuitConfirm() string {
 		return ""
 	}
 	t := a.Theme
-	w := 54
+	w := 68
 	if w > a.width-8 {
 		w = a.width - 8
 	}
-	if w < 30 {
-		w = 30
+	if w < 42 {
+		w = 42
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Warning).
-		Render(a.localizer.t(msgQuitTitle, nil))
-	hint := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Render(a.localizer.t(msgQuitHint, nil))
+	contentW := w - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	hintStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	hintLines := wrapPlainRows(a.localizer.t(msgQuitHint, nil), contentW, "")
+	for i, line := range hintLines {
+		hintLines[i] = hintStyle.Render(line)
+	}
+	hint := lipgloss.JoinVertical(lipgloss.Left, hintLines...)
 
 	buttons := a.quitConfirmButtons()
-	keyLine := lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-		a.localizer.t(msgQuitKeyHint, nil))
+	keyStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
+	keyLines := wrapPlainRows(a.localizer.t(msgQuitKeyHint, nil), contentW, "")
+	for i, line := range keyLines {
+		keyLines[i] = keyStyle.Render(line)
+	}
+	keyLine := lipgloss.JoinVertical(lipgloss.Left, keyLines...)
 
-	rows := []string{title, "", hint, ""}
-	rows, actionRow := a.appendModalActionRow(rows, buttons, a.quitConfirmSelected)
-	rows = append(rows, "", keyLine)
+	rows := []string{hint, ""}
+	rows = append(rows, a.renderModalButtons(buttons, a.quitConfirmSelected))
 	box := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderModalSurface(w, t.Warning, t.BgSubtle, box)
-	a.registerModalActionRow(modal, actionRow, buttons)
-	return modal
+	actionRow := len(hintLines) + 2
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgQuitTitle, nil),
+		titleColor: t.Warning,
+		border:     t.Warning,
+		background: t.BgSubtle,
+		body:       box,
+		footer:     keyLine,
+	})
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
+	return rendered.modal
 }
