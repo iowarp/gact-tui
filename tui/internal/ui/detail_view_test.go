@@ -364,16 +364,51 @@ func TestPartDetailHidesPartialAnswerRenderFlag(t *testing.T) {
 func TestDetailModalWidthIsReadableButNotHuge(t *testing.T) {
 	a := New("http://unused")
 	a.width = 180
-	if got := a.detailModalWidth(); got != 112 {
-		t.Fatalf("wide terminal detail width = %d, want capped 112", got)
+	if got := a.detailModalWidth(); got != a.modalWidth() {
+		t.Fatalf("detail width = %d, want shared modal width %d", got, a.modalWidth())
 	}
 	a.width = 120
-	if got := a.detailModalWidth(); got != 80 {
-		t.Fatalf("medium terminal detail width = %d, want two thirds", got)
+	if got := a.detailModalWidth(); got != 96 {
+		t.Fatalf("medium terminal detail width = %d, want shared width 96", got)
 	}
 	a.width = 70
 	if got := a.detailModalWidth(); got > a.width-8 {
 		t.Fatalf("small terminal detail width = %d, should fit width %d", got, a.width)
+	}
+}
+
+func TestCatalogBackedDetailUsesBackButton(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{kind: catalogKindTools, title: "Tools"}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Tool · shell_bash", fullText: "Summary\n  name: shell_bash"}
+
+	out := ansi.Strip(a.View().Content)
+	if !strings.Contains(out, "back") {
+		t.Fatalf("catalog-backed detail should render visible back button:\n%s", out)
+	}
+	target, ok := findHitTargetForTest(a, "button:detail:close")
+	if !ok {
+		t.Fatal("missing semantic detail back/close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	if cmd != nil {
+		t.Fatal("detail back click should not dispatch a command")
+	}
+	a = model.(*App)
+	if a.detailViewOpen {
+		t.Fatal("detail back click should close only the detail overlay")
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil {
+		t.Fatal("detail back click should reveal the catalog browser behind it")
 	}
 }
 

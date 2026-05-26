@@ -56,6 +56,8 @@ Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_menu_tool_detail.png"
 Escape
 Sleep 300ms
+Escape
+Sleep 300ms
 
 # Doctor tabs: verifies the health/capability tab strip uses the shared
 # modal surface and render-time hit geometry.

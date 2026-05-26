@@ -575,8 +575,6 @@ func (a *App) toggleToolDisabled(id string) {
 }
 
 func (a *App) openCatalogDetail(title, text string) {
-	a.catalogBrowserOpen = false
-	a.catalogBrowser = nil
 	a.detailView = &bulkyPartRef{
 		messageID: "catalog",
 		partID:    strings.ToLower(strings.ReplaceAll(title, " ", "-")),
@@ -1037,42 +1035,50 @@ func formatToolDetail(tool gact.Tool) string {
 }
 
 func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
-	fields := []detailField{
+	summary := []detailField{
 		{"name", firstNonEmpty(tool.Name, tool.ID)},
-		{"id", tool.ID},
 		{"source", firstNonEmpty(tool.Source, "unknown")},
 	}
 	if tool.ServerID != "" {
-		fields = append(fields, detailField{"mcp_server", tool.ServerID})
+		summary = append(summary, detailField{"server", tool.ServerID})
 	}
 	if tool.Owner != "" {
-		fields = append(fields, detailField{"owner", tool.Owner})
-	}
-	if len(tool.VisibleTo) > 0 {
-		fields = append(fields, detailField{"visible_to", strings.Join(tool.VisibleTo, ", ")})
-	}
-	if len(tool.Tags) > 0 {
-		fields = append(fields, detailField{"tags", strings.Join(tool.Tags, ", ")})
+		summary = append(summary, detailField{"owner", tool.Owner})
 	}
 	if tool.PermissionDefault != "" {
-		fields = append(fields, detailField{"permission", tool.PermissionDefault})
+		summary = append(summary, detailField{"permission", tool.PermissionDefault})
 	}
-	rows := appendDetailSection(nil, "Tool", fields...)
-	if strings.TrimSpace(tool.Description) != "" {
-		rows = append(rows, detailFieldRows("description", strings.TrimSpace(tool.Description))...)
+	if tool.ID != "" && tool.ID != tool.Name {
+		summary = append(summary, detailField{"tool id", tool.ID})
+	}
+	rows := appendDetailSection(nil, "Summary", summary...)
+
+	availability := make([]detailField, 0, 3)
+	if len(tool.VisibleTo) > 0 {
+		availability = append(availability, detailField{"visible to", strings.Join(tool.VisibleTo, ", ")})
+	}
+	if len(tool.Tags) > 0 {
+		availability = append(availability, detailField{"tags", strings.Join(tool.Tags, ", ")})
 	}
 	if owners := owningAgentsForTool(tool, agents); len(owners) > 0 {
 		ownerRows := make([]string, 0, len(owners))
 		for _, owner := range owners {
 			ownerRows = append(ownerRows, "- "+owner)
 		}
-		rows = append(rows, detailFieldRows("owning agents", strings.Join(ownerRows, "\n"))...)
+		availability = append(availability, detailField{"owning agents", strings.Join(ownerRows, "\n") + "\n"})
 	}
-	rows = appendSchemaSection(rows, "input_schema", tool.InputSchema)
-	rows = appendSchemaSection(rows, "output_schema", tool.OutputSchema)
+	if len(availability) > 0 {
+		rows = appendDetailSection(rows, "Availability", availability...)
+	}
+
+	if desc := strings.TrimSpace(tool.Description); desc != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", desc})
+	}
+	rows = appendSchemaSection(rows, "Inputs", tool.InputSchema)
+	rows = appendSchemaSection(rows, "Outputs", tool.OutputSchema)
 	if tool.Annotations != nil {
 		if payload, err := json.MarshalIndent(tool.Annotations, "", "  "); err == nil {
-			rows = append(rows, detailFieldRows("annotations", string(payload))...)
+			rows = appendDetailSection(rows, "Annotations", detailField{"", string(payload)})
 		}
 	}
 	return strings.Join(rows, "\n")
@@ -1142,7 +1148,7 @@ func appendSchemaSection(rows []string, label string, payload map[string]any) []
 	if len(summary) == 0 {
 		return appendJSONMapSection(rows, label, payload)
 	}
-	return append(rows, detailFieldRows(label, strings.Join(summary, "\n"))...)
+	return appendDetailSection(rows, label, detailField{"", strings.Join(summary, "\n")})
 }
 
 func summarizeJSONSchema(schema map[string]any) []string {
@@ -1173,7 +1179,7 @@ func summarizeJSONSchema(schema map[string]any) []string {
 	rows = append(rows, "fields:")
 	for _, name := range sortedAnyMapKeys(props) {
 		prop, _ := props[name].(map[string]any)
-		rows = append(rows, "- "+name+": "+jsonSchemaPropertySummary(prop, required[name]))
+		rows = append(rows, "- "+name+" — "+jsonSchemaPropertySummary(prop, required[name]))
 	}
 	return rows
 }

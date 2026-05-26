@@ -1714,6 +1714,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case catalogDetailLoadedMsg:
+		if !a.catalogBrowserOpen {
+			return a, nil
+		}
 		text := m.text
 		if m.err != nil {
 			text = "error: " + m.err.Error()
@@ -6262,6 +6265,9 @@ func (a *App) viewMain() string {
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
 	}
+	if a.catalogBrowserOpen {
+		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
+	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
 	}
@@ -6270,9 +6276,6 @@ func (a *App) viewMain() string {
 	}
 	if a.filePickerOpen {
 		base = overlay(base, a.viewFilePicker(), a.width, a.height)
-	}
-	if a.catalogBrowserOpen {
-		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
 	}
 	if a.mcpInstallOpen {
 		base = overlay(base, a.viewMcpInstall(), a.width, a.height)

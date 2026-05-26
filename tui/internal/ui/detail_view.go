@@ -28,14 +28,15 @@ type detailField struct {
 }
 
 type scrollableDetailOptions struct {
-	width   int
-	title   string
-	content string
-	scroll  int
-	page    int
-	hint    string
-	closeID string
-	close   func(*App)
+	width      int
+	title      string
+	content    string
+	scroll     int
+	page       int
+	hint       string
+	closeID    string
+	closeLabel string
+	close      func(*App)
 }
 
 type scrollableDetailRender struct {
@@ -71,7 +72,7 @@ func appendDetailSection(rows []string, title string, fields ...detailField) []s
 
 func detailFieldRows(label string, value string) []string {
 	label = strings.TrimSpace(label)
-	if !strings.Contains(value, "\n") {
+	if !strings.Contains(value, "\n") && !strings.HasPrefix(strings.TrimSpace(value), "- ") {
 		return []string{"  " + label + ": " + value}
 	}
 	rows := []string{"  " + label + ":"}
@@ -209,7 +210,18 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if closeFn == nil {
 		closeFn = func(app *App) { app.closeDetailView() }
 	}
-	buttons := []menuButton{closeMenuButton(closeID, closeFn)}
+	closeLabel := strings.TrimSpace(opts.closeLabel)
+	if closeLabel == "" {
+		closeLabel = "close"
+	}
+	buttons := []menuButton{{
+		id:    closeID,
+		label: closeLabel,
+		action: func(app *App) tea.Cmd {
+			closeFn(app)
+			return nil
+		},
+	}}
 
 	hint := opts.hint
 	if hint == "" {
@@ -741,14 +753,22 @@ func (a *App) viewDetailView() string {
 	// YYYYYYYYY1: use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
 	ref := a.detailView
+	closeLabel := "close"
+	hint := ""
+	if a.catalogBrowserOpen && a.catalogBrowser != nil {
+		closeLabel = "back"
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E back"
+	}
 	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
-		width:   a.detailModalWidth(),
-		title:   ref.title,
-		content: ref.fullText,
-		scroll:  a.detailScroll,
-		page:    a.detailPageSize(),
-		closeID: "detail:close",
-		close:   func(app *App) { app.closeDetailView() },
+		width:      a.detailModalWidth(),
+		title:      ref.title,
+		content:    ref.fullText,
+		scroll:     a.detailScroll,
+		page:       a.detailPageSize(),
+		hint:       hint,
+		closeID:    "detail:close",
+		closeLabel: closeLabel,
+		close:      func(app *App) { app.closeDetailView() },
 	})
 	a.detailScroll = rendered.scroll
 	return rendered.modal
