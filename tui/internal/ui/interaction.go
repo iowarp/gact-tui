@@ -240,6 +240,7 @@ type modalFrameRender struct {
 	bodyRow   int
 	footerRow int
 	buttonCol int
+	tabRow    int
 }
 
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
@@ -295,7 +296,16 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if tabRow >= 0 {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
-	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol}
+	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol, tabRow: tabRow}
+}
+
+func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id string, bodyRows int, action uiWheelAction) {
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	a.registerScreenHit(id+":surface", rect, func(app *App) tea.Cmd { return nil })
+	a.registerScreenWheelHit(id+":surface:wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd { return nil })
+	if rendered.bodyRow >= 0 && bodyRows > 0 && action != nil {
+		a.registerModalContentWheelHit(rendered.modal, id+":body:wheel", rendered.bodyRow, 0, maxInt(1, rect.w-6), bodyRows, action)
+	}
 }
 
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {

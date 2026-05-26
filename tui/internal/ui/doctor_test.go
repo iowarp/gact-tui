@@ -165,12 +165,30 @@ func TestDoctorMouseWheelScrollsCapabilities(t *testing.T) {
 	a.doctorOpen = true
 	a.doctor = &doctorState{tab: doctorTabCapabilities}
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "doctor:body:wheel")
+	if !ok {
+		t.Fatal("missing doctor body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 	if a.doctor == nil || a.doctor.scroll != 1 {
 		t.Fatalf("wheel down should advance doctor scroll, got %+v", a.doctor)
 	}
-	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok = findHitTargetForTest(a, "doctor:body:wheel")
+	if !ok {
+		t.Fatal("missing doctor body wheel target after scroll")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 	if a.doctor == nil || a.doctor.scroll != 0 {
 		t.Fatalf("wheel up should move doctor scroll back, got %+v", a.doctor)
