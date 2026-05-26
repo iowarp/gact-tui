@@ -1656,6 +1656,28 @@ func TestMcpRemoveRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestMcpRemoveTargetsAlignWithSharedFrameBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveOptions = []gact.McpServer{
+		{ID: "srv_one", Name: "one", Transport: "stdio"},
+		{ID: "srv_two", Name: "two", Transport: "http"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "mcp-remove:item:0")
+	if !ok {
+		t.Fatal("missing semantic first MCP remove row target")
+	}
+	rect := overlayMouseRect(a.viewMcpRemove(), a.width, a.height)
+	if wantY := rect.y + 2 + 2; target.rect.y != wantY {
+		t.Fatalf("first MCP remove row y = %d, want shared frame body row %d", target.rect.y, wantY)
+	}
+}
+
 func TestMcpRemoveDescriptionRowUsesSameSemanticHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
