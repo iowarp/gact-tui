@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"strings"
 
+	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -11,7 +12,7 @@ import (
 type uiHitAction func(*App) tea.Cmd
 type uiWheelAction func(*App, tea.MouseButton) tea.Cmd
 
-const modalButtonSpacing = 1
+const modalButtonSpacing = 2
 
 type uiHitTarget struct {
 	id          string
@@ -459,6 +460,55 @@ func (a *App) registerTextEntryCursorHits(modal string, row int, id string, valu
 			action(app, idx)
 			return nil
 		})
+	}
+}
+
+func setTextareaCursor(ta *textarea.Model, line int, col int) {
+	if ta == nil {
+		return
+	}
+	lineCount := ta.LineCount()
+	if lineCount < 1 {
+		lineCount = 1
+	}
+	if line < 0 {
+		line = 0
+	}
+	if line >= lineCount {
+		line = lineCount - 1
+	}
+	for ta.Line() < line {
+		ta.CursorDown()
+	}
+	for ta.Line() > line {
+		ta.CursorUp()
+	}
+	ta.SetCursorColumn(col)
+}
+
+func splitTextareaValue(value string) []string {
+	lines := strings.Split(value, "\n")
+	if len(lines) == 0 {
+		return []string{""}
+	}
+	return lines
+}
+
+func (a *App) registerModalTextareaCursorHits(modal string, row int, colOffset int, id string, value string, action func(*App, int, int)) {
+	if id == "" || action == nil {
+		return
+	}
+	for lineIdx, line := range splitTextareaValue(value) {
+		runes := []rune(line)
+		for col := 0; col <= len(runes); col++ {
+			lineIdx := lineIdx
+			col := col
+			screenCol := colOffset + lipgloss.Width(string(runes[:col]))
+			a.registerModalContentHit(modal, "textarea:"+id+":cursor:"+itoa2(lineIdx)+":"+itoa2(col), row+lineIdx, screenCol, 1, 1, func(app *App) tea.Cmd {
+				action(app, lineIdx, col)
+				return nil
+			})
+		}
 	}
 }
 

@@ -22,6 +22,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Overlay placement now uses a fixed shared top row and single shared modal width policy, so short and tall modals keep the same top corners instead of vertically re-centering or switching to a separate wide chrome.
 - Shared text-entry modals now register semantic cursor-position hit targets from the rendered editor row. Rename, add-context, and MCP-install clicks can place the cursor without each modal inventing coordinate math; MCP install now uses the same rune-indexed line editor as rename/context-add.
 - The visible footer `Ctrl+C quit` hint now registers a semantic target that opens the shared quit-confirmation modal instead of remaining keyboard-only.
+- Main input and expanded compose textareas now register semantic cursor-position targets, so mouse clicks place the editor cursor without delegating to opaque coordinate patches.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -38,6 +39,7 @@ Current mouse support:
 - Click visible conversation parts to select them; clicking the selected part again opens detail.
 - Click header/footer help/settings/command affordances when visible.
 - Click in the input pane changes focus to input; the mouse-mode `/` chip opens the command palette.
+- Click inside the main input and expanded compose textareas places the cursor.
 
 Most historical keyboard-only popups have been migrated to the overlay-first
 mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
@@ -78,13 +80,14 @@ Missing:
 
 ### Input
 
-Mouse support is minimal:
+Mouse support exists:
 
-- Click only focuses input.
+- Click focuses input.
+- Click visible text positions to place the cursor.
+- Click the mouse-mode `/` chip to open the command palette.
 
 Missing:
 
-- Cursor placement by click.
 - Text selection.
 - Click send if a send affordance is added later.
 - Click compressed paste placeholder to expand/review.

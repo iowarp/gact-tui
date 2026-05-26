@@ -7640,6 +7640,7 @@ func (a *App) renderBody(width, height int) string {
 	if a.MouseEnabled {
 		inputView = a.renderMouseInputCommand(inputView)
 		a.registerInputCommandHit(msgH, hintH)
+		a.registerInputTextareaCursorHits(msgH, hintH)
 	}
 	inputPane := fitLines(inputStyle.Render(inputView), inputH)
 
