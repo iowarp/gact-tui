@@ -52,6 +52,23 @@ func (a *App) mouseCommandButtonAt(x, y, sidebarW, convH int) bool {
 	return y == buttonY && x >= buttonX && x < buttonX+mouseCommandButtonWidth
 }
 
+func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
+	if !a.MouseEnabled || a.hits == nil {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	a.registerScreenHit("input:command", mouseRect{
+		x: sidebarW + 1,
+		y: 1 + conversationHeight + hintHeight + 1,
+		w: mouseCommandButtonWidth,
+		h: 1,
+	}, func(app *App) tea.Cmd {
+		app.focus = FocusInput
+		app.openCommandPalette()
+		return nil
+	})
+}
+
 func overlayMouseRect(top string, screenW, screenH int) mouseRect {
 	lines := strings.Split(top, "\n")
 	h := len(lines)
