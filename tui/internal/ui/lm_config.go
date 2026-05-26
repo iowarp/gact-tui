@@ -374,21 +374,7 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.closeLMConfigModal()
 		return a, nil
 	case "ctrl+r":
-		a.lmConfig.err = nil
-		if p := a.lmConfigCurrentPreset(); p != nil && !lmConfigSupportsLiveCatalog(*p) {
-			a.lmConfigInvalidateCurrentCatalog()
-			return a, a.lmConfigSyncFromPreset()
-		}
-		if pid := a.lmConfigCurrentPresetID(); pid != "" {
-			delete(a.lmConfig.modelCatalogs, pid)
-			delete(a.lmConfig.modelCatalogWarnings, pid)
-			delete(a.lmConfig.modelCatalogSources, pid)
-			delete(a.lmConfig.modelCatalogPending, pid)
-			if p := a.lmConfigCurrentPreset(); p != nil {
-				return a, a.lmConfigQueueModelFetch(*p, a.lmConfig.apiBase)
-			}
-		}
-		return a, lmConfigFetchCmd(a.c)
+		return a, a.refreshLMConfig()
 	case "tab":
 		a.lmConfig.lmConfigStepSection(1)
 		return a, nil
@@ -534,6 +520,27 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return a, nil
+}
+
+func (a *App) refreshLMConfig() tea.Cmd {
+	if a.lmConfig == nil {
+		return nil
+	}
+	a.lmConfig.err = nil
+	if p := a.lmConfigCurrentPreset(); p != nil && !lmConfigSupportsLiveCatalog(*p) {
+		a.lmConfigInvalidateCurrentCatalog()
+		return a.lmConfigSyncFromPreset()
+	}
+	if pid := a.lmConfigCurrentPresetID(); pid != "" {
+		delete(a.lmConfig.modelCatalogs, pid)
+		delete(a.lmConfig.modelCatalogWarnings, pid)
+		delete(a.lmConfig.modelCatalogSources, pid)
+		delete(a.lmConfig.modelCatalogPending, pid)
+		if p := a.lmConfigCurrentPreset(); p != nil {
+			return a.lmConfigQueueModelFetch(*p, a.lmConfig.apiBase)
+		}
+	}
+	return lmConfigFetchCmd(a.c)
 }
 
 func (a *App) handleLMConfigPaste(content string) {
@@ -1220,7 +1227,16 @@ func (a *App) viewLMConfig() string {
 		contentW = 20
 	}
 
-	buttons := []menuButton{closeMenuButton("lm-config:close", func(app *App) { app.closeLMConfigModal() })}
+	buttons := []menuButton{
+		{
+			id:    "lm-config:refresh",
+			label: "refresh",
+			action: func(app *App) tea.Cmd {
+				return app.refreshLMConfig()
+			},
+		},
+		closeMenuButton("lm-config:close", func(app *App) { app.closeLMConfigModal() }),
+	}
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
 		Background(t.Bg).Width(contentW).
 		Render(a.localizer.t(msgLMConfigIntro, nil))
@@ -1304,6 +1320,7 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 		selectedCol = leftW + 2
 		if layout.compact {
 			a.registerLMConfigProviderWheelHit(modal, providerTop, 0, leftW, layout.providerRows)
+			a.registerLMConfigProviderHeaderHit(modal, providerTop, 0, leftW)
 			a.registerLMConfigProviderHits(modal, providerTop, 0, leftW, layout.providerRows)
 			a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, rightW)
 			return
@@ -1312,9 +1329,11 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 		advancedTop = modelTop
 	}
 	a.registerLMConfigProviderWheelHit(modal, providerTop, 0, providerW, layout.providerRows)
+	a.registerLMConfigProviderHeaderHit(modal, providerTop, 0, providerW)
 	a.registerLMConfigProviderHits(modal, providerTop, 0, providerW, layout.providerRows)
 	a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, selectedW)
 	a.registerLMConfigModelWheelHit(modal, modelTop, modelCol, modelW, layout.modelRows)
+	a.registerLMConfigModelHeaderHit(modal, modelTop, modelCol, modelW)
 	a.registerLMConfigModelHits(modal, modelTop, modelCol, modelW, layout.modelRows)
 	a.registerLMConfigAdvancedWheelHit(modal, advancedTop, advancedCol, advancedW, layout.configRows)
 	a.registerLMConfigAdvancedHits(modal, advancedTop, advancedCol, advancedW)
@@ -1331,6 +1350,21 @@ func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, vi
 	})
 }
 
+func (a *App) registerLMConfigProviderHeaderHit(modal string, top, col, width int) {
+	a.registerModalCellHits(modal, 0, []modalCellHit{{
+		id:    "lm-config:provider:filter",
+		row:   top + 1,
+		col:   col,
+		width: width,
+		action: func(app *App) tea.Cmd {
+			if app.lmConfig != nil {
+				app.lmConfig.field = lmFieldPreset
+			}
+			return nil
+		},
+	}})
+}
+
 func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visibleRows int) {
 	if visibleRows <= 0 {
 		return
@@ -1338,6 +1372,24 @@ func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visib
 	a.registerModalWheelRegion(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigModelWheel(button)
 	})
+}
+
+func (a *App) registerLMConfigModelHeaderHit(modal string, top, col, width int) {
+	if a.lmConfig == nil || !a.lmConfig.lmConfigSelectedModelSelectable() {
+		return
+	}
+	a.registerModalCellHits(modal, 0, []modalCellHit{{
+		id:    "lm-config:model:filter",
+		row:   top + 1,
+		col:   col,
+		width: width,
+		action: func(app *App) tea.Cmd {
+			if app.lmConfig != nil {
+				app.lmConfig.field = lmFieldModel
+			}
+			return nil
+		},
+	}})
 }
 
 func (a *App) registerLMConfigAdvancedWheelHit(modal string, top, col, width, visibleRows int) {
@@ -1395,24 +1447,71 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 }
 
 func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width int) {
-	if a.lmConfig == nil || a.lmConfig.info == nil || !a.lmConfig.lmConfigSelectedUsesOAuth() {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return
 	}
-	// Provider detail rows: selected label, auth status, auth action.
-	a.registerModalCellHits(modal, 0, []modalCellHit{{
-		id:    "lm-config:auth",
-		row:   top + 4,
-		col:   col,
-		width: width,
-		action: func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
+	p := a.lmConfigCurrentPreset()
+	if p == nil {
+		return
+	}
+	hits := []modalCellHit{}
+	row := top + 3 // box body starts at top+2; row 0 is provider label.
+	if p.RequiresAPIKey {
+		hits = append(hits, modalCellHit{
+			id:    "lm-config:api-key",
+			row:   row,
+			col:   col,
+			width: width,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig != nil {
+					app.lmConfig.field = lmFieldAPIKey
+				}
 				return nil
+			},
+		})
+		row++
+	} else if a.lmConfig.lmConfigSelectedUsesOAuth() {
+		row++ // auth status row.
+		hits = append(hits, modalCellHit{
+			id:    "lm-config:auth",
+			row:   row,
+			col:   col,
+			width: width,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig == nil {
+					return nil
+				}
+				app.lmConfig.field = lmFieldAuth
+				_, cmd := app.handleLMConfigKey(keyMsg("enter"))
+				return cmd
+			},
+		})
+		row++
+		if msg := strings.TrimSpace(a.lmConfig.authMessage); msg != "" {
+			bodyW := width - 4
+			if bodyW < 10 {
+				bodyW = 10
 			}
-			app.lmConfig.field = lmFieldAuth
-			_, cmd := app.handleLMConfigKey(keyMsg("enter"))
-			return cmd
-		},
-	}})
+			row += len(wrapPlainRows(msg, bodyW, "  "))
+		}
+	} else {
+		row++ // no-key-required row.
+	}
+	if a.lmConfig.lmConfigSelectedCanEditAPIBase() {
+		hits = append(hits, modalCellHit{
+			id:    "lm-config:api-base",
+			row:   row,
+			col:   col,
+			width: width,
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig != nil {
+					app.lmConfig.field = lmFieldAPIBase
+				}
+				return nil
+			},
+		})
+	}
+	a.registerModalCellHits(modal, 0, hits)
 }
 
 func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRows int) {

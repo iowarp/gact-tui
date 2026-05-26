@@ -1,6 +1,9 @@
 package ui
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestWideModalWidthUsesSharedPolicy(t *testing.T) {
 	a := New("http://unused")
@@ -45,5 +48,15 @@ func TestLMConfigAndComposeUseSharedWideWidth(t *testing.T) {
 	}
 	if target.rect.y != rect.y+2 {
 		t.Fatalf("compose commit button y = %d, want header row %d", target.rect.y, rect.y+2)
+	}
+}
+
+func TestPadModalBodyKeepsShortTabbedViewsStable(t *testing.T) {
+	got := padModalBody("one\ntwo", 4)
+	if strings.Count(got, "\n")+1 != 4 {
+		t.Fatalf("padded body rows = %d, want 4 in %q", strings.Count(got, "\n")+1, got)
+	}
+	if got := padModalBody("one\ntwo\nthree", 2); got != "one\ntwo\nthree" {
+		t.Fatalf("pad should not truncate long bodies, got %q", got)
 	}
 }

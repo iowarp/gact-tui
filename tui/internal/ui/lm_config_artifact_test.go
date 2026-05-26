@@ -886,6 +886,80 @@ func TestLMConfigModelRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestLMConfigFilterAndEditableFieldsUseSemanticHitTargets(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldAPIBase
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{ID: "alpha-model"}}
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = "alpha-model"
+
+	_ = a.View()
+	providerFilter, ok := findHitTargetForTest(a, "lm-config:provider:filter")
+	if !ok {
+		t.Fatal("missing provider filter hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      providerFilter.rect.x,
+		Y:      providerFilter.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("provider filter click field = %v, want preset", a.lmConfig.field)
+	}
+
+	_ = a.View()
+	modelFilter, ok := findHitTargetForTest(a, "lm-config:model:filter")
+	if !ok {
+		t.Fatal("missing model filter hit target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      modelFilter.rect.x,
+		Y:      modelFilter.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.lmConfig.field != lmFieldModel {
+		t.Fatalf("model filter click field = %v, want model", a.lmConfig.field)
+	}
+
+	_ = a.View()
+	apiBase, ok := findHitTargetForTest(a, "lm-config:api-base")
+	if !ok {
+		t.Fatal("missing api base hit target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      apiBase.rect.x,
+		Y:      apiBase.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.lmConfig.field != lmFieldAPIBase {
+		t.Fatalf("api base click field = %v, want api base", a.lmConfig.field)
+	}
+
+	a.lmConfig.selected = 2
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.apiBase = "https://api.openai.com/v1"
+	_ = a.View()
+	apiKey, ok := findHitTargetForTest(a, "lm-config:api-key")
+	if !ok {
+		t.Fatal("missing api key hit target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      apiKey.rect.x,
+		Y:      apiKey.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.lmConfig.field != lmFieldAPIKey {
+		t.Fatalf("api key click field = %v, want api key", a.lmConfig.field)
+	}
+}
+
 func TestLMConfigProviderWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.MouseEnabled = true
@@ -1000,6 +1074,29 @@ func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 	if a.lmConfigOpen || a.lmConfig != nil {
 		t.Fatal("close click should close LM config modal")
+	}
+}
+
+func TestLMConfigRefreshButtonUsesCtrlRRefreshSemantics(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:lm-config:refresh")
+	if !ok {
+		t.Fatal("missing semantic LM refresh target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("refresh click should dispatch the same reload command as Ctrl+R")
+	}
+	if a.lmConfig == nil || a.lmConfig.err != nil {
+		t.Fatalf("refresh should keep config open and clear errors, config=%+v", a.lmConfig)
 	}
 }
 

@@ -206,11 +206,7 @@ func (a *App) viewDoctor() string {
 }
 
 func (a *App) doctorBodyPageSize() int {
-	rows := a.height - 18
-	if rows < 4 {
-		rows = 4
-	}
-	return rows
+	return a.modalBodyRows(18)
 }
 
 func (a *App) doctorScroll() int {

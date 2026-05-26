@@ -432,6 +432,64 @@ func TestMouseClickOpenOverlayDoesNotLeakToBaseUI(t *testing.T) {
 	}
 }
 
+func TestOverlaySharedOutsidePolicySwallowsInsideAndClosesOutside(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+
+	rect := overlayMouseRect(a.viewMetrics(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 3,
+		Y:      rect.y + 3,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("inside overlay click should only be swallowed")
+	}
+	if !a.metricsOpen {
+		t.Fatal("inside overlay click should keep metrics open")
+	}
+
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x - 1,
+		Y:      rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("outside metrics click should not dispatch a command")
+	}
+	if a.metricsOpen {
+		t.Fatal("outside metrics click should close through shared overlay policy")
+	}
+}
+
+func TestOverlaySharedPolicyClosesInvalidStateBeforeRendering(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = nil
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      5,
+		Y:      5,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("invalid file picker close should not dispatch a command")
+	}
+	if a.filePickerOpen {
+		t.Fatal("invalid file picker overlay should close without rendering stale state")
+	}
+}
+
 func TestMouseWheelOpenDetailScrollsDetailNotConversation(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

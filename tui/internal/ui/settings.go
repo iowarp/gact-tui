@@ -354,6 +354,12 @@ func (a *App) viewSettings() string {
 	addRowHit := func(id string, row int, action uiHitAction) {
 		rowHits = append(rowHits, modalListHit{id: id, row: row, height: 1, action: action})
 	}
+	addRowHitHeight := func(id string, row int, height int, action uiHitAction) {
+		if height < 1 {
+			height = 1
+		}
+		rowHits = append(rowHits, modalListHit{id: id, row: row, height: height, action: action})
+	}
 	addArrowHit := func(id string, row int, col int, width int, action uiHitAction) {
 		arrowHits = append(arrowHits, modalCellHit{id: id, row: row, col: col, width: width, height: 1, action: action})
 	}
@@ -592,6 +598,10 @@ func (a *App) viewSettings() string {
 				}
 				app.settings.tuiRow = rowIdx
 			}
+			addArrowHit("settings:tui:"+id+":value", row, leftCol, maxInt(1, lipgloss.Width("◀ "+value+" ▶")), func(app *App) tea.Cmd {
+				selectRow(app)
+				return nil
+			})
 			addArrowHit("settings:tui:"+id+":dec", row, leftCol, 3, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("left"))
@@ -603,48 +613,44 @@ func (a *App) viewSettings() string {
 				return cmd
 			})
 		}
+		addTUIRowHit := func(id string, rowIdx int, row int, block []string) {
+			addRowHitHeight("settings:tui:"+id, row, maxInt(1, len(block)-1), func(app *App) tea.Cmd {
+				if app.settings != nil {
+					app.settings.tuiRow = rowIdx
+				}
+				return nil
+			})
+		}
 
 		label := a.localizer.t(messageID("settings.tui.collapse_threshold"), nil)
 		value := itoa2(a.Theme.CollapseThreshold) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
 		row := len(rows)
-		rows = append(rows, editableRow(0,
+		block := editableRow(0,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))...)
-		addRowHit("settings:tui:collapse-threshold", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 0
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("collapse-threshold", 0, row, block)
 		addTUIControlHits("collapse-threshold", 0, row, label, value)
 		label = a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil)
 		value = humanTokens(a.Theme.CostWarnTokens)
 		row = len(rows)
-		rows = append(rows, editableRow(1,
+		block = editableRow(1,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))...)
-		addRowHit("settings:tui:cost-warn", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 1
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("cost-warn", 1, row, block)
 		addTUIControlHits("cost-warn", 1, row, label, value)
 		label = a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil)
 		value = humanTokens(a.Theme.CostDangerTokens)
 		row = len(rows)
-		rows = append(rows, editableRow(2,
+		block = editableRow(2,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))...)
-		addRowHit("settings:tui:cost-danger", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 2
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("cost-danger", 2, row, block)
 		addTUIControlHits("cost-danger", 2, row, label, value)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
@@ -654,16 +660,12 @@ func (a *App) viewSettings() string {
 		label = a.localizer.t(messageID("settings.tui.paste_compress"), nil)
 		value = itoa2(pt) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
 		row = len(rows)
-		rows = append(rows, editableRow(3,
+		block = editableRow(3,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))...)
-		addRowHit("settings:tui:paste-compress", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 3
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("paste-compress", 3, row, block)
 		addTUIControlHits("paste-compress", 3, row, label, value)
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
@@ -674,16 +676,12 @@ func (a *App) viewSettings() string {
 		label = a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil)
 		value = introState
 		row = len(rows)
-		rows = append(rows, editableRow(4,
+		block = editableRow(4,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))...)
-		addRowHit("settings:tui:intro", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 4
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("intro", 4, row, block)
 		addTUIControlHits("intro", 4, row, label, value)
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
@@ -693,16 +691,12 @@ func (a *App) viewSettings() string {
 		label = a.localizer.t(messageID("settings.tui.mouse_controls"), nil)
 		value = mouseState
 		row = len(rows)
-		rows = append(rows, editableRow(5,
+		block = editableRow(5,
 			label,
 			"◀ "+value+" ▶",
-			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))...)
-		addRowHit("settings:tui:mouse", row, func(app *App) tea.Cmd {
-			if app.settings != nil {
-				app.settings.tuiRow = 5
-			}
-			return nil
-		})
+			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))
+		rows = append(rows, block...)
+		addTUIRowHit("mouse", 5, row, block)
 		addTUIControlHits("mouse", 5, row, label, value)
 
 		// Read-only runtime state for confirmation.
@@ -756,7 +750,7 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
 	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.settingsBodyPageSize())
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:      w,
 		title:      a.localizer.t(msgSettingsTitle, nil),
@@ -788,6 +782,10 @@ func (a *App) viewSettings() string {
 	})
 	a.registerModalCellHits(rendered.modal, rendered.bodyRow, arrowHits)
 	return rendered.modal
+}
+
+func (a *App) settingsBodyPageSize() int {
+	return a.modalBodyRows(14)
 }
 
 func orPlaceholder(s, placeholder string) string {
