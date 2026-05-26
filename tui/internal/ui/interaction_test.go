@@ -1770,6 +1770,46 @@ func TestFilePickerTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 }
 
+func TestFilePickerUsesSharedScrollAffordanceForLongLists(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{
+		loaded: true,
+		sel:    12,
+	}
+	for i := 0; i < 18; i++ {
+		n := itoa2(i)
+		if i < 10 {
+			n = "0" + n
+		}
+		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{
+			Path: "file_" + n + ".txt",
+		})
+	}
+
+	out := stripANSI(a.viewFilePicker())
+	if !strings.Contains(out, "file_12.txt") {
+		t.Fatalf("selected file should remain visible in bounded picker:\n%s", out)
+	}
+	if strings.Contains(out, "file_0.txt") {
+		t.Fatalf("bounded file picker should not render every file:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("bounded file picker should show shared side scroll rail:\n%s", out)
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "file-picker:item:12"); !ok {
+		t.Fatal("missing semantic target for selected file inside scrolled picker")
+	}
+	if _, ok := findHitTargetForTest(a, "file-picker:item:0"); ok {
+		t.Fatal("offscreen file picker row should not register a stale hit target")
+	}
+}
+
 func TestFilePickerCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
