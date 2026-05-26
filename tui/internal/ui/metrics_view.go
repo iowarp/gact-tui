@@ -182,6 +182,12 @@ func (a *App) viewMetrics() string {
 			}
 			return nil
 		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			if app.metrics != nil {
+				app.metrics.scroll = scroll
+			}
+			return nil
+		},
 	})
 	if a.metrics != nil {
 		a.metrics.scroll = rendered.window.scroll

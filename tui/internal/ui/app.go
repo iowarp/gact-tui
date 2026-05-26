@@ -9025,6 +9025,10 @@ func (a *App) viewHelp() string {
 			app.helpScroll = moveScrollOffsetByWheel(app.helpScroll, button)
 			return nil
 		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			app.helpScroll = scroll
+			return nil
+		},
 	})
 	a.helpScroll = rendered.window.scroll
 	return rendered.modal

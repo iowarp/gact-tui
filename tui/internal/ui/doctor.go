@@ -198,6 +198,12 @@ func (a *App) viewDoctor() string {
 			}
 			return nil
 		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			if app.doctor != nil {
+				app.doctor.scroll = scroll
+			}
+			return nil
+		},
 	})
 	if a.doctor != nil {
 		a.doctor.scroll = rendered.window.scroll

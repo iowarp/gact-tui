@@ -301,6 +301,7 @@ type scrollableModalFrameOptions struct {
 	scroll      int
 	wheelID     string
 	wheelAction uiWheelAction
+	scrollTo    func(*App, int) tea.Cmd
 	footerHint  string
 	footerStyle *lipgloss.Style
 }
@@ -441,6 +442,9 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 	if opts.wheelID != "" {
 		bodyRows := maxInt(1, strings.Count(windowed.body, "\n")+1)
 		a.registerModalSurfaceAndBodyWheel(rendered, opts.wheelID, bodyRows, opts.wheelAction)
+		if opts.scrollTo != nil {
+			a.registerScrollableModalRailHits(rendered, opts.wheelID, windowed.window, bodyRows, opts.scrollTo)
+		}
 	}
 	if rendered.tabRow >= 0 && registerTabs {
 		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, tabPadding, tabSpacing)
@@ -449,6 +453,30 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	}
 	return scrollableModalFrameRender{modalFrameRender: rendered, window: windowed.window}
+}
+
+func (a *App) registerScrollableModalRailHits(rendered modalFrameRender, id string, win scrollWindow, bodyRows int, scrollTo func(*App, int) tea.Cmd) {
+	if id == "" || scrollTo == nil || bodyRows <= 0 || rendered.bodyRow < 0 || win.total <= bodyRows || rendered.modal == "" {
+		return
+	}
+	modalWidth := lipgloss.Width(rendered.modal)
+	bodyW := modalWidth - 6
+	contentW := bodyW - 2
+	if modalWidth < 16 || contentW < 4 {
+		return
+	}
+	maxScroll := win.total - maxInt(1, win.end-win.start)
+	if maxScroll <= 0 {
+		return
+	}
+	railCol := contentW + 1
+	for row := 0; row < bodyRows; row++ {
+		row := row
+		targetScroll := row * maxScroll / maxInt(1, bodyRows-1)
+		a.registerModalContentHit(rendered.modal, id+":rail:"+itoa2(row), rendered.bodyRow+row, railCol, 1, 1, func(app *App) tea.Cmd {
+			return scrollTo(app, targetScroll)
+		})
+	}
 }
 
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
