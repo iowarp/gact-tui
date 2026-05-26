@@ -23,6 +23,8 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Shared text-entry modals now register semantic cursor-position hit targets from the rendered editor row. Rename, add-context, and MCP-install clicks can place the cursor without each modal inventing coordinate math; MCP install now uses the same rune-indexed line editor as rename/context-add.
 - The visible footer `Ctrl+C quit` hint now registers a semantic target that opens the shared quit-confirmation modal instead of remaining keyboard-only.
 - Main input and expanded compose textareas now register semantic cursor-position targets, so mouse clicks place the editor cursor without delegating to opaque coordinate patches.
+- Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
+- The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -108,12 +110,11 @@ Missing:
 
 ### Permission Banner
 
-Keyboard support exists through `a/d/s/w`.
-
-Missing:
+Mouse support exists:
 
 - Click Allow, Deny, Allow session, Allow workspace.
-- Mouse-visible hit zones for pending permission actions.
+
+Keyboard support exists through `a/d/s/w`.
 
 ### Intro, Connecting, And Error Screens
 
@@ -125,10 +126,7 @@ Keyboard behavior:
 
 Mouse gaps:
 
-- Click to dismiss intro.
-- Click retry on error.
-- Click quit/close on error.
-- No mouse-specific handling was found for these stages.
+- Connecting has no click affordance; it generally waits.
 
 ## Overlays And Popups
 

@@ -78,6 +78,43 @@ func TestConnectRetry_CtrlRFromStageErrorRetriesImmediately(t *testing.T) {
 	}
 }
 
+func TestConnectRetry_ErrorButtonsUseSemanticHitTargets(t *testing.T) {
+	a := New("http://unused")
+	a.stage = StageError
+	a.stageError = "dial tcp: connection refused"
+	a.connectRetryAttempts = 5
+	a.MouseEnabled = true
+	a.width, a.height = 100, 30
+
+	_ = a.View()
+	retry, ok := findHitTargetForTest(a, "button:error:retry")
+	if !ok {
+		t.Fatal("missing semantic error retry button")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      retry.rect.x,
+		Y:      retry.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.stage != StageConnecting {
+		t.Fatalf("stage after retry click = %v, want connecting", a.stage)
+	}
+	if a.connectRetryAttempts != 0 {
+		t.Fatalf("retry click attempts = %d, want reset to 0", a.connectRetryAttempts)
+	}
+	if cmd == nil {
+		t.Fatal("retry click should dispatch connect command")
+	}
+
+	a.stage = StageError
+	a.stageError = "dial tcp: connection refused"
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:error:quit"); !ok {
+		t.Fatal("missing semantic error quit button")
+	}
+}
+
 func TestConnectRetry_AttemptsResetOnSuccessfulConnect(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
