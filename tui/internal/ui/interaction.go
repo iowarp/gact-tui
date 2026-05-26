@@ -280,6 +280,19 @@ type textEntryModalOptions struct {
 	footer  string
 }
 
+type selectableListModalOptions struct {
+	frame          modalFrameOptions
+	rows           []string
+	list           modalListRender
+	listStart      int
+	listWidth      int
+	bodyRows       int
+	window         scrollWindow
+	wheelID        string
+	wheelAction    uiWheelAction
+	surfaceWheelID string
+}
+
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	return a.renderModalFrameWithLayout(opts).modal
 }
@@ -413,6 +426,25 @@ func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender 
 		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
 		footer:  opts.footer,
 	})
+}
+
+func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
+	frame := opts.frame
+	body := lipgloss.JoinVertical(lipgloss.Left, opts.rows...)
+	if opts.bodyRows > 0 {
+		body = a.renderScrollableModalBody(body, opts.bodyRows, frame.width, opts.window)
+	}
+	frame.body = body
+	rendered := a.renderModalFrameWithLayout(frame)
+	if opts.surfaceWheelID != "" {
+		a.registerModalSurfaceWheel(rendered, opts.surfaceWheelID)
+	}
+	if len(opts.list.rows) > 0 && opts.wheelID != "" && opts.wheelAction != nil {
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list, opts.wheelID, opts.wheelAction)
+	} else if len(opts.list.hits) > 0 {
+		a.registerModalListHits(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list.hits)
+	}
+	return rendered
 }
 
 func (a *App) renderCursorEditor(value string, cursor int) string {
