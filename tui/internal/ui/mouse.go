@@ -98,7 +98,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, click: a.handleQuitConfirmMouseClick},
 		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, click: a.handleMcpRemoveMouseClick},
 		{open: a.mcpInstallOpen, view: a.viewMcpInstall, click: a.handleMcpInstallMouseClick},
-		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick, wheel: a.handleCatalogBrowserMouseWheel},
+		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick},
 		{open: a.filePickerOpen, view: a.viewFilePicker, click: a.handleFilePickerMouseClick, wheel: a.handleFilePickerMouseWheel},
 		{open: a.composeOpen, view: a.viewCompose, click: a.handleComposeMouseClick},
 		{open: a.detailViewOpen, view: a.viewDetailView, click: a.handleDetailMouseClick, wheel: a.handleDetailMouseWheel},
@@ -280,16 +280,6 @@ func (a *App) handleFilePickerMouseClick(rect mouseRect, mouse tea.Mouse) (tea.C
 		a.closeFilePicker()
 		return nil, true
 	}
-	return nil, true
-}
-
-func (a *App) handleCatalogBrowserMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if a.catalogBrowser == nil {
-		return nil, true
-	}
-	cb := a.catalogBrowser
-	cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), m.Mouse().Button)
-	cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
 	return nil, true
 }
 

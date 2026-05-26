@@ -846,6 +846,50 @@ func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{
+			{id: "one", title: "One"},
+			{id: "two", title: "Two"},
+			{id: "three", title: "Three"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic catalog list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel over list should move catalog selection, got %d", a.catalogBrowser.sel)
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + rect.w - 2,
+		Y:      rect.y + 2,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel outside list should not move catalog selection, got %d", a.catalogBrowser.sel)
+	}
+}
+
 func TestCatalogCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

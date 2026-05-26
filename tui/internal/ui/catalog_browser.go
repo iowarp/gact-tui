@@ -430,6 +430,16 @@ func (a *App) closeCatalogBrowser() {
 	a.catalogBrowser = nil
 }
 
+func (a *App) handleCatalogBrowserWheel(button tea.MouseButton) tea.Cmd {
+	if a.catalogBrowser == nil {
+		return nil
+	}
+	cb := a.catalogBrowser
+	cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), button)
+	cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
+	return nil
+}
+
 // handleCatalogBrowserKey handles keypresses while the modal is open.
 // Up/down navigates, Esc closes (or pops MCP-detail back to parent),
 // Enter on an MCP server row drills in, Space toggles a tool's
@@ -739,6 +749,11 @@ func (a *App) viewCatalogBrowser() string {
 		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
 		footer:  t.HintLabel.Italic(true).Render(hintText),
 	})
+	if len(list.rows) > 0 {
+		a.registerModalContentWheelHit(rendered.modal, "catalog:list:wheel", rendered.bodyRow+listStartRow, 0, w-4, maxInt(1, len(list.rows)), func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleCatalogBrowserWheel(button)
+		})
+	}
 	a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	return rendered.modal
 }
