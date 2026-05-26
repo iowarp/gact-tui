@@ -54,6 +54,8 @@
   "footer.sidebar.delete": "διαγραφή",
   "footer.sidebar.context": "προσθήκη context",
   "footer.sidebar.children": "children",
+  "footer.sidebar.archive": "archive",
+  "footer.sidebar.copy_id": "copy id",
   "footer.sidebar.filter": "filter",
   "footer.sidebar.filter_type": "session title",
   "footer.sidebar.apply": "apply",

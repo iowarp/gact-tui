@@ -7015,9 +7015,29 @@ func (a *App) registerFooterActionHits(rendered string) {
 		_, cmd := app.handleBodyKey(keyMsg("d"))
 		return cmd
 	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:open", "Enter", a.localizer.t(msgFooterSidebarOpen, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("enter"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:rename", "e", a.localizer.t(msgFooterSidebarRename, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("e"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:delete", "x", a.localizer.t(msgFooterSidebarDelete, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("x"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:children", "c", a.localizer.t(msgFooterSidebarChildren, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("c"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:context", "o", a.localizer.t(msgFooterSidebarContext, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("o"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:archive", "A", a.localizer.t(msgFooterSidebarArchive, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("A"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:copy-id", "y", a.localizer.t(msgFooterSidebarCopyID, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("y"))
+	})
 	a.registerFooterActionHit(plain, y, "footer:sidebar:filter", "f", a.localizer.t(msgFooterSidebarFilter, nil), func(app *App) tea.Cmd {
-		app.enterSidebarFilter(false)
-		return nil
+		return app.routeSidebarFooterKey(keyMsg("f"))
 	})
 	a.registerFooterActionHit(plain, y, "footer:sidebar:filter:apply", "Enter", a.localizer.t(msgFooterSidebarApply, nil), func(app *App) tea.Cmd {
 		app.commitSidebarFilter()
@@ -7040,6 +7060,16 @@ func (a *App) registerFooterActionHit(plain string, y int, id string, key string
 		return
 	}
 	a.registerScreenHit(id, mouseRect{x: col, y: y, w: lipgloss.Width(target), h: 1}, action)
+}
+
+func (a *App) routeSidebarFooterKey(k tea.KeyPressMsg) tea.Cmd {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	if !a.sidebarSessionsCollapsed {
+		a.sidebarSectionCursor = false
+	}
+	_, cmd := a.handleSidebarKey(k)
+	return cmd
 }
 
 func (a *App) registerFooterPlainHit(plain string, y int, id string, target string, action uiHitAction) {
@@ -7089,6 +7119,8 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
 				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
 				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
 				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
 				mk("o", a.localizer.t(msgFooterSidebarContext, nil)),
 				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
@@ -7099,8 +7131,16 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
 				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
 				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
 				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
 				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
+			},
+			{
+				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
+				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
 			},
 			{
 				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),

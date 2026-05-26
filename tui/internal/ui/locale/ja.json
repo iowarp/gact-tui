@@ -54,6 +54,8 @@
   "footer.sidebar.delete": "削除",
   "footer.sidebar.context": "コンテキスト追加",
   "footer.sidebar.children": "子",
+  "footer.sidebar.archive": "アーカイブ",
+  "footer.sidebar.copy_id": "IDコピー",
   "footer.sidebar.filter": "フィルター",
   "footer.sidebar.filter_type": "セッション名",
   "footer.sidebar.apply": "適用",

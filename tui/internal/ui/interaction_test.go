@@ -3192,6 +3192,85 @@ func TestSidebarFilterUsesSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSidebarFooterActionsUseSemanticHitTargets(t *testing.T) {
+	newApp := func() *App {
+		a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+		a.width = 260
+		a.height = 34
+		a.stage = StageReady
+		a.focus = FocusSidebar
+		a.wsID = "ws_default"
+		a.sessions = []gact.Session{
+			{ID: "sess_1", Title: "demo session", Status: gact.StatusIdle},
+		}
+		a.selected = 0
+		return a
+	}
+	click := func(t *testing.T, a *App, id string) (*App, tea.Cmd) {
+		t.Helper()
+		_ = a.View()
+		target, ok := findHitTargetForTest(a, id)
+		if !ok {
+			t.Fatalf("missing visible semantic target %q", id)
+		}
+		model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      target.rect.x,
+			Y:      target.rect.y,
+			Button: tea.MouseLeft,
+		}))
+		return model.(*App), cmd
+	}
+
+	a, cmd := click(t, newApp(), "footer:sidebar:rename")
+	if cmd != nil {
+		t.Fatal("rename footer click should not dispatch a command")
+	}
+	if !a.renameOpen || a.renameDraft != "demo session" {
+		t.Fatalf("rename footer click should open rename prompt, open=%v draft=%q", a.renameOpen, a.renameDraft)
+	}
+
+	a, cmd = click(t, newApp(), "footer:sidebar:context")
+	if cmd != nil {
+		t.Fatal("add-context footer click should not dispatch a command")
+	}
+	if !a.contextAddOpen {
+		t.Fatal("add-context footer click should open context prompt")
+	}
+
+	a, cmd = click(t, newApp(), "footer:sidebar:delete")
+	if cmd != nil {
+		t.Fatal("first delete footer click should only arm deletion")
+	}
+	if a.pendingDeleteSessionID != "sess_1" {
+		t.Fatalf("delete footer click should arm selected session, got %q", a.pendingDeleteSessionID)
+	}
+
+	a, cmd = click(t, newApp(), "footer:sidebar:children")
+	if cmd != nil {
+		t.Fatal("children footer click should not dispatch a command")
+	}
+	if !a.showChildSessions {
+		t.Fatal("children footer click should toggle child session visibility")
+	}
+
+	a, cmd = click(t, newApp(), "footer:sidebar:archive")
+	if cmd == nil {
+		t.Fatal("archive footer click should dispatch archive command")
+	}
+
+	mu, copied, _ := withClipboardSpy(t)
+	a, cmd = click(t, newApp(), "footer:sidebar:copy-id")
+	if cmd != nil {
+		t.Fatal("copy-id footer click should not dispatch a command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "sess_1" {
+		t.Fatalf("copy-id footer click wrote %q, want sess_1", gotCopy)
+	}
+}
+
 func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

@@ -54,6 +54,8 @@
   "footer.sidebar.delete": "borrar",
   "footer.sidebar.context": "agregar contexto",
   "footer.sidebar.children": "hijas",
+  "footer.sidebar.archive": "archivar",
+  "footer.sidebar.copy_id": "copiar id",
   "footer.sidebar.filter": "filtrar",
   "footer.sidebar.filter_type": "titulo de sesion",
   "footer.sidebar.apply": "aplicar",
