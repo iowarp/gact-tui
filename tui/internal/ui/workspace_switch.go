@@ -98,11 +98,7 @@ func (a *App) viewWorkspaceSwitch() string {
 	t := a.Theme
 	w := a.modalWidth()
 	buttons := []menuButton{closeMenuButton("workspace-switch:close", func(app *App) { app.closeWorkspaceSwitchModal() })}
-	titleRow, buttonCol := a.renderModalHeader("Switch workspace", w-4, buttons)
-	rows := []string{
-		titleRow,
-		"",
-	}
+	rows := []string{}
 	if len(a.workspaces) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
 	}
@@ -141,13 +137,17 @@ func (a *App) viewWorkspaceSwitch() string {
 	if win.end < len(a.workspaces) {
 		rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(a.workspaces)-win.end)))
 	}
-	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	a.registerModalListHits(modal, listStartRow, 0, innerW, list.hits)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   "Switch workspace",
+		buttons: buttons,
+		body:    body,
+		footer:  t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"),
+	})
+	a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, innerW, list.hits)
+	return rendered.modal
 }
 
 // workspaceLabel renders a workspace as "name id" with the ID

@@ -202,6 +202,22 @@ func TestWorkspaceSwitcherRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcherTargetsAlignWithSharedFrameBody(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "workspace-switch:item:ws_a")
+	if !ok {
+		t.Fatal("missing semantic first workspace row target")
+	}
+	rect := overlayMouseRect(a.viewWorkspaceSwitch(), a.width, a.height)
+	if wantY := rect.y + 2 + 2; target.rect.y != wantY {
+		t.Fatalf("first workspace row y = %d, want shared frame body row %d", target.rect.y, wantY)
+	}
+}
+
 func TestWorkspaceSwitcherCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaceSwitchOpen = true
