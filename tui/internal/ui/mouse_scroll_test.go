@@ -290,7 +290,12 @@ func TestMouseClickChangesFocusAndCanSelectSidebarSession(t *testing.T) {
 		{ID: "m1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "one"}}},
 	}
 
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 7, Button: tea.MouseLeft}))
+	_ = a.View()
+	sessionTarget, ok := findHitTargetForTest(a, "sidebar:session:sess_2")
+	if !ok {
+		t.Fatal("missing semantic sidebar session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: sessionTarget.rect.x, Y: sessionTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.focus != FocusSidebar {
 		t.Fatalf("focus = %v, want sidebar", a.focus)
@@ -302,13 +307,23 @@ func TestMouseClickChangesFocusAndCanSelectSidebarSession(t *testing.T) {
 		t.Fatal("sidebar session click should return selectSession command")
 	}
 
-	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 40, Y: 5, Button: tea.MouseLeft}))
+	_ = a.View()
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing semantic conversation focus target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: bodyTarget.rect.x, Y: bodyTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.focus != FocusBody {
 		t.Fatalf("focus = %v, want body", a.focus)
 	}
 
-	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 40, Y: 27, Button: tea.MouseLeft}))
+	_ = a.View()
+	inputTarget, ok := findHitTargetForTest(a, "input:focus")
+	if !ok {
+		t.Fatal("missing semantic input focus target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: inputTarget.rect.x, Y: inputTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.focus != FocusInput {
 		t.Fatalf("focus = %v, want input", a.focus)
@@ -325,7 +340,12 @@ func TestMouseClickTogglesSidebarSections(t *testing.T) {
 	a.selected = 0
 	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
 
-	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 2, Button: tea.MouseLeft}))
+	_ = a.View()
+	sessionsTarget, ok := findHitTargetForTest(a, "sidebar:sessions:header")
+	if !ok {
+		t.Fatal("missing semantic sessions header target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: sessionsTarget.rect.x, Y: sessionsTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if !a.sidebarSessionsCollapsed {
 		t.Fatal("clicking the sessions header should collapse sessions")
@@ -334,12 +354,12 @@ func TestMouseClickTogglesSidebarSections(t *testing.T) {
 		t.Fatalf("section focus = %v, want sessions", a.sidebarSectionFocus)
 	}
 
-	_, _, convH := a.mainPaneGeometry()
-	contextRow, ok := a.sidebarContextTitleRow(convH)
+	_ = a.View()
+	contextTarget, ok := findHitTargetForTest(a, "sidebar:context:header")
 	if !ok {
-		t.Fatal("expected context section row")
+		t.Fatal("missing semantic context header target")
 	}
-	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: contextRow + 2, Button: tea.MouseLeft}))
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: contextTarget.rect.x, Y: contextTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if !a.sidebarContextCollapsed {
 		t.Fatal("clicking the context header should collapse context")
@@ -361,7 +381,12 @@ func TestMouseClickSelectedParentTogglesChildSessions(t *testing.T) {
 	}
 	a.selected = 0
 
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 4, Button: tea.MouseLeft}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:parent")
+	if !ok {
+		t.Fatal("missing semantic parent session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if cmd != nil {
 		t.Fatal("clicking the already-selected parent should toggle children without selecting")
@@ -370,7 +395,12 @@ func TestMouseClickSelectedParentTogglesChildSessions(t *testing.T) {
 		t.Fatal("clicking the selected parent should expand child sessions")
 	}
 
-	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 4, Button: tea.MouseLeft}))
+	_ = a.View()
+	target, ok = findHitTargetForTest(a, "sidebar:session:parent")
+	if !ok {
+		t.Fatal("missing semantic parent session target after expansion")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.showChildSessions {
 		t.Fatal("clicking the selected parent again should collapse child sessions")
@@ -392,7 +422,12 @@ func TestMouseClickExpandedChildRowsUseRenderedRowHeights(t *testing.T) {
 	a.selected = 0
 	a.showChildSessions = true
 
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 7, Button: tea.MouseLeft}))
+	_ = a.View()
+	childTarget, ok := findHitTargetForTest(a, "sidebar:session:child-b")
+	if !ok {
+		t.Fatal("missing semantic child session target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: childTarget.rect.x, Y: childTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.selected != 2 {
 		t.Fatalf("clicking second one-line child row selected %d, want child-b index 2", a.selected)
@@ -401,7 +436,12 @@ func TestMouseClickExpandedChildRowsUseRenderedRowHeights(t *testing.T) {
 		t.Fatal("child row click should select the clicked child session")
 	}
 
-	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 8, Button: tea.MouseLeft}))
+	_ = a.View()
+	afterTarget, ok := findHitTargetForTest(a, "sidebar:session:after")
+	if !ok {
+		t.Fatal("missing semantic following session target")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: afterTarget.rect.x, Y: afterTarget.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
 	if a.selected != 3 {
 		t.Fatalf("clicking row after expanded children selected %d, want after index 3", a.selected)
@@ -418,6 +458,7 @@ func TestMouseClickOpenOverlayDoesNotLeakToBaseUI(t *testing.T) {
 	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
 	a.selected = 0
 
+	_ = a.View()
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: 3, Y: 2, Button: tea.MouseLeft}))
 	a = model.(*App)
 
@@ -601,10 +642,14 @@ func TestMouseCommandButtonOpensPalette(t *testing.T) {
 	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
 	a.selected = 0
 
-	sidebarW, _, convH := a.mainPaneGeometry()
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:command")
+	if !ok {
+		t.Fatal("missing semantic input command target")
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      sidebarW + 2,
-		Y:      1 + convH + 1,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)

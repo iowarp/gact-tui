@@ -31,6 +31,36 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 }
 
+func TestOverlayHitActivationIgnoresBaseTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	baseHits := 0
+	overlayHits := 0
+	a.hits = &uiHitRegistry{}
+	a.hits.add(uiHitTarget{id: "base", rect: mouseRect{x: 0, y: 0, w: 10, h: 10}, action: func(*App) tea.Cmd {
+		baseHits++
+		return nil
+	}})
+	a.baseHitTargetCount = len(a.hits.targets)
+
+	if _, handled := a.activateOverlayHitAt(1, 1, tea.MouseLeft); handled {
+		t.Fatal("overlay activation should ignore base-only targets")
+	}
+	if baseHits != 0 {
+		t.Fatalf("base target fired through overlay activation: %d", baseHits)
+	}
+
+	a.hits.add(uiHitTarget{id: "overlay", rect: mouseRect{x: 0, y: 0, w: 10, h: 10}, action: func(*App) tea.Cmd {
+		overlayHits++
+		return nil
+	}})
+	if _, handled := a.activateOverlayHitAt(1, 1, tea.MouseLeft); !handled {
+		t.Fatal("overlay activation should handle overlay targets")
+	}
+	if baseHits != 0 || overlayHits != 1 {
+		t.Fatalf("baseHits=%d overlayHits=%d, want 0/1", baseHits, overlayHits)
+	}
+}
+
 func TestWheelHitTargetsCanSitBehindRowClickTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()

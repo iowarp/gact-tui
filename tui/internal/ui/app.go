@@ -224,7 +224,8 @@ type App struct {
 	// back to semantic UI actions. Mouse Update paths consult it first
 	// so components can own their own click semantics instead of
 	// scattering view-specific coordinate math through mouse.go.
-	hits *uiHitRegistry
+	hits               *uiHitRegistry
+	baseHitTargetCount int
 
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
@@ -2431,36 +2432,19 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	mouse := m.Mouse()
+	if a.mouseOverlayOpen() {
+		if mouse.Button == tea.MouseLeft && a.mouseClickInsideTopOverlay(mouse) {
+			if cmd, handled := a.activateOverlayHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+				return a, cmd
+			}
+		}
+		if cmd, handled := a.handleOverlayMouseClick(m); handled {
+			return a, cmd
+		}
+		return a, nil
+	}
 	if cmd, handled := a.activateHitAt(mouse.X, mouse.Y, mouse.Button); handled {
 		return a, cmd
-	}
-	if cmd, handled := a.handleOverlayMouseClick(m); handled {
-		return a, cmd
-	}
-	if mouse.Button != tea.MouseLeft {
-		return a, nil
-	}
-	sidebarW, bodyH, convH := a.mainPaneGeometry()
-	switch {
-	case mouse.Y <= 0 || mouse.Y >= a.height-1:
-		return a, nil
-	case mouse.X < sidebarW:
-		a.focus = FocusSidebar
-		if section, ok := a.sidebarSectionAt(mouse.Y, convH); ok {
-			a.activateSidebarSection(section)
-			return a, nil
-		}
-		if idx, ok := a.sidebarSessionIndexAt(mouse.Y, convH); ok {
-			return a, a.activateSidebarSession(idx)
-		}
-	case mouse.Y >= 1+convH:
-		a.focus = FocusInput
-		if a.mouseCommandButtonAt(mouse.X, mouse.Y, sidebarW, convH) {
-			a.openCommandPalette()
-		}
-	case mouse.X >= sidebarW && mouse.Y < 1+bodyH:
-		a.focus = FocusBody
-		a.maybeInitBodyCursor()
 	}
 	return a, nil
 }
@@ -3904,20 +3888,6 @@ func (a *App) toggleFocusedSidebarSection() {
 	}
 }
 
-func (a *App) sidebarSectionAt(terminalY int, height int) (sidebarSection, bool) {
-	if terminalY < 2 {
-		return sidebarSectionSessions, false
-	}
-	row := terminalY - 2
-	if row == 0 {
-		return sidebarSectionSessions, true
-	}
-	if contextRow, ok := a.sidebarContextTitleRow(height); ok && row == contextRow {
-		return sidebarSectionContext, true
-	}
-	return sidebarSectionSessions, false
-}
-
 func (a *App) sidebarContextTitleRow(height int) (int, bool) {
 	if !a.hasContextSection() {
 		return 0, false
@@ -4124,6 +4094,16 @@ func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sideba
 	}
 	a.registerScreenHit(id, sidebarContentRect(row, width), func(app *App) tea.Cmd {
 		app.activateSidebarSection(section)
+		return nil
+	})
+}
+
+func (a *App) registerSidebarFocusSurface(width, height int) {
+	if a.hits == nil || width <= 0 || height <= 0 {
+		return
+	}
+	a.registerScreenHit("sidebar:focus", mouseRect{x: 0, y: 1, w: width, h: height}, func(app *App) tea.Cmd {
+		app.focus = FocusSidebar
 		return nil
 	})
 }
@@ -6430,6 +6410,9 @@ func blankScreen(width int, height int) string {
 
 func (a *App) viewMain() string {
 	base := a.viewMainBase()
+	if a.hits != nil {
+		a.baseHitTargetCount = len(a.hits.targets)
+	}
 	// Overlay layers (last-rendered wins).
 	if a.paletteOpen {
 		base = overlay(base, a.viewPalette(), a.width, a.height)
@@ -7397,6 +7380,7 @@ func (a *App) renderSidebar(width, height int) string {
 	if a.focus == FocusSidebar {
 		style = t.PaneFoc.Width(width - 2).Height(height)
 	}
+	a.registerSidebarFocusSurface(width, height)
 	// Build the filter-filtered view once so the scroll math and the
 	// render loop work off the same subset.
 	visIdx := a.visibleSessionIndexes()
@@ -7797,47 +7781,6 @@ func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
 	}
 }
 
-func (a *App) sidebarSessionIndexAt(terminalY int, height int) (int, bool) {
-	if terminalY < 2 || len(a.sessions) == 0 {
-		return 0, false
-	}
-	row := terminalY - 2 // account for the one-line header and pane border.
-	if row < 2 {
-		return 0, false
-	}
-	row -= 2 // SESSIONS title + blank line.
-	if a.sessionFilterActive || a.sessionFilter != "" {
-		if row < 2 {
-			return 0, false
-		}
-		row -= 2
-	}
-
-	visIdx := a.visibleSessionIndexes()
-	if len(visIdx) == 0 {
-		return 0, false
-	}
-
-	if a.sidebarSessionsCollapsed {
-		return 0, false
-	}
-	startIdx, endIdx := a.sidebarVisibleSessionRange(height, visIdx)
-	if startIdx > 0 {
-		if row == 0 {
-			return 0, false
-		}
-		row--
-	}
-	for i := startIdx; i < endIdx; i++ {
-		rowCount := a.sidebarSessionRowCount(visIdx[i])
-		if row < rowCount {
-			return visIdx[i], true
-		}
-		row -= rowCount
-	}
-	return 0, false
-}
-
 func (a *App) renderBody(width, height int) string {
 	t := a.Theme
 	// Input pane grows with multi-line content up to a cap so users
@@ -7857,6 +7800,10 @@ func (a *App) renderBody(width, height int) string {
 		hintH = 1
 	}
 	inputH := height - msgH - hintH
+	if a.MouseEnabled {
+		a.registerConversationFocusSurface(msgH, width)
+		a.registerInputFocusSurface(msgH, hintH, inputH, width)
+	}
 
 	// Conversation pane. CCCCC1: lipgloss .Height(N) is OUTER (border
 	// included); the previous Height(msgH-2) made the bordered region
@@ -8617,6 +8564,23 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 			)
 		}
 	}
+}
+
+func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth int) {
+	if a.hits == nil || conversationHeight <= 0 || bodyWidth <= 0 {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	a.registerScreenHit("conversation:body:focus", mouseRect{
+		x: sidebarW,
+		y: 1,
+		w: bodyWidth,
+		h: conversationHeight,
+	}, func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		app.maybeInitBodyCursor()
+		return nil
+	})
 }
 
 func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {

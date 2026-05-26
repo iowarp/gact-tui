@@ -39,19 +39,6 @@ func (a *App) renderMouseInputCommand(inputView string) string {
 	return strings.Join(lines, "\n")
 }
 
-func (a *App) mouseCommandButtonAt(x, y, sidebarW, convH int) bool {
-	if !a.MouseEnabled {
-		return false
-	}
-	inputTop := 1 + convH
-	if a.transientHint != "" {
-		inputTop++
-	}
-	buttonY := inputTop + 1
-	buttonX := sidebarW + 1
-	return y == buttonY && x >= buttonX && x < buttonX+mouseCommandButtonWidth
-}
-
 func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
 	if !a.MouseEnabled || a.hits == nil {
 		return
@@ -65,6 +52,23 @@ func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
 	}, func(app *App) tea.Cmd {
 		app.focus = FocusInput
 		app.openCommandPalette()
+		return nil
+	})
+}
+
+func (a *App) registerInputFocusSurface(conversationHeight int, hintHeight int, inputHeight int, bodyWidth int) {
+	if !a.MouseEnabled || a.hits == nil || inputHeight <= 0 || bodyWidth <= 0 {
+		return
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	a.registerScreenHit("input:focus", mouseRect{
+		x: sidebarW,
+		y: 1 + conversationHeight,
+		w: bodyWidth,
+		h: hintHeight + inputHeight,
+	}, func(app *App) tea.Cmd {
+		app.focus = FocusInput
+		app.input.Focus()
 		return nil
 	})
 }
@@ -222,6 +226,31 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		},
 		{open: a.paletteOpen, view: a.viewPalette, closeOutside: func(app *App) { app.closePalette() }},
 	}
+}
+
+func (a *App) mouseOverlayOpen() bool {
+	for _, ov := range a.mouseOverlays() {
+		if ov.open {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) mouseClickInsideTopOverlay(mouse tea.Mouse) bool {
+	for _, ov := range a.mouseOverlays() {
+		if !ov.open {
+			continue
+		}
+		if ov.prepare != nil {
+			ov.prepare(a)
+		}
+		if ov.valid != nil && !ov.valid(a) {
+			return false
+		}
+		return overlayMouseRect(ov.view(), a.width, a.height).contains(mouse.X, mouse.Y)
+	}
+	return false
 }
 
 func (a *App) handleOverlayMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {

@@ -52,13 +52,31 @@ func (a *App) beginHitFrame() {
 		a.hits = &uiHitRegistry{}
 	}
 	a.hits.reset()
+	a.baseHitTargetCount = 0
 }
 
 func (a *App) activateHitAt(x, y int, button tea.MouseButton) (tea.Cmd, bool) {
+	return a.activateHitAtFrom(x, y, button, 0)
+}
+
+func (a *App) activateOverlayHitAt(x, y int, button tea.MouseButton) (tea.Cmd, bool) {
+	return a.activateHitAtFrom(x, y, button, a.baseHitTargetCount)
+}
+
+func (a *App) activateHitAtFrom(x, y int, button tea.MouseButton, start int) (tea.Cmd, bool) {
 	if a.hits == nil {
 		return nil, false
 	}
+	if start < 0 {
+		start = 0
+	}
+	if start > len(a.hits.targets) {
+		start = len(a.hits.targets)
+	}
 	for i := len(a.hits.targets) - 1; i >= 0; i-- {
+		if i < start {
+			break
+		}
 		target := a.hits.targets[i]
 		if !target.rect.contains(x, y) {
 			continue

@@ -81,8 +81,8 @@ Current mouse support:
 
 Most historical keyboard-only popups have been migrated to the overlay-first
 mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
-true range/text selection, future row-specific actions beyond sessions, and
-continued visual polish for wrapping/button alignment as new surfaces are added.
+true range/text selection and continued visual polish for wrapping/button
+alignment as new surfaces are added.
 
 ## Base UI Surfaces
 
@@ -751,6 +751,11 @@ Additional work continued from the same architectural direction:
   `action_menu.go` for selection movement, close/key semantics, rendered list
   rows, wheel targets, close button registration, and semantic row hit ids.
   Each surface only defines domain-specific actions and context labels.
+- Base sidebar, conversation, and input panes now register broad semantic focus
+  surfaces during render, so `handleMouseClick` no longer contains coordinate
+  fallback logic for sidebar rows, section headers, body focus, or the input `/`
+  chip. Overlay clicks are constrained to overlay-registered targets before
+  base-pane targets can react underneath.
 
 ### 2026-05-26 user-observed follow-up queue
 
