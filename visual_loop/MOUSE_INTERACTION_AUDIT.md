@@ -25,6 +25,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   through `y`, so raw tool evidence, catalog details, context details, memory
   reports, and agent detail text can be copied without selecting terminal
   borders, sidebars, or footer chrome.
+- Conversation body copy now prefers the selected semantic block before falling
+  back to selected-message text. Clicking a visible tool call/result/diff/text
+  block and then the footer `y copy` action copies that block's payload instead
+  of depending on terminal-frame selection.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -103,11 +107,13 @@ Mouse support exists:
 - Click visible detail affordance rows such as `raw detail · Ctrl+E` to open detail directly.
 - Click pending file-diff `apply` / `reject` affordances to apply or reject that path.
 - Click visible footer conversation actions for details, bottom, copy, copy all, retry, and delete.
+- Click a visible conversation block and then footer `y copy` to copy that
+  semantic block's payload.
 - Wheel scrolls the transcript through render-time body-region routing.
 
 Missing:
 
-- Select text or copy block via mouse.
+- Select text ranges via mouse.
 
 ### Input
 
@@ -500,7 +506,8 @@ Mouse support exists:
    should remain ergonomic. With mouse mode disabled, terminal copy works but
    captures borders/sidebar/footer text; add a future copy-mode or copy-block
    action so users can copy transcript content without UI chrome. Detail views
-   now provide scoped full-payload copy; transcript body range selection remains.
+   now provide scoped full-payload copy, and selected transcript blocks copy
+   through the footer action; transcript body range selection remains.
 
 9. Some wrapped content wastes horizontal space. Long catalog/tool/config rows
    sometimes break after only a few words while the modal still has room. Modal
@@ -521,9 +528,10 @@ Mouse support exists:
     verifying rendered hit targets with screenshots when new options are added.
 
 12. Copy semantics should be scoped, not terminal-frame dependent. Detail
-    views now copy their full payload directly. Remaining copy work is
-    transcript-level range/block selection and textarea selection/paste review,
-    without copying sidebar borders, divider glyphs, and footer text.
+    views now copy their full payload directly, and selected transcript blocks
+    copy through the conversation footer. Remaining copy work is transcript
+    range selection and textarea selection/paste review, without copying
+    sidebar borders, divider glyphs, and footer text.
 
 13. Text-entry paste/copy parity is still unresolved. Mouse mode should not
     make paste into the regular input or expanded compose textarea worse, and

@@ -4311,21 +4311,25 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, rejectDiffsCmd(a.c, sid)
 		}
 	case "y":
-		// Yank: when the body cursor is set, copy THAT message's text;
-		// otherwise fall back to "latest assistant". Feedback is a
-		// transient toast because clipboard success is otherwise
-		// invisible.
+		// Yank: when the body cursor is on an addressable part, copy
+		// that semantic block first (tool result, diff, text, etc.).
+		// Fall back to the selected message's text, then latest
+		// assistant text. Feedback is a transient toast because
+		// clipboard success is otherwise invisible.
 		var (
 			text string
 			ok   bool
 		)
 		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
-			text, ok = messageText(a.messages[a.bodySelMsgIdx])
+			text, ok = selectedConversationBlockText(a.messages, a.bodySelMsgIdx, a.bodySelPartIdx)
+			if !ok {
+				text, ok = messageText(a.messages[a.bodySelMsgIdx])
+			}
 		} else {
 			text, ok = lastAssistantText(a.messages)
 		}
 		if !ok {
-			a.transientHint = "nothing to copy — selected message has no text"
+			a.transientHint = "nothing to copy — selected block has no text"
 			return a, nil
 		}
 		if err := clipboardWrite(text); err != nil {
