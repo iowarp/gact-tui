@@ -600,6 +600,7 @@ func (a *App) catalogBrowserHeaderButtons() []menuButton {
 }
 
 const catalogBrowserRowBudget = 12
+const catalogBrowserBodyRows = catalogBrowserRowBudget * 2
 
 func catalogBrowserClampOffset(sel, offset, itemCount int) int {
 	if itemCount <= catalogBrowserRowBudget {
@@ -656,7 +657,7 @@ func (a *App) viewCatalogBrowser() string {
 	w := a.detailModalWidth()
 
 	buttons := a.catalogBrowserHeaderButtons()
-	rows := make([]string, 0, catalogBrowserRowBudget*2)
+	rows := make([]string, 0, catalogBrowserBodyRows)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
 	}
@@ -671,10 +672,6 @@ func (a *App) viewCatalogBrowser() string {
 	)
 	start := a.catalogBrowser.offset
 	end := min(len(a.catalogBrowser.items), start+catalogBrowserRowBudget)
-	if start > 0 {
-		rows = append(rows, t.HintLabel.Italic(true).Render(
-			fmt.Sprintf("… %d above", start)))
-	}
 	listItems := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
 		item := a.catalogBrowser.items[i]
@@ -707,21 +704,13 @@ func (a *App) viewCatalogBrowser() string {
 		descriptionLines = 1
 	}
 	list := a.renderModalList(listItems, modalListOptions{
-		width:            w - 4,
-		rowBudget:        catalogBrowserRowBudget * 2,
+		width:            w - 8,
+		rowBudget:        catalogBrowserBodyRows,
 		descriptionLines: descriptionLines,
 	})
 	listStartRow := len(rows)
 	rows = append(rows, list.rows...)
 	end = start + list.renderedItems
-	if end < len(a.catalogBrowser.items) {
-		rows = append(rows, t.HintLabel.Italic(true).Render(
-			fmt.Sprintf("… and %d more", len(a.catalogBrowser.items)-end)))
-	}
-	// Pad to fixed height.
-	for len(rows) < catalogBrowserRowBudget*2 {
-		rows = append(rows, "")
-	}
 
 	// Hint text adapts per kind: tools get a Space toggle, MCP-server
 	// list gets Enter-to-drill, MCP-detail gets Backspace-to-back.
@@ -740,14 +729,21 @@ func (a *App) viewCatalogBrowser() string {
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body = a.renderScrollableModalBody(body, catalogBrowserBodyRows, w, scrollWindow{
+		start:  start,
+		end:    end,
+		scroll: start,
+		total:  len(a.catalogBrowser.items),
+	})
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:   w,
 		title:   a.catalogBrowser.title,
 		buttons: buttons,
-		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
+		body:    body,
 		footer:  t.HintLabel.Italic(true).Render(hintText),
 	})
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "catalog:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-8, list, "catalog:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleCatalogBrowserWheel(button)
 	})
 	return rendered.modal
