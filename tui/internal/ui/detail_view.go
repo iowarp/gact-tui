@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -196,7 +195,6 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	wrapped := wrap(opts.content, innerW)
 	lines := strings.Split(wrapped, "\n")
 	win := boundedScrollWindow(len(lines), page, opts.scroll)
-	visible := strings.Join(lines[win.start:win.end], "\n")
 
 	title := opts.title
 	if len(lines) > page {
@@ -227,25 +225,25 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if hint == "" {
 		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close"
 	}
-	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:              w,
-		title:              title,
-		buttons:            buttons,
-		suppressButtonHits: true,
-		body:               body,
-		footer:             t.HintLabel.Render(hint),
-	})
-	if len(lines) > 0 && rendered.bodyRow >= 0 {
-		a.registerModalSurfaceAndBodyWheel(rendered, "detail", maxInt(1, strings.Count(visible, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+	hintStyle := t.HintLabel
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   title,
+			buttons: buttons,
+		},
+		content:     strings.Join(lines, "\n"),
+		pageSize:    page,
+		scroll:      opts.scroll,
+		wheelID:     "detail",
+		footerHint:  hint,
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			app.detailScroll = moveScrollOffsetByWheel(app.detailScroll, button)
 			return nil
-		})
-	} else {
-		a.registerModalSurfaceAndBodyWheel(rendered, "detail", 0, nil)
-	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
-	return scrollableDetailRender{modal: rendered.modal, scroll: win.scroll, window: win}
+		},
+	})
+	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
