@@ -135,11 +135,16 @@ func (a *App) viewContextAdd() string {
 		},
 	}
 	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:   w,
-		title:   "Add file to context",
-		buttons: buttons,
-		editor:  a.renderCursorEditor(a.contextAddDraft, a.contextAddCursor),
-		footer:  a.Theme.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
+		width:       w,
+		title:       "Add file to context",
+		buttons:     buttons,
+		editor:      a.renderCursorEditor(a.contextAddDraft, a.contextAddCursor),
+		editorID:    "context-add",
+		editorValue: a.contextAddDraft,
+		cursorAction: func(app *App, cursor int) {
+			app.contextAddCursor = cursor
+		},
+		footer: a.Theme.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
 	})
 	return rendered.modal
 }

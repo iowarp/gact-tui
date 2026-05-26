@@ -1,7 +1,7 @@
 # TUI Mouse Interaction Audit
 
 Date: 2026-05-25
-Branch inspected: `codex/visual-loop-sidebar-ux`
+Branch inspected: `codex/semantic-menu-interactions`
 Scope: audit plus implementation tracking for the semantic interaction migration.
 
 ## 2026-05-26 Implementation Notes
@@ -20,8 +20,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Slash-command and message-search palettes now use the shared selectable-list modal primitive, side-scroll affordance, and semantic row/wheel targets instead of local textual `showing x-y of n` overflow rows.
 - Catalog browsers now use the shared selectable-list modal primitive for body rendering, row/wheel hit targets, and surface wheel blocking while preserving catalog-specific footer actions.
 - Overlay placement now uses a fixed shared top row and single shared modal width policy, so short and tall modals keep the same top corners instead of vertically re-centering or switching to a separate wide chrome.
+- Shared text-entry modals now register semantic cursor-position hit targets from the rendered editor row. Rename, add-context, and MCP-install clicks can place the cursor without each modal inventing coordinate math; MCP install now uses the same rune-indexed line editor as rename/context-add.
 
-Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, palette, and catalog/menu surfaces.
+Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
 ## Executive Summary
 
@@ -32,24 +33,15 @@ Current mouse support:
 
 - Wheel up/down scrolls the conversation, but only when no blocking overlay is open.
 - Click in the sidebar selects sessions, toggles sidebar sections, and toggles child/nanoagent expansion on the selected parent.
-- Click in the conversation pane only changes focus to body.
-- Click in the input pane only changes focus to input.
+- Click context file rows to open structured context detail.
+- Click visible conversation parts to select them; clicking the selected part again opens detail.
+- Click header/footer help/settings/command affordances when visible.
+- Click in the input pane changes focus to input; the mouse-mode `/` chip opens the command palette.
 
-Most TUI windows and popups are keyboard-only. Several are explicitly blocked by
-the global mouse handlers, so clicks and wheel events are ignored while those
-windows are open.
-
-The main blocking gates are:
-
-- `handleMouseWheel`: returns immediately when help, palette, settings, metrics,
-  workspace switcher, rename, context-add, detail, quit-confirm, doctor, or LM
-  config is open.
-- `handleMouseClick`: same blocking list.
-
-Additional overlays are not in that blocking list (`compose`, `filePicker`,
-`catalogBrowser`, `mcpInstall`, `mcpRemove`), but there is no overlay-specific
-mouse dispatch for them. Clicks can therefore fall through to base-pane focus
-behavior instead of interacting with the visible modal.
+Most historical keyboard-only popups have been migrated to the overlay-first
+mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
+copy/text-selection semantics, textarea cursor placement, a few base-screen
+states, and richer global/status affordances.
 
 ## Base UI Surfaces
 
@@ -64,28 +56,24 @@ Mouse support exists:
 Remaining gaps:
 
 - No click support for sidebar filter editing.
-- No click support for context file rows.
 - No click support for sidebar footer/status counts.
 - No right-click/context-menu behavior for session actions such as rename,
   archive, delete, copy session id, add context.
 
 ### Conversation Body
 
-Mouse support is minimal:
+Mouse support exists:
 
-- Click only focuses the body.
-- Wheel scrolls the conversation only when no blocked overlay is open.
+- Click visible addressable parts to select them.
+- Click the selected part again to open detail.
+- Wheel scrolls the transcript through render-time body-region routing.
 
 Missing:
 
-- Click a message/block/part to select it.
-- Double-click or click affordance to open raw detail.
 - Click tool/result/detail hint such as `raw detail · Ctrl+E`.
 - Click file diff accept/reject affordances.
 - Click retry/delete/copy actions.
 - Select text or copy block via mouse.
-- Scroll wheel should probably apply only when pointer is over the conversation
-  pane, not globally whenever messages exist.
 
 ### Input
 
@@ -103,12 +91,15 @@ Missing:
 
 ### Header/Footer
 
-No mouse support found.
+Mouse support exists:
+
+- Top-right header help/settings actions are semantic targets.
+- Visible footer settings, command, and help hints are semantic targets.
 
 Missing:
 
 - Click focus labels or panes in footer.
-- Click global shortcuts such as settings, command palette, help, quit.
+- Click quit from the footer.
 - Click backend/workspace/session/status chips in header.
 - Click reconnect/error/status affordances.
 

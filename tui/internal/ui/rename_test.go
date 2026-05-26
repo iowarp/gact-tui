@@ -181,6 +181,35 @@ func TestRenameCancelButtonUsesSharedCloseState(t *testing.T) {
 	}
 }
 
+func TestRenameEditorClickPlacesCursor(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "abcdef"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:rename:cursor:2")
+	if !ok {
+		t.Fatal("missing rename editor cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cursor click should not dispatch a command")
+	}
+	if a.renameCursor != 2 {
+		t.Fatalf("rename cursor = %d, want 2", a.renameCursor)
+	}
+	if !a.renameOpen {
+		t.Fatal("cursor click should keep rename open")
+	}
+}
+
 func TestRename_EmptyInputCancels(t *testing.T) {
 	a, mu, got := makeRenameApp(t)
 	a.renameOpen = true
