@@ -2120,6 +2120,38 @@ func TestSidebarSessionsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSidebarSessionsHeaderUsesSemanticHitTarget(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:sessions:header")
+	if !ok {
+		t.Fatal("missing semantic sessions header target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("sessions header click should not dispatch a command")
+	}
+	if !a.sidebarSessionsCollapsed {
+		t.Fatal("sessions header semantic hit should collapse sessions")
+	}
+	if a.sidebarSectionFocus != sidebarSectionSessions || !a.sidebarSectionCursor {
+		t.Fatalf("sessions header should focus section cursor, section=%v cursor=%v", a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+}
+
 func TestSidebarExpandedChildSessionsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

@@ -2411,27 +2411,7 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	case mouse.X < sidebarW:
 		a.focus = FocusSidebar
 		if section, ok := a.sidebarSectionAt(mouse.Y, convH); ok {
-			switch section {
-			case sidebarSectionSessions:
-				a.sidebarSectionFocus = sidebarSectionSessions
-				a.sidebarSectionCursor = true
-				a.sidebarSessionsCollapsed = !a.sidebarSessionsCollapsed
-				if a.sidebarSessionsCollapsed {
-					a.transientHint = "sessions section collapsed (S to expand)"
-				} else {
-					a.sidebarSectionCursor = false
-					a.transientHint = "sessions section expanded"
-				}
-			case sidebarSectionContext:
-				a.sidebarSectionFocus = sidebarSectionContext
-				a.sidebarSectionCursor = true
-				a.sidebarContextCollapsed = !a.sidebarContextCollapsed
-				if a.sidebarContextCollapsed {
-					a.transientHint = "context section collapsed (C to expand)"
-				} else {
-					a.transientHint = "context section expanded"
-				}
-			}
+			a.activateSidebarSection(section)
 			return a, nil
 		}
 		if idx, ok := a.sidebarSessionIndexAt(mouse.Y, convH); ok {
@@ -3889,21 +3869,9 @@ func (a *App) focusNextSidebarSection() {
 func (a *App) toggleFocusedSidebarSection() {
 	switch a.sidebarSectionFocus {
 	case sidebarSectionContext:
-		a.sidebarContextCollapsed = !a.sidebarContextCollapsed
-		if a.sidebarContextCollapsed {
-			a.transientHint = "context section collapsed (C to expand)"
-		} else {
-			a.transientHint = "context section expanded"
-		}
+		a.activateSidebarSection(sidebarSectionContext)
 	default:
-		a.sidebarSessionsCollapsed = !a.sidebarSessionsCollapsed
-		if a.sidebarSessionsCollapsed {
-			a.sidebarSectionCursor = true
-			a.transientHint = "sessions section collapsed (S to expand)"
-		} else {
-			a.sidebarSectionCursor = false
-			a.transientHint = "sessions section expanded"
-		}
+		a.activateSidebarSection(sidebarSectionSessions)
 	}
 }
 
@@ -4064,10 +4032,47 @@ func (a *App) activateSidebarSession(index int) tea.Cmd {
 	return nil
 }
 
+func (a *App) activateSidebarSection(section sidebarSection) {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = section
+	a.sidebarSectionCursor = true
+	switch section {
+	case sidebarSectionContext:
+		a.sidebarContextCollapsed = !a.sidebarContextCollapsed
+		if a.sidebarContextCollapsed {
+			a.transientHint = "context section collapsed (C to expand)"
+		} else {
+			a.transientHint = "context section expanded"
+		}
+	default:
+		a.sidebarSessionsCollapsed = !a.sidebarSessionsCollapsed
+		if a.sidebarSessionsCollapsed {
+			a.transientHint = "sessions section collapsed (S to expand)"
+		} else {
+			a.sidebarSectionCursor = false
+			a.transientHint = "sessions section expanded"
+		}
+	}
+}
+
 func (a *App) openCommandPalette() {
 	a.paletteOpen = true
 	a.paletteFilter = ""
 	a.paletteSel = 0
+}
+
+func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sidebarSection) {
+	if a.hits == nil {
+		return
+	}
+	id := "sidebar:sessions:header"
+	if section == sidebarSectionContext {
+		id = "sidebar:context:header"
+	}
+	a.registerScreenHit(id, sidebarContentRect(row, width), func(app *App) tea.Cmd {
+		app.activateSidebarSection(section)
+		return nil
+	})
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -4086,21 +4091,7 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 }
 
 func (a *App) registerSidebarContextHeaderHit(row int, width int) {
-	if a.hits == nil {
-		return
-	}
-	a.registerScreenHit("sidebar:context:header", sidebarContentRect(row, width), func(app *App) tea.Cmd {
-		app.focus = FocusSidebar
-		app.sidebarSectionFocus = sidebarSectionContext
-		app.sidebarSectionCursor = true
-		app.sidebarContextCollapsed = !app.sidebarContextCollapsed
-		if app.sidebarContextCollapsed {
-			app.transientHint = "context section collapsed (C to expand)"
-		} else {
-			app.transientHint = "context section expanded"
-		}
-		return nil
-	})
+	a.registerSidebarSectionHeaderHit(row, width, sidebarSectionContext)
 }
 
 func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf gact.ContextFile) {
@@ -6977,6 +6968,7 @@ func (a *App) renderSidebar(width, height int) string {
 	}
 	title := titlePrefix + lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(disclosure+titleText)
 	rows := []string{title, ""}
+	a.registerSidebarSectionHeaderHit(0, width, sidebarSectionSessions)
 	if len(a.sessions) == 0 {
 		rows = append(rows,
 			t.HintLabel.Render(a.localizer.t(msgSidebarNoSessions, nil)),
