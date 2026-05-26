@@ -233,33 +233,29 @@ func (a *App) viewMcpInstall() string {
 			},
 		},
 	}
-	hint := t.HintLabel.Render(
-		"  stdio: files stdio mcp-files /tmp\n" +
-			"  http:  weather http https://mcp.example.com")
-	cursor := "_"
-	box := lipgloss.NewStyle().Foreground(t.Fg).
-		Render("> " + a.mcpInstallInput + cursor)
-	rows := []string{hint, "", box}
+	statusRows := []string{}
 	if a.mcpInstallErr != "" {
-		rows = append(rows,
-			"",
+		statusRows = append(statusRows,
 			lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
 				Render("error: "+a.mcpInstallErr),
 		)
 	}
 	if a.mcpInstallSaving {
-		rows = append(rows,
-			"",
+		statusRows = append(statusRows,
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(a.spinnerChar()+" installing…"),
 		)
 	}
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
 		width:   w,
 		title:   "Install MCP server",
 		buttons: buttons,
-		body:    strings.Join(rows, "\n"),
-		footer:  t.HintLabel.Render("Enter install · Esc cancel"),
+		intro: []string{t.HintLabel.Render(
+			"  stdio: files stdio mcp-files /tmp\n" +
+				"  http:  weather http https://mcp.example.com")},
+		editor: a.renderCursorEditor(a.mcpInstallInput, len([]rune(a.mcpInstallInput))),
+		status: statusRows,
+		footer: t.HintLabel.Render("Enter install · Esc cancel"),
 	})
 	return rendered.modal
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -116,24 +115,7 @@ type contextFileAddedMsg struct {
 // viewContextAdd renders the prompt. Matches the rename/workspace
 // modal chrome so muscle memory carries over.
 func (a *App) viewContextAdd() string {
-	t := a.Theme
 	w := a.modalWidth()
-
-	runes := []rune(a.contextAddDraft)
-	cur := a.contextAddCursor
-	if cur > len(runes) {
-		cur = len(runes)
-	}
-	cursorStyle := lipgloss.NewStyle().Reverse(true).Foreground(t.Fg)
-	var editor string
-	if cur == len(runes) {
-		editor = string(runes) + cursorStyle.Render(" ")
-	} else {
-		editor = string(runes[:cur]) +
-			cursorStyle.Render(string(runes[cur:cur+1])) +
-			string(runes[cur+1:])
-	}
-
 	buttons := []menuButton{
 		{
 			id:    "context-add:save",
@@ -152,16 +134,12 @@ func (a *App) viewContextAdd() string {
 			},
 		},
 	}
-	rows := []string{
-		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
-	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
 		width:   w,
 		title:   "Add file to context",
 		buttons: buttons,
-		body:    body,
-		footer:  t.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
+		editor:  a.renderCursorEditor(a.contextAddDraft, a.contextAddCursor),
+		footer:  a.Theme.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
 	})
 	return rendered.modal
 }

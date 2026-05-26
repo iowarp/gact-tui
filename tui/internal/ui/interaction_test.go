@@ -163,6 +163,73 @@ func TestModalFrameCanExplicitlyHighlightHeaderButton(t *testing.T) {
 	}
 }
 
+func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+
+	cases := []struct {
+		name      string
+		view      func() string
+		buttonID  string
+		wantTitle string
+	}{
+		{
+			name: "rename",
+			view: func() string {
+				a.renameOpen = true
+				a.renameDraft = "session title"
+				a.renameCursor = len(a.renameDraft)
+				return a.viewRename()
+			},
+			buttonID:  "button:rename:save",
+			wantTitle: "Rename session",
+		},
+		{
+			name: "context add",
+			view: func() string {
+				a.contextAddOpen = true
+				a.contextAddDraft = "docs/readme.md"
+				a.contextAddCursor = len(a.contextAddDraft)
+				return a.viewContextAdd()
+			},
+			buttonID:  "button:context-add:save",
+			wantTitle: "Add file to context",
+		},
+		{
+			name: "mcp install",
+			view: func() string {
+				a.mcpInstallOpen = true
+				a.mcpInstallInput = "files stdio mcp-files /tmp"
+				return a.viewMcpInstall()
+			},
+			buttonID:  "button:mcp-install:install",
+			wantTitle: "Install MCP server",
+		},
+	}
+
+	for _, tc := range cases {
+		a.beginHitFrame()
+		modal := tc.view()
+		plain := ansi.Strip(modal)
+		if !strings.Contains(plain, tc.wantTitle) {
+			t.Fatalf("%s modal missing title %q:\n%s", tc.name, tc.wantTitle, plain)
+		}
+		if !strings.Contains(plain, "> ") {
+			t.Fatalf("%s modal missing shared editor prompt:\n%s", tc.name, plain)
+		}
+		target, ok := findHitTargetForTest(a, tc.buttonID)
+		if !ok {
+			t.Fatalf("%s missing shared header button target %q", tc.name, tc.buttonID)
+		}
+		rect := overlayMouseRect(modal, a.width, a.height)
+		if wantY := rect.y + 2; target.rect.y != wantY {
+			t.Fatalf("%s button y = %d, want shared header row %d", tc.name, target.rect.y, wantY)
+		}
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{

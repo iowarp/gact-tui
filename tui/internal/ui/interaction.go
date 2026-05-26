@@ -270,6 +270,16 @@ type scrollableModalFrameRender struct {
 	window scrollWindow
 }
 
+type textEntryModalOptions struct {
+	width   int
+	title   string
+	buttons []menuButton
+	intro   []string
+	editor  string
+	status  []string
+	footer  string
+}
+
 func (a *App) renderModalFrame(opts modalFrameOptions) string {
 	return a.renderModalFrameWithLayout(opts).modal
 }
@@ -383,6 +393,43 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	}
 	return scrollableModalFrameRender{modalFrameRender: rendered, window: windowed.window}
+}
+
+func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
+	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
+	rows = append(rows, opts.intro...)
+	if len(rows) > 0 {
+		rows = append(rows, "")
+	}
+	rows = append(rows, lipgloss.NewStyle().Foreground(a.Theme.Fg).Render("> "+opts.editor))
+	if len(opts.status) > 0 {
+		rows = append(rows, "")
+		rows = append(rows, opts.status...)
+	}
+	return a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   opts.width,
+		title:   opts.title,
+		buttons: opts.buttons,
+		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
+		footer:  opts.footer,
+	})
+}
+
+func (a *App) renderCursorEditor(value string, cursor int) string {
+	runes := []rune(value)
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(runes) {
+		cursor = len(runes)
+	}
+	cursorStyle := lipgloss.NewStyle().Reverse(true).Foreground(a.Theme.Fg)
+	if cursor == len(runes) {
+		return string(runes) + cursorStyle.Render(" ")
+	}
+	return string(runes[:cursor]) +
+		cursorStyle.Render(string(runes[cursor:cursor+1])) +
+		string(runes[cursor+1:])
 }
 
 func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, win scrollWindow) string {
