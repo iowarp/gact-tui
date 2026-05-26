@@ -543,6 +543,57 @@ func TestFooterSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestHeaderSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.focus = FocusInput
+
+	_ = a.View()
+	helpTarget, ok := findHitTargetForTest(a, "header:help")
+	if !ok {
+		t.Fatal("missing visible header help hit target")
+	}
+	if helpTarget.rect.y != 0 {
+		t.Fatalf("header help target y=%d, want top chrome row", helpTarget.rect.y)
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      helpTarget.rect.x,
+		Y:      helpTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("header help click should not dispatch a command")
+	}
+	if !a.helpOpen || a.helpTab != 0 || a.helpScroll != 0 {
+		t.Fatalf("header help click should open help from first tab, open=%v tab=%d scroll=%d", a.helpOpen, a.helpTab, a.helpScroll)
+	}
+
+	a.helpOpen = false
+	_ = a.View()
+	settingsTarget, ok := findHitTargetForTest(a, "header:settings")
+	if !ok {
+		t.Fatal("missing visible header settings hit target")
+	}
+	if settingsTarget.rect.y != 0 {
+		t.Fatalf("header settings target y=%d, want top chrome row", settingsTarget.rect.y)
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      settingsTarget.rect.x,
+		Y:      settingsTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.settingsOpen || a.settings == nil {
+		t.Fatalf("header settings click should open settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if cmd == nil {
+		t.Fatal("header settings click should dispatch settings load command")
+	}
+}
+
 func TestSettingsCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

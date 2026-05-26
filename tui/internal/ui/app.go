@@ -6380,11 +6380,14 @@ func (a *App) renderHeader() string {
 	// Required parts (badge + connection label + SSE health dot) always render.
 	// Optional parts (workspace + session + status) are dropped when
 	// there's no room.
+	actions := a.headerActions()
+	actionBar := a.renderHeaderActionBar(actions)
+	actionW := lipgloss.Width(actionBar)
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
 	backend := t.Header.Render(a.headerBackendLabel())
 	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
-	avail := a.width - lipgloss.Width(required)
+	avail := a.width - lipgloss.Width(required) - actionW
 
 	optional := []string{}
 	if len(a.workspaces) > 0 {
@@ -6446,12 +6449,80 @@ func (a *App) renderHeader() string {
 	}
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-	pad := a.width - lipgloss.Width(line)
+	pad := a.width - lipgloss.Width(line) - actionW
 	if pad < 0 {
 		pad = 0
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
-	return line + bg
+	header := line + bg + actionBar
+	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions)
+	return header
+}
+
+type headerAction struct {
+	id     string
+	label  string
+	action uiHitAction
+}
+
+func (a *App) headerActions() []headerAction {
+	return []headerAction{
+		{
+			id:    "help",
+			label: "?",
+			action: func(app *App) tea.Cmd {
+				app.helpOpen = true
+				app.helpTab = 0
+				app.helpScroll = 0
+				return nil
+			},
+		},
+		{
+			id:    "settings",
+			label: "⚙",
+			action: func(app *App) tea.Cmd {
+				app.settingsOpen = true
+				app.settings = &settingsState{}
+				app.seedSettingsSelections()
+				return loadSettingsCmd(app.c)
+			},
+		},
+	}
+}
+
+func (a *App) renderHeaderActionBar(actions []headerAction) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	cells := make([]string, 0, len(actions))
+	for _, action := range actions {
+		cells = append(cells, a.renderHeaderActionCell(action.label))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, " "))
+}
+
+func (a *App) renderHeaderActionCell(label string) string {
+	return lipgloss.NewStyle().
+		Foreground(a.Theme.Bg).
+		Background(a.Theme.Primary).
+		Bold(true).
+		Padding(0, 1).
+		Render(label)
+}
+
+func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
+	if a.height <= 0 || len(actions) == 0 {
+		return
+	}
+	col := startCol
+	for i, action := range actions {
+		w := lipgloss.Width(a.renderHeaderActionCell(action.label))
+		a.registerScreenHit("header:"+action.id, mouseRect{x: col, y: 0, w: w, h: 1}, action.action)
+		col += w
+		if i < len(actions)-1 {
+			col++
+		}
+	}
 }
 
 func (a *App) headerBackendLabel() string {
