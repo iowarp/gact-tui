@@ -774,6 +774,31 @@ func TestLMConfigProviderRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderRowsAlignWithSharedFrameBody(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "lm-config:provider:0")
+	if !ok {
+		t.Fatal("missing semantic LM provider target")
+	}
+	view := a.viewLMConfig()
+	rect := overlayMouseRect(view, a.width, a.height)
+	providerLine := -1
+	for i, line := range strings.Split(stripANSI(view), "\n") {
+		if strings.Contains(line, "LM Studio (localhost)") {
+			providerLine = i
+			break
+		}
+	}
+	if providerLine < 0 {
+		t.Fatalf("could not find visible LM Studio provider row in:\n%s", stripANSI(view))
+	}
+	if wantY := rect.y + providerLine; target.rect.y != wantY {
+		t.Fatalf("LM Studio provider target y = %d, want visible provider row %d", target.rect.y, wantY)
+	}
+}
+
 func TestLMConfigModelRowsUseSemanticHitTargets(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.selected = 0
@@ -861,6 +886,16 @@ func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 	if a.lmConfigOpen || a.lmConfig != nil {
 		t.Fatal("close click should close LM config modal")
+	}
+}
+
+func TestLMConfigSavingSuppressesCloseButtonHitTarget(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.saving = true
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:lm-config:close"); ok {
+		t.Fatal("saving provider setup should render close without registering an active close hit target")
 	}
 }
 

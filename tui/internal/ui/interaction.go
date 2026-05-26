@@ -181,17 +181,18 @@ type scrollWindow struct {
 }
 
 type modalFrameOptions struct {
-	width      int
-	title      string
-	titleColor color.Color
-	border     color.Color
-	background color.Color
-	buttons    []menuButton
-	tabs       []menuTab
-	tabPadding int
-	tabSpacing int
-	body       string
-	footer     string
+	width              int
+	title              string
+	titleColor         color.Color
+	border             color.Color
+	background         color.Color
+	buttons            []menuButton
+	suppressButtonHits bool
+	tabs               []menuTab
+	tabPadding         int
+	tabSpacing         int
+	body               string
+	footer             string
 }
 
 type modalFrameRender struct {
@@ -247,7 +248,9 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 		background = opts.background
 	}
 	modal := a.renderModalSurface(w, border, background, lipgloss.JoinVertical(lipgloss.Left, rows...))
-	a.registerModalButtons(modal, 0, buttonCol, opts.buttons)
+	if !opts.suppressButtonHits {
+		a.registerModalButtons(modal, 0, buttonCol, opts.buttons)
+	}
 	if tabRow >= 0 {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
