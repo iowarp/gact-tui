@@ -7218,24 +7218,12 @@ func (a *App) renderSidebar(width, height int) string {
 			for i, cf := range a.contextFiles {
 				row := len(rows)
 				cf := cf
-				modeChar := "?"
-				modeColor := t.FgMuted
-				switch cf.Mode {
-				case "edit":
-					modeChar, modeColor = "E", t.Warning
-				case "read":
-					modeChar, modeColor = "R", t.RoleUser
-				case "pin":
-					modeChar, modeColor = "P", t.Secondary
-				}
-				modeBadge := lipgloss.NewStyle().Foreground(modeColor).Bold(true).Render(modeChar)
 				marker := " "
-				pathStyle := t.HintLabel
-				if a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel {
+				selected := a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+				if selected {
 					marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
-					pathStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 				}
-				rows = append(rows, marker+modeBadge+" "+pathStyle.Render(truncate(cf.Path, width-8)))
+				rows = append(rows, a.renderSidebarContextFileRow(cf, width, marker, selected))
 				a.registerSidebarContextFileHit(row, width, i, cf)
 			}
 		}
@@ -7274,6 +7262,51 @@ func (a *App) renderSidebar(width, height int) string {
 		body = clampLines(body, inner)
 	}
 	return style.Render(body)
+}
+
+func (a *App) renderSidebarContextFileRow(cf gact.ContextFile, width int, marker string, selected bool) string {
+	t := a.Theme
+	contentW := width - 6
+	if contentW < 1 {
+		contentW = 1
+	}
+	modeLabel, modeColor := contextModeLabelAndColor(cf.Mode, t)
+	suffix := modeLabel
+	if cf.Size > 0 {
+		suffix += " · " + humanBytes(cf.Size)
+	}
+	suffixStyle := lipgloss.NewStyle().Foreground(modeColor).Italic(true)
+	pathStyle := t.HintLabel
+	if selected {
+		pathStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	}
+	suffixW := lipgloss.Width(suffix)
+	pathBudget := contentW - lipgloss.Width(marker) - suffixW - 1
+	if pathBudget < 6 && cf.Size > 0 {
+		suffix = modeLabel
+		suffixW = lipgloss.Width(suffix)
+		pathBudget = contentW - lipgloss.Width(marker) - suffixW - 1
+	}
+	if pathBudget < 4 {
+		pathBudget = 4
+	}
+	line := marker + pathStyle.Render(truncate(cf.Path, pathBudget)) + " " + suffixStyle.Render(suffix)
+	return truncate(line, contentW)
+}
+
+func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
+	switch mode {
+	case "edit":
+		return "edit", t.Warning
+	case "read":
+		return "read", t.RoleUser
+	case "pin":
+		return "pin", t.Secondary
+	case "":
+		return "unknown", t.FgMuted
+	default:
+		return mode, t.FgMuted
+	}
 }
 
 func (a *App) sidebarSessionIndexAt(terminalY int, height int) (int, bool) {
