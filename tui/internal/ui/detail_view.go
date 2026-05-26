@@ -210,23 +210,20 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 		closeFn = func(app *App) { app.closeDetailView() }
 	}
 	buttons := []menuButton{closeMenuButton(closeID, closeFn)}
-	titleRow, buttonCol := a.renderModalHeader(title, innerW, buttons)
 
 	hint := opts.hint
 	if hint == "" {
-		hint = "↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close"
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close"
 	}
 	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
-	box := lipgloss.JoinVertical(lipgloss.Left,
-		titleRow,
-		"",
-		body,
-		"",
-		t.HintLabel.Render(hint),
-	)
-	modal := a.renderDefaultModalSurface(w, box)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	return scrollableDetailRender{modal: modal, scroll: win.scroll, window: win}
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   title,
+		buttons: buttons,
+		body:    body,
+		footer:  t.HintLabel.Render(hint),
+	})
+	return scrollableDetailRender{modal: rendered.modal, scroll: win.scroll, window: win}
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
