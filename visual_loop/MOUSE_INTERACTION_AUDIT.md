@@ -474,7 +474,9 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
    rendered as centered action-row chips while others are right-aligned header
    buttons. Back, close, cancel, apply, refresh, install, remove, and detach
    should use one visual/action model unless a modal has a strong reason to
-   differ.
+   differ. Current direction: header actions should be stable and right aligned
+   for mouse targets; centered chips should be reserved for rare primary
+   decisions that truly belong in the body.
 
 8. Copy/paste and terminal selection need an explicit design. With mouse mode
    enabled, paste into the input/compose textarea and copy from the conversation
@@ -486,11 +488,24 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
    sometimes break after only a few words while the modal still has room. Modal
    body rendering should prefer semantic wrapping with the actual inner width,
    avoid repeated command-name descriptions, and use available space for
-   meaningful metadata.
+   meaningful metadata. Tool catalogs in particular should not repeat the
+   command name as a description; the list view should stay dense and reserve
+   detail text for metadata that helps users choose or diagnose the tool.
 
 10. Header/footer global affordances are still keyboard-only. Mouse mode should
     expose clickable settings/help entry points in the top/right chrome or a
     similarly stable global location.
+
+11. TUI options/configuration controls need parity between keyboard and mouse.
+    Left/right adjustments, row selection, apply/save/cancel, and backward
+    navigation should all be addressable through visible mouse targets. Click
+    regions must match the rendered row positions; earlier language clicks were
+    observed selecting rows above the visible label.
+
+12. Copy semantics should be scoped, not terminal-frame dependent. Add a task
+    for transcript/detail copy blocks: selected message, selected tool result,
+    selected raw detail, and input textarea paste should work without copying
+    sidebar borders, divider glyphs, and footer text.
 
 ## Suggested Implementation Order For Later
 
@@ -515,6 +530,10 @@ Risk note: `quitConfirmOpen` blocks global click/wheel handlers.
 7. Add a copy-mode/copy-block design for conversation content so copying raw
    evidence, assistant text, tool summaries, and detail panes does not require
    selecting the entire terminal frame.
+
+8. Add top-chrome settings/help targets after the footer targets have proven
+   stable, so mouse users have a predictable global entry point even when the
+   footer is visually crowded.
 
 ## Implementation Record
 
@@ -559,3 +578,21 @@ Remaining follow-up candidates:
 - Richer LM config hit-testing for provider/model row clicks and save/auth
   buttons. The current pass at least prevents leaks and supports outside
   dismissal.
+
+### `codex/semantic-menu-interactions` follow-up
+
+Additional work continued from the same architectural direction:
+
+- Settings TUI option rows now register semantic targets for visible `left` and
+  `right` controls, so mouse clicks adjust the same values as keyboard arrows.
+- Text-entry style modals, MCP install/remove, and quit confirmation use shared
+  header actions for close/back/apply-style controls instead of mixing centered
+  body chips with header buttons.
+- Footer settings/help/command affordances register semantic hit targets when
+  they are visible. A future pass should add top-right chrome affordances too.
+- Tool catalog list rows were made denser by removing repeated command-name
+  descriptions from the list view; richer information remains in detail views.
+- Conversation wheel handling now routes through the rendered conversation body
+  region. Wheel events outside the transcript no longer move the transcript,
+  while wheel events over long transcript content scroll by visual lines and can
+  return to the true bottom.
