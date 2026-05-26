@@ -355,9 +355,20 @@ func (a *App) viewSettings() string {
 		height int
 		action uiHitAction
 	}
+	type arrowHit struct {
+		id     string
+		row    int
+		col    int
+		width  int
+		action uiHitAction
+	}
 	var rowHits []rowHit
+	var arrowHits []arrowHit
 	addRowHit := func(id string, row int, action uiHitAction) {
 		rowHits = append(rowHits, rowHit{id: id, row: row, height: 1, action: action})
+	}
+	addArrowHit := func(id string, row int, col int, width int, action uiHitAction) {
+		arrowHits = append(arrowHits, arrowHit{id: id, row: row, col: col, width: width, action: action})
 	}
 	addListHits := func(list modalListRender, rowOffset int) {
 		for _, hit := range list.hits {
@@ -584,11 +595,34 @@ func (a *App) viewSettings() string {
 			out = append(out, "")
 			return out
 		}
+		addTUIControlHits := func(id string, rowIdx int, row int, label string, value string) {
+			valueStart := 2 + lipgloss.Width(label) + 2
+			leftCol := valueStart
+			rightCol := valueStart + lipgloss.Width("◀ "+value+" ")
+			selectRow := func(app *App) {
+				if app.settings == nil {
+					app.settings = &settingsState{tab: 3}
+				}
+				app.settings.tuiRow = rowIdx
+			}
+			addArrowHit("settings:tui:"+id+":dec", row, leftCol, 3, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("left"))
+				return cmd
+			})
+			addArrowHit("settings:tui:"+id+":inc", row, rightCol, 3, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("right"))
+				return cmd
+			})
+		}
 
+		label := a.localizer.t(messageID("settings.tui.collapse_threshold"), nil)
+		value := itoa2(a.Theme.CollapseThreshold) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
 		row := len(rows)
 		rows = append(rows, editableRow(0,
-			a.localizer.t(messageID("settings.tui.collapse_threshold"), nil),
-			"◀ "+itoa2(a.Theme.CollapseThreshold)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))...)
 		addRowHit("settings:tui:collapse-threshold", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -596,10 +630,13 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("collapse-threshold", 0, row, label, value)
+		label = a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil)
+		value = humanTokens(a.Theme.CostWarnTokens)
 		row = len(rows)
 		rows = append(rows, editableRow(1,
-			a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil),
-			"◀ "+humanTokens(a.Theme.CostWarnTokens)+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))...)
 		addRowHit("settings:tui:cost-warn", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -607,10 +644,13 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("cost-warn", 1, row, label, value)
+		label = a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil)
+		value = humanTokens(a.Theme.CostDangerTokens)
 		row = len(rows)
 		rows = append(rows, editableRow(2,
-			a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil),
-			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))...)
 		addRowHit("settings:tui:cost-danger", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -618,15 +658,18 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("cost-danger", 2, row, label, value)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
 			pt = 3
 		}
+		label = a.localizer.t(messageID("settings.tui.paste_compress"), nil)
+		value = itoa2(pt) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
 		row = len(rows)
 		rows = append(rows, editableRow(3,
-			a.localizer.t(messageID("settings.tui.paste_compress"), nil),
-			"◀ "+itoa2(pt)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))...)
 		addRowHit("settings:tui:paste-compress", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -634,16 +677,19 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("paste-compress", 3, row, label, value)
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
 			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
 		} else {
 			introState = a.localizer.t(msgSettingsOff, nil) + " (" + a.localizer.t(messageID("settings.tui.show_splash"), nil) + ")"
 		}
+		label = a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil)
+		value = introState
 		row = len(rows)
 		rows = append(rows, editableRow(4,
-			a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil),
-			"◀ "+introState+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))...)
 		addRowHit("settings:tui:intro", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -651,15 +697,18 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("intro", 4, row, label, value)
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
 		if !a.MouseEnabled {
 			mouseState = a.localizer.t(msgSettingsOff, nil)
 		}
+		label = a.localizer.t(messageID("settings.tui.mouse_controls"), nil)
+		value = mouseState
 		row = len(rows)
 		rows = append(rows, editableRow(5,
-			a.localizer.t(messageID("settings.tui.mouse_controls"), nil),
-			"◀ "+mouseState+" ▶",
+			label,
+			"◀ "+value+" ▶",
 			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))...)
 		addRowHit("settings:tui:mouse", row, func(app *App) tea.Cmd {
 			if app.settings != nil {
@@ -667,6 +716,7 @@ func (a *App) viewSettings() string {
 			}
 			return nil
 		})
+		addTUIControlHits("mouse", 5, row, label, value)
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
@@ -747,6 +797,9 @@ func (a *App) viewSettings() string {
 	})
 	for _, hit := range rowHits {
 		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, 0, w-4, hit.height, hit.action)
+	}
+	for _, hit := range arrowHits {
+		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, hit.col, hit.width, 1, hit.action)
 	}
 	return rendered.modal
 }
