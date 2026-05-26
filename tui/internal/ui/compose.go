@@ -166,21 +166,16 @@ func (a *App) viewCompose() string {
 		},
 	}
 	textareaView := a.compose.ta.View()
-	rows := []string{
-		textareaView,
-		"",
-	}
-	buttonRow := strings.Count(textareaView, "\n") + 2
-	rows = append(rows, a.renderModalButtons(buttons, 0))
+	rows := []string{textareaView}
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:  w,
-		title:  title,
-		body:   body,
-		footer: footer,
+		width:   w,
+		title:   title,
+		buttons: buttons,
+		body:    body,
+		footer:  footer,
 	})
-	a.registerModalActionRow(rendered.modal, rendered.bodyRow+buttonRow, buttons)
 	return rendered.modal
 }
 
