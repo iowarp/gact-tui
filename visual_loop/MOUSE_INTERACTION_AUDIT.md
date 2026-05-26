@@ -38,7 +38,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   the end of the selected example.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
-- LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
+- LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, provider/model side rails, auth, save, and close.
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.
 - Palette command rows now avoid showing the command name again as the description; they prefer useful descriptions, then non-duplicate titles, then source fallback.
 - Scrollable modals now use a shared side rail/thumb instead of footer/title line-range text, and the catalog browser reuses that affordance instead of adding textual `above` / `more` rows.
@@ -506,10 +506,10 @@ Mouse support exists:
    adding new mouse behavior.
 
 3. Lists now have consistent hit-testing, wheel behavior, and shared rail-click
-   jump behavior for palette, catalog, file picker, workspace rows, and MCP
-   remove rows. Settings and LM provider/model lists share the same row/wheel
-   primitives and should use the same rail-click primitive when their columns
-   gain visible rails.
+   jump behavior for palette, catalog, file picker, workspace rows, MCP remove
+   rows, and LM provider/model columns. Settings uses the same row/wheel
+   primitives and should use the same rail-click primitive if its body gains a
+   visible rail.
 
 4. Text-entry modals now share a single-line editor policy for rename,
    context-add, MCP install, and provider configuration fields. Remaining work is
@@ -768,6 +768,9 @@ Additional work continued from the same architectural direction:
 - Shared selectable-list modal frames now register semantic side-rail click
   targets, so long palettes, catalogs, file pickers, workspace lists, and MCP
   removal lists can jump selection through the same rendered scroll affordance.
+- LM provider/model setup boxes now render side rails instead of textual
+  `more` rows and register semantic rail targets that jump provider/model
+  selection through the filtered list.
 
 ### 2026-05-26 user-observed follow-up queue
 

@@ -3996,6 +3996,21 @@ func findHitTargetForTest(a *App, id string) (uiHitTarget, bool) {
 	return uiHitTarget{}, false
 }
 
+func findLastHitTargetWithPrefixForTest(a *App, prefix string) (uiHitTarget, bool) {
+	if a.hits == nil {
+		return uiHitTarget{}, false
+	}
+	var got uiHitTarget
+	ok := false
+	for _, target := range a.hits.targets {
+		if strings.HasPrefix(target.id, prefix) {
+			got = target
+			ok = true
+		}
+	}
+	return got, ok
+}
+
 func TestPermissionBannerActionsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
