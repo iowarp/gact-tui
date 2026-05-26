@@ -109,8 +109,8 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
 		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
 		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick, wheel: a.handleSettingsMouseWheel},
-		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick, wheel: a.handleHelpMouseWheel},
-		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick, wheel: a.handlePaletteMouseWheel},
+		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick},
+		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick},
 	}
 }
 
@@ -229,16 +229,6 @@ func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.
 	return nil, true
 }
 
-func (a *App) handlePaletteMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	searchMode := a.isSearchMode()
-	rowCount := len(a.paletteMatches())
-	if searchMode {
-		rowCount = len(a.searchMatches)
-	}
-	a.paletteSel = moveSelectionByWheel(a.paletteSel, rowCount, m.Mouse().Button)
-	return nil, true
-}
-
 func (a *App) handlePaletteMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	return a.closeOverlayOnOutside(rect, mouse, a.closePalette)
 }
@@ -249,11 +239,6 @@ func (a *App) handleHelpMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bo
 		a.helpScroll = 0
 		return nil, true
 	}
-	return nil, true
-}
-
-func (a *App) handleHelpMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	a.helpScroll = moveScrollOffsetByWheel(a.helpScroll, m.Mouse().Button)
 	return nil, true
 }
 

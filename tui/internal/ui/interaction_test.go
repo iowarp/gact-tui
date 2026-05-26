@@ -745,10 +745,35 @@ func TestHelpOverlayUsesSharedBodyWindowAndMouseWheel(t *testing.T) {
 	}
 
 	before := a.helpScroll
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "help:body:wheel")
+	if !ok {
+		t.Fatal("missing semantic help body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 	if a.helpScroll >= before {
 		t.Fatalf("wheel up should reduce help scroll, before=%d after=%d", before, a.helpScroll)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "help:surface:wheel")
+	if !ok {
+		t.Fatal("missing help surface wheel blocker")
+	}
+	before = a.helpScroll
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+	if a.helpScroll != before {
+		t.Fatalf("wheel on help chrome should not scroll help, before=%d after=%d", before, a.helpScroll)
 	}
 }
 
@@ -1309,6 +1334,93 @@ func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
 	}
 	if _, ok := findHitTargetForTest(a, "palette:command:0"); ok {
 		t.Fatal("palette command window should not keep the first row target when selection moves down-list")
+	}
+}
+
+func TestPaletteMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.commands = []gact.Command{
+		{ID: "/alpha", Title: "Alpha", Source: "builtin"},
+		{ID: "/beta", Title: "Beta", Source: "builtin"},
+		{ID: "/gamma", Title: "Gamma", Source: "builtin"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "palette:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic palette list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.paletteSel != 1 {
+		t.Fatalf("wheel over palette list should move selection, got %d", a.paletteSel)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "palette:surface:wheel")
+	if !ok {
+		t.Fatal("missing palette surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.paletteSel != 1 {
+		t.Fatalf("wheel on palette chrome should not move selection, got %d", a.paletteSel)
+	}
+}
+
+func TestPaletteSearchMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "?needle"
+	a.searchMatches = []client.SearchMatch{
+		{MessageID: "msg_alpha", Snippet: "alpha needle"},
+		{MessageID: "msg_beta", Snippet: "beta needle"},
+		{MessageID: "msg_gamma", Snippet: "gamma needle"},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "palette:search:list:wheel")
+	if !ok {
+		t.Fatal("missing semantic palette search list wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.paletteSel != 1 {
+		t.Fatalf("wheel over palette search list should move selection, got %d", a.paletteSel)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "palette:surface:wheel")
+	if !ok {
+		t.Fatal("missing palette search surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.paletteSel != 1 {
+		t.Fatalf("wheel on palette search chrome should not move selection, got %d", a.paletteSel)
 	}
 }
 
