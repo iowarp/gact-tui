@@ -398,6 +398,54 @@ func TestDetailSectionsRenderConsistentFieldsAndBodies(t *testing.T) {
 	}
 }
 
+func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+
+	lines := []string{
+		"detail line 01",
+		"detail line 02",
+		"detail line 03",
+		"detail line 04",
+		"detail line 05",
+		"detail line 06",
+	}
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:   72,
+		title:   "Evidence",
+		content: strings.Join(lines, "\n"),
+		scroll:  99,
+		page:    3,
+		closeID: "detail:test-close",
+	})
+
+	if rendered.scroll != 3 {
+		t.Fatalf("scroll = %d, want max clamp 3", rendered.scroll)
+	}
+	if rendered.window.start != 3 || rendered.window.end != 6 || rendered.window.total != 6 {
+		t.Fatalf("window = %+v, want start 3 end 6 total 6", rendered.window)
+	}
+
+	plain := ansi.Strip(rendered.modal)
+	for _, want := range []string{
+		"Evidence  (line 4–6 of 6)",
+		"detail line 04",
+		"detail line 06",
+	} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("rendered modal missing %q:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "detail line 03") {
+		t.Fatalf("rendered modal included a line above the clamped window:\n%s", plain)
+	}
+	if _, ok := findHitTargetForTest(a, "button:detail:test-close"); !ok {
+		t.Fatalf("scrollable detail modal did not register close button hit target")
+	}
+}
+
 func TestDetailView_CtrlEOpensWithNewest(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody
