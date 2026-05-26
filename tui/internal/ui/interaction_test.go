@@ -3601,6 +3601,119 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestContextRowRightClickOpensSemanticActionMenu(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", WorkspaceID: "ws_default", Title: "demo"}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{
+		Path:     "docs/ARC_MEMORY_LAYER.md",
+		Mode:     "read",
+		Size:     2048,
+		Language: "markdown",
+	}}
+
+	_ = a.View()
+	rowTarget, ok := findHitTargetForTest(a, "sidebar:context:file:docs/ARC_MEMORY_LAYER.md")
+	if !ok {
+		t.Fatal("missing semantic context file row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rowTarget.rect.x,
+		Y:      rowTarget.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("context action menu open should not dispatch a command")
+	}
+	if !a.contextActionsOpen || a.contextFileSel != 0 || a.sidebarSectionFocus != sidebarSectionContext || a.sidebarSectionCursor {
+		t.Fatalf("right-click should select context row and open actions, open=%v sel=%d section=%v cursor=%v", a.contextActionsOpen, a.contextFileSel, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+
+	mu, copied, _ := withClipboardSpy(t)
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "context-actions:copy-path")
+	if !ok {
+		t.Fatal("missing context copy-path action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-path action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "docs/ARC_MEMORY_LAYER.md" {
+		t.Fatalf("copy-path wrote %q", gotCopy)
+	}
+	if a.contextActionsOpen || !strings.Contains(a.transientHint, "copied docs/ARC_MEMORY_LAYER.md") {
+		t.Fatalf("copy-path should close menu and surface hint, open=%v hint=%q", a.contextActionsOpen, a.transientHint)
+	}
+
+	_ = a.openContextActionsForIndex(0)
+	_ = a.View()
+	removeTarget, ok := findHitTargetForTest(a, "context-actions:remove")
+	if !ok {
+		t.Fatal("missing context remove action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      removeTarget.rect.x,
+		Y:      removeTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("remove action should dispatch backend command")
+	}
+	if a.contextActionsOpen {
+		t.Fatal("remove action should close context action menu")
+	}
+}
+
+func TestContextFileRemovedUpdatesVisibleContextRows(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo"}}
+	a.selected = 0
+	a.contextFileSel = 1
+	a.contextFiles = []gact.ContextFile{
+		{Path: "docs/first.md", Mode: "read"},
+		{Path: "docs/second.md", Mode: "read"},
+	}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{messageID: "context", partID: "docs/second.md", fullText: "stale"}
+
+	model, cmd := a.Update(contextFileRemovedMsg{sessionID: "sess_1", path: "docs/second.md"})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("context removal state update should not dispatch a command")
+	}
+	if len(a.contextFiles) != 1 || a.contextFiles[0].Path != "docs/first.md" {
+		t.Fatalf("context files not updated: %#v", a.contextFiles)
+	}
+	if a.contextFileSel != 0 {
+		t.Fatalf("contextFileSel = %d, want 0", a.contextFileSel)
+	}
+	if a.detailViewOpen || a.detailView != nil {
+		t.Fatal("removing the detailed file should close stale detail view")
+	}
+	if !strings.Contains(a.transientHint, "removed docs/second.md") {
+		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
 func TestContextHeaderUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

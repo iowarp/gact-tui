@@ -103,6 +103,11 @@ Mouse support exists:
 - Press `m` from sidebar focus to open the same action menu by keyboard.
 - Click session action rows for open, rename, add context, child visibility,
   copy id, archive/unarchive, and two-step delete.
+- Right-click a rendered context file row to open the shared context action
+  menu.
+- Press `m` on a selected context row to open the same action menu by keyboard.
+- Click context action rows for detail, copy path, copy structured metadata,
+  add another file, and backend-confirmed remove.
 
 ### Conversation Body
 
@@ -595,7 +600,8 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_mcp_install.tape`, `semantic_mcp_remove.tape`, and
   `semantic_palette.tape`.
 - Transcript/detail/context workflows: `semantic_context_detail.tape`,
-  `semantic_diff_actions.tape`, `semantic_conversation_footer_actions.tape`,
+  `semantic_context_actions.tape`, `semantic_diff_actions.tape`,
+  `semantic_conversation_footer_actions.tape`,
   `semantic_conversation_block_copy.tape`, and `semantic_detail_copy.tape`.
 - Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape`,
   `semantic_sidebar_footer_actions.tape`, and

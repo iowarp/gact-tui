@@ -432,6 +432,13 @@ type App struct {
 	sessionActionsOpen bool
 	sessionActionsSel  int
 
+	// Context action menu. Mirrors sessionActions for rendered context
+	// rows so file metadata/detail/copy/remove actions share the same
+	// selectable modal primitives instead of growing sidebar-specific
+	// coordinate branches.
+	contextActionsOpen bool
+	contextActionsSel  int
+
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
 	// /v1/sessions/{id}/context/files; Esc cancels.
@@ -1522,6 +1529,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
 
+	case contextFileRemovedMsg:
+		if m.err != nil {
+			a.transientHint = "remove failed: " + m.err.Error()
+			return a, nil
+		}
+		if a.currentSessionID() == m.sessionID {
+			filtered := a.contextFiles[:0]
+			for _, cf := range a.contextFiles {
+				if cf.Path != m.path {
+					filtered = append(filtered, cf)
+				}
+			}
+			a.contextFiles = filtered
+			a.clampContextFileSelection()
+			if a.detailViewOpen && a.detailView != nil && a.detailView.messageID == "context" && a.detailView.partID == m.path {
+				a.closeDetailView()
+			}
+		}
+		a.transientHint = "removed " + m.path + " from context"
+		return a, nil
+
 	case sessionArchivedMsg:
 		if m.err != nil {
 			// Soft-fail: J5 pattern. Keep the session in the sidebar;
@@ -2137,6 +2165,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.sessionActionsOpen {
 		return a.handleSessionActionsKey(k)
+	}
+	if a.contextActionsOpen {
+		return a.handleContextActionsKey(k)
 	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
@@ -3580,6 +3611,9 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.focus = FocusInput
 		return a, nil
 	case "m":
+		if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor {
+			return a, a.openContextActionsForIndex(a.contextFileSel)
+		}
 		return a, a.openSessionActionsForIndex(a.selected)
 	case "n":
 		if a.wsID != "" {
@@ -4124,14 +4158,21 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 	if a.hits == nil {
 		return
 	}
-	a.registerScreenHit("sidebar:context:file:"+cf.Path, sidebarContentRect(row, width), func(app *App) tea.Cmd {
-		app.focus = FocusSidebar
-		app.sidebarSectionFocus = sidebarSectionContext
-		app.sidebarSectionCursor = true
-		app.contextFileSel = index
-		app.openContextFileDetail(cf)
-		return nil
-	})
+	a.registerScreenHitActions(
+		"sidebar:context:file:"+cf.Path,
+		sidebarContentRect(row, width),
+		func(app *App) tea.Cmd {
+			app.focus = FocusSidebar
+			app.sidebarSectionFocus = sidebarSectionContext
+			app.sidebarSectionCursor = true
+			app.contextFileSel = index
+			app.openContextFileDetail(cf)
+			return nil
+		},
+		func(app *App) tea.Cmd {
+			return app.openContextActionsForIndex(index)
+		},
+	)
 }
 
 func (a *App) registerSidebarCountsHit(row int, width int) {
@@ -4153,6 +4194,18 @@ func sidebarContentRect(row int, width int) mouseRect {
 }
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) {
+	rows := a.contextFileDetailRows(cf)
+	a.detailView = &bulkyPartRef{
+		messageID: "context",
+		partID:    cf.Path,
+		title:     "Context file · " + shortContextPath(cf.Path),
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 	fileFields := []detailField{
 		{"path", cf.Path},
 		{"mode", contextModeDescription(cf.Mode)},
@@ -4199,14 +4252,7 @@ func (a *App) openContextFileDetail(cf gact.ContextFile) {
 		detailField{"o", "add another context file"},
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
-	a.detailView = &bulkyPartRef{
-		messageID: "context",
-		partID:    cf.Path,
-		title:     "Context file · " + shortContextPath(cf.Path),
-		fullText:  strings.Join(rows, "\n"),
-	}
-	a.detailViewOpen = true
-	a.detailScroll = 0
+	return rows
 }
 
 func contextModeDescription(mode string) string {
@@ -6399,6 +6445,9 @@ func (a *App) viewMain() string {
 	}
 	if a.sessionActionsOpen {
 		base = overlay(base, a.viewSessionActions(), a.width, a.height)
+	}
+	if a.contextActionsOpen {
+		base = overlay(base, a.viewContextActions(), a.width, a.height)
 	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
