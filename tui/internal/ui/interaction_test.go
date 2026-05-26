@@ -478,6 +478,71 @@ func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestFooterSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusInput
+
+	_ = a.View()
+	settingsTarget, ok := findHitTargetForTest(a, "footer:settings")
+	if !ok {
+		t.Fatal("missing visible footer settings hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      settingsTarget.rect.x,
+		Y:      settingsTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.settingsOpen || a.settings == nil {
+		t.Fatalf("footer settings click should open settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if cmd == nil {
+		t.Fatal("footer settings click should dispatch settings load command")
+	}
+
+	a.settingsOpen = false
+	a.settings = nil
+	_ = a.View()
+	helpTarget, ok := findHitTargetForTest(a, "footer:help")
+	if !ok {
+		t.Fatal("missing visible footer help hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      helpTarget.rect.x,
+		Y:      helpTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer help click should not dispatch a command")
+	}
+	if !a.helpOpen || a.helpTab != 0 || a.helpScroll != 0 {
+		t.Fatalf("footer help click should open help from first tab, open=%v tab=%d scroll=%d", a.helpOpen, a.helpTab, a.helpScroll)
+	}
+
+	a.helpOpen = false
+	_ = a.View()
+	commandTarget, ok := findHitTargetForTest(a, "footer:command")
+	if !ok {
+		t.Fatal("missing visible footer command hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      commandTarget.rect.x,
+		Y:      commandTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("footer command click should not dispatch a command")
+	}
+	if !a.paletteOpen || a.paletteFilter != "" || a.paletteSel != 0 {
+		t.Fatalf("footer command click should open command palette, open=%v filter=%q sel=%d", a.paletteOpen, a.paletteFilter, a.paletteSel)
+	}
+}
+
 func TestSettingsCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

@@ -6626,11 +6626,48 @@ func (a *App) renderFooter() string {
 	if gap < 1 {
 		gap = 1
 	}
-	return lipgloss.NewStyle().
+	rendered := lipgloss.NewStyle().
 		Width(a.width).Background(t.BgSubtle).Foreground(t.FgMuted).
 		Padding(0, 1).Render(
 		left + "  " + hintLine + strings.Repeat(" ", gap) + right,
 	)
+	a.registerFooterActionHits(rendered)
+	return rendered
+}
+
+func (a *App) registerFooterActionHits(rendered string) {
+	if a.height <= 0 {
+		return
+	}
+	plain := ansi.Strip(rendered)
+	y := a.height - 1
+	a.registerFooterActionHit(plain, y, "footer:settings", "Ctrl+S", a.localizer.t(msgFooterSettings, nil), func(app *App) tea.Cmd {
+		app.settingsOpen = true
+		app.settings = &settingsState{}
+		app.seedSettingsSelections()
+		return loadSettingsCmd(app.c)
+	})
+	a.registerFooterActionHit(plain, y, "footer:command", "/", a.localizer.t(msgFooterCommand, nil), func(app *App) tea.Cmd {
+		app.paletteOpen = true
+		app.paletteFilter = ""
+		app.paletteSel = 0
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:help", "?", a.localizer.t(msgFooterHelp, nil), func(app *App) tea.Cmd {
+		app.helpOpen = true
+		app.helpTab = 0
+		app.helpScroll = 0
+		return nil
+	})
+}
+
+func (a *App) registerFooterActionHit(plain string, y int, id string, key string, label string, action uiHitAction) {
+	target := key + " " + label
+	col := strings.Index(plain, target)
+	if col < 0 {
+		return
+	}
+	a.registerScreenHit(id, mouseRect{x: col, y: y, w: lipgloss.Width(target), h: 1}, action)
 }
 
 func (a *App) footerContextHintVariants(mk func(string, string) string) [][]string {
