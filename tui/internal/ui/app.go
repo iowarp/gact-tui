@@ -8126,21 +8126,18 @@ func (a *App) viewPalette() string {
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:              w,
-		title:              a.localizer.t(msgPaletteCommandsTitle, nil),
-		buttons:            buttons,
-		suppressButtonHits: true,
-		body:               body,
-	})
-	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
+	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
+		width:   w,
+		title:   a.localizer.t(msgPaletteCommandsTitle, nil),
+		buttons: buttons,
+		body:    body,
+	}, "palette")
 	if len(listItems) > 0 {
 		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
 			return nil
 		})
 	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 
@@ -8206,21 +8203,18 @@ func (a *App) viewPaletteSearch(w int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:              w,
-		title:              a.localizer.t(msgPaletteSearchTitle, nil),
-		buttons:            buttons,
-		suppressButtonHits: true,
-		body:               body,
-	})
-	a.registerModalSurfaceAndBodyWheel(rendered, "palette", 0, nil)
+	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
+		width:   w,
+		title:   a.localizer.t(msgPaletteSearchTitle, nil),
+		buttons: buttons,
+		body:    body,
+	}, "palette")
 	if len(list.hits) > 0 && listStartRow >= 0 {
 		a.registerModalListRegion(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list, "palette:search:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
 			return nil
 		})
 	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 

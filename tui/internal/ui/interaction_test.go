@@ -74,6 +74,59 @@ func TestRenderModalHeaderKeepsActionButtonsReachable(t *testing.T) {
 	}
 }
 
+func TestModalFrameWithSurfaceLayerKeepsHeaderControlsReachable(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	closed := false
+	tabbed := false
+	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
+		width: 42,
+		title: "Layered Modal",
+		buttons: []menuButton{{
+			id:    "layered:close",
+			label: "close",
+			action: func(*App) tea.Cmd {
+				closed = true
+				return nil
+			},
+		}},
+		tabs: []menuTab{{
+			id:     "layered-tab",
+			label:  "Tab",
+			active: true,
+			action: func(*App) tea.Cmd {
+				tabbed = true
+				return nil
+			},
+		}},
+		body: "body",
+	}, "layered")
+
+	if _, ok := findHitTargetForTest(a, "layered:surface"); !ok {
+		t.Fatal("layered frame should register an opaque modal surface")
+	}
+	closeTarget, ok := findHitTargetForTest(a, "button:layered:close")
+	if !ok {
+		t.Fatal("layered frame should register header buttons above the surface")
+	}
+	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y); !handled || !closed {
+		t.Fatalf("layered close button should remain clickable above surface target, handled=%v closed=%v", handled, closed)
+	}
+	tabTarget, ok := findHitTargetForTest(a, "tab:layered-tab")
+	if !ok {
+		t.Fatal("layered frame should register tabs above the surface")
+	}
+	if _, handled := a.activateHitAt(tabTarget.rect.x, tabTarget.rect.y); !handled || !tabbed {
+		t.Fatalf("layered tab should remain clickable above surface target, handled=%v tabbed=%v", handled, tabbed)
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	if _, handled := a.activateHitAt(rect.x+1, rect.y+1); !handled {
+		t.Fatal("non-control click inside layered modal should be absorbed by the surface")
+	}
+}
+
 func TestModalFrameHeaderButtonsAreUnselectedByDefault(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	buttons := []menuButton{{

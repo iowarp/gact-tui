@@ -642,3 +642,7 @@ Additional work continued from the same architectural direction:
 - Detail/raw-evidence modals now render through the shared scrollable modal
   frame, so range hints, body wheel regions, and close/back button layering use
   the same primitive as help, doctor, and metrics.
+- Layered modal surfaces now have a shared frame helper that registers the
+  click-absorbing surface before re-registering header tabs/buttons above it.
+  The command palette and message-search palette use this instead of manually
+  suppressing and re-adding close button hit targets.

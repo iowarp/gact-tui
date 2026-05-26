@@ -331,6 +331,28 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol, tabRow: tabRow}
 }
 
+func (a *App) renderModalFrameWithSurfaceLayer(opts modalFrameOptions, surfaceID string) modalFrameRender {
+	registerButtons := !opts.suppressButtonHits
+	registerTabs := !opts.suppressTabHits
+	buttons := opts.buttons
+	tabs := opts.tabs
+	tabPadding := opts.tabPadding
+	tabSpacing := opts.tabSpacing
+	opts.suppressButtonHits = true
+	opts.suppressTabHits = true
+	rendered := a.renderModalFrameWithLayout(opts)
+	if surfaceID != "" {
+		a.registerModalSurfaceAndBodyWheel(rendered, surfaceID, 0, nil)
+	}
+	if rendered.tabRow >= 0 && registerTabs {
+		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, tabPadding, tabSpacing)
+	}
+	if registerButtons {
+		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
+	}
+	return rendered
+}
+
 func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrollableModalFrameRender {
 	windowed := windowModalBody(opts.content, opts.pageSize, opts.scroll)
 	frame := opts.frame
