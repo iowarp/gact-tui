@@ -2027,7 +2027,7 @@ func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
-func TestQuitConfirmButtonsAlignWithSharedFrameBody(t *testing.T) {
+func TestQuitConfirmButtonsAlignWithSharedHeader(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
 	a.height = 30
@@ -2042,18 +2042,8 @@ func TestQuitConfirmButtonsAlignWithSharedFrameBody(t *testing.T) {
 	}
 	view := a.viewQuitConfirm()
 	rect := overlayMouseRect(view, a.width, a.height)
-	buttonLine := -1
-	for i, line := range strings.Split(stripANSI(view), "\n") {
-		if strings.Contains(line, "close") && strings.Contains(line, "no") && strings.Contains(line, "detach") {
-			buttonLine = i
-			break
-		}
-	}
-	if buttonLine < 0 {
-		t.Fatalf("could not find visible quit action row in:\n%s", stripANSI(view))
-	}
-	if wantY := rect.y + buttonLine; target.rect.y != wantY {
-		t.Fatalf("quit no button y = %d, want visible action row %d", target.rect.y, wantY)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("quit no button y = %d, want shared frame header row %d", target.rect.y, wantY)
 	}
 }
 
@@ -2364,6 +2354,25 @@ func TestMcpRemoveCancelButtonUsesSharedCloseState(t *testing.T) {
 	}
 }
 
+func TestMcpRemoveButtonsAlignWithSharedHeader(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveOptions = []gact.McpServer{{ID: "srv_one", Name: "one", Transport: "stdio"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:mcp-remove:cancel")
+	if !ok {
+		t.Fatal("missing semantic MCP remove cancel button target")
+	}
+	rect := overlayMouseRect(a.viewMcpRemove(), a.width, a.height)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("MCP remove cancel button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
 func TestMcpInstallButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -2389,6 +2398,25 @@ func TestMcpInstallButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.mcpInstallErr == "" {
 		t.Fatal("invalid install click should surface parse error")
+	}
+}
+
+func TestMcpInstallButtonsAlignWithSharedHeader(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "bad"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:mcp-install:install")
+	if !ok {
+		t.Fatal("missing semantic MCP install button target")
+	}
+	rect := overlayMouseRect(a.viewMcpInstall(), a.width, a.height)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("MCP install button y = %d, want shared frame header row %d", target.rect.y, wantY)
 	}
 }
 
