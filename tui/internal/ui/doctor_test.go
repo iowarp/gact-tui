@@ -129,8 +129,11 @@ func TestDoctorCapabilitiesUseBoundedScrollWindow(t *testing.T) {
 	if strings.Contains(out, "agent_write") || strings.Contains(out, "skills_extraction") {
 		t.Fatalf("short doctor modal should window long capability list:\n%s", out)
 	}
-	if !strings.Contains(out, "1-") {
-		t.Fatalf("windowed doctor modal should advertise line range:\n%s", out)
+	if strings.Contains(out, "1-") {
+		t.Fatalf("windowed doctor modal should not advertise numeric line range:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("windowed doctor modal should show a side scroll indicator:\n%s", out)
 	}
 
 	a.doctor.scroll = 1 << 30
@@ -154,8 +157,11 @@ func TestDoctorModalHeightLeavesFooterGutter(t *testing.T) {
 	if renderedHeight > a.height-2 {
 		t.Fatalf("doctor modal height = %d, want <= %d\n%s", renderedHeight, a.height-2, out)
 	}
-	if !strings.Contains(out, "1-") {
-		t.Fatalf("bounded doctor capabilities should advertise visible line range:\n%s", out)
+	if strings.Contains(out, "1-") {
+		t.Fatalf("bounded doctor capabilities should not advertise numeric line range:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("bounded doctor capabilities should show a side scroll indicator:\n%s", out)
 	}
 }
 

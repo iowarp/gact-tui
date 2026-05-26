@@ -75,8 +75,11 @@ func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 	if strings.Contains(out, "route-11") || strings.Contains(out, "route-12") {
 		t.Fatalf("short metrics modal should window long body:\n%s", out)
 	}
-	if !strings.Contains(out, "1-") {
-		t.Fatalf("windowed metrics modal should advertise line range:\n%s", out)
+	if strings.Contains(out, "1-") {
+		t.Fatalf("windowed metrics modal should not advertise numeric line range:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("windowed metrics modal should show a side scroll indicator:\n%s", out)
 	}
 
 	a.metrics.scroll = 1 << 30

@@ -552,13 +552,17 @@ func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
 
 	plain := ansi.Strip(rendered.modal)
 	for _, want := range []string{
-		"Evidence  (line 4–6 of 6)",
+		"Evidence",
 		"detail line 04",
 		"detail line 06",
+		"┃",
 	} {
 		if !strings.Contains(plain, want) {
 			t.Fatalf("rendered modal missing %q:\n%s", want, plain)
 		}
+	}
+	if strings.Contains(plain, "line 4") || strings.Contains(plain, "of 6") {
+		t.Fatalf("rendered modal should use the side scroll indicator instead of title range text:\n%s", plain)
 	}
 	if strings.Contains(plain, "detail line 03") {
 		t.Fatalf("rendered modal included a line above the clamped window:\n%s", plain)

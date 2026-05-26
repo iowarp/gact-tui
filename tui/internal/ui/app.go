@@ -8245,7 +8245,7 @@ func (a *App) viewPaletteSearch(w int) string {
 		rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteCloseHint, nil)))
 	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.paletteBodyPageSize())
 	rendered := a.renderModalFrameWithSurfaceLayer(modalFrameOptions{
 		width:   w,
 		title:   a.localizer.t(msgPaletteSearchTitle, nil),
