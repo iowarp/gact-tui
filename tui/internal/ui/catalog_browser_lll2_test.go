@@ -679,6 +679,75 @@ func TestToolSummaryOmitsRepeatedCommandDescription(t *testing.T) {
 	}
 }
 
+func TestToolCatalogDescriptionUsesOperationalMetadata(t *testing.T) {
+	got := toolCatalogDescription(gact.Tool{
+		ID:                "parquet_compute_statistics",
+		Name:              "parquet_compute_statistics",
+		Description:       "Compute summary statistics for one Parquet column.\n\nAgent story: use this after schema inspection.",
+		PermissionDefault: "ask",
+		Owner:             "analysis",
+		Tags:              []string{"parquet", "statistics", "tabular", "science"},
+		VisibleTo:         []string{"analysis", "planner"},
+		InputSchema: map[string]any{
+			"properties": map[string]any{
+				"filepath": map[string]any{"type": "string"},
+				"column":   map[string]any{"type": "string"},
+				"limit":    map[string]any{"type": "integer"},
+				"method":   map[string]any{"type": "string"},
+				"sample":   map[string]any{"type": "integer"},
+			},
+		},
+	})
+
+	for _, want := range []string{
+		"owner: analysis",
+		"permission: ask",
+		"inputs: column, filepath, +3 more",
+		"tags: parquet",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("tool catalog description missing %q: %q", want, got)
+		}
+	}
+	if strings.Contains(got, "Agent story") {
+		t.Fatalf("catalog summary should omit long agent-story prose: %q", got)
+	}
+	if strings.Contains(got, "Compute summary statistics") {
+		t.Fatalf("catalog summary should prefer operational metadata over prose when metadata exists: %q", got)
+	}
+}
+
+func TestToolCatalogDescriptionOmitsRepeatedCommandName(t *testing.T) {
+	got := toolCatalogDescription(gact.Tool{
+		ID:                "parquet_compute_statistics",
+		Name:              "parquet_compute_statistics",
+		Description:       "parquet_compute_statistics",
+		PermissionDefault: "ask",
+		Owner:             "analysis",
+	})
+
+	if strings.Contains(got, "parquet_compute_statistics") {
+		t.Fatalf("catalog description should omit repeated command-name description: %q", got)
+	}
+	for _, want := range []string{"owner: analysis", "permission: ask"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("tool catalog description missing fallback metadata %q: %q", want, got)
+		}
+	}
+}
+
+func TestToolCatalogDescriptionUsesPurposeWhenMetadataMissing(t *testing.T) {
+	got := toolCatalogDescription(gact.Tool{
+		ID:          "fetch_url",
+		Name:        "fetch_url",
+		Description: "Fetch a URL and return its response body.\n\nAgent story: useful for docs.",
+	})
+
+	if got != "Fetch a URL and return its response body." {
+		t.Fatalf("fallback purpose = %q", got)
+	}
+}
+
 func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
 	for _, kind := range []catalogBrowserKind{catalogKindMcpDetail, catalogKindAgentDetail} {
 		a := newReadyApp(nil, nil)

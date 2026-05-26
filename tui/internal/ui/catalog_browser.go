@@ -181,7 +181,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 					status = tl.ServerID
 				}
 				items = append(items, catalogItem{
-					id: tl.Name, title: tl.Name, statusTag: status,
+					id: tl.Name, title: tl.Name, desc: toolCatalogDescription(tl), statusTag: status,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -702,10 +702,14 @@ func (a *App) viewCatalogBrowser() string {
 			},
 		})
 	}
+	descriptionLines := 2
+	if a.catalogBrowser.kind == catalogKindTools {
+		descriptionLines = 1
+	}
 	list := a.renderModalList(listItems, modalListOptions{
 		width:            w - 4,
 		rowBudget:        catalogBrowserRowBudget * 2,
-		descriptionLines: 2,
+		descriptionLines: descriptionLines,
 	})
 	listStartRow := len(rows)
 	rows = append(rows, list.rows...)
@@ -997,6 +1001,67 @@ func toolSummary(tool gact.Tool) string {
 		parts = append(parts, "visible to: "+strings.Join(tool.VisibleTo, ", "))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func toolCatalogDescription(tool gact.Tool) string {
+	parts := make([]string, 0, 6)
+	if tool.Owner != "" {
+		parts = append(parts, "owner: "+tool.Owner)
+	}
+	if tool.PermissionDefault != "" {
+		parts = append(parts, "permission: "+tool.PermissionDefault)
+	}
+	if fields := schemaFieldNames(tool.InputSchema, 2); len(fields) > 0 {
+		parts = append(parts, "inputs: "+strings.Join(fields, ", "))
+	}
+	if len(tool.Tags) > 0 {
+		parts = append(parts, "tags: "+strings.Join(limitStrings(tool.Tags, 1), ", "))
+	}
+	if len(parts) == 0 {
+		if desc := toolPurposeSummary(tool); desc != "" {
+			parts = append(parts, desc)
+		}
+	}
+	return truncate(strings.Join(parts, " · "), 88)
+}
+
+func toolPurposeSummary(tool gact.Tool) string {
+	desc := strings.TrimSpace(tool.Description)
+	if desc == "" || toolDescriptionRepeatsName(desc, tool) {
+		return ""
+	}
+	for _, marker := range []string{"\n\n", "\nAgent story:", "Agent story:"} {
+		if idx := strings.Index(desc, marker); idx >= 0 {
+			desc = strings.TrimSpace(desc[:idx])
+		}
+	}
+	return compactCatalogText(desc)
+}
+
+func schemaFieldNames(schema map[string]any, limit int) []string {
+	if limit < 1 {
+		limit = 1
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok || len(props) == 0 {
+		return nil
+	}
+	names := sortedAnyMapKeys(props)
+	if len(names) <= limit {
+		return names
+	}
+	out := append([]string(nil), names[:limit]...)
+	out = append(out, fmt.Sprintf("+%d more", len(names)-limit))
+	return out
+}
+
+func limitStrings(values []string, limit int) []string {
+	if limit < 1 || len(values) <= limit {
+		return values
+	}
+	out := append([]string(nil), values[:limit]...)
+	out = append(out, fmt.Sprintf("+%d more", len(values)-limit))
+	return out
 }
 
 func toolDescriptionRepeatsName(desc string, tool gact.Tool) bool {
