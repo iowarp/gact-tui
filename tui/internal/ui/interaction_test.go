@@ -316,6 +316,7 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	a.height = 36
 	a.beginHitFrame()
 	wheeled := false
+	closed := false
 	hintStyle := a.Theme.HintLabel
 
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
@@ -323,11 +324,19 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 			width: 60,
 			title: "Scrollable",
 			buttons: []menuButton{{
-				id:     "scrollable:close",
-				label:  "close",
+				id:    "scrollable:close",
+				label: "close",
+				action: func(*App) tea.Cmd {
+					closed = true
+					return nil
+				},
+			}},
+			tabs: []menuTab{{
+				id:     "scrollable-tab",
+				label:  "Tab",
+				active: true,
 				action: func(*App) tea.Cmd { return nil },
 			}},
-			suppressButtonHits: true,
 		},
 		content:     strings.Join([]string{"zero", "one", "two", "three"}, "\n"),
 		pageSize:    2,
@@ -357,6 +366,16 @@ func TestScrollableModalFrameRegistersBodyWheelAndPersistsWindow(t *testing.T) {
 	}
 	if _, handled := a.activateWheelHitAt(target.rect.x, target.rect.y, tea.MouseWheelDown); !handled || !wheeled {
 		t.Fatalf("shared scroll wheel target not activated, handled=%v wheeled=%v", handled, wheeled)
+	}
+	if _, ok := findHitTargetForTest(a, "button:scrollable:close"); !ok {
+		t.Fatal("scrollable modal frame should register header buttons after wheel surface targets")
+	}
+	closeTarget, _ := findHitTargetForTest(a, "button:scrollable:close")
+	if _, handled := a.activateHitAt(closeTarget.rect.x, closeTarget.rect.y); !handled || !closed {
+		t.Fatalf("scrollable modal close button should remain clickable above surface target, handled=%v closed=%v", handled, closed)
+	}
+	if _, ok := findHitTargetForTest(a, "tab:scrollable-tab"); !ok {
+		t.Fatal("scrollable modal frame should register tab targets after wheel surface targets")
 	}
 }
 

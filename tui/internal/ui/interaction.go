@@ -230,6 +230,7 @@ type modalFrameOptions struct {
 	buttonSelected     int
 	buttonSelection    bool
 	suppressButtonHits bool
+	suppressTabHits    bool
 	tabs               []menuTab
 	tabPadding         int
 	tabSpacing         int
@@ -315,7 +316,7 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if !opts.suppressButtonHits {
 		a.registerModalButtons(modal, 0, buttonCol, opts.buttons)
 	}
-	if tabRow >= 0 {
+	if tabRow >= 0 && !opts.suppressTabHits {
 		a.registerModalTabsWithLayout(modal, tabRow, opts.tabs, opts.tabPadding, opts.tabSpacing)
 	}
 	return modalFrameRender{modal: modal, bodyRow: bodyRow, footerRow: footerRow, buttonCol: buttonCol, tabRow: tabRow}
@@ -324,6 +325,14 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrollableModalFrameRender {
 	windowed := windowModalBody(opts.content, opts.pageSize, opts.scroll)
 	frame := opts.frame
+	registerButtons := !frame.suppressButtonHits
+	registerTabs := !frame.suppressTabHits
+	buttons := frame.buttons
+	tabs := frame.tabs
+	tabPadding := frame.tabPadding
+	tabSpacing := frame.tabSpacing
+	frame.suppressButtonHits = true
+	frame.suppressTabHits = true
 	frame.body = windowed.body
 	if opts.footerHint != "" {
 		footer := modalRangeHint(windowed.window, opts.footerHint)
@@ -336,6 +345,12 @@ func (a *App) renderScrollableModalFrame(opts scrollableModalFrameOptions) scrol
 	if opts.wheelID != "" {
 		bodyRows := maxInt(1, strings.Count(windowed.body, "\n")+1)
 		a.registerModalSurfaceAndBodyWheel(rendered, opts.wheelID, bodyRows, opts.wheelAction)
+	}
+	if rendered.tabRow >= 0 && registerTabs {
+		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, tabPadding, tabSpacing)
+	}
+	if registerButtons {
+		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	}
 	return scrollableModalFrameRender{modalFrameRender: rendered, window: windowed.window}
 }
