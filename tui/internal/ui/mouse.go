@@ -104,7 +104,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick},
 		{open: a.contextAddOpen, view: a.viewContextAdd, click: a.handleContextAddMouseClick},
 		{open: a.renameOpen, view: a.viewRename, click: a.handleRenameMouseClick},
-		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, click: a.handleWorkspaceSwitchMouseClick, wheel: a.handleWorkspaceSwitchMouseWheel},
+		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, click: a.handleWorkspaceSwitchMouseClick},
 		{open: a.lmConfigOpen, view: a.viewLMConfig, click: a.handleLMConfigMouseClick},
 		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
 		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
@@ -206,14 +206,6 @@ func (a *App) closeOverlayOnOutside(rect mouseRect, mouse tea.Mouse, close func(
 
 func (a *App) handleDetailMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	return a.closeOverlayOnOutside(rect, mouse, a.closeDetailView)
-}
-
-func (a *App) handleWorkspaceSwitchMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if len(a.workspaces) == 0 {
-		return nil, true
-	}
-	a.workspaceSwitchSel = moveSelectionByWheel(a.workspaceSwitchSel, len(a.workspaces), m.Mouse().Button)
-	return nil, true
 }
 
 func (a *App) handleWorkspaceSwitchMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
