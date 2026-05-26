@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -588,10 +589,8 @@ func (a *App) viewSettings() string {
 			out = append(out, "")
 			return out
 		}
-		addTUIControlHits := func(id string, rowIdx int, row int, label string, value string) {
-			valueStart := 2 + lipgloss.Width(label) + 2
-			leftCol := valueStart
-			rightCol := valueStart + lipgloss.Width("◀ "+value+" ")
+		addTUIControlHits := func(id string, rowIdx int, row int, renderedLine string) {
+			plain := ansi.Strip(renderedLine)
 			selectRow := func(app *App) {
 				if app.settings == nil {
 					app.settings = &settingsState{tab: 3}
@@ -602,16 +601,22 @@ func (a *App) viewSettings() string {
 				selectRow(app)
 				return nil
 			})
-			addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, leftCol-1), 4, func(app *App) tea.Cmd {
-				selectRow(app)
-				_, cmd := app.handleSettingsKey(keyMsg("left"))
-				return cmd
-			})
-			addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, rightCol-1), 4, func(app *App) tea.Cmd {
-				selectRow(app)
-				_, cmd := app.handleSettingsKey(keyMsg("right"))
-				return cmd
-			})
+			if leftIdx := strings.Index(plain, "◀"); leftIdx >= 0 {
+				leftCol := lipgloss.Width(plain[:leftIdx])
+				addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, leftCol-1), 3, func(app *App) tea.Cmd {
+					selectRow(app)
+					_, cmd := app.handleSettingsKey(keyMsg("left"))
+					return cmd
+				})
+			}
+			if rightIdx := strings.LastIndex(plain, "▶"); rightIdx >= 0 {
+				rightCol := lipgloss.Width(plain[:rightIdx])
+				addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, rightCol-1), 3, func(app *App) tea.Cmd {
+					selectRow(app)
+					_, cmd := app.handleSettingsKey(keyMsg("right"))
+					return cmd
+				})
+			}
 		}
 		addTUIRowHit := func(id string, rowIdx int, row int, block []string) {
 			addRowHitHeight("settings:tui:"+id, row, maxInt(1, len(block)-1), func(app *App) tea.Cmd {
@@ -631,7 +636,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("collapse-threshold", 0, row, block)
-		addTUIControlHits("collapse-threshold", 0, row, label, value)
+		addTUIControlHits("collapse-threshold", 0, row, block[0])
 		label = a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil)
 		value = humanTokens(a.Theme.CostWarnTokens)
 		row = len(rows)
@@ -641,7 +646,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("cost-warn", 1, row, block)
-		addTUIControlHits("cost-warn", 1, row, label, value)
+		addTUIControlHits("cost-warn", 1, row, block[0])
 		label = a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil)
 		value = humanTokens(a.Theme.CostDangerTokens)
 		row = len(rows)
@@ -651,7 +656,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("cost-danger", 2, row, block)
-		addTUIControlHits("cost-danger", 2, row, label, value)
+		addTUIControlHits("cost-danger", 2, row, block[0])
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
@@ -666,7 +671,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("paste-compress", 3, row, block)
-		addTUIControlHits("paste-compress", 3, row, label, value)
+		addTUIControlHits("paste-compress", 3, row, block[0])
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
 			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
@@ -682,7 +687,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("intro", 4, row, block)
-		addTUIControlHits("intro", 4, row, label, value)
+		addTUIControlHits("intro", 4, row, block[0])
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
 		if !a.MouseEnabled {
@@ -697,7 +702,7 @@ func (a *App) viewSettings() string {
 			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))
 		rows = append(rows, block...)
 		addTUIRowHit("mouse", 5, row, block)
-		addTUIControlHits("mouse", 5, row, label, value)
+		addTUIControlHits("mouse", 5, row, block[0])
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))

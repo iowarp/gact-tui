@@ -163,6 +163,36 @@ func TestModalFrameCanExplicitlyHighlightHeaderButton(t *testing.T) {
 	}
 }
 
+func TestModalButtonsHaveVisibleSpacingAndMatchingHitBoxes(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	buttons := []menuButton{
+		{id: "sample:close", label: "close", action: func(*App) tea.Cmd { return nil }},
+		{id: "sample:save", label: "save", action: func(*App) tea.Cmd { return nil }},
+	}
+
+	row := ansi.Strip(a.renderModalButtons(buttons, -1))
+	if !strings.Contains(row, "close") || !strings.Contains(row, "save") || strings.Contains(row, "closesave") {
+		t.Fatalf("button row should visibly separate adjacent buttons: %q", row)
+	}
+
+	a.beginHitFrame()
+	modal := a.renderDefaultModalSurface(48, row)
+	a.registerModalActionRow(modal, 0, buttons)
+	closeTarget, ok := findHitTargetForTest(a, "button:sample:close")
+	if !ok {
+		t.Fatal("missing close target")
+	}
+	saveTarget, ok := findHitTargetForTest(a, "button:sample:save")
+	if !ok {
+		t.Fatal("missing save target")
+	}
+	if got := saveTarget.rect.x - (closeTarget.rect.x + closeTarget.rect.w); got != modalButtonSpacing {
+		t.Fatalf("button hit gap = %d, want %d", got, modalButtonSpacing)
+	}
+}
+
 func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -1094,15 +1124,41 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 	a.MouseEnabled = true
 
 	cases := []struct {
-		rowID string
-		incID string
-		want  int
+		rowID  string
+		incID  string
+		want   int
+		assert func(*testing.T, *App)
 	}{
-		{rowID: "settings:tui:cost-warn", incID: "settings:tui:cost-warn:inc", want: 1},
-		{rowID: "settings:tui:cost-danger", incID: "settings:tui:cost-danger:inc", want: 2},
-		{rowID: "settings:tui:paste-compress", incID: "settings:tui:paste-compress:inc", want: 3},
-		{rowID: "settings:tui:intro", incID: "settings:tui:intro:inc", want: 4},
-		{rowID: "settings:tui:mouse", incID: "settings:tui:mouse:inc", want: 5},
+		{rowID: "settings:tui:cost-warn", incID: "settings:tui:cost-warn:inc", want: 1, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostWarnTokens != 50_000+costStep {
+				t.Fatalf("cost warn inc = %d, want %d", app.Theme.CostWarnTokens, 50_000+costStep)
+			}
+		}},
+		{rowID: "settings:tui:cost-danger", incID: "settings:tui:cost-danger:inc", want: 2, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostDangerTokens != 100_000+costStep {
+				t.Fatalf("cost danger inc = %d, want %d", app.Theme.CostDangerTokens, 100_000+costStep)
+			}
+		}},
+		{rowID: "settings:tui:paste-compress", incID: "settings:tui:paste-compress:inc", want: 3, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.PasteCompressThreshold != 4 {
+				t.Fatalf("paste compress inc = %d, want 4", app.Theme.PasteCompressThreshold)
+			}
+		}},
+		{rowID: "settings:tui:intro", incID: "settings:tui:intro:inc", want: 4, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if !app.IntroDisabled {
+				t.Fatal("intro inc should toggle IntroDisabled on")
+			}
+		}},
+		{rowID: "settings:tui:mouse", incID: "settings:tui:mouse:inc", want: 5, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.MouseEnabled {
+				t.Fatal("mouse inc should toggle MouseEnabled off")
+			}
+		}},
 	}
 	for _, tc := range cases {
 		a.MouseEnabled = true
@@ -1135,6 +1191,7 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 		if a.settings == nil || a.settings.tuiRow != tc.want || !a.settingsOpen {
 			t.Fatalf("%s click should keep row selected/open, settings=%+v open=%v", tc.incID, a.settings, a.settingsOpen)
 		}
+		tc.assert(t, a)
 	}
 }
 

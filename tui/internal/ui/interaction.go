@@ -11,6 +11,8 @@ import (
 type uiHitAction func(*App) tea.Cmd
 type uiWheelAction func(*App, tea.MouseButton) tea.Cmd
 
+const modalButtonSpacing = 1
+
 type uiHitTarget struct {
 	id          string
 	rect        mouseRect
@@ -560,7 +562,7 @@ func (a *App) registerModalButtons(modal string, row int, startCol int, buttons 
 	for _, button := range buttons {
 		w := lipgloss.Width(button.label) + 4
 		a.registerModalContentHit(modal, "button:"+button.id, row, col, w, 1, button.action)
-		col += w
+		col += w + modalButtonSpacing
 	}
 }
 
@@ -590,7 +592,7 @@ func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
 		}
 		cells = append(cells, style.Render(button.label))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", modalButtonSpacing)))
 }
 
 func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
