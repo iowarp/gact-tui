@@ -74,6 +74,41 @@ func TestRenderModalHeaderKeepsActionButtonsReachable(t *testing.T) {
 	}
 }
 
+func TestModalFrameHeaderButtonsAreUnselectedByDefault(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	buttons := []menuButton{{
+		id:     "sample:close",
+		label:  "close",
+		action: func(*App) tea.Cmd { return nil },
+	}}
+
+	row, _ := a.renderModalHeader("Title", 40, buttons)
+	unselected := a.renderModalButtons(buttons, -1)
+	selected := a.renderModalButtons(buttons, 0)
+
+	if !strings.Contains(row, unselected) {
+		t.Fatalf("header should render passive action buttons by default:\nrow=%q\nwant segment=%q", row, unselected)
+	}
+	if strings.Contains(row, selected) {
+		t.Fatalf("header should not render selected button styling unless explicitly requested")
+	}
+}
+
+func TestModalFrameCanExplicitlyHighlightHeaderButton(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	buttons := []menuButton{
+		{id: "quit:close", label: "close", action: func(*App) tea.Cmd { return nil }},
+		{id: "quit:no", label: "no", action: func(*App) tea.Cmd { return nil }},
+	}
+
+	row, _ := a.renderModalHeaderWithColor("Close the TUI?", 46, buttons, a.Theme.Warning, 1)
+	selected := a.renderModalButtons(buttons, 1)
+
+	if !strings.Contains(row, selected) {
+		t.Fatalf("explicit button selection should be visible in frame header:\nrow=%q\nwant segment=%q", row, selected)
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{

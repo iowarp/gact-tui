@@ -610,3 +610,7 @@ Additional work continued from the same architectural direction:
   for body windowing, range hints, modal shell rendering, and body wheel target
   registration. This keeps text-heavy informational views from each owning
   separate scroll/body geometry.
+- Shared modal-frame header buttons are passive by default; selected/highlighted
+  header actions are now explicit opt-in. This keeps ordinary close/back
+  controls visually consistent and right-aligned while preserving the highlighted
+  quit-confirmation choice.
