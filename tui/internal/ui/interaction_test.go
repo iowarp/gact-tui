@@ -715,6 +715,32 @@ func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{
+			{id: "one", title: "One", desc: "first tool"},
+			{id: "two", title: "Two", desc: "second tool"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:item:0")
+	if !ok {
+		t.Fatal("missing semantic first catalog target")
+	}
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	if wantY := rect.y + 2 + 2; target.rect.y != wantY {
+		t.Fatalf("first catalog row y = %d, want shared frame body row %d", target.rect.y, wantY)
+	}
+}
+
 func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

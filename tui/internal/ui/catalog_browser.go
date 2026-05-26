@@ -650,10 +650,8 @@ func (a *App) viewCatalogBrowser() string {
 	// Use the inspection-pane width so lists remain readable without
 	// consuming the whole application frame.
 	w := a.detailModalWidth()
-	innerW := w - 4
 
 	buttons := a.catalogBrowserHeaderButtons()
-	titleRow, buttonCol := a.renderModalHeader(a.catalogBrowser.title, innerW, buttons)
 	rows := make([]string, 0, catalogBrowserRowBudget*2)
 	if a.catalogBrowser.loading && len(a.catalogBrowser.items) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading…"))
@@ -734,17 +732,15 @@ func (a *App) viewCatalogBrowser() string {
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
-	hint := t.HintLabel.Italic(true).Render(hintText)
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		titleRow, "",
-		lipgloss.JoinVertical(lipgloss.Left, rows...),
-		"", hint,
-	)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
-	a.registerModalListHits(modal, 2+listStartRow, 0, w-4, list.hits)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   a.catalogBrowser.title,
+		buttons: buttons,
+		body:    lipgloss.JoinVertical(lipgloss.Left, rows...),
+		footer:  t.HintLabel.Italic(true).Render(hintText),
+	})
+	a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
+	return rendered.modal
 }
 
 // catalogCommandForID maps a slash-command ID into a browser kind.
