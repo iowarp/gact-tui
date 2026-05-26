@@ -589,7 +589,8 @@ Additional work continued from the same architectural direction:
   header actions for close/back/apply-style controls instead of mixing centered
   body chips with header buttons.
 - Footer settings/help/command affordances register semantic hit targets when
-  they are visible. A future pass should add top-right chrome affordances too.
+  they are visible. Header settings/help affordances now render as stable
+  top-right action cells with semantic hit targets from the same action list.
 - Tool catalog list rows were made denser by removing repeated command-name
   descriptions from the list view; richer information remains in detail views.
 - Conversation wheel handling now routes through the rendered conversation body
