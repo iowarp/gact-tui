@@ -112,3 +112,67 @@ func TestDoctor_ClosedRendersEmpty(t *testing.T) {
 		t.Errorf("closed doctor should render empty string; got %q", out)
 	}
 }
+
+func TestDoctorCapabilitiesUseBoundedScrollWindow(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width, a.height = 120, 22
+	a.doctorOpen = true
+	a.doctor = &doctorState{
+		tab: doctorTabCapabilities,
+		caps: gact.Capabilities{Capabilities: gact.CapabilityFlags{
+			Workspaces: true,
+			Sessions:   true,
+		}},
+	}
+
+	out := stripANSI(a.viewDoctor())
+	if strings.Contains(out, "agent_write") || strings.Contains(out, "skills_extraction") {
+		t.Fatalf("short doctor modal should window long capability list:\n%s", out)
+	}
+	if !strings.Contains(out, "1-") {
+		t.Fatalf("windowed doctor modal should advertise line range:\n%s", out)
+	}
+
+	a.doctor.scroll = 1 << 30
+	out = stripANSI(a.viewDoctor())
+	if !strings.Contains(out, "skills_extraction") {
+		t.Fatalf("bottom-scrolled doctor modal should show final capability:\n%s", out)
+	}
+	if a.doctor.scroll <= 0 {
+		t.Fatalf("render should clamp and persist positive doctor scroll, got %d", a.doctor.scroll)
+	}
+}
+
+func TestDoctorModalHeightLeavesFooterGutter(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width, a.height = 120, 36
+	a.doctorOpen = true
+	a.doctor = &doctorState{tab: doctorTabCapabilities}
+
+	out := stripANSI(a.viewDoctor())
+	renderedHeight := len(strings.Split(out, "\n"))
+	if renderedHeight > a.height-2 {
+		t.Fatalf("doctor modal height = %d, want <= %d\n%s", renderedHeight, a.height-2, out)
+	}
+	if !strings.Contains(out, "1-") {
+		t.Fatalf("bounded doctor capabilities should advertise visible line range:\n%s", out)
+	}
+}
+
+func TestDoctorMouseWheelScrollsCapabilities(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width, a.height = 120, 22
+	a.doctorOpen = true
+	a.doctor = &doctorState{tab: doctorTabCapabilities}
+
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	a = model.(*App)
+	if a.doctor == nil || a.doctor.scroll != 1 {
+		t.Fatalf("wheel down should advance doctor scroll, got %+v", a.doctor)
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	a = model.(*App)
+	if a.doctor == nil || a.doctor.scroll != 0 {
+		t.Fatalf("wheel up should move doctor scroll back, got %+v", a.doctor)
+	}
+}

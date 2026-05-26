@@ -31,6 +31,7 @@ type doctorState struct {
 	health  gact.HealthResponse
 	caps    gact.Capabilities
 	tab     doctorTab
+	scroll  int
 }
 
 // doctorTab switches between the integrations health view and the
@@ -83,6 +84,25 @@ func (a *App) handleDoctorKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "tab", "right", "left":
 		// Cycle between integrations + capabilities views.
 		a.doctor.tab = (a.doctor.tab + 1) % 2
+		a.doctor.scroll = 0
+		return a, nil
+	case "up", "k":
+		a.doctor.scroll--
+		return a, nil
+	case "down", "j":
+		a.doctor.scroll++
+		return a, nil
+	case "pgup", "ctrl+u":
+		a.doctor.scroll -= a.doctorBodyPageSize()
+		return a, nil
+	case "pgdown", "ctrl+d":
+		a.doctor.scroll += a.doctorBodyPageSize()
+		return a, nil
+	case "g", "home":
+		a.doctor.scroll = 0
+		return a, nil
+	case "G", "end":
+		a.doctor.scroll = 1 << 30
 		return a, nil
 	}
 	return a, nil
@@ -156,7 +176,15 @@ func (a *App) viewDoctor() string {
 		body = renderDoctorBody(a.doctor.health, t, innerW)
 	}
 
-	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
+	body, win := a.windowDoctorBody(body)
+	if a.doctor != nil {
+		a.doctor.scroll = win.scroll
+	}
+	hintText := "Tab view  Up/Down scroll  r refresh  Esc close"
+	if win.total > win.end {
+		hintText = fmt.Sprintf("%d-%d/%d  %s", win.start+1, win.end, win.total, hintText)
+	}
+	hint := t.HintLabel.Render(hintText)
 	return a.renderModalFrame(modalFrameOptions{
 		width:      w,
 		title:      "Doctor — Backend Health",
@@ -167,6 +195,24 @@ func (a *App) viewDoctor() string {
 		body:       body,
 		footer:     hint,
 	})
+}
+
+func (a *App) doctorBodyPageSize() int {
+	rows := a.height - 18
+	if rows < 4 {
+		rows = 4
+	}
+	return rows
+}
+
+func (a *App) windowDoctorBody(body string) (string, scrollWindow) {
+	lines := strings.Split(body, "\n")
+	scroll := 0
+	if a.doctor != nil {
+		scroll = a.doctor.scroll
+	}
+	win := boundedScrollWindow(len(lines), a.doctorBodyPageSize(), scroll)
+	return strings.Join(lines[win.start:win.end], "\n"), win
 }
 
 // renderDoctorCapabilities tabulates every spec capability as
