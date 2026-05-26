@@ -119,15 +119,10 @@ func (a *App) viewCompose() string {
 		return ""
 	}
 
-	// Modal dimensions — keep at least 12 rows tall so the textarea is
-	// useful, and cap at 80% of viewport to leave visible gutters.
-	w := a.width * 4 / 5
-	if w < 60 {
-		w = 60
-	}
-	if w > a.width-6 {
-		w = a.width - 6
-	}
+	// Modal dimensions — use the shared wide-modal policy so the
+	// expanded editor and provider setup do not each invent their own
+	// viewport math.
+	w := a.wideModalWidth()
 	h := a.height * 4 / 5
 	if h < 14 {
 		h = 14
