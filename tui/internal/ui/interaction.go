@@ -517,7 +517,7 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 		rows = append(rows, row)
 
 		if item.description != "" && descriptionLines > 0 {
-			descRows := wrapPlainRows(item.description, width-2, "  ")
+			descRows := wrapPlainRows(item.description, width-2, "")
 			if len(descRows) > descriptionLines {
 				descRows = descRows[:descriptionLines]
 				last := descRows[len(descRows)-1]

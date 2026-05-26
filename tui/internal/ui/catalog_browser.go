@@ -77,9 +77,10 @@ type catalogBrowserLoadedMsg struct {
 }
 
 type catalogDetailLoadedMsg struct {
-	title string
-	text  string
-	err   error
+	title      string
+	text       string
+	err        error
+	standalone bool
 }
 
 func loadToolDetailCmd(c *client.Client, toolID string) tea.Cmd {

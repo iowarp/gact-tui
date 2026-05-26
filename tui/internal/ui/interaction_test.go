@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -180,6 +181,29 @@ func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	}
 	if rendered.hits[0].id != "row:alpha" || rendered.hits[0].row != 0 || rendered.hits[0].height != 3 {
 		t.Fatalf("hit = %+v, want one hit spanning all rendered rows", rendered.hits[0])
+	}
+}
+
+func TestModalListDescriptionContinuationDoesNotDoubleIndent(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	rendered := a.renderModalList([]modalListItem{{
+		id:          "row:alpha",
+		title:       "alpha",
+		description: "alpha beta gamma delta epsilon zeta eta theta iota",
+		action:      func(*App) tea.Cmd { return nil },
+	}}, modalListOptions{width: 24, rowBudget: 4, descriptionLines: 2})
+
+	if len(rendered.rows) < 3 {
+		t.Fatalf("rows = %d, want wrapped description rows: %#v", len(rendered.rows), rendered.rows)
+	}
+	for i, row := range rendered.rows[1:] {
+		plain := ansi.Strip(row)
+		if strings.HasPrefix(plain, "    ") {
+			t.Fatalf("description row %d double-indented: %q", i+1, plain)
+		}
+		if lipgloss.Width(plain) > 24 {
+			t.Fatalf("description row %d width = %d, want <= 24: %q", i+1, lipgloss.Width(plain), plain)
+		}
 	}
 }
 
