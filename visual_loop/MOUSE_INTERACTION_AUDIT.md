@@ -16,6 +16,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Workspace switching now uses a shared selectable-list modal primitive for body rendering, list hit registration, wheel regions, and side-scroll affordance.
 - Modal header/action buttons now consistently render as clickable chips again, quit confirmation uses the shared modal width, Settings > TUI first-line hit targets span the whole row, and LM provider setup labels the right-side panel as Configuration instead of Selected.
 - MCP remove now uses the shared selectable-list modal primitive and side-scroll affordance instead of local textual overflow count rows.
+- File attach picker now uses the shared selectable-list modal primitive while preserving the filter row and stable body height; long file lists get the same side-scroll affordance and stale offscreen hit protection.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, palette, and catalog/menu surfaces.
 

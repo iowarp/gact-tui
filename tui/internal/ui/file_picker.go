@@ -288,6 +288,10 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (a *App) viewFilePicker() string {
 	t := a.Theme
 	w := a.modalWidth()
+	listW := w - 8
+	if listW < 1 {
+		listW = w - 4
+	}
 	if a.filePicker == nil {
 		return ""
 	}
@@ -302,7 +306,8 @@ func (a *App) viewFilePicker() string {
 	// Always show a fixed rows height so the modal doesn't reflow its
 	// surrounding chrome as the user types.
 	const resultRows = 10
-	rows := make([]string, 0, resultRows)
+	rows := []string{filterRow, ""}
+	resultStartRow := len(rows)
 	var list modalListRender
 	if a.filePicker.errText != "" {
 		rows = append(rows, t.HintLabel.Italic(true).Render(
@@ -312,18 +317,15 @@ func (a *App) viewFilePicker() string {
 	} else if len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("no matches"))
 	}
-	start := 0
-	if a.filePicker.sel >= resultRows {
-		start = a.filePicker.sel - resultRows + 1
+	availableListRows := resultRows - (len(rows) - resultStartRow)
+	if availableListRows < 1 {
+		availableListRows = 1
 	}
-	listItems := make([]modalListItem, 0, min(len(matches), resultRows))
-	for i, m := range matches {
-		if i < start {
-			continue
-		}
-		if i-start >= resultRows {
-			break
-		}
+	win := selectedItemWindow(len(matches), a.filePicker.sel, availableListRows)
+	listStartRow := len(rows)
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		m := matches[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
 			id:       fmt.Sprintf("file-picker:item:%d", idx),
@@ -344,33 +346,37 @@ func (a *App) viewFilePicker() string {
 			},
 		})
 	}
-	listStartRow := len(rows)
 	list = a.renderModalList(listItems, modalListOptions{
-		width:     w - 4,
-		rowBudget: resultRows - len(rows),
+		width:     listW,
+		rowBudget: availableListRows,
 	})
 	rows = append(rows, list.rows...)
 	// Pad to fixed height so the hint bar doesn't jump.
-	for len(rows) < resultRows {
+	for len(rows) < resultStartRow+resultRows {
 		rows = append(rows, "")
 	}
 
 	hint := t.HintLabel.Italic(true).Render(
 		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
 
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		filterRow, "",
-		lipgloss.JoinVertical(lipgloss.Left, rows...),
-	)
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
-		width:   w,
-		title:   "Insert file reference",
-		buttons: buttons,
-		body:    body,
-		footer:  hint,
-	})
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow+2+listStartRow, 0, w-4, list, "file-picker:list:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
-		return app.handleFilePickerWheel(button)
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Insert file reference",
+			buttons: buttons,
+			footer:  hint,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       resultStartRow + resultRows,
+		window:         win,
+		wheelID:        "file-picker:list:wheel",
+		surfaceWheelID: "file-picker",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleFilePickerWheel(button)
+		},
 	})
 	return rendered.modal
 }
