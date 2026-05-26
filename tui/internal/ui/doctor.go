@@ -181,16 +181,28 @@ func (a *App) viewDoctor() string {
 		a.doctor.scroll = windowed.window.scroll
 	}
 	hint := t.HintLabel.Render(modalRangeHint(windowed.window, "Tab view  Up/Down scroll  r refresh  Esc close"))
-	return a.renderModalFrame(modalFrameOptions{
-		width:      w,
-		title:      "Doctor — Backend Health",
-		buttons:    buttons,
-		tabs:       tabs,
-		tabPadding: 2,
-		tabSpacing: 2,
-		body:       windowed.body,
-		footer:     hint,
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:              w,
+		title:              "Doctor — Backend Health",
+		buttons:            buttons,
+		suppressButtonHits: true,
+		tabs:               tabs,
+		tabPadding:         2,
+		tabSpacing:         2,
+		body:               windowed.body,
+		footer:             hint,
 	})
+	a.registerModalSurfaceAndBodyWheel(rendered, "doctor", maxInt(1, strings.Count(windowed.body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+		if app.doctor != nil {
+			app.doctor.scroll = moveScrollOffsetByWheel(app.doctor.scroll, button)
+		}
+		return nil
+	})
+	if rendered.tabRow >= 0 {
+		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, 2, 2)
+	}
+	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
+	return rendered.modal
 }
 
 func (a *App) doctorBodyPageSize() int {

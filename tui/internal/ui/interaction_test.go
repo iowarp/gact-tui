@@ -402,6 +402,54 @@ func TestDoctorButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestDoctorWheelUsesBodyRegionOnly(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 18
+	a.stage = StageReady
+	a.doctorOpen = true
+	a.doctor = &doctorState{
+		tab: doctorTabCapabilities,
+		caps: gact.Capabilities{Capabilities: gact.CapabilityFlags{
+			Workspaces: true,
+			Sessions:   true,
+			Subagents:  true,
+			MCP:        true,
+			Files:      true,
+		}},
+	}
+
+	_ = a.View()
+	body, ok := findHitTargetForTest(a, "doctor:body:wheel")
+	if !ok {
+		t.Fatal("missing doctor body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      body.rect.x,
+		Y:      body.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.doctor == nil || a.doctor.scroll != 1 {
+		t.Fatalf("wheel over doctor body should scroll doctor, got %+v", a.doctor)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "doctor:surface:wheel")
+	if !ok {
+		t.Fatal("missing doctor surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.doctor == nil || a.doctor.scroll != 1 {
+		t.Fatalf("wheel on doctor chrome should not scroll doctor, got %+v", a.doctor)
+	}
+}
+
 func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
@@ -747,6 +795,62 @@ func TestMetricsButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.metricsOpen {
 		t.Fatal("clicking close should close metrics")
+	}
+}
+
+func TestMetricsWheelUsesBodyRegionOnly(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 18
+	a.stage = StageReady
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{
+		UptimeS: 42,
+		Sessions: gact.MetricsSessions{
+			Total:    10,
+			Active:   3,
+			ByStatus: map[string]int{"idle": 6, "running": 4},
+		},
+		Messages: gact.MetricsMessages{
+			Total:  200,
+			ByRole: map[string]int{"assistant": 100, "user": 100},
+		},
+		Tokens: gact.MetricsTokens{InputTotal: 1000, OutputTotal: 2000},
+		Cost:   gact.MetricsCost{TotalUSD: 1.23, ByProvider: map[string]float64{"argonne": 1.23}},
+		Latencies: map[string]gact.MetricsLatencyStat{
+			"/v1/a": {P50Ms: 1, P95Ms: 2, MaxMs: 3, Count: 4},
+			"/v1/b": {P50Ms: 2, P95Ms: 3, MaxMs: 4, Count: 5},
+		},
+	}}
+
+	_ = a.View()
+	body, ok := findHitTargetForTest(a, "metrics:body:wheel")
+	if !ok {
+		t.Fatal("missing metrics body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      body.rect.x,
+		Y:      body.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.metrics == nil || a.metrics.scroll != 1 {
+		t.Fatalf("wheel over metrics body should scroll metrics, got %+v", a.metrics)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "metrics:surface:wheel")
+	if !ok {
+		t.Fatal("missing metrics surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.metrics == nil || a.metrics.scroll != 1 {
+		t.Fatalf("wheel on metrics chrome should not scroll metrics, got %+v", a.metrics)
 	}
 }
 

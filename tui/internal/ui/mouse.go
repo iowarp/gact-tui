@@ -106,8 +106,8 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.renameOpen, view: a.viewRename, click: a.handleRenameMouseClick},
 		{open: a.workspaceSwitchOpen, view: a.viewWorkspaceSwitch, click: a.handleWorkspaceSwitchMouseClick, wheel: a.handleWorkspaceSwitchMouseWheel},
 		{open: a.lmConfigOpen, view: a.viewLMConfig, click: a.handleLMConfigMouseClick},
-		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick, wheel: a.handleDoctorMouseWheel},
-		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick, wheel: a.handleMetricsMouseWheel},
+		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
+		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
 		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick, wheel: a.handleSettingsMouseWheel},
 		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick, wheel: a.handleHelpMouseWheel},
 		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick, wheel: a.handlePaletteMouseWheel},
@@ -201,11 +201,6 @@ func (a *App) closeOverlayOnOutside(rect mouseRect, mouse tea.Mouse, close func(
 		return nil, true
 	}
 	close()
-	return nil, true
-}
-
-func (a *App) handleDetailMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	a.detailScroll = moveScrollOffsetByWheel(a.detailScroll, m.Mouse().Button)
 	return nil, true
 }
 
@@ -318,27 +313,11 @@ func (a *App) handleMetricsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd,
 	return a.closeOverlayOnOutside(rect, mouse, func() { a.metricsOpen = false })
 }
 
-func (a *App) handleMetricsMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if a.metrics == nil {
-		return nil, true
-	}
-	a.metrics.scroll = moveScrollOffsetByWheel(a.metrics.scroll, m.Mouse().Button)
-	return nil, true
-}
-
 func (a *App) handleDoctorMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	if !rect.contains(mouse.X, mouse.Y) {
 		a.doctorOpen = false
 		return nil, true
 	}
-	return nil, true
-}
-
-func (a *App) handleDoctorMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if a.doctor == nil {
-		return nil, true
-	}
-	a.doctor.scroll = moveScrollOffsetByWheel(a.doctor.scroll, m.Mouse().Button)
 	return nil, true
 }
 

@@ -96,12 +96,30 @@ func TestMetricsMouseWheelScrollsBody(t *testing.T) {
 	a.metricsOpen = true
 	a.metrics = &metricsState{data: denseMetricsForTest()}
 
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:body:wheel")
+	if !ok {
+		t.Fatal("missing metrics body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
 	a = model.(*App)
 	if a.metrics == nil || a.metrics.scroll != 1 {
 		t.Fatalf("wheel down should advance metrics scroll, got %+v", a.metrics)
 	}
-	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	_ = a.View()
+	target, ok = findHitTargetForTest(a, "metrics:body:wheel")
+	if !ok {
+		t.Fatal("missing metrics body wheel target after scroll")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
 	a = model.(*App)
 	if a.metrics == nil || a.metrics.scroll != 0 {
 		t.Fatalf("wheel up should move metrics scroll back, got %+v", a.metrics)
