@@ -730,6 +730,21 @@ func (a *App) viewSettings() string {
 		body:       body,
 		footer:     t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)),
 	})
+	a.registerModalSurfaceWheel(rendered, "settings")
+	a.registerModalContentWheelHit(rendered.modal, "settings:body:wheel", rendered.bodyRow, 0, w-4, maxInt(1, strings.Count(body, "\n")+1), func(app *App, button tea.MouseButton) tea.Cmd {
+		if app.settings == nil {
+			app.settings = &settingsState{}
+		}
+		switch button {
+		case tea.MouseWheelUp:
+			_, cmd := app.handleSettingsKey(keyMsg("up"))
+			return cmd
+		case tea.MouseWheelDown:
+			_, cmd := app.handleSettingsKey(keyMsg("down"))
+			return cmd
+		}
+		return nil
+	})
 	for _, hit := range rowHits {
 		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+hit.row, 0, w-4, hit.height, hit.action)
 	}
