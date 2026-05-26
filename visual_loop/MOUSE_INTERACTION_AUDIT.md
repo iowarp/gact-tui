@@ -29,6 +29,7 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Sidebar footer counts now register a semantic hit target and toggle active/archived sessions through the same path as the `h` key.
 - Sidebar filtering now has semantic mouse entry points: the visible footer `f filter` hint starts filter editing, the filter-mode footer exposes clickable apply/cancel targets, and an existing filter row can be clicked to re-enter editing while preserving Esc restore semantics.
 - Header chips now register render-time semantic targets: backend opens metrics, workspace opens the workspace switcher, session focuses the selected sidebar row, model/routing open model settings, agent opens agent settings, and status opens Doctor when integration health is supported.
+- Footer focus and visible `Tab pane` hints now register semantic targets that cycle focus through the same helper used by keyboard Tab.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
 
@@ -107,11 +108,11 @@ Mouse support exists:
 
 - Top-right header help/settings actions are semantic targets.
 - Visible footer settings, command, help, and quit hints are semantic targets.
+- Click the footer focus label or visible `Tab pane` hint to cycle focus.
 - Click header backend/workspace/session/model/agent/routing/status chips to drill into the matching existing modal or focus target.
 
 Missing:
 
-- Click focus labels or panes in footer.
 - Click reconnect/error/status affordances.
 
 ### Permission Banner
