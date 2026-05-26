@@ -29,6 +29,7 @@
   "language.applied": "language: {{label}}",
   "chrome.connecting.title": "GACT TUI",
   "chrome.connecting.status": "Connecting to {{backend}}…",
+  "chrome.connecting.retry": "click to retry connection",
   "chrome.connection_error": "Connection error",
   "chrome.backend": "Backend: {{backend}}",
   "chrome.workspace": "workspace: {{value}}",

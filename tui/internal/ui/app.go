@@ -6122,6 +6122,16 @@ func (a *App) windowTitle() string {
 
 func (a *App) viewConnecting() string {
 	t := a.Theme
+	a.registerScreenHit("connecting:retry", mouseRect{
+		x: 0,
+		y: 0,
+		w: a.width,
+		h: a.height,
+	}, func(app *App) tea.Cmd {
+		app.stage = StageConnecting
+		app.connectRetryAttempts = 0
+		return connectCmd(app.c)
+	})
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
 		Align(lipgloss.Center, lipgloss.Center).
@@ -6131,6 +6141,8 @@ func (a *App) viewConnecting() string {
 		"",
 		t.HintLabel.Render(a.localizer.t(msgChromeConnectingStatus,
 			map[string]string{"backend": a.BackendURL})),
+		"",
+		t.HintLabel.Italic(true).Render(a.localizer.t(msgChromeConnectingRetry, nil)),
 	)
 	return box.Render(body)
 }

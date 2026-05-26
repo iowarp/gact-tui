@@ -6,6 +6,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 
 ## 2026-05-26 Implementation Notes
 
+- The connecting screen now registers a full-screen semantic retry target and
+  advertises click-to-retry through localized copy, so intro, connecting, and
+  connection-error states all have mouse entry/recovery semantics.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, auth, save, and close.
@@ -136,11 +139,8 @@ Keyboard behavior:
 Mouse support exists:
 
 - Click the intro screen to continue into connecting.
+- Click the connecting screen to retry the backend connection.
 - Click connection-error retry/quit actions through the shared error modal buttons.
-
-Mouse gaps:
-
-- Connecting has no click affordance; it generally waits.
 
 ## Overlays And Popups
 

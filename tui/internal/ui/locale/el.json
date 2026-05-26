@@ -29,6 +29,7 @@
   "language.applied": "γλώσσα: {{label}}",
   "chrome.connecting.title": "GACT TUI",
   "chrome.connecting.status": "Σύνδεση στο {{backend}}…",
+  "chrome.connecting.retry": "κλικ για επανάληψη σύνδεσης",
   "chrome.connection_error": "Σφάλμα σύνδεσης",
   "chrome.backend": "Backend: {{backend}}",
   "chrome.workspace": "χώρος: {{value}}",

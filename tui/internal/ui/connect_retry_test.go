@@ -115,6 +115,35 @@ func TestConnectRetry_ErrorButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConnectRetry_ConnectingScreenUsesSemanticRetryTarget(t *testing.T) {
+	a := New("http://unused")
+	a.stage = StageConnecting
+	a.connectRetryAttempts = 3
+	a.MouseEnabled = true
+	a.width, a.height = 100, 30
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "connecting:retry")
+	if !ok {
+		t.Fatal("missing semantic connecting retry target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.stage != StageConnecting {
+		t.Fatalf("stage after connecting retry click = %v, want connecting", a.stage)
+	}
+	if a.connectRetryAttempts != 0 {
+		t.Fatalf("connecting retry attempts = %d, want reset to 0", a.connectRetryAttempts)
+	}
+	if cmd == nil {
+		t.Fatal("connecting retry click should dispatch connect command")
+	}
+}
+
 func TestConnectRetry_AttemptsResetOnSuccessfulConnect(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
