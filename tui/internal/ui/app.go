@@ -7881,9 +7881,7 @@ func (a *App) viewPalette() string {
 
 	matches := a.paletteMatches()
 	buttons := a.paletteCloseButtons()
-	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgPaletteCommandsTitle, nil), w-4, buttons)
 	rows := []string{
-		titleRow,
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteFilter, nil) + " " + a.paletteFilter + "_"),
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteSearchHint, nil)),
 		"",
@@ -7930,12 +7928,16 @@ func (a *App) viewPalette() string {
 	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   a.localizer.t(msgPaletteCommandsTitle, nil),
+		buttons: buttons,
+		body:    body,
+	})
 	if len(listItems) > 0 {
-		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
+		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
-	return modal
+	return rendered.modal
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -7949,9 +7951,7 @@ func (a *App) viewPaletteSearch(w int) string {
 	listStartRow := -1
 	var list modalListRender
 	buttons := a.paletteCloseButtons()
-	titleRow, buttonCol := a.renderModalHeader(a.localizer.t(msgPaletteSearchTitle, nil), w-4, buttons)
 	rows := []string{
-		titleRow,
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteQuery, nil) + " " + query + "_"),
 		"",
 	}
@@ -8002,12 +8002,16 @@ func (a *App) viewPaletteSearch(w int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	modal := a.renderDefaultModalSurface(w, body)
-	a.registerModalButtons(modal, 0, buttonCol, buttons)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   a.localizer.t(msgPaletteSearchTitle, nil),
+		buttons: buttons,
+		body:    body,
+	})
 	if len(list.hits) > 0 && listStartRow >= 0 {
-		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
+		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
-	return modal
+	return rendered.modal
 }
 
 // shortID truncates a message ID for display (e.g. "msg_1a2b3c4d…").

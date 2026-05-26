@@ -986,6 +986,25 @@ func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestPaletteCommandTargetsAlignWithSharedFrameBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/theme"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "palette:command:0")
+	if !ok {
+		t.Fatal("missing semantic palette command target")
+	}
+	rect := overlayMouseRect(a.viewPalette(), a.width, a.height)
+	if wantY := rect.y + 2 + 5; target.rect.y != wantY {
+		t.Fatalf("first palette command y = %d, want shared frame body/list row %d", target.rect.y, wantY)
+	}
+}
+
 func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
