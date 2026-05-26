@@ -225,18 +225,13 @@ func (a *App) viewMcpInstall() string {
 			},
 		},
 	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Install MCP server")
 	hint := t.HintLabel.Render(
 		"  stdio: files stdio mcp-files /tmp\n" +
 			"  http:  weather http https://mcp.example.com")
 	cursor := "_"
 	box := lipgloss.NewStyle().Foreground(t.Fg).
 		Render("> " + a.mcpInstallInput + cursor)
-	rows := []string{
-		title, "",
-		hint, "",
-		box, "",
-	}
+	rows := []string{hint, "", box, ""}
 	if a.mcpInstallErr != "" {
 		rows = append(rows,
 			lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
@@ -253,12 +248,14 @@ func (a *App) viewMcpInstall() string {
 	}
 	var actionRow int
 	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
-	rows = append(rows, "",
-		t.HintLabel.Render("Enter install · Esc cancel"),
-	)
-	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
-	a.registerModalActionRow(modal, actionRow, buttons)
-	return modal
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:  w,
+		title:  "Install MCP server",
+		body:   strings.Join(rows, "\n"),
+		footer: t.HintLabel.Render("Enter install · Esc cancel"),
+	})
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
+	return rendered.modal
 }
 
 // viewMcpRemove renders the picker for which third-party server to remove.
@@ -283,8 +280,7 @@ func (a *App) viewMcpRemove() string {
 			},
 		},
 	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Remove MCP server")
-	rows := []string{title, ""}
+	rows := []string{}
 	itemBudget := a.modalListItemBudget(6, 2, mcpRemoveMaxItems)
 	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
 	if win.start > 0 {
@@ -330,13 +326,15 @@ func (a *App) viewMcpRemove() string {
 	rows = append(rows, "")
 	var actionRow int
 	rows, actionRow = a.appendModalActionRow(rows, buttons, 0)
-	rows = append(rows, "",
-		t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
-	)
-	modal := a.renderDefaultModalSurface(w, strings.Join(rows, "\n"))
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:  w,
+		title:  "Remove MCP server",
+		body:   strings.Join(rows, "\n"),
+		footer: t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
+	})
 	if len(list.hits) > 0 {
-		a.registerModalListHits(modal, listStartRow, 0, w-4, list.hits)
+		a.registerModalListHits(rendered.modal, rendered.bodyRow+listStartRow, 0, w-4, list.hits)
 	}
-	a.registerModalActionRow(modal, actionRow, buttons)
-	return modal
+	a.registerModalActionRow(rendered.modal, rendered.bodyRow+actionRow, buttons)
+	return rendered.modal
 }
