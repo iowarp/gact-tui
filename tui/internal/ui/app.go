@@ -8428,13 +8428,12 @@ func (a *App) viewHelp() string {
 	hintStyle := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted)
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
-			width:              w,
-			title:              a.localizer.t(msgHelpTitle, nil),
-			buttons:            buttons,
-			suppressButtonHits: true,
-			tabs:               tabHits,
-			tabPadding:         1,
-			tabSpacing:         0,
+			width:      w,
+			title:      a.localizer.t(msgHelpTitle, nil),
+			buttons:    buttons,
+			tabs:       tabHits,
+			tabPadding: 1,
+			tabSpacing: 0,
 		},
 		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
 		pageSize:    a.helpBodyPageSize(),
@@ -8448,10 +8447,6 @@ func (a *App) viewHelp() string {
 		},
 	})
 	a.helpScroll = rendered.window.scroll
-	if rendered.tabRow >= 0 {
-		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabHits, 1, 0)
-	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 

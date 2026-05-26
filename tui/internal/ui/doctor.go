@@ -179,13 +179,12 @@ func (a *App) viewDoctor() string {
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
-			width:              w,
-			title:              "Doctor — Backend Health",
-			buttons:            buttons,
-			suppressButtonHits: true,
-			tabs:               tabs,
-			tabPadding:         2,
-			tabSpacing:         2,
+			width:      w,
+			title:      "Doctor — Backend Health",
+			buttons:    buttons,
+			tabs:       tabs,
+			tabPadding: 2,
+			tabSpacing: 2,
 		},
 		content:     body,
 		pageSize:    a.doctorBodyPageSize(),
@@ -203,10 +202,6 @@ func (a *App) viewDoctor() string {
 	if a.doctor != nil {
 		a.doctor.scroll = rendered.window.scroll
 	}
-	if rendered.tabRow >= 0 {
-		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, 2, 2)
-	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 

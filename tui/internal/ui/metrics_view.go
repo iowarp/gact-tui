@@ -166,10 +166,9 @@ func (a *App) viewMetrics() string {
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
-			width:              w,
-			title:              "Backend Metrics",
-			buttons:            buttons,
-			suppressButtonHits: true,
+			width:   w,
+			title:   "Backend Metrics",
+			buttons: buttons,
 		},
 		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
 		pageSize:    a.metricsBodyPageSize(),
@@ -187,7 +186,6 @@ func (a *App) viewMetrics() string {
 	if a.metrics != nil {
 		a.metrics.scroll = rendered.window.scroll
 	}
-	a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	return rendered.modal
 }
 

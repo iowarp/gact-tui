@@ -623,3 +623,7 @@ Additional work continued from the same architectural direction:
   targets.
 - Tool catalog summaries now drop descriptions that only repeat the command
   name, leaving row space for source, server, tags, and visibility metadata.
+- The shared scrollable modal-frame helper now owns hit-target layering for
+  body wheel regions, tabs, and header buttons. Help, metrics, and doctor no
+  longer suppress and manually re-register their controls just to keep them
+  clickable above the scroll surface.
