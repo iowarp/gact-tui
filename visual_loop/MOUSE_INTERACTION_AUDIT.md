@@ -133,6 +133,11 @@ Keyboard behavior:
 - Connecting generally waits.
 - Error screen supports quit/retry keys.
 
+Mouse support exists:
+
+- Click the intro screen to continue into connecting.
+- Click connection-error retry/quit actions through the shared error modal buttons.
+
 Mouse gaps:
 
 - Connecting has no click affordance; it generally waits.
@@ -506,31 +511,30 @@ Mouse support exists:
     sidebar, borders, and footer. Treat this as a product task, not a terminal
     accident.
 
-## Suggested Implementation Order For Later
+## Implementation Sequence Status
 
-1. Add an overlay-first mouse dispatcher that mirrors `handleKey` precedence.
+1. Done: add an overlay-first mouse dispatcher that mirrors `handleKey` precedence.
    It should route to `handleXMouse` for the topmost open modal.
 
-2. Normalize modal geometry: helpers for centered modal origin, inner width,
+2. Done: normalize modal geometry: helpers for centered modal origin, inner width,
    title/header rows, list row ranges, footer/hint rows.
 
-3. Implement list-row click/scroll for the high-use picker/list modals:
+3. Done: implement list-row click/scroll for the high-use picker/list modals:
    palette, catalog browser, file picker, workspace switcher, settings tabs.
 
-4. Implement button/chip clicks: quit confirmation, settings tabs, LM config
+4. Done: implement button/chip clicks: quit confirmation, settings tabs, LM config
    save/auth, MCP install/remove, close/cancel affordances.
 
-5. Implement detail-view wheel scrolling before adding richer text selection.
+5. Done: implement detail-view wheel scrolling before adding richer text selection.
 
-6. Decide whether mouse text editing is in scope. If yes, start with textarea
-   surfaces (`input`, `compose`) and then add minimal cursor hit-testing for
-   custom single-line editors.
+6. Done: add cursor hit-testing for textarea surfaces (`input`, `compose`) and
+   custom single-line text-entry modals (`rename`, `context-add`, `mcp-install`).
 
-7. Add a copy-mode/copy-block design for conversation content so copying raw
+7. Open: add a copy-mode/copy-block design for conversation content so copying raw
    evidence, assistant text, tool summaries, and detail panes does not require
    selecting the entire terminal frame.
 
-8. Add top-chrome settings/help targets after the footer targets have proven
+8. Done: add top-chrome settings/help targets after the footer targets have proven
    stable, so mouse users have a predictable global entry point even when the
    footer is visually crowded.
 
@@ -571,12 +575,9 @@ Added regression tests in `tui/internal/ui/mouse_scroll_test.go` for:
 
 Remaining follow-up candidates:
 
-- Rich mouse cursor placement inside custom single-line editors
-  (`rename`, `context-add`, `mcp-install`) and textareas (`input`, `compose`).
-- LM config list row hit-testing for provider/model rows and save/auth buttons.
-- Richer LM config hit-testing for provider/model row clicks and save/auth
-  buttons. The current pass at least prevents leaks and supports outside
-  dismissal.
+- Text selection inside custom single-line editors and textareas.
+- Scoped copy/paste semantics for transcript, detail, and input/compose surfaces.
+- Specialized transcript actions such as accept/reject, retry, delete, and copy.
 
 ### `codex/semantic-menu-interactions` follow-up
 
