@@ -96,7 +96,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 	// receives mouse input first.
 	return []mouseOverlay{
 		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, click: a.handleQuitConfirmMouseClick},
-		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, click: a.handleMcpRemoveMouseClick},
+		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, click: a.handleMcpRemoveMouseClick, wheel: a.handleMcpRemoveMouseWheel},
 		{open: a.mcpInstallOpen, view: a.viewMcpInstall, click: a.handleMcpInstallMouseClick},
 		{open: a.catalogBrowserOpen, view: a.viewCatalogBrowser, click: a.handleCatalogBrowserMouseClick, wheel: a.handleCatalogBrowserMouseWheel},
 		{open: a.filePickerOpen, view: a.viewFilePicker, click: a.handleFilePickerMouseClick, wheel: a.handleFilePickerMouseWheel},
@@ -301,6 +301,14 @@ func (a *App) handleCatalogBrowserMouseClick(rect mouseRect, mouse tea.Mouse) (t
 
 func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpRemoveModal)
+}
+
+func (a *App) handleMcpRemoveMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
+	if a.mcpRemoveSaving {
+		return nil, true
+	}
+	a.mcpRemoveSel = moveSelectionByWheel(a.mcpRemoveSel, len(a.mcpRemoveOptions), m.Mouse().Button)
+	return nil, true
 }
 
 func (a *App) handleMcpInstallMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {

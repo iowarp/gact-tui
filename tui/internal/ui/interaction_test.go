@@ -1570,6 +1570,67 @@ func TestMcpRemoveDescriptionRowUsesSameSemanticHit(t *testing.T) {
 	}
 }
 
+func TestMcpRemoveUsesBoundedScrollWindowAndVisibleHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	a.mcpRemoveSel = 10
+	for i := 0; i < 16; i++ {
+		a.mcpRemoveOptions = append(a.mcpRemoveOptions, gact.McpServer{
+			ID:        "srv_" + itoa2(i),
+			Name:      "server " + itoa2(i),
+			Transport: "stdio",
+		})
+	}
+
+	out := stripANSI(a.viewMcpRemove())
+	if !strings.Contains(out, "server 10") {
+		t.Fatalf("selected MCP server should remain visible in bounded window:\n%s", out)
+	}
+	if strings.Contains(out, "server 00") {
+		t.Fatalf("bounded MCP remove window should not render every server:\n%s", out)
+	}
+	if !strings.Contains(out, "↑ ") || !strings.Contains(out, "↓ ") {
+		t.Fatalf("bounded MCP remove window should show overflow indicators:\n%s", out)
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "mcp-remove:item:10"); !ok {
+		t.Fatal("missing semantic target for selected row inside scrolled MCP remove window")
+	}
+	if _, ok := findHitTargetForTest(a, "mcp-remove:item:0"); ok {
+		t.Fatal("offscreen MCP remove row should not register a stale hit target")
+	}
+}
+
+func TestMcpRemoveMouseWheelMovesSelection(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpRemoveOpen = true
+	for i := 0; i < 4; i++ {
+		a.mcpRemoveOptions = append(a.mcpRemoveOptions, gact.McpServer{
+			ID:        "srv_" + itoa2(i),
+			Name:      "server " + itoa2(i),
+			Transport: "stdio",
+		})
+	}
+
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelDown}))
+	a = model.(*App)
+	if a.mcpRemoveSel != 1 {
+		t.Fatalf("wheel down should move MCP remove selection, got %d", a.mcpRemoveSel)
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{Button: tea.MouseWheelUp}))
+	a = model.(*App)
+	if a.mcpRemoveSel != 0 {
+		t.Fatalf("wheel up should move MCP remove selection, got %d", a.mcpRemoveSel)
+	}
+}
+
 func TestMcpRemoveNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
