@@ -639,3 +639,6 @@ Additional work continued from the same architectural direction:
   provider rows, model rows, OAuth/auth action, advanced left/right controls,
   and save action. The multi-column provider layout remains custom, but its
   mouse geometry no longer bypasses the shared hit-target model.
+- Detail/raw-evidence modals now render through the shared scrollable modal
+  frame, so range hints, body wheel regions, and close/back button layering use
+  the same primitive as help, doctor, and metrics.
