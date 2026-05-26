@@ -1714,7 +1714,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case catalogDetailLoadedMsg:
-		if !a.catalogBrowserOpen {
+		if !m.standalone && !a.catalogBrowserOpen {
 			return a, nil
 		}
 		text := m.text

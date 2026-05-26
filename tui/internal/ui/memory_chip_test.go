@@ -189,6 +189,45 @@ func TestFormatMemoryInspectorInfersRetainedCompactionSummary(t *testing.T) {
 	}
 }
 
+func TestFormatMemoryInspectorShowsTranscriptEvidenceSummary(t *testing.T) {
+	out := formatMemoryInspectorWithMessages(gact.MemoryStats{}, []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type:     gact.PartTypeToolCall,
+			CallID:   "call_1",
+			ToolName: "ReadFile",
+		}},
+	}, {
+		Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			Type:    gact.PartTypeToolResult,
+			CallID:  "call_1",
+			IsError: true,
+			Content: []gact.Part{{Type: gact.PartTypeText, Text: "permission denied"}},
+		}},
+	}, {
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type:    gact.PartTypeCompaction,
+			Summary: "kept evidence",
+		}},
+	}})
+
+	for _, want := range []string{
+		"Transcript evidence",
+		"messages_loaded: 3",
+		"addressable_detail_parts: 3",
+		"tool_calls: 1",
+		"tool_results: 1",
+		"tool_errors: 1",
+		"compaction_markers: 1",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing transcript evidence %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestPaletteMemoryCommandLoadsInspectorWhenSupported(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.caps.Capabilities.Memory = true
@@ -202,6 +241,25 @@ func TestPaletteMemoryCommandLoadsInspectorWhenSupported(t *testing.T) {
 	}
 	if a.paletteOpen {
 		t.Fatal("/memory should close the command palette before opening detail")
+	}
+}
+
+func TestStandaloneMemoryDetailLoadedOpensInspector(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = false
+
+	model, _ := a.Update(catalogDetailLoadedMsg{
+		title:      "Memory · ARC context",
+		text:       "ARC cache\nhits: 1",
+		standalone: true,
+	})
+	got := model.(*App)
+
+	if !got.detailViewOpen || got.detailView == nil {
+		t.Fatal("standalone memory detail should open detail view")
+	}
+	if got.detailView.title != "Memory · ARC context" {
+		t.Fatalf("detail title = %q, want memory inspector title", got.detailView.title)
 	}
 }
 

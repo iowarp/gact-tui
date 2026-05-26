@@ -662,3 +662,36 @@ Additional work continued from the same architectural direction:
 - Sidebar section headers now share `activateSidebarSection`; the sessions
   header registers a render-time `sidebar:sessions:header` target and the
   context header, keyboard toggle, and coordinate fallback use the same action.
+- Memory inspector details now open as standalone palette details instead of
+  being dropped by the catalog-only detail guard. The inspector surfaces ARC
+  cache stats, current session pressure, transcript evidence counts, tool
+  call/result/error counts, and retained compaction-summary evidence.
+- Modal list description wrapping now avoids double-indenting continuation
+  rows, keeping catalog/settings/provider descriptions within the rendered
+  modal width instead of producing short awkward line breaks.
+
+### 2026-05-26 user-observed follow-up queue
+
+- Modal close/back controls still need visual audit across every overlay.
+  Header actions should be right-aligned and stable; centered body actions
+  should be reserved for true confirmation choices. Any remaining mixed
+  close/back placement is a bug, not a per-modal design decision.
+- Wrapped modal/list text should use the available modal width. Avoid rows that
+  break after only a few words while there is unused horizontal space, and avoid
+  double-indented continuation lines in catalog, settings, help, and provider
+  rows.
+- Tool catalog rows should stay dense. Do not spend list-view space repeating
+  the command name as its own description; use row space for source, server,
+  visibility, owner/agent, permission, tags, schema, or error/capability state.
+- Settings/TUI option controls need a visual-loop pass for mouse parity:
+  left/right chips, row selection, save/close/back controls, and hit targets
+  must match the rendered text at normal and narrow sizes.
+- Header settings/help affordances exist in the current branch, but need a VHS
+  capture at realistic widths to prove they remain visible and clickable rather
+  than disappearing behind crowded session/model/provider chips.
+- Copy/paste is an explicit product task. Mouse mode should allow paste into
+  the normal input and expanded compose textarea without regressing terminal
+  paste. Conversation/detail copy should offer scoped copy actions for selected
+  message, selected tool/result, visible block, raw detail, and full transcript,
+  so users do not have to select sidebar borders, divider glyphs, and footer
+  hints from the terminal frame.

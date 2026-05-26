@@ -19,11 +19,12 @@ func loadMemoryInspectorCmd(c *client.Client, sessionID string, messages []gact.
 		defer cancel()
 		stats, err := c.MemoryStats(ctx, sessionID)
 		if err != nil {
-			return catalogDetailLoadedMsg{title: "Memory", err: err}
+			return catalogDetailLoadedMsg{title: "Memory", err: err, standalone: true}
 		}
 		return catalogDetailLoadedMsg{
-			title: "Memory · ARC context",
-			text:  formatMemoryInspectorWithMessages(stats, sessionMessages),
+			title:      "Memory · ARC context",
+			text:       formatMemoryInspectorWithMessages(stats, sessionMessages),
+			standalone: true,
 		}
 	}
 }
@@ -59,6 +60,16 @@ func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.M
 			detailField{"profiles_attached", fmt.Sprintf("%d", stats.Session.ProfilesAttached)},
 		)
 	}
+	if evidence := transcriptMemoryEvidence(messages); evidence.messages > 0 {
+		rows = appendDetailSection(rows, "Transcript evidence",
+			detailField{"messages_loaded", fmt.Sprintf("%d", evidence.messages)},
+			detailField{"addressable_detail_parts", fmt.Sprintf("%d", evidence.addressableParts)},
+			detailField{"tool_calls", fmt.Sprintf("%d", evidence.toolCalls)},
+			detailField{"tool_results", fmt.Sprintf("%d", evidence.toolResults)},
+			detailField{"tool_errors", fmt.Sprintf("%d", evidence.toolErrors)},
+			detailField{"compaction_markers", fmt.Sprintf("%d", evidence.compactions)},
+		)
+	}
 	rows = appendDetailSection(rows, "Compaction",
 		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
@@ -78,6 +89,48 @@ func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.M
 type compactionEvidence struct {
 	count int
 	lines int
+}
+
+type transcriptEvidenceSummary struct {
+	messages         int
+	addressableParts int
+	toolCalls        int
+	toolResults      int
+	toolErrors       int
+	compactions      int
+}
+
+func transcriptMemoryEvidenceFromPart(part gact.Part, out *transcriptEvidenceSummary) {
+	switch part.Type {
+	case gact.PartTypeToolCall:
+		out.toolCalls++
+	case gact.PartTypeToolResult:
+		out.toolResults++
+		if part.IsError {
+			out.toolErrors++
+		}
+	case gact.PartTypeCompaction:
+		out.compactions++
+	default:
+		if text := strings.TrimSpace(part.Text); isCompactSummaryPart(part, text) {
+			out.compactions++
+		}
+	}
+	for _, child := range part.Content {
+		transcriptMemoryEvidenceFromPart(child, out)
+	}
+}
+
+func transcriptMemoryEvidence(messages []gact.Message) transcriptEvidenceSummary {
+	var out transcriptEvidenceSummary
+	for _, msg := range messages {
+		out.messages++
+		out.addressableParts += len(addressablePartsOf(msg))
+		for _, part := range msg.Parts {
+			transcriptMemoryEvidenceFromPart(part, &out)
+		}
+	}
+	return out
 }
 
 func compactionEvidenceFromMessages(messages []gact.Message) compactionEvidence {
