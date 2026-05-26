@@ -561,6 +561,13 @@ func (a *App) registerModalListRegion(modal string, rowOffset int, col int, widt
 	}
 }
 
+func (a *App) registerModalWheelRegion(modal string, id string, row int, col int, width int, height int, action uiWheelAction) {
+	if id == "" || action == nil || height <= 0 {
+		return
+	}
+	a.registerModalContentWheelHit(modal, id, row, col, width, height, action)
+}
+
 func (a *App) registerModalCellHits(modal string, rowOffset int, hits []modalCellHit) {
 	for _, hit := range hits {
 		height := hit.height

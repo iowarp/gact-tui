@@ -649,3 +649,6 @@ Additional work continued from the same architectural direction:
 - Settings now registers body wheel handling and selectable rows through the
   shared modal list-region primitive, so theme/language/agent/TUI rows and
   body scrolling share one render-derived geometry path.
+- Provider setup section wheel regions now use `registerModalWheelRegion`, so
+  provider, model, and advanced multi-column scrolling no longer calls the
+  low-level modal content wheel API directly.

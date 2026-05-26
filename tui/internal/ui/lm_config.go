@@ -1326,7 +1326,7 @@ func lmConfigBoxHeight(visibleRows int) int {
 }
 
 func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, visibleRows int) {
-	a.registerModalContentWheelHit(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalWheelRegion(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigProviderWheel(button)
 	})
 }
@@ -1335,7 +1335,7 @@ func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visib
 	if visibleRows <= 0 {
 		return
 	}
-	a.registerModalContentWheelHit(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalWheelRegion(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigModelWheel(button)
 	})
 }
@@ -1344,7 +1344,7 @@ func (a *App) registerLMConfigAdvancedWheelHit(modal string, top, col, width, vi
 	if visibleRows <= 0 {
 		return
 	}
-	a.registerModalContentWheelHit(modal, "lm-config:advanced:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalWheelRegion(modal, "lm-config:advanced:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		app.handleLMConfigAdvancedWheel(button)
 		return nil
 	})
