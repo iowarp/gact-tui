@@ -108,7 +108,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.lmConfigOpen, view: a.viewLMConfig, click: a.handleLMConfigMouseClick},
 		{open: a.doctorOpen, view: a.viewDoctor, click: a.handleDoctorMouseClick},
 		{open: a.metricsOpen, view: a.viewMetrics, click: a.handleMetricsMouseClick},
-		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick, wheel: a.handleSettingsMouseWheel},
+		{open: a.settingsOpen, view: a.viewSettings, click: a.handleSettingsMouseClick},
 		{open: a.helpOpen, view: a.viewHelp, click: a.handleHelpMouseClick},
 		{open: a.paletteOpen, view: a.viewPalette, click: a.handlePaletteMouseClick},
 	}
@@ -272,19 +272,6 @@ func (a *App) handleMcpRemoveMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cm
 
 func (a *App) handleMcpInstallMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
 	return a.closeOverlayOnOutside(rect, mouse, a.closeMcpInstallModal)
-}
-
-func (a *App) handleSettingsMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
-	if a.settings == nil {
-		a.settings = &settingsState{}
-	}
-	switch m.Mouse().Button {
-	case tea.MouseWheelUp:
-		a.handleSettingsKey(keyMsg("up"))
-	case tea.MouseWheelDown:
-		a.handleSettingsKey(keyMsg("down"))
-	}
-	return nil, true
 }
 
 func (a *App) handleSettingsMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {

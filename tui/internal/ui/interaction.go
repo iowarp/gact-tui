@@ -308,6 +308,11 @@ func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id str
 	}
 }
 
+func (a *App) registerModalSurfaceWheel(rendered modalFrameRender, id string) {
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	a.registerScreenWheelHit(id+":surface:wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd { return nil })
+}
+
 func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 	a.registerModalTabsWithLayout(modal, row, tabs, 2, 2)
 }

@@ -667,6 +667,45 @@ func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestSettingsMouseWheelMovesSelectionOnlyOverBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 4, languageSel: 0}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:body:wheel")
+	if !ok {
+		t.Fatal("missing semantic settings body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.settings == nil || a.settings.languageSel != 1 {
+		t.Fatalf("wheel over settings body should move language selection, settings=%+v", a.settings)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "settings:surface:wheel")
+	if !ok {
+		t.Fatal("missing settings surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.settings == nil || a.settings.languageSel != 1 {
+		t.Fatalf("wheel on settings chrome should not move language selection, settings=%+v", a.settings)
+	}
+}
+
 func TestHelpTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
