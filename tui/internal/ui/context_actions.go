@@ -9,14 +9,6 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-type contextAction struct {
-	id          string
-	title       string
-	description string
-	key         string
-	action      func(*App) tea.Cmd
-}
-
 func (a *App) openContextActionsForIndex(index int) tea.Cmd {
 	if index < 0 || index >= len(a.contextFiles) {
 		return nil
@@ -42,12 +34,12 @@ func (a *App) selectedContextFile() (gact.ContextFile, bool) {
 	return a.contextFiles[a.contextFileSel], true
 }
 
-func (a *App) selectedContextActionItems() []contextAction {
+func (a *App) selectedContextActionItems() []actionMenuItem {
 	cf, ok := a.selectedContextFile()
 	if !ok {
 		return nil
 	}
-	return []contextAction{
+	return []actionMenuItem{
 		{
 			id:          "detail",
 			title:       "Open detail",
@@ -123,68 +115,22 @@ func (a *App) selectedContextActionItems() []contextAction {
 
 func (a *App) applyContextActionSelection() tea.Cmd {
 	items := a.selectedContextActionItems()
-	if len(items) == 0 {
-		a.closeContextActions()
-		return nil
-	}
-	if a.contextActionsSel < 0 {
-		a.contextActionsSel = 0
-	}
-	if a.contextActionsSel >= len(items) {
-		a.contextActionsSel = len(items) - 1
-	}
-	return items[a.contextActionsSel].action(a)
+	return a.applyActionMenuSelection(items, &a.contextActionsSel, func(app *App) { app.closeContextActions() })
 }
 
 func (a *App) handleContextActionsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	items := a.selectedContextActionItems()
-	switch k.String() {
-	case "esc", "q", "left", "h", "m":
-		a.closeContextActions()
-		return a, nil
-	case "up", "k":
-		a.contextActionsSel = moveSelection(a.contextActionsSel, len(items), -1)
-		return a, nil
-	case "down", "j":
-		a.contextActionsSel = moveSelection(a.contextActionsSel, len(items), 1)
-		return a, nil
-	case "pgup", "ctrl+u", "g", "home":
-		a.contextActionsSel = 0
-		return a, nil
-	case "pgdown", "ctrl+d", "G", "end":
-		if len(items) > 0 {
-			a.contextActionsSel = len(items) - 1
-		}
-		return a, nil
-	case "enter":
-		return a, a.applyContextActionSelection()
-	}
-	for i, item := range items {
-		if k.String() == item.key {
-			a.contextActionsSel = i
-			return a, item.action(a)
-		}
+	if cmd, handled := a.handleActionMenuKey(k, items, &a.contextActionsSel, func(app *App) { app.closeContextActions() }); handled {
+		return a, cmd
 	}
 	return a, nil
 }
 
 func (a *App) viewContextActions() string {
-	t := a.Theme
-	w := a.modalWidth()
-	listW := w - 8
-	if listW < 1 {
-		listW = w - 4
-	}
 	items := a.selectedContextActionItems()
-	if a.contextActionsSel < 0 {
-		a.contextActionsSel = 0
-	}
-	if a.contextActionsSel >= len(items) && len(items) > 0 {
-		a.contextActionsSel = len(items) - 1
-	}
 
 	title := "Context actions"
-	contextLine := t.HintLabel.Render("No context file selected.")
+	contextLine := "No context file selected."
 	if cf, ok := a.selectedContextFile(); ok {
 		title = truncate(shortContextPath(cf.Path), 44)
 		mode := strings.TrimSpace(cf.Mode)
@@ -195,52 +141,16 @@ func (a *App) viewContextActions() string {
 		if cf.Size > 0 {
 			meta += " · " + humanBytes(cf.Size)
 		}
-		contextLine = t.HintLabel.Render(fmt.Sprintf("%s · %s", truncate(cf.Path, 52), meta))
+		contextLine = fmt.Sprintf("%s · %s", truncate(cf.Path, 52), meta)
 	}
 
-	rows := []string{contextLine, ""}
-	listStartRow := len(rows)
-	win := selectedItemWindow(len(items), a.contextActionsSel, a.modalListItemBudget(5, 2, 8))
-	listItems := make([]modalListItem, 0, win.end-win.start)
-	for i := win.start; i < win.end; i++ {
-		item := items[i]
-		idx := i
-		listItems = append(listItems, modalListItem{
-			id:          "context-actions:" + item.id,
-			title:       item.title,
-			description: item.description,
-			status:      item.key,
-			selected:    i == a.contextActionsSel,
-			action: func(app *App) tea.Cmd {
-				app.contextActionsSel = idx
-				return app.applyContextActionSelection()
-			},
-		})
-	}
-	list := a.renderModalList(listItems, modalListOptions{
-		width:            listW,
-		rowBudget:        12,
-		descriptionLines: 1,
+	return a.renderActionMenu(actionMenuOptions{
+		prefix:      "context-actions",
+		title:       title,
+		contextLine: contextLine,
+		items:       items,
+		selected:    &a.contextActionsSel,
+		rowBudget:   12,
+		close:       func(app *App) { app.closeContextActions() },
 	})
-	rows = append(rows, list.rows...)
-
-	rendered := a.renderSelectableListModal(selectableListModalOptions{
-		frame: modalFrameOptions{
-			width:   w,
-			title:   title,
-			buttons: []menuButton{closeMenuButton("context-actions:close", func(app *App) { app.closeContextActions() })},
-		},
-		rows:           rows,
-		list:           list,
-		listStart:      listStartRow,
-		listWidth:      listW,
-		window:         win,
-		wheelID:        "context-actions:list:wheel",
-		surfaceWheelID: "context-actions",
-		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
-			app.contextActionsSel = moveSelectionByWheel(app.contextActionsSel, len(app.selectedContextActionItems()), button)
-			return nil
-		},
-	})
-	return rendered.modal
 }

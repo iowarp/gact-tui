@@ -747,6 +747,10 @@ Additional work continued from the same architectural direction:
   and expanded compose use the shared wide-modal width instead of separate
   viewport formulas, while settings/catalog/detail/memory keep the standard
   width.
+- Row-local session, context, and conversation action menus now share
+  `action_menu.go` for selection movement, close/key semantics, rendered list
+  rows, wheel targets, close button registration, and semantic row hit ids.
+  Each surface only defines domain-specific actions and context labels.
 
 ### 2026-05-26 user-observed follow-up queue
 
