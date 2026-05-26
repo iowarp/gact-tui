@@ -795,3 +795,31 @@ func TestCatalogBrowserScrollsSelectionIntoView(t *testing.T) {
 		t.Fatalf("top item still visible after scrolling past viewport:\n%s", out)
 	}
 }
+
+func TestCatalogBrowserUsesSharedScrollRailInsteadOfRangeRows(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := make([]catalogItem, 30)
+	for i := range items {
+		items[i] = catalogItem{id: itoa2(i), title: "item-" + itoa2(i)}
+	}
+	a.width = 120
+	a.height = 36
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindSkills,
+		title: "Skills",
+		items: items,
+		sel:   14,
+	}
+	a.catalogBrowser.offset = catalogBrowserClampOffset(a.catalogBrowser.sel, a.catalogBrowser.offset, len(items))
+
+	out := stripANSI(a.viewCatalogBrowser())
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("long catalog should render a shared side scroll rail:\n%s", out)
+	}
+	for _, notWant := range []string{"above", "and ", " more"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("catalog should not render textual scroll count %q:\n%s", notWant, out)
+		}
+	}
+}
