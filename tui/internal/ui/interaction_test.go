@@ -4180,6 +4180,43 @@ func TestMcpInstallEditorClickPlacesCursor(t *testing.T) {
 	}
 }
 
+func TestMcpInstallExamplesUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.mcpInstallOpen = true
+	a.mcpInstallInput = "bad"
+	a.mcpInstallCursor = len(a.mcpInstallInput)
+	a.mcpInstallErr = "usage"
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "mcp-install:example:http")
+	if !ok {
+		t.Fatal("missing semantic MCP install http example target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("example click should not dispatch a command")
+	}
+	want := "weather http https://mcp.example.com"
+	if a.mcpInstallInput != want {
+		t.Fatalf("example input = %q, want %q", a.mcpInstallInput, want)
+	}
+	if a.mcpInstallCursor != len([]rune(want)) {
+		t.Fatalf("cursor = %d, want end %d", a.mcpInstallCursor, len([]rune(want)))
+	}
+	if a.mcpInstallErr != "" {
+		t.Fatalf("example click should clear stale error, got %q", a.mcpInstallErr)
+	}
+}
+
 func TestMcpInstallLineEditorSupportsMiddleInsert(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.mcpInstallOpen = true
