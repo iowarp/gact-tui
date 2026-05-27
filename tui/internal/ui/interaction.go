@@ -337,6 +337,7 @@ type textEntryModalOptions struct {
 	editorValue  string
 	cursorAction func(*App, int)
 	status       []string
+	statusHits   []modalCellHit
 	footer       string
 }
 
@@ -603,8 +604,10 @@ func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender 
 	}
 	editorRow := len(rows)
 	rows = append(rows, lipgloss.NewStyle().Foreground(a.Theme.Fg).Render("> "+opts.editor))
+	statusRow := -1
 	if len(opts.status) > 0 {
 		rows = append(rows, "")
+		statusRow = len(rows)
 		rows = appendModalTextRows(rows, opts.status...)
 	}
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
@@ -616,6 +619,9 @@ func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender 
 	})
 	if opts.editorID != "" && opts.cursorAction != nil {
 		a.registerTextEntryCursorHits(rendered.modal, rendered.bodyRow+editorRow, opts.editorID, opts.editorValue, opts.cursorAction)
+	}
+	if statusRow >= 0 && len(opts.statusHits) > 0 {
+		a.registerModalCellHits(rendered.modal, rendered.bodyRow+statusRow, opts.statusHits)
 	}
 	return rendered
 }
