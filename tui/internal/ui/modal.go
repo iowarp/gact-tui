@@ -62,6 +62,10 @@ func modalInsetListWidth(width int) int {
 	return listW
 }
 
+func modalTextAreaWidth(width int) int {
+	return modalInnerWidth(width)
+}
+
 // detailModalWidth intentionally aliases the shared modal width so
 // drill-down panes do not visually jump to a different chrome size.
 func (a *App) detailModalWidth() int {
