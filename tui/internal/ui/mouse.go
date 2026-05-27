@@ -67,10 +67,8 @@ func (a *App) registerInputFocusSurface(conversationHeight int, hintHeight int, 
 	if !a.MouseEnabled || a.hits == nil || inputHeight <= 0 || bodyWidth <= 0 {
 		return
 	}
-	a.registerScreenHit("input:focus", a.inputFocusSurfaceRect(conversationHeight, hintHeight, inputHeight, bodyWidth), func(app *App) tea.Cmd {
-		app.focus = FocusInput
+	a.registerFocusSurfaceHit("input:focus", a.inputFocusSurfaceRect(conversationHeight, hintHeight, inputHeight, bodyWidth), FocusInput, func(app *App) {
 		app.input.Focus()
-		return nil
 	})
 }
 

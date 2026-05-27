@@ -927,6 +927,43 @@ func TestScreenSurfaceHitUsesViewportGeometry(t *testing.T) {
 	}
 }
 
+func TestFocusSurfaceHitSetsFocusAndRunsHook(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.focus = FocusInput
+	a.beginHitFrame()
+	hooked := false
+
+	a.registerFocusSurfaceHit("focus:body", mouseRect{x: 3, y: 4, w: 20, h: 5}, FocusBody, func(*App) {
+		hooked = true
+	})
+
+	if _, handled := a.activateHitAt(10, 6, tea.MouseLeft); !handled {
+		t.Fatal("focus surface should handle click inside rect")
+	}
+	if a.focus != FocusBody {
+		t.Fatalf("focus = %v, want body", a.focus)
+	}
+	if !hooked {
+		t.Fatal("focus surface should run after hook")
+	}
+}
+
+func TestBasePaneFocusSurfaceRectsUseSharedGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+
+	if got, want := a.sidebarFocusSurfaceRect(30, 32), (mouseRect{x: 0, y: 1, w: 30, h: 32}); got != want {
+		t.Fatalf("sidebar focus rect = %+v, want %+v", got, want)
+	}
+	if got, want := a.conversationFocusSurfaceRect(28, 88), (mouseRect{x: 30, y: 1, w: 88, h: 28}); got != want {
+		t.Fatalf("conversation focus rect = %+v, want %+v", got, want)
+	}
+	if got, want := a.inputFocusSurfaceRect(28, 1, 3, 88), (mouseRect{x: 30, y: 29, w: 88, h: 4}); got != want {
+		t.Fatalf("input focus rect = %+v, want %+v", got, want)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
