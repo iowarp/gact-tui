@@ -812,6 +812,9 @@ Additional work continued from the same architectural direction:
 - Header status/workspace/session/model/agent/routing chip targets now use the
   same shared screen text-span primitive as header actions and footer hints,
   removing another top-chrome raw rectangle path.
+- Sidebar section headers, session rows, filter rows, context rows, and counts
+  now share sidebar content hit helpers, centralizing row-to-screen geometry
+  and preserving existing primary/right-click semantic actions.
 
 ### 2026-05-26 user-observed follow-up queue
 

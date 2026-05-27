@@ -4191,7 +4191,7 @@ func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sideba
 	if section == sidebarSectionContext {
 		id = "sidebar:context:header"
 	}
-	a.registerScreenHit(id, sidebarContentRect(row, width), func(app *App) tea.Cmd {
+	a.registerSidebarContentHit(id, row, width, 1, func(app *App) tea.Cmd {
 		app.activateSidebarSection(section)
 		return nil
 	})
@@ -4215,11 +4215,11 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 	if id == "" {
 		id = fmt.Sprintf("%d", index)
 	}
-	rect := sidebarContentRect(row, width)
-	rect.h = rowCount
-	a.registerScreenHitActions(
+	a.registerSidebarContentHitActions(
 		"sidebar:session:"+id,
-		rect,
+		row,
+		width,
+		rowCount,
 		func(app *App) tea.Cmd {
 			return app.activateSidebarSession(index)
 		},
@@ -4233,7 +4233,7 @@ func (a *App) registerSidebarFilterHit(row int, width int) {
 	if a.hits == nil {
 		return
 	}
-	a.registerScreenHit("sidebar:filter", sidebarContentRect(row, width), func(app *App) tea.Cmd {
+	a.registerSidebarContentHit("sidebar:filter", row, width, 1, func(app *App) tea.Cmd {
 		app.enterSidebarFilter(false)
 		return nil
 	})
@@ -4247,14 +4247,11 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 	if a.hits == nil {
 		return
 	}
-	rect := sidebarContentRect(row, width)
-	rect.h = a.sidebarContextFileRowCount(index)
-	if rect.h < 1 {
-		rect.h = 1
-	}
-	a.registerScreenHitActions(
+	a.registerSidebarContentHitActions(
 		"sidebar:context:file:"+cf.Path,
-		rect,
+		row,
+		width,
+		a.sidebarContextFileRowCount(index),
 		func(app *App) tea.Cmd {
 			app.focus = FocusSidebar
 			app.sidebarSectionFocus = sidebarSectionContext
@@ -4273,10 +4270,26 @@ func (a *App) registerSidebarCountsHit(row int, width int) {
 	if a.hits == nil {
 		return
 	}
-	a.registerScreenHit("sidebar:counts", sidebarContentRect(row, width), func(app *App) tea.Cmd {
+	a.registerSidebarContentHit("sidebar:counts", row, width, 1, func(app *App) tea.Cmd {
 		app.focus = FocusSidebar
 		return app.toggleArchivedView()
 	})
+}
+
+func (a *App) registerSidebarContentHit(id string, row int, width int, height int, action uiHitAction) {
+	a.registerSidebarContentHitActions(id, row, width, height, action, nil)
+}
+
+func (a *App) registerSidebarContentHitActions(id string, row int, width int, height int, action uiHitAction, secondaryAction uiHitAction) {
+	if a.hits == nil {
+		return
+	}
+	rect := sidebarContentRect(row, width)
+	if height < 1 {
+		height = 1
+	}
+	rect.h = height
+	a.registerScreenHitActions(id, rect, action, secondaryAction)
 }
 
 func sidebarContentRect(row int, width int) mouseRect {
