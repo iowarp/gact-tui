@@ -198,7 +198,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if w < 12 {
 		w = 12
 	}
-	innerW := w - 4
+	innerW := modalInnerWidth(w)
 	if innerW < 10 {
 		innerW = 10
 	}

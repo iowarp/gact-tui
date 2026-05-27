@@ -116,7 +116,7 @@ func (a *App) viewDoctor() string {
 	}
 	t := a.Theme
 	w := a.modalWidth()
-	innerW := w - 4
+	innerW := modalInnerWidth(w)
 
 	buttons := []menuButton{
 		{

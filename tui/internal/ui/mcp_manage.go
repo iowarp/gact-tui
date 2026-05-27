@@ -277,6 +277,7 @@ func (a *App) applyMcpInstallExample(value string) {
 func (a *App) viewMcpInstall() string {
 	t := a.Theme
 	w := a.modalWidth()
+	innerW := modalInnerWidth(w)
 	buttons := []menuButton{
 		{
 			id:    "mcp-install:install",
@@ -340,7 +341,7 @@ func (a *App) viewMcpInstall() string {
 			},
 		})
 	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, w-4, exampleHits)
+	a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, innerW, exampleHits)
 	return rendered.modal
 }
 
@@ -348,9 +349,10 @@ func (a *App) viewMcpInstall() string {
 func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
+	innerW := modalInnerWidth(w)
 	listW := w - 8
 	if listW < 1 {
-		listW = w - 4
+		listW = innerW
 	}
 	buttons := []menuButton{
 		{

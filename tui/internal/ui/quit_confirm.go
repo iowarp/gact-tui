@@ -136,10 +136,7 @@ func (a *App) viewQuitConfirm() string {
 	t := a.Theme
 	w := a.modalWidth()
 
-	contentW := w - 4
-	if contentW < 1 {
-		contentW = 1
-	}
+	contentW := modalInnerWidth(w)
 	hintStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
 	hintLines := wrapPlainRows(a.localizer.t(msgQuitHint, nil), contentW, "")
 	for i, line := range hintLines {

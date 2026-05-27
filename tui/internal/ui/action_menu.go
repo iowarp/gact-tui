@@ -92,9 +92,10 @@ func (a *App) handleActionMenuKey(k tea.KeyPressMsg, items []actionMenuItem, sel
 
 func (a *App) renderActionMenu(opts actionMenuOptions) string {
 	w := a.modalWidth()
+	innerW := modalInnerWidth(w)
 	listW := w - 8
 	if listW < 1 {
-		listW = w - 4
+		listW = innerW
 	}
 	a.clampActionMenuSelection(opts.selected, len(opts.items))
 	selected := 0
