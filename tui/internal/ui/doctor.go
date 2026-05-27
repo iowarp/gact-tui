@@ -34,13 +34,6 @@ type doctorState struct {
 	scroll  int
 }
 
-type doctorRowHit struct {
-	id     string
-	start  int
-	height int
-	action uiHitAction
-}
-
 // doctorTab switches between the integrations health view and the
 // capability scorecard.
 type doctorTab int
@@ -168,7 +161,7 @@ func (a *App) viewDoctor() string {
 		},
 	}
 	var body string
-	var rowHits []doctorRowHit
+	var rowHits []modalRowHit
 	switch {
 	case a.doctor.loading:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
@@ -218,7 +211,7 @@ func (a *App) viewDoctor() string {
 	if a.doctor != nil {
 		a.doctor.scroll = rendered.window.scroll
 	}
-	a.registerDoctorRowHits(rendered.modalFrameRender, rendered.window, rowHits)
+	a.registerScrollableModalRowHits(rendered.modalFrameRender, rendered.window, rowHits)
 	return rendered.modal
 }
 
@@ -231,28 +224,6 @@ func (a *App) doctorScroll() int {
 		return a.doctor.scroll
 	}
 	return 0
-}
-
-func (a *App) registerDoctorRowHits(rendered modalFrameRender, win scrollWindow, hits []doctorRowHit) {
-	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
-		return
-	}
-	bodyWidth := lipgloss.Width(rendered.modal) - 6
-	if bodyWidth < 1 {
-		bodyWidth = 1
-	}
-	for _, hit := range hits {
-		hit := hit
-		if hit.action == nil || hit.height <= 0 {
-			continue
-		}
-		start := maxInt(hit.start, win.start)
-		end := minInt(hit.start+hit.height, win.end)
-		if end <= start {
-			continue
-		}
-		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+(start-win.start), 0, bodyWidth, end-start, hit.action)
-	}
 }
 
 // renderDoctorCapabilities tabulates every spec capability as
@@ -345,15 +316,15 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 	}
 }
 
-func (a *App) doctorCapabilityRowHits() []doctorRowHit {
+func (a *App) doctorCapabilityRowHits() []modalRowHit {
 	if a.doctor == nil {
 		return nil
 	}
 	rows := doctorCapabilityRows(a.doctor.caps)
-	hits := make([]doctorRowHit, 0, len(rows))
+	hits := make([]modalRowHit, 0, len(rows))
 	for i, row := range rows {
 		row := row
-		hits = append(hits, doctorRowHit{
+		hits = append(hits, modalRowHit{
 			id:     "doctor:capability:" + row.name,
 			start:  3 + i,
 			height: 1,
@@ -436,7 +407,7 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 	return strings.Join(rows, "\n")
 }
 
-func (a *App) doctorHealthRowHits(innerW int) []doctorRowHit {
+func (a *App) doctorHealthRowHits(innerW int) []modalRowHit {
 	if a.doctor == nil || len(a.doctor.health.Integrations) == 0 {
 		return nil
 	}
@@ -445,14 +416,14 @@ func (a *App) doctorHealthRowHits(innerW int) []doctorRowHit {
 		detailField{"uptime", formatUptime(a.doctor.health.UptimeS)},
 	)
 	start := len(rows) + 2 // blank separator + Integrations section title.
-	hits := make([]doctorRowHit, 0, len(a.doctor.health.Integrations))
+	hits := make([]modalRowHit, 0, len(a.doctor.health.Integrations))
 	for _, integ := range a.doctor.health.Integrations {
 		integ := integ
 		rowHeight := len(detailFieldRows(integ.Name, doctorIntegrationValue(integ, innerW)))
 		if rowHeight < 1 {
 			rowHeight = 1
 		}
-		hits = append(hits, doctorRowHit{
+		hits = append(hits, modalRowHit{
 			id:     "doctor:integration:" + integ.Name,
 			start:  start,
 			height: rowHeight,

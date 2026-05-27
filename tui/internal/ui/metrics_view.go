@@ -24,13 +24,6 @@ type metricsState struct {
 	scroll  int
 }
 
-type metricsRowHit struct {
-	id     string
-	start  int
-	height int
-	action uiHitAction
-}
-
 // loadMetricsCmd fetches /v1/metrics.
 func loadMetricsCmd(c *client.Client) tea.Cmd {
 	return func() tea.Msg {
@@ -111,7 +104,7 @@ func (a *App) viewMetrics() string {
 	}
 
 	rows := []string{}
-	rowHits := []metricsRowHit{}
+	rowHits := []modalRowHit{}
 	switch {
 	case a.metrics.err != nil:
 		rows = append(rows,
@@ -154,7 +147,7 @@ func (a *App) viewMetrics() string {
 		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
 			provider := name
 			amount := m.Cost.ByProvider[name]
-			rowHits = append(rowHits, metricsRowHit{
+			rowHits = append(rowHits, modalRowHit{
 				id:     "metrics:cost:" + provider,
 				start:  metricsFieldRowStart(costSectionStart) + 1 + len(costFields) - 1,
 				height: 1,
@@ -176,7 +169,7 @@ func (a *App) viewMetrics() string {
 			for i, pat := range topLatencyRoutes(m.Latencies, 6) {
 				route := pat
 				st := m.Latencies[pat]
-				rowHits = append(rowHits, metricsRowHit{
+				rowHits = append(rowHits, modalRowHit{
 					id:     "metrics:latency:" + route,
 					start:  metricsFieldRowStart(latencySectionStart) + i,
 					height: 1,
@@ -224,7 +217,7 @@ func (a *App) viewMetrics() string {
 	if a.metrics != nil {
 		a.metrics.scroll = rendered.window.scroll
 	}
-	a.registerMetricsRowHits(rendered.modalFrameRender, rendered.window, rowHits)
+	a.registerScrollableModalRowHits(rendered.modalFrameRender, rendered.window, rowHits)
 	return rendered.modal
 }
 
@@ -248,28 +241,6 @@ func metricsFieldRowStart(sectionStart int) int {
 		return sectionStart + 2
 	}
 	return sectionStart + 1
-}
-
-func (a *App) registerMetricsRowHits(rendered modalFrameRender, win scrollWindow, hits []metricsRowHit) {
-	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
-		return
-	}
-	bodyWidth := lipgloss.Width(rendered.modal) - 6
-	if bodyWidth < 1 {
-		bodyWidth = 1
-	}
-	for _, hit := range hits {
-		hit := hit
-		if hit.action == nil || hit.height <= 0 {
-			continue
-		}
-		start := maxInt(hit.start, win.start)
-		end := minInt(hit.start+hit.height, win.end)
-		if end <= start {
-			continue
-		}
-		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+(start-win.start), 0, bodyWidth, end-start, hit.action)
-	}
 }
 
 func (a *App) openMetricsCostDetail(provider string, amount float64) {

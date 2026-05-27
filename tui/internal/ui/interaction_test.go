@@ -815,6 +815,45 @@ func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
 	}
 }
 
+func TestScrollableModalRowHitsClipToVisibleWindow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	clicked := false
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width: 40,
+		title: "Rows",
+		body: strings.Join([]string{
+			"row 0",
+			"row 1",
+			"row 2",
+			"row 3",
+		}, "\n"),
+	})
+
+	a.registerScrollableModalRowHits(rendered, scrollWindow{start: 2, end: 4, total: 4}, []modalRowHit{{
+		id:     "rows:middle",
+		start:  1,
+		height: 3,
+		action: func(*App) tea.Cmd {
+			clicked = true
+			return nil
+		},
+	}})
+
+	target, ok := findHitTargetForTest(a, "rows:middle")
+	if !ok {
+		t.Fatal("missing scrollable modal row target")
+	}
+	if target.rect.h != 2 {
+		t.Fatalf("row target height = %d, want visible clipped height 2", target.rect.h)
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("clipped row target should handle click, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
