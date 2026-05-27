@@ -99,6 +99,9 @@ func TestLMConfigBoxWidthsUseSharedPolicy(t *testing.T) {
 	if got := lmConfigBoxContentWidth(8); got != 8 {
 		t.Fatalf("tiny box content width = %d, want minimum content 8", got)
 	}
+	if got := lmConfigBoxRailCol(7, 60); got != 64 {
+		t.Fatalf("box rail col = %d, want 64", got)
+	}
 }
 
 func TestLMConfigNavigationUsesVerticalKeysInsideFocusedList(t *testing.T) {
