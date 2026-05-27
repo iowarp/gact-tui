@@ -293,6 +293,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup provider/model list row hits now use the same box content-top
   helper as provider-details and advanced cell hits, keeping every provider box
   target on one box-relative content-offset rule.
+- Provider setup provider/model side-rail hit targets now also use the shared
+  box content-top helper, so rows, cells, and rails all share one box-local
+  content origin.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
