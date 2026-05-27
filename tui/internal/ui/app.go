@@ -8563,15 +8563,9 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 	if len(blocks) == 0 || viewportRows < 1 {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
-	contentX := sidebarW + 2
 	contentW := bodyWidth - 4
 	if contentW < 1 {
 		contentW = 1
-	}
-	bodyTop := 4
-	if hasPermissionBanner {
-		bodyTop++
 	}
 	visibleStart := a.conversationScrollStart(body, viewportRows)
 	visibleEnd := visibleStart + viewportRows
@@ -8588,14 +8582,14 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 		screenEnd := min(end, visibleEnd)
 		msgIdx := block.msgIdx
 		addrIdx := block.addrIdx
-		a.registerScreenHitActions(
+		a.registerConversationContentHitActions(
 			fmt.Sprintf("conversation:part:%d:%d", msgIdx, addrIdx),
-			mouseRect{
-				x: contentX,
-				y: bodyTop + (screenStart - visibleStart),
-				w: contentW,
-				h: screenEnd - screenStart,
-			},
+			screenStart-visibleStart,
+			0,
+			contentW,
+			screenEnd-screenStart,
+			bodyWidth,
+			hasPermissionBanner,
 			func(app *App) tea.Cmd {
 				if msgIdx < 0 || msgIdx >= len(app.messages) {
 					return nil
@@ -8625,14 +8619,14 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 		if block.opensDetail && block.detailStart >= 0 {
 			detailRow := block.detailStart
 			if detailRow >= visibleStart && detailRow < visibleEnd {
-				a.registerScreenHitActions(
+				a.registerConversationContentHitActions(
 					fmt.Sprintf("conversation:detail:%d:%d", msgIdx, addrIdx),
-					mouseRect{
-						x: contentX,
-						y: bodyTop + (detailRow - visibleStart),
-						w: contentW,
-						h: 1,
-					},
+					detailRow-visibleStart,
+					0,
+					contentW,
+					1,
+					bodyWidth,
+					hasPermissionBanner,
 					func(app *App) tea.Cmd {
 						if msgIdx < 0 || msgIdx >= len(app.messages) {
 							return nil
@@ -8663,28 +8657,28 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 			}
 			actionPath := action.path
 			actionName := action.action
-			actionX := contentX + action.col - 1
-			if actionX < contentX {
-				actionX = contentX
+			actionCol := action.col - 1
+			if actionCol < 0 {
+				actionCol = 0
 			}
 			actionW := action.width + 2
 			if actionW < 1 {
 				actionW = 1
 			}
-			if actionX+actionW > contentX+contentW {
-				actionW = contentX + contentW - actionX
+			if actionCol+actionW > contentW {
+				actionW = contentW - actionCol
 			}
 			if actionW < 1 {
 				continue
 			}
-			a.registerScreenHit(
+			a.registerConversationContentHit(
 				fmt.Sprintf("conversation:diff:%s:%s", actionName, actionPath),
-				mouseRect{
-					x: actionX,
-					y: bodyTop + (actionRow - visibleStart),
-					w: actionW,
-					h: 1,
-				},
+				actionRow-visibleStart,
+				actionCol,
+				actionW,
+				1,
+				bodyWidth,
+				hasPermissionBanner,
 				func(app *App) tea.Cmd {
 					if msgIdx < 0 || msgIdx >= len(app.messages) {
 						return nil
@@ -8717,6 +8711,60 @@ func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, bo
 	}
 }
 
+func (a *App) registerConversationContentHit(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiHitAction) {
+	a.registerConversationContentHitActions(id, row, col, width, height, bodyWidth, hasPermissionBanner, action, nil)
+}
+
+func (a *App) registerConversationContentHitActions(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiHitAction, secondaryAction uiHitAction) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHitActions(id, a.conversationContentRect(row, col, width, height, bodyWidth, hasPermissionBanner), action, secondaryAction)
+}
+
+func (a *App) registerConversationContentWheelHit(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiWheelAction) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenWheelHit(id, a.conversationContentRect(row, col, width, height, bodyWidth, hasPermissionBanner), action)
+}
+
+func (a *App) conversationContentRect(row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool) mouseRect {
+	sidebarW, _, _ := a.mainPaneGeometry()
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	if col < 0 {
+		col = 0
+	}
+	if col >= contentW {
+		col = contentW - 1
+	}
+	if width < 1 {
+		width = 1
+	}
+	if col+width > contentW {
+		width = contentW - col
+	}
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	bodyTop := 4
+	if hasPermissionBanner {
+		bodyTop++
+	}
+	return mouseRect{
+		x: sidebarW + 2 + col,
+		y: bodyTop + row,
+		w: width,
+		h: height,
+	}
+}
+
 func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth int) {
 	if a.hits == nil || conversationHeight <= 0 || bodyWidth <= 0 {
 		return
@@ -8738,21 +8786,11 @@ func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasP
 	if viewportRows < 1 {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
 	contentW := bodyWidth - 4
 	if contentW < 1 {
 		contentW = 1
 	}
-	bodyTop := 4
-	if hasPermissionBanner {
-		bodyTop++
-	}
-	a.registerScreenWheelHit("conversation:body:wheel", mouseRect{
-		x: sidebarW + 2,
-		y: bodyTop,
-		w: contentW,
-		h: viewportRows,
-	}, func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerConversationContentWheelHit("conversation:body:wheel", 0, 0, contentW, viewportRows, bodyWidth, hasPermissionBanner, func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleConversationWheel(button)
 	})
 }
