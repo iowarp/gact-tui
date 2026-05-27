@@ -812,7 +812,7 @@ func TestToolCatalogDescriptionUsesPurposeWhenMetadataMissing(t *testing.T) {
 }
 
 func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
-	for _, kind := range []catalogBrowserKind{catalogKindMcpDetail, catalogKindAgentDetail} {
+	for _, kind := range []catalogBrowserKind{catalogKindTools, catalogKindMcpDetail, catalogKindAgentDetail} {
 		a := newReadyApp(nil, nil)
 		a.catalogBrowserOpen = true
 		a.catalogBrowser = &catalogBrowserState{
