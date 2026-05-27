@@ -8835,10 +8835,7 @@ func truncate(s string, max int) string {
 func (a *App) viewPalette() string {
 	t := a.Theme
 	w := a.modalWidth()
-	listW := w - 8
-	if listW < 1 {
-		listW = w - 4
-	}
+	listW := modalInsetListWidth(w)
 
 	if a.isSearchMode() {
 		return a.viewPaletteSearch(w)
@@ -8965,10 +8962,7 @@ func (a *App) viewPaletteSearch(w int) string {
 	listStartRow := -1
 	var list modalListRender
 	win := scrollWindow{total: len(a.searchMatches)}
-	listW := w - 8
-	if listW < 1 {
-		listW = w - 4
-	}
+	listW := modalInsetListWidth(w)
 	buttons := a.paletteCloseButtons()
 	queryPrefix := a.localizer.t(msgPaletteQuery, nil) + " "
 	rows := []string{
@@ -9256,7 +9250,7 @@ func (a *App) viewHelp() string {
 		content      string
 		commandList  modalListRender
 		commandTab   = helpTabs[idx].title == "Commands"
-		commandWidth = w - 4
+		commandWidth = modalInnerWidth(w)
 	)
 	if commandTab {
 		items := make([]modalListItem, 0, len(helpTabs[idx].keys))
