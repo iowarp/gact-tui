@@ -640,12 +640,11 @@ func (a *App) registerScreenTextSpanHit(id string, startX int, y int, line strin
 	if id == "" || span == "" || action == nil {
 		return
 	}
-	runes := []rune(line)
-	if col < 0 || col > len(runes) {
+	if col < 0 || col > len(line) {
 		return
 	}
 	a.registerScreenHit(id, mouseRect{
-		x: startX + lipgloss.Width(string(runes[:col])),
+		x: startX + lipgloss.Width(line[:col]),
 		y: y,
 		w: lipgloss.Width(span),
 		h: 1,
