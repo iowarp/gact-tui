@@ -408,6 +408,31 @@ func TestTextEntryModalRegistersStatusHitTargets(t *testing.T) {
 	}
 }
 
+func TestTextEntryModalRegistersNamedSurfaceWheelBlocker(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:     a.modalWidth(),
+		title:     "Entry",
+		surfaceID: "entry",
+		editor:    a.renderCursorEditor("path", 4),
+	})
+
+	target, ok := findHitTargetForTest(a, "entry:surface:wheel")
+	if !ok {
+		t.Fatal("missing shared text-entry surface wheel target")
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	if target.rect != rect {
+		t.Fatalf("surface wheel rect = %+v, want overlay rect %+v", target.rect, rect)
+	}
+	if _, handled := a.activateOverlayWheelHitAt(target.rect.x, target.rect.y, tea.MouseWheelDown); !handled {
+		t.Fatal("text-entry surface wheel target should activate through overlay wheel dispatch")
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{

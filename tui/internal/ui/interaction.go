@@ -348,6 +348,7 @@ type textEntryModalOptions struct {
 	width        int
 	title        string
 	buttons      []menuButton
+	surfaceID    string
 	intro        []string
 	editor       string
 	editorID     string
@@ -639,6 +640,9 @@ func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender 
 	}
 	if statusRow >= 0 && len(opts.statusHits) > 0 {
 		a.registerModalCellHits(rendered.modal, rendered.bodyRow+statusRow, opts.statusHits)
+	}
+	if opts.surfaceID != "" {
+		a.registerModalSurfaceWheel(rendered, opts.surfaceID)
 	}
 	return rendered
 }

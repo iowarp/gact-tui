@@ -210,6 +210,33 @@ func TestRenameEditorClickPlacesCursor(t *testing.T) {
 	}
 }
 
+func TestRenameSurfaceWheelUsesSharedTextEntryBlocker(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.width, a.height = 120, 36
+	a.renameOpen = true
+	a.renameDraft = "abcdef"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "rename:surface:wheel")
+	if !ok {
+		t.Fatal("missing rename surface wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("rename surface wheel should not dispatch a command")
+	}
+	if !a.renameOpen || a.renameCursor != len(a.renameDraft) {
+		t.Fatalf("rename surface wheel should keep modal and cursor stable, open=%v cursor=%d", a.renameOpen, a.renameCursor)
+	}
+}
+
 func TestRename_EmptyInputCancels(t *testing.T) {
 	a, mu, got := makeRenameApp(t)
 	a.renameOpen = true
