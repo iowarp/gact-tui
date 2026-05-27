@@ -103,8 +103,12 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `run_seeded_sidebar.sh` drives session actions, sidebar filtering, and quit
   confirmation with seeded sessions, while `run_workspace_switch.sh` drives a
   multi-workspace switcher screenshot without live backend/session state.
+- Settings, header, palette, text-entry, compose, file-picker, MCP install,
+  and conversation-action semantic tapes now run against the seeded emulator
+  session instead of a live CLIO benchmark session, so the core menu and
+  transcript-interaction screenshot set is reproducible from a clean checkout.
 
-Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, and deterministic sidebar/session workflows.
+Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
 ## Executive Summary
 
