@@ -217,6 +217,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Expanded compose textarea rendering and mouse-wheel regions now use
   `modalTextAreaWidth`, derived from the shared modal inner width, so editor
   layout and render-time hit registration stay tied to one modal chrome policy.
+- Scrollable modal bodies now share `modalScrollableBodyWidth` and
+  `modalScrollableContentWidth` for body rendering, wheel targets, row detail
+  hits, and rail hits, keeping Help, Doctor, Metrics, detail views, and
+  selectable-list rails on the same body/rail geometry policy.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

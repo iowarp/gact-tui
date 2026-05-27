@@ -473,8 +473,7 @@ func (a *App) registerScrollableModalRailHits(rendered modalFrameRender, id stri
 		return
 	}
 	modalWidth := lipgloss.Width(rendered.modal)
-	bodyW := modalWidth - 6
-	contentW := bodyW - 2
+	contentW := modalScrollableContentWidth(modalWidth)
 	if modalWidth < 16 || contentW < 4 {
 		return
 	}
@@ -496,10 +495,7 @@ func (a *App) registerScrollableModalRowHits(rendered modalFrameRender, win scro
 	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
 		return
 	}
-	bodyWidth := lipgloss.Width(rendered.modal) - 6
-	if bodyWidth < 1 {
-		bodyWidth = 1
-	}
+	bodyWidth := modalScrollableBodyWidth(lipgloss.Width(rendered.modal))
 	for _, hit := range hits {
 		hit := hit
 		if hit.action == nil || hit.height <= 0 {
@@ -834,8 +830,7 @@ func (a *App) registerSelectableListRailHits(rendered modalFrameRender, id strin
 		return
 	}
 	modalWidth := lipgloss.Width(rendered.modal)
-	bodyW := modalWidth - 6
-	contentW := bodyW - 2
+	contentW := modalScrollableContentWidth(modalWidth)
 	if modalWidth < 16 || contentW < 4 {
 		return
 	}
@@ -903,8 +898,7 @@ func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, w
 	if win.total <= visibleUnits || modalWidth < 16 || rows < 2 {
 		return padded
 	}
-	bodyW := modalWidth - 6
-	contentW := bodyW - 2
+	contentW := modalScrollableContentWidth(modalWidth)
 	if contentW < 4 {
 		return padded
 	}
@@ -945,7 +939,7 @@ func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id str
 	a.registerScreenHit(id+":surface", rect, func(app *App) tea.Cmd { return nil })
 	a.registerScreenWheelHit(id+":surface:wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd { return nil })
 	if rendered.bodyRow >= 0 && bodyRows > 0 && action != nil {
-		a.registerModalContentWheelHit(rendered.modal, id+":body:wheel", rendered.bodyRow, 0, maxInt(1, rect.w-6), bodyRows, action)
+		a.registerModalContentWheelHit(rendered.modal, id+":body:wheel", rendered.bodyRow, 0, modalScrollableBodyWidth(rect.w), bodyRows, action)
 	}
 }
 
