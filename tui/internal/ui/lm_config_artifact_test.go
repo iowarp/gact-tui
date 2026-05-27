@@ -143,8 +143,11 @@ func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic LM max output increment target")
 	}
+	if target.rect.w <= 3 {
+		t.Fatalf("advanced increment hit width = %d, want wider than glyph-only", target.rect.w)
+	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
+		X:      target.rect.x + target.rect.w/2,
 		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
@@ -165,8 +168,11 @@ func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic LM max output decrement target")
 	}
+	if target.rect.w <= 3 {
+		t.Fatalf("advanced decrement hit width = %d, want wider than glyph-only", target.rect.w)
+	}
 	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
+		X:      target.rect.x + target.rect.w/2,
 		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))

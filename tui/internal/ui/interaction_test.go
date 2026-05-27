@@ -1007,6 +1007,17 @@ func TestSettingsTUIStepperHitAreasSpanRenderedControl(t *testing.T) {
 	}
 }
 
+func TestSplitStepperControlHitSplitsRenderedControl(t *testing.T) {
+	decCol, decWidth := splitStepperControlHit(10, 20, false)
+	incCol, incWidth := splitStepperControlHit(10, 20, true)
+	if decCol != 10 || decWidth != 5 {
+		t.Fatalf("decrement half = col %d width %d, want col 10 width 5", decCol, decWidth)
+	}
+	if incCol != 15 || incWidth != 5 {
+		t.Fatalf("increment half = col %d width %d, want col 15 width 5", incCol, incWidth)
+	}
+}
+
 func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()
