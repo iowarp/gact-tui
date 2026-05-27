@@ -634,6 +634,9 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_conversation_actions.tape`,
   `semantic_conversation_footer_actions.tape`,
   `semantic_conversation_block_copy.tape`, and `semantic_detail_copy.tape`.
+- Memory/context inspector: `semantic_memory_inspector.tape` with
+  `semantic_memory_palette.png` and `semantic_memory_inspector.png`, using the
+  local emulator's `/v1/memory/stats` endpoint instead of live CLIO state.
 - Sidebar/filter/footer/session actions: `semantic_sidebar_filter.tape`,
   `semantic_sidebar_footer_actions.tape`, and
   `semantic_session_actions.tape`.
@@ -838,6 +841,9 @@ Additional work continued from the same architectural direction:
   one-line list summary and clip secondary text before styling, keeping noisy
   extracted-agent metadata in the detail region instead of wrapping awkwardly
   inside the list row.
+- Added a deterministic emulator-backed memory inspector VHS path so the ARC
+  memory/context drill-down is covered by semantic screenshots, not only live
+  ALCF captures and unit tests.
 
 ### 2026-05-26 user-observed follow-up queue
 
