@@ -220,6 +220,7 @@ func closeMenuButton(id string, close func(*App)) menuButton {
 type modalListItem struct {
 	id             string
 	title          string
+	meta           string
 	description    string
 	status         string
 	selected       bool
@@ -963,6 +964,9 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 				statusStyle = lipgloss.NewStyle().Foreground(t.Success).Bold(true)
 			}
 			line += "  " + statusStyle.Render("["+item.status+"]")
+		}
+		if item.meta != "" {
+			line += "  " + t.HintLabel.Italic(true).Render(item.meta)
 		}
 		row := truncate(line, width)
 		if item.selected {

@@ -660,6 +660,35 @@ func TestCatalogBrowserCompactsMultilineDescriptions(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowserToolsUseDenseInlineMetadata(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := make([]catalogItem, 20)
+	for i := range items {
+		items[i] = catalogItem{
+			id:        "tool-" + itoa2(i),
+			title:     "tool-" + itoa2(i),
+			desc:      "permission: ask · inputs: path",
+			statusTag: "builtin",
+		}
+	}
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: items,
+	}
+	a.width = 120
+	a.height = 36
+
+	out := stripANSI(a.viewCatalogBrowser())
+	if !strings.Contains(out, "tool-19") {
+		t.Fatalf("tool catalog should fit all short metadata rows inline:\n%s", out)
+	}
+	if !strings.Contains(out, "tool-0  [builtin]  permission: ask") {
+		t.Fatalf("tool catalog should render metadata on the title row:\n%s", out)
+	}
+}
+
 func TestToolSummaryOmitsRepeatedCommandDescription(t *testing.T) {
 	got := toolSummary(gact.Tool{
 		ID:          "parquet_compute_statistics",
