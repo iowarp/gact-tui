@@ -288,11 +288,7 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (a *App) viewFilePicker() string {
 	t := a.Theme
 	w := a.modalWidth()
-	innerW := modalInnerWidth(w)
-	listW := w - 8
-	if listW < 1 {
-		listW = innerW
-	}
+	listW := modalInsetListWidth(w)
 	if a.filePicker == nil {
 		return ""
 	}

@@ -730,8 +730,9 @@ func (a *App) viewCatalogBrowser() string {
 	if a.catalogBrowser.kind == catalogKindTools {
 		descriptionLines = 1
 	}
+	listW := modalInsetListWidth(w)
 	list := a.renderModalList(listItems, modalListOptions{
-		width:            w - 8,
+		width:            listW,
 		rowBudget:        catalogBrowserBodyRows,
 		descriptionLines: descriptionLines,
 	})
@@ -772,7 +773,7 @@ func (a *App) viewCatalogBrowser() string {
 		rows:           rows,
 		list:           list,
 		listStart:      listStartRow,
-		listWidth:      w - 8,
+		listWidth:      listW,
 		bodyRows:       catalogBrowserBodyRows,
 		window:         win,
 		wheelID:        "catalog:list:wheel",

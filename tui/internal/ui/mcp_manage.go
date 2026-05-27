@@ -349,11 +349,7 @@ func (a *App) viewMcpInstall() string {
 func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
-	innerW := modalInnerWidth(w)
-	listW := w - 8
-	if listW < 1 {
-		listW = innerW
-	}
+	listW := modalInsetListWidth(w)
 	buttons := []menuButton{
 		{
 			id:    "mcp-remove:remove",

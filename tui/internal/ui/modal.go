@@ -54,6 +54,14 @@ func modalInnerWidth(width int) int {
 	return inner
 }
 
+func modalInsetListWidth(width int) int {
+	listW := modalInnerWidth(width) - 4
+	if listW < 1 {
+		return modalInnerWidth(width)
+	}
+	return listW
+}
+
 // detailModalWidth intentionally aliases the shared modal width so
 // drill-down panes do not visually jump to a different chrome size.
 func (a *App) detailModalWidth() int {
