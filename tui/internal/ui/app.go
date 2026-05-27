@@ -3823,11 +3823,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "no session selected to copy"
 			return a, nil
 		}
-		if err := clipboardWrite(sid); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = "copied " + sid + " to clipboard"
+		a.transientHint = copyTextToClipboard(sid, sid)
 	case "b":
 		// XXXXXXXX1: toggle busy-only sidebar view — narrows the
 		// list to sessions whose status is running or
@@ -4534,11 +4530,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "nothing to copy — selected block has no text"
 			return a, nil
 		}
-		if err := clipboardWrite(text); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
+		a.transientHint = copyExactTextToClipboard(text, "nothing to copy — selected block has no text", func(chars int) string {
+			return fmt.Sprintf("copied %d chars to clipboard", chars)
+		})
 	case "Y":
 		// PPPPPPPP1: yank the FULL conversation as role-prefixed
 		// markdown so the user can paste an entire turn into a bug
@@ -4549,11 +4543,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "nothing to copy — conversation has no text yet"
 			return a, nil
 		}
-		if err := clipboardWrite(text); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = fmt.Sprintf("copied full conversation (%d chars) to clipboard", len(text))
+		a.transientHint = copyExactTextToClipboard(text, "nothing to copy — conversation has no text yet", func(chars int) string {
+			return fmt.Sprintf("copied full conversation (%d chars) to clipboard", chars)
+		})
 	case "R":
 		// Retry: when the body cursor is on a user message, resend
 		// that one's text; otherwise fall back to "latest user".

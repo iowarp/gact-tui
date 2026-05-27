@@ -24,10 +24,9 @@ func (a *App) copyLastAssistantReplyToClipboard() string {
 	if !ok {
 		return "no assistant reply to copy"
 	}
-	if err := clipboardWrite(text); err != nil {
-		return "copy failed: " + err.Error()
-	}
-	return fmt.Sprintf("copied %d chars to clipboard", len(text))
+	return copyExactTextToClipboard(text, "no assistant reply to copy", func(chars int) string {
+		return fmt.Sprintf("copied %d chars to clipboard", chars)
+	})
 }
 
 // openWorkspaceDiff runs `git diff --stat` in the current working directory
