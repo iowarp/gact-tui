@@ -722,6 +722,14 @@ func (a *App) registerModalTextareaCursorHits(modal string, row int, colOffset i
 	}
 }
 
+func (a *App) registerModalTextareaRegion(modal string, row int, colOffset int, width int, height int, id string, value string, cursorAction func(*App, int, int), wheelAction uiWheelAction) {
+	a.registerModalTextareaCursorHits(modal, row, colOffset, id, value, cursorAction)
+	if id == "" || wheelAction == nil || width <= 0 || height <= 0 {
+		return
+	}
+	a.registerModalWheelRegion(modal, "textarea:"+id+":wheel", row, colOffset, width, height, wheelAction)
+}
+
 func (a *App) registerScreenTextareaCursorHits(id string, startX int, startY int, value string, action func(*App, int, int)) {
 	if id == "" || action == nil {
 		return

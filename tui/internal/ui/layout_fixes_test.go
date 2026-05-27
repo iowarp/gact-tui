@@ -1282,7 +1282,7 @@ func TestComposeMouseWheelMovesTextareaCursor(t *testing.T) {
 
 	_ = a.View()
 	startLine := a.compose.ta.Line()
-	target, ok := findHitTargetForTest(a, "compose:textarea:wheel")
+	target, ok := findHitTargetForTest(a, "textarea:compose:wheel")
 	if !ok {
 		t.Fatal("missing compose textarea wheel target")
 	}
