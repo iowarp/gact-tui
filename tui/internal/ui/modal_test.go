@@ -49,6 +49,21 @@ func TestModalTextAreaWidthMatchesSharedFramePadding(t *testing.T) {
 	}
 }
 
+func TestModalScrollableWidthsMatchSharedFramePadding(t *testing.T) {
+	if got := modalScrollableBodyWidth(96); got != 90 {
+		t.Fatalf("modal scrollable body width = %d, want 90", got)
+	}
+	if got := modalScrollableContentWidth(96); got != 88 {
+		t.Fatalf("modal scrollable content width = %d, want 88", got)
+	}
+	if got := modalScrollableBodyWidth(5); got != 1 {
+		t.Fatalf("tiny modal scrollable body width = %d, want clamped 1", got)
+	}
+	if got := modalScrollableContentWidth(5); got != 1 {
+		t.Fatalf("tiny modal scrollable content width = %d, want clamped 1", got)
+	}
+}
+
 func TestOverlayTopIsStableAcrossModalHeights(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120

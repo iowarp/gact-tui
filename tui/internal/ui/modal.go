@@ -66,6 +66,22 @@ func modalTextAreaWidth(width int) int {
 	return modalInnerWidth(width)
 }
 
+func modalScrollableBodyWidth(width int) int {
+	bodyW := width - 6
+	if bodyW < 1 {
+		return 1
+	}
+	return bodyW
+}
+
+func modalScrollableContentWidth(width int) int {
+	contentW := modalScrollableBodyWidth(width) - 2
+	if contentW < 1 {
+		return 1
+	}
+	return contentW
+}
+
 // detailModalWidth intentionally aliases the shared modal width so
 // drill-down panes do not visually jump to a different chrome size.
 func (a *App) detailModalWidth() int {
