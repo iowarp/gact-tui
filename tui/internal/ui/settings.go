@@ -27,10 +27,10 @@ type settingsState struct {
 }
 
 type settingsTUIStepperRow struct {
-	line     string
-	detail   []string
-	leftCol  int
-	rightCol int
+	line         string
+	detail       []string
+	controlStart int
+	controlEnd   int
 }
 
 func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, value, hint string) settingsTUIStepperRow {
@@ -44,8 +44,9 @@ func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, v
 		valueStyle = lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true)
 	}
 	leftCol := lipgloss.Width(ansi.Strip(marker)) + lipgloss.Width(label) + 2
-	rightCol := leftCol + lipgloss.Width("◀ "+value+" ")
-	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render("◀ "+value+" ▶")
+	control := "◀ " + value + " ▶"
+	controlEnd := leftCol + lipgloss.Width(control)
+	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render(control)
 	detail := []string{}
 	if hint != "" && selected {
 		detailWidth := minInt(maxInt(12, width-6), 72)
@@ -61,7 +62,12 @@ func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, v
 	if selected {
 		line = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(line)
 	}
-	return settingsTUIStepperRow{line: line, detail: detail, leftCol: leftCol, rightCol: rightCol}
+	return settingsTUIStepperRow{
+		line:         line,
+		detail:       detail,
+		controlStart: leftCol,
+		controlEnd:   controlEnd,
+	}
 }
 
 func (r settingsTUIStepperRow) rows() []string {
@@ -72,6 +78,27 @@ func (r settingsTUIStepperRow) rows() []string {
 
 func (r settingsTUIStepperRow) height() int {
 	return maxInt(1, 1+len(r.detail))
+}
+
+func (r settingsTUIStepperRow) decrementHit() (int, int) {
+	return r.stepperHit(false)
+}
+
+func (r settingsTUIStepperRow) incrementHit() (int, int) {
+	return r.stepperHit(true)
+}
+
+func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
+	start := r.controlStart
+	end := r.controlEnd
+	if end <= start {
+		return maxInt(0, start), 1
+	}
+	mid := start + (end-start)/2
+	if increment {
+		return maxInt(0, mid), maxInt(1, end-mid)
+	}
+	return maxInt(0, start), maxInt(1, mid-start)
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
@@ -648,12 +675,14 @@ func (a *App) viewSettings() string {
 				selectRow(app)
 				return nil
 			})
-			addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, stepper.leftCol-1), 3, func(app *App) tea.Cmd {
+			decCol, decWidth := stepper.decrementHit()
+			addArrowHit("settings:tui:"+id+":dec", row, decCol, decWidth, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("left"))
 				return cmd
 			})
-			addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, stepper.rightCol-1), 3, func(app *App) tea.Cmd {
+			incCol, incWidth := stepper.incrementHit()
+			addArrowHit("settings:tui:"+id+":inc", row, incCol, incWidth, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("right"))
 				return cmd
