@@ -836,7 +836,8 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_file_picker.tape`, `semantic_workspace_switch.tape`,
   `semantic_mcp_install.tape`, `semantic_mcp_remove.tape`, and
   `semantic_palette.tape`.
-- Transcript/detail/context workflows: `semantic_context_detail.tape`,
+- Transcript/detail/context workflows: `semantic_context_detail.tape`
+  (refreshed after compact detail-pane sizing),
   `semantic_context_actions.tape`, `semantic_diff_actions.tape`,
   `semantic_conversation_actions.tape`,
   `semantic_conversation_footer_actions.tape`,
