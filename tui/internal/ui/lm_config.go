@@ -1222,6 +1222,7 @@ func (a *App) viewLMConfig() string {
 	}
 	t := a.Theme
 	w := a.lmConfigModalWidth()
+	chromeW := modalInnerWidth(w)
 	contentW := w - 6
 	if contentW < 20 {
 		contentW = 20
@@ -1238,7 +1239,7 @@ func (a *App) viewLMConfig() string {
 		closeMenuButton("lm-config:close", func(app *App) { app.closeLMConfigModal() }),
 	}
 	intro := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Background(t.Bg).Width(contentW).
+		Background(t.Bg).Width(chromeW).
 		Render(a.localizer.t(msgLMConfigIntro, nil))
 
 	var body string

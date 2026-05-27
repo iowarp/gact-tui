@@ -202,6 +202,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Settings TUI and provider setup stepper rows now share a modal stepper hit
   primitive for full-row select plus left/right control halves, so both menus
   keep the same click semantics for adjustable values.
+- Provider setup now uses the shared modal inner-width helper for its intro
+  copy while preserving the compact grid/footer width required by its bordered
+  two-column layout, avoiding avoidable one-word wraps without breaking
+  short-terminal row geometry.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

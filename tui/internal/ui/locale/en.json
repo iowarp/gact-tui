@@ -75,7 +75,7 @@
   "footer.memory_hit": "ARC hit",
   "input.placeholder": "type a message — Enter to send · \\<Enter> for newline (Shift+Enter on supporting terminals)",
   "lm_config.title": "Configure CLIO's LM Provider",
-  "lm_config.intro": "Pick a provider + model. Provider status and editable model settings are shown on the right.",
+  "lm_config.intro": "Pick a provider and model. Status and editable model settings appear on the right.",
   "lm_config.fetching": "fetching /v1/providers/lm...",
   "lm_config.save_failed": "save failed: {{error}}",
   "lm_config.save_retry": "press Tab to navigate, Esc to close, Enter on Save to retry",
