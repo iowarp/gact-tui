@@ -6305,12 +6305,7 @@ func (a *App) windowTitle() string {
 
 func (a *App) viewConnecting() string {
 	t := a.Theme
-	a.registerScreenHit("connecting:retry", mouseRect{
-		x: 0,
-		y: 0,
-		w: a.width,
-		h: a.height,
-	}, func(app *App) tea.Cmd {
+	a.registerScreenSurfaceHit("connecting:retry", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
 		app.connectRetryAttempts = 0
 		return connectCmd(app.c)
@@ -6384,12 +6379,7 @@ func (a *App) SetIntroFromFile(path string) error {
 
 func (a *App) viewIntro() string {
 	t := a.Theme
-	a.registerScreenHit("intro:continue", mouseRect{
-		x: 0,
-		y: 0,
-		w: a.width,
-		h: a.height,
-	}, func(app *App) tea.Cmd {
+	a.registerScreenSurfaceHit("intro:continue", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
 		return connectCmd(app.c)
 	})

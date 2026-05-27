@@ -824,6 +824,9 @@ Additional work continued from the same architectural direction:
 - The main input slash-command chip now uses the shared screen text-span
   primitive, and the input focus surface has a pure geometry helper covered by
   regression tests instead of keeping all base-input coordinate math inline.
+- Startup connecting retry and intro continue clicks now use a shared
+  full-screen surface hit primitive with viewport-geometry coverage, instead
+  of each startup view registering its own raw screen rectangle.
 
 ### 2026-05-26 user-observed follow-up queue
 
