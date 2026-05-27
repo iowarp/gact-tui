@@ -707,10 +707,11 @@ Mouse support exists:
     verifying rendered hit targets with screenshots when new options are added.
 
 12. Copy semantics should be scoped, not terminal-frame dependent. Detail
-    views now copy their full payload directly, and selected transcript blocks
-    copy through the conversation footer. Remaining copy work is transcript
-    range selection and textarea selection, without copying sidebar borders,
-    divider glyphs, and footer text.
+    views now copy their full payload directly, selected transcript blocks copy
+    through the conversation footer, and `/copy` uses the shared assistant-text
+    clipboard adapter instead of a separate platform-shell path. Remaining copy
+    work is transcript range selection and textarea selection, without copying
+    sidebar borders, divider glyphs, and footer text.
 
 13. Text-entry paste/copy parity is still unresolved. Mouse mode should not
     make paste into the regular input or expanded compose textarea worse, and
