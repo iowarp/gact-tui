@@ -119,6 +119,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   catalog uses it for source, permission, and input summaries. Short tool rows
   no longer spend a second visual row on metadata, so the catalog is denser
   while retaining the same shared row hit registration and scroll behavior.
+- The command palette also uses shared inline list metadata for short command
+  descriptions and current-state chips. Command rows now fit one per line,
+  preserving semantic row hit targets while showing more commands in the same
+  stable modal frame.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

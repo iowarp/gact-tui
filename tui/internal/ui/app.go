@@ -8849,7 +8849,7 @@ func (a *App) viewPalette() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteNoMatches, nil)))
 	}
 	listStartRow := len(rows)
-	itemBudget := a.modalListItemBudget(6, 2, 8)
+	itemBudget := a.modalListItemBudget(6, 1, 16)
 	win := selectedItemWindow(len(matches), a.paletteSel, itemBudget)
 	listItems := make([]modalListItem, 0, win.end-win.start)
 	var list modalListRender
@@ -8857,11 +8857,11 @@ func (a *App) viewPalette() string {
 		c := matches[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
-			id:          fmt.Sprintf("palette:command:%d", idx),
-			title:       c.ID,
-			description: paletteCommandSubtitle(c),
-			status:      a.paletteCurrentValue(c.ID),
-			selected:    i == a.paletteSel,
+			id:       fmt.Sprintf("palette:command:%d", idx),
+			title:    c.ID,
+			meta:     paletteCommandSubtitle(c),
+			status:   a.paletteCurrentValue(c.ID),
+			selected: i == a.paletteSel,
 			action: func(app *App) tea.Cmd {
 				matches := app.paletteMatches()
 				if idx < 0 || idx >= len(matches) {
@@ -8877,7 +8877,7 @@ func (a *App) viewPalette() string {
 		list = a.renderModalList(listItems, modalListOptions{
 			width:            listW,
 			rowBudget:        16,
-			descriptionLines: 1,
+			descriptionLines: 0,
 		})
 		rows = append(rows, list.rows...)
 	}

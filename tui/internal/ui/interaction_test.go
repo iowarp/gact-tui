@@ -2817,6 +2817,29 @@ func TestPaletteCommandWindowFollowsSelection(t *testing.T) {
 	}
 }
 
+func TestPaletteCommandRowsUseDenseInlineMetadata(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	for i := 0; i < 16; i++ {
+		a.commands = append(a.commands, gact.Command{
+			ID:          "/cmd" + strconv.Itoa(i),
+			Description: "Run command " + strconv.Itoa(i),
+			Source:      "builtin",
+		})
+	}
+	a.paletteOpen = true
+
+	out := ansi.Strip(a.viewPalette())
+	if !strings.Contains(out, "/cmd15") {
+		t.Fatalf("dense palette should show 16 command rows in the shared body budget:\n%s", out)
+	}
+	if !strings.Contains(out, "/cmd0  Run command 0") {
+		t.Fatalf("palette command metadata should render on the title row:\n%s", out)
+	}
+}
+
 func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
 	c := gact.Command{ID: "/doctor", Title: "/doctor", Description: "Inspect backend health", Source: "builtin"}
 	if got := paletteCommandSubtitle(c); got != "Inspect backend health" {
