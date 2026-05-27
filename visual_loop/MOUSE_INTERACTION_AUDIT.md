@@ -1091,3 +1091,7 @@ Additional work continued from the same architectural direction:
   context path, and context metadata copy flows now use the same exact-text
   helper as compose/detail while preserving their domain-specific success and
   empty-state hints.
+- Help modal tabs now all render their key/description rows through the shared
+  modal list primitive; the Commands tab keeps its clickable command-staging
+  rows, while the other tabs share the same dense row layout without custom
+  key-list rendering.
