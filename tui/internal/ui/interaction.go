@@ -1075,6 +1075,52 @@ func (a *App) registerWindowedModalListHits(rendered scrollableModalFrameRender,
 	a.registerModalListHits(rendered.modal, rendered.bodyRow, col, width, visibleHits)
 }
 
+func windowedIndexRange(cursor, total int, visibleRows int, defaultRows int) (int, int) {
+	if visibleRows <= 0 {
+		visibleRows = defaultRows
+	}
+	if total <= visibleRows {
+		return 0, total
+	}
+	half := visibleRows / 2
+	start := cursor - half
+	if start < 0 {
+		start = 0
+	}
+	end := start + visibleRows
+	if end > total {
+		end = total
+		start = end - visibleRows
+	}
+	return start, end
+}
+
+func windowedIndexModalList(indexes []int, cursor int, visibleRows int, defaultRows int, id func(int) string, action func(int) uiHitAction) modalListRender {
+	start, end := windowedIndexRange(cursor, len(indexes), visibleRows, defaultRows)
+	hits := make([]modalListHit, 0, end-start)
+	for i := start; i < end; i++ {
+		index := indexes[i]
+		if id == nil || action == nil {
+			continue
+		}
+		hitID := id(index)
+		hitAction := action(index)
+		if hitID == "" || hitAction == nil {
+			continue
+		}
+		hits = append(hits, modalListHit{
+			id:     hitID,
+			row:    i - start,
+			height: 1,
+			action: hitAction,
+		})
+	}
+	return modalListRender{
+		rows: make([]string, end-start),
+		hits: hits,
+	}
+}
+
 func (a *App) registerModalListRegion(modal string, rowOffset int, col int, width int, list modalListRender, wheelID string, wheelAction uiWheelAction) {
 	if len(list.rows) > 0 && wheelID != "" && wheelAction != nil {
 		a.registerModalContentWheelHit(modal, wheelID, rowOffset, col, width, maxInt(1, len(list.rows)), wheelAction)

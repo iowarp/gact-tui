@@ -1466,10 +1466,10 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 	if len(indexes) == 0 {
 		return
 	}
-	pos := 0
+	selectedPos := 0
 	for i, idx := range indexes {
 		if idx == a.lmConfig.selected {
-			pos = i + 1
+			selectedPos = i
 			break
 		}
 	}
@@ -1477,29 +1477,26 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 	if len(indexes) > visibleRows && visibleRows > 1 {
 		windowRows = visibleRows - 1
 	}
-	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
-	hits := make([]modalListHit, 0, end-start)
-	for i := start; i < end; i++ {
-		presetIdx := indexes[i]
-		row := i - start
-		hits = append(hits, modalListHit{
-			id:     fmt.Sprintf("lm-config:provider:%d", presetIdx),
-			row:    row,
-			height: 1,
-			action: func(app *App) tea.Cmd {
+	list := windowedIndexModalList(
+		indexes,
+		selectedPos,
+		windowRows,
+		lmConfigVisibleRows,
+		func(presetIdx int) string {
+			return fmt.Sprintf("lm-config:provider:%d", presetIdx)
+		},
+		func(presetIdx int) uiHitAction {
+			return func(app *App) tea.Cmd {
 				if app.lmConfig == nil || app.lmConfig.info == nil || presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
 					return nil
 				}
 				app.lmConfig.field = lmFieldPreset
 				app.lmConfig.selected = presetIdx
 				return app.lmConfigSyncFromPreset()
-			},
-		})
-	}
-	a.registerModalListRegion(modal, top+2, col, width, modalListRender{
-		rows: make([]string, len(hits)),
-		hits: hits,
-	}, "", nil)
+			}
+		},
+	)
+	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
 }
 
 func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width int) {
@@ -1601,16 +1598,16 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 	if len(catalog) > visibleRows && visibleRows > 1 {
 		windowRows = visibleRows - 1
 	}
-	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
-	hits := make([]modalListHit, 0, end-start)
-	for i := start; i < end; i++ {
-		modelIdx := modelIndexes[i]
-		row := i - start
-		hits = append(hits, modalListHit{
-			id:     fmt.Sprintf("lm-config:model:%d", modelIdx),
-			row:    row,
-			height: 1,
-			action: func(app *App) tea.Cmd {
+	list := windowedIndexModalList(
+		modelIndexes,
+		pos,
+		windowRows,
+		lmConfigVisibleRows,
+		func(modelIdx int) string {
+			return fmt.Sprintf("lm-config:model:%d", modelIdx)
+		},
+		func(modelIdx int) uiHitAction {
+			return func(app *App) tea.Cmd {
 				if app.lmConfig == nil {
 					return nil
 				}
@@ -1623,13 +1620,10 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 				app.lmConfig.modelIndex = modelIdx
 				app.lmConfig.model = catalog[modelIdx].ID
 				return nil
-			},
-		})
-	}
-	a.registerModalListRegion(modal, top+2, col, width, modalListRender{
-		rows: make([]string, len(hits)),
-		hits: hits,
-	}, "", nil)
+			}
+		},
+	)
+	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
 }
 
 func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
@@ -2759,23 +2753,7 @@ func lmConfigFillBlock(s string, width int, height int, bg color.Color) string {
 // to render around “cursor“, ensuring the cursor sits roughly mid-
 // window.
 func lmConfigWindow(cursor, total int, visibleRows int) (int, int) {
-	if visibleRows <= 0 {
-		visibleRows = lmConfigVisibleRows
-	}
-	if total <= visibleRows {
-		return 0, total
-	}
-	half := visibleRows / 2
-	start := cursor - half
-	if start < 0 {
-		start = 0
-	}
-	end := start + visibleRows
-	if end > total {
-		end = total
-		start = end - visibleRows
-	}
-	return start, end
+	return windowedIndexRange(cursor, total, visibleRows, lmConfigVisibleRows)
 }
 
 func clampInt(v int, minValue int, maxValue int) int {
