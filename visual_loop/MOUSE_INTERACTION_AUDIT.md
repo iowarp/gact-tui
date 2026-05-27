@@ -241,6 +241,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `lmConfigBoxContentWidth` for provider/model lists, provider details, model
   details, auth-message wrapping, and internal scroll rails, reducing local
   box-specific width drift inside the most complex configuration modal.
+- Provider setup advanced rows now render row text and stepper mouse hits from
+  one shared row/hit pass, registered through offset-aware modal cell hits so
+  every advanced option inherits the same wide left/right click targets.
 - Connection-error and file-picker error surfaces now size visible error text
   through the shared inset-list width policy, and file-picker backend failures
   cap the entire rendered error row instead of truncating only the raw error

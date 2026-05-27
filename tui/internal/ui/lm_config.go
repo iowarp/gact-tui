@@ -1539,34 +1539,8 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 	if a.lmConfig == nil {
 		return
 	}
-	hits := make([]modalCellHit, 0, len(a.lmConfigAdvancedRows())*3)
-	for i, row := range a.lmConfigAdvancedRows() {
-		field := row.field
-		rowY := top + 2 + i
-		id := fmt.Sprintf("lm-config:advanced:%d", field)
-		start, end := row.controlBounds()
-		hits = append(hits, modalStepperControlHits(id, rowY, col, width, start, end, func(app *App) tea.Cmd {
-			if app.lmConfig != nil {
-				app.lmConfig.field = field
-			}
-			return nil
-		}, func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
-				return nil
-			}
-			app.lmConfig.field = field
-			_, cmd := app.handleLMConfigKey(keyMsg("left"))
-			return cmd
-		}, func(app *App) tea.Cmd {
-			if app.lmConfig == nil {
-				return nil
-			}
-			app.lmConfig.field = field
-			_, cmd := app.handleLMConfigKey(keyMsg("right"))
-			return cmd
-		})...)
-	}
-	a.registerModalCellHits(modal, 0, hits)
+	_, hits := a.renderLMConfigAdvancedRowsAndHits(width)
+	a.registerModalCellHitsAt(modal, top+2, col, hits)
 }
 
 func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows int, layout lmConfigLayout) {
@@ -2397,6 +2371,11 @@ func (a *App) lmConfigAdvancedRows() []lmConfigAdvancedRow {
 // adjusters. Empty value displays "default" so the user knows blank
 // is intentional.
 func (a *App) renderLMConfigAdvanced(innerW int) []string {
+	rows, _ := a.renderLMConfigAdvancedRowsAndHits(innerW)
+	return rows
+}
+
+func (a *App) renderLMConfigAdvancedRowsAndHits(innerW int) ([]string, []modalCellHit) {
 	t := a.Theme
 	row := func(spec lmConfigAdvancedRow) string {
 		marker := strings.Repeat(" ", lmConfigAdvancedMarkerWidth)
@@ -2420,10 +2399,34 @@ func (a *App) renderLMConfigAdvanced(innerW int) []string {
 		return marker + labelStyle.Render(spec.label) + "  " + t.HintLabel.Render("◀ ") + display + t.HintLabel.Render(" ▶") + hint
 	}
 	rows := []string{}
-	for _, spec := range a.lmConfigAdvancedRows() {
+	hits := []modalCellHit{}
+	for rowIdx, spec := range a.lmConfigAdvancedRows() {
 		rows = append(rows, row(spec))
+		field := spec.field
+		id := fmt.Sprintf("lm-config:advanced:%d", field)
+		start, end := spec.controlBounds()
+		hits = append(hits, modalStepperControlHits(id, rowIdx, 0, innerW, start, end, func(app *App) tea.Cmd {
+			if app.lmConfig != nil {
+				app.lmConfig.field = field
+			}
+			return nil
+		}, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("left"))
+			return cmd
+		}, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("right"))
+			return cmd
+		})...)
 	}
-	return rows
+	return rows, hits
 }
 
 func (a *App) renderLMConfigAdvancedBox(innerW int, visibleRows int) string {

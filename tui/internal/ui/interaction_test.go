@@ -533,6 +533,33 @@ func TestModalCellHitsRegisterRelativeToBody(t *testing.T) {
 	}
 }
 
+func TestModalCellHitsSupportColumnOffsets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	modal := a.renderDefaultModalSurface(40, "abc")
+	a.registerModalCellHitsAt(modal, 1, 7, []modalCellHit{{
+		id:     "cell:offset",
+		row:    2,
+		col:    3,
+		width:  4,
+		height: 1,
+		action: func(*App) tea.Cmd { return nil },
+	}})
+
+	target, ok := findHitTargetForTest(a, "cell:offset")
+	if !ok {
+		t.Fatal("missing offset cell hit")
+	}
+	rect := overlayMouseRect(modal, a.width, a.height)
+	wantX := rect.x + 3 + 7 + 3
+	wantY := rect.y + 2 + 1 + 2
+	if target.rect.x != wantX || target.rect.y != wantY {
+		t.Fatalf("offset target rect = %+v, want x=%d y=%d", target.rect, wantX, wantY)
+	}
+}
+
 func TestModalInlineOptionsRenderActiveChipAndHits(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	clicked := ""
