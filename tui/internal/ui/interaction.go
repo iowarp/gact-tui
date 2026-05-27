@@ -258,6 +258,13 @@ type modalCellHit struct {
 	action uiHitAction
 }
 
+type modalInlineOption struct {
+	id     string
+	label  string
+	active bool
+	action uiHitAction
+}
+
 type modalListRender struct {
 	rows          []string
 	hits          []modalListHit
@@ -1160,6 +1167,38 @@ func (a *App) registerModalCellHits(modal string, rowOffset int, hits []modalCel
 		}
 		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, hit.col, hit.width, height, hit.action)
 	}
+}
+
+func (a *App) renderModalInlineOptions(prefix string, options []modalInlineOption) (string, []modalCellHit) {
+	row := a.Theme.HintLabel.Render(prefix)
+	col := lipgloss.Width(prefix)
+	hits := make([]modalCellHit, 0, len(options))
+	for _, opt := range options {
+		if opt.label == "" {
+			continue
+		}
+		raw := " " + opt.label + " "
+		style := a.Theme.HintLabel
+		if opt.active {
+			style = lipgloss.NewStyle().
+				Foreground(a.Theme.Bg).
+				Background(a.Theme.Primary).
+				Bold(true)
+		}
+		row += style.Render(raw)
+		width := lipgloss.Width(raw)
+		if opt.id != "" && opt.action != nil {
+			hits = append(hits, modalCellHit{
+				id:     opt.id,
+				col:    col,
+				width:  width,
+				height: 1,
+				action: opt.action,
+			})
+		}
+		col += width
+	}
+	return row, hits
 }
 
 func moveSelection(sel int, count int, delta int) int {
