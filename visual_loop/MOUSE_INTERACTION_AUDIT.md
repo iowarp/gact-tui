@@ -815,6 +815,9 @@ Additional work continued from the same architectural direction:
 - Sidebar section headers, session rows, filter rows, context rows, and counts
   now share sidebar content hit helpers, centralizing row-to-screen geometry
   and preserving existing primary/right-click semantic actions.
+- Conversation parts, detail hints, diff actions, and body wheel targets now
+  share conversation content hit helpers, centralizing transcript pane geometry
+  while preserving existing selection, detail, action-menu, and scroll behavior.
 
 ### 2026-05-26 user-observed follow-up queue
 

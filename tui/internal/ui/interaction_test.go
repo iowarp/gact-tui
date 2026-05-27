@@ -3131,6 +3131,23 @@ func TestConversationPartsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConversationContentRectUsesSharedPaneGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+
+	rect := a.conversationContentRect(2, 3, 20, 4, 80, true)
+	sidebarW, _, _ := a.mainPaneGeometry()
+	if rect.x != sidebarW+5 || rect.y != 7 || rect.w != 20 || rect.h != 4 {
+		t.Fatalf("conversation content rect = %+v, want x=%d y=7 w=20 h=4", rect, sidebarW+5)
+	}
+
+	clamped := a.conversationContentRect(0, 100, 20, 0, 12, false)
+	if clamped.x != sidebarW+9 || clamped.y != 4 || clamped.w != 1 || clamped.h != 1 {
+		t.Fatalf("clamped conversation content rect = %+v, want x=%d y=4 w=1 h=1", clamped, sidebarW+9)
+	}
+}
+
 func TestConversationPartRightClickOpensSemanticActionMenu(t *testing.T) {
 	mu, copied, _ := withClipboardSpy(t)
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
