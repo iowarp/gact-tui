@@ -213,6 +213,35 @@ func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
 	}
 }
 
+func TestLMConfigAdvancedRowsAndHitsShareOrdering(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0 // LM Studio exposes temperature/max output/context length.
+	a.lmConfig.field = lmFieldTemperature
+	a.lmConfig.temperature = "1.0"
+	a.lmConfig.maxTokens = "4096"
+	a.lmConfig.contextLength = "32768"
+
+	rows, hits := a.renderLMConfigAdvancedRowsAndHits(60)
+	if len(rows) != 3 {
+		t.Fatalf("advanced rows = %d, want 3", len(rows))
+	}
+	if len(hits) != len(rows)*3 {
+		t.Fatalf("advanced hits = %d, want %d", len(hits), len(rows)*3)
+	}
+	for row := range rows {
+		base := row * 3
+		for i := 0; i < 3; i++ {
+			if hits[base+i].row != row {
+				t.Fatalf("hit %d row = %d, want %d", base+i, hits[base+i].row, row)
+			}
+		}
+	}
+	wantID := "lm-config:advanced:" + strconv.Itoa(int(lmFieldTemperature))
+	if hits[0].id != wantID {
+		t.Fatalf("first advanced hit id = %q, want %q", hits[0].id, wantID)
+	}
+}
+
 func TestLMConfigPlaceholderAPIKeyIsOnlyForLocalNoAuthProviders(t *testing.T) {
 	cases := []struct {
 		name    string

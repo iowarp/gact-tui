@@ -1258,12 +1258,16 @@ func (a *App) registerModalWheelRegion(modal string, id string, row int, col int
 }
 
 func (a *App) registerModalCellHits(modal string, rowOffset int, hits []modalCellHit) {
+	a.registerModalCellHitsAt(modal, rowOffset, 0, hits)
+}
+
+func (a *App) registerModalCellHitsAt(modal string, rowOffset int, colOffset int, hits []modalCellHit) {
 	for _, hit := range hits {
 		height := hit.height
 		if height < 1 {
 			height = 1
 		}
-		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, hit.col, hit.width, height, hit.action)
+		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, colOffset+hit.col, hit.width, height, hit.action)
 	}
 }
 
