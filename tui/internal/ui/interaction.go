@@ -919,17 +919,24 @@ func (a *App) registerModalTabs(modal string, row int, tabs []menuTab) {
 }
 
 func (a *App) registerModalTabsWithLayout(modal string, row int, tabs []menuTab, horizontalPadding, spacing int) {
-	col := 0
-	for _, tab := range tabs {
-		w := lipgloss.Width(tab.label) + horizontalPadding*2
-		a.registerModalContentHit(modal, "tab:"+tab.id, row, col, w, 1, tab.action)
-		col += w + spacing
+	_, hits := a.renderModalTabsWithHits(tabs, horizontalPadding, spacing)
+	for i := range hits {
+		hits[i].row = row
 	}
+	a.registerModalCellHits(modal, 0, hits)
 }
 
 func (a *App) renderModalTabsWithLayout(tabs []menuTab, horizontalPadding, spacing int) string {
+	row, _ := a.renderModalTabsWithHits(tabs, horizontalPadding, spacing)
+	return row
+}
+
+func (a *App) renderModalTabsWithHits(tabs []menuTab, horizontalPadding, spacing int) (string, []modalCellHit) {
 	cells := make([]string, 0, len(tabs))
+	hits := make([]modalCellHit, 0, len(tabs))
+	col := 0
 	for _, tab := range tabs {
+		width := lipgloss.Width(tab.label) + horizontalPadding*2
 		style := lipgloss.NewStyle().
 			Padding(0, horizontalPadding).
 			Foreground(a.Theme.FgMuted)
@@ -941,8 +948,18 @@ func (a *App) renderModalTabsWithLayout(tabs []menuTab, horizontalPadding, spaci
 				Bold(true)
 		}
 		cells = append(cells, style.Render(tab.label))
+		if tab.id != "" && tab.action != nil {
+			hits = append(hits, modalCellHit{
+				id:     "tab:" + tab.id,
+				col:    col,
+				width:  width,
+				height: 1,
+				action: tab.action,
+			})
+		}
+		col += width + spacing
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", spacing)))
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", spacing))), hits
 }
 
 func (a *App) registerModalButtons(modal string, row int, startCol int, buttons []menuButton) {

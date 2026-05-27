@@ -581,9 +581,18 @@ func TestModalTabsRenderAndRegisterWithSameLabels(t *testing.T) {
 		{id: "one", label: "One", active: true, action: func(*App) tea.Cmd { return nil }},
 		{id: "two", label: "Two", action: func(*App) tea.Cmd { return nil }},
 	}
-	row := a.renderModalTabsWithLayout(tabs, 1, 0)
+	row, hits := a.renderModalTabsWithHits(tabs, 1, 0)
 	if !strings.Contains(ansi.Strip(row), "One") || !strings.Contains(ansi.Strip(row), "Two") {
 		t.Fatalf("tab row did not render labels: %q", ansi.Strip(row))
+	}
+	if len(hits) != 2 {
+		t.Fatalf("tab hits = %d, want 2", len(hits))
+	}
+	if hits[0].id != "tab:one" || hits[0].col != 0 || hits[0].width != lipgloss.Width("One")+2 {
+		t.Fatalf("unexpected first tab hit: %+v", hits[0])
+	}
+	if hits[1].id != "tab:two" || hits[1].col != hits[0].width || hits[1].width != lipgloss.Width("Two")+2 {
+		t.Fatalf("unexpected second tab hit: %+v after %+v", hits[1], hits[0])
 	}
 	modal := a.renderDefaultModalSurface(50, row)
 	a.beginHitFrame()

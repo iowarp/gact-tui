@@ -193,6 +193,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Context-add read/edit/pin mode chips now render through shared inline modal
   options, so active chip styling and click geometry come from one primitive
   instead of per-view column math.
+- Modal tab bars now render labels and return their click hit geometry from the
+  same helper. Settings, Help, Doctor, and other tabbed modals no longer
+  maintain a separate tab-width calculation for mouse registration.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
