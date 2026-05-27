@@ -204,6 +204,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	}
 
 	wrapped := wrap(opts.content, innerW)
+	page = compactModalBodyRows(wrapped, page, minInt(8, page))
 	lines := strings.Split(wrapped, "\n")
 	title := opts.title
 	closeID := opts.closeID

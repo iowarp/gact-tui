@@ -1139,3 +1139,7 @@ Additional work continued from the same architectural direction:
   short snapshots. Their top-left origin and modal width remain stable, while
   dense/overflowing capability or metrics bodies still use the bounded scroll
   window and side-rail affordance.
+- Detail/evidence panes now use the same compact scrollable-body sizing policy.
+  Short diff, memory, context, and raw-evidence payloads keep the shared modal
+  origin and width without a half-empty tall body, while long payloads still
+  retain bounded scrolling, copy, and side-rail behavior.
