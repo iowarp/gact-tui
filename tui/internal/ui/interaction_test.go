@@ -2695,6 +2695,103 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 	}
 }
 
+func TestSettingsTUIVisibleArrowGlyphsAreClickableForEveryRow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 42
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CostWarnTokens = 50_000
+	a.Theme.CostDangerTokens = 100_000
+	a.Theme.PasteCompressThreshold = 3
+	a.MouseEnabled = true
+
+	cases := []struct {
+		label  string
+		assert func(*testing.T, *App)
+	}{
+		{label: "cost warn tokens", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostWarnTokens != 50_000+costStep {
+				t.Fatalf("cost warn visible right arrow = %d, want %d", app.Theme.CostWarnTokens, 50_000+costStep)
+			}
+		}},
+		{label: "cost danger tokens", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostDangerTokens != 100_000+costStep {
+				t.Fatalf("cost danger visible right arrow = %d, want %d", app.Theme.CostDangerTokens, 100_000+costStep)
+			}
+		}},
+		{label: "paste compress", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.PasteCompressThreshold != 4 {
+				t.Fatalf("paste visible right arrow = %d, want 4", app.Theme.PasteCompressThreshold)
+			}
+		}},
+		{label: "intro splash skip", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if !app.IntroDisabled {
+				t.Fatal("intro visible right arrow should toggle IntroDisabled on")
+			}
+		}},
+		{label: "mouse controls", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.MouseEnabled {
+				t.Fatal("mouse visible right arrow should toggle MouseEnabled off")
+			}
+		}},
+	}
+
+	for _, tc := range cases {
+		a.MouseEnabled = true
+		_ = a.View()
+		view := a.viewSettings()
+		x, y := visibleSettingsArrowGlyphForTest(t, view, a.width, a.height, tc.label, "▶")
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      x,
+			Y:      y,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if !a.settingsOpen {
+			t.Fatalf("%s visible right arrow closed settings", tc.label)
+		}
+		tc.assert(t, a)
+
+		_ = a.View()
+		view = a.viewSettings()
+		x, y = visibleSettingsArrowGlyphForTest(t, view, a.width, a.height, tc.label, "◀")
+		model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      x,
+			Y:      y,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if !a.settingsOpen {
+			t.Fatalf("%s visible left arrow closed settings", tc.label)
+		}
+	}
+}
+
+func visibleSettingsArrowGlyphForTest(t *testing.T, view string, width int, height int, label string, glyph string) (int, int) {
+	t.Helper()
+	rect := overlayMouseRect(view, width, height)
+	for lineIdx, raw := range strings.Split(view, "\n") {
+		line := ansi.Strip(raw)
+		if !strings.Contains(line, label) || !strings.Contains(line, glyph) {
+			continue
+		}
+		glyphIdx := strings.Index(line, glyph)
+		if glyphIdx < 0 {
+			continue
+		}
+		return rect.x + lipgloss.Width(line[:glyphIdx]), rect.y + lineIdx
+	}
+	t.Fatalf("missing visible %q glyph for settings row %q:\n%s", glyph, label, ansi.Strip(view))
+	return 0, 0
+}
+
 func TestSettingsModelRowUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

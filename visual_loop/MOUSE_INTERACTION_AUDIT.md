@@ -1103,3 +1103,7 @@ Additional work continued from the same architectural direction:
   before its textarea wheel target, so chrome wheel events are captured through
   the shared overlay-surface model while the editor body still receives
   textarea-specific wheel movement.
+- Settings > TUI stepper rows now have a regression that clicks the actual
+  rendered left/right arrow glyphs for every editable row, not just the
+  abstract target rectangle, so future geometry drift between visible controls
+  and semantic mouse hit targets is caught directly.
