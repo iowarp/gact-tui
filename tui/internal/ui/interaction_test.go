@@ -815,6 +815,51 @@ func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
 	}
 }
 
+func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 40
+	a.stage = StageReady
+	a.helpOpen = true
+	a.helpTab = helpTabIndex("Commands")
+	a.focus = FocusBody
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "help:command:tools")
+	if !ok {
+		t.Fatal("missing Help Commands row hit target for /tools")
+	}
+	if target.rect.h != 1 {
+		t.Fatalf("help command row target height = %d, want dense one-line row", target.rect.h)
+	}
+	out := ansi.Strip(a.viewHelp())
+	if !strings.Contains(out, "/tools") || !strings.Contains(out, "browse tool catalog") {
+		t.Fatalf("help command row should render command and useful description inline:\n%s", out)
+	}
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking a Help command row should stage text, not execute a command")
+	}
+	if a.helpOpen {
+		t.Fatal("clicking a Help command row should close Help")
+	}
+	if a.focus != FocusInput {
+		t.Fatalf("focus = %v, want input after staging command", a.focus)
+	}
+	if got := a.input.Value(); got != "/tools" {
+		t.Fatalf("input value = %q, want /tools", got)
+	}
+	if !strings.Contains(a.transientHint, "command staged: /tools") {
+		t.Fatalf("hint = %q, want staged command confirmation", a.transientHint)
+	}
+}
+
 func TestScrollableModalRowHitsClipToVisibleWindow(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
