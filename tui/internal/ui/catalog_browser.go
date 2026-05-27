@@ -437,9 +437,9 @@ func (a *App) handleCatalogBrowserWheel(button tea.MouseButton) tea.Cmd {
 }
 
 // handleCatalogBrowserKey handles keypresses while the modal is open.
-// Up/down navigates, Esc closes (or pops MCP-detail back to parent),
-// Enter on an MCP server row drills in, Space toggles a tool's
-// enabled state (LLL2).
+// Up/down navigates, Esc closes (or pops detail views back to parent),
+// Enter opens the selected row's detail/drill-down view, and Space toggles a
+// tool's enabled state (LLL2).
 func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.catalogBrowser == nil {
 		a.closeCatalogBrowser()
@@ -739,12 +739,12 @@ func (a *App) viewCatalogBrowser() string {
 	rows = append(rows, list.rows...)
 	end = start + list.renderedItems
 
-	// Hint text adapts per kind: tools get a Space toggle, MCP-server
+	// Hint text adapts per kind: tools can open detail or toggle, MCP-server
 	// list gets Enter-to-drill, MCP-detail gets Backspace-to-back.
 	var hintText string
 	switch a.catalogBrowser.kind {
 	case catalogKindTools:
-		hintText = "↑/↓ navigate · Space toggle · Esc close"
+		hintText = "↑/↓ navigate · Enter details · Space toggle · Esc close"
 	case catalogKindMcp:
 		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
 	case catalogKindAgents:
