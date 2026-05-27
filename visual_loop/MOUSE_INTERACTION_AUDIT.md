@@ -143,6 +143,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - The top header now exposes a visible quit/exit action that opens the shared
   quit confirmation modal, matching the footer Ctrl+C semantic target for
   mouse-first users.
+- Tool detail annotations now render as a typed Safety hints section instead
+  of raw JSON, keeping MCP/built-in tool metadata readable while preserving
+  copyable full detail text.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
