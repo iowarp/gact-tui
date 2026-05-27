@@ -9221,10 +9221,16 @@ func (a *App) viewHelp() string {
 		items = append(items, item)
 	}
 	if len(items) > 0 {
+		columns := 1
+		if helpTabs[idx].title == "Commands" && helpWidth >= 72 {
+			columns = 2
+		}
 		helpList = a.renderModalList(items, modalListOptions{
 			width:            helpWidth,
 			rowBudget:        len(items),
 			descriptionLines: 0,
+			columns:          columns,
+			minColumnWidth:   34,
 		})
 		content = lipgloss.JoinVertical(lipgloss.Left, helpList.rows...)
 	} else {

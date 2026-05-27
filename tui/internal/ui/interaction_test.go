@@ -1369,12 +1369,26 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	if target.rect.h != 1 {
 		t.Fatalf("help command row target height = %d, want dense one-line row", target.rect.h)
 	}
-	if target.rect.w != modalScrollableBodyWidth(a.modalWidth()) {
-		t.Fatalf("help command row target width = %d, want shared scrollable body width %d", target.rect.w, modalScrollableBodyWidth(a.modalWidth()))
+	if target.rect.w >= modalScrollableBodyWidth(a.modalWidth()) {
+		t.Fatalf("help command column target width = %d, want narrower than full body width %d", target.rect.w, modalScrollableBodyWidth(a.modalWidth()))
 	}
 	out := ansi.Strip(a.viewHelp())
 	if !strings.Contains(out, "/tools") || !strings.Contains(out, "browse tool catalog") {
 		t.Fatalf("help command row should render command and useful description inline:\n%s", out)
+	}
+	clearTarget, ok := findHitTargetForTest(a, "help:command:clear")
+	if !ok {
+		t.Fatal("missing first-column Help Commands hit target for /clear")
+	}
+	themeTarget, ok := findHitTargetForTest(a, "help:command:theme")
+	if !ok {
+		t.Fatal("missing second-column Help Commands hit target for /theme")
+	}
+	if themeTarget.rect.y != clearTarget.rect.y {
+		t.Fatalf("second-column command target y = %d, want same row as first-column /clear at %d", themeTarget.rect.y, clearTarget.rect.y)
+	}
+	if themeTarget.rect.x <= clearTarget.rect.x {
+		t.Fatalf("second-column command target x = %d, want to the right of first column at %d", themeTarget.rect.x, clearTarget.rect.x)
 	}
 
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
@@ -1397,6 +1411,38 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	}
 	if !strings.Contains(a.transientHint, "command staged: /tools") {
 		t.Fatalf("hint = %q, want staged command confirmation", a.transientHint)
+	}
+}
+
+func TestModalListColumnsPreserveColumnHitGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	list := a.renderModalList([]modalListItem{
+		{id: "one", title: "one", meta: "first", action: func(*App) tea.Cmd { return nil }},
+		{id: "two", title: "two", meta: "second", action: func(*App) tea.Cmd { return nil }},
+		{id: "three", title: "three", meta: "third", action: func(*App) tea.Cmd { return nil }},
+		{id: "four", title: "four", meta: "fourth", action: func(*App) tea.Cmd { return nil }},
+	}, modalListOptions{width: 80, columns: 2, minColumnWidth: 24})
+	if len(list.rows) != 2 {
+		t.Fatalf("column list rows = %d, want 2", len(list.rows))
+	}
+	if len(list.hits) != 4 {
+		t.Fatalf("column list hits = %d, want 4", len(list.hits))
+	}
+	if list.hits[0].id != "one" || list.hits[1].id != "three" {
+		t.Fatalf("column-major first row hit ids = %q/%q, want one/three", list.hits[0].id, list.hits[1].id)
+	}
+	if list.hits[0].row != list.hits[1].row {
+		t.Fatalf("first-row column hits should share row, got %d and %d", list.hits[0].row, list.hits[1].row)
+	}
+	if list.hits[1].col <= list.hits[0].col || list.hits[1].width != list.hits[0].width {
+		t.Fatalf("second column hit geometry = %+v, first = %+v", list.hits[1], list.hits[0])
+	}
+	clipped := clipModalListToWindow(list, scrollWindow{start: 0, end: 1, total: len(list.rows)})
+	if len(clipped.hits) != 2 {
+		t.Fatalf("clipped first row hits = %d, want both columns", len(clipped.hits))
+	}
+	if clipped.hits[1].col != list.hits[1].col || clipped.hits[1].width != list.hits[1].width {
+		t.Fatalf("clipped column geometry = %+v, want col/width from %+v", clipped.hits[1], list.hits[1])
 	}
 }
 
