@@ -1144,3 +1144,8 @@ Additional work continued from the same architectural direction:
   Short diff, memory, context, and raw-evidence payloads keep the shared modal
   origin and width without a half-empty tall body, while long payloads still
   retain bounded scrolling, copy, and side-rail behavior.
+- The representative current-build visual refresh on 2026-05-27 reran provider
+  setup, menu smoke, context detail, and long-transcript scroll tapes against
+  the installed `0386f57c6770` binary. The long-transcript tape now waits for
+  the session to settle to `idle` before taking bottom/scroll-up/`G`/PageDown
+  screenshots, so the reattachment evidence is no longer captured mid-stream.

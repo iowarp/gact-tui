@@ -18,7 +18,8 @@ Wait+Screen /session:/
 Sleep 400ms
 Type "write a long explain please"
 Enter
-Wait+Screen /Ready to pick it up in the next iteration/
+Wait+Screen /## Tool outputs/
+Wait+Screen /idle/
 Sleep 600ms
 Screenshot "visual_loop/screenshots/semantic_long_transcript_bottom.png"
 
