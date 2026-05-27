@@ -327,21 +327,22 @@ func (a *App) viewMcpInstall() string {
 		status: statusRows,
 		footer: t.HintLabel.Render("Enter install · Esc cancel"),
 	})
+	exampleHits := make([]modalCellHit, 0, len(examples))
 	for row, example := range examples {
 		example := example
-		a.registerModalContentHit(
-			rendered.modal,
-			"mcp-install:example:"+example.id,
-			rendered.bodyRow+row,
-			0,
-			w-4,
-			1,
-			func(app *App) tea.Cmd {
+		exampleHits = append(exampleHits, modalCellHit{
+			id:     "mcp-install:example:" + example.id,
+			row:    row,
+			col:    0,
+			width:  w - 4,
+			height: 1,
+			action: func(app *App) tea.Cmd {
 				app.applyMcpInstallExample(example.value)
 				return nil
 			},
-		)
+		})
 	}
+	a.registerModalCellHits(rendered.modal, rendered.bodyRow, exampleHits)
 	return rendered.modal
 }
 

@@ -793,6 +793,10 @@ Additional work continued from the same architectural direction:
   which clips row actions to the visible scroll window and registers them
   relative to the shared modal frame instead of each view owning row
   intersection math.
+- MCP install example rows now use shared modal cell hit registration, so
+  text-entry examples, settings controls, and provider setup cells all route
+  through the same render-relative primitive instead of one-off modal
+  coordinate calls.
 
 ### 2026-05-26 user-observed follow-up queue
 
