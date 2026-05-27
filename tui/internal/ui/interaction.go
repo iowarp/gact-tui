@@ -633,6 +633,19 @@ func (a *App) registerSelectableListRailHits(rendered modalFrameRender, id strin
 	}
 }
 
+func (a *App) registerModalIndexRailHits(modal string, id string, rowOffset int, col int, visibleRows int, total int, action func(*App, int) tea.Cmd) {
+	if id == "" || action == nil || visibleRows <= 1 || total <= visibleRows || modal == "" {
+		return
+	}
+	for row := 0; row < visibleRows; row++ {
+		row := row
+		index := row * (total - 1) / maxInt(1, visibleRows-1)
+		a.registerModalContentHit(modal, id+":rail:"+itoa2(row), rowOffset+row, col, 1, 1, func(app *App) tea.Cmd {
+			return action(app, index)
+		})
+	}
+}
+
 func (a *App) renderCursorEditor(value string, cursor int) string {
 	runes := []rune(value)
 	if cursor < 0 {

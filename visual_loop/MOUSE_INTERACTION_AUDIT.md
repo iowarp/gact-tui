@@ -786,8 +786,9 @@ Additional work continued from the same architectural direction:
   targets, so long palettes, catalogs, file pickers, workspace lists, and MCP
   removal lists can jump selection through the same rendered scroll affordance.
 - LM provider/model setup boxes now render side rails instead of textual
-  `more` rows and register semantic rail targets that jump provider/model
-  selection through the filtered list.
+  `more` rows and register semantic rail targets through the shared modal
+  index-rail primitive, jumping provider/model selection through the filtered
+  list without per-column rail math.
 
 ### 2026-05-26 user-observed follow-up queue
 
