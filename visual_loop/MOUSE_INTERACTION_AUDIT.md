@@ -797,6 +797,9 @@ Additional work continued from the same architectural direction:
   text-entry examples, settings controls, and provider setup cells all route
   through the same render-relative primitive instead of one-off modal
   coordinate calls.
+- Main input cursor placement now uses the shared screen textarea cursor
+  primitive, matching the modal textarea cursor model used by expanded compose
+  instead of hand-registering per-cell input hits in the base mouse layer.
 
 ### 2026-05-26 user-observed follow-up queue
 

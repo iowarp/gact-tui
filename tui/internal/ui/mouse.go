@@ -80,25 +80,11 @@ func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight
 	sidebarW, _, _ := a.mainPaneGeometry()
 	startX := sidebarW + 1 + mouseCommandButtonWidth + 2
 	startY := 1 + conversationHeight + hintHeight + 1
-	for lineIdx, line := range splitTextareaValue(a.input.Value()) {
-		runes := []rune(line)
-		for col := 0; col <= len(runes); col++ {
-			lineIdx := lineIdx
-			col := col
-			x := startX + lipgloss.Width(string(runes[:col]))
-			a.registerScreenHit("input:cursor:"+itoa2(lineIdx)+":"+itoa2(col), mouseRect{
-				x: x,
-				y: startY + lineIdx,
-				w: 1,
-				h: 1,
-			}, func(app *App) tea.Cmd {
-				app.focus = FocusInput
-				app.input.Focus()
-				setTextareaCursor(&app.input, lineIdx, col)
-				return nil
-			})
-		}
-	}
+	a.registerScreenTextareaCursorHits("input", startX, startY, a.input.Value(), func(app *App, lineIdx int, col int) {
+		app.focus = FocusInput
+		app.input.Focus()
+		setTextareaCursor(&app.input, lineIdx, col)
+	})
 	a.registerInputPastePlaceholderHits(startX, startY)
 }
 
