@@ -108,6 +108,29 @@ func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
+func (a *App) handleComposeMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
+	if a.compose == nil {
+		a.composeOpen = false
+		return nil, true
+	}
+	mouse := m.Mouse()
+	if !overlayMouseRect(a.viewCompose(), a.width, a.height).contains(mouse.X, mouse.Y) {
+		return nil, true
+	}
+	a.compose.ta.Focus()
+	for i := 0; i < 3; i++ {
+		switch mouse.Button {
+		case tea.MouseWheelUp:
+			a.compose.ta.CursorUp()
+		case tea.MouseWheelDown:
+			a.compose.ta.CursorDown()
+		default:
+			return nil, true
+		}
+	}
+	return nil, true
+}
+
 // viewCompose renders the compose modal: full-height-ish textarea
 // framed by a bordered box with a one-line hint bar. Sized to ~80% of
 // the app viewport so the surrounding base layout is still visible

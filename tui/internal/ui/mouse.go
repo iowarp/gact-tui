@@ -189,7 +189,12 @@ func (a *App) mouseOverlays() []mouseOverlay {
 			valid:        func(app *App) bool { return app.filePicker != nil },
 			closeOutside: func(app *App) { app.closeFilePicker() },
 		},
-		{open: a.composeOpen, view: a.viewCompose, closeOutside: func(app *App) { app.cancelCompose() }},
+		{
+			open:         a.composeOpen,
+			view:         a.viewCompose,
+			closeOutside: func(app *App) { app.cancelCompose() },
+			wheel:        a.handleComposeMouseWheel,
+		},
 		{open: a.detailViewOpen, view: a.viewDetailView, closeOutside: func(app *App) { app.closeDetailView() }},
 		{
 			open:         a.catalogBrowserOpen,
