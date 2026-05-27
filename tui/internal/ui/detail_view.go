@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -20,6 +19,82 @@ type bulkyPartRef struct {
 	partID    string
 	title     string // rendered header ("ReadFile(main.go) → output")
 	fullText  string
+}
+
+type detailField struct {
+	label string
+	value string
+}
+
+type scrollableDetailOptions struct {
+	width      int
+	title      string
+	content    string
+	scroll     int
+	page       int
+	hint       string
+	closeID    string
+	closeLabel string
+	close      func(*App)
+}
+
+type scrollableDetailRender struct {
+	modal  string
+	scroll int
+	window scrollWindow
+}
+
+func (a *App) closeDetailView() {
+	a.detailViewOpen = false
+	a.detailView = nil
+	a.detailScroll = 0
+}
+
+func (a *App) copyDetailViewToClipboard() tea.Cmd {
+	if a.detailView == nil {
+		a.transientHint = "nothing to copy"
+		return nil
+	}
+	a.transientHint = copyTextToClipboard("detail", a.detailView.fullText)
+	return nil
+}
+
+func appendDetailSection(rows []string, title string, fields ...detailField) []string {
+	if len(rows) > 0 {
+		rows = append(rows, "")
+	}
+	rows = append(rows, title)
+	for _, field := range fields {
+		value := strings.TrimSpace(field.value)
+		if value == "" {
+			continue
+		}
+		if strings.TrimSpace(field.label) == "" {
+			rows = append(rows, detailBodyRows(value)...)
+			continue
+		}
+		rows = append(rows, detailFieldRows(field.label, value)...)
+	}
+	return rows
+}
+
+func detailFieldRows(label string, value string) []string {
+	label = strings.TrimSpace(label)
+	if !strings.Contains(value, "\n") && !strings.HasPrefix(strings.TrimSpace(value), "- ") {
+		return []string{"  " + label + ": " + value}
+	}
+	rows := []string{"  " + label + ":"}
+	rows = append(rows, detailBodyRows(value)...)
+	return rows
+}
+
+func detailBodyRows(value string) []string {
+	lines := strings.Split(strings.TrimSpace(value), "\n")
+	rows := make([]string, 0, len(lines))
+	for _, line := range lines {
+		rows = append(rows, "    "+line)
+	}
+	return rows
 }
 
 // openDetailForSelection opens the floating detail view on the
@@ -64,10 +139,10 @@ func (a *App) openDetailForSelection() {
 func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c", "ctrl+e":
-		a.detailViewOpen = false
-		a.detailView = nil
-		a.detailScroll = 0
+		a.closeDetailView()
 		return a, nil
+	case "y":
+		return a, a.copyDetailViewToClipboard()
 	case "up", "k":
 		if a.detailScroll > 0 {
 			a.detailScroll--
@@ -111,6 +186,84 @@ func (a *App) detailPageSize() int {
 		n = 1
 	}
 	return n
+}
+
+func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollableDetailRender {
+	t := a.Theme
+	w := opts.width
+	if w < 12 {
+		w = 12
+	}
+	innerW := modalInnerWidth(w)
+	if innerW < 10 {
+		innerW = 10
+	}
+	page := opts.page
+	if page < 1 {
+		page = 1
+	}
+
+	wrapped := wrap(opts.content, innerW)
+	page = compactModalBodyRows(wrapped, page, minInt(8, page))
+	lines := strings.Split(wrapped, "\n")
+	title := opts.title
+	closeID := opts.closeID
+	if closeID == "" {
+		closeID = "detail:close"
+	}
+	closeFn := opts.close
+	if closeFn == nil {
+		closeFn = func(app *App) { app.closeDetailView() }
+	}
+	closeLabel := strings.TrimSpace(opts.closeLabel)
+	if closeLabel == "" {
+		closeLabel = "close"
+	}
+	buttons := []menuButton{
+		{
+			id:    "detail:copy",
+			label: "copy",
+			action: func(app *App) tea.Cmd {
+				return app.copyDetailViewToClipboard()
+			},
+		},
+		{
+			id:    closeID,
+			label: closeLabel,
+			action: func(app *App) tea.Cmd {
+				closeFn(app)
+				return nil
+			},
+		},
+	}
+
+	hint := opts.hint
+	if hint == "" {
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
+	}
+	hintStyle := t.HintLabel
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   title,
+			buttons: buttons,
+		},
+		content:     strings.Join(lines, "\n"),
+		pageSize:    page,
+		scroll:      opts.scroll,
+		wheelID:     "detail",
+		footerHint:  hint,
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			app.detailScroll = moveScrollOffsetByWheel(app.detailScroll, button)
+			return nil
+		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			app.detailScroll = scroll
+			return nil
+		},
+	})
+	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
@@ -233,6 +386,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 		}, true
 
 	case gact.PartTypeRoutingDecision, gact.PartTypeThinking,
+		gact.PartTypeExpertHandoff,
 		gact.PartTypeSubagentCall, gact.PartTypeSubagentResult,
 		gact.PartTypeError, gact.PartTypeCompaction,
 		gact.PartTypeResource, gact.PartTypeResourceLink,
@@ -255,20 +409,19 @@ func toolCallDetailRef(messageID string, p gact.Part) bulkyPartRef {
 }
 
 func toolCallDetailText(p gact.Part) string {
-	rows := []string{fmt.Sprintf("tool: %s", p.ToolName)}
-	if p.CallID != "" {
-		rows = append(rows, fmt.Sprintf("call_id: %s", p.CallID))
-	}
+	fields := []detailField{{"tool", p.ToolName}}
+	fields = append(fields, detailField{"call_id", p.CallID})
+	rows := appendDetailSection(nil, "Tool call", fields...)
 	if len(p.Input) > 0 {
 		if payload, err := json.MarshalIndent(p.Input, "", "  "); err == nil {
-			rows = append(rows, "", "input:", string(payload))
+			rows = append(rows, detailFieldRows("input", string(payload))...)
 		} else {
-			rows = append(rows, "", "input:", fmt.Sprint(p.Input))
+			rows = append(rows, detailFieldRows("input", fmt.Sprint(p.Input))...)
 		}
 	}
 	if len(p.Metadata) > 0 {
 		if payload, err := json.MarshalIndent(p.Metadata, "", "  "); err == nil {
-			rows = append(rows, "", "metadata:", string(payload))
+			rows = append(rows, detailFieldRows("metadata", string(payload))...)
 		}
 	}
 	return strings.Join(rows, "\n")
@@ -279,8 +432,13 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
 		title = "routing decision"
+	case gact.PartTypeExpertHandoff:
+		title = "expert handoff"
 	case gact.PartTypeToolResult:
 		title = "tool result"
+		if p.ToolName != "" {
+			title = p.ToolName + " result"
+		}
 	case gact.PartTypeText:
 		title = "message text"
 	case gact.PartTypeThinking:
@@ -303,116 +461,191 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 }
 
 func partDetailText(p gact.Part) string {
-	rows := []string{fmt.Sprintf("type: %s", orPlaceholder(p.Type, "unknown"))}
-	if p.ID != "" {
-		rows = append(rows, fmt.Sprintf("part_id: %s", p.ID))
-	}
-	if p.CallID != "" {
-		rows = append(rows, fmt.Sprintf("call_id: %s", p.CallID))
-	}
+	fields := []detailField{{"type", orPlaceholder(p.Type, "unknown")}}
+	fields = append(fields, detailField{"part_id", p.ID})
+	fields = append(fields, detailField{"call_id", p.CallID})
+	fields = append(fields, detailField{"provenance", promotedEvidenceLabel(p)})
+	rows := appendDetailSection(nil, "Part", fields...)
 
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
-		rows = append(rows,
-			fmt.Sprintf("selected_agent: %s", orPlaceholder(p.SelectedAgent, "unknown")),
-			fmt.Sprintf("route_source: %s", routeSourceLabel(p)),
-		)
+		rows = append(rows, detailFieldRows("selected_agent", orPlaceholder(p.SelectedAgent, "unknown"))...)
+		rows = append(rows, detailFieldRows("route_source", routeSourceLabel(p))...)
 		if p.Confidence > 0 {
-			rows = append(rows, fmt.Sprintf("confidence: %.2f", p.Confidence))
+			rows = append(rows, detailFieldRows("confidence", fmt.Sprintf("%.2f", p.Confidence))...)
 		}
 		if p.Rationale != "" {
-			rows = append(rows, "", "rationale:", p.Rationale)
+			rows = append(rows, detailFieldRows("rationale", p.Rationale)...)
+		}
+	case gact.PartTypeExpertHandoff:
+		route := firstNonEmpty(
+			stringValue(p.Metadata["agent_id"]),
+			stringValue(p.Metadata["expert"]),
+			"expert",
+		)
+		if parent := firstNonEmpty(stringValue(p.Metadata["parent_id"]), stringValue(p.Metadata["parent"])); parent != "" {
+			route = parent + " -> " + route
+		}
+		rows = append(rows, detailFieldRows("route", route)...)
+		rows = append(rows, detailFieldRows("status", orPlaceholder(stringValue(p.Metadata["status"]), "observed"))...)
+		if stage := firstNonEmpty(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["dispatch_target"])); stage != "" {
+			rows = append(rows, detailFieldRows("stage", stage)...)
+		}
+		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
+			rows = append(rows, detailFieldRows("duration_ms", fmt.Sprintf("%.0f", duration))...)
+		}
+		if input := strings.TrimSpace(stringValue(p.Metadata["input_summary"])); input != "" {
+			rows = append(rows, detailFieldRows("input", input)...)
+		}
+		output := firstNonEmpty(
+			stringValue(p.Metadata["output_summary"]),
+			stringValue(p.Metadata["summary"]),
+			p.Text,
+		)
+		if output != "" {
+			rows = append(rows, detailFieldRows("output", output)...)
+		}
+		rows = append(rows, detailFieldRows("inline_preview", orPlaceholder(summarizeExpertHandoffOutput(output), "none"))...)
+		for _, key := range []string{
+			"agent_id",
+			"parent_id",
+			"dispatch_target",
+		} {
+			if value, ok := p.Metadata[key]; ok && value != nil {
+				rows = append(rows, detailFieldRows(key, fmt.Sprint(value))...)
+			}
 		}
 	case gact.PartTypeToolResult:
-		rows = append(rows,
-			fmt.Sprintf("is_error: %v", p.IsError),
-			fmt.Sprintf("cached: %v", p.Cached),
-		)
+		if p.ToolName != "" {
+			rows = append(rows, detailFieldRows("tool", p.ToolName)...)
+		}
+		rows = append(rows, detailFieldRows("is_error", fmt.Sprintf("%v", p.IsError))...)
+		rows = append(rows, detailFieldRows("cached", fmt.Sprintf("%v", p.Cached))...)
 		if p.DurationMS > 0 {
-			rows = append(rows, fmt.Sprintf("duration_ms: %.0f", p.DurationMS))
+			rows = append(rows, detailFieldRows("duration_ms", fmt.Sprintf("%.0f", p.DurationMS))...)
 		}
 		text := flattenToolResult(p)
 		if text != "" {
-			rows = append(rows, "", "content:", text)
+			rows = append(rows, detailFieldRows("content", text)...)
+		}
+		if raw := p.Metadata["raw_result"]; raw != nil {
+			rows = appendAnyJSONSection(rows, "raw_result", raw)
 		}
 	case gact.PartTypeText:
 		if p.Text != "" {
-			rows = append(rows, "", "text:", p.Text)
+			rows = append(rows, detailFieldRows("text", p.Text)...)
 		}
 	case gact.PartTypeThinking:
 		if p.Thinking != "" {
-			rows = append(rows, "", "thinking:", p.Thinking)
+			rows = append(rows, detailFieldRows("thinking", p.Thinking)...)
 		}
 		if p.Signature != "" {
-			rows = append(rows, "", "signature:", p.Signature)
+			rows = append(rows, detailFieldRows("signature", p.Signature)...)
 		}
 	case gact.PartTypeSubagentCall:
-		rows = append(rows,
-			fmt.Sprintf("agent_id: %s", orPlaceholder(p.AgentID, "unknown")),
-			fmt.Sprintf("subsession_id: %s", orPlaceholder(p.SubsessionID, "none")),
-		)
+		rows = append(rows, detailFieldRows("agent_id", orPlaceholder(p.AgentID, "unknown"))...)
+		rows = append(rows, detailFieldRows("subsession_id", orPlaceholder(p.SubsessionID, "none"))...)
 		if p.Prompt != "" {
-			rows = append(rows, "", "prompt:", p.Prompt)
+			rows = append(rows, detailFieldRows("prompt", p.Prompt)...)
 		}
 		rows = appendJSONSection(rows, "params", p.Params)
 	case gact.PartTypeSubagentResult:
-		rows = append(rows,
-			fmt.Sprintf("subsession_id: %s", orPlaceholder(p.SubsessionID, "none")),
-			fmt.Sprintf("final_message_id: %s", orPlaceholder(p.FinalMessageID, "none")),
-		)
+		rows = append(rows, detailFieldRows("subsession_id", orPlaceholder(p.SubsessionID, "none"))...)
+		rows = append(rows, detailFieldRows("final_message_id", orPlaceholder(p.FinalMessageID, "none"))...)
 		if p.Summary != "" {
-			rows = append(rows, "", "summary:", p.Summary)
+			rows = append(rows, detailFieldRows("summary", p.Summary)...)
 		}
 	case gact.PartTypeError:
-		rows = append(rows,
-			fmt.Sprintf("code: %s", orPlaceholder(p.Code, "unknown")),
-			fmt.Sprintf("recoverable: %v", p.Recoverable),
-		)
+		rows = append(rows, detailFieldRows("code", orPlaceholder(p.Code, "unknown"))...)
+		rows = append(rows, detailFieldRows("recoverable", fmt.Sprintf("%v", p.Recoverable))...)
 		if p.Message != "" {
-			rows = append(rows, "", "message:", p.Message)
+			rows = append(rows, detailFieldRows("message", p.Message)...)
 		}
 	case gact.PartTypeCompaction:
-		rows = append(rows, fmt.Sprintf("auto: %v", p.Auto))
+		rows = append(rows, detailFieldRows("auto", fmt.Sprintf("%v", p.Auto))...)
 		if p.Summary != "" {
-			rows = append(rows, "", "summary:", p.Summary)
+			rows = append(rows, detailFieldRows("summary", p.Summary)...)
 		}
 		if len(p.CompactedMessageIDs) > 0 {
-			rows = append(rows, "", "compacted_message_ids:", strings.Join(p.CompactedMessageIDs, "\n"))
+			rows = append(rows, detailFieldRows("compacted_message_ids", strings.Join(p.CompactedMessageIDs, "\n"))...)
 		}
 	case gact.PartTypeResourceLink, gact.PartTypeResource:
-		rows = append(rows,
-			fmt.Sprintf("uri: %s", orPlaceholder(p.URI, "none")),
-			fmt.Sprintf("mime_type: %s", orPlaceholder(p.MimeType, "unknown")),
-		)
+		rows = append(rows, detailFieldRows("uri", orPlaceholder(p.URI, "none"))...)
+		rows = append(rows, detailFieldRows("mime_type", orPlaceholder(p.MimeType, "unknown"))...)
 		if p.Name != "" {
-			rows = append(rows, fmt.Sprintf("name: %s", p.Name))
+			rows = append(rows, detailFieldRows("name", p.Name)...)
 		}
 		if p.Description != "" {
-			rows = append(rows, "", "description:", p.Description)
+			rows = append(rows, detailFieldRows("description", p.Description)...)
 		}
 	case gact.PartTypeImage, gact.PartTypeDocument, gact.PartTypeCitation:
 		if p.Title != "" {
-			rows = append(rows, fmt.Sprintf("title: %s", p.Title))
+			rows = append(rows, detailFieldRows("title", p.Title)...)
 		}
 		if p.Context != "" {
-			rows = append(rows, "", "context:", p.Context)
+			rows = append(rows, detailFieldRows("context", p.Context)...)
 		}
 		if p.Text != "" {
-			rows = append(rows, "", "text:", p.Text)
+			rows = append(rows, detailFieldRows("text", p.Text)...)
 		}
 		rows = appendAnyJSONSection(rows, "source", p.Source)
 		rows = appendAnyJSONSection(rows, "citations", p.Citations)
 	default:
 		if p.Text != "" {
-			rows = append(rows, "", "text:", p.Text)
+			rows = append(rows, detailFieldRows("text", p.Text)...)
 		}
 		if p.Summary != "" {
-			rows = append(rows, "", "summary:", p.Summary)
+			rows = append(rows, detailFieldRows("summary", p.Summary)...)
 		}
 	}
 
-	rows = appendJSONSection(rows, "metadata", p.Metadata)
+	rows = appendJSONSection(rows, "metadata", detailMetadataRemainder(p))
 	return strings.Join(rows, "\n")
+}
+
+func detailMetadataRemainder(p gact.Part) map[string]any {
+	if len(p.Metadata) == 0 {
+		return nil
+	}
+	used := map[string]bool{}
+	used["partial_after_error"] = true
+	if promotedEvidenceLabel(p) != "" {
+		used["synthetic_from"] = true
+	}
+	switch p.Type {
+	case gact.PartTypeToolResult:
+		used["raw_result"] = true
+	case gact.PartTypeExpertHandoff:
+		for _, key := range []string{
+			"agent_id",
+			"parent_id",
+			"parent",
+			"expert",
+			"status",
+			"stage",
+			"dispatch_target",
+			"duration_ms",
+			"input_summary",
+			"output_summary",
+			"summary",
+		} {
+			used[key] = true
+		}
+	case gact.PartTypeCompaction:
+		used["synthetic_from"] = true
+		used["synthetic"] = true
+	}
+	remaining := map[string]any{}
+	for key, value := range p.Metadata {
+		if used[key] || value == nil {
+			continue
+		}
+		remaining[key] = value
+	}
+	if len(remaining) == 0 {
+		return nil
+	}
+	return remaining
 }
 
 func routeSourceLabel(p gact.Part) string {
@@ -430,9 +663,9 @@ func appendJSONSection(rows []string, label string, payload map[string]any) []st
 		return rows
 	}
 	if body, err := json.MarshalIndent(payload, "", "  "); err == nil {
-		return append(rows, "", label+":", string(body))
+		return append(rows, detailFieldRows(label, string(body))...)
 	}
-	return append(rows, "", label+":", fmt.Sprint(payload))
+	return append(rows, detailFieldRows(label, fmt.Sprint(payload))...)
 }
 
 func appendAnyJSONSection(rows []string, label string, payload any) []string {
@@ -440,9 +673,9 @@ func appendAnyJSONSection(rows []string, label string, payload any) []string {
 		return rows
 	}
 	if body, err := json.MarshalIndent(payload, "", "  "); err == nil {
-		return append(rows, "", label+":", string(body))
+		return append(rows, detailFieldRows(label, string(body))...)
 	}
-	return append(rows, "", label+":", fmt.Sprint(payload))
+	return append(rows, detailFieldRows(label, fmt.Sprint(payload))...)
 }
 
 // findBulkyPartIn scans a single message for a bulky tool_result or
@@ -545,65 +778,26 @@ func (a *App) viewDetailView() string {
 	if a.detailView == nil {
 		return ""
 	}
-	t := a.Theme
 	// YYYYYYYYY1: use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
-	w := a.detailModalWidth()
-	// Inner width: pane width - 2 padding - 2 border.
-	innerW := w - 4
-	if innerW < 10 {
-		innerW = 10
-	}
-
 	ref := a.detailView
-	// Wrap the full text at the inner width so long log lines don't
-	// overflow the modal box.
-	wrapped := wrap(ref.fullText, innerW)
-	lines := strings.Split(wrapped, "\n")
-	budget := a.detailPageSize()
-	if budget < 1 {
-		budget = 1
+	closeLabel := "close"
+	hint := ""
+	if a.catalogBrowserOpen && a.catalogBrowser != nil {
+		closeLabel = "back"
+		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E back"
 	}
-
-	// Clamp scroll against the new content size.
-	maxScroll := len(lines) - budget
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if a.detailScroll > maxScroll {
-		a.detailScroll = maxScroll
-	}
-	if a.detailScroll < 0 {
-		a.detailScroll = 0
-	}
-
-	end := a.detailScroll + budget
-	if end > len(lines) {
-		end = len(lines)
-	}
-	visible := strings.Join(lines[a.detailScroll:end], "\n")
-
-	scrollHint := ""
-	if len(lines) > budget {
-		scrollHint = fmt.Sprintf("  (line %d–%d of %d)",
-			a.detailScroll+1, end, len(lines))
-	}
-
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render(ref.title) +
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render(scrollHint)
-
-	hint := t.HintLabel.Render(
-		"↑/↓ scroll  PgUp/PgDn page  g/G top/bottom  Esc / Ctrl+E close")
-
-	body := lipgloss.NewStyle().Foreground(t.Fg).Render(visible)
-
-	box := lipgloss.JoinVertical(lipgloss.Left, title, "", body, "", hint)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:      a.detailModalWidth(),
+		title:      ref.title,
+		content:    ref.fullText,
+		scroll:     a.detailScroll,
+		page:       a.detailPageSize(),
+		hint:       hint,
+		closeID:    "detail:close",
+		closeLabel: closeLabel,
+		close:      func(app *App) { app.closeDetailView() },
+	})
+	a.detailScroll = rendered.scroll
+	return rendered.modal
 }

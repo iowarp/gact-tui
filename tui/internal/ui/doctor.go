@@ -31,6 +31,7 @@ type doctorState struct {
 	health  gact.HealthResponse
 	caps    gact.Capabilities
 	tab     doctorTab
+	scroll  int
 }
 
 // doctorTab switches between the integrations health view and the
@@ -83,6 +84,25 @@ func (a *App) handleDoctorKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "tab", "right", "left":
 		// Cycle between integrations + capabilities views.
 		a.doctor.tab = (a.doctor.tab + 1) % 2
+		a.doctor.scroll = 0
+		return a, nil
+	case "up", "k":
+		a.doctor.scroll--
+		return a, nil
+	case "down", "j":
+		a.doctor.scroll++
+		return a, nil
+	case "pgup", "ctrl+u":
+		a.doctor.scroll -= a.doctorBodyPageSize()
+		return a, nil
+	case "pgdown", "ctrl+d":
+		a.doctor.scroll += a.doctorBodyPageSize()
+		return a, nil
+	case "g", "home":
+		a.doctor.scroll = 0
+		return a, nil
+	case "G", "end":
+		a.doctor.scroll = 1 << 30
 		return a, nil
 	}
 	return a, nil
@@ -96,11 +116,53 @@ func (a *App) viewDoctor() string {
 	}
 	t := a.Theme
 	w := a.modalWidth()
+	innerW := modalInnerWidth(w)
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Doctor — Backend Health")
-	tabs := renderDoctorTabs(a.doctor.tab, t)
-
+	buttons := []menuButton{
+		{
+			id:    "doctor:refresh",
+			label: "refresh",
+			action: func(app *App) tea.Cmd {
+				if app.doctor == nil {
+					return nil
+				}
+				preserve := app.doctor.tab
+				app.doctor = &doctorState{loading: true, tab: preserve}
+				return doctorFetchCmd(app.c)
+			},
+		},
+		closeMenuButton("doctor:close", func(app *App) {
+			app.doctorOpen = false
+			app.doctor = nil
+		}),
+	}
+	tabs := []menuTab{
+		{
+			id:     "doctor-health",
+			label:  "Health",
+			active: a.doctor.tab == doctorTabHealth,
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabHealth
+				}
+				return nil
+			},
+		},
+		{
+			id:     "doctor-capabilities",
+			label:  "Capabilities",
+			active: a.doctor.tab == doctorTabCapabilities,
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabCapabilities
+				}
+				return nil
+			},
+		},
+	}
 	var body string
+	var rowHits []modalRowHit
+	baseFooterHint := "Tab view  Up/Down scroll  r refresh  Esc close"
 	switch {
 	case a.doctor.loading:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
@@ -111,40 +173,60 @@ func (a *App) viewDoctor() string {
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render("press r to retry, Esc to close")
 	case a.doctor.tab == doctorTabCapabilities:
-		body = renderDoctorCapabilities(a.doctor.caps, t, w-4)
+		body = renderDoctorCapabilities(a.doctor.caps, t, innerW)
+		rowHits = a.doctorCapabilityRowHits()
 	default:
-		body = renderDoctorBody(a.doctor.health, t, w-4)
+		body = renderDoctorBody(a.doctor.health, t, innerW)
+		rowHits = a.doctorHealthRowHits(innerW)
 	}
+	footerHint := scrollableModalRowDetailFooter(baseFooterHint, rowHits)
+	pageSize := compactModalBodyRows(body, a.doctorBodyPageSize(), 8)
 
-	hint := t.HintLabel.Render("Tab switch view  ·  r refresh  ·  Esc / q close")
-	box := lipgloss.JoinVertical(lipgloss.Left, title, "", tabs, "", body, "", hint)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	hintStyle := t.HintLabel
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:      w,
+			title:      "Doctor — Backend Health",
+			buttons:    buttons,
+			tabs:       tabs,
+			tabPadding: 2,
+			tabSpacing: 2,
+		},
+		content:     body,
+		pageSize:    pageSize,
+		scroll:      a.doctorScroll(),
+		wheelID:     "doctor",
+		footerHint:  footerHint,
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			if app.doctor != nil {
+				app.doctor.scroll = moveScrollOffsetByWheel(app.doctor.scroll, button)
+			}
+			return nil
+		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			if app.doctor != nil {
+				app.doctor.scroll = scroll
+			}
+			return nil
+		},
+	})
+	if a.doctor != nil {
+		a.doctor.scroll = rendered.window.scroll
+	}
+	a.registerScrollableModalRowHits(rendered.modalFrameRender, rendered.window, rowHits)
+	return rendered.modal
 }
 
-// renderDoctorTabs draws the two-tab strip at the top of the modal.
-func renderDoctorTabs(active doctorTab, t Theme) string {
-	on := lipgloss.NewStyle().
-		Background(t.Primary).
-		Foreground(t.Bg).
-		Bold(true).
-		Padding(0, 2)
-	off := lipgloss.NewStyle().
-		Foreground(t.FgMuted).
-		Padding(0, 2)
-	healthStyle, capsStyle := off, off
-	if active == doctorTabHealth {
-		healthStyle = on
-	} else {
-		capsStyle = on
+func (a *App) doctorBodyPageSize() int {
+	return a.modalBodyRows(18)
+}
+
+func (a *App) doctorScroll() int {
+	if a.doctor != nil {
+		return a.doctor.scroll
 	}
-	return healthStyle.Render("Health") + "  " +
-		capsStyle.Render("Capabilities")
+	return 0
 }
 
 // renderDoctorCapabilities tabulates every spec capability as
@@ -153,42 +235,7 @@ func renderDoctorTabs(active doctorTab, t Theme) string {
 //   - "missing"   (●  red)   — backend advertises it false
 //   - "unknown"   (?  muted) — backend is missing the flag entirely
 func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) string {
-	rows := []capRow{
-		// Core surfaces (v0.1).
-		{"workspaces", caps.Capabilities.Workspaces, capCore},
-		{"sessions", caps.Capabilities.Sessions, capCore},
-		{"subagents", caps.Capabilities.Subagents, capCore},
-		{"mcp", caps.Capabilities.MCP, capCore},
-		{"files", caps.Capabilities.Files, capCore},
-		{"diffs", caps.Capabilities.Diffs, capCore},
-		{"permissions", caps.Capabilities.Permissions, capCore},
-		{"providers", caps.Capabilities.Providers, capCore},
-		{"commands", caps.Capabilities.Commands, capCore},
-		{"metrics", caps.Capabilities.Metrics, capCore},
-		// Useful but optional.
-		{"session_branching", caps.Capabilities.SessionBranching, capExtra},
-		{"session_export", caps.Capabilities.SessionExport, capExtra},
-		{"search_messages", caps.Capabilities.SearchMessages, capExtra},
-		{"cost_tracking", caps.Capabilities.CostTracking, capExtra},
-		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra},
-		{"session_tasks", caps.Capabilities.SessionTasks, capExtra},
-		// v0.2 additions.
-		{"agent_routing", caps.Capabilities.AgentRouting, capV02},
-		{"memory", caps.Capabilities.Memory, capV02},
-		{"structured_errors", caps.Capabilities.StructuredErrors, capV02},
-		{"integration_health", caps.Capabilities.IntegrationHealth, capV02},
-		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02},
-		// Vendor-specific (often unsupported).
-		{"lsp", caps.Capabilities.LSP, capVendor},
-		{"voice", caps.Capabilities.Voice, capVendor},
-		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor},
-		{"hooks", caps.Capabilities.Hooks, capVendor},
-		{"session_sharing", caps.Capabilities.SessionSharing, capVendor},
-		{"edit_modes", caps.Capabilities.EditModes, capVendor},
-		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
-		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
-	}
+	rows := doctorCapabilityRows(caps)
 
 	// Score header — count supported across the core + v0.2 axes
 	// since those map best to "is this backend actually GACT-capable?".
@@ -233,6 +280,66 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 	return strings.Join(out, "\n")
 }
 
+func doctorCapabilityRows(caps gact.Capabilities) []capRow {
+	return []capRow{
+		// Core surfaces (v0.1).
+		{"workspaces", caps.Capabilities.Workspaces, capCore},
+		{"sessions", caps.Capabilities.Sessions, capCore},
+		{"subagents", caps.Capabilities.Subagents, capCore},
+		{"mcp", caps.Capabilities.MCP, capCore},
+		{"files", caps.Capabilities.Files, capCore},
+		{"diffs", caps.Capabilities.Diffs, capCore},
+		{"permissions", caps.Capabilities.Permissions, capCore},
+		{"providers", caps.Capabilities.Providers, capCore},
+		{"commands", caps.Capabilities.Commands, capCore},
+		{"metrics", caps.Capabilities.Metrics, capCore},
+		// Useful but optional.
+		{"session_branching", caps.Capabilities.SessionBranching, capExtra},
+		{"session_export", caps.Capabilities.SessionExport, capExtra},
+		{"search_messages", caps.Capabilities.SearchMessages, capExtra},
+		{"cost_tracking", caps.Capabilities.CostTracking, capExtra},
+		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra},
+		{"session_tasks", caps.Capabilities.SessionTasks, capExtra},
+		// v0.2 additions.
+		{"agent_routing", caps.Capabilities.AgentRouting, capV02},
+		{"memory", caps.Capabilities.Memory, capV02},
+		{"structured_errors", caps.Capabilities.StructuredErrors, capV02},
+		{"integration_health", caps.Capabilities.IntegrationHealth, capV02},
+		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02},
+		// Vendor-specific (often unsupported).
+		{"lsp", caps.Capabilities.LSP, capVendor},
+		{"voice", caps.Capabilities.Voice, capVendor},
+		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor},
+		{"hooks", caps.Capabilities.Hooks, capVendor},
+		{"session_sharing", caps.Capabilities.SessionSharing, capVendor},
+		{"edit_modes", caps.Capabilities.EditModes, capVendor},
+		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
+		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
+		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
+	}
+}
+
+func (a *App) doctorCapabilityRowHits() []modalRowHit {
+	if a.doctor == nil {
+		return nil
+	}
+	rows := doctorCapabilityRows(a.doctor.caps)
+	hits := make([]modalRowHit, 0, len(rows))
+	for i, row := range rows {
+		row := row
+		hits = append(hits, modalRowHit{
+			id:     "doctor:capability:" + row.name,
+			start:  3 + i,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.openDoctorCapabilityDetail(row)
+				return nil
+			},
+		})
+	}
+	return hits
+}
+
 type capBucket int
 
 const (
@@ -275,7 +382,6 @@ func capBucketLabel(b capBucket, t Theme) string {
 // renderDoctorBody formats a HealthResponse into the modal body —
 // header (overall_status + uptime + version) + integrations table.
 func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
-	// Header row: overall_status chip + uptime + version if present.
 	overall := h.OverallStatus
 	if overall == "" {
 		if h.Healthy {
@@ -284,53 +390,188 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 			overall = "unavailable"
 		}
 	}
-	chip := doctorStatusChip(overall, t)
-	header := chip + "  " +
-		lipgloss.NewStyle().Foreground(t.FgMuted).
-			Render(fmt.Sprintf("uptime %s", formatUptime(h.UptimeS)))
-
-	rows := []string{header, ""}
+	rows := appendDetailSection(nil, "Overview",
+		detailField{"status", doctorStatusText(overall)},
+		detailField{"uptime", formatUptime(h.UptimeS)},
+	)
 	if len(h.Integrations) == 0 {
-		rows = append(rows,
-			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("(no integrations reported by this backend)"))
+		rows = appendDetailSection(rows, "Integrations",
+			detailField{"", "(no integrations reported by this backend)"},
+		)
 		return strings.Join(rows, "\n")
 	}
 
-	// Column widths: name 12, status 12, detail = rest. Clamp to innerW.
-	// Detail wraps onto continuation rows when it would otherwise truncate
-	// — better to read a long lm config across two lines than to lose the
-	// model id behind an ellipsis.
-	nameW := 12
-	statusW := 12
-	detailW := innerW - nameW - statusW - 4 // 4 = padding
-	if detailW < 30 {
-		detailW = 30
-	}
-
-	tableHead := lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
-		Render(padRight("NAME", nameW) + padRight("STATUS", statusW) + "DETAIL")
-	rows = append(rows, tableHead)
-
+	fields := make([]detailField, 0, len(h.Integrations))
 	for _, integ := range h.Integrations {
-		statusCell := doctorStatusCell(integ.Status, t)
-		// Wrap the detail to detailW and indent continuation lines so the
-		// table grid stays aligned.
-		wrapped := wrap(integ.Detail, detailW)
-		wlines := strings.Split(wrapped, "\n")
-		for i, wl := range wlines {
-			if i == 0 {
-				rows = append(rows,
-					padRight(integ.Name, nameW)+
-						padRight(statusCell, statusW)+wl)
+		value := doctorIntegrationValue(integ, innerW)
+		fields = append(fields, detailField{integ.Name, value})
+	}
+	rows = appendDetailSection(rows, "Integrations", fields...)
+	return strings.Join(rows, "\n")
+}
+
+func (a *App) doctorHealthRowHits(innerW int) []modalRowHit {
+	if a.doctor == nil || len(a.doctor.health.Integrations) == 0 {
+		return nil
+	}
+	rows := appendDetailSection(nil, "Overview",
+		detailField{"status", doctorStatusText(a.doctor.health.OverallStatus)},
+		detailField{"uptime", formatUptime(a.doctor.health.UptimeS)},
+	)
+	start := len(rows) + 2 // blank separator + Integrations section title.
+	hits := make([]modalRowHit, 0, len(a.doctor.health.Integrations))
+	for _, integ := range a.doctor.health.Integrations {
+		integ := integ
+		rowHeight := len(detailFieldRows(integ.Name, doctorIntegrationValue(integ, innerW)))
+		if rowHeight < 1 {
+			rowHeight = 1
+		}
+		hits = append(hits, modalRowHit{
+			id:     "doctor:integration:" + integ.Name,
+			start:  start,
+			height: rowHeight,
+			action: func(app *App) tea.Cmd {
+				app.openDoctorIntegrationDetail(integ)
+				return nil
+			},
+		})
+		start += rowHeight
+	}
+	return hits
+}
+
+func (a *App) openDoctorIntegrationDetail(integ gact.Integration) {
+	rows := appendDetailSection(nil, "Integration",
+		detailField{"name", integ.Name},
+		detailField{"status", doctorStatusText(integ.Status)},
+		detailField{"detail", orPlaceholder(integ.Detail, "not reported")},
+	)
+	if a.doctor != nil {
+		overall := a.doctor.health.OverallStatus
+		if overall == "" {
+			if a.doctor.health.Healthy {
+				overall = "ready"
 			} else {
-				rows = append(rows,
-					strings.Repeat(" ", nameW+statusW)+wl)
+				overall = "unavailable"
 			}
 		}
+		rows = appendDetailSection(rows, "Backend",
+			detailField{"overall_status", doctorStatusText(overall)},
+			detailField{"uptime", formatUptime(a.doctor.health.UptimeS)},
+		)
 	}
+	a.detailView = &bulkyPartRef{
+		messageID: "doctor",
+		partID:    "integration:" + integ.Name,
+		title:     "Doctor · " + integ.Name,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
 
-	return strings.Join(rows, "\n")
+func (a *App) openDoctorCapabilityDetail(row capRow) {
+	rows := appendDetailSection(nil, "Capability",
+		detailField{"name", row.name},
+		detailField{"status", capabilityStatusText(row.on)},
+		detailField{"bucket", capBucketPlainLabel(row.bucket)},
+		detailField{"meaning", capabilityMeaning(row.name, row.bucket)},
+	)
+	if a.doctor != nil {
+		rows = appendDetailSection(rows, "Backend",
+			detailField{"contract_version", orPlaceholder(a.doctor.caps.ContractVersion, "unknown")},
+			detailField{"name", orPlaceholder(a.doctor.caps.Backend.Name, "unknown")},
+			detailField{"version", orPlaceholder(a.doctor.caps.Backend.Version, "unknown")},
+			detailField{"vendor", orPlaceholder(a.doctor.caps.Backend.Vendor, "unknown")},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "doctor",
+		partID:    "capability:" + row.name,
+		title:     "Capability · " + row.name,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func capabilityStatusText(on bool) string {
+	if on {
+		return "supported"
+	}
+	return "missing"
+}
+
+func capBucketPlainLabel(b capBucket) string {
+	switch b {
+	case capCore:
+		return "v0.1 core"
+	case capExtra:
+		return "v0.1 useful"
+	case capV02:
+		return "v0.2"
+	case capVendor:
+		return "vendor-specific"
+	default:
+		return "unknown"
+	}
+}
+
+func capabilityMeaning(name string, bucket capBucket) string {
+	switch name {
+	case "integration_health":
+		return "backend exposes per-subsystem health rows in /v1/health"
+	case "memory":
+		return "backend exposes ARC/context memory statistics through /v1/memory/stats"
+	case "agent_routing":
+		return "backend can surface routing decisions and multi-tier agent handoffs"
+	case "tool_telemetry":
+		return "tool results can include duration/cache telemetry"
+	case "structured_errors":
+		return "backend can return typed error_info payloads instead of plain text only"
+	}
+	switch bucket {
+	case capCore:
+		return "core GACT contract surface expected by the TUI"
+	case capExtra:
+		return "optional GACT surface that improves navigation or observability"
+	case capV02:
+		return "v0.2 GACT extension used for richer CLIO evidence"
+	case capVendor:
+		return "vendor-specific extension; absence is usually acceptable"
+	default:
+		return "capability flag reported by /v1/capabilities"
+	}
+}
+
+func doctorIntegrationValue(integ gact.Integration, innerW int) string {
+	status := doctorStatusText(integ.Status)
+	detail := strings.TrimSpace(integ.Detail)
+	if detail == "" {
+		return status
+	}
+	w := innerW - lipgloss.Width(integ.Name) - lipgloss.Width(status) - 8
+	if w < 24 {
+		w = 24
+	}
+	lines := wrapPlainRows(detail, w, "")
+	if len(lines) == 0 {
+		return status
+	}
+	out := status + " · " + lines[0]
+	if len(lines) > 1 {
+		out += "\n" + strings.Join(lines[1:], "\n")
+	}
+	return out
+}
+
+func doctorStatusText(status string) string {
+	switch strings.TrimSpace(status) {
+	case "":
+		return "unknown"
+	default:
+		return status
+	}
 }
 
 // doctorStatusChip is the pill-shaped overall_status indicator in

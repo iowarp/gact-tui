@@ -251,7 +251,7 @@ func TestSpanishLMConfigBodyDoesNotFallBackToEnglish(t *testing.T) {
 	}
 
 	plain := ansi.Strip(a.viewLMConfig())
-	for _, want := range []string{"Proveedor", "Seleccionado", "Modelo", "Configuración del modelo", "Detalles del modelo", "Contexto máximo"} {
+	for _, want := range []string{"Proveedor", "Configuración", "Modelo", "Configuración del modelo", "Detalles del modelo", "Contexto máximo"} {
 		if !strings.Contains(plain, want) {
 			t.Fatalf("Spanish LM config missing %q in:\n%s", want, plain)
 		}

@@ -99,10 +99,172 @@ func TestContextAdd_EnterCommitsAndPOSTsPath(t *testing.T) {
 	if added.file.Path != "cmd/main.go" {
 		t.Errorf("file.Path = %q", added.file.Path)
 	}
+	if added.file.Mode != "read" {
+		t.Errorf("file.Mode = %q, want read", added.file.Mode)
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	if *got != "cmd/main.go" {
 		t.Errorf("POST body path = %q, want 'cmd/main.go'", *got)
+	}
+}
+
+func TestContextAdd_TabCyclesModeAndPOSTsSelectedMode(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/editable.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAddModeValue(); got != "edit" {
+		t.Fatalf("after Tab mode = %q, want edit", got)
+	}
+	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAddModeValue(); got != "pin" {
+		t.Fatalf("after second Tab mode = %q, want pin", got)
+	}
+
+	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should dispatch addContextFileCmd")
+	}
+	msg := cmd()
+	added, ok := msg.(contextFileAddedMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want contextFileAddedMsg", msg)
+	}
+	if added.err != nil {
+		t.Fatalf("unexpected err: %v", added.err)
+	}
+	if added.file.Mode != "pin" {
+		t.Fatalf("posted mode = %q, want pin", added.file.Mode)
+	}
+}
+
+func TestContextAddModeChipsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "context-add:mode:edit")
+	if !ok {
+		t.Fatal("missing context-add edit mode hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("mode chip click should not dispatch a command")
+	}
+	if got := a.contextAddModeValue(); got != "edit" {
+		t.Fatalf("context-add mode = %q, want edit", got)
+	}
+	if !a.contextAddOpen {
+		t.Fatal("mode chip should keep context-add open")
+	}
+}
+
+func TestContextAddButtonsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:context-add:save")
+	if !ok {
+		t.Fatal("missing context-add save button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.contextAddOpen {
+		t.Fatal("save button should close context-add modal")
+	}
+	if cmd == nil {
+		t.Fatal("save button should dispatch addContextFileCmd")
+	}
+}
+
+func TestContextAddButtonsAlignWithSharedHeader(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:context-add:save")
+	if !ok {
+		t.Fatal("missing context-add save button hit target")
+	}
+	rect := overlayMouseRect(a.viewContextAdd(), a.width, a.height)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("context-add save button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestContextAddCancelButtonUsesSharedCloseState(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "discard/me.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:context-add:cancel")
+	if !ok {
+		t.Fatal("missing context-add cancel button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cancel button should not dispatch a command")
+	}
+	if a.contextAddOpen || a.contextAddDraft != "" || a.contextAddCursor != 0 {
+		t.Fatalf("cancel should clear context-add state, open=%v draft=%q cursor=%d", a.contextAddOpen, a.contextAddDraft, a.contextAddCursor)
+	}
+}
+
+func TestContextAddEditorClickPlacesCursor(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:context-add:cursor:4")
+	if !ok {
+		t.Fatal("missing context-add editor cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cursor click should not dispatch a command")
+	}
+	if a.contextAddCursor != 4 {
+		t.Fatalf("context-add cursor = %d, want 4", a.contextAddCursor)
+	}
+	if !a.contextAddOpen {
+		t.Fatal("cursor click should keep context-add open")
 	}
 }
 

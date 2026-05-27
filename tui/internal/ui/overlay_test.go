@@ -22,7 +22,8 @@ func TestOverlay_PreservesBaseAroundModal(t *testing.T) {
 		strings.Repeat("L", 40),
 		strings.Repeat("L", 40),
 	}, "\n")
-	// Modal: 10×1. Centred means startX = (40-10)/2 = 15, startY = (5-1)/2 = 2.
+	// Modal: 10×1. Shared modal geometry means startX = (40-10)/2 = 15
+	// and startY is the fixed modal top row.
 	top := strings.Repeat("M", 10)
 
 	got := overlay(base, top, 40, 5)
@@ -30,17 +31,17 @@ func TestOverlay_PreservesBaseAroundModal(t *testing.T) {
 	if len(lines) != 5 {
 		t.Fatalf("expected 5 rows, got %d: %q", len(lines), got)
 	}
-	// Row 2 (the modal row) should have L's on the left, M's in the
+	// Row 3 (the modal row) should have L's on the left, M's in the
 	// middle, L's on the right. strip ANSI first.
-	plain := ansi.Strip(lines[2])
+	plain := ansi.Strip(lines[3])
 	if !strings.HasPrefix(plain, "LLLLLLLLLLLLLLL") { // 15 cells
-		t.Errorf("row 2 lost base left: %q", plain)
+		t.Errorf("row 3 lost base left: %q", plain)
 	}
 	if !strings.Contains(plain, "MMMMMMMMMM") {
-		t.Errorf("row 2 missing modal: %q", plain)
+		t.Errorf("row 3 missing modal: %q", plain)
 	}
 	if !strings.HasSuffix(plain, "LLLLLLLLLLLLLLL") { // 15 cells
-		t.Errorf("row 2 lost base right: %q", plain)
+		t.Errorf("row 3 lost base right: %q", plain)
 	}
 	// Rows outside the modal Y range should be unchanged.
 	if plain0 := ansi.Strip(lines[0]); plain0 != strings.Repeat("L", 40) {
@@ -48,7 +49,7 @@ func TestOverlay_PreservesBaseAroundModal(t *testing.T) {
 	}
 }
 
-func TestOverlay_CentresVertically(t *testing.T) {
+func TestOverlayUsesSharedTopRow(t *testing.T) {
 	base := strings.Join([]string{
 		"0000000000",
 		"1111111111",
@@ -57,17 +58,17 @@ func TestOverlay_CentresVertically(t *testing.T) {
 		"4444444444",
 	}, "\n")
 	top := "XX"
-	// centred at row (5-1)/2 = 2, col (10-2)/2 = 4.
+	// Fixed at row 3, col (10-2)/2 = 4.
 	got := overlay(base, top, 10, 5)
 	lines := strings.Split(got, "\n")
-	if p := ansi.Strip(lines[2]); !strings.Contains(p, "XX") {
-		t.Errorf("centred row lost modal: %q", p)
+	if p := ansi.Strip(lines[3]); !strings.Contains(p, "XX") {
+		t.Errorf("shared top row lost modal: %q", p)
 	}
 	// Row before and after should not contain XX.
-	if p := ansi.Strip(lines[1]); strings.Contains(p, "XX") {
+	if p := ansi.Strip(lines[2]); strings.Contains(p, "XX") {
 		t.Errorf("row above modal has modal content: %q", p)
 	}
-	if p := ansi.Strip(lines[3]); strings.Contains(p, "XX") {
+	if p := ansi.Strip(lines[4]); strings.Contains(p, "XX") {
 		t.Errorf("row below modal has modal content: %q", p)
 	}
 }

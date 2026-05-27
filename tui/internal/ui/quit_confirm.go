@@ -31,6 +31,34 @@ import (
 // quitConfirmOptions is the canonical option order + labels.
 var quitConfirmOptions = []string{"close", "no", "detach"}
 
+func (a *App) openQuitConfirm() {
+	a.quitConfirmOpen = true
+	a.quitConfirmSelected = 0 // default: close
+}
+
+func (a *App) quitConfirmButtons() []menuButton {
+	labels := []string{
+		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
+		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
+		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
+	}
+	keyHints := []string{"y", "n", "d"}
+	buttons := make([]menuButton, 0, len(labels))
+	for i, label := range labels {
+		idx := i
+		buttons = append(buttons, menuButton{
+			id:    "quit:" + quitConfirmOptions[i],
+			label: label + "  (" + keyHints[i] + ")",
+			action: func(app *App) tea.Cmd {
+				app.quitConfirmSelected = idx
+				_, cmd := app.applyQuitConfirmSelection()
+				return cmd
+			},
+		})
+	}
+	return buttons
+}
+
 // handleQuitConfirmKey drives the modal while it's open.
 func (a *App) handleQuitConfirmKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
@@ -99,64 +127,42 @@ func (a *App) applyQuitConfirmSelection() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// viewQuitConfirm renders the modal. Kept narrow — this is a 3-option
-// prompt, not a content surface.
+// viewQuitConfirm renders the modal with the shared overlay width so the
+// confirmation does not introduce a one-off modal shape.
 func (a *App) viewQuitConfirm() string {
 	if !a.quitConfirmOpen {
 		return ""
 	}
 	t := a.Theme
-	w := 54
-	if w > a.width-8 {
-		w = a.width - 8
-	}
-	if w < 30 {
-		w = 30
-	}
+	w := a.modalWidth()
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Warning).
-		Render(a.localizer.t(msgQuitTitle, nil))
-	hint := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Render(a.localizer.t(msgQuitHint, nil))
-
-	// Three option chips. Selected has Secondary fg + bg tint so it
-	// reads as a button; others are muted.
-	var chips []string
-	labels := []string{
-		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
-		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
-		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
+	contentW := modalInnerWidth(w)
+	hintStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	hintLines := wrapPlainRows(a.localizer.t(msgQuitHint, nil), contentW, "")
+	for i, line := range hintLines {
+		hintLines[i] = hintStyle.Render(line)
 	}
-	keyHints := []string{"y", "n", "d"}
-	for i, label := range labels {
-		key := keyHints[i]
-		rendered := label + "  (" + key + ")"
-		if i == a.quitConfirmSelected {
-			chips = append(chips, lipgloss.NewStyle().
-				Foreground(t.Bg).
-				Background(t.Secondary).
-				Bold(true).
-				Padding(0, 2).
-				Render(rendered))
-		} else {
-			chips = append(chips, lipgloss.NewStyle().
-				Foreground(t.FgMuted).
-				Padding(0, 2).
-				Render(rendered))
-		}
+	hint := lipgloss.JoinVertical(lipgloss.Left, hintLines...)
+
+	buttons := a.quitConfirmButtons()
+	keyStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
+	keyLines := wrapPlainRows(a.localizer.t(msgQuitKeyHint, nil), contentW, "")
+	for i, line := range keyLines {
+		keyLines[i] = keyStyle.Render(line)
 	}
-	row := lipgloss.JoinHorizontal(lipgloss.Top, chips...)
+	keyLine := lipgloss.JoinVertical(lipgloss.Left, keyLines...)
 
-	keyLine := lipgloss.NewStyle().Foreground(t.FgFaint).Render(
-		a.localizer.t(msgQuitKeyHint, nil))
-
-	box := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", hint, "", row, "", keyLine)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Warning).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(box)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:           w,
+		title:           a.localizer.t(msgQuitTitle, nil),
+		titleColor:      t.Warning,
+		border:          t.Warning,
+		background:      t.BgSubtle,
+		buttons:         buttons,
+		buttonSelected:  a.quitConfirmSelected,
+		buttonSelection: true,
+		body:            hint,
+		footer:          keyLine,
+	})
+	return rendered.modal
 }

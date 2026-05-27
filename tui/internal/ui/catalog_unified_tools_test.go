@@ -11,10 +11,9 @@ import (
 
 // HHHHH1: catalogKindTools loads /v1/tools and renders BOTH built-in
 // and MCP-sourced tools in one list, sorted by (source, name), with
-// each row tagged by source and MCP rows showing the originating
-// server id in the description. Verifies the user's "tools and mcps
-// were meant to be the same menu" feedback is honoured: a single
-// menu shows everything the agent can call.
+// each row tagged by source/server and a dense operational summary.
+// Verifies the user's "tools and mcps were meant to be the same menu"
+// feedback is honoured: a single menu shows everything the agent can call.
 func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/tools" {
@@ -25,10 +24,10 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		// (one each from two servers), and a recipe. Returned in a
 		// scrambled order so the loader's sort is exercised.
 		_, _ = w.Write([]byte(`{"tools":[
-			{"name":"docs.search","source":"mcp","server_id":"mcp_docs","description":"search docs"},
-			{"name":"bash","source":"builtin","description":"Run shell"},
-			{"name":"summarize","source":"recipe","description":"Summarize a file"},
-			{"name":"fetch.url","source":"mcp","server_id":"mcp_web","description":"GET a URL"}
+			{"name":"docs.search","source":"mcp","server_id":"mcp_docs","description":"search docs","owner":"docs","permission_default":"ask","tags":["docs"],"visible_to":["research"],"input_schema":{"properties":{"query":{"type":"string"}}}},
+			{"name":"bash","source":"builtin","description":"Run shell","owner":"utility","permission_default":"ask","input_schema":{"properties":{"command":{"type":"string"}}}},
+			{"name":"summarize","source":"recipe","description":"Summarize a file","owner":"analysis","tags":["summary"]},
+			{"name":"fetch.url","source":"mcp","server_id":"mcp_web","description":"GET a URL","owner":"web","visible_to":["research"],"input_schema":{"properties":{"url":{"type":"string"}}}}
 		]}`))
 	}))
 	defer srv.Close()
@@ -54,11 +53,12 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		}
 	}
 
-	// Every row tagged with its source.
+	// Rows are tagged with their source; MCP tools use the server id because
+	// "[mcp]" alone is less useful in the compact list.
 	wantTag := map[string]string{
 		"bash":        "builtin",
-		"docs.search": "mcp",
-		"fetch.url":   "mcp",
+		"docs.search": "mcp_docs",
+		"fetch.url":   "mcp_web",
 		"summarize":   "recipe",
 	}
 	for _, it := range msg.items {
@@ -67,17 +67,26 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 		}
 	}
 
-	// MCP rows surface the server id in the desc.
+	wantDesc := map[string][]string{
+		"bash":        {"owner: utility", "permission: ask", "inputs: command"},
+		"docs.search": {"owner: docs", "permission: ask", "inputs: query", "tags: docs"},
+		"fetch.url":   {"owner: web", "inputs: url"},
+		"summarize":   {"owner: analysis", "tags: summary"},
+	}
 	for _, it := range msg.items {
-		if it.id == "docs.search" && !strings.Contains(it.desc, "mcp_docs") {
-			t.Errorf("docs.search desc missing server id: %q", it.desc)
+		if strings.TrimSpace(it.desc) == "" {
+			t.Errorf("%s list desc is empty, want dense metadata", it.id)
+			continue
 		}
-		if it.id == "fetch.url" && !strings.Contains(it.desc, "mcp_web") {
-			t.Errorf("fetch.url desc missing server id: %q", it.desc)
+		for _, want := range wantDesc[it.id] {
+			if !strings.Contains(it.desc, want) {
+				t.Errorf("%s list desc missing %q: %q", it.id, want, it.desc)
+			}
 		}
-		// Built-in row has no server id and shouldn't gain a "from" tag.
-		if it.id == "bash" && strings.Contains(it.desc, "from ") {
-			t.Errorf("bash desc shouldn't carry an MCP origin: %q", it.desc)
+		for _, repeated := range []string{"Run shell", "search docs", "GET a URL", "Summarize a file"} {
+			if strings.Contains(it.desc, repeated) && it.id != "fallback" {
+				t.Errorf("%s list desc should prefer metadata over prose, got %q", it.id, it.desc)
+			}
 		}
 	}
 }

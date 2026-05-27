@@ -125,6 +125,9 @@ type Tool struct {
 	OutputSchema      map[string]any   `json:"output_schema,omitempty"`
 	Annotations       *ToolAnnotations `json:"annotations,omitempty"`
 	PermissionDefault string           `json:"permission_default,omitempty"` // "allow"|"ask"|"deny"
+	Owner             string           `json:"owner,omitempty"`
+	Tags              []string         `json:"tags,omitempty"`
+	VisibleTo         []string         `json:"visible_to,omitempty"`
 }
 
 // AgentDef is a reusable agent persona/recipe (SPEC §6.5).
