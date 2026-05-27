@@ -520,6 +520,23 @@ func TestDetailSectionsRenderConsistentFieldsAndBodies(t *testing.T) {
 	}
 }
 
+func TestDetailWrappingPreservesIndentedFieldShape(t *testing.T) {
+	content := strings.Join(detailFieldRows("api_base", "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1"), "\n")
+	wrapped := wrap(content, 34)
+	lines := strings.Split(wrapped, "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected wrapped detail field, got:\n%s", wrapped)
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "  ") {
+			t.Fatalf("wrapped detail line lost field indentation: %q\n%s", line, wrapped)
+		}
+	}
+	if !strings.Contains(wrapped, "api_base:") {
+		t.Fatalf("wrapped detail field lost label:\n%s", wrapped)
+	}
+}
+
 func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120
