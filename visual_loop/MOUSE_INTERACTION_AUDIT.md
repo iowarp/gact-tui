@@ -206,6 +206,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   copy while preserving the compact grid/footer width required by its bordered
   two-column layout, avoiding avoidable one-word wraps without breaking
   short-terminal row geometry.
+- Standard modal bodies and list regions now reuse `modalInnerWidth` across
+  Settings, Doctor, detail views, quit confirmation, workspace switch, action
+  menus, file picker, and MCP install/remove, reducing local `w - 4` layout
+  policy drift.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

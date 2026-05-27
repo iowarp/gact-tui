@@ -102,10 +102,7 @@ func (a *App) viewWorkspaceSwitch() string {
 	if len(a.workspaces) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
 	}
-	innerW := w - 4
-	if innerW < 1 {
-		innerW = 1
-	}
+	innerW := modalInnerWidth(w)
 	listW := innerW - 4
 	if listW < 1 {
 		listW = innerW

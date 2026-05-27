@@ -416,6 +416,7 @@ func (a *App) viewSettings() string {
 	}
 	s := a.settings
 	w := a.modalWidth()
+	innerW := modalInnerWidth(w)
 	var rowHits []modalListHit
 	var arrowHits []modalCellHit
 	addRowHit := func(id string, row int, action uiHitAction) {
@@ -513,7 +514,7 @@ func (a *App) viewSettings() string {
 		}
 		line := marker + titleStyle.Render(primaryText)
 		if secondaryText != "" {
-			secondaryBudget := w - 4 - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
+			secondaryBudget := innerW - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
 			if secondaryBudget > 0 {
 				line += "  " + descStyle.Render(truncate(secondaryText, secondaryBudget))
 			}
@@ -521,10 +522,10 @@ func (a *App) viewSettings() string {
 		out := truncate(line, w-2)
 		if selected {
 			// Bg strip behind the entire row to make the selection
-			// pop. Width(w-4) matches modal interior; the row bg
+			// pop. Width(innerW) matches modal interior; the row bg
 			// extends past the text so even short rows feel selected.
 			out = lipgloss.NewStyle().Background(t.Bg).
-				Width(w - 4).Render(out)
+				Width(innerW).Render(out)
 		}
 		return out
 	}
@@ -598,7 +599,7 @@ func (a *App) viewSettings() string {
 		if len(s.agentList) > 0 {
 			rows = append(rows, "")
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Details"))
-			detailLines := a.agentDetailLines(s.agentList[s.agentSel], w-4)
+			detailLines := a.agentDetailLines(s.agentList[s.agentSel], innerW)
 			maxDetails := max(3, (a.height-4)/4)
 			if len(detailLines) > maxDetails {
 				detailLines = append(detailLines[:maxDetails], t.HintLabel.Render("  …"))
@@ -633,7 +634,7 @@ func (a *App) viewSettings() string {
 			})
 		}
 		list := a.renderModalList(items, modalListOptions{
-			width:            w - 4,
+			width:            innerW,
 			rowBudget:        len(items),
 			descriptionLines: 0,
 		})
@@ -653,7 +654,7 @@ func (a *App) viewSettings() string {
 		// rows 0..tuiPrefsRowCount-1 share the same selection visual,
 		// inline hint density, and left/right control geometry.
 		editableRow := func(rowIdx int, label, value, hint string) settingsTUIStepperRow {
-			return renderSettingsTUIStepperRow(t, w-4, s.tuiRow == rowIdx, label, value, hint)
+			return renderSettingsTUIStepperRow(t, innerW, s.tuiRow == rowIdx, label, value, hint)
 		}
 		addTUIControlHits := func(id string, rowIdx int, row int, stepper settingsTUIStepperRow) {
 			selectRow := func(app *App) {
@@ -662,7 +663,7 @@ func (a *App) viewSettings() string {
 				}
 				app.settings.tuiRow = rowIdx
 			}
-			controlHits := modalStepperControlHits("settings:tui:"+id, row, 0, maxInt(1, w-4), stepper.controlStart, stepper.controlEnd, func(app *App) tea.Cmd {
+			controlHits := modalStepperControlHits("settings:tui:"+id, row, 0, innerW, stepper.controlStart, stepper.controlEnd, func(app *App) tea.Cmd {
 				selectRow(app)
 				return nil
 			}, func(app *App) tea.Cmd {
@@ -807,7 +808,7 @@ func (a *App) viewSettings() string {
 			})
 		}
 		list := a.renderModalList(items, modalListOptions{
-			width:            w - 4,
+			width:            innerW,
 			rowBudget:        len(items),
 			descriptionLines: 0,
 		})
@@ -820,7 +821,7 @@ func (a *App) viewSettings() string {
 	}
 
 	for i, row := range rows {
-		rows[i] = fitANSI(row, w-4)
+		rows[i] = fitANSI(row, innerW)
 	}
 	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.settingsBodyPageSize())
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
@@ -838,7 +839,7 @@ func (a *App) viewSettings() string {
 		rows: strings.Split(body, "\n"),
 		hits: rowHits,
 	}
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, w-4, bodyList, "settings:body:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, innerW, bodyList, "settings:body:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 		if app.settings == nil {
 			app.settings = &settingsState{}
 		}
