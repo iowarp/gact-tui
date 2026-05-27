@@ -325,7 +325,7 @@ func (a *App) viewMcpInstall() string {
 			app.mcpInstallCursor = cursor
 		},
 		status: statusRows,
-		footer: t.HintLabel.Render("Enter install · Esc cancel"),
+		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
 	})
 	exampleHits := make([]modalCellHit, 0, len(examples))
 	for row, example := range examples {
@@ -415,7 +415,7 @@ func (a *App) viewMcpRemove() string {
 			width:   w,
 			title:   "Remove MCP server",
 			buttons: buttons,
-			footer:  t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
+			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter remove", "Esc cancel")),
 		},
 		rows:           rows,
 		list:           list,

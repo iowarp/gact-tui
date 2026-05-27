@@ -529,6 +529,17 @@ func scrollableModalRowDetailFooter(base string, hits []modalRowHit) string {
 	return base + "  " + detailHint
 }
 
+func modalKeyHint(parts ...string) string {
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return strings.Join(out, "  ")
+}
+
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
 	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
 	rows = appendModalTextRows(rows, opts.intro...)

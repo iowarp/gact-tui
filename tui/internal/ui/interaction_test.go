@@ -911,6 +911,14 @@ func TestScrollableModalRowDetailFooterInsertsBeforeRefreshAndClose(t *testing.T
 	}
 }
 
+func TestModalKeyHintUsesStableSpacingAndSkipsEmptyParts(t *testing.T) {
+	got := modalKeyHint(" Enter save ", "", "Esc cancel", "Left/Right move")
+	want := "Enter save  Esc cancel  Left/Right move"
+	if got != want {
+		t.Fatalf("modalKeyHint = %q, want %q", got, want)
+	}
+}
+
 func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()

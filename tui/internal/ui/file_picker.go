@@ -357,7 +357,7 @@ func (a *App) viewFilePicker() string {
 	}
 
 	hint := t.HintLabel.Italic(true).Render(
-		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
+		modalKeyHint("type to filter", "↑/↓ pick", "Enter insert", "Esc cancel"))
 
 	rendered := a.renderSelectableListModal(selectableListModalOptions{
 		frame: modalFrameOptions{
