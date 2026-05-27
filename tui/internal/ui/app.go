@@ -2540,32 +2540,38 @@ func (a *App) registerPermissionBannerHits(actions []permissionBannerAction, bod
 	if len(actions) == 0 || len(a.pendingPermissions) == 0 {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
-	contentX := sidebarW + 2
+	permissionID := a.pendingPermissions[0].ID
+	for _, action := range actions {
+		a.registerPermissionBannerActionHit(action, bodyWidth, permissionID)
+	}
+}
+
+func (a *App) permissionBannerActionRect(action permissionBannerAction, bodyWidth int) (mouseRect, bool) {
 	contentW := bodyWidth - 4
 	if contentW < 1 {
 		contentW = 1
 	}
-	permissionID := a.pendingPermissions[0].ID
-	for _, action := range actions {
-		action := action
-		if action.width <= 0 || action.col >= contentW {
-			continue
-		}
-		w := min(action.width, contentW-action.col)
-		a.registerScreenHit(
-			"permission:"+action.id,
-			mouseRect{
-				x: contentX + 1 + action.col,
-				y: 3,
-				w: w,
-				h: 1,
-			},
-			func(app *App) tea.Cmd {
-				return respondPermissionCmd(app.c, permissionID, action.action)
-			},
-		)
+	if action.width <= 0 || action.col >= contentW {
+		return mouseRect{}, false
 	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	return mouseRect{
+		x: sidebarW + 3 + action.col,
+		y: 3,
+		w: min(action.width, contentW-action.col),
+		h: 1,
+	}, true
+}
+
+func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, bodyWidth int, permissionID string) {
+	rect, ok := a.permissionBannerActionRect(action, bodyWidth)
+	if !ok {
+		return
+	}
+	actionCopy := action
+	a.registerScreenHit("permission:"+action.id, rect, func(app *App) tea.Cmd {
+		return respondPermissionCmd(app.c, permissionID, actionCopy.action)
+	})
 }
 
 // handlePaletteKey is the slash-command palette key router.

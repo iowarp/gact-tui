@@ -818,6 +818,9 @@ Additional work continued from the same architectural direction:
 - Conversation parts, detail hints, diff actions, and body wheel targets now
   share conversation content hit helpers, centralizing transcript pane geometry
   while preserving existing selection, detail, action-menu, and scroll behavior.
+- Permission banner action targets now share a banner-specific action geometry
+  helper, preserving the visible allow/deny/session/workspace cells while
+  removing inline coordinate math from the action registration loop.
 
 ### 2026-05-26 user-observed follow-up queue
 

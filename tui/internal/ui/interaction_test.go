@@ -4508,6 +4508,46 @@ func TestPermissionBannerActionsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestPermissionBannerActionRectUsesPaneContentGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+
+	rect, ok := a.permissionBannerActionRect(permissionBannerAction{
+		id:    "allow",
+		col:   12,
+		width: 7,
+	}, 90)
+	if !ok {
+		t.Fatalf("expected visible permission action rect")
+	}
+	want := mouseRect{x: 45, y: 3, w: 7, h: 1}
+	if rect != want {
+		t.Fatalf("permission rect mismatch: got %+v want %+v", rect, want)
+	}
+
+	rect, ok = a.permissionBannerActionRect(permissionBannerAction{
+		id:    "workspace",
+		col:   84,
+		width: 12,
+	}, 90)
+	if !ok {
+		t.Fatalf("expected clipped permission action rect")
+	}
+	want = mouseRect{x: 117, y: 3, w: 2, h: 1}
+	if rect != want {
+		t.Fatalf("clipped permission rect mismatch: got %+v want %+v", rect, want)
+	}
+
+	if _, ok := a.permissionBannerActionRect(permissionBannerAction{
+		id:    "hidden",
+		col:   86,
+		width: 5,
+	}, 90); ok {
+		t.Fatalf("expected hidden permission action outside content width")
+	}
+}
+
 func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
