@@ -34,6 +34,13 @@ type doctorState struct {
 	scroll  int
 }
 
+type doctorRowHit struct {
+	id     string
+	start  int
+	height int
+	action uiHitAction
+}
+
 // doctorTab switches between the integrations health view and the
 // capability scorecard.
 type doctorTab int
@@ -161,6 +168,7 @@ func (a *App) viewDoctor() string {
 		},
 	}
 	var body string
+	var rowHits []doctorRowHit
 	switch {
 	case a.doctor.loading:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
@@ -172,8 +180,10 @@ func (a *App) viewDoctor() string {
 				Render("press r to retry, Esc to close")
 	case a.doctor.tab == doctorTabCapabilities:
 		body = renderDoctorCapabilities(a.doctor.caps, t, innerW)
+		rowHits = a.doctorCapabilityRowHits()
 	default:
 		body = renderDoctorBody(a.doctor.health, t, innerW)
+		rowHits = a.doctorHealthRowHits(innerW)
 	}
 
 	hintStyle := t.HintLabel
@@ -208,6 +218,7 @@ func (a *App) viewDoctor() string {
 	if a.doctor != nil {
 		a.doctor.scroll = rendered.window.scroll
 	}
+	a.registerDoctorRowHits(rendered.modalFrameRender, rendered.window, rowHits)
 	return rendered.modal
 }
 
@@ -222,48 +233,35 @@ func (a *App) doctorScroll() int {
 	return 0
 }
 
+func (a *App) registerDoctorRowHits(rendered modalFrameRender, win scrollWindow, hits []doctorRowHit) {
+	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
+		return
+	}
+	bodyWidth := lipgloss.Width(rendered.modal) - 6
+	if bodyWidth < 1 {
+		bodyWidth = 1
+	}
+	for _, hit := range hits {
+		hit := hit
+		if hit.action == nil || hit.height <= 0 {
+			continue
+		}
+		start := maxInt(hit.start, win.start)
+		end := minInt(hit.start+hit.height, win.end)
+		if end <= start {
+			continue
+		}
+		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+(start-win.start), 0, bodyWidth, end-start, hit.action)
+	}
+}
+
 // renderDoctorCapabilities tabulates every spec capability as
 // {name, status} where status is one of:
 //   - "supported" (●  green) — backend advertises it true
 //   - "missing"   (●  red)   — backend advertises it false
 //   - "unknown"   (?  muted) — backend is missing the flag entirely
 func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) string {
-	rows := []capRow{
-		// Core surfaces (v0.1).
-		{"workspaces", caps.Capabilities.Workspaces, capCore},
-		{"sessions", caps.Capabilities.Sessions, capCore},
-		{"subagents", caps.Capabilities.Subagents, capCore},
-		{"mcp", caps.Capabilities.MCP, capCore},
-		{"files", caps.Capabilities.Files, capCore},
-		{"diffs", caps.Capabilities.Diffs, capCore},
-		{"permissions", caps.Capabilities.Permissions, capCore},
-		{"providers", caps.Capabilities.Providers, capCore},
-		{"commands", caps.Capabilities.Commands, capCore},
-		{"metrics", caps.Capabilities.Metrics, capCore},
-		// Useful but optional.
-		{"session_branching", caps.Capabilities.SessionBranching, capExtra},
-		{"session_export", caps.Capabilities.SessionExport, capExtra},
-		{"search_messages", caps.Capabilities.SearchMessages, capExtra},
-		{"cost_tracking", caps.Capabilities.CostTracking, capExtra},
-		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra},
-		{"session_tasks", caps.Capabilities.SessionTasks, capExtra},
-		// v0.2 additions.
-		{"agent_routing", caps.Capabilities.AgentRouting, capV02},
-		{"memory", caps.Capabilities.Memory, capV02},
-		{"structured_errors", caps.Capabilities.StructuredErrors, capV02},
-		{"integration_health", caps.Capabilities.IntegrationHealth, capV02},
-		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02},
-		// Vendor-specific (often unsupported).
-		{"lsp", caps.Capabilities.LSP, capVendor},
-		{"voice", caps.Capabilities.Voice, capVendor},
-		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor},
-		{"hooks", caps.Capabilities.Hooks, capVendor},
-		{"session_sharing", caps.Capabilities.SessionSharing, capVendor},
-		{"edit_modes", caps.Capabilities.EditModes, capVendor},
-		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
-		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
-	}
+	rows := doctorCapabilityRows(caps)
 
 	// Score header — count supported across the core + v0.2 axes
 	// since those map best to "is this backend actually GACT-capable?".
@@ -306,6 +304,66 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 		)
 	}
 	return strings.Join(out, "\n")
+}
+
+func doctorCapabilityRows(caps gact.Capabilities) []capRow {
+	return []capRow{
+		// Core surfaces (v0.1).
+		{"workspaces", caps.Capabilities.Workspaces, capCore},
+		{"sessions", caps.Capabilities.Sessions, capCore},
+		{"subagents", caps.Capabilities.Subagents, capCore},
+		{"mcp", caps.Capabilities.MCP, capCore},
+		{"files", caps.Capabilities.Files, capCore},
+		{"diffs", caps.Capabilities.Diffs, capCore},
+		{"permissions", caps.Capabilities.Permissions, capCore},
+		{"providers", caps.Capabilities.Providers, capCore},
+		{"commands", caps.Capabilities.Commands, capCore},
+		{"metrics", caps.Capabilities.Metrics, capCore},
+		// Useful but optional.
+		{"session_branching", caps.Capabilities.SessionBranching, capExtra},
+		{"session_export", caps.Capabilities.SessionExport, capExtra},
+		{"search_messages", caps.Capabilities.SearchMessages, capExtra},
+		{"cost_tracking", caps.Capabilities.CostTracking, capExtra},
+		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra},
+		{"session_tasks", caps.Capabilities.SessionTasks, capExtra},
+		// v0.2 additions.
+		{"agent_routing", caps.Capabilities.AgentRouting, capV02},
+		{"memory", caps.Capabilities.Memory, capV02},
+		{"structured_errors", caps.Capabilities.StructuredErrors, capV02},
+		{"integration_health", caps.Capabilities.IntegrationHealth, capV02},
+		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02},
+		// Vendor-specific (often unsupported).
+		{"lsp", caps.Capabilities.LSP, capVendor},
+		{"voice", caps.Capabilities.Voice, capVendor},
+		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor},
+		{"hooks", caps.Capabilities.Hooks, capVendor},
+		{"session_sharing", caps.Capabilities.SessionSharing, capVendor},
+		{"edit_modes", caps.Capabilities.EditModes, capVendor},
+		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
+		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
+		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
+	}
+}
+
+func (a *App) doctorCapabilityRowHits() []doctorRowHit {
+	if a.doctor == nil {
+		return nil
+	}
+	rows := doctorCapabilityRows(a.doctor.caps)
+	hits := make([]doctorRowHit, 0, len(rows))
+	for i, row := range rows {
+		row := row
+		hits = append(hits, doctorRowHit{
+			id:     "doctor:capability:" + row.name,
+			start:  3 + i,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.openDoctorCapabilityDetail(row)
+				return nil
+			},
+		})
+	}
+	return hits
 }
 
 type capBucket int
@@ -376,6 +434,140 @@ func renderDoctorBody(h gact.HealthResponse, t Theme, innerW int) string {
 	}
 	rows = appendDetailSection(rows, "Integrations", fields...)
 	return strings.Join(rows, "\n")
+}
+
+func (a *App) doctorHealthRowHits(innerW int) []doctorRowHit {
+	if a.doctor == nil || len(a.doctor.health.Integrations) == 0 {
+		return nil
+	}
+	rows := appendDetailSection(nil, "Overview",
+		detailField{"status", doctorStatusText(a.doctor.health.OverallStatus)},
+		detailField{"uptime", formatUptime(a.doctor.health.UptimeS)},
+	)
+	start := len(rows) + 2 // blank separator + Integrations section title.
+	hits := make([]doctorRowHit, 0, len(a.doctor.health.Integrations))
+	for _, integ := range a.doctor.health.Integrations {
+		integ := integ
+		rowHeight := len(detailFieldRows(integ.Name, doctorIntegrationValue(integ, innerW)))
+		if rowHeight < 1 {
+			rowHeight = 1
+		}
+		hits = append(hits, doctorRowHit{
+			id:     "doctor:integration:" + integ.Name,
+			start:  start,
+			height: rowHeight,
+			action: func(app *App) tea.Cmd {
+				app.openDoctorIntegrationDetail(integ)
+				return nil
+			},
+		})
+		start += rowHeight
+	}
+	return hits
+}
+
+func (a *App) openDoctorIntegrationDetail(integ gact.Integration) {
+	rows := appendDetailSection(nil, "Integration",
+		detailField{"name", integ.Name},
+		detailField{"status", doctorStatusText(integ.Status)},
+		detailField{"detail", orPlaceholder(integ.Detail, "not reported")},
+	)
+	if a.doctor != nil {
+		overall := a.doctor.health.OverallStatus
+		if overall == "" {
+			if a.doctor.health.Healthy {
+				overall = "ready"
+			} else {
+				overall = "unavailable"
+			}
+		}
+		rows = appendDetailSection(rows, "Backend",
+			detailField{"overall_status", doctorStatusText(overall)},
+			detailField{"uptime", formatUptime(a.doctor.health.UptimeS)},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "doctor",
+		partID:    "integration:" + integ.Name,
+		title:     "Doctor · " + integ.Name,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) openDoctorCapabilityDetail(row capRow) {
+	rows := appendDetailSection(nil, "Capability",
+		detailField{"name", row.name},
+		detailField{"status", capabilityStatusText(row.on)},
+		detailField{"bucket", capBucketPlainLabel(row.bucket)},
+		detailField{"meaning", capabilityMeaning(row.name, row.bucket)},
+	)
+	if a.doctor != nil {
+		rows = appendDetailSection(rows, "Backend",
+			detailField{"contract_version", orPlaceholder(a.doctor.caps.ContractVersion, "unknown")},
+			detailField{"name", orPlaceholder(a.doctor.caps.Backend.Name, "unknown")},
+			detailField{"version", orPlaceholder(a.doctor.caps.Backend.Version, "unknown")},
+			detailField{"vendor", orPlaceholder(a.doctor.caps.Backend.Vendor, "unknown")},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "doctor",
+		partID:    "capability:" + row.name,
+		title:     "Capability · " + row.name,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func capabilityStatusText(on bool) string {
+	if on {
+		return "supported"
+	}
+	return "missing"
+}
+
+func capBucketPlainLabel(b capBucket) string {
+	switch b {
+	case capCore:
+		return "v0.1 core"
+	case capExtra:
+		return "v0.1 useful"
+	case capV02:
+		return "v0.2"
+	case capVendor:
+		return "vendor-specific"
+	default:
+		return "unknown"
+	}
+}
+
+func capabilityMeaning(name string, bucket capBucket) string {
+	switch name {
+	case "integration_health":
+		return "backend exposes per-subsystem health rows in /v1/health"
+	case "memory":
+		return "backend exposes ARC/context memory statistics through /v1/memory/stats"
+	case "agent_routing":
+		return "backend can surface routing decisions and multi-tier agent handoffs"
+	case "tool_telemetry":
+		return "tool results can include duration/cache telemetry"
+	case "structured_errors":
+		return "backend can return typed error_info payloads instead of plain text only"
+	}
+	switch bucket {
+	case capCore:
+		return "core GACT contract surface expected by the TUI"
+	case capExtra:
+		return "optional GACT surface that improves navigation or observability"
+	case capV02:
+		return "v0.2 GACT extension used for richer CLIO evidence"
+	case capVendor:
+		return "vendor-specific extension; absence is usually acceptable"
+	default:
+		return "capability flag reported by /v1/capabilities"
+	}
 }
 
 func doctorIntegrationValue(integ gact.Integration, innerW int) string {

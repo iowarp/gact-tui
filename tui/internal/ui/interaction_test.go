@@ -960,6 +960,93 @@ func TestDoctorWheelUsesBodyRegionOnly(t *testing.T) {
 	}
 }
 
+func TestDoctorHealthRowsOpenSharedDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.doctorOpen = true
+	a.doctor = &doctorState{
+		tab: doctorTabHealth,
+		health: gact.HealthResponse{
+			Healthy:       true,
+			UptimeS:       125,
+			OverallStatus: "degraded",
+			Integrations: []gact.Integration{{
+				Name:   "lm",
+				Status: "ready",
+				Detail: "argonne/gpt-oss-120b configured",
+			}},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "doctor:integration:lm")
+	if !ok {
+		t.Fatal("missing semantic doctor integration row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("doctor integration detail click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("doctor integration row click should open shared detail view")
+	}
+	for _, want := range []string{"Integration", "name: lm", "status: ready", "argonne/gpt-oss-120b", "Backend", "overall_status: degraded"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("doctor integration detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestDoctorCapabilityRowsOpenSharedDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.doctorOpen = true
+	a.doctor = &doctorState{
+		tab: doctorTabCapabilities,
+		caps: gact.Capabilities{
+			ContractVersion: "0.2",
+			Backend:         gact.BackendInfo{Name: "clio", Version: "dev", Vendor: "iowarp"},
+			Capabilities: gact.CapabilityFlags{
+				Workspaces: true,
+			},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "doctor:capability:workspaces")
+	if !ok {
+		t.Fatal("missing semantic doctor capability row target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("doctor capability detail click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("doctor capability row click should open shared detail view")
+	}
+	for _, want := range []string{"Capability", "name: workspaces", "status: supported", "bucket: v0.1 core", "Backend", "contract_version: 0.2", "name: clio"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("doctor capability detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
 func TestSettingsTabsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

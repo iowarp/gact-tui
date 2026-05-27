@@ -73,6 +73,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   file shape. The selected context file gets a compact metadata line for
   language/session/timestamp when available, and the semantic hit target spans
   both rendered lines so click geometry stays aligned with the richer row.
+- Doctor health integrations and capability scorecard rows now register
+  render-window-aware semantic hit targets. Clicking a visible row opens the
+  shared detail overlay with the underlying subsystem/capability evidence.
 - Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
@@ -365,10 +368,7 @@ Mouse support exists:
 - Click refresh.
 - Click close.
 - Wheel scrolls if subsystem/capability rows overflow.
-
-Remaining gaps:
-
-- Click individual integration/capability rows for detail if later added.
+- Click individual integration/capability rows to open shared detail.
 
 ### Workspace Switcher
 
