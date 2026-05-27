@@ -272,6 +272,26 @@ func (a *App) applyMcpInstallExample(value string) {
 	a.mcpInstallErr = ""
 }
 
+func (a *App) renderMcpInstallExampleList() modalListRender {
+	examples := mcpInstallExamples()
+	rows := make([]string, 0, len(examples))
+	hits := make([]modalListHit, 0, len(examples))
+	for row, example := range examples {
+		example := example
+		rows = append(rows, fmt.Sprintf("  %-6s %s", example.label, example.value))
+		hits = append(hits, modalListHit{
+			id:     "mcp-install:example:" + example.id,
+			row:    row,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.applyMcpInstallExample(example.value)
+				return nil
+			},
+		})
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(rows)}
+}
+
 // viewMcpInstall renders the install prompt overlay. Tiny intentionally —
 // one input field, hint text, and a status line for any error.
 func (a *App) viewMcpInstall() string {
@@ -309,16 +329,12 @@ func (a *App) viewMcpInstall() string {
 				Render(a.spinnerChar()+" installing…"),
 		)
 	}
-	examples := mcpInstallExamples()
-	introRows := make([]string, 0, len(examples))
-	for _, example := range examples {
-		introRows = append(introRows, fmt.Sprintf("  %-6s %s", example.label, example.value))
-	}
+	exampleList := a.renderMcpInstallExampleList()
 	rendered := a.renderTextEntryModal(textEntryModalOptions{
 		width:       w,
 		title:       "Install MCP server",
 		buttons:     buttons,
-		intro:       []string{t.HintLabel.Render(strings.Join(introRows, "\n"))},
+		intro:       []string{t.HintLabel.Render(strings.Join(exampleList.rows, "\n"))},
 		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
 		editorID:    "mcp-install",
 		editorValue: a.mcpInstallInput,
@@ -328,20 +344,7 @@ func (a *App) viewMcpInstall() string {
 		status: statusRows,
 		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
 	})
-	exampleHits := make([]modalListHit, 0, len(examples))
-	for row, example := range examples {
-		example := example
-		exampleHits = append(exampleHits, modalListHit{
-			id:     "mcp-install:example:" + example.id,
-			row:    row,
-			height: 1,
-			action: func(app *App) tea.Cmd {
-				app.applyMcpInstallExample(example.value)
-				return nil
-			},
-		})
-	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, innerW, exampleHits)
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, innerW, exampleList, "", nil)
 	return rendered.modal
 }
 

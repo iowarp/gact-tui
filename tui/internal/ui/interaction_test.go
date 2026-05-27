@@ -5852,6 +5852,25 @@ func TestMcpInstallExamplesUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestMcpInstallExampleRowsAndHitsShareOrdering(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	list := a.renderMcpInstallExampleList()
+	if len(list.rows) != 2 {
+		t.Fatalf("example rows = %d, want 2", len(list.rows))
+	}
+	if len(list.hits) != len(list.rows) {
+		t.Fatalf("example hits = %d, want %d", len(list.hits), len(list.rows))
+	}
+	for i, hit := range list.hits {
+		if hit.row != i || hit.height != 1 {
+			t.Fatalf("hit %d geometry = row %d height %d, want row %d height 1", i, hit.row, hit.height, i)
+		}
+	}
+	if list.hits[1].id != "mcp-install:example:http" || !strings.Contains(list.rows[1], "weather http") {
+		t.Fatalf("second example row/hit mismatch: row=%q hit=%q", list.rows[1], list.hits[1].id)
+	}
+}
+
 func TestMcpInstallLineEditorSupportsMiddleInsert(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.mcpInstallOpen = true
