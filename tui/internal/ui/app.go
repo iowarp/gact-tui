@@ -9185,44 +9185,44 @@ func (a *App) viewHelp() string {
 		idx = 0
 	}
 	var (
-		content      string
-		commandList  modalListRender
-		commandTab   = helpTabs[idx].title == "Commands"
-		commandWidth = modalScrollableBodyWidth(w)
+		content   string
+		helpList  modalListRender
+		helpWidth = modalScrollableBodyWidth(w)
 	)
-	if commandTab {
-		items := make([]modalListItem, 0, len(helpTabs[idx].keys))
-		for _, kp := range helpTabs[idx].keys {
-			command := kp.key
-			items = append(items, modalListItem{
-				id:    "help:command:" + strings.TrimPrefix(command, "/"),
-				title: command,
-				meta:  a.localizer.t(kp.descID, nil),
-				action: func(app *App) tea.Cmd {
-					app.helpOpen = false
-					app.helpScroll = 0
-					app.focus = FocusInput
-					app.input.Focus()
-					app.input.SetValue(command)
-					app.input.CursorEnd()
-					app.transientHint = "command staged: " + command
-					return nil
-				},
-			})
+	items := make([]modalListItem, 0, len(helpTabs[idx].keys))
+	for _, kp := range helpTabs[idx].keys {
+		key := kp.key
+		item := modalListItem{
+			id:    "help:key:" + strings.NewReplacer("/", "", " ", "-", "⇧", "shift").Replace(strings.ToLower(key)),
+			title: key,
+			meta:  a.localizer.t(kp.descID, nil),
 		}
-		commandList = a.renderModalList(items, modalListOptions{
-			width:            commandWidth,
+		if helpTabs[idx].title == "Commands" {
+			command := key
+			item.id = "help:command:" + strings.TrimPrefix(command, "/")
+			item.action = func(app *App) tea.Cmd {
+				app.helpOpen = false
+				app.helpTab = 0
+				app.helpScroll = 0
+				app.focus = FocusInput
+				app.input.Focus()
+				app.input.SetValue(command)
+				app.input.CursorEnd()
+				app.transientHint = "command staged: " + command
+				return nil
+			}
+		}
+		items = append(items, item)
+	}
+	if len(items) > 0 {
+		helpList = a.renderModalList(items, modalListOptions{
+			width:            helpWidth,
 			rowBudget:        len(items),
 			descriptionLines: 0,
 		})
-		content = lipgloss.JoinVertical(lipgloss.Left, commandList.rows...)
+		content = lipgloss.JoinVertical(lipgloss.Left, helpList.rows...)
 	} else {
-		rows := make([]string, 0, len(helpTabs[idx].keys))
-		for _, kp := range helpTabs[idx].keys {
-			rows = append(rows,
-				t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
-		}
-		content = lipgloss.JoinVertical(lipgloss.Left, rows...)
+		content = ""
 	}
 	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
 		app.helpOpen = false
@@ -9255,9 +9255,7 @@ func (a *App) viewHelp() string {
 		},
 	})
 	a.helpScroll = rendered.window.scroll
-	if commandTab {
-		a.registerWindowedModalListHits(rendered, 0, commandWidth, commandList)
-	}
+	a.registerWindowedModalListHits(rendered, 0, helpWidth, helpList)
 	return rendered.modal
 }
 

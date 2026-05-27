@@ -1335,6 +1335,23 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	}
 }
 
+func TestHelpGlobalRowsUseSharedModalListRendering(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 40
+	a.stage = StageReady
+	a.helpOpen = true
+	a.helpTab = 0
+
+	out := ansi.Strip(a.viewHelp())
+	if !strings.Contains(out, "Ctrl+N  create a new session") || !strings.Contains(out, "Ctrl+S  open model") {
+		t.Fatalf("global help rows should render key and description through shared list rows:\n%s", out)
+	}
+	if strings.Contains(out, "▌ Ctrl+N") {
+		t.Fatalf("non-command help rows should not render selected-list markers:\n%s", out)
+	}
+}
+
 func TestScrollableModalRowHitsClipToVisibleWindow(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
