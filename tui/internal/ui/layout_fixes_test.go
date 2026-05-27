@@ -356,7 +356,7 @@ func TestFilePicker_LoadFailureStaysInPicker(t *testing.T) {
 		t.Fatalf("@ on empty didn't open picker")
 	}
 
-	out, cmd := a.Update(filePickerLoadedMsg{err: errors.New("gact: 500 backend down")})
+	out, cmd := a.Update(filePickerLoadedMsg{err: errors.New("gact: 500 backend down " + strings.Repeat("while loading workspace files ", 8))})
 	a = out.(*App)
 	if cmd != nil {
 		t.Fatalf("file picker load failure returned unexpected cmd")
@@ -374,6 +374,16 @@ func TestFilePicker_LoadFailureStaysInPicker(t *testing.T) {
 	if !strings.Contains(view, "file picker unavailable") {
 		t.Fatalf("picker view did not surface error: %q", view)
 	}
+	for _, line := range strings.Split(ansi.Strip(view), "\n") {
+		if strings.Contains(line, "file picker unavailable") {
+			content := strings.TrimSpace(strings.Trim(line, "│"))
+			if got, want := lipgloss.Width(content), modalInsetListWidth(a.modalWidth()); got > want {
+				t.Fatalf("picker error content width = %d, want <= shared inset width %d: %q", got, want, content)
+			}
+			return
+		}
+	}
+	t.Fatalf("picker error line missing from view: %q", view)
 }
 
 // TestDeleteLastMessage_DropsLocally verifies N3: pressing `d` on

@@ -307,8 +307,9 @@ func (a *App) viewFilePicker() string {
 	resultStartRow := len(rows)
 	var list modalListRender
 	if a.filePicker.errText != "" {
+		prefix := "file picker unavailable: "
 		rows = append(rows, t.HintLabel.Italic(true).Render(
-			"file picker unavailable: "+truncate(a.filePicker.errText, w-6)))
+			prefix+truncate(a.filePicker.errText, maxInt(1, listW-lipgloss.Width(prefix)))))
 	} else if !a.filePicker.loaded && len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading workspace files…"))
 	} else if len(matches) == 0 {
