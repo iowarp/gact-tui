@@ -614,6 +614,40 @@ func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
 	}
 }
 
+func TestFormatToolDetailSummarizesAnnotationsWithoutRawJSON(t *testing.T) {
+	out := formatToolDetailWithAgents(gact.Tool{
+		ID:                "shell_bash",
+		Name:              "shell_bash",
+		Source:            "builtin",
+		PermissionDefault: "ask",
+		Annotations: &gact.ToolAnnotations{
+			Title:           "Run shell command",
+			DestructiveHint: true,
+			OpenWorldHint:   true,
+		},
+	}, nil)
+
+	for _, want := range []string{
+		"Safety hints",
+		"display title: Run shell command",
+		"hints: destructive, open-world",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("tool detail annotations summary missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{
+		`"destructiveHint"`,
+		`"openWorldHint"`,
+		"{",
+		"}",
+	} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("tool detail should not expose raw annotations JSON %q:\n%s", notWant, out)
+		}
+	}
+}
+
 // TestCatalogBrowser_DisabledRowRendersDim: a disabled tool gets
 // the (disabled) tag in the rendered output.
 func TestCatalogBrowser_DisabledRowRendersDim(t *testing.T) {

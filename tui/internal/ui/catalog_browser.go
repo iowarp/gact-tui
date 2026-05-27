@@ -1188,12 +1188,37 @@ func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
 	}
 	rows = appendSchemaSection(rows, "Inputs", tool.InputSchema)
 	rows = appendSchemaSection(rows, "Outputs", tool.OutputSchema)
-	if tool.Annotations != nil {
-		if payload, err := json.MarshalIndent(tool.Annotations, "", "  "); err == nil {
-			rows = appendDetailSection(rows, "Annotations", detailField{"", string(payload)})
-		}
-	}
+	rows = appendToolAnnotationsSection(rows, tool.Annotations)
 	return strings.Join(rows, "\n")
+}
+
+func appendToolAnnotationsSection(rows []string, annotations *gact.ToolAnnotations) []string {
+	if annotations == nil {
+		return rows
+	}
+	fields := make([]detailField, 0, 2)
+	if title := strings.TrimSpace(annotations.Title); title != "" {
+		fields = append(fields, detailField{"display title", title})
+	}
+	hints := make([]string, 0, 4)
+	if annotations.ReadOnlyHint {
+		hints = append(hints, "read-only")
+	}
+	if annotations.DestructiveHint {
+		hints = append(hints, "destructive")
+	}
+	if annotations.IdempotentHint {
+		hints = append(hints, "idempotent")
+	}
+	if annotations.OpenWorldHint {
+		hints = append(hints, "open-world")
+	}
+	hintText := "none supplied"
+	if len(hints) > 0 {
+		hintText = strings.Join(hints, ", ")
+	}
+	fields = append(fields, detailField{"hints", hintText})
+	return appendDetailSection(rows, "Safety hints", fields...)
 }
 
 func owningAgentsForTool(tool gact.Tool, agents []gact.AgentDef) []string {
