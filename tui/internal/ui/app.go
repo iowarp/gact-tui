@@ -2388,10 +2388,16 @@ func (a *App) handleMouseWheel(m tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	mouse := m.Mouse()
-	if cmd, handled := a.activateWheelHitAt(mouse.X, mouse.Y, mouse.Button); handled {
-		return a, cmd
+	if a.mouseOverlayOpen() {
+		if cmd, handled := a.activateOverlayWheelHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+			return a, cmd
+		}
+		if cmd, handled := a.handleOverlayMouseWheel(m); handled {
+			return a, cmd
+		}
+		return a, nil
 	}
-	if cmd, handled := a.handleOverlayMouseWheel(m); handled {
+	if cmd, handled := a.activateWheelHitAt(mouse.X, mouse.Y, mouse.Button); handled {
 		return a, cmd
 	}
 	return a, nil
