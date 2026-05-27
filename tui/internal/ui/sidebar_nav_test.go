@@ -480,3 +480,35 @@ func TestSidebarExpandedSelectedParentKeepsChildrenInViewport(t *testing.T) {
 		}
 	}
 }
+
+func TestSidebarVisibleRangeAccountsForVariableSessionRows(t *testing.T) {
+	a := makeSidebarApp(t, 5)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "session 1", Status: gact.StatusIdle},
+		{ID: "s2", Title: "session 2", Status: gact.StatusIdle},
+		{ID: "parent", Title: "parent", Status: gact.StatusIdle},
+		{ID: "child", Title: "child", ParentSessionID: "parent", Status: gact.StatusIdle},
+		{ID: "after", Title: "after", Status: gact.StatusIdle},
+	}
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+	a.selected = 2
+	a.showChildSessions = false
+
+	visIdx := a.visibleSessionIndexes()
+	start, end := a.sidebarVisibleSessionRange(16, visIdx)
+	used := 0
+	for i := start; i < end; i++ {
+		used += a.sidebarSessionRowCount(visIdx[i])
+	}
+	if available := a.sidebarSessionRowsAvailable(16); used > available {
+		t.Fatalf("visible range used %d rows, available %d (range %d:%d)", used, available, start, end)
+	}
+
+	out := ansi.Strip(a.renderSidebar(42, 16))
+	if !strings.Contains(out, "1 child collapsed") {
+		t.Fatalf("selected parent's variable-height summary row should remain visible:\n%s", out)
+	}
+	if strings.Contains(out, "○ after") {
+		t.Fatalf("rendered range should not include a session that does not fit after variable-height parent rows:\n%s", out)
+	}
+}
