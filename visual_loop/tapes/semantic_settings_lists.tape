@@ -24,6 +24,9 @@ Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_settings_theme.png"
 
 Tab
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_settings_tui.png"
+
 Tab
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_settings_language.png"

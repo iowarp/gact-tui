@@ -615,9 +615,10 @@ Current VHS/screenshots proving the shared interaction/menu work:
   `semantic_header_actions_base.png`, `semantic_header_actions_help.png`, and
   `semantic_header_actions_settings.png`.
 - Settings/TUI controls and list tabs: `semantic_settings_lists.tape` with
-  `semantic_settings_agent.png`, `semantic_settings_theme.png`, and
-  `semantic_settings_language.png`; `semantic_settings_agent_compact.tape`
-  covers the visible Agent side rail in a constrained viewport.
+  `semantic_settings_agent.png`, `semantic_settings_theme.png`,
+  `semantic_settings_tui.png`, and `semantic_settings_language.png`;
+  `semantic_settings_agent_compact.tape` covers the visible Agent side rail in
+  a constrained viewport.
 - Help, Doctor, Metrics, and tool catalogs: `semantic_menu_smoke.tape` with
   `semantic_menu_help_commands.png`, `semantic_menu_doctor_health.png`,
   `semantic_menu_doctor_capabilities.png`, `semantic_menu_metrics.png`,
@@ -833,6 +834,10 @@ Additional work continued from the same architectural direction:
 - Permission banner action cells now use clipped screen text-span hit
   registration, tying allow/deny/session/workspace clicks to the rendered
   labels while preserving clipping at the pane content edge.
+- Settings Agent rows now pre-trim generated `Common tools:` tails from the
+  one-line list summary and clip secondary text before styling, keeping noisy
+  extracted-agent metadata in the detail region instead of wrapping awkwardly
+  inside the list row.
 
 ### 2026-05-26 user-observed follow-up queue
 

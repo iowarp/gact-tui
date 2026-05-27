@@ -192,6 +192,25 @@ func TestSettingsAgentTabShowsSelectedAgentDetails(t *testing.T) {
 	}
 }
 
+func TestSettingsAgentListDescriptionOmitsGeneratedCommonToolsTail(t *testing.T) {
+	a := New("http://unused")
+	ag := gact.AgentDef{
+		ID:          "extracted",
+		Title:       "Extracted from 2 session(s)",
+		Description: "Auto-extracted agent from 2 session log(s). Common tools: analysis, data, shell",
+		Tools:       []string{"analysis", "data", "shell"},
+	}
+
+	got := a.settingsAgentListDescription(ag)
+	want := "Auto-extracted agent from 2 session log(s)."
+	if got != want {
+		t.Fatalf("list description = %q, want %q", got, want)
+	}
+	if detail := a.agentDetailText(ag); !strings.Contains(detail, "analysis") {
+		t.Fatalf("detail text should retain tool evidence:\n%s", detail)
+	}
+}
+
 func TestSettingsAgentTabScrollsSelectionIntoView(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120
