@@ -244,6 +244,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup advanced rows now render row text and stepper mouse hits from
   one shared row/hit pass, registered through offset-aware modal cell hits so
   every advanced option inherits the same wide left/right click targets.
+- Provider setup Configuration rows now render editable provider-detail rows
+  and API key/auth/API base hit targets from one shared pass, so clipped rows
+  no longer keep stale mouse targets below the visible box.
 - Connection-error and file-picker error surfaces now size visible error text
   through the shared inset-list width policy, and file-picker backend failures
   cap the entire rendered error row instead of truncating only the raw error
