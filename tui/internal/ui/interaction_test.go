@@ -1968,6 +1968,13 @@ func TestSettingsLanguageRowsUseSemanticHitTargets(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic settings language target")
 	}
+	if target.rect.h != 1 {
+		t.Fatalf("language target height = %d, want dense one-line row", target.rect.h)
+	}
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, options[2].Locale) {
+		t.Fatalf("language row should render locale inline:\n%s", out)
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      target.rect.x,
 		Y:      target.rect.y,
