@@ -106,12 +106,7 @@ func (a *App) registerInputPastePlaceholderHits(startX int, startY int) {
 			pasteIdx := pasteIdx
 			lineIdx := lineIdx
 			hitCol := col
-			a.registerScreenHit("input:paste:"+itoa2(pasteIdx), mouseRect{
-				x: startX + lipgloss.Width(line[:hitCol]),
-				y: startY + lineIdx,
-				w: lipgloss.Width(placeholder),
-				h: 1,
-			}, func(app *App) tea.Cmd {
+			a.registerScreenTextSpanHit("input:paste:"+itoa2(pasteIdx), startX, startY+lineIdx, line, hitCol, placeholder, func(app *App) tea.Cmd {
 				app.focus = FocusInput
 				app.input.Focus()
 				setTextareaCursor(&app.input, lineIdx, hitCol)

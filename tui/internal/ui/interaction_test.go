@@ -880,6 +880,28 @@ func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	}
 }
 
+func TestScreenTextSpanHitUsesTextGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	clicked := false
+
+	a.registerScreenTextSpanHit("span:placeholder", 4, 6, "xx[paste]", 2, "[paste]", func(*App) tea.Cmd {
+		clicked = true
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "span:placeholder")
+	if !ok {
+		t.Fatal("missing screen text span target")
+	}
+	if target.rect.x != 6 || target.rect.y != 6 || target.rect.w != len("[paste]") {
+		t.Fatalf("span target rect = %+v, want x=6 y=6 w=%d", target.rect, len("[paste]"))
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("screen text span target should handle click, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
