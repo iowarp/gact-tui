@@ -336,6 +336,45 @@ func TestTextEntryModalRegistersCursorHitTargets(t *testing.T) {
 	}
 }
 
+func TestTextEntryModalRegistersStatusHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	clicked := false
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:  a.modalWidth(),
+		title:  "Entry",
+		editor: a.renderCursorEditor("path", 4),
+		status: []string{"mode:  read  edit"},
+		statusHits: []modalCellHit{{
+			id:    "sample:status:edit",
+			col:   len("mode:  read"),
+			width: len("  edit"),
+			action: func(*App) tea.Cmd {
+				clicked = true
+				return nil
+			},
+		}},
+	})
+
+	target, ok := findHitTargetForTest(a, "sample:status:edit")
+	if !ok {
+		t.Fatal("missing shared text-entry status target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("status target activation handled=%v clicked=%v", handled, clicked)
+	}
+	cursorTarget, ok := findHitTargetForTest(a, "text-entry:sample:cursor:0")
+	if ok && target.rect.y == cursorTarget.rect.y {
+		t.Fatalf("status target should not share editor row: status=%+v cursor=%+v", target.rect, cursorTarget.rect)
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	if target.rect.y <= rect.y+2 {
+		t.Fatalf("status target y=%d should be below modal header/body start %d", target.rect.y, rect.y+2)
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{
