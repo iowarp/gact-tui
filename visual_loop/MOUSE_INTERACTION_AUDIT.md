@@ -827,6 +827,9 @@ Additional work continued from the same architectural direction:
 - Startup connecting retry and intro continue clicks now use a shared
   full-screen surface hit primitive with viewport-geometry coverage, instead
   of each startup view registering its own raw screen rectangle.
+- Sidebar, conversation, and input focus surfaces now share a focus-surface
+  registration primitive with tested pane geometry, so base-pane focus clicks
+  no longer each own separate focus/action registration closures.
 
 ### 2026-05-26 user-observed follow-up queue
 

@@ -4207,10 +4207,11 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 	if a.hits == nil || width <= 0 || height <= 0 {
 		return
 	}
-	a.registerScreenHit("sidebar:focus", mouseRect{x: 0, y: 1, w: width, h: height}, func(app *App) tea.Cmd {
-		app.focus = FocusSidebar
-		return nil
-	})
+	a.registerFocusSurfaceHit("sidebar:focus", a.sidebarFocusSurfaceRect(width, height), FocusSidebar, nil)
+}
+
+func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
+	return mouseRect{x: 0, y: 1, w: width, h: height}
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -8765,17 +8766,19 @@ func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth
 	if a.hits == nil || conversationHeight <= 0 || bodyWidth <= 0 {
 		return
 	}
+	a.registerFocusSurfaceHit("conversation:body:focus", a.conversationFocusSurfaceRect(conversationHeight, bodyWidth), FocusBody, func(app *App) {
+		app.maybeInitBodyCursor()
+	})
+}
+
+func (a *App) conversationFocusSurfaceRect(conversationHeight int, bodyWidth int) mouseRect {
 	sidebarW, _, _ := a.mainPaneGeometry()
-	a.registerScreenHit("conversation:body:focus", mouseRect{
+	return mouseRect{
 		x: sidebarW,
 		y: 1,
 		w: bodyWidth,
 		h: conversationHeight,
-	}, func(app *App) tea.Cmd {
-		app.focus = FocusBody
-		app.maybeInitBodyCursor()
-		return nil
-	})
+	}
 }
 
 func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {

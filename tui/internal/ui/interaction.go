@@ -670,6 +670,19 @@ func (a *App) registerScreenSurfaceHit(id string, action uiHitAction) {
 	a.registerScreenHit(id, a.screenSurfaceRect(), action)
 }
 
+func (a *App) registerFocusSurfaceHit(id string, rect mouseRect, focus FocusZone, after func(*App)) {
+	if id == "" || rect.w <= 0 || rect.h <= 0 {
+		return
+	}
+	a.registerScreenHit(id, rect, func(app *App) tea.Cmd {
+		app.focus = focus
+		if after != nil {
+			after(app)
+		}
+		return nil
+	})
+}
+
 func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
 	frame := opts.frame
 	body := lipgloss.JoinVertical(lipgloss.Left, opts.rows...)
