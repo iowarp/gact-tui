@@ -190,14 +190,13 @@ func (a *App) viewCompose() string {
 		body:    body,
 		footer:  footer,
 	})
-	a.registerModalTextareaCursorHits(rendered.modal, rendered.bodyRow, 0, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
+	a.registerModalTextareaRegion(rendered.modal, rendered.bodyRow, 0, textareaW, taH, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
 		if app.compose == nil {
 			return
 		}
 		app.compose.ta.Focus()
 		setTextareaCursor(&app.compose.ta, line, col)
-	})
-	a.registerModalWheelRegion(rendered.modal, "compose:textarea:wheel", rendered.bodyRow, 0, textareaW, taH, func(app *App, button tea.MouseButton) tea.Cmd {
+	}, func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.moveComposeCursorByWheel(button)
 	})
 	return rendered.modal

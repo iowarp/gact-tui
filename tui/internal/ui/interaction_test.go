@@ -1473,6 +1473,46 @@ func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	}
 }
 
+func TestModalTextareaRegionRegistersCursorAndWheelHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.beginHitFrame()
+	gotLine := -1
+	gotCol := -1
+	wheeled := false
+
+	modal := a.renderDefaultModalSurface(50, "alpha\nbravo")
+	a.registerModalTextareaRegion(modal, 2, 3, 20, 4, "compose", "ab\ncd", func(_ *App, line int, col int) {
+		gotLine = line
+		gotCol = col
+	}, func(*App, tea.MouseButton) tea.Cmd {
+		wheeled = true
+		return nil
+	})
+
+	cursorTarget, ok := findHitTargetForTest(a, "textarea:compose:cursor:1:2")
+	if !ok {
+		t.Fatal("missing modal textarea cursor target")
+	}
+	if _, handled := a.activateHitAt(cursorTarget.rect.x, cursorTarget.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("modal textarea cursor target did not handle click")
+	}
+	if gotLine != 1 || gotCol != 2 {
+		t.Fatalf("cursor action got line=%d col=%d, want 1,2", gotLine, gotCol)
+	}
+	wheelTarget, ok := findHitTargetForTest(a, "textarea:compose:wheel")
+	if !ok {
+		t.Fatal("missing modal textarea wheel target")
+	}
+	if wheelTarget.rect.w != 20 || wheelTarget.rect.h != 4 {
+		t.Fatalf("wheel rect = %+v, want width=20 height=4", wheelTarget.rect)
+	}
+	if _, handled := a.activateWheelHitAt(wheelTarget.rect.x, wheelTarget.rect.y, tea.MouseWheelDown); !handled || !wheeled {
+		t.Fatalf("modal textarea wheel target not handled, handled=%v wheeled=%v", handled, wheeled)
+	}
+}
+
 func TestScreenTextSpanHitUsesTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()
