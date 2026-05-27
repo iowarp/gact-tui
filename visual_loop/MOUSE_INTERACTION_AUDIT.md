@@ -956,6 +956,9 @@ Additional work continued from the same architectural direction:
 - Provider setup section wheel regions now use `registerModalWheelRegion`, so
   provider, model, and advanced multi-column scrolling no longer calls the
   low-level modal content wheel API directly.
+- Provider setup provider/model/advanced wheel targets now register through a
+  shared box wheel-region helper, keeping wheel zones tied to the same box
+  height policy as rows, cells, and rails.
 - Sidebar session rows now register render-time semantic targets, including
   one-line expanded child/nanoagent rows. Session selection and selected-parent
   child collapse/expand both route through one shared action instead of

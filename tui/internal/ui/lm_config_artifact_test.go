@@ -105,6 +105,9 @@ func TestLMConfigBoxWidthsUseSharedPolicy(t *testing.T) {
 	if got := lmConfigBoxContentTop(11); got != 13 {
 		t.Fatalf("box content top = %d, want 13", got)
 	}
+	if got := lmConfigBoxHeight(5); got != 8 {
+		t.Fatalf("box height = %d, want visible rows plus frame", got)
+	}
 }
 
 func TestLMConfigNavigationUsesVerticalKeysInsideFocusedList(t *testing.T) {

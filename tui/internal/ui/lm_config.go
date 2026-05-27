@@ -1347,7 +1347,7 @@ func lmConfigBoxHeight(visibleRows int) int {
 }
 
 func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, visibleRows int) {
-	a.registerModalWheelRegion(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerLMConfigBoxWheelRegion(modal, "lm-config:provider:wheel", top, col, width, visibleRows, func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigProviderWheel(button)
 	})
 }
@@ -1368,10 +1368,7 @@ func (a *App) registerLMConfigProviderHeaderHit(modal string, top, col, width in
 }
 
 func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visibleRows int) {
-	if visibleRows <= 0 {
-		return
-	}
-	a.registerModalWheelRegion(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerLMConfigBoxWheelRegion(modal, "lm-config:model:wheel", top, col, width, visibleRows, func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigModelWheel(button)
 	})
 }
@@ -1436,10 +1433,7 @@ func (a *App) registerLMConfigModelHeaderHit(modal string, top, col, width int) 
 }
 
 func (a *App) registerLMConfigAdvancedWheelHit(modal string, top, col, width, visibleRows int) {
-	if visibleRows <= 0 {
-		return
-	}
-	a.registerModalWheelRegion(modal, "lm-config:advanced:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerLMConfigBoxWheelRegion(modal, "lm-config:advanced:wheel", top, col, width, visibleRows, func(app *App, button tea.MouseButton) tea.Cmd {
 		app.handleLMConfigAdvancedWheel(button)
 		return nil
 	})
@@ -1489,6 +1483,13 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 
 func (a *App) registerLMConfigBoxCellHits(modal string, top int, col int, hits []modalCellHit) {
 	a.registerModalCellHitsAt(modal, lmConfigBoxContentTop(top), col, hits)
+}
+
+func (a *App) registerLMConfigBoxWheelRegion(modal string, id string, top int, col int, width int, visibleRows int, action uiWheelAction) {
+	if visibleRows <= 0 {
+		return
+	}
+	a.registerModalWheelRegion(modal, id, top, col, width, lmConfigBoxHeight(visibleRows), action)
 }
 
 func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows int, layout lmConfigLayout) {
