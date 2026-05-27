@@ -6865,8 +6865,9 @@ func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
 	}
 	col := startCol
 	for i, action := range actions {
-		w := lipgloss.Width(a.renderHeaderActionCell(action.label))
-		a.registerScreenHit("header:"+action.id, mouseRect{x: col, y: 0, w: w, h: 1}, action.action)
+		cell := ansi.Strip(a.renderHeaderActionCell(action.label))
+		w := lipgloss.Width(cell)
+		a.registerScreenTextSpanHit("header:"+action.id, col, 0, cell, 0, cell, action.action)
 		col += w
 		if i < len(actions)-1 {
 			col++

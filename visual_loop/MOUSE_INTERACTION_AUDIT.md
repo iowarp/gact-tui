@@ -806,6 +806,9 @@ Additional work continued from the same architectural direction:
 - Footer plain/action hit targets now use the same shared screen text-span
   primitive as input paste placeholders, removing duplicate one-line text
   rectangle construction from the footer layer.
+- Top-right header action hit targets now use the shared screen text-span
+  primitive, so the visible `help`/`settings` cells and footer/input inline
+  targets share one text geometry path.
 
 ### 2026-05-26 user-observed follow-up queue
 
