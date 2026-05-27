@@ -1022,6 +1022,56 @@ func TestLMConfigFilterAndEditableFieldsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderDetailsRowsAndHitsShareVisibility(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.apiBase = "http://127.0.0.1:1234/v1"
+
+	rows, hits := a.renderLMConfigProviderDetailsRowsAndHits(52, 8)
+	apiBase, ok := modalCellHitByIDForTest(hits, "lm-config:api-base")
+	if !ok {
+		t.Fatal("missing API base hit from provider details row/hit pass")
+	}
+	if apiBase.row < 0 || apiBase.row >= len(rows) {
+		t.Fatalf("API base hit row = %d outside rendered rows %d", apiBase.row, len(rows))
+	}
+	if apiBase.width != 52 {
+		t.Fatalf("API base hit width = %d, want provider box width", apiBase.width)
+	}
+	if !strings.Contains(ansi.Strip(rows[apiBase.row]), "API base") {
+		t.Fatalf("API base hit row %d does not point at API base row: %q", apiBase.row, ansi.Strip(rows[apiBase.row]))
+	}
+
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:         "argonne",
+		Label:      "Argonne Sophia",
+		Provider:   "argonne",
+		AuthMethod: "oauth",
+		APIBase:    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		Status:     "auth_required",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.authMessage = "first auth detail line second auth detail line third auth detail line fourth auth detail line"
+
+	_, hits = a.renderLMConfigProviderDetailsRowsAndHits(52, 3)
+	if _, ok := modalCellHitByIDForTest(hits, "lm-config:auth"); !ok {
+		t.Fatal("missing visible OAuth auth hit")
+	}
+	if hit, ok := modalCellHitByIDForTest(hits, "lm-config:api-base"); ok {
+		t.Fatalf("API base hit should not be registered outside the visible provider details rows: %+v", hit)
+	}
+}
+
+func modalCellHitByIDForTest(hits []modalCellHit, id string) (modalCellHit, bool) {
+	for _, hit := range hits {
+		if hit.id == id {
+			return hit, true
+		}
+	}
+	return modalCellHit{}, false
+}
+
 func TestLMConfigProviderWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.MouseEnabled = true
