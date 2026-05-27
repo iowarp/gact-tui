@@ -12,7 +12,14 @@ log="${TMPDIR:-/tmp}/gact-semantic-context.log"
   -seed-sessions ws_default=1 \
   -seed-messages "${session_id}=1" >"$log" 2>&1 &
 srv=$!
-trap 'kill "$srv" 2>/dev/null || true' EXIT
+tui_pid=""
+cleanup() {
+  if [ -n "${tui_pid:-}" ]; then
+    kill "$tui_pid" 2>/dev/null || true
+  fi
+  kill "$srv" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 
 for _ in $(seq 1 40); do
   if curl -fsS "${backend}/v1/sessions" >/dev/null 2>&1; then
@@ -31,4 +38,6 @@ curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
   -d '{"path":"visual_loop/README.md","mode":"pin"}' >/dev/null
 
-exec env GACT_ATTACH_SESSION_ID="$session_id" ./tui/gact --backend "$backend" --no-intro
+env GACT_ATTACH_SESSION_ID="$session_id" ./tui/gact --backend "$backend" --no-intro &
+tui_pid=$!
+wait "$tui_pid"

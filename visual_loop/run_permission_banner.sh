@@ -7,7 +7,16 @@ log="${TMPDIR:-/tmp}/gact-semantic-permission.log"
 
 .tools/emulator-server -port "$port" -timing fast >"$log" 2>&1 &
 srv=$!
-trap 'kill "$srv" 2>/dev/null || true' EXIT
+tui_pid=""
+cleanup() {
+  if [ -n "${tui_pid:-}" ]; then
+    kill "$tui_pid" 2>/dev/null || true
+  fi
+  kill "$srv" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 sleep 0.3
 
-exec ./tui/gact --backend "$backend" --no-intro
+./tui/gact --backend "$backend" --no-intro &
+tui_pid=$!
+wait "$tui_pid"

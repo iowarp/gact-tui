@@ -199,6 +199,8 @@ func (s *Server) routes() {
 
 	// §6.12 — Providers + Models
 	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)
+	s.mux.HandleFunc("GET /v1/providers/lm", s.handleGetLMProvider)
+	s.mux.HandleFunc("PUT /v1/providers/lm", s.handlePutLMProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
 

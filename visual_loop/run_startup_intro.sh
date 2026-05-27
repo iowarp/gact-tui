@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-port="${GACT_DIFF_ACTIONS_PORT:-41920}"
+port="${GACT_STARTUP_INTRO_PORT:-41894}"
 backend="http://127.0.0.1:${port}"
-log="${TMPDIR:-/tmp}/gact-semantic-diff-actions.log"
+log="${TMPDIR:-/tmp}/gact-semantic-startup-intro.log"
 
 .tools/emulator-server -port "$port" -timing fast >"$log" 2>&1 &
 srv=$!
@@ -15,8 +15,14 @@ cleanup() {
   kill "$srv" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
-sleep 0.3
 
-./tui/gact --backend "$backend" --no-intro &
+for _ in $(seq 1 40); do
+  if curl -fsS "${backend}/v1/capabilities" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+./tui/gact --backend "$backend" &
 tui_pid=$!
 wait "$tui_pid"

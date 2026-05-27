@@ -10,7 +10,14 @@ log="${TMPDIR:-/tmp}/gact-semantic-workspace.log"
   -timing fast \
   -seed-workspaces "analysis:/tmp/gact-analysis,visual:/tmp/gact-visual" >"$log" 2>&1 &
 srv=$!
-trap 'kill "$srv" 2>/dev/null || true' EXIT
+tui_pid=""
+cleanup() {
+  if [ -n "${tui_pid:-}" ]; then
+    kill "$tui_pid" 2>/dev/null || true
+  fi
+  kill "$srv" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 
 for _ in $(seq 1 40); do
   if curl -fsS "${backend}/v1/workspaces" >/dev/null 2>&1; then
@@ -19,4 +26,6 @@ for _ in $(seq 1 40); do
   sleep 0.1
 done
 
-exec ./tui/gact --backend "$backend" --no-intro
+./tui/gact --backend "$backend" --no-intro &
+tui_pid=$!
+wait "$tui_pid"

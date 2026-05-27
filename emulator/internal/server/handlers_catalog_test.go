@@ -52,6 +52,48 @@ func TestProviders(t *testing.T) {
 	}
 }
 
+func TestLMProviderConfig(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/providers/lm", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get lm provider: %d", rec.Code)
+	}
+	var got struct {
+		Configured bool `json:"configured"`
+		Presets    []struct {
+			ID             string `json:"id"`
+			SuggestedModel string `json:"suggested_model"`
+		} `json:"presets"`
+	}
+	mustDecode(t, rec, &got)
+	if !got.Configured || len(got.Presets) < 3 || got.Presets[0].ID != "anthropic" {
+		t.Fatalf("unexpected lm provider info: %+v", got)
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/providers/lm", lmProviderRequest{
+		Provider: "local",
+		Model:    "llama3.3",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put lm provider: %d", rec.Code)
+	}
+	var updated lmProviderInfo
+	mustDecode(t, rec, &updated)
+	if updated.Provider != "local" || updated.Model != "llama3.3" {
+		t.Fatalf("updated provider = %s/%s", updated.Provider, updated.Model)
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/providers/lm", lmProviderRequest{
+		Provider: "local",
+		Model:    "missing",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad model should surface error, got %d", rec.Code)
+	}
+}
+
 // --- §6.6 Tools ------------------------------------------------------------
 
 func TestTools(t *testing.T) {

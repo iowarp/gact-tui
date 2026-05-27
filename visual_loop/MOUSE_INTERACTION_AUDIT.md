@@ -107,6 +107,14 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   and conversation-action semantic tapes now run against the seeded emulator
   session instead of a live CLIO benchmark session, so the core menu and
   transcript-interaction screenshot set is reproducible from a clean checkout.
+- Visual-loop runner scripts now keep the shell as the parent process and clean
+  up both the TUI and seeded emulator children on exit, preventing stale
+  emulator processes from serving old backend capabilities to later VHS runs.
+- Provider setup, startup intro, and menu smoke visual loops now run against
+  deterministic local emulator runners. The emulator exposes `/v1/providers/lm`
+  GET/PUT backed by the static provider/model catalog, so provider configuration
+  screenshots exercise the real TUI provider flow without relying on live CLIO
+  state.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
