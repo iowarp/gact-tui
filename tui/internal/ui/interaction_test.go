@@ -433,6 +433,46 @@ func TestTextEntryModalRegistersNamedSurfaceWheelBlocker(t *testing.T) {
 	}
 }
 
+func TestTextEntryModalRegistersIntroListHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	clicked := false
+	list := modalListRender{
+		rows: []string{"  stdio  files stdio mcp-files /tmp"},
+		hits: []modalListHit{{
+			id:     "entry:example:stdio",
+			row:    0,
+			height: 1,
+			action: func(*App) tea.Cmd {
+				clicked = true
+				return nil
+			},
+		}},
+	}
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:      a.modalWidth(),
+		title:      "Entry",
+		intro:      []string{strings.Join(list.rows, "\n")},
+		introList:  list,
+		introListW: 40,
+		editor:     a.renderCursorEditor("path", 4),
+	})
+
+	target, ok := findHitTargetForTest(a, "entry:example:stdio")
+	if !ok {
+		t.Fatal("missing shared text-entry intro list target")
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	if target.rect.y != rect.y+2+rendered.bodyRow {
+		t.Fatalf("intro list target y = %d, want first body row %d", target.rect.y, rect.y+2+rendered.bodyRow)
+	}
+	if _, handled := a.activateHitAt(target.rect.x+target.rect.w-1, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("intro list target activation handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestModalListRendersDescriptionRowsIntoOneHit(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{

@@ -1111,3 +1111,7 @@ Additional work continued from the same architectural direction:
   callback hooks. Overlay-specific interactions now have to register semantic
   hit targets during render, with the shared overlay table only handling
   validation and outside-click close policy.
+- Shared text-entry modals now own clickable intro-list rows as well as editor
+  cursor hits, status cell hits, header buttons, and surface wheel blockers.
+  MCP install examples moved onto that primitive instead of registering their
+  list hits after the modal was rendered.
