@@ -43,6 +43,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   handler.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, provider/model side rails, auth, save, and close.
+- LM provider setup's save action now uses the shared modal button renderer,
+  disabled-button policy, centered action-row geometry, and `button:*` hit
+  namespace instead of a separate bordered body control.
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.
 - Palette command rows now avoid showing the command name again as the description; they prefer useful descriptions, then non-duplicate titles, then source fallback.
 - Scrollable modals now use a shared side rail/thumb instead of footer/title line-range text, and the catalog browser reuses that affordance instead of adding textual `above` / `more` rows.

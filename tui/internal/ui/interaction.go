@@ -201,9 +201,10 @@ type menuTab struct {
 }
 
 type menuButton struct {
-	id     string
-	label  string
-	action uiHitAction
+	id       string
+	label    string
+	disabled bool
+	action   uiHitAction
 }
 
 func closeMenuButton(id string, close func(*App)) menuButton {
@@ -1019,6 +1020,23 @@ func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
 	return row
 }
 
+func (a *App) renderCenteredModalButtons(width int, buttons []menuButton, selected int) (string, int) {
+	if width < 1 {
+		width = 1
+	}
+	row := a.renderModalButtons(buttons, selected)
+	rowW := lipgloss.Width(row)
+	startCol := maxInt(0, (width-rowW)/2)
+	if rowW >= width {
+		startCol = 0
+	}
+	rendered := lipgloss.NewStyle().
+		Background(a.Theme.Bg).
+		Width(width).
+		Render(strings.Repeat(" ", startCol) + row)
+	return rendered, startCol
+}
+
 func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (string, []modalCellHit) {
 	cells := make([]string, 0, len(buttons))
 	hits := make([]modalCellHit, 0, len(buttons))
@@ -1030,7 +1048,12 @@ func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (st
 			Background(a.Theme.Primary).
 			Bold(true).
 			Padding(0, 2)
-		if i == selected {
+		if button.disabled {
+			style = lipgloss.NewStyle().
+				Foreground(a.Theme.FgFaint).
+				Background(a.Theme.BgSubtle).
+				Padding(0, 2)
+		} else if i == selected {
 			style = lipgloss.NewStyle().
 				Foreground(a.Theme.Bg).
 				Background(a.Theme.Secondary).
@@ -1038,7 +1061,7 @@ func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (st
 				Padding(0, 2)
 		}
 		cells = append(cells, style.Render(button.label))
-		if button.id != "" && button.action != nil {
+		if button.id != "" && button.action != nil && !button.disabled {
 			hits = append(hits, modalCellHit{
 				id:     "button:" + button.id,
 				col:    col,

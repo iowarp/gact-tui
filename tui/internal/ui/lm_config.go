@@ -1657,12 +1657,20 @@ func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows in
 	if !canSave {
 		return
 	}
-	a.registerModalCellHits(modal, 0, []modalCellHit{{
-		id:     "lm-config:save",
-		row:    bodyTop + bodyRows - layout.buttonRows,
-		col:    0,
-		width:  innerW,
-		height: layout.buttonRows,
+	row := bodyTop + bodyRows - layout.buttonRows
+	if layout.buttonRows >= 3 {
+		row++
+	}
+	buttons := []menuButton{a.lmConfigSaveMenuButton(false)}
+	_, startCol := a.renderCenteredModalButtons(innerW, buttons, -1)
+	a.registerModalButtons(modal, row, startCol, buttons)
+}
+
+func (a *App) lmConfigSaveMenuButton(disabled bool) menuButton {
+	return menuButton{
+		id:       "lm-config:save",
+		label:    "Save and connect",
+		disabled: disabled,
 		action: func(app *App) tea.Cmd {
 			if app.lmConfig == nil {
 				return nil
@@ -1670,7 +1678,7 @@ func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows in
 			app.lmConfig.field = lmFieldSave
 			return app.lmConfigDispatch()
 		},
-	}})
+	}
 }
 
 func (a *App) renderLMConfigBody(innerW int, bodyRows int) string {
@@ -1724,34 +1732,21 @@ func (a *App) renderLMConfigBody(innerW int, bodyRows int) string {
 	if p := a.lmConfigCurrentPreset(); p != nil {
 		canSave = a.lmConfigCanSave(*p)
 	}
-	buttonStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Border).
-		Foreground(t.Fg).
-		Padding(0, 2)
-	if !canSave {
-		buttonStyle = buttonStyle.Foreground(t.FgFaint)
-	}
-	if a.lmConfig.field == lmFieldSave && canSave {
-		buttonStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(t.Secondary).
-			Foreground(t.Bg).
-			Background(t.Secondary).
-			Bold(true).
-			Padding(0, 2)
-	}
 	if layout.buttonRows > 0 {
-		button := buttonStyle.Render("Save and connect")
-		spacerRows := bodyRows - renderedLineCount(rows) - lipgloss.Height(button)
+		buttons := []menuButton{a.lmConfigSaveMenuButton(!canSave)}
+		selected := -1
+		if a.lmConfig.field == lmFieldSave && canSave {
+			selected = 0
+		}
+		button, _ := a.renderCenteredModalButtons(innerW, buttons, selected)
+		spacerRows := bodyRows - renderedLineCount(rows) - layout.buttonRows
 		for i := 0; i < spacerRows; i++ {
 			rows = append(rows, "")
 		}
-		rows = append(rows, lipgloss.NewStyle().
-			Background(t.Bg).
-			Width(innerW).
-			Align(lipgloss.Center).
-			Render(button))
+		if layout.buttonRows >= 3 {
+			rows = append(rows, "")
+		}
+		rows = append(rows, button)
 	}
 
 	return lmConfigFillBlock(strings.Join(rows, "\n"), innerW, bodyRows, t.Bg)
