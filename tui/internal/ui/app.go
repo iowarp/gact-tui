@@ -6884,7 +6884,8 @@ func (a *App) registerHeaderChipHits(rendered []string, hits []headerChip) {
 	for _, segment := range rendered {
 		w := lipgloss.Width(segment)
 		if hitIdx < len(hits) && segment == hits[hitIdx].rendered && hits[hitIdx].action != nil {
-			a.registerScreenHit("header:chip:"+hits[hitIdx].id, mouseRect{x: col, y: 0, w: w, h: 1}, hits[hitIdx].action)
+			plain := ansi.Strip(segment)
+			a.registerScreenTextSpanHit("header:chip:"+hits[hitIdx].id, col, 0, plain, 0, plain, hits[hitIdx].action)
 			hitIdx++
 		}
 		col += w
