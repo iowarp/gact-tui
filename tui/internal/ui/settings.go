@@ -26,6 +26,34 @@ type settingsState struct {
 	loadErr     string // set when loadSettingsCmd surfaces failures
 }
 
+type settingsTUIStepperRow struct {
+	line     string
+	leftCol  int
+	rightCol int
+}
+
+func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, value, hint string) settingsTUIStepperRow {
+	marker := "  "
+	labelStyle := lipgloss.NewStyle().Foreground(theme.Fg)
+	valueStyle := theme.HintLabel
+	hintStyle := theme.HintLabel.Italic(true)
+	if selected {
+		marker = lipgloss.NewStyle().Foreground(theme.Secondary).Render("▌ ")
+		labelStyle = labelStyle.Foreground(theme.Secondary).Bold(true)
+		valueStyle = lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true)
+	}
+	leftCol := lipgloss.Width(ansi.Strip(marker)) + lipgloss.Width(label) + 2
+	rightCol := leftCol + lipgloss.Width("◀ "+value+" ")
+	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render("◀ "+value+" ▶")
+	if hint != "" {
+		hintBudget := width - lipgloss.Width(ansi.Strip(line)) - 2
+		if hintBudget > 0 {
+			line += "  " + hintStyle.Render(truncate(hint, hintBudget))
+		}
+	}
+	return settingsTUIStepperRow{line: line, leftCol: leftCol, rightCol: rightCol}
+}
+
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
@@ -584,26 +612,12 @@ func (a *App) viewSettings() string {
 		rows = append(rows, "")
 
 		// LLLLL1: shared editable-row renderer for the TUI tab so
-		// rows 0..tuiPrefsRowCount-1 share the same selection visual
-		// (▌ marker + Secondary-bold label + Secondary-bold value).
-		editableRow := func(rowIdx int, label, value, hint string) []string {
-			marker := "  "
-			labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			valueStyle := t.HintLabel
-			if s.tuiRow == rowIdx {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-				valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-			}
-			out := []string{marker + labelStyle.Render(label) + "  " + valueStyle.Render(value)}
-			if hint != "" {
-				out = append(out, "  "+t.HintLabel.Italic(true).Render(hint))
-			}
-			out = append(out, "")
-			return out
+		// rows 0..tuiPrefsRowCount-1 share the same selection visual,
+		// inline hint density, and left/right control geometry.
+		editableRow := func(rowIdx int, label, value, hint string) settingsTUIStepperRow {
+			return renderSettingsTUIStepperRow(t, w-12, s.tuiRow == rowIdx, label, value, hint)
 		}
-		addTUIControlHits := func(id string, rowIdx int, row int, renderedLine string) {
-			plain := ansi.Strip(renderedLine)
+		addTUIControlHits := func(id string, rowIdx int, row int, stepper settingsTUIStepperRow) {
 			selectRow := func(app *App) {
 				if app.settings == nil {
 					app.settings = &settingsState{tab: 3}
@@ -614,25 +628,19 @@ func (a *App) viewSettings() string {
 				selectRow(app)
 				return nil
 			})
-			if leftIdx := strings.Index(plain, "◀"); leftIdx >= 0 {
-				leftCol := lipgloss.Width(plain[:leftIdx])
-				addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, leftCol-1), 3, func(app *App) tea.Cmd {
-					selectRow(app)
-					_, cmd := app.handleSettingsKey(keyMsg("left"))
-					return cmd
-				})
-			}
-			if rightIdx := strings.LastIndex(plain, "▶"); rightIdx >= 0 {
-				rightCol := lipgloss.Width(plain[:rightIdx])
-				addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, rightCol-1), 3, func(app *App) tea.Cmd {
-					selectRow(app)
-					_, cmd := app.handleSettingsKey(keyMsg("right"))
-					return cmd
-				})
-			}
+			addArrowHit("settings:tui:"+id+":dec", row, maxInt(0, stepper.leftCol-1), 3, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("left"))
+				return cmd
+			})
+			addArrowHit("settings:tui:"+id+":inc", row, maxInt(0, stepper.rightCol-1), 3, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("right"))
+				return cmd
+			})
 		}
-		addTUIRowHit := func(id string, rowIdx int, row int, block []string) {
-			addRowHitHeight("settings:tui:"+id, row, maxInt(1, len(block)-1), func(app *App) tea.Cmd {
+		addTUIRowHit := func(id string, rowIdx int, row int) {
+			addRowHitHeight("settings:tui:"+id, row, 1, func(app *App) tea.Cmd {
 				if app.settings != nil {
 					app.settings.tuiRow = rowIdx
 				}
@@ -645,31 +653,31 @@ func (a *App) viewSettings() string {
 		row := len(rows)
 		block := editableRow(0,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("collapse-threshold", 0, row, block)
-		addTUIControlHits("collapse-threshold", 0, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("collapse-threshold", 0, row)
+		addTUIControlHits("collapse-threshold", 0, row, block)
 		label = a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil)
 		value = humanTokens(a.Theme.CostWarnTokens)
 		row = len(rows)
 		block = editableRow(1,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("cost-warn", 1, row, block)
-		addTUIControlHits("cost-warn", 1, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("cost-warn", 1, row)
+		addTUIControlHits("cost-warn", 1, row, block)
 		label = a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil)
 		value = humanTokens(a.Theme.CostDangerTokens)
 		row = len(rows)
 		block = editableRow(2,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("cost-danger", 2, row, block)
-		addTUIControlHits("cost-danger", 2, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("cost-danger", 2, row)
+		addTUIControlHits("cost-danger", 2, row, block)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
@@ -680,11 +688,11 @@ func (a *App) viewSettings() string {
 		row = len(rows)
 		block = editableRow(3,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("paste-compress", 3, row, block)
-		addTUIControlHits("paste-compress", 3, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("paste-compress", 3, row)
+		addTUIControlHits("paste-compress", 3, row, block)
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
 			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
@@ -696,11 +704,11 @@ func (a *App) viewSettings() string {
 		row = len(rows)
 		block = editableRow(4,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("intro", 4, row, block)
-		addTUIControlHits("intro", 4, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("intro", 4, row)
+		addTUIControlHits("intro", 4, row, block)
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
 		if !a.MouseEnabled {
@@ -711,11 +719,12 @@ func (a *App) viewSettings() string {
 		row = len(rows)
 		block = editableRow(5,
 			label,
-			"◀ "+value+" ▶",
+			value,
 			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))
-		rows = append(rows, block...)
-		addTUIRowHit("mouse", 5, row, block)
-		addTUIControlHits("mouse", 5, row, block[0])
+		rows = append(rows, block.line)
+		addTUIRowHit("mouse", 5, row)
+		addTUIControlHits("mouse", 5, row, block)
+		rows = append(rows, "")
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))

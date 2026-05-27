@@ -134,6 +134,15 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Settings Theme and Language tabs now use the same dense inline metadata row
   shape for descriptions/locales, reducing tab-to-tab height churn while
   preserving semantic row selection, preview, and mouse hit targets.
+- Settings TUI editable preference rows now keep value controls and explanatory
+  hints on one rendered row, so mouse hit targets, left/right controls, and
+  visual row density match the rest of the migrated Settings lists.
+- Settings TUI stepper rows now use a reusable render-and-hit geometry helper
+  instead of scanning styled row text per option, so later-row left/right mouse
+  controls share the same click semantics as the first row.
+- The top header now exposes a visible quit/exit action that opens the shared
+  quit confirmation modal, matching the footer Ctrl+C semantic target for
+  mouse-first users.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

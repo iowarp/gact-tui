@@ -1448,6 +1448,26 @@ func TestHeaderSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("header settings click should dispatch settings load command")
 	}
+
+	a.settingsOpen = false
+	a.settings = nil
+	_ = a.View()
+	quitTarget, ok := findHitTargetForTest(a, "header:quit")
+	if !ok {
+		t.Fatal("missing visible header quit hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      quitTarget.rect.x,
+		Y:      quitTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("header quit click should not immediately dispatch a command")
+	}
+	if !a.quitConfirmOpen || a.quitConfirmSelected != 0 {
+		t.Fatalf("header quit click should open quit confirmation, open=%v selected=%d", a.quitConfirmOpen, a.quitConfirmSelected)
+	}
 }
 
 func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
@@ -1457,7 +1477,7 @@ func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
 
 	header := ansi.Strip(a.renderHeader())
 
-	for _, want := range []string{"help", "settings"} {
+	for _, want := range []string{"×", "help", "settings"} {
 		if !strings.Contains(header, want) {
 			t.Fatalf("header action %q should be visible in top chrome: %q", want, header)
 		}
@@ -1691,6 +1711,13 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic settings TUI cost danger target")
 	}
+	if target.rect.h != 1 {
+		t.Fatalf("TUI row target height = %d, want dense one-line row", target.rect.h)
+	}
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "cost danger tokens") || !strings.Contains(out, "footer turns red near") {
+		t.Fatalf("TUI row should render value and hint inline:\n%s", out)
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      target.rect.x,
 		Y:      target.rect.y,
@@ -1746,6 +1773,59 @@ func TestSettingsTUIArrowControlsUseSemanticHitTargets(t *testing.T) {
 	a = model.(*App)
 	if a.Theme.CollapseThreshold != 4 {
 		t.Fatalf("decrement click should lower collapse threshold, got %d", a.Theme.CollapseThreshold)
+	}
+}
+
+func TestSettingsTUIStepperArrowsWorkBeyondFirstRow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 40
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CostWarnTokens = 50_000
+	a.Theme.CostDangerTokens = 100_000
+	a.Theme.PasteCompressThreshold = 3
+	a.MouseEnabled = true
+
+	for _, tc := range []struct {
+		id     string
+		assert func(*testing.T, *App)
+	}{
+		{id: "cost-warn", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostWarnTokens != 50_000+costStep {
+				t.Fatalf("cost warn right arrow = %d, want %d", app.Theme.CostWarnTokens, 50_000+costStep)
+			}
+		}},
+		{id: "cost-danger", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostDangerTokens != 100_000+costStep {
+				t.Fatalf("cost danger right arrow = %d, want %d", app.Theme.CostDangerTokens, 100_000+costStep)
+			}
+		}},
+		{id: "paste-compress", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.PasteCompressThreshold != 4 {
+				t.Fatalf("paste compress right arrow = %d, want 4", app.Theme.PasteCompressThreshold)
+			}
+		}},
+	} {
+		_ = a.View()
+		target, ok := findHitTargetForTest(a, "settings:tui:"+tc.id+":inc")
+		if !ok {
+			t.Fatalf("missing right-arrow target for %s", tc.id)
+		}
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      target.rect.x + target.rect.w - 1,
+			Y:      target.rect.y,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		tc.assert(t, a)
+		if !a.settingsOpen {
+			t.Fatalf("%s right-arrow click closed settings", tc.id)
+		}
 	}
 }
 

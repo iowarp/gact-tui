@@ -6846,6 +6846,14 @@ type headerAction struct {
 func (a *App) headerActions() []headerAction {
 	return []headerAction{
 		{
+			id:    "quit",
+			label: "×",
+			action: func(app *App) tea.Cmd {
+				app.openQuitConfirm()
+				return nil
+			},
+		},
+		{
 			id:    "help",
 			label: "help",
 			action: func(app *App) tea.Cmd {
