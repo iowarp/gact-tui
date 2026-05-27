@@ -1760,8 +1760,11 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 		t.Fatalf("TUI row target height = %d, want dense one-line row", target.rect.h)
 	}
 	out := ansi.Strip(a.viewSettings())
-	if !strings.Contains(out, "cost danger tokens") || !strings.Contains(out, "footer turns red near") {
-		t.Fatalf("TUI row should render value and hint inline:\n%s", out)
+	if !strings.Contains(out, "cost danger tokens") || !strings.Contains(out, "150K") {
+		t.Fatalf("TUI row should render label and value inline:\n%s", out)
+	}
+	if strings.Contains(out, "footer turns red near") {
+		t.Fatalf("unselected TUI rows should keep descriptions out of the dense list:\n%s", out)
 	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      target.rect.x,
@@ -1775,6 +1778,31 @@ func TestSettingsTUIRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if !a.settingsOpen {
 		t.Fatal("clicking a TUI option should not close settings")
+	}
+}
+
+func TestSettingsTUISelectedRowUsesDetailSpace(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+
+	_ = a.View()
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "tool_result bodies longer than N lines collapse to a preview") {
+		t.Fatalf("selected TUI row should render its full explanation in the body:\n%s", out)
+	}
+	if strings.Contains(out, "tool_result bodies longer than N lines collapse ...") {
+		t.Fatalf("selected TUI row explanation should not be clipped with an ellipsis:\n%s", out)
+	}
+	target, ok := findHitTargetForTest(a, "settings:tui:collapse-threshold")
+	if !ok {
+		t.Fatal("missing selected TUI row semantic target")
+	}
+	if target.rect.h < 2 {
+		t.Fatalf("selected TUI row target height = %d, want detail row included", target.rect.h)
 	}
 }
 
