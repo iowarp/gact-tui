@@ -485,6 +485,45 @@ func TestModalCellHitsRegisterRelativeToBody(t *testing.T) {
 	}
 }
 
+func TestModalInlineOptionsRenderActiveChipAndHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	clicked := ""
+	row, hits := a.renderModalInlineOptions("mode: ", []modalInlineOption{{
+		id:    "mode:read",
+		label: "read",
+		action: func(*App) tea.Cmd {
+			clicked = "read"
+			return nil
+		},
+	}, {
+		id:     "mode:edit",
+		label:  "edit",
+		active: true,
+		action: func(*App) tea.Cmd {
+			clicked = "edit"
+			return nil
+		},
+	}})
+
+	plain := ansi.Strip(row)
+	if !strings.Contains(plain, "mode:  read  edit ") {
+		t.Fatalf("inline options row = %q", plain)
+	}
+	if len(hits) != 2 {
+		t.Fatalf("hit count = %d, want 2", len(hits))
+	}
+	if hits[1].id != "mode:edit" || hits[1].col <= hits[0].col || hits[1].width != lipgloss.Width(" edit ") {
+		t.Fatalf("unexpected edit hit geometry: %+v after %+v", hits[1], hits[0])
+	}
+	if hits[1].action == nil {
+		t.Fatal("missing edit action")
+	}
+	_ = hits[1].action(a)
+	if clicked != "edit" {
+		t.Fatalf("clicked = %q, want edit", clicked)
+	}
+}
+
 func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -217,34 +216,19 @@ func (a *App) viewContextAdd() string {
 }
 
 func (a *App) renderContextAddModeRow() (string, []modalCellHit) {
-	label := "mode: "
-	row := a.Theme.HintLabel.Render(label)
-	col := lipgloss.Width(label)
 	active := a.contextAddModeValue()
-	hits := make([]modalCellHit, 0, len(contextAddModes))
+	options := make([]modalInlineOption, 0, len(contextAddModes))
 	for _, mode := range contextAddModes {
 		mode := mode
-		raw := " " + mode + " "
-		style := a.Theme.HintLabel
-		if mode == active {
-			style = lipgloss.NewStyle().
-				Foreground(a.Theme.Bg).
-				Background(a.Theme.Primary).
-				Bold(true)
-		}
-		row += style.Render(raw)
-		width := lipgloss.Width(raw)
-		hits = append(hits, modalCellHit{
+		options = append(options, modalInlineOption{
 			id:     "context-add:mode:" + mode,
-			col:    col,
-			width:  width,
-			height: 1,
+			label:  mode,
+			active: mode == active,
 			action: func(app *App) tea.Cmd {
 				app.setContextAddMode(mode)
 				return nil
 			},
 		})
-		col += width
 	}
-	return row, hits
+	return a.renderModalInlineOptions("mode: ", options)
 }
