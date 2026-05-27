@@ -32,6 +32,37 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	return &mu, &got, &err
 }
 
+func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
+	mu, got, errSlot := withClipboardSpy(t)
+
+	if hint := copyTextToClipboard("compose draft", "   \n\t"); hint != "nothing to copy" {
+		t.Fatalf("empty hint = %q, want nothing to copy", hint)
+	}
+	mu.Lock()
+	if *got != "" {
+		t.Fatalf("clipboard should not be touched for empty text, got %q", *got)
+	}
+	*errSlot = errors.New("clipboard daemon unavailable")
+	mu.Unlock()
+
+	if hint := copyTextToClipboard("compose draft", "draft body"); !strings.Contains(hint, "copy failed") || !strings.Contains(hint, "clipboard daemon unavailable") {
+		t.Fatalf("failure hint = %q, want surfaced clipboard error", hint)
+	}
+
+	mu.Lock()
+	*errSlot = nil
+	mu.Unlock()
+	want := "  keep exact spacing\nand newlines  "
+	if hint := copyTextToClipboard("detail", want); hint != "copied detail to clipboard" {
+		t.Fatalf("success hint = %q, want copied detail to clipboard", hint)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != want {
+		t.Fatalf("clipboard = %q, want exact payload %q", *got, want)
+	}
+}
+
 func TestLastAssistantText_EmptySlice(t *testing.T) {
 	if got, ok := lastAssistantText(nil); ok || got != "" {
 		t.Errorf("empty msgs = %q ok=%v, want '' false", got, ok)
