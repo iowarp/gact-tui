@@ -336,6 +336,8 @@ func (a *App) viewMcpInstall() string {
 		buttons:     buttons,
 		surfaceID:   "mcp-install",
 		intro:       []string{t.HintLabel.Render(strings.Join(exampleList.rows, "\n"))},
+		introList:   exampleList,
+		introListW:  innerW,
 		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
 		editorID:    "mcp-install",
 		editorValue: a.mcpInstallInput,
@@ -345,7 +347,6 @@ func (a *App) viewMcpInstall() string {
 		status: statusRows,
 		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
 	})
-	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, innerW, exampleList, "", nil)
 	return rendered.modal
 }
 

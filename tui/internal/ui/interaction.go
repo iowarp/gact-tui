@@ -350,6 +350,8 @@ type textEntryModalOptions struct {
 	buttons      []menuButton
 	surfaceID    string
 	intro        []string
+	introList    modalListRender
+	introListW   int
 	editor       string
 	editorID     string
 	editorValue  string
@@ -637,6 +639,13 @@ func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender 
 	})
 	if opts.editorID != "" && opts.cursorAction != nil {
 		a.registerTextEntryCursorHits(rendered.modal, rendered.bodyRow+editorRow, opts.editorID, opts.editorValue, opts.cursorAction)
+	}
+	if len(opts.introList.hits) > 0 {
+		listW := opts.introListW
+		if listW <= 0 {
+			listW = modalInnerWidth(opts.width)
+		}
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, listW, opts.introList, "", nil)
 	}
 	if statusRow >= 0 && len(opts.statusHits) > 0 {
 		a.registerModalCellHits(rendered.modal, rendered.bodyRow+statusRow, opts.statusHits)
