@@ -1127,3 +1127,7 @@ Additional work continued from the same architectural direction:
 - Connection-error retry/quit buttons now have explicit regression coverage
   that their clickable hit targets sit on the shared modal header action row,
   matching the visual placement used by the other modal close/back controls.
+- Shared modal lists now support column-local hit geometry for dense one-line
+  lists. Help > Commands uses that shared primitive to render command entries
+  in two columns at normal modal widths, using more of the modal body while
+  preserving click-to-stage semantics for each visible command cell.

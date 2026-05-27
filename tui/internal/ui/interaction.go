@@ -251,11 +251,16 @@ type modalListOptions struct {
 	width            int
 	rowBudget        int
 	descriptionLines int
+	columns          int
+	columnGap        int
+	minColumnWidth   int
 }
 
 type modalListHit struct {
 	id     string
 	row    int
+	col    int
+	width  int
 	height int
 	action uiHitAction
 }
@@ -1132,6 +1137,9 @@ func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (st
 }
 
 func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
+	if opts.columns > 1 && opts.descriptionLines <= 0 {
+		return a.renderModalListColumns(items, opts)
+	}
 	t := a.Theme
 	width := opts.width
 	if width < 1 {
@@ -1152,38 +1160,7 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 			break
 		}
 		startRow := len(rows)
-		marker := "  "
-		titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
-		if item.disabled {
-			titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
-		}
-		if item.selected {
-			selectedMarker := item.selectedMarker
-			if selectedMarker == "" {
-				selectedMarker = "▌ "
-			}
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render(selectedMarker)
-			titleStyle = titleStyle.Foreground(t.Secondary)
-		}
-		line := marker + titleStyle.Render(item.title)
-		if item.disabled {
-			line += "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render("(disabled)")
-		}
-		if item.status != "" {
-			statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
-			if item.status == "connected" {
-				statusStyle = lipgloss.NewStyle().Foreground(t.Success).Bold(true)
-			}
-			line += "  " + statusStyle.Render("["+item.status+"]")
-		}
-		if item.meta != "" {
-			line += "  " + t.HintLabel.Italic(true).Render(item.meta)
-		}
-		row := truncate(line, width)
-		if item.selected {
-			row = lipgloss.NewStyle().Background(t.Bg).Width(width).Render(row)
-		}
-		rows = append(rows, row)
+		rows = append(rows, a.renderModalListItemLine(item, width))
 
 		if item.description != "" && descriptionLines > 0 {
 			descRows := wrapPlainRows(item.description, width-2, "")
@@ -1207,6 +1184,7 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 			hits = append(hits, modalListHit{
 				id:     item.id,
 				row:    startRow,
+				width:  width,
 				height: len(rows) - startRow,
 				action: item.action,
 			})
@@ -1215,9 +1193,118 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
 }
 
+func (a *App) renderModalListColumns(items []modalListItem, opts modalListOptions) modalListRender {
+	width := opts.width
+	if width < 1 {
+		width = 1
+	}
+	columns := opts.columns
+	if columns < 2 {
+		columns = 2
+	}
+	if columns > len(items) && len(items) > 0 {
+		columns = len(items)
+	}
+	gap := opts.columnGap
+	if gap <= 0 {
+		gap = 4
+	}
+	minColumnWidth := opts.minColumnWidth
+	if minColumnWidth <= 0 {
+		minColumnWidth = 28
+	}
+	for columns > 1 && (width-gap*(columns-1))/columns < minColumnWidth {
+		columns--
+	}
+	if columns <= 1 {
+		fallback := opts
+		fallback.columns = 1
+		return a.renderModalList(items, fallback)
+	}
+	columnWidth := (width - gap*(columns-1)) / columns
+	if columnWidth < 1 {
+		columnWidth = 1
+	}
+	rowBudget := opts.rowBudget
+	if rowBudget < 1 {
+		rowBudget = (len(items) + columns - 1) / columns
+	}
+	rowsNeeded := (len(items) + columns - 1) / columns
+	rowsToRender := minInt(rowBudget, rowsNeeded)
+	rows := make([]string, 0, rowsToRender)
+	hits := make([]modalListHit, 0, minInt(len(items), rowsToRender*columns))
+	gapText := strings.Repeat(" ", gap)
+	cellStyle := lipgloss.NewStyle().Width(columnWidth)
+	for row := 0; row < rowsToRender; row++ {
+		cells := make([]string, 0, columns)
+		for column := 0; column < columns; column++ {
+			idx := column*rowsToRender + row
+			cell := ""
+			if idx < len(items) {
+				item := items[idx]
+				cell = a.renderModalListItemLine(item, columnWidth)
+				if item.action != nil {
+					hits = append(hits, modalListHit{
+						id:     item.id,
+						row:    row,
+						col:    column * (columnWidth + gap),
+						width:  columnWidth,
+						height: 1,
+						action: item.action,
+					})
+				}
+			}
+			cells = append(cells, cellStyle.Render(cell))
+		}
+		rows = append(rows, strings.Join(cells, gapText))
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+func (a *App) renderModalListItemLine(item modalListItem, width int) string {
+	t := a.Theme
+	marker := "  "
+	titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	if item.disabled {
+		titleStyle = lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true)
+	}
+	if item.selected {
+		selectedMarker := item.selectedMarker
+		if selectedMarker == "" {
+			selectedMarker = "▌ "
+		}
+		marker = lipgloss.NewStyle().Foreground(t.Secondary).Render(selectedMarker)
+		titleStyle = titleStyle.Foreground(t.Secondary)
+	}
+	line := marker + titleStyle.Render(item.title)
+	if item.disabled {
+		line += "  " + lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render("(disabled)")
+	}
+	if item.status != "" {
+		statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
+		if item.status == "connected" {
+			statusStyle = lipgloss.NewStyle().Foreground(t.Success).Bold(true)
+		}
+		line += "  " + statusStyle.Render("["+item.status+"]")
+	}
+	if item.meta != "" {
+		line += "  " + t.HintLabel.Italic(true).Render(item.meta)
+	}
+	row := truncate(line, width)
+	if item.selected {
+		row = lipgloss.NewStyle().Background(t.Bg).Width(width).Render(row)
+	}
+	return row
+}
+
 func (a *App) registerModalListHits(modal string, rowOffset int, col int, width int, hits []modalListHit) {
 	for _, hit := range hits {
-		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, col, width, hit.height, hit.action)
+		hitCol := col + hit.col
+		hitWidth := width
+		if hit.width > 0 {
+			hitWidth = hit.width
+		}
+		a.registerModalContentHit(modal, hit.id, rowOffset+hit.row, hitCol, hitWidth, hit.height, hit.action)
 	}
 }
 
@@ -1230,6 +1317,8 @@ func offsetModalListHits(list modalListRender, rowOffset int) []modalListHit {
 		hits = append(hits, modalListHit{
 			id:     hit.id,
 			row:    rowOffset + hit.row,
+			col:    hit.col,
+			width:  hit.width,
 			height: hit.height,
 			action: hit.action,
 		})
@@ -1265,6 +1354,8 @@ func clipModalListToWindow(list modalListRender, win scrollWindow) modalListRend
 		visibleHits = append(visibleHits, modalListHit{
 			id:     hit.id,
 			row:    hitStart - win.start,
+			col:    hit.col,
+			width:  hit.width,
 			height: hitEnd - hitStart,
 			action: hit.action,
 		})
