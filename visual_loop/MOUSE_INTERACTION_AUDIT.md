@@ -66,6 +66,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Shared text-entry modals now register semantic cursor-position hit targets from the rendered editor row. Rename, add-context, and MCP-install clicks can place the cursor without each modal inventing coordinate math; MCP install now uses the same rune-indexed line editor as rename/context-add.
 - The visible footer `Ctrl+C quit` hint now registers a semantic target that opens the shared quit-confirmation modal instead of remaining keyboard-only.
 - Main input and expanded compose textareas now register semantic cursor-position targets, so mouse clicks place the editor cursor without delegating to opaque coordinate patches.
+- Expanded compose routes mouse wheel events into textarea cursor movement, so
+  long pasted drafts can be navigated by mouse instead of the overlay
+  swallowing wheel input.
 - Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.

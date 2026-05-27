@@ -1257,6 +1257,40 @@ func TestComposeTextareaClickPlacesCursor(t *testing.T) {
 	}
 }
 
+func TestComposeMouseWheelMovesTextareaCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue(strings.Join([]string{
+		"line 00", "line 01", "line 02", "line 03", "line 04",
+		"line 05", "line 06", "line 07", "line 08", "line 09",
+		"line 10", "line 11", "line 12", "line 13", "line 14",
+	}, "\n"))
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	startLine := a.compose.ta.Line()
+	rect := overlayMouseRect(a.viewCompose(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + rect.w/2,
+		Y:      rect.y + rect.h/2,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose wheel should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose wheel should keep compose open")
+	}
+	if got := a.compose.ta.Line(); got >= startLine {
+		t.Fatalf("wheel up should move the compose cursor upward, got line %d from %d", got, startLine)
+	}
+}
+
 func TestComposeOutsideClickUsesSharedCancelState(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
 	a := newReadyApp(sessions, nil)
