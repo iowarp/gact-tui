@@ -127,6 +127,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   transport and server ID, so removable servers remain one row each while
   preserving shared selectable-list hit targets, wheel behavior, and rail
   scrolling.
+- Row-local session, context, and conversation action menus now render through
+  the same dense inline metadata row shape as the migrated palettes/catalogs,
+  keeping keyboard shortcuts and action descriptions on one selectable row with
+  matching mouse hit targets.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

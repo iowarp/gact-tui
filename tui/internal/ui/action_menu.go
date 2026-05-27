@@ -108,17 +108,17 @@ func (a *App) renderActionMenu(opts actionMenuOptions) string {
 
 	rows := []string{a.Theme.HintLabel.Render(opts.contextLine), ""}
 	listStartRow := len(rows)
-	win := selectedItemWindow(len(opts.items), selected, a.modalListItemBudget(5, 2, 8))
+	win := selectedItemWindow(len(opts.items), selected, a.modalListItemBudget(5, 1, rowBudget))
 	listItems := make([]modalListItem, 0, win.end-win.start)
 	for i := win.start; i < win.end; i++ {
 		item := opts.items[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
-			id:          opts.prefix + ":" + item.id,
-			title:       item.title,
-			description: item.description,
-			status:      item.key,
-			selected:    i == selected,
+			id:       opts.prefix + ":" + item.id,
+			title:    item.title,
+			meta:     item.description,
+			status:   item.key,
+			selected: i == selected,
 			action: func(app *App) tea.Cmd {
 				if opts.selected != nil {
 					*opts.selected = idx
@@ -130,7 +130,7 @@ func (a *App) renderActionMenu(opts actionMenuOptions) string {
 	list := a.renderModalList(listItems, modalListOptions{
 		width:            listW,
 		rowBudget:        rowBudget,
-		descriptionLines: 1,
+		descriptionLines: 0,
 	})
 	rows = append(rows, list.rows...)
 
