@@ -302,6 +302,20 @@ func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcherUsesSharedInsetListWidth(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "workspace-switch:item:ws_a")
+	if !ok {
+		t.Fatal("missing workspace row hit target")
+	}
+	if got, want := target.rect.w, modalInsetListWidth(a.modalWidth()); got != want {
+		t.Fatalf("workspace row hit width = %d, want shared inset width %d", got, want)
+	}
+}
+
 func TestWorkspaceSwitcherUsesBoundedScrollWindow(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaces = nil

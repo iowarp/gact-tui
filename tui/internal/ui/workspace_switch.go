@@ -102,11 +102,7 @@ func (a *App) viewWorkspaceSwitch() string {
 	if len(a.workspaces) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
 	}
-	innerW := modalInnerWidth(w)
-	listW := innerW - 4
-	if listW < 1 {
-		listW = innerW
-	}
+	listW := modalInsetListWidth(w)
 	itemBudget := a.modalListItemBudget(4, 1, workspaceSwitchMaxItems)
 	win := selectedItemWindow(len(a.workspaces), a.workspaceSwitchSel, itemBudget)
 	listStartRow := len(rows)

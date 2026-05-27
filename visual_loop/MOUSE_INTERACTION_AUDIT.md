@@ -212,8 +212,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   policy drift.
 - Inset selectable-list regions now reuse `modalInsetListWidth` across action
   menus, file picker, MCP remove, command/search palettes, and catalog
-  browsers, so row rendering, row hit targets, and scroll rails share the same
-  frame padding policy instead of each modal carrying local `w - 8` math.
+  browsers, and workspace switch, so row rendering, row hit targets, and scroll
+  rails share the same frame padding policy instead of each modal carrying local
+  `w - 8` math.
 - Expanded compose textarea rendering and mouse-wheel regions now use
   `modalTextAreaWidth`, derived from the shared modal inner width, so editor
   layout and render-time hit registration stay tied to one modal chrome policy.
