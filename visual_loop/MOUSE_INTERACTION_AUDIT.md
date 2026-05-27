@@ -146,6 +146,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Tool detail annotations now render as a typed Safety hints section instead
   of raw JSON, keeping MCP/built-in tool metadata readable while preserving
   copyable full detail text.
+- Help > Commands now renders through the shared dense modal list row shape and
+  registers semantic row targets. Clicking a command stages that slash command
+  in the input instead of executing it, giving mouse users a safe command entry
+  path from Help.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

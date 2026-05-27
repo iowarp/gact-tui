@@ -9252,10 +9252,45 @@ func (a *App) viewHelp() string {
 	if idx < 0 || idx >= len(helpTabs) {
 		idx = 0
 	}
-	rows := make([]string, 0, len(helpTabs[idx].keys))
-	for _, kp := range helpTabs[idx].keys {
-		rows = append(rows,
-			t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
+	var (
+		content      string
+		commandList  modalListRender
+		commandTab   = helpTabs[idx].title == "Commands"
+		commandWidth = w - 4
+	)
+	if commandTab {
+		items := make([]modalListItem, 0, len(helpTabs[idx].keys))
+		for _, kp := range helpTabs[idx].keys {
+			command := kp.key
+			items = append(items, modalListItem{
+				id:    "help:command:" + strings.TrimPrefix(command, "/"),
+				title: command,
+				meta:  a.localizer.t(kp.descID, nil),
+				action: func(app *App) tea.Cmd {
+					app.helpOpen = false
+					app.helpScroll = 0
+					app.focus = FocusInput
+					app.input.Focus()
+					app.input.SetValue(command)
+					app.input.CursorEnd()
+					app.transientHint = "command staged: " + command
+					return nil
+				},
+			})
+		}
+		commandList = a.renderModalList(items, modalListOptions{
+			width:            commandWidth,
+			rowBudget:        len(items),
+			descriptionLines: 0,
+		})
+		content = lipgloss.JoinVertical(lipgloss.Left, commandList.rows...)
+	} else {
+		rows := make([]string, 0, len(helpTabs[idx].keys))
+		for _, kp := range helpTabs[idx].keys {
+			rows = append(rows,
+				t.HintKey.Render(kp.key)+"  "+t.HintLabel.Render(a.localizer.t(kp.descID, nil)))
+		}
+		content = lipgloss.JoinVertical(lipgloss.Left, rows...)
 	}
 	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
 		app.helpOpen = false
@@ -9272,7 +9307,7 @@ func (a *App) viewHelp() string {
 			tabPadding: 1,
 			tabSpacing: 0,
 		},
-		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
+		content:     content,
 		pageSize:    a.helpBodyPageSize(),
 		scroll:      a.helpScroll,
 		wheelID:     "help",
@@ -9288,6 +9323,21 @@ func (a *App) viewHelp() string {
 		},
 	})
 	a.helpScroll = rendered.window.scroll
+	if commandTab && len(commandList.hits) > 0 {
+		var visibleHits []modalListHit
+		for _, hit := range commandList.hits {
+			if hit.row < rendered.window.start || hit.row >= rendered.window.end {
+				continue
+			}
+			visibleHits = append(visibleHits, modalListHit{
+				id:     hit.id,
+				row:    hit.row - rendered.window.start,
+				height: minInt(hit.height, rendered.window.end-hit.row),
+				action: hit.action,
+			})
+		}
+		a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, commandWidth, visibleHits)
+	}
 	return rendered.modal
 }
 
