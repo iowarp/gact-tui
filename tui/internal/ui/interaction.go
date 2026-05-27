@@ -510,6 +510,25 @@ func (a *App) registerScrollableModalRowHits(rendered modalFrameRender, win scro
 	}
 }
 
+func scrollableModalRowDetailFooter(base string, hits []modalRowHit) string {
+	if len(hits) == 0 {
+		return base
+	}
+	const detailHint = "click row details"
+	if strings.Contains(base, detailHint) {
+		return base
+	}
+	if strings.TrimSpace(base) == "" {
+		return detailHint
+	}
+	for _, marker := range []string{"  r ", "  Esc "} {
+		if strings.Contains(base, marker) {
+			return strings.Replace(base, marker, "  "+detailHint+marker, 1)
+		}
+	}
+	return base + "  " + detailHint
+}
+
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
 	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
 	rows = appendModalTextRows(rows, opts.intro...)

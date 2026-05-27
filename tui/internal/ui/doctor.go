@@ -162,7 +162,7 @@ func (a *App) viewDoctor() string {
 	}
 	var body string
 	var rowHits []modalRowHit
-	footerHint := "Tab view  Up/Down scroll  r refresh  Esc close"
+	baseFooterHint := "Tab view  Up/Down scroll  r refresh  Esc close"
 	switch {
 	case a.doctor.loading:
 		body = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
@@ -175,16 +175,11 @@ func (a *App) viewDoctor() string {
 	case a.doctor.tab == doctorTabCapabilities:
 		body = renderDoctorCapabilities(a.doctor.caps, t, innerW)
 		rowHits = a.doctorCapabilityRowHits()
-		if len(rowHits) > 0 {
-			footerHint = "Tab view  Up/Down scroll  click row details  r refresh  Esc close"
-		}
 	default:
 		body = renderDoctorBody(a.doctor.health, t, innerW)
 		rowHits = a.doctorHealthRowHits(innerW)
-		if len(rowHits) > 0 {
-			footerHint = "Tab view  Up/Down scroll  click row details  r refresh  Esc close"
-		}
 	}
+	footerHint := scrollableModalRowDetailFooter(baseFooterHint, rowHits)
 
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
