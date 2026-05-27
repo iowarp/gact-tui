@@ -4878,7 +4878,7 @@ func TestMcpRemoveTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 }
 
-func TestMcpRemoveDescriptionRowUsesSameSemanticHit(t *testing.T) {
+func TestMcpRemoveRowsUseDenseInlineMetadata(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
 	a.height = 36
@@ -4894,18 +4894,22 @@ func TestMcpRemoveDescriptionRowUsesSameSemanticHit(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic MCP remove row target")
 	}
-	if target.rect.h < 2 {
-		t.Fatalf("MCP remove target height = %d, want title and description rows", target.rect.h)
+	if target.rect.h != 1 {
+		t.Fatalf("MCP remove target height = %d, want dense one-line row", target.rect.h)
+	}
+	out := ansi.Strip(a.viewMcpRemove())
+	if !strings.Contains(out, "two  [http]  srv_two") {
+		t.Fatalf("MCP remove row should render server id inline:\n%s", out)
 	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      target.rect.x,
-		Y:      target.rect.y + target.rect.h - 1,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
 
 	if a.mcpRemoveSel != 1 || !a.mcpRemoveSaving || cmd == nil {
-		t.Fatalf("description-row click should remove row 1, sel=%d saving=%v cmd=%v", a.mcpRemoveSel, a.mcpRemoveSaving, cmd)
+		t.Fatalf("dense row click should remove row 1, sel=%d saving=%v cmd=%v", a.mcpRemoveSel, a.mcpRemoveSaving, cmd)
 	}
 }
 

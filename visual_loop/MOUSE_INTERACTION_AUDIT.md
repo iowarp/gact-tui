@@ -123,6 +123,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   descriptions and current-state chips. Command rows now fit one per line,
   preserving semantic row hit targets while showing more commands in the same
   stable modal frame.
+- The MCP removal picker now uses the same inline metadata row shape for
+  transport and server ID, so removable servers remain one row each while
+  preserving shared selectable-list hit targets, wheel behavior, and rail
+  scrolling.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

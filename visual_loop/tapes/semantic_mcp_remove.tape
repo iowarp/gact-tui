@@ -6,7 +6,7 @@ Set Width 1500
 Set Height 900
 
 Hide
-Type "./tui/gact --backend http://127.0.0.1:41919 --no-intro"
+Type "bash visual_loop/run_seeded_sidebar.sh"
 Enter
 Show
 

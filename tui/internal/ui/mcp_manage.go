@@ -373,7 +373,7 @@ func (a *App) viewMcpRemove() string {
 		},
 	}
 	rows := []string{}
-	itemBudget := a.modalListItemBudget(6, 2, mcpRemoveMaxItems)
+	itemBudget := a.modalListItemBudget(6, 1, mcpRemoveMaxItems)
 	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
 	listStartRow := len(rows)
 	listItems := make([]modalListItem, 0, win.end-win.start)
@@ -381,11 +381,11 @@ func (a *App) viewMcpRemove() string {
 		server := a.mcpRemoveOptions[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
-			id:          fmt.Sprintf("mcp-remove:item:%d", idx),
-			title:       server.Name,
-			description: server.ID,
-			status:      server.Transport,
-			selected:    i == a.mcpRemoveSel,
+			id:       fmt.Sprintf("mcp-remove:item:%d", idx),
+			title:    server.Name,
+			meta:     server.ID,
+			status:   server.Transport,
+			selected: i == a.mcpRemoveSel,
 			action: func(app *App) tea.Cmd {
 				app.mcpRemoveSel = idx
 				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
@@ -395,8 +395,8 @@ func (a *App) viewMcpRemove() string {
 	}
 	list := a.renderModalList(listItems, modalListOptions{
 		width:            listW,
-		rowBudget:        itemBudget * 2,
-		descriptionLines: 1,
+		rowBudget:        itemBudget,
+		descriptionLines: 0,
 	})
 	if len(list.rows) > 0 {
 		rows = append(rows, list.rows...)
