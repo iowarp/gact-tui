@@ -905,18 +905,28 @@ func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, w
 	}
 
 	lines := strings.Split(padded, "\n")
-	trackRows := len(lines)
-	if trackRows < 1 {
+	lines, ok := a.renderSideScrollIndicator(lines, contentW, win)
+	if !ok {
 		return padded
 	}
-	thumbRows := trackRows * maxInt(1, win.end-win.start) / maxInt(1, win.total)
+	return strings.Join(lines, "\n")
+}
+
+func (a *App) renderSideScrollIndicator(lines []string, contentW int, win scrollWindow) ([]string, bool) {
+	trackRows := len(lines)
+	visible := maxInt(1, win.end-win.start)
+	if trackRows < 1 || contentW < 4 || win.total <= visible {
+		return lines, false
+	}
+	out := append([]string(nil), lines...)
+	thumbRows := trackRows * visible / maxInt(1, win.total)
 	if thumbRows < 1 {
 		thumbRows = 1
 	}
 	if thumbRows > trackRows {
 		thumbRows = trackRows
 	}
-	maxScroll := win.total - maxInt(1, win.end-win.start)
+	maxScroll := win.total - visible
 	maxThumbStart := trackRows - thumbRows
 	thumbStart := 0
 	if maxScroll > 0 && maxThumbStart > 0 {
@@ -930,9 +940,9 @@ func (a *App) renderScrollableModalBody(body string, rows int, modalWidth int, w
 		if i >= thumbStart && i < thumbStart+thumbRows {
 			marker = thumbStyle.Render("┃")
 		}
-		lines[i] = fitANSI(line, contentW) + " " + marker
+		out[i] = fitANSI(line, contentW) + " " + marker
 	}
-	return strings.Join(lines, "\n")
+	return out, true
 }
 
 func (a *App) registerModalSurfaceAndBodyWheel(rendered modalFrameRender, id string, bodyRows int, action uiWheelAction) {

@@ -46,6 +46,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - LM provider setup's save action now uses the shared modal button renderer,
   disabled-button policy, centered action-row geometry, and `button:*` hit
   namespace instead of a separate bordered body control.
+- LM provider/model list boxes now reuse the shared side-scroll rail renderer
+  used by scrollable modals, so provider setup no longer carries a separate
+  thumb/track drawing path for list overflow.
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.
 - Palette command rows now avoid showing the command name again as the description; they prefer useful descriptions, then non-duplicate titles, then source fallback.
 - Scrollable modals now use a shared side rail/thumb instead of footer/title line-range text, and the catalog browser reuses that affordance instead of adding textual `above` / `more` rows.

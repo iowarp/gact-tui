@@ -610,6 +610,30 @@ func TestDisabledModalButtonsDoNotRegisterHits(t *testing.T) {
 	}
 }
 
+func TestSideScrollIndicatorSharedRailRendering(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	lines := []string{"alpha", "beta", "gamma", "delta"}
+	got, ok := a.renderSideScrollIndicator(lines, 8, scrollWindow{start: 3, end: 7, total: 12})
+	if !ok {
+		t.Fatal("expected shared side rail to render for overflowed content")
+	}
+	plain := ansi.Strip(strings.Join(got, "\n"))
+	if !strings.Contains(plain, "│") || !strings.Contains(plain, "┃") {
+		t.Fatalf("shared side rail should render track and thumb:\n%s", plain)
+	}
+	if strings.Contains(strings.Join(lines, "\n"), "┃") {
+		t.Fatal("shared side rail should not mutate the input lines")
+	}
+
+	unchanged, ok := a.renderSideScrollIndicator(lines, 8, scrollWindow{start: 0, end: 4, total: 4})
+	if ok {
+		t.Fatal("non-overflowing content should not render a rail")
+	}
+	if strings.Join(unchanged, "\n") != strings.Join(lines, "\n") {
+		t.Fatalf("non-overflowing lines changed: %#v", unchanged)
+	}
+}
+
 func TestModalActionRowAppendsAndRegistersConsistently(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
