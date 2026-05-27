@@ -986,6 +986,49 @@ func TestSelectableListModalRegistersSemanticRailTargets(t *testing.T) {
 	}
 }
 
+func TestSelectableListModalRoutesRowsThroughSharedListRegionWithoutWheel(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	clicked := false
+	list := modalListRender{
+		rows: []string{"  Alpha"},
+		hits: []modalListHit{{
+			id:     "list:item:alpha",
+			row:    0,
+			height: 1,
+			action: func(*App) tea.Cmd {
+				clicked = true
+				return nil
+			},
+		}},
+	}
+
+	a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width: 60,
+			title: "List",
+		},
+		rows:      list.rows,
+		list:      list,
+		listStart: 0,
+		listWidth: 48,
+		bodyRows:  1,
+	})
+
+	target, ok := findHitTargetForTest(a, "list:item:alpha")
+	if !ok {
+		t.Fatal("missing selectable list row target")
+	}
+	if _, ok := findHitTargetForTest(a, "selectable:list:wheel"); ok {
+		t.Fatal("selectable list without wheel id should not register a wheel target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("row target should handle click through shared list region, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

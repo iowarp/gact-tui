@@ -265,6 +265,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Settings list tabs now reuse the shared modal-list hit offset helper when
   merging tab-local row hits into the padded Settings body, removing a
   settings-only row-offset loop while preserving shared body wheel behavior.
+- Shared selectable-list modals now route row hits through
+  `registerModalListRegion` even when a list has no wheel target, removing the
+  last row-hit-only branch inside the shared list modal renderer.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
