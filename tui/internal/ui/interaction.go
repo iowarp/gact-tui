@@ -517,11 +517,17 @@ func appendModalTextRows(rows []string, blocks ...string) []string {
 }
 
 func (a *App) registerTextEntryCursorHits(modal string, row int, id string, value string, action func(*App, int)) {
+	a.registerInlineCursorHits(modal, row, id, lipgloss.Width("> "), value, action)
+}
+
+func (a *App) registerInlineCursorHits(modal string, row int, id string, prefixWidth int, value string, action func(*App, int)) {
 	runes := []rune(value)
-	promptWidth := lipgloss.Width("> ")
+	if prefixWidth < 0 {
+		prefixWidth = 0
+	}
 	for cursor := 0; cursor <= len(runes); cursor++ {
 		idx := cursor
-		col := promptWidth + lipgloss.Width(string(runes[:cursor]))
+		col := prefixWidth + lipgloss.Width(string(runes[:cursor]))
 		a.registerModalContentHit(modal, "text-entry:"+id+":cursor:"+itoa2(idx), row, col, 1, 1, func(app *App) tea.Cmd {
 			action(app, idx)
 			return nil

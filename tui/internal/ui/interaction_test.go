@@ -2626,6 +2626,93 @@ func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
 	}
 }
 
+func TestPaletteFilterEditsAtCursor(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/tme"
+	a.paletteCursor = 2
+	a.paletteCursorSet = true
+	a.paletteSel = 3
+	a.searching = true
+	a.searchMatches = []client.SearchMatch{{MessageID: "m1", Snippet: "stale"}}
+
+	a.handlePaletteKey(textKeyMsg("he"))
+
+	if a.paletteFilter != "/theme" {
+		t.Fatalf("paletteFilter = %q, want /theme", a.paletteFilter)
+	}
+	if a.paletteCursor != len("/the") {
+		t.Fatalf("paletteCursor = %d, want %d", a.paletteCursor, len("/the"))
+	}
+	if a.paletteSel != 0 || a.searching || len(a.searchMatches) != 0 {
+		t.Fatalf("filter edit should reset selection/search state, sel=%d searching=%v matches=%d", a.paletteSel, a.searching, len(a.searchMatches))
+	}
+}
+
+func TestPaletteFilterClickPlacesCursor(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/theme"
+	a.paletteCursor = len(a.paletteFilter)
+	a.paletteCursorSet = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:palette-filter:cursor:2")
+	if !ok {
+		t.Fatal("missing palette filter cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("palette filter cursor click should not dispatch")
+	}
+	if a.paletteCursor != 2 {
+		t.Fatalf("paletteCursor = %d, want 2", a.paletteCursor)
+	}
+	if !a.paletteOpen {
+		t.Fatal("palette filter cursor click should keep palette open")
+	}
+}
+
+func TestPaletteSearchQueryClickPlacesCursorAfterHiddenQuestionMark(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "?needle"
+	a.paletteCursor = len(a.paletteFilter)
+	a.paletteCursorSet = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:palette-search-query:cursor:2")
+	if !ok {
+		t.Fatal("missing palette search query cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("palette search query cursor click should not dispatch")
+	}
+	if a.paletteCursor != 3 {
+		t.Fatalf("paletteCursor = %d, want 3 (cursor 2 after hidden ? prefix)", a.paletteCursor)
+	}
+}
+
 func TestPaletteMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

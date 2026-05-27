@@ -347,11 +347,13 @@ type App struct {
 	// the palette switches to message-search mode: Enter submits the
 	// query (everything after "?"), results replace the matches list,
 	// a second Enter jumps the conversation viewport to the hit.
-	paletteOpen   bool
-	paletteFilter string
-	paletteSel    int
-	searchMatches []client.SearchMatch
-	searching     bool // true while the SearchMessages cmd is in flight
+	paletteOpen      bool
+	paletteFilter    string
+	paletteCursor    int
+	paletteCursorSet bool
+	paletteSel       int
+	searchMatches    []client.SearchMatch
+	searching        bool // true while the SearchMessages cmd is in flight
 
 	// Help overlay
 	helpOpen   bool
@@ -2574,6 +2576,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if searchMode {
 		rowCount = len(a.searchMatches)
 	}
+	a.clampPaletteCursor()
 
 	switch k.String() {
 	case "esc", "ctrl+c":
@@ -2733,6 +2736,8 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if cmd.ID == "/sessions" {
 				a.paletteOpen = false
 				a.paletteFilter = ""
+				a.paletteCursor = 0
+				a.paletteCursorSet = false
 				a.paletteSel = 0
 				a.enterSidebarFilter(true)
 				return a, nil
@@ -2840,20 +2845,86 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(extraCmds...)
 		}
 	case "backspace":
-		if len(a.paletteFilter) > 0 {
-			a.paletteFilter = a.paletteFilter[:len(a.paletteFilter)-1]
-			a.paletteSel = 0
-			// Any edit invalidates a previously-fetched result list.
-			a.searchMatches = nil
+		if a.paletteCursor > 0 {
+			runes := []rune(a.paletteFilter)
+			runes = append(runes[:a.paletteCursor-1], runes[a.paletteCursor:]...)
+			a.paletteFilter = string(runes)
+			a.paletteCursor--
+			a.resetPaletteAfterFilterEdit()
 		}
+	case "delete":
+		runes := []rune(a.paletteFilter)
+		if a.paletteCursor < len(runes) {
+			runes = append(runes[:a.paletteCursor], runes[a.paletteCursor+1:]...)
+			a.paletteFilter = string(runes)
+			a.resetPaletteAfterFilterEdit()
+		}
+	case "left":
+		a.paletteCursorSet = true
+		if a.paletteCursor > 0 {
+			a.paletteCursor--
+		}
+	case "right":
+		a.paletteCursorSet = true
+		if a.paletteCursor < len([]rune(a.paletteFilter)) {
+			a.paletteCursor++
+		}
+	case "home", "ctrl+a":
+		a.paletteCursorSet = true
+		a.paletteCursor = 0
+	case "end", "ctrl+e":
+		a.paletteCursorSet = true
+		a.paletteCursor = len([]rune(a.paletteFilter))
 	default:
 		if k.Text != "" {
-			a.paletteFilter += k.Text
-			a.paletteSel = 0
-			a.searchMatches = nil
+			runes := []rune(a.paletteFilter)
+			insert := []rune(k.Text)
+			out := make([]rune, 0, len(runes)+len(insert))
+			out = append(out, runes[:a.paletteCursor]...)
+			out = append(out, insert...)
+			out = append(out, runes[a.paletteCursor:]...)
+			a.paletteFilter = string(out)
+			a.paletteCursor += len(insert)
+			a.resetPaletteAfterFilterEdit()
 		}
 	}
 	return a, nil
+}
+
+func (a *App) clampPaletteCursor() {
+	if !a.paletteCursorSet && a.paletteFilter != "" {
+		a.paletteCursor = len([]rune(a.paletteFilter))
+	}
+	a.paletteCursorSet = true
+	max := len([]rune(a.paletteFilter))
+	if a.paletteCursor < 0 {
+		a.paletteCursor = 0
+	}
+	if a.paletteCursor > max {
+		a.paletteCursor = max
+	}
+}
+
+func (a *App) paletteCursorValue() int {
+	if !a.paletteCursorSet && a.paletteFilter != "" {
+		return len([]rune(a.paletteFilter))
+	}
+	cursor := a.paletteCursor
+	if cursor < 0 {
+		return 0
+	}
+	max := len([]rune(a.paletteFilter))
+	if cursor > max {
+		return max
+	}
+	return cursor
+}
+
+func (a *App) resetPaletteAfterFilterEdit() {
+	a.paletteCursorSet = true
+	a.paletteSel = 0
+	a.searchMatches = nil
+	a.searching = false
 }
 
 // closePalette resets all palette state — same dance is needed in three
@@ -2861,6 +2932,8 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (a *App) closePalette() {
 	a.paletteOpen = false
 	a.paletteFilter = ""
+	a.paletteCursor = 0
+	a.paletteCursorSet = false
 	a.paletteSel = 0
 	a.searchMatches = nil
 	a.searching = false
@@ -4105,6 +4178,8 @@ func (a *App) toggleArchivedView() tea.Cmd {
 func (a *App) openCommandPalette() {
 	a.paletteOpen = true
 	a.paletteFilter = ""
+	a.paletteCursor = 0
+	a.paletteCursorSet = true
 	a.paletteSel = 0
 }
 
@@ -8695,8 +8770,10 @@ func (a *App) viewPalette() string {
 
 	matches := a.paletteMatches()
 	buttons := a.paletteCloseButtons()
+	filterPrefix := a.localizer.t(msgPaletteFilter, nil) + " "
+	filterCursor := a.paletteCursorValue()
 	rows := []string{
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteFilter, nil) + " " + a.paletteFilter + "_"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(filterPrefix + renderPaletteCursorEditor(a.paletteFilter, filterCursor)),
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteSearchHint, nil)),
 		"",
 	}
@@ -8761,6 +8838,12 @@ func (a *App) viewPalette() string {
 			return nil
 		},
 	})
+	if rendered.bodyRow >= 0 {
+		a.registerInlineCursorHits(rendered.modal, rendered.bodyRow, "palette-filter", lipgloss.Width(filterPrefix), a.paletteFilter, func(app *App, cursor int) {
+			app.paletteCursor = cursor
+			app.paletteCursorSet = true
+		})
+	}
 	return rendered.modal
 }
 
@@ -8793,7 +8876,16 @@ func samePaletteCommandText(a, b string) bool {
 //  3. results loaded — render each match with msg id + snippet
 func (a *App) viewPaletteSearch(w int) string {
 	t := a.Theme
-	query := strings.TrimSpace(a.paletteFilter[1:])
+	queryRaw := strings.TrimPrefix(a.paletteFilter, "?")
+	query := strings.TrimSpace(queryRaw)
+	queryCursor := a.paletteCursorValue() - 1
+	queryRunes := []rune(queryRaw)
+	if queryCursor < 0 {
+		queryCursor = 0
+	}
+	if queryCursor > len(queryRunes) {
+		queryCursor = len(queryRunes)
+	}
 	listStartRow := -1
 	var list modalListRender
 	win := scrollWindow{total: len(a.searchMatches)}
@@ -8802,8 +8894,9 @@ func (a *App) viewPaletteSearch(w int) string {
 		listW = w - 4
 	}
 	buttons := a.paletteCloseButtons()
+	queryPrefix := a.localizer.t(msgPaletteQuery, nil) + " "
 	rows := []string{
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteQuery, nil) + " " + query + "_"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(queryPrefix + renderPaletteCursorEditor(queryRaw, queryCursor)),
 		"",
 	}
 	switch {
@@ -8872,7 +8965,26 @@ func (a *App) viewPaletteSearch(w int) string {
 			return nil
 		},
 	})
+	if rendered.bodyRow >= 0 {
+		a.registerInlineCursorHits(rendered.modal, rendered.bodyRow, "palette-search-query", lipgloss.Width(queryPrefix), queryRaw, func(app *App, cursor int) {
+			if strings.HasPrefix(app.paletteFilter, "?") {
+				app.paletteCursor = cursor + 1
+				app.paletteCursorSet = true
+			}
+		})
+	}
 	return rendered.modal
+}
+
+func renderPaletteCursorEditor(value string, cursor int) string {
+	runes := []rune(value)
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(runes) {
+		cursor = len(runes)
+	}
+	return string(runes[:cursor]) + "_" + string(runes[cursor:])
 }
 
 // shortID truncates a message ID for display (e.g. "msg_1a2b3c4d…").
