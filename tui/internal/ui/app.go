@@ -507,6 +507,7 @@ type App struct {
 	sidebarContextCollapsed  bool
 	sidebarSectionFocus      sidebarSection
 	sidebarSectionCursor     bool
+	sidebarModuleIDs         []sidebarModuleID
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -3941,9 +3942,13 @@ func (a *App) firstVisibleSessionIndex() int {
 }
 
 func (a *App) sidebarSections() []sidebarSection {
-	sections := []sidebarSection{sidebarSectionSessions}
-	if a.hasContextSection() {
-		sections = append(sections, sidebarSectionContext)
+	modules := a.sidebarModules()
+	sections := make([]sidebarSection, 0, len(modules))
+	for _, module := range modules {
+		if module.Disabled {
+			continue
+		}
+		sections = append(sections, module.Definition.Section)
 	}
 	return sections
 }
@@ -7530,7 +7535,7 @@ func (a *App) renderSidebar(width, height int) string {
 	// the title so the narrower view is visible even after the
 	// transient hint fades. Two mutually-non-exclusive filters —
 	// if both d and b were on, stacked suffix.
-	titleText := a.localizer.t(msgSidebarTitle, nil)
+	titleText := a.sidebarModuleTitle(sidebarModuleSessions)
 	switch {
 	case a.showDetachedOnly && a.showBusyOnly:
 		titleText = a.localizer.t(msgSidebarTitleDetachedBusy, nil)
@@ -7713,8 +7718,13 @@ func (a *App) renderSidebar(width, height int) string {
 			Render(" "+a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": len(visIdx) - endIdx})))
 	}
 
+	for _, module := range a.sidebarDisabledModules() {
+		rows = append(rows, "")
+		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+	}
+
 	// CONTEXT section — show files in the current session's context.
-	if a.selected >= 0 && a.selected < len(a.sessions) {
+	if a.sidebarHasEnabledModule(sidebarModuleContext) && a.selected >= 0 && a.selected < len(a.sessions) {
 		contextLines := a.sidebarContextRowCount()
 		footerLines := 0
 		if len(a.sessions) > 0 {
@@ -7735,7 +7745,7 @@ func (a *App) renderSidebar(width, height int) string {
 					Render(" " + a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": moreCount}))
 			}
 		}
-		contextTitle := a.localizer.t(msgSidebarContext, nil)
+		contextTitle := a.sidebarModuleTitle(sidebarModuleContext)
 		contextDisclosure := "▾ "
 		if a.sidebarContextCollapsed {
 			contextDisclosure = "▸ "
