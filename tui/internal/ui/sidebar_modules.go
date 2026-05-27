@@ -57,6 +57,45 @@ func defaultSidebarModuleIDs() []sidebarModuleID {
 	return []sidebarModuleID{sidebarModuleSessions, sidebarModuleContext}
 }
 
+func sidebarModuleIDsFromStrings(ids []string) []sidebarModuleID {
+	out := make([]sidebarModuleID, 0, len(ids))
+	seen := make(map[sidebarModuleID]bool, len(ids))
+	for _, raw := range ids {
+		id := sidebarModuleID(strings.TrimSpace(raw))
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+func sidebarModuleIDStrings(ids []sidebarModuleID) []string {
+	if len(ids) == 0 {
+		ids = defaultSidebarModuleIDs()
+	}
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if s := strings.TrimSpace(string(id)); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// SetSidebarModuleIDs applies a persisted, human-editable sidebar module
+// ordering. Unknown module ids remain in the layout and render disabled.
+func (a *App) SetSidebarModuleIDs(ids []string) {
+	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(ids)
+}
+
+// SidebarModuleIDs returns the effective left-sidebar module order using
+// stable config ids.
+func (a *App) SidebarModuleIDs() []string {
+	return sidebarModuleIDStrings(a.sidebarModuleIDs)
+}
+
 func resolveSidebarModules(ids []sidebarModuleID, registry map[sidebarModuleID]sidebarModuleDefinition) []resolvedSidebarModule {
 	if len(ids) == 0 {
 		ids = defaultSidebarModuleIDs()

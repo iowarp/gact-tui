@@ -35,6 +35,36 @@ func TestResolveSidebarModulesKeepsUnknownModulesDisabled(t *testing.T) {
 	}
 }
 
+func TestSetSidebarModuleIDsNormalizesConfigIDs(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarModuleIDs([]string{" context ", "", "sessions", "context", "future-tools"})
+
+	got := a.SidebarModuleIDs()
+	want := []string{"context", "sessions", "future-tools"}
+	if len(got) != len(want) {
+		t.Fatalf("module ids = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("module ids = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestSidebarModuleIDsReturnDefaultOrder(t *testing.T) {
+	a := New("http://unused")
+	got := a.SidebarModuleIDs()
+	want := []string{"sessions", "context"}
+	if len(got) != len(want) {
+		t.Fatalf("module ids = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("module ids = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestSidebarSectionsFollowAvailableModules(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = nil
@@ -56,7 +86,7 @@ func TestSidebarSectionsFollowConfiguredModuleOrder(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
 	a.selected = 0
-	a.sidebarModuleIDs = []sidebarModuleID{sidebarModuleContext, sidebarModuleSessions}
+	a.SetSidebarModuleIDs([]string{"context", "sessions"})
 
 	got := a.sidebarSections()
 	if len(got) != 2 || got[0] != sidebarSectionContext || got[1] != sidebarSectionSessions {
@@ -71,7 +101,7 @@ func TestSidebarRendersUnknownConfiguredModuleAsDisabled(t *testing.T) {
 	a.height = 24
 	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
 	a.selected = 0
-	a.sidebarModuleIDs = []sidebarModuleID{sidebarModuleSessions, "future-tools", sidebarModuleContext}
+	a.SetSidebarModuleIDs([]string{"sessions", "future-tools", "context"})
 
 	out := ansi.Strip(a.renderSidebar(42, 20))
 	if !strings.Contains(out, "future-tools") || !strings.Contains(out, "unknown module") {
