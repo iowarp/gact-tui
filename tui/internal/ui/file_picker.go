@@ -262,7 +262,7 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// that interpret @-refs directly. Reuses K14's
 		// addContextFileCmd so sidebar CONTEXT updates the same way.
 		if sid := a.currentSessionID(); sid != "" {
-			return a, addContextFileCmd(a.c, sid, selected.Path)
+			return a, addContextFileCmd(a.c, sid, selected.Path, "read")
 		}
 		return a, nil
 	case "backspace":

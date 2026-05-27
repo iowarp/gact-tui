@@ -6,15 +6,55 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
+var contextAddModes = []string{"read", "edit", "pin"}
+
 func (a *App) closeContextAddModal() {
 	a.contextAddOpen = false
 	a.contextAddDraft = ""
 	a.contextAddCursor = 0
+	a.contextAddMode = ""
+}
+
+func (a *App) contextAddModeValue() string {
+	mode := strings.TrimSpace(a.contextAddMode)
+	for _, candidate := range contextAddModes {
+		if mode == candidate {
+			return mode
+		}
+	}
+	return "read"
+}
+
+func (a *App) setContextAddMode(mode string) {
+	for _, candidate := range contextAddModes {
+		if mode == candidate {
+			a.contextAddMode = mode
+			return
+		}
+	}
+	a.contextAddMode = "read"
+}
+
+func (a *App) cycleContextAddMode(delta int) {
+	active := a.contextAddModeValue()
+	idx := 0
+	for i, candidate := range contextAddModes {
+		if candidate == active {
+			idx = i
+			break
+		}
+	}
+	next := (idx + delta) % len(contextAddModes)
+	if next < 0 {
+		next += len(contextAddModes)
+	}
+	a.contextAddMode = contextAddModes[next]
 }
 
 // handleContextAddKey drives the inline "add to context" prompt —
@@ -28,6 +68,12 @@ func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "enter":
 		return a.commitContextAdd()
+	case "tab":
+		a.cycleContextAddMode(1)
+		return a, nil
+	case "shift+tab":
+		a.cycleContextAddMode(-1)
+		return a, nil
 	case "backspace":
 		if a.contextAddCursor == 0 {
 			return a, nil
@@ -81,6 +127,7 @@ func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // would 400 the backend anyway.
 func (a *App) commitContextAdd() (tea.Model, tea.Cmd) {
 	path := strings.TrimSpace(a.contextAddDraft)
+	mode := a.contextAddModeValue()
 	a.closeContextAddModal()
 	if path == "" {
 		a.transientHint = "add cancelled (empty path)"
@@ -90,18 +137,18 @@ func (a *App) commitContextAdd() (tea.Model, tea.Cmd) {
 	if sid == "" {
 		return a, nil
 	}
-	return a, addContextFileCmd(a.c, sid, path)
+	return a, addContextFileCmd(a.c, sid, path, mode)
 }
 
 // addContextFileCmd POSTs the file to /v1/sessions/{id}/context/files.
 // Returns contextFileAddedMsg; on success the handler folds the new
 // entry into a.contextFiles so the sidebar updates without a list
 // refetch.
-func addContextFileCmd(c *client.Client, sessionID, path string) tea.Cmd {
+func addContextFileCmd(c *client.Client, sessionID, path, mode string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		cf, err := c.AddContextFile(ctx, sessionID, path, "read")
+		cf, err := c.AddContextFile(ctx, sessionID, path, mode)
 		return contextFileAddedMsg{sessionID: sessionID, file: cf, err: err}
 	}
 }
@@ -131,6 +178,7 @@ type contextFileRemovedMsg struct {
 // modal chrome so muscle memory carries over.
 func (a *App) viewContextAdd() string {
 	w := a.modalWidth()
+	modeRow, modeHits := a.renderContextAddModeRow()
 	buttons := []menuButton{
 		{
 			id:    "context-add:save",
@@ -159,7 +207,44 @@ func (a *App) viewContextAdd() string {
 		cursorAction: func(app *App, cursor int) {
 			app.contextAddCursor = cursor
 		},
-		footer: a.Theme.HintLabel.Render("Enter save  Esc cancel  mode=read  (use /drop to remove)"),
+		status: []string{modeRow},
+		footer: a.Theme.HintLabel.Render("Enter save  Tab mode  Esc cancel  (use /drop to remove)"),
 	})
+	if len(modeHits) > 0 {
+		a.registerModalCellHits(rendered.modal, rendered.bodyRow+2, modeHits)
+	}
 	return rendered.modal
+}
+
+func (a *App) renderContextAddModeRow() (string, []modalCellHit) {
+	label := "mode: "
+	row := a.Theme.HintLabel.Render(label)
+	col := lipgloss.Width(label)
+	active := a.contextAddModeValue()
+	hits := make([]modalCellHit, 0, len(contextAddModes))
+	for _, mode := range contextAddModes {
+		mode := mode
+		raw := " " + mode + " "
+		style := a.Theme.HintLabel
+		if mode == active {
+			style = lipgloss.NewStyle().
+				Foreground(a.Theme.Bg).
+				Background(a.Theme.Primary).
+				Bold(true)
+		}
+		row += style.Render(raw)
+		width := lipgloss.Width(raw)
+		hits = append(hits, modalCellHit{
+			id:     "context-add:mode:" + mode,
+			col:    col,
+			width:  width,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.setContextAddMode(mode)
+				return nil
+			},
+		})
+		col += width
+	}
+	return row, hits
 }

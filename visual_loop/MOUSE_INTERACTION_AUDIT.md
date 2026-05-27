@@ -390,6 +390,7 @@ Keyboard behavior:
 
 - Esc/Ctrl+C cancel.
 - Enter save.
+- Tab cycles context mode.
 - Backspace/delete edit.
 - Left/right/Home/End move cursor.
 - Printable text edits.
@@ -417,13 +418,13 @@ Keyboard behavior mirrors rename:
 Mouse support exists:
 
 - Click inside text field to place cursor.
+- Click read/edit/pin mode chips.
 - Click save/cancel.
 - Click outside to cancel through the shared overlay policy.
 
 Remaining gaps:
 
 - Select text.
-- Click mode affordance if mode selection becomes interactive.
 
 ### Compose Modal
 
