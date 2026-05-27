@@ -92,6 +92,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 				app.contextAddOpen = true
 				app.contextAddDraft = ""
 				app.contextAddCursor = 0
+				app.contextAddMode = "read"
 				return nil
 			},
 		},

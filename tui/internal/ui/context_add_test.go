@@ -99,10 +99,74 @@ func TestContextAdd_EnterCommitsAndPOSTsPath(t *testing.T) {
 	if added.file.Path != "cmd/main.go" {
 		t.Errorf("file.Path = %q", added.file.Path)
 	}
+	if added.file.Mode != "read" {
+		t.Errorf("file.Mode = %q, want read", added.file.Mode)
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	if *got != "cmd/main.go" {
 		t.Errorf("POST body path = %q, want 'cmd/main.go'", *got)
+	}
+}
+
+func TestContextAdd_TabCyclesModeAndPOSTsSelectedMode(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/editable.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAddModeValue(); got != "edit" {
+		t.Fatalf("after Tab mode = %q, want edit", got)
+	}
+	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAddModeValue(); got != "pin" {
+		t.Fatalf("after second Tab mode = %q, want pin", got)
+	}
+
+	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should dispatch addContextFileCmd")
+	}
+	msg := cmd()
+	added, ok := msg.(contextFileAddedMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want contextFileAddedMsg", msg)
+	}
+	if added.err != nil {
+		t.Fatalf("unexpected err: %v", added.err)
+	}
+	if added.file.Mode != "pin" {
+		t.Fatalf("posted mode = %q, want pin", added.file.Mode)
+	}
+}
+
+func TestContextAddModeChipsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextAddOpen = true
+	a.contextAddDraft = "docs/readme.md"
+	a.contextAddCursor = len(a.contextAddDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "context-add:mode:edit")
+	if !ok {
+		t.Fatal("missing context-add edit mode hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("mode chip click should not dispatch a command")
+	}
+	if got := a.contextAddModeValue(); got != "edit" {
+		t.Fatalf("context-add mode = %q, want edit", got)
+	}
+	if !a.contextAddOpen {
+		t.Fatal("mode chip should keep context-add open")
 	}
 }
 

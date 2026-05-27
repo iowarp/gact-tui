@@ -453,6 +453,7 @@ type App struct {
 	contextAddOpen   bool
 	contextAddDraft  string
 	contextAddCursor int
+	contextAddMode   string
 
 	// Floating detail view (L3) — shows a bulky tool_result's full
 	// content in a scrollable modal. Opens on Ctrl+E from body focus
@@ -3686,6 +3687,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.contextAddOpen = true
 		a.contextAddDraft = ""
 		a.contextAddCursor = 0
+		a.contextAddMode = "read"
 		return a, nil
 	case "h":
 		// Toggle archived vs active view. Refetches the session list
