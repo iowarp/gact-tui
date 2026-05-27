@@ -89,16 +89,7 @@ func (a *App) copyComposeToClipboard() tea.Cmd {
 		a.transientHint = "nothing to copy"
 		return nil
 	}
-	text := a.compose.ta.Value()
-	if strings.TrimSpace(text) == "" {
-		a.transientHint = "nothing to copy"
-		return nil
-	}
-	if err := clipboardWrite(text); err != nil {
-		a.transientHint = "copy failed: " + err.Error()
-		return nil
-	}
-	a.transientHint = "copied compose draft to clipboard"
+	a.transientHint = copyTextToClipboard("compose draft", a.compose.ta.Value())
 	return nil
 }
 

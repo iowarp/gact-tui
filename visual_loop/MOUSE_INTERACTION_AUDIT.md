@@ -1083,3 +1083,7 @@ Additional work continued from the same architectural direction:
   scoped copy actions now cover selected transcript blocks, full transcript,
   detail payloads, and main-input paste expansion without requiring terminal
   frame selection.
+- Compose and detail copy now share a scoped clipboard helper that preserves
+  exact payload text, rejects empty content, and surfaces clipboard failures
+  through the visible hint path instead of each modal hand-rolling those
+  semantics.

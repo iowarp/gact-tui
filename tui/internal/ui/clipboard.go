@@ -12,6 +12,19 @@ import (
 // to atotto/clipboard; test files override the variable.
 var clipboardWrite = clipboard.WriteAll
 
+func copyTextToClipboard(label string, text string) string {
+	if strings.TrimSpace(text) == "" {
+		return "nothing to copy"
+	}
+	if err := clipboardWrite(text); err != nil {
+		return "copy failed: " + err.Error()
+	}
+	if strings.TrimSpace(label) == "" {
+		label = "content"
+	}
+	return "copied " + label + " to clipboard"
+}
+
 // messageText returns the concatenated text/thinking content of a
 // single message — the same flattening rule lastAssistantText uses.
 // Returns ("", false) when the message has no copyable content.

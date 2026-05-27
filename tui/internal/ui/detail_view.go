@@ -55,11 +55,7 @@ func (a *App) copyDetailViewToClipboard() tea.Cmd {
 		a.transientHint = "nothing to copy"
 		return nil
 	}
-	if err := clipboardWrite(a.detailView.fullText); err != nil {
-		a.transientHint = "copy failed: " + err.Error()
-		return nil
-	}
-	a.transientHint = "copied detail to clipboard"
+	a.transientHint = copyTextToClipboard("detail", a.detailView.fullText)
 	return nil
 }
 
