@@ -2558,30 +2558,8 @@ func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, heig
 	}
 	if win.total > maxInt(1, win.end-win.start) && width >= 16 && height >= 2 {
 		contentW := lmConfigBoxContentWidth(width)
-		if contentW >= 4 {
-			visible := maxInt(1, win.end-win.start)
-			thumbRows := height * visible / maxInt(1, win.total)
-			if thumbRows < 1 {
-				thumbRows = 1
-			}
-			if thumbRows > height {
-				thumbRows = height
-			}
-			maxScroll := win.total - visible
-			maxThumbStart := height - thumbRows
-			thumbStart := 0
-			if maxScroll > 0 && maxThumbStart > 0 {
-				thumbStart = win.start * maxThumbStart / maxScroll
-			}
-			trackStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
-			thumbStyle := lipgloss.NewStyle().Foreground(t.Secondary)
-			for i, line := range bodyLines {
-				marker := trackStyle.Render("│")
-				if i >= thumbStart && i < thumbStart+thumbRows {
-					marker = thumbStyle.Render("┃")
-				}
-				bodyLines[i] = fitANSI(line, contentW) + " " + marker
-			}
+		if withRail, ok := a.renderSideScrollIndicator(bodyLines, contentW, win); ok {
+			bodyLines = withRail
 		}
 	}
 	titleStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Bold(true)
