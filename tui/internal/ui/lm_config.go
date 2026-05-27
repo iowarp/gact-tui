@@ -1530,10 +1530,7 @@ func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width i
 		})
 		row++
 		if msg := strings.TrimSpace(a.lmConfig.authMessage); msg != "" {
-			bodyW := width - 4
-			if bodyW < 10 {
-				bodyW = 10
-			}
+			bodyW := lmConfigBoxBodyWidth(width)
 			row += len(wrapPlainRows(msg, bodyW, "  "))
 		}
 	} else {
@@ -1936,7 +1933,7 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 	}
 	if len(items) > 0 {
 		list := a.renderModalList(items, modalListOptions{
-			width:            innerW - 4,
+			width:            lmConfigBoxBodyWidth(innerW),
 			rowBudget:        windowRows,
 			descriptionLines: 0,
 		})
@@ -1960,10 +1957,7 @@ func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string 
 	if statusText != "ready" {
 		statusColor = t.Warning
 	}
-	bodyW := innerW - 4
-	if bodyW < 10 {
-		bodyW = 10
-	}
+	bodyW := lmConfigBoxBodyWidth(innerW)
 	rows := []string{
 		lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render(p.Label),
 	}
@@ -2249,10 +2243,7 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 	title := headerStyle.Render(titleText)
 	if len(catalog) == 0 {
 		rows := []string{}
-		bodyW := innerW - 4
-		if bodyW < 10 {
-			bodyW = 10
-		}
+		bodyW := lmConfigBoxBodyWidth(innerW)
 		if p := a.lmConfigCurrentPreset(); p != nil {
 			switch {
 			case a.lmConfigPresetPending(*p):
@@ -2329,7 +2320,7 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 	}
 	if len(items) > 0 {
 		list := a.renderModalList(items, modalListOptions{
-			width:            innerW - 4,
+			width:            lmConfigBoxBodyWidth(innerW),
 			rowBudget:        windowRows,
 			descriptionLines: 0,
 		})
@@ -2480,7 +2471,7 @@ func (a *App) renderLMConfigAdvancedBox(innerW int, visibleRows int) string {
 				Render(a.localizer.t(msgLMConfigManagedByProvider, nil)),
 		}
 	}
-	if details := a.renderLMConfigModelDetails(innerW - 4); len(details) > 0 {
+	if details := a.renderLMConfigModelDetails(lmConfigBoxBodyWidth(innerW)); len(details) > 0 {
 		if len(rows) > 0 {
 			rows = append(rows, "")
 		}
@@ -2545,12 +2536,21 @@ func (a *App) lmConfigListBox(title string, rows []string, width int, height int
 	return a.lmConfigBoxWithWindow(title, rows, width, height, win)
 }
 
-func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, height int, win scrollWindow) string {
-	t := a.Theme
+func lmConfigBoxBodyWidth(width int) int {
 	bodyW := width - 4
 	if bodyW < 10 {
-		bodyW = 10
+		return 10
 	}
+	return bodyW
+}
+
+func lmConfigBoxContentWidth(width int) int {
+	return lmConfigBoxBodyWidth(width) - 2
+}
+
+func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, height int, win scrollWindow) string {
+	t := a.Theme
+	bodyW := lmConfigBoxBodyWidth(width)
 	bodyLines := make([]string, 0, height)
 	for _, row := range rows {
 		bodyLines = append(bodyLines, fitANSI(row, bodyW))
@@ -2562,7 +2562,7 @@ func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, heig
 		bodyLines = append(bodyLines, strings.Repeat(" ", bodyW))
 	}
 	if win.total > maxInt(1, win.end-win.start) && width >= 16 && height >= 2 {
-		contentW := bodyW - 2
+		contentW := lmConfigBoxContentWidth(width)
 		if contentW >= 4 {
 			visible := maxInt(1, win.end-win.start)
 			thumbRows := height * visible / maxInt(1, win.total)

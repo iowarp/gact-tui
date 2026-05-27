@@ -221,6 +221,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `modalScrollableContentWidth` for body rendering, wheel targets, row detail
   hits, and rail hits, keeping Help, Doctor, Metrics, detail views, and
   selectable-list rails on the same body/rail geometry policy.
+- Provider setup nested boxes now share `lmConfigBoxBodyWidth` and
+  `lmConfigBoxContentWidth` for provider/model lists, provider details, model
+  details, auth-message wrapping, and internal scroll rails, reducing local
+  box-specific width drift inside the most complex configuration modal.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
