@@ -447,7 +447,10 @@ func (a *App) viewSettings() string {
 		}
 		line := marker + titleStyle.Render(primaryText)
 		if secondaryText != "" {
-			line += "  " + descStyle.Render(secondaryText)
+			secondaryBudget := w - 4 - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
+			if secondaryBudget > 0 {
+				line += "  " + descStyle.Render(truncate(secondaryText, secondaryBudget))
+			}
 		}
 		out := truncate(line, w-2)
 		if selected {
@@ -503,7 +506,7 @@ func (a *App) viewSettings() string {
 			absolute := start + i
 			row := agentRailStart + len(agentRows)
 			idx := absolute
-			agentRows = append(agentRows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+			agentRows = append(agentRows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.settingsAgentListDescription(ag)))
 			addRowHit("settings:agent:"+ag.ID, row, func(app *App) tea.Cmd {
 				if app.settings == nil {
 					app.settings = &settingsState{tab: 1}
@@ -897,6 +900,14 @@ func (a *App) localizedAgentDescription(ag gact.AgentDef) string {
 		return a.localizer.t(messageID(key), nil)
 	}
 	return ag.Description
+}
+
+func (a *App) settingsAgentListDescription(ag gact.AgentDef) string {
+	desc := a.localizedAgentDescription(ag)
+	if before, _, ok := strings.Cut(desc, "Common tools:"); ok {
+		desc = before
+	}
+	return strings.TrimSpace(desc)
 }
 
 func (a *App) visibleAgentRange() (int, int) {
