@@ -640,15 +640,43 @@ func (a *App) registerScreenTextSpanHit(id string, startX int, y int, line strin
 	if id == "" || span == "" || action == nil {
 		return
 	}
-	if col < 0 || col > len(line) {
+	rect, ok := screenTextSpanRect(startX, y, line, col, span)
+	if !ok {
 		return
 	}
-	a.registerScreenHit(id, mouseRect{
+	a.registerScreenHit(id, rect, action)
+}
+
+func (a *App) registerClippedScreenTextSpanHit(id string, startX int, y int, line string, col int, span string, maxRight int, action uiHitAction) {
+	if id == "" || span == "" || action == nil {
+		return
+	}
+	rect, ok := screenTextSpanRect(startX, y, line, col, span)
+	if !ok || rect.x >= maxRight {
+		return
+	}
+	if rect.x+rect.w > maxRight {
+		rect.w = maxRight - rect.x
+	}
+	if rect.w < 1 {
+		return
+	}
+	a.registerScreenHit(id, rect, action)
+}
+
+func screenTextSpanRect(startX int, y int, line string, col int, span string) (mouseRect, bool) {
+	if span == "" {
+		return mouseRect{}, false
+	}
+	if col < 0 || col > len(line) {
+		return mouseRect{}, false
+	}
+	return mouseRect{
 		x: startX + lipgloss.Width(line[:col]),
 		y: y,
 		w: lipgloss.Width(span),
 		h: 1,
-	}, action)
+	}, true
 }
 
 func (a *App) screenSurfaceRect() mouseRect {

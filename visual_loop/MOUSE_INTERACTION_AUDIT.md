@@ -830,6 +830,9 @@ Additional work continued from the same architectural direction:
 - Sidebar, conversation, and input focus surfaces now share a focus-surface
   registration primitive with tested pane geometry, so base-pane focus clicks
   no longer each own separate focus/action registration closures.
+- Permission banner action cells now use clipped screen text-span hit
+  registration, tying allow/deny/session/workspace clicks to the rendered
+  labels while preserving clipping at the pane content edge.
 
 ### 2026-05-26 user-observed follow-up queue
 

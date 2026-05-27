@@ -2555,21 +2555,36 @@ func (a *App) permissionBannerActionRect(action permissionBannerAction, bodyWidt
 		return mouseRect{}, false
 	}
 	sidebarW, _, _ := a.mainPaneGeometry()
-	return mouseRect{
-		x: sidebarW + 3 + action.col,
-		y: 3,
-		w: min(action.width, contentW-action.col),
-		h: 1,
-	}, true
+	label := action.label
+	if label == "" {
+		label = strings.Repeat("x", action.width)
+	}
+	line := strings.Repeat(" ", action.col) + label
+	rect, ok := screenTextSpanRect(sidebarW+3, 3, line, action.col, label)
+	if !ok {
+		return mouseRect{}, false
+	}
+	if rect.x+rect.w > sidebarW+3+contentW {
+		rect.w = sidebarW + 3 + contentW - rect.x
+	}
+	if rect.w < 1 {
+		return mouseRect{}, false
+	}
+	return rect, true
 }
 
 func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, bodyWidth int, permissionID string) {
-	rect, ok := a.permissionBannerActionRect(action, bodyWidth)
-	if !ok {
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	if action.width <= 0 || action.col >= contentW {
 		return
 	}
 	actionCopy := action
-	a.registerScreenHit("permission:"+action.id, rect, func(app *App) tea.Cmd {
+	sidebarW, _, _ := a.mainPaneGeometry()
+	line := strings.Repeat(" ", action.col) + action.label
+	a.registerClippedScreenTextSpanHit("permission:"+action.id, sidebarW+3, 3, line, action.col, action.label, sidebarW+3+contentW, func(app *App) tea.Cmd {
 		return respondPermissionCmd(app.c, permissionID, actionCopy.action)
 	})
 }
