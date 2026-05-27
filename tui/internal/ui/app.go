@@ -7235,7 +7235,7 @@ func (a *App) registerFooterActionHit(plain string, y int, id string, key string
 	if col < 0 {
 		return
 	}
-	a.registerScreenHit(id, mouseRect{x: col, y: y, w: lipgloss.Width(target), h: 1}, action)
+	a.registerScreenTextSpanHit(id, 0, y, plain, col, target, action)
 }
 
 func (a *App) routeSidebarFooterKey(k tea.KeyPressMsg) tea.Cmd {
@@ -7256,7 +7256,7 @@ func (a *App) registerFooterPlainHit(plain string, y int, id string, target stri
 	if col < 0 {
 		return
 	}
-	a.registerScreenHit(id, mouseRect{x: col, y: y, w: lipgloss.Width(target), h: 1}, action)
+	a.registerScreenTextSpanHit(id, 0, y, plain, col, target, action)
 }
 
 func (a *App) footerContextHintVariants(mk func(string, string) string) [][]string {

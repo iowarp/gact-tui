@@ -803,6 +803,9 @@ Additional work continued from the same architectural direction:
 - Compressed paste placeholder clicks now use a shared screen text-span hit
   primitive, keeping inline input targets on reusable text geometry instead of
   embedding span rectangle math in the mouse layer.
+- Footer plain/action hit targets now use the same shared screen text-span
+  primitive as input paste placeholders, removing duplicate one-line text
+  rectangle construction from the footer layer.
 
 ### 2026-05-26 user-observed follow-up queue
 
