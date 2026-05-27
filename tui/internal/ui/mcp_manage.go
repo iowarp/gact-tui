@@ -28,6 +28,15 @@ import (
 func (a *App) openMcpInstallModal() {
 	a.mcpInstallOpen = true
 	a.mcpInstallInput = ""
+	a.mcpInstallCursor = 0
+	a.mcpInstallErr = ""
+	a.mcpInstallSaving = false
+}
+
+func (a *App) closeMcpInstallModal() {
+	a.mcpInstallOpen = false
+	a.mcpInstallInput = ""
+	a.mcpInstallCursor = 0
 	a.mcpInstallErr = ""
 	a.mcpInstallSaving = false
 }
@@ -42,6 +51,21 @@ func (a *App) openMcpRemoveModal() tea.Cmd {
 	a.mcpRemoveSel = 0
 	a.mcpRemoveSaving = false
 	return mcpListServersCmd(a.c)
+}
+
+func (a *App) closeMcpRemoveModal() {
+	a.mcpRemoveOpen = false
+	a.mcpRemoveOptions = nil
+	a.mcpRemoveSel = 0
+	a.mcpRemoveSaving = false
+}
+
+func (a *App) handleMcpRemoveWheel(button tea.MouseButton) tea.Cmd {
+	if a.mcpRemoveSaving {
+		return nil
+	}
+	a.mcpRemoveSel = moveSelectionByWheel(a.mcpRemoveSel, len(a.mcpRemoveOptions), button)
+	return nil
 }
 
 // mcpListServersCmd refreshes the cached MCP server list. Used by both the
@@ -67,9 +91,7 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		a.mcpInstallOpen = false
-		a.mcpInstallInput = ""
-		a.mcpInstallErr = ""
+		a.closeMcpInstallModal()
 		return a, nil
 	case "enter":
 		body, err := parseMcpInstallLine(a.mcpInstallInput)
@@ -80,13 +102,54 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.mcpInstallSaving = true
 		return a, mcpInstallCmd(a.c, body)
 	case "backspace":
-		if len(a.mcpInstallInput) > 0 {
-			a.mcpInstallInput = a.mcpInstallInput[:len(a.mcpInstallInput)-1]
+		if a.mcpInstallCursor == 0 {
+			return a, nil
 		}
+		runes := []rune(a.mcpInstallInput)
+		runes = append(runes[:a.mcpInstallCursor-1], runes[a.mcpInstallCursor:]...)
+		a.mcpInstallInput = string(runes)
+		a.mcpInstallCursor--
+		return a, nil
+	case "delete":
+		runes := []rune(a.mcpInstallInput)
+		if a.mcpInstallCursor >= len(runes) {
+			return a, nil
+		}
+		runes = append(runes[:a.mcpInstallCursor], runes[a.mcpInstallCursor+1:]...)
+		a.mcpInstallInput = string(runes)
+		return a, nil
+	case "left":
+		if a.mcpInstallCursor > 0 {
+			a.mcpInstallCursor--
+		}
+		return a, nil
+	case "right":
+		if a.mcpInstallCursor < len([]rune(a.mcpInstallInput)) {
+			a.mcpInstallCursor++
+		}
+		return a, nil
+	case "home", "ctrl+a":
+		a.mcpInstallCursor = 0
+		return a, nil
+	case "end", "ctrl+e":
+		a.mcpInstallCursor = len([]rune(a.mcpInstallInput))
 		return a, nil
 	default:
 		if k.Text != "" {
-			a.mcpInstallInput += k.Text
+			runes := []rune(a.mcpInstallInput)
+			if a.mcpInstallCursor < 0 {
+				a.mcpInstallCursor = 0
+			}
+			if a.mcpInstallCursor > len(runes) {
+				a.mcpInstallCursor = len(runes)
+			}
+			insert := []rune(k.Text)
+			out := make([]rune, 0, len(runes)+len(insert))
+			out = append(out, runes[:a.mcpInstallCursor]...)
+			out = append(out, insert...)
+			out = append(out, runes[a.mcpInstallCursor:]...)
+			a.mcpInstallInput = string(out)
+			a.mcpInstallCursor += len(insert)
 		}
 	}
 	return a, nil
@@ -99,8 +162,7 @@ func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		a.mcpRemoveOpen = false
-		a.mcpRemoveOptions = nil
+		a.closeMcpRemoveModal()
 		return a, nil
 	case "up", "k":
 		if a.mcpRemoveSel > 0 {
@@ -189,63 +251,158 @@ type mcpUninstallDoneMsg struct {
 	err      error
 }
 
+const mcpRemoveMaxItems = 6
+
+type mcpInstallExample struct {
+	id    string
+	label string
+	value string
+}
+
+func mcpInstallExamples() []mcpInstallExample {
+	return []mcpInstallExample{
+		{id: "stdio", label: "stdio:", value: "files stdio mcp-files /tmp"},
+		{id: "http", label: "http:", value: "weather http https://mcp.example.com"},
+	}
+}
+
+func (a *App) applyMcpInstallExample(value string) {
+	a.mcpInstallInput = value
+	a.mcpInstallCursor = len([]rune(value))
+	a.mcpInstallErr = ""
+}
+
+func (a *App) renderMcpInstallExampleList() modalListRender {
+	examples := mcpInstallExamples()
+	rows := make([]string, 0, len(examples))
+	hits := make([]modalListHit, 0, len(examples))
+	for row, example := range examples {
+		example := example
+		rows = append(rows, fmt.Sprintf("  %-6s %s", example.label, example.value))
+		hits = append(hits, modalListHit{
+			id:     "mcp-install:example:" + example.id,
+			row:    row,
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.applyMcpInstallExample(example.value)
+				return nil
+			},
+		})
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(rows)}
+}
+
 // viewMcpInstall renders the install prompt overlay. Tiny intentionally —
 // one input field, hint text, and a status line for any error.
 func (a *App) viewMcpInstall() string {
 	t := a.Theme
 	w := a.modalWidth()
-	title := lipgloss.NewStyle().
-		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render("Install MCP server")
-	hint := t.HintLabel.Render(
-		"  e.g.  everything stdio npx -y @modelcontextprotocol/server-everything\n" +
-			"        weather  http  https://mcp.example.com")
-	cursor := "_"
-	box := lipgloss.NewStyle().Foreground(t.Fg).
-		Render("> " + a.mcpInstallInput + cursor)
-	rows := []string{
-		title, "",
-		hint, "",
-		box, "",
+	innerW := modalInnerWidth(w)
+	buttons := []menuButton{
+		{
+			id:    "mcp-install:install",
+			label: "install",
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.handleMcpInstallKey(keyMsg("enter"))
+				return cmd
+			},
+		},
+		{
+			id:    "mcp-install:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.closeMcpInstallModal()
+				return nil
+			},
+		},
 	}
+	statusRows := []string{}
 	if a.mcpInstallErr != "" {
-		rows = append(rows,
+		statusRows = append(statusRows,
 			lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
 				Render("error: "+a.mcpInstallErr),
-			"",
 		)
 	}
 	if a.mcpInstallSaving {
-		rows = append(rows,
+		statusRows = append(statusRows,
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(a.spinnerChar()+" installing…"),
-			"",
 		)
 	}
-	rows = append(rows,
-		t.HintLabel.Render("Enter install · Esc cancel"),
-	)
-	return strings.Join(rows, "\n")
+	exampleList := a.renderMcpInstallExampleList()
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:       w,
+		title:       "Install MCP server",
+		buttons:     buttons,
+		surfaceID:   "mcp-install",
+		intro:       []string{t.HintLabel.Render(strings.Join(exampleList.rows, "\n"))},
+		introList:   exampleList,
+		introListW:  innerW,
+		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
+		editorID:    "mcp-install",
+		editorValue: a.mcpInstallInput,
+		cursorAction: func(app *App, cursor int) {
+			app.mcpInstallCursor = cursor
+		},
+		status: statusRows,
+		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
+	})
+	return rendered.modal
 }
 
 // viewMcpRemove renders the picker for which third-party server to remove.
 func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
-	title := lipgloss.NewStyle().
-		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render("Remove MCP server")
-	rows := []string{title, ""}
-	for i, s := range a.mcpRemoveOptions {
-		marker := "  "
-		style := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.mcpRemoveSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
-			style = style.Foreground(t.Secondary).Bold(true)
-		}
-		rows = append(rows,
-			marker+style.Render(fmt.Sprintf("%s  (%s · %s)", s.Name, s.ID, s.Transport)),
-		)
+	listW := modalInsetListWidth(w)
+	buttons := []menuButton{
+		{
+			id:    "mcp-remove:remove",
+			label: "remove",
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
+				return cmd
+			},
+		},
+		{
+			id:    "mcp-remove:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.closeMcpRemoveModal()
+				return nil
+			},
+		},
+	}
+	rows := []string{}
+	itemBudget := a.modalListItemBudget(6, 1, mcpRemoveMaxItems)
+	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
+	listStartRow := len(rows)
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		server := a.mcpRemoveOptions[i]
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:       fmt.Sprintf("mcp-remove:item:%d", idx),
+			title:    server.Name,
+			meta:     server.ID,
+			status:   server.Transport,
+			selected: i == a.mcpRemoveSel,
+			action: func(app *App) tea.Cmd {
+				app.mcpRemoveSel = idx
+				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
+				return cmd
+			},
+		})
+	}
+	list := a.renderModalList(listItems, modalListOptions{
+		width:            listW,
+		rowBudget:        itemBudget,
+		descriptionLines: 0,
+	})
+	if len(list.rows) > 0 {
+		rows = append(rows, list.rows...)
+	} else {
+		rows = append(rows, t.HintLabel.Render("(no removable MCP servers)"))
 	}
 	if a.mcpRemoveSaving {
 		rows = append(rows, "",
@@ -253,8 +410,29 @@ func (a *App) viewMcpRemove() string {
 				Render(a.spinnerChar()+" removing…"),
 		)
 	}
-	rows = append(rows, "",
-		t.HintLabel.Render("↑/↓ select · Enter remove · Esc cancel"),
-	)
-	return strings.Join(rows, "\n")
+
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Remove MCP server",
+			buttons: buttons,
+			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter remove", "Esc cancel")),
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       itemBudget * 2,
+		window:         win,
+		wheelID:        "mcp-remove:list:wheel",
+		surfaceWheelID: "mcp-remove",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleMcpRemoveWheel(button)
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.mcpRemoveSel = clampSelection(index, len(app.mcpRemoveOptions))
+			return nil
+		},
+	})
+	return rendered.modal
 }

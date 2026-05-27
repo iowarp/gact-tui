@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -23,6 +24,72 @@ type settingsState struct {
 	languageSel int // index into availableLanguageOptions()
 	agentList   []gact.AgentDef
 	loadErr     string // set when loadSettingsCmd surfaces failures
+}
+
+type settingsTUIStepperRow struct {
+	line         string
+	detail       []string
+	controlStart int
+	controlEnd   int
+}
+
+func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, value, hint string) settingsTUIStepperRow {
+	marker := "  "
+	labelStyle := lipgloss.NewStyle().Foreground(theme.Fg)
+	valueStyle := theme.HintLabel
+	hintStyle := theme.HintLabel.Italic(true)
+	if selected {
+		marker = lipgloss.NewStyle().Foreground(theme.Secondary).Render("▌ ")
+		labelStyle = labelStyle.Foreground(theme.Secondary).Bold(true)
+		valueStyle = lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true)
+	}
+	leftCol := lipgloss.Width(ansi.Strip(marker)) + lipgloss.Width(label) + 2
+	control := "◀ " + value + " ▶"
+	controlEnd := leftCol + lipgloss.Width(control)
+	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render(control)
+	detail := []string{}
+	if hint != "" && selected {
+		detailWidth := minInt(maxInt(12, width-6), 72)
+		for _, row := range wrapPlainRows(hint, detailWidth, "") {
+			detailLine := "  " + hintStyle.Render(row)
+			detailLine = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(detailLine)
+			detail = append(detail, detailLine)
+			if len(detail) >= 2 {
+				break
+			}
+		}
+	}
+	if selected {
+		line = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(line)
+	}
+	return settingsTUIStepperRow{
+		line:         line,
+		detail:       detail,
+		controlStart: leftCol,
+		controlEnd:   controlEnd,
+	}
+}
+
+func (r settingsTUIStepperRow) rows() []string {
+	rows := []string{r.line}
+	rows = append(rows, r.detail...)
+	return rows
+}
+
+func (r settingsTUIStepperRow) height() int {
+	return maxInt(1, 1+len(r.detail))
+}
+
+func (r settingsTUIStepperRow) decrementHit() (int, int) {
+	return r.stepperHit(false)
+}
+
+func (r settingsTUIStepperRow) incrementHit() (int, int) {
+	return r.stepperHit(true)
+}
+
+func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
+	return splitStepperControlHit(r.controlStart, r.controlEnd, increment)
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.
@@ -108,6 +175,10 @@ type sessionUpdatedMsg struct {
 	agentID string
 }
 
+func (a *App) closeSettingsModal() {
+	a.settingsOpen = false
+}
+
 func selectableSessionAgents(agents []gact.AgentDef) []gact.AgentDef {
 	out := make([]gact.AgentDef, 0, len(agents))
 	for _, ag := range agents {
@@ -127,7 +198,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := a.settings
 	switch k.String() {
 	case "esc", "ctrl+s":
-		a.settingsOpen = false
+		a.closeSettingsModal()
 		return a, nil
 	case "tab":
 		s.tab = (s.tab + 1) % settingsTabCount
@@ -345,26 +416,54 @@ func (a *App) viewSettings() string {
 	}
 	s := a.settings
 	w := a.modalWidth()
-
-	tabs := func(i int) string {
-		labels := []string{
-			a.localizer.t(msgSettingsTabModel, nil),
-			a.localizer.t(msgSettingsTabAgent, nil),
-			a.localizer.t(msgSettingsTabTheme, nil),
-			a.localizer.t(msgSettingsTabTUI, nil),
-			a.localizer.t(msgSettingsTabLanguage, nil),
-		}
-		var rendered []string
-		for j, l := range labels {
-			st := lipgloss.NewStyle().Foreground(t.FgMuted).Padding(0, 2)
-			if j == i {
-				st = st.Foreground(t.Bg).Background(t.Primary).Bold(true)
-			}
-			rendered = append(rendered, st.Render(l))
-		}
-		return strings.Join(rendered, " ")
+	innerW := modalInnerWidth(w)
+	var rowHits []modalListHit
+	var arrowHits []modalCellHit
+	addRowHit := func(id string, row int, action uiHitAction) {
+		rowHits = append(rowHits, modalListHit{id: id, row: row, height: 1, action: action})
 	}
-
+	addRowHitHeight := func(id string, row int, height int, action uiHitAction) {
+		if height < 1 {
+			height = 1
+		}
+		rowHits = append(rowHits, modalListHit{id: id, row: row, height: height, action: action})
+	}
+	addArrowHit := func(id string, row int, col int, width int, action uiHitAction) {
+		arrowHits = append(arrowHits, modalCellHit{id: id, row: row, col: col, width: width, height: 1, action: action})
+	}
+	addListHits := func(list modalListRender, rowOffset int) {
+		rowHits = append(rowHits, offsetModalListHits(list, rowOffset)...)
+	}
+	tabLabels := []string{
+		a.localizer.t(msgSettingsTabModel, nil),
+		a.localizer.t(msgSettingsTabAgent, nil),
+		a.localizer.t(msgSettingsTabTheme, nil),
+		a.localizer.t(msgSettingsTabTUI, nil),
+		a.localizer.t(msgSettingsTabLanguage, nil),
+	}
+	tabIDs := []string{
+		"settings-model",
+		"settings-agent",
+		"settings-theme",
+		"settings-tui",
+		"settings-language",
+	}
+	tabHits := make([]menuTab, 0, len(tabLabels))
+	for i, label := range tabLabels {
+		idx := i
+		tabHits = append(tabHits, menuTab{
+			id:     tabIDs[i],
+			label:  label,
+			active: s.tab == i,
+			action: func(app *App) tea.Cmd {
+				if app.settings == nil {
+					app.settings = &settingsState{}
+				}
+				app.settings.tab = idx
+				return nil
+			},
+		})
+	}
 	currentModel := ""
 	currentAgent := ""
 	if a.selected >= 0 && a.selected < len(a.sessions) {
@@ -383,19 +482,11 @@ func (a *App) viewSettings() string {
 		currentModel = a.lmProviderInfo.Provider + "/" + a.lmProviderInfo.Model
 	}
 
-	// LLL4: title bar — full-width Primary-background strip with the
-	// modal title in inverted text. Reads as a real header instead of
-	// a floating dim word.
-	titleBar := lipgloss.NewStyle().
-		Background(t.Primary).Foreground(t.Bg).Bold(true).
-		Padding(0, 2).Width(w - 4).Render(a.localizer.t(msgSettingsTitle, nil))
-
-	rows := []string{
-		titleBar,
-		"",
-		tabs(s.tab),
-		"",
-	}
+	buttons := []menuButton{closeMenuButton("settings:close", func(app *App) { app.closeSettingsModal() })}
+	rows := []string{}
+	agentRailStart := -1
+	agentRailRows := 0
+	agentRailWindow := scrollWindow{}
 	if s.loadErr != "" {
 		rows = append(rows,
 			lipgloss.NewStyle().Foreground(t.Warning).Render(s.loadErr),
@@ -416,15 +507,18 @@ func (a *App) viewSettings() string {
 		}
 		line := marker + titleStyle.Render(primaryText)
 		if secondaryText != "" {
-			line += "  " + descStyle.Render(secondaryText)
+			secondaryBudget := innerW - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
+			if secondaryBudget > 0 {
+				line += "  " + descStyle.Render(truncate(secondaryText, secondaryBudget))
+			}
 		}
 		out := truncate(line, w-2)
 		if selected {
 			// Bg strip behind the entire row to make the selection
-			// pop. Width(w-4) matches modal interior; the row bg
+			// pop. Width(innerW) matches modal interior; the row bg
 			// extends past the text so even short rows feel selected.
 			out = lipgloss.NewStyle().Background(t.Bg).
-				Width(w - 4).Render(out)
+				Width(innerW).Render(out)
 		}
 		return out
 	}
@@ -441,8 +535,15 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
 			map[string]string{"value": orPlaceholder(currentModel, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
+		row := len(rows)
 		rows = append(rows, rowLine(true, a.localizer.t(msgSettingsModelChange, nil),
 			a.localizer.t(msgSettingsModelChangeDesc, nil)))
+		addRowHit("settings:model:change-provider", row, func(app *App) tea.Cmd {
+			app.settingsOpen = false
+			app.lmConfigOpen = true
+			app.lmConfig = &lmConfigState{}
+			return lmConfigFetchCmd(app.c)
+		})
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			a.localizer.t(msgSettingsModelHint, nil)))
@@ -458,20 +559,40 @@ func (a *App) viewSettings() string {
 		}
 		a.ensureAgentSelectionVisible()
 		start, end := a.visibleAgentRange()
-		if start > 0 {
-			rows = append(rows, t.HintLabel.Render("  ↑ "+itoa2(start)))
-		}
+		agentRailStart = len(rows)
+		agentRailWindow = scrollWindow{start: start, end: end, total: len(s.agentList)}
+		agentRows := make([]string, 0, maxInt(1, end-start))
 		for i, ag := range s.agentList[start:end] {
 			absolute := start + i
-			rows = append(rows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.localizedAgentDescription(ag)))
+			row := agentRailStart + len(agentRows)
+			idx := absolute
+			agentRows = append(agentRows, rowLine(absolute == s.agentSel, a.localizedAgentTitle(ag), a.settingsAgentListDescription(ag)))
+			addRowHit("settings:agent:"+ag.ID, row, func(app *App) tea.Cmd {
+				if app.settings == nil {
+					app.settings = &settingsState{tab: 1}
+				}
+				if idx < 0 || idx >= len(app.settings.agentList) {
+					return nil
+				}
+				app.settings.agentSel = idx
+				app.openSettingsAgentDetail()
+				return nil
+			})
 		}
-		if end < len(s.agentList) {
-			rows = append(rows, t.HintLabel.Render("  ↓ "+itoa2(len(s.agentList)-end)))
+		if len(agentRows) > 0 {
+			agentRailRows = len(agentRows)
+			agentListBody := a.renderScrollableModalBody(
+				lipgloss.JoinVertical(lipgloss.Left, agentRows...),
+				agentRailRows,
+				w,
+				agentRailWindow,
+			)
+			rows = append(rows, strings.Split(agentListBody, "\n")...)
 		}
 		if len(s.agentList) > 0 {
 			rows = append(rows, "")
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Details"))
-			detailLines := a.agentDetailLines(s.agentList[s.agentSel], w-4)
+			detailLines := a.agentDetailLines(s.agentList[s.agentSel], innerW)
 			maxDetails := max(3, (a.height-4)/4)
 			if len(detailLines) > maxDetails {
 				detailLines = append(detailLines[:maxDetails], t.HintLabel.Render("  …"))
@@ -486,9 +607,32 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
 			map[string]string{"value": a.localizedThemeName(ThemeModeFor(a.Theme))})))
 		rows = append(rows, "")
+		listStart := len(rows)
+		items := make([]modalListItem, 0, len(AllThemeModes))
 		for i, mode := range AllThemeModes {
-			rows = append(rows, rowLine(i == s.themeSel, a.localizedThemeName(mode), a.localizedThemeDescription(mode)))
+			idx := i
+			items = append(items, modalListItem{
+				id:       "settings:theme:" + ThemeModeName(mode),
+				title:    a.localizedThemeName(mode),
+				meta:     a.localizedThemeDescription(mode),
+				selected: i == s.themeSel,
+				action: func(app *App) tea.Cmd {
+					if app.settings == nil {
+						app.settings = &settingsState{tab: 2}
+					}
+					app.settings.themeSel = idx
+					app.previewTheme(idx)
+					return nil
+				},
+			})
 		}
+		list := a.renderModalList(items, modalListOptions{
+			width:            innerW,
+			rowBudget:        len(items),
+			descriptionLines: 0,
+		})
+		rows = append(rows, list.rows...)
+		addListHits(list, listStart)
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			a.localizer.t(messageID("settings.theme.hint"), nil)))
@@ -500,65 +644,123 @@ func (a *App) viewSettings() string {
 		rows = append(rows, "")
 
 		// LLLLL1: shared editable-row renderer for the TUI tab so
-		// rows 0..tuiPrefsRowCount-1 share the same selection visual
-		// (▌ marker + Secondary-bold label + Secondary-bold value).
-		editableRow := func(rowIdx int, label, value, hint string) []string {
-			marker := "  "
-			labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			valueStyle := t.HintLabel
-			if s.tuiRow == rowIdx {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-				valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		// rows 0..tuiPrefsRowCount-1 share the same selection visual,
+		// inline hint density, and left/right control geometry.
+		editableRow := func(rowIdx int, label, value, hint string) settingsTUIStepperRow {
+			return renderSettingsTUIStepperRow(t, innerW, s.tuiRow == rowIdx, label, value, hint)
+		}
+		addTUIControlHits := func(id string, rowIdx int, row int, stepper settingsTUIStepperRow) {
+			selectRow := func(app *App) {
+				if app.settings == nil {
+					app.settings = &settingsState{tab: 3}
+				}
+				app.settings.tuiRow = rowIdx
 			}
-			out := []string{marker + labelStyle.Render(label) + "  " + valueStyle.Render(value)}
-			if hint != "" {
-				out = append(out, "  "+t.HintLabel.Italic(true).Render(hint))
+			controlHits := modalStepperControlHits("settings:tui:"+id, row, 0, innerW, stepper.controlStart, stepper.controlEnd, func(app *App) tea.Cmd {
+				selectRow(app)
+				return nil
+			}, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("left"))
+				return cmd
+			}, func(app *App) tea.Cmd {
+				selectRow(app)
+				_, cmd := app.handleSettingsKey(keyMsg("right"))
+				return cmd
+			})
+			for _, hit := range controlHits {
+				if hit.id == "settings:tui:"+id {
+					hit.id += ":line"
+				}
+				addArrowHit(hit.id, hit.row, hit.col, hit.width, hit.action)
 			}
-			out = append(out, "")
-			return out
+		}
+		addTUIRowHit := func(id string, rowIdx int, row int, height int) {
+			addRowHitHeight("settings:tui:"+id, row, height, func(app *App) tea.Cmd {
+				if app.settings != nil {
+					app.settings.tuiRow = rowIdx
+				}
+				return nil
+			})
 		}
 
-		rows = append(rows, editableRow(0,
-			a.localizer.t(messageID("settings.tui.collapse_threshold"), nil),
-			"◀ "+itoa2(a.Theme.CollapseThreshold)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
-			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))...)
-		rows = append(rows, editableRow(1,
-			a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil),
-			"◀ "+humanTokens(a.Theme.CostWarnTokens)+" ▶",
-			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))...)
-		rows = append(rows, editableRow(2,
-			a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil),
-			"◀ "+humanTokens(a.Theme.CostDangerTokens)+" ▶",
-			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))...)
+		label := a.localizer.t(messageID("settings.tui.collapse_threshold"), nil)
+		value := itoa2(a.Theme.CollapseThreshold) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
+		row := len(rows)
+		block := editableRow(0,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.collapse_threshold_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("collapse-threshold", 0, row, block.height())
+		addTUIControlHits("collapse-threshold", 0, row, block)
+		label = a.localizer.t(messageID("settings.tui.cost_warn_tokens"), nil)
+		value = humanTokens(a.Theme.CostWarnTokens)
+		row = len(rows)
+		block = editableRow(1,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.cost_warn_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("cost-warn", 1, row, block.height())
+		addTUIControlHits("cost-warn", 1, row, block)
+		label = a.localizer.t(messageID("settings.tui.cost_danger_tokens"), nil)
+		value = humanTokens(a.Theme.CostDangerTokens)
+		row = len(rows)
+		block = editableRow(2,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.cost_danger_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("cost-danger", 2, row, block.height())
+		addTUIControlHits("cost-danger", 2, row, block)
 		// YYYYY1: paste compression threshold + intro splash toggle.
 		pt := a.Theme.PasteCompressThreshold
 		if pt <= 0 {
 			pt = 3
 		}
-		rows = append(rows, editableRow(3,
-			a.localizer.t(messageID("settings.tui.paste_compress"), nil),
-			"◀ "+itoa2(pt)+" "+a.localizer.t(messageID("settings.tui.lines"), nil)+" ▶",
-			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))...)
+		label = a.localizer.t(messageID("settings.tui.paste_compress"), nil)
+		value = itoa2(pt) + " " + a.localizer.t(messageID("settings.tui.lines"), nil)
+		row = len(rows)
+		block = editableRow(3,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.paste_compress_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("paste-compress", 3, row, block.height())
+		addTUIControlHits("paste-compress", 3, row, block)
 		introState := a.localizer.t(msgSettingsOff, nil)
 		if a.IntroDisabled {
 			introState = a.localizer.t(msgSettingsOn, nil) + "  (" + a.localizer.t(messageID("settings.tui.skip_splash"), nil) + ")"
 		} else {
 			introState = a.localizer.t(msgSettingsOff, nil) + " (" + a.localizer.t(messageID("settings.tui.show_splash"), nil) + ")"
 		}
-		rows = append(rows, editableRow(4,
-			a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil),
-			"◀ "+introState+" ▶",
-			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))...)
+		label = a.localizer.t(messageID("settings.tui.intro_splash_skip"), nil)
+		value = introState
+		row = len(rows)
+		block = editableRow(4,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.intro_splash_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("intro", 4, row, block.height())
+		addTUIControlHits("intro", 4, row, block)
 
 		mouseState := a.localizer.t(msgSettingsOn, nil)
 		if !a.MouseEnabled {
 			mouseState = a.localizer.t(msgSettingsOff, nil)
 		}
-		rows = append(rows, editableRow(5,
-			a.localizer.t(messageID("settings.tui.mouse_controls"), nil),
-			"◀ "+mouseState+" ▶",
-			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))...)
+		label = a.localizer.t(messageID("settings.tui.mouse_controls"), nil)
+		value = mouseState
+		row = len(rows)
+		block = editableRow(5,
+			label,
+			value,
+			a.localizer.t(messageID("settings.tui.mouse_controls_hint"), nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("mouse", 5, row, block.height())
+		addTUIControlHits("mouse", 5, row, block)
+		rows = append(rows, "")
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
@@ -578,25 +780,91 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageCurrent, nil)+": "+
 			a.localizer.activeLanguageLabel()))
 		rows = append(rows, "")
-		for i, opt := range availableLanguageOptions() {
-			rows = append(rows, rowLine(i == s.languageSel,
-				a.localizer.languageOptionLabel(opt), opt.Locale))
+		options := availableLanguageOptions()
+		listStart := len(rows)
+		items := make([]modalListItem, 0, len(options))
+		for i, opt := range options {
+			idx := i
+			items = append(items, modalListItem{
+				id:       "settings:language:" + opt.Locale,
+				title:    a.localizer.languageOptionLabel(opt),
+				meta:     opt.Locale,
+				selected: i == s.languageSel,
+				action: func(app *App) tea.Cmd {
+					if app.settings == nil {
+						app.settings = &settingsState{tab: 4}
+					}
+					app.settings.languageSel = idx
+					app.previewLanguage(idx)
+					return nil
+				},
+			})
 		}
+		list := a.renderModalList(items, modalListOptions{
+			width:            innerW,
+			rowBudget:        len(items),
+			descriptionLines: 0,
+		})
+		rows = append(rows, list.rows...)
+		addListHits(list, listStart)
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgLanguageDescription, nil)))
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(a.localizer.t(msgLanguageHint, nil)))
 	}
-	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)))
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	for i, row := range rows {
+		rows[i] = fitANSI(row, innerW)
+	}
+	body := padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), a.settingsBodyPageSize())
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgSettingsTitle, nil),
+		buttons:    buttons,
+		tabs:       tabHits,
+		tabPadding: 2,
+		tabSpacing: 2,
+		body:       body,
+		footer:     t.HintLabel.Render(a.localizer.t(msgSettingsFooter, nil)),
+	})
+	a.registerModalSurfaceWheel(rendered, "settings")
+	bodyList := modalListRender{
+		rows: strings.Split(body, "\n"),
+		hits: rowHits,
+	}
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow, 0, innerW, bodyList, "settings:body:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		if app.settings == nil {
+			app.settings = &settingsState{}
+		}
+		switch button {
+		case tea.MouseWheelUp:
+			_, cmd := app.handleSettingsKey(keyMsg("up"))
+			return cmd
+		case tea.MouseWheelDown:
+			_, cmd := app.handleSettingsKey(keyMsg("down"))
+			return cmd
+		}
+		return nil
+	})
+	if agentRailStart >= 0 && agentRailRows > 0 {
+		railFrame := rendered
+		railFrame.bodyRow = rendered.bodyRow + agentRailStart
+		a.registerSelectableListRailHits(railFrame, "settings:agent:list", agentRailWindow, agentRailRows, func(app *App, target int) tea.Cmd {
+			if app.settings == nil || len(app.settings.agentList) == 0 {
+				return nil
+			}
+			app.settings.tab = 1
+			app.settings.agentSel = clampSelection(target, len(app.settings.agentList))
+			app.ensureAgentSelectionVisible()
+			return nil
+		})
+	}
+	a.registerModalCellHits(rendered.modal, rendered.bodyRow, arrowHits)
+	return rendered.modal
+}
+
+func (a *App) settingsBodyPageSize() int {
+	return minInt(24, a.modalBodyRows(14))
 }
 
 func orPlaceholder(s, placeholder string) string {
@@ -677,6 +945,14 @@ func (a *App) localizedAgentDescription(ag gact.AgentDef) string {
 		return a.localizer.t(messageID(key), nil)
 	}
 	return ag.Description
+}
+
+func (a *App) settingsAgentListDescription(ag gact.AgentDef) string {
+	desc := a.localizedAgentDescription(ag)
+	if before, _, ok := strings.Cut(desc, "Common tools:"); ok {
+		desc = before
+	}
+	return strings.TrimSpace(desc)
 }
 
 func (a *App) visibleAgentRange() (int, int) {

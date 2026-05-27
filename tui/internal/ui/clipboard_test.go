@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +31,56 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	}
 	t.Cleanup(func() { clipboardWrite = prev })
 	return &mu, &got, &err
+}
+
+func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
+	mu, got, errSlot := withClipboardSpy(t)
+
+	if hint := copyTextToClipboard("compose draft", "   \n\t"); hint != "nothing to copy" {
+		t.Fatalf("empty hint = %q, want nothing to copy", hint)
+	}
+	mu.Lock()
+	if *got != "" {
+		t.Fatalf("clipboard should not be touched for empty text, got %q", *got)
+	}
+	*errSlot = errors.New("clipboard daemon unavailable")
+	mu.Unlock()
+
+	if hint := copyTextToClipboard("compose draft", "draft body"); !strings.Contains(hint, "copy failed") || !strings.Contains(hint, "clipboard daemon unavailable") {
+		t.Fatalf("failure hint = %q, want surfaced clipboard error", hint)
+	}
+
+	mu.Lock()
+	*errSlot = nil
+	mu.Unlock()
+	want := "  keep exact spacing\nand newlines  "
+	if hint := copyTextToClipboard("detail", want); hint != "copied detail to clipboard" {
+		t.Fatalf("success hint = %q, want copied detail to clipboard", hint)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != want {
+		t.Fatalf("clipboard = %q, want exact payload %q", *got, want)
+	}
+}
+
+func TestCopyExactTextToClipboardUsesCustomHints(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	if hint := copyExactTextToClipboard("", "empty transcript", nil); hint != "empty transcript" {
+		t.Fatalf("empty hint = %q, want custom empty hint", hint)
+	}
+	if hint := copyExactTextToClipboard("abcd", "", func(chars int) string {
+		return "copied chars: " + strconv.Itoa(chars)
+	}); hint != "copied chars: 4" {
+		t.Fatalf("success hint = %q, want custom character count", hint)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "abcd" {
+		t.Fatalf("clipboard = %q, want abcd", *got)
+	}
 }
 
 func TestLastAssistantText_EmptySlice(t *testing.T) {
@@ -265,5 +316,46 @@ func TestHandleBodyKey_YClipboardFailureSurfacesHint(t *testing.T) {
 	}
 	if !strings.Contains(a.transientHint, "no xclip installed") {
 		t.Errorf("hint should include underlying err: %q", a.transientHint)
+	}
+}
+
+func TestCopyCommandUsesSharedClipboardAdapter(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{Type: gact.PartTypeThinking, Thinking: "private chain"},
+			{Type: gact.PartTypeText, Text: "visible answer"},
+		},
+	}}
+
+	toast := a.copyLastAssistantReplyToClipboard()
+	mu.Lock()
+	defer mu.Unlock()
+	if !strings.Contains(*got, "<thinking>\nprivate chain\n</thinking>") || !strings.Contains(*got, "visible answer") {
+		t.Fatalf("/copy clipboard = %q, want shared last-assistant formatter output", *got)
+	}
+	if !strings.Contains(toast, "copied") || strings.Contains(toast, "via ") || strings.Contains(toast, "wrote ") {
+		t.Fatalf("/copy toast = %q, want shared clipboard confirmation", toast)
+	}
+}
+
+func TestCopyCommandClipboardFailureSurfacesHint(t *testing.T) {
+	mu, _, errSlot := withClipboardSpy(t)
+	mu.Lock()
+	*errSlot = errors.New("clipboard daemon unavailable")
+	mu.Unlock()
+
+	a := New("http://unused")
+	a.messages = []gact.Message{{
+		Role:  gact.RoleAssistant,
+		Parts: []gact.Part{{Type: gact.PartTypeText, Text: "visible answer"}},
+	}}
+
+	toast := a.copyLastAssistantReplyToClipboard()
+	if !strings.Contains(toast, "copy failed") || !strings.Contains(toast, "clipboard daemon unavailable") {
+		t.Fatalf("/copy failure toast = %q, want surfaced clipboard error", toast)
 	}
 }

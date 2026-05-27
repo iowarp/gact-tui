@@ -47,6 +47,143 @@ func (s *Server) handleListProviderModels(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{"models": models})
 }
 
+type lmProviderPreset struct {
+	ID                  string `json:"id"`
+	Label               string `json:"label"`
+	Provider            string `json:"provider"`
+	APIBase             string `json:"api_base"`
+	SuggestedModel      string `json:"suggested_model"`
+	RequiresAPIKey      bool   `json:"requires_api_key"`
+	APIKeyEnv           string `json:"api_key_env,omitempty"`
+	AuthMethod          string `json:"auth_method,omitempty"`
+	IsAuthenticated     bool   `json:"is_authenticated,omitempty"`
+	Description         string `json:"description"`
+	Status              string `json:"status,omitempty"`
+	StatusMessage       string `json:"status_message,omitempty"`
+	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
+}
+
+type lmProviderInfo struct {
+	Configured     bool               `json:"configured"`
+	Provider       string             `json:"provider,omitempty"`
+	APIBase        string             `json:"api_base,omitempty"`
+	Model          string             `json:"model,omitempty"`
+	Temperature    float64            `json:"temperature,omitempty"`
+	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ContextLength  int                `json:"context_length,omitempty"`
+	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	State          string             `json:"state,omitempty"`
+	StatusMessage  string             `json:"status_message,omitempty"`
+	Presets        []lmProviderPreset `json:"presets,omitempty"`
+}
+
+type lmProviderRequest struct {
+	Provider       string  `json:"provider"`
+	APIBase        string  `json:"api_base"`
+	Model          string  `json:"model"`
+	Temperature    float64 `json:"temperature,omitempty"`
+	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ContextLength  int     `json:"context_length,omitempty"`
+	ThinkingBudget int     `json:"thinking_budget,omitempty"`
+}
+
+func (s *Server) handleGetLMProvider(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, staticLMProviderInfo("anthropic", "claude-opus-4-7"))
+}
+
+func (s *Server) handlePutLMProvider(w http.ResponseWriter, r *http.Request) {
+	var req lmProviderRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.Provider = strings.TrimSpace(req.Provider)
+	req.Model = strings.TrimSpace(req.Model)
+	if req.Provider == "" || req.Model == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "provider and model required")
+		return
+	}
+	models, ok := staticModels()[req.Provider]
+	if !ok {
+		writeError(w, http.StatusBadRequest, "provider_not_found", "no provider with id "+req.Provider)
+		return
+	}
+	found := false
+	for _, model := range models {
+		if model.ID == req.Model {
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusBadRequest, "model_not_found", "no model "+req.Model+" for provider "+req.Provider)
+		return
+	}
+	info := staticLMProviderInfo(req.Provider, req.Model)
+	info.APIBase = strings.TrimSpace(req.APIBase)
+	info.Temperature = req.Temperature
+	info.MaxTokens = req.MaxTokens
+	info.ContextLength = req.ContextLength
+	info.ThinkingBudget = req.ThinkingBudget
+	writeJSON(w, http.StatusOK, info)
+}
+
+func staticLMProviderInfo(provider, model string) lmProviderInfo {
+	return lmProviderInfo{
+		Configured:    true,
+		Provider:      provider,
+		Model:         model,
+		Temperature:   1.0,
+		MaxTokens:     32000,
+		ContextLength: 200000,
+		State:         "ready",
+		StatusMessage: "emulator provider catalog ready",
+		Presets: []lmProviderPreset{
+			{
+				ID:                  "anthropic",
+				Label:               "Anthropic",
+				Provider:            "anthropic",
+				APIBase:             "https://api.anthropic.com/v1",
+				SuggestedModel:      "claude-opus-4-7",
+				RequiresAPIKey:      false,
+				AuthMethod:          "oauth",
+				IsAuthenticated:     true,
+				Description:         "Hosted Claude models with tool and thinking support.",
+				Status:              "ready",
+				StatusMessage:       "authenticated",
+				SupportsLiveCatalog: true,
+			},
+			{
+				ID:                  "openai",
+				Label:               "OpenAI",
+				Provider:            "openai",
+				APIBase:             "https://api.openai.com/v1",
+				SuggestedModel:      "gpt-5",
+				RequiresAPIKey:      true,
+				APIKeyEnv:           "OPENAI_API_KEY",
+				AuthMethod:          "api_key",
+				Description:         "OpenAI API models with direct API-key authentication.",
+				Status:              "needs_api_key",
+				StatusMessage:       "paste an API key before saving",
+				SupportsLiveCatalog: true,
+			},
+			{
+				ID:                  "local",
+				Label:               "Local emulator",
+				Provider:            "local",
+				APIBase:             "http://127.0.0.1:11434/v1",
+				SuggestedModel:      "llama3.3",
+				RequiresAPIKey:      false,
+				AuthMethod:          "none",
+				IsAuthenticated:     true,
+				Description:         "Local no-auth model endpoint for visual-loop testing.",
+				Status:              "ready",
+				StatusMessage:       "static emulator catalog",
+				SupportsLiveCatalog: true,
+			},
+		},
+	}
+}
+
 func staticProviders() []gact.Provider {
 	return []gact.Provider{
 		{ID: "anthropic", Name: "Anthropic", AuthMethods: []string{"api_key", "oauth"}, IsAuthenticated: true, DefaultModel: "claude-opus-4-7"},

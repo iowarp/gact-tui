@@ -283,6 +283,7 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 			ID:         "result",
 			Type:       gact.PartTypeToolResult,
 			CallID:     "c1",
+			ToolName:   "shell_bash",
 			DurationMS: 123,
 			Content: []gact.Part{{
 				Type: gact.PartTypeText,
@@ -296,7 +297,8 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		t.Fatal("selected short tool_result should open detail view")
 	}
 	for _, want := range []string{
-		"tool result",
+		"shell_bash result",
+		"tool: shell_bash",
 		"call_id: c1",
 		"duration_ms: 123",
 		"Saturday, May 23, 2026 3:49:03 PM",
@@ -307,19 +309,410 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 	}
 }
 
+func TestPartDetailShowsPromotedEvidenceProvenance(t *testing.T) {
+	out := partDetailText(gact.Part{
+		ID:     "result",
+		Type:   gact.PartTypeToolResult,
+		CallID: "c1",
+		Metadata: map[string]any{
+			"synthetic_from": "tools_called_metadata",
+			"raw_result":     map[string]any{"status": "success"},
+		},
+		Content: []gact.Part{{Type: gact.PartTypeText, Text: "status: success"}},
+	})
+	if !strings.Contains(out, "provenance: trace metadata") {
+		t.Fatalf("tool detail should surface promoted evidence provenance:\n%s", out)
+	}
+	if strings.Count(out, "raw_result:") != 1 {
+		t.Fatalf("tool detail should show raw_result once, not repeat it inside metadata:\n%s", out)
+	}
+	if strings.Contains(out, "synthetic_from") {
+		t.Fatalf("tool detail should not repeat provenance transport metadata:\n%s", out)
+	}
+
+	out = partDetailText(gact.Part{
+		ID:   "handoff",
+		Type: gact.PartTypeExpertHandoff,
+		Metadata: map[string]any{
+			"synthetic_from": "expert_handoffs_metadata",
+			"agent_id":       "data",
+		},
+	})
+	if !strings.Contains(out, "provenance: handoff metadata") {
+		t.Fatalf("handoff detail should surface promoted evidence provenance:\n%s", out)
+	}
+}
+
+func TestPartDetailHidesPartialAnswerRenderFlag(t *testing.T) {
+	out := partDetailText(gact.Part{
+		ID:   "answer",
+		Type: gact.PartTypeText,
+		Text: "Recovered answer.",
+		Metadata: map[string]any{
+			"partial_after_error": true,
+			"stream_source":       "batch",
+		},
+	})
+	if strings.Contains(out, "partial_after_error") {
+		t.Fatalf("detail should not expose UI-only partial answer marker:\n%s", out)
+	}
+	if !strings.Contains(out, "Recovered answer.") || !strings.Contains(out, "stream_source") {
+		t.Fatalf("detail should retain text and real metadata:\n%s", out)
+	}
+}
+
 func TestDetailModalWidthIsReadableButNotHuge(t *testing.T) {
 	a := New("http://unused")
 	a.width = 180
-	if got := a.detailModalWidth(); got != 112 {
-		t.Fatalf("wide terminal detail width = %d, want capped 112", got)
+	if got := a.detailModalWidth(); got != a.modalWidth() {
+		t.Fatalf("detail width = %d, want shared modal width %d", got, a.modalWidth())
 	}
 	a.width = 120
-	if got := a.detailModalWidth(); got != 80 {
-		t.Fatalf("medium terminal detail width = %d, want two thirds", got)
+	if got := a.detailModalWidth(); got != 96 {
+		t.Fatalf("medium terminal detail width = %d, want shared width 96", got)
 	}
 	a.width = 70
 	if got := a.detailModalWidth(); got > a.width-8 {
 		t.Fatalf("small terminal detail width = %d, should fit width %d", got, a.width)
+	}
+}
+
+func TestCatalogBackedDetailUsesBackButton(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{kind: catalogKindTools, title: "Tools"}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Tool · shell_bash", fullText: "Summary\n  name: shell_bash"}
+
+	out := ansi.Strip(a.View().Content)
+	if !strings.Contains(out, "back") {
+		t.Fatalf("catalog-backed detail should render visible back button:\n%s", out)
+	}
+	target, ok := findHitTargetForTest(a, "button:detail:close")
+	if !ok {
+		t.Fatal("missing semantic detail back/close target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	if cmd != nil {
+		t.Fatal("detail back click should not dispatch a command")
+	}
+	a = model.(*App)
+	if a.detailViewOpen {
+		t.Fatal("detail back click should close only the detail overlay")
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil {
+		t.Fatal("detail back click should reveal the catalog browser behind it")
+	}
+}
+
+func TestCatalogBackedDetailBlocksBackgroundHits(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{
+			{id: "one", title: "One"},
+			{id: "two", title: "Two"},
+			{id: "three", title: "Three"},
+		},
+	}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Tool · shell_bash",
+		fullText: strings.Repeat("detail line\n", 20),
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "detail:surface")
+	if !ok {
+		t.Fatal("missing opaque detail surface hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      surface.rect.x + surface.rect.w/2,
+		Y:      surface.rect.y + surface.rect.h/2,
+		Button: tea.MouseLeft,
+	}))
+	if cmd != nil {
+		t.Fatal("clicking detail body should not dispatch a command")
+	}
+	a = model.(*App)
+	if !a.detailViewOpen {
+		t.Fatal("clicking detail body should not close detail")
+	}
+	if a.catalogBrowser.sel != 0 {
+		t.Fatalf("detail surface click leaked into catalog selection, got sel=%d", a.catalogBrowser.sel)
+	}
+}
+
+func TestDetailWheelUsesBodyRegionOnly(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Evidence",
+		fullText: strings.Repeat("detail line\n", 40),
+	}
+
+	_ = a.View()
+	body, ok := findHitTargetForTest(a, "detail:body:wheel")
+	if !ok {
+		t.Fatal("missing detail body wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      body.rect.x,
+		Y:      body.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.detailScroll != 1 {
+		t.Fatalf("wheel over detail body should scroll detail, got %d", a.detailScroll)
+	}
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "detail:surface:wheel")
+	if !ok {
+		t.Fatal("missing detail surface wheel blocker")
+	}
+	model, _ = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + 1,
+		Y:      surface.rect.y + 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.detailScroll != 1 {
+		t.Fatalf("wheel on detail chrome should not scroll detail, got %d", a.detailScroll)
+	}
+}
+
+func TestDetailSectionsRenderConsistentFieldsAndBodies(t *testing.T) {
+	rows := appendDetailSection(nil, "Section",
+		detailField{"name", "value"},
+		detailField{"description", "first\nsecond"},
+		detailField{"", "freeform"},
+	)
+	out := strings.Join(rows, "\n")
+	for _, want := range []string{
+		"Section",
+		"  name: value",
+		"  description:",
+		"    first",
+		"    second",
+		"    freeform",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("detail section missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestDetailWrappingPreservesIndentedFieldShape(t *testing.T) {
+	content := strings.Join(detailFieldRows("api_base", "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1"), "\n")
+	wrapped := wrap(content, 34)
+	lines := strings.Split(wrapped, "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected wrapped detail field, got:\n%s", wrapped)
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "  ") {
+			t.Fatalf("wrapped detail line lost field indentation: %q\n%s", line, wrapped)
+		}
+	}
+	if !strings.Contains(wrapped, "api_base:") {
+		t.Fatalf("wrapped detail field lost label:\n%s", wrapped)
+	}
+}
+
+func TestScrollableDetailModalClampsAndRegistersClose(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+
+	lines := []string{
+		"detail line 01",
+		"detail line 02",
+		"detail line 03",
+		"detail line 04",
+		"detail line 05",
+		"detail line 06",
+	}
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:   72,
+		title:   "Evidence",
+		content: strings.Join(lines, "\n"),
+		scroll:  99,
+		page:    3,
+		closeID: "detail:test-close",
+	})
+
+	if rendered.scroll != 3 {
+		t.Fatalf("scroll = %d, want max clamp 3", rendered.scroll)
+	}
+	if rendered.window.start != 3 || rendered.window.end != 6 || rendered.window.total != 6 {
+		t.Fatalf("window = %+v, want start 3 end 6 total 6", rendered.window)
+	}
+
+	plain := ansi.Strip(rendered.modal)
+	for _, want := range []string{
+		"Evidence",
+		"detail line 04",
+		"detail line 06",
+		"┃",
+	} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("rendered modal missing %q:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "line 4") || strings.Contains(plain, "of 6") {
+		t.Fatalf("rendered modal should use the side scroll indicator instead of title range text:\n%s", plain)
+	}
+	if strings.Contains(plain, "detail line 03") {
+		t.Fatalf("rendered modal included a line above the clamped window:\n%s", plain)
+	}
+	if _, ok := findHitTargetForTest(a, "button:detail:test-close"); !ok {
+		t.Fatalf("scrollable detail modal did not register close button hit target")
+	}
+	if _, ok := findHitTargetForTest(a, "button:detail:copy"); !ok {
+		t.Fatalf("scrollable detail modal did not register copy button hit target")
+	}
+}
+
+func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+
+	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
+		width:   72,
+		title:   "Evidence",
+		content: "detail line",
+		page:    3,
+		closeID: "detail:test-close",
+	})
+
+	target, ok := findHitTargetForTest(a, "button:detail:test-close")
+	if !ok {
+		t.Fatalf("scrollable detail modal did not register close button hit target")
+	}
+	rect := overlayMouseRect(rendered.modal, a.width, a.height)
+	closeLine := -1
+	for i, line := range strings.Split(ansi.Strip(rendered.modal), "\n") {
+		if strings.Contains(line, "Evidence") && strings.Contains(line, "close") {
+			closeLine = i
+			break
+		}
+	}
+	if closeLine < 0 {
+		t.Fatalf("could not find visible detail header close row in:\n%s", ansi.Strip(rendered.modal))
+	}
+	if wantY := rect.y + closeLine; target.rect.y != wantY {
+		t.Fatalf("detail close button y = %d, want visible header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestDetailShortPayloadUsesCompactSharedBodyHeight(t *testing.T) {
+	short := New("http://unused")
+	short.width, short.height = 150, 44
+	short.detailViewOpen = true
+	short.detailView = &bulkyPartRef{title: "Evidence", fullText: "one\ntwo"}
+	shortRect := overlayMouseRect(short.viewDetailView(), short.width, short.height)
+	if shortRect.y != 3 {
+		t.Fatalf("short detail top = %d, want shared top row 3", shortRect.y)
+	}
+
+	long := New("http://unused")
+	long.width, long.height = short.width, short.height
+	long.detailViewOpen = true
+	long.detailView = &bulkyPartRef{title: "Evidence", fullText: strings.Repeat("detail line\n", 60)}
+	longRect := overlayMouseRect(long.viewDetailView(), long.width, long.height)
+	if shortRect.w != longRect.w {
+		t.Fatalf("short detail width = %d, long detail width = %d; shared modal width should be stable", shortRect.w, longRect.w)
+	}
+	if shortRect.h >= longRect.h {
+		t.Fatalf("short detail height = %d, want less than long detail height %d", shortRect.h, longRect.h)
+	}
+	if longRect.y != shortRect.y {
+		t.Fatalf("long detail top = %d, want same top as compact detail %d", longRect.y, shortRect.y)
+	}
+}
+
+func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Evidence",
+		fullText: "line one\nline two\nraw JSON remains intact",
+	}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:detail:copy")
+	if !ok {
+		t.Fatal("missing semantic detail copy target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail copy click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("detail copy click should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "line one\nline two\nraw JSON remains intact" {
+		t.Fatalf("copied detail = %q", gotCopy)
+	}
+	if !strings.Contains(a.transientHint, "copied detail") {
+		t.Fatalf("hint = %q, want copy confirmation", a.transientHint)
+	}
+}
+
+func TestDetailViewYCopiesFullContent(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Evidence", fullText: "copy by key"}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd != nil {
+		t.Fatal("detail y copy should not dispatch a command")
+	}
+	if !a.detailViewOpen {
+		t.Fatal("detail y copy should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "copy by key" {
+		t.Fatalf("copied detail = %q", gotCopy)
 	}
 }
 

@@ -109,6 +109,134 @@ func TestRename_EnterCommitsAndPatches(t *testing.T) {
 	}
 }
 
+func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "clicked title"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:save")
+	if !ok {
+		t.Fatal("missing rename save button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.renameOpen {
+		t.Fatal("save button should close rename modal")
+	}
+	if a.sessions[0].Title != "clicked title" {
+		t.Fatalf("save button did not commit title: %q", a.sessions[0].Title)
+	}
+	if cmd == nil {
+		t.Fatal("save button should dispatch patch command")
+	}
+}
+
+func TestRenameButtonsAlignWithSharedHeader(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "clicked title"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:save")
+	if !ok {
+		t.Fatal("missing rename save button hit target")
+	}
+	rect := overlayMouseRect(a.viewRename(), a.width, a.height)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("rename save button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestRenameCancelButtonUsesSharedCloseState(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "discard me"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:rename:cancel")
+	if !ok {
+		t.Fatal("missing rename cancel button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cancel button should not dispatch a command")
+	}
+	if a.renameOpen || a.renameDraft != "" || a.renameCursor != 0 {
+		t.Fatalf("cancel should clear rename state, open=%v draft=%q cursor=%d", a.renameOpen, a.renameDraft, a.renameCursor)
+	}
+}
+
+func TestRenameEditorClickPlacesCursor(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.renameOpen = true
+	a.renameDraft = "abcdef"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "text-entry:rename:cursor:2")
+	if !ok {
+		t.Fatal("missing rename editor cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("cursor click should not dispatch a command")
+	}
+	if a.renameCursor != 2 {
+		t.Fatalf("rename cursor = %d, want 2", a.renameCursor)
+	}
+	if !a.renameOpen {
+		t.Fatal("cursor click should keep rename open")
+	}
+}
+
+func TestRenameSurfaceWheelUsesSharedTextEntryBlocker(t *testing.T) {
+	a, _, _ := makeRenameApp(t)
+	a.width, a.height = 120, 36
+	a.renameOpen = true
+	a.renameDraft = "abcdef"
+	a.renameCursor = len(a.renameDraft)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "rename:surface:wheel")
+	if !ok {
+		t.Fatal("missing rename surface wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("rename surface wheel should not dispatch a command")
+	}
+	if !a.renameOpen || a.renameCursor != len(a.renameDraft) {
+		t.Fatalf("rename surface wheel should keep modal and cursor stable, open=%v cursor=%d", a.renameOpen, a.renameCursor)
+	}
+}
+
 func TestRename_EmptyInputCancels(t *testing.T) {
 	a, mu, got := makeRenameApp(t)
 	a.renameOpen = true

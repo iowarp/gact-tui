@@ -18,7 +18,7 @@ import (
 func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.workspaceSwitchOpen = false
+		a.closeWorkspaceSwitchModal()
 		return a, nil
 	case "up", "k":
 		if a.workspaceSwitchSel > 0 {
@@ -32,11 +32,11 @@ func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "enter":
 		if a.workspaceSwitchSel < 0 || a.workspaceSwitchSel >= len(a.workspaces) {
-			a.workspaceSwitchOpen = false
+			a.closeWorkspaceSwitchModal()
 			return a, nil
 		}
 		next := a.workspaces[a.workspaceSwitchSel]
-		a.workspaceSwitchOpen = false
+		a.closeWorkspaceSwitchModal()
 		if next.ID == a.wsID {
 			// No-op pick — user hit Enter on the current workspace.
 			a.transientHint = "already on " + workspaceLabel(next)
@@ -86,49 +86,77 @@ type workspaceSwitchedMsg struct {
 	sessions []gact.Session
 }
 
+func (a *App) closeWorkspaceSwitchModal() {
+	a.workspaceSwitchOpen = false
+}
+
+const workspaceSwitchMaxItems = 8
+
 // viewWorkspaceSwitch renders the modal. Matches the settings/metrics
 // overlay style so the user's muscle memory carries over.
 func (a *App) viewWorkspaceSwitch() string {
 	t := a.Theme
 	w := a.modalWidth()
-	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Switch workspace"),
-		"",
-	}
+	buttons := []menuButton{closeMenuButton("workspace-switch:close", func(app *App) { app.closeWorkspaceSwitchModal() })}
+	rows := []string{}
 	if len(a.workspaces) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
 	}
-	// Reserve space for the marker (2 cols) + the optional "(current)"
-	// suffix (10 cols when present). Truncate the plain label first,
-	// THEN style — `truncate` operates on byte indices and would cut
-	// inside an ANSI escape if we styled before slicing.
-	for i, ws := range a.workspaces {
-		marker := "  "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.workspaceSwitchSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-		}
-		curSuffix := ""
-		curSuffixWidth := 0
+	listW := modalInsetListWidth(w)
+	itemBudget := a.modalListItemBudget(4, 1, workspaceSwitchMaxItems)
+	win := selectedItemWindow(len(a.workspaces), a.workspaceSwitchSel, itemBudget)
+	listStartRow := len(rows)
+	items := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		ws := a.workspaces[i]
+		status := ""
 		if ws.ID == a.wsID {
-			curSuffix = lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("  (current)")
-			curSuffixWidth = 11
+			status = "current"
 		}
-		labelMax := w - 2 - 2 /* marker */ - curSuffixWidth
-		label := truncate(workspaceLabelPlain(ws), labelMax)
-		rows = append(rows, marker+labelStyle.Render(label)+curSuffix)
+		idx := i
+		items = append(items, modalListItem{
+			id:       "workspace-switch:item:" + ws.ID,
+			title:    workspaceLabelPlain(ws),
+			status:   status,
+			selected: i == a.workspaceSwitchSel,
+			action: func(app *App) tea.Cmd {
+				app.workspaceSwitchSel = idx
+				_, cmd := app.handleWorkspaceSwitchKey(keyMsg("enter"))
+				return cmd
+			},
+		})
 	}
-	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"))
+	list := a.renderModalList(items, modalListOptions{width: listW, rowBudget: itemBudget})
+	rows = append(rows, list.rows...)
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Switch workspace",
+			buttons: buttons,
+			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter switch", "Esc cancel")),
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       itemBudget,
+		window:         win,
+		wheelID:        "workspace-switch:list:wheel",
+		surfaceWheelID: "workspace-switch",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			if len(app.workspaces) == 0 {
+				return nil
+			}
+			app.workspaceSwitchSel = moveSelectionByWheel(app.workspaceSwitchSel, len(app.workspaces), button)
+			return nil
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.workspaceSwitchSel = clampSelection(index, len(app.workspaces))
+			return nil
+		},
+	})
+	return rendered.modal
 }
 
 // workspaceLabel renders a workspace as "name id" with the ID

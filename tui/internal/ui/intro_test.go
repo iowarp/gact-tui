@@ -47,6 +47,31 @@ func TestSplashKeyDismisses(t *testing.T) {
 	}
 }
 
+func TestSplashClickDismissesThroughSemanticTarget(t *testing.T) {
+	a := New("http://test.local")
+	a.EnableIntro()
+	a.MouseEnabled = true
+	a.width, a.height = 80, 24
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "intro:continue")
+	if !ok {
+		t.Fatal("missing intro continue hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.stage != StageConnecting {
+		t.Fatalf("stage after intro click = %v, want connecting", a.stage)
+	}
+	if cmd == nil {
+		t.Fatal("intro click should dispatch connect command")
+	}
+}
+
 // TestViewIntro_RendersDefaults checks the splash output includes
 // the baked-in name + a "press any key" hint when no custom file
 // was loaded.
