@@ -84,6 +84,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
 - Sidebar footer counts now register a semantic hit target and toggle active/archived sessions through the same path as the `h` key.
 - Sidebar filtering now has semantic mouse entry points: the visible footer `f filter` hint starts filter editing, the filter-mode footer exposes clickable apply/cancel targets, and an existing filter row can be clicked to re-enter editing while preserving Esc restore semantics.
+- Slash-command and message-search palette filter rows now have cursor-aware
+  editing and render-time cursor hit targets, so clicks place the insertion
+  point instead of leaving the filter as append-only text.
 - Header chips now register render-time semantic targets: backend opens metrics, workspace opens the workspace switcher, session focuses the selected sidebar row, model/routing open model settings, agent opens agent settings, and status opens Doctor when integration health is supported.
 - Footer focus and visible `Tab pane` hints now register semantic targets that cycle focus through the same helper used by keyboard Tab.
 - Footer status chips now register semantic targets: the reconnect badge dispatches the existing manual reconnect path, and the ARC memory hit-rate chip opens the memory inspector.
@@ -223,13 +226,9 @@ Keyboard behavior:
 Mouse support exists:
 
 - Click command/search result rows to select and execute.
+- Click the filter/query row to place the cursor.
 - Wheel scrolls long result lists.
 - Click outside/close uses the shared overlay policy.
-
-Remaining gaps:
-
-- Click filter field/cursor positioning is not applicable today but would matter
-  if the filter becomes an editable field with cursor.
 
 ### Help Overlay
 
@@ -390,7 +389,6 @@ Keyboard behavior:
 
 - Esc/Ctrl+C cancel.
 - Enter save.
-- Tab cycles context mode.
 - Backspace/delete edit.
 - Left/right/Home/End move cursor.
 - Printable text edits.
@@ -411,6 +409,7 @@ Keyboard behavior mirrors rename:
 
 - Esc/Ctrl+C cancel.
 - Enter save.
+- Tab cycles context mode.
 - Backspace/delete edit.
 - Left/right/Home/End move cursor.
 - Printable text edits.
