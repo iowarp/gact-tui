@@ -1185,6 +1185,42 @@ func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
 	}
 }
 
+func TestClipModalListToWindowKeepsRowsAndHitsAligned(t *testing.T) {
+	list := modalListRender{
+		rows: []string{"row 0", "row 1", "row 2", "row 3"},
+		hits: []modalListHit{{
+			id:     "row:one",
+			row:    1,
+			height: 2,
+			action: func(*App) tea.Cmd { return nil },
+		}, {
+			id:     "row:three",
+			row:    3,
+			height: 1,
+			action: func(*App) tea.Cmd { return nil },
+		}},
+		renderedItems: 2,
+	}
+
+	clipped := clipModalListToWindow(list, scrollWindow{start: 2, end: 4, scroll: 2, total: 4})
+
+	if got := strings.Join(clipped.rows, "|"); got != "row 2|row 3" {
+		t.Fatalf("clipped rows = %q, want visible rows 2 and 3", got)
+	}
+	if clipped.renderedItems != 2 {
+		t.Fatalf("renderedItems = %d, want preserved 2", clipped.renderedItems)
+	}
+	if len(clipped.hits) != 2 {
+		t.Fatalf("clipped hits = %d, want 2", len(clipped.hits))
+	}
+	if clipped.hits[0].id != "row:one" || clipped.hits[0].row != 0 || clipped.hits[0].height != 1 {
+		t.Fatalf("partially visible hit not clipped into window coordinates: %+v", clipped.hits[0])
+	}
+	if clipped.hits[1].id != "row:three" || clipped.hits[1].row != 1 || clipped.hits[1].height != 1 {
+		t.Fatalf("visible hit not shifted into window coordinates: %+v", clipped.hits[1])
+	}
+}
+
 func TestOffsetModalListHitsPreserveActionsAndHeights(t *testing.T) {
 	called := false
 	action := func(*App) tea.Cmd {

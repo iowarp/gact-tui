@@ -273,6 +273,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   swallowed by the overlay policy before the base conversation/sidebar regions
   can see them. This prevents uncovered areas behind modals from scrolling the
   transcript.
+- Windowed modal command/list row hits now clip rows and hit ranges into a
+  visible `modalListRender`, then register through `registerModalListRegion`.
+  Help > Commands no longer reaches around the shared list-region primitive
+  when its scroll window hides rows above or below the viewport.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
