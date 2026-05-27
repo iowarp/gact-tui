@@ -552,10 +552,10 @@ func (a *App) viewSettings() string {
 		for i, mode := range AllThemeModes {
 			idx := i
 			items = append(items, modalListItem{
-				id:          "settings:theme:" + ThemeModeName(mode),
-				title:       a.localizedThemeName(mode),
-				description: a.localizedThemeDescription(mode),
-				selected:    i == s.themeSel,
+				id:       "settings:theme:" + ThemeModeName(mode),
+				title:    a.localizedThemeName(mode),
+				meta:     a.localizedThemeDescription(mode),
+				selected: i == s.themeSel,
 				action: func(app *App) tea.Cmd {
 					if app.settings == nil {
 						app.settings = &settingsState{tab: 2}
@@ -568,8 +568,8 @@ func (a *App) viewSettings() string {
 		}
 		list := a.renderModalList(items, modalListOptions{
 			width:            w - 4,
-			rowBudget:        len(items) * 2,
-			descriptionLines: 1,
+			rowBudget:        len(items),
+			descriptionLines: 0,
 		})
 		rows = append(rows, list.rows...)
 		addListHits(list, listStart)
@@ -741,10 +741,10 @@ func (a *App) viewSettings() string {
 		for i, opt := range options {
 			idx := i
 			items = append(items, modalListItem{
-				id:          "settings:language:" + opt.Locale,
-				title:       a.localizer.languageOptionLabel(opt),
-				description: opt.Locale,
-				selected:    i == s.languageSel,
+				id:       "settings:language:" + opt.Locale,
+				title:    a.localizer.languageOptionLabel(opt),
+				meta:     opt.Locale,
+				selected: i == s.languageSel,
 				action: func(app *App) tea.Cmd {
 					if app.settings == nil {
 						app.settings = &settingsState{tab: 4}
@@ -757,8 +757,8 @@ func (a *App) viewSettings() string {
 		}
 		list := a.renderModalList(items, modalListOptions{
 			width:            w - 4,
-			rowBudget:        len(items) * 2,
-			descriptionLines: 1,
+			rowBudget:        len(items),
+			descriptionLines: 0,
 		})
 		rows = append(rows, list.rows...)
 		addListHits(list, listStart)

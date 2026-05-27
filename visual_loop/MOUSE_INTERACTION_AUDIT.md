@@ -131,6 +131,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   the same dense inline metadata row shape as the migrated palettes/catalogs,
   keeping keyboard shortcuts and action descriptions on one selectable row with
   matching mouse hit targets.
+- Settings Theme and Language tabs now use the same dense inline metadata row
+  shape for descriptions/locales, reducing tab-to-tab height churn while
+  preserving semantic row selection, preview, and mouse hit targets.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
