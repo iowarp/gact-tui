@@ -3618,6 +3618,28 @@ func TestSidebarSessionsHeaderUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestSidebarContentHitHelperUsesSharedRowGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	clicked := false
+
+	a.registerSidebarContentHit("sidebar:test:row", 3, 24, 2, func(*App) tea.Cmd {
+		clicked = true
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "sidebar:test:row")
+	if !ok {
+		t.Fatal("missing sidebar content row target")
+	}
+	if target.rect.x != 2 || target.rect.y != 5 || target.rect.w != 20 || target.rect.h != 2 {
+		t.Fatalf("sidebar content rect = %+v, want x=2 y=5 w=20 h=2", target.rect)
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("sidebar content row target should handle click, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestSidebarExpandedChildSessionsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
