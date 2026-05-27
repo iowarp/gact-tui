@@ -1359,7 +1359,14 @@ func TestComposeMouseWheelOnModalChromeDoesNotMoveTextareaCursor(t *testing.T) {
 
 	_ = a.View()
 	startLine := a.compose.ta.Line()
+	surface, ok := findHitTargetForTest(a, "compose:surface:wheel")
+	if !ok {
+		t.Fatal("missing compose surface wheel target")
+	}
 	rect := overlayMouseRect(a.viewCompose(), a.width, a.height)
+	if surface.rect != rect {
+		t.Fatalf("compose surface wheel rect = %+v, want modal rect %+v", surface.rect, rect)
+	}
 	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
 		X:      rect.x + 1,
 		Y:      rect.y + 1,

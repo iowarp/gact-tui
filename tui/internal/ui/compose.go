@@ -206,6 +206,7 @@ func (a *App) viewCompose() string {
 		body:    body,
 		footer:  footer,
 	})
+	a.registerModalSurfaceWheel(rendered, "compose")
 	a.registerModalTextareaRegion(rendered.modal, rendered.bodyRow, 0, textareaW, taH, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
 		if app.compose == nil {
 			return

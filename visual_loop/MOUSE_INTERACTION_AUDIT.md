@@ -1099,3 +1099,7 @@ Additional work continued from the same architectural direction:
   giving rename, context-add, and MCP-install the same semantic chrome wheel
   target model as scrollable/list modals while keeping editor cursor hits and
   button actions unchanged.
+- Expanded compose now also registers a named modal surface wheel blocker
+  before its textarea wheel target, so chrome wheel events are captured through
+  the shared overlay-surface model while the editor body still receives
+  textarea-specific wheel movement.
