@@ -153,7 +153,8 @@ func (a *App) viewCompose() string {
 	if taH < 6 {
 		taH = 6
 	}
-	a.compose.ta.SetWidth(w - 4)
+	textareaW := modalTextAreaWidth(w)
+	a.compose.ta.SetWidth(textareaW)
 	a.compose.ta.SetHeight(taH)
 
 	lines := strings.Count(a.compose.ta.Value(), "\n") + 1
@@ -196,7 +197,7 @@ func (a *App) viewCompose() string {
 		app.compose.ta.Focus()
 		setTextareaCursor(&app.compose.ta, line, col)
 	})
-	a.registerModalWheelRegion(rendered.modal, "compose:textarea:wheel", rendered.bodyRow, 0, w-4, taH, func(app *App, button tea.MouseButton) tea.Cmd {
+	a.registerModalWheelRegion(rendered.modal, "compose:textarea:wheel", rendered.bodyRow, 0, textareaW, taH, func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.moveComposeCursorByWheel(button)
 	})
 	return rendered.modal
