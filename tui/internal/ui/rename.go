@@ -133,7 +133,7 @@ func (a *App) viewRename() string {
 		cursorAction: func(app *App, cursor int) {
 			app.renameCursor = cursor
 		},
-		footer: a.Theme.HintLabel.Render("Enter save  Esc cancel  Left/Right move  Home/End jump"),
+		footer: a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Esc cancel", "Left/Right move", "Home/End jump")),
 	})
 	return rendered.modal
 }

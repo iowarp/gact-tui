@@ -165,6 +165,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Scrollable informational modals now share `scrollableModalRowDetailFooter`
   for row-detail affordance hints, so Doctor and Metrics no longer duplicate
   string-specific footer logic when their render-time row targets are present.
+- Text-entry and picker-style modal footers now use shared `modalKeyHint`
+  formatting, so rename, add-context, MCP install/remove, file picker, and
+  workspace switch stop handcrafting spacing and separators independently.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

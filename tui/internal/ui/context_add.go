@@ -208,7 +208,7 @@ func (a *App) viewContextAdd() string {
 			app.contextAddCursor = cursor
 		},
 		status: []string{modeRow},
-		footer: a.Theme.HintLabel.Render("Enter save  Tab mode  Esc cancel  (use /drop to remove)"),
+		footer: a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Tab mode", "Esc cancel", "/drop remove")),
 	})
 	if len(modeHits) > 0 {
 		a.registerModalCellHits(rendered.modal, rendered.bodyRow+2, modeHits)

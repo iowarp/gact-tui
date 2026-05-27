@@ -141,7 +141,7 @@ func (a *App) viewWorkspaceSwitch() string {
 			width:   w,
 			title:   "Switch workspace",
 			buttons: buttons,
-			footer:  t.HintLabel.Render("↑/↓ select  Enter switch  Esc cancel"),
+			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter switch", "Esc cancel")),
 		},
 		rows:           rows,
 		list:           list,
