@@ -1124,3 +1124,6 @@ Additional work continued from the same architectural direction:
   the full-screen overlay composition, so startup/backend errors are covered by
   the same production modal origin/width regression while still surfacing the
   real error text and retry/quit actions.
+- Connection-error retry/quit buttons now have explicit regression coverage
+  that their clickable hit targets sit on the shared modal header action row,
+  matching the visual placement used by the other modal close/back controls.
