@@ -2625,6 +2625,12 @@ func TestSettingsTUIStepperArrowsWorkBeyondFirstRow(t *testing.T) {
 				t.Fatalf("paste compress right arrow = %d, want 4", app.Theme.PasteCompressThreshold)
 			}
 		}},
+		{id: "context-placement", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context placement right arrow = %q, want right", got)
+			}
+		}},
 	} {
 		_ = a.View()
 		target, ok := findHitTargetForTest(a, "settings:tui:"+tc.id+":inc")
@@ -2676,6 +2682,12 @@ func TestSettingsTUIStepperLeftHitAreasWorkBeyondFirstRow(t *testing.T) {
 			t.Helper()
 			if app.Theme.PasteCompressThreshold != 2 {
 				t.Fatalf("paste compress left hit = %d, want 2", app.Theme.PasteCompressThreshold)
+			}
+		}},
+		{id: "context-placement", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "hidden" {
+				t.Fatalf("context placement left hit = %q, want hidden", got)
 			}
 		}},
 	} {
@@ -2743,6 +2755,12 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 			t.Helper()
 			if app.MouseEnabled {
 				t.Fatal("mouse inc should toggle MouseEnabled off")
+			}
+		}},
+		{rowID: "settings:tui:context-placement", incID: "settings:tui:context-placement:inc", want: 6, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context placement inc = %q, want right", got)
 			}
 		}},
 	}
@@ -2825,6 +2843,12 @@ func TestSettingsTUIVisibleArrowGlyphsAreClickableForEveryRow(t *testing.T) {
 			t.Helper()
 			if app.MouseEnabled {
 				t.Fatal("mouse visible right arrow should toggle MouseEnabled off")
+			}
+		}},
+		{label: "context sidebar", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context visible right arrow = %q, want right", got)
 			}
 		}},
 	}

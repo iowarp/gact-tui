@@ -96,8 +96,8 @@ func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
 // 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1),
-// 5=terminal mouse capture.
-const tuiPrefsRowCount = 6
+// 5=terminal mouse capture, 6=context sidebar placement.
+const tuiPrefsRowCount = 7
 
 // YYYYY1: paste-compress threshold steps by 1 line (small range
 // — 2 means "compress almost everything", 20 means "rarely
@@ -303,6 +303,8 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case 5:
 				a.MouseEnabled = !a.MouseEnabled
 				a.persistPrefs()
+			case 6:
+				a.cycleContextSidebarPlacement(-1)
 			}
 		}
 		return a, nil
@@ -339,6 +341,8 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case 5:
 				a.MouseEnabled = !a.MouseEnabled
 				a.persistPrefs()
+			case 6:
+				a.cycleContextSidebarPlacement(1)
 			}
 		}
 		return a, nil
@@ -760,6 +764,16 @@ func (a *App) viewSettings() string {
 		rows = append(rows, block.rows()...)
 		addTUIRowHit("mouse", 5, row, block.height())
 		addTUIControlHits("mouse", 5, row, block)
+		label = a.localizer.t(msgSettingsTUILayoutContext, nil)
+		value = a.contextSidebarPlacementLabel()
+		row = len(rows)
+		block = editableRow(6,
+			label,
+			value,
+			a.localizer.t(msgSettingsTUILayoutContextHint, nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("context-placement", 6, row, block.height())
+		addTUIControlHits("context-placement", 6, row, block)
 		rows = append(rows, "")
 
 		// Read-only runtime state for confirmation.
@@ -1168,6 +1182,35 @@ func (a *App) boolPretty(b bool) string {
 		return a.localizer.t(msgSettingsOn, nil)
 	}
 	return a.localizer.t(msgSettingsOff, nil)
+}
+
+func (a *App) contextSidebarPlacementLabel() string {
+	switch a.SidebarModulePlacement(string(sidebarModuleContext)) {
+	case string(sidebarPlacementLeft):
+		return a.localizer.t(msgSettingsTUILayoutLeft, nil)
+	case string(sidebarPlacementRight):
+		return a.localizer.t(msgSettingsTUILayoutRight, nil)
+	default:
+		return a.localizer.t(msgSettingsTUILayoutHidden, nil)
+	}
+}
+
+func (a *App) cycleContextSidebarPlacement(delta int) {
+	placements := []string{string(sidebarPlacementLeft), string(sidebarPlacementRight), "hidden"}
+	cur := a.SidebarModulePlacement(string(sidebarModuleContext))
+	idx := 0
+	for i, placement := range placements {
+		if placement == cur {
+			idx = i
+			break
+		}
+	}
+	idx = (idx + delta) % len(placements)
+	if idx < 0 {
+		idx += len(placements)
+	}
+	a.SetSidebarModulePlacement(string(sidebarModuleContext), placements[idx])
+	a.persistPrefs()
 }
 
 func (a *App) seedSettingsSelections() {

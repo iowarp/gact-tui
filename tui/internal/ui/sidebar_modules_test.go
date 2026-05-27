@@ -64,6 +64,28 @@ func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
 	}
 }
 
+func TestSetSidebarModulePlacementMovesContextBetweenBars(t *testing.T) {
+	a := New("http://unused")
+	if got := a.SidebarModulePlacement("context"); got != "left" {
+		t.Fatalf("default context placement = %q, want left", got)
+	}
+
+	a.SetSidebarModulePlacement("context", "right")
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || strings.Join(right, ",") != "context" {
+		t.Fatalf("right placement left=%#v right=%#v, want sessions/context", left, right)
+	}
+
+	a.SetSidebarModulePlacement("context", "hidden")
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || len(right) != 0 {
+		t.Fatalf("hidden placement left=%#v right=%#v, want sessions/no right", left, right)
+	}
+	if got := a.SidebarModulePlacement("context"); got != "hidden" {
+		t.Fatalf("context placement = %q, want hidden", got)
+	}
+}
+
 func TestSidebarModuleIDsReturnDefaultOrder(t *testing.T) {
 	a := New("http://unused")
 	got := a.SidebarModuleIDs()

@@ -109,6 +109,61 @@ func (a *App) SidebarLayoutIDs() (left []string, right []string) {
 	return sidebarModuleIDStrings(a.sidebarModuleIDs), sidebarModuleIDStringsNoDefault(a.rightSidebarModuleIDs)
 }
 
+func (a *App) SidebarModulePlacement(id string) string {
+	moduleID := sidebarModuleID(strings.TrimSpace(id))
+	left, right := a.effectiveSidebarLayoutIDs()
+	for _, existing := range left {
+		if existing == moduleID {
+			return string(sidebarPlacementLeft)
+		}
+	}
+	for _, existing := range right {
+		if existing == moduleID {
+			return string(sidebarPlacementRight)
+		}
+	}
+	return "hidden"
+}
+
+func (a *App) SetSidebarModulePlacement(id string, placement string) {
+	moduleID := sidebarModuleID(strings.TrimSpace(id))
+	if moduleID == "" {
+		return
+	}
+	left, right := a.effectiveSidebarLayoutIDs()
+	left = removeSidebarModuleID(left, moduleID)
+	right = removeSidebarModuleID(right, moduleID)
+	switch sidebarPlacement(strings.TrimSpace(placement)) {
+	case sidebarPlacementRight:
+		right = append(right, moduleID)
+	case sidebarPlacementLeft:
+		left = append(left, moduleID)
+	default:
+		// Hidden: keep it out of both sidebars.
+	}
+	a.sidebarModuleIDs = left
+	a.rightSidebarModuleIDs = right
+}
+
+func (a *App) effectiveSidebarLayoutIDs() (left []sidebarModuleID, right []sidebarModuleID) {
+	left = append([]sidebarModuleID(nil), a.sidebarModuleIDs...)
+	if len(left) == 0 {
+		left = defaultSidebarModuleIDs()
+	}
+	right = append([]sidebarModuleID(nil), a.rightSidebarModuleIDs...)
+	return left, right
+}
+
+func removeSidebarModuleID(ids []sidebarModuleID, remove sidebarModuleID) []sidebarModuleID {
+	out := ids[:0]
+	for _, id := range ids {
+		if id != remove {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func sidebarModuleIDStringsNoDefault(ids []sidebarModuleID) []string {
 	out := make([]string, 0, len(ids))
 	for _, id := range ids {
