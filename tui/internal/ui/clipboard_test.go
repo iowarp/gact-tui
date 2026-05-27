@@ -267,3 +267,44 @@ func TestHandleBodyKey_YClipboardFailureSurfacesHint(t *testing.T) {
 		t.Errorf("hint should include underlying err: %q", a.transientHint)
 	}
 }
+
+func TestCopyCommandUsesSharedClipboardAdapter(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{Type: gact.PartTypeThinking, Thinking: "private chain"},
+			{Type: gact.PartTypeText, Text: "visible answer"},
+		},
+	}}
+
+	toast := a.copyLastAssistantReplyToClipboard()
+	mu.Lock()
+	defer mu.Unlock()
+	if !strings.Contains(*got, "<thinking>\nprivate chain\n</thinking>") || !strings.Contains(*got, "visible answer") {
+		t.Fatalf("/copy clipboard = %q, want shared last-assistant formatter output", *got)
+	}
+	if !strings.Contains(toast, "copied") || strings.Contains(toast, "via ") || strings.Contains(toast, "wrote ") {
+		t.Fatalf("/copy toast = %q, want shared clipboard confirmation", toast)
+	}
+}
+
+func TestCopyCommandClipboardFailureSurfacesHint(t *testing.T) {
+	mu, _, errSlot := withClipboardSpy(t)
+	mu.Lock()
+	*errSlot = errors.New("clipboard daemon unavailable")
+	mu.Unlock()
+
+	a := New("http://unused")
+	a.messages = []gact.Message{{
+		Role:  gact.RoleAssistant,
+		Parts: []gact.Part{{Type: gact.PartTypeText, Text: "visible answer"}},
+	}}
+
+	toast := a.copyLastAssistantReplyToClipboard()
+	if !strings.Contains(toast, "copy failed") || !strings.Contains(toast, "clipboard daemon unavailable") {
+		t.Fatalf("/copy failure toast = %q, want surfaced clipboard error", toast)
+	}
+}
