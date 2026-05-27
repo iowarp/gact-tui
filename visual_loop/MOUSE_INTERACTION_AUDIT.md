@@ -37,6 +37,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   installer input, clearing stale validation errors and placing the cursor at
   the end of the selected example.
 - Overlay outside-click behavior now uses a shared `mouseOverlay` policy table for common close-on-outside modals, with explicit exceptions for quit confirmation and invalid nil-state overlays. This removes the old spread of near-identical coordinate handlers.
+- Quit confirmation now uses the same shared outside-click close policy as the
+  other modal shells; its choices remain semantic header buttons and
+  non-button interior clicks no longer route through a bespoke coordinate
+  handler.
 - Settings > TUI rows now register full rendered-row hit targets and separate semantic value/left/right controls for every editable row, not just the collapse-threshold row.
 - LM provider setup now registers mouse focus targets for provider/model filter headers, API key, API base, refresh, advanced controls, provider/model rows, provider/model side rails, auth, save, and close.
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.

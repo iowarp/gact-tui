@@ -180,7 +180,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 	// Reverse of viewMain's rendering order: the visually topmost modal
 	// receives mouse input first.
 	return []mouseOverlay{
-		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, click: a.handleQuitConfirmMouseClick},
+		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, closeOutside: func(app *App) { app.quitConfirmOpen = false }},
 		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, closeOutside: func(app *App) { app.closeMcpRemoveModal() }},
 		{open: a.mcpInstallOpen, view: a.viewMcpInstall, closeOutside: func(app *App) { app.closeMcpInstallModal() }},
 		{
@@ -345,13 +345,4 @@ func keyMsg(s string) tea.KeyPressMsg {
 
 func textKeyMsg(s string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Text: s}
-}
-
-func (a *App) handleQuitConfirmMouseClick(rect mouseRect, mouse tea.Mouse) (tea.Cmd, bool) {
-	if !rect.contains(mouse.X, mouse.Y) {
-		a.quitConfirmSelected = 1
-		_, cmd := a.applyQuitConfirmSelection()
-		return cmd, true
-	}
-	return nil, true
 }

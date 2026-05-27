@@ -4193,6 +4193,34 @@ func TestQuitConfirmNonButtonClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 }
 
+func TestQuitConfirmOutsideClickUsesSharedClosePolicy(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.quitConfirmOpen = true
+	a.quitConfirmSelected = 0
+
+	_ = a.View()
+	rect := overlayMouseRect(a.viewQuitConfirm(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + rect.w + 1,
+		Y:      rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside quit-confirm click should dismiss without firing quit/detach")
+	}
+	if a.quitConfirmOpen {
+		t.Fatal("outside quit-confirm click should close the modal")
+	}
+	if a.quitConfirmSelected != 0 {
+		t.Fatalf("outside click should not choose a different option, got %d", a.quitConfirmSelected)
+	}
+}
+
 func TestMcpRemoveRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
