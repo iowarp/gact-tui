@@ -1223,10 +1223,7 @@ func (a *App) viewLMConfig() string {
 	t := a.Theme
 	w := a.lmConfigModalWidth()
 	chromeW := modalInnerWidth(w)
-	contentW := w - 6
-	if contentW < 20 {
-		contentW = 20
-	}
+	contentW := maxInt(20, modalBodyContentWidth(w))
 
 	buttons := []menuButton{
 		{

@@ -50,6 +50,9 @@ func TestModalTextAreaWidthMatchesSharedFramePadding(t *testing.T) {
 }
 
 func TestModalScrollableWidthsMatchSharedFramePadding(t *testing.T) {
+	if got := modalBodyContentWidth(96); got != 90 {
+		t.Fatalf("modal body content width = %d, want 90", got)
+	}
 	if got := modalScrollableBodyWidth(96); got != 90 {
 		t.Fatalf("modal scrollable body width = %d, want 90", got)
 	}
@@ -61,6 +64,15 @@ func TestModalScrollableWidthsMatchSharedFramePadding(t *testing.T) {
 	}
 	if got := modalScrollableContentWidth(5); got != 1 {
 		t.Fatalf("tiny modal scrollable content width = %d, want clamped 1", got)
+	}
+}
+
+func TestLMConfigUsesSharedModalBodyContentWidth(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	w := a.lmConfigModalWidth()
+	if got := maxInt(20, modalBodyContentWidth(w)); got != modalScrollableBodyWidth(w) {
+		t.Fatalf("lm config content width = %d, want shared modal body width %d", got, modalScrollableBodyWidth(w))
 	}
 }
 

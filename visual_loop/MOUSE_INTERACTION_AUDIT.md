@@ -277,6 +277,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   visible `modalListRender`, then register through `registerModalListRegion`.
   Help > Commands no longer reaches around the shared list-region primitive
   when its scroll window hides rows above or below the viewport.
+- Provider setup body content width now uses the named shared modal body
+  content-width policy instead of carrying its own `w - 6` calculation, keeping
+  provider rendering and modal hit/scroll geometry tied to the same frame
+  padding rule.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

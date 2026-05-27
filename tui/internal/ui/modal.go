@@ -66,12 +66,16 @@ func modalTextAreaWidth(width int) int {
 	return modalInnerWidth(width)
 }
 
-func modalScrollableBodyWidth(width int) int {
+func modalBodyContentWidth(width int) int {
 	bodyW := width - 6
 	if bodyW < 1 {
 		return 1
 	}
 	return bodyW
+}
+
+func modalScrollableBodyWidth(width int) int {
+	return modalBodyContentWidth(width)
 }
 
 func modalScrollableContentWidth(width int) int {
