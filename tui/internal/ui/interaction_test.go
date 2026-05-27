@@ -4079,6 +4079,13 @@ func TestSidebarSessionRightClickOpensSemanticActionMenu(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic session action row target")
 	}
+	if renameTarget.rect.h != 1 {
+		t.Fatalf("session action target height = %d, want dense one-line row", renameTarget.rect.h)
+	}
+	out := ansi.Strip(a.viewSessionActions())
+	if !strings.Contains(out, "Rename session  [e]  Edit the visible title.") {
+		t.Fatalf("session action menu should render descriptions inline:\n%s", out)
+	}
 	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      renameTarget.rect.x,
 		Y:      renameTarget.rect.y,
