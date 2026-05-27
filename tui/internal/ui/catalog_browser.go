@@ -601,6 +601,7 @@ func (a *App) catalogBrowserHeaderButtons() []menuButton {
 
 const catalogBrowserRowBudget = 12
 const catalogBrowserBodyRows = catalogBrowserRowBudget * 2
+const catalogBrowserMinBodyRows = 8
 
 func catalogBrowserClampOffset(sel, offset, itemCount int) int {
 	return catalogBrowserClampOffsetForBudget(sel, offset, itemCount, catalogBrowserRowBudget)
@@ -638,6 +639,16 @@ func catalogBrowserClampOffsetForBudget(sel, offset, itemCount, budget int) int 
 		return sel - budget + 1
 	}
 	return offset
+}
+
+func catalogBrowserBodyRowsForContent(renderedRows int, itemCount int, itemBudget int) int {
+	if itemBudget < 1 {
+		itemBudget = 1
+	}
+	if itemCount > itemBudget {
+		return catalogBrowserBodyRows
+	}
+	return clampInt(renderedRows, catalogBrowserMinBodyRows, catalogBrowserBodyRows)
 }
 
 // SetDisabledTools seeds the disabled-tools set from main on startup
@@ -739,6 +750,7 @@ func (a *App) viewCatalogBrowser() string {
 	listStartRow := len(rows)
 	rows = append(rows, list.rows...)
 	end = start + list.renderedItems
+	bodyRows := catalogBrowserBodyRowsForContent(len(rows), len(a.catalogBrowser.items), itemBudget)
 
 	// Hint text adapts per kind: tools can open detail or toggle, MCP-server
 	// list gets Enter-to-drill, MCP-detail gets Backspace-to-back.
@@ -774,7 +786,7 @@ func (a *App) viewCatalogBrowser() string {
 		list:           list,
 		listStart:      listStartRow,
 		listWidth:      listW,
-		bodyRows:       catalogBrowserBodyRows,
+		bodyRows:       bodyRows,
 		window:         win,
 		wheelID:        "catalog:list:wheel",
 		surfaceWheelID: "catalog",
