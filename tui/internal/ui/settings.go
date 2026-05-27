@@ -33,6 +33,43 @@ type settingsTUIStepperRow struct {
 	controlEnd   int
 }
 
+func renderSettingsTUIActionRow(theme Theme, width int, selected bool, label, value, hint string) settingsTUIStepperRow {
+	marker := "  "
+	labelStyle := lipgloss.NewStyle().Foreground(theme.Fg)
+	valueStyle := theme.HintLabel
+	hintStyle := theme.HintLabel.Italic(true)
+	if selected {
+		marker = lipgloss.NewStyle().Foreground(theme.Secondary).Render("▌ ")
+		labelStyle = labelStyle.Foreground(theme.Secondary).Bold(true)
+		valueStyle = lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true)
+	}
+	leftCol := lipgloss.Width(ansi.Strip(marker)) + lipgloss.Width(label) + 2
+	control := value
+	controlEnd := leftCol + lipgloss.Width(control)
+	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render(control)
+	detail := []string{}
+	if hint != "" && selected {
+		detailWidth := minInt(maxInt(12, width-6), 72)
+		for _, row := range wrapPlainRows(hint, detailWidth, "") {
+			detailLine := "  " + hintStyle.Render(row)
+			detailLine = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(detailLine)
+			detail = append(detail, detailLine)
+			if len(detail) >= 2 {
+				break
+			}
+		}
+	}
+	if selected {
+		line = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(line)
+	}
+	return settingsTUIStepperRow{
+		line:         line,
+		detail:       detail,
+		controlStart: leftCol,
+		controlEnd:   controlEnd,
+	}
+}
+
 func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, value, hint string) settingsTUIStepperRow {
 	marker := "  "
 	labelStyle := lipgloss.NewStyle().Foreground(theme.Fg)
@@ -96,8 +133,9 @@ func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
 // 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1),
-// 5=terminal mouse capture, 6=context sidebar placement.
-const tuiPrefsRowCount = 7
+// 5=terminal mouse capture, 6=context sidebar placement,
+// 7=sidebar layout editor.
+const tuiPrefsRowCount = 8
 
 // YYYYY1: paste-compress threshold steps by 1 line (small range
 // — 2 means "compress almost everything", 20 means "rarely
@@ -379,7 +417,10 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.openSettingsAgentDetail()
 			return a, nil
 		case 3:
-			// TUI prefs tab is read-only for now — Enter just closes.
+			if s.tuiRow == 7 {
+				a.openSidebarLayoutEditor()
+				return a, nil
+			}
 			a.settingsOpen = false
 			return a, nil
 		}
@@ -774,6 +815,23 @@ func (a *App) viewSettings() string {
 		rows = append(rows, block.rows()...)
 		addTUIRowHit("context-placement", 6, row, block.height())
 		addTUIControlHits("context-placement", 6, row, block)
+		label = a.localizer.t(msgSettingsTUILayoutEditor, nil)
+		value = a.localizer.t(msgSettingsTUILayoutOpen, nil)
+		row = len(rows)
+		block = renderSettingsTUIActionRow(t, innerW, s.tuiRow == 7,
+			label,
+			value,
+			a.localizer.t(msgSettingsTUILayoutEditorHint, nil))
+		rows = append(rows, block.rows()...)
+		addTUIRowHit("layout-editor", 7, row, block.height())
+		addArrowHit("settings:tui:layout-editor:open", row, block.controlStart, maxInt(1, block.controlEnd-block.controlStart), func(app *App) tea.Cmd {
+			if app.settings == nil {
+				app.settings = &settingsState{tab: 3}
+			}
+			app.settings.tuiRow = 7
+			app.openSidebarLayoutEditor()
+			return nil
+		})
 		rows = append(rows, "")
 
 		// Read-only runtime state for confirmation.

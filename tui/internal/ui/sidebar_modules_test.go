@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -61,6 +62,19 @@ func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
 	}
 	if strings.Join(right, ",") != "context,future-tools" {
 		t.Fatalf("right layout = %#v, want context,future-tools", right)
+	}
+}
+
+func TestSetSidebarLayoutCanRepresentEmptyLeftColumn(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout(nil, []string{"context"})
+
+	left, right := a.SidebarLayoutIDs()
+	if len(left) != 0 || strings.Join(right, ",") != "context" {
+		t.Fatalf("layout left=%#v right=%#v, want empty/context", left, right)
+	}
+	if len(a.sidebarModules()) != 0 {
+		t.Fatalf("explicit empty left should not fall back to defaults: %#v", a.sidebarModules())
 	}
 }
 
@@ -177,5 +191,82 @@ func TestRightSidebarRendersContextModule(t *testing.T) {
 	out := ansi.Strip(a.renderRightSidebar(30, 20, 90))
 	if !strings.Contains(out, "CONTEXT") || !strings.Contains(out, "src/main.go") {
 		t.Fatalf("right context module did not render context file:\n%s", out)
+	}
+}
+
+func TestSidebarLayoutEditorMovesModulesBetweenColumns(t *testing.T) {
+	a := New("http://unused")
+	a.openSidebarLayoutEditor()
+
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 1 // context
+	a.transferSidebarLayoutModule(1)
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || len(right) != 0 {
+		t.Fatalf("after moving context to available left=%#v right=%#v", left, right)
+	}
+	if got := a.SidebarModulePlacement("context"); got != "hidden" {
+		t.Fatalf("context placement = %q, want hidden", got)
+	}
+
+	a.transferSidebarLayoutModule(1)
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || strings.Join(right, ",") != "context" {
+		t.Fatalf("after moving context right left=%#v right=%#v", left, right)
+	}
+}
+
+func TestSidebarLayoutEditorReordersVisibleColumn(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 1
+
+	a.reorderSidebarLayoutModule(-1)
+	left, _ := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" {
+		t.Fatalf("left order = %#v, want context,sessions", left)
+	}
+}
+
+func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+
+	out := ansi.Strip(a.viewSidebarLayoutEditor())
+	if !strings.Contains(out, "Left") {
+		t.Fatalf("layout editor should render left column:\n%s", out)
+	}
+	if strings.Contains(out, "Available") || strings.Contains(out, "Right") {
+		t.Fatalf("empty columns should not render:\n%s", out)
+	}
+}
+
+func TestSidebarLayoutEditorMouseSelectsModuleRows(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.openSidebarLayoutEditor()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar-layout:left:context")
+	if !ok {
+		t.Fatal("missing sidebar layout context hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.sidebarLayoutCol != sidebarLayoutColumnLeft || a.sidebarLayoutSel[sidebarLayoutColumnLeft] != 1 {
+		t.Fatalf("layout editor mouse selection col=%d sel=%d, want left row 1", a.sidebarLayoutCol, a.sidebarLayoutSel[sidebarLayoutColumnLeft])
 	}
 }

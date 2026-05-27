@@ -372,6 +372,12 @@ type App struct {
 	settingsOpen bool
 	settings     *settingsState
 
+	// Sidebar layout editor. Opened from Settings > TUI and backed by
+	// the same sidebar_layout.left/right config shape.
+	sidebarLayoutOpen bool
+	sidebarLayoutCol  int
+	sidebarLayoutSel  [3]int
+
 	// Metrics overlay
 	metricsOpen bool
 	metrics     *metricsState
@@ -509,6 +515,7 @@ type App struct {
 	sidebarSectionCursor     bool
 	sidebarModuleIDs         []sidebarModuleID
 	rightSidebarModuleIDs    []sidebarModuleID
+	sidebarLayoutConfigured  bool
 	sidebarHitOffsetX        int
 
 	// sessionFilter narrows the sidebar to sessions whose title
@@ -2211,6 +2218,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.mcpRemoveOpen {
 		return a.handleMcpRemoveKey(k)
+	}
+	if a.sidebarLayoutOpen {
+		return a.handleSidebarLayoutKey(k)
 	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
@@ -6560,6 +6570,9 @@ func (a *App) viewMain() string {
 	}
 	if a.settingsOpen {
 		base = overlay(base, a.viewSettings(), a.width, a.height)
+	}
+	if a.sidebarLayoutOpen {
+		base = overlay(base, a.viewSidebarLayoutEditor(), a.width, a.height)
 	}
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)

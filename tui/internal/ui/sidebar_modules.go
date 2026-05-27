@@ -88,6 +88,7 @@ func sidebarModuleIDStrings(ids []sidebarModuleID) []string {
 // ordering. Unknown module ids remain in the layout and render disabled.
 func (a *App) SetSidebarModuleIDs(ids []string) {
 	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(ids)
+	a.sidebarLayoutConfigured = len(ids) > 0
 }
 
 // SetSidebarLayout applies the persisted left/right module placement. Unknown
@@ -95,18 +96,25 @@ func (a *App) SetSidebarModuleIDs(ids []string) {
 func (a *App) SetSidebarLayout(left []string, right []string) {
 	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(left)
 	a.rightSidebarModuleIDs = sidebarModuleIDsFromStrings(right)
+	a.sidebarLayoutConfigured = true
 }
 
 // SidebarModuleIDs returns the effective left-sidebar module order using
 // stable config ids.
 func (a *App) SidebarModuleIDs() []string {
-	return sidebarModuleIDStrings(a.sidebarModuleIDs)
+	if !a.sidebarLayoutConfigured {
+		return sidebarModuleIDStrings(defaultSidebarModuleIDs())
+	}
+	return sidebarModuleIDStringsNoDefault(a.sidebarModuleIDs)
 }
 
 // SidebarLayoutIDs returns the effective left/right sidebar module placement
 // using stable config ids.
 func (a *App) SidebarLayoutIDs() (left []string, right []string) {
-	return sidebarModuleIDStrings(a.sidebarModuleIDs), sidebarModuleIDStringsNoDefault(a.rightSidebarModuleIDs)
+	if !a.sidebarLayoutConfigured {
+		return sidebarModuleIDStrings(defaultSidebarModuleIDs()), nil
+	}
+	return sidebarModuleIDStringsNoDefault(a.sidebarModuleIDs), sidebarModuleIDStringsNoDefault(a.rightSidebarModuleIDs)
 }
 
 func (a *App) SidebarModulePlacement(id string) string {
@@ -143,11 +151,12 @@ func (a *App) SetSidebarModulePlacement(id string, placement string) {
 	}
 	a.sidebarModuleIDs = left
 	a.rightSidebarModuleIDs = right
+	a.sidebarLayoutConfigured = true
 }
 
 func (a *App) effectiveSidebarLayoutIDs() (left []sidebarModuleID, right []sidebarModuleID) {
 	left = append([]sidebarModuleID(nil), a.sidebarModuleIDs...)
-	if len(left) == 0 {
+	if len(left) == 0 && !a.sidebarLayoutConfigured {
 		left = defaultSidebarModuleIDs()
 	}
 	right = append([]sidebarModuleID(nil), a.rightSidebarModuleIDs...)
@@ -198,7 +207,11 @@ func resolveSidebarModules(ids []sidebarModuleID, registry map[sidebarModuleID]s
 }
 
 func (a *App) sidebarModules() []resolvedSidebarModule {
-	return a.sidebarModulesForIDs(a.sidebarModuleIDs)
+	left, _ := a.effectiveSidebarLayoutIDs()
+	if len(left) == 0 && a.sidebarLayoutConfigured {
+		return nil
+	}
+	return a.sidebarModulesForIDs(left)
 }
 
 func (a *App) rightSidebarModules() []resolvedSidebarModule {
