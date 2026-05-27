@@ -58,11 +58,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 			key:         "y",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
-				if err := clipboardWrite(cf.Path); err != nil {
-					app.transientHint = "copy failed: " + err.Error()
-					return nil
-				}
-				app.transientHint = "copied " + cf.Path + " to clipboard"
+				app.transientHint = copyTextToClipboard(cf.Path, cf.Path)
 				return nil
 			},
 		},
@@ -74,11 +70,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
 				text := strings.Join(app.contextFileDetailRows(cf), "\n")
-				if err := clipboardWrite(text); err != nil {
-					app.transientHint = "copy failed: " + err.Error()
-					return nil
-				}
-				app.transientHint = "copied context metadata to clipboard"
+				app.transientHint = copyTextToClipboard("context metadata", text)
 				return nil
 			},
 		},

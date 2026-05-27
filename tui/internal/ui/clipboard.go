@@ -13,16 +13,28 @@ import (
 var clipboardWrite = clipboard.WriteAll
 
 func copyTextToClipboard(label string, text string) string {
+	return copyExactTextToClipboard(text, "nothing to copy", func(int) string {
+		if strings.TrimSpace(label) == "" {
+			label = "content"
+		}
+		return "copied " + label + " to clipboard"
+	})
+}
+
+func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(chars int) string) string {
 	if strings.TrimSpace(text) == "" {
-		return "nothing to copy"
+		if strings.TrimSpace(emptyHint) == "" {
+			return "nothing to copy"
+		}
+		return emptyHint
 	}
 	if err := clipboardWrite(text); err != nil {
 		return "copy failed: " + err.Error()
 	}
-	if strings.TrimSpace(label) == "" {
-		label = "content"
+	if copiedHint == nil {
+		return "copied content to clipboard"
 	}
-	return "copied " + label + " to clipboard"
+	return copiedHint(len(text))
 }
 
 // messageText returns the concatenated text/thinking content of a

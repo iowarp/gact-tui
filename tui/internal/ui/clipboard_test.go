@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -60,6 +61,25 @@ func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
 	defer mu.Unlock()
 	if *got != want {
 		t.Fatalf("clipboard = %q, want exact payload %q", *got, want)
+	}
+}
+
+func TestCopyExactTextToClipboardUsesCustomHints(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	if hint := copyExactTextToClipboard("", "empty transcript", nil); hint != "empty transcript" {
+		t.Fatalf("empty hint = %q, want custom empty hint", hint)
+	}
+	if hint := copyExactTextToClipboard("abcd", "", func(chars int) string {
+		return "copied chars: " + strconv.Itoa(chars)
+	}); hint != "copied chars: 4" {
+		t.Fatalf("success hint = %q, want custom character count", hint)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "abcd" {
+		t.Fatalf("clipboard = %q, want abcd", *got)
 	}
 }
 

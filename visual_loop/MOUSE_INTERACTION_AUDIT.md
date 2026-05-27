@@ -1087,3 +1087,7 @@ Additional work continued from the same architectural direction:
   exact payload text, rejects empty content, and surfaces clipboard failures
   through the visible hint path instead of each modal hand-rolling those
   semantics.
+- Sidebar session ID, selected transcript block, full transcript, `/copy`,
+  context path, and context metadata copy flows now use the same exact-text
+  helper as compose/detail while preserving their domain-specific success and
+  empty-state hints.
