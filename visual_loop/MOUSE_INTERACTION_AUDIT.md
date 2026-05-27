@@ -1120,3 +1120,7 @@ Additional work continued from the same architectural direction:
   rename, context-add, and compose overlays share the same top-left origin and
   width. Provider setup's body budget was tightened so it no longer grows tall
   enough to shift upward at the shared desktop viewport.
+- The connection-error screen now exposes its shared modal body separately from
+  the full-screen overlay composition, so startup/backend errors are covered by
+  the same production modal origin/width regression while still surfacing the
+  real error text and retry/quit actions.

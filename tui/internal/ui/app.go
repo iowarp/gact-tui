@@ -6467,6 +6467,17 @@ func (a *App) viewIntro() string {
 
 func (a *App) viewError() string {
 	t := a.Theme
+	modal := a.viewErrorModal()
+	return lipgloss.NewStyle().
+		Width(a.width).
+		Height(a.height).
+		Foreground(t.Fg).
+		Background(t.Bg).
+		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+}
+
+func (a *App) viewErrorModal() string {
+	t := a.Theme
 	w := a.modalWidth()
 	contentW := modalInsetListWidth(w)
 	hint := t.HintLabel.Render(a.localizer.t(msgChromeBackend,
@@ -6513,12 +6524,7 @@ func (a *App) viewError() string {
 		footer: t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
 			t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit"),
 	})
-	return lipgloss.NewStyle().
-		Width(a.width).
-		Height(a.height).
-		Foreground(t.Fg).
-		Background(t.Bg).
-		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+	return modal
 }
 
 func blankScreen(width int, height int) string {
