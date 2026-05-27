@@ -281,6 +281,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   content-width policy instead of carrying its own `w - 6` calculation, keeping
   provider rendering and modal hit/scroll geometry tied to the same frame
   padding rule.
+- Help > Commands list rows now use the shared scrollable-modal body width for
+  both rendering and row hit targets instead of the wider raw modal inner
+  width, so command clicks stay aligned with the visible scrollable body.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
