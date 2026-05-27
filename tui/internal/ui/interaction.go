@@ -12,7 +12,7 @@ import (
 type uiHitAction func(*App) tea.Cmd
 type uiWheelAction func(*App, tea.MouseButton) tea.Cmd
 
-const modalButtonSpacing = 2
+const modalButtonSpacing = 3
 
 type uiHitTarget struct {
 	id              string

@@ -230,6 +230,9 @@ func TestModalButtonsHaveVisibleSpacingAndMatchingHitBoxes(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
 	a.height = 30
+	if modalButtonSpacing < 3 {
+		t.Fatalf("modal button spacing = %d, want at least 3 cells between adjacent action chips", modalButtonSpacing)
+	}
 	buttons := []menuButton{
 		{id: "sample:close", label: "close", action: func(*App) tea.Cmd { return nil }},
 		{id: "sample:save", label: "save", action: func(*App) tea.Cmd { return nil }},
