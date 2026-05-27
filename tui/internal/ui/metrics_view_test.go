@@ -113,6 +113,37 @@ func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 	}
 }
 
+func TestMetricsShortSnapshotUsesCompactSharedBodyHeight(t *testing.T) {
+	short := newReadyApp(nil, nil)
+	short.width, short.height = 150, 44
+	short.metricsOpen = true
+	short.metrics = &metricsState{data: gact.Metrics{
+		UptimeS: 5,
+		Sessions: gact.MetricsSessions{
+			Total: 1,
+		},
+	}}
+	shortRect := overlayMouseRect(short.viewMetrics(), short.width, short.height)
+	if shortRect.y != 3 {
+		t.Fatalf("short metrics top = %d, want shared top row 3", shortRect.y)
+	}
+
+	long := newReadyApp(nil, nil)
+	long.width, long.height = short.width, short.height
+	long.metricsOpen = true
+	long.metrics = &metricsState{data: denseMetricsForTest()}
+	longRect := overlayMouseRect(long.viewMetrics(), long.width, long.height)
+	if shortRect.w != longRect.w {
+		t.Fatalf("short metrics width = %d, long metrics width = %d; shared modal width should be stable", shortRect.w, longRect.w)
+	}
+	if shortRect.h >= longRect.h {
+		t.Fatalf("short metrics height = %d, want less than dense metrics height %d", shortRect.h, longRect.h)
+	}
+	if longRect.y != shortRect.y {
+		t.Fatalf("long metrics top = %d, want same top as compact metrics %d", longRect.y, shortRect.y)
+	}
+}
+
 func TestMetricsMouseWheelScrollsBody(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120

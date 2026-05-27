@@ -187,6 +187,42 @@ func TestDoctorModalHeightLeavesFooterGutter(t *testing.T) {
 	}
 }
 
+func TestDoctorShortHealthUsesCompactSharedBodyHeight(t *testing.T) {
+	short := newReadyApp(nil, nil)
+	short.width, short.height = 150, 44
+	short.doctorOpen = true
+	short.doctor = &doctorState{
+		health: gact.HealthResponse{
+			Healthy:       true,
+			OverallStatus: "ready",
+			Integrations: []gact.Integration{{
+				Name:   "api",
+				Status: "ready",
+				Detail: "ok",
+			}},
+		},
+	}
+	shortRect := overlayMouseRect(short.viewDoctor(), short.width, short.height)
+	if shortRect.y != 3 {
+		t.Fatalf("short doctor top = %d, want shared top row 3", shortRect.y)
+	}
+
+	long := newReadyApp(nil, nil)
+	long.width, long.height = short.width, short.height
+	long.doctorOpen = true
+	long.doctor = &doctorState{tab: doctorTabCapabilities}
+	longRect := overlayMouseRect(long.viewDoctor(), long.width, long.height)
+	if shortRect.w != longRect.w {
+		t.Fatalf("short doctor width = %d, long doctor width = %d; shared modal width should be stable", shortRect.w, longRect.w)
+	}
+	if shortRect.h >= longRect.h {
+		t.Fatalf("short doctor height = %d, want less than capabilities height %d", shortRect.h, longRect.h)
+	}
+	if longRect.y != shortRect.y {
+		t.Fatalf("long doctor top = %d, want same top as compact doctor %d", longRect.y, shortRect.y)
+	}
+}
+
 func TestDoctorMouseWheelScrollsCapabilities(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width, a.height = 120, 22

@@ -1135,3 +1135,7 @@ Additional work continued from the same architectural direction:
   catalog fits without scrolling, while overflowing catalogs keep the full
   scroll body and side-rail affordance. This preserves the shared top-left
   origin and width policy without leaving short tool catalogs half empty.
+- Doctor and Metrics now share a compact scrollable-body sizing helper for
+  short snapshots. Their top-left origin and modal width remain stable, while
+  dense/overflowing capability or metrics bodies still use the bounded scroll
+  window and side-rail affordance.

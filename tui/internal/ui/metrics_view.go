@@ -189,6 +189,8 @@ func (a *App) viewMetrics() string {
 	}
 
 	footerHint := scrollableModalRowDetailFooter("Up/Down scroll  r refresh  Esc close", rowHits)
+	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	pageSize := compactModalBodyRows(content, a.metricsBodyPageSize(), 8)
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
@@ -196,8 +198,8 @@ func (a *App) viewMetrics() string {
 			title:   "Backend Metrics",
 			buttons: buttons,
 		},
-		content:     lipgloss.JoinVertical(lipgloss.Left, rows...),
-		pageSize:    a.metricsBodyPageSize(),
+		content:     content,
+		pageSize:    pageSize,
 		scroll:      a.metricsScroll(),
 		wheelID:     "metrics",
 		footerHint:  footerHint,
