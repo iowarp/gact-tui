@@ -1209,6 +1209,44 @@ func TestComposeButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestComposeCopyButtonUsesScopedClipboard(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue("draft line one\ndraft line two")
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:copy")
+	if !ok {
+		t.Fatal("missing compose copy button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose copy button should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose copy should leave compose modal open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "draft line one\ndraft line two" {
+		t.Fatalf("compose copy clipboard = %q", gotCopy)
+	}
+	if !strings.Contains(a.transientHint, "copied compose draft") {
+		t.Fatalf("compose copy hint = %q, want confirmation", a.transientHint)
+	}
+}
+
 func TestComposeButtonsAlignWithSharedHeader(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
 	a := newReadyApp(sessions, nil)
@@ -1221,6 +1259,9 @@ func TestComposeButtonsAlignWithSharedHeader(t *testing.T) {
 	target, ok := findHitTargetForTest(a, "button:compose:commit")
 	if !ok {
 		t.Fatal("missing compose commit button hit target")
+	}
+	if _, ok := findHitTargetForTest(a, "button:compose:copy"); !ok {
+		t.Fatal("missing compose copy button hit target")
 	}
 	view := a.viewCompose()
 	rect := overlayMouseRect(view, a.width, a.height)

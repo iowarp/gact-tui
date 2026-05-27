@@ -1023,6 +1023,9 @@ Additional work continued from the same architectural direction:
 - Expanded compose now registers cursor placement and wheel movement through a
   shared modal textarea-region primitive, giving future modal text selection or
   scoped copy work one target model instead of compose-specific hit wiring.
+- Expanded compose now has scoped copy through a shared header action, copying
+  only the draft text instead of relying on terminal-frame selection that
+  includes borders, sidebars, and footer chrome.
 - Compressed paste placeholder clicks now use a shared screen text-span hit
   primitive, keeping inline input targets on reusable text geometry instead of
   embedding span rectangle math in the mouse layer.
