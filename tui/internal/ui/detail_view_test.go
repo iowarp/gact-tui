@@ -626,6 +626,32 @@ func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
 	}
 }
 
+func TestDetailShortPayloadUsesCompactSharedBodyHeight(t *testing.T) {
+	short := New("http://unused")
+	short.width, short.height = 150, 44
+	short.detailViewOpen = true
+	short.detailView = &bulkyPartRef{title: "Evidence", fullText: "one\ntwo"}
+	shortRect := overlayMouseRect(short.viewDetailView(), short.width, short.height)
+	if shortRect.y != 3 {
+		t.Fatalf("short detail top = %d, want shared top row 3", shortRect.y)
+	}
+
+	long := New("http://unused")
+	long.width, long.height = short.width, short.height
+	long.detailViewOpen = true
+	long.detailView = &bulkyPartRef{title: "Evidence", fullText: strings.Repeat("detail line\n", 60)}
+	longRect := overlayMouseRect(long.viewDetailView(), long.width, long.height)
+	if shortRect.w != longRect.w {
+		t.Fatalf("short detail width = %d, long detail width = %d; shared modal width should be stable", shortRect.w, longRect.w)
+	}
+	if shortRect.h >= longRect.h {
+		t.Fatalf("short detail height = %d, want less than long detail height %d", shortRect.h, longRect.h)
+	}
+	if longRect.y != shortRect.y {
+		t.Fatalf("long detail top = %d, want same top as compact detail %d", longRect.y, shortRect.y)
+	}
+}
+
 func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120
