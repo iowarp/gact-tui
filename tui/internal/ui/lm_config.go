@@ -1453,7 +1453,7 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 	if len(list.hits) == 0 {
 		return
 	}
-	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
+	a.registerLMConfigBoxListRegion(modal, top, col, width, list)
 }
 
 func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width, visibleRows int) {
@@ -1472,7 +1472,11 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 	if len(list.hits) == 0 {
 		return
 	}
-	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
+	a.registerLMConfigBoxListRegion(modal, top, col, width, list)
+}
+
+func (a *App) registerLMConfigBoxListRegion(modal string, top int, col int, width int, list modalListRender) {
+	a.registerModalListRegion(modal, lmConfigBoxContentTop(top), col, width, list, "", nil)
 }
 
 func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
@@ -1484,7 +1488,7 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 }
 
 func (a *App) registerLMConfigBoxCellHits(modal string, top int, col int, hits []modalCellHit) {
-	a.registerModalCellHitsAt(modal, top+2, col, hits)
+	a.registerModalCellHitsAt(modal, lmConfigBoxContentTop(top), col, hits)
 }
 
 func (a *App) registerLMConfigSaveHit(modal string, bodyTop, innerW, bodyRows int, layout lmConfigLayout) {
@@ -2528,6 +2532,10 @@ func lmConfigBoxContentWidth(width int) int {
 
 func lmConfigBoxRailCol(col int, width int) int {
 	return col + width - 3
+}
+
+func lmConfigBoxContentTop(top int) int {
+	return top + 2
 }
 
 func (a *App) lmConfigBoxWithWindow(title string, rows []string, width int, height int, win scrollWindow) string {

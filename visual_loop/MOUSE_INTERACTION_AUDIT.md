@@ -290,6 +290,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup provider-details and advanced-control cell hits now register
   through a shared box-relative cell-hit helper, so box-local row/column hits
   use one `top+2` content offset policy.
+- Provider setup provider/model list row hits now use the same box content-top
+  helper as provider-details and advanced cell hits, keeping every provider box
+  target on one box-relative content-offset rule.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
