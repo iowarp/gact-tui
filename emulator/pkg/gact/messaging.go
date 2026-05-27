@@ -31,6 +31,7 @@ const (
 	StatusIdle              = "idle"
 	StatusRunning           = "running"
 	StatusWaitingPermission = "waiting_permission"
+	StatusWaitingUser       = "waiting_user"
 	StatusError             = "error"
 )
 
@@ -64,6 +65,8 @@ const (
 	PartTypeCompaction       = "compaction"
 	PartTypeRoutingDecision  = "routing_decision" // v0.2 §4.5
 	PartTypeExpertHandoff    = "expert_handoff"
+	PartTypeAgentQuestion    = "agent_question"
+	PartTypeRetryAttempt     = "retry_attempt"
 )
 
 // Workspace is the parent of sessions (SPEC §4.1).
@@ -194,6 +197,54 @@ type ErrorInfo struct {
 	RetryAfterS *int           `json:"retry_after_s,omitempty"`
 }
 
+type AgentQuestionChoice struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+}
+
+type AgentQuestion struct {
+	ID                 string                `json:"id"`
+	SessionID          string                `json:"session_id,omitempty"`
+	MessageID          string                `json:"message_id,omitempty"`
+	Prompt             string                `json:"prompt"`
+	Choices            []AgentQuestionChoice `json:"choices,omitempty"`
+	AllowFreeform      bool                  `json:"allow_freeform,omitempty"`
+	Reason             string                `json:"reason,omitempty"`
+	Category           string                `json:"category,omitempty"`
+	ExpectedAnswerType string                `json:"expected_answer_type,omitempty"`
+	AgentID            string                `json:"agent_id,omitempty"`
+	Status             string                `json:"status,omitempty"`
+	CreatedAt          time.Time             `json:"created_at,omitempty"`
+	ExpiresAt          *time.Time            `json:"expires_at,omitempty"`
+	Metadata           map[string]any        `json:"metadata,omitempty"`
+}
+
+type AgentQuestionAnswerRequest struct {
+	ChoiceID string         `json:"choice_id,omitempty"`
+	Answer   string         `json:"answer,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+type RetryRequest struct {
+	Notes      string    `json:"notes,omitempty"`
+	ProviderID string    `json:"provider_id,omitempty"`
+	ModelID    string    `json:"model_id,omitempty"`
+	Model      *ModelRef `json:"model,omitempty"`
+}
+
+type RetryAttempt struct {
+	ID                string         `json:"id"`
+	OriginalMessageID string         `json:"original_message_id,omitempty"`
+	AttemptMessageID  string         `json:"attempt_message_id,omitempty"`
+	Notes             string         `json:"notes,omitempty"`
+	Model             *ModelRef      `json:"model,omitempty"`
+	Warning           string         `json:"warning,omitempty"`
+	Status            string         `json:"status,omitempty"`
+	CreatedAt         time.Time      `json:"created_at,omitempty"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+}
+
 // Part is a single content block within a Message (SPEC §4.5).
 //
 // Strategy: one struct holds every spec-defined field, all marked omitempty.
@@ -291,6 +342,10 @@ type Part struct {
 	// compaction
 	CompactedMessageIDs []string `json:"compacted_message_ids,omitempty"`
 	Auto                bool     `json:"auto,omitempty"`
+
+	// agent_question, retry_attempt
+	Question     *AgentQuestion `json:"question,omitempty"`
+	RetryAttempt *RetryAttempt  `json:"retry_attempt,omitempty"`
 }
 
 // TextRange identifies a substring within a Text part (SPEC §4.5 citation).

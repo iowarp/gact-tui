@@ -220,6 +220,10 @@ func conversationPartActionTitle(m gact.Message, p gact.Part) string {
 		kind = "expert handoff"
 	case gact.PartTypeRoutingDecision:
 		kind = "routing decision"
+	case gact.PartTypeAgentQuestion:
+		kind = "agent question"
+	case gact.PartTypeRetryAttempt:
+		kind = "retry attempt"
 	}
 	if kind == "" {
 		kind = "block"

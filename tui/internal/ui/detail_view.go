@@ -389,6 +389,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 		gact.PartTypeExpertHandoff,
 		gact.PartTypeSubagentCall, gact.PartTypeSubagentResult,
 		gact.PartTypeError, gact.PartTypeCompaction,
+		gact.PartTypeAgentQuestion, gact.PartTypeRetryAttempt,
 		gact.PartTypeResource, gact.PartTypeResourceLink,
 		gact.PartTypeImage, gact.PartTypeDocument, gact.PartTypeCitation:
 		return partDetailRef(m.ID, p), true
@@ -434,6 +435,10 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 		title = "routing decision"
 	case gact.PartTypeExpertHandoff:
 		title = "expert handoff"
+	case gact.PartTypeAgentQuestion:
+		title = "agent question"
+	case gact.PartTypeRetryAttempt:
+		title = "retry attempt"
 	case gact.PartTypeToolResult:
 		title = "tool result"
 		if p.ToolName != "" {
@@ -514,6 +519,41 @@ func partDetailText(p gact.Part) string {
 			if value, ok := p.Metadata[key]; ok && value != nil {
 				rows = append(rows, detailFieldRows(key, fmt.Sprint(value))...)
 			}
+		}
+	case gact.PartTypeAgentQuestion:
+		if p.Question != nil {
+			rows = append(rows, detailFieldRows("question_id", p.Question.ID)...)
+			rows = append(rows, detailFieldRows("agent", p.Question.AgentID)...)
+			rows = append(rows, detailFieldRows("category", p.Question.Category)...)
+			rows = append(rows, detailFieldRows("expected_answer_type", p.Question.ExpectedAnswerType)...)
+			rows = append(rows, detailFieldRows("prompt", p.Question.Prompt)...)
+			if len(p.Question.Choices) > 0 {
+				choiceRows := make([]string, 0, len(p.Question.Choices))
+				for _, choice := range p.Question.Choices {
+					label := firstNonEmpty(choice.Label, choice.ID)
+					if choice.Description != "" {
+						label += ": " + choice.Description
+					}
+					choiceRows = append(choiceRows, label)
+				}
+				rows = append(rows, detailFieldRows("choices", strings.Join(choiceRows, "\n"))...)
+			}
+		} else if p.Text != "" {
+			rows = append(rows, detailFieldRows("prompt", p.Text)...)
+		}
+	case gact.PartTypeRetryAttempt:
+		if p.RetryAttempt != nil {
+			rows = append(rows, detailFieldRows("attempt_id", p.RetryAttempt.ID)...)
+			rows = append(rows, detailFieldRows("original_message_id", p.RetryAttempt.OriginalMessageID)...)
+			rows = append(rows, detailFieldRows("attempt_message_id", p.RetryAttempt.AttemptMessageID)...)
+			rows = append(rows, detailFieldRows("status", p.RetryAttempt.Status)...)
+			rows = append(rows, detailFieldRows("notes", p.RetryAttempt.Notes)...)
+			rows = append(rows, detailFieldRows("warning", p.RetryAttempt.Warning)...)
+			if p.RetryAttempt.Model != nil {
+				rows = append(rows, detailFieldRows("model", modelLabel(*p.RetryAttempt.Model))...)
+			}
+		} else if p.Text != "" {
+			rows = append(rows, detailFieldRows("notes", p.Text)...)
 		}
 	case gact.PartTypeToolResult:
 		if p.ToolName != "" {

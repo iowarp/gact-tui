@@ -927,6 +927,38 @@ func (c *Client) DeleteTask(ctx context.Context, taskID string) error {
 	return c.do(ctx, http.MethodDelete, "/v1/tasks/"+taskID, nil, nil)
 }
 
+// --- Agent questions and retries ------------------------------------------
+
+func (c *Client) ListPendingQuestions(ctx context.Context, sessionID string) ([]gact.AgentQuestion, error) {
+	var out struct {
+		Questions []gact.AgentQuestion `json:"questions"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/questions", nil, &out)
+	return out.Questions, err
+}
+
+func (c *Client) AnswerQuestion(
+	ctx context.Context,
+	sessionID string,
+	questionID string,
+	req gact.AgentQuestionAnswerRequest,
+) error {
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions/" + url.PathEscape(questionID) + "/answer"
+	return c.do(ctx, http.MethodPost, path, req, nil)
+}
+
+func (c *Client) RetryMessage(
+	ctx context.Context,
+	sessionID string,
+	messageID string,
+	req gact.RetryRequest,
+) (gact.RetryAttempt, error) {
+	var out gact.RetryAttempt
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/messages/" + url.PathEscape(messageID) + "/retry"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
 // --- §6.11 policies (MMM4) -------------------------------------------------
 
 // ListPolicies returns every registered permission policy.

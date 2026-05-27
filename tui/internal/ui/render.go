@@ -1425,6 +1425,12 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			Render(indent(wrap(output, wrapW-2), "  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
 
+	case gact.PartTypeAgentQuestion:
+		return t.renderAgentQuestionPart(p, wrapW)
+
+	case gact.PartTypeRetryAttempt:
+		return t.renderRetryAttemptPart(p, wrapW)
+
 	case gact.PartTypeToolCall:
 		// Claude-Code style: `ToolName(summary_of_input)` header with
 		// the input inlined as a one-liner when it fits, "…" when it
@@ -1634,6 +1640,121 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		return lipgloss.NewStyle().Foreground(t.FgMuted).
 			Render("[" + p.Type + "]")
 	}
+}
+
+func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
+	q := p.Question
+	prompt := strings.TrimSpace(p.Text)
+	if q != nil && strings.TrimSpace(q.Prompt) != "" {
+		prompt = strings.TrimSpace(q.Prompt)
+	}
+	if prompt == "" {
+		prompt = "Agent needs user input before continuing."
+	}
+	agent := ""
+	category := ""
+	expected := ""
+	allowFreeform := false
+	var choices []gact.AgentQuestionChoice
+	if q != nil {
+		agent = q.AgentID
+		category = q.Category
+		expected = q.ExpectedAnswerType
+		allowFreeform = q.AllowFreeform
+		choices = q.Choices
+	}
+	head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("? agent question")
+	meta := make([]string, 0, 3)
+	if agent != "" {
+		meta = append(meta, agent)
+	}
+	if category != "" {
+		meta = append(meta, category)
+	}
+	if expected != "" {
+		meta = append(meta, expected)
+	}
+	if len(meta) > 0 {
+		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+			lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
+	}
+	rows := []string{head, lipgloss.NewStyle().Foreground(t.Fg).Render(indent(wrap(prompt, wrapW-2), "  "))}
+	if len(choices) > 0 {
+		labels := make([]string, 0, len(choices))
+		for _, choice := range choices {
+			label := strings.TrimSpace(choice.Label)
+			if label == "" {
+				label = choice.ID
+			}
+			if label != "" {
+				labels = append(labels, label)
+			}
+		}
+		if len(labels) > 0 {
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+				Render("  choices: "+truncate(strings.Join(labels, ", "), wrapW-11)))
+		}
+	}
+	if allowFreeform {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("  free-form answer allowed"))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (t Theme) renderRetryAttemptPart(p gact.Part, wrapW int) string {
+	attempt := p.RetryAttempt
+	id := ""
+	status := ""
+	notes := strings.TrimSpace(p.Text)
+	warning := ""
+	model := ""
+	if attempt != nil {
+		id = attempt.ID
+		status = attempt.Status
+		if strings.TrimSpace(attempt.Notes) != "" {
+			notes = strings.TrimSpace(attempt.Notes)
+		}
+		warning = strings.TrimSpace(attempt.Warning)
+		if attempt.Model != nil {
+			model = modelLabel(*attempt.Model)
+		}
+	}
+	head := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("↻ retry attempt")
+	meta := make([]string, 0, 3)
+	if id != "" {
+		meta = append(meta, shortID(id))
+	}
+	if status != "" {
+		meta = append(meta, status)
+	}
+	if model != "" {
+		meta = append(meta, model)
+	}
+	if len(meta) > 0 {
+		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+			lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
+	}
+	rows := []string{head}
+	if notes != "" {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render(indent(wrap(notes, wrapW-2), "  ")))
+	}
+	if warning != "" {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+			Render(indent(wrap(warning, wrapW-2), "  ")))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func modelLabel(m gact.ModelRef) string {
+	if m.ProviderID != "" && m.ModelID != "" {
+		return m.ProviderID + "/" + m.ModelID
+	}
+	if m.ModelID != "" {
+		return m.ModelID
+	}
+	return m.ProviderID
 }
 
 func promotedEvidenceLabel(p gact.Part) string {
