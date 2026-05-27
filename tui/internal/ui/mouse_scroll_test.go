@@ -247,6 +247,51 @@ func TestMouseWheelOutsideConversationDoesNotScrollTranscript(t *testing.T) {
 	}
 }
 
+func TestMouseWheelWithOverlayOpenDoesNotLeakToConversation(t *testing.T) {
+	a := newLongTextTranscriptApp()
+	a.width = 120
+	a.height = 34
+	a.scrollOffset = 9
+	a.stickyToBottom = false
+	a.helpOpen = true
+
+	_ = a.View()
+	body, ok := findHitTargetForTest(a, "conversation:body:wheel")
+	if !ok {
+		t.Fatal("missing conversation body wheel target")
+	}
+	surface, ok := findHitTargetForTest(a, "help:surface:wheel")
+	if !ok {
+		t.Fatal("missing help surface wheel blocker")
+	}
+	x, y, ok := pointInsideOutsideRect(body.rect, surface.rect)
+	if !ok {
+		t.Fatalf("test needs a conversation wheel point outside help overlay, body=%+v surface=%+v", body.rect, surface.rect)
+	}
+
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if a.scrollOffset != 9 || a.stickyToBottom {
+		t.Fatalf("conversation wheel leaked through open overlay: offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	}
+}
+
+func pointInsideOutsideRect(inside mouseRect, outside mouseRect) (int, int, bool) {
+	for y := inside.y; y < inside.y+inside.h; y++ {
+		for x := inside.x; x < inside.x+inside.w; x++ {
+			if !outside.contains(x, y) {
+				return x, y, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
 func TestKeyboardDownAtLastPartReturnsConversationToBottom(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

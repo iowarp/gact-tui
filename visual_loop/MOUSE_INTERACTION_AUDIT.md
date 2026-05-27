@@ -268,6 +268,11 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Shared selectable-list modals now route row hits through
   `registerModalListRegion` even when a list has no wheel target, removing the
   last row-hit-only branch inside the shared list modal renderer.
+- Mouse-wheel dispatch now mirrors click dispatch: while any overlay is open,
+  wheel events first check overlay-scoped semantic targets and are then
+  swallowed by the overlay policy before the base conversation/sidebar regions
+  can see them. This prevents uncovered areas behind modals from scrolling the
+  transcript.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
