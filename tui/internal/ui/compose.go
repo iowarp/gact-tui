@@ -84,6 +84,24 @@ func (a *App) cancelCompose() {
 	a.compose = nil
 }
 
+func (a *App) copyComposeToClipboard() tea.Cmd {
+	if a.compose == nil {
+		a.transientHint = "nothing to copy"
+		return nil
+	}
+	text := a.compose.ta.Value()
+	if strings.TrimSpace(text) == "" {
+		a.transientHint = "nothing to copy"
+		return nil
+	}
+	if err := clipboardWrite(text); err != nil {
+		a.transientHint = "copy failed: " + err.Error()
+		return nil
+	}
+	a.transientHint = "copied compose draft to clipboard"
+	return nil
+}
+
 // handleComposeKey routes keypresses while the compose modal is open.
 // Returns a new model + command like every other modal handler.
 func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -168,6 +186,13 @@ func (a *App) viewCompose() string {
 			action: func(app *App) tea.Cmd {
 				app.commitCompose()
 				return nil
+			},
+		},
+		{
+			id:    "compose:copy",
+			label: "copy",
+			action: func(app *App) tea.Cmd {
+				return app.copyComposeToClipboard()
 			},
 		},
 		{
