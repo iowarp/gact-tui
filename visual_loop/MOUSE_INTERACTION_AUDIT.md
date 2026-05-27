@@ -90,8 +90,12 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Header chips now register render-time semantic targets: backend opens metrics, workspace opens the workspace switcher, session focuses the selected sidebar row, model/routing open model settings, agent opens agent settings, and status opens Doctor when integration health is supported.
 - Footer focus and visible `Tab pane` hints now register semantic targets that cycle focus through the same helper used by keyboard Tab.
 - Footer status chips now register semantic targets: the reconnect badge dispatches the existing manual reconnect path, and the ARC memory hit-rate chip opens the memory inspector.
+- Long transcript scroll now has deterministic emulator-backed visual coverage:
+  `semantic_long_transcript_scroll.tape` drives a generated multi-section
+  assistant response and captures bottom, scrolled-up, `G`, and `PageDown`
+  screenshots to prove keyboard bottom reattachment against settled content.
 
-Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, and catalog/menu surfaces.
+Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, and deterministic long-transcript scrolling.
 
 ## Executive Summary
 
