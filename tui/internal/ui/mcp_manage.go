@@ -334,6 +334,7 @@ func (a *App) viewMcpInstall() string {
 		width:       w,
 		title:       "Install MCP server",
 		buttons:     buttons,
+		surfaceID:   "mcp-install",
 		intro:       []string{t.HintLabel.Render(strings.Join(exampleList.rows, "\n"))},
 		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
 		editorID:    "mcp-install",

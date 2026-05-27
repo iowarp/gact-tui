@@ -200,6 +200,7 @@ func (a *App) viewContextAdd() string {
 		width:       w,
 		title:       "Add file to context",
 		buttons:     buttons,
+		surfaceID:   "context-add",
 		editor:      a.renderCursorEditor(a.contextAddDraft, a.contextAddCursor),
 		editorID:    "context-add",
 		editorValue: a.contextAddDraft,

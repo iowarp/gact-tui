@@ -1095,3 +1095,7 @@ Additional work continued from the same architectural direction:
   modal list primitive; the Commands tab keeps its clickable command-staging
   rows, while the other tabs share the same dense row layout without custom
   key-list rendering.
+- Shared text-entry modals now register named overlay surface wheel blockers,
+  giving rename, context-add, and MCP-install the same semantic chrome wheel
+  target model as scrollable/list modals while keeping editor cursor hits and
+  button actions unchanged.

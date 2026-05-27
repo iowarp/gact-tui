@@ -127,6 +127,7 @@ func (a *App) viewRename() string {
 		width:       w,
 		title:       "Rename session",
 		buttons:     buttons,
+		surfaceID:   "rename",
 		editor:      a.renderCursorEditor(a.renameDraft, a.renameCursor),
 		editorID:    "rename",
 		editorValue: a.renameDraft,
