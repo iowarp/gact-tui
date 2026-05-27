@@ -1213,27 +1213,42 @@ func offsetModalListHits(list modalListRender, rowOffset int) []modalListHit {
 }
 
 func (a *App) registerWindowedModalListHits(rendered scrollableModalFrameRender, col int, width int, list modalListRender) {
-	if len(list.hits) == 0 || rendered.modal == "" || rendered.bodyRow < 0 {
+	if rendered.modal == "" || rendered.bodyRow < 0 {
 		return
 	}
+	clipped := clipModalListToWindow(list, rendered.window)
+	a.registerModalListRegion(rendered.modal, rendered.bodyRow, col, width, clipped, "", nil)
+}
+
+func clipModalListToWindow(list modalListRender, win scrollWindow) modalListRender {
+	if len(list.rows) == 0 && len(list.hits) == 0 {
+		return modalListRender{}
+	}
+	start := clampInt(win.start, 0, len(list.rows))
+	end := clampInt(win.end, start, len(list.rows))
+	clippedRows := append([]string(nil), list.rows[start:end]...)
 	visibleHits := make([]modalListHit, 0, len(list.hits))
 	for _, hit := range list.hits {
 		if hit.height <= 0 {
 			continue
 		}
-		start := maxInt(hit.row, rendered.window.start)
-		end := minInt(hit.row+hit.height, rendered.window.end)
-		if end <= start {
+		hitStart := maxInt(hit.row, win.start)
+		hitEnd := minInt(hit.row+hit.height, win.end)
+		if hitEnd <= hitStart {
 			continue
 		}
 		visibleHits = append(visibleHits, modalListHit{
 			id:     hit.id,
-			row:    start - rendered.window.start,
-			height: end - start,
+			row:    hitStart - win.start,
+			height: hitEnd - hitStart,
 			action: hit.action,
 		})
 	}
-	a.registerModalListHits(rendered.modal, rendered.bodyRow, col, width, visibleHits)
+	return modalListRender{
+		rows:          clippedRows,
+		hits:          visibleHits,
+		renderedItems: list.renderedItems,
+	}
 }
 
 func windowedIndexRange(cursor, total int, visibleRows int, defaultRows int) (int, int) {
