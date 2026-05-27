@@ -251,6 +251,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   through the shared inset-list width policy, and file-picker backend failures
   cap the entire rendered error row instead of truncating only the raw error
   suffix after a fixed prefix.
+- Shared modal/detail wrapping now preserves leading indentation on wrapped
+  rows, so long structured fields in memory, context, catalog, and raw-evidence
+  detail views keep their label/body shape instead of collapsing into
+  left-aligned text after the first visual line.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

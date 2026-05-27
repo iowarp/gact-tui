@@ -1684,30 +1684,36 @@ func wrap(s string, width int) string {
 			out.WriteString("\n")
 			continue
 		}
+		prefix, text := splitLeadingWhitespace(line)
+		prefixW := lipgloss.Width(prefix)
+		lineWidth := width
+		if prefixW > 0 && prefixW < width {
+			lineWidth = width - prefixW
+		}
 		// naive word-wrap
-		words := strings.Fields(line)
+		words := strings.Fields(text)
 		cur := ""
 		for _, w := range words {
-			if lipgloss.Width(w) > width {
+			if lipgloss.Width(w) > lineWidth {
 				if cur != "" {
-					out.WriteString(cur)
+					out.WriteString(prefix + cur)
 					out.WriteString("\n")
 					cur = ""
 				}
-				chunks := hardWrapWord(w, width)
+				chunks := hardWrapWord(w, lineWidth)
 				for i, chunk := range chunks {
 					if i == len(chunks)-1 {
 						cur = chunk
 					} else {
-						out.WriteString(chunk)
+						out.WriteString(prefix + chunk)
 						out.WriteString("\n")
 					}
 				}
 				continue
 			}
-			if lipgloss.Width(cur)+lipgloss.Width(w)+1 > width {
+			if lipgloss.Width(cur)+lipgloss.Width(w)+1 > lineWidth {
 				if cur != "" {
-					out.WriteString(cur)
+					out.WriteString(prefix + cur)
 					out.WriteString("\n")
 				}
 				cur = w
@@ -1720,11 +1726,24 @@ func wrap(s string, width int) string {
 			}
 		}
 		if cur != "" {
-			out.WriteString(cur)
+			out.WriteString(prefix + cur)
 			out.WriteString("\n")
 		}
 	}
 	return strings.TrimRight(out.String(), "\n")
+}
+
+func splitLeadingWhitespace(line string) (string, string) {
+	idx := 0
+	for idx < len(line) {
+		switch line[idx] {
+		case ' ', '\t':
+			idx++
+		default:
+			return line[:idx], line[idx:]
+		}
+	}
+	return line, ""
 }
 
 func hardWrapWord(word string, width int) []string {
