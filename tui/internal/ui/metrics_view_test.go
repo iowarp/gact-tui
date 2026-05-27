@@ -64,6 +64,27 @@ func TestMetricsViewUsesSharedDetailSections(t *testing.T) {
 	}
 }
 
+func TestMetricsFooterAdvertisesClickableDetails(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{
+		Cost: gact.MetricsCost{
+			TotalUSD:   2.50,
+			ByProvider: map[string]float64{"argonne": 1.25},
+		},
+		Latencies: map[string]gact.MetricsLatencyStat{
+			"GET /v1/sessions": {Count: 7, P50Ms: 1.2, P95Ms: 5.6, MaxMs: 9.1},
+		},
+	}}
+
+	out := stripANSI(a.viewMetrics())
+	if !strings.Contains(out, "click row details") {
+		t.Fatalf("metrics footer should advertise mouse row details when rows are actionable:\n%s", out)
+	}
+}
+
 func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120

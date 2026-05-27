@@ -188,6 +188,10 @@ func (a *App) viewMetrics() string {
 		}
 	}
 
+	footerHint := "Up/Down scroll  r refresh  Esc close"
+	if len(rowHits) > 0 {
+		footerHint = "Up/Down scroll  click row details  r refresh  Esc close"
+	}
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
@@ -199,7 +203,7 @@ func (a *App) viewMetrics() string {
 		pageSize:    a.metricsBodyPageSize(),
 		scroll:      a.metricsScroll(),
 		wheelID:     "metrics",
-		footerHint:  "Up/Down scroll  r refresh  Esc close",
+		footerHint:  footerHint,
 		footerStyle: &hintStyle,
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
 			if app.metrics != nil {

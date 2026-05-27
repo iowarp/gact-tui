@@ -159,6 +159,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   when actionable rows are visible, matching the existing shared detail-pane
   mouse targets without implying keyboard row-selection support that the modal
   does not yet provide.
+- Backend Metrics footer hints now advertise clickable row details when cost
+  or latency rows have semantic detail targets, matching the same shared
+  detail-pane mouse affordance used by Doctor.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
