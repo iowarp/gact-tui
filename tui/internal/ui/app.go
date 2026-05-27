@@ -461,6 +461,10 @@ type App struct {
 	retryMessageID   string
 	retryNotesDraft  string
 	retryNotesCursor int
+	retryModelOpen   bool
+	retryModelMsgID  string
+	retryModelDraft  string
+	retryModelCursor int
 
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
@@ -2232,6 +2236,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.retryNotesOpen {
 		return a.handleRetryNotesKey(k)
+	}
+	if a.retryModelOpen {
+		return a.handleRetryModelKey(k)
 	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
@@ -6628,6 +6635,9 @@ func (a *App) viewMain() string {
 	}
 	if a.retryNotesOpen {
 		base = overlay(base, a.viewRetryNotes(), a.width, a.height)
+	}
+	if a.retryModelOpen {
+		base = overlay(base, a.viewRetryModel(), a.width, a.height)
 	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)

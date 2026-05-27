@@ -326,6 +326,146 @@ func (a *App) viewRetryNotes() string {
 	}).modal
 }
 
+func (a *App) openRetryModelModal(messageID string) {
+	a.retryModelOpen = true
+	a.retryModelMsgID = messageID
+	a.retryModelDraft = ""
+	a.retryModelCursor = 0
+}
+
+func (a *App) closeRetryModelModal() {
+	a.retryModelOpen = false
+	a.retryModelMsgID = ""
+	a.retryModelDraft = ""
+	a.retryModelCursor = 0
+}
+
+func (a *App) handleRetryModelKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch k.String() {
+	case "esc", "ctrl+c":
+		a.closeRetryModelModal()
+		return a, nil
+	case "enter":
+		return a.commitRetryModel()
+	case "backspace":
+		if a.retryModelCursor == 0 {
+			return a, nil
+		}
+		runes := []rune(a.retryModelDraft)
+		runes = append(runes[:a.retryModelCursor-1], runes[a.retryModelCursor:]...)
+		a.retryModelDraft = string(runes)
+		a.retryModelCursor--
+		return a, nil
+	case "delete":
+		runes := []rune(a.retryModelDraft)
+		if a.retryModelCursor >= len(runes) {
+			return a, nil
+		}
+		runes = append(runes[:a.retryModelCursor], runes[a.retryModelCursor+1:]...)
+		a.retryModelDraft = string(runes)
+		return a, nil
+	case "left":
+		if a.retryModelCursor > 0 {
+			a.retryModelCursor--
+		}
+		return a, nil
+	case "right":
+		if a.retryModelCursor < len([]rune(a.retryModelDraft)) {
+			a.retryModelCursor++
+		}
+		return a, nil
+	case "home", "ctrl+a":
+		a.retryModelCursor = 0
+		return a, nil
+	case "end", "ctrl+e":
+		a.retryModelCursor = len([]rune(a.retryModelDraft))
+		return a, nil
+	}
+	if k.Text != "" {
+		runes := []rune(a.retryModelDraft)
+		insert := []rune(k.Text)
+		out := make([]rune, 0, len(runes)+len(insert))
+		out = append(out, runes[:a.retryModelCursor]...)
+		out = append(out, insert...)
+		out = append(out, runes[a.retryModelCursor:]...)
+		a.retryModelDraft = string(out)
+		a.retryModelCursor += len(insert)
+	}
+	return a, nil
+}
+
+func (a *App) commitRetryModel() (tea.Model, tea.Cmd) {
+	sid := a.currentSessionID()
+	msgID := strings.TrimSpace(a.retryModelMsgID)
+	ref, ok := parseRetryModelRef(a.retryModelDraft)
+	a.closeRetryModelModal()
+	if sid == "" || msgID == "" {
+		return a, nil
+	}
+	if !ok {
+		a.transientHint = "retry model must be provider/model"
+		return a, nil
+	}
+	return a, retryTurnCmd(a.c, sid, msgID, gact.RetryTurnRequest{
+		Execute:    true,
+		ProviderID: ref.ProviderID,
+		ModelID:    ref.ModelID,
+		Model:      &ref,
+		Metadata: map[string]any{
+			"requested_from": "tui",
+			"retry_mode":     "model",
+			"warning_ack":    true,
+		},
+	})
+}
+
+func (a *App) viewRetryModel() string {
+	w := a.modalWidth()
+	intro := []string{
+		a.Theme.HintLabel.Render(wrap("Create a linked retry attempt with a provider/model override.", modalBodyContentWidth(w))),
+		a.Theme.HintLabel.Render(wrap("This can recompute provider-side KV cache, increase time-to-first-token, latency, and cost, and may produce different reasoning or tool choices.", modalBodyContentWidth(w))),
+	}
+	buttons := []menuButton{
+		{id: "retry-model:retry", label: "retry", action: func(app *App) tea.Cmd {
+			_, cmd := app.commitRetryModel()
+			return cmd
+		}},
+		{id: "retry-model:cancel", label: "cancel", action: func(app *App) tea.Cmd {
+			app.closeRetryModelModal()
+			return nil
+		}},
+	}
+	return a.renderTextEntryModal(textEntryModalOptions{
+		width:        w,
+		title:        "Retry with model",
+		buttons:      buttons,
+		surfaceID:    "retry-model",
+		intro:        intro,
+		editor:       a.renderCursorEditor(a.retryModelDraft, a.retryModelCursor),
+		editorID:     "retry-model",
+		editorValue:  a.retryModelDraft,
+		cursorAction: func(app *App, cursor int) { app.retryModelCursor = cursor },
+		footer:       a.Theme.HintLabel.Render(modalKeyHint("Enter retry", "provider/model", "Esc cancel")),
+	}).modal
+}
+
+func parseRetryModelRef(raw string) (gact.ModelRef, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return gact.ModelRef{}, false
+	}
+	provider, model, ok := strings.Cut(raw, "/")
+	if !ok {
+		return gact.ModelRef{}, false
+	}
+	provider = strings.TrimSpace(provider)
+	model = strings.TrimSpace(model)
+	if provider == "" || model == "" {
+		return gact.ModelRef{}, false
+	}
+	return gact.ModelRef{ProviderID: provider, ModelID: model}, true
+}
+
 func questionOptions(q gact.AgentQuestion) []gact.AgentQuestionChoice {
 	if len(q.Options) > 0 {
 		return q.Options

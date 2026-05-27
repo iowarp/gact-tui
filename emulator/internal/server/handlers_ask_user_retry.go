@@ -116,6 +116,17 @@ func (s *Server) handleRetryMessage(w http.ResponseWriter, r *http.Request) {
 		Model:             req.Model,
 		Metadata:          req.Metadata,
 	}
+	if attempt.Model == nil && (strings.TrimSpace(req.ProviderID) != "" || strings.TrimSpace(req.ModelID) != "") {
+		attempt.Model = &gact.ModelRef{ProviderID: strings.TrimSpace(req.ProviderID), ModelID: strings.TrimSpace(req.ModelID)}
+	}
+	if attempt.Model != nil && (strings.TrimSpace(attempt.Model.ProviderID) != "" || strings.TrimSpace(attempt.Model.ModelID) != "") {
+		attempt.Warning = "Retrying with a different model may recompute provider-side KV cache and increase time-to-first-token, latency, and cost."
+		if attempt.Metadata == nil {
+			attempt.Metadata = map[string]any{}
+		}
+		attempt.Metadata["retry_mode"] = "model"
+		attempt.Metadata["warning_ack"] = true
+	}
 	msg, err := s.store.AppendMessage(gact.Message{
 		SessionID: sid,
 		Role:      gact.RoleAssistant,

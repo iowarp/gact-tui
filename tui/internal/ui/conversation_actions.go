@@ -136,6 +136,17 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 				return nil
 			},
 		})
+		items = append(items, actionMenuItem{
+			id:          "retry-with-model",
+			title:       "Retry with model",
+			description: "Create a linked attempt with a provider/model override.",
+			key:         "M",
+			action: func(app *App) tea.Cmd {
+				app.closeConversationActions()
+				app.openRetryModelModal(m.ID)
+				return nil
+			},
+		})
 	}
 	if m.Role == gact.RoleUser {
 		items = append(items, actionMenuItem{

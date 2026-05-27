@@ -32,4 +32,14 @@ Wait+Screen /Retry with notes/
 Sleep 300ms
 Screenshot "visual_loop/screenshots/issue57_retry_notes_modal.png"
 
+Escape
+Type "m"
+Type "M"
+Wait+Screen /Retry with model/
+Type "anthropic/claude-sonnet"
+Wait+Screen /provider-side KV cache/
+Sleep 300ms
+Screenshot "visual_loop/screenshots/issue57_retry_model_modal.png"
+
+Escape
 Type "q"

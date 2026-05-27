@@ -1,12 +1,16 @@
 package ui
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestRenderAgentQuestionPart(t *testing.T) {
@@ -116,5 +120,87 @@ func TestAgentQuestionAndRetryAttemptDetails(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRetryModelModalWarnsBeforeCommit(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.retryModelOpen = true
+	a.retryModelMsgID = "msg_1"
+	a.retryModelDraft = "openai/gpt-4.1"
+	a.retryModelCursor = len(a.retryModelDraft)
+
+	out := ansi.Strip(a.viewRetryModel())
+	for _, want := range []string{
+		"Retry with model",
+		"provider/model override",
+		"recompute provider-side KV cache",
+		"time-to-first-token",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("retry model modal missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCommitRetryModelSendsExplicitOverrideAndWarningAck(t *testing.T) {
+	var got gact.RetryTurnRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/messages/m1/retry" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode retry model request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.TurnAttempt{ID: "attempt_model", Status: "queued"})
+	}))
+	defer srv.Close()
+
+	a := New(srv.URL)
+	a.c = client.New(srv.URL)
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.retryModelOpen = true
+	a.retryModelMsgID = "m1"
+	a.retryModelDraft = "anthropic/claude-sonnet"
+	a.retryModelCursor = len(a.retryModelDraft)
+
+	_, cmd := a.commitRetryModel()
+	if cmd == nil {
+		t.Fatal("commitRetryModel returned nil command")
+	}
+	msg := cmd()
+	retryMsg, ok := msg.(retryTurnStartedMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want retryTurnStartedMsg", msg)
+	}
+	if retryMsg.err != nil {
+		t.Fatalf("retry command error: %v", retryMsg.err)
+	}
+	if !got.Execute || got.ProviderID != "anthropic" || got.ModelID != "claude-sonnet" || got.Model == nil {
+		t.Fatalf("retry request = %#v, want execute with model override", got)
+	}
+	if got.Metadata["retry_mode"] != "model" || got.Metadata["warning_ack"] != true {
+		t.Fatalf("retry metadata = %#v, want model warning ack", got.Metadata)
+	}
+}
+
+func TestCommitRetryModelRejectsUnstructuredModel(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.retryModelOpen = true
+	a.retryModelMsgID = "m1"
+	a.retryModelDraft = "claude-sonnet"
+
+	_, cmd := a.commitRetryModel()
+	if cmd != nil {
+		t.Fatal("invalid retry model should not dispatch a command")
+	}
+	if !strings.Contains(a.transientHint, "provider/model") {
+		t.Fatalf("hint = %q, want provider/model guidance", a.transientHint)
 	}
 }
