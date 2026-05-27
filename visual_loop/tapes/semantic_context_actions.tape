@@ -6,11 +6,12 @@ Set Width 1500
 Set Height 900
 
 Hide
-Type "GACT_ATTACH_SESSION_ID=sess_690ac12e0908 ./tui/gact --backend http://127.0.0.1:41917 --no-intro"
+Type "bash visual_loop/run_context_drilldown.sh"
 Enter
 Show
 
 Wait+Screen /CONVERSATION/
+Wait+Screen /CONTEXT/
 Sleep 500ms
 
 Tab

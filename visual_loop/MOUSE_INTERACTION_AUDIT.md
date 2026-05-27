@@ -94,8 +94,13 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `semantic_long_transcript_scroll.tape` drives a generated multi-section
   assistant response and captures bottom, scrolled-up, `G`, and `PageDown`
   screenshots to prove keyboard bottom reattachment against settled content.
+- Context drill-down visual coverage no longer depends on a live CLIO session:
+  `run_context_drilldown.sh` seeds an emulator session with read/edit/pin
+  context files, then `semantic_context_detail.tape` and
+  `semantic_context_actions.tape` verify readable context rows, detail
+  metadata, and action-menu access from deterministic screenshots.
 
-Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, and deterministic long-transcript scrolling.
+Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, and deterministic context drill-down.
 
 ## Executive Summary
 
