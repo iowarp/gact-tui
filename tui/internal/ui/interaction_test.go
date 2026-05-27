@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -878,6 +879,39 @@ func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
 	}
 	if _, handled := a.activateHitAt(spanning.rect.x, spanning.rect.y, tea.MouseLeft); !handled || clicked != "spanning" {
 		t.Fatalf("spanning hit activation handled=%v clicked=%q", handled, clicked)
+	}
+}
+
+func TestWindowedIndexModalListBuildsVisibleRowsAroundCursor(t *testing.T) {
+	indexes := []int{10, 20, 30, 40, 50}
+	list := windowedIndexModalList(
+		indexes,
+		3,
+		3,
+		6,
+		func(index int) string {
+			return "idx:" + itoa2(index)
+		},
+		func(index int) uiHitAction {
+			return func(*App) tea.Cmd { return nil }
+		},
+	)
+
+	if len(list.rows) != 3 {
+		t.Fatalf("visible row count = %d, want 3", len(list.rows))
+	}
+	if len(list.hits) != 3 {
+		t.Fatalf("hit count = %d, want 3", len(list.hits))
+	}
+	gotIDs := []string{list.hits[0].id, list.hits[1].id, list.hits[2].id}
+	wantIDs := []string{"idx:30", "idx:40", "idx:50"}
+	if !reflect.DeepEqual(gotIDs, wantIDs) {
+		t.Fatalf("hit ids = %#v, want %#v", gotIDs, wantIDs)
+	}
+	for i, hit := range list.hits {
+		if hit.row != i || hit.height != 1 {
+			t.Fatalf("hit %d row/height = %d/%d, want %d/1", i, hit.row, hit.height, i)
+		}
 	}
 }
 

@@ -180,6 +180,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   same rendered-control hit splitting for left/right adjustments. Provider
   advanced controls use the full `◀ value ▶` halves instead of fragile
   glyph-only cells.
+- Provider setup provider/model row targets now use shared indexed modal-list
+  windowing through `windowedIndexModalList`, so both columns derive visible
+  row hit targets from the same cursor-centered range and modal-list geometry.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
