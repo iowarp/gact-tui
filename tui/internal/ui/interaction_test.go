@@ -3755,6 +3755,11 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	if !strings.Contains(sidebar, "read") || !strings.Contains(sidebar, "2.0 KiB") {
 		t.Fatalf("context row should expose readable mode and size:\n%s", sidebar)
 	}
+	for _, want := range []string{"markdown", "demo", "May 24"} {
+		if !strings.Contains(sidebar, want) {
+			t.Fatalf("selected context row should expose %q in its metadata line:\n%s", want, sidebar)
+		}
+	}
 	if strings.Contains(sidebar, " R ") {
 		t.Fatalf("context row should not use cryptic single-letter mode badges:\n%s", sidebar)
 	}
@@ -3762,9 +3767,12 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	if !ok {
 		t.Fatal("missing context file hit target")
 	}
+	if target.rect.h != 2 {
+		t.Fatalf("selected context file hit target height = %d, want 2", target.rect.h)
+	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      target.rect.x,
-		Y:      target.rect.y,
+		Y:      target.rect.y + 1,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)

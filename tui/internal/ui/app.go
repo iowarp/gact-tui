@@ -3972,16 +3972,7 @@ func (a *App) sidebarVisibleSessionRange(height int, visIdx []int) (int, int) {
 }
 
 func (a *App) sidebarSessionRowsAvailable(height int) int {
-	contextLines := 0
-	if a.selected >= 0 {
-		if a.sidebarContextCollapsed {
-			contextLines = 1
-		} else if n := len(a.contextFiles); n > 0 {
-			contextLines = 1 + n
-		} else {
-			contextLines = 2
-		}
-	}
+	contextLines := a.sidebarContextRowCount()
 	footerLines := 0
 	if len(a.sessions) > 0 {
 		footerLines = 2
@@ -3994,6 +3985,33 @@ func (a *App) sidebarSessionRowsAvailable(height int) int {
 		return 1
 	}
 	return avail
+}
+
+func (a *App) sidebarContextRowCount() int {
+	if a.selected < 0 {
+		return 0
+	}
+	if a.sidebarContextCollapsed {
+		return 1
+	}
+	if len(a.contextFiles) == 0 {
+		return 2
+	}
+	rows := 1
+	for i := range a.contextFiles {
+		rows += a.sidebarContextFileRowCount(i)
+	}
+	return rows
+}
+
+func (a *App) sidebarContextFileRowCount(index int) int {
+	if index < 0 || index >= len(a.contextFiles) {
+		return 0
+	}
+	if index == a.contextFileSel {
+		return 2
+	}
+	return 1
 }
 
 func (a *App) sidebarSessionRowCount(sessionIndex int) int {
@@ -4152,9 +4170,14 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 	if a.hits == nil {
 		return
 	}
+	rect := sidebarContentRect(row, width)
+	rect.h = a.sidebarContextFileRowCount(index)
+	if rect.h < 1 {
+		rect.h = 1
+	}
 	a.registerScreenHitActions(
 		"sidebar:context:file:"+cf.Path,
-		sidebarContentRect(row, width),
+		rect,
 		func(app *App) tea.Cmd {
 			app.focus = FocusSidebar
 			app.sidebarSectionFocus = sidebarSectionContext
@@ -7459,16 +7482,7 @@ func (a *App) renderSidebar(width, height int) string {
 	// (sessions × contextFiles) combos overflow the pane and push
 	// everything to the right of the sidebar a few rows down.
 	const rowsPerSession = 2
-	contextLines := 0
-	if a.selected >= 0 {
-		if a.sidebarContextCollapsed {
-			contextLines = 1 // collapsed CONTEXT header
-		} else if n := len(a.contextFiles); n > 0 {
-			contextLines = 1 + n // CONTEXT header + N file rows
-		} else {
-			contextLines = 2 // CONTEXT header + "(no files)"
-		}
-	}
+	contextLines := a.sidebarContextRowCount()
 	// R2 footer = blank + label = 2 rows whenever any session exists.
 	footerLines := 0
 	if len(a.sessions) > 0 {
@@ -7644,14 +7658,7 @@ func (a *App) renderSidebar(width, height int) string {
 
 	// CONTEXT section — show files in the current session's context.
 	if a.selected >= 0 && a.selected < len(a.sessions) {
-		contextLines := 1
-		if !a.sidebarContextCollapsed {
-			if len(a.contextFiles) == 0 {
-				contextLines++
-			} else {
-				contextLines += len(a.contextFiles)
-			}
-		}
+		contextLines := a.sidebarContextRowCount()
 		footerLines := 0
 		if len(a.sessions) > 0 {
 			footerLines = 2
@@ -7697,7 +7704,7 @@ func (a *App) renderSidebar(width, height int) string {
 				if selected {
 					marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 				}
-				rows = append(rows, a.renderSidebarContextFileRow(cf, width, marker, selected))
+				rows = append(rows, a.renderSidebarContextFileRows(cf, width, marker, selected, i)...)
 				a.registerSidebarContextFileHit(row, width, i, cf)
 			}
 		}
@@ -7740,7 +7747,7 @@ func (a *App) renderSidebar(width, height int) string {
 	return style.Render(body)
 }
 
-func (a *App) renderSidebarContextFileRow(cf gact.ContextFile, width int, marker string, selected bool) string {
+func (a *App) renderSidebarContextFileRows(cf gact.ContextFile, width int, marker string, selected bool, index int) []string {
 	t := a.Theme
 	contentW := width - 6
 	if contentW < 1 {
@@ -7767,7 +7774,55 @@ func (a *App) renderSidebarContextFileRow(cf gact.ContextFile, width int, marker
 		pathBudget = 4
 	}
 	line := marker + pathStyle.Render(truncate(cf.Path, pathBudget)) + " " + suffixStyle.Render(suffix)
-	return truncate(line, contentW)
+	rows := []string{truncate(line, contentW)}
+	if a.sidebarContextFileRowCount(index) < 2 {
+		return rows
+	}
+	meta := a.sidebarContextFileMeta(cf)
+	if meta == "" {
+		return rows
+	}
+	metaIndent := strings.Repeat(" ", maxInt(1, lipgloss.Width(marker)))
+	metaBudget := contentW - lipgloss.Width(metaIndent)
+	if metaBudget < 4 {
+		metaBudget = 4
+	}
+	rows = append(rows, metaIndent+t.HintLabel.Italic(true).Render(truncate(meta, metaBudget)))
+	return rows
+}
+
+func (a *App) sidebarContextFileMeta(cf gact.ContextFile) string {
+	parts := make([]string, 0, 4)
+	if lang := strings.TrimSpace(cf.Language); lang != "" {
+		parts = append(parts, lang)
+	}
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		title := strings.TrimSpace(a.sessions[a.selected].Title)
+		if title == "" {
+			title = a.sessions[a.selected].ID
+		}
+		if title != "" {
+			parts = append(parts, title)
+		}
+	}
+	if modified := compactContextTimestamp(cf.LastModified); modified != "" {
+		parts = append(parts, modified)
+	} else if added := compactContextTimestamp(cf.AddedAt); added != "" {
+		parts = append(parts, added)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func compactContextTimestamp(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return raw
+	}
+	return t.UTC().Format("Jan 2 15:04")
 }
 
 func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {

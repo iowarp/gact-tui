@@ -69,6 +69,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Expanded compose routes mouse wheel events into textarea cursor movement, so
   long pasted drafts can be navigated by mouse instead of the overlay
   swallowing wheel input.
+- Sidebar context rows now derive their row height from the rendered context
+  file shape. The selected context file gets a compact metadata line for
+  language/session/timestamp when available, and the semantic hit target spans
+  both rendered lines so click geometry stays aligned with the richer row.
 - Permission banner actions now register semantic hit targets for allow, deny, session allow, and workspace allow.
 - The intro splash now has a full-screen semantic continue target, and the connection error screen uses the shared modal/button shell for retry and quit actions.
 - Transcript detail affordance rows such as `raw detail · Ctrl+E` now register semantic hit targets that open the detail modal directly; whole-block clicks still select first and open on a second click.
