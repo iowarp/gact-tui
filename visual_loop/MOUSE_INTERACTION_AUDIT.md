@@ -284,6 +284,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Help > Commands list rows now use the shared scrollable-modal body width for
   both rendering and row hit targets instead of the wider raw modal inner
   width, so command clicks stay aligned with the visible scrollable body.
+- Provider setup provider/model list rails now share a named box rail-column
+  helper instead of duplicating the side-rail column calculation in each list
+  section.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
