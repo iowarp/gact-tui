@@ -183,6 +183,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup provider/model row targets now use shared indexed modal-list
   windowing through `windowedIndexModalList`, so both columns derive visible
   row hit targets from the same cursor-centered range and modal-list geometry.
+- Provider setup provider/model side rails now use shared
+  `registerModalIndexedListRailHits`, mapping rail rows to the same rendered
+  index lists used by row hits instead of duplicating position-to-index
+  selection code in each column.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

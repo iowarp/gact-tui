@@ -1383,19 +1383,15 @@ func (a *App) registerLMConfigProviderRailHits(modal string, top, col, width, vi
 	}
 	indexes := a.lmConfigProviderIndexes()
 	railCol := col + width - 3
-	a.registerModalIndexRailHits(modal, "lm-config:provider", top+2, railCol, visibleRows, len(indexes), func(app *App, pos int) tea.Cmd {
+	a.registerModalIndexedListRailHits(modal, "lm-config:provider", top+2, railCol, visibleRows, indexes, func(app *App, presetIdx int) tea.Cmd {
 		if app.lmConfig == nil || app.lmConfig.info == nil {
 			return nil
 		}
-		indexes := app.lmConfigProviderIndexes()
-		if len(indexes) == 0 {
+		if presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
 			return nil
 		}
-		if pos >= len(indexes) {
-			pos = len(indexes) - 1
-		}
 		app.lmConfig.field = lmFieldPreset
-		app.lmConfig.selected = indexes[pos]
+		app.lmConfig.selected = presetIdx
 		return app.lmConfigSyncFromPreset()
 	})
 }
@@ -1406,20 +1402,12 @@ func (a *App) registerLMConfigModelRailHits(modal string, top, col, width, visib
 	}
 	modelIndexes := a.lmConfigModelIndexes()
 	railCol := col + width - 3
-	a.registerModalIndexRailHits(modal, "lm-config:model", top+2, railCol, visibleRows, len(modelIndexes), func(app *App, pos int) tea.Cmd {
+	a.registerModalIndexedListRailHits(modal, "lm-config:model", top+2, railCol, visibleRows, modelIndexes, func(app *App, modelIdx int) tea.Cmd {
 		if app.lmConfig == nil {
 			return nil
 		}
-		modelIndexes := app.lmConfigModelIndexes()
-		if len(modelIndexes) == 0 {
-			return nil
-		}
-		if pos >= len(modelIndexes) {
-			pos = len(modelIndexes) - 1
-		}
 		pid := app.lmConfigCurrentPresetID()
 		catalog := app.lmConfig.modelCatalogs[pid]
-		modelIdx := modelIndexes[pos]
 		if modelIdx < 0 || modelIdx >= len(catalog) {
 			return nil
 		}

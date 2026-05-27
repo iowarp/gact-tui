@@ -815,6 +815,21 @@ func (a *App) registerModalIndexRailHits(modal string, id string, rowOffset int,
 	}
 }
 
+func (a *App) registerModalIndexedListRailHits(modal string, id string, rowOffset int, col int, visibleRows int, indexes []int, action func(*App, int) tea.Cmd) {
+	if id == "" || action == nil || len(indexes) == 0 {
+		return
+	}
+	a.registerModalIndexRailHits(modal, id, rowOffset, col, visibleRows, len(indexes), func(app *App, pos int) tea.Cmd {
+		if pos < 0 {
+			pos = 0
+		}
+		if pos >= len(indexes) {
+			pos = len(indexes) - 1
+		}
+		return action(app, indexes[pos])
+	})
+}
+
 func (a *App) renderCursorEditor(value string, cursor int) string {
 	runes := []rune(value)
 	if cursor < 0 {
