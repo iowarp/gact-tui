@@ -86,6 +86,21 @@ func TestLMConfigIntroUsesSharedModalInnerWidth(t *testing.T) {
 	}
 }
 
+func TestLMConfigBoxWidthsUseSharedPolicy(t *testing.T) {
+	if got := lmConfigBoxBodyWidth(60); got != 56 {
+		t.Fatalf("box body width = %d, want 56", got)
+	}
+	if got := lmConfigBoxContentWidth(60); got != 54 {
+		t.Fatalf("box content width = %d, want 54", got)
+	}
+	if got := lmConfigBoxBodyWidth(8); got != 10 {
+		t.Fatalf("tiny box body width = %d, want minimum 10", got)
+	}
+	if got := lmConfigBoxContentWidth(8); got != 8 {
+		t.Fatalf("tiny box content width = %d, want minimum content 8", got)
+	}
+}
+
 func TestLMConfigNavigationUsesVerticalKeysInsideFocusedList(t *testing.T) {
 	a := newLMConfigTestApp()
 
