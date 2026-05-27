@@ -187,6 +187,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `registerModalIndexedListRailHits`, mapping rail rows to the same rendered
   index lists used by row hits instead of duplicating position-to-index
   selection code in each column.
+- MCP install example rows now register through shared modal-list row hits
+  instead of modal cell hits, so example clicks use the same full-row target
+  model as picker/catalog rows while preserving the compact text-entry modal.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

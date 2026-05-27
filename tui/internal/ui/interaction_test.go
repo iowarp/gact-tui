@@ -5602,8 +5602,11 @@ func TestMcpInstallExamplesUseSemanticHitTargets(t *testing.T) {
 	if !ok {
 		t.Fatal("missing semantic MCP install http example target")
 	}
+	if target.rect.h != 1 {
+		t.Fatalf("example target height = %d, want one list row", target.rect.h)
+	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
+		X:      target.rect.x + target.rect.w - 1,
 		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
