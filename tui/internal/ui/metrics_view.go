@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,6 +22,13 @@ type metricsState struct {
 	err     error
 	data    gact.Metrics
 	scroll  int
+}
+
+type metricsRowHit struct {
+	id     string
+	start  int
+	height int
+	action uiHitAction
 }
 
 // loadMetricsCmd fetches /v1/metrics.
@@ -103,6 +111,7 @@ func (a *App) viewMetrics() string {
 	}
 
 	rows := []string{}
+	rowHits := []metricsRowHit{}
 	switch {
 	case a.metrics.err != nil:
 		rows = append(rows,
@@ -141,7 +150,19 @@ func (a *App) viewMetrics() string {
 		costFields := []detailField{
 			{"total", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
 		}
+		costSectionStart := len(rows)
 		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
+			provider := name
+			amount := m.Cost.ByProvider[name]
+			rowHits = append(rowHits, metricsRowHit{
+				id:     "metrics:cost:" + provider,
+				start:  metricsFieldRowStart(costSectionStart) + 1 + len(costFields) - 1,
+				height: 1,
+				action: func(app *App) tea.Cmd {
+					app.openMetricsCostDetail(provider, amount)
+					return nil
+				},
+			})
 			costFields = append(costFields, detailField{name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])})
 		}
 		rows = appendDetailSection(rows, "Cost", costFields...)
@@ -151,8 +172,19 @@ func (a *App) viewMetrics() string {
 		// nothing in that case rather than an empty section.
 		if len(m.Latencies) > 0 {
 			latencyFields := make([]detailField, 0, 6)
-			for _, pat := range topLatencyRoutes(m.Latencies, 6) {
+			latencySectionStart := len(rows)
+			for i, pat := range topLatencyRoutes(m.Latencies, 6) {
+				route := pat
 				st := m.Latencies[pat]
+				rowHits = append(rowHits, metricsRowHit{
+					id:     "metrics:latency:" + route,
+					start:  metricsFieldRowStart(latencySectionStart) + i,
+					height: 1,
+					action: func(app *App) tea.Cmd {
+						app.openMetricsLatencyDetail(route, st)
+						return nil
+					},
+				})
 				latencyFields = append(latencyFields, detailField{
 					truncate(pat, 32),
 					fmt.Sprintf("p50 %.1f / p95 %.1f / max %.1f (n=%d)",
@@ -192,6 +224,7 @@ func (a *App) viewMetrics() string {
 	if a.metrics != nil {
 		a.metrics.scroll = rendered.window.scroll
 	}
+	a.registerMetricsRowHits(rendered.modalFrameRender, rendered.window, rowHits)
 	return rendered.modal
 }
 
@@ -208,6 +241,77 @@ func (a *App) metricsScroll() int {
 		return a.metrics.scroll
 	}
 	return 0
+}
+
+func metricsFieldRowStart(sectionStart int) int {
+	if sectionStart > 0 {
+		return sectionStart + 2
+	}
+	return sectionStart + 1
+}
+
+func (a *App) registerMetricsRowHits(rendered modalFrameRender, win scrollWindow, hits []metricsRowHit) {
+	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
+		return
+	}
+	bodyWidth := lipgloss.Width(rendered.modal) - 6
+	if bodyWidth < 1 {
+		bodyWidth = 1
+	}
+	for _, hit := range hits {
+		hit := hit
+		if hit.action == nil || hit.height <= 0 {
+			continue
+		}
+		start := maxInt(hit.start, win.start)
+		end := minInt(hit.start+hit.height, win.end)
+		if end <= start {
+			continue
+		}
+		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+(start-win.start), 0, bodyWidth, end-start, hit.action)
+	}
+}
+
+func (a *App) openMetricsCostDetail(provider string, amount float64) {
+	rows := appendDetailSection(nil, "Provider cost",
+		detailField{"provider", provider},
+		detailField{"cost_usd", fmt.Sprintf("$%.4f", amount)},
+	)
+	if a.metrics != nil {
+		total := a.metrics.data.Cost.TotalUSD
+		if total > 0 {
+			rows = append(rows, detailFieldRows("share", fmt.Sprintf("%.1f%%", amount/total*100))...)
+		}
+		rows = appendDetailSection(rows, "Backend totals",
+			detailField{"total_cost_usd", fmt.Sprintf("$%.4f", total)},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "metrics",
+		partID:    "cost:" + provider,
+		title:     "Metrics · " + provider,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) openMetricsLatencyDetail(route string, stat gact.MetricsLatencyStat) {
+	rows := appendDetailSection(nil, "Route latency",
+		detailField{"route", route},
+		detailField{"count", fmt.Sprintf("%d", stat.Count)},
+		detailField{"p50_ms", fmt.Sprintf("%.1f", stat.P50Ms)},
+		detailField{"p95_ms", fmt.Sprintf("%.1f", stat.P95Ms)},
+		detailField{"max_ms", fmt.Sprintf("%.1f", stat.MaxMs)},
+	)
+	a.detailView = &bulkyPartRef{
+		messageID: "metrics",
+		partID:    "latency:" + route,
+		title:     "Latency · " + route,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
 }
 
 func sortedKeys(m map[string]int) []string {
