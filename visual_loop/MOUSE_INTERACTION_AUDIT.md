@@ -1107,3 +1107,7 @@ Additional work continued from the same architectural direction:
   rendered left/right arrow glyphs for every editable row, not just the
   abstract target rectangle, so future geometry drift between visible controls
   and semantic mouse hit targets is caught directly.
+- The overlay dispatcher no longer exposes unused per-overlay click/wheel
+  callback hooks. Overlay-specific interactions now have to register semantic
+  hit targets during render, with the shared overlay table only handling
+  validation and outside-click close policy.

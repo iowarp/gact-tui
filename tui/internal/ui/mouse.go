@@ -162,8 +162,6 @@ type mouseOverlay struct {
 	prepare      func(*App)
 	valid        func(*App) bool
 	closeOutside func(*App)
-	click        func(mouseRect, tea.Mouse) (tea.Cmd, bool)
-	wheel        func(tea.MouseWheelMsg) (tea.Cmd, bool)
 }
 
 func (a *App) mouseOverlays() []mouseOverlay {
@@ -252,9 +250,6 @@ func (a *App) handleOverlayMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
 		if !ov.open {
 			continue
 		}
-		if ov.wheel != nil {
-			return ov.wheel(m)
-		}
 		return nil, true
 	}
 	return nil, false
@@ -279,9 +274,6 @@ func (a *App) handleOverlayMouseClick(m tea.MouseClickMsg) (tea.Cmd, bool) {
 			return nil, true
 		}
 		rect := overlayMouseRect(ov.view(), a.width, a.height)
-		if ov.click != nil {
-			return ov.click(rect, mouse)
-		}
 		if !rect.contains(mouse.X, mouse.Y) && ov.closeOutside != nil {
 			ov.closeOutside(a)
 		}
