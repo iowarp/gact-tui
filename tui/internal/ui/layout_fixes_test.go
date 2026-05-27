@@ -1272,10 +1272,13 @@ func TestComposeMouseWheelMovesTextareaCursor(t *testing.T) {
 
 	_ = a.View()
 	startLine := a.compose.ta.Line()
-	rect := overlayMouseRect(a.viewCompose(), a.width, a.height)
+	target, ok := findHitTargetForTest(a, "compose:textarea:wheel")
+	if !ok {
+		t.Fatal("missing compose textarea wheel target")
+	}
 	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
-		X:      rect.x + rect.w/2,
-		Y:      rect.y + rect.h/2,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseWheelUp,
 	}))
 	a = model.(*App)
@@ -1288,6 +1291,36 @@ func TestComposeMouseWheelMovesTextareaCursor(t *testing.T) {
 	}
 	if got := a.compose.ta.Line(); got >= startLine {
 		t.Fatalf("wheel up should move the compose cursor upward, got line %d from %d", got, startLine)
+	}
+}
+
+func TestComposeMouseWheelOnModalChromeDoesNotMoveTextareaCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue(strings.Join([]string{
+		"line 00", "line 01", "line 02", "line 03", "line 04",
+		"line 05", "line 06", "line 07", "line 08", "line 09",
+	}, "\n"))
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	startLine := a.compose.ta.Line()
+	rect := overlayMouseRect(a.viewCompose(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + 1,
+		Y:      rect.y + 1,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose chrome wheel should not dispatch a command")
+	}
+	if got := a.compose.ta.Line(); got != startLine {
+		t.Fatalf("wheel on compose chrome should not move cursor, got line %d from %d", got, startLine)
 	}
 }
 
