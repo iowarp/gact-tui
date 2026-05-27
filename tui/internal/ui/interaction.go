@@ -1245,6 +1245,22 @@ func windowedIndexModalList(indexes []int, cursor int, visibleRows int, defaultR
 	}
 }
 
+func (a *App) renderWindowedIndexModalList(indexes []int, cursor int, visibleRows int, defaultRows int, opts modalListOptions, item func(int) modalListItem) (modalListRender, scrollWindow) {
+	start, end := windowedIndexRange(cursor, len(indexes), visibleRows, defaultRows)
+	items := make([]modalListItem, 0, end-start)
+	for i := start; i < end; i++ {
+		if item == nil {
+			continue
+		}
+		items = append(items, item(indexes[i]))
+	}
+	if opts.rowBudget < 1 {
+		opts.rowBudget = visibleRows
+	}
+	list := a.renderModalList(items, opts)
+	return list, scrollWindow{start: start, end: end, scroll: start, total: len(indexes)}
+}
+
 func (a *App) registerModalListRegion(modal string, rowOffset int, col int, width int, list modalListRender, wheelID string, wheelAction uiWheelAction) {
 	if len(list.rows) > 0 && wheelID != "" && wheelAction != nil {
 		a.registerModalContentWheelHit(modal, wheelID, rowOffset, col, width, maxInt(1, len(list.rows)), wheelAction)
