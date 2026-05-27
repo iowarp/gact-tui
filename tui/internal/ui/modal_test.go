@@ -201,6 +201,16 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 			view: func(a *App) string { return a.viewQuitConfirm() },
 		},
 		{
+			name: "connection-error",
+			app: func() *App {
+				a := newBase()
+				a.stage = StageError
+				a.stageError = "connection refused"
+				return a
+			},
+			view: func(a *App) string { return a.viewErrorModal() },
+		},
+		{
 			name: "palette",
 			app: func() *App {
 				a := newBase()
