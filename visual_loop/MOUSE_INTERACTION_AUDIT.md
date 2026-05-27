@@ -67,8 +67,8 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - The visible footer `Ctrl+C quit` hint now registers a semantic target that opens the shared quit-confirmation modal instead of remaining keyboard-only.
 - Main input and expanded compose textareas now register semantic cursor-position targets, so mouse clicks place the editor cursor without delegating to opaque coordinate patches.
 - Expanded compose routes mouse wheel events into textarea cursor movement, so
-  long pasted drafts can be navigated by mouse instead of the overlay
-  swallowing wheel input.
+  long pasted drafts can be navigated by mouse through a render-time textarea
+  wheel region instead of an overlay-specific rectangle hook.
 - Sidebar context rows now derive their row height from the rendered context
   file shape. The selected context file gets a compact metadata line for
   language/session/timestamp when available, and the semantic hit target spans

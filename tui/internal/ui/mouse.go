@@ -193,7 +193,6 @@ func (a *App) mouseOverlays() []mouseOverlay {
 			open:         a.composeOpen,
 			view:         a.viewCompose,
 			closeOutside: func(app *App) { app.cancelCompose() },
-			wheel:        a.handleComposeMouseWheel,
 		},
 		{open: a.detailViewOpen, view: a.viewDetailView, closeOutside: func(app *App) { app.closeDetailView() }},
 		{

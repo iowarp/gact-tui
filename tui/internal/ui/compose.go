@@ -108,27 +108,23 @@ func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
-func (a *App) handleComposeMouseWheel(m tea.MouseWheelMsg) (tea.Cmd, bool) {
+func (a *App) moveComposeCursorByWheel(button tea.MouseButton) tea.Cmd {
 	if a.compose == nil {
 		a.composeOpen = false
-		return nil, true
-	}
-	mouse := m.Mouse()
-	if !overlayMouseRect(a.viewCompose(), a.width, a.height).contains(mouse.X, mouse.Y) {
-		return nil, true
+		return nil
 	}
 	a.compose.ta.Focus()
 	for i := 0; i < 3; i++ {
-		switch mouse.Button {
+		switch button {
 		case tea.MouseWheelUp:
 			a.compose.ta.CursorUp()
 		case tea.MouseWheelDown:
 			a.compose.ta.CursorDown()
 		default:
-			return nil, true
+			return nil
 		}
 	}
-	return nil, true
+	return nil
 }
 
 // viewCompose renders the compose modal: full-height-ish textarea
@@ -199,6 +195,9 @@ func (a *App) viewCompose() string {
 		}
 		app.compose.ta.Focus()
 		setTextareaCursor(&app.compose.ta, line, col)
+	})
+	a.registerModalWheelRegion(rendered.modal, "compose:textarea:wheel", rendered.bodyRow, 0, w-4, taH, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.moveComposeCursorByWheel(button)
 	})
 	return rendered.modal
 }
