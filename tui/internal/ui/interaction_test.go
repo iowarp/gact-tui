@@ -206,13 +206,23 @@ func TestModalButtonsHaveVisibleSpacingAndMatchingHitBoxes(t *testing.T) {
 		{id: "sample:save", label: "save", action: func(*App) tea.Cmd { return nil }},
 	}
 
-	row := ansi.Strip(a.renderModalButtons(buttons, -1))
+	renderedRow, hits := a.renderModalButtonsWithHits(buttons, -1)
+	row := ansi.Strip(renderedRow)
 	if !strings.Contains(row, "close") || !strings.Contains(row, "save") || strings.Contains(row, "closesave") {
 		t.Fatalf("button row should visibly separate adjacent buttons: %q", row)
 	}
+	if len(hits) != 2 {
+		t.Fatalf("button hits = %d, want 2", len(hits))
+	}
+	if hits[0].id != "button:sample:close" || hits[0].col != 0 || hits[0].width != lipgloss.Width("close")+4 {
+		t.Fatalf("unexpected close hit geometry: %+v", hits[0])
+	}
+	if hits[1].id != "button:sample:save" || hits[1].col != hits[0].width+modalButtonSpacing || hits[1].width != lipgloss.Width("save")+4 {
+		t.Fatalf("unexpected save hit geometry: %+v after %+v", hits[1], hits[0])
+	}
 
 	a.beginHitFrame()
-	modal := a.renderDefaultModalSurface(48, row)
+	modal := a.renderDefaultModalSurface(48, renderedRow)
 	a.registerModalActionRow(modal, 0, buttons)
 	closeTarget, ok := findHitTargetForTest(a, "button:sample:close")
 	if !ok {
@@ -532,9 +542,18 @@ func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 		{id: "primary", label: "apply", action: func(*App) tea.Cmd { return nil }},
 		{id: "cancel", label: "cancel", action: func(*App) tea.Cmd { return nil }},
 	}
-	row := a.renderModalButtons(buttons, 0)
+	row, hits := a.renderModalButtonsWithHits(buttons, 0)
 	if !strings.Contains(ansi.Strip(row), "apply") || !strings.Contains(ansi.Strip(row), "cancel") {
 		t.Fatalf("button row did not render labels: %q", ansi.Strip(row))
+	}
+	if len(hits) != 2 {
+		t.Fatalf("button hits = %d, want 2", len(hits))
+	}
+	if hits[0].id != "button:primary" || hits[0].col != 0 || hits[0].width != lipgloss.Width("apply")+4 {
+		t.Fatalf("unexpected primary hit geometry: %+v", hits[0])
+	}
+	if hits[1].id != "button:cancel" || hits[1].col != hits[0].width+modalButtonSpacing || hits[1].width != lipgloss.Width("cancel")+4 {
+		t.Fatalf("unexpected cancel hit geometry: %+v after %+v", hits[1], hits[0])
 	}
 	modal := a.renderDefaultModalSurface(50, row)
 	a.beginHitFrame()

@@ -963,12 +963,12 @@ func (a *App) renderModalTabsWithHits(tabs []menuTab, horizontalPadding, spacing
 }
 
 func (a *App) registerModalButtons(modal string, row int, startCol int, buttons []menuButton) {
-	col := startCol
-	for _, button := range buttons {
-		w := lipgloss.Width(button.label) + 4
-		a.registerModalContentHit(modal, "button:"+button.id, row, col, w, 1, button.action)
-		col += w + modalButtonSpacing
+	_, hits := a.renderModalButtonsWithHits(buttons, -1)
+	for i := range hits {
+		hits[i].row = row
+		hits[i].col += startCol
 	}
+	a.registerModalCellHits(modal, 0, hits)
 }
 
 func (a *App) appendModalActionRow(rows []string, buttons []menuButton, selected int) ([]string, int) {
@@ -981,8 +981,16 @@ func (a *App) registerModalActionRow(modal string, row int, buttons []menuButton
 }
 
 func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
+	row, _ := a.renderModalButtonsWithHits(buttons, selected)
+	return row
+}
+
+func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (string, []modalCellHit) {
 	cells := make([]string, 0, len(buttons))
+	hits := make([]modalCellHit, 0, len(buttons))
+	col := 0
 	for i, button := range buttons {
+		width := lipgloss.Width(button.label) + 4
 		style := lipgloss.NewStyle().
 			Foreground(a.Theme.Bg).
 			Background(a.Theme.Primary).
@@ -996,8 +1004,18 @@ func (a *App) renderModalButtons(buttons []menuButton, selected int) string {
 				Padding(0, 2)
 		}
 		cells = append(cells, style.Render(button.label))
+		if button.id != "" && button.action != nil {
+			hits = append(hits, modalCellHit{
+				id:     "button:" + button.id,
+				col:    col,
+				width:  width,
+				height: 1,
+				action: button.action,
+			})
+		}
+		col += width + modalButtonSpacing
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", modalButtonSpacing)))
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", modalButtonSpacing))), hits
 }
 
 func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
