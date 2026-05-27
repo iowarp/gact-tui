@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -1048,19 +1047,21 @@ func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
 }
 
 func TestWindowedIndexModalListBuildsVisibleRowsAroundCursor(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	indexes := []int{10, 20, 30, 40, 50}
-	list := windowedIndexModalList(
+	list, win := a.renderWindowedIndexModalList(
 		indexes,
 		3,
 		3,
 		6,
-		func(index int) string {
-			return "idx:" + itoa2(index)
-		},
-		func(index int) uiHitAction {
-			return func(*App) tea.Cmd { return nil }
-		},
-	)
+		modalListOptions{width: 24, rowBudget: 3},
+		func(index int) modalListItem {
+			return modalListItem{
+				id:     "idx:" + itoa2(index),
+				title:  "item " + itoa2(index),
+				action: func(*App) tea.Cmd { return nil },
+			}
+		})
 
 	if len(list.rows) != 3 {
 		t.Fatalf("visible row count = %d, want 3", len(list.rows))
@@ -1070,8 +1071,11 @@ func TestWindowedIndexModalListBuildsVisibleRowsAroundCursor(t *testing.T) {
 	}
 	gotIDs := []string{list.hits[0].id, list.hits[1].id, list.hits[2].id}
 	wantIDs := []string{"idx:30", "idx:40", "idx:50"}
-	if !reflect.DeepEqual(gotIDs, wantIDs) {
+	if strings.Join(gotIDs, ",") != strings.Join(wantIDs, ",") {
 		t.Fatalf("hit ids = %#v, want %#v", gotIDs, wantIDs)
+	}
+	if win.start != 2 || win.end != 5 || win.total != 5 {
+		t.Fatalf("window = %+v, want start=2 end=5 total=5", win)
 	}
 	for i, hit := range list.hits {
 		if hit.row != i || hit.height != 1 {
