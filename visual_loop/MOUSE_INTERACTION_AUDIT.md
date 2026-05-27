@@ -99,8 +99,12 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   context files, then `semantic_context_detail.tape` and
   `semantic_context_actions.tape` verify readable context rows, detail
   metadata, and action-menu access from deterministic screenshots.
+- Sidebar/session visual coverage now uses deterministic emulator runners:
+  `run_seeded_sidebar.sh` drives session actions, sidebar filtering, and quit
+  confirmation with seeded sessions, while `run_workspace_switch.sh` drives a
+  multi-workspace switcher screenshot without live backend/session state.
 
-Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, and deterministic context drill-down.
+Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, and deterministic sidebar/session workflows.
 
 ## Executive Summary
 

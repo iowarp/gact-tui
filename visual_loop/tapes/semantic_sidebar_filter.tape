@@ -6,7 +6,7 @@ Set Width 1500
 Set Height 900
 
 Hide
-Type "GACT_ATTACH_SESSION_ID=sess_08ebaf83905e ./tui/gact --backend http://127.0.0.1:41917 --no-intro"
+Type "bash visual_loop/run_seeded_sidebar.sh"
 Enter
 Show
 
@@ -17,7 +17,7 @@ Tab
 Sleep 200ms
 Type "f"
 Sleep 200ms
-Type "ndp"
+Type "seeded"
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_sidebar_filter.png"
 
