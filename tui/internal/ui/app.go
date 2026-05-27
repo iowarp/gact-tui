@@ -1758,7 +1758,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.catalogBrowser.sel >= len(m.items) {
 			a.catalogBrowser.sel = 0
 		}
-		a.catalogBrowser.offset = catalogBrowserClampOffset(
+		a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(
+			a.catalogBrowser.kind,
 			a.catalogBrowser.sel,
 			a.catalogBrowser.offset,
 			len(m.items),

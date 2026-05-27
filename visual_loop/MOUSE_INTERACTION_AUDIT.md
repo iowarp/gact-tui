@@ -115,6 +115,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   GET/PUT backed by the static provider/model catalog, so provider configuration
   screenshots exercise the real TUI provider flow without relying on live CLIO
   state.
+- The shared modal list primitive now supports inline metadata, and the tool
+  catalog uses it for source, permission, and input summaries. Short tool rows
+  no longer spend a second visual row on metadata, so the catalog is denser
+  while retaining the same shared row hit registration and scroll behavior.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

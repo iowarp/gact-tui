@@ -432,7 +432,7 @@ func (a *App) handleCatalogBrowserWheel(button tea.MouseButton) tea.Cmd {
 	}
 	cb := a.catalogBrowser
 	cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), button)
-	cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
+	cb.offset = catalogBrowserClampOffsetForKind(cb.kind, cb.sel, cb.offset, len(cb.items))
 	return nil
 }
 
@@ -528,12 +528,12 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.sel > 0 {
 			cb.sel--
 		}
-		cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
+		cb.offset = catalogBrowserClampOffsetForKind(cb.kind, cb.sel, cb.offset, len(cb.items))
 	case "down", "j":
 		if cb.sel < len(cb.items)-1 {
 			cb.sel++
 		}
-		cb.offset = catalogBrowserClampOffset(cb.sel, cb.offset, len(cb.items))
+		cb.offset = catalogBrowserClampOffsetForKind(cb.kind, cb.sel, cb.offset, len(cb.items))
 	case "i":
 		// Install a third-party MCP server. Closes the catalog and
 		// opens the small inline install overlay. Only meaningful in
@@ -603,10 +603,28 @@ const catalogBrowserRowBudget = 12
 const catalogBrowserBodyRows = catalogBrowserRowBudget * 2
 
 func catalogBrowserClampOffset(sel, offset, itemCount int) int {
-	if itemCount <= catalogBrowserRowBudget {
+	return catalogBrowserClampOffsetForBudget(sel, offset, itemCount, catalogBrowserRowBudget)
+}
+
+func catalogBrowserClampOffsetForKind(kind catalogBrowserKind, sel, offset, itemCount int) int {
+	return catalogBrowserClampOffsetForBudget(sel, offset, itemCount, catalogBrowserVisibleItemBudget(kind))
+}
+
+func catalogBrowserVisibleItemBudget(kind catalogBrowserKind) int {
+	if kind == catalogKindTools {
+		return catalogBrowserBodyRows
+	}
+	return catalogBrowserRowBudget
+}
+
+func catalogBrowserClampOffsetForBudget(sel, offset, itemCount, budget int) int {
+	if budget < 1 {
+		budget = 1
+	}
+	if itemCount <= budget {
 		return 0
 	}
-	maxOffset := itemCount - catalogBrowserRowBudget
+	maxOffset := itemCount - budget
 	if offset > maxOffset {
 		offset = maxOffset
 	}
@@ -616,8 +634,8 @@ func catalogBrowserClampOffset(sel, offset, itemCount int) int {
 	if sel < offset {
 		return sel
 	}
-	if sel >= offset+catalogBrowserRowBudget {
-		return sel - catalogBrowserRowBudget + 1
+	if sel >= offset+budget {
+		return sel - budget + 1
 	}
 	return offset
 }
@@ -665,13 +683,15 @@ func (a *App) viewCatalogBrowser() string {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).
 			Render("error: "+a.catalogBrowser.errText))
 	}
-	a.catalogBrowser.offset = catalogBrowserClampOffset(
+	a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(
+		a.catalogBrowser.kind,
 		a.catalogBrowser.sel,
 		a.catalogBrowser.offset,
 		len(a.catalogBrowser.items),
 	)
 	start := a.catalogBrowser.offset
-	end := min(len(a.catalogBrowser.items), start+catalogBrowserRowBudget)
+	itemBudget := catalogBrowserVisibleItemBudget(a.catalogBrowser.kind)
+	end := min(len(a.catalogBrowser.items), start+itemBudget)
 	listItems := make([]modalListItem, 0, end-start)
 	for i := start; i < end; i++ {
 		item := a.catalogBrowser.items[i]
@@ -681,10 +701,17 @@ func (a *App) viewCatalogBrowser() string {
 		isDisabled := a.catalogBrowser.kind == catalogKindTools &&
 			a.disabledTools != nil && a.disabledTools[item.id]
 		idx := i
+		description := compactCatalogText(item.desc)
+		inlineMeta := ""
+		if a.catalogBrowser.kind == catalogKindTools {
+			inlineMeta = description
+			description = ""
+		}
 		listItems = append(listItems, modalListItem{
 			id:          fmt.Sprintf("catalog:item:%d", idx),
 			title:       item.title,
-			description: compactCatalogText(item.desc),
+			meta:        inlineMeta,
+			description: description,
 			status:      item.statusTag,
 			selected:    i == a.catalogBrowser.sel,
 			disabled:    isDisabled,
@@ -693,7 +720,7 @@ func (a *App) viewCatalogBrowser() string {
 					return nil
 				}
 				app.catalogBrowser.sel = idx
-				app.catalogBrowser.offset = catalogBrowserClampOffset(idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
 				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
 				return cmd
 			},
@@ -756,7 +783,7 @@ func (a *App) viewCatalogBrowser() string {
 		railAction: func(app *App, index int) tea.Cmd {
 			if app.catalogBrowser != nil {
 				app.catalogBrowser.sel = clampSelection(index, len(app.catalogBrowser.items))
-				app.catalogBrowser.offset = catalogBrowserClampOffset(app.catalogBrowser.sel, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, app.catalogBrowser.sel, app.catalogBrowser.offset, len(app.catalogBrowser.items))
 			}
 			return nil
 		},
