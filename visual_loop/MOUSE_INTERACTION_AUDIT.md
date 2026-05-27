@@ -800,6 +800,9 @@ Additional work continued from the same architectural direction:
 - Main input cursor placement now uses the shared screen textarea cursor
   primitive, matching the modal textarea cursor model used by expanded compose
   instead of hand-registering per-cell input hits in the base mouse layer.
+- Compressed paste placeholder clicks now use a shared screen text-span hit
+  primitive, keeping inline input targets on reusable text geometry instead of
+  embedding span rectangle math in the mouse layer.
 
 ### 2026-05-26 user-observed follow-up queue
 
