@@ -902,6 +902,31 @@ func TestScreenTextSpanHitUsesTextGeometry(t *testing.T) {
 	}
 }
 
+func TestScreenSurfaceHitUsesViewportGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 90
+	a.height = 28
+	a.beginHitFrame()
+	clicked := false
+
+	a.registerScreenSurfaceHit("surface:all", func(*App) tea.Cmd {
+		clicked = true
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "surface:all")
+	if !ok {
+		t.Fatal("missing screen surface target")
+	}
+	want := mouseRect{x: 0, y: 0, w: 90, h: 28}
+	if target.rect != want {
+		t.Fatalf("surface rect = %+v, want %+v", target.rect, want)
+	}
+	if _, handled := a.activateHitAt(89, 27, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("screen surface should handle viewport edge click, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string

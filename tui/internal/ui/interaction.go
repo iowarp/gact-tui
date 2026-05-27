@@ -651,6 +651,25 @@ func (a *App) registerScreenTextSpanHit(id string, startX int, y int, line strin
 	}, action)
 }
 
+func (a *App) screenSurfaceRect() mouseRect {
+	w := a.width
+	h := a.height
+	if w < 1 {
+		w = 1
+	}
+	if h < 1 {
+		h = 1
+	}
+	return mouseRect{x: 0, y: 0, w: w, h: h}
+}
+
+func (a *App) registerScreenSurfaceHit(id string, action uiHitAction) {
+	if id == "" || action == nil {
+		return
+	}
+	a.registerScreenHit(id, a.screenSurfaceRect(), action)
+}
+
 func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
 	frame := opts.frame
 	body := lipgloss.JoinVertical(lipgloss.Left, opts.rows...)
