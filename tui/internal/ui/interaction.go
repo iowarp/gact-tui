@@ -1181,6 +1181,22 @@ func (a *App) registerModalListHits(modal string, rowOffset int, col int, width 
 	}
 }
 
+func offsetModalListHits(list modalListRender, rowOffset int) []modalListHit {
+	if len(list.hits) == 0 {
+		return nil
+	}
+	hits := make([]modalListHit, 0, len(list.hits))
+	for _, hit := range list.hits {
+		hits = append(hits, modalListHit{
+			id:     hit.id,
+			row:    rowOffset + hit.row,
+			height: hit.height,
+			action: hit.action,
+		})
+	}
+	return hits
+}
+
 func (a *App) registerWindowedModalListHits(rendered scrollableModalFrameRender, col int, width int, list modalListRender) {
 	if len(list.hits) == 0 || rendered.modal == "" || rendered.bodyRow < 0 {
 		return

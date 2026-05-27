@@ -262,6 +262,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - MCP install example rows now render examples and semantic row hits from one
   shared modal-list pass, then register through `registerModalListRegion`
   instead of maintaining a separate hit-only loop.
+- Settings list tabs now reuse the shared modal-list hit offset helper when
+  merging tab-local row hits into the padded Settings body, removing a
+  settings-only row-offset loop while preserving shared body wheel behavior.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
