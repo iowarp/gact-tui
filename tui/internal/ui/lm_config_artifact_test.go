@@ -74,6 +74,18 @@ func newLMConfigTestApp() *App {
 	return a
 }
 
+func TestLMConfigIntroUsesSharedModalInnerWidth(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	out := ansi.Strip(a.viewLMConfig())
+	if strings.Contains(out, "shown on the\nright") {
+		t.Fatalf("intro wrapped before final word despite shared modal width:\n%s", out)
+	}
+	if !strings.Contains(out, "Status and editable model settings appear on the right.") {
+		t.Fatalf("intro did not render on the expected line:\n%s", out)
+	}
+}
+
 func TestLMConfigNavigationUsesVerticalKeysInsideFocusedList(t *testing.T) {
 	a := newLMConfigTestApp()
 

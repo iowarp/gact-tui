@@ -22,6 +22,15 @@ func TestModalWidthsUseSingleSharedPolicy(t *testing.T) {
 	}
 }
 
+func TestModalInnerWidthMatchesSharedFramePadding(t *testing.T) {
+	if got := modalInnerWidth(96); got != 92 {
+		t.Fatalf("modal inner width = %d, want 92", got)
+	}
+	if got := modalInnerWidth(3); got != 1 {
+		t.Fatalf("tiny modal inner width = %d, want clamped 1", got)
+	}
+}
+
 func TestOverlayTopIsStableAcrossModalHeights(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120

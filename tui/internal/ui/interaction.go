@@ -362,10 +362,7 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if w < 12 {
 		w = 12
 	}
-	innerW := w - 4
-	if innerW < 1 {
-		innerW = 1
-	}
+	innerW := modalInnerWidth(w)
 	titleColor := a.Theme.Primary
 	if opts.titleColor != nil {
 		titleColor = opts.titleColor
