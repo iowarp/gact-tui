@@ -9323,20 +9323,8 @@ func (a *App) viewHelp() string {
 		},
 	})
 	a.helpScroll = rendered.window.scroll
-	if commandTab && len(commandList.hits) > 0 {
-		var visibleHits []modalListHit
-		for _, hit := range commandList.hits {
-			if hit.row < rendered.window.start || hit.row >= rendered.window.end {
-				continue
-			}
-			visibleHits = append(visibleHits, modalListHit{
-				id:     hit.id,
-				row:    hit.row - rendered.window.start,
-				height: minInt(hit.height, rendered.window.end-hit.row),
-				action: hit.action,
-			})
-		}
-		a.registerModalListHits(rendered.modal, rendered.bodyRow, 0, commandWidth, visibleHits)
+	if commandTab {
+		a.registerWindowedModalListHits(rendered, 0, commandWidth, commandList)
 	}
 	return rendered.modal
 }

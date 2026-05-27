@@ -1040,6 +1040,30 @@ func (a *App) registerModalListHits(modal string, rowOffset int, col int, width 
 	}
 }
 
+func (a *App) registerWindowedModalListHits(rendered scrollableModalFrameRender, col int, width int, list modalListRender) {
+	if len(list.hits) == 0 || rendered.modal == "" || rendered.bodyRow < 0 {
+		return
+	}
+	visibleHits := make([]modalListHit, 0, len(list.hits))
+	for _, hit := range list.hits {
+		if hit.height <= 0 {
+			continue
+		}
+		start := maxInt(hit.row, rendered.window.start)
+		end := minInt(hit.row+hit.height, rendered.window.end)
+		if end <= start {
+			continue
+		}
+		visibleHits = append(visibleHits, modalListHit{
+			id:     hit.id,
+			row:    start - rendered.window.start,
+			height: end - start,
+			action: hit.action,
+		})
+	}
+	a.registerModalListHits(rendered.modal, rendered.bodyRow, col, width, visibleHits)
+}
+
 func (a *App) registerModalListRegion(modal string, rowOffset int, col int, width int, list modalListRender, wheelID string, wheelAction uiWheelAction) {
 	if len(list.rows) > 0 && wheelID != "" && wheelAction != nil {
 		a.registerModalContentWheelHit(modal, wheelID, rowOffset, col, width, maxInt(1, len(list.rows)), wheelAction)

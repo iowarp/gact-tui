@@ -815,6 +815,72 @@ func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
 	}
 }
 
+func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	clicked := ""
+	modal := a.renderDefaultModalSurface(48, strings.Join([]string{
+		"row 0",
+		"row 1",
+		"row 2",
+		"row 3",
+		"row 4",
+	}, "\n"))
+	rendered := scrollableModalFrameRender{
+		modalFrameRender: modalFrameRender{modal: modal, bodyRow: 1},
+		window:           scrollWindow{start: 2, end: 5, scroll: 2, total: 6},
+	}
+	list := modalListRender{hits: []modalListHit{{
+		id:     "list:above",
+		row:    0,
+		height: 1,
+		action: func(*App) tea.Cmd {
+			clicked = "above"
+			return nil
+		},
+	}, {
+		id:     "list:spanning",
+		row:    1,
+		height: 3,
+		action: func(*App) tea.Cmd {
+			clicked = "spanning"
+			return nil
+		},
+	}, {
+		id:     "list:visible",
+		row:    4,
+		height: 1,
+		action: func(*App) tea.Cmd {
+			clicked = "visible"
+			return nil
+		},
+	}}}
+
+	a.registerWindowedModalListHits(rendered, 0, 20, list)
+	if _, ok := findHitTargetForTest(a, "list:above"); ok {
+		t.Fatal("offscreen list hit should not register")
+	}
+	spanning, ok := findHitTargetForTest(a, "list:spanning")
+	if !ok {
+		t.Fatal("partially visible list hit should register")
+	}
+	if spanning.rect.h != 2 {
+		t.Fatalf("spanning hit height = %d, want clipped height 2", spanning.rect.h)
+	}
+	visible, ok := findHitTargetForTest(a, "list:visible")
+	if !ok {
+		t.Fatal("fully visible list hit should register")
+	}
+	if visible.rect.y <= spanning.rect.y {
+		t.Fatalf("visible hit should be below spanning hit: spanning=%+v visible=%+v", spanning.rect, visible.rect)
+	}
+	if _, handled := a.activateHitAt(spanning.rect.x, spanning.rect.y, tea.MouseLeft); !handled || clicked != "spanning" {
+		t.Fatalf("spanning hit activation handled=%v clicked=%q", handled, clicked)
+	}
+}
+
 func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 150
