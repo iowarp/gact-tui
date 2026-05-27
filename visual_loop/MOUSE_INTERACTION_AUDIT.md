@@ -1115,3 +1115,8 @@ Additional work continued from the same architectural direction:
   cursor hits, status cell hits, header buttons, and surface wheel blockers.
   MCP install examples moved onto that primitive instead of registering their
   list hits after the modal was rendered.
+- A production modal-family regression now verifies settings, help, doctor,
+  metrics, provider setup, catalogs, detail, quit, palette, workspace, MCP,
+  rename, context-add, and compose overlays share the same top-left origin and
+  width. Provider setup's body budget was tightened so it no longer grows tall
+  enough to shift upward at the shared desktop viewport.

@@ -1615,8 +1615,14 @@ func (a *App) lmConfigBodyRows() int {
 		return 18
 	}
 	// Modal chrome is title, intro, hint, their spacing, and the outer
-	// border/padding. The body gets the remaining terminal height.
-	rows := a.height - 12
+	// border/padding. Keep the body short enough that provider setup
+	// shares the fixed overlay origin used by the other menu families.
+	rows := a.height - 14
+	if a.height <= 28 {
+		// Very short terminals need the older budget so the save action
+		// remains visible; the overlay already has no vertical slack there.
+		rows = a.height - 12
+	}
 	if a.lmConfig != nil && a.lmConfig.saving {
 		rows -= 2
 	}
