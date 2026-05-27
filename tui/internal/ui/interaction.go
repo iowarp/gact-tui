@@ -558,6 +558,49 @@ func splitStepperControlHit(start, end int, increment bool) (int, int) {
 	return maxInt(0, start), maxInt(1, mid-start)
 }
 
+func modalStepperControlHits(id string, row int, col int, width int, controlStart int, controlEnd int, selectAction uiHitAction, decrementAction uiHitAction, incrementAction uiHitAction) []modalCellHit {
+	hits := make([]modalCellHit, 0, 3)
+	if id == "" {
+		return hits
+	}
+	if width < 1 {
+		width = 1
+	}
+	if selectAction != nil {
+		hits = append(hits, modalCellHit{
+			id:     id,
+			row:    row,
+			col:    col,
+			width:  width,
+			height: 1,
+			action: selectAction,
+		})
+	}
+	if decrementAction != nil {
+		decCol, decWidth := splitStepperControlHit(controlStart, controlEnd, false)
+		hits = append(hits, modalCellHit{
+			id:     id + ":dec",
+			row:    row,
+			col:    col + decCol,
+			width:  decWidth,
+			height: 1,
+			action: decrementAction,
+		})
+	}
+	if incrementAction != nil {
+		incCol, incWidth := splitStepperControlHit(controlStart, controlEnd, true)
+		hits = append(hits, modalCellHit{
+			id:     id + ":inc",
+			row:    row,
+			col:    col + incCol,
+			width:  incWidth,
+			height: 1,
+			action: incrementAction,
+		})
+	}
+	return hits
+}
+
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
 	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
 	rows = appendModalTextRows(rows, opts.intro...)

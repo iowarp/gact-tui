@@ -1149,6 +1149,26 @@ func TestSplitStepperControlHitSplitsRenderedControl(t *testing.T) {
 	}
 }
 
+func TestModalStepperControlHitsUseSharedGeometry(t *testing.T) {
+	hits := modalStepperControlHits("stepper", 3, 4, 40, 10, 20,
+		func(*App) tea.Cmd { return nil },
+		func(*App) tea.Cmd { return nil },
+		func(*App) tea.Cmd { return nil },
+	)
+	if len(hits) != 3 {
+		t.Fatalf("stepper hits = %d, want 3", len(hits))
+	}
+	if hits[0].id != "stepper" || hits[0].row != 3 || hits[0].col != 4 || hits[0].width != 40 {
+		t.Fatalf("unexpected row hit: %+v", hits[0])
+	}
+	if hits[1].id != "stepper:dec" || hits[1].row != 3 || hits[1].col != 14 || hits[1].width != 5 {
+		t.Fatalf("unexpected decrement hit: %+v", hits[1])
+	}
+	if hits[2].id != "stepper:inc" || hits[2].row != 3 || hits[2].col != 19 || hits[2].width != 5 {
+		t.Fatalf("unexpected increment hit: %+v", hits[2])
+	}
+}
+
 func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()
