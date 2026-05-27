@@ -48,6 +48,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Settings > Agent now uses the shared side-scroll rail affordance for
   overflowing agent catalogs instead of textual up/down count rows, and rail
   clicks jump the selected agent without opening detail.
+- Slash-command backend failures now surface the real command error as an
+  inline transient hint instead of replacing the whole TUI with the fatal
+  connection-error screen.
 - Rename, add-context, and MCP-install now share a single-line text-entry modal primitive for editor prompt rendering, cursor styling, status rows, footer text, and header button geometry.
 - Workspace switching now uses a shared selectable-list modal primitive for body rendering, list hit registration, wheel regions, and side-scroll affordance.
 - Modal header/action buttons now consistently render as clickable chips again, quit confirmation uses the shared modal width, Settings > TUI first-line hit targets span the whole row, and LM provider setup labels the right-side panel as Configuration instead of Selected.

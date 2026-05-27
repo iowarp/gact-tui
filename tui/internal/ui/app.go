@@ -1384,6 +1384,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.stage == "memory_stats" {
 			return a, nil
 		}
+		if m.stage == "command" {
+			a.transientHint = fmt.Sprintf("command failed: %v", m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
 		a.stage = StageError
 		a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
 		// Connect-stage failures are usually transient (backend booting,
