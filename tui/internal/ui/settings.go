@@ -89,16 +89,7 @@ func (r settingsTUIStepperRow) incrementHit() (int, int) {
 }
 
 func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
-	start := r.controlStart
-	end := r.controlEnd
-	if end <= start {
-		return maxInt(0, start), 1
-	}
-	mid := start + (end-start)/2
-	if increment {
-		return maxInt(0, mid), maxInt(1, end-mid)
-	}
-	return maxInt(0, start), maxInt(1, mid-start)
+	return splitStepperControlHit(r.controlStart, r.controlEnd, increment)
 }
 
 // tuiPrefsRowCount is the number of editable rows in the TUI tab.

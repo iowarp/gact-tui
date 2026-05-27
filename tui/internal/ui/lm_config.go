@@ -1652,13 +1652,14 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 				return nil
 			},
 		})
-		leftCol, rightCol := row.arrowColumns()
+		decCol, decWidth := row.decrementHit()
+		incCol, incWidth := row.incrementHit()
 		hits = append(hits,
 			modalCellHit{
 				id:    fmt.Sprintf("lm-config:advanced:%d:dec", field),
 				row:   rowY,
-				col:   col + leftCol,
-				width: 3,
+				col:   col + decCol,
+				width: decWidth,
 				action: func(app *App) tea.Cmd {
 					if app.lmConfig == nil {
 						return nil
@@ -1671,8 +1672,8 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 			modalCellHit{
 				id:    fmt.Sprintf("lm-config:advanced:%d:inc", field),
 				row:   rowY,
-				col:   col + rightCol,
-				width: 3,
+				col:   col + incCol,
+				width: incWidth,
 				action: func(app *App) tea.Cmd {
 					if app.lmConfig == nil {
 						return nil
@@ -2413,9 +2414,19 @@ func (r lmConfigAdvancedRow) displayText() string {
 	return r.defaultText
 }
 
-func (r lmConfigAdvancedRow) arrowColumns() (left int, right int) {
-	valueStart := lmConfigAdvancedMarkerWidth + lipgloss.Width(r.label) + 2
-	return valueStart, valueStart + lipgloss.Width("◀ "+r.displayText()+" ")
+func (r lmConfigAdvancedRow) controlBounds() (int, int) {
+	start := lmConfigAdvancedMarkerWidth + lipgloss.Width(r.label) + 2
+	return start, start + lipgloss.Width("◀ "+r.displayText()+" ▶")
+}
+
+func (r lmConfigAdvancedRow) decrementHit() (int, int) {
+	start, end := r.controlBounds()
+	return splitStepperControlHit(start, end, false)
+}
+
+func (r lmConfigAdvancedRow) incrementHit() (int, int) {
+	start, end := r.controlBounds()
+	return splitStepperControlHit(start, end, true)
 }
 
 func (a *App) lmConfigAdvancedRows() []lmConfigAdvancedRow {

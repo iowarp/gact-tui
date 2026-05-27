@@ -540,6 +540,17 @@ func modalKeyHint(parts ...string) string {
 	return strings.Join(out, "  ")
 }
 
+func splitStepperControlHit(start, end int, increment bool) (int, int) {
+	if end <= start {
+		return maxInt(0, start), 1
+	}
+	mid := start + (end-start)/2
+	if increment {
+		return maxInt(0, mid), maxInt(1, end-mid)
+	}
+	return maxInt(0, start), maxInt(1, mid-start)
+}
+
 func (a *App) renderTextEntryModal(opts textEntryModalOptions) modalFrameRender {
 	rows := make([]string, 0, len(opts.intro)+len(opts.status)+3)
 	rows = appendModalTextRows(rows, opts.intro...)
