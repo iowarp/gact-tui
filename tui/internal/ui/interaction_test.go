@@ -4018,6 +4018,46 @@ func TestInputCommandChipUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestInputCommandChipHitUsesRenderedTextGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.focus = FocusBody
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:command")
+	if !ok {
+		t.Fatal("missing semantic input command hit target")
+	}
+	sidebarW, bodyH, _ := a.mainPaneGeometry()
+	conversationHeight := a.conversationPaneHeight(bodyH)
+	want := mouseRect{
+		x: sidebarW + 1,
+		y: 1 + conversationHeight + 1,
+		w: lipgloss.Width(a.inputCommandChipPlain()),
+		h: 1,
+	}
+	if target.rect != want {
+		t.Fatalf("input command rect = %+v, want %+v", target.rect, want)
+	}
+}
+
+func TestInputFocusSurfaceRectUsesMainPaneGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+
+	rect := a.inputFocusSurfaceRect(28, 1, 3, 88)
+	want := mouseRect{x: 30, y: 29, w: 88, h: 4}
+	if rect != want {
+		t.Fatalf("input focus rect = %+v, want %+v", rect, want)
+	}
+}
+
 func TestInputPastePlaceholderUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
