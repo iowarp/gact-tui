@@ -2032,6 +2032,81 @@ func TestMetricsWheelUsesBodyRegionOnly(t *testing.T) {
 	}
 }
 
+func TestMetricsCostRowsOpenSharedDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{
+		Cost: gact.MetricsCost{
+			TotalUSD:   2.50,
+			ByProvider: map[string]float64{"argonne": 1.25},
+		},
+	}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:cost:argonne")
+	if !ok {
+		t.Fatal("missing semantic metrics provider cost target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("metrics cost detail click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("metrics provider cost row should open shared detail")
+	}
+	for _, want := range []string{"Provider cost", "provider: argonne", "cost_usd: $1.2500", "share: 50.0%", "total_cost_usd: $2.5000"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("metrics provider detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestMetricsLatencyRowsOpenSharedDetail(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{
+		Latencies: map[string]gact.MetricsLatencyStat{
+			"GET /v1/sessions": {Count: 7, P50Ms: 1.2, P95Ms: 5.6, MaxMs: 9.1},
+		},
+	}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:latency:GET /v1/sessions")
+	if !ok {
+		t.Fatal("missing semantic metrics latency route target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("metrics latency detail click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("metrics latency row should open shared detail")
+	}
+	for _, want := range []string{"Route latency", "route: GET /v1/sessions", "count: 7", "p50_ms: 1.2", "p95_ms: 5.6", "max_ms: 9.1"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("metrics latency detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
 func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
