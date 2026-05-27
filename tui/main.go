@@ -1058,8 +1058,8 @@ func runTUI() {
 	if cfg.MouseEnabled != nil {
 		app.MouseEnabled = *cfg.MouseEnabled
 	}
-	if cfg.SidebarLayout != nil && len(cfg.SidebarLayout.Left) > 0 {
-		app.SetSidebarModuleIDs(cfg.SidebarLayout.Left)
+	if cfg.SidebarLayout != nil && (len(cfg.SidebarLayout.Left) > 0 || len(cfg.SidebarLayout.Right) > 0) {
+		app.SetSidebarLayout(cfg.SidebarLayout.Left, cfg.SidebarLayout.Right)
 	}
 	// NNNNNNNNN1: restore animated-splash per-frame delay. App
 	// clamps to [20ms, 1s]; zero falls back to the 90ms default.
@@ -1153,7 +1153,7 @@ func runTUI() {
 		if cur.SidebarLayout != nil {
 			layout = *cur.SidebarLayout
 		}
-		layout.Left = app.SidebarModuleIDs()
+		layout.Left, layout.Right = app.SidebarLayoutIDs()
 		cur.SidebarLayout = &layout
 		return config.Save(cur, persistPath)
 	}
@@ -1177,7 +1177,7 @@ func runTUI() {
 			app.MouseEnabled = *newCfg.MouseEnabled
 		}
 		if newCfg.SidebarLayout != nil {
-			app.SetSidebarModuleIDs(newCfg.SidebarLayout.Left)
+			app.SetSidebarLayout(newCfg.SidebarLayout.Left, newCfg.SidebarLayout.Right)
 		}
 		if nextBackend != startBackend {
 			return fmt.Sprintf("config reloaded (theme=%s, locale=%s); backend changed — restart to apply", nextTheme, nextLocale), nil

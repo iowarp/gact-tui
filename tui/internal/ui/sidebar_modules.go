@@ -90,10 +90,33 @@ func (a *App) SetSidebarModuleIDs(ids []string) {
 	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(ids)
 }
 
+// SetSidebarLayout applies the persisted left/right module placement. Unknown
+// module ids remain visible as disabled rows in the side they were configured.
+func (a *App) SetSidebarLayout(left []string, right []string) {
+	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(left)
+	a.rightSidebarModuleIDs = sidebarModuleIDsFromStrings(right)
+}
+
 // SidebarModuleIDs returns the effective left-sidebar module order using
 // stable config ids.
 func (a *App) SidebarModuleIDs() []string {
 	return sidebarModuleIDStrings(a.sidebarModuleIDs)
+}
+
+// SidebarLayoutIDs returns the effective left/right sidebar module placement
+// using stable config ids.
+func (a *App) SidebarLayoutIDs() (left []string, right []string) {
+	return sidebarModuleIDStrings(a.sidebarModuleIDs), sidebarModuleIDStringsNoDefault(a.rightSidebarModuleIDs)
+}
+
+func sidebarModuleIDStringsNoDefault(ids []sidebarModuleID) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if s := strings.TrimSpace(string(id)); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func resolveSidebarModules(ids []sidebarModuleID, registry map[sidebarModuleID]sidebarModuleDefinition) []resolvedSidebarModule {
@@ -120,7 +143,18 @@ func resolveSidebarModules(ids []sidebarModuleID, registry map[sidebarModuleID]s
 }
 
 func (a *App) sidebarModules() []resolvedSidebarModule {
-	modules := resolveSidebarModules(a.sidebarModuleIDs, sidebarModuleRegistry())
+	return a.sidebarModulesForIDs(a.sidebarModuleIDs)
+}
+
+func (a *App) rightSidebarModules() []resolvedSidebarModule {
+	if len(a.rightSidebarModuleIDs) == 0 {
+		return nil
+	}
+	return a.sidebarModulesForIDs(a.rightSidebarModuleIDs)
+}
+
+func (a *App) sidebarModulesForIDs(ids []sidebarModuleID) []resolvedSidebarModule {
+	modules := resolveSidebarModules(ids, sidebarModuleRegistry())
 	out := modules[:0]
 	for _, module := range modules {
 		if module.Definition.ID == sidebarModuleContext && !a.hasContextSection() {
@@ -131,8 +165,8 @@ func (a *App) sidebarModules() []resolvedSidebarModule {
 	return out
 }
 
-func (a *App) sidebarHasEnabledModule(id sidebarModuleID) bool {
-	for _, module := range a.sidebarModules() {
+func sidebarModulesHaveEnabled(modules []resolvedSidebarModule, id sidebarModuleID) bool {
+	for _, module := range modules {
 		if module.Definition.ID == id && !module.Disabled {
 			return true
 		}
@@ -140,8 +174,7 @@ func (a *App) sidebarHasEnabledModule(id sidebarModuleID) bool {
 	return false
 }
 
-func (a *App) sidebarDisabledModules() []resolvedSidebarModule {
-	modules := a.sidebarModules()
+func sidebarDisabledModulesFrom(modules []resolvedSidebarModule) []resolvedSidebarModule {
 	out := make([]resolvedSidebarModule, 0, len(modules))
 	for _, module := range modules {
 		if module.Disabled {
@@ -149,6 +182,14 @@ func (a *App) sidebarDisabledModules() []resolvedSidebarModule {
 		}
 	}
 	return out
+}
+
+func (a *App) sidebarHasEnabledModule(id sidebarModuleID) bool {
+	return sidebarModulesHaveEnabled(a.sidebarModules(), id)
+}
+
+func (a *App) sidebarDisabledModules() []resolvedSidebarModule {
+	return sidebarDisabledModulesFrom(a.sidebarModules())
 }
 
 func (a *App) sidebarModuleTitle(id sidebarModuleID) string {

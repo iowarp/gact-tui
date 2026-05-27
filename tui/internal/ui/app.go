@@ -508,6 +508,8 @@ type App struct {
 	sidebarSectionFocus      sidebarSection
 	sidebarSectionCursor     bool
 	sidebarModuleIDs         []sidebarModuleID
+	rightSidebarModuleIDs    []sidebarModuleID
+	sidebarHitOffsetX        int
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -4234,7 +4236,7 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 }
 
 func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
-	return mouseRect{x: 0, y: 1, w: width, h: height}
+	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: width, h: height}
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -4314,7 +4316,7 @@ func (a *App) registerSidebarContentHitActions(id string, row int, width int, he
 	if a.hits == nil {
 		return
 	}
-	rect := sidebarContentRect(row, width)
+	rect := a.sidebarContentRect(row, width)
 	if height < 1 {
 		height = 1
 	}
@@ -4322,12 +4324,12 @@ func (a *App) registerSidebarContentHitActions(id string, row int, width int, he
 	a.registerScreenHitActions(id, rect, action, secondaryAction)
 }
 
-func sidebarContentRect(row int, width int) mouseRect {
+func (a *App) sidebarContentRect(row int, width int) mouseRect {
 	w := width - 4
 	if w < 1 {
 		w = 1
 	}
-	return mouseRect{x: 2, y: row + 2, w: w, h: 1}
+	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
 }
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) {
@@ -6643,7 +6645,8 @@ func (a *App) conversationPaneHeight(bodyH int) int {
 
 func (a *App) viewMainBase() string {
 	sidebarW, bodyH, convH := a.mainPaneGeometry()
-	bodyW := a.width - sidebarW
+	rightSidebarW := a.rightSidebarWidth(sidebarW)
+	bodyW := a.width - sidebarW - rightSidebarW
 	if bodyW < 20 {
 		bodyW = 20
 	}
@@ -6660,6 +6663,10 @@ func (a *App) viewMainBase() string {
 	// exactly that, and let JoinHorizontal pad blank rows below it.
 	sidebar := a.renderSidebar(sidebarW, convH)
 	body := a.renderBody(bodyW, bodyH)
+	rightSidebar := ""
+	if rightSidebarW > 0 {
+		rightSidebar = a.renderRightSidebar(rightSidebarW, convH, sidebarW+bodyW)
+	}
 
 	// CCCCC1: force exact row counts on both stacks. lipgloss's
 	// .Height(N) only sets a *minimum* outer height; if the inner
@@ -6668,8 +6675,15 @@ func (a *App) viewMainBase() string {
 	// horizontal layout expects.
 	sidebar = fitLines(sidebar, convH)
 	body = fitLines(body, bodyH)
+	if rightSidebarW > 0 {
+		rightSidebar = fitLines(rightSidebar, convH)
+	}
 
-	row := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, body)
+	rowParts := []string{sidebar, body}
+	if rightSidebarW > 0 {
+		rowParts = append(rowParts, rightSidebar)
+	}
+	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
 	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
@@ -6690,6 +6704,23 @@ func (a *App) mainPaneGeometry() (sidebarW int, bodyH int, convH int) {
 	}
 	convH = a.conversationPaneHeight(bodyH)
 	return sidebarW, bodyH, convH
+}
+
+func (a *App) rightSidebarWidth(leftSidebarW int) int {
+	if len(a.rightSidebarModules()) == 0 {
+		return 0
+	}
+	width := 30
+	if maxW := a.width / 4; maxW > 0 && width > maxW {
+		width = maxW
+	}
+	if width < 24 {
+		width = 24
+	}
+	if a.width-leftSidebarW-width < 60 {
+		return 0
+	}
+	return width
 }
 
 func (a *App) renderHeader() string {
@@ -7517,6 +7548,7 @@ func (a *App) focusLabel(f FocusZone) string {
 }
 
 func (a *App) renderSidebar(width, height int) string {
+	a.sidebarHitOffsetX = 0
 	t := a.Theme
 	// CCCCC1: lipgloss .Height(N) is OUTER height (border included).
 	// Previously we passed Height(height-2) treating it as inner content
@@ -7812,6 +7844,93 @@ func (a *App) renderSidebar(width, height int) string {
 		body = clampLines(body, inner)
 	}
 	return style.Render(body)
+}
+
+func (a *App) renderRightSidebar(width, height int, offsetX int) string {
+	prevOffset := a.sidebarHitOffsetX
+	a.sidebarHitOffsetX = offsetX
+	defer func() {
+		a.sidebarHitOffsetX = prevOffset
+	}()
+
+	t := a.Theme
+	style := t.Pane.Width(width - 2).Height(height)
+	a.registerSidebarFocusSurface(width, height)
+
+	modules := a.rightSidebarModules()
+	rows := make([]string, 0, height)
+	for _, module := range modules {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		if module.Disabled {
+			rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+			continue
+		}
+		switch module.Definition.ID {
+		case sidebarModuleContext:
+			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleSessions:
+			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
+		default:
+			rows = append(rows, a.renderDisabledSidebarModule(resolvedSidebarModule{
+				Definition: module.Definition,
+				Disabled:   true,
+				Reason:     "renderer unavailable",
+			}, width)...)
+		}
+	}
+	if len(rows) == 0 {
+		rows = append(rows, t.HintLabel.Render("no modules"))
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	if inner := height - 2; inner > 0 {
+		body = clampLines(body, inner)
+	}
+	return style.Render(body)
+}
+
+func (a *App) renderRightContextModuleRows(width int) []string {
+	t := a.Theme
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("▾ " + a.sidebarModuleTitle(sidebarModuleContext))
+	rows := []string{title}
+	a.registerSidebarContextHeaderHit(0, width)
+	if len(a.contextFiles) == 0 {
+		return append(rows, t.HintLabel.Render(a.localizer.t(msgSidebarNoFiles, nil)))
+	}
+	for i, cf := range a.contextFiles {
+		row := len(rows)
+		marker := " "
+		selected := a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+		if selected {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+		}
+		rows = append(rows, a.renderSidebarContextFileRows(cf, width, marker, selected, i)...)
+		a.registerSidebarContextFileHit(row, width, i, cf)
+	}
+	return rows
+}
+
+func (a *App) renderRightSessionsModuleRows(width int) []string {
+	t := a.Theme
+	active, archived := 0, 0
+	for _, s := range a.sessions {
+		if s.ArchivedAt != nil {
+			archived++
+		} else {
+			active++
+		}
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("▸ " + a.sidebarModuleTitle(sidebarModuleSessions))
+	summary := a.localizer.tf(msgSidebarCountsActiveFirst, map[string]any{"active": active, "archived": archived})
+	return []string{
+		title,
+		lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(summary, width-6)),
+		t.HintLabel.Render(truncate("Move sessions to the left sidebar for full navigation.", width-6)),
+	}
 }
 
 func (a *App) renderSidebarContextFileRows(cf gact.ContextFile, width int, marker string, selected bool, index int) []string {

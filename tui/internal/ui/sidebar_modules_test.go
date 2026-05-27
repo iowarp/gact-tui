@@ -51,6 +51,19 @@ func TestSetSidebarModuleIDsNormalizesConfigIDs(t *testing.T) {
 	}
 }
 
+func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context", "future-tools"})
+
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" {
+		t.Fatalf("left layout = %#v, want sessions", left)
+	}
+	if strings.Join(right, ",") != "context,future-tools" {
+		t.Fatalf("right layout = %#v, want context,future-tools", right)
+	}
+}
+
 func TestSidebarModuleIDsReturnDefaultOrder(t *testing.T) {
 	a := New("http://unused")
 	got := a.SidebarModuleIDs()
@@ -62,6 +75,26 @@ func TestSidebarModuleIDsReturnDefaultOrder(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("module ids = %#v, want %#v", got, want)
 		}
+	}
+}
+
+func TestRightSidebarWidthIsOptionalAndResponsive(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	if got := a.rightSidebarWidth(30); got != 0 {
+		t.Fatalf("right sidebar should be disabled without right modules, got %d", got)
+	}
+
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+	if got := a.rightSidebarWidth(30); got <= 0 {
+		t.Fatalf("right sidebar should be enabled with right modules on wide screens, got %d", got)
+	}
+
+	a.width = 80
+	if got := a.rightSidebarWidth(26); got != 0 {
+		t.Fatalf("right sidebar should collapse on narrow screens, got %d", got)
 	}
 }
 
@@ -106,5 +139,21 @@ func TestSidebarRendersUnknownConfiguredModuleAsDisabled(t *testing.T) {
 	out := ansi.Strip(a.renderSidebar(42, 20))
 	if !strings.Contains(out, "future-tools") || !strings.Contains(out, "unknown module") {
 		t.Fatalf("unknown configured module should render disabled:\n%s", out)
+	}
+}
+
+func TestRightSidebarRendersContextModule(t *testing.T) {
+	a := New("http://unused")
+	a.stage = StageReady
+	a.width = 120
+	a.height = 24
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "src/main.go", Mode: "read"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	out := ansi.Strip(a.renderRightSidebar(30, 20, 90))
+	if !strings.Contains(out, "CONTEXT") || !strings.Contains(out, "src/main.go") {
+		t.Fatalf("right context module did not render context file:\n%s", out)
 	}
 }
