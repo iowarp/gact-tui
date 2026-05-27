@@ -809,6 +809,9 @@ Additional work continued from the same architectural direction:
 - Top-right header action hit targets now use the shared screen text-span
   primitive, so the visible `help`/`settings` cells and footer/input inline
   targets share one text geometry path.
+- Header status/workspace/session/model/agent/routing chip targets now use the
+  same shared screen text-span primitive as header actions and footer hints,
+  removing another top-chrome raw rectangle path.
 
 ### 2026-05-26 user-observed follow-up queue
 
