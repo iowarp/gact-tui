@@ -121,6 +121,23 @@ func (a *App) modalBodyRows(chromeRows int) int {
 	return rows
 }
 
+func compactModalBodyRows(body string, maxRows int, minRows int) int {
+	if maxRows < 1 {
+		maxRows = 1
+	}
+	if minRows < 1 {
+		minRows = 1
+	}
+	if minRows > maxRows {
+		minRows = maxRows
+	}
+	rows := 1
+	if body != "" {
+		rows = strings.Count(body, "\n") + 1
+	}
+	return clampInt(rows, minRows, maxRows)
+}
+
 func padModalBody(body string, rows int) string {
 	if rows <= 0 {
 		return body

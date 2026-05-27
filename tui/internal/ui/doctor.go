@@ -180,6 +180,7 @@ func (a *App) viewDoctor() string {
 		rowHits = a.doctorHealthRowHits(innerW)
 	}
 	footerHint := scrollableModalRowDetailFooter(baseFooterHint, rowHits)
+	pageSize := compactModalBodyRows(body, a.doctorBodyPageSize(), 8)
 
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
@@ -192,7 +193,7 @@ func (a *App) viewDoctor() string {
 			tabSpacing: 2,
 		},
 		content:     body,
-		pageSize:    a.doctorBodyPageSize(),
+		pageSize:    pageSize,
 		scroll:      a.doctorScroll(),
 		wheelID:     "doctor",
 		footerHint:  footerHint,
