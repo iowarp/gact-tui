@@ -1139,7 +1139,7 @@ func TestLMConfigSaveButtonUsesSemanticHitTarget(t *testing.T) {
 	a.lmConfig.model = "alpha-model"
 
 	_ = a.View()
-	target, ok := findHitTargetForTest(a, "lm-config:save")
+	target, ok := findHitTargetForTest(a, "button:lm-config:save")
 	if !ok {
 		t.Fatal("missing semantic LM save target")
 	}

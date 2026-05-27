@@ -566,6 +566,50 @@ func TestModalButtonsRenderAndRegisterWithSameLabels(t *testing.T) {
 	}
 }
 
+func TestCenteredModalButtonsUseSharedGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	buttons := []menuButton{
+		{id: "save", label: "Save and connect", action: func(*App) tea.Cmd { return nil }},
+	}
+	row, startCol := a.renderCenteredModalButtons(40, buttons, -1)
+	if !strings.Contains(ansi.Strip(row), "Save and connect") {
+		t.Fatalf("centered button row did not render label: %q", ansi.Strip(row))
+	}
+	buttonW := lipgloss.Width(a.renderModalButtons(buttons, -1))
+	if startCol != (40-buttonW)/2 {
+		t.Fatalf("centered button col = %d, want %d", startCol, (40-buttonW)/2)
+	}
+	modal := a.renderDefaultModalSurface(50, row)
+	a.beginHitFrame()
+	a.registerModalButtons(modal, 0, startCol, buttons)
+	target, ok := findHitTargetForTest(a, "button:save")
+	if !ok {
+		t.Fatal("missing centered button hit")
+	}
+	rect := overlayMouseRect(modal, a.width, a.height)
+	if target.rect.x != rect.x+3+startCol {
+		t.Fatalf("centered button hit x = %d, want %d", target.rect.x, rect.x+3+startCol)
+	}
+}
+
+func TestDisabledModalButtonsDoNotRegisterHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	buttons := []menuButton{
+		{id: "disabled", label: "apply", disabled: true, action: func(*App) tea.Cmd { return nil }},
+	}
+	row, hits := a.renderModalButtonsWithHits(buttons, -1)
+	if !strings.Contains(ansi.Strip(row), "apply") {
+		t.Fatalf("disabled button should still render its label: %q", ansi.Strip(row))
+	}
+	if len(hits) != 0 {
+		t.Fatalf("disabled button hits = %d, want none", len(hits))
+	}
+}
+
 func TestModalActionRowAppendsAndRegistersConsistently(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
