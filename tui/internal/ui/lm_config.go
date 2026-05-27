@@ -1461,7 +1461,7 @@ func (a *App) registerLMConfigProviderActionHits(modal string, top, col, width, 
 		return
 	}
 	_, hits := a.renderLMConfigProviderDetailsRowsAndHits(width, visibleRows)
-	a.registerModalCellHitsAt(modal, top+2, col, hits)
+	a.registerLMConfigBoxCellHits(modal, top, col, hits)
 }
 
 func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRows int) {
@@ -1480,6 +1480,10 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 		return
 	}
 	_, hits := a.renderLMConfigAdvancedRowsAndHits(width)
+	a.registerLMConfigBoxCellHits(modal, top, col, hits)
+}
+
+func (a *App) registerLMConfigBoxCellHits(modal string, top int, col int, hits []modalCellHit) {
 	a.registerModalCellHitsAt(modal, top+2, col, hits)
 }
 
