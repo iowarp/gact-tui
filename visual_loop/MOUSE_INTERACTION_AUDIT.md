@@ -1017,6 +1017,9 @@ Additional work continued from the same architectural direction:
 - Main input cursor placement now uses the shared screen textarea cursor
   primitive, matching the modal textarea cursor model used by expanded compose
   instead of hand-registering per-cell input hits in the base mouse layer.
+- Main input cursor placement now routes through the matching screen
+  textarea-region helper, keeping base-input and modal-compose text areas on
+  parallel primitives for future selection/copy work.
 - Expanded compose now registers cursor placement and wheel movement through a
   shared modal textarea-region primitive, giving future modal text selection or
   scoped copy work one target model instead of compose-specific hit wiring.

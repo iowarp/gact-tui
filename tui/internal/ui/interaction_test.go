@@ -1473,6 +1473,32 @@ func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	}
 }
 
+func TestScreenTextareaRegionRegistersCursorHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	gotLine := -1
+	gotCol := -1
+
+	a.registerScreenTextareaRegion("input", 5, 7, "ab\ncd", func(_ *App, line int, col int) {
+		gotLine = line
+		gotCol = col
+	})
+
+	target, ok := findHitTargetForTest(a, "input:cursor:1:2")
+	if !ok {
+		t.Fatal("missing screen textarea region cursor target")
+	}
+	if target.rect.x != 7 || target.rect.y != 8 {
+		t.Fatalf("cursor target rect = %+v, want x=7 y=8", target.rect)
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("screen textarea region cursor target did not handle click")
+	}
+	if gotLine != 1 || gotCol != 2 {
+		t.Fatalf("cursor action got line=%d col=%d, want 1,2", gotLine, gotCol)
+	}
+}
+
 func TestModalTextareaRegionRegistersCursorAndWheelHits(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

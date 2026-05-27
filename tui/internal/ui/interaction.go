@@ -753,6 +753,10 @@ func (a *App) registerScreenTextareaCursorHits(id string, startX int, startY int
 	}
 }
 
+func (a *App) registerScreenTextareaRegion(id string, startX int, startY int, value string, cursorAction func(*App, int, int)) {
+	a.registerScreenTextareaCursorHits(id, startX, startY, value, cursorAction)
+}
+
 func (a *App) registerScreenTextSpanHit(id string, startX int, y int, line string, col int, span string, action uiHitAction) {
 	if id == "" || span == "" || action == nil {
 		return
