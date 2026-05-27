@@ -1112,6 +1112,31 @@ func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
 	}
 }
 
+func TestOffsetModalListHitsPreserveActionsAndHeights(t *testing.T) {
+	called := false
+	action := func(*App) tea.Cmd {
+		called = true
+		return nil
+	}
+	hits := offsetModalListHits(modalListRender{hits: []modalListHit{{
+		id:     "row:a",
+		row:    2,
+		height: 3,
+		action: action,
+	}}}, 5)
+
+	if len(hits) != 1 {
+		t.Fatalf("offset hits = %d, want 1", len(hits))
+	}
+	if hits[0].id != "row:a" || hits[0].row != 7 || hits[0].height != 3 {
+		t.Fatalf("offset hit = %+v, want id row:a row 7 height 3", hits[0])
+	}
+	hits[0].action(nil)
+	if !called {
+		t.Fatal("offset hit should preserve original action")
+	}
+}
+
 func TestWindowedIndexModalListBuildsVisibleRowsAroundCursor(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	indexes := []int{10, 20, 30, 40, 50}

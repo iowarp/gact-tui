@@ -432,14 +432,7 @@ func (a *App) viewSettings() string {
 		arrowHits = append(arrowHits, modalCellHit{id: id, row: row, col: col, width: width, height: 1, action: action})
 	}
 	addListHits := func(list modalListRender, rowOffset int) {
-		for _, hit := range list.hits {
-			rowHits = append(rowHits, modalListHit{
-				id:     hit.id,
-				row:    rowOffset + hit.row,
-				height: hit.height,
-				action: hit.action,
-			})
-		}
+		rowHits = append(rowHits, offsetModalListHits(list, rowOffset)...)
 	}
 	tabLabels := []string{
 		a.localizer.t(msgSettingsTabModel, nil),
