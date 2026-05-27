@@ -188,10 +188,7 @@ func (a *App) viewMetrics() string {
 		}
 	}
 
-	footerHint := "Up/Down scroll  r refresh  Esc close"
-	if len(rowHits) > 0 {
-		footerHint = "Up/Down scroll  click row details  r refresh  Esc close"
-	}
+	footerHint := scrollableModalRowDetailFooter("Up/Down scroll  r refresh  Esc close", rowHits)
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{

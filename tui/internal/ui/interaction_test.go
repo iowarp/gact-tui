@@ -899,6 +899,18 @@ func TestScrollableModalRowHitsClipToVisibleWindow(t *testing.T) {
 	}
 }
 
+func TestScrollableModalRowDetailFooterInsertsBeforeRefreshAndClose(t *testing.T) {
+	hits := []modalRowHit{{id: "row", start: 0, height: 1, action: func(*App) tea.Cmd { return nil }}}
+	got := scrollableModalRowDetailFooter("Tab view  Up/Down scroll  r refresh  Esc close", hits)
+	want := "Tab view  Up/Down scroll  click row details  r refresh  Esc close"
+	if got != want {
+		t.Fatalf("footer hint = %q, want %q", got, want)
+	}
+	if got := scrollableModalRowDetailFooter("Up/Down scroll  r refresh  Esc close", nil); got != "Up/Down scroll  r refresh  Esc close" {
+		t.Fatalf("footer without row hits changed to %q", got)
+	}
+}
+
 func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()
