@@ -199,6 +199,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Modal action/header buttons now render labels and return click hit geometry
   from the same helper, keeping close/back/save/detach chip targets aligned
   with their visible padding and shared spacing.
+- Settings TUI and provider setup stepper rows now share a modal stepper hit
+  primitive for full-row select plus left/right control halves, so both menus
+  keep the same click semantics for adjustable values.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

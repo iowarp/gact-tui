@@ -1622,50 +1622,28 @@ func (a *App) registerLMConfigAdvancedHits(modal string, top, col, width int) {
 	for i, row := range a.lmConfigAdvancedRows() {
 		field := row.field
 		rowY := top + 2 + i
-		hits = append(hits, modalCellHit{
-			id:    fmt.Sprintf("lm-config:advanced:%d", field),
-			row:   rowY,
-			col:   col,
-			width: width,
-			action: func(app *App) tea.Cmd {
-				if app.lmConfig != nil {
-					app.lmConfig.field = field
-				}
+		id := fmt.Sprintf("lm-config:advanced:%d", field)
+		start, end := row.controlBounds()
+		hits = append(hits, modalStepperControlHits(id, rowY, col, width, start, end, func(app *App) tea.Cmd {
+			if app.lmConfig != nil {
+				app.lmConfig.field = field
+			}
+			return nil
+		}, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
 				return nil
-			},
-		})
-		decCol, decWidth := row.decrementHit()
-		incCol, incWidth := row.incrementHit()
-		hits = append(hits,
-			modalCellHit{
-				id:    fmt.Sprintf("lm-config:advanced:%d:dec", field),
-				row:   rowY,
-				col:   col + decCol,
-				width: decWidth,
-				action: func(app *App) tea.Cmd {
-					if app.lmConfig == nil {
-						return nil
-					}
-					app.lmConfig.field = field
-					_, cmd := app.handleLMConfigKey(keyMsg("left"))
-					return cmd
-				},
-			},
-			modalCellHit{
-				id:    fmt.Sprintf("lm-config:advanced:%d:inc", field),
-				row:   rowY,
-				col:   col + incCol,
-				width: incWidth,
-				action: func(app *App) tea.Cmd {
-					if app.lmConfig == nil {
-						return nil
-					}
-					app.lmConfig.field = field
-					_, cmd := app.handleLMConfigKey(keyMsg("right"))
-					return cmd
-				},
-			},
-		)
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("left"))
+			return cmd
+		}, func(app *App) tea.Cmd {
+			if app.lmConfig == nil {
+				return nil
+			}
+			app.lmConfig.field = field
+			_, cmd := app.handleLMConfigKey(keyMsg("right"))
+			return cmd
+		})...)
 	}
 	a.registerModalCellHits(modal, 0, hits)
 }

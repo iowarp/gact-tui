@@ -662,22 +662,24 @@ func (a *App) viewSettings() string {
 				}
 				app.settings.tuiRow = rowIdx
 			}
-			addArrowHit("settings:tui:"+id+":line", row, 0, maxInt(1, w-4), func(app *App) tea.Cmd {
+			controlHits := modalStepperControlHits("settings:tui:"+id, row, 0, maxInt(1, w-4), stepper.controlStart, stepper.controlEnd, func(app *App) tea.Cmd {
 				selectRow(app)
 				return nil
-			})
-			decCol, decWidth := stepper.decrementHit()
-			addArrowHit("settings:tui:"+id+":dec", row, decCol, decWidth, func(app *App) tea.Cmd {
+			}, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("left"))
 				return cmd
-			})
-			incCol, incWidth := stepper.incrementHit()
-			addArrowHit("settings:tui:"+id+":inc", row, incCol, incWidth, func(app *App) tea.Cmd {
+			}, func(app *App) tea.Cmd {
 				selectRow(app)
 				_, cmd := app.handleSettingsKey(keyMsg("right"))
 				return cmd
 			})
+			for _, hit := range controlHits {
+				if hit.id == "settings:tui:"+id {
+					hit.id += ":line"
+				}
+				addArrowHit(hit.id, hit.row, hit.col, hit.width, hit.action)
+			}
 		}
 		addTUIRowHit := func(id string, rowIdx int, row int, height int) {
 			addRowHitHeight("settings:tui:"+id, row, height, func(app *App) tea.Cmd {
