@@ -287,6 +287,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup provider/model list rails now share a named box rail-column
   helper instead of duplicating the side-rail column calculation in each list
   section.
+- Provider setup provider-details and advanced-control cell hits now register
+  through a shared box-relative cell-hit helper, so box-local row/column hits
+  use one `top+2` content offset policy.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
