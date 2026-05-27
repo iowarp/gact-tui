@@ -172,6 +172,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   as left/right hit areas instead of tiny glyph-only targets, with regression
   coverage proving later rows respond to both directions through the shared
   stepper geometry.
+- Scrollable modal command/list rows can now register through shared
+  `registerWindowedModalListHits`, which clips row targets to the active body
+  scroll window. Help > Commands uses this instead of owning local visible-row
+  intersection math.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
