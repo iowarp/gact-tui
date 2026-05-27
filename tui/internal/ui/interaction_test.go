@@ -816,6 +816,36 @@ func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
 	}
 }
 
+func TestModalIndexedListRailHitsMapRowsToIndexes(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	selected := -1
+	modal := a.renderDefaultModalSurface(40, strings.Join([]string{
+		"one",
+		"two",
+		"three",
+		"four",
+	}, "\n"))
+
+	a.registerModalIndexedListRailHits(modal, "indexed-rail", 0, 6, 4, []int{2, 4, 8, 16, 32}, func(_ *App, index int) tea.Cmd {
+		selected = index
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "indexed-rail:rail:3")
+	if !ok {
+		t.Fatal("missing indexed modal rail target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("indexed modal rail target did not handle click")
+	}
+	if selected != 32 {
+		t.Fatalf("selected index = %d, want final item value 32", selected)
+	}
+}
+
 func TestWindowedModalListHitsClipToVisibleScrollWindow(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
