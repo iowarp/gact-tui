@@ -1382,7 +1382,7 @@ func (a *App) registerLMConfigProviderRailHits(modal string, top, col, width, vi
 	}
 	indexes := a.lmConfigProviderIndexes()
 	railCol := lmConfigBoxRailCol(col, width)
-	a.registerModalIndexedListRailHits(modal, "lm-config:provider", top+2, railCol, visibleRows, indexes, func(app *App, presetIdx int) tea.Cmd {
+	a.registerModalIndexedListRailHits(modal, "lm-config:provider", lmConfigBoxContentTop(top), railCol, visibleRows, indexes, func(app *App, presetIdx int) tea.Cmd {
 		if app.lmConfig == nil || app.lmConfig.info == nil {
 			return nil
 		}
@@ -1401,7 +1401,7 @@ func (a *App) registerLMConfigModelRailHits(modal string, top, col, width, visib
 	}
 	modelIndexes := a.lmConfigModelIndexes()
 	railCol := lmConfigBoxRailCol(col, width)
-	a.registerModalIndexedListRailHits(modal, "lm-config:model", top+2, railCol, visibleRows, modelIndexes, func(app *App, modelIdx int) tea.Cmd {
+	a.registerModalIndexedListRailHits(modal, "lm-config:model", lmConfigBoxContentTop(top), railCol, visibleRows, modelIndexes, func(app *App, modelIdx int) tea.Cmd {
 		if app.lmConfig == nil {
 			return nil
 		}
