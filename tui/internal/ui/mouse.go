@@ -89,7 +89,7 @@ func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight
 	sidebarW, _, _ := a.mainPaneGeometry()
 	startX := sidebarW + 1 + mouseCommandButtonWidth + 2
 	startY := 1 + conversationHeight + hintHeight + 1
-	a.registerScreenTextareaCursorHits("input", startX, startY, a.input.Value(), func(app *App, lineIdx int, col int) {
+	a.registerScreenTextareaRegion("input", startX, startY, a.input.Value(), func(app *App, lineIdx int, col int) {
 		app.focus = FocusInput
 		app.input.Focus()
 		setTextareaCursor(&app.input, lineIdx, col)
