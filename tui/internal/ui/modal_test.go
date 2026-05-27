@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 	"testing"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func TestModalWidthsUseSingleSharedPolicy(t *testing.T) {
@@ -94,6 +96,193 @@ func TestOverlayTopIsStableAcrossModalHeights(t *testing.T) {
 	}
 	if shortRect.y != 3 {
 		t.Fatalf("modal top = %d, want fixed top row 3", shortRect.y)
+	}
+}
+
+func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
+	const (
+		screenW = 150
+		screenH = 44
+	)
+	newBase := func() *App {
+		a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+		a.width = screenW
+		a.height = screenH
+		a.stage = StageReady
+		return a
+	}
+	wantRect := func(a *App) mouseRect {
+		return mouseRect{x: (screenW - a.modalWidth()) / 2, y: 3, w: a.modalWidth()}
+	}
+
+	cases := []struct {
+		name string
+		app  func() *App
+		view func(*App) string
+	}{
+		{
+			name: "settings",
+			app: func() *App {
+				a := newBase()
+				a.settingsOpen = true
+				a.settings = &settingsState{tab: 3}
+				return a
+			},
+			view: func(a *App) string { return a.viewSettings() },
+		},
+		{
+			name: "help",
+			app:  newBase,
+			view: func(a *App) string {
+				a.helpOpen = true
+				return a.viewHelp()
+			},
+		},
+		{
+			name: "doctor",
+			app: func() *App {
+				a := newBase()
+				a.doctorOpen = true
+				a.doctor = &doctorState{health: gact.HealthResponse{Healthy: true, OverallStatus: "ready"}}
+				return a
+			},
+			view: func(a *App) string { return a.viewDoctor() },
+		},
+		{
+			name: "metrics",
+			app: func() *App {
+				a := newBase()
+				a.metricsOpen = true
+				a.metrics = &metricsState{data: gact.Metrics{UptimeS: 12}}
+				return a
+			},
+			view: func(a *App) string { return a.viewMetrics() },
+		},
+		{
+			name: "provider",
+			app: func() *App {
+				a := newLMConfigTestApp()
+				a.width = screenW
+				a.height = screenH
+				return a
+			},
+			view: func(a *App) string { return a.viewLMConfig() },
+		},
+		{
+			name: "catalog",
+			app: func() *App {
+				a := newBase()
+				a.catalogBrowser = &catalogBrowserState{
+					kind:  catalogKindTools,
+					title: "Tools",
+					items: []catalogItem{{id: "read", title: "ReadFile", desc: "read files"}},
+				}
+				return a
+			},
+			view: func(a *App) string { return a.viewCatalogBrowser() },
+		},
+		{
+			name: "detail",
+			app: func() *App {
+				a := newBase()
+				a.detailView = &bulkyPartRef{title: "Detail", fullText: "one\ntwo"}
+				a.detailViewOpen = true
+				return a
+			},
+			view: func(a *App) string { return a.viewDetailView() },
+		},
+		{
+			name: "quit",
+			app: func() *App {
+				a := newBase()
+				a.quitConfirmOpen = true
+				return a
+			},
+			view: func(a *App) string { return a.viewQuitConfirm() },
+		},
+		{
+			name: "palette",
+			app: func() *App {
+				a := newBase()
+				a.paletteOpen = true
+				return a
+			},
+			view: func(a *App) string { return a.viewPalette() },
+		},
+		{
+			name: "workspace",
+			app: func() *App {
+				a := newBase()
+				a.workspaceSwitchOpen = true
+				a.workspaces = []gact.Workspace{{ID: "default", Name: "default"}}
+				return a
+			},
+			view: func(a *App) string { return a.viewWorkspaceSwitch() },
+		},
+		{
+			name: "mcp-install",
+			app: func() *App {
+				a := newBase()
+				a.mcpInstallOpen = true
+				return a
+			},
+			view: func(a *App) string { return a.viewMcpInstall() },
+		},
+		{
+			name: "mcp-remove",
+			app: func() *App {
+				a := newBase()
+				a.mcpRemoveOpen = true
+				a.mcpRemoveOptions = []gact.McpServer{{ID: "srv", Name: "server", Transport: "stdio"}}
+				return a
+			},
+			view: func(a *App) string { return a.viewMcpRemove() },
+		},
+		{
+			name: "rename",
+			app: func() *App {
+				a := newBase()
+				a.renameOpen = true
+				a.renameDraft = "demo"
+				a.renameCursor = len([]rune(a.renameDraft))
+				return a
+			},
+			view: func(a *App) string { return a.viewRename() },
+		},
+		{
+			name: "context-add",
+			app: func() *App {
+				a := newBase()
+				a.contextAddOpen = true
+				a.contextAddDraft = "README.md"
+				a.contextAddCursor = len([]rune(a.contextAddDraft))
+				return a
+			},
+			view: func(a *App) string { return a.viewContextAdd() },
+		},
+		{
+			name: "compose",
+			app: func() *App {
+				a := newBase()
+				a.input.SetValue("hello")
+				a.openCompose()
+				return a
+			},
+			view: func(a *App) string { return a.viewCompose() },
+		},
+	}
+
+	for _, tc := range cases {
+		a := tc.app()
+		view := tc.view(a)
+		if view == "" {
+			t.Fatalf("%s view is empty", tc.name)
+		}
+		rect := overlayMouseRect(view, a.width, a.height)
+		want := wantRect(a)
+		if rect.x != want.x || rect.y != want.y || rect.w != want.w {
+			t.Fatalf("%s overlay rect = %+v, want x=%d y=%d w=%d", tc.name, rect, want.x, want.y, want.w)
+		}
 	}
 }
 
