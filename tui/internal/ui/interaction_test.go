@@ -854,6 +854,32 @@ func TestScrollableModalRowHitsClipToVisibleWindow(t *testing.T) {
 	}
 }
 
+func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	gotLine := -1
+	gotCol := -1
+
+	a.registerScreenTextareaCursorHits("screen-text", 5, 7, "ab\ncd", func(_ *App, line int, col int) {
+		gotLine = line
+		gotCol = col
+	})
+
+	target, ok := findHitTargetForTest(a, "screen-text:cursor:1:2")
+	if !ok {
+		t.Fatal("missing screen textarea cursor target")
+	}
+	if target.rect.x != 7 || target.rect.y != 8 {
+		t.Fatalf("cursor target rect = %+v, want x=7 y=8", target.rect)
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("screen textarea cursor target did not handle click")
+	}
+	if gotLine != 1 || gotCol != 2 {
+		t.Fatalf("cursor action got line=%d col=%d, want 1,2", gotLine, gotCol)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string

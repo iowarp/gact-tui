@@ -613,6 +613,29 @@ func (a *App) registerModalTextareaCursorHits(modal string, row int, colOffset i
 	}
 }
 
+func (a *App) registerScreenTextareaCursorHits(id string, startX int, startY int, value string, action func(*App, int, int)) {
+	if id == "" || action == nil {
+		return
+	}
+	for lineIdx, line := range splitTextareaValue(value) {
+		runes := []rune(line)
+		for col := 0; col <= len(runes); col++ {
+			lineIdx := lineIdx
+			col := col
+			x := startX + lipgloss.Width(string(runes[:col]))
+			a.registerScreenHit(id+":cursor:"+itoa2(lineIdx)+":"+itoa2(col), mouseRect{
+				x: x,
+				y: startY + lineIdx,
+				w: 1,
+				h: 1,
+			}, func(app *App) tea.Cmd {
+				action(app, lineIdx, col)
+				return nil
+			})
+		}
+	}
+}
+
 func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
 	frame := opts.frame
 	body := lipgloss.JoinVertical(lipgloss.Left, opts.rows...)
