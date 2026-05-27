@@ -255,6 +255,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   rows, so long structured fields in memory, context, catalog, and raw-evidence
   detail views keep their label/body shape instead of collapsing into
   left-aligned text after the first visual line.
+- Sidebar session rendering now uses the shared variable-height visible-range
+  helper instead of a fixed two-rows-per-session approximation, keeping parent
+  rows, child/nanoagent rows, collapsed-child summaries, and session hit
+  targets on one viewport geometry model.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

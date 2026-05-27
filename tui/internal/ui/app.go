@@ -7578,67 +7578,10 @@ func (a *App) renderSidebar(width, height int) string {
 		a.registerSidebarFilterHit(len(rows)-2, width)
 	}
 
-	// Each top-level session takes 2 rows (title + status); child rows
-	// take 1 row. Scroll the session list so the selected entry stays
-	// visible. The list intentionally has no blank spacer rows between
-	// sessions so child groups read as one continuous branch.
-	// We reserve room
-	// for the SESSIONS title (2 rows) + CONTEXT section (2 + N rows
-	// when N>0, 3 rows for the "(no files)" placeholder) + the R2
-	// "N active · M archived" footer (2 rows: blank + label) + pane
-	// border padding (2 rows). Anything not fitting is hidden with
-	// "↑ N more" / "N more ↓" indicators at the edges. RRRRRRRRR1:
-	// the footer used to be unaccounted for, which made certain
-	// (sessions × contextFiles) combos overflow the pane and push
-	// everything to the right of the sidebar a few rows down.
-	const rowsPerSession = 2
-	contextLines := a.sidebarContextRowCount()
-	// R2 footer = blank + label = 2 rows whenever any session exists.
-	footerLines := 0
-	if len(a.sessions) > 0 {
-		footerLines = 2
-	}
-	// Available rows for sessions inside the pane: height-2 (border),
-	// minus the fixed header (SESSIONS title + blank = 2), minus
-	// contextLines, minus footerLines, minus 1 safety spacer between
-	// sessions list and CONTEXT when both render.
-	avail := (height - 2) - 2 - contextLines - footerLines
-	if contextLines > 0 {
-		avail-- // blank spacer between session list and CONTEXT
-	}
-	if avail < rowsPerSession {
-		avail = rowsPerSession
-	}
-	maxSessions := avail / rowsPerSession
-
-	// Find the selected session's position within the visible list.
-	selVis := -1
-	for i, idx := range visIdx {
-		if idx == a.selected {
-			selVis = i
-			break
-		}
-	}
-	startIdx := 0
-	anchorVis := selVis
-	if selVis >= 0 && a.showChildSessions && a.selected >= 0 && a.selected < len(a.sessions) && !isChildSession(a.sessions[a.selected]) {
-		for j := selVis + 1; j < len(visIdx); j++ {
-			if !isChildSession(a.sessions[visIdx[j]]) || a.sessions[visIdx[j]].ParentSessionID != a.sessions[a.selected].ID {
-				break
-			}
-			anchorVis = j
-		}
-	}
-	if anchorVis >= 0 && anchorVis >= maxSessions {
-		startIdx = anchorVis - maxSessions + 1
-	}
-	endIdx := startIdx + maxSessions
-	if endIdx > len(visIdx) {
-		endIdx = len(visIdx)
-	}
-	if a.sidebarSessionsCollapsed {
-		startIdx, endIdx = 0, 0
-	}
+	// The shared range helper accounts for variable-height parent, child, and
+	// collapsed-child rows so visible session rows and semantic hit rows stay in
+	// one geometry model.
+	startIdx, endIdx := a.sidebarVisibleSessionRange(height, visIdx)
 	if !a.sidebarSessionsCollapsed && startIdx > 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
 			Render(" "+a.localizer.tf(msgSidebarMoreAbove, map[string]any{"count": startIdx})))
