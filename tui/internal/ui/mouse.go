@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type mouseRect struct {
@@ -15,6 +16,16 @@ type mouseRect struct {
 }
 
 const mouseCommandButtonWidth = 4
+
+func (a *App) inputCommandChipPlain() string {
+	chip := lipgloss.NewStyle().
+		Foreground(a.Theme.Bg).
+		Background(a.Theme.Primary).
+		Bold(true).
+		Padding(0, 1).
+		Render("/")
+	return ansi.Strip(chip) + " "
+}
 
 func (a *App) renderMouseInputCommand(inputView string) string {
 	lines := strings.Split(inputView, "\n")
@@ -44,12 +55,8 @@ func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
 		return
 	}
 	sidebarW, _, _ := a.mainPaneGeometry()
-	a.registerScreenHit("input:command", mouseRect{
-		x: sidebarW + 1,
-		y: 1 + conversationHeight + hintHeight + 1,
-		w: mouseCommandButtonWidth,
-		h: 1,
-	}, func(app *App) tea.Cmd {
+	plain := a.inputCommandChipPlain()
+	a.registerScreenTextSpanHit("input:command", sidebarW+1, 1+conversationHeight+hintHeight+1, plain, 0, plain, func(app *App) tea.Cmd {
 		app.focus = FocusInput
 		app.openCommandPalette()
 		return nil
@@ -60,17 +67,21 @@ func (a *App) registerInputFocusSurface(conversationHeight int, hintHeight int, 
 	if !a.MouseEnabled || a.hits == nil || inputHeight <= 0 || bodyWidth <= 0 {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
-	a.registerScreenHit("input:focus", mouseRect{
-		x: sidebarW,
-		y: 1 + conversationHeight,
-		w: bodyWidth,
-		h: hintHeight + inputHeight,
-	}, func(app *App) tea.Cmd {
+	a.registerScreenHit("input:focus", a.inputFocusSurfaceRect(conversationHeight, hintHeight, inputHeight, bodyWidth), func(app *App) tea.Cmd {
 		app.focus = FocusInput
 		app.input.Focus()
 		return nil
 	})
+}
+
+func (a *App) inputFocusSurfaceRect(conversationHeight int, hintHeight int, inputHeight int, bodyWidth int) mouseRect {
+	sidebarW, _, _ := a.mainPaneGeometry()
+	return mouseRect{
+		x: sidebarW,
+		y: 1 + conversationHeight,
+		w: bodyWidth,
+		h: hintHeight + inputHeight,
+	}
 }
 
 func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight int) {

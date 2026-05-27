@@ -821,6 +821,9 @@ Additional work continued from the same architectural direction:
 - Permission banner action targets now share a banner-specific action geometry
   helper, preserving the visible allow/deny/session/workspace cells while
   removing inline coordinate math from the action registration loop.
+- The main input slash-command chip now uses the shared screen text-span
+  primitive, and the input focus surface has a pure geometry helper covered by
+  regression tests instead of keeping all base-input coordinate math inline.
 
 ### 2026-05-26 user-observed follow-up queue
 
