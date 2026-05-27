@@ -814,10 +814,8 @@ func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFr
 	if opts.surfaceWheelID != "" {
 		a.registerModalSurfaceWheel(rendered, opts.surfaceWheelID)
 	}
-	if len(opts.list.rows) > 0 && opts.wheelID != "" && opts.wheelAction != nil {
+	if len(opts.list.rows) > 0 || len(opts.list.hits) > 0 {
 		a.registerModalListRegion(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list, opts.wheelID, opts.wheelAction)
-	} else if len(opts.list.hits) > 0 {
-		a.registerModalListHits(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list.hits)
 	}
 	if opts.railAction != nil && opts.wheelID != "" {
 		a.registerSelectableListRailHits(rendered, opts.wheelID, opts.window, opts.bodyRows, opts.railAction)
