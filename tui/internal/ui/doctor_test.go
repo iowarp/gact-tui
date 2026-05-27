@@ -53,6 +53,28 @@ func TestDoctor_RendersIntegrationsTable(t *testing.T) {
 	}
 }
 
+func TestDoctorHealthFooterAdvertisesClickableDetails(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width, a.height = 120, 40
+	a.doctorOpen = true
+	a.doctor = &doctorState{
+		health: gact.HealthResponse{
+			Healthy:       true,
+			OverallStatus: "ready",
+			Integrations: []gact.Integration{{
+				Name:   "lm",
+				Status: "ready",
+				Detail: "argonne/gpt-oss-120b configured",
+			}},
+		},
+	}
+
+	out := stripANSI(a.viewDoctor())
+	if !strings.Contains(out, "click row details") {
+		t.Fatalf("doctor footer should advertise mouse row details when rows are actionable:\n%s", out)
+	}
+}
+
 // CLIO-BBBBBBBBBB4: loading state shows a placeholder while the
 // fetch is in flight.
 func TestDoctor_LoadingStateShowsSpinnerText(t *testing.T) {
