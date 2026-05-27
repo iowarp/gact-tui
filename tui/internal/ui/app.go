@@ -6470,10 +6470,7 @@ func (a *App) viewIntro() string {
 func (a *App) viewError() string {
 	t := a.Theme
 	w := a.modalWidth()
-	contentW := w - 8
-	if contentW < 20 {
-		contentW = 20
-	}
+	contentW := modalInsetListWidth(w)
 	hint := t.HintLabel.Render(a.localizer.t(msgChromeBackend,
 		map[string]string{"backend": a.BackendURL}))
 	retryHint := ""

@@ -226,6 +226,10 @@ Scope: audit plus implementation tracking for the semantic interaction migration
   `lmConfigBoxContentWidth` for provider/model lists, provider details, model
   details, auth-message wrapping, and internal scroll rails, reducing local
   box-specific width drift inside the most complex configuration modal.
+- Connection-error and file-picker error surfaces now size visible error text
+  through the shared inset-list width policy, and file-picker backend failures
+  cap the entire rendered error row instead of truncating only the raw error
+  suffix after a fixed prefix.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 
