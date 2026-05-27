@@ -1131,3 +1131,7 @@ Additional work continued from the same architectural direction:
   lists. Help > Commands uses that shared primitive to render command entries
   in two columns at normal modal widths, using more of the modal body while
   preserving click-to-stage semantics for each visible command cell.
+- Catalog browsers now use a compact shared body height when the visible
+  catalog fits without scrolling, while overflowing catalogs keep the full
+  scroll body and side-rail affordance. This preserves the shared top-left
+  origin and width policy without leaving short tool catalogs half empty.

@@ -3422,6 +3422,50 @@ func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 }
 
+func TestCatalogShortListsUseCompactSharedBodyHeight(t *testing.T) {
+	short := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	short.width = 150
+	short.height = 44
+	short.stage = StageReady
+	short.catalogBrowserOpen = true
+	short.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindTools,
+		title: "Tools",
+		items: []catalogItem{
+			{id: "one", title: "One", desc: "first tool"},
+			{id: "two", title: "Two", desc: "second tool"},
+		},
+	}
+	shortRect := overlayMouseRect(short.viewCatalogBrowser(), short.width, short.height)
+	if shortRect.y != 3 {
+		t.Fatalf("short catalog top = %d, want shared top row 3", shortRect.y)
+	}
+
+	long := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	long.width = short.width
+	long.height = short.height
+	long.stage = StageReady
+	long.catalogBrowserOpen = true
+	long.catalogBrowser = &catalogBrowserState{kind: catalogKindTools, title: "Tools"}
+	for i := 0; i < catalogBrowserBodyRows+4; i++ {
+		long.catalogBrowser.items = append(long.catalogBrowser.items, catalogItem{
+			id:    "tool-" + strconv.Itoa(i),
+			title: "Tool " + strconv.Itoa(i),
+			desc:  "tool metadata",
+		})
+	}
+	longRect := overlayMouseRect(long.viewCatalogBrowser(), long.width, long.height)
+	if shortRect.w != longRect.w {
+		t.Fatalf("short catalog width = %d, long catalog width = %d; shared modal width should be stable", shortRect.w, longRect.w)
+	}
+	if shortRect.h >= longRect.h {
+		t.Fatalf("short catalog height = %d, want less than overflowing long catalog height %d", shortRect.h, longRect.h)
+	}
+	if longRect.y != shortRect.y {
+		t.Fatalf("long catalog top = %d, want same top as compact catalog %d", longRect.y, shortRect.y)
+	}
+}
+
 func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
