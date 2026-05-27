@@ -1301,6 +1301,9 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	if target.rect.h != 1 {
 		t.Fatalf("help command row target height = %d, want dense one-line row", target.rect.h)
 	}
+	if target.rect.w != modalScrollableBodyWidth(a.modalWidth()) {
+		t.Fatalf("help command row target width = %d, want shared scrollable body width %d", target.rect.w, modalScrollableBodyWidth(a.modalWidth()))
+	}
 	out := ansi.Strip(a.viewHelp())
 	if !strings.Contains(out, "/tools") || !strings.Contains(out, "browse tool catalog") {
 		t.Fatalf("help command row should render command and useful description inline:\n%s", out)

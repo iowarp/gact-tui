@@ -9196,7 +9196,7 @@ func (a *App) viewHelp() string {
 		content      string
 		commandList  modalListRender
 		commandTab   = helpTabs[idx].title == "Commands"
-		commandWidth = modalInnerWidth(w)
+		commandWidth = modalScrollableBodyWidth(w)
 	)
 	if commandTab {
 		items := make([]modalListItem, 0, len(helpTabs[idx].keys))
