@@ -1324,6 +1324,7 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 			a.registerLMConfigProviderWheelHit(modal, providerTop, 0, leftW, layout.providerRows)
 			a.registerLMConfigProviderHeaderHit(modal, providerTop, 0, leftW)
 			a.registerLMConfigProviderHits(modal, providerTop, 0, leftW, layout.providerRows)
+			a.registerLMConfigProviderRailHits(modal, providerTop, 0, leftW, layout.providerRows)
 			a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, rightW)
 			return
 		}
@@ -1333,10 +1334,12 @@ func (a *App) registerLMConfigHitTargets(modal string, bodyTop, innerW int, body
 	a.registerLMConfigProviderWheelHit(modal, providerTop, 0, providerW, layout.providerRows)
 	a.registerLMConfigProviderHeaderHit(modal, providerTop, 0, providerW)
 	a.registerLMConfigProviderHits(modal, providerTop, 0, providerW, layout.providerRows)
+	a.registerLMConfigProviderRailHits(modal, providerTop, 0, providerW, layout.providerRows)
 	a.registerLMConfigProviderActionHits(modal, selectedTop, selectedCol, selectedW)
 	a.registerLMConfigModelWheelHit(modal, modelTop, modelCol, modelW, layout.modelRows)
 	a.registerLMConfigModelHeaderHit(modal, modelTop, modelCol, modelW)
 	a.registerLMConfigModelHits(modal, modelTop, modelCol, modelW, layout.modelRows)
+	a.registerLMConfigModelRailHits(modal, modelTop, modelCol, modelW, layout.modelRows)
 	a.registerLMConfigAdvancedWheelHit(modal, advancedTop, advancedCol, advancedW, layout.configRows)
 	a.registerLMConfigAdvancedHits(modal, advancedTop, advancedCol, advancedW)
 	a.registerLMConfigSaveHit(modal, bodyTop, innerW, bodyRows, layout)
@@ -1350,7 +1353,6 @@ func (a *App) registerLMConfigProviderWheelHit(modal string, top, col, width, vi
 	a.registerModalWheelRegion(modal, "lm-config:provider:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigProviderWheel(button)
 	})
-	a.registerLMConfigProviderRailHits(modal, top, col, width, visibleRows)
 }
 
 func (a *App) registerLMConfigProviderHeaderHit(modal string, top, col, width int) {
@@ -1375,7 +1377,6 @@ func (a *App) registerLMConfigModelWheelHit(modal string, top, col, width, visib
 	a.registerModalWheelRegion(modal, "lm-config:model:wheel", top, col, width, lmConfigBoxHeight(visibleRows), func(app *App, button tea.MouseButton) tea.Cmd {
 		return app.handleLMConfigModelWheel(button)
 	})
-	a.registerLMConfigModelRailHits(modal, top, col, width, visibleRows)
 }
 
 func (a *App) registerLMConfigProviderRailHits(modal string, top, col, width, visibleRows int) {
@@ -1451,40 +1452,10 @@ func (a *App) registerLMConfigProviderHits(modal string, top, col, width, visibl
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return
 	}
-	indexes := a.lmConfigProviderIndexes()
-	if len(indexes) == 0 {
+	list, _ := a.lmConfigProviderModalList(width, visibleRows)
+	if len(list.hits) == 0 {
 		return
 	}
-	selectedPos := 0
-	for i, idx := range indexes {
-		if idx == a.lmConfig.selected {
-			selectedPos = i
-			break
-		}
-	}
-	windowRows := visibleRows
-	if len(indexes) > visibleRows && visibleRows > 1 {
-		windowRows = visibleRows - 1
-	}
-	list := windowedIndexModalList(
-		indexes,
-		selectedPos,
-		windowRows,
-		lmConfigVisibleRows,
-		func(presetIdx int) string {
-			return fmt.Sprintf("lm-config:provider:%d", presetIdx)
-		},
-		func(presetIdx int) uiHitAction {
-			return func(app *App) tea.Cmd {
-				if app.lmConfig == nil || app.lmConfig.info == nil || presetIdx < 0 || presetIdx >= len(app.lmConfig.info.Presets) {
-					return nil
-				}
-				app.lmConfig.field = lmFieldPreset
-				app.lmConfig.selected = presetIdx
-				return app.lmConfigSyncFromPreset()
-			}
-		},
-	)
 	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
 }
 
@@ -1557,58 +1528,10 @@ func (a *App) registerLMConfigModelHits(modal string, top, col, width, visibleRo
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return
 	}
-	pid := a.lmConfigCurrentPresetID()
-	if strings.TrimSpace(a.lmConfig.modelCatalogWarnings[pid]) != "" {
+	list, _ := a.lmConfigModelModalList(width, visibleRows)
+	if len(list.hits) == 0 {
 		return
 	}
-	catalog := a.lmConfig.modelCatalogs[pid]
-	if len(catalog) == 0 {
-		return
-	}
-	modelIndexes := a.lmConfigModelIndexes()
-	if len(modelIndexes) == 0 {
-		return
-	}
-	idx := a.lmConfig.modelIndex
-	if idx < 0 {
-		idx = modelIndexes[0]
-	}
-	pos := 0
-	for i, modelIdx := range modelIndexes {
-		if modelIdx == idx {
-			pos = i
-			break
-		}
-	}
-	windowRows := visibleRows
-	if len(catalog) > visibleRows && visibleRows > 1 {
-		windowRows = visibleRows - 1
-	}
-	list := windowedIndexModalList(
-		modelIndexes,
-		pos,
-		windowRows,
-		lmConfigVisibleRows,
-		func(modelIdx int) string {
-			return fmt.Sprintf("lm-config:model:%d", modelIdx)
-		},
-		func(modelIdx int) uiHitAction {
-			return func(app *App) tea.Cmd {
-				if app.lmConfig == nil {
-					return nil
-				}
-				pid := app.lmConfigCurrentPresetID()
-				catalog := app.lmConfig.modelCatalogs[pid]
-				if modelIdx < 0 || modelIdx >= len(catalog) {
-					return nil
-				}
-				app.lmConfig.field = lmFieldModel
-				app.lmConfig.modelIndex = modelIdx
-				app.lmConfig.model = catalog[modelIdx].ID
-				return nil
-			}
-		},
-	)
 	a.registerModalListRegion(modal, top+2, col, width, list, "", nil)
 }
 
@@ -1903,13 +1826,34 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 		title = headerStyle.Render(title)
 	}
 	rows := []string{}
+	list, win := a.lmConfigProviderModalList(innerW, visibleRows)
+	rows = append(rows, list.rows...)
+	if len(indexes) == 0 {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
+			Render("    "+a.localizer.t(msgLMConfigNoProvidersMatch, nil)))
+	}
+	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), win)
+}
 
-	windowRows := visibleRows
-	start, end := lmConfigWindow(pos-1, len(indexes), windowRows)
-	items := make([]modalListItem, 0, end-start)
-	for i := start; i < end; i++ {
-		idx := indexes[i]
-		p := presets[idx]
+func (a *App) lmConfigProviderModalList(innerW int, visibleRows int) (modalListRender, scrollWindow) {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return modalListRender{}, scrollWindow{}
+	}
+	indexes := a.lmConfigProviderIndexes()
+	selectedPos := 0
+	for i, idx := range indexes {
+		if idx == a.lmConfig.selected {
+			selectedPos = i
+			break
+		}
+	}
+	focused := a.lmConfig.field == lmFieldPreset
+	return a.renderWindowedIndexModalList(indexes, selectedPos, visibleRows, lmConfigVisibleRows, modalListOptions{
+		width:            lmConfigBoxBodyWidth(innerW),
+		rowBudget:        visibleRows,
+		descriptionLines: 0,
+	}, func(idx int) modalListItem {
+		p := a.lmConfig.info.Presets[idx]
 		disabled := a.lmConfigPresetProblem(p) != ""
 		status := ""
 		if disabled {
@@ -1917,28 +1861,23 @@ func (a *App) renderLMConfigProviderList(innerW int, visibleRows int) string {
 		} else if a.lmConfigPresetPending(p) || a.lmConfigPresetUnchecked(p) {
 			status = "checking"
 		}
-		items = append(items, modalListItem{
-			id:             fmt.Sprintf("lm-config-provider-%d", idx),
+		return modalListItem{
+			id:             fmt.Sprintf("lm-config:provider:%d", idx),
 			title:          p.Label,
 			status:         status,
 			selected:       idx == a.lmConfig.selected,
 			selectedMarker: lmConfigSelectedMarker(focused),
 			disabled:       disabled,
-		})
-	}
-	if len(items) > 0 {
-		list := a.renderModalList(items, modalListOptions{
-			width:            lmConfigBoxBodyWidth(innerW),
-			rowBudget:        windowRows,
-			descriptionLines: 0,
-		})
-		rows = append(rows, list.rows...)
-	}
-	if len(indexes) == 0 {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).
-			Render("    "+a.localizer.t(msgLMConfigNoProvidersMatch, nil)))
-	}
-	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), scrollWindow{start: start, end: end, total: len(indexes)})
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig == nil || app.lmConfig.info == nil || idx < 0 || idx >= len(app.lmConfig.info.Presets) {
+					return nil
+				}
+				app.lmConfig.field = lmFieldPreset
+				app.lmConfig.selected = idx
+				return app.lmConfigSyncFromPreset()
+			},
+		}
+	})
 }
 
 func (a *App) renderLMConfigProviderDetails(innerW int, visibleRows int) string {
@@ -2300,28 +2239,66 @@ func (a *App) renderLMConfigModelList(innerW int, visibleRows int) string {
 		}(),
 	)
 	rows := []string{}
-	windowRows := visibleRows
-	start, end := lmConfigWindow(pos, len(modelIndexes), windowRows)
-	items := make([]modalListItem, 0, end-start)
-	for i := start; i < end; i++ {
-		modelIdx := modelIndexes[i]
+	list, win := a.lmConfigModelModalList(innerW, visibleRows)
+	rows = append(rows, list.rows...)
+	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), win)
+}
+
+func (a *App) lmConfigModelModalList(innerW int, visibleRows int) (modalListRender, scrollWindow) {
+	if a.lmConfig == nil || a.lmConfig.info == nil {
+		return modalListRender{}, scrollWindow{}
+	}
+	pid := a.lmConfigCurrentPresetID()
+	if strings.TrimSpace(a.lmConfig.modelCatalogWarnings[pid]) != "" {
+		return modalListRender{}, scrollWindow{}
+	}
+	catalog := a.lmConfig.modelCatalogs[pid]
+	if len(catalog) == 0 {
+		return modalListRender{}, scrollWindow{}
+	}
+	modelIndexes := a.lmConfigModelIndexes()
+	if len(modelIndexes) == 0 {
+		return modalListRender{}, scrollWindow{}
+	}
+	idx := a.lmConfig.modelIndex
+	if idx < 0 {
+		idx = modelIndexes[0]
+	}
+	pos := 0
+	for i, modelIdx := range modelIndexes {
+		if modelIdx == idx {
+			pos = i
+			break
+		}
+	}
+	focused := a.lmConfig.field == lmFieldModel
+	return a.renderWindowedIndexModalList(modelIndexes, pos, visibleRows, lmConfigVisibleRows, modalListOptions{
+		width:            lmConfigBoxBodyWidth(innerW),
+		rowBudget:        visibleRows,
+		descriptionLines: 0,
+	}, func(modelIdx int) modalListItem {
 		m := catalog[modelIdx]
-		items = append(items, modalListItem{
-			id:             fmt.Sprintf("lm-config-model-%d", modelIdx),
+		return modalListItem{
+			id:             fmt.Sprintf("lm-config:model:%d", modelIdx),
 			title:          m.ID,
 			selected:       modelIdx == idx && a.lmConfig.modelIndex >= 0,
 			selectedMarker: lmConfigSelectedMarker(focused),
-		})
-	}
-	if len(items) > 0 {
-		list := a.renderModalList(items, modalListOptions{
-			width:            lmConfigBoxBodyWidth(innerW),
-			rowBudget:        windowRows,
-			descriptionLines: 0,
-		})
-		rows = append(rows, list.rows...)
-	}
-	return a.lmConfigListBox(title, rows, innerW, maxInt(1, visibleRows), scrollWindow{start: start, end: end, total: len(modelIndexes)})
+			action: func(app *App) tea.Cmd {
+				if app.lmConfig == nil {
+					return nil
+				}
+				pid := app.lmConfigCurrentPresetID()
+				catalog := app.lmConfig.modelCatalogs[pid]
+				if modelIdx < 0 || modelIdx >= len(catalog) {
+					return nil
+				}
+				app.lmConfig.field = lmFieldModel
+				app.lmConfig.modelIndex = modelIdx
+				app.lmConfig.model = catalog[modelIdx].ID
+				return nil
+			},
+		}
+	})
 }
 
 func (a *App) lmConfigSelectableModelCount() int {

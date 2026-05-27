@@ -49,6 +49,9 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - LM provider/model list boxes now reuse the shared side-scroll rail renderer
   used by scrollable modals, so provider setup no longer carries a separate
   thumb/track drawing path for list overflow.
+- LM provider/model list rows and hit targets now come from one shared
+  windowed-index list renderer, and rail targets are layered after row targets
+  so rail clicks are not intercepted by the list body.
 - Short tabbed/scrollable modal bodies now pad to a stable body budget so Help, Doctor, Metrics, Settings, and the command palette do not resize dramatically when changing tabs or filtering to fewer rows.
 - Palette command rows now avoid showing the command name again as the description; they prefer useful descriptions, then non-duplicate titles, then source fallback.
 - Scrollable modals now use a shared side rail/thumb instead of footer/title line-range text, and the catalog browser reuses that affordance instead of adding textual `above` / `more` rows.

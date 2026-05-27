@@ -1053,6 +1053,36 @@ func TestLMConfigProviderRailUsesSemanticSectionHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderListRowsAndHitsShareWindow(t *testing.T) {
+	a := newLMConfigTestApp()
+	for i := 0; i < 12; i++ {
+		a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+			ID:             "provider_" + itoa2(i),
+			Label:          "Provider " + itoa2(i),
+			Provider:       "openai",
+			SuggestedModel: "model",
+		})
+	}
+	total := len(a.lmConfig.info.Presets)
+	a.lmConfig.selected = total - 1
+
+	list, win := a.lmConfigProviderModalList(60, 5)
+	if win.start != total-5 || win.end != total {
+		t.Fatalf("provider window = [%d,%d), want final 5 of %d", win.start, win.end, total)
+	}
+	if len(list.rows) != 5 || len(list.hits) != 5 {
+		t.Fatalf("provider list rows/hits = %d/%d, want 5/5", len(list.rows), len(list.hits))
+	}
+	for i, hit := range list.hits {
+		if hit.row != i {
+			t.Fatalf("provider hit %d row = %d, want %d", i, hit.row, i)
+		}
+	}
+	if !strings.Contains(list.hits[len(list.hits)-1].id, itoa2(total-1)) {
+		t.Fatalf("last provider hit id = %q, want selected final provider", list.hits[len(list.hits)-1].id)
+	}
+}
+
 func TestLMConfigModelWheelUsesSemanticSectionHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.MouseEnabled = true
@@ -1126,6 +1156,37 @@ func TestLMConfigModelRailUsesSemanticSectionHitTarget(t *testing.T) {
 	}
 	if a.lmConfig.model != "model-11" || a.lmConfig.modelIndex != 11 {
 		t.Fatalf("model selection = %q/%d, want model-11/11", a.lmConfig.model, a.lmConfig.modelIndex)
+	}
+}
+
+func TestLMConfigModelListRowsAndHitsShareWindow(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldModel
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	var models []gact.Model
+	for i := 0; i < 12; i++ {
+		models = append(models, gact.Model{ID: "model-" + itoa2(i)})
+	}
+	a.lmConfig.modelCatalogs["lm_studio"] = models
+	a.lmConfig.modelIndex = len(models) - 1
+	a.lmConfig.model = models[len(models)-1].ID
+
+	list, win := a.lmConfigModelModalList(60, 5)
+	if win.start != len(models)-5 || win.end != len(models) {
+		t.Fatalf("model window = [%d,%d), want final 5 of %d", win.start, win.end, len(models))
+	}
+	if len(list.rows) != 5 || len(list.hits) != 5 {
+		t.Fatalf("model list rows/hits = %d/%d, want 5/5", len(list.rows), len(list.hits))
+	}
+	for i, hit := range list.hits {
+		if hit.row != i {
+			t.Fatalf("model hit %d row = %d, want %d", i, hit.row, i)
+		}
+	}
+	if list.hits[len(list.hits)-1].id != "lm-config:model:11" {
+		t.Fatalf("last model hit id = %q, want final model", list.hits[len(list.hits)-1].id)
 	}
 }
 
