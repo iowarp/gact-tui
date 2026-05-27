@@ -115,6 +115,35 @@ func TestConnectRetry_ErrorButtonsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestConnectRetry_ErrorButtonsAlignWithSharedHeader(t *testing.T) {
+	a := New("http://unused")
+	a.stage = StageError
+	a.stageError = "dial tcp: connection refused"
+	a.MouseEnabled = true
+	a.width, a.height = 120, 36
+
+	_ = a.View()
+	retry, ok := findHitTargetForTest(a, "button:error:retry")
+	if !ok {
+		t.Fatal("missing semantic error retry button")
+	}
+	quit, ok := findHitTargetForTest(a, "button:error:quit")
+	if !ok {
+		t.Fatal("missing semantic error quit button")
+	}
+	rect := overlayMouseRect(a.viewErrorModal(), a.width, a.height)
+	wantY := rect.y + 2
+	if retry.rect.y != wantY {
+		t.Fatalf("error retry button y = %d, want shared frame header row %d", retry.rect.y, wantY)
+	}
+	if quit.rect.y != wantY {
+		t.Fatalf("error quit button y = %d, want shared frame header row %d", quit.rect.y, wantY)
+	}
+	if retry.rect.x >= quit.rect.x {
+		t.Fatalf("error buttons should preserve visual order retry before quit, retry=%+v quit=%+v", retry.rect, quit.rect)
+	}
+}
+
 func TestConnectRetry_ConnectingScreenUsesSemanticRetryTarget(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageConnecting
