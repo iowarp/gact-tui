@@ -902,6 +902,29 @@ func TestScreenTextSpanHitUsesTextGeometry(t *testing.T) {
 	}
 }
 
+func TestClippedScreenTextSpanHitUsesVisibleTextGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.beginHitFrame()
+	clicked := false
+
+	a.registerClippedScreenTextSpanHit("span:clip", 10, 4, "....workspace", 4, "workspace", 17, func(*App) tea.Cmd {
+		clicked = true
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "span:clip")
+	if !ok {
+		t.Fatal("missing clipped screen text span target")
+	}
+	want := mouseRect{x: 14, y: 4, w: 3, h: 1}
+	if target.rect != want {
+		t.Fatalf("clipped span target rect = %+v, want %+v", target.rect, want)
+	}
+	if _, handled := a.activateHitAt(16, 4, tea.MouseLeft); !handled || !clicked {
+		t.Fatalf("clipped screen text span should handle visible click, handled=%v clicked=%v", handled, clicked)
+	}
+}
+
 func TestScreenSurfaceHitUsesViewportGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 90
