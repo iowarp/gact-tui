@@ -1219,32 +1219,6 @@ func windowedIndexRange(cursor, total int, visibleRows int, defaultRows int) (in
 	return start, end
 }
 
-func windowedIndexModalList(indexes []int, cursor int, visibleRows int, defaultRows int, id func(int) string, action func(int) uiHitAction) modalListRender {
-	start, end := windowedIndexRange(cursor, len(indexes), visibleRows, defaultRows)
-	hits := make([]modalListHit, 0, end-start)
-	for i := start; i < end; i++ {
-		index := indexes[i]
-		if id == nil || action == nil {
-			continue
-		}
-		hitID := id(index)
-		hitAction := action(index)
-		if hitID == "" || hitAction == nil {
-			continue
-		}
-		hits = append(hits, modalListHit{
-			id:     hitID,
-			row:    i - start,
-			height: 1,
-			action: hitAction,
-		})
-	}
-	return modalListRender{
-		rows: make([]string, end-start),
-		hits: hits,
-	}
-}
-
 func (a *App) renderWindowedIndexModalList(indexes []int, cursor int, visibleRows int, defaultRows int, opts modalListOptions, item func(int) modalListItem) (modalListRender, scrollWindow) {
 	start, end := windowedIndexRange(cursor, len(indexes), visibleRows, defaultRows)
 	items := make([]modalListItem, 0, end-start)
