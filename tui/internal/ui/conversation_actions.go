@@ -111,6 +111,32 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 			},
 		},
 	}
+	if p.Type == gact.PartTypeAgentQuestion && p.Question != nil {
+		items = append(items, actionMenuItem{
+			id:          "answer-question",
+			title:       "Answer question",
+			description: "Reply to this backend-emitted user question.",
+			key:         "a",
+			action: func(app *App) tea.Cmd {
+				app.closeConversationActions()
+				app.openAskUserModal(*p.Question)
+				return nil
+			},
+		})
+	}
+	if m.ID != "" && m.Role != gact.RoleSystem {
+		items = append(items, actionMenuItem{
+			id:          "retry-with-notes",
+			title:       "Retry with notes",
+			description: "Create a linked retry attempt with operator notes.",
+			key:         "T",
+			action: func(app *App) tea.Cmd {
+				app.closeConversationActions()
+				app.openRetryNotesModal(m.ID)
+				return nil
+			},
+		})
+	}
 	if m.Role == gact.RoleUser {
 		items = append(items, actionMenuItem{
 			id:          "retry",

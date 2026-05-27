@@ -15,4 +15,21 @@ Wait+Screen /retry attempt/
 Sleep 400ms
 Screenshot "visual_loop/screenshots/issue57_ask_user_retry.png"
 
+Tab
+Tab
+Type "N"
+Type "m"
+Type "a"
+Wait+Screen /Answer agent question/
+Sleep 300ms
+Screenshot "visual_loop/screenshots/issue57_ask_user_answer_modal.png"
+
+Escape
+Type "n"
+Type "m"
+Type "T"
+Wait+Screen /Retry with notes/
+Sleep 300ms
+Screenshot "visual_loop/screenshots/issue57_retry_notes_modal.png"
+
 Type "q"

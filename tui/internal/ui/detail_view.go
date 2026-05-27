@@ -523,14 +523,19 @@ func partDetailText(p gact.Part) string {
 	case gact.PartTypeAgentQuestion:
 		if p.Question != nil {
 			rows = append(rows, detailFieldRows("question_id", p.Question.ID)...)
-			rows = append(rows, detailFieldRows("agent", p.Question.AgentID)...)
+			rows = append(rows, detailFieldRows("source", firstNonEmpty(p.Question.Source, p.Question.AgentID))...)
 			rows = append(rows, detailFieldRows("category", p.Question.Category)...)
-			rows = append(rows, detailFieldRows("expected_answer_type", p.Question.ExpectedAnswerType)...)
+			rows = append(rows, detailFieldRows("kind", firstNonEmpty(p.Question.Kind, p.Question.ExpectedAnswerType))...)
+			rows = append(rows, detailFieldRows("status", p.Question.Status)...)
 			rows = append(rows, detailFieldRows("prompt", p.Question.Prompt)...)
-			if len(p.Question.Choices) > 0 {
-				choiceRows := make([]string, 0, len(p.Question.Choices))
-				for _, choice := range p.Question.Choices {
-					label := firstNonEmpty(choice.Label, choice.ID)
+			choices := p.Question.Options
+			if len(choices) == 0 {
+				choices = p.Question.Choices
+			}
+			if len(choices) > 0 {
+				choiceRows := make([]string, 0, len(choices))
+				for _, choice := range choices {
+					label := firstNonEmpty(choice.Label, choice.Value, choice.ID)
 					if choice.Description != "" {
 						label += ": " + choice.Description
 					}
@@ -544,7 +549,7 @@ func partDetailText(p gact.Part) string {
 	case gact.PartTypeRetryAttempt:
 		if p.RetryAttempt != nil {
 			rows = append(rows, detailFieldRows("attempt_id", p.RetryAttempt.ID)...)
-			rows = append(rows, detailFieldRows("original_message_id", p.RetryAttempt.OriginalMessageID)...)
+			rows = append(rows, detailFieldRows("source_message_id", firstNonEmpty(p.RetryAttempt.SourceMessageID, p.RetryAttempt.OriginalMessageID))...)
 			rows = append(rows, detailFieldRows("attempt_message_id", p.RetryAttempt.AttemptMessageID)...)
 			rows = append(rows, detailFieldRows("status", p.RetryAttempt.Status)...)
 			rows = append(rows, detailFieldRows("notes", p.RetryAttempt.Notes)...)

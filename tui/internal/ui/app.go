@@ -449,6 +449,19 @@ type App struct {
 	conversationActionsOpen bool
 	conversationActionsSel  int
 
+	// Ask-user and retry-note modals. These use separate draft buffers so
+	// answering an agent question or retrying with notes never mutates the
+	// normal composer draft.
+	askUserOpen      bool
+	askUserQuestion  gact.AgentQuestion
+	askUserDraft     string
+	askUserCursor    int
+	askUserChoice    int
+	retryNotesOpen   bool
+	retryMessageID   string
+	retryNotesDraft  string
+	retryNotesCursor int
+
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
 	// /v1/sessions/{id}/context/files; Esc cancels.
@@ -1500,6 +1513,32 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.transientHint = a.postFailureHint(m.err)
 		return a, nil
 
+	case agentQuestionAnsweredMsg:
+		if m.err != nil {
+			a.transientHint = "answer failed: " + m.err.Error()
+			return a, nil
+		}
+		a.transientHint = "answer submitted"
+		if m.sessionID != "" {
+			return a, loadMessagesCmd(a.c, m.sessionID)
+		}
+		return a, nil
+
+	case retryTurnStartedMsg:
+		if m.err != nil {
+			a.transientHint = "retry failed: " + m.err.Error()
+			return a, nil
+		}
+		label := shortID(m.attempt.ID)
+		if label == "" {
+			label = "retry"
+		}
+		a.transientHint = "retry attempt queued: " + label
+		if m.sessionID != "" {
+			return a, loadMessagesCmd(a.c, m.sessionID)
+		}
+		return a, nil
+
 	case msgPostedAck:
 		// User message is in the store; the SSE stream will reflect it via
 		// the message.created event the server publishes.
@@ -2187,6 +2226,12 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.conversationActionsOpen {
 		return a.handleConversationActionsKey(k)
+	}
+	if a.askUserOpen {
+		return a.handleAskUserKey(k)
+	}
+	if a.retryNotesOpen {
+		return a.handleRetryNotesKey(k)
 	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
@@ -6577,6 +6622,12 @@ func (a *App) viewMain() string {
 	}
 	if a.conversationActionsOpen {
 		base = overlay(base, a.viewConversationActions(), a.width, a.height)
+	}
+	if a.askUserOpen {
+		base = overlay(base, a.viewAskUser(), a.width, a.height)
+	}
+	if a.retryNotesOpen {
+		base = overlay(base, a.viewRetryNotes(), a.width, a.height)
 	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)

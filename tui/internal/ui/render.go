@@ -1657,11 +1657,14 @@ func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
 	allowFreeform := false
 	var choices []gact.AgentQuestionChoice
 	if q != nil {
-		agent = q.AgentID
+		agent = firstNonEmpty(q.AgentID, q.Source)
 		category = q.Category
-		expected = q.ExpectedAnswerType
+		expected = firstNonEmpty(q.ExpectedAnswerType, q.Kind)
 		allowFreeform = q.AllowFreeform
-		choices = q.Choices
+		choices = q.Options
+		if len(choices) == 0 {
+			choices = q.Choices
+		}
 	}
 	head := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("? agent question")
 	meta := make([]string, 0, 3)
@@ -1684,7 +1687,7 @@ func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
 		for _, choice := range choices {
 			label := strings.TrimSpace(choice.Label)
 			if label == "" {
-				label = choice.ID
+				label = firstNonEmpty(choice.Value, choice.ID)
 			}
 			if label != "" {
 				labels = append(labels, label)
@@ -1718,6 +1721,9 @@ func (t Theme) renderRetryAttemptPart(p gact.Part, wrapW int) string {
 		warning = strings.TrimSpace(attempt.Warning)
 		if attempt.Model != nil {
 			model = modelLabel(*attempt.Model)
+		}
+		if status == "" && attempt.AttemptMessageID != "" {
+			status = "created"
 		}
 	}
 	head := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("↻ retry attempt")

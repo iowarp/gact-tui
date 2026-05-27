@@ -105,8 +105,8 @@ func TestAgentQuestionAndRetryAttemptDetails(t *testing.T) {
 		part gact.Part
 		want []string
 	}{
-		{"question", question, []string{"question_id: q1", "agent: planner", "prompt: Pick a path."}},
-		{"retry", retry, []string{"attempt_id: attempt_1", "original_message_id: msg_1", "notes: Try again with notes."}},
+		{"question", question, []string{"question_id: q1", "source: planner", "prompt: Pick a path."}},
+		{"retry", retry, []string{"attempt_id: attempt_1", "source_message_id: msg_1", "notes: Try again with notes."}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			text := partDetailText(tc.part)

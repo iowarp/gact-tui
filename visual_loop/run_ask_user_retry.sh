@@ -47,13 +47,14 @@ blob = {
                     "question": {
                         "id": "q_dataset",
                         "prompt": "Which dataset should I inspect before continuing?",
-                        "agent_id": "data_expert",
-                        "category": "clarification",
-                        "expected_answer_type": "choice",
+                        "source": "data_expert",
+                        "kind": "choice",
+                        "status": "pending",
+                        "turn_id": "turn_dataset",
                         "allow_freeform": True,
-                        "choices": [
-                            {"id": "csv", "label": "CSV"},
-                            {"id": "parquet", "label": "Parquet"},
+                        "options": [
+                            {"value": "csv", "label": "CSV", "description": "Inspect the CSV export first."},
+                            {"value": "parquet", "label": "Parquet", "description": "Inspect the Parquet table first."},
                         ],
                     },
                 },
@@ -61,7 +62,8 @@ blob = {
                     "type": "retry_attempt",
                     "retry_attempt": {
                         "id": "attempt_2",
-                        "original_message_id": "msg_original",
+                        "session_id": "ask_user_import",
+                        "source_message_id": "msg_original",
                         "status": "started",
                         "notes": "Use the CSV instead of the Parquet file.",
                         "model": {"provider_id": "anthropic", "model_id": "claude-sonnet"},
