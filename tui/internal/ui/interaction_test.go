@@ -919,6 +919,28 @@ func TestModalKeyHintUsesStableSpacingAndSkipsEmptyParts(t *testing.T) {
 	}
 }
 
+func TestSettingsTUIStepperHitAreasSpanRenderedControl(t *testing.T) {
+	row := renderSettingsTUIStepperRow(ThemeForMode(ModeDark), 80, false, "cost warn tokens", "100k", "")
+	decCol, decWidth := row.decrementHit()
+	incCol, incWidth := row.incrementHit()
+
+	if decCol != row.controlStart {
+		t.Fatalf("decrement hit starts at %d, want control start %d", decCol, row.controlStart)
+	}
+	if decWidth <= 3 {
+		t.Fatalf("decrement hit width = %d, want wider than glyph-only", decWidth)
+	}
+	if incWidth <= 3 {
+		t.Fatalf("increment hit width = %d, want wider than glyph-only", incWidth)
+	}
+	if decCol+decWidth != incCol {
+		t.Fatalf("stepper hit halves should be contiguous, dec end=%d inc start=%d", decCol+decWidth, incCol)
+	}
+	if incCol+incWidth != row.controlEnd {
+		t.Fatalf("increment hit ends at %d, want control end %d", incCol+incWidth, row.controlEnd)
+	}
+}
+
 func TestScreenTextareaCursorHitsUseTextGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.beginHitFrame()
@@ -1910,7 +1932,7 @@ func TestSettingsTUIStepperArrowsWorkBeyondFirstRow(t *testing.T) {
 			t.Fatalf("missing right-arrow target for %s", tc.id)
 		}
 		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-			X:      target.rect.x + target.rect.w - 1,
+			X:      target.rect.x + target.rect.w/2,
 			Y:      target.rect.y,
 			Button: tea.MouseLeft,
 		}))
@@ -1918,6 +1940,59 @@ func TestSettingsTUIStepperArrowsWorkBeyondFirstRow(t *testing.T) {
 		tc.assert(t, a)
 		if !a.settingsOpen {
 			t.Fatalf("%s right-arrow click closed settings", tc.id)
+		}
+	}
+}
+
+func TestSettingsTUIStepperLeftHitAreasWorkBeyondFirstRow(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 40
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 0}
+	a.Theme.CostWarnTokens = 50_000
+	a.Theme.CostDangerTokens = 100_000
+	a.Theme.PasteCompressThreshold = 3
+	a.MouseEnabled = true
+
+	for _, tc := range []struct {
+		id     string
+		assert func(*testing.T, *App)
+	}{
+		{id: "cost-warn", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostWarnTokens != 50_000-costStep {
+				t.Fatalf("cost warn left hit = %d, want %d", app.Theme.CostWarnTokens, 50_000-costStep)
+			}
+		}},
+		{id: "cost-danger", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.CostDangerTokens != 100_000-costStep {
+				t.Fatalf("cost danger left hit = %d, want %d", app.Theme.CostDangerTokens, 100_000-costStep)
+			}
+		}},
+		{id: "paste-compress", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if app.Theme.PasteCompressThreshold != 2 {
+				t.Fatalf("paste compress left hit = %d, want 2", app.Theme.PasteCompressThreshold)
+			}
+		}},
+	} {
+		_ = a.View()
+		target, ok := findHitTargetForTest(a, "settings:tui:"+tc.id+":dec")
+		if !ok {
+			t.Fatalf("missing left-arrow target for %s", tc.id)
+		}
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      target.rect.x + target.rect.w/2,
+			Y:      target.rect.y,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		tc.assert(t, a)
+		if !a.settingsOpen {
+			t.Fatalf("%s left-hit click closed settings", tc.id)
 		}
 	}
 }
@@ -1994,7 +2069,7 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 			t.Fatalf("missing inc target %s", tc.incID)
 		}
 		model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
-			X:      inc.rect.x,
+			X:      inc.rect.x + inc.rect.w/2,
 			Y:      inc.rect.y,
 			Button: tea.MouseLeft,
 		}))
