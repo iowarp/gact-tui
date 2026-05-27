@@ -785,6 +785,36 @@ func TestSelectableListModalRegistersSemanticRailTargets(t *testing.T) {
 	}
 }
 
+func TestModalIndexRailHitsMapVisibleRowsToIndexes(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.beginHitFrame()
+	selected := -1
+	modal := a.renderDefaultModalSurface(40, strings.Join([]string{
+		"one",
+		"two",
+		"three",
+		"four",
+	}, "\n"))
+
+	a.registerModalIndexRailHits(modal, "index-rail", 0, 6, 4, 10, func(_ *App, index int) tea.Cmd {
+		selected = index
+		return nil
+	})
+
+	target, ok := findHitTargetForTest(a, "index-rail:rail:3")
+	if !ok {
+		t.Fatal("missing modal index rail target")
+	}
+	if _, handled := a.activateHitAt(target.rect.x, target.rect.y, tea.MouseLeft); !handled {
+		t.Fatal("modal index rail target did not handle click")
+	}
+	if selected != 9 {
+		t.Fatalf("selected index = %d, want final index 9", selected)
+	}
+}
+
 func TestSelectionAndScrollMovementClamp(t *testing.T) {
 	selectionCases := []struct {
 		name  string
