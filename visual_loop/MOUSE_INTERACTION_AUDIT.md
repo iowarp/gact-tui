@@ -789,6 +789,10 @@ Additional work continued from the same architectural direction:
   `more` rows and register semantic rail targets through the shared modal
   index-rail primitive, jumping provider/model selection through the filtered
   list without per-column rail math.
+- Doctor and metrics detail rows now share `registerScrollableModalRowHits`,
+  which clips row actions to the visible scroll window and registers them
+  relative to the shared modal frame instead of each view owning row
+  intersection math.
 
 ### 2026-05-26 user-observed follow-up queue
 

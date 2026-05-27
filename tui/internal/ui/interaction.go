@@ -241,6 +241,13 @@ type modalListHit struct {
 	action uiHitAction
 }
 
+type modalRowHit struct {
+	id     string
+	start  int
+	height int
+	action uiHitAction
+}
+
 type modalCellHit struct {
 	id     string
 	row    int
@@ -477,6 +484,28 @@ func (a *App) registerScrollableModalRailHits(rendered modalFrameRender, id stri
 		a.registerModalContentHit(rendered.modal, id+":rail:"+itoa2(row), rendered.bodyRow+row, railCol, 1, 1, func(app *App) tea.Cmd {
 			return scrollTo(app, targetScroll)
 		})
+	}
+}
+
+func (a *App) registerScrollableModalRowHits(rendered modalFrameRender, win scrollWindow, hits []modalRowHit) {
+	if a.hits == nil || rendered.modal == "" || rendered.bodyRow < 0 || len(hits) == 0 {
+		return
+	}
+	bodyWidth := lipgloss.Width(rendered.modal) - 6
+	if bodyWidth < 1 {
+		bodyWidth = 1
+	}
+	for _, hit := range hits {
+		hit := hit
+		if hit.action == nil || hit.height <= 0 {
+			continue
+		}
+		start := maxInt(hit.start, win.start)
+		end := minInt(hit.start+hit.height, win.end)
+		if end <= start {
+			continue
+		}
+		a.registerModalContentHit(rendered.modal, hit.id, rendered.bodyRow+(start-win.start), 0, bodyWidth, end-start, hit.action)
 	}
 }
 
