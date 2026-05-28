@@ -16,6 +16,7 @@ export interface TranscriptProps {
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
+  onPinFile?: (path: string) => void;
   /** Currently-focused message id (drives the Inspector). */
   selectedId?: string;
   onSelect?: (msg: Message) => void;
@@ -53,6 +54,7 @@ function PartView(props: {
   part: Part;
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
+  onPinFile?: (path: string) => void;
   searchQuery?: string;
   messageId?: string;
   currentMatchKey?: string;
@@ -160,6 +162,7 @@ function PartView(props: {
     );
   }
   if (p.type === 'file_diff') {
+    const path = p.path;
     const stats = (() => {
       const ud = p.unified_diff ?? '';
       if (ud) {
@@ -174,21 +177,34 @@ function PartView(props: {
       return { adds, dels };
     })();
     return (
-      <button
-        type="button"
-        class="trx-filediff"
-        data-testid="filediff-chip"
-        onClick={() => props.onOpenDiff?.(p)}
-      >
-        <Icon name="diff" size={14} />
-        <div class="trx-filediff__chip">
-          <span class="trx-filediff__path">{p.path}</span>
-          <span class="trx-filediff__stats">
-            <span class="trx-filediff__plus">+{stats.adds}</span>
-            <span class="trx-filediff__minus">−{stats.dels}</span>
-          </span>
-        </div>
-      </button>
+      <div class="trx-filediff-wrap">
+        <button
+          type="button"
+          class="trx-filediff"
+          data-testid="filediff-chip"
+          onClick={() => props.onOpenDiff?.(p)}
+        >
+          <Icon name="diff" size={14} />
+          <div class="trx-filediff__chip">
+            <span class="trx-filediff__path">{path}</span>
+            <span class="trx-filediff__stats">
+              <span class="trx-filediff__plus">+{stats.adds}</span>
+              <span class="trx-filediff__minus">−{stats.dels}</span>
+            </span>
+          </div>
+        </button>
+        <Show when={props.onPinFile}>
+          <button
+            type="button"
+            class="trx-filediff-pin"
+            data-testid={`filediff-pin-${path}`}
+            title="Pin this file to session context"
+            onClick={() => props.onPinFile?.(path)}
+          >
+            <Icon name="pin" size={12} />
+          </button>
+        </Show>
+      </div>
     );
   }
   return null;
@@ -202,6 +218,7 @@ function MessageView(props: {
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
+  onPinFile?: (path: string) => void;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
   searchQuery?: string;
@@ -291,6 +308,7 @@ function MessageView(props: {
               part={part}
               density={props.density}
               onOpenDiff={props.onOpenDiff}
+              onPinFile={props.onPinFile}
               searchQuery={props.searchQuery}
               messageId={props.msg.id}
               currentMatchKey={props.currentMatchKey}
@@ -402,9 +420,11 @@ export function Transcript(props: TranscriptProps) {
               msg={m}
               density={props.density}
               onOpenDiff={props.onOpenDiff}
+              onPinFile={props.onPinFile}
               onCopy={props.onCopy}
               onRegenerate={props.onRegenerate}
               onEdit={props.onEdit}
+              onQuote={props.onQuote}
               selected={m.id === props.selectedId}
               onSelect={props.onSelect}
               searchQuery={props.searchQuery}

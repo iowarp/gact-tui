@@ -602,6 +602,27 @@ function LiveDriven(props: {
   );
   const contextFiles = createMemo(() => contextFilesData()?.files ?? []);
 
+  async function pinFileToContext(path: string) {
+    const sid = activeId();
+    if (!sid) return;
+    try {
+      await live.client.addContextFile(sid, { path, mode: 'read' });
+      void refetchContextFiles();
+      toast.push({
+        tone: 'success',
+        title: 'Pinned to context',
+        body: path,
+        duration: 2400,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Pin failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   async function removeContextFile(path: string) {
     const sid = activeId();
     if (!sid) return;
@@ -757,6 +778,7 @@ function LiveDriven(props: {
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
+      onPinFile={pinFileToContext}
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
@@ -828,6 +850,7 @@ interface ChatLayoutProps {
   onRegenerate?: (msg: Message) => void;
   onEditMessage?: (msg: Message) => void;
   onQuoteMessage?: (msg: Message) => void;
+  onPinFile?: (path: string) => void;
 }
 
 function messageToText(msg: Message): string {
@@ -1663,6 +1686,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onRegenerate={props.onRegenerate}
               onEdit={props.onEditMessage}
               onQuote={props.onQuoteMessage}
+              onPinFile={props.onPinFile}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
               searchQuery={searchOpen() ? searchQuery() : ''}

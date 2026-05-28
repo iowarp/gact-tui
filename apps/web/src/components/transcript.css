@@ -401,3 +401,33 @@
 .trx-filediff__diff {
   display: none;
 }
+
+.trx-filediff-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trx-filediff-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+  opacity: 0;
+}
+
+.trx-filediff-wrap:hover .trx-filediff-pin {
+  opacity: 1;
+}
+
+.trx-filediff-pin:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+}
