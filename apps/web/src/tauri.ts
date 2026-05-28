@@ -5,6 +5,14 @@
  * and as a pure-web app (`pnpm preview`). Code that needs to talk to the
  * Rust side goes through this module so the web-only build path stays
  * tree-shake-friendly and never throws on missing Tauri internals.
+ *
+ * IMPORTANT: when running inside Tauri, the WebView origin is
+ * `http://tauri.localhost` and HTTP requests to the local sidecar
+ * (e.g. http://127.0.0.1:17800) hit browser-level CORS. The
+ * `tauri-plugin-http` bridge routes those requests through Rust,
+ * sidestepping CORS entirely. The frontend Client uses `pickFetch()`
+ * which returns the Tauri-bridged fetch inside the shell and the
+ * native browser fetch in the pure-web build.
  */
 
 export interface BackendHandle {
@@ -50,6 +58,64 @@ export async function getBackend(): Promise<BackendHandle> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<BackendHandle>('get_backend');
 }
+
+/**
+ * Fetch implementation that routes through the Rust-side `gact_http`
+ * Tauri command (bypassing the WebView's CORS layer). When called
+ * outside Tauri it falls through to the browser's native fetch.
+ *
+ * Returns a value compatible with `globalThis.fetch`, so it can be
+ * passed straight into `new Client({fetch: tauriFetch})` without any
+ * shim code in `@clio/core`.
+ */
+type RustHttpResponse = {
+  status: number;
+  status_text: string;
+  headers: Record<string, string>;
+  body: string;
+};
+
+export const tauriFetch: typeof fetch = async (input, init) => {
+  if (!inTauri()) {
+    return globalThis.fetch(input, init);
+  }
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const headers: Record<string, string> = {};
+  const h = init?.headers;
+  if (h instanceof Headers) {
+    h.forEach((v, k) => {
+      headers[k] = v;
+    });
+  } else if (Array.isArray(h)) {
+    for (const [k, v] of h) headers[k] = v;
+  } else if (h && typeof h === 'object') {
+    Object.assign(headers, h);
+  }
+  const body =
+    typeof init?.body === 'string'
+      ? init.body
+      : init?.body == null
+        ? undefined
+        : String(init.body);
+
+  const { invoke } = await import('@tauri-apps/api/core');
+  const resp = await invoke<RustHttpResponse>('gact_http', {
+    req: { method, url, headers, body },
+  });
+  const respHeaders = new Headers();
+  for (const [k, v] of Object.entries(resp.headers)) respHeaders.set(k, v);
+  return new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.status_text,
+    headers: respHeaders,
+  });
+};
 
 export interface TunnelRequest {
   host: string;

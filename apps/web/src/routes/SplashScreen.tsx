@@ -2,7 +2,7 @@ import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import type { Capabilities } from '@clio/core';
 import { Client } from '@clio/core';
 import type { BackendHandle as DesktopHandle, BackendStatus } from '../tauri.js';
-import { getBackend, inTauri } from '../tauri.js';
+import { getBackend, inTauri, tauriFetch } from '../tauri.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
 import './splash.css';
 
@@ -116,7 +116,14 @@ export function SplashScreen(props: SplashScreenProps) {
 
   async function handoff(url: string, token: string) {
     try {
-      const client = new Client({ baseUrl: url, bearerToken: token || undefined });
+      const client = new Client({
+        baseUrl: url,
+        bearerToken: token || undefined,
+        // Route through the Rust gact_http command when running inside
+        // Tauri — the WebView's CORS layer blocks a direct fetch to a
+        // sidecar that doesn't emit Access-Control-Allow-Origin.
+        fetch: inTauri() ? tauriFetch : undefined,
+      });
       const caps: Capabilities = await client.capabilities();
       setPhase('ready');
       props.onReady({ url, bearerToken: token, capabilities: caps });
