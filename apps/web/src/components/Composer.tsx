@@ -124,7 +124,11 @@ export function Composer(props: ComposerProps = {}) {
 
   function onFilesPicked(ev: Event) {
     const input = ev.currentTarget as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
+    addFiles(Array.from(input.files ?? []));
+    input.value = '';
+  }
+
+  function addFiles(files: File[]) {
     if (files.length === 0) return;
     const next: AttachedFile[] = files.map((f) => ({
       id: cryptoRandomId(),
@@ -133,7 +137,23 @@ export function Composer(props: ComposerProps = {}) {
       mimeType: f.type || 'application/octet-stream',
     }));
     setAttachments((prev) => [...prev, ...next]);
-    input.value = '';
+  }
+
+  const [dragging, setDragging] = createSignal(false);
+  function onDragOver(e: DragEvent) {
+    if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
+      e.preventDefault();
+      setDragging(true);
+    }
+  }
+  function onDragLeave(_: DragEvent) {
+    setDragging(false);
+  }
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    addFiles(files);
   }
 
   function removeAttachment(id: string) {
@@ -170,7 +190,19 @@ export function Composer(props: ComposerProps = {}) {
   }
 
   return (
-    <div class="composer" data-testid="composer">
+    <div
+      class={'composer ' + (dragging() ? 'composer--dragging' : '')}
+      data-testid="composer"
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      <Show when={dragging()}>
+        <div class="composer__droptarget" aria-hidden>
+          <Icon name="attach" size={24} />
+          <span>Drop files to attach</span>
+        </div>
+      </Show>
       <Show when={error()}>
         <div class="composer__error" data-testid="composer-error">
           {error()}

@@ -15,6 +15,10 @@
   bottom: 0;
 }
 
+.composer {
+  position: relative;
+}
+
 .composer__shell {
   background: var(--color-surface);
   border: 1px solid var(--color-border-30);
@@ -22,6 +26,32 @@
   padding: 10px 12px 10px 14px;
   box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.4);
   transition: border-color var(--dur-fast);
+}
+
+.composer__droptarget {
+  position: absolute;
+  inset: 12px 32px;
+  background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
+  border: 2px dashed var(--color-accent-cyan);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  z-index: 5;
+  color: var(--color-accent-cyan);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.composer__droptarget > span {
+  margin-top: 6px;
+}
+
+.composer--dragging .composer__shell {
+  filter: blur(2px);
+  opacity: 0.6;
 }
 
 .composer__shell:focus-within {
@@ -142,6 +172,56 @@
 .composer__picker--perm {
   color: var(--color-warning);
   border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.composer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-30);
+}
+
+.composer__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-heading);
+}
+
+.composer__chip-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer__chip-size {
+  color: var(--color-muted);
+}
+
+.composer__chip-x {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.composer__chip-x:hover {
+  background: var(--color-bg);
+  color: var(--color-error);
 }
 
 .composer__error {
