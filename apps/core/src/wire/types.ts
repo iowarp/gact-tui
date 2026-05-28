@@ -378,6 +378,31 @@ export interface SlashCommandDef {
   args_schema?: unknown;
 }
 
+/**
+ * Prompt registry entry per clio-agent develop's `/v1/prompts` route
+ * (PRs #376/#377 — prompt + expert pack runtimes). Each prompt may
+ * carry multiple named profiles; the `default_profile` is what the
+ * agent renders unless overridden.
+ */
+export interface PromptDef {
+  id: string;
+  title?: string;
+  description?: string;
+  default_profile?: string;
+  /** Profile name → opaque definition. Shape varies by profile type. */
+  profiles?: Record<string, unknown>;
+  scope?: 'builtin' | 'user' | 'workspace' | string;
+  source_path?: string;
+  enabled?: boolean;
+  validation_errors?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface PromptSource {
+  scope: string;
+  root: string;
+}
+
 export interface LmConfigSnapshot {
   configured: boolean;
   provider: string;

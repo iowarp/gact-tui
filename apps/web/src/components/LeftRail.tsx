@@ -7,6 +7,7 @@ export type RailRoute =
   | 'workspaces'
   | 'agents'
   | 'tools'
+  | 'prompts'
   | 'mcp'
   | 'memory'
   | 'metrics'
@@ -34,6 +35,7 @@ const ENTRIES: RailEntry[] = [
   { id: 'workspaces', label: 'Workspaces', icon: 'workspaces', requires: ['workspaces'] },
   { id: 'agents', label: 'Agents', icon: 'agents', requires: ['agent_routing'] },
   { id: 'tools', label: 'Tools', icon: 'tools', requires: ['commands'] },
+  { id: 'prompts', label: 'Prompts', icon: 'sparkle', requires: ['prompts'] },
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', requires: ['mcp'] },
   { id: 'memory', label: 'Memory', icon: 'memory', requires: ['memory'] },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', requires: ['metrics'] },

@@ -9,6 +9,8 @@ import type {
   MetricsSnapshot,
   PermissionRequest,
   PermissionScope,
+  PromptDef,
+  PromptSource,
   ProviderDef,
   Session,
   SlashCommandDef,
@@ -333,6 +335,31 @@ export class Client {
 
   commands(): Promise<{ commands: SlashCommandDef[] }> {
     return this.get<{ commands: SlashCommandDef[] }>('/v1/commands');
+  }
+
+  /**
+   * GET /v1/prompts — list registered prompt definitions across all
+   * scopes (builtin / user / workspace). Per clio-agent develop PRs
+   * #376/#377. Optional session_id/workspace_id scope the listing.
+   */
+  prompts(
+    scope: { session_id?: string; workspace_id?: string } = {},
+  ): Promise<{ prompts: PromptDef[]; sources: PromptSource[] }> {
+    const qs = new URLSearchParams();
+    if (scope.session_id) qs.set('session_id', scope.session_id);
+    if (scope.workspace_id) qs.set('workspace_id', scope.workspace_id);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get<{ prompts: PromptDef[]; sources: PromptSource[] }>(
+      `/v1/prompts${suffix}`,
+    );
+  }
+
+  /**
+   * POST /v1/prompts/reload — re-scan the prompt sources for new or
+   * changed files. Useful after the user edits a prompt on disk.
+   */
+  reloadPrompts(): Promise<unknown> {
+    return this.post<unknown>('/v1/prompts/reload', {});
   }
 
   /**
