@@ -18,7 +18,7 @@ tauri = { version = "2.0", features = ["tray-icon", "image-png"] }
 tauri-plugin-notification = "2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Lifecycle supervisor (Wave 0c)
+# Lifecycle supervisor (Wave 0c) + the gact_http command (post-tag bridge)
 rand = "0.8"
 ureq = { version = "2.10", default-features = false }
 hex = "0.4"

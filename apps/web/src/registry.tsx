@@ -28,6 +28,7 @@ import {
   type Persistence,
 } from '@clio/core';
 import { Client } from '@clio/core';
+import { inTauri, tauriFetch } from './tauri.js';
 
 export interface BackendRegistry {
   state: Accessor<BackendRegistryState>;
@@ -80,7 +81,11 @@ export function createBackendRegistry(
     const entry = state().backends.find((b) => b.id === id);
     if (!entry) return;
     try {
-      const c = new Client({ baseUrl: entry.url, bearerToken: entry.bearerToken });
+      const c = new Client({
+        baseUrl: entry.url,
+        bearerToken: entry.bearerToken,
+        fetch: inTauri() ? tauriFetch : undefined,
+      });
       const caps = await c.capabilities();
       update(id, { capabilities: caps, lastError: undefined });
     } catch (e) {

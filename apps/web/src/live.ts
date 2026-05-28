@@ -32,6 +32,7 @@ import {
   type SessionStatus,
 } from '@clio/core';
 import type { SidebarSession } from './components/Sidebar.js';
+import { inTauri, tauriFetch } from './tauri.js';
 
 export interface LiveStoreOptions {
   url: string;
@@ -75,7 +76,11 @@ export interface MessageCompletion {
  * green→amber→red without us hammering /v1/sessions.
  */
 export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
-  const client = new Client({ baseUrl: opts.url, bearerToken: opts.bearerToken });
+  const client = new Client({
+    baseUrl: opts.url,
+    bearerToken: opts.bearerToken,
+    fetch: inTauri() ? tauriFetch : undefined,
+  });
 
   const [override, setOverride] = createSignal<SidebarSession[] | null>(null);
   const [resource, { refetch }] = createResource<SidebarSession[]>(async () => {

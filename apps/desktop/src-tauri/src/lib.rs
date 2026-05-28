@@ -9,8 +9,10 @@
 mod ssh;
 mod supervisor;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
 use ssh::{TunnelHandle, TunnelManager, TunnelRequest};
 use supervisor::{BackendHandle, Supervisor};
 use tauri::{
@@ -55,6 +57,104 @@ fn tunnel_open(
     tunnels.open(request).map_err(|e| e.to_string())
 }
 
+#[derive(Deserialize)]
+struct GactHttpRequest {
+    method: String,
+    url: String,
+    #[serde(default)]
+    headers: HashMap<String, String>,
+    #[serde(default)]
+    body: Option<String>,
+}
+
+#[derive(Serialize)]
+struct GactHttpResponse {
+    status: u16,
+    status_text: String,
+    headers: HashMap<String, String>,
+    body: String,
+}
+
+/// Direct HTTP bridge for the frontend.
+///
+/// The WebView origin (`http://tauri.localhost`) is cross-origin to any
+/// local sidecar (`http://127.0.0.1:17800`), and `clio-agent-gact`
+/// doesn't emit `Access-Control-Allow-Origin`, so a vanilla browser
+/// `fetch()` gets blocked at the CORS preflight. This command performs
+/// the HTTP from Rust (where there's no CORS layer) and returns a
+/// JSON-serializable response the frontend can reconstruct into a
+/// `Response`.
+#[tauri::command]
+fn gact_http(req: GactHttpRequest) -> Result<GactHttpResponse, String> {
+    let method = req.method.to_uppercase();
+    let mut builder = match method.as_str() {
+        "GET" => ureq::get(&req.url),
+        "POST" => ureq::post(&req.url),
+        "PUT" => ureq::put(&req.url),
+        "PATCH" => ureq::request("PATCH", &req.url),
+        "DELETE" => ureq::delete(&req.url),
+        _ => return Err(format!("unsupported method: {method}")),
+    };
+    for (k, v) in &req.headers {
+        builder = builder.set(k, v);
+    }
+    builder = builder.timeout(Duration::from_secs(30));
+    let result = if let Some(b) = req.body {
+        builder.send_string(&b)
+    } else {
+        builder.call()
+    };
+    let resp = match result {
+        Ok(r) => r,
+        Err(ureq::Error::Status(code, r)) => {
+            // Surface the error response with status + body so the
+            // frontend's HttpError lift sees the SPEC §14 envelope.
+            let mut headers = HashMap::new();
+            for h in r.headers_names() {
+                if let Some(v) = r.header(&h) {
+                    headers.insert(h, v.to_string());
+                }
+            }
+            let body = r.into_string().unwrap_or_default();
+            return Ok(GactHttpResponse {
+                status: code,
+                status_text: status_text_for(code),
+                headers,
+                body,
+            });
+        }
+        Err(e) => return Err(format!("gact_http transport error: {e}")),
+    };
+    let status = resp.status();
+    let mut headers = HashMap::new();
+    for h in resp.headers_names() {
+        if let Some(v) = resp.header(&h) {
+            headers.insert(h, v.to_string());
+        }
+    }
+    let body = resp.into_string().map_err(|e| format!("read body: {e}"))?;
+    Ok(GactHttpResponse {
+        status,
+        status_text: status_text_for(status),
+        headers,
+        body,
+    })
+}
+
+fn status_text_for(code: u16) -> String {
+    match code {
+        200 => "OK".into(),
+        201 => "Created".into(),
+        204 => "No Content".into(),
+        400 => "Bad Request".into(),
+        401 => "Unauthorized".into(),
+        403 => "Forbidden".into(),
+        404 => "Not Found".into(),
+        500 => "Internal Server Error".into(),
+        _ => "".into(),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let supervisor = Supervisor::new();
@@ -78,7 +178,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             harness_info,
             get_backend,
-            tunnel_open
+            tunnel_open,
+            gact_http
         ])
         .setup(|app| {
             // Tray icon with a single "Show / Quit" menu — counts as the
