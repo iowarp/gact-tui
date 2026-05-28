@@ -153,6 +153,15 @@ export class Client {
     return this.post<Session>('/v1/sessions', input);
   }
 
+  /** DELETE /v1/sessions/{id} — removes a session and returns 204. */
+  deleteSession(sessionId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
   /**
    * PATCH /v1/sessions/{id} — update session metadata (title, model,
    * agent mode, archived). Used by the composer's model picker + perm
