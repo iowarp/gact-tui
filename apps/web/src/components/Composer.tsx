@@ -67,6 +67,13 @@ export interface ComposerProps {
 
   /** Optional override for the textarea placeholder. */
   placeholder?: string;
+
+  /**
+   * When a paste is at least this many lines, replace it with a
+   * `[pasted N lines · click to expand]` chip. Defaults to 3.
+   * Set to 0 to disable.
+   */
+  pasteCompressThreshold?: number;
 }
 
 export function Composer(props: ComposerProps = {}) {
@@ -90,6 +97,17 @@ export function Composer(props: ComposerProps = {}) {
       // Leave setStopping(true) — the createEffect above will flip it
       // back to false once the streaming signal drops.
     }
+  }
+
+  // Pasted blobs that have been compressed into `[pasted N lines]`
+  // placeholders. Keyed by a synthetic id embedded in the placeholder
+  // text so submit can expand them before posting.
+  const [pasteStash, setPasteStash] = createSignal<Record<string, string>>({});
+  const PASTE_RE = /\[pasted (\d+) lines? · click to expand · #([a-z0-9]+)\]/g;
+
+  function expandPastes(t: string): string {
+    const stash = pasteStash();
+    return t.replace(PASTE_RE, (whole, _lines, id) => stash[id] ?? whole);
   }
 
   // Per-session draft persistence. On draftKey change, save the
@@ -254,7 +272,9 @@ export function Composer(props: ComposerProps = {}) {
     const attached = attachments();
     setAttachments([]);
     try {
-      await props.onSubmit(buildSubmitText(t, attached));
+      await props.onSubmit(buildSubmitText(expandPastes(t), attached));
+      // Clear the stash on successful send.
+      setPasteStash({});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setText(t);
@@ -339,6 +359,34 @@ export function Composer(props: ComposerProps = {}) {
               }
               rows={1}
               value={text()}
+              onPaste={(e) => {
+                const threshold = props.pasteCompressThreshold ?? 3;
+                if (threshold <= 0) return;
+                const clip = e.clipboardData?.getData('text');
+                if (!clip) return;
+                const lines = clip.split(/\r?\n/).length;
+                if (lines < threshold) return;
+                e.preventDefault();
+                const id = Math.random().toString(36).slice(2, 8);
+                setPasteStash((s) => ({ ...s, [id]: clip }));
+                const ta = e.currentTarget;
+                const start = ta.selectionStart;
+                const end = ta.selectionEnd;
+                const placeholder = `[pasted ${lines} lines · click to expand · #${id}]`;
+                const before = ta.value.slice(0, start);
+                const after = ta.value.slice(end);
+                const next = before + placeholder + after;
+                setText(next);
+                // Move caret to just after the inserted placeholder on
+                // the next tick so the user can keep typing.
+                queueMicrotask(() => {
+                  ta.value = next;
+                  const pos = (before + placeholder).length;
+                  ta.setSelectionRange(pos, pos);
+                  ta.style.height = 'auto';
+                  ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+                });
+              }}
               onInput={(e) => {
                 setText(e.currentTarget.value);
                 // auto-resize
@@ -364,6 +412,52 @@ export function Composer(props: ComposerProps = {}) {
                 if (e.key === '/' && text().length === 0 && props.onSlashTyped) {
                   e.preventDefault();
                   props.onSlashTyped();
+                  return;
+                }
+                // Ctrl/Cmd+P expands the most recent compressed paste
+                // back into the textarea in place.
+                if (
+                  (e.metaKey || e.ctrlKey) &&
+                  e.key.toLowerCase() === 'p' &&
+                  !e.shiftKey
+                ) {
+                  const ids = Object.keys(pasteStash());
+                  if (ids.length === 0) return;
+                  e.preventDefault();
+                  const ta = e.currentTarget;
+                  const current = ta.value;
+                  // Replace the last occurrence of any placeholder.
+                  let nextText = current;
+                  let lastIdx = -1;
+                  let lastId = '';
+                  let lastWhole = '';
+                  let m: RegExpExecArray | null;
+                  const re = new RegExp(PASTE_RE.source, 'g');
+                  while ((m = re.exec(current)) !== null) {
+                    if (m.index > lastIdx) {
+                      lastIdx = m.index;
+                      lastId = m[2] ?? '';
+                      lastWhole = m[0];
+                    }
+                  }
+                  if (lastIdx < 0 || !lastId) return;
+                  const stash = pasteStash();
+                  const expansion = stash[lastId] ?? '';
+                  nextText =
+                    current.slice(0, lastIdx) +
+                    expansion +
+                    current.slice(lastIdx + lastWhole.length);
+                  setText(nextText);
+                  setPasteStash((s) => {
+                    const copy = { ...s };
+                    delete copy[lastId];
+                    return copy;
+                  });
+                  queueMicrotask(() => {
+                    ta.value = nextText;
+                    ta.style.height = 'auto';
+                    ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+                  });
                   return;
                 }
                 // Cmd/Ctrl+Enter forces a submit even when Shift is
