@@ -45,6 +45,8 @@ export interface SessionsColumnProps {
   onPickWorkspace?: (id: string) => void;
   /** Manual list refresh — usually wired to live.refetch(). */
   onRefresh?: () => void | Promise<void>;
+  /** Import a session from a JSON blob (POST /v1/sessions/import). */
+  onImportSession?: (blob: Record<string, unknown>) => void | Promise<void>;
   /** Per-row actions; rendered as a hover-revealed kebab menu. */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
@@ -124,17 +126,50 @@ export function SessionsColumn(props: SessionsColumnProps) {
             data-testid="sessions-search"
           />
         </div>
-        <button
-          type="button"
-          class="sx__new"
-          disabled={!props.onNewSession}
-          onClick={() => void props.onNewSession?.()}
-          data-testid="sessions-new"
-        >
-          <Icon name="plus" size={14} />
-          <span>New session</span>
-          <span class="sx__kbd">Ctrl + N</span>
-        </button>
+        <div class="sx__new-row">
+          <button
+            type="button"
+            class="sx__new"
+            disabled={!props.onNewSession}
+            onClick={() => void props.onNewSession?.()}
+            data-testid="sessions-new"
+          >
+            <Icon name="plus" size={14} />
+            <span>New session</span>
+            <span class="sx__kbd">Ctrl + N</span>
+          </button>
+          <Show when={props.onImportSession}>
+            <button
+              type="button"
+              class="sx__new sx__new--icon"
+              title="Import session from JSON file"
+              aria-label="Import session"
+              data-testid="sessions-import"
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'application/json,.json';
+                input.onchange = async () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const blob = JSON.parse(text);
+                    await props.onImportSession?.(blob);
+                  } catch (e) {
+                    alert(
+                      'Import failed: ' +
+                        (e instanceof Error ? e.message : String(e)),
+                    );
+                  }
+                };
+                input.click();
+              }}
+            >
+              <Icon name="arrow-up-right" size={14} />
+            </button>
+          </Show>
+        </div>
         <Show
           when={
             props.rows.some(
