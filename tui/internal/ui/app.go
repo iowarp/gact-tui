@@ -5512,6 +5512,10 @@ func (a *App) applySSE(e client.SSEEvent) {
 				}
 			}
 		}
+	case "user_question.created":
+		a.applyUserQuestionCreated(e)
+	case "user_question.answered", "user_question.cancelled":
+		a.applyUserQuestionResolved(e)
 	case "permission.requested":
 		a.applyPermissionRequested(e)
 	case "permission.resolved":

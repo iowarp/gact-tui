@@ -21,6 +21,58 @@ func (s *Server) handleListQuestions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"questions": questions})
 }
 
+func (s *Server) handleCreateQuestion(w http.ResponseWriter, r *http.Request) {
+	sid := r.PathValue("id")
+	sess, err := s.store.GetSession(sid)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req gact.CreateUserQuestionRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		writeError(w, http.StatusUnprocessableEntity, "bad_request", "missing required field: prompt")
+		return
+	}
+	now := time.Now().UTC()
+	q := gact.UserQuestion{
+		ID:        "question_" + shortOpaqueID(sid, now),
+		SessionID: sid,
+		Prompt:    prompt,
+		Status:    "pending",
+		Kind:      firstNonEmptyString(req.Kind, "freeform"),
+		Options:   append([]gact.UserQuestionOption(nil), req.Options...),
+		CreatedAt: now,
+		UpdatedAt: now,
+		ExpiresAt: req.ExpiresAt,
+		Source:    firstNonEmptyString(req.Source, "orchestrator"),
+		TurnID:    req.TurnID,
+		AttemptID: req.AttemptID,
+		Metadata:  req.Metadata,
+	}
+	if q.Kind == "confirmation" && len(q.Options) == 0 {
+		q.Options = []gact.UserQuestionOption{{Label: "Yes", Value: "yes"}, {Label: "No", Value: "no"}}
+	}
+	s.userQuestions[q.ID] = q
+	_, _ = s.store.UpdateSession(sid, func(row *gact.Session) {
+		row.Status = gact.StatusWaitingUser
+		if row.Metadata == nil {
+			row.Metadata = map[string]any{}
+		}
+		row.Metadata["pending_user_question_id"] = q.ID
+	})
+	s.bus.Publish(events.Event{Type: "session.status_changed", SessionID: sid, Payload: map[string]any{
+		"session_id":  sid,
+		"status":      gact.StatusWaitingUser,
+		"prev_status": sess.Status,
+	}})
+	s.bus.Publish(events.Event{Type: "user_question.created", SessionID: sid, Payload: q})
+	writeJSON(w, http.StatusCreated, q)
+}
+
 func (s *Server) handleAnswerQuestion(w http.ResponseWriter, r *http.Request) {
 	sid := r.PathValue("id")
 	qid := r.PathValue("question_id")
@@ -41,6 +93,7 @@ func (s *Server) handleAnswerQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	q.AnswerMetadata = req.Metadata
 	q.UpdatedAt = time.Now().UTC()
+	s.userQuestions[q.ID] = q
 
 	text := "Answered question " + q.ID
 	if q.Answer != "" {
@@ -66,6 +119,13 @@ func (s *Server) handleAnswerQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.bus.Publish(events.Event{Type: "message.created", SessionID: sid, Payload: msg})
+	_, _ = s.store.UpdateSession(sid, func(row *gact.Session) {
+		row.Status = gact.StatusIdle
+		if row.Metadata != nil {
+			row.Metadata["pending_user_question_id"] = ""
+		}
+	})
+	s.bus.Publish(events.Event{Type: "user_question.answered", SessionID: sid, Payload: q})
 	writeJSON(w, http.StatusOK, q)
 }
 
@@ -79,6 +139,14 @@ func (s *Server) handleCancelQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	q.Status = "cancelled"
 	q.UpdatedAt = time.Now().UTC()
+	s.userQuestions[q.ID] = q
+	_, _ = s.store.UpdateSession(sid, func(row *gact.Session) {
+		row.Status = gact.StatusIdle
+		if row.Metadata != nil {
+			row.Metadata["pending_user_question_id"] = ""
+		}
+	})
+	s.bus.Publish(events.Event{Type: "user_question.cancelled", SessionID: sid, Payload: q})
 	writeJSON(w, http.StatusOK, q)
 }
 
@@ -155,6 +223,17 @@ func (s *Server) sessionQuestions(sid, status string) ([]gact.UserQuestion, erro
 		return nil, err
 	}
 	questions := make([]gact.UserQuestion, 0)
+	seen := map[string]bool{}
+	for _, q := range s.userQuestions {
+		if q.SessionID != sid {
+			continue
+		}
+		if status != "" && q.Status != status {
+			continue
+		}
+		questions = append(questions, q)
+		seen[q.ID] = true
+	}
 	for i := len(msgs) - 1; i >= 0; i-- {
 		for _, part := range msgs[i].Parts {
 			if part.Question == nil {
@@ -169,6 +248,9 @@ func (s *Server) sessionQuestions(sid, status string) ([]gact.UserQuestion, erro
 			}
 			if q.Status == "" {
 				q.Status = "pending"
+			}
+			if seen[q.ID] {
+				continue
 			}
 			if status != "" && q.Status != status {
 				continue

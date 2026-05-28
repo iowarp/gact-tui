@@ -1311,6 +1311,17 @@ func (c *Client) ListPendingQuestions(ctx context.Context, sessionID string) ([]
 	return out.Questions, err
 }
 
+func (c *Client) CreateUserQuestion(
+	ctx context.Context,
+	sessionID string,
+	req gact.CreateUserQuestionRequest,
+) (gact.UserQuestion, error) {
+	var out gact.UserQuestion
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
 func (c *Client) AnswerUserQuestion(
 	ctx context.Context,
 	sessionID string,
@@ -1320,6 +1331,13 @@ func (c *Client) AnswerUserQuestion(
 	var out gact.UserQuestion
 	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions/" + url.PathEscape(questionID) + "/answer"
 	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) CancelUserQuestion(ctx context.Context, sessionID, questionID string) (gact.UserQuestion, error) {
+	var out gact.UserQuestion
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions/" + url.PathEscape(questionID) + "/cancel"
+	err := c.do(ctx, http.MethodPost, path, nil, &out)
 	return out, err
 }
 
