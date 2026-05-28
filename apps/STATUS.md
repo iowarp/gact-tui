@@ -177,6 +177,11 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
 - Context tab Remove button + diff Pin-to-context button
   exercise the /v1/sessions/{id}/context/files RPCs end-to-end.
   (0c385af / 9c3992f)
+- Inspector Diffs entries open the DiffPane on click. (9b2fe36)
+- Cmd+Shift+S forks the current session (alongside Cmd+S export).
+  (778b540)
+- InlineMarkdown accepts `_italic_` and `__bold__` alongside the
+  asterisk variants. (9ed74b9)
 
 ## Phase status
 
