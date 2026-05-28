@@ -251,3 +251,14 @@
   border-radius: 3px;
   margin: 0 2px;
 }
+
+.composer__send--stopping {
+  opacity: 0.55;
+  cursor: progress;
+  animation: composer-stop-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes composer-stop-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.85; }
+}
