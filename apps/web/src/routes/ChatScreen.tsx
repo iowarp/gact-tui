@@ -209,6 +209,16 @@ function LiveDriven(props: {
   const transcript = createLiveTranscript(live.client, activeId, {
     patch: live.patch,
     setRaw: live.setRaw,
+    onNotification: (n) => {
+      const tone =
+        n.level === 'error' ? 'error' : n.level === 'warning' ? 'warn' : 'info';
+      toast.push({
+        tone,
+        title: n.title,
+        ...(n.body ? { body: n.body } : {}),
+        duration: tone === 'error' ? 6000 : 3500,
+      });
+    },
   });
 
   createMemo(() => {
