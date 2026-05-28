@@ -2,7 +2,7 @@ import { createSignal, Match, Switch } from 'solid-js';
 import { ConnectScreen } from './routes/ConnectScreen.js';
 import { ChatScreen } from './routes/ChatScreen.js';
 import { SplashScreen } from './routes/SplashScreen.js';
-import { SettingsShell } from './routes/SettingsShell.js';
+import { SettingsShell, type SettingsSection } from './routes/SettingsShell.js';
 import { AddRemoteBackend } from './routes/AddRemoteBackend.js';
 import type { Capabilities } from '@clio/core';
 import { inTauri } from './tauri.js';
@@ -23,7 +23,7 @@ type Route =
   | { name: 'splash' }
   | { name: 'connect' }
   | { name: 'chat'; backend: BackendHandle }
-  | { name: 'settings' }
+  | { name: 'settings'; section?: SettingsSection }
   | { name: 'add-remote' };
 
 export function App() {
@@ -115,17 +115,26 @@ export function App() {
             return (
               <ChatScreen
                 backend={r.backend}
-                onOpenSettings={() => setRoute({ name: 'settings' })}
+                onOpenSettings={(section) =>
+                  setRoute({ name: 'settings', ...(section ? { section } : {}) })
+                }
                 onAddRemote={() => setRoute({ name: 'add-remote' })}
               />
             );
           })()}
         </Match>
         <Match when={route().name === 'settings'}>
-          <SettingsShell
-            onAddRemote={() => setRoute({ name: 'add-remote' })}
-            onBack={() => backToChat(registry, setRoute)}
-          />
+          {(() => {
+            const r = route();
+            if (r.name !== 'settings') return null;
+            return (
+              <SettingsShell
+                onAddRemote={() => setRoute({ name: 'add-remote' })}
+                onBack={() => backToChat(registry, setRoute)}
+                {...(r.section ? { initial: r.section } : {})}
+              />
+            );
+          })()}
         </Match>
         <Match when={route().name === 'add-remote'}>
           <AddRemoteBackend
