@@ -171,6 +171,12 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
 - Persist active session id per backend. (37ce315)
 - Density chip is now a click-to-cycle button. (4970c18)
 - Tokens chip in topbar from message.completed. (dba1b65)
+- Send-message errors → toasts with LM-config hint. (dcb9ed7)
+- Strikethrough + GitHub task lists in InlineMarkdown.
+  (5b8f557 / a2cbdfc)
+- Context tab Remove button + diff Pin-to-context button
+  exercise the /v1/sessions/{id}/context/files RPCs end-to-end.
+  (0c385af / 9c3992f)
 
 ## Phase status
 
