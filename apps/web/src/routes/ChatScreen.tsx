@@ -1525,9 +1525,15 @@ function ChatLayout(props: ChatLayoutProps) {
                 perm · {props.permMode}
               </button>
             </Show>
-            <span class="chat__meta-item" data-testid="density-chip">
+            <button
+              type="button"
+              class="chat__meta-item chat__meta-item--clickable"
+              data-testid="density-chip"
+              title="Cycle density (Ctrl+O)"
+              onClick={() => cycleDensity(props.density, props.setDensity)}
+            >
               density · {props.density}
-            </span>
+            </button>
           </div>
           <div class="chat__topbar-actions">
             <NotificationCenter />
