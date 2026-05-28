@@ -294,7 +294,7 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 
 // TestFilePicker_OpensOnAtAndInserts verifies M6: typing `@` at the
 // start of input opens the picker, Enter on a loaded entry inserts
-// `@path` into the buffer and triggers an AddContextFile command.
+// `@path` into the buffer and records a send-time context attachment.
 func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
 	a := newReadyApp(sessions, nil)
@@ -335,8 +335,11 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	if !strings.Contains(a.input.Value(), "@internal/store/store.go") {
 		t.Fatalf("insert missing: %q", a.input.Value())
 	}
-	if cmd == nil {
-		t.Fatalf("expected addContextFile cmd after insert")
+	if cmd != nil {
+		t.Fatalf("picker selection should not attach until send")
+	}
+	if len(a.fileMentions) != 1 || a.fileMentions[0].Path != "internal/store/store.go" {
+		t.Fatalf("file mentions = %#v, want selected store path", a.fileMentions)
 	}
 }
 
