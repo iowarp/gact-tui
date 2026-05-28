@@ -55,6 +55,11 @@ import {
 import { Client } from '@clio/core';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useToast } from '../components/Toast.js';
+import {
+  createPersistedBoolean,
+  createPersistedSignal,
+  createPersistedString,
+} from '../persisted.js';
 import './chat.css';
 
 export interface ChatScreenProps {
@@ -187,7 +192,15 @@ function LiveDriven(props: {
     if (!activeId() && list.length > 0) setActiveId(list[0]!.id);
   });
 
-  const [density, setDensity] = createSignal<TranscriptDensity>('normal');
+  const [density, setDensity] = createPersistedSignal<TranscriptDensity>(
+    'clio.density.v1',
+    'normal',
+    {
+      parse: (s) =>
+        s === 'verbose' || s === 'summary' ? (s as TranscriptDensity) : 'normal',
+      stringify: (v) => v,
+    },
+  );
   const [streaming, setStreaming] = createSignal(false);
   const toast = useToast();
 
@@ -288,7 +301,10 @@ function LiveDriven(props: {
     const ws = workspacesData()?.workspaces ?? [];
     return ws.map((w) => ({ id: w.id, name: w.name, rootPath: w.root_path }));
   });
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = createSignal<string>('__all');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = createPersistedString(
+    'clio.selected-workspace.v1',
+    '__all',
+  );
   const filteredRows = createMemo(() => {
     const ws = selectedWorkspaceId();
     if (ws === '__all') return rows();
@@ -511,7 +527,10 @@ function ChatLayout(props: ChatLayoutProps) {
   const [activeDiff, setActiveDiff] = createSignal<FileDiff | null>(null);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal('');
-  const [inspectorOpen, setInspectorOpen] = createSignal(true);
+  const [inspectorOpen, setInspectorOpen] = createPersistedBoolean(
+    'clio.inspector-open.v1',
+    true,
+  );
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
 
   // Shared Client for the discovery pages — same backend, routed
