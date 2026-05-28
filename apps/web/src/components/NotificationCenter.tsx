@@ -11,6 +11,14 @@ import './notification-center.css';
 export function NotificationCenter() {
   const toast = useToast();
   const [open, setOpen] = createSignal(false);
+  // Tick once per minute so the 'Nm ago' labels stay accurate while
+  // the panel sits open.
+  const [tick, setTick] = createSignal(0);
+  onMount(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    onCleanup(() => clearInterval(id));
+  });
+  void tick;
 
   function toggle() {
     const next = !open();
@@ -89,7 +97,9 @@ export function NotificationCenter() {
                       <Show when={entry.body}>
                         <div class="nc__detail">{entry.body}</div>
                       </Show>
-                      <div class="nc__time">{humanWhen(entry.pushedAt)}</div>
+                      <div class="nc__time">
+                        {(tick(), humanWhen(entry.pushedAt))}
+                      </div>
                     </div>
                   </li>
                 )}
