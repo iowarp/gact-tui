@@ -125,6 +125,30 @@ every step below — `pnpm --filter @clio/web test:visual` is green.
 - Cmd/Ctrl+Enter forces a submit even when Shift is held, so
   Discord/Slack muscle memory works alongside the default
   Enter-sends convention. (72750ea)
+- Esc stops a streaming turn when no overlay (palette / cheatsheet
+  / search) is open. (5665ca5)
+- Cmd+I toggles the inspector drawer. (a9d2f21)
+
+## Picking up new clio-agent develop endpoints (post-v0.9.0)
+
+The develop-branch clio-agent-gact shipped a wave of new GACT v0.2
+surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
+#378 / #379 / #380 / #381). Wave-5 wires what the desktop can use:
+
+- **/v1/prompts** registry → new Prompts discovery page, capability-
+  gated on the `prompts` flag, with reload + per-prompt validation
+  error display. (b07d3fb)
+- **/v1/sessions/{id}/{undo,rewind}** → palette 'undo last turn'
+  action + `createLiveTranscript().refetch()` for post-mutation
+  transcript reload. (07dd16e)
+- **/v1/sessions/{id}/tasks** → Inspector gains a Tasks tab between
+  Thinking and Health, showing per-task status pip + status code.
+  (585efe8)
+- **/v1/capability-gaps** → Doctor shows a 'Capability gaps' card
+  list so 'not supported' is explicit, not inferred from 404s.
+  (c443330)
+- **/v1/sessions/{id}/compact** → palette 'compact session' triggers
+  manual history collapse. (5d66fd1)
 
 ## Phase status
 
