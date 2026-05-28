@@ -9,6 +9,12 @@
   min-height: 0;
 }
 
+/* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
+   and the inspector — they're chat-specific affordances. */
+.chat--discovery {
+  grid-template-columns: 56px 1fr;
+}
+
 .chat__main-col {
   display: flex;
   flex-direction: column;

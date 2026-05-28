@@ -3,9 +3,11 @@ import {
   createMemo,
   createSignal,
   For,
+  Match,
   onCleanup,
   onMount,
   Show,
+  Switch,
 } from 'solid-js';
 import type {
   FileDiff,
@@ -34,6 +36,18 @@ import {
   type SlashCommand,
 } from '../components/SlashPalette.js';
 import { Transcript, type TranscriptDensity } from '../components/Transcript.js';
+import {
+  AgentsPage,
+  DoctorPage,
+  McpPage,
+  MemoryPage,
+  MetricsPage,
+  ProvidersPage,
+  ToolsPage,
+  WorkspacesPage,
+} from './discovery/index.js';
+import { Client } from '@clio/core';
+import { inTauri, tauriFetch } from '../tauri.js';
 import './chat.css';
 
 export interface ChatScreenProps {
@@ -278,6 +292,13 @@ function ChatLayout(props: ChatLayoutProps) {
   const [inspectorOpen, setInspectorOpen] = createSignal(true);
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
 
+  // Shared Client for the discovery pages — same backend, routed
+  // through gact_http inside Tauri to dodge CORS.
+  const discoveryClient = new Client({
+    baseUrl: props.backendUrl,
+    fetch: inTauri() ? tauriFetch : undefined,
+  });
+
   onMount(() => {
     if (props.preOpen === 'diff') {
       const firstDiff = firstFileDiff(props.messages);
@@ -357,28 +378,48 @@ function ChatLayout(props: ChatLayoutProps) {
 
   const capsFlags = () => props.caps?.capabilities ?? {};
 
+  const onChat = () => railRoute() === 'sessions';
+
   return (
-    <div class="chat" data-testid="chat-screen">
+    <div
+      class={'chat ' + (onChat() ? '' : 'chat--discovery')}
+      data-testid="chat-screen"
+    >
       <LeftRail
         active={railRoute()}
         caps={capsFlags()}
         onSelect={(id) => {
+          if (id === 'settings') {
+            props.onOpenSettings?.();
+            return;
+          }
           setRailRoute(id);
-          if (id === 'settings') props.onOpenSettings?.();
         }}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
-      <SessionsColumn
-        rows={props.sessions}
-        activeId={props.activeId}
-        onSelect={props.onSelect}
-        onNewSession={props.onNewSession}
-        connectionLabel={props.sseStatus ?? 'idle'}
-        connectionTone={connectionTone()}
-      />
+      <Show when={onChat()}>
+        <SessionsColumn
+          rows={props.sessions}
+          activeId={props.activeId}
+          onSelect={props.onSelect}
+          onNewSession={props.onNewSession}
+          connectionLabel={props.sseStatus ?? 'idle'}
+          connectionTone={connectionTone()}
+        />
+      </Show>
 
       <div class="chat__main-col">
+        <Show
+          when={onChat()}
+          fallback={
+            <DiscoveryView
+              route={railRoute()}
+              client={discoveryClient}
+              onBackToChat={() => setRailRoute('sessions')}
+            />
+          }
+        >
         <header class="chat__topbar">
           <div class="chat__crumbs">
             <span class="chat__crumb chat__crumb-head">
@@ -486,9 +527,10 @@ function ChatLayout(props: ChatLayoutProps) {
             />
           }
         />
+        </Show>
       </div>
 
-      <Show when={inspectorOpen()}>
+      <Show when={onChat() && inspectorOpen()}>
         <InspectorDrawer
           open
           message={latestAssistant()}
@@ -513,6 +555,40 @@ function ChatLayout(props: ChatLayoutProps) {
         onClose={() => setPaletteOpen(false)}
       />
     </div>
+  );
+}
+
+function DiscoveryView(props: {
+  route: RailRoute;
+  client: Client;
+  onBackToChat: () => void;
+}) {
+  return (
+    <Show when={props.route !== 'sessions'}>
+      <Switch>
+        <Match when={props.route === 'workspaces'}>
+          <WorkspacesPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'agents'}>
+          <AgentsPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'tools'}>
+          <ToolsPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'mcp'}>
+          <McpPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'memory'}>
+          <MemoryPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'metrics'}>
+          <MetricsPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'doctor'}>
+          <DoctorPage client={props.client} />
+        </Match>
+      </Switch>
+    </Show>
   );
 }
 
