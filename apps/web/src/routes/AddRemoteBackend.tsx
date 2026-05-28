@@ -121,12 +121,11 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
               class={'settings__seg-btn ' + (mode() === 'ssh' ? 'is-active' : '')}
               onClick={() => setMode('ssh')}
               data-testid="add-remote-mode-ssh"
-              disabled={!inTauri()}
-              title={!inTauri() ? 'SSH tunneling needs the desktop shell' : undefined}
+              title={!inTauri() ? 'Form is fillable in any build; the actual ssh -L spawn only fires inside CLIO Desktop.' : undefined}
             >
               SSH tunnel
               <Show when={!inTauri()}>
-                <span class="chip chip--warn">desktop only</span>
+                <span class="chip chip--warn">desktop spawn</span>
               </Show>
             </button>
           </div>
