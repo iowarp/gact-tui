@@ -23,6 +23,11 @@ loop-test/testdata/
 # Claude Code session-only state
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
+.clio-agent-artifacts/
+.playwright-mcp/
+.mcp.json
+tmp/
+tui/gact.exe
 
 # IDE / editor
 .idea/

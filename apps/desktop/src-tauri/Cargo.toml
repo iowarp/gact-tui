@@ -1,0 +1,23 @@
+[package]
+name = "clio-desktop"
+version = "0.0.1"
+description = "CLIO Desktop — Tauri shell"
+authors = ["IOWarp / gact-tui contributors"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "clio_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

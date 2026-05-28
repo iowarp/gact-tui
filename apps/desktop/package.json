@@ -1,0 +1,23 @@
+{
+  "name": "@clio/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo 'no JS/TS lint for @clio/desktop (Rust crate via cargo)' && exit 0",
+    "typecheck": "echo 'no TS to typecheck — @clio/desktop is a Rust crate; smoke tests are JS' && exit 0",
+    "test": "node --test tests/smoke.test.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug --no-bundle"
+  },
+  "dependencies": {
+    "@clio/web": "workspace:*",
+    "@tauri-apps/api": "2.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.1.0",
+    "typescript": "5.6.3"
+  }
+}

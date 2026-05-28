@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "types": ["vite/client", "vitest/globals", "node"],
+    "paths": {
+      "@clio/core": ["../core/src/index.ts"],
+      "@clio/core/*": ["../core/src/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src/**/*", "tests/**/*", "vite.config.ts", "playwright.config.ts"]
+}
