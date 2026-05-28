@@ -1,4 +1,4 @@
-import { For } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 
 export interface InlineMarkdownProps {
   text: string;
@@ -29,11 +29,7 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
       <For each={blocks()}>
         {(b) => {
           if (b.kind === 'code') {
-            return (
-              <pre class={'im__code ' + (b.lang ? `im__code--${b.lang}` : '')}>
-                <code>{b.body}</code>
-              </pre>
-            );
+            return <CodeBlock lang={b.lang} body={b.body} />;
           }
           if (b.kind === 'heading') {
             const tag = b.level === 1 ? 'h2' : b.level === 2 ? 'h3' : 'h4';
@@ -120,6 +116,42 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
         }}
       </For>
     </div>
+  );
+}
+
+/**
+ * Renders a fenced code block with a hover-revealed Copy button and
+ * a short visual ack ("copied!") after a successful clipboard write.
+ */
+function CodeBlock(props: { lang: string | null; body: string }) {
+  const [copied, setCopied] = createSignal(false);
+  let resetTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function copy() {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(props.body).then(() => {
+      setCopied(true);
+      if (resetTimer) clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => setCopied(false), 1600);
+    });
+  }
+
+  return (
+    <pre class={'im__code ' + (props.lang ? `im__code--${props.lang}` : '')}>
+      <Show when={props.lang}>
+        <span class="im__code-lang">{props.lang}</span>
+      </Show>
+      <button
+        type="button"
+        class={'im__code-copy ' + (copied() ? 'is-copied' : '')}
+        onClick={copy}
+        aria-label="Copy code"
+        title="Copy code"
+      >
+        {copied() ? 'copied' : 'copy'}
+      </button>
+      <code>{props.body}</code>
+    </pre>
   );
 }
 
