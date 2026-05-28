@@ -5,44 +5,80 @@
   overflow: hidden;
   display: grid;
   place-items: center;
+  background:
+    radial-gradient(
+      900px 600px at 20% 18%,
+      color-mix(in srgb, var(--color-accent) 14%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      1100px 700px at 78% 82%,
+      color-mix(in srgb, var(--color-accent-cyan) 12%, transparent) 0%,
+      transparent 65%
+    ),
+    var(--color-bg);
 }
 
 .splash__main {
   position: relative;
   z-index: 1;
-  width: min(560px, 92vw);
-  padding: 24px;
+  width: min(540px, 92vw);
+  padding: 36px 32px 32px;
   text-align: center;
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: 1px solid var(--color-border-30);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.6);
+}
+
+.splash__badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    var(--color-accent) 0%,
+    var(--color-accent-cyan) 100%
+  );
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  color: var(--color-bg);
+  box-shadow:
+    0 0 32px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .splash__wordmark {
-  font-family: var(--font-display);
-  font-size: var(--text-7xl);
-  letter-spacing: 0.04em;
-  margin-bottom: 8px;
-  background: linear-gradient(120deg, var(--color-accent) 0%, var(--color-accent-cyan) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--color-heading);
 }
 
 .splash__sub {
-  margin-bottom: 32px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 0 0 24px;
 }
 
 .splash__spinner {
   display: inline-flex;
   gap: 8px;
-  margin: 24px 0 12px;
+  margin: 6px 0 14px;
 }
 
 .splash__dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--color-accent-cyan);
   opacity: 0.35;
-  animation: splash-pulse 1.4s ease-in-out infinite;
+  animation: splash-pulse 1.2s ease-in-out infinite;
 }
 
 .splash__dot:nth-child(2) {
@@ -50,55 +86,61 @@
   background: var(--color-accent);
 }
 
-.splash__dot:nth-child(3) {
-  animation-delay: 0.36s;
-}
+.splash__dot:nth-child(3) { animation-delay: 0.36s; }
 
 @keyframes splash-pulse {
-  0%, 100% { transform: scale(0.7); opacity: 0.25; }
-  40%      { transform: scale(1.15); opacity: 1;   }
+  0%,100% { transform: scale(0.85); opacity: 0.35; }
+  40%     { transform: scale(1.15); opacity: 1;   }
 }
 
 .splash__hint {
   color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  letter-spacing: var(--tracking-wider);
-  text-transform: uppercase;
-  margin-top: 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  margin: 0;
 }
 
 .splash__error {
-  margin-top: 32px;
-  padding: 20px;
+  margin-top: 24px;
+  padding: 18px 20px;
   text-align: left;
-  background: rgba(248, 113, 113, 0.05);
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-error) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+  border-radius: 14px;
+}
+
+.splash__error-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-error);
+  margin-bottom: 6px;
 }
 
 .splash__error-msg {
-  color: var(--color-error);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  margin: 8px 0;
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin: 0 0 12px;
   word-break: break-word;
 }
 
 .splash__error-hint {
   color: var(--color-muted);
-  font-size: var(--text-sm);
-  margin-top: 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  margin: 0 0 6px;
 }
 
 .splash__cmd {
   display: block;
-  background: var(--color-surface-alt);
+  background: var(--color-bg);
   border: 1px solid var(--color-border-30);
   padding: 8px 10px;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   font-family: var(--font-mono);
-  font-size: 0.8em;
+  font-size: 11.5px;
   color: var(--color-accent-cyan);
   word-break: break-all;
   margin-top: 6px;
@@ -106,7 +148,7 @@
 
 .splash__footer {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   margin-top: 24px;
 }
