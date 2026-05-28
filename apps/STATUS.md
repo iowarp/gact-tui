@@ -115,6 +115,16 @@ every step below — `pnpm --filter @clio/web test:visual` is green.
 - AtMention picker de-emojified — Icon glyphs for file/dir/agent/
   symbol. Drop the leftover ▸/▾ triangle on the thinking summary
   too. (e435cf1 / 1b7fc1f)
+- Model chip in the topbar is now a real button that deep-links
+  into Settings → Models. (e4973cb)
+- Notification Center popover anchored to a bell in the topbar —
+  surfaces the last 50 toasts with an unseen-count badge. (9e860a6)
+- `POST /v1/sessions/{id}/summarize` exposed via Client and palette
+  ("summarize session" item). Result lands on SSE as
+  `session.summarized` per SPEC §6.2. (18aa6af)
+- Cmd/Ctrl+Enter forces a submit even when Shift is held, so
+  Discord/Slack muscle memory works alongside the default
+  Enter-sends convention. (72750ea)
 
 ## Phase status
 
