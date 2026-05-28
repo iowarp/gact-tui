@@ -1,4 +1,5 @@
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
+import type { Client } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import './at-mention-picker.css';
 
@@ -16,6 +17,14 @@ export interface AtMentionPickerProps {
   highlight: number;
   onPick: (item: MentionItem) => void;
   onClose: () => void;
+  /**
+   * When set, the picker merges live workspace files (from
+   * `GET /v1/workspaces/{workspaceId}/files`) under the static
+   * agent / tool / dir entries provided by `items`. Result is
+   * de-duplicated by id.
+   */
+  client?: Client;
+  workspaceId?: string;
 }
 
 const DEFAULT_ITEMS: MentionItem[] = [
@@ -37,10 +46,47 @@ const DEFAULT_ITEMS: MentionItem[] = [
  * `/v1/agents` + a workspace file index lands as a follow-up.
  */
 export function AtMentionPicker(props: AtMentionPickerProps) {
+  // Workspace files come back over the network — cache once per
+  // workspace id so reopening the picker doesn't hit /files on every
+  // keystroke. The list is filtered against props.query in-memory.
+  const [filesCache, setFilesCache] = createSignal<Record<string, MentionItem[]>>({});
+
+  const [filesData] = createResource(
+    () => {
+      if (!props.open || !props.client || !props.workspaceId) return null;
+      return { client: props.client, workspaceId: props.workspaceId };
+    },
+    async (key) => {
+      if (!key) return [] as MentionItem[];
+      const cached = filesCache()[key.workspaceId];
+      if (cached) return cached;
+      try {
+        const res = await key.client.workspaceFiles(key.workspaceId, { limit: 200 });
+        const items: MentionItem[] = res.files.map((f) => ({
+          id: 'file:' + f.path,
+          label: f.path,
+          kind: 'file',
+          ...(f.language ? { detail: f.language } : {}),
+        }));
+        setFilesCache((s) => ({ ...s, [key.workspaceId]: items }));
+        return items;
+      } catch {
+        return [] as MentionItem[];
+      }
+    },
+  );
+
+  const merged = createMemo<MentionItem[]>(() => {
+    const fromBackend = filesData() ?? [];
+    const seen = new Set(fromBackend.map((i) => i.id));
+    const rest = props.items.filter((i) => !seen.has(i.id));
+    return [...fromBackend, ...rest];
+  });
+
   const filtered = createMemo(() => {
     const q = props.query.toLowerCase();
-    if (!q) return props.items;
-    return props.items.filter(
+    if (!q) return merged();
+    return merged().filter(
       (it) => it.label.toLowerCase().includes(q) || (it.detail ?? '').toLowerCase().includes(q),
     );
   });

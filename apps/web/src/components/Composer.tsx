@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Icon } from './Icon.js';
+import type { Client } from '@clio/core';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
 import './composer.css';
@@ -67,6 +68,12 @@ export interface ComposerProps {
 
   /** Optional override for the textarea placeholder. */
   placeholder?: string;
+
+  /** Live workspace `@`-picker — when both are set the picker also
+   * shows files from `/v1/workspaces/{id}/files` underneath the
+   * mentionItems entries. */
+  workspaceClient?: Client;
+  workspaceId?: string;
 
   /**
    * When a paste is at least this many lines, replace it with a
@@ -480,6 +487,8 @@ export function Composer(props: ComposerProps = {}) {
               query={mentionQuery() ?? ''}
               items={props.mentionItems ?? DEFAULT_ITEMS}
               highlight={mentionHighlight()}
+              client={props.workspaceClient}
+              workspaceId={props.workspaceId}
               onPick={pickMention}
               onClose={() => setMentionHighlight(0)}
             />
