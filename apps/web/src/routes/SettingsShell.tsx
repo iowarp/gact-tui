@@ -271,7 +271,7 @@ function AboutSection() {
           <div class="dp__stat">
             <div class="dp__stat-label">app</div>
             <div class="dp__stat-value" style="font-size:18px">CLIO Desktop</div>
-            <div class="dp__stat-sub">v0.9.0 cut</div>
+            <div class="dp__stat-sub">v0.9.1 polish wave</div>
           </div>
           <div class="dp__stat">
             <div class="dp__stat-label">contract</div>
