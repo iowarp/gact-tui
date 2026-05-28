@@ -150,6 +150,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}", s.handleGetMessage)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/messages/{msg_id}", s.handleDeleteMessage)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id}", s.handlePatchPart)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/questions", s.handleListQuestions)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/answer", s.handleAnswerQuestion)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/cancel", s.handleCancelQuestion)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/attempts", s.handleListAttempts)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/messages/{msg_id}/retry", s.handleRetryMessage)
 
 	// §6.11 — Permissions
 	s.mux.HandleFunc("GET /v1/permissions", s.handleListPermissions)
