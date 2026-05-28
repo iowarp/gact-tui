@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { BackendEntry } from '@clio/core';
 import { useBackendRegistry } from '../registry.js';
+import { Icon } from './Icon.js';
 import './backend-picker.css';
 
 export interface BackendPickerProps {
@@ -21,10 +22,6 @@ export function BackendPicker(props: BackendPickerProps) {
   const [open, setOpen] = createSignal(false);
 
   const cur = () => reg.current();
-  const label = () => {
-    const c = cur();
-    return c ? `${pip(c)} ${c.label}` : '⬤ no backend';
-  };
 
   return (
     <div class="bp">
@@ -36,7 +33,15 @@ export function BackendPicker(props: BackendPickerProps) {
         aria-expanded={open()}
         aria-haspopup="listbox"
       >
-        {label()} ▼
+        <Show when={cur()} fallback={<><span class="bp__pip bp__pip--idle" />no backend</>}>
+          {(c) => (
+            <>
+              <span class={'bp__pip ' + pipClass(c())} />
+              {c().label}
+            </>
+          )}
+        </Show>
+        <Icon name="chevron-down" size={12} class="bp__chev" />
       </button>
 
       <Show when={open()}>
@@ -76,7 +81,8 @@ export function BackendPicker(props: BackendPickerProps) {
               props.onAddRemote?.();
             }}
           >
-            + Add remote backend
+            <Icon name="plus" size={12} />
+            <span>Add remote backend</span>
           </button>
           <button
             type="button"
@@ -87,18 +93,13 @@ export function BackendPicker(props: BackendPickerProps) {
               props.onOpenSettings?.();
             }}
           >
-            ⚙ Backends settings
+            <Icon name="settings" size={12} />
+            <span>Backends settings</span>
           </button>
         </div>
       </Show>
     </div>
   );
-}
-
-function pip(b: BackendEntry): string {
-  if (b.lastError) return '🔴';
-  if (b.capabilities) return '🟢';
-  return '🟠';
 }
 
 function pipClass(b: BackendEntry): string {
