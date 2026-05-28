@@ -57,6 +57,9 @@ importers:
       '@clio/core':
         specifier: workspace:*
         version: link:../core
+      '@tauri-apps/api':
+        specifier: 2.1.1
+        version: 2.1.1
       solid-js:
         specifier: 1.9.12
         version: 1.9.12

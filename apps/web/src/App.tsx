@@ -1,7 +1,9 @@
 import { createSignal, Match, Switch } from 'solid-js';
 import { ConnectScreen } from './routes/ConnectScreen.js';
 import { ChatScreen } from './routes/ChatScreen.js';
+import { SplashScreen } from './routes/SplashScreen.js';
 import type { Capabilities } from '@clio/core';
+import { inTauri } from './tauri.js';
 
 export interface BackendHandle {
   url: string;
@@ -9,22 +11,27 @@ export interface BackendHandle {
   capabilities: Capabilities;
 }
 
-type Route = { name: 'connect' } | { name: 'chat'; backend: BackendHandle };
+type Route =
+  | { name: 'splash' }
+  | { name: 'connect' }
+  | { name: 'chat'; backend: BackendHandle };
 
 export function App() {
-  // PRODUCT NOTE (2026-05-27): the default route here is `connect` — that is
-  // WRONG long-term. CLIO Desktop must bundle clio-agent via Tauri sidecar,
-  // auto-start it on launch, and boot the user straight into the chat shell.
-  // The connect form belongs at /settings/backends/add-remote for the
-  // advanced "add another backend" (federation) case only. Tracked as Wave 0
-  // in apps/PLAN.md; do it before any other PLAN.md item.
-  const [route, setRoute] = createSignal<Route>({ name: 'connect' });
+  // Default route is the Splash. Inside Tauri it polls the Rust supervisor
+  // until the bundled sidecar reports ready; in a pure browser it auto-
+  // probes http://localhost:7777/v1/capabilities. The connect form only
+  // appears as a fallback when the pure-web probe fails — it is NEVER the
+  // default route. (Per the product correction in
+  // memory/feedback_clio_desktop_sidecar.md and Wave 0 in apps/PLAN.md.)
+  const [route, setRoute] = createSignal<Route>({ name: 'splash' });
 
-  // Test/visual hook: ?route=chat lands directly on the chat shell with a
-  // mocked backend handle. Keeps the harness deterministic for screenshots
-  // before the live wire is plumbed.
+  // Test/visual hook: `?route=chat` jumps directly into the chat shell
+  // with a synthesized handle so Playwright can capture screenshots
+  // without a live backend. Stays available for the legacy fixture set;
+  // the new visual proofs drive against the real sidecar.
   const url = new URL(window.location.href);
-  if (url.searchParams.get('route') === 'chat') {
+  const routeParam = url.searchParams.get('route');
+  if (routeParam === 'chat') {
     setRoute({
       name: 'chat',
       backend: {
@@ -44,10 +51,30 @@ export function App() {
         },
       },
     });
+  } else if (routeParam === 'connect') {
+    // Legacy direct entry for visual regression coverage.
+    setRoute({ name: 'connect' });
+  } else if (routeParam === 'splash') {
+    // Explicit splash entry — same as default, just no auto-skip below.
+    setRoute({ name: 'splash' });
+  }
+
+  // The current `inTauri()` check is informational only — the SplashScreen
+  // itself branches on it internally. We surface it here as a body class
+  // so CSS can vary chrome (e.g. drag region, frameless titlebar) when
+  // running inside Tauri vs. a regular browser tab.
+  if (typeof document !== 'undefined') {
+    document.body.dataset.shell = inTauri() ? 'tauri' : 'web';
   }
 
   return (
     <Switch>
+      <Match when={route().name === 'splash'}>
+        <SplashScreen
+          onReady={(b) => setRoute({ name: 'chat', backend: b })}
+          onWebFallbackNeeded={() => setRoute({ name: 'connect' })}
+        />
+      </Match>
       <Match when={route().name === 'connect'}>
         <ConnectScreen onConnected={(b) => setRoute({ name: 'chat', backend: b })} />
       </Match>
