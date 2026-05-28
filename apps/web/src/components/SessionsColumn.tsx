@@ -43,6 +43,8 @@ export interface SessionsColumnProps {
   /** Currently-selected workspace id ("__all" for unfiltered). */
   selectedWorkspaceId?: string;
   onPickWorkspace?: (id: string) => void;
+  /** Manual list refresh — usually wired to live.refetch(). */
+  onRefresh?: () => void | Promise<void>;
   /** Per-row actions; rendered as a hover-revealed kebab menu. */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
@@ -90,12 +92,26 @@ export function SessionsColumn(props: SessionsColumnProps) {
         </Show>
         <div class="sx__title-row">
           <h2 class="sx__title">Sessions</h2>
-          <Show when={props.connectionLabel}>
-            <span class={'sx__conn sx__conn--' + (props.connectionTone ?? 'idle')}>
-              <span class="sx__conn-dot" />
-              {props.connectionLabel}
-            </span>
-          </Show>
+          <div class="sx__title-actions">
+            <Show when={props.onRefresh}>
+              <button
+                type="button"
+                class="sx__title-refresh"
+                onClick={() => void props.onRefresh?.()}
+                title="Refresh sessions"
+                aria-label="Refresh sessions"
+                data-testid="sessions-refresh"
+              >
+                <Icon name="regenerate" size={12} />
+              </button>
+            </Show>
+            <Show when={props.connectionLabel}>
+              <span class={'sx__conn sx__conn--' + (props.connectionTone ?? 'idle')}>
+                <span class="sx__conn-dot" />
+                {props.connectionLabel}
+              </span>
+            </Show>
+          </div>
         </div>
         <div class="sx__search">
           <Icon name="search" size={14} class="sx__search-icon" />

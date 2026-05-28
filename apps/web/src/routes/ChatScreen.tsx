@@ -756,6 +756,7 @@ function LiveDriven(props: {
       onPermissionDecide={decidePermission}
       onStop={stopRun}
       onNewSession={newEmptySession}
+      onRefreshSessions={() => live.refetch()}
       onRenameSession={renameSession}
       onDeleteSession={deleteSession}
       onExportSession={exportSession}
@@ -825,6 +826,8 @@ interface ChatLayoutProps {
   workspaces?: WorkspaceOption[];
   selectedWorkspaceId?: string;
   onPickWorkspace?: (id: string) => void;
+  /** Manual refresh for the sessions list (LiveDriven path only). */
+  onRefreshSessions?: () => void | Promise<void>;
   /** Per-session actions (LiveDriven path only). */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
@@ -1491,6 +1494,7 @@ function ChatLayout(props: ChatLayoutProps) {
           workspaces={props.workspaces}
           selectedWorkspaceId={props.selectedWorkspaceId}
           onPickWorkspace={props.onPickWorkspace}
+          onRefresh={props.onRefreshSessions}
           onRenameSession={props.onRenameSession}
           onDeleteSession={props.onDeleteSession}
           onExportSession={props.onExportSession}
