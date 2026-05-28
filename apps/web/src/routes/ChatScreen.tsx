@@ -210,9 +210,18 @@ function LiveDriven(props: {
     }));
   });
 
-  const [activeId, setActiveId] = createSignal<string>('');
+  const [activeId, setActiveId] = createPersistedString(
+    `clio.active-session.${props.backend.url}`,
+    '',
+  );
   createEffect(() => {
     const list = rows();
+    // If the persisted active id is gone (session deleted on another
+    // client, or fresh backend), fall through to the most-recent.
+    if (activeId() && !list.some((r) => r.id === activeId()) && list.length > 0) {
+      setActiveId(list[0]!.id);
+      return;
+    }
     if (!activeId() && list.length > 0) setActiveId(list[0]!.id);
   });
 
