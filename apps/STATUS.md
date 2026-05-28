@@ -150,6 +150,16 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
 - **/v1/sessions/{id}/compact** → palette 'compact session' triggers
   manual history collapse. (5d66fd1)
 
+## Renderer / chrome polish (Wave-5 follow-up)
+
+- InlineMarkdown gains pipe-delimited table support (a59b124) and
+  '> '-prefixed blockquotes (5824863).
+- Cmd+B toggles the sessions column for focus mode; the rail icon
+  re-opens it when clicked while already on chat. (ab72e9a / a1a9b82)
+- Per-message Quote button (branch icon) drops a markdown
+  blockquote of the message body into the composer, auto-focused
+  with a clean two-newline separator above and below. (f03dc2d)
+
 ## Phase status
 
 ## Current state
