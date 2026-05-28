@@ -684,6 +684,32 @@ function ChatLayout(props: ChatLayoutProps) {
         void props.onNewSession?.();
         return;
       }
+      // Ctrl+Shift+Up/Down — move active session forward/backward in
+      // the SessionsColumn. Only fires on the chat route so it doesn't
+      // hijack arrow keys on discovery pages.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+        onChat() &&
+        props.sessions.length > 1
+      ) {
+        e.preventDefault();
+        const list = props.sessions;
+        const idx = list.findIndex((s) => s.id === props.activeId);
+        if (idx === -1) {
+          const first = list[0];
+          if (first) props.onSelect(first.id);
+        } else {
+          const nextIdx =
+            e.key === 'ArrowDown'
+              ? (idx + 1) % list.length
+              : (idx - 1 + list.length) % list.length;
+          const target = list[nextIdx];
+          if (target) props.onSelect(target.id);
+        }
+        return;
+      }
       if (e.key === 'Escape' && paletteOpen()) {
         setPaletteOpen(false);
       }
