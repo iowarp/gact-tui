@@ -11,6 +11,7 @@ import {
   createBackendRegistry,
   type BackendRegistry,
 } from './registry.js';
+import { ToastProvider } from './components/Toast.js';
 
 export interface BackendHandle {
   url: string;
@@ -84,6 +85,7 @@ export function App() {
 
   return (
     <BackendRegistryProvider registry={registry}>
+      <ToastProvider>
       <Switch>
         <Match when={route().name === 'splash'}>
           <SplashScreen
@@ -132,6 +134,7 @@ export function App() {
           />
         </Match>
       </Switch>
+      </ToastProvider>
     </BackendRegistryProvider>
   );
 }
