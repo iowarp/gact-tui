@@ -623,6 +623,26 @@ function LiveDriven(props: {
     });
   }
 
+  function quoteMessage(msg: Message) {
+    const text = messageToText(msg);
+    if (!text) return;
+    // Prepend each line with '> ' to form a markdown blockquote.
+    const quoted = text
+      .split('\n')
+      .map((line) => '> ' + line)
+      .join('\n');
+    const ta = document.querySelector(
+      '[data-testid="composer-input"]',
+    ) as HTMLTextAreaElement | null;
+    if (!ta) return;
+    const cur = ta.value;
+    const prefix = cur && !cur.endsWith('\n') ? cur + '\n\n' : cur;
+    ta.value = prefix + quoted + '\n\n';
+    ta.focus();
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.scrollTop = ta.scrollHeight;
+  }
+
   function editMessage(msg: Message) {
     // For v0.9.1 we surface the text in the composer (via a custom event
     // — wiring the actual edit into the transcript is a follow-up). The
@@ -675,6 +695,7 @@ function LiveDriven(props: {
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
+      onQuoteMessage={quoteMessage}
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
@@ -741,6 +762,7 @@ interface ChatLayoutProps {
   onCopyMessage?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
   onEditMessage?: (msg: Message) => void;
+  onQuoteMessage?: (msg: Message) => void;
 }
 
 function messageToText(msg: Message): string {
@@ -1529,6 +1551,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onCopy={props.onCopyMessage}
               onRegenerate={props.onRegenerate}
               onEdit={props.onEditMessage}
+              onQuote={props.onQuoteMessage}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
               searchQuery={searchOpen() ? searchQuery() : ''}
