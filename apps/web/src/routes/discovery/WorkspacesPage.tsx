@@ -10,7 +10,18 @@ export interface WorkspacesPageProps {
 
 export function WorkspacesPage(props: WorkspacesPageProps) {
   const [data, { refetch }] = createResource(() => props.client.workspaces());
-  const items = () => data()?.workspaces ?? [];
+  const [query, setQuery] = createSignal('');
+  const all = () => data()?.workspaces ?? [];
+  const items = () => {
+    const q = query().trim().toLowerCase();
+    if (!q) return all();
+    return all().filter(
+      (w) =>
+        w.id.toLowerCase().includes(q) ||
+        w.name.toLowerCase().includes(q) ||
+        w.root_path.toLowerCase().includes(q),
+    );
+  };
   const [showForm, setShowForm] = createSignal(false);
   const [name, setName] = createSignal('');
   const [rootPath, setRootPath] = createSignal('');
@@ -133,6 +144,19 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
             </button>
           </div>
         </form>
+      </Show>
+      <Show when={all().length > 4}>
+        <div class="dp__search-row">
+          <Icon name="search" size={14} class="dp__search-icon" />
+          <input
+            type="text"
+            class="dp__search-input"
+            placeholder="Filter workspaces by name, id, or root path…"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-testid="workspaces-search"
+          />
+        </div>
       </Show>
       <div class="dp__grid">
         <For each={items()}>{(w) => <WorkspaceCard ws={w} />}</For>
