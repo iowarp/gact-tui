@@ -179,11 +179,24 @@ follow-up.
 - `apps/SECURITY.md` sidecar binding + token policy, Tauri allowlist
   + CSP, SSH command surface, OS keychain layout, v1.0 deferrals.
 
-## Open blockers
+## Open blockers / partial-release state
 
-None for the v0.9.0 release. The `cargo test --lib` + `pnpm -r
-lint/typecheck/test` + visual matrix are all green locally. The
-remote CI matrix is the next thing to watch when the tag fires.
+The `clio-desktop-v0.9.0` GitHub Release shipped with:
+
+  - ✅ Windows `.exe` + `.msi` + SHA256SUMS
+  - ✅ Linux `.deb` + `.AppImage` + `.rpm` + SHA256SUMS
+  - ✅ Pure-web `clio-web-v0.9.0.zip` + SHA256SUMS
+  - ❌ macOS aarch64 `.dmg` — CI failed at the sidecar-launcher build
+        step (bash 3.2 doesn't support `declare -A`); fix landed on
+        `feat/apps-harness` at commit `37afdf9` but is past the
+        v0.9.0 tag.
+  - ❌ macOS x64 `.dmg` — never ran (Apple Intel runners were
+        saturated for 2+ hours).
+
+Neither macOS variant blocks the manual-test cycle on the user's
+Windows / Linux box. The next tag cut (likely v0.9.1) will pick up
+the bash-3.2 fix from feat/apps-harness HEAD and produce the full
+4-platform installer set in one run.
 
 ## Post-tag development pass (2026-05-28)
 
