@@ -340,15 +340,19 @@ function tokenizeInline(s: string): InlineToken[] {
   // Autolinks match bare http/https URLs only; markdown link syntax
   // is intentionally not parsed to keep the href whitelist tight.
   const pattern =
-    /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(~~[^~]+~~)|(https?:\/\/[^\s)>\]"']+)/g;
+    /(`[^`\n]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*\n]+\*|_[^_\n]+_)|(~~[^~]+~~)|(https?:\/\/[^\s)>\]"']+)/g;
   let cur = 0;
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(s)) !== null) {
     if (m.index > cur) out.push({ kind: 'plain', text: s.slice(cur, m.index) });
     if (m[1]) out.push({ kind: 'code', text: m[1].slice(1, -1) });
-    else if (m[2]) out.push({ kind: 'bold', text: m[2].slice(2, -2) });
-    else if (m[3]) out.push({ kind: 'italic', text: m[3].slice(1, -1) });
-    else if (m[4]) out.push({ kind: 'strike', text: m[4].slice(2, -2) });
+    else if (m[2]) {
+      // **bold** or __bold__
+      out.push({ kind: 'bold', text: m[2].slice(2, -2) });
+    } else if (m[3]) {
+      // *italic* or _italic_
+      out.push({ kind: 'italic', text: m[3].slice(1, -1) });
+    } else if (m[4]) out.push({ kind: 'strike', text: m[4].slice(2, -2) });
     else if (m[5]) {
       // Strip a trailing punctuation char that the regex greedily ate
       // so "see https://example.com." renders as a clean link.
