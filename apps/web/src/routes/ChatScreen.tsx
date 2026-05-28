@@ -410,6 +410,26 @@ function LiveDriven(props: {
     }
   }
 
+  async function compactActive() {
+    const id = activeId();
+    if (!id) return;
+    try {
+      await live.client.compactSession(id);
+      toast.push({
+        tone: 'info',
+        title: 'Compacting…',
+        body: 'Backend will emit session.compacted when done.',
+        duration: 3000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Compact failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   async function undoActive() {
     const id = activeId();
     if (!id) return;
@@ -644,6 +664,7 @@ function LiveDriven(props: {
       onTogglePin={togglePin}
       onSummarize={summarizeActive}
       onUndoTurn={undoActive}
+      onCompactSession={compactActive}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -707,6 +728,7 @@ interface ChatLayoutProps {
   onTogglePin?: (id: string) => void;
   onSummarize?: () => void | Promise<void>;
   onUndoTurn?: () => void | Promise<void>;
+  onCompactSession?: () => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -1077,6 +1099,10 @@ function ChatLayout(props: ChatLayoutProps) {
       void props.onUndoTurn?.();
       return;
     }
+    if (cmd.id === 'compact-session') {
+      void props.onCompactSession?.();
+      return;
+    }
     if (cmd.id === 'toggle-inspector') {
       setInspectorOpen((v) => !v);
       return;
@@ -1208,6 +1234,12 @@ function ChatLayout(props: ChatLayoutProps) {
         id: 'undo-turn',
         trigger: 'undo last turn',
         description: 'Drop the most recent message from this session',
+        category: 'action',
+      },
+      {
+        id: 'compact-session',
+        trigger: 'compact session',
+        description: 'Collapse history into a summary to free context window',
         category: 'action',
       },
       {
