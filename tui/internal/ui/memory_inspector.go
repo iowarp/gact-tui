@@ -48,9 +48,13 @@ func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, message
 				}
 			}
 		}
+		var toolEvidence *memoryToolEvidence
+		if scope.SessionID != "" {
+			toolEvidence = loadMemoryToolEvidence(ctx, c, scope, sessionMessages, frames)
+		}
 		return catalogDetailLoadedMsg{
 			title:      "Memory · ARC context",
-			text:       formatMemoryInspectorWithContext(stats, sessionMessages, search, frames),
+			text:       formatMemoryInspectorWithTools(stats, sessionMessages, search, frames, toolEvidence),
 			standalone: true,
 		}
 	}
@@ -61,6 +65,56 @@ func latestContextFrameID(frames []map[string]any) string {
 		return ""
 	}
 	return stringValue(frames[len(frames)-1]["id"])
+}
+
+type memoryToolEvidence struct {
+	search  *gact.MemoryToolSearchSessionsResponse
+	summary *gact.MemoryToolReadSessionSummaryResponse
+	frame   *gact.MemoryToolReadContextFrameResponse
+	errors  []string
+}
+
+func loadMemoryToolEvidence(ctx context.Context, c *client.Client, scope client.RuntimeScope, messages []gact.Message, frames []map[string]any) *memoryToolEvidence {
+	out := &memoryToolEvidence{}
+	caller := gact.MemoryToolCaller{"type": "tui", "surface": "memory_inspector"}
+	if query := memoryInspectorSearchQuery(messages); query != "" {
+		if resp, err := c.MemoryToolSearchSessions(ctx, scope.SessionID, gact.MemoryToolSearchSessionsRequest{
+			Query:  query,
+			Scope:  "session",
+			Limit:  5,
+			Caller: caller,
+		}); err != nil {
+			out.errors = append(out.errors, "search-sessions: "+err.Error())
+		} else {
+			out.search = &resp
+		}
+	}
+	if resp, err := c.MemoryToolReadSessionSummary(ctx, scope.SessionID, gact.MemoryToolReadSessionSummaryRequest{
+		Scope:  "session",
+		Caller: caller,
+	}); err != nil {
+		out.errors = append(out.errors, "read-session-summary: "+err.Error())
+	} else {
+		out.summary = &resp
+	}
+	if len(frames) > 0 {
+		frameID := stringValue(frames[len(frames)-1]["id"])
+		if frameID != "" {
+			if resp, err := c.MemoryToolReadContextFrame(ctx, scope.SessionID, gact.MemoryToolReadContextFrameRequest{
+				FrameID: frameID,
+				Scope:   "session",
+				Caller:  caller,
+			}); err != nil {
+				out.errors = append(out.errors, "read-context-frame: "+err.Error())
+			} else {
+				out.frame = &resp
+			}
+		}
+	}
+	if out.search == nil && out.summary == nil && out.frame == nil && len(out.errors) == 0 {
+		return nil
+	}
+	return out
 }
 
 func formatMemoryInspector(stats gact.MemoryStats) string {
@@ -76,6 +130,10 @@ func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Mes
 }
 
 func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any) string {
+	return formatMemoryInspectorWithTools(stats, messages, search, frames, nil)
+}
+
+func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
 	rows := appendDetailSection(nil, "ARC cache",
 		detailField{"role", "recent-context retrieval cache"},
@@ -133,6 +191,9 @@ func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Me
 	if len(frames) > 0 {
 		rows = appendContextFrameRows(rows, frames)
 	}
+	if toolEvidence != nil {
+		rows = appendMemoryToolEvidenceRows(rows, toolEvidence)
+	}
 	rows = appendDetailSection(rows, "Compaction",
 		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
@@ -147,6 +208,46 @@ func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Me
 		rows = appendJSONMapSection(rows, "metadata", stats.Metadata)
 	}
 	return strings.Join(rows, "\n")
+}
+
+func appendMemoryToolEvidenceRows(rows []string, evidence *memoryToolEvidence) []string {
+	fields := []detailField{}
+	if evidence.search != nil {
+		fields = append(fields,
+			detailField{"search_policy", metadataString(evidence.search.Metadata, "policy_decision")},
+			detailField{"search_scope", metadataString(evidence.search.Metadata, "policy_scope")},
+			detailField{"search_hits", fmt.Sprintf("%d", len(evidence.search.Hits))},
+			detailField{"search_audit", metadataString(evidence.search.Metadata, "audit_id")},
+		)
+	}
+	if evidence.summary != nil {
+		fields = append(fields,
+			detailField{"summary_policy", metadataString(evidence.summary.Metadata, "policy_decision")},
+			detailField{"summary_messages", scalarText(evidence.summary.Summary["message_count"])},
+			detailField{"summary_source", metadataString(mapValue(evidence.summary.Summary["metadata"]), "source")},
+		)
+	}
+	if evidence.frame != nil {
+		fields = append(fields,
+			detailField{"frame_policy", metadataString(evidence.frame.Metadata, "policy_decision")},
+			detailField{"frame_id", stringValue(evidence.frame.Frame["id"])},
+			detailField{"frame_source", metadataString(mapValue(evidence.frame.Frame["metadata"]), "source")},
+		)
+	}
+	if len(fields) > 0 {
+		rows = appendDetailSection(rows, "Agent-callable memory tools", fields...)
+	}
+	if len(evidence.errors) > 0 {
+		rows = appendDetailSection(rows, "Memory tool errors", detailField{"errors", strings.Join(evidence.errors, "\n")})
+	}
+	return rows
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	return stringValue(metadata[key])
 }
 
 func appendContextFrameRows(rows []string, frames []map[string]any) []string {

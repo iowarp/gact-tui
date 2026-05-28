@@ -216,6 +216,24 @@ func (c *Client) MemorySearch(ctx context.Context, req MemorySearchRequest) (gac
 	return out, err
 }
 
+func (c *Client) MemoryToolSearchSessions(ctx context.Context, sessionID string, req gact.MemoryToolSearchSessionsRequest) (gact.MemoryToolSearchSessionsResponse, error) {
+	var out gact.MemoryToolSearchSessionsResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/search-sessions", req, &out)
+	return out, err
+}
+
+func (c *Client) MemoryToolReadSessionSummary(ctx context.Context, sessionID string, req gact.MemoryToolReadSessionSummaryRequest) (gact.MemoryToolReadSessionSummaryResponse, error) {
+	var out gact.MemoryToolReadSessionSummaryResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-session-summary", req, &out)
+	return out, err
+}
+
+func (c *Client) MemoryToolReadContextFrame(ctx context.Context, sessionID string, req gact.MemoryToolReadContextFrameRequest) (gact.MemoryToolReadContextFrameResponse, error) {
+	var out gact.MemoryToolReadContextFrameResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-context-frame", req, &out)
+	return out, err
+}
+
 // --- §6.1 workspaces -------------------------------------------------------
 
 // ListWorkspacesResponse is the response shape for GET /v1/workspaces.

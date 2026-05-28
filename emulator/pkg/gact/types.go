@@ -61,6 +61,60 @@ type MemorySearchResponse struct {
 	Metadata            map[string]any    `json:"metadata,omitempty"`
 }
 
+type MemoryToolCaller map[string]any
+
+type MemoryToolSearchSessionsRequest struct {
+	Query             string           `json:"query,omitempty"`
+	Scope             string           `json:"scope,omitempty"`
+	Limit             int              `json:"limit,omitempty"`
+	UserIntent        string           `json:"user_intent,omitempty"`
+	Reason            string           `json:"reason,omitempty"`
+	AllowCrossSession bool             `json:"allow_cross_session,omitempty"`
+	AllowGlobal       bool             `json:"allow_global,omitempty"`
+	Caller            MemoryToolCaller `json:"caller,omitempty"`
+}
+
+type MemoryToolSearchSessionsResponse struct {
+	Tool             string            `json:"tool"`
+	Query            string            `json:"query"`
+	SearchedSessions []string          `json:"searched_sessions,omitempty"`
+	Hits             []MemorySearchHit `json:"hits,omitempty"`
+	Metadata         map[string]any    `json:"metadata,omitempty"`
+}
+
+type MemoryToolReadSessionSummaryRequest struct {
+	TargetSessionID   string           `json:"target_session_id,omitempty"`
+	Scope             string           `json:"scope,omitempty"`
+	UserIntent        string           `json:"user_intent,omitempty"`
+	Reason            string           `json:"reason,omitempty"`
+	AllowCrossSession bool             `json:"allow_cross_session,omitempty"`
+	AllowGlobal       bool             `json:"allow_global,omitempty"`
+	Caller            MemoryToolCaller `json:"caller,omitempty"`
+}
+
+type MemoryToolReadSessionSummaryResponse struct {
+	Tool     string         `json:"tool"`
+	Summary  map[string]any `json:"summary,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+type MemoryToolReadContextFrameRequest struct {
+	TargetSessionID   string           `json:"target_session_id,omitempty"`
+	FrameID           string           `json:"frame_id,omitempty"`
+	Scope             string           `json:"scope,omitempty"`
+	UserIntent        string           `json:"user_intent,omitempty"`
+	Reason            string           `json:"reason,omitempty"`
+	AllowCrossSession bool             `json:"allow_cross_session,omitempty"`
+	AllowGlobal       bool             `json:"allow_global,omitempty"`
+	Caller            MemoryToolCaller `json:"caller,omitempty"`
+}
+
+type MemoryToolReadContextFrameResponse struct {
+	Tool     string         `json:"tool"`
+	Frame    map[string]any `json:"frame,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
 type CacheStats struct {
 	Hits     int     `json:"hits"`
 	Misses   int     `json:"misses"`

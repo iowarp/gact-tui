@@ -388,6 +388,50 @@ func TestFormatMemoryInspectorIncludesContextFrameTruth(t *testing.T) {
 	}
 }
 
+func TestFormatMemoryInspectorIncludesAgentCallableMemoryToolPolicy(t *testing.T) {
+	out := formatMemoryInspectorWithTools(gact.MemoryStats{}, nil, nil, nil, &memoryToolEvidence{
+		search: &gact.MemoryToolSearchSessionsResponse{
+			Hits: []gact.MemorySearchHit{{SessionID: "s1", Text: "pressure dataset evidence"}},
+			Metadata: map[string]any{
+				"policy_decision": "allow_same_session",
+				"policy_scope":    "session",
+				"audit_id":        "memtool_search",
+			},
+		},
+		summary: &gact.MemoryToolReadSessionSummaryResponse{
+			Summary: map[string]any{
+				"message_count": float64(3),
+				"metadata":      map[string]any{"source": "gact_visible_transcript_summary"},
+			},
+			Metadata: map[string]any{"policy_decision": "allow_same_session"},
+		},
+		frame: &gact.MemoryToolReadContextFrameResponse{
+			Frame: map[string]any{
+				"id":       "ctx_1",
+				"metadata": map[string]any{"source": "gact_context_frame"},
+			},
+			Metadata: map[string]any{"policy_decision": "allow_same_session"},
+		},
+		errors: []string{"read-context-frame: backend timeout"},
+	})
+	for _, want := range []string{
+		"Agent-callable memory tools",
+		"search_policy: allow_same_session",
+		"search_scope: session",
+		"search_hits: 1",
+		"summary_messages: 3",
+		"summary_source: gact_visible_transcript_summary",
+		"frame_id: ctx_1",
+		"frame_source: gact_context_frame",
+		"Memory tool errors",
+		"backend timeout",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory tool evidence missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestFooter_NarrowKeepsQuitVisible(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 100
