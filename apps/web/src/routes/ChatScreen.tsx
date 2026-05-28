@@ -130,7 +130,10 @@ function LiveDriven(props: {
   const [density, setDensity] = createSignal<TranscriptDensity>('normal');
   const [streaming, setStreaming] = createSignal(false);
 
-  const transcript = createLiveTranscript(live.client, activeId);
+  const transcript = createLiveTranscript(live.client, activeId, {
+    patch: live.patch,
+    setRaw: live.setRaw,
+  });
 
   // Streaming is "active session in running state" — derive from the
   // sidebar entry once we have it.
@@ -189,6 +192,8 @@ function LiveDriven(props: {
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
+      sessionCostUsd={transcript.costUsd()}
+      lastStopReason={transcript.lastCompletion()?.stop_reason}
       onOpenSettings={props.onOpenSettings}
       onAddRemote={props.onAddRemote}
     />
@@ -216,6 +221,10 @@ interface ChatLayoutProps {
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error';
   /** Pre-open hint from URL (visual proofs): "diff" | "palette" | null. */
   preOpen?: string | null;
+  /** Rolling per-session cost from `cost.updated` events. */
+  sessionCostUsd?: number;
+  /** Last assistant turn's stop_reason; surfaced as a topbar chip. */
+  lastStopReason?: string;
   onOpenSettings?: () => void;
   onAddRemote?: () => void;
 }
@@ -289,6 +298,21 @@ function ChatLayout(props: ChatLayoutProps) {
               data-testid="sse-status-chip"
             >
               sse · {props.sseStatus}
+            </span>
+          </Show>
+          <Show when={(props.sessionCostUsd ?? 0) > 0}>
+            <span class="chip" data-testid="session-cost-chip">
+              ${(props.sessionCostUsd ?? 0).toFixed(4)}
+            </span>
+          </Show>
+          <Show when={props.lastStopReason}>
+            <span
+              class={
+                'chip ' + (props.lastStopReason === 'error' ? 'chip--err' : 'chip--ok')
+              }
+              data-testid="stop-reason-chip"
+            >
+              {props.lastStopReason}
             </span>
           </Show>
           <button
