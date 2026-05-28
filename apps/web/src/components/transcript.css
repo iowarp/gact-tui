@@ -345,11 +345,6 @@
 }
 
 .trx-thinking > summary::marker { content: ""; }
-.trx-thinking > summary::before {
-  content: "▸ ";
-  font-family: var(--font-mono);
-}
-.trx-thinking[open] > summary::before { content: "▾ "; }
 
 .trx-thinking pre {
   margin: 8px 0 0;
