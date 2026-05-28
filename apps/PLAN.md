@@ -10,26 +10,37 @@ no bearer-token paste, no setup. The harness currently ships a connect screen
 as the default route. That is wrong product framing and must be corrected
 before any of the wire-up work below.
 
-0a. **Tauri sidecar declaration.** Add `clio-agent` to
-    `apps/desktop/src-tauri/tauri.conf.json` → `bundle.externalBin`. Build /
-    fetch the platform-specific binary in CI and pin its hash. Per-OS binaries
-    land in `apps/desktop/src-tauri/binaries/clio-agent-<triple>`.
-0b. **Sidecar lifecycle in Rust.** On app launch, spawn the sidecar on a free
-    localhost port with a freshly-generated bearer token. Wait for
-    `/v1/capabilities` to 200 before opening the main window. On app close,
-    kill the sidecar (SIGTERM with a 3s grace, then SIGKILL).
-0c. **Tauri command to expose the local backend handle.** `get_backend()` →
-    `{ url, bearer_token, status }`. Frontend consumes this on mount instead
-    of rendering `<ConnectScreen />`.
-0d. **Replace `<ConnectScreen />` as the default route.** Web shell boots to
+**Architectural note (logged in STATUS.md):** the GACT-conformant server is
+`clio-agent-gact` from the `iowarp/clio-agent` **develop** branch — _not_ the
+default `clio-agent-api` shipped on PyPI today (which speaks a different
+contract). Bundling a Python interpreter + native deps into the Tauri
+installer is wasteful, so the sidecar is a tiny Go launcher binary that
+resolves & execs a real `clio-agent-gact` on the user's machine, matching
+upstream's `clio` installer pattern.
+
+0a. ✅ **Tauri sidecar declaration.** `bundle.externalBin: ["binaries/clio-agent"]`
+    in `apps/desktop/src-tauri/tauri.conf.json`. Per-triple launchers land in
+    `apps/desktop/src-tauri/binaries/clio-agent-<triple>{.exe}` and are
+    .gitignored (CI/local regenerates them).
+0b. ✅ **Sidecar acquisition.** `apps/desktop/sidecar-launcher/` Go program
+    resolves `clio-agent-gact` (env override → PATH → per-OS install prefix)
+    and execs it. `apps/desktop/scripts/fetch-sidecar.{sh,ps1}` builds the
+    launcher per-triple and writes `sidecar.lock` recording what resolved on
+    the build host. `pnpm fetch-sidecar` runs before every `tauri:*` script.
+0c. **Sidecar lifecycle in Rust.** On app launch, allocate a free localhost
+    port + generate a bearer token, spawn the launcher with `--host
+    --port --token`, poll `/v1/capabilities` until 200 (max ~10s), then open
+    the main window. On app close, SIGTERM with a 3s grace then SIGKILL.
+0d. **Tauri command to expose the local backend handle.** `get_backend()` →
+    `{ url, bearer_token, status: 'starting' | 'ready' | 'error' }`. Frontend
+    consumes this on mount instead of rendering `<ConnectScreen />`.
+0e. **Replace `<ConnectScreen />` as the default route.** Web shell boots to
     a "Starting CLIO…" splash, then transitions to the chat shell once the
     sidecar reports healthy. The connect form moves to
     `/settings/backends/add-remote` for the advanced "add another backend"
-    case (federation).
-0e. **Pure-web build degraded-mode default.** When running outside Tauri
-    (`window.__TAURI_INTERNALS__` undefined), default to
-    `http://localhost:7777` and auto-attempt `/v1/capabilities` on load. Show
-    the connect form only if that probe fails.
+    case (federation). Pure-web build (no Tauri) defaults to
+    `http://localhost:7777` and auto-probes `/v1/capabilities`; the connect
+    form only renders on probe failure.
 
 ## Wave 1 — wire up live data
 

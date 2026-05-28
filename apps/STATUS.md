@@ -1,8 +1,8 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-05-27
+**Last updated:** 2026-05-28 (overnight v0.9 work)
 **Branch:** `feat/apps-harness`
-**Phase:** Harness bootstrap
+**Phase:** Wave 0 — sidecar bundling (toward v0.9.0)
 
 ## Current state
 
@@ -49,21 +49,55 @@ state, mid-stream chat, inline permission card, verbose density, and summary den
    - `git push` — even partial progress with `wip:` prefix
    - **Visual changes require a fresh screenshot in `apps/web/screenshots/`**
 
+## Wave 0 progress — sidecar bundling
+
+The **architectural finding** from this session that changes prior assumptions:
+
+- The system-installed `clio-agent` package on PyPI (v0.5.1, `main` branch)
+  exposes a **non-GACT** REST API (`/health`, `/query`, `/experts`, `/metrics`)
+  via the `clio-agent-api` console script. It does **not** satisfy the GACT
+  v0.2 contract our frontend speaks.
+- The GACT-conformant server lives on the `develop` branch of
+  `iowarp/clio-agent` at `src/clio_agent/gact/app.py`, exposed via a peer
+  console script: `clio-agent-gact = "clio_agent.gact.app:main"`. This is
+  what we sidecar.
+- On the user's dev machine clio-agent@develop is already installed at
+  `D:\Libraries\Documents\projects\clio-agent\.venv\Scripts\clio-agent-gact.exe`,
+  matching the goal's "system-installed configured for ALCF" expectation.
+- The sidecar bundling pattern bundles a **launcher binary** (Go,
+  `apps/desktop/sidecar-launcher/`) under Tauri's `externalBin`. The
+  launcher's job at runtime is to resolve a real `clio-agent-gact` (override
+  env var → PATH → per-OS install-prefix conventions) and exec it with the
+  bind args + bearer token the Tauri shell passes in. If none resolves it
+  exits non-zero with a Splash-screen-renderable error pointing at the
+  upstream `CLIO_REF=develop` installer.
+
+This keeps "real implementations only" intact: the launcher does not fake the
+server. The product story matches upstream's existing `clio` installer (which
+also assumes Python + clio-agent installed; the launcher just plugs that
+recipe into the Tauri installer flow).
+
+### Done in Wave 0 so far
+
+- `tauri.conf.json` declares `bundle.externalBin: ["binaries/clio-agent"]`
+- `apps/desktop/sidecar-launcher/` Go program resolves & execs clio-agent-gact
+- `apps/desktop/scripts/fetch-sidecar.{sh,ps1}` builds the launcher per-triple
+  and writes `apps/desktop/src-tauri/sidecar.lock`
+- `pnpm fetch-sidecar` wired before `tauri:dev` / `tauri:build:debug` /
+  `tauri:build` so the launcher is always fresh
+- `apps/desktop/tests/smoke.test.mjs` checks the new wiring
+
+### Still to do in Wave 0
+
+- 0c: Rust supervisor that spawns the launcher, generates a fresh bearer
+  token + free port, waits for `/v1/capabilities` 200, reaps on shutdown
+- 0d: `get_backend()` Tauri command + frontend Splash → Chat transition
+- 0e: Pure-web degraded-mode default (localhost:7777 probe)
+
 ## Open blockers
 
-### ⚠ Design correction (caught immediately after harness landed) ⚠
-
-The harness currently shows a **connect screen** with manual URL + bearer token
-entry as the default route. **This is wrong product framing.** CLIO Desktop is
-the non-terminal-user product — it must bundle `clio-agent` (Tauri sidecar
-pattern), auto-launch it on app start, and never show a setup screen.
-
-Fix is Wave 0 in `apps/PLAN.md` — sidecar bundling + lifecycle + replacing the
-default route with a "Starting CLIO…" splash that transitions to chat. The
-connect form moves to `/settings/backends/add-remote` for advanced federation.
-
-The harness scaffolding (workspace, tests, CI, visual loop) is structurally
-correct; only the front-door UX needs reshaping. **Do Wave 0 before Wave 1.**
+(none right now; the system-installed clio-agent issue above is resolved by
+the develop-branch fallback)
 
 
 
