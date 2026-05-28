@@ -1284,14 +1284,16 @@ function ChatLayout(props: ChatLayoutProps) {
                 const m = props.models!.find((x) => x.id === props.selectedModelId);
                 if (!m) return null;
                 return (
-                  <span
-                    class="chat__meta-item chat__meta-item--model"
+                  <button
+                    type="button"
+                    class="chat__meta-item chat__meta-item--model chat__meta-item--clickable"
                     data-testid="model-chip"
-                    title={`${m.providerLabel} · ${m.modelId}`}
+                    title={`${m.providerLabel} · ${m.modelId} — click for Settings → Models`}
+                    onClick={() => props.onOpenSettings?.('providers')}
                   >
                     <Icon name="sparkle" size={10} />
                     {m.modelId}
-                  </span>
+                  </button>
                 );
               })()}
             </Show>

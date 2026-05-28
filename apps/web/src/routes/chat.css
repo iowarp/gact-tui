@@ -128,6 +128,20 @@
   font-weight: 500;
 }
 
+.chat__meta-item--clickable {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.chat__meta-item--clickable:hover {
+  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+}
+
 .chat__running-dot {
   width: 6px;
   height: 6px;
