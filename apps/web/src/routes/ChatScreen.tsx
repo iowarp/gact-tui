@@ -31,6 +31,7 @@ import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
+import { ServerSearchPanel } from '../components/ServerSearchPanel.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { LeftRail, type RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
@@ -1009,6 +1010,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
   const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
+  const [serverSearchOpen, setServerSearchOpen] = createSignal(false);
 
   const totalMatches = createMemo(() => {
     const q = searchQuery().trim().toLowerCase();
@@ -1186,8 +1188,12 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && onChat()) {
         e.preventDefault();
-        setSearchOpen(true);
-        setCurrentMatchIdx(0);
+        if (e.shiftKey) {
+          setServerSearchOpen((v) => !v);
+        } else {
+          setSearchOpen(true);
+          setCurrentMatchIdx(0);
+        }
         return;
       }
       if (
@@ -1939,6 +1945,24 @@ function ChatLayout(props: ChatLayoutProps) {
         open={cheatsheetOpen()}
         onClose={() => setCheatsheetOpen(false)}
       />
+
+      <Show when={props.activeId}>
+        <ServerSearchPanel
+          open={serverSearchOpen()}
+          client={discoveryClient}
+          sessionId={props.activeId}
+          onJump={(mid) => {
+            setSelectedMessageId(mid);
+            queueMicrotask(() => {
+              const el = document.querySelector(
+                `[data-testid="msg-${CSS.escape(mid)}"]`,
+              ) as HTMLElement | null;
+              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+          }}
+          onClose={() => setServerSearchOpen(false)}
+        />
+      </Show>
     </div>
   );
 }

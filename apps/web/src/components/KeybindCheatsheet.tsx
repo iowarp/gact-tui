@@ -43,7 +43,8 @@ const GROUPS: Group[] = [
   {
     title: 'View',
     items: [
-      { combo: [PLATFORM_MOD, 'F'], description: 'Find in current transcript' },
+      { combo: [PLATFORM_MOD, 'F'], description: 'Find in current transcript (client-side)' },
+      { combo: [PLATFORM_MOD, 'Shift', 'F'], description: 'Backend search across the whole session' },
       { combo: [PLATFORM_MOD, 'I'], description: 'Toggle the inspector drawer' },
       { combo: [PLATFORM_MOD, 'B'], description: 'Toggle the sessions column' },
       { combo: [PLATFORM_MOD, 'O'], description: 'Cycle transcript density' },
