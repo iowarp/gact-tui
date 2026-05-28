@@ -1,0 +1,113 @@
+import { For, Show, onCleanup, onMount } from 'solid-js';
+import { Icon } from './Icon.js';
+import './keybind-cheatsheet.css';
+
+export interface KeybindCheatsheetProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+interface Group {
+  title: string;
+  items: { combo: string[]; description: string }[];
+}
+
+const PLATFORM_MOD =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘'
+    : 'Ctrl';
+
+const GROUPS: Group[] = [
+  {
+    title: 'Navigation',
+    items: [
+      { combo: [PLATFORM_MOD, 'K'], description: 'Open the command palette' },
+      { combo: [PLATFORM_MOD, 'Shift', '↑'], description: 'Previous session' },
+      { combo: [PLATFORM_MOD, 'Shift', '↓'], description: 'Next session' },
+      { combo: [PLATFORM_MOD, 'N'], description: 'New session' },
+    ],
+  },
+  {
+    title: 'Composer',
+    items: [
+      { combo: ['Enter'], description: 'Send message' },
+      { combo: ['Shift', 'Enter'], description: 'Insert newline' },
+      { combo: ['/'], description: 'Open the slash command palette' },
+      { combo: ['@'], description: 'Insert an at-mention' },
+    ],
+  },
+  {
+    title: 'View',
+    items: [
+      { combo: [PLATFORM_MOD, 'O'], description: 'Cycle transcript density' },
+      { combo: [PLATFORM_MOD, '/'], description: 'Open this cheatsheet' },
+      { combo: ['Esc'], description: 'Close overlay / palette' },
+    ],
+  },
+];
+
+export function KeybindCheatsheet(props: KeybindCheatsheetProps) {
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!props.open) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        props.onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  });
+
+  return (
+    <Show when={props.open}>
+      <div class="kb__backdrop" onClick={props.onClose} />
+      <div class="kb" role="dialog" aria-modal="true" data-testid="keybind-cheatsheet">
+        <header class="kb__head">
+          <span class="eyebrow">keyboard shortcuts</span>
+          <button
+            type="button"
+            class="kb__close"
+            onClick={props.onClose}
+            aria-label="Close cheatsheet"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </header>
+        <div class="kb__body">
+          <For each={GROUPS}>
+            {(group) => (
+              <section class="kb__group">
+                <h3 class="kb__group-title">{group.title}</h3>
+                <ul class="kb__list">
+                  <For each={group.items}>
+                    {(item) => (
+                      <li class="kb__row">
+                        <span class="kb__combo">
+                          <For each={item.combo}>
+                            {(key, i) => (
+                              <>
+                                <Show when={i() > 0}>
+                                  <span class="kb__sep">+</span>
+                                </Show>
+                                <kbd class="kb__key">{key}</kbd>
+                              </>
+                            )}
+                          </For>
+                        </span>
+                        <span class="kb__desc">{item.description}</span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </section>
+            )}
+          </For>
+        </div>
+        <footer class="kb__foot">
+          <span class="chip">Press {PLATFORM_MOD} + / again or Esc to dismiss</span>
+        </footer>
+      </div>
+    </Show>
+  );
+}

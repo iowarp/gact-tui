@@ -28,6 +28,7 @@ import { Composer } from '../components/Composer.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
+import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { LeftRail, type RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
 import {
@@ -671,6 +672,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const [activeDiff, setActiveDiff] = createSignal<FileDiff | null>(null);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal('');
+  const [cheatsheetOpen, setCheatsheetOpen] = createSignal(false);
   const [inspectorOpen, setInspectorOpen] = createPersistedBoolean(
     'clio.inspector-open.v1',
     true,
@@ -744,6 +746,11 @@ function ChatLayout(props: ChatLayoutProps) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen((v) => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        setCheatsheetOpen((v) => !v);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
@@ -1216,6 +1223,11 @@ function ChatLayout(props: ChatLayoutProps) {
         onQueryChange={setPaletteQuery}
         onPick={handlePick}
         onClose={() => setPaletteOpen(false)}
+      />
+
+      <KeybindCheatsheet
+        open={cheatsheetOpen()}
+        onClose={() => setCheatsheetOpen(false)}
       />
     </div>
   );
