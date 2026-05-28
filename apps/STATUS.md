@@ -182,6 +182,26 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
   (778b540)
 - InlineMarkdown accepts `_italic_` and `__bold__` alongside the
   asterisk variants. (9ed74b9)
+- Subtle pinned-vs-unpinned divider in SessionsColumn. (a3e265d)
+- 'Reset all preferences' button in Settings → Appearance for
+  triage. (69e4d63)
+- Empty-state tip pointing at Cmd+K and Cmd+/. (5f3ca4d)
+- Hover tooltip on per-message timestamp shows the absolute time.
+  (ebf747e)
+- Horizontal rule support in InlineMarkdown. (dd54ec6)
+- Esc dismisses Settings shell + AddRemoteBackend wizard.
+  (5078026 / 2cb50ef)
+- Click topbar crumb title to copy session id. (5606f40)
+- Settings → Prompts section + side-nav entry. (51be0b5)
+
+## Where we stand
+
+The desktop chrome now has 28 visual proof tests covering every
+flow (all 28 green on every commit). The user-visible surface is
+substantial — see `apps/CHANGELOG.md` for the full v0.9.1
+shipping list. The three release blockers from the §"v0.9.1
+blockers" section above remain the gating items for pushing
+`clio-desktop-v0.9.1` from `feat/apps-harness` HEAD.
 
 ## Phase status
 
