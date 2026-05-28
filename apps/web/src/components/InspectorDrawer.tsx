@@ -192,13 +192,10 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
             <ul class="inspector__calls">
               <For each={props.toolCalls}>
                 {(c) => (
-                  <li class={'inspector__call inspector__call--' + c.status}>
-                    <Icon name="tool" size={14} class="inspector__call-icon" />
-                    <span class="inspector__call-name">{c.toolName}</span>
-                    <Show when={c.durationMs != null}>
-                      <span class="inspector__call-dur">{c.durationMs}ms</span>
-                    </Show>
-                  </li>
+                  <ToolCallRow
+                    summary={c}
+                    parts={props.message?.parts ?? []}
+                  />
                 )}
               </For>
             </ul>
@@ -261,6 +258,84 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
         </Show>
       </aside>
     </Show>
+  );
+}
+
+function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
+  const [open, setOpen] = createSignal(false);
+  const callPart = () =>
+    props.parts.find(
+      (p) =>
+        p.type === 'tool_call' &&
+        (p.call_id === props.summary.callId || p.id === props.summary.callId),
+    );
+  const resultPart = () =>
+    props.parts.find(
+      (p) =>
+        p.type === 'tool_result' &&
+        (p.call_id === props.summary.callId ||
+          p.tool_call_id === props.summary.callId),
+    );
+
+  const callInput = () => {
+    const part = callPart();
+    if (part?.type === 'tool_call' && part.input) {
+      return JSON.stringify(part.input, null, 2);
+    }
+    return null;
+  };
+
+  const callOutput = () => {
+    const part = resultPart();
+    if (part?.type !== 'tool_result') return null;
+    if (typeof part.output === 'string') return part.output;
+    if (Array.isArray(part.content)) {
+      return part.content
+        .map((c) => (c.type === 'text' ? c.text : `[${c.type}]`))
+        .join('\n');
+    }
+    return null;
+  };
+
+  const hasDetail = () => callInput() != null || callOutput() != null;
+
+  return (
+    <li
+      class={'inspector__call inspector__call--' + props.summary.status}
+      data-testid={`inspector-call-${props.summary.callId}`}
+    >
+      <button
+        type="button"
+        class="inspector__call-row"
+        onClick={() => hasDetail() && setOpen((v) => !v)}
+        disabled={!hasDetail()}
+      >
+        <Icon name="tool" size={14} class="inspector__call-icon" />
+        <span class="inspector__call-name">{props.summary.toolName}</span>
+        <Show when={props.summary.durationMs != null}>
+          <span class="inspector__call-dur">{props.summary.durationMs}ms</span>
+        </Show>
+        <Show when={hasDetail()}>
+          <Icon
+            name="chevron-right"
+            size={12}
+            class={'inspector__call-chev ' + (open() ? 'is-open' : '')}
+          />
+        </Show>
+      </button>
+      <Show when={open() && callInput()}>
+        <div class="inspector__call-detail">
+          <div class="inspector__call-detail-label">input</div>
+          <pre class="inspector__call-detail-body">{callInput()}</pre>
+        </div>
+      </Show>
+      <Show when={open() && callOutput()}>
+        <div class="inspector__call-detail">
+          <div class="inspector__call-detail-label">output</div>
+          <pre class="inspector__call-detail-body">{callOutput()}</pre>
+        </div>
+      </Show>
+    </li>
   );
 }
 
