@@ -102,6 +102,19 @@ every step below — `pnpm --filter @clio/web test:visual` is green.
   backend, persisted in localStorage. (57a106f)
 - Backend picker de-emojified — uses Icon components + named pip
   classes instead of literal 🔴/🟢/🟠 + ▼. (05ccddd)
+- InlineMarkdown gains heading (#/##/###), bullet/ordered list, and
+  http/https autolink support. Markdown link syntax remains
+  unparsed for XSS safety. (8c35020)
+- Session rows pulse for 1.8s when SSE bumps them
+  (`session.updated` / `session.status_changed`). (ea97507)
+- Splash error path: Retry + Manual connect buttons + OS-aware
+  install recipe (PowerShell on Windows, curl|bash elsewhere).
+  (a2086d4)
+- Autoscroll while user is at the bottom; jump-to-bottom on
+  session switch. (a81d5d7)
+- AtMention picker de-emojified — Icon glyphs for file/dir/agent/
+  symbol. Drop the leftover ▸/▾ triangle on the thinking summary
+  too. (e435cf1 / 1b7fc1f)
 
 ## Phase status
 
