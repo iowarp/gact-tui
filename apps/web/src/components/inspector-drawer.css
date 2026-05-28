@@ -439,3 +439,30 @@
   from { opacity: 0; transform: translateY(2px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+.inspector__file {
+  grid-template-columns: 14px 1fr auto auto;
+}
+
+.inspector__file-x {
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity var(--dur-fast), background var(--dur-fast);
+}
+
+.inspector__file:hover .inspector__file-x {
+  opacity: 1;
+}
+
+.inspector__file-x:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-error);
+}

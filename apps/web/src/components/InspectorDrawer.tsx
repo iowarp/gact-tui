@@ -22,6 +22,8 @@ export interface InspectorDrawerProps {
   tasks?: SessionTask[];
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
+  /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
+  onRemoveContextFile?: (path: string) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -300,6 +302,17 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                     <span class="inspector__file-path" title={f.path}>{f.path}</span>
                     <Show when={f.language}>
                       <span class="inspector__file-lang">{f.language}</span>
+                    </Show>
+                    <Show when={props.onRemoveContextFile}>
+                      <button
+                        type="button"
+                        class="inspector__file-x"
+                        title="Remove from context"
+                        aria-label={`Remove ${f.path} from context`}
+                        onClick={() => void props.onRemoveContextFile?.(f.path)}
+                      >
+                        <Icon name="close" size={10} />
+                      </button>
                     </Show>
                   </li>
                 )}
