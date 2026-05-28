@@ -851,6 +851,11 @@ function ChatLayout(props: ChatLayoutProps) {
         void props.onExportSession(props.activeId);
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        props.onOpenSettings?.();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         void props.onNewSession?.();
@@ -1223,6 +1228,22 @@ function ChatLayout(props: ChatLayoutProps) {
                   {props.runningTools!.length - 2}
                 </Show>
               </span>
+            </Show>
+            <Show when={props.selectedModelId && props.models?.length}>
+              {(() => {
+                const m = props.models!.find((x) => x.id === props.selectedModelId);
+                if (!m) return null;
+                return (
+                  <span
+                    class="chat__meta-item chat__meta-item--model"
+                    data-testid="model-chip"
+                    title={`${m.providerLabel} · ${m.modelId}`}
+                  >
+                    <Icon name="sparkle" size={10} />
+                    {m.modelId}
+                  </span>
+                );
+              })()}
             </Show>
             <span class="chat__meta-item" data-testid="density-chip">
               density · {props.density}
