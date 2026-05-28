@@ -1885,6 +1885,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindPromptDetail && m.promptID != a.catalogBrowser.promptID {
 			return a, nil
 		}
+		if m.kind == catalogKindExpertPackDetail && m.expertPackID != a.catalogBrowser.expertPackID {
+			return a, nil
+		}
 		a.catalogBrowser.loading = false
 		a.catalogBrowser.items = m.items
 		a.catalogBrowser.errText = m.errText
@@ -1912,6 +1915,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.openCatalogDetail(m.title, text)
 		return a, nil
+
+	case expertPackActivatedMsg:
+		if m.err != nil {
+			a.transientHint = "expert pack activation failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "activated expert pack " + m.packID
+		var cmds []tea.Cmd
+		cmds = append(cmds, scheduleHintExpire(a.transientHint))
+		if m.state.Session != nil {
+			for i, s := range a.sessions {
+				if s.ID == m.state.Session.ID {
+					a.sessions[i] = *m.state.Session
+					break
+				}
+			}
+		}
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindExpertPackDetail {
+			cmds = append(cmds, loadExpertPackDetailCmd(a.c, a.runtimeScope(), m.packID))
+		}
+		return a, tea.Batch(cmds...)
 
 	case promptSavedMsg:
 		if m.err != nil {

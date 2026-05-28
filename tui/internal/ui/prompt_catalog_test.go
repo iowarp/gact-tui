@@ -107,3 +107,53 @@ func TestPromptEditModalStatesBuiltinOverrideScope(t *testing.T) {
 		}
 	}
 }
+
+func TestExpertPackCatalogItemsSurfaceScopeAndValidation(t *testing.T) {
+	items := expertPackCatalogItems([]gact.ExpertPackDefinition{{
+		ID: "data-semantics", Title: "Data Semantics", Version: "1.0.0", Scope: "workspace",
+		DefinitionPath: "/tmp/.clio/expert-packs/data-semantics/clio-pack.yaml",
+		Description:    "Routes data questions to specialist agents.",
+		Enabled:        true,
+	}, {
+		ID: "broken", Title: "Broken", Scope: "session", Enabled: false,
+		ValidationErrors: []string{"missing root agent"},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 2", len(items))
+	}
+	if items[0].id != "broken" || items[0].statusTag != "invalid" {
+		t.Fatalf("invalid expert pack should be first session-scoped invalid row: %#v", items[0])
+	}
+	for _, want := range []string{"version: 1.0.0", "definition: /tmp/.clio/expert-packs/data-semantics/clio-pack.yaml", "Routes data questions"} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("expert-pack catalog desc missing %q: %q", want, items[1].desc)
+		}
+	}
+}
+
+func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
+	items := expertPackDetailItems(gact.ExpertPackDetail{
+		ExpertPack: gact.ExpertPackDefinition{
+			ID: "data-semantics", Title: "Data Semantics", Version: "1.0.0", Scope: "workspace", Enabled: true,
+			Defaults: map[string]any{"provider": "openai"},
+		},
+		Agents: []gact.AgentDef{{
+			ID: "data.root", Title: "Data Root", Source: "expert_pack", Enabled: true,
+			Tools: []string{"mcp.parquet.read"},
+		}},
+	})
+
+	if len(items) < 3 {
+		t.Fatalf("detail items len = %d, want activation, pack summary, and agent", len(items))
+	}
+	if items[0].id != "activate" {
+		t.Fatalf("first expert-pack detail row = %q, want activate", items[0].id)
+	}
+	if !strings.Contains(items[1].desc, "provider") {
+		t.Fatalf("pack summary should surface defaults metadata:\n%s", items[1].desc)
+	}
+	if items[2].id != "agent/data.root" || !strings.Contains(items[2].desc, "mcp.parquet.read") {
+		t.Fatalf("agent detail row missing drilldown/tool metadata: %#v", items[2])
+	}
+}
