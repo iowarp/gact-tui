@@ -93,15 +93,15 @@ func (a *App) commitPromptEdit() (tea.Model, tea.Cmd) {
 		a.transientHint = "prompt edit cancelled"
 		return a, scheduleHintExpire(a.transientHint)
 	}
-	return a, savePromptOverrideCmd(a.c, promptID, profile, title, text)
+	return a, savePromptOverrideCmd(a.c, a.runtimeScope(), promptID, profile, title, text)
 }
 
-func savePromptOverrideCmd(c *client.Client, promptID, sourceProfile, title, text string) tea.Cmd {
+func savePromptOverrideCmd(c *client.Client, scope client.RuntimeScope, promptID, sourceProfile, title, text string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		target := "codex"
-		_, err := c.SavePrompt(ctx, promptID, gact.PromptSaveRequest{
+		_, err := c.SavePromptScoped(ctx, promptID, gact.PromptSaveRequest{
 			Profile: target,
 			Title:   title,
 			Text:    text,
@@ -109,7 +109,7 @@ func savePromptOverrideCmd(c *client.Client, promptID, sourceProfile, title, tex
 				"edited_from_profile": sourceProfile,
 				"saved_by":            "gact-tui",
 			},
-		})
+		}, scope)
 		return promptSavedMsg{promptID: promptID, profile: target, err: err}
 	}
 }
@@ -119,11 +119,11 @@ type promptEditLoadedMsg struct {
 	err    error
 }
 
-func loadPromptEditCmd(c *client.Client, promptID, profile string) tea.Cmd {
+func loadPromptEditCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		prompt, err := c.GetPrompt(ctx, promptID, profile)
+		prompt, err := c.GetPromptScoped(ctx, promptID, profile, scope)
 		return promptEditLoadedMsg{prompt: prompt, err: err}
 	}
 }

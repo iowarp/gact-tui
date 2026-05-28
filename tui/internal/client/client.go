@@ -124,6 +124,29 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("gact: %d %s: %s", e.Status, e.Code, e.Message)
 }
 
+// RuntimeScope carries the currently selected CLIO workspace/session into
+// runtime catalogs. Empty fields are omitted so older backends keep working.
+type RuntimeScope struct {
+	WorkspaceID string
+	SessionID   string
+}
+
+func (s RuntimeScope) appendTo(q url.Values) {
+	if s.WorkspaceID != "" {
+		q.Set("workspace_id", s.WorkspaceID)
+	}
+	if s.SessionID != "" {
+		q.Set("session_id", s.SessionID)
+	}
+}
+
+func queryString(q url.Values) string {
+	if len(q) == 0 {
+		return ""
+	}
+	return "?" + q.Encode()
+}
+
 // --- §3 capabilities + health ----------------------------------------------
 
 // Health calls GET /v1/health.
@@ -152,10 +175,14 @@ func (c *Client) CapabilityGaps(ctx context.Context) (map[string]gact.Capability
 // sessionID is optional; pass "" for global-only stats. Backends without
 // capabilities.memory return 501 — the caller should gate on that flag.
 func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.MemoryStats, error) {
+	return c.MemoryStatsScoped(ctx, RuntimeScope{SessionID: sessionID})
+}
+
+func (c *Client) MemoryStatsScoped(ctx context.Context, scope RuntimeScope) (gact.MemoryStats, error) {
 	path := "/v1/memory/stats"
-	if sessionID != "" {
-		path += "?session_id=" + sessionID
-	}
+	q := url.Values{}
+	scope.appendTo(q)
+	path += queryString(q)
 	var out gact.MemoryStats
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
@@ -326,11 +353,20 @@ type ContextFramesResponse struct {
 }
 
 func (c *Client) ListContextFrames(ctx context.Context, sessionID string, limit int) (ContextFramesResponse, error) {
+	return c.ListContextFramesScoped(ctx, RuntimeScope{SessionID: sessionID}, limit)
+}
+
+func (c *Client) ListContextFramesScoped(ctx context.Context, scope RuntimeScope, limit int) (ContextFramesResponse, error) {
 	var out ContextFramesResponse
-	path := "/v1/sessions/" + sessionID + "/context/frames"
+	path := "/v1/sessions/" + url.PathEscape(scope.SessionID) + "/context/frames"
+	q := url.Values{}
 	if limit > 0 {
-		path += fmt.Sprintf("?limit=%d", limit)
+		q.Set("limit", strconv.Itoa(limit))
 	}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	path += queryString(q)
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
 }
@@ -372,10 +408,16 @@ func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([
 // --- §6.5 agents -----------------------------------------------------------
 
 func (c *Client) ListAgents(ctx context.Context) ([]gact.AgentDef, error) {
+	return c.ListAgentsScoped(ctx, RuntimeScope{})
+}
+
+func (c *Client) ListAgentsScoped(ctx context.Context, scope RuntimeScope) ([]gact.AgentDef, error) {
 	var out struct {
 		Agents []gact.AgentDef `json:"agents"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/agents", nil, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/agents"+queryString(q), nil, &out)
 	return out.Agents, err
 }
 
@@ -591,30 +633,61 @@ func (c *Client) AuthProvider(
 
 // --- §6.13 commands --------------------------------------------------------
 
+type CommandFilter struct {
+	RuntimeScope
+	AgentID string
+	Planner bool
+}
+
 func (c *Client) ListCommands(ctx context.Context) ([]gact.Command, error) {
+	return c.ListCommandsScoped(ctx, CommandFilter{})
+}
+
+func (c *Client) ListCommandsScoped(ctx context.Context, filter CommandFilter) ([]gact.Command, error) {
 	var out struct {
 		Commands []gact.Command `json:"commands"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/commands", nil, &out)
+	q := url.Values{}
+	filter.RuntimeScope.appendTo(q)
+	if filter.AgentID != "" {
+		q.Set("agent_id", filter.AgentID)
+	}
+	if filter.Planner {
+		q.Set("planner", "true")
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/commands"+queryString(q), nil, &out)
 	return out.Commands, err
 }
 
 // ListPrompts fetches CLIO prompt registry definitions. Backends advertise
 // this vendor surface with capabilities.x_clio_prompt_registry.
 func (c *Client) ListPrompts(ctx context.Context) ([]gact.PromptDefinition, error) {
+	return c.ListPromptsScoped(ctx, RuntimeScope{})
+}
+
+func (c *Client) ListPromptsScoped(ctx context.Context, scope RuntimeScope) ([]gact.PromptDefinition, error) {
 	var out struct {
 		Prompts []gact.PromptDefinition `json:"prompts"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/prompts", nil, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/prompts"+queryString(q), nil, &out)
 	return out.Prompts, err
 }
 
 // GetPrompt resolves one prompt/profile to the effective text and provenance.
 func (c *Client) GetPrompt(ctx context.Context, promptID, profile string) (gact.ResolvedPrompt, error) {
+	return c.GetPromptScoped(ctx, promptID, profile, RuntimeScope{})
+}
+
+func (c *Client) GetPromptScoped(ctx context.Context, promptID, profile string, scope RuntimeScope) (gact.ResolvedPrompt, error) {
 	path := "/v1/prompts/" + url.PathEscape(promptID)
+	q := url.Values{}
 	if profile != "" {
-		path += "?profile=" + url.QueryEscape(profile)
+		q.Set("profile", profile)
 	}
+	scope.appendTo(q)
+	path += queryString(q)
 	var out struct {
 		Prompt gact.ResolvedPrompt `json:"prompt"`
 	}
@@ -624,10 +697,16 @@ func (c *Client) GetPrompt(ctx context.Context, promptID, profile string) (gact.
 
 // SavePrompt writes a profile override through the CLIO prompt registry.
 func (c *Client) SavePrompt(ctx context.Context, promptID string, req gact.PromptSaveRequest) (gact.PromptDefinition, error) {
+	return c.SavePromptScoped(ctx, promptID, req, RuntimeScope{})
+}
+
+func (c *Client) SavePromptScoped(ctx context.Context, promptID string, req gact.PromptSaveRequest, scope RuntimeScope) (gact.PromptDefinition, error) {
 	var out struct {
 		Prompt gact.PromptDefinition `json:"prompt"`
 	}
-	err := c.do(ctx, http.MethodPut, "/v1/prompts/"+url.PathEscape(promptID), req, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodPut, "/v1/prompts/"+url.PathEscape(promptID)+queryString(q), req, &out)
 	return out.Prompt, err
 }
 
@@ -705,8 +784,14 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 // system_prompt and parameters) via /v1/agents/{id}. Used by
 // `gact agent show` for shell scripting symmetric to `gact tool show`.
 func (c *Client) GetAgent(ctx context.Context, id string) (gact.AgentDef, error) {
+	return c.GetAgentScoped(ctx, id, RuntimeScope{})
+}
+
+func (c *Client) GetAgentScoped(ctx context.Context, id string, scope RuntimeScope) (gact.AgentDef, error) {
 	var out gact.AgentDef
-	err := c.do(ctx, http.MethodGet, "/v1/agents/"+id, nil, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/agents/"+url.PathEscape(id)+queryString(q), nil, &out)
 	return out, err
 }
 

@@ -138,20 +138,40 @@ type Tool struct {
 // tier-2 specialists so the TUI can render a routing badge and
 // colour it by specialization.
 type AgentDef struct {
-	ID           string           `json:"id"`
-	Source       string           `json:"source"` // builtin|user|recipe|skill
-	Title        string           `json:"title"`
-	Description  string           `json:"description,omitempty"`
-	SystemPrompt string           `json:"system_prompt,omitempty"`
-	Parameters   []AgentParameter `json:"parameters,omitempty"`
-	DefaultModel *ModelRef        `json:"default_model,omitempty"`
-	Tools        []string         `json:"tools,omitempty"`
-	Metadata     map[string]any   `json:"metadata,omitempty"`
+	ID               string               `json:"id"`
+	Source           string               `json:"source"` // builtin|user|recipe|skill
+	Title            string               `json:"title"`
+	Description      string               `json:"description,omitempty"`
+	ParentID         string               `json:"parent_id,omitempty"`
+	SystemPrompt     string               `json:"system_prompt,omitempty"`
+	PromptID         string               `json:"prompt_id,omitempty"`
+	PromptProfile    string               `json:"prompt_profile,omitempty"`
+	DefaultProvider  string               `json:"default_provider,omitempty"`
+	Parameters       []AgentParameter     `json:"parameters,omitempty"`
+	DefaultModel     *ModelRef            `json:"default_model,omitempty"`
+	DefaultModelName string               `json:"-"`
+	Tools            []string             `json:"tools,omitempty"`
+	Skills           []string             `json:"skills,omitempty"`
+	Commands         []string             `json:"commands,omitempty"`
+	CapabilityRefs   []AgentCapabilityRef `json:"capability_refs,omitempty"`
+	Metadata         map[string]any       `json:"metadata,omitempty"`
+	Enabled          bool                 `json:"enabled,omitempty"`
+	ValidationErrors []string             `json:"validation_errors,omitempty"`
 
 	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
 	Specialization string   `json:"specialization,omitempty"` // free-form tag — UI palette hint (code_editing, data_analysis, research, …)
 	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
+}
+
+type AgentCapabilityRef struct {
+	Kind        string         `json:"kind,omitempty"`
+	ID          string         `json:"id,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Source      string         `json:"source,omitempty"`
+	Status      string         `json:"status,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // PromptProfile is one resolved profile body for a CLIO prompt registry
@@ -218,7 +238,8 @@ func (a *AgentDef) UnmarshalJSON(data []byte) error {
 	type alias AgentDef
 	var raw struct {
 		alias
-		Parameters json.RawMessage `json:"parameters,omitempty"`
+		Parameters   json.RawMessage `json:"parameters,omitempty"`
+		DefaultModel json.RawMessage `json:"default_model,omitempty"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -230,6 +251,17 @@ func (a *AgentDef) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		out.Parameters = params
+	}
+	if len(raw.DefaultModel) > 0 && !bytes.Equal(raw.DefaultModel, []byte("null")) {
+		var ref ModelRef
+		if err := json.Unmarshal(raw.DefaultModel, &ref); err == nil && (ref.ProviderID != "" || ref.ModelID != "" || ref.Variant != "") {
+			out.DefaultModel = &ref
+		} else {
+			var model string
+			if err := json.Unmarshal(raw.DefaultModel, &model); err == nil {
+				out.DefaultModelName = model
+			}
+		}
 	}
 	*a = out
 	return nil
@@ -417,6 +449,10 @@ type Command struct {
 	AgentID        string           `json:"agent_id,omitempty"`
 	AgentSource    string           `json:"agent_source,omitempty"`
 	CommandSource  string           `json:"command_source,omitempty"`
+	Invocation     string           `json:"invocation,omitempty"`
+	UserInvocable  *bool            `json:"user_invocable,omitempty"`
+	AgentInvocable *bool            `json:"agent_invocable,omitempty"`
+	PlannerVisible *bool            `json:"planner_visible,omitempty"`
 	ArgumentHint   string           `json:"argument_hint,omitempty"`
 	PromptTemplate string           `json:"prompt_template,omitempty"`
 }
