@@ -30,6 +30,10 @@ type Config struct {
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
 	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`
+	// SidebarLayout controls the composable sidebar module order. Unknown
+	// module ids are preserved so newer configs degrade visibly instead of
+	// silently dropping future modules.
+	SidebarLayout *SidebarLayout `json:"sidebar_layout,omitempty"`
 	// YYYYY1: minimum line count for a paste to get the compressed
 	// `[pasted content: N lines]` placeholder. nil/0 means default 3.
 	PasteCompressThreshold *int `json:"paste_compress_threshold,omitempty"`
@@ -59,6 +63,14 @@ type Config struct {
 	// (or 0) is treated as "pre-versioned" and runs all migrations.
 	// MMM2.
 	ConfigVersion *int `json:"config_version,omitempty"`
+}
+
+// SidebarLayout is the human-editable module placement shape for the TUI
+// sidebars. Only Left is rendered today; Right is reserved for the paired
+// composable module work without requiring another config migration.
+type SidebarLayout struct {
+	Left  []string `json:"left,omitempty"`
+	Right []string `json:"right,omitempty"`
 }
 
 // Save writes cfg to path, creating parent directories as needed.
