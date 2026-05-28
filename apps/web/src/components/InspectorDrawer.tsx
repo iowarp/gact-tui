@@ -1,0 +1,189 @@
+import { For, Show } from 'solid-js';
+import { Icon } from './Icon.js';
+import type { Message, Part, FileDiff } from '@clio/core';
+import './inspector-drawer.css';
+
+export interface InspectorDrawerProps {
+  open: boolean;
+  /** Latest assistant message (or current turn) — drives the metadata panel. */
+  message: Message | null;
+  /** Pending tool-call activity for the active turn. */
+  toolCalls: ToolCallSummary[];
+  /** Rolling per-session cost. */
+  costUsd: number;
+  /** Tokens for the latest completed turn. */
+  tokens?: { input?: number; output?: number; total?: number };
+  /** Optional model identifier shown in the header. */
+  model?: string;
+  /** Backend integration health entries (from /v1/health when capability is on). */
+  integrations?: IntegrationStatus[];
+  onClose: () => void;
+}
+
+export interface ToolCallSummary {
+  callId: string;
+  toolName: string;
+  status: 'started' | 'completed' | 'error';
+  durationMs?: number;
+}
+
+export interface IntegrationStatus {
+  name: string;
+  status: 'ready' | 'degraded' | 'unavailable' | 'skipped';
+  summary?: string;
+}
+
+export function InspectorDrawer(props: InspectorDrawerProps) {
+  return (
+    <Show when={props.open}>
+      <aside class="inspector" data-testid="inspector-drawer" aria-label="Turn inspector">
+        <header class="inspector__head">
+          <h3 class="inspector__title">Turn inspector</h3>
+          <button
+            type="button"
+            class="inspector__close"
+            onClick={props.onClose}
+            aria-label="Close inspector"
+            data-testid="inspector-close"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </header>
+
+        <section class="inspector__sect">
+          <div class="inspector__sect-title">Run</div>
+          <dl class="inspector__kv">
+            <Show when={props.message?.stop_reason}>
+              <dt>stop_reason</dt>
+              <dd>
+                <span
+                  class={
+                    'inspector__chip ' +
+                    (props.message!.stop_reason === 'error'
+                      ? 'inspector__chip--err'
+                      : 'inspector__chip--ok')
+                  }
+                >
+                  {props.message!.stop_reason}
+                </span>
+              </dd>
+            </Show>
+            <Show when={props.model}>
+              <dt>model</dt>
+              <dd>{props.model}</dd>
+            </Show>
+            <Show when={props.tokens?.input || props.tokens?.output}>
+              <dt>tokens</dt>
+              <dd>
+                <span class="inspector__num">{props.tokens?.input ?? 0}</span>
+                <span class="inspector__num-sep">→</span>
+                <span class="inspector__num">{props.tokens?.output ?? 0}</span>
+              </dd>
+            </Show>
+            <Show when={props.costUsd > 0}>
+              <dt>cost</dt>
+              <dd class="inspector__num">${props.costUsd.toFixed(4)}</dd>
+            </Show>
+          </dl>
+        </section>
+
+        <Show when={props.toolCalls.length > 0}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">Tool calls</div>
+            <ul class="inspector__calls">
+              <For each={props.toolCalls}>
+                {(c) => (
+                  <li class={'inspector__call inspector__call--' + c.status}>
+                    <Icon name="tool" size={14} class="inspector__call-icon" />
+                    <span class="inspector__call-name">{c.toolName}</span>
+                    <Show when={c.durationMs != null}>
+                      <span class="inspector__call-dur">{c.durationMs}ms</span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={props.message?.parts?.some((p) => p.type === 'thinking')}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">Thinking</div>
+            <For each={(props.message?.parts ?? []).filter((p) => p.type === 'thinking')}>
+              {(p) => (
+                <pre class="inspector__thinking">
+                  {(p as { thinking?: string; text?: string }).thinking ??
+                    (p as { text?: string }).text ??
+                    ''}
+                </pre>
+              )}
+            </For>
+          </section>
+        </Show>
+
+        <Show when={(props.message?.parts ?? []).some((p) => p.type === 'file_diff')}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">Diffs</div>
+            <ul class="inspector__diffs">
+              <For each={(props.message?.parts ?? []).filter(
+                (p): p is FileDiff => p.type === 'file_diff',
+              )}>
+                {(d) => (
+                  <li class="inspector__diff">
+                    <Icon name="diff" size={14} />
+                    <span class="inspector__diff-path">{d.path}</span>
+                    <Show when={d.applied}>
+                      <span class="inspector__chip inspector__chip--ok">applied</span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={props.integrations && props.integrations.length > 0}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">Integrations</div>
+            <ul class="inspector__integrations">
+              <For each={props.integrations}>
+                {(i) => (
+                  <li class={'inspector__integration inspector__integration--' + i.status}>
+                    <span class="inspector__integration-dot" />
+                    <span class="inspector__integration-name">{i.name}</span>
+                    <Show when={i.summary}>
+                      <span class="inspector__integration-summary">{i.summary}</span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+      </aside>
+    </Show>
+  );
+}
+
+// Helper to derive a flat ToolCallSummary[] from a Message's parts (caller
+// passes them in already-shaped; this is here as a convenience for tests).
+export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
+  const out: ToolCallSummary[] = [];
+  for (const p of parts) {
+    if (p.type === 'tool_call') {
+      out.push({
+        callId: p.call_id ?? p.id ?? 'unknown',
+        toolName: p.tool_name,
+        status: 'started',
+      });
+    }
+    if (p.type === 'tool_result') {
+      const target = out.find((t) => t.callId === (p.call_id ?? p.tool_call_id));
+      if (target) {
+        target.status = p.is_error ? 'error' : 'completed';
+        if (p.duration_ms != null) target.durationMs = p.duration_ms;
+      }
+    }
+  }
+  return out;
+}
