@@ -1756,6 +1756,7 @@ function ChatLayout(props: ChatLayoutProps) {
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
           onRemoveContextFile={props.onRemoveContextFile}
+          onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}
         />
       </Show>

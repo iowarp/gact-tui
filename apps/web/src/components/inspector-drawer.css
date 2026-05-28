@@ -466,3 +466,13 @@
   background: var(--color-surface-alt);
   color: var(--color-error);
 }
+
+.inspector__diff--click {
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.inspector__diff--click:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-accent-cyan-30);
+}
