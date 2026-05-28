@@ -461,6 +461,27 @@ func loadPromptDetailCmd(c *client.Client, promptID string, scope client.Runtime
 			desc:      def.Description,
 			statusTag: firstNonEmpty(def.Scope, "prompt"),
 		}}
+		defaultProfile := firstNonEmpty(def.DefaultProfile, "default")
+		items = append(items,
+			catalogItem{
+				id:        "render/" + defaultProfile,
+				title:     "Rendered runtime preview",
+				desc:      "render with current session/workspace context",
+				statusTag: defaultProfile,
+			},
+			catalogItem{
+				id:        "validate/" + defaultProfile,
+				title:     "Validate prompt",
+				desc:      "ask CLIO to validate the current prompt/profile",
+				statusTag: defaultProfile,
+			},
+			catalogItem{
+				id:        "reload",
+				title:     "Reload prompt registry",
+				desc:      "refresh CLIO prompt files and show source diagnostics",
+				statusTag: "backend",
+			},
+		)
 		profiles := sortedPromptProfiles(def.Profiles)
 		for _, profile := range profiles {
 			p := def.Profiles[profile]
@@ -495,6 +516,51 @@ func loadPromptResolvedDetailCmd(c *client.Client, scope client.RuntimeScope, pr
 		return catalogDetailLoadedMsg{
 			title: "Prompt · " + prompt.ID + " · " + prompt.Profile,
 			text:  formatResolvedPrompt(prompt),
+		}
+	}
+}
+
+func loadPromptRenderedDetailCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		prompt, err := c.RenderPromptScoped(ctx, promptID, profile, scope)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: "Rendered prompt · " + promptID, err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: "Rendered prompt · " + prompt.ID + " · " + prompt.Profile,
+			text:  formatRenderedPrompt(prompt),
+		}
+	}
+}
+
+func loadPromptValidationDetailCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result, err := c.ValidatePromptScoped(ctx, promptID, profile, "", scope)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: "Prompt validation · " + promptID, err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: "Prompt validation · " + promptID,
+			text:  formatPromptValidation(result),
+		}
+	}
+}
+
+func loadPromptReloadDetailCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result, err := c.ReloadPrompts(ctx, scope)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: "Prompt reload", err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: "Prompt reload",
+			text:  formatPromptReload(result),
 		}
 	}
 }
@@ -644,9 +710,18 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
-			if strings.HasPrefix(it.id, "profile/") {
+			switch {
+			case strings.HasPrefix(it.id, "profile/"):
 				profile := strings.TrimPrefix(it.id, "profile/")
 				return a, loadPromptResolvedDetailCmd(a.c, a.runtimeScope(), cb.promptID, profile)
+			case strings.HasPrefix(it.id, "render/"):
+				profile := strings.TrimPrefix(it.id, "render/")
+				return a, loadPromptRenderedDetailCmd(a.c, a.runtimeScope(), cb.promptID, profile)
+			case strings.HasPrefix(it.id, "validate/"):
+				profile := strings.TrimPrefix(it.id, "validate/")
+				return a, loadPromptValidationDetailCmd(a.c, a.runtimeScope(), cb.promptID, profile)
+			case it.id == "reload":
+				return a, loadPromptReloadDetailCmd(a.c, a.runtimeScope())
 			}
 			text := strings.TrimSpace(it.desc)
 			if text == "" {
@@ -1104,6 +1179,66 @@ func formatResolvedPrompt(p gact.ResolvedPrompt) string {
 		}
 	}
 	rows = appendDetailSection(rows, "Text", detailField{"", p.Text})
+	return strings.Join(rows, "\n")
+}
+
+func formatRenderedPrompt(p gact.ResolvedPrompt) string {
+	rows := appendDetailSection(nil, "Rendered runtime prompt",
+		detailField{"id", p.ID},
+		detailField{"profile", p.Profile},
+		detailField{"scope", p.Scope},
+		detailField{"source", p.SourcePath},
+		detailField{"checksum", p.Checksum},
+		detailField{"provider", p.Provider},
+		detailField{"model", p.Model},
+	)
+	if p.FallbackProfile != "" {
+		rows = append(rows, detailFieldRows("fallback profile", p.FallbackProfile)...)
+	}
+	if len(p.ValidationErrors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(p.ValidationErrors, "\n")})
+	}
+	if len(p.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(p.Metadata, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Render provenance", detailField{"", string(payload)})
+		}
+	}
+	rows = appendDetailSection(rows, "Rendered text", detailField{"", p.Text})
+	return strings.Join(rows, "\n")
+}
+
+func formatPromptValidation(result gact.PromptValidationResult) string {
+	status := "valid"
+	if !result.Enabled || len(result.ValidationErrors) > 0 {
+		status = "invalid"
+	}
+	rows := appendDetailSection(nil, "Validation",
+		detailField{"status", status},
+		detailField{"enabled", fmt.Sprintf("%t", result.Enabled)},
+		detailField{"prompt_id", result.Prompt.ID},
+		detailField{"scope", result.Prompt.Scope},
+		detailField{"source", result.Prompt.SourcePath},
+	)
+	if len(result.ValidationErrors) > 0 {
+		rows = appendDetailSection(rows, "Errors", detailField{"", strings.Join(result.ValidationErrors, "\n")})
+	}
+	return strings.Join(rows, "\n")
+}
+
+func formatPromptReload(result gact.PromptReloadResult) string {
+	rows := appendDetailSection(nil, "Reload",
+		detailField{"prompt_count", fmt.Sprintf("%d", result.PromptCount)},
+		detailField{"prompt_ids", strings.Join(result.PromptIDs, ", ")},
+	)
+	for _, source := range result.Sources {
+		label := firstNonEmpty(source.Scope, "source")
+		rows = append(rows, detailFieldRows(label, source.Root)...)
+	}
+	if len(result.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(result.Metadata, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
+		}
+	}
 	return strings.Join(rows, "\n")
 }
 

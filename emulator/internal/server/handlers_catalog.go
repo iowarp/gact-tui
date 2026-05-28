@@ -299,6 +299,73 @@ func (s *Server) handleSavePrompt(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"prompt": row})
 }
 
+func (s *Server) handleRenderPrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptRenderRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	resolved, ok := resolvePromptDefinition(row, req.Profile)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt has no profiles: "+id)
+		return
+	}
+	resolved.Text = resolved.Text + "\n\nRuntime context:\n" +
+		"session_id: " + req.SessionID + "\nworkspace_id: " + req.WorkspaceID
+	if resolved.Metadata == nil {
+		resolved.Metadata = map[string]any{}
+	}
+	resolved.Metadata["rendered"] = true
+	resolved.Metadata["session_id"] = req.SessionID
+	resolved.Metadata["workspace_id"] = req.WorkspaceID
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": resolved})
+}
+
+func (s *Server) handleValidatePrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	errors := append([]string(nil), row.ValidationErrors...)
+	if strings.Contains(req.Text, "{{missing") {
+		errors = append(errors, "unknown placeholder: missing")
+	}
+	row.Enabled = len(errors) == 0
+	row.ValidationErrors = errors
+	writeJSON(w, http.StatusOK, gact.PromptValidationResult{
+		Enabled:          row.Enabled,
+		ValidationErrors: errors,
+		Prompt:           row,
+	})
+}
+
+func (s *Server) handleReloadPrompts(w http.ResponseWriter, r *http.Request) {
+	rows := make([]string, 0, len(s.prompts))
+	for id := range s.prompts {
+		rows = append(rows, id)
+	}
+	sort.Strings(rows)
+	writeJSON(w, http.StatusOK, map[string]any{"reload": gact.PromptReloadResult{
+		PromptCount: len(rows),
+		PromptIDs:   rows,
+		Sources: []gact.PromptSource{{
+			Scope: "builtin",
+			Root:  "emulator://prompts",
+		}},
+	}})
+}
+
 func staticPromptDefinitions() map[string]gact.PromptDefinition {
 	def := func(id, title, desc, text string, profiles ...string) gact.PromptDefinition {
 		if len(profiles) == 0 {
