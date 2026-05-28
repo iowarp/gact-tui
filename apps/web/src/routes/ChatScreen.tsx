@@ -18,6 +18,7 @@ import type {
   ProviderDef,
   SlashCommandDef,
 } from '@clio/core';
+import type { RunningTool } from '../live.js';
 import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
 import { fixturesForDemo } from '../fixtures/demo.js';
@@ -563,6 +564,7 @@ function LiveDriven(props: {
       streaming={streaming()}
       sseStatus={transcript.status()}
       sseReconnectInSec={transcript.reconnectInSec()}
+      runningTools={transcript.runningTools()}
       sessionCostUsd={transcript.costUsd()}
       lastStopReason={transcript.lastCompletion()?.stop_reason}
       onOpenSettings={props.onOpenSettings}
@@ -590,6 +592,7 @@ interface ChatLayoutProps {
   streaming?: boolean;
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error' | 'reconnecting';
   sseReconnectInSec?: number;
+  runningTools?: RunningTool[];
   preOpen?: string | null;
   sessionCostUsd?: number;
   lastStopReason?: string;
@@ -1082,6 +1085,20 @@ function ChatLayout(props: ChatLayoutProps) {
                 sse · {props.sseStatus}
                 <Show when={props.sseStatus === 'reconnecting' && (props.sseReconnectInSec ?? 0) > 0}>
                   {' in '}{props.sseReconnectInSec}s
+                </Show>
+              </span>
+            </Show>
+            <Show when={(props.runningTools?.length ?? 0) > 0}>
+              <span
+                class="chat__meta-item chat__meta-item--running"
+                data-testid="running-tools-chip"
+                title={props.runningTools!.map((t) => t.toolName).join(', ')}
+              >
+                <span class="chat__running-dot" aria-hidden />
+                running · {props.runningTools!.slice(0, 2).map((t) => t.toolName).join(', ')}
+                <Show when={(props.runningTools?.length ?? 0) > 2}>
+                  {' +'}
+                  {props.runningTools!.length - 2}
                 </Show>
               </span>
             </Show>
