@@ -133,6 +133,14 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  transition: max-width var(--dur-base) var(--ease-out);
+}
+
+/* When the inspector is collapsed the chat__main-col has the extra
+   340px of room — let the reading column claim a chunk of it instead
+   of leaving a stranded gutter on the right. */
+.chat:not(.chat--inspector-open) .chat__pane-inner {
+  max-width: 960px;
 }
 
 /* Empty-conversation state                                              */

@@ -776,7 +776,11 @@ function ChatLayout(props: ChatLayoutProps) {
 
   return (
     <div
-      class={'chat ' + (onChat() ? '' : 'chat--discovery')}
+      class={
+        'chat ' +
+        (onChat() ? '' : 'chat--discovery') +
+        (onChat() && inspectorOpen() ? ' chat--inspector-open' : '')
+      }
       data-testid="chat-screen"
     >
       <LeftRail
