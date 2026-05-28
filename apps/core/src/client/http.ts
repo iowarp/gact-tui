@@ -519,6 +519,36 @@ export class Client {
   }
 
   /**
+   * GET /v1/prompts/{id} — resolve a prompt to its rendered text
+   * (default profile, optionally overridden via profile query param).
+   * Returns `{prompt: {id, profile, text, ...}}`.
+   */
+  getPrompt(
+    promptId: string,
+    options: { profile?: string; session_id?: string; workspace_id?: string } = {},
+  ): Promise<{
+    prompt: {
+      id: string;
+      profile: string;
+      text: string;
+      title?: string;
+      description?: string;
+      scope?: string;
+      source_path?: string;
+      provider?: string;
+      model?: string;
+      checksum?: string;
+    };
+  }> {
+    const qs = new URLSearchParams();
+    if (options.profile) qs.set('profile', options.profile);
+    if (options.session_id) qs.set('session_id', options.session_id);
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get(`/v1/prompts/${encodeURIComponent(promptId)}${suffix}`);
+  }
+
+  /**
    * POST /v1/prompts/reload — re-scan the prompt sources for new or
    * changed files. Useful after the user edits a prompt on disk.
    */
