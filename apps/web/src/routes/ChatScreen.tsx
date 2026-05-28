@@ -65,9 +65,11 @@ import {
 } from '../persisted.js';
 import './chat.css';
 
+import type { SettingsSection } from './SettingsShell.js';
+
 export interface ChatScreenProps {
   backend: BackendHandle;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (section?: SettingsSection) => void;
   onAddRemote?: () => void;
 }
 
@@ -608,7 +610,7 @@ interface ChatLayoutProps {
   sessionCostUsd?: number;
   lastStopReason?: string;
   onNewSession?: () => void | Promise<void>;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (section?: SettingsSection) => void;
   onAddRemote?: () => void;
   caps?: BackendHandle['capabilities'];
   /** SessionsColumn workspace switcher wiring (LiveDriven path only). */
@@ -897,6 +899,11 @@ function ChatLayout(props: ChatLayoutProps) {
       setRailRoute(route);
       return;
     }
+    if (cmd.id.startsWith('settings:')) {
+      const section = cmd.id.slice('settings:'.length) as SettingsSection;
+      props.onOpenSettings?.(section);
+      return;
+    }
     if (cmd.id === 'new-session') {
       void props.onNewSession?.();
       return;
@@ -1000,6 +1007,28 @@ function ChatLayout(props: ChatLayoutProps) {
         trigger: `go · ${r.label.toLowerCase()}`,
         description: `Open ${r.label}`,
         category: 'navigation',
+      });
+    }
+    // Settings deep-links — palette can drop the user straight onto
+    // the relevant pane without scrolling through a long settings shell.
+    const settingsJumps: Array<{ id: SettingsSection; label: string }> = [
+      { id: 'backends', label: 'Backends' },
+      { id: 'workspaces', label: 'Workspaces' },
+      { id: 'providers', label: 'Models & providers' },
+      { id: 'agents', label: 'Agents' },
+      { id: 'mcp', label: 'MCP servers' },
+      { id: 'memory', label: 'Memory' },
+      { id: 'metrics', label: 'Metrics' },
+      { id: 'doctor', label: 'Doctor' },
+      { id: 'appearance', label: 'Appearance' },
+      { id: 'about', label: 'About' },
+    ];
+    for (const s of settingsJumps) {
+      items.push({
+        id: `settings:${s.id}`,
+        trigger: `settings · ${s.label.toLowerCase()}`,
+        description: `Open Settings → ${s.label}`,
+        category: 'settings',
       });
     }
     items.push(
