@@ -413,6 +413,169 @@ func staticPromptDefinitions() map[string]gact.PromptDefinition {
 	return out
 }
 
+func (s *Server) handleListExpertPacks(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"expert_packs": staticExpertPacks()})
+}
+
+func (s *Server) handleGetExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, pack := range staticExpertPacks() {
+		if pack.ID == id {
+			writeJSON(w, http.StatusOK, gact.ExpertPackDetail{
+				ExpertPack: pack,
+				Agents:     staticExpertPackAgents(pack.ID),
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "expert pack not found: "+id)
+}
+
+func (s *Server) handleValidateExpertPack(w http.ResponseWriter, r *http.Request) {
+	var req gact.ExpertPackValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "path is required")
+		return
+	}
+	pack := gact.ExpertPackDefinition{
+		ID:             "validated-pack",
+		Version:        "0.1.0",
+		Title:          "Validated Expert Pack",
+		Scope:          firstNonEmptyString(req.Scope, "session"),
+		Root:           req.Path,
+		DefinitionPath: req.Path + "/clio-pack.yaml",
+		Enabled:        true,
+	}
+	writeJSON(w, http.StatusOK, gact.ExpertPackValidationResult{
+		Enabled: true,
+		Pack:    pack,
+		Agents:  staticExpertPackAgents(pack.ID),
+	})
+}
+
+func (s *Server) handleGetSessionExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionExpertPackState(sess)
+	writeJSON(w, http.StatusOK, state)
+}
+
+func (s *Server) handleSetSessionExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req gact.SetSessionExpertPackRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	packID := strings.TrimSpace(req.PackID)
+	if packID == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "pack_id or path is required")
+		return
+	}
+	var pack *gact.ExpertPackDefinition
+	for _, row := range staticExpertPacks() {
+		if row.ID == packID {
+			copy := row
+			pack = &copy
+			break
+		}
+	}
+	if pack == nil {
+		writeError(w, http.StatusNotFound, "not_found", "expert pack not found: "+packID)
+		return
+	}
+	if sess.Metadata == nil {
+		sess.Metadata = map[string]any{}
+	}
+	sess.Metadata["active_expert_pack_id"] = pack.ID
+	sess.Metadata["active_expert_pack_version"] = pack.Version
+	sess.Metadata["active_expert_pack_scope"] = pack.Scope
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		row.Metadata = sess.Metadata
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionExpertPackState(updated)
+	writeJSON(w, http.StatusOK, state)
+}
+
+func sessionExpertPackState(sess *gact.Session) gact.SessionExpertPackState {
+	if sess == nil {
+		return gact.SessionExpertPackState{}
+	}
+	packID, _ := sess.Metadata["active_expert_pack_id"].(string)
+	var pack *gact.ExpertPackDefinition
+	for _, row := range staticExpertPacks() {
+		if row.ID == packID {
+			copy := row
+			pack = &copy
+			break
+		}
+	}
+	return gact.SessionExpertPackState{
+		SessionID:          sess.ID,
+		WorkspaceID:        sess.WorkspaceID,
+		ActiveExpertPackID: packID,
+		ExpertPack:         pack,
+		Session:            sess,
+	}
+}
+
+func staticExpertPacks() []gact.ExpertPackDefinition {
+	return []gact.ExpertPackDefinition{{
+		ID:             "data-semantics",
+		Version:        "0.1.0",
+		Title:          "Data Semantics",
+		Description:    "Data, analysis, visualization, and utility experts for scientific datasets.",
+		Scope:          "workspace",
+		Root:           ".clio/expert-packs/data-semantics",
+		DefinitionPath: ".clio/expert-packs/data-semantics/clio-pack.yaml",
+		Enabled:        true,
+		Defaults:       map[string]any{"prompt_profile": "heavy"},
+		Metadata:       map[string]any{"source": "emulator"},
+	}, {
+		ID:               "broken-pack",
+		Version:          "0.0.1",
+		Title:            "Broken Pack",
+		Description:      "Invalid pack kept visible for validation diagnostics.",
+		Scope:            "workspace",
+		Root:             ".clio/expert-packs/broken-pack",
+		DefinitionPath:   ".clio/expert-packs/broken-pack/clio-pack.yaml",
+		Enabled:          false,
+		ValidationErrors: []string{"parent_id references missing expert"},
+	}}
+}
+
+func staticExpertPackAgents(packID string) []gact.AgentDef {
+	if packID == "broken-pack" {
+		return []gact.AgentDef{{
+			ID: "broken", Source: "expert_pack", Title: "Broken Expert", ParentID: "missing",
+			Enabled: false, ValidationErrors: []string{"missing parent: missing"},
+		}}
+	}
+	return []gact.AgentDef{{
+		ID: "main", Source: "expert_pack", Title: "Main Expert", PromptID: "clio.main.planner",
+		PromptProfile: "heavy", Enabled: true, Commands: []string{"/analyze"},
+	}, {
+		ID: "analysis", Source: "expert_pack", Title: "Analysis Expert", ParentID: "main",
+		PromptID: "clio.expert.analysis", PromptProfile: "heavy", Tools: []string{"memory_search_sessions"},
+		Keywords: []string{"statistics", "quality"}, Enabled: true,
+	}}
+}
+
 func resolvePromptDefinition(row gact.PromptDefinition, requested string) (gact.ResolvedPrompt, bool) {
 	profile := strings.TrimSpace(requested)
 	if profile == "" {

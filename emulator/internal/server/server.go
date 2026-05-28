@@ -227,6 +227,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/prompts/reload", s.handleReloadPrompts)
 	s.mux.HandleFunc("PUT /v1/prompts/{id}", s.handleSavePrompt)
 
+	// CLIO expert-pack runtime extension
+	s.mux.HandleFunc("GET /v1/expert-packs", s.handleListExpertPacks)
+	s.mux.HandleFunc("GET /v1/expert-packs/{id}", s.handleGetExpertPack)
+	s.mux.HandleFunc("POST /v1/expert-packs/validate", s.handleValidateExpertPack)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/expert-pack", s.handleGetSessionExpertPack)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/expert-pack", s.handleSetSessionExpertPack)
+
 	// §6.14 — Voice
 	s.mux.HandleFunc("POST /v1/sessions/{id}/voice/transcribe", s.handleVoiceTranscribe)
 

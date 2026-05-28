@@ -37,6 +37,8 @@ const (
 	catalogKindAgents
 	catalogKindPrompts
 	catalogKindPromptDetail
+	catalogKindExpertPacks
+	catalogKindExpertPackDetail
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -52,10 +54,11 @@ type catalogBrowserState struct {
 	// which server's catalog we're viewing. parent is preserved so
 	// Esc/Backspace can pop back to the server list rather than
 	// closing the whole modal.
-	mcpServerID string
-	agentID     string
-	promptID    string
-	parent      *catalogBrowserState
+	mcpServerID  string
+	agentID      string
+	promptID     string
+	expertPackID string
+	parent       *catalogBrowserState
 }
 
 // catalogItem is the common shape we flatten each backend response into
@@ -76,8 +79,9 @@ type catalogBrowserLoadedMsg struct {
 	// mcpServerID echoes the server context for catalogKindMcpDetail
 	// loads — protects against late-arriving messages overwriting a
 	// browser the user has since navigated back from.
-	mcpServerID string
-	promptID    string
+	mcpServerID  string
+	promptID     string
+	expertPackID string
 }
 
 type promptSavedMsg struct {
@@ -220,9 +224,28 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			}
 			items := promptCatalogItems(prompts)
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
+		case catalogKindExpertPacks:
+			packs, err := c.ListExpertPacks(ctx, scope)
+			if err != nil {
+				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
+			}
+			return catalogBrowserLoadedMsg{kind: kind, items: expertPackCatalogItems(packs)}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}
+}
+
+func (a *App) openExpertPackDetail(packID, packTitle string) tea.Cmd {
+	parent := a.catalogBrowser
+	title := firstNonEmpty(packTitle, packID)
+	a.catalogBrowser = &catalogBrowserState{
+		kind:         catalogKindExpertPackDetail,
+		title:        "Expert Pack · " + title,
+		loading:      true,
+		expertPackID: packID,
+		parent:       parent,
+	}
+	return loadExpertPackDetailCmd(a.c, a.runtimeScope(), packID)
 }
 
 func (a *App) openPromptDetail(promptID, promptTitle string) tea.Cmd {
@@ -437,6 +460,34 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 	}
 }
 
+func loadExpertPackDetailCmd(c *client.Client, scope client.RuntimeScope, packID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		detail, err := c.GetExpertPack(ctx, packID, scope)
+		if err != nil {
+			return catalogBrowserLoadedMsg{kind: catalogKindExpertPackDetail, errText: err.Error(), expertPackID: packID}
+		}
+		items := expertPackDetailItems(detail)
+		return catalogBrowserLoadedMsg{kind: catalogKindExpertPackDetail, items: items, expertPackID: packID}
+	}
+}
+
+type expertPackActivatedMsg struct {
+	packID string
+	state  gact.SessionExpertPackState
+	err    error
+}
+
+func activateExpertPackCmd(c *client.Client, sessionID, packID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		state, err := c.SetSessionExpertPack(ctx, sessionID, gact.SetSessionExpertPackRequest{PackID: packID})
+		return expertPackActivatedMsg{packID: packID, state: state, err: err}
+	}
+}
+
 func loadPromptDetailCmd(c *client.Client, promptID string, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -607,6 +658,10 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Prompts"
 	case catalogKindPromptDetail:
 		return "Prompt detail"
+	case catalogKindExpertPacks:
+		return "Expert Packs"
+	case catalogKindExpertPackDetail:
+		return "Expert Pack detail"
 	}
 	return "Catalog"
 }
@@ -642,13 +697,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// LLL2: in MCP detail, esc pops back to parent server list
 		// rather than closing the whole modal — gives back-out
 		// affordance without juggling separate keys.
-		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail || cb.kind == catalogKindPromptDetail) && cb.parent != nil {
+		if catalogBrowserCanPop(cb.kind) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 			return a, nil
 		}
 		a.closeCatalogBrowser()
 	case "backspace":
-		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail || cb.kind == catalogKindPromptDetail) && cb.parent != nil {
+		if catalogBrowserCanPop(cb.kind) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 		}
 	case "enter":
@@ -667,6 +722,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindPrompts && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			return a, a.openPromptDetail(it.id, it.title)
+		}
+		if cb.kind == catalogKindExpertPacks && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, a.openExpertPackDetail(it.id, it.title)
 		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
@@ -729,6 +788,26 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			a.openCatalogDetail(it.title, text)
 			return a, nil
+		}
+		if cb.kind == catalogKindExpertPackDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			switch {
+			case it.id == "activate":
+				if sid := a.currentSessionID(); sid != "" && cb.expertPackID != "" {
+					return a, activateExpertPackCmd(a.c, sid, cb.expertPackID)
+				}
+				a.transientHint = "select a session before activating an expert pack"
+				return a, scheduleHintExpire(a.transientHint)
+			case strings.HasPrefix(it.id, "agent/"):
+				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+			default:
+				text := strings.TrimSpace(it.desc)
+				if text == "" {
+					text = it.title
+				}
+				a.openCatalogDetail(it.title, text)
+				return a, nil
+			}
 		}
 		// Other kinds: enter still closes (back-compat).
 		a.closeCatalogBrowser()
@@ -800,6 +879,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return a, nil
+}
+
+func catalogBrowserCanPop(kind catalogBrowserKind) bool {
+	return kind == catalogKindMcpDetail ||
+		kind == catalogKindAgentDetail ||
+		kind == catalogKindPromptDetail ||
+		kind == catalogKindExpertPackDetail
 }
 
 // toggleToolDisabled flips a tool id in/out of App.disabledTools and
@@ -1021,6 +1107,10 @@ func (a *App) viewCatalogBrowser() string {
 		hintText = "↑/↓ navigate · Enter profiles · Esc close"
 	case catalogKindPromptDetail:
 		hintText = "↑/↓ navigate · Enter text/provenance · e edit · s save codex profile · Esc/Backspace back"
+	case catalogKindExpertPacks:
+		hintText = "↑/↓ navigate · Enter inspect · Esc close"
+	case catalogKindExpertPackDetail:
+		hintText = "↑/↓ navigate · Enter details/activate · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -1080,6 +1170,8 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		return catalogKindAgents, true
 	case "/prompts":
 		return catalogKindPrompts, true
+	case "/expert-packs", "/expertpacks":
+		return catalogKindExpertPacks, true
 	}
 	return 0, false
 }
@@ -1096,6 +1188,109 @@ func promptCatalogItems(prompts []gact.PromptDefinition) []catalogItem {
 		})
 	}
 	return items
+}
+
+func expertPackCatalogItems(packs []gact.ExpertPackDefinition) []catalogItem {
+	sort.SliceStable(packs, func(i, j int) bool {
+		if packs[i].Scope != packs[j].Scope {
+			return packs[i].Scope < packs[j].Scope
+		}
+		return firstNonEmpty(packs[i].Title, packs[i].ID) < firstNonEmpty(packs[j].Title, packs[j].ID)
+	})
+	items := make([]catalogItem, 0, len(packs))
+	for _, pack := range packs {
+		status := firstNonEmpty(pack.Scope, "pack")
+		if !pack.Enabled || len(pack.ValidationErrors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        pack.ID,
+			title:     firstNonEmpty(pack.Title, pack.ID),
+			desc:      expertPackDescription(pack),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
+func expertPackDescription(pack gact.ExpertPackDefinition) string {
+	parts := make([]string, 0, 6)
+	if pack.Version != "" {
+		parts = append(parts, "version: "+pack.Version)
+	}
+	if pack.DefinitionPath != "" {
+		parts = append(parts, "definition: "+pack.DefinitionPath)
+	}
+	if len(pack.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(pack.ValidationErrors, "; "))
+	}
+	if pack.Description != "" {
+		parts = append(parts, compactCatalogText(pack.Description))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
+	pack := detail.ExpertPack
+	items := []catalogItem{{
+		id:        "activate",
+		title:     "Activate for current session",
+		desc:      "sets this expert pack as the active session runtime",
+		statusTag: "session",
+	}, {
+		id:        "pack/" + pack.ID,
+		title:     "Pack · " + firstNonEmpty(pack.Title, pack.ID),
+		desc:      formatExpertPackSummary(pack),
+		statusTag: firstNonEmpty(pack.Scope, "pack"),
+	}}
+	if len(pack.ValidationErrors) > 0 {
+		items = append(items, catalogItem{
+			id: "validation", title: "Validation errors", desc: strings.Join(pack.ValidationErrors, "; "), statusTag: "error",
+		})
+	}
+	sortAgentsForCatalog(detail.Agents)
+	for _, agent := range detail.Agents {
+		status := firstNonEmpty(agent.Source, "expert")
+		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        "agent/" + agent.ID,
+			title:     "Agent · " + firstNonEmpty(agent.Title, agent.ID),
+			desc:      agentCatalogDescription(agent, detail.Agents),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
+func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
+	rows := appendDetailSection(nil, "Expert Pack",
+		detailField{"id", pack.ID},
+		detailField{"title", pack.Title},
+		detailField{"version", pack.Version},
+		detailField{"scope", pack.Scope},
+		detailField{"enabled", fmt.Sprintf("%t", pack.Enabled)},
+		detailField{"root", pack.Root},
+		detailField{"definition", pack.DefinitionPath},
+	)
+	if len(pack.ValidationErrors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(pack.ValidationErrors, "\n")})
+	}
+	if len(pack.Defaults) > 0 {
+		if payload, err := json.MarshalIndent(pack.Defaults, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Defaults", detailField{"", string(payload)})
+		}
+	}
+	if len(pack.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(pack.Metadata, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
+		}
+	}
+	if pack.Description != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", pack.Description})
+	}
+	return strings.Join(rows, "\n")
 }
 
 func promptDefinitionDescription(p gact.PromptDefinition) string {
@@ -1385,7 +1580,11 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		parts = append(parts, "delegates: "+strings.Join(delegates, ", "))
 	}
 	if len(agent.Tools) > 0 {
-		parts = append(parts, fmt.Sprintf("%d tools", len(agent.Tools)))
+		toolSummary := strings.Join(agent.Tools, ", ")
+		if len(agent.Tools) > 3 {
+			toolSummary = strings.Join(agent.Tools[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Tools)-3)
+		}
+		parts = append(parts, "tools: "+toolSummary)
 	}
 	if len(agent.Commands) > 0 {
 		parts = append(parts, fmt.Sprintf("%d commands", len(agent.Commands)))
