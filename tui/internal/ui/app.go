@@ -1441,6 +1441,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.doctor.err = m.err
 			a.doctor.health = m.health
 			a.doctor.caps = m.caps
+			a.doctor.gaps = m.gaps
 		}
 		return a, nil
 
@@ -1852,6 +1853,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindAgentDetail && m.mcpServerID != a.catalogBrowser.agentID {
 			return a, nil
 		}
+		if m.kind == catalogKindPromptDetail && m.promptID != a.catalogBrowser.promptID {
+			return a, nil
+		}
 		a.catalogBrowser.loading = false
 		a.catalogBrowser.items = m.items
 		a.catalogBrowser.errText = m.errText
@@ -1879,6 +1883,34 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.openCatalogDetail(m.title, text)
 		return a, nil
+
+	case promptSavedMsg:
+		if m.err != nil {
+			a.transientHint = "prompt save failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "saved prompt profile " + m.profile
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindPromptDetail && a.catalogBrowser.promptID == m.promptID {
+			cmd = loadPromptDetailCmd(a.c, m.promptID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case sessionRewindDoneMsg:
+		if m.err != nil {
+			a.transientHint = "rewind failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = fmt.Sprintf("rewound %d message(s)", len(m.deleted))
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), loadMessagesCmd(a.c, m.sessionID))
+
+	case sessionUndoDoneMsg:
+		if m.err != nil {
+			a.transientHint = "undo failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = fmt.Sprintf("undid %d message(s)", len(m.reverted))
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), loadMessagesCmd(a.c, m.sessionID))
 
 	case mcpServersFetchedMsg:
 		a.mcpServers = m.servers
@@ -2788,6 +2820,11 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if kind, ok := catalogCommandForID(cmd.ID); ok {
 				return a, a.openCatalogBrowser(kind)
 			}
+			if cmd.Status != "" && cmd.Status != "available" {
+				reason := firstNonEmpty(cmd.DisabledReason, cmd.Error, "command unavailable")
+				a.transientHint = cmd.ID + ": " + reason
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			// /agents reuses Settings > Agent tab — the richer picker
 			// there already shows descriptions + mode + selection.
 			if cmd.ID == "/agent" || cmd.ID == "/agents" {
@@ -3559,6 +3596,11 @@ func (a *App) paletteMatches() []gact.Command {
 		localCmd("/diff", "command.diff.title", "command.diff.desc"),
 		localCmd("/compact", "command.compact.title", "command.compact.desc"),
 	}
+	if a.caps.Capabilities.XClioPromptRegistry {
+		localCmds = append(localCmds, gact.Command{
+			ID: "/prompts", Title: "Prompts", Description: "Browse CLIO prompt catalog and profiles", Source: "builtin",
+		})
+	}
 	if a.caps.Capabilities.IntegrationHealth {
 		localCmds = append(localCmds, localCmd("/doctor", "command.doctor.title", "command.doctor.desc"))
 	}
@@ -3729,6 +3771,36 @@ func deleteMessageCmd(c *client.Client, sessionID, messageID string) tea.Cmd {
 		defer cancel()
 		_ = c.DeleteMessage(ctx, sessionID, messageID)
 		return nil
+	}
+}
+
+type sessionRewindDoneMsg struct {
+	sessionID string
+	deleted   []string
+	err       error
+}
+
+type sessionUndoDoneMsg struct {
+	sessionID string
+	reverted  []string
+	err       error
+}
+
+func rewindSessionCmd(c *client.Client, sessionID, messageID string, includeTarget bool) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		deleted, err := c.RewindSession(ctx, sessionID, messageID, includeTarget)
+		return sessionRewindDoneMsg{sessionID: sessionID, deleted: deleted, err: err}
+	}
+}
+
+func undoSessionCmd(c *client.Client, sessionID string, count int) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		reverted, err := c.UndoSession(ctx, sessionID, count)
+		return sessionUndoDoneMsg{sessionID: sessionID, reverted: reverted, err: err}
 	}
 }
 
@@ -9346,8 +9418,18 @@ func paletteCommandSubtitle(c gact.Command) string {
 	id := strings.TrimSpace(c.ID)
 	title := strings.TrimSpace(c.Title)
 	desc := strings.TrimSpace(c.Description)
+	if c.Status != "" && c.Status != "available" {
+		reason := strings.TrimSpace(firstNonEmpty(c.DisabledReason, c.Error))
+		if reason != "" {
+			return c.Status + " · " + reason
+		}
+		return c.Status
+	}
 	if desc != "" && !samePaletteCommandText(desc, id) && !samePaletteCommandText(desc, title) {
 		return desc
+	}
+	if c.AgentID != "" {
+		return "agent: " + c.AgentID
 	}
 	if title != "" && !samePaletteCommandText(title, id) {
 		return title

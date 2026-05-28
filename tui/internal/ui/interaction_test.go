@@ -3974,6 +3974,10 @@ func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
 	if got := paletteCommandSubtitle(c); got != "builtin" {
 		t.Fatalf("subtitle = %q, want source fallback for duplicate title", got)
 	}
+	c = gact.Command{ID: "/optimize", Title: "Optimize", Status: "unavailable", DisabledReason: "optimizer not installed"}
+	if got := paletteCommandSubtitle(c); got != "unavailable · optimizer not installed" {
+		t.Fatalf("subtitle = %q, want unavailable reason", got)
+	}
 }
 
 func TestPaletteFilterEditsAtCursor(t *testing.T) {

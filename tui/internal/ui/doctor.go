@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ type doctorState struct {
 	err     error
 	health  gact.HealthResponse
 	caps    gact.Capabilities
+	gaps    map[string]gact.CapabilityGap
 	tab     doctorTab
 	scroll  int
 }
@@ -41,6 +43,7 @@ type doctorTab int
 const (
 	doctorTabHealth doctorTab = iota
 	doctorTabCapabilities
+	doctorTabGaps
 )
 
 // doctorFetchedMsg carries a completed /v1/health + /v1/capabilities
@@ -49,6 +52,7 @@ const (
 type doctorFetchedMsg struct {
 	health gact.HealthResponse
 	caps   gact.Capabilities
+	gaps   map[string]gact.CapabilityGap
 	err    error
 }
 
@@ -63,7 +67,8 @@ func doctorFetchCmd(c *client.Client) tea.Cmd {
 			return doctorFetchedMsg{health: h, err: herr}
 		}
 		caps, cerr := c.Capabilities(ctx)
-		return doctorFetchedMsg{health: h, caps: caps, err: cerr}
+		gaps, _ := c.CapabilityGaps(ctx)
+		return doctorFetchedMsg{health: h, caps: caps, gaps: gaps, err: cerr}
 	}
 }
 
@@ -83,7 +88,7 @@ func (a *App) handleDoctorKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, doctorFetchCmd(a.c)
 	case "tab", "right", "left":
 		// Cycle between integrations + capabilities views.
-		a.doctor.tab = (a.doctor.tab + 1) % 2
+		a.doctor.tab = (a.doctor.tab + 1) % 3
 		a.doctor.scroll = 0
 		return a, nil
 	case "up", "k":
@@ -159,6 +164,17 @@ func (a *App) viewDoctor() string {
 				return nil
 			},
 		},
+		{
+			id:     "doctor-gaps",
+			label:  "Gaps",
+			active: a.doctor.tab == doctorTabGaps,
+			action: func(app *App) tea.Cmd {
+				if app.doctor != nil {
+					app.doctor.tab = doctorTabGaps
+				}
+				return nil
+			},
+		},
 	}
 	var body string
 	var rowHits []modalRowHit
@@ -175,6 +191,8 @@ func (a *App) viewDoctor() string {
 	case a.doctor.tab == doctorTabCapabilities:
 		body = renderDoctorCapabilities(a.doctor.caps, t, innerW)
 		rowHits = a.doctorCapabilityRowHits()
+	case a.doctor.tab == doctorTabGaps:
+		body = renderCapabilityGaps(a.doctor.gaps, t, innerW)
 	default:
 		body = renderDoctorBody(a.doctor.health, t, innerW)
 		rowHits = a.doctorHealthRowHits(innerW)
@@ -316,7 +334,52 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
 		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
 		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
+		{"x_clio_prompt_registry", caps.Capabilities.XClioPromptRegistry, capVendor},
 	}
+}
+
+func renderCapabilityGaps(gaps map[string]gact.CapabilityGap, t Theme, innerW int) string {
+	if len(gaps) == 0 {
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("No explicit capability gaps reported by this backend.")
+	}
+	names := make([]string, 0, len(gaps))
+	for name := range gaps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	nameW := 22
+	statusW := 14
+	behaviorW := innerW - nameW - statusW - 2
+	if behaviorW < 24 {
+		behaviorW = 24
+	}
+	rows := []string{
+		lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render("Backend-declared unsupported, deferred, or disabled surfaces."),
+		"",
+		lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
+			Render(padRight("GAP", nameW) + padRight("STATUS", statusW) + "CLIENT BEHAVIOR"),
+	}
+	for _, name := range names {
+		gap := gaps[name]
+		status := firstNonEmpty(gap.Status, "unknown")
+		style := lipgloss.NewStyle().Foreground(t.Warning)
+		if status == "unsupported" {
+			style = lipgloss.NewStyle().Foreground(t.Danger)
+		}
+		rows = append(rows, padRight(name, nameW)+padRight(style.Render(status), statusW)+truncate(firstNonEmpty(gap.ClientBehavior, gap.Category, "not specified"), behaviorW))
+		if len(gap.RelatedCommands) > 0 {
+			rows = append(rows, "  commands: "+strings.Join(gap.RelatedCommands, ", "))
+		}
+		if len(gap.RelatedEndpoints) > 0 {
+			rows = append(rows, "  endpoints: "+strings.Join(gap.RelatedEndpoints, ", "))
+		}
+		if len(gap.RecoveryActions) > 0 {
+			rows = append(rows, "  recovery: "+strings.Join(gap.RecoveryActions, ", "))
+		}
+	}
+	return strings.Join(rows, "\n")
 }
 
 func (a *App) doctorCapabilityRowHits() []modalRowHit {

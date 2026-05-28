@@ -140,6 +140,14 @@ func (c *Client) Capabilities(ctx context.Context) (gact.Capabilities, error) {
 	return out, err
 }
 
+func (c *Client) CapabilityGaps(ctx context.Context) (map[string]gact.CapabilityGap, error) {
+	var out struct {
+		CapabilityGaps map[string]gact.CapabilityGap `json:"capability_gaps"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/capability-gaps", nil, &out)
+	return out.CapabilityGaps, err
+}
+
 // MemoryStats calls GET /v1/memory/stats (v0.2 §6.19 — CLIO-BBBBBBBBBB4).
 // sessionID is optional; pass "" for global-only stats. Backends without
 // capabilities.memory return 501 — the caller should gate on that flag.
@@ -150,6 +158,34 @@ func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.Memory
 	}
 	var out gact.MemoryStats
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
+type MemorySearchRequest struct {
+	Query               string
+	SessionID           string
+	WorkspaceID         string
+	IncludeCrossSession bool
+	Limit               int
+}
+
+func (c *Client) MemorySearch(ctx context.Context, req MemorySearchRequest) (gact.MemorySearchResponse, error) {
+	q := url.Values{}
+	q.Set("query", req.Query)
+	if req.SessionID != "" {
+		q.Set("session_id", req.SessionID)
+	}
+	if req.WorkspaceID != "" {
+		q.Set("workspace_id", req.WorkspaceID)
+	}
+	if req.IncludeCrossSession {
+		q.Set("include_cross_session", "true")
+	}
+	if req.Limit > 0 {
+		q.Set("limit", strconv.Itoa(req.Limit))
+	}
+	var out gact.MemorySearchResponse
+	err := c.do(ctx, http.MethodGet, "/v1/memory/search?"+q.Encode(), nil, &out)
 	return out, err
 }
 
@@ -543,6 +579,38 @@ func (c *Client) ListCommands(ctx context.Context) ([]gact.Command, error) {
 	}
 	err := c.do(ctx, http.MethodGet, "/v1/commands", nil, &out)
 	return out.Commands, err
+}
+
+// ListPrompts fetches CLIO prompt registry definitions. Backends advertise
+// this vendor surface with capabilities.x_clio_prompt_registry.
+func (c *Client) ListPrompts(ctx context.Context) ([]gact.PromptDefinition, error) {
+	var out struct {
+		Prompts []gact.PromptDefinition `json:"prompts"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/prompts", nil, &out)
+	return out.Prompts, err
+}
+
+// GetPrompt resolves one prompt/profile to the effective text and provenance.
+func (c *Client) GetPrompt(ctx context.Context, promptID, profile string) (gact.ResolvedPrompt, error) {
+	path := "/v1/prompts/" + url.PathEscape(promptID)
+	if profile != "" {
+		path += "?profile=" + url.QueryEscape(profile)
+	}
+	var out struct {
+		Prompt gact.ResolvedPrompt `json:"prompt"`
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out.Prompt, err
+}
+
+// SavePrompt writes a profile override through the CLIO prompt registry.
+func (c *Client) SavePrompt(ctx context.Context, promptID string, req gact.PromptSaveRequest) (gact.PromptDefinition, error) {
+	var out struct {
+		Prompt gact.PromptDefinition `json:"prompt"`
+	}
+	err := c.do(ctx, http.MethodPut, "/v1/prompts/"+url.PathEscape(promptID), req, &out)
+	return out.Prompt, err
 }
 
 // RunCommand triggers POST /v1/sessions/{id}/commands/{cmd_id}.

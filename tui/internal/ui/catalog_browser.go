@@ -35,6 +35,8 @@ const (
 	// the Settings > Agent picker which is for selecting; this one is
 	// for browsing. LLL3.
 	catalogKindAgents
+	catalogKindPrompts
+	catalogKindPromptDetail
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -52,6 +54,7 @@ type catalogBrowserState struct {
 	// closing the whole modal.
 	mcpServerID string
 	agentID     string
+	promptID    string
 	parent      *catalogBrowserState
 }
 
@@ -74,6 +77,13 @@ type catalogBrowserLoadedMsg struct {
 	// loads — protects against late-arriving messages overwriting a
 	// browser the user has since navigated back from.
 	mcpServerID string
+	promptID    string
+}
+
+type promptSavedMsg struct {
+	promptID string
+	profile  string
+	err      error
 }
 
 type catalogDetailLoadedMsg struct {
@@ -203,9 +213,29 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
+		case catalogKindPrompts:
+			prompts, err := c.ListPrompts(ctx)
+			if err != nil {
+				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
+			}
+			items := promptCatalogItems(prompts)
+			return catalogBrowserLoadedMsg{kind: kind, items: items}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}
+}
+
+func (a *App) openPromptDetail(promptID, promptTitle string) tea.Cmd {
+	parent := a.catalogBrowser
+	title := firstNonEmpty(promptTitle, promptID)
+	a.catalogBrowser = &catalogBrowserState{
+		kind:     catalogKindPromptDetail,
+		title:    "Prompt · " + title,
+		loading:  true,
+		promptID: promptID,
+		parent:   parent,
+	}
+	return loadPromptDetailCmd(a.c, promptID)
 }
 
 // openCatalogBrowser pops the modal for a given kind and starts the
@@ -373,6 +403,11 @@ func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
 				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
 			})
 		}
+		if desc := agentPromptResolutionDescription(agent); desc != "" {
+			items = append(items, catalogItem{
+				id: "prompt-resolution", title: "Prompt provenance", desc: desc,
+			})
+		}
 		if len(visibleTools) == 0 {
 			items = append(items, catalogItem{id: "tools/none", title: "Tools · none declared"})
 		} else {
@@ -402,6 +437,92 @@ func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
 	}
 }
 
+func loadPromptDetailCmd(c *client.Client, promptID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		prompts, err := c.ListPrompts(ctx)
+		if err != nil {
+			return catalogBrowserLoadedMsg{kind: catalogKindPromptDetail, errText: err.Error(), promptID: promptID}
+		}
+		var def gact.PromptDefinition
+		for _, row := range prompts {
+			if row.ID == promptID {
+				def = row
+				break
+			}
+		}
+		if def.ID == "" {
+			return catalogBrowserLoadedMsg{kind: catalogKindPromptDetail, errText: "prompt not found: " + promptID, promptID: promptID}
+		}
+		items := []catalogItem{{
+			id:        "prompt/" + def.ID,
+			title:     "Prompt · " + firstNonEmpty(def.Title, def.ID),
+			desc:      def.Description,
+			statusTag: firstNonEmpty(def.Scope, "prompt"),
+		}}
+		profiles := sortedPromptProfiles(def.Profiles)
+		for _, profile := range profiles {
+			p := def.Profiles[profile]
+			status := firstNonEmpty(p.Scope, def.Scope)
+			if profile == def.DefaultProfile {
+				status = firstNonEmpty(status, "builtin") + " default"
+			}
+			items = append(items, catalogItem{
+				id:        "profile/" + profile,
+				title:     "Profile · " + profile,
+				desc:      promptProfileDescription(p),
+				statusTag: status,
+			})
+		}
+		if len(def.ValidationErrors) > 0 {
+			items = append(items, catalogItem{
+				id: "errors", title: "Validation errors", desc: strings.Join(def.ValidationErrors, "; "), statusTag: "error",
+			})
+		}
+		return catalogBrowserLoadedMsg{kind: catalogKindPromptDetail, items: items, promptID: promptID}
+	}
+}
+
+func loadPromptResolvedDetailCmd(c *client.Client, promptID, profile string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		prompt, err := c.GetPrompt(ctx, promptID, profile)
+		if err != nil {
+			return catalogDetailLoadedMsg{title: "Prompt · " + promptID, err: err}
+		}
+		return catalogDetailLoadedMsg{
+			title: "Prompt · " + prompt.ID + " · " + prompt.Profile,
+			text:  formatResolvedPrompt(prompt),
+		}
+	}
+}
+
+func savePromptProfileCmd(c *client.Client, promptID, sourceProfile, targetProfile string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		prompt, err := c.GetPrompt(ctx, promptID, sourceProfile)
+		if err != nil {
+			return promptSavedMsg{promptID: promptID, profile: targetProfile, err: err}
+		}
+		_, err = c.SavePrompt(ctx, promptID, gact.PromptSaveRequest{
+			Profile:     targetProfile,
+			Title:       prompt.Title,
+			Description: prompt.Description,
+			Text:        prompt.Text,
+			Provider:    prompt.Provider,
+			Model:       prompt.Model,
+			Metadata: map[string]any{
+				"copied_from_profile": sourceProfile,
+				"saved_by":            "gact-tui",
+			},
+		})
+		return promptSavedMsg{promptID: promptID, profile: targetProfile, err: err}
+	}
+}
+
 func catalogBrowserTitle(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindMcp:
@@ -416,6 +537,10 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Agent detail"
 	case catalogKindAgents:
 		return "Agents"
+	case catalogKindPrompts:
+		return "Prompts"
+	case catalogKindPromptDetail:
+		return "Prompt detail"
 	}
 	return "Catalog"
 }
@@ -451,13 +576,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// LLL2: in MCP detail, esc pops back to parent server list
 		// rather than closing the whole modal — gives back-out
 		// affordance without juggling separate keys.
-		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail) && cb.parent != nil {
+		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail || cb.kind == catalogKindPromptDetail) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 			return a, nil
 		}
 		a.closeCatalogBrowser()
 	case "backspace":
-		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail) && cb.parent != nil {
+		if (cb.kind == catalogKindMcpDetail || cb.kind == catalogKindAgentDetail || cb.kind == catalogKindPromptDetail) && cb.parent != nil {
 			a.catalogBrowser = cb.parent
 		}
 	case "enter":
@@ -472,6 +597,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 			return a, a.openAgentDetail(it.id, it.title)
+		}
+		if cb.kind == catalogKindPrompts && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, a.openPromptDetail(it.id, it.title)
 		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
@@ -513,6 +642,19 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.openCatalogDetail(it.title, text)
 			return a, nil
 		}
+		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			if strings.HasPrefix(it.id, "profile/") {
+				profile := strings.TrimPrefix(it.id, "profile/")
+				return a, loadPromptResolvedDetailCmd(a.c, cb.promptID, profile)
+			}
+			text := strings.TrimSpace(it.desc)
+			if text == "" {
+				text = it.title
+			}
+			a.openCatalogDetail(it.title, text)
+			return a, nil
+		}
 		// Other kinds: enter still closes (back-compat).
 		a.closeCatalogBrowser()
 	case " ", "space":
@@ -523,6 +665,14 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
 			id := cb.items[cb.sel].id
 			a.toggleToolDisabled(id)
+		}
+	case "s":
+		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			if strings.HasPrefix(it.id, "profile/") {
+				profile := strings.TrimPrefix(it.id, "profile/")
+				return a, savePromptProfileCmd(a.c, cb.promptID, profile, "codex")
+			}
 		}
 	case "up", "k":
 		if cb.sel > 0 {
@@ -583,7 +733,7 @@ func (a *App) openCatalogDetail(title, text string) {
 
 func (a *App) catalogBrowserHeaderButtons() []menuButton {
 	if a.catalogBrowser != nil &&
-		(a.catalogBrowser.kind == catalogKindMcpDetail || a.catalogBrowser.kind == catalogKindAgentDetail) &&
+		(a.catalogBrowser.kind == catalogKindMcpDetail || a.catalogBrowser.kind == catalogKindAgentDetail || a.catalogBrowser.kind == catalogKindPromptDetail) &&
 		a.catalogBrowser.parent != nil {
 		return []menuButton{{
 			id:    "catalog:back",
@@ -613,6 +763,9 @@ func catalogBrowserClampOffsetForKind(kind catalogBrowserKind, sel, offset, item
 
 func catalogBrowserVisibleItemBudget(kind catalogBrowserKind) int {
 	if kind == catalogKindTools {
+		return catalogBrowserBodyRows
+	}
+	if kind == catalogKindPrompts {
 		return catalogBrowserBodyRows
 	}
 	return catalogBrowserRowBudget
@@ -766,6 +919,10 @@ func (a *App) viewCatalogBrowser() string {
 		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
 	case catalogKindAgentDetail:
 		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
+	case catalogKindPrompts:
+		hintText = "↑/↓ navigate · Enter profiles · Esc close"
+	case catalogKindPromptDetail:
+		hintText = "↑/↓ navigate · Enter text/provenance · s save codex profile · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -823,8 +980,108 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		// Distinct from /agents which still routes to Settings (richer
 		// picker). LLL3 added this read-only browser route.
 		return catalogKindAgents, true
+	case "/prompts":
+		return catalogKindPrompts, true
 	}
 	return 0, false
+}
+
+func promptCatalogItems(prompts []gact.PromptDefinition) []catalogItem {
+	sort.SliceStable(prompts, func(i, j int) bool { return prompts[i].ID < prompts[j].ID })
+	items := make([]catalogItem, 0, len(prompts))
+	for _, p := range prompts {
+		items = append(items, catalogItem{
+			id:        p.ID,
+			title:     firstNonEmpty(p.Title, p.ID),
+			desc:      promptDefinitionDescription(p),
+			statusTag: firstNonEmpty(p.Scope, "prompt"),
+		})
+	}
+	return items
+}
+
+func promptDefinitionDescription(p gact.PromptDefinition) string {
+	parts := make([]string, 0, 5)
+	profiles := sortedPromptProfiles(p.Profiles)
+	if len(profiles) > 0 {
+		parts = append(parts, fmt.Sprintf("profiles: %s", strings.Join(profiles, ", ")))
+	}
+	if p.DefaultProfile != "" {
+		parts = append(parts, "default: "+p.DefaultProfile)
+	}
+	if len(p.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(p.ValidationErrors, "; "))
+	}
+	if desc := compactCatalogText(p.Description); desc != "" {
+		parts = append(parts, desc)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func sortedPromptProfiles(profiles map[string]gact.PromptProfile) []string {
+	names := make([]string, 0, len(profiles))
+	for name := range profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func promptProfileDescription(p gact.PromptProfile) string {
+	parts := make([]string, 0, 5)
+	if p.Provider != "" {
+		parts = append(parts, "provider: "+p.Provider)
+	}
+	if p.Model != "" {
+		parts = append(parts, "model: "+p.Model)
+	}
+	if p.Checksum != "" {
+		parts = append(parts, "checksum: "+p.Checksum)
+	}
+	if p.SourcePath != "" {
+		parts = append(parts, p.SourcePath)
+	}
+	if len(parts) == 0 {
+		parts = append(parts, compactCatalogText(p.Text))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func formatResolvedPrompt(p gact.ResolvedPrompt) string {
+	summary := []detailField{
+		{"id", p.ID},
+		{"profile", p.Profile},
+		{"scope", p.Scope},
+	}
+	if p.FallbackProfile != "" {
+		summary = append(summary, detailField{"fallback profile", p.FallbackProfile})
+	}
+	if p.Provider != "" {
+		summary = append(summary, detailField{"provider", p.Provider})
+	}
+	if p.Model != "" {
+		summary = append(summary, detailField{"model", p.Model})
+	}
+	if p.Checksum != "" {
+		summary = append(summary, detailField{"checksum", p.Checksum})
+	}
+	if p.SourcePath != "" {
+		summary = append(summary, detailField{"source", p.SourcePath})
+	}
+	rows := appendDetailSection(nil, "Resolution", summary...)
+	if p.Description != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", p.Description})
+	}
+	if len(p.ValidationErrors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(p.ValidationErrors, "\n")})
+	}
+	if len(p.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(p.Metadata, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
+		}
+	}
+	rows = appendDetailSection(rows, "Text", detailField{"", p.Text})
+	return strings.Join(rows, "\n")
 }
 
 func stringFromMetadata(metadata map[string]any, key string) string {
@@ -835,6 +1092,42 @@ func stringFromMetadata(metadata map[string]any, key string) string {
 		return strings.TrimSpace(value)
 	}
 	return ""
+}
+
+func mapFromMetadata(metadata map[string]any, key string) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	if value, ok := metadata[key].(map[string]any); ok {
+		return value
+	}
+	return nil
+}
+
+func agentPromptResolutionDescription(agent gact.AgentDef) string {
+	res := mapFromMetadata(agent.Metadata, "prompt_resolution")
+	parts := make([]string, 0, 6)
+	if res != nil {
+		for _, key := range []string{"id", "profile", "scope", "status", "provider", "model"} {
+			if value := strings.TrimSpace(fmt.Sprint(res[key])); value != "" && value != "<nil>" {
+				parts = append(parts, key+": "+value)
+			}
+		}
+		if fallback := strings.TrimSpace(fmt.Sprint(res["fallback_profile"])); fallback != "" && fallback != "<nil>" {
+			parts = append(parts, "fallback: "+fallback)
+		}
+	}
+	if len(parts) == 0 {
+		promptID := firstNonEmpty(stringFromMetadata(agent.Metadata, "prompt_id"), stringFromMetadata(agent.Metadata, "prompt"))
+		profile := stringFromMetadata(agent.Metadata, "prompt_profile")
+		if promptID != "" {
+			parts = append(parts, "id: "+promptID)
+		}
+		if profile != "" {
+			parts = append(parts, "profile: "+profile)
+		}
+	}
+	return strings.Join(parts, " · ")
 }
 
 func agentParentID(agent gact.AgentDef) string {
