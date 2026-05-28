@@ -136,6 +136,15 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/cancel — interrupts an in-flight run. The
+   * backend emits a `message.completed { stop_reason: "cancelled" }`
+   * over SSE for any in-progress message. Returns 204.
+   */
+  cancelSession(sessionId: string): Promise<void> {
+    return this.post<void>(`/v1/sessions/${encodeURIComponent(sessionId)}/cancel`, {});
+  }
+
+  /**
    * Build an SSE URL with the bearer token in the query string. `EventSource`
    * cannot set custom headers, so we fall back to `?auth_token=` per SPEC §7.
    */

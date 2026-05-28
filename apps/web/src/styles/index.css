@@ -173,10 +173,22 @@ textarea {
   color: var(--color-success);
 }
 
-.chip--danger {
+.chip--danger,
+.chip--err {
   background: rgba(248, 113, 113, 0.1);
   border-color: rgba(248, 113, 113, 0.3);
   color: var(--color-error);
+}
+
+.chip--pressable {
+  cursor: pointer;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.chip--pressable:hover {
+  background: var(--color-surface-alt);
 }
 
 /* === Form controls === */

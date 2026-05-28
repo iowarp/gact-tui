@@ -144,4 +144,48 @@ test.describe('CLIO harness — visual proofs', () => {
     await expect(page.getByTestId('density-chip')).toContainText('summary');
     await page.screenshot({ path: shot('density-keybind-summary'), fullPage: false });
   });
+
+  // Wave 4 additions.
+
+  test('chat-live-stream captures an in-flight assistant turn', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=streaming');
+    await expect(page.getByTestId('transcript')).toBeVisible();
+    await page.screenshot({ path: shot('chat-live-stream'), fullPage: false });
+  });
+
+  test('stop-mid-stream shows the Stop affordance in the composer', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=streaming-busy');
+    await expect(page.getByTestId('composer-stop')).toBeVisible();
+    await page.screenshot({ path: shot('stop-mid-stream'), fullPage: false });
+  });
+
+  test('diff-pane-open renders the file_diff review pane', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal&open=diff');
+    await expect(page.getByTestId('diff-pane')).toBeVisible();
+    await expect(page.getByTestId('diff-pane-hunk-0')).toBeVisible();
+    await page.screenshot({ path: shot('diff-pane-open'), fullPage: false });
+  });
+
+  test('diff-per-hunk-apply highlights an applied hunk', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal&open=diff');
+    await page.getByTestId('diff-pane-apply-0').click();
+    await expect(page.locator('.diffpane__hunk--applied')).toBeVisible();
+    await page.screenshot({ path: shot('diff-per-hunk-apply'), fullPage: false });
+  });
+
+  test('slash-palette opens with the default command list', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal&open=palette');
+    await expect(page.getByTestId('slash-palette')).toBeVisible();
+    await expect(page.getByTestId('slash-palette-item-help')).toBeVisible();
+    await page.screenshot({ path: shot('slash-palette'), fullPage: false });
+  });
+
+  test('at-mention-picker opens when the user types `@`', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    const input = page.getByTestId('composer-input');
+    await input.click();
+    await input.type('explain @sup');
+    await expect(page.getByTestId('at-mention-picker')).toBeVisible();
+    await page.screenshot({ path: shot('at-mention-picker'), fullPage: false });
+  });
 });

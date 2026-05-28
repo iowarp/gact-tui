@@ -131,6 +131,17 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.trx-filediff:hover .trx-filediff__chip {
+  border-color: var(--color-accent-cyan);
 }
 
 .trx-filediff__chip {

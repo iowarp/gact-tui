@@ -37,6 +37,11 @@
   grid-template-columns: 32px 1fr 56px;
   gap: 8px;
   align-items: center;
+  position: relative;
+}
+
+.composer__input-wrap {
+  position: relative;
 }
 
 .composer__attach {
