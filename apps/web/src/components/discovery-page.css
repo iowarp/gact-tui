@@ -984,3 +984,12 @@
   max-height: 480px;
   overflow-y: auto;
 }
+
+.dp__card-btn--danger {
+  border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+  color: var(--color-error);
+}
+
+.dp__card-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
