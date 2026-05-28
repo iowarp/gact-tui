@@ -625,3 +625,47 @@
   color: var(--color-muted);
   line-height: 1.5;
 }
+
+.dp__card--open {
+  border-color: var(--color-accent-cyan-30);
+}
+
+.prompts__preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+}
+
+.prompts__preview-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 6px;
+}
+
+.prompts__preview-body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.prompts__preview-loading {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.prompts__preview-error {
+  color: var(--color-error);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}

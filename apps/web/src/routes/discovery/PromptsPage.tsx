@@ -87,7 +87,7 @@ export function PromptsPage(props: PromptsPageProps) {
       </Show>
       <div class="dp__section-title">Prompts ({items().length})</div>
       <div class="dp__grid">
-        <For each={items()}>{(p) => <PromptCard p={p} />}</For>
+        <For each={items()}>{(p) => <PromptCard p={p} client={props.client} />}</For>
       </div>
     </DiscoveryPage>
   );
@@ -104,17 +104,48 @@ function PromptSourceRow(props: { source: PromptSource }) {
   );
 }
 
-function PromptCard(props: { p: PromptDef }) {
+function PromptCard(props: { p: PromptDef; client?: Client }) {
   const profileCount = () => {
     const profiles = props.p.profiles;
     if (!profiles) return 0;
     return Object.keys(profiles).length;
   };
   const hasErrors = () => (props.p.validation_errors ?? []).length > 0;
+  const [open, setOpen] = createSignal(false);
+  const [preview, setPreview] = createSignal<string | null>(null);
+  const [previewError, setPreviewError] = createSignal<string | null>(null);
+  const [loading, setLoading] = createSignal(false);
+
+  async function loadPreview() {
+    if (preview() != null || loading()) return;
+    setLoading(true);
+    setPreviewError(null);
+    try {
+      if (!props.client) throw new Error('No client');
+      const res = await props.client.getPrompt(props.p.id);
+      setPreview(res.prompt.text ?? '');
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggle() {
+    const next = !open();
+    setOpen(next);
+    if (next) void loadPreview();
+  }
   return (
     <article
-      class={'dp__card ' + (hasErrors() ? 'dp__card--err' : '')}
+      class={
+        'dp__card ' +
+        (hasErrors() ? 'dp__card--err ' : '') +
+        (open() ? 'dp__card--open' : '')
+      }
       data-testid={`prompt-card-${props.p.id}`}
+      onClick={toggle}
+      style={props.client ? 'cursor: pointer' : ''}
     >
       <header class="dp__card-head">
         <div class="dp__card-title-row">
@@ -167,6 +198,25 @@ function PromptCard(props: { p: PromptDef }) {
               {(err) => <li>{err}</li>}
             </For>
           </ul>
+        </div>
+      </Show>
+      <Show when={open()}>
+        <div class="prompts__preview" onClick={(e) => e.stopPropagation()}>
+          <div class="prompts__preview-label">
+            Default profile{' '}
+            <Show when={props.p.default_profile}>
+              <span>(<code>{props.p.default_profile}</code>)</span>
+            </Show>
+          </div>
+          <Show when={loading()}>
+            <div class="prompts__preview-loading">Loading…</div>
+          </Show>
+          <Show when={previewError()}>
+            <div class="prompts__preview-error">{previewError()}</div>
+          </Show>
+          <Show when={preview() != null && !loading() && !previewError()}>
+            <pre class="prompts__preview-body">{preview()}</pre>
+          </Show>
         </div>
       </Show>
     </article>
