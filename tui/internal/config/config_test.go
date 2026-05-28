@@ -89,7 +89,13 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "subdir", "config.json")
 	ct := 12
-	original := Config{CollapseThreshold: &ct}
+	original := Config{
+		CollapseThreshold: &ct,
+		SidebarLayout: &SidebarLayout{
+			Left:  []string{"sessions", "future-tools", "context"},
+			Right: []string{"memory"},
+		},
+	}
 	if err := Save(original, p); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -100,6 +106,15 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	}
 	if loaded.CollapseThreshold == nil || *loaded.CollapseThreshold != 12 {
 		t.Errorf("round-trip lost threshold: got %v", loaded.CollapseThreshold)
+	}
+	if loaded.SidebarLayout == nil {
+		t.Fatal("round-trip lost sidebar layout")
+	}
+	if got := strings.Join(loaded.SidebarLayout.Left, ","); got != "sessions,future-tools,context" {
+		t.Errorf("left sidebar layout = %q", got)
+	}
+	if got := strings.Join(loaded.SidebarLayout.Right, ","); got != "memory" {
+		t.Errorf("right sidebar layout = %q", got)
 	}
 }
 
