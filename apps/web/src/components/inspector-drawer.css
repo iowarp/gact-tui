@@ -429,3 +429,13 @@
   color: var(--color-muted);
   font-size: 10px;
 }
+
+/* Subtle fade on the active section when the user switches tabs */
+.inspector__sect {
+  animation: inspector-sect-in 220ms ease-out both;
+}
+
+@keyframes inspector-sect-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
