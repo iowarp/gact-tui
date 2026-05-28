@@ -210,6 +210,14 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
   (b189841 / 05a2d20 / c240e3a / c40e24d / 7c775d4)
 - About card gains a direct SPEC.md link + per-link descriptions.
   (400262a)
+- Notification panel timestamps auto-refresh every minute so
+  'Nm ago' stays accurate while the panel is open. (56b0365)
+- Session status chip in topbar surfaces `waiting · permission` and
+  `session · error` so non-running session states aren't only
+  visible via the sidebar pip. (6bfa0b0)
+- Stop button shows a pulsing 'stopping' state until the streaming
+  signal flips (auto-clears via createEffect). (bbc6e67)
+- InlineMarkdown supports `==highlight==`. (1488645)
 
 ## Where we stand
 
