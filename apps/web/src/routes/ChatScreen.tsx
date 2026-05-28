@@ -1,6 +1,7 @@
 import {
   createEffect,
   createMemo,
+  createResource,
   createSignal,
   For,
   Match,
@@ -14,7 +15,10 @@ import type {
   Message,
   PermissionRequest,
   PermissionScope,
+  ProviderDef,
+  SlashCommandDef,
 } from '@clio/core';
+import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
 import { fixturesForDemo } from '../fixtures/demo.js';
 import { createLiveSessions, createLiveTranscript } from '../live.js';
@@ -42,7 +46,6 @@ import {
   McpPage,
   MemoryPage,
   MetricsPage,
-  ProvidersPage,
   ToolsPage,
   WorkspacesPage,
 } from './discovery/index.js';
@@ -233,6 +236,91 @@ function LiveDriven(props: {
     setActiveId(created.id);
   }
 
+  // Live providers (powers the composer model picker).
+  const [providersData] = createResource(() => live.client.providers());
+  const models = createMemo<ModelOption[]>(() => {
+    const ps = providersData()?.providers ?? [];
+    return providersToModels(ps);
+  });
+  const [selectedModelId, setSelectedModelId] = createSignal<string>('');
+  // Auto-select the first provider's default model.
+  createEffect(() => {
+    if (selectedModelId()) return;
+    const first = models()[0];
+    if (first) setSelectedModelId(first.id);
+  });
+
+  async function pickModel(m: ModelOption) {
+    setSelectedModelId(m.id);
+    const id = activeId();
+    if (!id) return;
+    try {
+      await live.client.patchSession(id, {
+        model: { provider_id: m.providerId, model_id: m.modelId },
+      });
+    } catch (e) {
+      console.error('patchSession(model) failed', e);
+    }
+  }
+
+  const [permMode, setPermMode] = createSignal<PermissionMode>('ask');
+  async function pickPermMode(p: PermissionMode) {
+    setPermMode(p);
+    const id = activeId();
+    if (!id) return;
+    try {
+      await live.client.patchSession(id, { agent: { mode: p } });
+    } catch (e) {
+      console.error('patchSession(agent.mode) failed', e);
+    }
+  }
+
+  // Live slash commands (powers Cmd+K palette dynamic list).
+  const [commandsData] = createResource(() => live.client.commands());
+  const slashCommands = createMemo<SlashCommandDef[]>(
+    () => commandsData()?.commands ?? [],
+  );
+
+  function copyMessageToClipboard(msg: Message) {
+    const text = messageToText(msg);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => undefined);
+    }
+  }
+
+  async function regenerateMessage(msg: Message) {
+    const id = activeId();
+    if (!id) return;
+    // Find the user message immediately before msg, re-send its text.
+    const msgs = transcript.messages();
+    const idx = msgs.findIndex((m) => m.id === msg.id);
+    for (let i = idx - 1; i >= 0; i--) {
+      const candidate = msgs[i];
+      if (candidate?.role !== 'user') continue;
+      const textPart = candidate.parts.find((p) => p.type === 'text');
+      if (textPart && textPart.type === 'text' && textPart.text) {
+        await live.client.sendMessage(id, { text: textPart.text });
+        return;
+      }
+    }
+  }
+
+  function editMessage(msg: Message) {
+    // For v0.9.1 we surface the text in the composer (via a custom event
+    // — wiring the actual edit into the transcript is a follow-up). The
+    // user can re-send the modified text via Enter.
+    const textPart = msg.parts.find((p) => p.type === 'text');
+    const text = textPart && textPart.type === 'text' ? textPart.text : '';
+    const ta = document.querySelector(
+      '[data-testid="composer-input"]',
+    ) as HTMLTextAreaElement | null;
+    if (ta && text) {
+      ta.value = text;
+      ta.focus();
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
   return (
     <ChatLayout
       backendUrl={props.backend.url}
@@ -247,6 +335,15 @@ function LiveDriven(props: {
       onPermissionDecide={decidePermission}
       onStop={stopRun}
       onNewSession={newEmptySession}
+      models={models()}
+      selectedModelId={selectedModelId()}
+      onPickModel={pickModel}
+      permMode={permMode()}
+      onPickPermMode={pickPermMode}
+      slashCommands={slashCommands()}
+      onCopyMessage={copyMessageToClipboard}
+      onRegenerate={regenerateMessage}
+      onEditMessage={editMessage}
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
@@ -283,6 +380,65 @@ interface ChatLayoutProps {
   onOpenSettings?: () => void;
   onAddRemote?: () => void;
   caps?: BackendHandle['capabilities'];
+  /** Composer wiring (LiveDriven path only). */
+  models?: ModelOption[];
+  selectedModelId?: string;
+  onPickModel?: (m: ModelOption) => void | Promise<void>;
+  permMode?: PermissionMode;
+  onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
+  slashCommands?: SlashCommandDef[];
+  /** Message-level actions. */
+  onCopyMessage?: (msg: Message) => void;
+  onRegenerate?: (msg: Message) => void;
+  onEditMessage?: (msg: Message) => void;
+}
+
+function messageToText(msg: Message): string {
+  return msg.parts
+    .map((p) => {
+      if (p.type === 'text') return p.text;
+      if (p.type === 'thinking') return p.thinking ?? p.text ?? '';
+      if (p.type === 'tool_call')
+        return `[tool] ${p.tool_name}(${JSON.stringify(p.input ?? {})})`;
+      if (p.type === 'tool_result')
+        return typeof p.output === 'string'
+          ? p.output
+          : '[tool_result]';
+      if (p.type === 'file_diff') return `[diff] ${p.path}`;
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function providersToModels(ps: ProviderDef[]): ModelOption[] {
+  const out: ModelOption[] = [];
+  for (const p of ps) {
+    const candidates = collectModelIds(p);
+    for (const m of candidates) {
+      out.push({
+        id: `${p.id}:${m}`,
+        providerId: p.id,
+        modelId: m,
+        providerLabel: p.name,
+        description: m === p.default_model ? 'provider default' : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+function collectModelIds(p: ProviderDef): string[] {
+  const ms = new Set<string>();
+  if (p.default_model) ms.add(p.default_model);
+  const meta = p.metadata ?? {};
+  for (const key of ['models', 'available_models']) {
+    const v = (meta as Record<string, unknown>)[key];
+    if (Array.isArray(v)) {
+      for (const m of v) if (typeof m === 'string') ms.add(m);
+    }
+  }
+  return Array.from(ms);
 }
 
 function ChatLayout(props: ChatLayoutProps) {
@@ -510,6 +666,9 @@ function ChatLayout(props: ChatLayoutProps) {
               messages={props.messages}
               density={props.density}
               onOpenDiff={(d) => setActiveDiff(d)}
+              onCopy={props.onCopyMessage}
+              onRegenerate={props.onRegenerate}
+              onEdit={props.onEditMessage}
             />
           </div>
         </div>
@@ -520,6 +679,11 @@ function ChatLayout(props: ChatLayoutProps) {
           streaming={props.streaming}
           onStop={props.onStop}
           onSubmit={props.onSubmit}
+          models={props.models}
+          selectedModelId={props.selectedModelId}
+          onPickModel={props.onPickModel}
+          permMode={props.permMode}
+          onPickPermMode={props.onPickPermMode}
           backendSlot={
             <BackendPicker
               onOpenSettings={props.onOpenSettings}
@@ -549,7 +713,7 @@ function ChatLayout(props: ChatLayoutProps) {
       <SlashPalette
         open={paletteOpen()}
         query={paletteQuery()}
-        commands={DEFAULT_COMMANDS}
+        commands={mergedSlashCommands(props.slashCommands)}
         onQueryChange={setPaletteQuery}
         onPick={handlePick}
         onClose={() => setPaletteOpen(false)}
@@ -669,4 +833,26 @@ function hostFromUrl(u: string): string {
   } catch {
     return u;
   }
+}
+
+/**
+ * Merge SPEC §/v1/commands output with our local default palette so the
+ * keyboard-driven nav always has the meta commands (/settings, /clear,
+ * /help) even when the backend doesn't ship them. Backend-supplied
+ * commands win on id collision.
+ */
+function mergedSlashCommands(
+  backend: SlashCommandDef[] | undefined,
+): SlashCommand[] {
+  const map = new Map<string, SlashCommand>();
+  for (const d of DEFAULT_COMMANDS) map.set(d.id, d);
+  for (const c of backend ?? []) {
+    map.set(c.id, {
+      id: c.id,
+      trigger: c.id,
+      description: c.description ?? c.title ?? '',
+      category: c.source ?? 'backend',
+    });
+  }
+  return Array.from(map.values());
 }

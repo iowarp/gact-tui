@@ -104,16 +104,27 @@ export class Client {
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, 'POST', body);
+  }
+
+  /**
+   * Shared request helper used by POST/PATCH/PUT — `post()` delegates
+   * here for back-compat with existing call sites.
+   */
+  private async request<T>(
+    path: string,
+    method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+    body: unknown,
+  ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const res = await this.fetchImpl(url, {
-      method: 'POST',
+      method,
       headers: { ...this.headers(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body ?? {}),
     });
     if (!res.ok) {
       throw new HttpError(res.status, res.statusText, await res.text());
     }
-    // Tolerate 204 No Content responses (some endpoints don't return a body).
     if (res.status === 204) return undefined as unknown as T;
     return (await res.json()) as T;
   }
@@ -139,6 +150,27 @@ export class Client {
   /** POST /v1/sessions — creates a new session and returns its id. */
   createSession(input: { title?: string; workspace_id?: string } = {}): Promise<Session> {
     return this.post<Session>('/v1/sessions', input);
+  }
+
+  /**
+   * PATCH /v1/sessions/{id} — update session metadata (title, model,
+   * agent mode, archived). Used by the composer's model picker + perm
+   * mode toggle to push the user's selection to the backend.
+   */
+  patchSession(
+    sessionId: string,
+    patch: {
+      title?: string;
+      archived?: boolean;
+      agent?: { id?: string; mode?: string };
+      model?: { provider_id?: string; model_id?: string };
+    },
+  ): Promise<Session> {
+    return this.request<Session>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'PATCH',
+      patch,
+    );
   }
 
   /**

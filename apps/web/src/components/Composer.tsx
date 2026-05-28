@@ -1,9 +1,27 @@
 import { createMemo, createSignal, Show, type JSX } from 'solid-js';
 import { Icon } from './Icon.js';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
+import { Dropdown, type DropdownItem } from './Dropdown.js';
 import './composer.css';
 
 export type PermissionMode = 'ask' | 'auto-edits' | 'plan' | 'auto' | 'bypass';
+
+const PERM_DESCRIPTIONS: Record<PermissionMode, string> = {
+  ask: 'Prompt me before every tool call',
+  'auto-edits': 'Auto-approve safe file edits; ask for the rest',
+  plan: 'Read-only — plan changes, never apply',
+  auto: 'Auto-approve every action (use with care)',
+  bypass: 'Skip permissions entirely',
+};
+
+export interface ModelOption {
+  /** Globally-unique id used by the dropdown ("<provider>:<model>"). */
+  id: string;
+  providerId: string;
+  modelId: string;
+  providerLabel: string;
+  description?: string;
+}
 
 export interface ComposerProps {
   backendLabel?: string;
@@ -14,16 +32,55 @@ export interface ComposerProps {
   onStop?: () => void | Promise<void>;
   mentionItems?: MentionItem[];
   onSubmit?: (text: string) => Promise<void> | void;
-  /** Show a small backend label chip when no backendSlot is provided. */
+
+  /** Live model options pulled from /v1/providers. */
+  models?: ModelOption[];
+  /** Currently-selected model id. */
+  selectedModelId?: string;
+  onPickModel?: (m: ModelOption) => void | Promise<void>;
+
+  /** Selected permission mode. */
+  permMode?: PermissionMode;
+  onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
 }
 
 export function Composer(props: ComposerProps = {}) {
   const [text, setText] = createSignal('');
   const [busy, setBusy] = createSignal(false);
-  const [permMode, setPermMode] = createSignal<PermissionMode>('ask');
-  const [model, setModel] = createSignal('opus-4.7');
   const [error, setError] = createSignal<string | null>(null);
   const [mentionHighlight, setMentionHighlight] = createSignal(0);
+
+  // Picker state — controlled when parent provides a value, else local.
+  const [localPerm, setLocalPerm] = createSignal<PermissionMode>('ask');
+  const permMode = () => props.permMode ?? localPerm();
+  function setPerm(m: PermissionMode) {
+    setLocalPerm(m);
+    void props.onPickPermMode?.(m);
+  }
+
+  const [localModelId, setLocalModelId] = createSignal<string>('');
+  const selectedModelId = () => props.selectedModelId ?? localModelId();
+  const selectedModel = () =>
+    (props.models ?? []).find((m) => m.id === selectedModelId());
+
+  const modelItems = createMemo<DropdownItem<ModelOption>[]>(() =>
+    (props.models ?? []).map((m) => ({
+      id: m.id,
+      label: m.modelId,
+      detail: m.providerLabel,
+      description: m.description,
+      group: m.providerLabel,
+      value: m,
+    })),
+  );
+  const permItems = createMemo<DropdownItem<PermissionMode>[]>(() =>
+    (['ask', 'auto-edits', 'plan', 'auto', 'bypass'] as PermissionMode[]).map((p) => ({
+      id: p,
+      label: p,
+      description: PERM_DESCRIPTIONS[p],
+      value: p,
+    })),
+  );
 
   const mentionQuery = createMemo(() => {
     const t = text();
@@ -168,38 +225,26 @@ export function Composer(props: ComposerProps = {}) {
           >
             {props.backendSlot}
           </Show>
-          <button
-            type="button"
-            class="composer__picker composer__picker--perm"
-            data-testid="composer-perm"
-            onClick={() =>
-              setPermMode((m) =>
-                m === 'ask'
-                  ? 'auto-edits'
-                  : m === 'auto-edits'
-                    ? 'plan'
-                    : m === 'plan'
-                      ? 'auto'
-                      : m === 'auto'
-                        ? 'bypass'
-                        : 'ask',
-              )
-            }
-          >
-            <Icon name="circle" size={10} />
-            {permMode()}
-            <Icon name="chevron-down" size={10} />
-          </button>
-          <button
-            type="button"
-            class="composer__picker"
-            data-testid="composer-model"
-            onClick={() => setModel((m) => (m === 'opus-4.7' ? 'sonnet-4.6' : 'opus-4.7'))}
-          >
-            <Icon name="sparkle" size={10} />
-            {model()}
-            <Icon name="chevron-down" size={10} />
-          </button>
+          <Dropdown
+            testid="composer-perm"
+            label={permMode()}
+            icon="circle"
+            items={permItems()}
+            selectedId={permMode()}
+            onPick={(it) => setPerm(it.value)}
+          />
+          <Dropdown
+            testid="composer-model"
+            label={selectedModel()?.modelId ?? 'pick model'}
+            icon="sparkle"
+            items={modelItems()}
+            selectedId={selectedModelId()}
+            emptyHint="No providers configured"
+            onPick={(it) => {
+              setLocalModelId(it.id);
+              void props.onPickModel?.(it.value);
+            }}
+          />
         </div>
       </div>
 
