@@ -9,6 +9,17 @@ function shot(name: string) {
   return resolve(screenshotDir, `${name}.png`);
 }
 
+const REAL_BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17800';
+let realBackendReachable = false;
+try {
+  const r = await fetch(`${REAL_BACKEND}/v1/capabilities`, {
+    signal: AbortSignal.timeout(800),
+  });
+  realBackendReachable = r.ok;
+} catch {
+  realBackendReachable = false;
+}
+
 test.describe('CLIO harness — visual proofs', () => {
   test('connect-screen renders wordmark and form', async ({ page }) => {
     await page.goto('/');
@@ -187,5 +198,52 @@ test.describe('CLIO harness — visual proofs', () => {
     await input.type('explain @sup');
     await expect(page.getByTestId('at-mention-picker')).toBeVisible();
     await page.screenshot({ path: shot('at-mention-picker'), fullPage: false });
+  });
+
+  // Real-backend visual proof — only captured when a clio-agent-gact
+  // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
+  // CI runners without the install don't fail. On the developer's box
+  // this captures the live chat shell hitting the user's actual ALCF-
+  // configured backend, not a fixture.
+  test.skip(
+    !realBackendReachable,
+    `no clio-agent-gact on ${REAL_BACKEND} — skipping real-backend visual proof`,
+  );
+
+  test('chat-shell-real-backend captures the live connect → chat flow', async ({
+    browser,
+  }) => {
+    // Browsers block cross-origin XHRs against clio-agent-gact (it doesn't
+    // emit Access-Control-Allow-Origin headers — the production CLIO
+    // Desktop sidesteps this entirely via Tauri's privileged origin).
+    // Route the requests through Playwright so we can synthesize the
+    // missing CORS header on the response and let the chat shell mount.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      // SSE responses are unbounded — route.fetch() would hang reading
+      // the body. Let those pass through to the browser, which will
+      // still get CORS-blocked but the chat shell will already have
+      // mounted by then. Only intercept finite JSON endpoints.
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('sse-status-chip')).toBeVisible({ timeout: 8_000 });
+    await page.waitForTimeout(500);
+    await page.screenshot({
+      path: shot('chat-shell-real-backend'),
+      fullPage: false,
+    });
+    await ctx.close();
   });
 });
