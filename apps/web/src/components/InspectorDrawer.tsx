@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { Icon } from './Icon.js';
-import type { Message, Part, FileDiff, SessionTask } from '@clio/core';
+import type { ContextFile, Message, Part, FileDiff, SessionTask } from '@clio/core';
 import { createPersistedString } from '../persisted.js';
 import './inspector-drawer.css';
 
@@ -20,6 +20,8 @@ export interface InspectorDrawerProps {
   integrations?: IntegrationStatus[];
   /** Per-session task list from /v1/sessions/{id}/tasks. */
   tasks?: SessionTask[];
+  /** Per-session context files from /v1/sessions/{id}/context/files. */
+  contextFiles?: ContextFile[];
   onClose: () => void;
 }
 
@@ -36,7 +38,14 @@ export interface IntegrationStatus {
   summary?: string;
 }
 
-type InspectorTab = 'turn' | 'tools' | 'diffs' | 'thinking' | 'tasks' | 'health';
+type InspectorTab =
+  | 'turn'
+  | 'tools'
+  | 'diffs'
+  | 'thinking'
+  | 'tasks'
+  | 'context'
+  | 'health';
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasRunData = () =>
@@ -52,6 +61,8 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasIntegrations = () =>
     !!props.integrations && props.integrations.length > 0;
   const hasTasks = () => !!props.tasks && props.tasks.length > 0;
+  const hasContextFiles = () =>
+    !!props.contextFiles && props.contextFiles.length > 0;
 
   const hasAnyContent = () =>
     hasRunData() ||
@@ -59,6 +70,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     hasThinking() ||
     hasDiffs() ||
     hasTasks() ||
+    hasContextFiles() ||
     hasIntegrations();
 
   // Order matters — the picker walks this list and lands on the
@@ -70,6 +82,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     if (hasDiffs()) out.push('diffs');
     if (hasThinking()) out.push('thinking');
     if (hasTasks()) out.push('tasks');
+    if (hasContextFiles()) out.push('context');
     if (hasIntegrations()) out.push('health');
     return out;
   });
@@ -99,6 +112,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     diffs: 'Diffs',
     thinking: 'Thinking',
     tasks: 'Tasks',
+    context: 'Context',
     health: 'Health',
   };
 
@@ -259,6 +273,34 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                     <span class={'inspector__task-pip inspector__task-pip--' + t.status} />
                     <span class="inspector__task-title">{t.title}</span>
                     <span class="inspector__task-status">{t.status}</span>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={hasContextFiles() && activeTab() === 'context'}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">
+              Context files ({props.contextFiles!.length})
+            </div>
+            <ul class="inspector__files">
+              <For each={props.contextFiles}>
+                {(f) => (
+                  <li
+                    class={'inspector__file inspector__file--' + (f.mode ?? 'read')}
+                    data-testid={`inspector-file-${f.path}`}
+                  >
+                    <Icon
+                      name={f.mode === 'edit' ? 'edit' : 'diff'}
+                      size={12}
+                      class="inspector__file-icon"
+                    />
+                    <span class="inspector__file-path" title={f.path}>{f.path}</span>
+                    <Show when={f.language}>
+                      <span class="inspector__file-lang">{f.language}</span>
+                    </Show>
                   </li>
                 )}
               </For>

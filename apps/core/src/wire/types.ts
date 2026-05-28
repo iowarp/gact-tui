@@ -404,6 +404,21 @@ export interface PromptSource {
 }
 
 /**
+ * Per-session "context file" tracked by clio-agent develop at
+ * /v1/sessions/{sid}/context/files. Each row is a file the agent
+ * has been asked to keep in context, with an optional mode (read/
+ * edit) and provenance metadata.
+ */
+export interface ContextFile {
+  path: string;
+  mode?: 'read' | 'edit' | string;
+  size?: number;
+  last_modified?: string;
+  language?: string;
+  added_at?: string;
+}
+
+/**
  * Per-session task entry per clio-agent develop /v1/sessions/{sid}/tasks
  * — lightweight TODO list the agent or user can populate during a turn.
  */
