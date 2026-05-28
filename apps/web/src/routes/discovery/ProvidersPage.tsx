@@ -146,6 +146,7 @@ export function ProvidersPage(props: ProvidersPageProps) {
               p={p}
               isActive={p.id === activeProviderId()}
               busy={busy() === p.id}
+              client={props.client}
               onUse={() => void useAsLm(p)}
               onAuth={() => void authenticate(p)}
             />
@@ -160,11 +161,48 @@ function ProviderCard(props: {
   p: ProviderDef;
   isActive: boolean;
   busy: boolean;
+  client: Client;
   onUse: () => void;
   onAuth: () => void;
 }) {
   const authed = () => props.p.is_authenticated === true;
   const needsAuth = () => (props.p.auth_methods ?? []).some((m) => m === 'oauth');
+
+  // Detailed model list — only fetched on expand (avoids hammering
+  // the backend for providers users aren't actively reviewing).
+  const [showModels, setShowModels] = createSignal(false);
+  const [modelsData, setModelsData] = createSignal<{
+    models: Array<{
+      id: string;
+      label?: string;
+      source?: 'builtin' | 'discovered' | string;
+      error?: string;
+      context_length?: number;
+      cost_usd_per_M_tokens?: number;
+    }>;
+  } | null>(null);
+  const [modelsErr, setModelsErr] = createSignal<string | null>(null);
+  const [modelsLoading, setModelsLoading] = createSignal(false);
+
+  async function loadModels() {
+    if (modelsData() || modelsLoading()) return;
+    setModelsLoading(true);
+    setModelsErr(null);
+    try {
+      const data = await props.client.providerModels(props.p.id);
+      setModelsData(data);
+    } catch (e) {
+      setModelsErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setModelsLoading(false);
+    }
+  }
+
+  function toggleModels() {
+    const next = !showModels();
+    setShowModels(next);
+    if (next) void loadModels();
+  }
   return (
     <article class="dp__card" data-testid={`provider-card-${props.p.id}`}>
       <header class="dp__card-head">
@@ -207,6 +245,70 @@ function ProviderCard(props: {
           <dd>{(props.p.auth_methods ?? []).join(' · ')}</dd>
         </Show>
       </dl>
+      <button
+        type="button"
+        class="prov__models-toggle"
+        onClick={toggleModels}
+        data-testid={`provider-models-toggle-${props.p.id}`}
+      >
+        <Icon
+          name="chevron-right"
+          size={11}
+          class={'prov__models-chev ' + (showModels() ? 'is-open' : '')}
+        />
+        <span>
+          {showModels() ? 'Hide' : 'Show'} models
+          <Show when={modelsData()}>
+            {' '}({modelsData()!.models.length})
+          </Show>
+        </span>
+      </button>
+      <Show when={showModels()}>
+        <div class="prov__models" data-testid={`provider-models-${props.p.id}`}>
+          <Show when={modelsLoading()}>
+            <div class="prov__models-loading">Loading…</div>
+          </Show>
+          <Show when={modelsErr()}>
+            <div class="prov__models-err">{modelsErr()}</div>
+          </Show>
+          <Show when={modelsData() && !modelsLoading()}>
+            <ul class="prov__models-list">
+              <For each={modelsData()!.models}>
+                {(m) => (
+                  <li
+                    class={
+                      'prov__model ' +
+                      (m.error ? 'prov__model--err' : '') +
+                      (m.id === props.p.default_model ? ' prov__model--default' : '')
+                    }
+                    data-testid={`provider-model-${m.id}`}
+                  >
+                    <span class="prov__model-name">{m.label ?? m.id}</span>
+                    <Show when={m.source}>
+                      <span class={'prov__model-tag prov__model-tag--' + m.source}>
+                        {m.source}
+                      </span>
+                    </Show>
+                    <Show when={m.id === props.p.default_model}>
+                      <span class="prov__model-tag prov__model-tag--default">default</span>
+                    </Show>
+                    <Show when={m.context_length}>
+                      <span class="prov__model-ctx">
+                        {(m.context_length! / 1000).toFixed(0)}k
+                      </span>
+                    </Show>
+                    <Show when={m.error}>
+                      <span class="prov__model-err" title={m.error}>
+                        <Icon name="alert" size={11} /> error
+                      </span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
+        </div>
+      </Show>
       <div class="dp__card-actions">
         <button
           type="button"
