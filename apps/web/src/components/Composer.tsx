@@ -64,6 +64,9 @@ export interface ComposerProps {
    * textarea. Drafts are cleared on successful submit.
    */
   draftKey?: string;
+
+  /** Optional override for the textarea placeholder. */
+  placeholder?: string;
 }
 
 export function Composer(props: ComposerProps = {}) {
@@ -330,7 +333,10 @@ export function Composer(props: ComposerProps = {}) {
           <div class="composer__input-wrap">
             <textarea
               class="composer__input"
-              placeholder="Ask CLIO anything — type @ for files, agents, tools"
+              placeholder={
+                props.placeholder ??
+                'Ask CLIO anything — type @ for files, agents, tools'
+              }
               rows={1}
               value={text()}
               onInput={(e) => {

@@ -1789,6 +1789,11 @@ function ChatLayout(props: ChatLayoutProps) {
           onStop={props.onStop}
           onSubmit={props.onSubmit}
           onSlashTyped={() => setPaletteOpen(true)}
+          placeholder={
+            props.activeId
+              ? undefined
+              : 'Start a new conversation — first message becomes the title'
+          }
           models={props.models}
           selectedModelId={props.selectedModelId}
           onPickModel={props.onPickModel}
