@@ -3,6 +3,7 @@ import { Sidebar, type SidebarSession } from '../components/Sidebar.js';
 import { Transcript, type TranscriptDensity } from '../components/Transcript.js';
 import { Composer } from '../components/Composer.js';
 import { PermissionCard } from '../components/PermissionCard.js';
+import { BackendPicker } from '../components/BackendPicker.js';
 import { fixturesForDemo } from '../fixtures/demo.js';
 import type { BackendHandle } from '../App.js';
 import { createLiveSessions, createLiveTranscript } from '../live.js';
@@ -11,6 +12,8 @@ import './chat.css';
 
 export interface ChatScreenProps {
   backend: BackendHandle;
+  onOpenSettings?: () => void;
+  onAddRemote?: () => void;
 }
 
 export function ChatScreen(props: ChatScreenProps) {
@@ -20,16 +23,34 @@ export function ChatScreen(props: ChatScreenProps) {
   if (fixtureName) {
     // Fixture-driven path keeps the visual regression set deterministic
     // — never touches the network, never opens an SSE stream.
-    return <FixtureDriven backend={props.backend} fixture={fixtureName} />;
+    return (
+      <FixtureDriven
+        backend={props.backend}
+        fixture={fixtureName}
+        onOpenSettings={props.onOpenSettings}
+        onAddRemote={props.onAddRemote}
+      />
+    );
   }
-  return <LiveDriven backend={props.backend} />;
+  return (
+    <LiveDriven
+      backend={props.backend}
+      onOpenSettings={props.onOpenSettings}
+      onAddRemote={props.onAddRemote}
+    />
+  );
 }
 
 /* -------------------------------------------------------------- */
 /* Fixture-driven (kept identical to harness behavior for proofs) */
 /* -------------------------------------------------------------- */
 
-function FixtureDriven(props: { backend: BackendHandle; fixture: string }) {
+function FixtureDriven(props: {
+  backend: BackendHandle;
+  fixture: string;
+  onOpenSettings?: () => void;
+  onAddRemote?: () => void;
+}) {
   const fixtures = fixturesForDemo();
   const isEmpty = props.fixture === 'empty-sidebar';
   const initialSessions: SidebarSession[] = isEmpty ? [] : fixtures.sessions;
@@ -59,6 +80,8 @@ function FixtureDriven(props: { backend: BackendHandle; fixture: string }) {
       messages={messages()}
       pendingPermission={pendingPermission()}
       composerDisabled={!activeId()}
+      onOpenSettings={props.onOpenSettings}
+      onAddRemote={props.onAddRemote}
     />
   );
 }
@@ -67,7 +90,11 @@ function FixtureDriven(props: { backend: BackendHandle; fixture: string }) {
 /* Live-driven (real backend, SSE-streamed transcript)            */
 /* -------------------------------------------------------------- */
 
-function LiveDriven(props: { backend: BackendHandle }) {
+function LiveDriven(props: {
+  backend: BackendHandle;
+  onOpenSettings?: () => void;
+  onAddRemote?: () => void;
+}) {
   const live = createLiveSessions({
     url: props.backend.url,
     bearerToken: props.backend.bearerToken,
@@ -125,6 +152,8 @@ function LiveDriven(props: { backend: BackendHandle }) {
       onPermissionDecide={decidePermission}
       composerDisabled={false}
       sseStatus={transcript.status()}
+      onOpenSettings={props.onOpenSettings}
+      onAddRemote={props.onAddRemote}
     />
   );
 }
@@ -145,6 +174,8 @@ function ChatLayout(props: {
   onPermissionDecide?: (decision: 'approve' | 'deny', scope?: PermissionScope) => void;
   composerDisabled: boolean;
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error';
+  onOpenSettings?: () => void;
+  onAddRemote?: () => void;
 }) {
   return (
     <div class="chat" data-testid="chat-screen">
@@ -196,6 +227,12 @@ function ChatLayout(props: {
             backendLabel={hostFromUrl(props.backendUrl)}
             disabled={props.composerDisabled}
             onSubmit={props.onSubmit}
+            backendSlot={
+              <BackendPicker
+                onOpenSettings={props.onOpenSettings}
+                onAddRemote={props.onAddRemote}
+              />
+            }
           />
         </div>
       </div>
