@@ -25,6 +25,7 @@ const GROUPS: Group[] = [
       { combo: [PLATFORM_MOD, 'Shift', '↑'], description: 'Previous session' },
       { combo: [PLATFORM_MOD, 'Shift', '↓'], description: 'Next session' },
       { combo: [PLATFORM_MOD, 'N'], description: 'New session' },
+      { combo: [PLATFORM_MOD, ','], description: 'Open Settings' },
     ],
   },
   {

@@ -120,6 +120,13 @@
   color: var(--color-accent);
   font-weight: 500;
 }
+.chat__meta-item--model {
+  color: var(--color-accent-cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
 
 .chat__running-dot {
   width: 6px;
