@@ -58,7 +58,18 @@ export function ProvidersPage(props: ProvidersPageProps) {
     }
   }
 
-  const items = () => providers()?.providers ?? [];
+  const [query, setQuery] = createSignal('');
+  const allItems = () => providers()?.providers ?? [];
+  const items = () => {
+    const q = query().trim().toLowerCase();
+    if (!q) return allItems();
+    return allItems().filter(
+      (p) =>
+        p.id.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? '').toLowerCase().includes(q),
+    );
+  };
   const activeProviderId = () => lm()?.provider;
 
   return (
@@ -113,6 +124,19 @@ export function ProvidersPage(props: ProvidersPageProps) {
         >
           <Icon name="help" size={14} />
           <span>{error()}</span>
+        </div>
+      </Show>
+      <Show when={allItems().length > 4}>
+        <div class="dp__search-row">
+          <Icon name="search" size={14} class="dp__search-icon" />
+          <input
+            type="text"
+            class="dp__search-input"
+            placeholder="Filter providers…"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-testid="providers-search"
+          />
         </div>
       </Show>
       <div class="dp__grid">
