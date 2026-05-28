@@ -39,6 +39,8 @@ import {
   SlashPalette,
   type SlashCommand,
 } from '../components/SlashPalette.js';
+
+const DEFAULT_COMMAND_IDS = new Set(DEFAULT_COMMANDS.map((c) => c.id));
 import { Transcript, type TranscriptDensity } from '../components/Transcript.js';
 import {
   AgentsPage,
@@ -495,11 +497,41 @@ function ChatLayout(props: ChatLayoutProps) {
 
   function handlePick(cmd: SlashCommand) {
     setPaletteOpen(false);
-    if (cmd.trigger === '/settings') props.onOpenSettings?.();
-    if (cmd.trigger === '/clear') {
-      // Clear is a v1.0 feature — for now scroll to bottom is the next-best.
-      const pane = document.querySelector('.chat__pane');
-      pane?.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
+    // First check for /v1/commands rooted by trigger or id — these
+    // are backend-defined and we pass them through as a session
+    // message so the backend resolves the action itself.
+    const isBackendRoute = !DEFAULT_COMMAND_IDS.has(cmd.id);
+    if (isBackendRoute) {
+      // Send the command as a message; the backend's commands service
+      // resolves it (e.g. /clear drops the session log).
+      void props.onSubmit?.(cmd.trigger);
+      return;
+    }
+    // Built-in palette commands route to UI affordances.
+    switch (cmd.trigger) {
+      case '/settings':
+        props.onOpenSettings?.();
+        return;
+      case '/sessions':
+        setRailRoute('sessions');
+        return;
+      case '/agents':
+        setRailRoute('agents');
+        return;
+      case '/tools':
+        setRailRoute('tools');
+        return;
+      case '/doctor':
+        setRailRoute('doctor');
+        return;
+      case '/clear': {
+        const pane = document.querySelector('.chat__pane');
+        pane?.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
+        return;
+      }
+      case '/help':
+      default:
+        return;
     }
   }
 
