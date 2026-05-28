@@ -58,4 +58,81 @@ describe('Client', () => {
     expect(url.pathname).toBe('/v1/sessions/sess_abc/events');
     expect(url.searchParams.get('auth_token')).toBe('tok');
   });
+
+  it('createSession POSTs to /v1/sessions', async () => {
+    let calledUrl = '';
+    let calledMethod = '';
+    let calledBody = '';
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: ((input, init) => {
+        calledUrl = typeof input === 'string' ? input : input.toString();
+        calledMethod = init?.method ?? 'GET';
+        calledBody = (init?.body as string) ?? '';
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 'sess_new',
+              title: 'hi',
+              status: 'idle',
+              created_at: '',
+              updated_at: '',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
+      }) as typeof fetch,
+    });
+    const s = await c.createSession({ title: 'hi' });
+    expect(s.id).toBe('sess_new');
+    expect(calledUrl).toBe('http://localhost:7777/v1/sessions');
+    expect(calledMethod).toBe('POST');
+    expect(JSON.parse(calledBody)).toMatchObject({ title: 'hi' });
+  });
+
+  it('sendMessage wraps the payload in role+parts', async () => {
+    let body: Record<string, unknown> = {};
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: ((_input, init) => {
+        body = JSON.parse((init?.body as string) ?? '{}');
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: 'msg_1', role: 'user', parts: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }) as typeof fetch,
+    });
+    await c.sendMessage('sess_x', { text: 'hello' });
+    expect(body.role).toBe('user');
+    expect(body.parts).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+
+  it('resolvePermission carries scope only on approve', async () => {
+    const observed: Array<Record<string, unknown>> = [];
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: ((_input, init) => {
+        observed.push(JSON.parse((init?.body as string) ?? '{}'));
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }) as typeof fetch,
+    });
+    await c.resolvePermission('perm_a', 'approve', 'always_tool');
+    await c.resolvePermission('perm_b', 'deny', 'always_tool');
+    expect(observed).toEqual([
+      { decision: 'approve', scope: 'always_tool' },
+      { decision: 'deny' },
+    ]);
+  });
+
+  it('tolerates 204 No Content on POST', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: ((_input) =>
+        Promise.resolve(new Response(null, { status: 204 }))) as typeof fetch,
+    });
+    const out = await c.resolvePermission('perm_a', 'deny');
+    expect(out).toBeUndefined();
+  });
 });

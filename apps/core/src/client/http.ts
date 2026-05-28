@@ -1,4 +1,10 @@
-import type { Capabilities, Message, Session } from '../wire/types.js';
+import type {
+  Capabilities,
+  Message,
+  PermissionRequest,
+  PermissionScope,
+  Session,
+} from '../wire/types.js';
 
 export interface ClientOptions {
   baseUrl: string;
@@ -50,6 +56,21 @@ export class Client {
     return (await res.json()) as T;
   }
 
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const res = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    // Tolerate 204 No Content responses (some endpoints don't return a body).
+    if (res.status === 204) return undefined as unknown as T;
+    return (await res.json()) as T;
+  }
+
   capabilities(): Promise<Capabilities> {
     return this.get<Capabilities>('/v1/capabilities');
   }
@@ -66,6 +87,52 @@ export class Client {
     return this.get<{ messages: Message[] }>(
       `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
     );
+  }
+
+  /** POST /v1/sessions — creates a new session and returns its id. */
+  createSession(input: { title?: string; workspace_id?: string } = {}): Promise<Session> {
+    return this.post<Session>('/v1/sessions', input);
+  }
+
+  /**
+   * POST /v1/sessions/{id}/messages — append a user message. The server
+   * responds with the created message envelope; streaming continuations
+   * arrive on the per-session SSE feed.
+   */
+  sendMessage(
+    sessionId: string,
+    body: { text: string; metadata?: Record<string, unknown> },
+  ): Promise<Message> {
+    return this.post<Message>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      { role: 'user', parts: [{ type: 'text', text: body.text }], metadata: body.metadata },
+    );
+  }
+
+  /**
+   * GET /v1/permissions?session_id=… — list pending permissions for a
+   * session. The frontend uses this for the initial fetch; subsequent
+   * arrivals come over SSE as `permission.requested` events.
+   */
+  permissions(sessionId: string): Promise<{ permissions: PermissionRequest[] }> {
+    const qs = new URLSearchParams({ session_id: sessionId }).toString();
+    return this.get<{ permissions: PermissionRequest[] }>(`/v1/permissions?${qs}`);
+  }
+
+  /**
+   * POST /v1/permissions/{pid} — resolve a pending request. `decision`
+   * is "approve" or "deny"; for approvals the `scope` carries the
+   * inline-card button (once / session / always_tool / always_server).
+   */
+  resolvePermission(
+    permissionId: string,
+    decision: 'approve' | 'deny',
+    scope?: PermissionScope,
+  ): Promise<void> {
+    return this.post<void>(`/v1/permissions/${encodeURIComponent(permissionId)}`, {
+      decision,
+      ...(decision === 'approve' && scope ? { scope } : {}),
+    });
   }
 
   /**
