@@ -197,9 +197,9 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
               <Show when={(props.tokens?.input ?? 0) + (props.tokens?.output ?? 0) > 0}>
                 <dt>tokens</dt>
                 <dd>
-                  <span class="inspector__num">{props.tokens?.input ?? 0}</span>
+                  <span class="inspector__num">{humanNum(props.tokens?.input ?? 0)}</span>
                   <span class="inspector__num-sep">→</span>
-                  <span class="inspector__num">{props.tokens?.output ?? 0}</span>
+                  <span class="inspector__num">{humanNum(props.tokens?.output ?? 0)}</span>
                 </dd>
               </Show>
               <Show when={props.costUsd > 0}>
@@ -351,6 +351,12 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
       </aside>
     </Show>
   );
+}
+
+function humanNum(n: number): string {
+  if (n >= 10_000) return `${(n / 1_000).toFixed(1)}k`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(2)}k`;
+  return n.toString();
 }
 
 function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
