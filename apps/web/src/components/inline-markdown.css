@@ -220,3 +220,10 @@
   border-bottom: 1.5px solid var(--color-bg);
   transform: rotate(-50deg);
 }
+
+.im__hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--color-border-30) 50%, transparent 100%);
+  margin: 16px 0;
+}
