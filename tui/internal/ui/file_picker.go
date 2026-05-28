@@ -1,12 +1,9 @@
 // At-sign (@) file picker (M6). Typing `@` as the first character of a
 // new word in the input opens a floating fuzzy-file picker scoped to the
-// current workspace. Selecting a file:
-//
-//  1. Inserts `@path/to/file` into the input at the cursor position.
-//  2. Attaches the file to the session's context via POST
-//     /v1/sessions/{id}/context/files (mode=read) so the backend sees
-//     it as extra context on the next send. Same plumbing as the K14
-//     sidebar `o` key, reached from the input side.
+// current workspace. Selecting a file inserts a visible `@path/to/file`
+// mention and records a structured composer attachment. The attachment
+// is posted before the message is sent so failures can keep the draft
+// editable instead of creating a failed turn with a raw @path.
 //
 // Design:
 //   - Fuzzy matching is simple case-insensitive substring scoring. Good
@@ -40,6 +37,11 @@ type filePickerState struct {
 	sel     int              // index into the filtered slice
 	loaded  bool             // true once entries have been fetched
 	errText string           // non-empty when the workspace file fetch failed
+}
+
+type composerFileMention struct {
+	Path string
+	Mode string
 }
 
 // filePickerLoadedMsg delivers the initial fetch result.
@@ -89,6 +91,68 @@ func (a *App) openFilePicker() tea.Cmd {
 func (a *App) closeFilePicker() {
 	a.filePickerOpen = false
 	a.filePicker = nil
+}
+
+func cloneComposerFileMentions(in []composerFileMention) []composerFileMention {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]composerFileMention, len(in))
+	copy(out, in)
+	return out
+}
+
+func (a *App) addComposerFileMention(path, mode string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	if mode == "" {
+		mode = "read"
+	}
+	for i := range a.fileMentions {
+		if a.fileMentions[i].Path == path {
+			a.fileMentions[i].Mode = mode
+			return
+		}
+	}
+	a.fileMentions = append(a.fileMentions, composerFileMention{Path: path, Mode: mode})
+}
+
+func sanitizeSelectedFileMentions(text string, mentions []composerFileMention) string {
+	if text == "" || len(mentions) == 0 {
+		return text
+	}
+	ordered := cloneComposerFileMentions(mentions)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return len(ordered[i].Path) > len(ordered[j].Path)
+	})
+	out := text
+	for _, mention := range ordered {
+		path := strings.TrimSpace(mention.Path)
+		if path == "" {
+			continue
+		}
+		out = strings.ReplaceAll(out, "@"+path, path)
+	}
+	return strings.TrimSpace(out)
+}
+
+func activeComposerFileMentions(text string, mentions []composerFileMention) []composerFileMention {
+	if strings.TrimSpace(text) == "" || len(mentions) == 0 {
+		return nil
+	}
+	out := make([]composerFileMention, 0, len(mentions))
+	seen := map[string]bool{}
+	for _, mention := range mentions {
+		path := strings.TrimSpace(mention.Path)
+		if path == "" || seen[path] || !strings.Contains(text, "@"+path) {
+			continue
+		}
+		seen[path] = true
+		out = append(out, mention)
+	}
+	return out
 }
 
 func (a *App) handleFilePickerWheel(button tea.MouseButton) tea.Cmd {
@@ -256,14 +320,7 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		a.input.SetValue(cur + "@" + selected.Path + " ")
 
-		// Attach the file to session context so the backend auto-reads
-		// it on the next send. Failure is non-fatal — the @-reference
-		// still lands in the prompt, which is enough for most backends
-		// that interpret @-refs directly. Reuses K14's
-		// addContextFileCmd so sidebar CONTEXT updates the same way.
-		if sid := a.currentSessionID(); sid != "" {
-			return a, addContextFileCmd(a.c, sid, selected.Path, "read")
-		}
+		a.addComposerFileMention(selected.Path, "read")
 		return a, nil
 	case "backspace":
 		if a.filePicker.errText != "" {
