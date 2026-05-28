@@ -84,3 +84,18 @@
 .bp__action:hover {
   background: var(--color-surface-alt);
 }
+
+.bp__pip--idle {
+  background: var(--color-border);
+}
+
+.bp__chev {
+  color: var(--color-muted);
+  margin-left: 4px;
+}
+
+.bp__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
