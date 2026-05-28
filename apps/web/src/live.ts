@@ -426,7 +426,10 @@ function reduce(
       const sid = p.session_id as string;
       const next = p.status as SessionStatus;
       if (sid && next && hooks.sessionEvents) {
-        hooks.sessionEvents.patch(sid, { status: next });
+        hooks.sessionEvents.patch(sid, {
+          status: next,
+          bumpedAt: Date.now(),
+        });
       }
       break;
     }
@@ -446,9 +449,11 @@ function reduce(
       if (sid && hooks.sessionEvents) {
         const changed = (p.changed_fields as string[]) ?? [];
         // We don't get the new field values here; the simplest correct
-        // thing is to mark the row as "updatedAt: just now" so the
-        // sidebar's modification ordering still tells the truth.
-        hooks.sessionEvents.patch(sid, { updatedAt: 'just now' });
+        // thing is to mark the row as "updatedAt: just now" + bump it.
+        hooks.sessionEvents.patch(sid, {
+          updatedAt: 'just now',
+          bumpedAt: Date.now(),
+        });
         void changed;
       }
       break;

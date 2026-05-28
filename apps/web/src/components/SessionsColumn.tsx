@@ -20,6 +20,8 @@ export interface SessionRow {
   costUsd?: number;
   /** When true the row sorts to the top of the list and shows a pin icon. */
   pinned?: boolean;
+  /** Epoch ms — last time this row was touched by SSE. Drives the pulse. */
+  bumpedAt?: number;
 }
 
 export interface WorkspaceOption {
@@ -180,6 +182,11 @@ export function SessionsColumn(props: SessionsColumnProps) {
   );
 }
 
+function isFresh(bumpedAt: number | undefined): boolean {
+  if (typeof bumpedAt !== 'number') return false;
+  return Date.now() - bumpedAt < 2000;
+}
+
 function SessionListItem(props: {
   row: SessionRow;
   active: boolean;
@@ -206,7 +213,11 @@ function SessionListItem(props: {
   return (
     <li>
       <div
-        class={'sx__row ' + (props.active ? 'is-active' : '')}
+        class={
+          'sx__row ' +
+          (props.active ? 'is-active ' : '') +
+          (isFresh(props.row.bumpedAt) ? 'is-bumped' : '')
+        }
         data-testid={`session-row-${props.row.id}`}
       >
         <button
