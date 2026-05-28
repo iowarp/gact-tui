@@ -227,7 +227,7 @@ type menuButton struct {
 func closeMenuButton(id string, close func(*App)) menuButton {
 	return menuButton{
 		id:    id,
-		label: "close",
+		label: "×",
 		action: func(app *App) tea.Cmd {
 			close(app)
 			return nil

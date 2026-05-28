@@ -217,7 +217,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	}
 	closeLabel := strings.TrimSpace(opts.closeLabel)
 	if closeLabel == "" {
-		closeLabel = "close"
+		closeLabel = "×"
 	}
 	buttons := []menuButton{
 		{
@@ -826,7 +826,7 @@ func (a *App) viewDetailView() string {
 	// YYYYYYYYY1: use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
 	ref := a.detailView
-	closeLabel := "close"
+	closeLabel := "×"
 	hint := ""
 	if a.catalogBrowserOpen && a.catalogBrowser != nil {
 		closeLabel = "back"

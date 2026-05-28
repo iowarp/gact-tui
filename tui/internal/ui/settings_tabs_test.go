@@ -404,27 +404,22 @@ func TestSettings_TUIPrefsMouseToggle(t *testing.T) {
 	}
 }
 
-func TestSettings_TUILayoutContextPlacementPersists(t *testing.T) {
+func TestSettings_TUILayoutUsesLayoutEditorForSidebarPlacement(t *testing.T) {
 	a := New("http://unused")
 	a.settingsOpen = true
 	a.settings = &settingsState{tab: 3, tuiRow: 6}
-	called := 0
-	a.SaveConfig = func() error {
-		called++
-		return nil
-	}
-
-	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyRight, Text: "right"})
-	a = model.(*App)
-	if got := a.SidebarModulePlacement("context"); got != "right" {
-		t.Fatalf("context placement = %q, want right", got)
-	}
-	if called != 1 {
-		t.Fatalf("SaveConfig calls = %d, want 1", called)
-	}
 
 	out := ansi.Strip(a.viewSettings())
-	if !strings.Contains(out, "context sidebar") || !strings.Contains(out, "right") {
-		t.Fatalf("settings output missing context sidebar placement: %q", out)
+	if strings.Contains(out, "context sidebar") {
+		t.Fatalf("settings output should not expose legacy context placement row: %q", out)
+	}
+	if !strings.Contains(out, "sidebar layout") {
+		t.Fatalf("settings output missing sidebar layout editor row: %q", out)
+	}
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if !a.sidebarLayoutOpen {
+		t.Fatal("enter on sidebar layout row should open layout editor")
 	}
 }

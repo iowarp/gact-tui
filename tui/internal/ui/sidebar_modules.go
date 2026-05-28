@@ -10,6 +10,7 @@ type sidebarModuleID string
 
 const (
 	sidebarModuleSessions sidebarModuleID = "sessions"
+	sidebarModuleFiles    sidebarModuleID = "files"
 	sidebarModuleContext  sidebarModuleID = "context"
 )
 
@@ -42,6 +43,13 @@ func sidebarModuleRegistry() map[sidebarModuleID]sidebarModuleDefinition {
 			Title:            msgSidebarTitle,
 			DefaultPlacement: sidebarPlacementLeft,
 			PersistenceKey:   "sidebar.sessions",
+		},
+		sidebarModuleFiles: {
+			ID:               sidebarModuleFiles,
+			Section:          sidebarSectionFiles,
+			Title:            msgSidebarFiles,
+			DefaultPlacement: sidebarPlacementLeft,
+			PersistenceKey:   "sidebar.files",
 		},
 		sidebarModuleContext: {
 			ID:               sidebarModuleContext,
@@ -94,8 +102,10 @@ func (a *App) SetSidebarModuleIDs(ids []string) {
 // SetSidebarLayout applies the persisted left/right module placement. Unknown
 // module ids remain visible as disabled rows in the side they were configured.
 func (a *App) SetSidebarLayout(left []string, right []string) {
-	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(left)
-	a.rightSidebarModuleIDs = sidebarModuleIDsFromStrings(right)
+	a.sidebarModuleIDs, a.rightSidebarModuleIDs = normalizeSidebarLayoutIDs(
+		sidebarModuleIDsFromStrings(left),
+		sidebarModuleIDsFromStrings(right),
+	)
 	a.sidebarLayoutConfigured = true
 }
 
@@ -152,6 +162,28 @@ func (a *App) SetSidebarModulePlacement(id string, placement string) {
 	a.sidebarModuleIDs = left
 	a.rightSidebarModuleIDs = right
 	a.sidebarLayoutConfigured = true
+}
+
+func normalizeSidebarLayoutIDs(left []sidebarModuleID, right []sidebarModuleID) ([]sidebarModuleID, []sidebarModuleID) {
+	rightSeen := map[sidebarModuleID]bool{}
+	normalizedRight := make([]sidebarModuleID, 0, len(right))
+	for _, id := range right {
+		if id == "" || rightSeen[id] {
+			continue
+		}
+		rightSeen[id] = true
+		normalizedRight = append(normalizedRight, id)
+	}
+	leftSeen := map[sidebarModuleID]bool{}
+	normalizedLeft := make([]sidebarModuleID, 0, len(left))
+	for _, id := range left {
+		if id == "" || rightSeen[id] || leftSeen[id] {
+			continue
+		}
+		leftSeen[id] = true
+		normalizedLeft = append(normalizedLeft, id)
+	}
+	return normalizedLeft, normalizedRight
 }
 
 func (a *App) effectiveSidebarLayoutIDs() (left []sidebarModuleID, right []sidebarModuleID) {
