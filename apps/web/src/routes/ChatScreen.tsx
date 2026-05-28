@@ -1871,8 +1871,21 @@ function EmptyState(props: {
           )}
         </For>
       </div>
+      <p class="chat__empty-tip">
+        Tip: press{' '}
+        <kbd class="chat__empty-kbd">{platformMod()} + K</kbd> for the
+        command palette, or{' '}
+        <kbd class="chat__empty-kbd">{platformMod()} + /</kbd> for a
+        keyboard shortcuts cheatsheet.
+      </p>
     </div>
   );
+}
+
+function platformMod(): string {
+  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘'
+    : 'Ctrl';
 }
 
 function cycleDensity(
