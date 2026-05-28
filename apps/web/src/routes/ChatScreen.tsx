@@ -30,6 +30,7 @@ import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
+import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { LeftRail, type RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
 import {
@@ -686,6 +687,69 @@ function ChatLayout(props: ChatLayoutProps) {
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal('');
   const [cheatsheetOpen, setCheatsheetOpen] = createSignal(false);
+  const [searchOpen, setSearchOpen] = createSignal(false);
+  const [searchQuery, setSearchQuery] = createSignal('');
+  const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
+
+  const totalMatches = createMemo(() => {
+    const q = searchQuery().trim().toLowerCase();
+    if (!q) return 0;
+    let n = 0;
+    for (const m of props.messages) {
+      for (const part of m.parts) {
+        if (part.type === 'text' && part.text) {
+          const lower = part.text.toLowerCase();
+          let i = lower.indexOf(q);
+          while (i !== -1) {
+            n += 1;
+            i = lower.indexOf(q, i + q.length);
+          }
+        }
+      }
+    }
+    return n;
+  });
+
+  const currentMatchKey = createMemo<string>(() => {
+    const total = totalMatches();
+    if (total === 0) return '';
+    const q = searchQuery().trim().toLowerCase();
+    if (!q) return '';
+    const target = ((currentMatchIdx() % total) + total) % total;
+    let seen = 0;
+    for (const m of props.messages) {
+      for (const part of m.parts) {
+        if (part.type === 'text' && part.text) {
+          const lower = part.text.toLowerCase();
+          let i = lower.indexOf(q);
+          while (i !== -1) {
+            if (seen === target) return `${m.id}:${seen}`;
+            seen += 1;
+            i = lower.indexOf(q, i + q.length);
+          }
+        }
+      }
+    }
+    return '';
+  });
+
+  // Scroll the focused match into view whenever it changes.
+  createEffect(() => {
+    const key = currentMatchKey();
+    if (!key) return;
+    queueMicrotask(() => {
+      const el = document.querySelector(
+        `[data-match-key="${CSS.escape(key)}"]`,
+      ) as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
+  function bumpMatch(delta: number) {
+    const total = totalMatches();
+    if (total === 0) return;
+    setCurrentMatchIdx((i) => (i + delta + total) % total);
+  }
   const [inspectorOpen, setInspectorOpen] = createPersistedBoolean(
     'clio.inspector-open.v1',
     true,
@@ -764,6 +828,12 @@ function ChatLayout(props: ChatLayoutProps) {
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
         e.preventDefault();
         setCheatsheetOpen((v) => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && onChat()) {
+        e.preventDefault();
+        setSearchOpen(true);
+        setCurrentMatchIdx(0);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
@@ -1147,6 +1217,23 @@ function ChatLayout(props: ChatLayoutProps) {
           </div>
         </header>
 
+        <TranscriptSearch
+          open={searchOpen()}
+          query={searchQuery()}
+          matchCount={totalMatches()}
+          currentIndex={currentMatchIdx()}
+          onQueryChange={(q) => {
+            setSearchQuery(q);
+            setCurrentMatchIdx(0);
+          }}
+          onPrev={() => bumpMatch(-1)}
+          onNext={() => bumpMatch(1)}
+          onClose={() => {
+            setSearchOpen(false);
+            setSearchQuery('');
+          }}
+        />
+
         <div
           class="chat__pane"
           data-testid="transcript-pane"
@@ -1175,6 +1262,8 @@ function ChatLayout(props: ChatLayoutProps) {
               onEdit={props.onEditMessage}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
+              searchQuery={searchOpen() ? searchQuery() : ''}
+              currentMatchKey={currentMatchKey()}
             />
             <Show when={scrolledUp()}>
               <button
