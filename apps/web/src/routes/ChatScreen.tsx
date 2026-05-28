@@ -1896,6 +1896,13 @@ function ChatLayout(props: ChatLayoutProps) {
               ? undefined
               : 'Start a new conversation — first message becomes the title'
           }
+          workspaceClient={discoveryClient}
+          workspaceId={
+            props.sessions.find((s) => s.id === props.activeId)?.workspace ??
+            props.selectedWorkspaceId === '__all'
+              ? undefined
+              : props.selectedWorkspaceId
+          }
           models={props.models}
           selectedModelId={props.selectedModelId}
           onPickModel={props.onPickModel}
