@@ -1,6 +1,7 @@
 import type {
   AgentDef,
   Capabilities,
+  ContextFile,
   HealthSnapshot,
   LmConfigSnapshot,
   McpServerInfo,
@@ -160,6 +161,44 @@ export class Client {
   deleteSession(sessionId: string): Promise<void> {
     return this.request<void>(
       `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/files — the file index the agent
+   * has been asked to keep in context for this session. Per
+   * clio-agent develop #362.
+   */
+  sessionContextFiles(sessionId: string): Promise<{ files: ContextFile[] }> {
+    return this.get<{ files: ContextFile[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/context/files — attach a file to the
+   * session's context. Existing rows for the same path are upserted.
+   */
+  addContextFile(
+    sessionId: string,
+    body: { path: string; mode?: string; language?: string },
+  ): Promise<ContextFile> {
+    return this.post<ContextFile>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+      body,
+    );
+  }
+
+  /**
+   * DELETE /v1/sessions/{id}/context/files?path=… — drop a file
+   * from the session's context.
+   */
+  removeContextFile(sessionId: string, path: string): Promise<void> {
+    const qs = new URLSearchParams({ path }).toString();
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files?${qs}`,
       'DELETE',
       undefined,
     );

@@ -564,6 +564,20 @@ function LiveDriven(props: {
   const sessionTasks = createMemo(() => sessionTasksData()?.tasks ?? []);
   void refetchTasks;
 
+  // Live context files — feeds the Inspector Context tab.
+  const [contextFilesData] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return { files: [] };
+      try {
+        return await live.client.sessionContextFiles(sid);
+      } catch {
+        return { files: [] };
+      }
+    },
+  );
+  const contextFiles = createMemo(() => contextFilesData()?.files ?? []);
+
   // Live slash commands (powers Cmd+K palette dynamic list).
   const [commandsData] = createResource(() => live.client.commands());
   const slashCommands = createMemo<SlashCommandDef[]>(
@@ -692,6 +706,7 @@ function LiveDriven(props: {
       onPickPermMode={pickPermMode}
       slashCommands={slashCommands()}
       sessionTasks={sessionTasks()}
+      contextFiles={contextFiles()}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
@@ -758,6 +773,7 @@ interface ChatLayoutProps {
   onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
   slashCommands?: SlashCommandDef[];
   sessionTasks?: import('@clio/core').SessionTask[];
+  contextFiles?: import('@clio/core').ContextFile[];
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
@@ -1619,6 +1635,7 @@ function ChatLayout(props: ChatLayoutProps) {
           tokens={inspectorTarget()?.tokens}
           model={inspectorTarget()?.model?.model_id}
           tasks={props.sessionTasks}
+          contextFiles={props.contextFiles}
           onClose={() => setInspectorOpen(false)}
         />
       </Show>
