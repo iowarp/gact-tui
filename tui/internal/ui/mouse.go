@@ -201,6 +201,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.lmConfigOpen, view: a.viewLMConfig, closeOutside: func(app *App) { app.closeLMConfigModal() }},
 		{open: a.doctorOpen, view: a.viewDoctor, closeOutside: func(app *App) { app.doctorOpen = false }},
 		{open: a.metricsOpen, view: a.viewMetrics, closeOutside: func(app *App) { app.metricsOpen = false }},
+		{open: a.sidebarLayoutOpen, view: a.viewSidebarLayoutEditor, closeOutside: func(app *App) { app.closeSidebarLayoutEditor() }},
 		{
 			open: a.settingsOpen,
 			view: a.viewSettings,

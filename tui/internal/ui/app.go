@@ -238,6 +238,7 @@ type App struct {
 	// of a new word.
 	filePickerOpen bool
 	filePicker     *filePickerState
+	fileMentions   []composerFileMention
 
 	// Catalog browser (L5): /mcp /tools /skills open a read-only list
 	// modal backed by the matching catalog endpoint.
@@ -321,7 +322,8 @@ type App struct {
 	// switching away and back doesn't wipe what the user was typing.
 	// Lifetime is the app process — restart drops the map (N5 tracks
 	// persistence via config.json).
-	inputDraftBySession map[string]string
+	inputDraftBySession   map[string]string
+	fileMentionsBySession map[string][]composerFileMention
 
 	// lastLoadedSessionID is the session ID the input buffer currently
 	// belongs to. selectSession uses this (not currentSessionID which
@@ -371,6 +373,12 @@ type App struct {
 	// Settings overlay
 	settingsOpen bool
 	settings     *settingsState
+
+	// Sidebar layout editor. Opened from Settings > TUI and backed by
+	// the same sidebar_layout.left/right config shape.
+	sidebarLayoutOpen bool
+	sidebarLayoutCol  int
+	sidebarLayoutSel  [3]int
 
 	// Metrics overlay
 	metricsOpen bool
@@ -524,6 +532,10 @@ type App struct {
 	sidebarContextCollapsed  bool
 	sidebarSectionFocus      sidebarSection
 	sidebarSectionCursor     bool
+	sidebarModuleIDs         []sidebarModuleID
+	rightSidebarModuleIDs    []sidebarModuleID
+	sidebarLayoutConfigured  bool
+	sidebarHitOffsetX        int
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -908,6 +920,10 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // Update handler can restore the text to the input (rather than
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
+	return postMessageWithMentionsCmd(c, sessionID, text, text, nil)
+}
+
+func postMessageWithMentionsCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention) tea.Cmd {
 	return func() tea.Msg {
 		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
 		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
@@ -916,13 +932,37 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 		// progress anyway.
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
+		mentionCopy := cloneComposerFileMentions(mentions)
+		seen := map[string]bool{}
+		attached := make([]gact.ContextFile, 0, len(mentionCopy))
+		for _, mention := range mentionCopy {
+			path := strings.TrimSpace(mention.Path)
+			if path == "" || seen[path] {
+				continue
+			}
+			seen[path] = true
+			mode := mention.Mode
+			if mode == "" {
+				mode = "read"
+			}
+			cf, err := c.AddContextFile(ctx, sessionID, path, mode)
+			if err != nil {
+				return postFailedMsg{
+					text:     draftText,
+					mentions: mentionCopy,
+					err:      fmt.Errorf("attach %s: %w", path, err),
+				}
+			}
+			attached = append(attached, cf)
+		}
+		text = sanitizeSelectedFileMentions(text, mentionCopy)
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
 			Parts: []gact.Part{gact.NewTextPart(text)},
 		})
 		if err != nil {
-			return postFailedMsg{text: text, err: err}
+			return postFailedMsg{text: draftText, mentions: mentionCopy, err: err}
 		}
-		return msgPostedAck{sessionID: sessionID, text: text}
+		return msgPostedAck{sessionID: sessionID, text: text, contextFiles: attached}
 	}
 }
 
@@ -930,8 +970,9 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 // Update handler restore the user's text into the textarea so a
 // transient network blip doesn't cost them their message.
 type postFailedMsg struct {
-	text string
-	err  error
+	text     string
+	mentions []composerFileMention
+	err      error
 }
 
 func (a *App) postFailureHint(err error) string {
@@ -1514,6 +1555,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just press Enter again once the backend is back. Surface a
 		// transient hint so they know what happened.
 		a.input.SetValue(m.text)
+		a.fileMentions = cloneComposerFileMentions(m.mentions)
 		a.transientHint = a.postFailureHint(m.err)
 		return a, nil
 
@@ -1546,6 +1588,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case msgPostedAck:
 		// User message is in the store; the SSE stream will reflect it via
 		// the message.created event the server publishes.
+		if a.currentSessionID() == m.sessionID && len(m.contextFiles) > 0 {
+			a.mergeContextFiles(m.contextFiles)
+		}
 		//
 		// Auto-rename: if this was the first user message AND the
 		// session still carries the default "new session …" title,
@@ -1581,8 +1626,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// session we're currently showing — stale responses from a
 		// since-switched session get dropped.
 		if a.currentSessionID() == m.sessionID {
-			a.contextFiles = append(a.contextFiles, m.file)
-			a.clampContextFileSelection()
+			a.mergeContextFiles([]gact.ContextFile{m.file})
 		}
 		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
@@ -2260,6 +2304,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.mcpRemoveOpen {
 		return a.handleMcpRemoveKey(k)
+	}
+	if a.sidebarLayoutOpen {
+		return a.handleSidebarLayoutKey(k)
 	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
@@ -3993,9 +4040,13 @@ func (a *App) firstVisibleSessionIndex() int {
 }
 
 func (a *App) sidebarSections() []sidebarSection {
-	sections := []sidebarSection{sidebarSectionSessions}
-	if a.hasContextSection() {
-		sections = append(sections, sidebarSectionContext)
+	modules := a.sidebarModules()
+	sections := make([]sidebarSection, 0, len(modules))
+	for _, module := range modules {
+		if module.Disabled {
+			continue
+		}
+		sections = append(sections, module.Definition.Section)
 	}
 	return sections
 }
@@ -4281,7 +4332,7 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 }
 
 func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
-	return mouseRect{x: 0, y: 1, w: width, h: height}
+	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: width, h: height}
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -4361,7 +4412,7 @@ func (a *App) registerSidebarContentHitActions(id string, row int, width int, he
 	if a.hits == nil {
 		return
 	}
-	rect := sidebarContentRect(row, width)
+	rect := a.sidebarContentRect(row, width)
 	if height < 1 {
 		height = 1
 	}
@@ -4369,12 +4420,12 @@ func (a *App) registerSidebarContentHitActions(id string, row int, width int, he
 	a.registerScreenHitActions(id, rect, action, secondaryAction)
 }
 
-func sidebarContentRect(row int, width int) mouseRect {
+func (a *App) sidebarContentRect(row int, width int) mouseRect {
 	w := width - 4
 	if w < 1 {
 		w = 1
 	}
-	return mouseRect{x: 2, y: row + 2, w: w, h: 1}
+	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
 }
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) {
@@ -4789,8 +4840,11 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// buffer so the backend sees the real body, not the compressed
 		// sigil. Send-time expansion keeps the input readable right up
 		// until the moment the message is dispatched.
+		draftText := strings.TrimSpace(raw)
 		text := strings.TrimSpace(a.expandPasteText(raw))
+		mentions := activeComposerFileMentions(raw, a.fileMentions)
 		a.input.Reset()
+		a.fileMentions = nil
 		a.pastes = nil
 		a.exitHistory()
 		// N1: successful dispatch invalidates any saved draft for
@@ -4798,12 +4852,13 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// a clean slate rather than the already-sent text resurfacing.
 		if sid := a.currentSessionID(); sid != "" {
 			delete(a.inputDraftBySession, sid)
+			delete(a.fileMentionsBySession, sid)
 		}
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
 		a.pushInputHistory(text)
-		return a, postMessageCmd(a.c, a.currentSessionID(), text)
+		return a, postMessageWithMentionsCmd(a.c, a.currentSessionID(), draftText, text, mentions)
 	}
 	if key == "ctrl+p" {
 		// Expand the most recent compressed paste in-place so the user
@@ -4820,6 +4875,7 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if key == "esc" {
 		a.input.Reset()
+		a.fileMentions = nil
 		a.exitHistory()
 		return a, nil
 	}
@@ -5001,11 +5057,16 @@ func (a *App) selectSession(idx int) tea.Cmd {
 func (a *App) swapInputDraftFor(newSID string) {
 	if a.lastLoadedSessionID != "" && a.lastLoadedSessionID != newSID {
 		a.stashDraft(a.lastLoadedSessionID, a.input.Value())
+		a.stashFileMentions(a.lastLoadedSessionID, activeComposerFileMentions(a.input.Value(), a.fileMentions))
 	}
 	a.input.Reset()
+	a.fileMentions = nil
 	a.pastes = nil
 	if saved, ok := a.inputDraftBySession[newSID]; ok {
 		a.input.SetValue(saved)
+	}
+	if mentions, ok := a.fileMentionsBySession[newSID]; ok {
+		a.fileMentions = cloneComposerFileMentions(mentions)
 	}
 	a.lastLoadedSessionID = newSID
 }
@@ -5026,6 +5087,43 @@ func (a *App) stashDraft(sid, val string) {
 		a.inputDraftBySession = map[string]string{}
 	}
 	a.inputDraftBySession[sid] = val
+}
+
+func (a *App) stashFileMentions(sid string, mentions []composerFileMention) {
+	if sid == "" {
+		return
+	}
+	if len(mentions) == 0 {
+		delete(a.fileMentionsBySession, sid)
+		return
+	}
+	if a.fileMentionsBySession == nil {
+		a.fileMentionsBySession = map[string][]composerFileMention{}
+	}
+	a.fileMentionsBySession[sid] = cloneComposerFileMentions(mentions)
+}
+
+func (a *App) mergeContextFiles(files []gact.ContextFile) {
+	if len(files) == 0 {
+		return
+	}
+	for _, file := range files {
+		if file.Path == "" {
+			continue
+		}
+		replaced := false
+		for i := range a.contextFiles {
+			if a.contextFiles[i].Path == file.Path {
+				a.contextFiles[i] = file
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			a.contextFiles = append(a.contextFiles, file)
+		}
+	}
+	a.clampContextFileSelection()
 }
 
 // applySSE folds an incoming event into local state.
@@ -6606,6 +6704,9 @@ func (a *App) viewMain() string {
 	if a.settingsOpen {
 		base = overlay(base, a.viewSettings(), a.width, a.height)
 	}
+	if a.sidebarLayoutOpen {
+		base = overlay(base, a.viewSidebarLayoutEditor(), a.width, a.height)
+	}
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)
 	}
@@ -6699,7 +6800,8 @@ func (a *App) conversationPaneHeight(bodyH int) int {
 
 func (a *App) viewMainBase() string {
 	sidebarW, bodyH, convH := a.mainPaneGeometry()
-	bodyW := a.width - sidebarW
+	rightSidebarW := a.rightSidebarWidth(sidebarW)
+	bodyW := a.width - sidebarW - rightSidebarW
 	if bodyW < 20 {
 		bodyW = 20
 	}
@@ -6716,6 +6818,10 @@ func (a *App) viewMainBase() string {
 	// exactly that, and let JoinHorizontal pad blank rows below it.
 	sidebar := a.renderSidebar(sidebarW, convH)
 	body := a.renderBody(bodyW, bodyH)
+	rightSidebar := ""
+	if rightSidebarW > 0 {
+		rightSidebar = a.renderRightSidebar(rightSidebarW, convH, sidebarW+bodyW)
+	}
 
 	// CCCCC1: force exact row counts on both stacks. lipgloss's
 	// .Height(N) only sets a *minimum* outer height; if the inner
@@ -6724,8 +6830,15 @@ func (a *App) viewMainBase() string {
 	// horizontal layout expects.
 	sidebar = fitLines(sidebar, convH)
 	body = fitLines(body, bodyH)
+	if rightSidebarW > 0 {
+		rightSidebar = fitLines(rightSidebar, convH)
+	}
 
-	row := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, body)
+	rowParts := []string{sidebar, body}
+	if rightSidebarW > 0 {
+		rowParts = append(rowParts, rightSidebar)
+	}
+	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
 	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
@@ -6746,6 +6859,23 @@ func (a *App) mainPaneGeometry() (sidebarW int, bodyH int, convH int) {
 	}
 	convH = a.conversationPaneHeight(bodyH)
 	return sidebarW, bodyH, convH
+}
+
+func (a *App) rightSidebarWidth(leftSidebarW int) int {
+	if len(a.rightSidebarModules()) == 0 {
+		return 0
+	}
+	width := 30
+	if maxW := a.width / 4; maxW > 0 && width > maxW {
+		width = maxW
+	}
+	if width < 24 {
+		width = 24
+	}
+	if a.width-leftSidebarW-width < 60 {
+		return 0
+	}
+	return width
 }
 
 func (a *App) renderHeader() string {
@@ -7573,6 +7703,7 @@ func (a *App) focusLabel(f FocusZone) string {
 }
 
 func (a *App) renderSidebar(width, height int) string {
+	a.sidebarHitOffsetX = 0
 	t := a.Theme
 	// CCCCC1: lipgloss .Height(N) is OUTER height (border included).
 	// Previously we passed Height(height-2) treating it as inner content
@@ -7591,7 +7722,7 @@ func (a *App) renderSidebar(width, height int) string {
 	// the title so the narrower view is visible even after the
 	// transient hint fades. Two mutually-non-exclusive filters —
 	// if both d and b were on, stacked suffix.
-	titleText := a.localizer.t(msgSidebarTitle, nil)
+	titleText := a.sidebarModuleTitle(sidebarModuleSessions)
 	switch {
 	case a.showDetachedOnly && a.showBusyOnly:
 		titleText = a.localizer.t(msgSidebarTitleDetachedBusy, nil)
@@ -7774,8 +7905,13 @@ func (a *App) renderSidebar(width, height int) string {
 			Render(" "+a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": len(visIdx) - endIdx})))
 	}
 
+	for _, module := range a.sidebarDisabledModules() {
+		rows = append(rows, "")
+		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+	}
+
 	// CONTEXT section — show files in the current session's context.
-	if a.selected >= 0 && a.selected < len(a.sessions) {
+	if a.sidebarHasEnabledModule(sidebarModuleContext) && a.selected >= 0 && a.selected < len(a.sessions) {
 		contextLines := a.sidebarContextRowCount()
 		footerLines := 0
 		if len(a.sessions) > 0 {
@@ -7796,7 +7932,7 @@ func (a *App) renderSidebar(width, height int) string {
 					Render(" " + a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": moreCount}))
 			}
 		}
-		contextTitle := a.localizer.t(msgSidebarContext, nil)
+		contextTitle := a.sidebarModuleTitle(sidebarModuleContext)
 		contextDisclosure := "▾ "
 		if a.sidebarContextCollapsed {
 			contextDisclosure = "▸ "
@@ -7863,6 +7999,93 @@ func (a *App) renderSidebar(width, height int) string {
 		body = clampLines(body, inner)
 	}
 	return style.Render(body)
+}
+
+func (a *App) renderRightSidebar(width, height int, offsetX int) string {
+	prevOffset := a.sidebarHitOffsetX
+	a.sidebarHitOffsetX = offsetX
+	defer func() {
+		a.sidebarHitOffsetX = prevOffset
+	}()
+
+	t := a.Theme
+	style := t.Pane.Width(width - 2).Height(height)
+	a.registerSidebarFocusSurface(width, height)
+
+	modules := a.rightSidebarModules()
+	rows := make([]string, 0, height)
+	for _, module := range modules {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		if module.Disabled {
+			rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+			continue
+		}
+		switch module.Definition.ID {
+		case sidebarModuleContext:
+			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleSessions:
+			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
+		default:
+			rows = append(rows, a.renderDisabledSidebarModule(resolvedSidebarModule{
+				Definition: module.Definition,
+				Disabled:   true,
+				Reason:     "renderer unavailable",
+			}, width)...)
+		}
+	}
+	if len(rows) == 0 {
+		rows = append(rows, t.HintLabel.Render("no modules"))
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	if inner := height - 2; inner > 0 {
+		body = clampLines(body, inner)
+	}
+	return style.Render(body)
+}
+
+func (a *App) renderRightContextModuleRows(width int) []string {
+	t := a.Theme
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("▾ " + a.sidebarModuleTitle(sidebarModuleContext))
+	rows := []string{title}
+	a.registerSidebarContextHeaderHit(0, width)
+	if len(a.contextFiles) == 0 {
+		return append(rows, t.HintLabel.Render(a.localizer.t(msgSidebarNoFiles, nil)))
+	}
+	for i, cf := range a.contextFiles {
+		row := len(rows)
+		marker := " "
+		selected := a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+		if selected {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+		}
+		rows = append(rows, a.renderSidebarContextFileRows(cf, width, marker, selected, i)...)
+		a.registerSidebarContextFileHit(row, width, i, cf)
+	}
+	return rows
+}
+
+func (a *App) renderRightSessionsModuleRows(width int) []string {
+	t := a.Theme
+	active, archived := 0, 0
+	for _, s := range a.sessions {
+		if s.ArchivedAt != nil {
+			archived++
+		} else {
+			active++
+		}
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("▸ " + a.sidebarModuleTitle(sidebarModuleSessions))
+	summary := a.localizer.tf(msgSidebarCountsActiveFirst, map[string]any{"active": active, "archived": archived})
+	return []string{
+		title,
+		lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(summary, width-6)),
+		t.HintLabel.Render(truncate("Move sessions to the left sidebar for full navigation.", width-6)),
+	}
 }
 
 func (a *App) renderSidebarContextFileRows(cf gact.ContextFile, width int, marker string, selected bool, index int) []string {
@@ -9455,8 +9678,9 @@ type sseEventMsg struct {
 type sseClosedMsg struct{}
 
 type msgPostedAck struct {
-	sessionID string
-	text      string // the user message just posted; used by auto-rename
+	sessionID    string
+	text         string // the user message just posted; used by auto-rename
+	contextFiles []gact.ContextFile
 }
 
 type sessionCreatedMsg struct {

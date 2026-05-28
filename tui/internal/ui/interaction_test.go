@@ -2625,6 +2625,12 @@ func TestSettingsTUIStepperArrowsWorkBeyondFirstRow(t *testing.T) {
 				t.Fatalf("paste compress right arrow = %d, want 4", app.Theme.PasteCompressThreshold)
 			}
 		}},
+		{id: "context-placement", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context placement right arrow = %q, want right", got)
+			}
+		}},
 	} {
 		_ = a.View()
 		target, ok := findHitTargetForTest(a, "settings:tui:"+tc.id+":inc")
@@ -2676,6 +2682,12 @@ func TestSettingsTUIStepperLeftHitAreasWorkBeyondFirstRow(t *testing.T) {
 			t.Helper()
 			if app.Theme.PasteCompressThreshold != 2 {
 				t.Fatalf("paste compress left hit = %d, want 2", app.Theme.PasteCompressThreshold)
+			}
+		}},
+		{id: "context-placement", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "hidden" {
+				t.Fatalf("context placement left hit = %q, want hidden", got)
 			}
 		}},
 	} {
@@ -2745,6 +2757,12 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 				t.Fatal("mouse inc should toggle MouseEnabled off")
 			}
 		}},
+		{rowID: "settings:tui:context-placement", incID: "settings:tui:context-placement:inc", want: 6, assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context placement inc = %q, want right", got)
+			}
+		}},
 	}
 	for _, tc := range cases {
 		a.MouseEnabled = true
@@ -2778,6 +2796,35 @@ func TestSettingsTUIEveryEditableRowHasMouseSelectionAndControls(t *testing.T) {
 			t.Fatalf("%s click should keep row selected/open, settings=%+v open=%v", tc.incID, a.settings, a.settingsOpen)
 		}
 		tc.assert(t, a)
+	}
+}
+
+func TestSettingsTUILayoutEditorMouseOpensModal(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 42
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3, tuiRow: 7}
+	a.MouseEnabled = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:tui:layout-editor:open")
+	if !ok {
+		t.Fatal("missing sidebar layout editor open target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x + target.rect.w/2,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.sidebarLayoutOpen {
+		t.Fatal("layout editor mouse target should open the sidebar layout modal")
+	}
+	if a.settings == nil || a.settings.tuiRow != 7 {
+		t.Fatalf("layout editor click should keep TUI row selected, settings=%+v", a.settings)
 	}
 }
 
@@ -2825,6 +2872,12 @@ func TestSettingsTUIVisibleArrowGlyphsAreClickableForEveryRow(t *testing.T) {
 			t.Helper()
 			if app.MouseEnabled {
 				t.Fatal("mouse visible right arrow should toggle MouseEnabled off")
+			}
+		}},
+		{label: "context sidebar", assert: func(t *testing.T, app *App) {
+			t.Helper()
+			if got := app.SidebarModulePlacement("context"); got != "right" {
+				t.Fatalf("context visible right arrow = %q, want right", got)
 			}
 		}},
 	}
