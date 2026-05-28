@@ -1,4 +1,4 @@
-import { createResource, For, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client, McpServerInfo } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -9,7 +9,18 @@ export interface McpPageProps {
 
 export function McpPage(props: McpPageProps) {
   const [data, { refetch }] = createResource(() => props.client.mcpServers());
-  const items = () => data()?.servers ?? [];
+  const [query, setQuery] = createSignal('');
+  const all = () => data()?.servers ?? [];
+  const items = () => {
+    const q = query().trim().toLowerCase();
+    if (!q) return all();
+    return all().filter(
+      (s) =>
+        s.id.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        (s.tools ?? []).some((t) => t.toLowerCase().includes(q)),
+    );
+  };
   return (
     <DiscoveryPage
       icon="mcp"
@@ -31,6 +42,19 @@ export function McpPage(props: McpPageProps) {
       emptyTitle="No MCP servers"
       emptyBody="Register a server via the backend's tool gateway config."
     >
+      <Show when={all().length > 4}>
+        <div class="dp__search-row">
+          <Icon name="search" size={14} class="dp__search-icon" />
+          <input
+            type="text"
+            class="dp__search-input"
+            placeholder="Filter MCP servers by name, id, or tool…"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-testid="mcp-search"
+          />
+        </div>
+      </Show>
       <div class="dp__grid">
         <For each={items()}>{(s) => <McpServerCard s={s} />}</For>
       </div>
