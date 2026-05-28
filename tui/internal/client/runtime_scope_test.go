@@ -23,7 +23,7 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 			}
 		}
 		got = append(got, row)
-		switch r.URL.Path {
+		switch r.URL.EscapedPath() {
 		case "/v1/agents":
 			_ = json.NewEncoder(w).Encode(map[string]any{"agents": []gact.AgentDef{{ID: "a1", Title: "Agent"}}})
 		case "/v1/agents/a1":
@@ -42,6 +42,8 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(gact.MemoryStats{})
 		case "/v1/sessions/s1/context/frames":
 			_ = json.NewEncoder(w).Encode(map[string]any{"frames": []map[string]any{{"id": "f1"}}})
+		case "/v1/sessions/s1/context/frames/frame%2Fone":
+			_ = json.NewEncoder(w).Encode(map[string]any{"frame": map[string]any{"id": "frame/one"}})
 		default:
 			http.NotFound(w, r)
 		}
@@ -74,16 +76,19 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 	if _, err := c.ListContextFramesScoped(t.Context(), scope, 5); err != nil {
 		t.Fatalf("ListContextFramesScoped: %v", err)
 	}
+	if _, err := c.GetContextFrameScoped(t.Context(), scope, "frame/one"); err != nil {
+		t.Fatalf("GetContextFrameScoped: %v", err)
+	}
 
 	for _, row := range got {
 		if row.query["workspace_id"] != "ws1" {
 			t.Fatalf("%s workspace_id = %q, want ws1 (query=%v)", row.path, row.query["workspace_id"], row.query)
 		}
-		if row.path == "/v1/sessions/s1/context/frames" {
+		if row.path == "/v1/sessions/s1/context/frames" || row.path == "/v1/sessions/s1/context/frames/frame%2Fone" {
 			if row.query["session_id"] != "" {
-				t.Fatalf("frame list should not duplicate session_id query: %v", row.query)
+				t.Fatalf("frame routes should not duplicate session_id query: %v", row.query)
 			}
-			if row.query["limit"] != "5" {
+			if row.path == "/v1/sessions/s1/context/frames" && row.query["limit"] != "5" {
 				t.Fatalf("frame limit = %q, want 5", row.query["limit"])
 			}
 			continue

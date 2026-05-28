@@ -371,6 +371,23 @@ func (c *Client) ListContextFramesScoped(ctx context.Context, scope RuntimeScope
 	return out, err
 }
 
+func (c *Client) GetContextFrame(ctx context.Context, sessionID, frameID string) (map[string]any, error) {
+	return c.GetContextFrameScoped(ctx, RuntimeScope{SessionID: sessionID}, frameID)
+}
+
+func (c *Client) GetContextFrameScoped(ctx context.Context, scope RuntimeScope, frameID string) (map[string]any, error) {
+	var out struct {
+		Frame map[string]any `json:"frame"`
+	}
+	path := "/v1/sessions/" + url.PathEscape(scope.SessionID) + "/context/frames/" + url.PathEscape(frameID)
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, path+queryString(q), nil, &out)
+	return out.Frame, err
+}
+
 // SearchMatch mirrors SPEC §6.3 — one hit from /messages/search.
 type SearchMatch struct {
 	MessageID string  `json:"message_id"`
