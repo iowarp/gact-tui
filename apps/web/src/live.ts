@@ -62,6 +62,14 @@ export interface LiveTranscriptHandle {
   lastCompletion: Accessor<MessageCompletion | null>;
   /** Per-session cost rolled forward by `cost.updated` events. */
   costUsd: Accessor<number>;
+  /** Currently in-flight tool calls (started but not completed). */
+  runningTools: Accessor<RunningTool[]>;
+}
+
+export interface RunningTool {
+  callId: string;
+  toolName: string;
+  startedAt: number;
 }
 
 export interface MessageCompletion {
@@ -144,6 +152,7 @@ export function createLiveTranscript(
   const [reconnectInSec, setReconnectInSec] = createSignal(0);
   const [lastCompletion, setLastCompletion] = createSignal<MessageCompletion | null>(null);
   const [costUsd, setCostUsd] = createSignal<number>(0);
+  const [runningTools, setRunningTools] = createSignal<RunningTool[]>([]);
 
   // Backoff ladder. Each step caps at 10s so we don't go silent for
   // minutes after a few attempts; the user can still force-recover by
@@ -159,6 +168,7 @@ export function createLiveTranscript(
       setReconnectInSec(0);
       setLastCompletion(null);
       setCostUsd(0);
+      setRunningTools([]);
       return;
     }
 
@@ -213,6 +223,7 @@ export function createLiveTranscript(
         setPendingPermission,
         setLastCompletion,
         setCostUsd,
+        setRunningTools,
         sessionEvents,
       });
     };
@@ -291,6 +302,7 @@ export function createLiveTranscript(
     reconnectInSec,
     lastCompletion,
     costUsd,
+    runningTools,
   };
 }
 
@@ -314,6 +326,9 @@ function reduce(
     setPendingPermission: (p: PermissionRequest | null) => void;
     setLastCompletion: (c: MessageCompletion | null) => void;
     setCostUsd: (n: number | ((p: number) => number)) => void;
+    setRunningTools: (
+      n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
+    ) => void;
     sessionEvents?: SessionEventSink;
   },
 ) {
@@ -364,6 +379,9 @@ function reduce(
             : m,
         ),
       );
+      // Clear any lingering running-tool indicators — a completed
+      // turn means none should still be in flight.
+      hooks.setRunningTools(() => []);
       break;
     }
     case 'message.error': {
@@ -430,9 +448,26 @@ function reduce(
       }
       break;
     }
+    case 'tool.call.started': {
+      const toolName = (p.tool_name as string) ?? 'tool';
+      const callId =
+        (p.call_id as string) ??
+        (p.tool_call_id as string) ??
+        `${toolName}-${Date.now()}`;
+      hooks.setRunningTools((prev) => {
+        if (prev.some((t) => t.callId === callId)) return prev;
+        return [...prev, { callId, toolName, startedAt: Date.now() }];
+      });
+      break;
+    }
+    case 'tool.call.completed': {
+      const callId = (p.call_id as string) ?? (p.tool_call_id as string);
+      if (callId) {
+        hooks.setRunningTools((prev) => prev.filter((t) => t.callId !== callId));
+      }
+      break;
+    }
     case 'message.part.completed':
-    case 'tool.call.started':
-    case 'tool.call.completed':
     case 'notification':
     case 'server.connected':
     case 'server.heartbeat':

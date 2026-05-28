@@ -116,6 +116,24 @@
 
 .chat__meta-item--cost { color: var(--color-accent-cyan); }
 .chat__meta-item--err  { color: var(--color-error); }
+.chat__meta-item--running {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.chat__running-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: inline-block;
+  animation: chat-running-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-running-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
 
 /* Conversation pane: generous reading column                            */
 .chat__pane {
