@@ -1,4 +1,4 @@
-import { createResource, For, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client, SlashCommandDef } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -9,7 +9,18 @@ export interface ToolsPageProps {
 
 export function ToolsPage(props: ToolsPageProps) {
   const [data, { refetch }] = createResource(() => props.client.commands());
-  const items = () => data()?.commands ?? [];
+  const [query, setQuery] = createSignal('');
+  const all = () => data()?.commands ?? [];
+  const items = () => {
+    const q = query().trim().toLowerCase();
+    if (!q) return all();
+    return all().filter(
+      (c) =>
+        c.id.toLowerCase().includes(q) ||
+        c.title.toLowerCase().includes(q) ||
+        (c.description ?? '').toLowerCase().includes(q),
+    );
+  };
   return (
     <DiscoveryPage
       icon="tools"
@@ -31,6 +42,19 @@ export function ToolsPage(props: ToolsPageProps) {
       emptyTitle="No commands registered"
       emptyBody="Backend exposes no /v1/commands; the composer's slash palette falls back to defaults."
     >
+      <Show when={all().length > 6}>
+        <div class="dp__search-row">
+          <Icon name="search" size={14} class="dp__search-icon" />
+          <input
+            type="text"
+            class="dp__search-input"
+            placeholder="Filter commands…"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-testid="commands-search"
+          />
+        </div>
+      </Show>
       <div class="dp__grid">
         <For each={items()}>{(c) => <CommandCard c={c} />}</For>
       </div>
