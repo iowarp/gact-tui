@@ -219,6 +219,39 @@
   margin-bottom: 4px;
 }
 
+/* Sticky "jump to latest" pill when the user has scrolled up.            */
+.chat__scroll-pill {
+  position: sticky;
+  bottom: 16px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+  z-index: 4;
+  transition: transform var(--dur-fast), background var(--dur-fast);
+  animation: chat-scroll-pill-in 220ms ease-out both;
+}
+
+.chat__scroll-pill:hover {
+  background: var(--color-surface-alt);
+  transform: translateY(-1px);
+}
+
+@keyframes chat-scroll-pill-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* "CLIO is responding" inline indicator                                  */
 .chat__typing {
   display: inline-flex;
