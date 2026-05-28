@@ -1336,6 +1336,12 @@ function ChatLayout(props: ChatLayoutProps) {
             props.onOpenSettings?.();
             return;
           }
+          // Re-clicking Sessions while already on chat with the column
+          // collapsed re-opens the column instead of being a no-op.
+          if (id === 'sessions' && railRoute() === 'sessions' && !sessionsOpen()) {
+            setSessionsOpen(true);
+            return;
+          }
           setRailRoute(id);
         }}
         onOpenPalette={() => setPaletteOpen(true)}
