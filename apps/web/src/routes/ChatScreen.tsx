@@ -835,6 +835,19 @@ function ChatLayout(props: ChatLayoutProps) {
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
             />
+            <Show when={props.streaming && props.messages.length > 0}>
+              <div class="chat__typing" data-testid="chat-typing">
+                <span class="chat__typing-avatar" aria-hidden>
+                  <Icon name="bot" size={14} />
+                </span>
+                <span class="chat__typing-label">CLIO is responding</span>
+                <span class="chat__typing-dots" aria-hidden>
+                  <span class="chat__typing-dot" />
+                  <span class="chat__typing-dot" />
+                  <span class="chat__typing-dot" />
+                </span>
+              </div>
+            </Show>
           </div>
         </div>
 
