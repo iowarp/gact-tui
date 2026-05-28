@@ -54,6 +54,7 @@ import {
 } from './discovery/index.js';
 import { Client } from '@clio/core';
 import { inTauri, tauriFetch } from '../tauri.js';
+import { useToast } from '../components/Toast.js';
 import './chat.css';
 
 export interface ChatScreenProps {
@@ -188,6 +189,7 @@ function LiveDriven(props: {
 
   const [density, setDensity] = createSignal<TranscriptDensity>('normal');
   const [streaming, setStreaming] = createSignal(false);
+  const toast = useToast();
 
   const transcript = createLiveTranscript(live.client, activeId, {
     patch: live.patch,
@@ -197,6 +199,47 @@ function LiveDriven(props: {
   createMemo(() => {
     const cur = rows().find((r) => r.id === activeId());
     setStreaming(cur?.status === 'running');
+  });
+
+  // SSE state-change toasts so the user notices reconnects + errors.
+  let lastSseStatus: typeof transcript.status extends () => infer R ? R : never = 'closed';
+  createEffect(() => {
+    const s = transcript.status();
+    if (s === lastSseStatus) return;
+    if (s === 'error' && lastSseStatus !== 'error') {
+      toast.push({
+        tone: 'error',
+        title: 'SSE disconnected',
+        body: 'Lost the stream from the backend; reconnect on next message.',
+        duration: 5000,
+      });
+    }
+    if (s === 'open' && lastSseStatus === 'error') {
+      toast.push({
+        tone: 'success',
+        title: 'SSE reconnected',
+        duration: 2500,
+      });
+    }
+    lastSseStatus = s;
+  });
+
+  // Surface a completed turn so users notice when CLIO finishes.
+  let lastCompletionId: string | undefined;
+  createEffect(() => {
+    const c = transcript.lastCompletion();
+    if (!c || c.message_id === lastCompletionId) return;
+    lastCompletionId = c.message_id;
+    const tone = c.stop_reason === 'error' ? 'error' : 'success';
+    toast.push({
+      tone,
+      title: c.stop_reason === 'error' ? 'Turn ended in error' : 'CLIO responded',
+      body:
+        c.stop_reason === 'error'
+          ? 'See the message error pill for detail.'
+          : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
+      duration: 3500,
+    });
   });
 
   async function sendUserMessage(text: string) {
