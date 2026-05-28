@@ -47,4 +47,101 @@ test.describe('CLIO harness — visual proofs', () => {
     await expect(page.getByTestId('density-chip')).toContainText('summary');
     await page.screenshot({ path: shot('density-summary'), fullPage: false });
   });
+
+  // Wave 0 + 2 additions.
+
+  test('starting-clio-splash renders the boot splash', async ({ page }) => {
+    await page.goto('/?route=splash&hold=1');
+    await expect(page.getByTestId('splash-screen')).toBeVisible();
+    await expect(page.getByTestId('splash-spinner')).toBeVisible();
+    await page.screenshot({ path: shot('starting-clio-splash'), fullPage: false });
+  });
+
+  test('settings-backends lists registered endpoints', async ({ page }) => {
+    await page.goto('/?route=settings-backends');
+    await expect(page.getByTestId('settings-backends')).toBeVisible();
+    await expect(page.getByTestId('settings-row-sidecar:local')).toBeVisible();
+    await page.screenshot({ path: shot('settings-backends'), fullPage: false });
+  });
+
+  test('add-remote-ssh-wizard captures the tunnel form', async ({ page }) => {
+    await page.goto('/?route=add-remote');
+    await page.getByTestId('add-remote-mode-ssh').click();
+    await expect(page.getByTestId('add-remote-ssh-host')).toBeVisible();
+    await page.getByTestId('add-remote-label').fill('ALCF · polaris (preview)');
+    await page.getByTestId('add-remote-ssh-host').fill('polaris.alcf.anl.gov');
+    await page.getByTestId('add-remote-ssh-user').fill('jaime');
+    await page.getByTestId('add-remote-ssh-key').fill('~/.ssh/id_ed25519');
+    await page.screenshot({ path: shot('add-remote-ssh-wizard'), fullPage: false });
+  });
+
+  test('multi-backend-picker shows the dropdown with status pips', async ({ page }) => {
+    // Seed the registry via localStorage before any navigation so the
+    // picker has entries to render when the chat shell mounts.
+    await page.addInitScript(() => {
+      const seed = {
+        backends: [
+          {
+            id: 'sidecar:local',
+            label: 'Local sidecar',
+            url: 'http://127.0.0.1:17800',
+            bearerToken: '••••',
+            kind: 'local-sidecar',
+            capabilities: { contract_version: '0.2' },
+          },
+          {
+            id: 'alcf:polaris',
+            label: 'ALCF · polaris',
+            url: 'http://polaris.alcf.anl.gov:8100',
+            bearerToken: '••••',
+            kind: 'ssh-tunnel',
+            capabilities: { contract_version: '0.2' },
+          },
+          {
+            id: 'remote:flagship',
+            label: 'Flagship · staging',
+            url: 'https://clio-staging.example.com',
+            bearerToken: '••••',
+            kind: 'http',
+            lastError: 'connect ECONNREFUSED 1.2.3.4:443',
+          },
+        ],
+        currentId: 'sidecar:local',
+      };
+      window.localStorage.setItem('clio.backends.v1', JSON.stringify(seed));
+    });
+    await page.goto('/?route=chat&fixture=normal');
+    await page.getByTestId('backend-picker').click();
+    await expect(page.getByTestId('backend-picker-menu')).toBeVisible();
+    await expect(page.getByTestId('backend-picker-item-sidecar:local')).toBeVisible();
+    await page.screenshot({ path: shot('multi-backend-picker'), fullPage: false });
+  });
+
+  test('permission-allow-once captures the allow-once highlight', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=permission');
+    await expect(page.getByTestId('permcard-allow-once')).toBeVisible();
+    await page.getByTestId('permcard-allow-once').focus();
+    await page.screenshot({ path: shot('permission-allow-once'), fullPage: false });
+  });
+
+  test('permission-deny captures the deny highlight', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=permission');
+    await expect(page.getByTestId('permcard-deny')).toBeVisible();
+    await page.getByTestId('permcard-deny').focus();
+    await page.screenshot({ path: shot('permission-deny'), fullPage: false });
+  });
+
+  test('density-keybind-verbose shows the verbose density chip', async ({ page }) => {
+    // Same render as density-verbose but with the file name the goal
+    // requires; kept separate so the goal's PNG list is complete.
+    await page.goto('/?route=chat&fixture=verbose');
+    await expect(page.getByTestId('density-chip')).toContainText('verbose');
+    await page.screenshot({ path: shot('density-keybind-verbose'), fullPage: false });
+  });
+
+  test('density-keybind-summary shows the summary density chip', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=summary');
+    await expect(page.getByTestId('density-chip')).toContainText('summary');
+    await page.screenshot({ path: shot('density-keybind-summary'), fullPage: false });
+  });
 });

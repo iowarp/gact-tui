@@ -40,6 +40,14 @@ export function SplashScreen(props: SplashScreenProps) {
   let cancelled = false;
 
   onMount(() => {
+    // Visual-proof hook: `?route=splash&hold=1` parks the screen in
+    // its `starting` state without firing the probe so Playwright can
+    // capture the spinner mid-boot.
+    const params = new URL(window.location.href).searchParams;
+    if (params.get('hold') === '1') {
+      setPhase('starting');
+      return;
+    }
     if (inTauri()) {
       void waitForTauriBackend();
     } else {
