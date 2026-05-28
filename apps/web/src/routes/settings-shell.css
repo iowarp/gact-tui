@@ -203,3 +203,12 @@
 .settings-shell__links a:hover {
   text-decoration: underline;
 }
+
+.settings-shell__link-detail {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
