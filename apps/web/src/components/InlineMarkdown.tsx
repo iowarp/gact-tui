@@ -57,6 +57,20 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
               </ListTag>
             );
           }
+          if (b.kind === 'quote') {
+            return (
+              <blockquote class="im__quote">
+                <For each={splitLines(b.body)}>
+                  {(line, i) => (
+                    <>
+                      {i() > 0 && <br />}
+                      <For each={tokenizeInline(line)}>{(t) => renderToken(t)}</For>
+                    </>
+                  )}
+                </For>
+              </blockquote>
+            );
+          }
           if (b.kind === 'table') {
             return (
               <table class="im__table">
@@ -125,7 +139,8 @@ type Block =
   | { kind: 'code'; lang: string | null; body: string }
   | { kind: 'heading'; level: 1 | 2 | 3; body: string }
   | { kind: 'list'; ordered: boolean; items: string[] }
-  | { kind: 'table'; header: string[]; rows: string[][] };
+  | { kind: 'table'; header: string[]; rows: string[][] }
+  | { kind: 'quote'; body: string };
 
 function splitBlocks(text: string): Block[] {
   const out: Block[] = [];
@@ -158,6 +173,19 @@ function splitBlocks(text: string): Block[] {
       }
       if (i < lines.length) i++;
       out.push({ kind: 'code', lang, body: body.join('\n') });
+      continue;
+    }
+
+    // Blockquote: contiguous lines starting with `> `. Strip the
+    // marker and join with newlines.
+    if (line.startsWith('> ') || line === '>') {
+      flushPara();
+      const quoteLines: string[] = [];
+      while (i < lines.length && (lines[i]?.startsWith('> ') || lines[i] === '>')) {
+        quoteLines.push((lines[i] ?? '').replace(/^>\s?/, ''));
+        i++;
+      }
+      out.push({ kind: 'quote', body: quoteLines.join('\n') });
       continue;
     }
 

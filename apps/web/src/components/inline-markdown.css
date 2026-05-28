@@ -111,3 +111,15 @@
 .im__table td {
   color: var(--color-text);
 }
+
+.im__quote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--color-accent-cyan);
+  background: color-mix(in srgb, var(--color-accent-cyan) 6%, transparent);
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  border-radius: 0 6px 6px 0;
+}
