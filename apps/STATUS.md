@@ -1,8 +1,56 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-05-28 (overnight v0.9 work)
+**Last updated:** 2026-05-28 (post-v0.9.0 development pass)
 **Branch:** `feat/apps-harness`
-**Phase:** Wave 0 — sidecar bundling (toward v0.9.0)
+**Phase:** v0.9.1 in flight on `feat/apps-harness` HEAD
+
+## v0.9.1 blockers (what must be true before re-tagging)
+
+1. **WebView CORS fix verified end-to-end** — commit `38a65bf` routes
+   every frontend HTTP through the Rust `gact_http` Tauri command so
+   the WebView origin doesn't get blocked when talking to a localhost
+   sidecar that doesn't emit `Access-Control-Allow-Origin`. Verified
+   live on this Windows machine: launching `clio-desktop.exe` after
+   the fix produces a clean trace in `clio-server.log` (capabilities,
+   sessions, messages, permissions, SSE). The macOS / Linux WebViews
+   should behave identically but haven't been driven manually yet —
+   the release CI matrix smoke is the canonical check.
+
+2. **macOS aarch64 installer builds** — commit `37afdf9` swapped the
+   bash-4 associative array in `fetch-sidecar.sh` for a case
+   statement so macos-14 runners (which ship bash 3.2) can build the
+   sidecar launcher. v0.9.0 shipped without the macOS dmgs because of
+   this. Re-tagging will produce all four installer triples in one
+   workflow run.
+
+3. **ALCF hello round-trip** — the user has clio-agent-gact running
+   on `:17800` from the develop branch with `argonne_metis /
+   gpt-oss-120b` as the LM. The supervisor's attach-first probes
+   that port and the desktop attaches cleanly. End-to-end `hello`
+   was attempted three times and each came back with
+   `litellm.AuthenticationError: Token introspection: Token is either
+   not active or invalid`, despite `argonne_auth status` reporting
+   the access token as valid. The user reports auto-refresh works in
+   the upstream `clio` TUI; the symptom is consistent with the
+   running clio-agent-gact process caching the token at startup and
+   not reloading after refresh. Validate by:
+     a. `python -m clio_agent.providers.argonne_auth authenticate`
+     b. kill the :17800 listener, relaunch `clio-agent-gact --host
+        127.0.0.1 --port 17800` from `D:\Libraries\Documents\projects\clio-agent\.venv\Scripts`
+     c. `curl -X PUT http://127.0.0.1:17800/v1/providers/lm` with
+        `{provider: argonne_metis, api_base: ..., model: gpt-oss-120b}`
+     d. POST a hello message; expect a non-error stop_reason.
+   This is not a CLIO Desktop bug — it's a clio-agent token-cache
+   behaviour — but worth getting to green so v0.9.1's first real
+   product test passes against ALCF.
+
+When all three are clear: push tag `clio-desktop-v0.9.1` from
+`feat/apps-harness` HEAD. The release workflow handles the rest
+(Windows .exe + .msi, macOS aarch64/x64 .dmg, Linux .deb/.AppImage/
+.rpm, pure-web .zip, SHA256SUMS per triple, attached to a fresh
+GitHub Release via softprops/action-gh-release@v2).
+
+## Phase status
 
 ## Current state
 
