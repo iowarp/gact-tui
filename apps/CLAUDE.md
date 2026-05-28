@@ -78,14 +78,32 @@ pnpm --filter @clio/web test:visual    # against the gact emulator running on :7
 ## Visual proof requirements
 
 `apps/web/screenshots/` must contain (at minimum) these PNGs after any UI-touching
-commit:
+commit. The first six are the original harness baselines; the next fourteen
+landed with the v0.9.0 cut:
 
+Baselines:
 - `connect-screen.png`
 - `empty-sidebar.png`
 - `chat-streaming.png`
 - `permission-card.png`
 - `density-verbose.png`
 - `density-summary.png`
+
+v0.9.0 additions:
+- `starting-clio-splash.png`
+- `chat-live-stream.png`
+- `permission-allow-once.png`
+- `permission-deny.png`
+- `diff-pane-open.png`
+- `diff-per-hunk-apply.png`
+- `density-keybind-verbose.png`
+- `density-keybind-summary.png`
+- `slash-palette.png`
+- `at-mention-picker.png`
+- `stop-mid-stream.png`
+- `settings-backends.png`
+- `add-remote-ssh-wizard.png`
+- `multi-backend-picker.png`
 
 Filenames are stable across sessions. Replacing the PNG with a fresher render is
 expected; renaming or removing one is not.
