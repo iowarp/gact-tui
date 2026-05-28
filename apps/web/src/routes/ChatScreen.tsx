@@ -1306,6 +1306,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onSelect={(m) => setSelectedMessageId(m.id)}
               searchQuery={searchOpen() ? searchQuery() : ''}
               currentMatchKey={currentMatchKey()}
+              streaming={props.streaming}
             />
             <Show when={scrolledUp()}>
               <button

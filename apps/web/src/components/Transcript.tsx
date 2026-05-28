@@ -22,6 +22,8 @@ export interface TranscriptProps {
   searchQuery?: string;
   /** Match identifier "<message_id>:<index>" pointing at the focused hit. */
   currentMatchKey?: string;
+  /** When true, the last text part of the last assistant message renders a streaming cursor. */
+  streaming?: boolean;
 }
 
 const ROLE_ICON: Record<string, IconName> = {
@@ -54,6 +56,7 @@ function PartView(props: {
   messageId?: string;
   currentMatchKey?: string;
   matchBaseIndex?: number;
+  showCursor?: boolean;
 }) {
   const p = props.part;
   if (p.type === 'text') {
@@ -63,6 +66,9 @@ function PartView(props: {
       return (
         <div class="trx-text">
           <InlineMarkdown text={text} />
+          <Show when={props.showCursor}>
+            <span class="trx-cursor" aria-hidden>▌</span>
+          </Show>
         </div>
       );
     }
@@ -78,6 +84,9 @@ function PartView(props: {
           baseIndex={props.matchBaseIndex ?? 0}
           currentMatchKey={props.currentMatchKey ?? ''}
         />
+        <Show when={props.showCursor}>
+          <span class="trx-cursor" aria-hidden>▌</span>
+        </Show>
       </div>
     );
   }
@@ -196,6 +205,8 @@ function MessageView(props: {
   searchQuery?: string;
   currentMatchKey?: string;
   matchBaseIndex?: number;
+  /** Index of the part that should show the streaming cursor (or -1). */
+  streamingPartIdx?: number;
 }) {
   const role = () => props.msg.role;
   const isAssistant = () => role() === 'assistant';
@@ -262,7 +273,7 @@ function MessageView(props: {
       </header>
       <div class="trx-msg__body">
         <For each={props.msg.parts.filter((p) => shouldRenderPart(p, props.density))}>
-          {(part) => (
+          {(part, i) => (
             <PartView
               part={part}
               density={props.density}
@@ -271,6 +282,7 @@ function MessageView(props: {
               messageId={props.msg.id}
               currentMatchKey={props.currentMatchKey}
               matchBaseIndex={props.matchBaseIndex}
+              showCursor={i() === props.streamingPartIdx}
             />
           )}
         </For>
@@ -345,24 +357,50 @@ export function Transcript(props: TranscriptProps) {
     return total;
   };
 
+  // Find the latest in-progress assistant turn (no stop_reason) and
+  // its last text part — that's where the streaming cursor goes.
+  const streamingTarget = (): { msgId: string; partIdx: number } | null => {
+    if (!props.streaming) return null;
+    for (let i = props.messages.length - 1; i >= 0; i--) {
+      const m = props.messages[i];
+      if (!m || m.role !== 'assistant') continue;
+      if (m.stop_reason) return null; // already completed
+      const visible = m.parts.filter((p) => shouldRenderPart(p, props.density));
+      let lastTextIdx = -1;
+      for (let j = visible.length - 1; j >= 0; j--) {
+        if (visible[j]?.type === 'text') {
+          lastTextIdx = j;
+          break;
+        }
+      }
+      return lastTextIdx === -1 ? null : { msgId: m.id, partIdx: lastTextIdx };
+    }
+    return null;
+  };
+
   return (
     <div class="trx" data-density={props.density} data-testid="transcript">
       <For each={props.messages}>
-        {(m) => (
-          <MessageView
-            msg={m}
-            density={props.density}
-            onOpenDiff={props.onOpenDiff}
-            onCopy={props.onCopy}
-            onRegenerate={props.onRegenerate}
-            onEdit={props.onEdit}
-            selected={m.id === props.selectedId}
-            onSelect={props.onSelect}
-            searchQuery={props.searchQuery}
-            currentMatchKey={props.currentMatchKey}
-            matchBaseIndex={baseIndexFor(m.id)}
-          />
-        )}
+        {(m) => {
+          const target = streamingTarget();
+          const partIdx = target?.msgId === m.id ? target.partIdx : -1;
+          return (
+            <MessageView
+              msg={m}
+              density={props.density}
+              onOpenDiff={props.onOpenDiff}
+              onCopy={props.onCopy}
+              onRegenerate={props.onRegenerate}
+              onEdit={props.onEdit}
+              selected={m.id === props.selectedId}
+              onSelect={props.onSelect}
+              searchQuery={props.searchQuery}
+              currentMatchKey={props.currentMatchKey}
+              matchBaseIndex={baseIndexFor(m.id)}
+              streamingPartIdx={partIdx}
+            />
+          );
+        }}
       </For>
     </div>
   );
