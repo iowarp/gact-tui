@@ -422,6 +422,11 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 		}
 		allAgents, _ := c.ListAgentsScoped(ctx, scope)
 		allTools, _ := c.ListTools(ctx)
+		plannerCommands, _ := c.ListCommandsScoped(ctx, client.CommandFilter{
+			RuntimeScope: scope,
+			AgentID:      agent.ID,
+			Planner:      true,
+		})
 		visibleTools := toolsForAgent(agent, allTools)
 		items := []catalogItem{{
 			id:        "agent/" + agent.ID,
@@ -466,6 +471,16 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			items = append(items, catalogItem{
 				id: "prompt-resolution", title: "Prompt provenance", desc: desc,
 			})
+		}
+		if len(plannerCommands) > 0 {
+			for _, command := range plannerCommands {
+				items = append(items, catalogItem{
+					id:        "command/" + command.ID,
+					title:     "Planner command · " + firstNonEmpty(command.Title, command.ID),
+					desc:      paletteCommandSubtitle(command),
+					statusTag: firstNonEmpty(command.CommandSource, command.Source, "command"),
+				})
+			}
 		}
 		if len(visibleTools) == 0 {
 			items = append(items, catalogItem{id: "tools/none", title: "Tools · none declared"})
