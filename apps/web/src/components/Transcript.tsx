@@ -15,6 +15,7 @@ export interface TranscriptProps {
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  onQuote?: (msg: Message) => void;
   /** Currently-focused message id (drives the Inspector). */
   selectedId?: string;
   onSelect?: (msg: Message) => void;
@@ -200,6 +201,7 @@ function MessageView(props: {
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  onQuote?: (msg: Message) => void;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
   searchQuery?: string;
@@ -267,6 +269,17 @@ function MessageView(props: {
               onClick={() => props.onEdit?.(props.msg)}
             >
               <Icon name="edit" size={12} />
+            </button>
+          </Show>
+          <Show when={props.onQuote}>
+            <button
+              type="button"
+              class="trx-msg__action"
+              title="Quote in composer"
+              data-testid={`msg-quote-${props.msg.id}`}
+              onClick={() => props.onQuote?.(props.msg)}
+            >
+              <Icon name="branch" size={12} />
             </button>
           </Show>
         </span>
