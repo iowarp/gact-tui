@@ -1157,7 +1157,15 @@ function ChatLayout(props: ChatLayoutProps) {
               ? (idx + 1) % list.length
               : (idx - 1 + list.length) % list.length;
           const target = list[nextIdx];
-          if (target) props.onSelect(target.id);
+          if (target) {
+            props.onSelect(target.id);
+            queueMicrotask(() => {
+              const el = document.querySelector(
+                `[data-testid="session-row-${CSS.escape(target.id)}"]`,
+              ) as HTMLElement | null;
+              el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
+          }
         }
         return;
       }
