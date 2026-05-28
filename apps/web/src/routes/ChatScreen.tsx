@@ -34,6 +34,7 @@ import { NotificationCenter } from '../components/NotificationCenter.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { LeftRail, type RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
+import { UserQuestionCard } from '../components/UserQuestionCard.js';
 import {
   SessionsColumn,
   type SessionRow,
@@ -334,6 +335,40 @@ function LiveDriven(props: {
       await live.client.resolvePermission(p.id, decision, scope);
     } catch (e) {
       console.error('resolvePermission failed', e);
+    }
+  }
+
+  async function answerQuestion(
+    body: { answer?: string; selected_options?: string[] },
+  ) {
+    const q = transcript.pendingQuestion();
+    const id = activeId();
+    if (!q || !id) return;
+    try {
+      await live.client.answerSessionQuestion(id, q.id, body);
+      // SSE will clear the card via user_question.answered.
+      await transcript.refetch();
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Answer failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async function cancelQuestion() {
+    const q = transcript.pendingQuestion();
+    const id = activeId();
+    if (!q || !id) return;
+    try {
+      await live.client.cancelSessionQuestion(id, q.id);
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Cancel failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -752,8 +787,11 @@ function LiveDriven(props: {
       setDensity={setDensity}
       messages={transcript.messages()}
       pendingPermission={transcript.pendingPermission()}
+      pendingQuestion={transcript.pendingQuestion()}
       onSubmit={sendUserMessage}
       onPermissionDecide={decidePermission}
+      onAnswerQuestion={answerQuestion}
+      onCancelQuestion={cancelQuestion}
       onStop={stopRun}
       onNewSession={newEmptySession}
       onRefreshSessions={() => live.refetch()}
@@ -806,8 +844,11 @@ interface ChatLayoutProps {
   setDensity: (d: TranscriptDensity) => void;
   messages: Message[];
   pendingPermission: PermissionRequest | null;
+  pendingQuestion?: import('@clio/core').UserQuestion | null;
   onSubmit?: (text: string) => Promise<void> | void;
   onPermissionDecide?: (decision: 'approve' | 'deny', scope?: PermissionScope) => void;
+  onAnswerQuestion?: (body: { answer?: string; selected_options?: string[] }) => void | Promise<void>;
+  onCancelQuestion?: () => void | Promise<void>;
   onStop?: () => void | Promise<void>;
   composerDisabled: boolean;
   streaming?: boolean;
@@ -1736,6 +1777,13 @@ function ChatLayout(props: ChatLayoutProps) {
               <PermissionCard
                 request={props.pendingPermission!}
                 onDecide={props.onPermissionDecide}
+              />
+            </Show>
+            <Show when={props.pendingQuestion && props.onAnswerQuestion && props.onCancelQuestion}>
+              <UserQuestionCard
+                question={props.pendingQuestion!}
+                onAnswer={props.onAnswerQuestion!}
+                onCancel={props.onCancelQuestion!}
               />
             </Show>
             <Transcript

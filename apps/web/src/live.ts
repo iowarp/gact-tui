@@ -30,6 +30,7 @@ import {
   type PermissionRequest,
   type Session,
   type SessionStatus,
+  type UserQuestion,
 } from '@clio/core';
 import type { SidebarSession } from './components/Sidebar.js';
 import { inTauri, tauriFetch } from './tauri.js';
@@ -64,6 +65,8 @@ export interface LiveTranscriptHandle {
   costUsd: Accessor<number>;
   /** Currently in-flight tool calls (started but not completed). */
   runningTools: Accessor<RunningTool[]>;
+  /** Currently pending orchestrator ask-user questions (PR #380). */
+  pendingQuestion: Accessor<UserQuestion | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
   refetch: () => Promise<void>;
 }
@@ -159,6 +162,7 @@ export function createLiveTranscript(
   const [lastCompletion, setLastCompletion] = createSignal<MessageCompletion | null>(null);
   const [costUsd, setCostUsd] = createSignal<number>(0);
   const [runningTools, setRunningTools] = createSignal<RunningTool[]>([]);
+  const [pendingQuestion, setPendingQuestion] = createSignal<UserQuestion | null>(null);
 
   // Backoff ladder. Each step caps at 10s so we don't go silent for
   // minutes after a few attempts; the user can still force-recover by
@@ -175,8 +179,16 @@ export function createLiveTranscript(
       setLastCompletion(null);
       setCostUsd(0);
       setRunningTools([]);
+      setPendingQuestion(null);
       return;
     }
+
+    // Seed pending questions on session activation — there might be
+    // one already waiting from before SSE was connected.
+    void client
+      .sessionQuestions(id, 'pending')
+      .then(({ questions }) => setPendingQuestion(questions[0] ?? null))
+      .catch(() => setPendingQuestion(null));
 
     void client
       .messages(id)
@@ -210,11 +222,16 @@ export function createLiveTranscript(
       'message.completed',
       'message.error',
       'tool.call.started',
+      'tool.call.progress',
       'tool.call.completed',
       'permission.requested',
       'permission.resolved',
       'cost.updated',
       'notification',
+      'user_question.created',
+      'user_question.answered',
+      'user_question.cancelled',
+      'user_question.resumed',
     ];
 
     const onEvent = (raw: MessageEvent) => {
@@ -230,6 +247,7 @@ export function createLiveTranscript(
         setLastCompletion,
         setCostUsd,
         setRunningTools,
+        setPendingQuestion,
         sessionEvents,
         onNotification: sessionEvents?.onNotification,
       });
@@ -321,6 +339,7 @@ export function createLiveTranscript(
     lastCompletion,
     costUsd,
     runningTools,
+    pendingQuestion,
     refetch,
   };
 }
@@ -358,6 +377,7 @@ function reduce(
     setRunningTools: (
       n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
     ) => void;
+    setPendingQuestion: (q: UserQuestion | null) => void;
     sessionEvents?: SessionEventSink;
     onNotification?: (n: BackendNotification) => void;
   },
@@ -525,6 +545,20 @@ function reduce(
       if (callId) {
         hooks.setRunningTools((prev) => prev.filter((t) => t.callId !== callId));
       }
+      break;
+    }
+    case 'user_question.created':
+    case 'user_question.resumed': {
+      const q = p.question as UserQuestion | undefined;
+      if (q && q.status === 'pending') hooks.setPendingQuestion(q);
+      break;
+    }
+    case 'user_question.answered':
+    case 'user_question.cancelled': {
+      // Either resolution clears the active card. The post-handler
+      // (the caller) refetches the transcript so the resumed turn
+      // shows up.
+      hooks.setPendingQuestion(null);
       break;
     }
     case 'notification': {
