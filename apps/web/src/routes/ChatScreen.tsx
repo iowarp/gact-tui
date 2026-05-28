@@ -589,7 +589,7 @@ function LiveDriven(props: {
   void refetchTasks;
 
   // Live context files — feeds the Inspector Context tab.
-  const [contextFilesData] = createResource(
+  const [contextFilesData, { refetch: refetchContextFiles }] = createResource(
     () => activeId(),
     async (sid) => {
       if (!sid) return { files: [] };
@@ -601,6 +601,27 @@ function LiveDriven(props: {
     },
   );
   const contextFiles = createMemo(() => contextFilesData()?.files ?? []);
+
+  async function removeContextFile(path: string) {
+    const sid = activeId();
+    if (!sid) return;
+    try {
+      await live.client.removeContextFile(sid, path);
+      void refetchContextFiles();
+      toast.push({
+        tone: 'success',
+        title: 'Removed from context',
+        body: path,
+        duration: 2200,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Remove failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
 
   // Live slash commands (powers Cmd+K palette dynamic list).
   const [commandsData] = createResource(() => live.client.commands());
@@ -731,6 +752,7 @@ function LiveDriven(props: {
       slashCommands={slashCommands()}
       sessionTasks={sessionTasks()}
       contextFiles={contextFiles()}
+      onRemoveContextFile={removeContextFile}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
@@ -800,6 +822,7 @@ interface ChatLayoutProps {
   slashCommands?: SlashCommandDef[];
   sessionTasks?: import('@clio/core').SessionTask[];
   contextFiles?: import('@clio/core').ContextFile[];
+  onRemoveContextFile?: (path: string) => void | Promise<void>;
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
@@ -1708,6 +1731,7 @@ function ChatLayout(props: ChatLayoutProps) {
           model={inspectorTarget()?.model?.model_id}
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
+          onRemoveContextFile={props.onRemoveContextFile}
           onClose={() => setInspectorOpen(false)}
         />
       </Show>

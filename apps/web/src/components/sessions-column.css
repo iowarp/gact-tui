@@ -226,6 +226,7 @@
 
 .sx__row:hover {
   background: var(--color-surface-alt);
+  border-color: var(--color-border-30);
 }
 
 .sx__row.is-active {
