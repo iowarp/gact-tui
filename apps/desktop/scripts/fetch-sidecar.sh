@@ -28,19 +28,29 @@ LOCK="$ROOT/src-tauri/sidecar.lock"
 
 mkdir -p "$OUT"
 
-declare -A TARGETS=(
-  [x86_64-pc-windows-msvc]="windows/amd64/.exe"
-  [aarch64-apple-darwin]="darwin/arm64/"
-  [x86_64-apple-darwin]="darwin/amd64/"
-  [x86_64-unknown-linux-gnu]="linux/amd64/"
-)
+### Supported target triples ###
+# macOS runners ship bash 3.2 which doesn't support associative arrays,
+# so the triple → (GOOS, GOARCH, ext) table is a plain case statement.
+ALL_TRIPLES="x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu"
+
+triple_to_spec() {
+  case "$1" in
+    x86_64-pc-windows-msvc)     echo "windows amd64 .exe" ;;
+    aarch64-apple-darwin)       echo "darwin  arm64 " ;;
+    x86_64-apple-darwin)        echo "darwin  amd64 " ;;
+    x86_64-unknown-linux-gnu)   echo "linux   amd64 " ;;
+    *) echo "" ;;
+  esac
+}
 
 host_triple() {
   case "$(uname -s)" in
     Linux)   echo "x86_64-unknown-linux-gnu" ;;
     Darwin)
-      if [[ "$(uname -m)" == "arm64" ]]; then echo "aarch64-apple-darwin"
-      else echo "x86_64-apple-darwin"
+      if [ "$(uname -m)" = "arm64" ]; then
+        echo "aarch64-apple-darwin"
+      else
+        echo "x86_64-apple-darwin"
       fi
       ;;
     MINGW*|MSYS*|CYGWIN*) echo "x86_64-pc-windows-msvc" ;;
@@ -50,14 +60,20 @@ host_triple() {
 
 build_one() {
   local triple="$1"
-  local spec="${TARGETS[$triple]:-}"
-  if [[ -z "$spec" ]]; then
+  local spec
+  spec="$(triple_to_spec "$triple")"
+  if [ -z "$spec" ]; then
     echo "fetch-sidecar: unknown target triple: $triple" >&2
     return 1
   fi
-  IFS=/ read -r goos goarch ext <<<"$spec"
+  # `spec` is whitespace-separated: <goos> <goarch> <ext>. Read with
+  # default IFS so the trailing empty-string ext works on Linux/macOS.
+  local goos goarch ext
+  goos=$(echo "$spec" | awk '{print $1}')
+  goarch=$(echo "$spec" | awk '{print $2}')
+  ext=$(echo "$spec" | awk '{print $3}')
   local out="$OUT/clio-agent-${triple}${ext}"
-  echo "[fetch-sidecar] building $triple -> $out"
+  echo "[fetch-sidecar] building $triple -> $out (GOOS=$goos GOARCH=$goarch)"
   (
     cd "$SRC"
     GOWORK=off GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
@@ -115,16 +131,16 @@ EOF
 }
 
 main() {
-  local triples=()
-  if [[ $# -eq 0 ]]; then
-    triples=("$(host_triple)")
-  elif [[ "$1" == "--all" ]]; then
-    triples=("${!TARGETS[@]}")
+  local triples
+  if [ $# -eq 0 ]; then
+    triples="$(host_triple)"
+  elif [ "$1" = "--all" ]; then
+    triples="$ALL_TRIPLES"
   else
-    triples=("$@")
+    triples="$*"
   fi
 
-  for t in "${triples[@]}"; do
+  for t in $triples; do
     build_one "$t"
   done
 
