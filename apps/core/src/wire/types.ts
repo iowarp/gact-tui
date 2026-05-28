@@ -422,6 +422,35 @@ export interface ContextFile {
  * Per-session task entry per clio-agent develop /v1/sessions/{sid}/tasks
  * — lightweight TODO list the agent or user can populate during a turn.
  */
+/**
+ * Ask-user question per clio-agent develop #380 (orchestrator
+ * ask-user resume semantics). The orchestrator may pause a turn
+ * and emit one of these for the user to answer before continuing.
+ */
+export interface UserQuestionOption {
+  label: string;
+  value?: string;
+  description?: string;
+}
+
+export interface UserQuestion {
+  id: string;
+  session_id: string;
+  prompt: string;
+  status: 'pending' | 'answered' | 'cancelled' | 'expired';
+  kind: 'freeform' | 'choice' | 'confirmation';
+  options?: UserQuestionOption[];
+  created_at: string;
+  updated_at: string;
+  expires_at?: string;
+  source?: string;
+  turn_id?: string;
+  attempt_id?: string;
+  answer?: string;
+  selected_options?: string[];
+  metadata?: Record<string, unknown>;
+}
+
 export interface SessionTask {
   id: string;
   session_id: string;
