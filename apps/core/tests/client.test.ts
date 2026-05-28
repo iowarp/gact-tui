@@ -52,6 +52,32 @@ describe('Client', () => {
     await expect(c.capabilities()).rejects.toBeInstanceOf(HttpError);
   });
 
+  it('lifts structured GACT error envelopes onto HttpError.errorInfo', async () => {
+    const body = JSON.stringify({
+      error: {
+        error: 'config_error',
+        message: 'ClioAgent not wired into this build. Set CLIO_LM_PROVIDER.',
+        details: { session_id: 'sess_abc' },
+        recoverable: false,
+      },
+    });
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch(() => new Response(body, { status: 400, statusText: 'Bad Request' })),
+    });
+    try {
+      await c.capabilities();
+      throw new Error('expected throw');
+    } catch (e) {
+      const err = e as HttpError;
+      expect(err).toBeInstanceOf(HttpError);
+      expect(err.errorInfo?.error).toBe('config_error');
+      expect(err.errorInfo?.recoverable).toBe(false);
+      expect(err.errorInfo?.details).toEqual({ session_id: 'sess_abc' });
+      expect(err.message).toContain('ClioAgent not wired');
+    }
+  });
+
   it('builds SSE URL with auth_token query param', () => {
     const c = new Client({ baseUrl: 'http://localhost:7777', bearerToken: 'tok' });
     const url = new URL(c.sseUrl('sess_abc'));
