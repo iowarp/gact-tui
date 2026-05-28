@@ -2,6 +2,7 @@ import type {
   AgentDef,
   Capabilities,
   HealthSnapshot,
+  LmConfigSnapshot,
   McpServerInfo,
   MemoryStats,
   Message,
@@ -255,6 +256,45 @@ export class Client {
 
   commands(): Promise<{ commands: SlashCommandDef[] }> {
     return this.get<{ commands: SlashCommandDef[] }>('/v1/commands');
+  }
+
+  /**
+   * GET /v1/providers/lm — the currently-active LM config (provider,
+   * api_base, model, temperature, …).
+   */
+  lmConfig(): Promise<LmConfigSnapshot> {
+    return this.get<LmConfigSnapshot>('/v1/providers/lm');
+  }
+
+  /**
+   * PUT /v1/providers/lm — swap the active LM at runtime. Drives the
+   * "Use as LM" button on each provider card in Settings → Providers.
+   */
+  setLm(body: {
+    provider: string;
+    api_base: string;
+    model: string;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<LmConfigSnapshot> {
+    return this.request<LmConfigSnapshot>('/v1/providers/lm', 'PUT', body);
+  }
+
+  /**
+   * POST /v1/providers/{id}/auth — trigger the provider's auth flow
+   * (e.g. opens the ALCF Globus login window). Returns the current
+   * auth state so the UI can refresh the "authenticated" pill.
+   */
+  authProvider(providerId: string): Promise<{
+    is_authenticated: boolean;
+    provider_id: string;
+    instructions?: string;
+  }> {
+    return this.post<{
+      is_authenticated: boolean;
+      provider_id: string;
+      instructions?: string;
+    }>(`/v1/providers/${encodeURIComponent(providerId)}/auth`, {});
   }
 
   /**
