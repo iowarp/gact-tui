@@ -1,4 +1,16 @@
 @import url('../../../design/colors_and_type.css');
+@import url('https://rsms.me/inter/inter.css');
+
+/* User preference: Inter for body sans. Override the design-system
+   token so every var(--font-sans) consumer (chrome, transcript,
+   composer, inspector, settings) picks it up. Keep Oxanium as a
+   fallback in case Inter fails to load. The design system at
+   apps/design/ is read-only — this override layers on top in the
+   web app only. */
+:root {
+  --font-sans: 'Inter', 'Inter var', 'Oxanium', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+}
 
 *,
 *::before,
