@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js';
-import type { Message, Part } from '@clio/core';
+import type { FileDiff, Message, Part } from '@clio/core';
 import './transcript.css';
 
 export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
@@ -7,6 +7,11 @@ export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
 export interface TranscriptProps {
   messages: Message[];
   density: TranscriptDensity;
+  /**
+   * Called when the user clicks a `file_diff` chip to open the
+   * multi-buffer review pane. ChatScreen wires this through.
+   */
+  onOpenDiff?: (diff: FileDiff) => void;
 }
 
 function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
@@ -18,7 +23,11 @@ function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   return part.type !== 'thinking';
 }
 
-function PartView(props: { part: Part; density: TranscriptDensity }) {
+function PartView(props: {
+  part: Part;
+  density: TranscriptDensity;
+  onOpenDiff?: (diff: FileDiff) => void;
+}) {
   const p = props.part;
   if (p.type === 'text') {
     return <div class="trx-text">{p.text}</div>;
@@ -62,42 +71,53 @@ function PartView(props: { part: Part; density: TranscriptDensity }) {
     );
   }
   if (p.type === 'file_diff') {
+    const stats = (() => {
+      const ud = p.unified_diff ?? '';
+      const adds = ud.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).length;
+      const dels = ud.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---')).length;
+      return { adds, dels };
+    })();
     return (
-      <div class="trx-filediff" data-testid="filediff-chip">
+      <button
+        type="button"
+        class="trx-filediff"
+        data-testid="filediff-chip"
+        onClick={() => props.onOpenDiff?.(p)}
+        title="Open diff pane"
+      >
         <div class="trx-filediff__chip">
           <span class="trx-filediff__path">{p.path}</span>
           <span class="trx-filediff__stats">
-            <Show when={p.unified_diff}>
-              {(() => {
-                const ud = p.unified_diff!;
-                const adds = ud.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).length;
-                const dels = ud.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---')).length;
-                return (
-                  <>
-                    <span class="trx-filediff__plus">+{adds}</span>
-                    <span class="trx-filediff__minus">−{dels}</span>
-                  </>
-                );
-              })()}
-            </Show>
+            <span class="trx-filediff__plus">+{stats.adds}</span>
+            <span class="trx-filediff__minus">−{stats.dels}</span>
           </span>
         </div>
-        <Show when={p.unified_diff}>
+        <Show when={props.density === 'verbose' && p.unified_diff}>
           <pre class="trx-filediff__diff">{p.unified_diff}</pre>
         </Show>
-      </div>
+      </button>
     );
   }
   return null;
 }
 
-function MessageView(props: { msg: Message; density: TranscriptDensity }) {
+function MessageView(props: {
+  msg: Message;
+  density: TranscriptDensity;
+  onOpenDiff?: (diff: FileDiff) => void;
+}) {
   return (
     <article class={'trx-msg trx-msg--' + props.msg.role} data-testid={`msg-${props.msg.id}`}>
       <div class="trx-msg__role">{props.msg.role}</div>
       <div class="trx-msg__body">
         <For each={props.msg.parts.filter((p) => shouldRenderPart(p, props.density))}>
-          {(part) => <PartView part={part} density={props.density} />}
+          {(part) => (
+            <PartView
+              part={part}
+              density={props.density}
+              onOpenDiff={props.onOpenDiff}
+            />
+          )}
         </For>
       </div>
     </article>
@@ -107,7 +127,11 @@ function MessageView(props: { msg: Message; density: TranscriptDensity }) {
 export function Transcript(props: TranscriptProps) {
   return (
     <div class="trx" data-density={props.density} data-testid="transcript">
-      <For each={props.messages}>{(m) => <MessageView msg={m} density={props.density} />}</For>
+      <For each={props.messages}>
+        {(m) => (
+          <MessageView msg={m} density={props.density} onOpenDiff={props.onOpenDiff} />
+        )}
+      </For>
     </div>
   );
 }
