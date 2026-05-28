@@ -44,6 +44,7 @@ export type IconName =
   | 'diff'
   | 'arrow-up-right'
   | 'circle'
+  | 'alert'
   | 'help';
 
 const PATHS: Record<IconName, JSX.Element> = {
@@ -240,6 +241,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     </>
   ),
   circle: <circle cx="12" cy="12" r="4" />,
+  alert: (
+    <>
+      <path d="M12 3l10 17H2L12 3z" />
+      <line x1="12" y1="10" x2="12" y2="14" />
+      <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+    </>
+  ),
   help: (
     <>
       <circle cx="12" cy="12" r="9" />

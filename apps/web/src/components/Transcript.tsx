@@ -241,9 +241,44 @@ function MessageView(props: {
             />
           )}
         </For>
+        <Show when={isErrored(props.msg)}>
+          <div
+            class="trx-msg__error"
+            data-testid={`msg-error-${props.msg.id}`}
+            role="alert"
+          >
+            <span class="trx-msg__error-icon">
+              <Icon name="alert" size={14} />
+            </span>
+            <div class="trx-msg__error-body">
+              <div class="trx-msg__error-title">
+                {props.msg.error_info?.error ?? 'Turn failed'}
+              </div>
+              <Show when={props.msg.error_info?.message}>
+                <div class="trx-msg__error-detail">
+                  {props.msg.error_info!.message}
+                </div>
+              </Show>
+              <Show when={props.msg.error_info?.recoverable && isAssistant() && props.onRegenerate}>
+                <button
+                  type="button"
+                  class="trx-msg__error-retry"
+                  onClick={() => props.onRegenerate?.(props.msg)}
+                  data-testid={`msg-error-retry-${props.msg.id}`}
+                >
+                  <Icon name="regenerate" size={12} /> Retry
+                </button>
+              </Show>
+            </div>
+          </div>
+        </Show>
       </div>
     </article>
   );
+}
+
+function isErrored(msg: Message): boolean {
+  return msg.stop_reason === 'error' || !!msg.error_info;
 }
 
 function humanTime(iso: string): string {

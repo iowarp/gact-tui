@@ -228,6 +228,69 @@
   min-width: 0;
 }
 
+/* Inline error pill on assistant turns that ended in stop_reason=error */
+.trx-msg__error {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--color-error) 12%, var(--color-bg));
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+  border-radius: 10px;
+  color: var(--color-text);
+}
+
+.trx-msg__error-icon {
+  flex: 0 0 auto;
+  color: var(--color-error);
+  margin-top: 1px;
+}
+
+.trx-msg__error-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trx-msg__error-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error);
+  letter-spacing: 0.02em;
+}
+
+.trx-msg__error-detail {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
+.trx-msg__error-retry {
+  align-self: flex-start;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-error) 50%, transparent);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-error);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.trx-msg__error-retry:hover {
+  background: color-mix(in srgb, var(--color-error) 18%, transparent);
+}
+
 /* Thinking part (collapsed by default in this layout)                   */
 .trx-thinking {
   background: var(--color-surface);
