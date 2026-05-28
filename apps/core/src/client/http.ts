@@ -245,6 +245,22 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/compact — collapses earlier conversation
+   * into a compacted summary to free up context window. Per
+   * clio-agent develop. 204 on success — `session.compacted` event
+   * fires asynchronously when done.
+   */
+  compactSession(
+    sessionId: string,
+    body: { reason?: string } = {},
+  ): Promise<void> {
+    return this.post<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/compact`,
+      body,
+    );
+  }
+
+  /**
    * POST /v1/sessions/{id}/summarize — kicks off async summarization.
    * The result lands on the SSE stream as a `session.summarized`
    * event (per SPEC §7.3). 204 on success — no body returned.
