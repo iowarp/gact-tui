@@ -57,6 +57,38 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
               </ListTag>
             );
           }
+          if (b.kind === 'table') {
+            return (
+              <table class="im__table">
+                <thead>
+                  <tr>
+                    <For each={b.header}>
+                      {(cell) => (
+                        <th>
+                          <For each={tokenizeInline(cell)}>{(t) => renderToken(t)}</For>
+                        </th>
+                      )}
+                    </For>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={b.rows}>
+                    {(row) => (
+                      <tr>
+                        <For each={row}>
+                          {(cell) => (
+                            <td>
+                              <For each={tokenizeInline(cell)}>{(t) => renderToken(t)}</For>
+                            </td>
+                          )}
+                        </For>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            );
+          }
           return (
             <p class="im__p">
               <For each={splitLines(b.body)}>
@@ -92,7 +124,8 @@ type Block =
   | { kind: 'text'; body: string }
   | { kind: 'code'; lang: string | null; body: string }
   | { kind: 'heading'; level: 1 | 2 | 3; body: string }
-  | { kind: 'list'; ordered: boolean; items: string[] };
+  | { kind: 'list'; ordered: boolean; items: string[] }
+  | { kind: 'table'; header: string[]; rows: string[][] };
 
 function splitBlocks(text: string): Block[] {
   const out: Block[] = [];
@@ -137,6 +170,29 @@ function splitBlocks(text: string): Block[] {
       continue;
     }
 
+    // Pipe-delimited tables: at least two lines where line 0 has |
+    // cells and line 1 is a `|---|---|` separator. Bail out if either
+    // assumption fails so prose with stray | survives unchanged.
+    if (line.includes('|') && i + 1 < lines.length) {
+      const sep = lines[i + 1] ?? '';
+      const sepCells = splitTableRow(sep);
+      if (
+        sepCells.length > 0 &&
+        sepCells.every((c) => /^[-:]+$/.test(c.trim()))
+      ) {
+        flushPara();
+        const header = splitTableRow(line);
+        const rows: string[][] = [];
+        i += 2;
+        while (i < lines.length && lines[i]?.includes('|')) {
+          rows.push(splitTableRow(lines[i]!));
+          i++;
+        }
+        out.push({ kind: 'table', header, rows });
+        continue;
+      }
+    }
+
     const ulMatch = line.match(ulRe);
     const olMatch = line.match(olRe);
     if (ulMatch || olMatch) {
@@ -169,6 +225,13 @@ function splitBlocks(text: string): Block[] {
 
 function splitLines(s: string): string[] {
   return s.split(/\r?\n/);
+}
+
+function splitTableRow(row: string): string[] {
+  // Strip optional leading/trailing pipes then split on |. Cells are
+  // trimmed for whitespace.
+  const trimmed = row.trim().replace(/^\||\|$/g, '');
+  return trimmed.split('|').map((c) => c.trim());
 }
 
 interface InlineToken {
