@@ -1314,7 +1314,7 @@ function ChatLayout(props: ChatLayoutProps) {
     const railJumps: Array<{ id: RailRoute; label: string }> = [
       { id: 'workspaces', label: 'Workspaces' },
       { id: 'agents', label: 'Agents' },
-      { id: 'tools', label: 'Tools' },
+      { id: 'tools', label: 'Commands' },
       { id: 'prompts', label: 'Prompts' },
       { id: 'mcp', label: 'MCP servers' },
       { id: 'memory', label: 'Memory' },
