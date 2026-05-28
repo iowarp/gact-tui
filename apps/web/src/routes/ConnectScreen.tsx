@@ -1,5 +1,7 @@
-import { createSignal } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import type { BackendHandle } from '../App.js';
+import { Icon } from '../components/Icon.js';
+import { inTauri, tauriFetch } from '../tauri.js';
 import './connect.css';
 
 export interface ConnectScreenProps {
@@ -7,7 +9,7 @@ export interface ConnectScreenProps {
 }
 
 export function ConnectScreen(props: ConnectScreenProps) {
-  const [url, setUrl] = createSignal('http://localhost:7777');
+  const [url, setUrl] = createSignal('http://127.0.0.1:17800');
   const [token, setToken] = createSignal('');
   const [status, setStatus] = createSignal<'idle' | 'connecting' | 'error'>('idle');
   const [error, setError] = createSignal<string | null>(null);
@@ -16,11 +18,8 @@ export function ConnectScreen(props: ConnectScreenProps) {
     setStatus('connecting');
     setError(null);
     try {
-      // For the harness build we don't yet drive the live wire — the visual
-      // proof and PLAN.md item #2 handle that. If a backend is reachable, we
-      // still attempt /v1/capabilities so the connect button does real work
-      // against the gact-tui emulator.
-      const res = await fetch(`${url().replace(/\/+$/, '')}/v1/capabilities`, {
+      const fetchImpl = inTauri() ? tauriFetch : globalThis.fetch;
+      const res = await fetchImpl(`${url().replace(/\/+$/, '')}/v1/capabilities`, {
         headers: token() ? { Authorization: `Bearer ${token()}` } : {},
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -33,23 +32,18 @@ export function ConnectScreen(props: ConnectScreenProps) {
   }
 
   return (
-    <div class="connect">
-      <div class="atmos-orb atmos-orb--warm" />
-      <div class="atmos-orb atmos-orb--cool" />
-      <div class="atmos-noise" />
-
+    <div class="connect" data-testid="connect-screen-bg">
       <main class="connect__main" data-testid="connect-screen">
-        <div class="connect__wordmark">CLIO</div>
-        <div class="eyebrow connect__sub">Federated Agentic Coder · GACT v0.2</div>
+        <div class="connect__badge">
+          <Icon name="sparkle" size={32} />
+        </div>
+        <h1 class="connect__title">Connect to a CLIO backend</h1>
+        <p class="connect__lede">
+          Point this client at any GACT v0.2 endpoint. Defaults to the local{' '}
+          <code>clio start</code> server on port 17800.
+        </p>
 
-        <div class="card connect__card">
-          <div class="eyebrow">Connect to backend</div>
-          <h1 class="connect__h1">Add a CLIO endpoint</h1>
-          <p class="connect__lede">
-            Point this client at any GACT-conforming backend. SSH-tunneled multi-backend
-            and managed installs live in the desktop app.
-          </p>
-
+        <div class="connect__card">
           <div class="field">
             <label for="conn-url">Backend URL</label>
             <input
@@ -57,13 +51,20 @@ export function ConnectScreen(props: ConnectScreenProps) {
               type="url"
               value={url()}
               onInput={(e) => setUrl(e.currentTarget.value)}
-              placeholder="http://localhost:7777"
+              placeholder="http://127.0.0.1:17800"
               data-testid="connect-url"
+              autocomplete="off"
+              spellcheck={false}
             />
           </div>
 
           <div class="field">
-            <label for="conn-token">Bearer token (optional)</label>
+            <label for="conn-token">
+              Bearer token{' '}
+              <span class="connect__hint-inline">
+                (skip when the backend uses trust_socket on localhost)
+              </span>
+            </label>
             <input
               id="conn-token"
               type="password"
@@ -71,34 +72,41 @@ export function ConnectScreen(props: ConnectScreenProps) {
               onInput={(e) => setToken(e.currentTarget.value)}
               placeholder="paste a token issued by clio-agent token issue …"
               data-testid="connect-token"
+              autocomplete="off"
+              spellcheck={false}
             />
           </div>
 
-          {error() && (
+          <Show when={error()}>
             <div class="connect__error" data-testid="connect-error">
-              {error()}
+              <Icon name="help" size={14} />
+              <span>{error()}</span>
             </div>
-          )}
+          </Show>
 
           <div class="connect__actions">
             <button
               type="button"
-              class="btn btn--primary"
+              class="connect__submit"
               onClick={tryConnect}
               disabled={status() === 'connecting'}
               data-testid="connect-submit"
             >
-              {status() === 'connecting' ? 'Connecting…' : 'Connect →'}
+              <Show
+                when={status() === 'connecting'}
+                fallback={
+                  <>
+                    Connect
+                    <Icon name="arrow-up-right" size={14} />
+                  </>
+                }
+              >
+                Connecting…
+              </Show>
             </button>
-            <span class="eyebrow">no telemetry · stays on this box</span>
+            <span class="connect__privacy">no telemetry · stays on this box</span>
           </div>
         </div>
-
-        <footer class="connect__footer">
-          <span class="chip chip--ok">desktop primary</span>
-          <span class="chip">web alongside</span>
-          <span class="chip chip--warn">harness build</span>
-        </footer>
       </main>
     </div>
   );

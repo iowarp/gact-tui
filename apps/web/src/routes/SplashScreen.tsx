@@ -3,6 +3,7 @@ import type { Capabilities } from '@clio/core';
 import { Client } from '@clio/core';
 import type { BackendHandle as DesktopHandle, BackendStatus } from '../tauri.js';
 import { getBackend, inTauri, tauriFetch } from '../tauri.js';
+import { Icon } from '../components/Icon.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
 import './splash.css';
 
@@ -135,13 +136,12 @@ export function SplashScreen(props: SplashScreenProps) {
 
   return (
     <div class="splash" data-testid="splash-screen">
-      <div class="atmos-orb atmos-orb--warm" />
-      <div class="atmos-orb atmos-orb--cool" />
-      <div class="atmos-noise" />
-
       <main class="splash__main">
-        <div class="splash__wordmark">CLIO</div>
-        <div class="eyebrow splash__sub">Starting your local agent…</div>
+        <div class="splash__badge">
+          <Icon name="sparkle" size={32} />
+        </div>
+        <h1 class="splash__wordmark">CLIO Desktop</h1>
+        <p class="splash__sub">Starting your local agent…</p>
 
         <Show when={phase() === 'starting' || phase() === 'probing'}>
           <div class="splash__spinner" data-testid="splash-spinner" aria-hidden>
@@ -149,31 +149,26 @@ export function SplashScreen(props: SplashScreenProps) {
             <div class="splash__dot" />
             <div class="splash__dot" />
           </div>
-          <div class="splash__hint">
+          <p class="splash__hint">
             {phase() === 'starting'
               ? 'Booting the bundled clio-agent…'
               : 'Looking for a backend on localhost:7777…'}
-          </div>
+          </p>
         </Show>
 
         <Show when={phase() === 'error'}>
-          <div class="splash__error card" data-testid="splash-error">
-            <div class="eyebrow">Couldn't start CLIO</div>
+          <div class="splash__error" data-testid="splash-error">
+            <div class="splash__error-eyebrow">Couldn't start CLIO</div>
             <p class="splash__error-msg">{error()}</p>
             <p class="splash__error-hint">
               Install <code>clio-agent</code> from the develop branch and restart:
-              <code class="splash__cmd">
-                $env:CLIO_REF = 'develop'; irm
-                https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
-              </code>
             </p>
+            <code class="splash__cmd">
+              $env:CLIO_REF = 'develop'; irm
+              https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
+            </code>
           </div>
         </Show>
-
-        <footer class="splash__footer">
-          <span class="chip chip--ok">desktop primary</span>
-          <span class="chip">web alongside</span>
-        </footer>
       </main>
     </div>
   );
