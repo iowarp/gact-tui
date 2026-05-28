@@ -18,6 +18,8 @@ export interface SessionRow {
   model?: string;
   /** Per-session rolling cost in USD. */
   costUsd?: number;
+  /** When true the row sorts to the top of the list and shows a pin icon. */
+  pinned?: boolean;
 }
 
 export interface WorkspaceOption {
@@ -45,19 +47,27 @@ export interface SessionsColumnProps {
   onExportSession?: (id: string) => void | Promise<void>;
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
+  onTogglePin?: (id: string) => void;
 }
 
 export function SessionsColumn(props: SessionsColumnProps) {
   const [query, setQuery] = createSignal('');
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
-    if (!q) return props.rows;
-    return props.rows.filter(
-      (r) =>
-        r.title.toLowerCase().includes(q) ||
-        (r.preview ?? '').toLowerCase().includes(q) ||
-        (r.workspace ?? '').toLowerCase().includes(q),
-    );
+    const matches =
+      !q
+        ? props.rows
+        : props.rows.filter(
+            (r) =>
+              r.title.toLowerCase().includes(q) ||
+              (r.preview ?? '').toLowerCase().includes(q) ||
+              (r.workspace ?? '').toLowerCase().includes(q),
+          );
+    // Stable partition: pinned first, original order otherwise.
+    const pinned: SessionRow[] = [];
+    const rest: SessionRow[] = [];
+    for (const r of matches) (r.pinned ? pinned : rest).push(r);
+    return [...pinned, ...rest];
   });
 
   return (
@@ -156,6 +166,11 @@ export function SessionsColumn(props: SessionsColumnProps) {
                     ? () => props.onForkSession!(row.id)
                     : undefined
                 }
+                onTogglePin={
+                  props.onTogglePin
+                    ? () => props.onTogglePin!(row.id)
+                    : undefined
+                }
               />
             )}
           </For>
@@ -174,6 +189,7 @@ function SessionListItem(props: {
   onExport?: () => void | Promise<void>;
   onShare?: () => void | Promise<void>;
   onFork?: () => void | Promise<void>;
+  onTogglePin?: () => void;
 }) {
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal(props.row.title);
@@ -248,6 +264,16 @@ function SessionListItem(props: {
                   onBlur={() => commitRename()}
                 />
               </Show>
+              <Show when={props.row.pinned}>
+                <span
+                  class="sx__row-pin"
+                  title="Pinned"
+                  aria-label="Pinned"
+                  data-testid={`session-row-pinned-${props.row.id}`}
+                >
+                  <Icon name="pin" size={10} />
+                </span>
+              </Show>
               <span class="sx__row-when">{props.row.updatedAt}</span>
             </div>
             <Show when={props.row.preview}>
@@ -310,6 +336,21 @@ function SessionListItem(props: {
               >
                 <Icon name="edit" size={12} />
                 <span>Rename</span>
+              </button>
+            </Show>
+            <Show when={props.onTogglePin}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onTogglePin?.();
+                }}
+                data-testid={`session-row-pin-${props.row.id}`}
+              >
+                <Icon name="pin" size={12} />
+                <span>{props.row.pinned ? 'Unpin' : 'Pin to top'}</span>
               </button>
             </Show>
             <Show when={props.onFork}>

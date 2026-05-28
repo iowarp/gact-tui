@@ -45,6 +45,7 @@ export type IconName =
   | 'arrow-up-right'
   | 'circle'
   | 'alert'
+  | 'pin'
   | 'help';
 
 const PATHS: Record<IconName, JSX.Element> = {
@@ -246,6 +247,13 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M12 3l10 17H2L12 3z" />
       <line x1="12" y1="10" x2="12" y2="14" />
       <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 2v8" />
+      <path d="M7 10h10l-2 5h-6l-2-5z" />
+      <path d="M12 15v7" />
     </>
   ),
   help: (
