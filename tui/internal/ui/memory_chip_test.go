@@ -366,6 +366,28 @@ func TestFormatMemoryInspectorIncludesSearchProvenance(t *testing.T) {
 	}
 }
 
+func TestFormatMemoryInspectorIncludesContextFrameTruth(t *testing.T) {
+	out := formatMemoryInspectorWithContext(gact.MemoryStats{}, nil, nil, []map[string]any{{
+		"id":                   "ctx_1",
+		"status":               "completed",
+		"turn_id":              "msg_user_1",
+		"assistant_message_id": "msg_asst_1",
+		"tokens_estimated":     42,
+		"agent":                map[string]any{"id": "analysis", "routing_mode": "reasoning_only"},
+		"prompt":               map[string]any{"profile": "heavy", "source": "workspace"},
+		"items": []any{
+			map[string]any{"kind": "message", "source_id": "msg_user_1", "role": "user", "included": true, "reason": "visible_transcript", "tokens_estimated": 12},
+			map[string]any{"kind": "context_file", "display_path": "data.csv", "included": true, "reason": "attached_context_file", "tokens_estimated": 30},
+		},
+		"metadata": map[string]any{"retained_context_source": "visible_gact_transcript"},
+	}})
+	for _, want := range []string{"Context frame", "frame_id: ctx_1", "agent", "analysis", "prompt", "heavy", "context_file · data.csv", "attached_context_file"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestFooter_NarrowKeepsQuitVisible(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 100

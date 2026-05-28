@@ -492,6 +492,16 @@ type App struct {
 	contextAddCursor int
 	contextAddMode   string
 
+	nextTurnAgentID    string
+	nextTurnAgentTitle string
+
+	promptEditOpen    bool
+	promptEditID      string
+	promptEditProfile string
+	promptEditDraft   string
+	promptEditCursor  int
+	promptEditTitle   string
+
 	// Floating detail view (L3) — shows a bulky tool_result's full
 	// content in a scrollable modal. Opens on Ctrl+E from body focus
 	// when there's a collapsed tool_result in the loaded messages.
@@ -933,10 +943,14 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // Update handler can restore the text to the input (rather than
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
-	return postMessageWithMentionsCmd(c, sessionID, text, text, nil)
+	return postMessageWithMentionsAndAgentCmd(c, sessionID, text, text, nil, "")
 }
 
 func postMessageWithMentionsCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention) tea.Cmd {
+	return postMessageWithMentionsAndAgentCmd(c, sessionID, draftText, text, mentions, "")
+}
+
+func postMessageWithMentionsAndAgentCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention, agentID string) tea.Cmd {
 	return func() tea.Msg {
 		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
 		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
@@ -970,13 +984,22 @@ func postMessageWithMentionsCmd(c *client.Client, sessionID, draftText, text str
 		}
 		text = sanitizeSelectedFileMentions(text, mentionCopy)
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
-			Parts: []gact.Part{gact.NewTextPart(text)},
+			Parts:   []gact.Part{gact.NewTextPart(text)},
+			AgentID: agentID,
 		})
 		if err != nil {
 			return postFailedMsg{text: draftText, mentions: mentionCopy, err: err}
 		}
 		return msgPostedAck{sessionID: sessionID, text: text, contextFiles: attached}
 	}
+}
+
+func (a *App) setNextTurnAgent(agentID, title string) {
+	a.nextTurnAgentID = strings.TrimSpace(agentID)
+	a.nextTurnAgentTitle = strings.TrimSpace(title)
+	label := firstNonEmpty(a.nextTurnAgentTitle, a.nextTurnAgentID)
+	a.transientHint = "next turn agent: " + label
+	a.focus = FocusInput
 }
 
 // postFailedMsg is the sole signal that PostMessage failed. Lets the
@@ -1896,6 +1919,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
+	case promptEditLoadedMsg:
+		if m.err != nil {
+			a.transientHint = "prompt edit failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.openPromptEdit(m.prompt.ID, m.prompt.Profile, m.prompt.Title, m.prompt.Text)
+		return a, nil
+
 	case sessionRewindDoneMsg:
 		if m.err != nil {
 			a.transientHint = "rewind failed: " + m.err.Error()
@@ -2331,6 +2362,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
+	}
+	if a.promptEditOpen {
+		return a.handlePromptEditKey(k)
 	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
@@ -2857,6 +2891,13 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					return a, scheduleHintExpire(a.transientHint)
 				}
 				return a, loadMemoryInspectorCmd(a.c, a.currentSessionID(), a.messages)
+			}
+			if cmd.ID == "/permissions" {
+				if !a.caps.Capabilities.Permissions {
+					a.transientHint = "permission audit unsupported by this backend"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				return a, loadPermissionsInspectorCmd(a.c, a.currentSessionID())
 			}
 
 			// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor opens the backend
@@ -3583,6 +3624,7 @@ func (a *App) paletteMatches() []gact.Command {
 	localCmds := []gact.Command{
 		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
 		localCmd("/memory", "command.memory.title", "command.memory.desc"),
+		{ID: "/permissions", Title: "Permissions", Description: "Inspect permission audit and policy rows", Source: "builtin"},
 		localCmd("/theme", "command.theme.title", "command.theme.desc"),
 		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
 		localCmd("/mcp", "command.mcp.title", "command.mcp.desc"),
@@ -5080,7 +5122,10 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.pushInputHistory(text)
-		return a, postMessageWithMentionsCmd(a.c, a.currentSessionID(), draftText, text, mentions)
+		agentID := a.nextTurnAgentID
+		a.nextTurnAgentID = ""
+		a.nextTurnAgentTitle = ""
+		return a, postMessageWithMentionsAndAgentCmd(a.c, a.currentSessionID(), draftText, text, mentions, agentID)
 	}
 	if key == "ctrl+p" {
 		// Expand the most recent compressed paste in-place so the user
@@ -6968,6 +7013,9 @@ func (a *App) viewMain() string {
 	if a.catalogBrowserOpen {
 		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
 	}
+	if a.promptEditOpen {
+		base = overlay(base, a.viewPromptEdit(), a.width, a.height)
+	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
 	}
@@ -8696,7 +8744,11 @@ func (a *App) renderBody(width, height int) string {
 		inputTextW = 8
 	}
 	a.input.SetWidth(inputTextW)
-	a.input.SetHeight(inputH - 2)
+	inputInnerH := inputH - 2
+	if a.nextTurnAgentID != "" && inputInnerH > 1 {
+		inputInnerH--
+	}
+	a.input.SetHeight(inputInnerH)
 	if a.focus == FocusInput {
 		a.input.Focus()
 	} else {
@@ -8708,6 +8760,11 @@ func (a *App) renderBody(width, height int) string {
 		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH)
 	}
 	inputView := a.input.View()
+	if a.nextTurnAgentID != "" {
+		label := firstNonEmpty(a.nextTurnAgentTitle, a.nextTurnAgentID)
+		inputView = t.HintLabel.Render("agent for next turn: ") +
+			t.HintKey.Render(label) + "\n" + inputView
+	}
 	if a.MouseEnabled {
 		inputView = a.renderMouseInputCommand(inputView)
 		a.registerInputCommandHit(msgH, hintH)

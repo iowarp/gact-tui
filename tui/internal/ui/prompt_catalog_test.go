@@ -65,3 +65,14 @@ func TestAgentPromptResolutionDescription(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptEditModalStatesBuiltinOverrideScope(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openPromptEdit("clio.chat", "default", "Chat", "Use grounded answers.")
+	out := a.viewPromptEdit()
+	for _, want := range []string{"Edit prompt override · clio.chat", "profile codex", "Use grounded answers."} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prompt edit modal missing %q:\n%s", want, out)
+		}
+	}
+}

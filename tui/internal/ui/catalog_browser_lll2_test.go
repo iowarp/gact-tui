@@ -141,6 +141,28 @@ func TestCatalogBrowser_EnterOnAgentDrillsIntoDetail(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowser_OOnAgentSetsOneTurnOverride(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgents,
+		title: "Agents",
+		items: []catalogItem{{id: "analysis", title: "Analysis expert"}},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
+
+	if a.nextTurnAgentID != "analysis" {
+		t.Fatalf("nextTurnAgentID = %q, want analysis", a.nextTurnAgentID)
+	}
+	if a.catalogBrowserOpen {
+		t.Fatal("agent one-turn selection should close the catalog")
+	}
+	if !strings.Contains(a.transientHint, "Analysis expert") {
+		t.Fatalf("transient hint should name selected agent, got %q", a.transientHint)
+	}
+}
+
 func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	parent := &catalogBrowserState{
