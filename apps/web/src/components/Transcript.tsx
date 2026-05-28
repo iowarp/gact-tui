@@ -18,6 +18,10 @@ export interface TranscriptProps {
   /** Currently-focused message id (drives the Inspector). */
   selectedId?: string;
   onSelect?: (msg: Message) => void;
+  /** Cmd+F highlight state. */
+  searchQuery?: string;
+  /** Match identifier "<message_id>:<index>" pointing at the focused hit. */
+  currentMatchKey?: string;
 }
 
 const ROLE_ICON: Record<string, IconName> = {
@@ -46,12 +50,34 @@ function PartView(props: {
   part: Part;
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
+  searchQuery?: string;
+  messageId?: string;
+  currentMatchKey?: string;
+  matchBaseIndex?: number;
 }) {
   const p = props.part;
   if (p.type === 'text') {
+    const text = p.text ?? '';
+    const q = props.searchQuery?.trim() ?? '';
+    if (!q) {
+      return (
+        <div class="trx-text">
+          <InlineMarkdown text={text} />
+        </div>
+      );
+    }
+    // When searching, prefer the highlight renderer over markdown
+    // formatting — keeps the <mark> wrapping correct without having
+    // to teach InlineMarkdown about search.
     return (
       <div class="trx-text">
-        <InlineMarkdown text={p.text ?? ''} />
+        <HighlightedText
+          text={text}
+          query={q}
+          messageId={props.messageId ?? ''}
+          baseIndex={props.matchBaseIndex ?? 0}
+          currentMatchKey={props.currentMatchKey ?? ''}
+        />
       </div>
     );
   }
@@ -167,6 +193,9 @@ function MessageView(props: {
   onEdit?: (msg: Message) => void;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
+  searchQuery?: string;
+  currentMatchKey?: string;
+  matchBaseIndex?: number;
 }) {
   const role = () => props.msg.role;
   const isAssistant = () => role() === 'assistant';
@@ -238,6 +267,10 @@ function MessageView(props: {
               part={part}
               density={props.density}
               onOpenDiff={props.onOpenDiff}
+              searchQuery={props.searchQuery}
+              messageId={props.msg.id}
+              currentMatchKey={props.currentMatchKey}
+              matchBaseIndex={props.matchBaseIndex}
             />
           )}
         </For>
@@ -294,6 +327,24 @@ function humanTime(iso: string): string {
 }
 
 export function Transcript(props: TranscriptProps) {
+  // Pre-compute the per-message base-index for the global match
+  // numbering so PartView can label each match with a stable key.
+  const baseIndexFor = (msgId: string): number => {
+    if (!props.searchQuery) return 0;
+    const q = props.searchQuery.trim().toLowerCase();
+    if (!q) return 0;
+    let total = 0;
+    for (const m of props.messages) {
+      if (m.id === msgId) return total;
+      for (const p of m.parts) {
+        if (p.type === 'text' && p.text) {
+          total += countOccurrences(p.text.toLowerCase(), q);
+        }
+      }
+    }
+    return total;
+  };
+
   return (
     <div class="trx" data-density={props.density} data-testid="transcript">
       <For each={props.messages}>
@@ -307,9 +358,92 @@ export function Transcript(props: TranscriptProps) {
             onEdit={props.onEdit}
             selected={m.id === props.selectedId}
             onSelect={props.onSelect}
+            searchQuery={props.searchQuery}
+            currentMatchKey={props.currentMatchKey}
+            matchBaseIndex={baseIndexFor(m.id)}
           />
         )}
       </For>
     </div>
+  );
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let n = 0;
+  let i = 0;
+  while ((i = haystack.indexOf(needle, i)) !== -1) {
+    n += 1;
+    i += needle.length;
+  }
+  return n;
+}
+
+/**
+ * Pure-text renderer that wraps every case-insensitive match of `query`
+ * in a <mark class="tx-match">, marking the currently-focused match
+ * (per global index, identified by `currentMatchKey`) with an extra
+ * `tx-match--current` class so the Cmd+F bar can scroll-into-view.
+ */
+function HighlightedText(props: {
+  text: string;
+  query: string;
+  messageId: string;
+  baseIndex: number;
+  currentMatchKey: string;
+}) {
+  const parts = () => {
+    const out: Array<{ kind: 'plain' | 'match'; text: string; idx?: number }> = [];
+    const q = props.query;
+    if (!q) {
+      out.push({ kind: 'plain', text: props.text });
+      return out;
+    }
+    const lower = props.text.toLowerCase();
+    const needle = q.toLowerCase();
+    let cursor = 0;
+    let matchN = 0;
+    let i = lower.indexOf(needle, cursor);
+    while (i !== -1) {
+      if (i > cursor) {
+        out.push({ kind: 'plain', text: props.text.slice(cursor, i) });
+      }
+      out.push({
+        kind: 'match',
+        text: props.text.slice(i, i + needle.length),
+        idx: props.baseIndex + matchN,
+      });
+      matchN += 1;
+      cursor = i + needle.length;
+      i = lower.indexOf(needle, cursor);
+    }
+    if (cursor < props.text.length) {
+      out.push({ kind: 'plain', text: props.text.slice(cursor) });
+    }
+    return out;
+  };
+
+  return (
+    <>
+      <For each={parts()}>
+        {(seg) =>
+          seg.kind === 'plain' ? (
+            <span>{seg.text}</span>
+          ) : (
+            <mark
+              class={
+                'tx-match ' +
+                (`${props.messageId}:${seg.idx}` === props.currentMatchKey
+                  ? 'tx-match--current'
+                  : '')
+              }
+              data-match-key={`${props.messageId}:${seg.idx}`}
+            >
+              {seg.text}
+            </mark>
+          )
+        }
+      </For>
+    </>
   );
 }
