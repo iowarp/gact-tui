@@ -218,6 +218,20 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
 - Stop button shows a pulsing 'stopping' state until the streaming
   signal flips (auto-clears via createEffect). (bbc6e67)
 - InlineMarkdown supports `==highlight==`. (1488645)
+- Cmd+Shift+arrow session nav scrolls the new row into view in the
+  column. (1fb943e)
+- SessionsColumn refresh button next to the connection pip wired
+  to live.refetch(). (19ad24d)
+- Splash hint shows elapsed time after the first 1.5s. (c75821f)
+- Composer placeholder adapts when there's no active session.
+  (0ded4cd)
+
+## v0.9.1 stretch totals
+
+`feat/apps-harness` is now ~470 commits ahead of `main`. The wave-5
+polish pass added ~80 user-visible improvements on top of the
+v0.9.0 cut — full list in `apps/CHANGELOG.md`. All 28 visual proof
+tests pass on every commit.
 
 ## Where we stand
 
