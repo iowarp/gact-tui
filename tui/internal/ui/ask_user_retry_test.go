@@ -123,6 +123,56 @@ func TestAgentQuestionAndRetryAttemptDetails(t *testing.T) {
 	}
 }
 
+func TestUserQuestionCreatedSSEOpensModalAndAddsTranscriptPart(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "user_question.created",
+		Payload: map[string]any{"payload": map[string]any{
+			"id":         "q1",
+			"session_id": "s1",
+			"prompt":     "Pick a dataset.",
+			"status":     "pending",
+			"kind":       "choice",
+			"source":     "orchestrator",
+			"options": []any{
+				map[string]any{"label": "CSV", "value": "csv"},
+				map[string]any{"label": "Parquet", "value": "parquet"},
+			},
+		}},
+	})
+
+	if !a.askUserOpen || a.askUserQuestion.ID != "q1" {
+		t.Fatalf("ask user modal not opened: open=%v question=%#v", a.askUserOpen, a.askUserQuestion)
+	}
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 || a.messages[0].Parts[0].Question == nil {
+		t.Fatalf("question SSE should add transcript question part: %#v", a.messages)
+	}
+	if got := len(questionOptions(*a.messages[0].Parts[0].Question)); got != 2 {
+		t.Fatalf("question options = %d, want 2", got)
+	}
+
+	a.applySSE(client.SSEEvent{
+		Type: "user_question.answered",
+		Payload: map[string]any{"payload": map[string]any{
+			"id":               "q1",
+			"session_id":       "s1",
+			"prompt":           "Pick a dataset.",
+			"status":           "answered",
+			"selected_options": []any{"csv"},
+		}},
+	})
+
+	if a.askUserOpen {
+		t.Fatal("answered question should close modal")
+	}
+	if got := a.messages[0].Parts[0].Question.Status; got != "answered" {
+		t.Fatalf("question status = %q, want answered", got)
+	}
+}
+
 func TestRetryModelModalWarnsBeforeCommit(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 120

@@ -241,6 +241,17 @@ type AnswerUserQuestionRequest struct {
 	ChoiceID string `json:"choice_id,omitempty"`
 }
 
+type CreateUserQuestionRequest struct {
+	Prompt    string               `json:"prompt"`
+	Kind      string               `json:"kind,omitempty"`
+	Options   []UserQuestionOption `json:"options,omitempty"`
+	Source    string               `json:"source,omitempty"`
+	TurnID    string               `json:"turn_id,omitempty"`
+	AttemptID string               `json:"attempt_id,omitempty"`
+	ExpiresAt *time.Time           `json:"expires_at,omitempty"`
+	Metadata  map[string]any       `json:"metadata,omitempty"`
+}
+
 type RetryTurnRequest struct {
 	Notes      string         `json:"notes,omitempty"`
 	Execute    bool           `json:"execute"`
