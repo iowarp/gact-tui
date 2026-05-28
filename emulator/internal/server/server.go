@@ -243,6 +243,9 @@ func (s *Server) routes() {
 	// §6.19 — Memory stats (v0.2 — CLIO-BBBBBBBBBB3)
 	s.mux.HandleFunc("GET /v1/memory/stats", s.handleMemoryStats)
 	s.mux.HandleFunc("GET /v1/memory/search", s.handleMemorySearch)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/search-sessions", s.handleMemoryToolSearchSessions)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/read-session-summary", s.handleMemoryToolReadSessionSummary)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/read-context-frame", s.handleMemoryToolReadContextFrame)
 
 	// §6.17 — Hooks (MMM3)
 	s.mux.HandleFunc("GET /v1/hooks", s.handleListHooks)
