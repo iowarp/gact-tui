@@ -961,6 +961,21 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       if (e.key === 'Escape' && paletteOpen()) {
         setPaletteOpen(false);
+        return;
+      }
+      // Esc stops a streaming turn when no overlay is consuming it
+      // (palette, cheatsheet, search). Matches Cursor / Claude.ai.
+      if (
+        e.key === 'Escape' &&
+        !paletteOpen() &&
+        !cheatsheetOpen() &&
+        !searchOpen() &&
+        props.streaming &&
+        props.onStop &&
+        onChat()
+      ) {
+        e.preventDefault();
+        void props.onStop();
       }
     };
     window.addEventListener('keydown', onKey, true);
