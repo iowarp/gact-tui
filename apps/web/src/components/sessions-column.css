@@ -498,3 +498,28 @@
   color: var(--color-muted);
   font-style: italic;
 }
+
+.sx__title-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sx__title-refresh {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.sx__title-refresh:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+  border-color: var(--color-border-30);
+}
