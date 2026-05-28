@@ -1487,6 +1487,7 @@ func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 		// HHHHH1: /catalog is the alias for the unified-tools view.
 		{"/catalog", true, catalogKindTools},
 		{"/skills", true, catalogKindSkills},
+		{"/prompts", true, catalogKindPrompts},
 		{"/clear", false, 0},
 		{"/help", false, 0},
 	}

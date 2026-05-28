@@ -5,11 +5,14 @@ package server
 // backends would compute these from runtime state.
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -219,6 +222,181 @@ func staticModels() map[string][]gact.Model {
 			{ID: "qwen3-coder", Name: "Qwen 3 Coder 32B", ContextWindow: 64_000, MaxOutputTokens: 8192, Supports: support(true, false, false, false, false)},
 		},
 	}
+}
+
+// --- CLIO prompt registry extension ---------------------------------------
+
+func (s *Server) handleListPrompts(w http.ResponseWriter, r *http.Request) {
+	rows := make([]gact.PromptDefinition, 0, len(s.prompts))
+	for _, row := range s.prompts {
+		rows = append(rows, row)
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	writeJSON(w, http.StatusOK, map[string]any{"prompts": rows})
+}
+
+func (s *Server) handleGetPrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	profile := r.URL.Query().Get("profile")
+	resolved, ok := resolvePromptDefinition(row, profile)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt has no profiles: "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": resolved})
+}
+
+func (s *Server) handleSavePrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptSaveRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		writeError(w, http.StatusUnprocessableEntity, "bad_request", "missing required field: text")
+		return
+	}
+	profile := strings.TrimSpace(req.Profile)
+	if profile == "" {
+		profile = "default"
+	}
+	if strings.Contains(profile, "/") || strings.Contains(profile, ".") && strings.Contains(profile, "..") {
+		writeError(w, http.StatusUnprocessableEntity, "bad_request", "invalid profile")
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		row = gact.PromptDefinition{ID: id, Title: id, DefaultProfile: profile, Enabled: true, Profiles: map[string]gact.PromptProfile{}}
+	}
+	if row.Profiles == nil {
+		row.Profiles = map[string]gact.PromptProfile{}
+	}
+	if req.Title != "" {
+		row.Title = req.Title
+	}
+	if req.Description != "" {
+		row.Description = req.Description
+	}
+	row.Scope = "global"
+	row.Enabled = true
+	row.Profiles[profile] = gact.PromptProfile{
+		Name:       profile,
+		Text:       req.Text,
+		Scope:      "global",
+		SourcePath: "~/.config/clio-agent/prompts/" + id + "--" + profile + ".md",
+		Provider:   req.Provider,
+		Model:      req.Model,
+		Checksum:   promptChecksum(req.Text),
+		Metadata:   req.Metadata,
+	}
+	s.prompts[id] = row
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": row})
+}
+
+func staticPromptDefinitions() map[string]gact.PromptDefinition {
+	def := func(id, title, desc, text string, profiles ...string) gact.PromptDefinition {
+		if len(profiles) == 0 {
+			profiles = []string{"default"}
+		}
+		ps := make(map[string]gact.PromptProfile, len(profiles))
+		for _, profile := range profiles {
+			body := text
+			if profile != "default" {
+				body += "\n\nProfile: " + profile + " keeps the same grounded CLIO behavior with profile-specific latency and detail tradeoffs."
+			}
+			ps[profile] = gact.PromptProfile{
+				Name:     profile,
+				Text:     body,
+				Scope:    "builtin",
+				Checksum: promptChecksum(body),
+				Metadata: map[string]any{"behavior_profile": profile, "prompt_family": id},
+			}
+		}
+		return gact.PromptDefinition{
+			ID:             id,
+			Title:          title,
+			Description:    desc,
+			DefaultProfile: "default",
+			Profiles:       ps,
+			Scope:          "builtin",
+			Enabled:        true,
+			Metadata: map[string]any{
+				"source":       "emulator",
+				"alignment":    "visual_loop",
+				"profiles":     profiles,
+				"requirements": []string{"declared capabilities only", "visible provenance", "no hidden fallback"},
+			},
+		}
+	}
+	rows := []gact.PromptDefinition{
+		def("clio.chat", "Chat agent", "General CLIO conversation prompt.", "Handle ordinary conversation without inventing file-specific facts. Ask a structured follow-up question when user intent is underspecified.", "default", "light", "debug"),
+		def("clio.main.planner", "Main planner", "Routes work to declared tools and experts.", "Return only the required planner schema. Choose only declared tools and experts. Surface unsupported capability gaps honestly.", "default", "heavy", "small_model"),
+		def("clio.expert.data", "Data expert", "Data-format, storage, NDP catalog, and discovery scope.", "Use data-format tools as source of truth. Preserve exact paths, dataset ids, shapes, compression, and caveats.", "default", "heavy"),
+	}
+	out := make(map[string]gact.PromptDefinition, len(rows))
+	for _, row := range rows {
+		out[row.ID] = row
+	}
+	return out
+}
+
+func resolvePromptDefinition(row gact.PromptDefinition, requested string) (gact.ResolvedPrompt, bool) {
+	profile := strings.TrimSpace(requested)
+	if profile == "" {
+		profile = firstNonEmptyString(row.DefaultProfile, "default")
+	}
+	selected, ok := row.Profiles[profile]
+	fallback := ""
+	if !ok && profile != row.DefaultProfile {
+		selected, ok = row.Profiles[row.DefaultProfile]
+		fallback = row.DefaultProfile
+	}
+	if !ok {
+		for _, p := range row.Profiles {
+			selected = p
+			ok = true
+			fallback = p.Name
+			break
+		}
+	}
+	if !ok {
+		return gact.ResolvedPrompt{}, false
+	}
+	return gact.ResolvedPrompt{
+		ID:               row.ID,
+		Profile:          selected.Name,
+		Text:             selected.Text,
+		Title:            row.Title,
+		Description:      row.Description,
+		Scope:            firstNonEmptyString(selected.Scope, row.Scope),
+		SourcePath:       firstNonEmptyString(selected.SourcePath, row.SourcePath),
+		Provider:         selected.Provider,
+		Model:            selected.Model,
+		Checksum:         selected.Checksum,
+		FallbackProfile:  fallback,
+		ValidationErrors: row.ValidationErrors,
+		Metadata:         selected.Metadata,
+	}, true
+}
+
+func promptChecksum(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return fmt.Sprintf("%x", sum[:])[:12]
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // --- §6.6 Tools ------------------------------------------------------------

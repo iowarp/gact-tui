@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 // Config configures a Server.
@@ -45,6 +46,7 @@ type Server struct {
 	latency      *latencyTracker
 	hooks        *hooksStore // §6.17 — MMM3
 	tasks        *tasksStore // §6.18 — MMM5
+	prompts      map[string]gact.PromptDefinition
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -76,6 +78,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		latency:       newLatencyTracker(1024),
 		hooks:         newHooksStore(),
 		tasks:         newTasksStore(),
+		prompts:       staticPromptDefinitions(),
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -121,6 +124,7 @@ func (s *Server) routes() {
 	// §3 — Capability discovery + health
 	s.mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)
+	s.mux.HandleFunc("GET /v1/capability-gaps", s.handleCapabilityGaps)
 
 	// §6.1 — Workspaces
 	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
@@ -213,6 +217,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/commands/{cmd_id}", s.handleSessionCommand)
 
+	// CLIO prompt registry extension
+	s.mux.HandleFunc("GET /v1/prompts", s.handleListPrompts)
+	s.mux.HandleFunc("GET /v1/prompts/{id}", s.handleGetPrompt)
+	s.mux.HandleFunc("PUT /v1/prompts/{id}", s.handleSavePrompt)
+
 	// §6.14 — Voice
 	s.mux.HandleFunc("POST /v1/sessions/{id}/voice/transcribe", s.handleVoiceTranscribe)
 
@@ -221,6 +230,7 @@ func (s *Server) routes() {
 
 	// §6.19 — Memory stats (v0.2 — CLIO-BBBBBBBBBB3)
 	s.mux.HandleFunc("GET /v1/memory/stats", s.handleMemoryStats)
+	s.mux.HandleFunc("GET /v1/memory/search", s.handleMemorySearch)
 
 	// §6.17 — Hooks (MMM3)
 	s.mux.HandleFunc("GET /v1/hooks", s.handleListHooks)
