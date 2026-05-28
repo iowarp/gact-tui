@@ -142,7 +142,7 @@ export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
 export function createLiveTranscript(
   client: Client,
   activeSessionId: Accessor<string>,
-  sessionEvents?: SessionEventSink,
+  sessionEvents?: SessionEventSink & Partial<NotificationSink>,
 ): LiveTranscriptHandle {
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
@@ -225,6 +225,7 @@ export function createLiveTranscript(
         setCostUsd,
         setRunningTools,
         sessionEvents,
+        onNotification: sessionEvents?.onNotification,
       });
     };
 
@@ -313,6 +314,16 @@ export interface SessionEventSink {
   ) => void;
 }
 
+export interface BackendNotification {
+  level: 'info' | 'warning' | 'error';
+  title: string;
+  body?: string;
+}
+
+export interface NotificationSink {
+  onNotification: (n: BackendNotification) => void;
+}
+
 /**
  * Reduce an envelope-shaped event onto the message + permission signals.
  * Per SPEC §7.2 every payload lives under `ev.payload`. Tolerates
@@ -330,6 +341,7 @@ function reduce(
       n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
     ) => void;
     sessionEvents?: SessionEventSink;
+    onNotification?: (n: BackendNotification) => void;
   },
 ) {
   const t = ev.type;
@@ -467,8 +479,18 @@ function reduce(
       }
       break;
     }
+    case 'notification': {
+      const level = (p.level as string) ?? 'info';
+      const title = (p.title as string) ?? 'Notification';
+      const body = p.body as string | undefined;
+      hooks.onNotification?.({
+        level: level === 'warning' || level === 'error' ? level : 'info',
+        title,
+        ...(body ? { body } : {}),
+      });
+      break;
+    }
     case 'message.part.completed':
-    case 'notification':
     case 'server.connected':
     case 'server.heartbeat':
     case 'session.summarized':
