@@ -42,6 +42,9 @@ export interface SessionsColumnProps {
   /** Per-row actions; rendered as a hover-revealed kebab menu. */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
+  onExportSession?: (id: string) => void | Promise<void>;
+  onShareSession?: (id: string) => void | Promise<void>;
+  onForkSession?: (id: string) => void | Promise<void>;
 }
 
 export function SessionsColumn(props: SessionsColumnProps) {
@@ -138,6 +141,21 @@ export function SessionsColumn(props: SessionsColumnProps) {
                     ? () => props.onDeleteSession!(row.id)
                     : undefined
                 }
+                onExport={
+                  props.onExportSession
+                    ? () => props.onExportSession!(row.id)
+                    : undefined
+                }
+                onShare={
+                  props.onShareSession
+                    ? () => props.onShareSession!(row.id)
+                    : undefined
+                }
+                onFork={
+                  props.onForkSession
+                    ? () => props.onForkSession!(row.id)
+                    : undefined
+                }
               />
             )}
           </For>
@@ -153,6 +171,9 @@ function SessionListItem(props: {
   onSelect: () => void;
   onRename?: (nextTitle: string) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
+  onExport?: () => void | Promise<void>;
+  onShare?: () => void | Promise<void>;
+  onFork?: () => void | Promise<void>;
 }) {
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal(props.row.title);
@@ -289,6 +310,48 @@ function SessionListItem(props: {
               >
                 <Icon name="edit" size={12} />
                 <span>Rename</span>
+              </button>
+            </Show>
+            <Show when={props.onFork}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void props.onFork?.();
+                }}
+              >
+                <Icon name="branch" size={12} />
+                <span>Fork</span>
+              </button>
+            </Show>
+            <Show when={props.onExport}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void props.onExport?.();
+                }}
+              >
+                <Icon name="arrow-up-right" size={12} />
+                <span>Export as JSON</span>
+              </button>
+            </Show>
+            <Show when={props.onShare}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void props.onShare?.();
+                }}
+              >
+                <Icon name="share" size={12} />
+                <span>Share link</span>
               </button>
             </Show>
             <Show when={props.onDelete}>

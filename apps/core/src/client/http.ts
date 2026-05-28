@@ -163,6 +163,46 @@ export class Client {
   }
 
   /**
+   * GET /v1/sessions/{id}/export — full session payload as JSON
+   * (messages, metadata, agent + model + workspace IDs). Used for
+   * 'Export as JSON' downloads from the session kebab menu.
+   */
+  exportSession(sessionId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/export`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/fork — branch the session at its current
+   * tail (or at a specific message). Returns the new Session.
+   */
+  forkSession(
+    sessionId: string,
+    body: { title?: string; from_message_id?: string } = {},
+  ): Promise<Session> {
+    return this.post<Session>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/fork`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/share — create a read-only share. Returns
+   * the share token + URL the user can hand to anyone.
+   */
+  shareSession(
+    sessionId: string,
+    body: { expires_in_seconds?: number } = {},
+  ): Promise<{ token: string; url?: string; expires_at?: string }> {
+    return this.post<{
+      token: string;
+      url?: string;
+      expires_at?: string;
+    }>(`/v1/sessions/${encodeURIComponent(sessionId)}/share`, body);
+  }
+
+  /**
    * PATCH /v1/sessions/{id} — update session metadata (title, model,
    * agent mode, archived). Used by the composer's model picker + perm
    * mode toggle to push the user's selection to the backend.

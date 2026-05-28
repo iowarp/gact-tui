@@ -323,6 +323,80 @@ function LiveDriven(props: {
     }
   }
 
+  async function exportSession(id: string) {
+    try {
+      const payload = await live.client.exportSession(id);
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clio-session-${id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.push({
+        tone: 'success',
+        title: 'Session exported',
+        body: `clio-session-${id}.json`,
+        duration: 3000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Export failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async function shareSession(id: string) {
+    try {
+      const { token, url: shareUrl } = await live.client.shareSession(id);
+      const link =
+        shareUrl ?? `${new URL(props.backend.url).origin}/v1/shared/${token}`;
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(link).catch(() => undefined);
+      }
+      toast.push({
+        tone: 'success',
+        title: 'Share link copied',
+        body: link,
+        duration: 5000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Share failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async function forkSession(id: string) {
+    try {
+      const original = rows().find((r) => r.id === id);
+      const created = await live.client.forkSession(id, {
+        title: original ? `Fork of ${original.title}` : 'Forked session',
+      });
+      live.refetch();
+      setActiveId(created.id);
+      toast.push({
+        tone: 'success',
+        title: 'Session forked',
+        body: `New session: ${created.title}`,
+        duration: 3000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Fork failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   // Live workspaces (powers the SessionsColumn workspace switcher).
   const [workspacesData] = createResource(() => live.client.workspaces());
   const workspaces = createMemo(() => {
@@ -443,6 +517,9 @@ function LiveDriven(props: {
       onNewSession={newEmptySession}
       onRenameSession={renameSession}
       onDeleteSession={deleteSession}
+      onExportSession={exportSession}
+      onShareSession={shareSession}
+      onForkSession={forkSession}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -495,6 +572,9 @@ interface ChatLayoutProps {
   /** Per-session actions (LiveDriven path only). */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
+  onExportSession?: (id: string) => void | Promise<void>;
+  onShareSession?: (id: string) => void | Promise<void>;
+  onForkSession?: (id: string) => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -725,6 +805,9 @@ function ChatLayout(props: ChatLayoutProps) {
           onPickWorkspace={props.onPickWorkspace}
           onRenameSession={props.onRenameSession}
           onDeleteSession={props.onDeleteSession}
+          onExportSession={props.onExportSession}
+          onShareSession={props.onShareSession}
+          onForkSession={props.onForkSession}
         />
       </Show>
 
