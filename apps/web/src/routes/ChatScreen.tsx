@@ -694,6 +694,45 @@ function ChatLayout(props: ChatLayoutProps) {
 
   function handlePick(cmd: SlashCommand) {
     setPaletteOpen(false);
+
+    // Dynamic items the layout injects (jump:<sid>, perm:<mode>, etc.)
+    // are namespaced by id so they don't collide with backend slash
+    // commands.
+    if (cmd.id.startsWith('jump:')) {
+      const sid = cmd.id.slice('jump:'.length);
+      props.onSelect(sid);
+      setRailRoute('sessions');
+      return;
+    }
+    if (cmd.id.startsWith('perm:')) {
+      const mode = cmd.id.slice('perm:'.length) as PermissionMode;
+      void props.onPickPermMode?.(mode);
+      return;
+    }
+    if (cmd.id.startsWith('rail:')) {
+      const route = cmd.id.slice('rail:'.length) as RailRoute;
+      setRailRoute(route);
+      return;
+    }
+    if (cmd.id === 'new-session') {
+      void props.onNewSession?.();
+      return;
+    }
+    if (cmd.id === 'copy-session-id' && props.activeId) {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        void navigator.clipboard.writeText(props.activeId).catch(() => undefined);
+      }
+      return;
+    }
+    if (cmd.id === 'cycle-density') {
+      cycleDensity(props.density, props.setDensity);
+      return;
+    }
+    if (cmd.id === 'toggle-inspector') {
+      setInspectorOpen((v) => !v);
+      return;
+    }
+
     // First check for /v1/commands rooted by trigger or id — these
     // are backend-defined and we pass them through as a session
     // message so the backend resolves the action itself.
@@ -731,6 +770,85 @@ function ChatLayout(props: ChatLayoutProps) {
         return;
     }
   }
+
+  /**
+   * Build the live palette items: backend + default slash commands
+   * plus dynamic actions (jump to session, change perm mode, switch
+   * rail route, copy id). This is what makes Ctrl+K useful as a
+   * command palette and not just a slash list.
+   */
+  const paletteItems = createMemo<SlashCommand[]>(() => {
+    const items = mergedSlashCommands(props.slashCommands);
+    // Dynamic per-session jumps.
+    for (const s of props.sessions.slice(0, 12)) {
+      items.push({
+        id: `jump:${s.id}`,
+        trigger: `> ${s.title}`,
+        description: s.workspace
+          ? `Switch to session in ${s.workspace}`
+          : 'Switch to session',
+        category: 'jump',
+      });
+    }
+    // Permission mode quick switches.
+    const modes: PermissionMode[] = ['ask', 'auto-edits', 'plan', 'auto', 'bypass'];
+    for (const m of modes) {
+      if (m === props.permMode) continue;
+      items.push({
+        id: `perm:${m}`,
+        trigger: `perm · ${m}`,
+        description: `Set permission mode to ${m}`,
+        category: 'perm',
+      });
+    }
+    // Rail jumps for capabilities we know exist.
+    const railJumps: Array<{ id: RailRoute; label: string }> = [
+      { id: 'workspaces', label: 'Workspaces' },
+      { id: 'agents', label: 'Agents' },
+      { id: 'tools', label: 'Tools' },
+      { id: 'mcp', label: 'MCP servers' },
+      { id: 'memory', label: 'Memory' },
+      { id: 'metrics', label: 'Metrics' },
+      { id: 'doctor', label: 'Doctor' },
+    ];
+    for (const r of railJumps) {
+      items.push({
+        id: `rail:${r.id}`,
+        trigger: `go · ${r.label.toLowerCase()}`,
+        description: `Open ${r.label}`,
+        category: 'navigation',
+      });
+    }
+    items.push(
+      {
+        id: 'new-session',
+        trigger: 'new session',
+        description: 'Start a fresh session (Ctrl+N)',
+        category: 'action',
+      },
+      {
+        id: 'copy-session-id',
+        trigger: 'copy session id',
+        description: props.activeId
+          ? `Copy ${props.activeId}`
+          : 'No session selected',
+        category: 'action',
+      },
+      {
+        id: 'cycle-density',
+        trigger: 'cycle density',
+        description: `Toggle transcript density (now: ${props.density})`,
+        category: 'view',
+      },
+      {
+        id: 'toggle-inspector',
+        trigger: 'toggle inspector',
+        description: 'Show / hide the inspector drawer',
+        category: 'view',
+      },
+    );
+    return items;
+  });
 
   const activeRow = () => props.sessions.find((s) => s.id === props.activeId);
   const latestAssistant = createMemo<Message | null>(() => {
@@ -979,7 +1097,7 @@ function ChatLayout(props: ChatLayoutProps) {
       <SlashPalette
         open={paletteOpen()}
         query={paletteQuery()}
-        commands={mergedSlashCommands(props.slashCommands)}
+        commands={paletteItems()}
         onQueryChange={setPaletteQuery}
         onPick={handlePick}
         onClose={() => setPaletteOpen(false)}
