@@ -778,6 +778,26 @@ function LiveDriven(props: {
     ta.scrollTop = ta.scrollHeight;
   }
 
+  async function deleteMessage(msg: Message) {
+    const id = activeId();
+    if (!id) return;
+    try {
+      await live.client.deleteMessage(id, msg.id);
+      await transcript.refetch();
+      toast.push({
+        tone: 'success',
+        title: 'Message deleted',
+        duration: 2200,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Delete failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   function editMessage(msg: Message) {
     // For v0.9.1 we surface the text in the composer (via a custom event
     // — wiring the actual edit into the transcript is a follow-up). The
@@ -838,6 +858,7 @@ function LiveDriven(props: {
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
+      onDeleteMessage={deleteMessage}
       onPinFile={pinFileToContext}
       composerDisabled={false}
       streaming={streaming()}
@@ -917,6 +938,7 @@ interface ChatLayoutProps {
   onRegenerate?: (msg: Message) => void;
   onEditMessage?: (msg: Message) => void;
   onQuoteMessage?: (msg: Message) => void;
+  onDeleteMessage?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
 }
 
@@ -1818,6 +1840,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onRegenerate={props.onRegenerate}
               onEdit={props.onEditMessage}
               onQuote={props.onQuoteMessage}
+              onDelete={props.onDeleteMessage}
               onPinFile={props.onPinFile}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
