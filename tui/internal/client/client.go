@@ -827,6 +827,90 @@ func (c *Client) SetSessionExpertPack(ctx context.Context, sessionID string, req
 	return out, err
 }
 
+func (c *Client) ListAgentBlueprints(ctx context.Context, scope RuntimeScope) ([]gact.AgentBlueprintDefinition, error) {
+	var out struct {
+		AgentBlueprints []gact.AgentBlueprintDefinition `json:"agent_blueprints"`
+	}
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agent-blueprints"+queryString(q), nil, &out)
+	return out.AgentBlueprints, err
+}
+
+func (c *Client) GetAgentBlueprint(ctx context.Context, blueprintID string, scope RuntimeScope) (gact.AgentBlueprintDetail, error) {
+	var out gact.AgentBlueprintDetail
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) ValidateAgentBlueprint(ctx context.Context, req gact.AgentBlueprintValidateRequest) (gact.AgentBlueprintValidationResult, error) {
+	var out gact.AgentBlueprintValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) InstallAgentBlueprint(ctx context.Context, req gact.AgentBlueprintInstallRequest) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/install", req, &out)
+	return out, err
+}
+
+func (c *Client) UpdateAgentBlueprint(ctx context.Context, blueprintID string, req gact.AgentBlueprintUpdateRequest) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+"/update", req, &out)
+	return out, err
+}
+
+func (c *Client) DeleteAgentBlueprint(ctx context.Context, blueprintID, scope, workspaceID string) (map[string]any, error) {
+	var out map[string]any
+	q := url.Values{}
+	if scope != "" {
+		q.Set("scope", scope)
+	}
+	if workspaceID != "" {
+		q.Set("workspace_id", workspaceID)
+	}
+	err := c.do(ctx, http.MethodDelete, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) EnableAgentBlueprintMCP(ctx context.Context, blueprintID, descriptorID string, req gact.AgentBlueprintMCPEnableRequest) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/mcp/" + url.PathEscape(descriptorID) + "/enable"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionAgentBlueprint(ctx context.Context, sessionID string) (gact.SessionAgentBlueprintState, error) {
+	var out gact.SessionAgentBlueprintState
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", nil, &out)
+	return out, err
+}
+
+func (c *Client) SetSessionAgentBlueprint(ctx context.Context, sessionID string, req gact.SetSessionAgentBlueprintRequest) (gact.SessionAgentBlueprintState, error) {
+	var out gact.SessionAgentBlueprintState
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionAgentOverlay(ctx context.Context, sessionID string) (gact.SessionAgentOverlayResponse, error) {
+	var out gact.SessionAgentOverlayResponse
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-overlay", nil, &out)
+	return out, err
+}
+
+func (c *Client) PutSessionAgentOverlay(ctx context.Context, sessionID string, overlay map[string]any) (gact.SessionAgentOverlayResponse, error) {
+	var out gact.SessionAgentOverlayResponse
+	err := c.do(ctx, http.MethodPut, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-overlay", overlay, &out)
+	return out, err
+}
+
 // RunCommand triggers POST /v1/sessions/{id}/commands/{cmd_id}.
 // cmdID may include a leading slash; it's URL-escaped automatically.
 func (c *Client) RunCommand(ctx context.Context, sessionID, cmdID string) error {

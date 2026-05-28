@@ -39,6 +39,8 @@ const (
 	catalogKindPromptDetail
 	catalogKindExpertPacks
 	catalogKindExpertPackDetail
+	catalogKindAgentBlueprints
+	catalogKindAgentBlueprintDetail
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -58,6 +60,7 @@ type catalogBrowserState struct {
 	agentID      string
 	promptID     string
 	expertPackID string
+	blueprintID  string
 	parent       *catalogBrowserState
 }
 
@@ -82,12 +85,26 @@ type catalogBrowserLoadedMsg struct {
 	mcpServerID  string
 	promptID     string
 	expertPackID string
+	blueprintID  string
 }
 
 type promptSavedMsg struct {
 	promptID string
 	profile  string
 	err      error
+}
+
+type agentBlueprintActivatedMsg struct {
+	blueprintID string
+	state       gact.SessionAgentBlueprintState
+	err         error
+}
+
+type agentBlueprintMCPEnabledMsg struct {
+	blueprintID  string
+	descriptorID string
+	result       map[string]any
+	err          error
 }
 
 type catalogDetailLoadedMsg struct {
@@ -230,6 +247,12 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: expertPackCatalogItems(packs)}
+		case catalogKindAgentBlueprints:
+			blueprints, err := c.ListAgentBlueprints(ctx, scope)
+			if err != nil {
+				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
+			}
+			return catalogBrowserLoadedMsg{kind: kind, items: agentBlueprintCatalogItems(blueprints)}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}
@@ -246,6 +269,19 @@ func (a *App) openExpertPackDetail(packID, packTitle string) tea.Cmd {
 		parent:       parent,
 	}
 	return loadExpertPackDetailCmd(a.c, a.runtimeScope(), packID)
+}
+
+func (a *App) openAgentBlueprintDetail(blueprintID, blueprintTitle string) tea.Cmd {
+	parent := a.catalogBrowser
+	title := firstNonEmpty(blueprintTitle, blueprintID)
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · " + title,
+		loading:     true,
+		blueprintID: blueprintID,
+		parent:      parent,
+	}
+	return loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), blueprintID)
 }
 
 func (a *App) openPromptDetail(promptID, promptTitle string) tea.Cmd {
@@ -556,6 +592,40 @@ func loadPromptDetailCmd(c *client.Client, promptID string, scope client.Runtime
 	}
 }
 
+func loadAgentBlueprintDetailCmd(c *client.Client, scope client.RuntimeScope, blueprintID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		detail, err := c.GetAgentBlueprint(ctx, blueprintID, scope)
+		if err != nil {
+			return catalogBrowserLoadedMsg{kind: catalogKindAgentBlueprintDetail, errText: err.Error(), blueprintID: blueprintID}
+		}
+		return catalogBrowserLoadedMsg{
+			kind:        catalogKindAgentBlueprintDetail,
+			items:       agentBlueprintDetailItems(detail),
+			blueprintID: blueprintID,
+		}
+	}
+}
+
+func activateAgentBlueprintCmd(c *client.Client, sessionID, blueprintID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		state, err := c.SetSessionAgentBlueprint(ctx, sessionID, gact.SetSessionAgentBlueprintRequest{BlueprintID: blueprintID})
+		return agentBlueprintActivatedMsg{blueprintID: blueprintID, state: state, err: err}
+	}
+}
+
+func enableAgentBlueprintMCPCmd(c *client.Client, scope client.RuntimeScope, blueprintID, descriptorID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result, err := c.EnableAgentBlueprintMCP(ctx, blueprintID, descriptorID, gact.AgentBlueprintMCPEnableRequest{WorkspaceID: scope.WorkspaceID})
+		return agentBlueprintMCPEnabledMsg{blueprintID: blueprintID, descriptorID: descriptorID, result: result, err: err}
+	}
+}
+
 func loadPromptResolvedDetailCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -662,6 +732,10 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 		return "Expert Packs"
 	case catalogKindExpertPackDetail:
 		return "Expert Pack detail"
+	case catalogKindAgentBlueprints:
+		return "Agent Blueprints"
+	case catalogKindAgentBlueprintDetail:
+		return "Agent Blueprint detail"
 	}
 	return "Catalog"
 }
@@ -727,6 +801,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			it := cb.items[cb.sel]
 			return a, a.openExpertPackDetail(it.id, it.title)
 		}
+		if cb.kind == catalogKindAgentBlueprints && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			return a, a.openAgentBlueprintDetail(it.id, it.title)
+		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			return a, loadToolDetailCmd(a.c, a.runtimeScope(), it.id)
@@ -766,6 +844,29 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			a.openCatalogDetail(it.title, text)
 			return a, nil
+		}
+		if cb.kind == catalogKindAgentBlueprintDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			switch {
+			case it.id == "activate":
+				sid := a.currentSessionID()
+				if sid == "" {
+					a.transientHint = "No active session for blueprint activation"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				return a, activateAgentBlueprintCmd(a.c, sid, cb.blueprintID)
+			case strings.HasPrefix(it.id, "agent/"):
+				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+			case strings.HasPrefix(it.id, "mcp/"):
+				return a, enableAgentBlueprintMCPCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "mcp/"))
+			default:
+				text := strings.TrimSpace(it.desc)
+				if text == "" {
+					text = it.title
+				}
+				a.openCatalogDetail(it.title, text)
+				return a, nil
+			}
 		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
@@ -885,7 +986,8 @@ func catalogBrowserCanPop(kind catalogBrowserKind) bool {
 	return kind == catalogKindMcpDetail ||
 		kind == catalogKindAgentDetail ||
 		kind == catalogKindPromptDetail ||
-		kind == catalogKindExpertPackDetail
+		kind == catalogKindExpertPackDetail ||
+		kind == catalogKindAgentBlueprintDetail
 }
 
 // toggleToolDisabled flips a tool id in/out of App.disabledTools and
@@ -917,7 +1019,7 @@ func (a *App) openCatalogDetail(title, text string) {
 
 func (a *App) catalogBrowserHeaderButtons() []menuButton {
 	if a.catalogBrowser != nil &&
-		(a.catalogBrowser.kind == catalogKindMcpDetail || a.catalogBrowser.kind == catalogKindAgentDetail || a.catalogBrowser.kind == catalogKindPromptDetail) &&
+		catalogBrowserCanPop(a.catalogBrowser.kind) &&
 		a.catalogBrowser.parent != nil {
 		return []menuButton{{
 			id:    "catalog:back",
@@ -1111,6 +1213,10 @@ func (a *App) viewCatalogBrowser() string {
 		hintText = "↑/↓ navigate · Enter inspect · Esc close"
 	case catalogKindExpertPackDetail:
 		hintText = "↑/↓ navigate · Enter details/activate · Esc/Backspace back"
+	case catalogKindAgentBlueprints:
+		hintText = "↑/↓ navigate · Enter details · Esc close"
+	case catalogKindAgentBlueprintDetail:
+		hintText = "↑/↓ navigate · Enter activate/detail/enable MCP · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -1172,6 +1278,8 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		return catalogKindPrompts, true
 	case "/expert-packs", "/expertpacks":
 		return catalogKindExpertPacks, true
+	case "/agent-blueprints", "/blueprints":
+		return catalogKindAgentBlueprints, true
 	}
 	return 0, false
 }
@@ -1213,6 +1321,29 @@ func expertPackCatalogItems(packs []gact.ExpertPackDefinition) []catalogItem {
 	return items
 }
 
+func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []catalogItem {
+	sort.SliceStable(blueprints, func(i, j int) bool {
+		if blueprints[i].Scope != blueprints[j].Scope {
+			return blueprints[i].Scope < blueprints[j].Scope
+		}
+		return firstNonEmpty(blueprints[i].Title, blueprints[i].ID) < firstNonEmpty(blueprints[j].Title, blueprints[j].ID)
+	})
+	items := make([]catalogItem, 0, len(blueprints))
+	for _, blueprint := range blueprints {
+		status := firstNonEmpty(blueprint.Scope, "blueprint")
+		if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        blueprint.ID,
+			title:     firstNonEmpty(blueprint.Title, blueprint.ID),
+			desc:      agentBlueprintDescription(blueprint),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
 func expertPackDescription(pack gact.ExpertPackDefinition) string {
 	parts := make([]string, 0, 6)
 	if pack.Version != "" {
@@ -1226,6 +1357,26 @@ func expertPackDescription(pack gact.ExpertPackDefinition) string {
 	}
 	if pack.Description != "" {
 		parts = append(parts, compactCatalogText(pack.Description))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
+	parts := make([]string, 0, 7)
+	if blueprint.Version != "" {
+		parts = append(parts, "version: "+blueprint.Version)
+	}
+	if blueprint.RootExpert != "" {
+		parts = append(parts, "root: "+blueprint.RootExpert)
+	}
+	if blueprint.DefinitionPath != "" {
+		parts = append(parts, "definition: "+blueprint.DefinitionPath)
+	}
+	if len(blueprint.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(blueprint.ValidationErrors, "; "))
+	}
+	if blueprint.Description != "" {
+		parts = append(parts, compactCatalogText(blueprint.Description))
 	}
 	return strings.Join(parts, " · ")
 }
@@ -1251,6 +1402,52 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 	sortAgentsForCatalog(detail.Agents)
 	for _, agent := range detail.Agents {
 		status := firstNonEmpty(agent.Source, "expert")
+		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        "agent/" + agent.ID,
+			title:     "Agent · " + firstNonEmpty(agent.Title, agent.ID),
+			desc:      agentCatalogDescription(agent, detail.Agents),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
+func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
+	blueprint := detail.AgentBlueprint
+	items := []catalogItem{{
+		id:        "activate",
+		title:     "Activate for current session",
+		desc:      "sets this markdown agent blueprint as the active session runtime",
+		statusTag: "session",
+	}, {
+		id:        "blueprint/" + blueprint.ID,
+		title:     "Blueprint · " + firstNonEmpty(blueprint.Title, blueprint.ID),
+		desc:      formatAgentBlueprintSummary(blueprint),
+		statusTag: firstNonEmpty(blueprint.Scope, "blueprint"),
+	}}
+	if len(blueprint.ValidationErrors) > 0 {
+		items = append(items, catalogItem{id: "validation", title: "Validation errors", desc: strings.Join(blueprint.ValidationErrors, "; "), statusTag: "error"})
+	}
+	for _, descriptor := range detail.MCPDescriptors {
+		id := stringValue(descriptor["id"])
+		title := firstNonEmpty(stringValue(descriptor["name"]), id)
+		status := firstNonEmpty(stringValue(descriptor["status"]), "mcp")
+		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        "mcp/" + id,
+			title:     "MCP · " + title,
+			desc:      agentBlueprintMCPDescription(descriptor),
+			statusTag: status,
+		})
+	}
+	sortAgentsForCatalog(detail.Agents)
+	for _, agent := range detail.Agents {
+		status := firstNonEmpty(agent.Source, "agent")
 		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 			status = "invalid"
 		}
@@ -1291,6 +1488,72 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
 		rows = appendDetailSection(rows, "Description", detailField{"", pack.Description})
 	}
 	return strings.Join(rows, "\n")
+}
+
+func agentBlueprintMCPDescription(descriptor map[string]any) string {
+	parts := make([]string, 0, 5)
+	for _, key := range []string{"transport", "command", "url", "source"} {
+		if value := stringValue(descriptor[key]); value != "" {
+			parts = append(parts, key+": "+value)
+		}
+	}
+	if args := stringListFromAny(descriptor["args"]); len(args) > 0 {
+		parts = append(parts, "args: "+strings.Join(args, " "))
+	}
+	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
+		parts = append(parts, "enabled: "+enabled)
+	}
+	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(errors, "; "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string {
+	rows := appendDetailSection(nil, "Agent Blueprint",
+		detailField{"id", blueprint.ID},
+		detailField{"title", blueprint.Title},
+		detailField{"version", blueprint.Version},
+		detailField{"scope", blueprint.Scope},
+		detailField{"enabled", fmt.Sprintf("%t", blueprint.Enabled)},
+		detailField{"root_expert", blueprint.RootExpert},
+		detailField{"root", blueprint.Root},
+		detailField{"definition", firstNonEmpty(blueprint.DefinitionPath, blueprint.RootPath)},
+	)
+	if len(blueprint.ValidationErrors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(blueprint.ValidationErrors, "\n")})
+	}
+	if len(blueprint.Defaults) > 0 {
+		if payload, err := json.MarshalIndent(blueprint.Defaults, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Defaults", detailField{"", string(payload)})
+		}
+	}
+	if len(blueprint.Metadata) > 0 {
+		if payload, err := json.MarshalIndent(blueprint.Metadata, "", "  "); err == nil {
+			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
+		}
+	}
+	if blueprint.Description != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", blueprint.Description})
+	}
+	return strings.Join(rows, "\n")
+}
+
+func stringListFromAny(value any) []string {
+	switch v := value.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := stringValue(item); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func promptDefinitionDescription(p gact.PromptDefinition) string {
