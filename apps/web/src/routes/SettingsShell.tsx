@@ -1,4 +1,4 @@
-import { createSignal, For, Match, Show, Switch } from 'solid-js';
+import { createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
 import { inTauri, tauriFetch } from '../tauri.js';
@@ -62,6 +62,19 @@ export function SettingsShell(props: SettingsShellProps) {
   const [section, setSection] = createSignal<SettingsSection>(
     props.initial ?? 'backends',
   );
+
+  // Esc returns to chat — matches the behavior of every other overlay
+  // in the chrome.
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        props.onBack();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  });
   const reg = useBackendRegistry();
 
   // Lazy-construct a Client pointed at the current backend so the
