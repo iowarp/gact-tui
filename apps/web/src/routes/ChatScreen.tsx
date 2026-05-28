@@ -1505,7 +1505,21 @@ function ChatLayout(props: ChatLayoutProps) {
         >
         <header class="chat__topbar">
           <div class="chat__crumbs">
-            <span class="chat__crumb chat__crumb-head">
+            <span
+              class="chat__crumb chat__crumb-head"
+              title={
+                props.activeId
+                  ? `Session ${props.activeId} — click to copy`
+                  : 'No session'
+              }
+              onClick={() => {
+                if (!props.activeId || typeof navigator === 'undefined') return;
+                if (navigator.clipboard) {
+                  void navigator.clipboard.writeText(props.activeId);
+                }
+              }}
+              style="cursor: pointer"
+            >
               {activeRow()?.title ?? 'No session'}
             </span>
             <Show when={activeRow()?.workspace}>
