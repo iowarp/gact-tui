@@ -187,3 +187,10 @@
   background: var(--color-surface-alt);
   filter: none;
 }
+
+.splash__elapsed {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+}

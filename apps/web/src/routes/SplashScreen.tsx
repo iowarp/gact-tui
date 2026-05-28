@@ -37,8 +37,24 @@ export function SplashScreen(props: SplashScreenProps) {
     'starting' | 'probing' | 'error' | 'ready'
   >('starting');
   const [error, setError] = createSignal<string | null>(null);
+  const [elapsedMs, setElapsedMs] = createSignal(0);
 
   let cancelled = false;
+  let elapsedInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startElapsedTimer() {
+    if (elapsedInterval) return;
+    const start = Date.now();
+    setElapsedMs(0);
+    elapsedInterval = setInterval(() => setElapsedMs(Date.now() - start), 500);
+  }
+
+  function stopElapsedTimer() {
+    if (elapsedInterval) {
+      clearInterval(elapsedInterval);
+      elapsedInterval = null;
+    }
+  }
 
   onMount(() => {
     // Visual-proof hook: `?route=splash&hold=1` parks the screen in
@@ -58,10 +74,12 @@ export function SplashScreen(props: SplashScreenProps) {
 
   onCleanup(() => {
     cancelled = true;
+    stopElapsedTimer();
   });
 
   async function waitForTauriBackend() {
     setPhase('starting');
+    startElapsedTimer();
     const deadline = Date.now() + TAURI_MAX_WAIT_MS;
     while (!cancelled && Date.now() < deadline) {
       let handle: DesktopHandle;
@@ -74,6 +92,7 @@ export function SplashScreen(props: SplashScreenProps) {
       }
       const status: BackendStatus = handle.status;
       if (status.kind === 'ready') {
+        stopElapsedTimer();
         await handoff(handle.url, handle.bearer_token);
         return;
       }
@@ -153,6 +172,12 @@ export function SplashScreen(props: SplashScreenProps) {
             {phase() === 'starting'
               ? 'Booting the bundled clio-agent…'
               : 'Looking for a backend on localhost:7777…'}
+            <Show when={elapsedMs() > 1500}>
+              <span class="splash__elapsed">
+                {' · '}
+                {Math.floor(elapsedMs() / 1000)}s
+              </span>
+            </Show>
           </p>
         </Show>
 
