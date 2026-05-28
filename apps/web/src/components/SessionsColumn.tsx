@@ -138,8 +138,18 @@ export function SessionsColumn(props: SessionsColumnProps) {
       >
         <ul class="sx__list">
           <For each={filtered()}>
-            {(row) => (
-              <SessionListItem
+            {(row, i) => (
+              <>
+                <Show
+                  when={
+                    i() > 0 &&
+                    filtered()[i() - 1]?.pinned === true &&
+                    row.pinned !== true
+                  }
+                >
+                  <li class="sx__divider" aria-hidden />
+                </Show>
+                <SessionListItem
                 row={row}
                 active={row.id === props.activeId}
                 onSelect={() => props.onSelect(row.id)}
@@ -174,6 +184,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
                     : undefined
                 }
               />
+              </>
             )}
           </For>
         </ul>

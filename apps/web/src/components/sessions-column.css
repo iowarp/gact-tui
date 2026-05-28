@@ -460,3 +460,16 @@
   0%   { background: color-mix(in srgb, var(--color-accent-cyan) 22%, transparent); }
   100% { background: transparent; }
 }
+
+.sx__divider {
+  list-style: none;
+  height: 1px;
+  margin: 6px 12px 4px;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    var(--color-border-30) 20%,
+    var(--color-border-30) 80%,
+    transparent 100%
+  );
+}
