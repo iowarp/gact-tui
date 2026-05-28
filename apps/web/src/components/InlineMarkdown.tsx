@@ -41,14 +41,46 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
           }
           if (b.kind === 'list') {
             const ListTag = b.ordered ? 'ol' : 'ul';
+            // Detect a markdown task list — all items start with
+            // `[ ] ` or `[x] `. We render the checkbox glyph + drop
+            // the marker from the text so the rest renders normally.
+            const taskListRe = /^\[([ xX])\]\s+(.*)$/;
+            const isTaskList =
+              !b.ordered &&
+              b.items.length > 0 &&
+              b.items.every((it) => taskListRe.test(it));
             return (
-              <ListTag class={'im__list ' + (b.ordered ? 'im__list--ol' : 'im__list--ul')}>
+              <ListTag
+                class={
+                  'im__list ' +
+                  (b.ordered ? 'im__list--ol' : 'im__list--ul') +
+                  (isTaskList ? ' im__list--tasks' : '')
+                }
+              >
                 <For each={b.items}>
-                  {(item) => (
-                    <li class="im__li">
-                      <For each={tokenizeInline(item)}>{(t) => renderToken(t)}</For>
-                    </li>
-                  )}
+                  {(item) => {
+                    if (isTaskList) {
+                      const m = item.match(taskListRe)!;
+                      const checked = m[1]!.toLowerCase() === 'x';
+                      const body = m[2]!;
+                      return (
+                        <li class={'im__li im__li--task ' + (checked ? 'is-done' : '')}>
+                          <span
+                            class={'im__check ' + (checked ? 'is-checked' : '')}
+                            aria-hidden
+                          />
+                          <span>
+                            <For each={tokenizeInline(body)}>{(t) => renderToken(t)}</For>
+                          </span>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li class="im__li">
+                        <For each={tokenizeInline(item)}>{(t) => renderToken(t)}</For>
+                      </li>
+                    );
+                  }}
                 </For>
               </ListTag>
             );
