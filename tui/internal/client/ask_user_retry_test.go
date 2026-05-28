@@ -14,6 +14,15 @@ func TestAgentQuestionClientEndpoints(t *testing.T) {
 	var retried bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/s1/questions":
+			var req gact.CreateUserQuestionRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode create question: %v", err)
+			}
+			if req.Prompt != "Need input." {
+				t.Fatalf("create prompt = %q, want Need input.", req.Prompt)
+			}
+			_ = json.NewEncoder(w).Encode(gact.UserQuestion{ID: "q_new", Status: "pending", Prompt: req.Prompt})
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/sessions/s1/questions":
 			if r.URL.Query().Get("status") != "pending" {
 				t.Fatalf("status query = %q, want pending", r.URL.Query().Get("status"))
@@ -31,6 +40,8 @@ func TestAgentQuestionClientEndpoints(t *testing.T) {
 			}
 			answered = true
 			_ = json.NewEncoder(w).Encode(gact.UserQuestion{ID: "q1", Status: "answered"})
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/s1/questions/q1/cancel":
+			_ = json.NewEncoder(w).Encode(gact.UserQuestion{ID: "q1", Status: "cancelled"})
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/sessions/s1/attempts":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"attempts": []gact.TurnAttempt{{ID: "attempt_old", Status: "completed"}},
@@ -52,6 +63,10 @@ func TestAgentQuestionClientEndpoints(t *testing.T) {
 	defer srv.Close()
 
 	c := New(srv.URL)
+	created, err := c.CreateUserQuestion(t.Context(), "s1", gact.CreateUserQuestionRequest{Prompt: "Need input."})
+	if err != nil || created.ID != "q_new" {
+		t.Fatalf("CreateUserQuestion: question=%#v err=%v", created, err)
+	}
 	questions, err := c.ListPendingQuestions(t.Context(), "s1")
 	if err != nil {
 		t.Fatalf("ListPendingQuestions: %v", err)
@@ -61,6 +76,9 @@ func TestAgentQuestionClientEndpoints(t *testing.T) {
 	}
 	if _, err := c.AnswerUserQuestion(t.Context(), "s1", "q1", gact.AnswerUserQuestionRequest{SelectedOptions: []string{"yes"}}); err != nil {
 		t.Fatalf("AnswerQuestion: %v", err)
+	}
+	if cancelled, err := c.CancelUserQuestion(t.Context(), "s1", "q1"); err != nil || cancelled.Status != "cancelled" {
+		t.Fatalf("CancelUserQuestion: question=%#v err=%v", cancelled, err)
 	}
 	attempts, err := c.ListTurnAttempts(t.Context(), "s1")
 	if err != nil || len(attempts) != 1 || attempts[0].ID != "attempt_old" {

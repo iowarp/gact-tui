@@ -41,6 +41,161 @@ func retryTurnCmd(c *client.Client, sessionID, messageID string, req gact.RetryT
 	}
 }
 
+func (a *App) applyUserQuestionCreated(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	q := decodeUserQuestionPayload(pl)
+	if q.ID == "" {
+		return
+	}
+	sid := firstNonEmpty(q.SessionID, a.currentSessionID())
+	if sid == "" || a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	q.SessionID = sid
+	if sid == a.currentSessionID() && q.Status == "pending" {
+		a.openAskUserModal(q)
+		a.appendQuestionMessage(q)
+	}
+}
+
+func (a *App) applyUserQuestionResolved(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	q := decodeUserQuestionPayload(pl)
+	if q.ID == "" {
+		return
+	}
+	if a.askUserOpen && a.askUserQuestion.ID == q.ID {
+		a.closeAskUserModal()
+	}
+	for mi := range a.messages {
+		for pi := range a.messages[mi].Parts {
+			part := &a.messages[mi].Parts[pi]
+			if part.Question != nil && part.Question.ID == q.ID {
+				part.Question.Status = q.Status
+				part.Question.Answer = q.Answer
+				part.Question.SelectedOptions = append([]string(nil), q.SelectedOptions...)
+			}
+		}
+	}
+}
+
+func (a *App) appendQuestionMessage(q gact.UserQuestion) {
+	msgID := "msg_" + q.ID
+	for _, msg := range a.messages {
+		if msg.ID == msgID {
+			return
+		}
+	}
+	created := q.CreatedAt
+	if created.IsZero() {
+		created = time.Now().UTC()
+	}
+	a.messages = append(a.messages, gact.Message{
+		ID:        msgID,
+		SessionID: q.SessionID,
+		Role:      gact.RoleAssistant,
+		CreatedAt: created,
+		UpdatedAt: created,
+		Parts: []gact.Part{{
+			ID:       "part_" + q.ID,
+			Type:     gact.PartTypeAgentQuestion,
+			Text:     q.Prompt,
+			Question: &q,
+			Metadata: map[string]any{
+				"source":      "user_question.created",
+				"question_id": q.ID,
+			},
+		}},
+		Metadata: map[string]any{
+			"synthetic":   "user_question",
+			"question_id": q.ID,
+		},
+	})
+}
+
+func decodeUserQuestionPayload(pl map[string]any) gact.UserQuestion {
+	q := gact.UserQuestion{
+		ID:        stringValue(pl["id"]),
+		SessionID: stringValue(pl["session_id"]),
+		Prompt:    stringValue(pl["prompt"]),
+		Status:    firstNonEmpty(stringValue(pl["status"]), "pending"),
+		Kind:      stringValue(pl["kind"]),
+		Source:    stringValue(pl["source"]),
+		TurnID:    stringValue(pl["turn_id"]),
+		AttemptID: stringValue(pl["attempt_id"]),
+		Answer:    stringValue(pl["answer"]),
+		Metadata:  mapValue(pl["metadata"]),
+	}
+	q.Options = decodeQuestionOptions(pl["options"])
+	if len(q.Options) == 0 {
+		q.Options = decodeQuestionOptions(pl["choices"])
+	}
+	q.SelectedOptions = questionStringList(pl["selected_options"])
+	q.AnswerMetadata = mapValue(pl["answer_metadata"])
+	q.CreatedAt = parseQuestionTime(pl["created_at"])
+	q.UpdatedAt = parseQuestionTime(pl["updated_at"])
+	if expires := parseQuestionTime(pl["expires_at"]); !expires.IsZero() {
+		q.ExpiresAt = &expires
+	}
+	return q
+}
+
+func decodeQuestionOptions(raw any) []gact.UserQuestionOption {
+	rows, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]gact.UserQuestionOption, 0, len(rows))
+	for _, row := range rows {
+		m, ok := row.(map[string]any)
+		if !ok {
+			continue
+		}
+		out = append(out, gact.UserQuestionOption{
+			ID:          stringValue(m["id"]),
+			Label:       stringValue(m["label"]),
+			Value:       stringValue(m["value"]),
+			Description: stringValue(m["description"]),
+		})
+	}
+	return out
+}
+
+func questionStringList(raw any) []string {
+	switch v := raw.(type) {
+	case []string:
+		return append([]string(nil), v...)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if text := stringValue(item); text != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func parseQuestionTime(raw any) time.Time {
+	text := stringValue(raw)
+	if text == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 func (a *App) openAskUserModal(q gact.AgentQuestion) {
 	a.askUserOpen = true
 	a.askUserQuestion = q

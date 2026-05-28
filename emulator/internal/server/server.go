@@ -36,17 +36,18 @@ type Config struct {
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg          Config
-	started      time.Time
-	mux          *http.ServeMux
-	store        *store.Store
-	bus          *events.Bus
-	perms        *store.Permissions
-	contextFiles *contextFileSet
-	latency      *latencyTracker
-	hooks        *hooksStore // §6.17 — MMM3
-	tasks        *tasksStore // §6.18 — MMM5
-	prompts      map[string]gact.PromptDefinition
+	cfg           Config
+	started       time.Time
+	mux           *http.ServeMux
+	store         *store.Store
+	bus           *events.Bus
+	perms         *store.Permissions
+	contextFiles  *contextFileSet
+	latency       *latencyTracker
+	hooks         *hooksStore // §6.17 — MMM3
+	tasks         *tasksStore // §6.18 — MMM5
+	prompts       map[string]gact.PromptDefinition
+	userQuestions map[string]gact.UserQuestion
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -79,6 +80,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		hooks:         newHooksStore(),
 		tasks:         newTasksStore(),
 		prompts:       staticPromptDefinitions(),
+		userQuestions: map[string]gact.UserQuestion{},
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -155,6 +157,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/messages/{msg_id}", s.handleDeleteMessage)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id}", s.handlePatchPart)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/questions", s.handleListQuestions)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions", s.handleCreateQuestion)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/answer", s.handleAnswerQuestion)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/cancel", s.handleCancelQuestion)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/attempts", s.handleListAttempts)
