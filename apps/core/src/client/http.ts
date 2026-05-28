@@ -1,9 +1,17 @@
 import type {
+  AgentDef,
   Capabilities,
+  HealthSnapshot,
+  McpServerInfo,
+  MemoryStats,
   Message,
+  MetricsSnapshot,
   PermissionRequest,
   PermissionScope,
+  ProviderDef,
   Session,
+  SlashCommandDef,
+  Workspace,
 } from '../wire/types.js';
 
 export interface ClientOptions {
@@ -181,6 +189,40 @@ export class Client {
    */
   cancelSession(sessionId: string): Promise<void> {
     return this.post<void>(`/v1/sessions/${encodeURIComponent(sessionId)}/cancel`, {});
+  }
+
+  /* -------- Discovery endpoints (Wave 0.9.1: LeftRail backing) -------- */
+
+  workspaces(): Promise<{ workspaces: Workspace[] }> {
+    return this.get<{ workspaces: Workspace[] }>('/v1/workspaces');
+  }
+
+  agents(): Promise<{ agents: AgentDef[] }> {
+    return this.get<{ agents: AgentDef[] }>('/v1/agents');
+  }
+
+  providers(): Promise<{ providers: ProviderDef[] }> {
+    return this.get<{ providers: ProviderDef[] }>('/v1/providers');
+  }
+
+  mcpServers(): Promise<{ servers: McpServerInfo[] }> {
+    return this.get<{ servers: McpServerInfo[] }>('/v1/mcp/servers');
+  }
+
+  health(): Promise<HealthSnapshot> {
+    return this.get<HealthSnapshot>('/v1/health');
+  }
+
+  memoryStats(): Promise<MemoryStats> {
+    return this.get<MemoryStats>('/v1/memory/stats');
+  }
+
+  metrics(): Promise<MetricsSnapshot> {
+    return this.get<MetricsSnapshot>('/v1/metrics');
+  }
+
+  commands(): Promise<{ commands: SlashCommandDef[] }> {
+    return this.get<{ commands: SlashCommandDef[] }>('/v1/commands');
   }
 
   /**

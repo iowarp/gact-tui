@@ -210,6 +210,102 @@ test.describe('CLIO harness — visual proofs', () => {
     `no clio-agent-gact on ${REAL_BACKEND} — skipping real-backend visual proof`,
   );
 
+  // ----- Discovery pages backed by the live clio-agent-gact -----
+  test('discovery-agents lists the tier-1/2 agent catalog', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-agents').click();
+    await expect(page.getByTestId('dp-agents')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('discovery-agents'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('discovery-mcp lists the MCP servers + their tool counts', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-mcp').click();
+    await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('discovery-mcp'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('discovery-doctor renders integration statuses from /v1/health', async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-doctor').click();
+    await expect(page.getByTestId('dp-doctor')).toBeVisible();
+    await expect(page.getByTestId('doctor-integrations')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('discovery-doctor'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('discovery-metrics shows the metrics dashboard', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-metrics').click();
+    await expect(page.getByTestId('dp-metrics')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('discovery-metrics'), fullPage: false });
+    await ctx.close();
+  });
+
   test('chat-shell-real-backend captures the live connect → chat flow', async ({
     browser,
   }) => {

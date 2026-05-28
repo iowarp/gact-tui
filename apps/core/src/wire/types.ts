@@ -281,3 +281,99 @@ export interface ExtensionDescriptor {
   version?: string;
   docs?: string;
 }
+
+/* ---------- Discovery surface — agents, providers, mcp, etc. ---------- */
+
+export interface AgentDef {
+  id: string;
+  source?: 'builtin' | 'user' | string;
+  title: string;
+  description?: string;
+  tools?: string[];
+  metadata?: Record<string, unknown>;
+  tier?: number;
+  specialization?: string;
+  keywords?: string[];
+}
+
+export interface ProviderDef {
+  id: string;
+  name: string;
+  auth_methods?: string[];
+  is_authenticated?: boolean;
+  default_model?: string;
+  api_base?: string;
+  env_keys?: string[];
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface McpServerInfo {
+  id: string;
+  name: string;
+  status: 'ready' | 'starting' | 'error' | 'disconnected' | string;
+  transport: string;
+  tools_count: number;
+  tools: string[];
+  error?: string;
+}
+
+export interface HealthIntegration {
+  name: string;
+  status: 'ready' | 'degraded' | 'unavailable' | 'skipped' | string;
+  detail?: string;
+}
+
+export interface HealthSnapshot {
+  healthy: boolean;
+  uptime_s: number;
+  overall_status?: string;
+  integrations?: HealthIntegration[];
+}
+
+export interface MemoryStats {
+  cache: {
+    hits: number;
+    misses: number;
+    hit_rate: number;
+    capacity: number;
+  };
+  session?: unknown;
+  global?: {
+    conversations_total: number;
+    invocations_total: number;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface MetricsSnapshot {
+  uptime_s: number;
+  sessions?: {
+    total: number;
+    active: number;
+    by_status?: Record<string, number>;
+  };
+  messages?: {
+    total: number;
+    by_role?: Record<string, number>;
+  };
+  tokens?: {
+    input_total: number;
+    output_total: number;
+    cache_read_total?: number;
+    cache_write_total?: number;
+  };
+  cost?: {
+    total_usd: number;
+    by_provider?: Record<string, number>;
+  };
+  latencies?: Record<string, unknown>;
+}
+
+export interface SlashCommandDef {
+  id: string;
+  title: string;
+  description?: string;
+  source?: 'builtin' | 'user' | string;
+  args_schema?: unknown;
+}
