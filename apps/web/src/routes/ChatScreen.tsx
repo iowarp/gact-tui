@@ -33,6 +33,7 @@ import { PermissionCard } from '../components/PermissionCard.js';
 import {
   SessionsColumn,
   type SessionRow,
+  type WorkspaceOption,
 } from '../components/SessionsColumn.js';
 import {
   DEFAULT_COMMANDS,
@@ -238,6 +239,19 @@ function LiveDriven(props: {
     setActiveId(created.id);
   }
 
+  // Live workspaces (powers the SessionsColumn workspace switcher).
+  const [workspacesData] = createResource(() => live.client.workspaces());
+  const workspaces = createMemo(() => {
+    const ws = workspacesData()?.workspaces ?? [];
+    return ws.map((w) => ({ id: w.id, name: w.name, rootPath: w.root_path }));
+  });
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = createSignal<string>('__all');
+  const filteredRows = createMemo(() => {
+    const ws = selectedWorkspaceId();
+    if (ws === '__all') return rows();
+    return rows().filter((r) => r.workspace === ws || r.workspace === undefined);
+  });
+
   // Live providers (powers the composer model picker).
   const [providersData] = createResource(() => live.client.providers());
   const models = createMemo<ModelOption[]>(() => {
@@ -326,8 +340,11 @@ function LiveDriven(props: {
   return (
     <ChatLayout
       backendUrl={props.backend.url}
-      sessions={rows()}
+      sessions={filteredRows()}
       activeId={activeId()}
+      workspaces={workspaces()}
+      selectedWorkspaceId={selectedWorkspaceId()}
+      onPickWorkspace={setSelectedWorkspaceId}
       onSelect={setActiveId}
       density={density()}
       setDensity={setDensity}
@@ -382,6 +399,10 @@ interface ChatLayoutProps {
   onOpenSettings?: () => void;
   onAddRemote?: () => void;
   caps?: BackendHandle['capabilities'];
+  /** SessionsColumn workspace switcher wiring (LiveDriven path only). */
+  workspaces?: WorkspaceOption[];
+  selectedWorkspaceId?: string;
+  onPickWorkspace?: (id: string) => void;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -594,6 +615,9 @@ function ChatLayout(props: ChatLayoutProps) {
           onNewSession={props.onNewSession}
           connectionLabel={props.sseStatus ?? 'idle'}
           connectionTone={connectionTone()}
+          workspaces={props.workspaces}
+          selectedWorkspaceId={props.selectedWorkspaceId}
+          onPickWorkspace={props.onPickWorkspace}
         />
       </Show>
 
