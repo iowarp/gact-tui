@@ -1,5 +1,16 @@
 # Clio / TUI / Desktop capability gap audit
 
+> **Status (2026-05-28):** all 10 priorities from the "Recommended priorities"
+> section below are now closed on `feat/apps-harness` HEAD. Gap #1 (ask-user
+> card) at `21aeb54`; #2 (MCP install + reconnect + uninstall) at `52ae7fb`;
+> #3 (workspace `@`-picker) at `9fb71e7`; #4 (backend search via Cmd+Shift+F)
+> at `0333687`; #5 (session import) at `515a4d1`; #6 (per-message delete)
+> at `17aef58`; #7 (memory event log) at `0d4cb64`; #8 (detailed provider
+> models) at `9ae651e`; #9 (paste compression) at `06983d1`; #10 (read-only
+> hooks / policies / blueprints / expert-packs settings) at `fef378b`.
+> See `apps/CHANGELOG.md` for the running list.
+
+
 Snapshot date: 2026-05-28. Sources:
 - **Clio (the agent backend)** — `clio-agent` repo, `develop` @ `05ce786`. Authoritative file `src/clio_agent/gact/app.py`.
 - **TUI** — `gact-tui` repo, `develop` branch, `tui/internal/client/client.go` + `tui/internal/ui/`.
