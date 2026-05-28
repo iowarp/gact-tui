@@ -6,9 +6,13 @@ import { useBackendRegistry } from '../registry.js';
 import { SettingsBackends } from './SettingsBackends.js';
 import {
   AgentsPage,
+  BlueprintsPage,
+  ExpertPacksPage,
+  HooksPage,
   McpPage,
   MemoryPage,
   MetricsPage,
+  PoliciesPage,
   PromptsPage,
   ProvidersPage,
   ToolsPage,
@@ -25,6 +29,10 @@ export type SettingsSection =
   | 'agents'
   | 'tools'
   | 'prompts'
+  | 'blueprints'
+  | 'expert-packs'
+  | 'hooks'
+  | 'policies'
   | 'mcp'
   | 'memory'
   | 'metrics'
@@ -46,7 +54,11 @@ const SECTIONS: SectionDef[] = [
   { id: 'agents', label: 'Agents', icon: 'agents', group: 'Agents' },
   { id: 'tools', label: 'Commands', icon: 'tool', group: 'Agents' },
   { id: 'prompts', label: 'Prompts', icon: 'sparkle', group: 'Agents' },
+  { id: 'blueprints', label: 'Agent blueprints', icon: 'agents', group: 'Agents' },
+  { id: 'expert-packs', label: 'Expert packs', icon: 'sparkle', group: 'Agents' },
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', group: 'Agents' },
+  { id: 'hooks', label: 'Hooks', icon: 'tool', group: 'Telemetry' },
+  { id: 'policies', label: 'Policies', icon: 'doctor', group: 'Telemetry' },
   { id: 'memory', label: 'Memory', icon: 'memory', group: 'Telemetry' },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', group: 'Telemetry' },
   { id: 'doctor', label: 'Doctor', icon: 'doctor', group: 'Telemetry' },
@@ -170,6 +182,18 @@ export function SettingsShell(props: SettingsShellProps) {
             </Match>
             <Match when={client() && section() === 'prompts'}>
               <PromptsPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'blueprints'}>
+              <BlueprintsPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'expert-packs'}>
+              <ExpertPacksPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'hooks'}>
+              <HooksPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'policies'}>
+              <PoliciesPage client={client()!} />
             </Match>
             <Match when={client() && section() === 'mcp'}>
               <McpPage client={client()!} />
