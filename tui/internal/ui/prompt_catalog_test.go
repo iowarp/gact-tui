@@ -132,6 +132,29 @@ func TestExpertPackCatalogItemsSurfaceScopeAndValidation(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
+		RootExpert: "data", DefinitionPath: "/tmp/AGENT.md", Description: "Markdown root agent.",
+		Enabled: true,
+	}, {
+		ID: "broken", Title: "Broken", Scope: "workspace", RootExpert: "missing", Enabled: false,
+		ValidationErrors: []string{"root_expert not found"},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 2", len(items))
+	}
+	if items[1].statusTag != "invalid" {
+		t.Fatalf("broken blueprint status = %q, want invalid", items[1].statusTag)
+	}
+	for _, want := range []string{"version: 1.0.0", "root: data", "definition: /tmp/AGENT.md", "Markdown root agent"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint desc missing %q: %q", want, items[0].desc)
+		}
+	}
+}
+
 func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	items := expertPackDetailItems(gact.ExpertPackDetail{
 		ExpertPack: gact.ExpertPackDefinition{
@@ -155,5 +178,38 @@ func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	}
 	if items[2].id != "agent/data.root" || !strings.Contains(items[2].desc, "mcp.parquet.read") {
 		t.Fatalf("agent detail row missing drilldown/tool metadata: %#v", items[2])
+	}
+}
+
+func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
+	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
+		AgentBlueprint: gact.AgentBlueprintDefinition{
+			ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
+			RootExpert: "data", Enabled: true, Defaults: map[string]any{"prompt_profile": "heavy"},
+		},
+		MCPDescriptors: []map[string]any{{
+			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
+			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
+		}},
+		Agents: []gact.AgentDef{{
+			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
+			Tools: []string{"mcp.parquet.read"},
+		}},
+	})
+
+	if len(items) < 4 {
+		t.Fatalf("detail items len = %d, want activation, blueprint, mcp, and agent", len(items))
+	}
+	if items[0].id != "activate" {
+		t.Fatalf("first detail row = %q, want activate", items[0].id)
+	}
+	if !strings.Contains(items[1].desc, "prompt_profile") {
+		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
+	}
+	if items[2].id != "mcp/earthscope" || !strings.Contains(items[2].desc, "earthscope-mcp") {
+		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[2])
+	}
+	if items[3].id != "agent/data" || !strings.Contains(items[3].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[3])
 	}
 }

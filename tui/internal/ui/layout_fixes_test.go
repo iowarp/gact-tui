@@ -1488,6 +1488,8 @@ func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 		{"/catalog", true, catalogKindTools},
 		{"/skills", true, catalogKindSkills},
 		{"/prompts", true, catalogKindPrompts},
+		{"/agent-blueprints", true, catalogKindAgentBlueprints},
+		{"/blueprints", true, catalogKindAgentBlueprints},
 		{"/clear", false, 0},
 		{"/help", false, 0},
 	}

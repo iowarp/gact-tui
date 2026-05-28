@@ -234,6 +234,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}/expert-pack", s.handleGetSessionExpertPack)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/expert-pack", s.handleSetSessionExpertPack)
 
+	// CLIO agent-blueprint extension
+	s.mux.HandleFunc("GET /v1/agent-blueprints", s.handleListAgentBlueprints)
+	s.mux.HandleFunc("GET /v1/agent-blueprints/{id}", s.handleGetAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/validate", s.handleValidateAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/install", s.handleInstallAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/update", s.handleUpdateAgentBlueprint)
+	s.mux.HandleFunc("DELETE /v1/agent-blueprints/{id}", s.handleDeleteAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/mcp/{descriptor_id}/enable", s.handleEnableAgentBlueprintMCP)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-blueprint", s.handleGetSessionAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/agent-blueprint", s.handleSetSessionAgentBlueprint)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-overlay", s.handleGetSessionAgentOverlay)
+	s.mux.HandleFunc("PUT /v1/sessions/{id}/agent-overlay", s.handlePutSessionAgentOverlay)
+
 	// §6.14 — Voice
 	s.mux.HandleFunc("POST /v1/sessions/{id}/voice/transcribe", s.handleVoiceTranscribe)
 

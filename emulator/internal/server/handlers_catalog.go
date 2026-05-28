@@ -629,6 +629,339 @@ func firstNonEmptyString(values ...string) string {
 	return ""
 }
 
+func (s *Server) handleListAgentBlueprints(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"agent_blueprints": staticAgentBlueprints()})
+}
+
+func (s *Server) handleGetAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, blueprint := range staticAgentBlueprints() {
+		if blueprint.ID == id {
+			writeJSON(w, http.StatusOK, gact.AgentBlueprintDetail{
+				AgentBlueprint: blueprint,
+				Agents:         staticAgentBlueprintAgents(blueprint.ID),
+				MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint not found: "+id)
+}
+
+func (s *Server) handleValidateAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "path is required")
+		return
+	}
+	blueprint := gact.AgentBlueprintDefinition{
+		ID:             "validated-blueprint",
+		Version:        "0.1.0",
+		Title:          "Validated Blueprint",
+		Scope:          firstNonEmptyString(req.Scope, "session"),
+		Root:           req.Path,
+		RootPath:       req.Path + "/AGENT.md",
+		DefinitionPath: req.Path + "/AGENT.md",
+		RootExpert:     "main",
+		Enabled:        true,
+	}
+	writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
+		Enabled:        true,
+		AgentBlueprint: blueprint,
+		Agents:         staticAgentBlueprintAgents(blueprint.ID),
+		MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+	})
+}
+
+func (s *Server) handleInstallAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintInstallRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	source := firstNonEmptyString(req.Source, req.URL, req.Path)
+	if strings.TrimSpace(source) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "source, url, or path is required")
+		return
+	}
+	blueprint := staticAgentBlueprints()[0]
+	if req.BlueprintID != "" {
+		blueprint.ID = req.BlueprintID
+		blueprint.Title = req.BlueprintID
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"installed": []map[string]any{{
+			"id":    blueprint.ID,
+			"title": blueprint.Title,
+			"scope": firstNonEmptyString(req.Scope, "workspace"),
+			"install": map[string]any{
+				"source": source,
+				"ref":    req.Ref,
+				"status": "installed",
+			},
+		}},
+	})
+}
+
+func (s *Server) handleUpdateAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"updated": map[string]any{"id": id, "scope": "workspace", "status": "updated"},
+	})
+}
+
+func (s *Server) handleDeleteAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "data-exploration" && r.URL.Query().Get("scope") == "builtin" {
+		writeError(w, http.StatusBadRequest, "bad_request", "built-in agent blueprints cannot be deleted")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"uninstalled": map[string]any{"id": id, "scope": firstNonEmptyString(r.URL.Query().Get("scope"), "workspace")},
+	})
+}
+
+func (s *Server) handleEnableAgentBlueprintMCP(w http.ResponseWriter, r *http.Request) {
+	blueprintID := r.PathValue("id")
+	descriptorID := r.PathValue("descriptor_id")
+	for _, descriptor := range staticAgentBlueprintMCPDescriptors(blueprintID) {
+		if descriptor["id"] == descriptorID {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                 "agent_blueprint_mcp_" + blueprintID + "_" + descriptorID,
+				"name":               firstNonEmptyString(stringFromAny(descriptor["name"]), descriptorID),
+				"status":             "enabled_pending_probe",
+				"transport":          firstNonEmptyString(stringFromAny(descriptor["transport"]), "unknown"),
+				"tools_count":        0,
+				"tools":              []any{},
+				"spec":               map[string]any{"transport": descriptor["transport"], "command": descriptor["command"], "args": descriptor["args"]},
+				"source":             "agent_blueprint",
+				"agent_blueprint_id": blueprintID,
+				"descriptor_id":      descriptorID,
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "MCP descriptor not found: "+descriptorID)
+}
+
+func (s *Server) handleGetSessionAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, sessionAgentBlueprintState(sess))
+}
+
+func (s *Server) handleSetSessionAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req gact.SetSessionAgentBlueprintRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	blueprintID := firstNonEmptyString(strings.TrimSpace(req.BlueprintID), strings.TrimSpace(req.AgentBlueprintID))
+	if blueprintID == "" && strings.TrimSpace(req.Path) == "" && strings.TrimSpace(req.BlueprintPath) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "blueprint_id or path is required")
+		return
+	}
+	var blueprint *gact.AgentBlueprintDefinition
+	for _, row := range staticAgentBlueprints() {
+		if row.ID == blueprintID {
+			copy := row
+			blueprint = &copy
+			break
+		}
+	}
+	if blueprint == nil && blueprintID != "" {
+		writeError(w, http.StatusNotFound, "not_found", "agent blueprint not found: "+blueprintID)
+		return
+	}
+	if blueprint == nil {
+		row := gact.AgentBlueprintDefinition{
+			ID:             "session-blueprint",
+			Version:        "0.1.0",
+			Title:          "Session Blueprint",
+			Scope:          "session",
+			Root:           firstNonEmptyString(req.Path, req.BlueprintPath),
+			RootPath:       firstNonEmptyString(req.Path, req.BlueprintPath) + "/AGENT.md",
+			DefinitionPath: firstNonEmptyString(req.Path, req.BlueprintPath) + "/AGENT.md",
+			RootExpert:     "main",
+			Enabled:        true,
+		}
+		blueprint = &row
+	}
+	if sess.Metadata == nil {
+		sess.Metadata = map[string]any{}
+	}
+	sess.Metadata["active_agent_blueprint_id"] = blueprint.ID
+	sess.Metadata["active_agent_blueprint_version"] = blueprint.Version
+	sess.Metadata["active_agent_blueprint_scope"] = blueprint.Scope
+	sess.Metadata["active_agent_blueprint_definition_path"] = firstNonEmptyString(blueprint.DefinitionPath, blueprint.RootPath)
+	sess.Metadata["active_agent_blueprint_path"] = ""
+	sess.Metadata["active_expert_pack_id"] = ""
+	sess.Metadata["active_expert_pack_path"] = ""
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		row.Metadata = sess.Metadata
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionAgentBlueprintState(updated)
+	state.AgentBlueprint = blueprint
+	writeJSON(w, http.StatusOK, state)
+}
+
+func (s *Server) handleGetSessionAgentOverlay(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, gact.SessionAgentOverlayResponse{
+		SessionID:    id,
+		AgentOverlay: mapFromAny(sess.Metadata["agent_blueprint_overlay"]),
+	})
+}
+
+func (s *Server) handlePutSessionAgentOverlay(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var overlay map[string]any
+	if !decodeJSON(w, r, &overlay) {
+		return
+	}
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		if row.Metadata == nil {
+			row.Metadata = map[string]any{}
+		}
+		row.Metadata["agent_blueprint_overlay"] = overlay
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, gact.SessionAgentOverlayResponse{
+		SessionID:    id,
+		AgentOverlay: overlay,
+		Session:      updated,
+	})
+}
+
+func sessionAgentBlueprintState(sess *gact.Session) gact.SessionAgentBlueprintState {
+	if sess == nil {
+		return gact.SessionAgentBlueprintState{}
+	}
+	blueprintID, _ := sess.Metadata["active_agent_blueprint_id"].(string)
+	var blueprint *gact.AgentBlueprintDefinition
+	for _, row := range staticAgentBlueprints() {
+		if row.ID == blueprintID {
+			copy := row
+			blueprint = &copy
+			break
+		}
+	}
+	return gact.SessionAgentBlueprintState{
+		SessionID:                sess.ID,
+		WorkspaceID:              sess.WorkspaceID,
+		ActiveAgentBlueprintID:   blueprintID,
+		ActiveAgentBlueprintPath: stringFromAny(sess.Metadata["active_agent_blueprint_path"]),
+		AgentBlueprint:           blueprint,
+		AgentOverlay:             mapFromAny(sess.Metadata["agent_blueprint_overlay"]),
+		Session:                  sess,
+	}
+}
+
+func staticAgentBlueprints() []gact.AgentBlueprintDefinition {
+	return []gact.AgentBlueprintDefinition{{
+		ID:             "data-exploration",
+		Version:        "1.0.0",
+		Title:          "Data Exploration",
+		Description:    "Markdown agent blueprint with a root data expert and optional MCP descriptor.",
+		Scope:          "builtin",
+		Root:           "/opt/clio/agent_blueprints/data-exploration",
+		RootPath:       "/opt/clio/agent_blueprints/data-exploration/AGENT.md",
+		DefinitionPath: "/opt/clio/agent_blueprints/data-exploration/AGENT.md",
+		RootExpert:     "data",
+		Enabled:        true,
+		Defaults:       map[string]any{"prompt_profile": "heavy"},
+		Metadata:       map[string]any{"layout": "agent_blueprint"},
+	}, {
+		ID:               "broken-blueprint",
+		Version:          "0.1.0",
+		Title:            "Broken Blueprint",
+		Scope:            "workspace",
+		Root:             "/workspace/.clio/agent-blueprints/broken-blueprint",
+		RootPath:         "/workspace/.clio/agent-blueprints/broken-blueprint/AGENT.md",
+		DefinitionPath:   "/workspace/.clio/agent-blueprints/broken-blueprint/AGENT.md",
+		RootExpert:       "missing",
+		Enabled:          false,
+		ValidationErrors: []string{"root_expert not found: missing"},
+	}}
+}
+
+func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
+	return []gact.AgentDef{{
+		ID:          "data",
+		Title:       "Data Root",
+		Description: "Routes data exploration tasks to blueprint specialists.",
+		Source:      "agent_blueprint",
+		Enabled:     true,
+		Tier:        1,
+		Tools:       []string{"mcp.parquet.read", "mcp.adios.inspect"},
+		Metadata: map[string]any{
+			"agent_blueprint_id":          blueprintID,
+			"agent_blueprint_root_expert": "data",
+		},
+	}, {
+		ID:          "variant",
+		Title:       "Variant Expert",
+		Description: "Specialist child expert from the markdown blueprint.",
+		Source:      "agent_blueprint",
+		Enabled:     true,
+		ParentID:    "data",
+		Tier:        2,
+		Tools:       []string{"mcp.parquet.read"},
+		Metadata:    map[string]any{"agent_blueprint_id": blueprintID},
+	}}
+}
+
+func staticAgentBlueprintMCPDescriptors(blueprintID string) []map[string]any {
+	return []map[string]any{{
+		"id":                 "earthscope",
+		"name":               "EarthScope MCP",
+		"transport":          "stdio",
+		"command":            "earthscope-mcp",
+		"args":               []any{"serve"},
+		"enabled":            false,
+		"status":             "disabled",
+		"source":             "agent_blueprint",
+		"agent_blueprint_id": blueprintID,
+	}}
+}
+
+func stringFromAny(v any) string {
+	if value, ok := v.(string); ok {
+		return value
+	}
+	return ""
+}
+
+func mapFromAny(v any) map[string]any {
+	if value, ok := v.(map[string]any); ok {
+		return value
+	}
+	return nil
+}
+
 // --- §6.6 Tools ------------------------------------------------------------
 
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {

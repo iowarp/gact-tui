@@ -1888,6 +1888,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindExpertPackDetail && m.expertPackID != a.catalogBrowser.expertPackID {
 			return a, nil
 		}
+		if m.kind == catalogKindAgentBlueprintDetail && m.blueprintID != a.catalogBrowser.blueprintID {
+			return a, nil
+		}
 		a.catalogBrowser.loading = false
 		a.catalogBrowser.items = m.items
 		a.catalogBrowser.errText = m.errText
@@ -1946,6 +1949,35 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindPromptDetail && a.catalogBrowser.promptID == m.promptID {
 			cmd = loadPromptDetailCmd(a.c, m.promptID, a.runtimeScope())
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintActivatedMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint activation failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "activated agent blueprint " + m.blueprintID
+		if m.state.Session != nil {
+			if idx := a.sessionIndexByID(m.state.Session.ID); idx >= 0 {
+				a.sessions[idx] = *m.state.Session
+			}
+		}
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintMCPEnabledMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint MCP enable failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "enabled blueprint MCP " + m.descriptorID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
