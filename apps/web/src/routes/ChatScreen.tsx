@@ -153,6 +153,12 @@ function LiveDriven(props: {
     await live.client.sendMessage(sessionId, { text });
   }
 
+  async function newEmptySession() {
+    const created = await live.client.createSession({ title: 'New session' });
+    live.refetch();
+    setActiveId(created.id);
+  }
+
   async function decidePermission(
     decision: 'approve' | 'deny',
     scope?: PermissionScope,
@@ -189,6 +195,7 @@ function LiveDriven(props: {
       onSubmit={sendUserMessage}
       onPermissionDecide={decidePermission}
       onStop={stopRun}
+      onNewSession={newEmptySession}
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
@@ -225,6 +232,8 @@ interface ChatLayoutProps {
   sessionCostUsd?: number;
   /** Last assistant turn's stop_reason; surfaced as a topbar chip. */
   lastStopReason?: string;
+  /** Wired in LiveDriven mode for the sidebar "+ new session" button. */
+  onNewSession?: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onAddRemote?: () => void;
 }
@@ -332,6 +341,7 @@ function ChatLayout(props: ChatLayoutProps) {
           sessions={props.sessions}
           activeId={props.activeId}
           onSelect={props.onSelect}
+          onNewSession={props.onNewSession}
         />
         <div class="chat__main">
           <div class="chat__pane" data-testid="transcript-pane">
