@@ -22,6 +22,8 @@ export interface InspectorDrawerProps {
   tasks?: SessionTask[];
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
+  /** Called when the user clicks a diff entry — opens the DiffPane. */
+  onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   onClose: () => void;
@@ -247,7 +249,14 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                 (p): p is FileDiff => p.type === 'file_diff',
               )}>
                 {(d) => (
-                  <li class="inspector__diff">
+                  <li
+                    class={
+                      'inspector__diff ' +
+                      (props.onOpenDiff ? 'inspector__diff--click' : '')
+                    }
+                    data-testid={`inspector-diff-${d.path}`}
+                    onClick={() => props.onOpenDiff?.(d)}
+                  >
                     <Icon name="diff" size={14} />
                     <span class="inspector__diff-path">{d.path}</span>
                     <Show when={d.applied}>
