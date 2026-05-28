@@ -39,7 +39,10 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
 /// answering here we attach to it instead of spawning a competing one
 /// — the user's existing config (CLIO_LM_PROVIDER=alcf etc.) is then
 /// honored automatically.
-const ATTACH_PORT: u16 = 17800;
+const ATTACH_DEFAULT_PORT: u16 = 17800;
+/// Env var that overrides the attach-port — matches the upstream
+/// `clio.{ps1,sh}` launcher convention.
+const ATTACH_PORT_ENV: &str = "CLIO_PORT";
 /// Fast probe used during the attach-first check.
 const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -170,13 +173,20 @@ impl Default for Supervisor {
     }
 }
 
-/// One-shot probe of the conventional `:17800` port. Returns a Ready
+/// One-shot probe of the conventional clio port. Returns a Ready
 /// handle (with an empty bearer token — the server's trust_socket auth
 /// scheme accepts localhost requests on its own) when an answer comes
 /// back with a contract_version. Any other outcome returns None and the
 /// caller falls back to spawning a fresh sidecar.
+///
+/// Honors `$CLIO_PORT` if set (matches the upstream `clio` launcher
+/// convention) before falling back to the documented :17800 default.
 fn try_attach_existing() -> Option<BackendHandle> {
-    let url = format!("http://127.0.0.1:{}", ATTACH_PORT);
+    let port = env::var(ATTACH_PORT_ENV)
+        .ok()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(ATTACH_DEFAULT_PORT);
+    let url = format!("http://127.0.0.1:{port}");
     let endpoint = format!("{url}/v1/capabilities");
     let resp = ureq::get(&endpoint)
         .timeout(ATTACH_PROBE_TIMEOUT)
