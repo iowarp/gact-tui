@@ -37,6 +37,7 @@ const GROUPS: Group[] = [
       { combo: ['/'], description: 'Open the slash command palette' },
       { combo: ['@'], description: 'Insert an at-mention' },
       { combo: [PLATFORM_MOD, 'S'], description: 'Export current session as JSON' },
+      { combo: [PLATFORM_MOD, 'Shift', 'S'], description: 'Fork the current session' },
     ],
   },
   {

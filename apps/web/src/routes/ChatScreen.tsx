@@ -1105,11 +1105,14 @@ function ChatLayout(props: ChatLayoutProps) {
         (e.ctrlKey || e.metaKey) &&
         e.key.toLowerCase() === 's' &&
         onChat() &&
-        props.activeId &&
-        props.onExportSession
+        props.activeId
       ) {
         e.preventDefault();
-        void props.onExportSession(props.activeId);
+        if (e.shiftKey) {
+          if (props.onForkSession) void props.onForkSession(props.activeId);
+        } else if (props.onExportSession) {
+          void props.onExportSession(props.activeId);
+        }
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
