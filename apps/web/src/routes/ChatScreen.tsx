@@ -818,13 +818,32 @@ function ChatLayout(props: ChatLayoutProps) {
   }
 
   // Track new messages while the user is reading history; clear the
-  // counter as soon as they scroll back to live.
+  // counter as soon as they scroll back to live. Conversely, if the
+  // user is at the bottom and a new message arrives, autoscroll so
+  // the streaming text stays in view.
   createEffect(() => {
     const count = props.messages.length;
     if (scrolledUp() && count > lastMessageCount) {
       setNewSinceScroll((n) => n + (count - lastMessageCount));
+    } else if (!scrolledUp() && count > lastMessageCount && paneEl) {
+      queueMicrotask(() => {
+        if (paneEl) paneEl.scrollTop = paneEl.scrollHeight;
+      });
     }
     lastMessageCount = count;
+  });
+
+  // When the active session changes, jump to the bottom (without
+  // smooth scrolling so it feels instant).
+  createEffect(() => {
+    void props.activeId; // dependency
+    queueMicrotask(() => {
+      if (paneEl) {
+        paneEl.scrollTop = paneEl.scrollHeight;
+        setScrolledUp(false);
+        setNewSinceScroll(0);
+      }
+    });
   });
 
   // Shared Client for the discovery pages — same backend, routed
