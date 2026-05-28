@@ -39,6 +39,9 @@ export interface SessionsColumnProps {
   /** Currently-selected workspace id ("__all" for unfiltered). */
   selectedWorkspaceId?: string;
   onPickWorkspace?: (id: string) => void;
+  /** Per-row actions; rendered as a hover-revealed kebab menu. */
+  onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
+  onDeleteSession?: (id: string) => void | Promise<void>;
 }
 
 export function SessionsColumn(props: SessionsColumnProps) {
@@ -121,45 +124,197 @@ export function SessionsColumn(props: SessionsColumnProps) {
         <ul class="sx__list">
           <For each={filtered()}>
             {(row) => (
-              <li>
-                <button
-                  type="button"
-                  class={
-                    'sx__row ' + (row.id === props.activeId ? 'is-active' : '')
-                  }
-                  data-testid={`session-row-${row.id}`}
-                  onClick={() => props.onSelect(row.id)}
-                >
-                  <span class={'sx__pip sx__pip--' + pipClass(row.status)} />
-                  <div class="sx__row-main">
-                    <div class="sx__row-title-row">
-                      <span class="sx__row-title">{row.title}</span>
-                      <span class="sx__row-when">{row.updatedAt}</span>
-                    </div>
-                    <Show when={row.preview}>
-                      <p class="sx__row-preview">{row.preview}</p>
-                    </Show>
-                    <div class="sx__row-meta">
-                      <Show when={row.workspace}>
-                        <span class="sx__chip">{row.workspace}</span>
-                      </Show>
-                      <Show when={row.model}>
-                        <span class="sx__chip sx__chip--soft">{row.model}</span>
-                      </Show>
-                      <Show when={typeof row.costUsd === 'number' && row.costUsd! > 0}>
-                        <span class="sx__chip sx__chip--soft">
-                          ${row.costUsd!.toFixed(3)}
-                        </span>
-                      </Show>
-                    </div>
-                  </div>
-                </button>
-              </li>
+              <SessionListItem
+                row={row}
+                active={row.id === props.activeId}
+                onSelect={() => props.onSelect(row.id)}
+                onRename={
+                  props.onRenameSession
+                    ? (nextTitle) => props.onRenameSession!(row.id, nextTitle)
+                    : undefined
+                }
+                onDelete={
+                  props.onDeleteSession
+                    ? () => props.onDeleteSession!(row.id)
+                    : undefined
+                }
+              />
             )}
           </For>
         </ul>
       </Show>
     </aside>
+  );
+}
+
+function SessionListItem(props: {
+  row: SessionRow;
+  active: boolean;
+  onSelect: () => void;
+  onRename?: (nextTitle: string) => void | Promise<void>;
+  onDelete?: () => void | Promise<void>;
+}) {
+  const [editing, setEditing] = createSignal(false);
+  const [draft, setDraft] = createSignal(props.row.title);
+  const [menuOpen, setMenuOpen] = createSignal(false);
+  let editRef: HTMLInputElement | undefined;
+
+  function commitRename() {
+    const t = draft().trim();
+    setEditing(false);
+    if (!t || t === props.row.title) return;
+    void props.onRename?.(t);
+  }
+
+  return (
+    <li>
+      <div
+        class={'sx__row ' + (props.active ? 'is-active' : '')}
+        data-testid={`session-row-${props.row.id}`}
+      >
+        <button
+          type="button"
+          class="sx__row-hit"
+          onClick={(e) => {
+            if (editing()) return;
+            // Don't intercept clicks on the menu / actions
+            const target = e.target as HTMLElement;
+            if (target.closest('.sx__row-menu') || target.closest('input')) return;
+            props.onSelect();
+          }}
+          aria-label={`Open ${props.row.title}`}
+        >
+          <span class={'sx__pip sx__pip--' + pipClass(props.row.status)} />
+          <div class="sx__row-main">
+            <div class="sx__row-title-row">
+              <Show
+                when={editing()}
+                fallback={
+                  <span
+                    class="sx__row-title"
+                    ondblclick={(e) => {
+                      if (!props.onRename) return;
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setDraft(props.row.title);
+                      setEditing(true);
+                      setTimeout(() => {
+                        editRef?.focus();
+                        editRef?.select();
+                      });
+                    }}
+                  >
+                    {props.row.title}
+                  </span>
+                }
+              >
+                <input
+                  ref={editRef}
+                  type="text"
+                  class="sx__row-title-input"
+                  value={draft()}
+                  onClick={(e) => e.stopPropagation()}
+                  onInput={(e) => setDraft(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitRename();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setEditing(false);
+                    }
+                  }}
+                  onBlur={() => commitRename()}
+                />
+              </Show>
+              <span class="sx__row-when">{props.row.updatedAt}</span>
+            </div>
+            <Show when={props.row.preview}>
+              <p class="sx__row-preview">{props.row.preview}</p>
+            </Show>
+            <div class="sx__row-meta">
+              <Show when={props.row.workspace}>
+                <span class="sx__chip">{props.row.workspace}</span>
+              </Show>
+              <Show when={props.row.model}>
+                <span class="sx__chip sx__chip--soft">{props.row.model}</span>
+              </Show>
+              <Show
+                when={
+                  typeof props.row.costUsd === 'number' && props.row.costUsd! > 0
+                }
+              >
+                <span class="sx__chip sx__chip--soft">
+                  ${props.row.costUsd!.toFixed(3)}
+                </span>
+              </Show>
+            </div>
+          </div>
+        </button>
+        <Show when={props.onRename || props.onDelete}>
+          <button
+            type="button"
+            class="sx__row-kebab"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            data-testid={`session-row-kebab-${props.row.id}`}
+          >
+            <Icon name="menu" size={14} />
+          </button>
+        </Show>
+        <Show when={menuOpen()}>
+          <div
+            class="sx__row-menu"
+            role="menu"
+            onMouseLeave={() => setMenuOpen(false)}
+          >
+            <Show when={props.onRename}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDraft(props.row.title);
+                  setEditing(true);
+                  setTimeout(() => {
+                    editRef?.focus();
+                    editRef?.select();
+                  });
+                }}
+              >
+                <Icon name="edit" size={12} />
+                <span>Rename</span>
+              </button>
+            </Show>
+            <Show when={props.onDelete}>
+              <button
+                type="button"
+                role="menuitem"
+                class="sx__row-menu-item sx__row-menu-item--danger"
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (
+                    window.confirm(
+                      `Delete the session "${props.row.title}"? This cannot be undone.`,
+                    )
+                  ) {
+                    void props.onDelete?.();
+                  }
+                }}
+              >
+                <Icon name="close" size={12} />
+                <span>Delete</span>
+              </button>
+            </Show>
+          </div>
+        </Show>
+      </div>
+    </li>
   );
 }
 

@@ -295,6 +295,34 @@ function LiveDriven(props: {
     setActiveId(created.id);
   }
 
+  async function renameSession(id: string, nextTitle: string) {
+    try {
+      await live.client.patchSession(id, { title: nextTitle });
+      live.patch(id, { title: nextTitle });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Rename failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async function deleteSession(id: string) {
+    try {
+      await live.client.deleteSession(id);
+      live.setRaw((prev) => prev.filter((r) => r.id !== id));
+      if (activeId() === id) setActiveId('');
+      toast.push({ tone: 'success', title: 'Session deleted', duration: 2200 });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Delete failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   // Live workspaces (powers the SessionsColumn workspace switcher).
   const [workspacesData] = createResource(() => live.client.workspaces());
   const workspaces = createMemo(() => {
@@ -413,6 +441,8 @@ function LiveDriven(props: {
       onPermissionDecide={decidePermission}
       onStop={stopRun}
       onNewSession={newEmptySession}
+      onRenameSession={renameSession}
+      onDeleteSession={deleteSession}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -462,6 +492,9 @@ interface ChatLayoutProps {
   workspaces?: WorkspaceOption[];
   selectedWorkspaceId?: string;
   onPickWorkspace?: (id: string) => void;
+  /** Per-session actions (LiveDriven path only). */
+  onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
+  onDeleteSession?: (id: string) => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -680,6 +713,8 @@ function ChatLayout(props: ChatLayoutProps) {
           workspaces={props.workspaces}
           selectedWorkspaceId={props.selectedWorkspaceId}
           onPickWorkspace={props.onPickWorkspace}
+          onRenameSession={props.onRenameSession}
+          onDeleteSession={props.onDeleteSession}
         />
       </Show>
 
