@@ -343,6 +343,14 @@ export function Composer(props: ComposerProps = {}) {
                   props.onSlashTyped();
                   return;
                 }
+                // Cmd/Ctrl+Enter forces a submit even when Shift is
+                // held (covers users who switch between Discord-style
+                // newline-by-Enter conventions and this one).
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  void submit();
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   void submit();
