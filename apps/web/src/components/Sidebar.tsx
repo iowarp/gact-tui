@@ -14,6 +14,13 @@ export interface SidebarProps {
   sessions: SidebarSession[];
   activeId: string;
   onSelect: (id: string) => void;
+  /**
+   * Wired in LiveDriven mode: clicking "+ new session" calls
+   * `client.createSession()` and selects the new row. Fixture mode
+   * leaves this undefined and the button is a no-op (kept visible so
+   * the visual proof set still matches).
+   */
+  onNewSession?: () => void | Promise<void>;
 }
 
 function statusPip(s: SessionStatus): string {
@@ -85,7 +92,15 @@ export function Sidebar(props: SidebarProps) {
       )}
 
       <footer class="sidebar__foot">
-        <button type="button" class="btn btn--secondary sidebar__newbtn">+ new session</button>
+        <button
+          type="button"
+          class="btn btn--secondary sidebar__newbtn"
+          data-testid="sidebar-new-session"
+          disabled={!props.onNewSession}
+          onClick={() => void props.onNewSession?.()}
+        >
+          + new session
+        </button>
       </footer>
     </aside>
   );
