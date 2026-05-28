@@ -1,0 +1,205 @@
+.settings-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg);
+}
+
+.settings-shell__top {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  align-items: center;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--color-border-30);
+  background: var(--color-surface);
+}
+
+.settings-shell__back {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  color: var(--color-muted);
+  padding: 6px 10px 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+  width: max-content;
+}
+
+.settings-shell__back:hover {
+  color: var(--color-heading);
+  border-color: var(--color-accent-cyan);
+}
+
+.settings-shell__back-icon {
+  transform: rotate(180deg);
+}
+
+.settings-shell__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0;
+  text-align: center;
+  letter-spacing: -0.005em;
+}
+
+.settings-shell__body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-shell__nav {
+  border-right: 1px solid var(--color-border-30);
+  background: var(--color-bg);
+  padding: 20px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-shell__nav-group {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 12px 12px 4px;
+}
+
+.settings-shell__nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.settings-shell__nav-btn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+}
+
+.settings-shell__nav-btn.is-active {
+  background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
+  color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan-30);
+}
+
+.settings-shell__content {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Override SettingsBackends inner topbar (the section title is in the
+   shell already). */
+.settings-shell__content .settings .settings__topbar {
+  display: none;
+}
+
+.settings-shell__content .settings {
+  height: auto;
+  background: transparent;
+}
+
+/* Appearance choice grid */
+.settings-shell__choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  max-width: 600px;
+}
+
+.settings-shell__choice {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+
+.settings-shell__choice:hover {
+  border-color: var(--color-accent-cyan);
+}
+
+.settings-shell__choice.is-active {
+  border-color: var(--color-accent-cyan);
+  background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+}
+
+.settings-shell__choice-label {
+  text-transform: capitalize;
+}
+
+.settings-shell__choice-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-60);
+}
+
+.swatch--dark  { background: #0a0f1a; }
+.swatch--light { background: #f8fafc; }
+.swatch--auto  {
+  background: linear-gradient(135deg, #0a0f1a 0%, #0a0f1a 49%, #f8fafc 51%, #f8fafc 100%);
+}
+
+.settings-shell__hint {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-muted);
+  max-width: 600px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+.settings-shell__caps {
+  max-width: 720px;
+}
+
+.settings-shell__links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-shell__links a {
+  color: var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.settings-shell__links a:hover {
+  text-decoration: underline;
+}
