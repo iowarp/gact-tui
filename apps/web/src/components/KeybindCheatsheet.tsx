@@ -32,6 +32,7 @@ const GROUPS: Group[] = [
     title: 'Composer',
     items: [
       { combo: ['Enter'], description: 'Send message' },
+      { combo: [PLATFORM_MOD, 'Enter'], description: 'Force-send (even with Shift held)' },
       { combo: ['Shift', 'Enter'], description: 'Insert newline' },
       { combo: ['/'], description: 'Open the slash command palette' },
       { combo: ['@'], description: 'Insert an at-mention' },
