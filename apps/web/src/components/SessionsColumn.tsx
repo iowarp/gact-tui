@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { Icon } from './Icon.js';
+// (icons used by WorkspaceSwitcher are loaded via the shared Icon.)
 import type { SessionStatus } from '@clio/core';
 import './sessions-column.css';
 
@@ -19,6 +20,12 @@ export interface SessionRow {
   costUsd?: number;
 }
 
+export interface WorkspaceOption {
+  id: string;
+  name: string;
+  rootPath?: string;
+}
+
 export interface SessionsColumnProps {
   rows: SessionRow[];
   activeId: string;
@@ -27,6 +34,11 @@ export interface SessionsColumnProps {
   /** Optional connection / SSE status pip for the header. */
   connectionLabel?: string;
   connectionTone?: 'ok' | 'warn' | 'err' | 'idle';
+  /** Available workspaces; renders a switcher when more than one. */
+  workspaces?: WorkspaceOption[];
+  /** Currently-selected workspace id ("__all" for unfiltered). */
+  selectedWorkspaceId?: string;
+  onPickWorkspace?: (id: string) => void;
 }
 
 export function SessionsColumn(props: SessionsColumnProps) {
@@ -45,6 +57,13 @@ export function SessionsColumn(props: SessionsColumnProps) {
   return (
     <aside class="sx" data-testid="sessions-column" aria-label="Sessions">
       <header class="sx__head">
+        <Show when={props.workspaces && props.workspaces.length > 0}>
+          <WorkspaceSwitcher
+            workspaces={props.workspaces!}
+            selectedId={props.selectedWorkspaceId ?? '__all'}
+            onPick={(id) => props.onPickWorkspace?.(id)}
+          />
+        </Show>
         <div class="sx__title-row">
           <h2 class="sx__title">Sessions</h2>
           <Show when={props.connectionLabel}>
@@ -141,6 +160,86 @@ export function SessionsColumn(props: SessionsColumnProps) {
         </ul>
       </Show>
     </aside>
+  );
+}
+
+function WorkspaceSwitcher(props: {
+  workspaces: WorkspaceOption[];
+  selectedId: string;
+  onPick: (id: string) => void;
+}) {
+  const [open, setOpen] = createSignal(false);
+  const selected = () => {
+    if (props.selectedId === '__all') return null;
+    return props.workspaces.find((w) => w.id === props.selectedId) ?? null;
+  };
+  return (
+    <div class="sx__ws" data-testid="workspace-switcher">
+      <button
+        type="button"
+        class="sx__ws-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open()}
+        aria-haspopup="listbox"
+      >
+        <Icon name="workspaces" size={12} />
+        <span class="sx__ws-name">
+          {selected() ? selected()!.name : 'All workspaces'}
+        </span>
+        <Icon name="chevron-down" size={10} />
+      </button>
+      <Show when={open()}>
+        <div
+          class="sx__ws-menu"
+          role="listbox"
+          onMouseLeave={() => setOpen(false)}
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={props.selectedId === '__all'}
+            class={
+              'sx__ws-item ' + (props.selectedId === '__all' ? 'is-active' : '')
+            }
+            onClick={() => {
+              props.onPick('__all');
+              setOpen(false);
+            }}
+          >
+            <span>All workspaces</span>
+            <Show when={props.selectedId === '__all'}>
+              <Icon name="check" size={10} />
+            </Show>
+          </button>
+          <For each={props.workspaces}>
+            {(w) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={w.id === props.selectedId}
+                class={
+                  'sx__ws-item ' + (w.id === props.selectedId ? 'is-active' : '')
+                }
+                onClick={() => {
+                  props.onPick(w.id);
+                  setOpen(false);
+                }}
+              >
+                <div>
+                  <div class="sx__ws-item-name">{w.name}</div>
+                  <Show when={w.rootPath}>
+                    <div class="sx__ws-item-path">{w.rootPath}</div>
+                  </Show>
+                </div>
+                <Show when={w.id === props.selectedId}>
+                  <Icon name="check" size={10} />
+                </Show>
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
   );
 }
 

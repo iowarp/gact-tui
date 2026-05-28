@@ -34,6 +34,19 @@ export interface IntegrationStatus {
 }
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
+  const hasRunData = () =>
+    props.message?.stop_reason ||
+    props.model ||
+    (props.tokens?.input ?? 0) + (props.tokens?.output ?? 0) > 0 ||
+    props.costUsd > 0;
+
+  const hasAnyContent = () =>
+    hasRunData() ||
+    props.toolCalls.length > 0 ||
+    props.message?.parts?.some((p) => p.type === 'thinking') ||
+    props.message?.parts?.some((p) => p.type === 'file_diff') ||
+    (props.integrations && props.integrations.length > 0);
+
   return (
     <Show when={props.open}>
       <aside class="inspector" data-testid="inspector-drawer" aria-label="Turn inspector">
@@ -50,42 +63,57 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           </button>
         </header>
 
-        <section class="inspector__sect">
-          <div class="inspector__sect-title">Run</div>
-          <dl class="inspector__kv">
-            <Show when={props.message?.stop_reason}>
-              <dt>stop_reason</dt>
-              <dd>
-                <span
-                  class={
-                    'inspector__chip ' +
-                    (props.message!.stop_reason === 'error'
-                      ? 'inspector__chip--err'
-                      : 'inspector__chip--ok')
-                  }
-                >
-                  {props.message!.stop_reason}
-                </span>
-              </dd>
-            </Show>
-            <Show when={props.model}>
-              <dt>model</dt>
-              <dd>{props.model}</dd>
-            </Show>
-            <Show when={props.tokens?.input || props.tokens?.output}>
-              <dt>tokens</dt>
-              <dd>
-                <span class="inspector__num">{props.tokens?.input ?? 0}</span>
-                <span class="inspector__num-sep">→</span>
-                <span class="inspector__num">{props.tokens?.output ?? 0}</span>
-              </dd>
-            </Show>
-            <Show when={props.costUsd > 0}>
-              <dt>cost</dt>
-              <dd class="inspector__num">${props.costUsd.toFixed(4)}</dd>
-            </Show>
-          </dl>
-        </section>
+        <Show when={!hasAnyContent()}>
+          <div class="inspector__empty" data-testid="inspector-empty">
+            <div class="inspector__empty-icon">
+              <Icon name="sparkle" size={20} />
+            </div>
+            <p class="inspector__empty-title">Waiting for the first turn</p>
+            <p class="inspector__empty-body">
+              Stop reason, tokens, cost, tool calls, thinking blocks,
+              diffs, and integration health land here once CLIO answers.
+            </p>
+          </div>
+        </Show>
+
+        <Show when={hasRunData()}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">Run</div>
+            <dl class="inspector__kv">
+              <Show when={props.message?.stop_reason}>
+                <dt>stop_reason</dt>
+                <dd>
+                  <span
+                    class={
+                      'inspector__chip ' +
+                      (props.message!.stop_reason === 'error'
+                        ? 'inspector__chip--err'
+                        : 'inspector__chip--ok')
+                    }
+                  >
+                    {props.message!.stop_reason}
+                  </span>
+                </dd>
+              </Show>
+              <Show when={props.model}>
+                <dt>model</dt>
+                <dd>{props.model}</dd>
+              </Show>
+              <Show when={(props.tokens?.input ?? 0) + (props.tokens?.output ?? 0) > 0}>
+                <dt>tokens</dt>
+                <dd>
+                  <span class="inspector__num">{props.tokens?.input ?? 0}</span>
+                  <span class="inspector__num-sep">→</span>
+                  <span class="inspector__num">{props.tokens?.output ?? 0}</span>
+                </dd>
+              </Show>
+              <Show when={props.costUsd > 0}>
+                <dt>cost</dt>
+                <dd class="inspector__num">${props.costUsd.toFixed(4)}</dd>
+              </Show>
+            </dl>
+          </section>
+        </Show>
 
         <Show when={props.toolCalls.length > 0}>
           <section class="inspector__sect">
