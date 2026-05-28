@@ -53,6 +53,7 @@ import {
   McpPage,
   MemoryPage,
   MetricsPage,
+  PromptsPage,
   ToolsPage,
   WorkspacesPage,
 } from './discovery/index.js';
@@ -1110,6 +1111,7 @@ function ChatLayout(props: ChatLayoutProps) {
       { id: 'workspaces', label: 'Workspaces' },
       { id: 'agents', label: 'Agents' },
       { id: 'tools', label: 'Tools' },
+      { id: 'prompts', label: 'Prompts' },
       { id: 'mcp', label: 'MCP servers' },
       { id: 'memory', label: 'Memory' },
       { id: 'metrics', label: 'Metrics' },
@@ -1536,6 +1538,9 @@ function DiscoveryView(props: {
         </Match>
         <Match when={props.route === 'tools'}>
           <ToolsPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'prompts'}>
+          <PromptsPage client={props.client} />
         </Match>
         <Match when={props.route === 'mcp'}>
           <McpPage client={props.client} />
