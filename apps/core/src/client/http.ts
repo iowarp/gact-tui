@@ -405,6 +405,20 @@ export class Client {
     return this.get<HealthSnapshot>('/v1/health');
   }
 
+  /**
+   * GET /v1/capability-gaps — backend's self-declared "intentionally
+   * unsupported" or "future" capabilities. Per clio-agent develop
+   * (#353 capability-gap-metadata). Keys are capability names; values
+   * carry status/advertised/category/description metadata.
+   */
+  capabilityGaps(): Promise<{
+    capability_gaps: Record<string, Record<string, unknown>>;
+  }> {
+    return this.get<{
+      capability_gaps: Record<string, Record<string, unknown>>;
+    }>('/v1/capability-gaps');
+  }
+
   memoryStats(): Promise<MemoryStats> {
     return this.get<MemoryStats>('/v1/memory/stats');
   }

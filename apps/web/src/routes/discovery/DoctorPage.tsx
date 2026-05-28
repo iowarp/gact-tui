@@ -9,7 +9,18 @@ export interface DoctorPageProps {
 
 export function DoctorPage(props: DoctorPageProps) {
   const [data, { refetch }] = createResource(() => props.client.health());
+  const [gapsData] = createResource(() => props.client.capabilityGaps().catch(() => null));
   const integrations = () => data()?.integrations ?? [];
+  const gaps = () => {
+    const raw = gapsData()?.capability_gaps ?? {};
+    return Object.entries(raw).map(([name, details]) => ({
+      name,
+      status: (details.status as string) ?? 'unknown',
+      category: (details.category as string) ?? '',
+      description: (details.description as string) ?? '',
+      advertised: details.advertised === true,
+    }));
+  };
   return (
     <DiscoveryPage
       icon="doctor"
@@ -54,6 +65,29 @@ export function DoctorPage(props: DoctorPageProps) {
       <ul class="doc__list" data-testid="doctor-integrations">
         <For each={integrations()}>{(i) => <IntegrationRow i={i} />}</For>
       </ul>
+      <Show when={gaps().length > 0}>
+        <div class="dp__section-title">Capability gaps</div>
+        <ul class="doc__gaps" data-testid="doctor-gaps">
+          <For each={gaps()}>
+            {(g) => (
+              <li class="doc__gap" data-testid={`doctor-gap-${g.name}`}>
+                <div class="doc__gap-head">
+                  <span class="doc__gap-name">{g.name}</span>
+                  <span class={'dp__tag dp__tag--' + (g.status === 'unsupported' ? 'warn' : '')}>
+                    {g.status}
+                  </span>
+                  <Show when={g.category}>
+                    <span class="dp__tag">{g.category}</span>
+                  </Show>
+                </div>
+                <Show when={g.description}>
+                  <p class="doc__gap-desc">{g.description}</p>
+                </Show>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
     </DiscoveryPage>
   );
 }
