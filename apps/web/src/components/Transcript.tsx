@@ -1,6 +1,8 @@
 import { For, Show } from 'solid-js';
 import type { FileDiff, Message, Part } from '@clio/core';
+import { InlineMarkdown } from './InlineMarkdown.js';
 import './transcript.css';
+import './inline-markdown.css';
 
 export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
 
@@ -30,7 +32,11 @@ function PartView(props: {
 }) {
   const p = props.part;
   if (p.type === 'text') {
-    return <div class="trx-text">{p.text}</div>;
+    return (
+      <div class="trx-text">
+        <InlineMarkdown text={p.text ?? ''} />
+      </div>
+    );
   }
   if (p.type === 'thinking') {
     // SPEC §4.5 names the field `thinking`; we tolerate the harness
