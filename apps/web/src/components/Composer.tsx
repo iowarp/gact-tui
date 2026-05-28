@@ -69,8 +69,25 @@ export interface ComposerProps {
 export function Composer(props: ComposerProps = {}) {
   const [text, setText] = createSignal('');
   const [busy, setBusy] = createSignal(false);
+  const [stopping, setStopping] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [mentionHighlight, setMentionHighlight] = createSignal(0);
+
+  // Reset stopping state when streaming actually ends.
+  createEffect(() => {
+    if (!props.streaming) setStopping(false);
+  });
+
+  async function handleStop() {
+    if (stopping() || !props.onStop) return;
+    setStopping(true);
+    try {
+      await props.onStop();
+    } finally {
+      // Leave setStopping(true) — the createEffect above will flip it
+      // back to false once the streaming signal drops.
+    }
+  }
 
   // Per-session draft persistence. On draftKey change, save the
   // outgoing draft and load the incoming one. Survives reloads and
@@ -384,11 +401,15 @@ export function Composer(props: ComposerProps = {}) {
           >
             <button
               type="button"
-              class="composer__send composer__send--stop"
+              class={
+                'composer__send composer__send--stop ' +
+                (stopping() ? 'composer__send--stopping' : '')
+              }
               data-testid="composer-stop"
-              onClick={() => void props.onStop?.()}
-              aria-label="Stop generation"
-              title="Stop generation"
+              onClick={() => void handleStop()}
+              disabled={stopping()}
+              aria-label={stopping() ? 'Stopping…' : 'Stop generation'}
+              title={stopping() ? 'Stopping…' : 'Stop generation'}
             >
               <Icon name="stop" size={14} />
             </button>
