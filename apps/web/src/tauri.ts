@@ -50,3 +50,32 @@ export async function getBackend(): Promise<BackendHandle> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<BackendHandle>('get_backend');
 }
+
+export interface TunnelRequest {
+  host: string;
+  user: string;
+  remote_port: number;
+  key_path: string;
+  passphrase?: string;
+}
+
+export interface TunnelHandle {
+  local_url: string;
+  local_port: number;
+}
+
+/**
+ * Spawn `ssh -L <local_port>:127.0.0.1:<remote_port> user@host` via the
+ * Tauri shell. Returns the local URL the frontend should point its
+ * Client at. Rejects with the typed `TunnelError.to_string()` payload
+ * when ssh is missing / spawn fails / keychain write fails.
+ *
+ * Pure-web build: callers should guard via `inTauri()`.
+ */
+export async function openSshTunnel(req: TunnelRequest): Promise<TunnelHandle> {
+  if (!inTauri()) {
+    throw new Error('openSshTunnel() called outside Tauri shell');
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<TunnelHandle>('tunnel_open', { request: req });
+}
