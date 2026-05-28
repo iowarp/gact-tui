@@ -388,6 +388,26 @@ function LiveDriven(props: {
     setActiveId(created.id);
   }
 
+  async function importSession(blob: Record<string, unknown>) {
+    try {
+      const created = await live.client.importSession(blob);
+      live.refetch();
+      setActiveId(created.id);
+      toast.push({
+        tone: 'success',
+        title: 'Session imported',
+        body: created.title ?? created.id,
+        duration: 3000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Import failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   async function renameSession(id: string, nextTitle: string) {
     try {
       await live.client.patchSession(id, { title: nextTitle });
@@ -795,6 +815,7 @@ function LiveDriven(props: {
       onStop={stopRun}
       onNewSession={newEmptySession}
       onRefreshSessions={() => live.refetch()}
+      onImportSession={importSession}
       onRenameSession={renameSession}
       onDeleteSession={deleteSession}
       onExportSession={exportSession}
@@ -869,6 +890,8 @@ interface ChatLayoutProps {
   onPickWorkspace?: (id: string) => void;
   /** Manual refresh for the sessions list (LiveDriven path only). */
   onRefreshSessions?: () => void | Promise<void>;
+  /** Import a session from a JSON export (LiveDriven path only). */
+  onImportSession?: (blob: Record<string, unknown>) => void | Promise<void>;
   /** Per-session actions (LiveDriven path only). */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
@@ -1536,6 +1559,7 @@ function ChatLayout(props: ChatLayoutProps) {
           selectedWorkspaceId={props.selectedWorkspaceId}
           onPickWorkspace={props.onPickWorkspace}
           onRefresh={props.onRefreshSessions}
+          onImportSession={props.onImportSession}
           onRenameSession={props.onRenameSession}
           onDeleteSession={props.onDeleteSession}
           onExportSession={props.onExportSession}

@@ -523,3 +523,18 @@
   color: var(--color-heading);
   border-color: var(--color-border-30);
 }
+
+.sx__new-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.sx__new-row .sx__new {
+  flex: 1;
+}
+
+.sx__new--icon {
+  flex: 0 0 auto !important;
+  padding: 8px 10px;
+}
