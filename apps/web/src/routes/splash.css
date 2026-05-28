@@ -1,0 +1,112 @@
+.splash {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.splash__main {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 92vw);
+  padding: 24px;
+  text-align: center;
+}
+
+.splash__wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  background: linear-gradient(120deg, var(--color-accent) 0%, var(--color-accent-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.splash__sub {
+  margin-bottom: 32px;
+}
+
+.splash__spinner {
+  display: inline-flex;
+  gap: 8px;
+  margin: 24px 0 12px;
+}
+
+.splash__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent-cyan);
+  opacity: 0.35;
+  animation: splash-pulse 1.4s ease-in-out infinite;
+}
+
+.splash__dot:nth-child(2) {
+  animation-delay: 0.18s;
+  background: var(--color-accent);
+}
+
+.splash__dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes splash-pulse {
+  0%, 100% { transform: scale(0.7); opacity: 0.25; }
+  40%      { transform: scale(1.15); opacity: 1;   }
+}
+
+.splash__hint {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.splash__error {
+  margin-top: 32px;
+  padding: 20px;
+  text-align: left;
+  background: rgba(248, 113, 113, 0.05);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--radius-xl);
+}
+
+.splash__error-msg {
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  margin: 8px 0;
+  word-break: break-word;
+}
+
+.splash__error-hint {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  margin-top: 12px;
+}
+
+.splash__cmd {
+  display: block;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--color-accent-cyan);
+  word-break: break-all;
+  margin-top: 6px;
+}
+
+.splash__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 24px;
+}
