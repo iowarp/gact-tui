@@ -1570,18 +1570,31 @@ function ChatLayout(props: ChatLayoutProps) {
               </span>
             </Show>
             <Show when={(props.runningTools?.length ?? 0) > 0}>
-              <span
-                class="chat__meta-item chat__meta-item--running"
-                data-testid="running-tools-chip"
-                title={props.runningTools!.map((t) => t.toolName).join(', ')}
-              >
-                <span class="chat__running-dot" aria-hidden />
-                running · {props.runningTools!.slice(0, 2).map((t) => t.toolName).join(', ')}
-                <Show when={(props.runningTools?.length ?? 0) > 2}>
-                  {' +'}
-                  {props.runningTools!.length - 2}
-                </Show>
-              </span>
+              {(() => {
+                const tools = props.runningTools!;
+                const first = tools[0];
+                const pct =
+                  first?.progress != null ? Math.round(first.progress * 100) : null;
+                return (
+                  <span
+                    class="chat__meta-item chat__meta-item--running"
+                    data-testid="running-tools-chip"
+                    title={tools
+                      .map((t) => `${t.toolName}${t.progressMessage ? ' — ' + t.progressMessage : ''}`)
+                      .join('\n')}
+                  >
+                    <span class="chat__running-dot" aria-hidden />
+                    running · {tools.slice(0, 2).map((t) => t.toolName).join(', ')}
+                    <Show when={pct != null}>
+                      {' '}{pct}%
+                    </Show>
+                    <Show when={tools.length > 2}>
+                      {' +'}
+                      {tools.length - 2}
+                    </Show>
+                  </span>
+                );
+              })()}
             </Show>
             <Show when={props.selectedModelId && props.models?.length}>
               {(() => {
