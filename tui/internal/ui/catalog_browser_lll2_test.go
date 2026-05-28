@@ -205,7 +205,7 @@ func TestLoadAgentsCatalogIncludesChildAgents(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msg := loadCatalogBrowserCmd(client.New(server.URL), catalogKindAgents)()
+	msg := loadCatalogBrowserCmd(client.New(server.URL), catalogKindAgents, client.RuntimeScope{})()
 	loaded, ok := msg.(catalogBrowserLoadedMsg)
 	if !ok {
 		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
@@ -376,7 +376,7 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msg := loadMcpDetailCmd(client.New(server.URL), "mcp_adios")()
+	msg := loadMcpDetailCmd(client.New(server.URL), client.RuntimeScope{}, "mcp_adios")()
 	loaded, ok := msg.(catalogBrowserLoadedMsg)
 	if !ok {
 		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
@@ -432,7 +432,7 @@ func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msg := loadAgentDetailCmd(client.New(server.URL), "data")()
+	msg := loadAgentDetailCmd(client.New(server.URL), "data", client.RuntimeScope{})()
 	loaded, ok := msg.(catalogBrowserLoadedMsg)
 	if !ok {
 		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
@@ -534,7 +534,7 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msg := loadToolDetailCmd(client.New(server.URL), "shell_bash")()
+	msg := loadToolDetailCmd(client.New(server.URL), client.RuntimeScope{}, "shell_bash")()
 	detail, ok := msg.(catalogDetailLoadedMsg)
 	if !ok {
 		t.Fatalf("message type = %T, want catalogDetailLoadedMsg", msg)

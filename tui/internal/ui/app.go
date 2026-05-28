@@ -766,7 +766,9 @@ func connectCmd(c *client.Client) tea.Cmd {
 				return errMsg{err: err, stage: "sessions"}
 			}
 		}
-		commands, _ := c.ListCommands(ctx)
+		commands, _ := c.ListCommandsScoped(ctx, client.CommandFilter{
+			RuntimeScope: client.RuntimeScope{WorkspaceID: wsID},
+		})
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
 	}
 }
@@ -775,10 +777,14 @@ func connectCmd(c *client.Client) tea.Cmd {
 // sessionID is optional (pass "" for global-only). Errors land as a
 // transient hint rather than blowing up — stats are decorative.
 func memoryStatsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return memoryStatsScopedCmd(c, client.RuntimeScope{SessionID: sessionID})
+}
+
+func memoryStatsScopedCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		stats, err := c.MemoryStats(ctx, sessionID)
+		stats, err := c.MemoryStatsScoped(ctx, scope)
 		if err != nil {
 			return errMsg{err: err, stage: "memory_stats"}
 		}
@@ -1150,7 +1156,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// memory, pull an initial snapshot so the footer chip paints
 		// right away. Session-scoped refresh happens on status_changed.
 		if a.caps.Capabilities.Memory {
-			cmds = append(cmds, memoryStatsCmd(a.c, ""))
+			cmds = append(cmds, memoryStatsScopedCmd(a.c, client.RuntimeScope{WorkspaceID: a.wsID}))
 		}
 		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
 		// whether the backend exposes runtime LM config + whether
@@ -1788,7 +1794,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// fetch per turn completion, no extra polling.
 		if a.caps.Capabilities.Memory &&
 			prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
-			cmds = append(cmds, memoryStatsCmd(a.c, a.currentSessionID()))
+			cmds = append(cmds, memoryStatsScopedCmd(a.c, a.runtimeScope()))
 		}
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
@@ -1915,7 +1921,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.transientHint = "saved prompt profile " + m.profile
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindPromptDetail && a.catalogBrowser.promptID == m.promptID {
-			cmd = loadPromptDetailCmd(a.c, m.promptID)
+			cmd = loadPromptDetailCmd(a.c, m.promptID, a.runtimeScope())
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
@@ -2864,7 +2870,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if cmd.ID == "/agent" || cmd.ID == "/agents" {
 				a.settingsOpen = true
 				a.settings = &settingsState{tab: 1}
-				return a, loadSettingsCmd(a.c)
+				return a, loadSettingsCmd(a.c, a.runtimeScope())
 			}
 
 			// /theme-next and /theme-prev cycle the palette without
@@ -2890,7 +2896,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					a.transientHint = "memory inspector unsupported by this backend"
 					return a, scheduleHintExpire(a.transientHint)
 				}
-				return a, loadMemoryInspectorCmd(a.c, a.currentSessionID(), a.messages)
+				return a, loadMemoryInspectorCmd(a.c, a.runtimeScope(), a.messages)
 			}
 			if cmd.ID == "/permissions" {
 				if !a.caps.Capabilities.Permissions {
@@ -5165,6 +5171,13 @@ func (a *App) currentSessionID() string {
 	return a.sessions[a.selected].ID
 }
 
+func (a *App) runtimeScope() client.RuntimeScope {
+	return client.RuntimeScope{
+		WorkspaceID: a.wsID,
+		SessionID:   a.currentSessionID(),
+	}
+}
+
 func (a *App) sessionIndexByID(id string) int {
 	for i, s := range a.sessions {
 		if s.ID == id {
@@ -7407,7 +7420,7 @@ func (a *App) openSettingsTab(tab int) tea.Cmd {
 	a.settingsOpen = true
 	a.settings = &settingsState{tab: tab}
 	a.seedSettingsSelections()
-	return loadSettingsCmd(a.c)
+	return loadSettingsCmd(a.c, a.runtimeScope())
 }
 
 func (a *App) focusNextPane() {
@@ -7660,7 +7673,7 @@ func (a *App) registerFooterActionHits(rendered string) {
 		if !app.caps.Capabilities.Memory {
 			return nil
 		}
-		return loadMemoryInspectorCmd(app.c, app.currentSessionID(), app.messages)
+		return loadMemoryInspectorCmd(app.c, app.runtimeScope(), app.messages)
 	})
 	a.registerFooterActionHit(plain, y, "footer:pane", "Tab", a.localizer.t(msgFooterPane, nil), func(app *App) tea.Cmd {
 		app.focusNextPane()
@@ -9481,6 +9494,29 @@ func paletteCommandSubtitle(c gact.Command) string {
 			return c.Status + " · " + reason
 		}
 		return c.Status
+	}
+	policy := make([]string, 0, 5)
+	if c.UserInvocable != nil {
+		if *c.UserInvocable {
+			policy = append(policy, "user")
+		} else {
+			policy = append(policy, "not-user")
+		}
+	}
+	if c.AgentInvocable != nil && *c.AgentInvocable {
+		policy = append(policy, "agent")
+	}
+	if c.PlannerVisible != nil && *c.PlannerVisible {
+		policy = append(policy, "planner")
+	}
+	if c.AgentID != "" {
+		policy = append(policy, "owner: "+c.AgentID)
+	}
+	if c.ArgumentHint != "" {
+		policy = append(policy, "args: "+c.ArgumentHint)
+	}
+	if len(policy) > 0 {
+		return strings.Join(policy, " · ")
 	}
 	if desc != "" && !samePaletteCommandText(desc, id) && !samePaletteCommandText(desc, title) {
 		return desc

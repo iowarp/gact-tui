@@ -93,7 +93,7 @@ type catalogDetailLoadedMsg struct {
 	standalone bool
 }
 
-func loadToolDetailCmd(c *client.Client, toolID string) tea.Cmd {
+func loadToolDetailCmd(c *client.Client, scope client.RuntimeScope, toolID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -101,7 +101,7 @@ func loadToolDetailCmd(c *client.Client, toolID string) tea.Cmd {
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Tool · " + toolID, err: err}
 		}
-		agents, _ := c.ListAgents(ctx)
+		agents, _ := c.ListAgentsScoped(ctx, scope)
 		return catalogDetailLoadedMsg{
 			title: "Tool · " + firstNonEmpty(tool.Title, tool.Name, tool.ID),
 			text:  formatToolDetailWithAgents(tool, agents),
@@ -132,7 +132,7 @@ func plural(n int) string {
 }
 
 // loadCatalogBrowserCmd dispatches the right fetch based on kind.
-func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
+func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -200,7 +200,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			// source="skill" — no dedicated namespace. Both verbs
 			// hit /v1/agents; skills filter to source=skill, agents
 			// shows everything.
-			agents, err := c.ListAgents(ctx)
+			agents, err := c.ListAgentsScoped(ctx, scope)
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
@@ -214,7 +214,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind) tea.Cmd {
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
 		case catalogKindPrompts:
-			prompts, err := c.ListPrompts(ctx)
+			prompts, err := c.ListPromptsScoped(ctx, scope)
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
@@ -235,7 +235,7 @@ func (a *App) openPromptDetail(promptID, promptTitle string) tea.Cmd {
 		promptID: promptID,
 		parent:   parent,
 	}
-	return loadPromptDetailCmd(a.c, promptID)
+	return loadPromptDetailCmd(a.c, promptID, a.runtimeScope())
 }
 
 // openCatalogBrowser pops the modal for a given kind and starts the
@@ -248,7 +248,7 @@ func (a *App) openCatalogBrowser(kind catalogBrowserKind) tea.Cmd {
 		title:   catalogBrowserTitle(kind),
 		loading: true,
 	}
-	return loadCatalogBrowserCmd(a.c, kind)
+	return loadCatalogBrowserCmd(a.c, kind, a.runtimeScope())
 }
 
 // openMcpDetail pushes a new browser state showing one server's
@@ -263,7 +263,7 @@ func (a *App) openMcpDetail(serverID, serverName string) tea.Cmd {
 		mcpServerID: serverID,
 		parent:      parent,
 	}
-	return loadMcpDetailCmd(a.c, serverID)
+	return loadMcpDetailCmd(a.c, a.runtimeScope(), serverID)
 }
 
 func (a *App) openAgentDetail(agentID, agentTitle string) tea.Cmd {
@@ -279,20 +279,20 @@ func (a *App) openAgentDetail(agentID, agentTitle string) tea.Cmd {
 		agentID: agentID,
 		parent:  parent,
 	}
-	return loadAgentDetailCmd(a.c, agentID)
+	return loadAgentDetailCmd(a.c, agentID, a.runtimeScope())
 }
 
 // loadMcpDetailCmd fetches tools, resources, and prompts for one MCP
 // server in parallel and merges them into a single list with type
 // prefixes (`[tool]` / `[res]` / `[prompt]`). Failures per slice are
 // surfaced inline rather than aborting — partial data is still useful.
-func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
+func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		var items []catalogItem
 		var errs []string
-		agents, _ := c.ListAgents(ctx)
+		agents, _ := c.ListAgentsScoped(ctx, scope)
 
 		if tools, err := c.McpServerTools(ctx, serverID); err != nil {
 			errs = append(errs, "tools: "+err.Error())
@@ -351,17 +351,17 @@ func loadMcpDetailCmd(c *client.Client, serverID string) tea.Cmd {
 	}
 }
 
-func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
+func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		agent, err := c.GetAgent(ctx, agentID)
+		agent, err := c.GetAgentScoped(ctx, agentID, scope)
 		if err != nil {
 			return catalogBrowserLoadedMsg{
 				kind: catalogKindAgentDetail, errText: err.Error(), mcpServerID: agentID,
 			}
 		}
-		allAgents, _ := c.ListAgents(ctx)
+		allAgents, _ := c.ListAgentsScoped(ctx, scope)
 		allTools, _ := c.ListTools(ctx)
 		visibleTools := toolsForAgent(agent, allTools)
 		items := []catalogItem{{
@@ -437,11 +437,11 @@ func loadAgentDetailCmd(c *client.Client, agentID string) tea.Cmd {
 	}
 }
 
-func loadPromptDetailCmd(c *client.Client, promptID string) tea.Cmd {
+func loadPromptDetailCmd(c *client.Client, promptID string, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		prompts, err := c.ListPrompts(ctx)
+		prompts, err := c.ListPromptsScoped(ctx, scope)
 		if err != nil {
 			return catalogBrowserLoadedMsg{kind: catalogKindPromptDetail, errText: err.Error(), promptID: promptID}
 		}
@@ -484,11 +484,11 @@ func loadPromptDetailCmd(c *client.Client, promptID string) tea.Cmd {
 	}
 }
 
-func loadPromptResolvedDetailCmd(c *client.Client, promptID, profile string) tea.Cmd {
+func loadPromptResolvedDetailCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		prompt, err := c.GetPrompt(ctx, promptID, profile)
+		prompt, err := c.GetPromptScoped(ctx, promptID, profile, scope)
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Prompt · " + promptID, err: err}
 		}
@@ -499,15 +499,15 @@ func loadPromptResolvedDetailCmd(c *client.Client, promptID, profile string) tea
 	}
 }
 
-func savePromptProfileCmd(c *client.Client, promptID, sourceProfile, targetProfile string) tea.Cmd {
+func savePromptProfileCmd(c *client.Client, scope client.RuntimeScope, promptID, sourceProfile, targetProfile string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		prompt, err := c.GetPrompt(ctx, promptID, sourceProfile)
+		prompt, err := c.GetPromptScoped(ctx, promptID, sourceProfile, scope)
 		if err != nil {
 			return promptSavedMsg{promptID: promptID, profile: targetProfile, err: err}
 		}
-		_, err = c.SavePrompt(ctx, promptID, gact.PromptSaveRequest{
+		_, err = c.SavePromptScoped(ctx, promptID, gact.PromptSaveRequest{
 			Profile:     targetProfile,
 			Title:       prompt.Title,
 			Description: prompt.Description,
@@ -518,7 +518,7 @@ func savePromptProfileCmd(c *client.Client, promptID, sourceProfile, targetProfi
 				"copied_from_profile": sourceProfile,
 				"saved_by":            "gact-tui",
 			},
-		})
+		}, scope)
 		return promptSavedMsg{promptID: promptID, profile: targetProfile, err: err}
 	}
 }
@@ -604,13 +604,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
-			return a, loadToolDetailCmd(a.c, it.id)
+			return a, loadToolDetailCmd(a.c, a.runtimeScope(), it.id)
 		}
 		if cb.kind == catalogKindMcpDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			switch {
 			case strings.HasPrefix(it.id, "tool/"):
-				return a, loadToolDetailCmd(a.c, strings.TrimPrefix(it.id, "tool/"))
+				return a, loadToolDetailCmd(a.c, a.runtimeScope(), strings.TrimPrefix(it.id, "tool/"))
 			case strings.HasPrefix(it.id, "res/"):
 				uri := strings.TrimPrefix(it.id, "res/")
 				return a, loadMcpResourceDetailCmd(a.c, cb.mcpServerID, uri, it.title)
@@ -629,7 +629,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
 			}
 			if strings.HasPrefix(it.id, "tool/") {
-				return a, loadToolDetailCmd(a.c, strings.TrimPrefix(it.id, "tool/"))
+				return a, loadToolDetailCmd(a.c, a.runtimeScope(), strings.TrimPrefix(it.id, "tool/"))
 			}
 			if strings.HasPrefix(it.id, "mcpserver/") {
 				serverID := strings.TrimPrefix(it.id, "mcpserver/")
@@ -646,7 +646,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			it := cb.items[cb.sel]
 			if strings.HasPrefix(it.id, "profile/") {
 				profile := strings.TrimPrefix(it.id, "profile/")
-				return a, loadPromptResolvedDetailCmd(a.c, cb.promptID, profile)
+				return a, loadPromptResolvedDetailCmd(a.c, a.runtimeScope(), cb.promptID, profile)
 			}
 			text := strings.TrimSpace(it.desc)
 			if text == "" {
@@ -671,7 +671,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			it := cb.items[cb.sel]
 			if strings.HasPrefix(it.id, "profile/") {
 				profile := strings.TrimPrefix(it.id, "profile/")
-				return a, savePromptProfileCmd(a.c, cb.promptID, profile, "codex")
+				return a, savePromptProfileCmd(a.c, a.runtimeScope(), cb.promptID, profile, "codex")
 			}
 		}
 	case "o":
@@ -694,7 +694,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			it := cb.items[cb.sel]
 			if strings.HasPrefix(it.id, "profile/") {
 				profile := strings.TrimPrefix(it.id, "profile/")
-				return a, loadPromptEditCmd(a.c, cb.promptID, profile)
+				return a, loadPromptEditCmd(a.c, a.runtimeScope(), cb.promptID, profile)
 			}
 		}
 	case "up", "k":
@@ -1141,8 +1141,8 @@ func agentPromptResolutionDescription(agent gact.AgentDef) string {
 		}
 	}
 	if len(parts) == 0 {
-		promptID := firstNonEmpty(stringFromMetadata(agent.Metadata, "prompt_id"), stringFromMetadata(agent.Metadata, "prompt"))
-		profile := stringFromMetadata(agent.Metadata, "prompt_profile")
+		promptID := firstNonEmpty(agent.PromptID, stringFromMetadata(agent.Metadata, "prompt_id"), stringFromMetadata(agent.Metadata, "prompt"))
+		profile := firstNonEmpty(agent.PromptProfile, stringFromMetadata(agent.Metadata, "prompt_profile"))
 		if promptID != "" {
 			parts = append(parts, "id: "+promptID)
 		}
@@ -1154,6 +1154,9 @@ func agentPromptResolutionDescription(agent gact.AgentDef) string {
 }
 
 func agentParentID(agent gact.AgentDef) string {
+	if agent.ParentID != "" {
+		return agent.ParentID
+	}
 	if parent := stringFromMetadata(agent.Metadata, "parent"); parent != "" {
 		return parent
 	}
@@ -1249,8 +1252,13 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 	if len(agent.Tools) > 0 {
 		parts = append(parts, fmt.Sprintf("%d tools", len(agent.Tools)))
 	}
+	if len(agent.Commands) > 0 {
+		parts = append(parts, fmt.Sprintf("%d commands", len(agent.Commands)))
+	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)
+	} else if firstNonEmpty(agent.DefaultModelName, agent.DefaultProvider) != "" {
+		parts = append(parts, "model: "+firstNonEmpty(agent.DefaultModelName, agent.DefaultProvider))
 	}
 	if desc := compactCatalogText(agent.Description); desc != "" {
 		parts = append(parts, desc)
@@ -1303,10 +1311,19 @@ func agentTitleByID(agents []gact.AgentDef, id string) string {
 }
 
 func agentModelText(agent gact.AgentDef) string {
-	if agent.DefaultModel == nil {
+	if agent.DefaultModel == nil && agent.DefaultProvider == "" && agent.DefaultModelName == "" {
 		return "backend/session default"
 	}
 	parts := make([]string, 0, 3)
+	if agent.DefaultProvider != "" {
+		parts = append(parts, "provider: "+agent.DefaultProvider)
+	}
+	if agent.DefaultModelName != "" {
+		parts = append(parts, "model: "+agent.DefaultModelName)
+	}
+	if agent.DefaultModel == nil {
+		return strings.Join(parts, " · ")
+	}
 	if agent.DefaultModel.ProviderID != "" {
 		parts = append(parts, "provider: "+agent.DefaultModel.ProviderID)
 	}
