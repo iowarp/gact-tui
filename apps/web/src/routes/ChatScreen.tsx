@@ -328,6 +328,8 @@ function LiveDriven(props: {
       await live.client.deleteSession(id);
       live.setRaw((prev) => prev.filter((r) => r.id !== id));
       if (activeId() === id) setActiveId('');
+      try { localStorage.removeItem(`clio.draft.${id}`); }
+      catch { /* ignore */ }
       toast.push({ tone: 'success', title: 'Session deleted', duration: 2200 });
     } catch (e) {
       toast.push({
@@ -1335,6 +1337,7 @@ function ChatLayout(props: ChatLayoutProps) {
           onPickModel={props.onPickModel}
           permMode={props.permMode}
           onPickPermMode={props.onPickPermMode}
+          draftKey={props.activeId || '__new'}
           backendSlot={
             <BackendPicker
               onOpenSettings={props.onOpenSettings}

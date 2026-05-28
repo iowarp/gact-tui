@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Icon } from './Icon.js';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
@@ -56,6 +56,14 @@ export interface ComposerProps {
    * command palette.
    */
   onSlashTyped?: () => void;
+
+  /**
+   * Identifier that scopes a per-session localStorage draft. When the
+   * key changes (user switches sessions), the current draft is
+   * flushed under the old key and the new one is loaded into the
+   * textarea. Drafts are cleared on successful submit.
+   */
+  draftKey?: string;
 }
 
 export function Composer(props: ComposerProps = {}) {
@@ -63,6 +71,53 @@ export function Composer(props: ComposerProps = {}) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [mentionHighlight, setMentionHighlight] = createSignal(0);
+
+  // Per-session draft persistence. On draftKey change, save the
+  // outgoing draft and load the incoming one. Survives reloads and
+  // session switches.
+  let lastKey: string | undefined;
+  const storageKey = (k: string) => `clio.draft.${k}`;
+  createEffect(() => {
+    const key = props.draftKey;
+    if (typeof window === 'undefined') return;
+    if (lastKey && lastKey !== key) {
+      const outgoing = text();
+      if (outgoing) {
+        try { localStorage.setItem(storageKey(lastKey), outgoing); }
+        catch { /* quota / private mode — ignore */ }
+      } else {
+        try { localStorage.removeItem(storageKey(lastKey)); }
+        catch { /* ignore */ }
+      }
+    }
+    if (key) {
+      try {
+        const restored = localStorage.getItem(storageKey(key)) ?? '';
+        setText(restored);
+      } catch {
+        setText('');
+      }
+    } else if (!lastKey) {
+      // First mount without a key — leave whatever is in the box.
+    } else {
+      setText('');
+    }
+    lastKey = key;
+  });
+
+  // Live persist every keystroke so a crash/reload doesn't lose text.
+  // Throttle is unnecessary — localStorage writes <1KB are cheap.
+  createEffect(() => {
+    const key = props.draftKey;
+    const cur = text();
+    if (typeof window === 'undefined' || !key) return;
+    try {
+      if (cur) localStorage.setItem(storageKey(key), cur);
+      else localStorage.removeItem(storageKey(key));
+    } catch {
+      /* ignore */
+    }
+  });
 
   // Picker state — controlled when parent provides a value, else local.
   const [localPerm, setLocalPerm] = createSignal<PermissionMode>('ask');
