@@ -840,6 +840,17 @@ function ChatLayout(props: ChatLayoutProps) {
         setCurrentMatchIdx(0);
         return;
       }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 's' &&
+        onChat() &&
+        props.activeId &&
+        props.onExportSession
+      ) {
+        e.preventDefault();
+        void props.onExportSession(props.activeId);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         void props.onNewSession?.();
