@@ -1,4 +1,4 @@
-import { createSignal, Show } from 'solid-js';
+import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { useBackendRegistry } from '../registry.js';
 import { Client, type BackendEntry } from '@clio/core';
 import { inTauri } from '../tauri.js';
@@ -35,6 +35,18 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
 
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+
+  // Esc cancels.
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        props.onCancel();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  });
 
   async function save() {
     setError(null);
