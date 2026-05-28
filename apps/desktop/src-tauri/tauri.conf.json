@@ -33,7 +33,11 @@
     "shortDescription": "CLIO Desktop — multi-backend agentic-coder UI",
     "longDescription": "CLIO Desktop is the Tauri-shell wrapper for the @clio/web frontend. It speaks the GACT v0.2 contract, manages SSH-tunneled multi-backend access via the OS keychain, and ships native installers per platform.",
     "icon": [
-      "icons/icon.png"
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
     ]
   }
 }
