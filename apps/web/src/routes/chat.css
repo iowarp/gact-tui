@@ -359,3 +359,22 @@
   0%,100% { opacity: 0.35; transform: scale(0.85); }
   40%     { opacity: 1; transform: scale(1.15); }
 }
+
+.chat__empty-tip {
+  margin-top: 24px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+.chat__empty-kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-heading);
+}
