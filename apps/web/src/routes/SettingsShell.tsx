@@ -364,11 +364,23 @@ function AboutSection() {
             <a href="https://github.com/iowarp/gact-tui" target="_blank" rel="noreferrer">
               github.com/iowarp/gact-tui
             </a>
+            <span class="settings-shell__link-detail">desktop + emulator + TUI</span>
           </li>
           <li>
             <a href="https://github.com/iowarp/clio-agent" target="_blank" rel="noreferrer">
               github.com/iowarp/clio-agent
             </a>
+            <span class="settings-shell__link-detail">GACT v0.2 backend</span>
+          </li>
+          <li>
+            <a
+              href="https://github.com/iowarp/gact-tui/blob/main/contract/SPEC.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GACT v0.2 protocol spec
+            </a>
+            <span class="settings-shell__link-detail">canonical wire contract</span>
           </li>
         </ul>
       </div>
