@@ -50,6 +50,33 @@ When all three are clear: push tag `clio-desktop-v0.9.1` from
 .rpm, pure-web .zip, SHA256SUMS per triple, attached to a fresh
 GitHub Release via softprops/action-gh-release@v2).
 
+## v0.9.1 polish landed since the v0.9.0 cut
+
+Visual-proof suite (28 PNGs, Playwright + live sidecar) passes after
+every step below — `pnpm --filter @clio/web test:visual` is green.
+
+- Reading column widens from 760→960px when the inspector is
+  collapsed so it doesn't leave a stranded right gutter. (a942e26)
+- Cmd+K palette grew dynamic items: `jump:<sid>` per session,
+  `perm:<mode>`, `rail:<route>`, new-session, copy-session-id,
+  cycle-density, toggle-inspector. (327af56)
+- Ctrl+Shift+Up/Down cycles through sessions, wrapping at both ends.
+  (8fd72e8)
+- SSE auto-reconnect with explicit 1/2/5/10s backoff ladder; topbar
+  shows `sse · reconnecting in Ns` countdown. (6007513)
+- Regenerate now toasts the prompt being re-sent and refuses while a
+  stream is in flight. (708ce1d)
+- Sticky "Jump to latest" pill counts new SSE messages while the
+  user reads history. (be89664)
+- Thinking parts show `Thought for ~N words · click to expand` with
+  a sparkle icon. (cc629cb)
+- Errored turns surface a red callout with the typed error code +
+  message + Retry button when `error_info.recoverable`. (aaf6257)
+- Cmd+/ opens a keyboard shortcuts cheatsheet (Navigation /
+  Composer / View). (01dac66)
+- Live tool indicator chip in the topbar — `running · grep, bash +N`
+  driven by `tool.call.started/completed` SSE events. (4d52bf9)
+
 ## Phase status
 
 ## Current state
