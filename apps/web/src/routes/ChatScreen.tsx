@@ -468,6 +468,15 @@ function LiveDriven(props: {
   async function regenerateMessage(msg: Message) {
     const id = activeId();
     if (!id) return;
+    if (streaming()) {
+      toast.push({
+        tone: 'warn',
+        title: 'Already streaming',
+        body: 'Wait for the current turn to finish before regenerating.',
+        duration: 2500,
+      });
+      return;
+    }
     // Find the user message immediately before msg, re-send its text.
     const msgs = transcript.messages();
     const idx = msgs.findIndex((m) => m.id === msg.id);
@@ -476,10 +485,30 @@ function LiveDriven(props: {
       if (candidate?.role !== 'user') continue;
       const textPart = candidate.parts.find((p) => p.type === 'text');
       if (textPart && textPart.type === 'text' && textPart.text) {
-        await live.client.sendMessage(id, { text: textPart.text });
+        toast.push({
+          tone: 'info',
+          title: 'Regenerating',
+          body: `Re-sending: "${textPart.text.slice(0, 60)}${textPart.text.length > 60 ? '…' : ''}"`,
+          duration: 2200,
+        });
+        try {
+          await live.client.sendMessage(id, { text: textPart.text });
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Regenerate failed',
+            body: e instanceof Error ? e.message : String(e),
+          });
+        }
         return;
       }
     }
+    toast.push({
+      tone: 'warn',
+      title: 'Nothing to regenerate',
+      body: 'No prior user message found above this turn.',
+      duration: 2500,
+    });
   }
 
   function editMessage(msg: Message) {
