@@ -1,0 +1,135 @@
+name: apps
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feat/apps-harness
+      - feat/apps-**
+    paths:
+      - 'apps/**'
+      - '.github/workflows/apps.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - '.github/workflows/apps.yml'
+
+env:
+  PNPM_VERSION: '9.15.9'
+  NODE_VERSION: '20.x'
+
+jobs:
+  ci:
+    name: lint · typecheck · test · build · visual
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Unit tests
+        run: pnpm -r test
+
+      - name: Build @clio/web
+        run: pnpm --filter @clio/web build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @clio/web exec playwright install --with-deps chromium
+
+      - name: Visual tests
+        run: pnpm --filter @clio/web test:visual
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-screenshots
+          path: apps/web/screenshots/
+          if-no-files-found: warn
+
+  tauri-debug:
+    name: tauri build (debug, no bundle)
+    needs: ci
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    defaults:
+      run:
+        working-directory: apps
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo target
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/desktop/src-tauri/target/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            ${{ matrix.os }}-cargo-
+
+      - name: Linux deps for Tauri
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            patchelf
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build web (Tauri frontend)
+        run: pnpm --filter @clio/web build
+
+      - name: Tauri debug build
+        run: pnpm --filter @clio/desktop tauri:build:debug
