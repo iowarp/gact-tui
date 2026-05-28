@@ -85,6 +85,9 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
               </ListTag>
             );
           }
+          if (b.kind === 'hr') {
+            return <hr class="im__hr" />;
+          }
           if (b.kind === 'quote') {
             return (
               <blockquote class="im__quote">
@@ -204,7 +207,8 @@ type Block =
   | { kind: 'heading'; level: 1 | 2 | 3; body: string }
   | { kind: 'list'; ordered: boolean; items: string[] }
   | { kind: 'table'; header: string[]; rows: string[][] }
-  | { kind: 'quote'; body: string };
+  | { kind: 'quote'; body: string }
+  | { kind: 'hr' };
 
 function splitBlocks(text: string): Block[] {
   const out: Block[] = [];
@@ -237,6 +241,14 @@ function splitBlocks(text: string): Block[] {
       }
       if (i < lines.length) i++;
       out.push({ kind: 'code', lang, body: body.join('\n') });
+      continue;
+    }
+
+    // Horizontal rule: a line with only three or more - / * / _.
+    if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+      flushPara();
+      out.push({ kind: 'hr' });
+      i++;
       continue;
     }
 
