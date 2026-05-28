@@ -16,6 +16,7 @@ export interface TranscriptProps {
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
   /** Currently-focused message id (drives the Inspector). */
   selectedId?: string;
@@ -218,6 +219,7 @@ function MessageView(props: {
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
@@ -302,6 +304,25 @@ function MessageView(props: {
               onClick={() => props.onQuote?.(props.msg)}
             >
               <Icon name="branch" size={12} />
+            </button>
+          </Show>
+          <Show when={props.onDelete}>
+            <button
+              type="button"
+              class="trx-msg__action trx-msg__action--danger"
+              title="Delete message"
+              data-testid={`msg-delete-${props.msg.id}`}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Delete this message? The rest of the conversation will be re-numbered around it.',
+                  )
+                ) {
+                  props.onDelete?.(props.msg);
+                }
+              }}
+            >
+              <Icon name="close" size={12} />
             </button>
           </Show>
         </span>

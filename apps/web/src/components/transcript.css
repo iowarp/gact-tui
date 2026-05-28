@@ -431,3 +431,8 @@
   color: var(--color-accent-cyan);
   border-color: var(--color-accent-cyan);
 }
+
+.trx-msg__action--danger:hover {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
