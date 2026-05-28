@@ -29,9 +29,15 @@ func loadMemoryInspectorCmd(c *client.Client, sessionID string, messages []gact.
 				search = &resp
 			}
 		}
+		var frames []map[string]any
+		if sessionID != "" {
+			if resp, frameErr := c.ListContextFrames(ctx, sessionID, 5); frameErr == nil {
+				frames = resp.Frames
+			}
+		}
 		return catalogDetailLoadedMsg{
 			title:      "Memory · ARC context",
-			text:       formatMemoryInspectorWithSearch(stats, sessionMessages, search),
+			text:       formatMemoryInspectorWithContext(stats, sessionMessages, search, frames),
 			standalone: true,
 		}
 	}
@@ -46,6 +52,10 @@ func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.M
 }
 
 func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse) string {
+	return formatMemoryInspectorWithContext(stats, messages, search, nil)
+}
+
+func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
 	rows := appendDetailSection(nil, "ARC cache",
 		detailField{"role", "recent-context retrieval cache"},
@@ -100,6 +110,9 @@ func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Mes
 			rows = append(rows, detailFieldRows(label, hit.Text)...)
 		}
 	}
+	if len(frames) > 0 {
+		rows = appendContextFrameRows(rows, frames)
+	}
 	rows = appendDetailSection(rows, "Compaction",
 		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
@@ -114,6 +127,110 @@ func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Mes
 		rows = appendJSONMapSection(rows, "metadata", stats.Metadata)
 	}
 	return strings.Join(rows, "\n")
+}
+
+func appendContextFrameRows(rows []string, frames []map[string]any) []string {
+	latest := frames[len(frames)-1]
+	items := contextFrameItems(latest)
+	messageItems, fileItems, errorItems := 0, 0, 0
+	for _, item := range items {
+		switch stringValue(item["kind"]) {
+		case "message":
+			messageItems++
+		case "context_file":
+			fileItems++
+		}
+		if included, ok := item["included"].(bool); ok && !included {
+			errorItems++
+		}
+	}
+	rows = appendDetailSection(rows, "Context frame",
+		detailField{"frame_id", stringValue(latest["id"])},
+		detailField{"status", stringValue(latest["status"])},
+		detailField{"turn", firstNonEmpty(stringValue(latest["turn_id"]), stringValue(latest["user_message_id"]))},
+		detailField{"assistant_message", stringValue(latest["assistant_message_id"])},
+		detailField{"tokens_estimated", scalarText(latest["tokens_estimated"])},
+		detailField{"items", fmt.Sprintf("%d messages · %d files · %d excluded", messageItems, fileItems, errorItems)},
+	)
+	if agent := mapValue(latest["agent"]); len(agent) > 0 {
+		if summary := contextMapSummary(agent, "id", "mode", "routing_mode", "session_mode", "edit_mode"); summary != "" {
+			rows = append(rows, detailFieldRows("agent", summary)...)
+		}
+	}
+	if prompt := mapValue(latest["prompt"]); len(prompt) > 0 {
+		if summary := contextMapSummary(prompt, "id", "profile", "source", "checksum"); summary != "" {
+			rows = append(rows, detailFieldRows("prompt", summary)...)
+		}
+	}
+	if model := mapValue(latest["model"]); len(model) > 0 {
+		if summary := contextMapSummary(model, "provider_id", "model_id", "variant"); summary != "" {
+			rows = append(rows, detailFieldRows("model", summary)...)
+		}
+	}
+	for i, item := range items {
+		if i >= 6 {
+			rows = append(rows, detailFieldRows("more_items", fmt.Sprintf("%d hidden", len(items)-i))...)
+			break
+		}
+		label := firstNonEmpty(stringValue(item["kind"]), "item")
+		if source := firstNonEmpty(stringValue(item["display_path"]), stringValue(item["path"]), stringValue(item["source_id"])); source != "" {
+			label += " · " + source
+		}
+		body := []string{
+			"included: " + scalarText(item["included"]),
+			"reason: " + stringValue(item["reason"]),
+			"tokens: " + scalarText(item["tokens_estimated"]),
+		}
+		if role := stringValue(item["role"]); role != "" {
+			body = append(body, "role: "+role)
+		}
+		rows = append(rows, detailFieldRows(label, strings.Join(body, "\n"))...)
+	}
+	if metadata := mapValue(latest["metadata"]); len(metadata) > 0 {
+		rows = append(rows, detailFieldRows("frame_metadata", contextMapSummary(metadata, "retained_context_source", "token_estimate", "context_file_injected_chars"))...)
+	}
+	return rows
+}
+
+func contextFrameItems(frame map[string]any) []map[string]any {
+	raw, _ := frame["items"].([]any)
+	out := make([]map[string]any, 0, len(raw))
+	for _, item := range raw {
+		if row := mapValue(item); len(row) > 0 {
+			out = append(out, row)
+		}
+	}
+	return out
+}
+
+func mapValue(v any) map[string]any {
+	if m, ok := v.(map[string]any); ok {
+		return m
+	}
+	return nil
+}
+
+func scalarText(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprint(v)
+}
+
+func contextMapSummary(m map[string]any, keys ...string) string {
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if value := scalarText(m[key]); strings.TrimSpace(value) != "" {
+			parts = append(parts, key+": "+value)
+		}
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, "\n")
+	}
+	return ""
 }
 
 func memoryInspectorSearchQuery(messages []gact.Message) string {

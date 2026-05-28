@@ -272,6 +272,10 @@ func (c *Client) CancelSession(ctx context.Context, id string) error {
 type PostMessageRequest struct {
 	Parts []gact.Part    `json:"parts"`
 	Model *gact.ModelRef `json:"model,omitempty"`
+	// AgentID is CLIO's one-turn agent override. It must not mutate the
+	// session default agent; the backend records requested/effective agent
+	// provenance on the resulting turn.
+	AgentID string `json:"agent_id,omitempty"`
 }
 
 // PostMessageResponse mirrors the server type.
@@ -314,6 +318,20 @@ func (c *Client) ListMessages(ctx context.Context, f MessageFilter) ([]gact.Mess
 func (c *Client) PostMessage(ctx context.Context, sessionID string, req PostMessageRequest) (PostMessageResponse, error) {
 	var out PostMessageResponse
 	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/messages", req, &out)
+	return out, err
+}
+
+type ContextFramesResponse struct {
+	Frames []map[string]any `json:"frames"`
+}
+
+func (c *Client) ListContextFrames(ctx context.Context, sessionID string, limit int) (ContextFramesResponse, error) {
+	var out ContextFramesResponse
+	path := "/v1/sessions/" + sessionID + "/context/frames"
+	if limit > 0 {
+		path += fmt.Sprintf("?limit=%d", limit)
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
 }
 

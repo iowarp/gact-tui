@@ -18,5 +18,9 @@ Enter
 Wait+Screen /Memory · ARC context/
 Sleep 800ms
 Screenshot "visual_loop/screenshots/semantic_memory_search.png"
+PageDown
+Wait+Screen /Context frame/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_memory_context_frame.png"
 
 Type "q"
