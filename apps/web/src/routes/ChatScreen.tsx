@@ -1528,6 +1528,24 @@ function ChatLayout(props: ChatLayoutProps) {
             </Show>
           </div>
           <div class="chat__meta">
+            <Show when={activeRow()?.status === 'waiting_permission'}>
+              <span
+                class="chat__meta-item chat__meta-item--warn"
+                data-testid="session-status-chip"
+                title="Session is paused waiting for your approval on a tool call"
+              >
+                waiting · permission
+              </span>
+            </Show>
+            <Show when={activeRow()?.status === 'error'}>
+              <span
+                class="chat__meta-item chat__meta-item--err"
+                data-testid="session-status-chip"
+                title="Session entered an error state"
+              >
+                session · error
+              </span>
+            </Show>
             <Show when={(props.sessionCostUsd ?? 0) > 0}>
               <span
                 class="chat__meta-item chat__meta-item--cost"
