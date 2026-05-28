@@ -193,6 +193,23 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
   (5078026 / 2cb50ef)
 - Click topbar crumb title to copy session id. (5606f40)
 - Settings → Prompts section + side-nav entry. (51be0b5)
+- Topbar 'running' chip shows `tool.call.progress` % +
+  per-tool status message in the hover title. (6ee032b)
+- Prompt cards expand on click to fetch + render the default
+  profile text via GET `/v1/prompts/{id}`. (6f1294f)
+- Humanized token counts (2.34k / 12.4k) in Inspector run tab.
+  (b5a1ca9)
+- SessionsColumn 'Only show running' filter chip auto-renders when
+  there's at least one running session. (bdb74e3)
+- Blank session titles render 'Untitled session' italicized.
+  (aad9820)
+- Tool call I/O detail rows gain Copy buttons. (bd27021)
+- Discovery search bars: Agents, Commands, Prompts, MCP,
+  Workspaces — auto-render when item count exceeds a threshold so
+  short lists don't waste screen on a useless filter.
+  (b189841 / 05a2d20 / c240e3a / c40e24d / 7c775d4)
+- About card gains a direct SPEC.md link + per-link descriptions.
+  (400262a)
 
 ## Where we stand
 
