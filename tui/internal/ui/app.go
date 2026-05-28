@@ -238,6 +238,7 @@ type App struct {
 	// of a new word.
 	filePickerOpen bool
 	filePicker     *filePickerState
+	fileMentions   []composerFileMention
 
 	// Catalog browser (L5): /mcp /tools /skills open a read-only list
 	// modal backed by the matching catalog endpoint.
@@ -321,7 +322,8 @@ type App struct {
 	// switching away and back doesn't wipe what the user was typing.
 	// Lifetime is the app process — restart drops the map (N5 tracks
 	// persistence via config.json).
-	inputDraftBySession map[string]string
+	inputDraftBySession   map[string]string
+	fileMentionsBySession map[string][]composerFileMention
 
 	// lastLoadedSessionID is the session ID the input buffer currently
 	// belongs to. selectSession uses this (not currentSessionID which
@@ -891,6 +893,10 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // Update handler can restore the text to the input (rather than
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
+	return postMessageWithMentionsCmd(c, sessionID, text, text, nil)
+}
+
+func postMessageWithMentionsCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention) tea.Cmd {
 	return func() tea.Msg {
 		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
 		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
@@ -899,13 +905,37 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 		// progress anyway.
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
+		mentionCopy := cloneComposerFileMentions(mentions)
+		seen := map[string]bool{}
+		attached := make([]gact.ContextFile, 0, len(mentionCopy))
+		for _, mention := range mentionCopy {
+			path := strings.TrimSpace(mention.Path)
+			if path == "" || seen[path] {
+				continue
+			}
+			seen[path] = true
+			mode := mention.Mode
+			if mode == "" {
+				mode = "read"
+			}
+			cf, err := c.AddContextFile(ctx, sessionID, path, mode)
+			if err != nil {
+				return postFailedMsg{
+					text:     draftText,
+					mentions: mentionCopy,
+					err:      fmt.Errorf("attach %s: %w", path, err),
+				}
+			}
+			attached = append(attached, cf)
+		}
+		text = sanitizeSelectedFileMentions(text, mentionCopy)
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
 			Parts: []gact.Part{gact.NewTextPart(text)},
 		})
 		if err != nil {
-			return postFailedMsg{text: text, err: err}
+			return postFailedMsg{text: draftText, mentions: mentionCopy, err: err}
 		}
-		return msgPostedAck{sessionID: sessionID, text: text}
+		return msgPostedAck{sessionID: sessionID, text: text, contextFiles: attached}
 	}
 }
 
@@ -913,8 +943,9 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 // Update handler restore the user's text into the textarea so a
 // transient network blip doesn't cost them their message.
 type postFailedMsg struct {
-	text string
-	err  error
+	text     string
+	mentions []composerFileMention
+	err      error
 }
 
 func (a *App) postFailureHint(err error) string {
@@ -1497,12 +1528,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just press Enter again once the backend is back. Surface a
 		// transient hint so they know what happened.
 		a.input.SetValue(m.text)
+		a.fileMentions = cloneComposerFileMentions(m.mentions)
 		a.transientHint = a.postFailureHint(m.err)
 		return a, nil
 
 	case msgPostedAck:
 		// User message is in the store; the SSE stream will reflect it via
 		// the message.created event the server publishes.
+		if a.currentSessionID() == m.sessionID && len(m.contextFiles) > 0 {
+			a.mergeContextFiles(m.contextFiles)
+		}
 		//
 		// Auto-rename: if this was the first user message AND the
 		// session still carries the default "new session …" title,
@@ -1538,8 +1573,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// session we're currently showing — stale responses from a
 		// since-switched session get dropped.
 		if a.currentSessionID() == m.sessionID {
-			a.contextFiles = append(a.contextFiles, m.file)
-			a.clampContextFileSelection()
+			a.mergeContextFiles([]gact.ContextFile{m.file})
 		}
 		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
@@ -4737,8 +4771,11 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// buffer so the backend sees the real body, not the compressed
 		// sigil. Send-time expansion keeps the input readable right up
 		// until the moment the message is dispatched.
+		draftText := strings.TrimSpace(raw)
 		text := strings.TrimSpace(a.expandPasteText(raw))
+		mentions := activeComposerFileMentions(raw, a.fileMentions)
 		a.input.Reset()
+		a.fileMentions = nil
 		a.pastes = nil
 		a.exitHistory()
 		// N1: successful dispatch invalidates any saved draft for
@@ -4746,12 +4783,13 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// a clean slate rather than the already-sent text resurfacing.
 		if sid := a.currentSessionID(); sid != "" {
 			delete(a.inputDraftBySession, sid)
+			delete(a.fileMentionsBySession, sid)
 		}
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
 		a.pushInputHistory(text)
-		return a, postMessageCmd(a.c, a.currentSessionID(), text)
+		return a, postMessageWithMentionsCmd(a.c, a.currentSessionID(), draftText, text, mentions)
 	}
 	if key == "ctrl+p" {
 		// Expand the most recent compressed paste in-place so the user
@@ -4768,6 +4806,7 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if key == "esc" {
 		a.input.Reset()
+		a.fileMentions = nil
 		a.exitHistory()
 		return a, nil
 	}
@@ -4949,11 +4988,16 @@ func (a *App) selectSession(idx int) tea.Cmd {
 func (a *App) swapInputDraftFor(newSID string) {
 	if a.lastLoadedSessionID != "" && a.lastLoadedSessionID != newSID {
 		a.stashDraft(a.lastLoadedSessionID, a.input.Value())
+		a.stashFileMentions(a.lastLoadedSessionID, activeComposerFileMentions(a.input.Value(), a.fileMentions))
 	}
 	a.input.Reset()
+	a.fileMentions = nil
 	a.pastes = nil
 	if saved, ok := a.inputDraftBySession[newSID]; ok {
 		a.input.SetValue(saved)
+	}
+	if mentions, ok := a.fileMentionsBySession[newSID]; ok {
+		a.fileMentions = cloneComposerFileMentions(mentions)
 	}
 	a.lastLoadedSessionID = newSID
 }
@@ -4974,6 +5018,43 @@ func (a *App) stashDraft(sid, val string) {
 		a.inputDraftBySession = map[string]string{}
 	}
 	a.inputDraftBySession[sid] = val
+}
+
+func (a *App) stashFileMentions(sid string, mentions []composerFileMention) {
+	if sid == "" {
+		return
+	}
+	if len(mentions) == 0 {
+		delete(a.fileMentionsBySession, sid)
+		return
+	}
+	if a.fileMentionsBySession == nil {
+		a.fileMentionsBySession = map[string][]composerFileMention{}
+	}
+	a.fileMentionsBySession[sid] = cloneComposerFileMentions(mentions)
+}
+
+func (a *App) mergeContextFiles(files []gact.ContextFile) {
+	if len(files) == 0 {
+		return
+	}
+	for _, file := range files {
+		if file.Path == "" {
+			continue
+		}
+		replaced := false
+		for i := range a.contextFiles {
+			if a.contextFiles[i].Path == file.Path {
+				a.contextFiles[i] = file
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			a.contextFiles = append(a.contextFiles, file)
+		}
+	}
+	a.clampContextFileSelection()
 }
 
 // applySSE folds an incoming event into local state.
@@ -9394,8 +9475,9 @@ type sseEventMsg struct {
 type sseClosedMsg struct{}
 
 type msgPostedAck struct {
-	sessionID string
-	text      string // the user message just posted; used by auto-rename
+	sessionID    string
+	text         string // the user message just posted; used by auto-rename
+	contextFiles []gact.ContextFile
 }
 
 type sessionCreatedMsg struct {
