@@ -187,6 +187,11 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install Go (sidecar launcher build)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
       - name: Linux deps for Tauri
         if: matrix.os == 'ubuntu-22.04'
         run: |
