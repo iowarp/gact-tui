@@ -272,7 +272,10 @@ function SessionListItem(props: {
                 when={editing()}
                 fallback={
                   <span
-                    class="sx__row-title"
+                    class={
+                      'sx__row-title ' +
+                      (!props.row.title.trim() ? 'sx__row-title--empty' : '')
+                    }
                     ondblclick={(e) => {
                       if (!props.onRename) return;
                       e.stopPropagation();
@@ -285,7 +288,7 @@ function SessionListItem(props: {
                       });
                     }}
                   >
-                    {props.row.title}
+                    {props.row.title.trim() || 'Untitled session'}
                   </span>
                 }
               >
