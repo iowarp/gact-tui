@@ -348,6 +348,24 @@ func TestPaletteMemoryCommandShowsCapabilityStatus(t *testing.T) {
 	}
 }
 
+func TestFormatMemoryInspectorIncludesSearchProvenance(t *testing.T) {
+	stats := gact.MemoryStats{}
+	resp := &gact.MemorySearchResponse{
+		Query:            "pressure dataset",
+		SearchedSessions: []string{"sess_1"},
+		Hits: []gact.MemorySearchHit{{
+			SessionID: "sess_1", SessionTitle: "NDP", Text: "pressure dataset evidence",
+			MatchTerms: []string{"pressure", "dataset"},
+		}},
+	}
+	out := formatMemoryInspectorWithSearch(stats, nil, resp)
+	for _, want := range []string{"Memory search", "query: pressure dataset", "searched_sessions: sess_1", "terms: pressure, dataset", "pressure dataset evidence"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("memory inspector missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestFooter_NarrowKeepsQuitVisible(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 100

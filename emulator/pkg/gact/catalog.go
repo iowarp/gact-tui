@@ -154,6 +154,62 @@ type AgentDef struct {
 	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
 }
 
+// PromptProfile is one resolved profile body for a CLIO prompt registry
+// definition. It is a vendor extension, advertised by
+// capabilities.x_clio_prompt_registry.
+type PromptProfile struct {
+	Name       string         `json:"name"`
+	Text       string         `json:"text"`
+	Scope      string         `json:"scope"`
+	SourcePath string         `json:"source_path,omitempty"`
+	Provider   string         `json:"provider,omitempty"`
+	Model      string         `json:"model,omitempty"`
+	Checksum   string         `json:"checksum,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
+// PromptDefinition is returned by GET /v1/prompts.
+type PromptDefinition struct {
+	ID               string                   `json:"id"`
+	Title            string                   `json:"title,omitempty"`
+	Description      string                   `json:"description,omitempty"`
+	DefaultProfile   string                   `json:"default_profile,omitempty"`
+	Profiles         map[string]PromptProfile `json:"profiles,omitempty"`
+	Scope            string                   `json:"scope,omitempty"`
+	SourcePath       string                   `json:"source_path,omitempty"`
+	Enabled          bool                     `json:"enabled"`
+	ValidationErrors []string                 `json:"validation_errors,omitempty"`
+	Metadata         map[string]any           `json:"metadata,omitempty"`
+}
+
+// ResolvedPrompt is returned by GET /v1/prompts/{id}?profile=...
+type ResolvedPrompt struct {
+	ID               string         `json:"id"`
+	Profile          string         `json:"profile"`
+	Text             string         `json:"text"`
+	Title            string         `json:"title,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	Scope            string         `json:"scope,omitempty"`
+	SourcePath       string         `json:"source_path,omitempty"`
+	Provider         string         `json:"provider,omitempty"`
+	Model            string         `json:"model,omitempty"`
+	Checksum         string         `json:"checksum,omitempty"`
+	FallbackProfile  string         `json:"fallback_profile,omitempty"`
+	ValidationErrors []string       `json:"validation_errors,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+}
+
+// PromptSaveRequest is accepted by PUT /v1/prompts/{id}.
+type PromptSaveRequest struct {
+	Profile     string         `json:"profile,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Text        string         `json:"text"`
+	Provider    string         `json:"provider,omitempty"`
+	Model       string         `json:"model,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
 // UnmarshalJSON accepts both the shared GACT array shape for
 // parameters and CLIO's current object/map shape. Settings must not
 // fail the whole agent catalog because one backend serializes
@@ -347,13 +403,22 @@ type FileDiff struct {
 
 // Command is one slash command available in the catalog (SPEC §6.13).
 type Command struct {
-	ID          string           `json:"id"`
-	Title       string           `json:"title"`
-	Description string           `json:"description,omitempty"`
-	Source      string           `json:"source"` // builtin|mcp_prompt|recipe|user
-	ServerID    string           `json:"server_id,omitempty"`
-	Arguments   []AgentParameter `json:"arguments,omitempty"`
-	Shortcut    string           `json:"shortcut,omitempty"`
+	ID             string           `json:"id"`
+	Title          string           `json:"title"`
+	Description    string           `json:"description,omitempty"`
+	Source         string           `json:"source"` // builtin|mcp_prompt|recipe|user
+	ServerID       string           `json:"server_id,omitempty"`
+	Arguments      []AgentParameter `json:"arguments,omitempty"`
+	Shortcut       string           `json:"shortcut,omitempty"`
+	Status         string           `json:"status,omitempty"`
+	Enabled        bool             `json:"enabled,omitempty"`
+	Error          string           `json:"error,omitempty"`
+	DisabledReason string           `json:"disabled_reason,omitempty"`
+	AgentID        string           `json:"agent_id,omitempty"`
+	AgentSource    string           `json:"agent_source,omitempty"`
+	CommandSource  string           `json:"command_source,omitempty"`
+	ArgumentHint   string           `json:"argument_hint,omitempty"`
+	PromptTemplate string           `json:"prompt_template,omitempty"`
 }
 
 // Metrics is the body of GET /v1/metrics (SPEC §6.16).

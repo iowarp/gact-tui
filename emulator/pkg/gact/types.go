@@ -35,6 +35,32 @@ type MemoryStats struct {
 	Metadata map[string]any      `json:"metadata,omitempty"`
 }
 
+// MemorySearchHit is one provenance-heavy transcript memory match returned by
+// CLIO's /v1/memory/search endpoint.
+type MemorySearchHit struct {
+	SessionID    string         `json:"session_id"`
+	SessionTitle string         `json:"session_title,omitempty"`
+	WorkspaceID  string         `json:"workspace_id,omitempty"`
+	MessageID    string         `json:"message_id"`
+	PartID       string         `json:"part_id,omitempty"`
+	Role         string         `json:"role"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at,omitempty"`
+	Text         string         `json:"text"`
+	Score        float64        `json:"score,omitempty"`
+	MatchTerms   []string       `json:"match_terms,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
+// MemorySearchResponse is returned by GET /v1/memory/search.
+type MemorySearchResponse struct {
+	Query               string            `json:"query"`
+	IncludeCrossSession bool              `json:"include_cross_session"`
+	SearchedSessions    []string          `json:"searched_sessions,omitempty"`
+	Hits                []MemorySearchHit `json:"hits,omitempty"`
+	Metadata            map[string]any    `json:"metadata,omitempty"`
+}
+
 type CacheStats struct {
 	Hits     int     `json:"hits"`
 	Misses   int     `json:"misses"`
@@ -105,6 +131,9 @@ type CapabilityFlags struct {
 	StructuredErrors  bool `json:"structured_errors"`  // §14 typed error_info taxonomy
 	IntegrationHealth bool `json:"integration_health"` // /v1/health integrations[] + overall_status
 	ToolTelemetry     bool `json:"tool_telemetry"`     // tool_result.cached + duration_ms
+
+	// CLIO vendor extension: prompt registry browse/resolve/save surface.
+	XClioPromptRegistry bool `json:"x_clio_prompt_registry"`
 }
 
 type TransportFlags struct {
@@ -121,6 +150,17 @@ type Extension struct {
 	ID      string `json:"id"`
 	Version string `json:"version"`
 	Docs    string `json:"docs,omitempty"`
+}
+
+type CapabilityGap struct {
+	Status           string         `json:"status,omitempty"`
+	Advertised       bool           `json:"advertised"`
+	Category         string         `json:"category,omitempty"`
+	ClientBehavior   string         `json:"client_behavior,omitempty"`
+	RelatedEndpoints []string       `json:"related_endpoints,omitempty"`
+	RelatedCommands  []string       `json:"related_commands,omitempty"`
+	RecoveryActions  []string       `json:"recovery_actions,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
 }
 
 // Policy is a permission auto-resolution rule (SPEC §6.11). When a

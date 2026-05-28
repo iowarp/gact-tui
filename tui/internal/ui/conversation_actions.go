@@ -147,6 +147,20 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 				return nil
 			},
 		})
+		items = append(items, actionMenuItem{
+			id:          "rewind-to-message",
+			title:       "Rewind to here",
+			description: "Ask backend to remove messages after this one.",
+			key:         "W",
+			action: func(app *App) tea.Cmd {
+				app.closeConversationActions()
+				sessionID := m.SessionID
+				if sessionID == "" {
+					sessionID = app.currentSessionID()
+				}
+				return rewindSessionCmd(app.c, sessionID, m.ID, false)
+			},
+		})
 	}
 	if m.Role == gact.RoleUser {
 		items = append(items, actionMenuItem{
@@ -158,6 +172,18 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 				app.closeConversationActions()
 				_, cmd := app.handleBodyKey(keyMsg("R"))
 				return cmd
+			},
+		})
+	}
+	if a.currentSessionID() != "" {
+		items = append(items, actionMenuItem{
+			id:          "undo-last",
+			title:       "Undo last message",
+			description: "Ask backend to undo the most recent message mutation.",
+			key:         "u",
+			action: func(app *App) tea.Cmd {
+				app.closeConversationActions()
+				return undoSessionCmd(app.c, app.currentSessionID(), 1)
 			},
 		})
 	}

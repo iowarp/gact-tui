@@ -1120,6 +1120,7 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 	if len(ag.Keywords) > 0 {
 		add("Keywords", strings.Join(ag.Keywords, ", "))
 	}
+	add("Prompt provenance", agentPromptResolutionDescription(ag))
 	add("Prompt", ag.SystemPrompt)
 	return lines
 }
@@ -1151,6 +1152,9 @@ func (a *App) agentDetailText(ag gact.AgentDef) string {
 	if len(ag.Keywords) > 0 {
 		lines = append(lines, "", "Routing keywords:")
 		lines = append(lines, bulletLines(ag.Keywords)...)
+	}
+	if provenance := agentPromptResolutionDescription(ag); provenance != "" {
+		lines = append(lines, "", "Prompt provenance:", provenance)
 	}
 	if strings.TrimSpace(ag.SystemPrompt) != "" {
 		lines = append(lines, "", "Prompt:", strings.TrimSpace(ag.SystemPrompt))

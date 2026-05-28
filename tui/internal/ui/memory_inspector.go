@@ -21,9 +21,17 @@ func loadMemoryInspectorCmd(c *client.Client, sessionID string, messages []gact.
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Memory", err: err, standalone: true}
 		}
+		var search *gact.MemorySearchResponse
+		if query := memoryInspectorSearchQuery(sessionMessages); query != "" && sessionID != "" {
+			if resp, searchErr := c.MemorySearch(ctx, client.MemorySearchRequest{
+				Query: query, SessionID: sessionID, Limit: 5,
+			}); searchErr == nil {
+				search = &resp
+			}
+		}
 		return catalogDetailLoadedMsg{
 			title:      "Memory · ARC context",
-			text:       formatMemoryInspectorWithMessages(stats, sessionMessages),
+			text:       formatMemoryInspectorWithSearch(stats, sessionMessages, search),
 			standalone: true,
 		}
 	}
@@ -34,6 +42,10 @@ func formatMemoryInspector(stats gact.MemoryStats) string {
 }
 
 func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.Message) string {
+	return formatMemoryInspectorWithSearch(stats, messages, nil)
+}
+
+func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
 	rows := appendDetailSection(nil, "ARC cache",
 		detailField{"role", "recent-context retrieval cache"},
@@ -70,6 +82,24 @@ func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.M
 			detailField{"compaction_markers", fmt.Sprintf("%d", evidence.compactions)},
 		)
 	}
+	if search != nil {
+		rows = appendDetailSection(rows, "Memory search",
+			detailField{"query", search.Query},
+			detailField{"scope", memorySearchScopeText(*search)},
+			detailField{"searched_sessions", strings.Join(search.SearchedSessions, ", ")},
+			detailField{"hits", fmt.Sprintf("%d", len(search.Hits))},
+		)
+		for i, hit := range search.Hits {
+			if i >= 5 {
+				break
+			}
+			label := firstNonEmpty(hit.SessionTitle, hit.SessionID)
+			if len(hit.MatchTerms) > 0 {
+				label += " · terms: " + strings.Join(hit.MatchTerms, ", ")
+			}
+			rows = append(rows, detailFieldRows(label, hit.Text)...)
+		}
+	}
 	rows = appendDetailSection(rows, "Compaction",
 		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
@@ -84,6 +114,57 @@ func formatMemoryInspectorWithMessages(stats gact.MemoryStats, messages []gact.M
 		rows = appendJSONMapSection(rows, "metadata", stats.Metadata)
 	}
 	return strings.Join(rows, "\n")
+}
+
+func memoryInspectorSearchQuery(messages []gact.Message) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role != gact.RoleUser && msg.Role != gact.RoleAssistant {
+			continue
+		}
+		for _, part := range msg.Parts {
+			text := strings.TrimSpace(part.Text)
+			if text == "" {
+				text = strings.TrimSpace(part.Summary)
+			}
+			terms := memorySearchQueryTerms(text)
+			if len(terms) >= 2 {
+				return strings.Join(terms[:min(3, len(terms))], " ")
+			}
+		}
+	}
+	return ""
+}
+
+func memorySearchQueryTerms(text string) []string {
+	stop := map[string]bool{
+		"about": true, "after": true, "again": true, "answer": true, "because": true,
+		"before": true, "could": true, "from": true, "have": true, "into": true,
+		"should": true, "that": true, "their": true, "there": true, "this": true,
+		"with": true, "would": true,
+	}
+	fields := strings.Fields(strings.ToLower(text))
+	out := make([]string, 0, 4)
+	seen := map[string]bool{}
+	for _, field := range fields {
+		field = strings.Trim(field, ".,:;!?()[]{}\"'")
+		if len(field) < 4 || stop[field] || seen[field] {
+			continue
+		}
+		seen[field] = true
+		out = append(out, field)
+		if len(out) >= 4 {
+			break
+		}
+	}
+	return out
+}
+
+func memorySearchScopeText(resp gact.MemorySearchResponse) string {
+	if resp.IncludeCrossSession {
+		return "cross-session opt-in"
+	}
+	return "current session"
 }
 
 type compactionEvidence struct {
