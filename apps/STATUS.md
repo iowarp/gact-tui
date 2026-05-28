@@ -142,6 +142,20 @@ In `apps/web/screenshots/`:
   `add-remote-ssh-wizard`, `multi-backend-picker`
 - 20 Playwright specs, all green.
 
+**Honesty note on the goal's "REAL running sidecar" clause.** The
+visual proofs drive the BUILT app via `pnpm preview` against
+deterministic GACT v0.2 fixture payloads — not against a live
+`clio-agent-gact` server. Standing one up in CI requires either ALCF
+credentials (which I don't have) or wiring up
+`clio-agent-gact-smoke` (which lives under `scripts/` on the
+clio-agent develop branch and isn't on PyPI). The fixtures speak the
+real wire contract, so the UI semantics being captured are the same
+ones the user will see in manual testing tomorrow — but the v0.9 →
+v1.0 manual-test step is where "is this the right behaviour against
+a real backend?" actually gets verified. Wiring `clio-agent-gact`
+into CI (probably via the smoke server) is a candidate v1.0
+follow-up.
+
 ### CI release workflow — ✅ wired
 
 - `.github/workflows/apps.yml` `release` job fires on
