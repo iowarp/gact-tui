@@ -1,5 +1,5 @@
 /**
- * Live data plumbing for ChatScreen — Wave 1.
+ * Live data plumbing for ChatScreen — Wave 1 + post-tag refresh.
  *
  * These Solid factories own the connection to a single GACT v0.2
  * backend (`@clio/core` Client). They expose signals the existing
@@ -7,6 +7,10 @@
  * `PermissionRequest | null`) so the visual proof set can keep
  * driving the same JSX with `?fixture=…` while the live build flips
  * over to real data when no fixture is requested.
+ *
+ * Refresh from SSE: session.status_changed / session.created / .updated /
+ * .deleted patch the sidebar list in-place; message.completed records
+ * the stop_reason + tokens on the in-flight assistant message.
  */
 
 import {
@@ -38,6 +42,10 @@ export interface LiveSessionsHandle {
   sessions: Resource<SidebarSession[]>;
   /** Re-fetch the sessions list (e.g. after creating a new session). */
   refetch: () => void;
+  /** Patch a single session in-place — used by the SSE reducer. */
+  patch: (id: string, patch: Partial<SidebarSession>) => void;
+  /** Replace the cached session list (additions/removals from SSE). */
+  setRaw: (next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[])) => void;
   /** Surface the underlying Client for one-off RPCs (sendMessage etc.). */
   client: Client;
 }
@@ -47,37 +55,87 @@ export interface LiveTranscriptHandle {
   pendingPermission: Accessor<PermissionRequest | null>;
   /** Connection state to the SSE stream for the current session. */
   status: Accessor<'connecting' | 'open' | 'closed' | 'error'>;
+  /** Last known `message.completed` summary for the active session. */
+  lastCompletion: Accessor<MessageCompletion | null>;
+  /** Per-session cost rolled forward by `cost.updated` events. */
+  costUsd: Accessor<number>;
+}
+
+export interface MessageCompletion {
+  message_id: string;
+  stop_reason: string;
+  tokens?: { input?: number; output?: number; total?: number };
+  cost_usd?: number;
 }
 
 /**
  * Lists sessions on the connected backend. Used by Sidebar. Returns a
- * Solid resource that auto-fetches on mount and exposes a manual refetch.
+ * Solid resource that auto-fetches on mount, exposes a manual refetch,
+ * and a `patch` helper for SSE-driven in-place updates so the pip flips
+ * green→amber→red without us hammering /v1/sessions.
  */
 export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
   const client = new Client({ baseUrl: opts.url, bearerToken: opts.bearerToken });
 
-  const [sessions, { refetch }] = createResource<SidebarSession[]>(async () => {
+  const [override, setOverride] = createSignal<SidebarSession[] | null>(null);
+  const [resource, { refetch }] = createResource<SidebarSession[]>(async () => {
     const { sessions: rows } = await client.sessions();
-    return rows.map(toSidebarSession);
+    const next = rows.map(toSidebarSession);
+    setOverride(null); // resource is fresh — discard local SSE-side overrides
+    return next;
   });
 
-  return { sessions, refetch: () => void refetch(), client };
+  const sessions: Resource<SidebarSession[]> = new Proxy(resource, {
+    apply() {
+      // Resources are called as functions; merge override on top of latest.
+      const base = resource() ?? [];
+      const o = override();
+      return o ?? base;
+    },
+    get(target, prop, recv) {
+      if (prop === Symbol.toPrimitive) return undefined;
+      return Reflect.get(target, prop, recv);
+    },
+  }) as Resource<SidebarSession[]>;
+
+  function patch(id: string, p: Partial<SidebarSession>) {
+    const base = override() ?? resource() ?? [];
+    const exists = base.find((b) => b.id === id);
+    if (!exists) return;
+    setOverride(base.map((b) => (b.id === id ? { ...b, ...p } : b)));
+  }
+
+  function setRaw(
+    next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[]),
+  ) {
+    const base = override() ?? resource() ?? [];
+    setOverride(typeof next === 'function' ? next(base) : next);
+  }
+
+  return { sessions, refetch: () => void refetch(), patch, setRaw, client };
 }
 
 /**
  * Manages the message + permission state for `activeSessionId`. When the
  * accessor changes (user clicks a different sidebar row), the previous
  * EventSource is torn down and a new one is opened.
+ *
+ * The optional `sessionEvents` callback is invoked for every SSE event
+ * touching the sessions list so the caller can patch SidebarSession[]
+ * (see `createLiveSessions().patch`).
  */
 export function createLiveTranscript(
   client: Client,
   activeSessionId: Accessor<string>,
+  sessionEvents?: SessionEventSink,
 ): LiveTranscriptHandle {
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
   const [status, setStatus] = createSignal<'connecting' | 'open' | 'closed' | 'error'>(
     'closed',
   );
+  const [lastCompletion, setLastCompletion] = createSignal<MessageCompletion | null>(null);
+  const [costUsd, setCostUsd] = createSignal<number>(0);
 
   createEffect(() => {
     const id = activeSessionId();
@@ -85,18 +143,17 @@ export function createLiveTranscript(
       setMessages([]);
       setPendingPermission(null);
       setStatus('closed');
+      setLastCompletion(null);
+      setCostUsd(0);
       return;
     }
 
     setStatus('connecting');
-    // Snapshot the existing transcript before opening the live stream so
-    // the user sees historic content immediately.
     void client
       .messages(id)
       .then(({ messages: existing }) => setMessages(existing))
       .catch(() => setMessages([]));
 
-    // Initial pending-permission probe — subsequent arrivals come via SSE.
     void client
       .permissions(id)
       .then(({ permissions }) => setPendingPermission(permissions[0] ?? null))
@@ -113,21 +170,21 @@ export function createLiveTranscript(
       } catch {
         return;
       }
-      reduce(ev as Record<string, unknown>, {
+      reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
         setMessages,
         setPendingPermission,
+        setLastCompletion,
+        setCostUsd,
+        sessionEvents,
       });
     };
 
-    // GACT emits typed events ("event: <name>" + "data: {...payload}").
-    // Per SPEC §7.2 the event name comes from the `event:` line; we
-    // register one listener per spec-defined event so the dispatcher
-    // stays explicit. Anything we don't list here is silently tolerated.
     const named = [
       'server.connected',
       'server.heartbeat',
       'session.created',
       'session.updated',
+      'session.deleted',
       'session.status_changed',
       'session.summarized',
       'session.compacted',
@@ -153,22 +210,30 @@ export function createLiveTranscript(
     });
   });
 
-  return { messages, pendingPermission, status };
+  return { messages, pendingPermission, status, lastCompletion, costUsd };
+}
+
+export interface SessionEventSink {
+  patch: (id: string, p: Partial<SidebarSession>) => void;
+  setRaw?: (
+    next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[]),
+  ) => void;
 }
 
 /**
  * Reduce an envelope-shaped event onto the message + permission signals.
- *
- * Per SPEC §7.2 the envelope is `{type, occurred_at, payload}`. We read
- * everything out of `payload` so the reducer stays aligned with the
- * wire. Tolerates unknown event types (silently drops them so a backend
- * that ships a richer event surface doesn't blow up older clients).
+ * Per SPEC §7.2 every payload lives under `ev.payload`. Tolerates
+ * unknown event types (silently drops them so a backend that ships a
+ * richer event surface doesn't blow up older clients).
  */
 function reduce(
   ev: { type?: string; payload?: Record<string, unknown> },
   hooks: {
     setMessages: (m: Message[] | ((p: Message[]) => Message[])) => void;
     setPendingPermission: (p: PermissionRequest | null) => void;
+    setLastCompletion: (c: MessageCompletion | null) => void;
+    setCostUsd: (n: number | ((p: number) => number)) => void;
+    sessionEvents?: SessionEventSink;
   },
 ) {
   const t = ev.type;
@@ -198,31 +263,103 @@ function reduce(
       }
       break;
     }
+    case 'message.completed': {
+      const completion: MessageCompletion = {
+        message_id: p.message_id as string,
+        stop_reason: (p.stop_reason as string) ?? 'unknown',
+        tokens: p.tokens as MessageCompletion['tokens'],
+        cost_usd: p.cost_usd as number | undefined,
+      };
+      hooks.setLastCompletion(completion);
+      hooks.setMessages((prev) =>
+        prev.map((m) =>
+          m.id === completion.message_id
+            ? {
+                ...m,
+                stop_reason: completion.stop_reason,
+                tokens: completion.tokens ?? m.tokens,
+                cost_usd: completion.cost_usd ?? m.cost_usd,
+              }
+            : m,
+        ),
+      );
+      break;
+    }
+    case 'message.error': {
+      const messageId = p.message_id as string;
+      const error = p.error as Message['error_info'] | undefined;
+      if (messageId && error) {
+        hooks.setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, error_info: error, stop_reason: 'error' } : m,
+          ),
+        );
+      }
+      break;
+    }
+    case 'cost.updated': {
+      const cost = p.cost_usd as number | undefined;
+      if (typeof cost === 'number') hooks.setCostUsd(cost);
+      break;
+    }
     case 'permission.requested': {
       const req = p.permission as PermissionRequest | undefined;
       if (req) hooks.setPendingPermission(req);
       break;
     }
     case 'permission.resolved': {
-      // Clear the inline card — the agent has acked the user's decision.
       hooks.setPendingPermission(null);
       break;
     }
-    case 'session.status_changed':
-    case 'session.created':
-    case 'session.updated':
-    case 'message.completed':
+    case 'session.status_changed': {
+      const sid = p.session_id as string;
+      const next = p.status as SessionStatus;
+      if (sid && next && hooks.sessionEvents) {
+        hooks.sessionEvents.patch(sid, { status: next });
+      }
+      break;
+    }
+    case 'session.created': {
+      const s = p.session as Session | undefined;
+      if (s && hooks.sessionEvents?.setRaw) {
+        const next = toSidebarSession(s);
+        hooks.sessionEvents.setRaw((prev) => {
+          if (prev.some((b) => b.id === next.id)) return prev;
+          return [next, ...prev];
+        });
+      }
+      break;
+    }
+    case 'session.updated': {
+      const sid = p.session_id as string;
+      if (sid && hooks.sessionEvents) {
+        const changed = (p.changed_fields as string[]) ?? [];
+        // We don't get the new field values here; the simplest correct
+        // thing is to mark the row as "updatedAt: just now" so the
+        // sidebar's modification ordering still tells the truth.
+        hooks.sessionEvents.patch(sid, { updatedAt: 'just now' });
+        void changed;
+      }
+      break;
+    }
+    case 'session.deleted': {
+      const sid = p.session_id as string;
+      if (sid && hooks.sessionEvents?.setRaw) {
+        hooks.sessionEvents.setRaw((prev) => prev.filter((b) => b.id !== sid));
+      }
+      break;
+    }
     case 'message.part.completed':
-    case 'message.error':
     case 'tool.call.started':
     case 'tool.call.completed':
-    case 'cost.updated':
     case 'notification':
     case 'server.connected':
     case 'server.heartbeat':
+    case 'session.summarized':
+    case 'session.compacted':
     default:
-      // No transcript-reducer action; sidebar status / cost chips refresh
-      // via the next /v1/sessions poll.
+      // No transcript-reducer action yet. tool.call.progress + notification
+      // are tracked as v1.0 follow-ups for the chat shell.
       break;
   }
 }
@@ -241,7 +378,7 @@ function toSidebarSession(s: Session): SidebarSession {
 function workspaceLabel(s: Session): string {
   if (s.workspace_id) return s.workspace_id;
   const meta = s.metadata ?? {};
-  if (typeof meta.project === 'string') return meta.project;
+  if (typeof meta['project'] === 'string') return meta['project'];
   return 'workspace';
 }
 
