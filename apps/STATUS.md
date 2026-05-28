@@ -76,6 +76,32 @@ every step below — `pnpm --filter @clio/web test:visual` is green.
   Composer / View). (01dac66)
 - Live tool indicator chip in the topbar — `running · grep, bash +N`
   driven by `tool.call.started/completed` SSE events. (4d52bf9)
+- SSE `notification` events bridge into the toast system; cap
+  visible toasts at 5 so notification bursts don't pile up.
+  (5208bb3 / cc49af1)
+- Cmd+F transcript search with `<mark>` highlights, prev/next + scroll
+  the focused match into view. (4b9cd95 / 71a8e65)
+- Inspector drawer becomes tabbed (Turn / Tools / Diffs / Thinking /
+  Health) — tabs only appear when their data is present, last-active
+  tab persists. (23b07e7)
+- Tools tab expands each call to show its input JSON + output text.
+  (8c45a14)
+- Palette deep-links into specific Settings sections via
+  `settings:<id>` ids. (0687943)
+- `POST /v1/workspaces` from a `+ New workspace` form on the
+  Workspaces discovery page. (0dec0f1)
+- Composer drafts persist per session in `localStorage.clio.draft.*`
+  — survives reload, session switches, and accidental window close.
+  (eddcd8d)
+- Cmd+S exports the active session as JSON. (e69e8f3)
+- Cmd+, opens Settings. (5a68de7)
+- Streaming cursor (▌) on the in-flight assistant turn's last text
+  part. (ba7ef3d)
+- Model chip in the topbar. (5a68de7)
+- Pin sessions to keep them at the top of the list — scoped per
+  backend, persisted in localStorage. (57a106f)
+- Backend picker de-emojified — uses Icon components + named pip
+  classes instead of literal 🔴/🟢/🟠 + ▼. (05ccddd)
 
 ## Phase status
 
