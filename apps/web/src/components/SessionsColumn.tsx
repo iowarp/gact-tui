@@ -54,9 +54,10 @@ export interface SessionsColumnProps {
 
 export function SessionsColumn(props: SessionsColumnProps) {
   const [query, setQuery] = createSignal('');
+  const [runningOnly, setRunningOnly] = createSignal(false);
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
-    const matches =
+    let matches =
       !q
         ? props.rows
         : props.rows.filter(
@@ -65,6 +66,11 @@ export function SessionsColumn(props: SessionsColumnProps) {
               (r.preview ?? '').toLowerCase().includes(q) ||
               (r.workspace ?? '').toLowerCase().includes(q),
           );
+    if (runningOnly()) {
+      matches = matches.filter(
+        (r) => r.status === 'running' || r.status === 'waiting_permission',
+      );
+    }
     // Stable partition: pinned first, original order otherwise.
     const pinned: SessionRow[] = [];
     const rest: SessionRow[] = [];
@@ -113,6 +119,22 @@ export function SessionsColumn(props: SessionsColumnProps) {
           <span>New session</span>
           <span class="sx__kbd">Ctrl + N</span>
         </button>
+        <Show
+          when={
+            props.rows.some(
+              (r) => r.status === 'running' || r.status === 'waiting_permission',
+            )
+          }
+        >
+          <label class="sx__running-toggle" data-testid="sessions-running-only">
+            <input
+              type="checkbox"
+              checked={runningOnly()}
+              onChange={(e) => setRunningOnly(e.currentTarget.checked)}
+            />
+            <span>Only show running</span>
+          </label>
+        </Show>
       </header>
 
       <Show
