@@ -180,14 +180,30 @@ function LiveDriven(props: {
     bearerToken: props.backend.bearerToken,
   });
 
+  const pinnedKey = `clio.pinned.${props.backend.url}`;
+  const [pinnedIds, setPinnedIds] = createSignal<Set<string>>(loadPinnedSet(pinnedKey));
+
+  function togglePin(id: string) {
+    setPinnedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try { localStorage.setItem(pinnedKey, JSON.stringify([...next])); }
+      catch { /* ignore */ }
+      return next;
+    });
+  }
+
   const rows = createMemo<SessionRow[]>(() => {
     const s = live.sessions() ?? [];
+    const pins = pinnedIds();
     return s.map((row) => ({
       id: row.id,
       title: row.title,
       status: row.status,
       workspace: row.project,
       updatedAt: row.updatedAt,
+      pinned: pins.has(row.id),
     }));
   });
 
@@ -566,6 +582,7 @@ function LiveDriven(props: {
       onExportSession={exportSession}
       onShareSession={shareSession}
       onForkSession={forkSession}
+      onTogglePin={togglePin}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -625,6 +642,7 @@ interface ChatLayoutProps {
   onExportSession?: (id: string) => void | Promise<void>;
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
+  onTogglePin?: (id: string) => void;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -654,6 +672,17 @@ function messageToText(msg: Message): string {
     })
     .filter(Boolean)
     .join('\n\n');
+}
+
+function loadPinnedSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === 'string'));
+  } catch { /* ignore */ }
+  return new Set();
 }
 
 function providersToModels(ps: ProviderDef[]): ModelOption[] {
@@ -1161,6 +1190,7 @@ function ChatLayout(props: ChatLayoutProps) {
           onExportSession={props.onExportSession}
           onShareSession={props.onShareSession}
           onForkSession={props.onForkSession}
+          onTogglePin={props.onTogglePin}
         />
       </Show>
 

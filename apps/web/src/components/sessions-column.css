@@ -373,6 +373,15 @@
   flex-shrink: 0;
 }
 
+.sx__row-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent-cyan);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
 .sx__row-preview {
   font-family: var(--font-sans);
   font-size: 12px;
