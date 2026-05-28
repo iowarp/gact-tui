@@ -72,6 +72,10 @@ export interface RunningTool {
   callId: string;
   toolName: string;
   startedAt: number;
+  /** Optional progress 0..1 from `tool.call.progress` events. */
+  progress?: number;
+  /** Last status message from tool.call.progress. */
+  progressMessage?: string;
 }
 
 export interface MessageCompletion {
@@ -489,6 +493,31 @@ function reduce(
         if (prev.some((t) => t.callId === callId)) return prev;
         return [...prev, { callId, toolName, startedAt: Date.now() }];
       });
+      break;
+    }
+    case 'tool.call.progress': {
+      const callId = (p.call_id as string) ?? (p.tool_call_id as string);
+      if (!callId) break;
+      const progressVal = p.progress;
+      const totalVal = p.total;
+      const message = p.message as string | undefined;
+      const ratio =
+        typeof progressVal === 'number' && typeof totalVal === 'number' && totalVal > 0
+          ? Math.min(1, Math.max(0, progressVal / totalVal))
+          : typeof progressVal === 'number' && progressVal <= 1
+          ? Math.min(1, Math.max(0, progressVal))
+          : undefined;
+      hooks.setRunningTools((prev) =>
+        prev.map((t) =>
+          t.callId === callId
+            ? {
+                ...t,
+                ...(ratio != null ? { progress: ratio } : {}),
+                ...(message ? { progressMessage: message } : {}),
+              }
+            : t,
+        ),
+      );
       break;
     }
     case 'tool.call.completed': {
