@@ -1,11 +1,17 @@
-import { createSignal } from 'solid-js';
+import { createSignal, Show, type JSX } from 'solid-js';
 import './composer.css';
 
 export interface ComposerProps {
-  /** Hint shown in the backend picker chip. */
+  /** Hint shown in the backend picker chip when no slot is provided. */
   backendLabel?: string;
   /** Disable Send (e.g. while streaming, or while a session isn't selected). */
   disabled?: boolean;
+  /**
+   * Optional slot for the backend chip — when provided, replaces the
+   * static `⬤ host` chip with a live picker. ChatScreen passes
+   * `<BackendPicker />` here.
+   */
+  backendSlot?: JSX.Element;
   /**
    * Called when the user submits a message. The promise resolves when the
    * POST completes; while it's pending the composer clears its draft and
@@ -47,9 +53,16 @@ export function Composer(props: ComposerProps = {}) {
   return (
     <div class="composer" data-testid="composer">
       <div class="composer__pickers">
-        <button type="button" class="composer__picker" data-testid="composer-backend">
-          ⬤ {props.backendLabel ?? 'localhost'} ▼
-        </button>
+        <Show
+          when={props.backendSlot}
+          fallback={
+            <button type="button" class="composer__picker" data-testid="composer-backend">
+              ⬤ {props.backendLabel ?? 'localhost'} ▼
+            </button>
+          }
+        >
+          {props.backendSlot}
+        </Show>
         <button type="button" class="composer__picker" data-testid="composer-project">
           📁 gact-tui ▼
         </button>
