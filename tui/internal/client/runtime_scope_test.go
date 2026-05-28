@@ -38,6 +38,33 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"prompt": gact.ResolvedPrompt{ID: "p1", Profile: "heavy", Text: "body"}})
+		case "/v1/prompts/p1/render":
+			var req gact.PromptRenderRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode render: %v", err)
+			}
+			if req.SessionID != "s1" || req.WorkspaceID != "ws1" || req.Profile != "heavy" {
+				t.Fatalf("render request = %+v", req)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"prompt": gact.ResolvedPrompt{ID: "p1", Profile: "heavy", Text: "rendered"}})
+		case "/v1/prompts/p1/validate":
+			var req gact.PromptValidateRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode validate: %v", err)
+			}
+			if req.SessionID != "s1" || req.WorkspaceID != "ws1" || req.Profile != "heavy" {
+				t.Fatalf("validate request = %+v", req)
+			}
+			_ = json.NewEncoder(w).Encode(gact.PromptValidationResult{Enabled: true, Prompt: gact.PromptDefinition{ID: "p1"}})
+		case "/v1/prompts/reload":
+			var req map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode reload: %v", err)
+			}
+			if req["session_id"] != "s1" || req["workspace_id"] != "ws1" {
+				t.Fatalf("reload request = %+v", req)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"reload": gact.PromptReloadResult{PromptCount: 1, PromptIDs: []string{"p1"}}})
 		case "/v1/memory/stats":
 			_ = json.NewEncoder(w).Encode(gact.MemoryStats{})
 		case "/v1/sessions/s1/context/frames":
@@ -68,6 +95,15 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 	if _, err := c.SavePromptScoped(t.Context(), "p1", gact.PromptSaveRequest{Text: "body"}, scope); err != nil {
 		t.Fatalf("SavePromptScoped: %v", err)
 	}
+	if _, err := c.RenderPromptScoped(t.Context(), "p1", "heavy", scope); err != nil {
+		t.Fatalf("RenderPromptScoped: %v", err)
+	}
+	if _, err := c.ValidatePromptScoped(t.Context(), "p1", "heavy", "", scope); err != nil {
+		t.Fatalf("ValidatePromptScoped: %v", err)
+	}
+	if _, err := c.ReloadPrompts(t.Context(), scope); err != nil {
+		t.Fatalf("ReloadPrompts: %v", err)
+	}
 	if _, err := c.MemoryStatsScoped(t.Context(), scope); err != nil {
 		t.Fatalf("MemoryStatsScoped: %v", err)
 	}
@@ -76,6 +112,9 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 	}
 
 	for _, row := range got {
+		if row.path == "/v1/prompts/p1/render" || row.path == "/v1/prompts/p1/validate" || row.path == "/v1/prompts/reload" {
+			continue
+		}
 		if row.query["workspace_id"] != "ws1" {
 			t.Fatalf("%s workspace_id = %q, want ws1 (query=%v)", row.path, row.query["workspace_id"], row.query)
 		}

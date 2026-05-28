@@ -221,6 +221,9 @@ func (s *Server) routes() {
 	// CLIO prompt registry extension
 	s.mux.HandleFunc("GET /v1/prompts", s.handleListPrompts)
 	s.mux.HandleFunc("GET /v1/prompts/{id}", s.handleGetPrompt)
+	s.mux.HandleFunc("POST /v1/prompts/{id}/render", s.handleRenderPrompt)
+	s.mux.HandleFunc("POST /v1/prompts/{id}/validate", s.handleValidatePrompt)
+	s.mux.HandleFunc("POST /v1/prompts/reload", s.handleReloadPrompts)
 	s.mux.HandleFunc("PUT /v1/prompts/{id}", s.handleSavePrompt)
 
 	// §6.14 — Voice

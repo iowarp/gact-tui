@@ -710,6 +710,48 @@ func (c *Client) SavePromptScoped(ctx context.Context, promptID string, req gact
 	return out.Prompt, err
 }
 
+func (c *Client) RenderPrompt(ctx context.Context, promptID string, req gact.PromptRenderRequest) (gact.ResolvedPrompt, error) {
+	var out struct {
+		Prompt gact.ResolvedPrompt `json:"prompt"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/"+url.PathEscape(promptID)+"/render", req, &out)
+	return out.Prompt, err
+}
+
+func (c *Client) RenderPromptScoped(ctx context.Context, promptID, profile string, scope RuntimeScope) (gact.ResolvedPrompt, error) {
+	return c.RenderPrompt(ctx, promptID, gact.PromptRenderRequest{
+		Profile:     profile,
+		SessionID:   scope.SessionID,
+		WorkspaceID: scope.WorkspaceID,
+	})
+}
+
+func (c *Client) ValidatePrompt(ctx context.Context, promptID string, req gact.PromptValidateRequest) (gact.PromptValidationResult, error) {
+	var out gact.PromptValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/"+url.PathEscape(promptID)+"/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) ValidatePromptScoped(ctx context.Context, promptID, profile, text string, scope RuntimeScope) (gact.PromptValidationResult, error) {
+	return c.ValidatePrompt(ctx, promptID, gact.PromptValidateRequest{
+		Profile:     profile,
+		Text:        text,
+		SessionID:   scope.SessionID,
+		WorkspaceID: scope.WorkspaceID,
+	})
+}
+
+func (c *Client) ReloadPrompts(ctx context.Context, scope RuntimeScope) (gact.PromptReloadResult, error) {
+	var out struct {
+		Reload gact.PromptReloadResult `json:"reload"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/reload", map[string]any{
+		"session_id":   scope.SessionID,
+		"workspace_id": scope.WorkspaceID,
+	}, &out)
+	return out.Reload, err
+}
+
 // RunCommand triggers POST /v1/sessions/{id}/commands/{cmd_id}.
 // cmdID may include a leading slash; it's URL-escaped automatically.
 func (c *Client) RunCommand(ctx context.Context, sessionID, cmdID string) error {

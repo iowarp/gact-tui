@@ -52,6 +52,37 @@ func TestFormatResolvedPromptShowsProvenanceAndText(t *testing.T) {
 	}
 }
 
+func TestFormatRenderedPromptValidationAndReload(t *testing.T) {
+	rendered := formatRenderedPrompt(gact.ResolvedPrompt{
+		ID: "clio.chat", Profile: "heavy", Scope: "workspace", SourcePath: "/tmp/prompt.md",
+		Checksum: "abc", Text: "Rendered body", Metadata: map[string]any{"session_id": "s1"},
+	})
+	for _, want := range []string{"Rendered runtime prompt", "checksum: abc", "Render provenance", "Rendered body"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered prompt missing %q:\n%s", want, rendered)
+		}
+	}
+
+	validation := formatPromptValidation(gact.PromptValidationResult{
+		Enabled: false, ValidationErrors: []string{"unknown placeholder"},
+		Prompt: gact.PromptDefinition{ID: "clio.chat", Scope: "workspace"},
+	})
+	for _, want := range []string{"status: invalid", "unknown placeholder", "prompt_id: clio.chat"} {
+		if !strings.Contains(validation, want) {
+			t.Fatalf("validation missing %q:\n%s", want, validation)
+		}
+	}
+
+	reload := formatPromptReload(gact.PromptReloadResult{
+		PromptCount: 2, PromptIDs: []string{"a", "b"}, Sources: []gact.PromptSource{{Scope: "workspace", Root: "/repo/.clio/prompts"}},
+	})
+	for _, want := range []string{"prompt_count: 2", "prompt_ids: a, b", "workspace: /repo/.clio/prompts"} {
+		if !strings.Contains(reload, want) {
+			t.Fatalf("reload missing %q:\n%s", want, reload)
+		}
+	}
+}
+
 func TestAgentPromptResolutionDescription(t *testing.T) {
 	got := agentPromptResolutionDescription(gact.AgentDef{Metadata: map[string]any{
 		"prompt_resolution": map[string]any{
