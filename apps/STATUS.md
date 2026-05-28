@@ -159,6 +159,10 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
 - Per-message Quote button (branch icon) drops a markdown
   blockquote of the message body into the composer, auto-focused
   with a clean two-newline separator above and below. (f03dc2d)
+- Inspector grows a **Context** tab listing
+  `/v1/sessions/{id}/context/files` with edit/read mode indicators.
+  (014b9e1)
+- Subtle 220ms fade-in on inspector section transitions. (e1f6aba)
 
 ## Phase status
 
