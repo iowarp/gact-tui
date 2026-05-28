@@ -163,10 +163,33 @@ export function SplashScreen(props: SplashScreenProps) {
             <p class="splash__error-hint">
               Install <code>clio-agent</code> from the develop branch and restart:
             </p>
-            <code class="splash__cmd">
-              $env:CLIO_REF = 'develop'; irm
-              https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
-            </code>
+            <code class="splash__cmd">{installRecipeForPlatform()}</code>
+            <div class="splash__error-actions">
+              <button
+                type="button"
+                class="splash__btn"
+                onClick={() => {
+                  setError(null);
+                  cancelled = false;
+                  if (inTauri()) {
+                    void waitForTauriBackend();
+                  } else {
+                    void probePureWebBackend();
+                  }
+                }}
+                data-testid="splash-retry"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                class="splash__btn splash__btn--ghost"
+                onClick={() => props.onWebFallbackNeeded()}
+                data-testid="splash-manual-connect"
+              >
+                Manual connect…
+              </button>
+            </div>
           </div>
         </Show>
       </main>
@@ -180,4 +203,25 @@ function describe(e: unknown): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Picks an install command appropriate for the user's OS so the error
+ * panel doesn't show a PowerShell line to a macOS user (and vice
+ * versa). The actual install scripts live in the clio-agent repo.
+ */
+function installRecipeForPlatform(): string {
+  if (typeof navigator === 'undefined') return '';
+  const ua = navigator.userAgent;
+  const win = /Windows/i.test(navigator.platform) || /Windows/i.test(ua);
+  if (win) {
+    return [
+      "$env:CLIO_REF = 'develop'; irm",
+      'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex',
+    ].join(' ');
+  }
+  return [
+    'CLIO_REF=develop curl -fsSL',
+    'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash',
+  ].join(' ');
 }
