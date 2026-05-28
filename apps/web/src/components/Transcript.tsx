@@ -252,7 +252,12 @@ function MessageView(props: {
           <span class="trx-msg__model">{props.msg.model?.model_id}</span>
         </Show>
         <Show when={props.msg.created_at}>
-          <span class="trx-msg__when">{humanTime(props.msg.created_at!)}</span>
+          <span
+            class="trx-msg__when"
+            title={absoluteTime(props.msg.created_at!)}
+          >
+            {humanTime(props.msg.created_at!)}
+          </span>
         </Show>
         <span class="trx-msg__actions">
           <Show when={props.onCopy}>
@@ -355,6 +360,19 @@ function MessageView(props: {
 
 function isErrored(msg: Message): boolean {
   return msg.stop_reason === 'error' || !!msg.error_info;
+}
+
+function absoluteTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 function humanTime(iso: string): string {
