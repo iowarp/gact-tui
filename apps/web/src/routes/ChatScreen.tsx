@@ -928,6 +928,11 @@ function ChatLayout(props: ChatLayoutProps) {
         props.onOpenSettings?.();
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i' && onChat()) {
+        e.preventDefault();
+        setInspectorOpen((v) => !v);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         void props.onNewSession?.();

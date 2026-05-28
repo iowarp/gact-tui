@@ -43,6 +43,7 @@ const GROUPS: Group[] = [
     title: 'View',
     items: [
       { combo: [PLATFORM_MOD, 'F'], description: 'Find in current transcript' },
+      { combo: [PLATFORM_MOD, 'I'], description: 'Toggle the inspector drawer' },
       { combo: [PLATFORM_MOD, 'O'], description: 'Cycle transcript density' },
       { combo: [PLATFORM_MOD, '/'], description: 'Open this cheatsheet' },
       { combo: ['Esc'], description: 'Close overlay / palette · stop streaming turn' },
