@@ -230,6 +230,38 @@ type PromptSaveRequest struct {
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
+type PromptRenderRequest struct {
+	Profile     string            `json:"profile,omitempty"`
+	SessionID   string            `json:"session_id,omitempty"`
+	WorkspaceID string            `json:"workspace_id,omitempty"`
+	Context     map[string]string `json:"context,omitempty"`
+}
+
+type PromptValidateRequest struct {
+	Profile     string `json:"profile,omitempty"`
+	Text        string `json:"text,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+type PromptValidationResult struct {
+	Enabled          bool             `json:"enabled"`
+	ValidationErrors []string         `json:"validation_errors,omitempty"`
+	Prompt           PromptDefinition `json:"prompt,omitempty"`
+}
+
+type PromptReloadResult struct {
+	PromptCount int            `json:"prompt_count"`
+	PromptIDs   []string       `json:"prompt_ids,omitempty"`
+	Sources     []PromptSource `json:"sources,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type PromptSource struct {
+	Scope string `json:"scope,omitempty"`
+	Root  string `json:"root,omitempty"`
+}
+
 // UnmarshalJSON accepts both the shared GACT array shape for
 // parameters and CLIO's current object/map shape. Settings must not
 // fail the whole agent catalog because one backend serializes
