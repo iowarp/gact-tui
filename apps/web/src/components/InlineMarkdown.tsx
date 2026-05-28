@@ -11,15 +11,16 @@ export interface InlineMarkdownProps {
  *   - paragraph breaks (blank lines split into separate <p>)
  *   - line breaks (single \n inside a paragraph → <br>)
  *   - fenced code blocks (```lang\n…\n```)
- *   - inline `code`
- *   - **bold**
- *   - *italic*
+ *   - headings (# / ## / ###)
+ *   - bullet (-, *) and ordered (1.) lists
+ *   - inline `code`, **bold**, *italic*
+ *   - autolinks for bare http/https URLs (target=_blank, noopener)
  *
- * Does NOT support: raw HTML, images, links (autolinking can come later
- * with a URL whitelist; for v0.9 we render URLs as plain text to keep
- * the XSS surface zero). All text is inserted via textContent — no
- * dangerouslyInnerHTML, no DOMPurify dependency, no surface for script
- * injection from LM output.
+ * Does NOT support: raw HTML, images, arbitrary <a href>. All user
+ * content is inserted via textContent (no dangerouslySetInnerHTML, no
+ * DOMPurify dependency). Links are restricted to http/https URLs that
+ * the regex matches verbatim — no markdown link syntax means no chance
+ * for `[click](javascript:…)` smuggling.
  */
 export function InlineMarkdown(props: InlineMarkdownProps) {
   const blocks = () => splitBlocks(props.text);
@@ -32,6 +33,28 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
               <pre class={'im__code ' + (b.lang ? `im__code--${b.lang}` : '')}>
                 <code>{b.body}</code>
               </pre>
+            );
+          }
+          if (b.kind === 'heading') {
+            const tag = b.level === 1 ? 'h2' : b.level === 2 ? 'h3' : 'h4';
+            return (
+              <DynamicTag tag={tag} class={`im__h im__h-${b.level}`}>
+                <For each={tokenizeInline(b.body)}>{(t) => renderToken(t)}</For>
+              </DynamicTag>
+            );
+          }
+          if (b.kind === 'list') {
+            const ListTag = b.ordered ? 'ol' : 'ul';
+            return (
+              <ListTag class={'im__list ' + (b.ordered ? 'im__list--ol' : 'im__list--ul')}>
+                <For each={b.items}>
+                  {(item) => (
+                    <li class="im__li">
+                      <For each={tokenizeInline(item)}>{(t) => renderToken(t)}</For>
+                    </li>
+                  )}
+                </For>
+              </ListTag>
             );
           }
           return (
@@ -54,9 +77,22 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
   );
 }
 
+function DynamicTag(props: { tag: string; class?: string; children: unknown }) {
+  // Solid doesn't have a built-in dynamic tag helper outside JSX, so
+  // route through a tiny switch. Keeps the heading levels semantic.
+  switch (props.tag) {
+    case 'h2': return <h2 class={props.class}>{props.children as never}</h2>;
+    case 'h3': return <h3 class={props.class}>{props.children as never}</h3>;
+    case 'h4': return <h4 class={props.class}>{props.children as never}</h4>;
+    default:   return <div class={props.class}>{props.children as never}</div>;
+  }
+}
+
 type Block =
   | { kind: 'text'; body: string }
-  | { kind: 'code'; lang: string | null; body: string };
+  | { kind: 'code'; lang: string | null; body: string }
+  | { kind: 'heading'; level: 1 | 2 | 3; body: string }
+  | { kind: 'list'; ordered: boolean; items: string[] };
 
 function splitBlocks(text: string): Block[] {
   const out: Block[] = [];
@@ -70,8 +106,13 @@ function splitBlocks(text: string): Block[] {
     para = [];
   };
 
+  const headingRe = /^(#{1,3})\s+(.+?)\s*$/;
+  const ulRe = /^[-*]\s+(.+)$/;
+  const olRe = /^\d+\.\s+(.+)$/;
+
   while (i < lines.length) {
     const line = lines[i]!;
+
     const fence = line.match(/^```(\w*)\s*$/);
     if (fence) {
       flushPara();
@@ -82,11 +123,39 @@ function splitBlocks(text: string): Block[] {
         body.push(lines[i]!);
         i++;
       }
-      // Skip the closing fence if we found one
       if (i < lines.length) i++;
       out.push({ kind: 'code', lang, body: body.join('\n') });
       continue;
     }
+
+    const head = line.match(headingRe);
+    if (head) {
+      flushPara();
+      const level = head[1]!.length as 1 | 2 | 3;
+      out.push({ kind: 'heading', level, body: head[2] ?? '' });
+      i++;
+      continue;
+    }
+
+    const ulMatch = line.match(ulRe);
+    const olMatch = line.match(olRe);
+    if (ulMatch || olMatch) {
+      flushPara();
+      const ordered = !!olMatch;
+      const items: string[] = [];
+      while (i < lines.length) {
+        const cur = lines[i]!;
+        const u = cur.match(ulRe);
+        const o = cur.match(olRe);
+        if (ordered && o) items.push(o[1]!);
+        else if (!ordered && u) items.push(u[1]!);
+        else break;
+        i++;
+      }
+      out.push({ kind: 'list', ordered, items });
+      continue;
+    }
+
     if (line.trim() === '') {
       flushPara();
     } else {
@@ -103,16 +172,20 @@ function splitLines(s: string): string[] {
 }
 
 interface InlineToken {
-  kind: 'plain' | 'bold' | 'italic' | 'code';
+  kind: 'plain' | 'bold' | 'italic' | 'code' | 'link';
   text: string;
+  /** Only set for kind === 'link'. The same URL is used for href + text. */
+  href?: string;
 }
 
 function tokenizeInline(s: string): InlineToken[] {
   const out: InlineToken[] = [];
-  // Apply rules in order of priority: inline code → bold → italic.
-  // Splitting by regex with capture groups so we keep matched + unmatched
-  // chunks in one pass.
-  const pattern = /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)/g;
+  // Order matters: inline code (literal) wins over emphasis so a
+  // backticked URL doesn't get autolinked. Then bold > italic > link.
+  // Autolinks match bare http/https URLs only; markdown link syntax
+  // is intentionally not parsed to keep the href whitelist tight.
+  const pattern =
+    /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(https?:\/\/[^\s)>\]"']+)/g;
   let cur = 0;
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(s)) !== null) {
@@ -120,6 +193,18 @@ function tokenizeInline(s: string): InlineToken[] {
     if (m[1]) out.push({ kind: 'code', text: m[1].slice(1, -1) });
     else if (m[2]) out.push({ kind: 'bold', text: m[2].slice(2, -2) });
     else if (m[3]) out.push({ kind: 'italic', text: m[3].slice(1, -1) });
+    else if (m[4]) {
+      // Strip a trailing punctuation char that the regex greedily ate
+      // so "see https://example.com." renders as a clean link.
+      let url = m[4];
+      let trailing = '';
+      while (url.length > 0 && /[.,;:!?)]/.test(url.slice(-1))) {
+        trailing = url.slice(-1) + trailing;
+        url = url.slice(0, -1);
+      }
+      out.push({ kind: 'link', text: url, href: url });
+      if (trailing) out.push({ kind: 'plain', text: trailing });
+    }
     cur = pattern.lastIndex;
   }
   if (cur < s.length) out.push({ kind: 'plain', text: s.slice(cur) });
@@ -134,6 +219,17 @@ function renderToken(t: InlineToken) {
       return <em>{t.text}</em>;
     case 'code':
       return <code class="im__inline-code">{t.text}</code>;
+    case 'link':
+      return (
+        <a
+          class="im__link"
+          href={t.href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t.text}
+        </a>
+      );
     case 'plain':
     default:
       return <span>{t.text}</span>;

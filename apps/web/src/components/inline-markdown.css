@@ -38,3 +38,39 @@
   padding: 0;
   color: var(--color-text);
 }
+
+/* Headings + lists + links — additions for the v0.9.1 polish pass.    */
+.im__h {
+  margin: 16px 0 6px;
+  font-family: var(--font-sans);
+  color: var(--color-heading);
+  letter-spacing: -0.01em;
+}
+
+.im__h-1 { font-size: 18px; font-weight: 700; }
+.im__h-2 { font-size: 15px; font-weight: 700; }
+.im__h-3 { font-size: 13.5px; font-weight: 600; color: var(--color-text); }
+
+.im__list {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.im__list--ul { list-style: disc; }
+.im__list--ol { list-style: decimal; }
+
+.im__li {
+  margin: 3px 0;
+  line-height: 1.55;
+}
+
+.im__link {
+  color: var(--color-accent-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.im__link:hover {
+  color: var(--color-heading);
+}
