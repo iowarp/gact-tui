@@ -163,6 +163,14 @@ surface (PRs #340 / #344 / #346 / #353 / #362 / #364 / #376 / #377 /
   `/v1/sessions/{id}/context/files` with edit/read mode indicators.
   (014b9e1)
 - Subtle 220ms fade-in on inspector section transitions. (e1f6aba)
+- Permission mode chip in topbar (click-to-reset). (a6043f2)
+- Focus composer on session activation. (cf62bf1)
+- UserQuestion type + Client.sessionQuestions() (orchestrator
+  ask-user retry, #380). (279f418)
+- Code blocks: language badge + hover Copy button. (e738d8a)
+- Persist active session id per backend. (37ce315)
+- Density chip is now a click-to-cycle button. (4970c18)
+- Tokens chip in topbar from message.completed. (dba1b65)
 
 ## Phase status
 
