@@ -377,3 +377,22 @@ export interface SlashCommandDef {
   source?: 'builtin' | 'user' | string;
   args_schema?: unknown;
 }
+
+export interface LmConfigSnapshot {
+  configured: boolean;
+  provider: string;
+  api_base: string;
+  model: string;
+  temperature?: number;
+  max_tokens?: number;
+  thinking_budget?: number;
+  presets?: Array<{
+    id: string;
+    label: string;
+    provider: string;
+    api_base?: string;
+    suggested_model?: string;
+    requires_api_key?: boolean;
+    description?: string;
+  }>;
+}

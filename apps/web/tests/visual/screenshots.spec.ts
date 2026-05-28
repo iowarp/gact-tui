@@ -283,6 +283,30 @@ test.describe('CLIO harness — visual proofs', () => {
     await ctx.close();
   });
 
+  test('settings-providers shows the active LM + Use as LM buttons', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-providers').click();
+    await expect(page.getByTestId('providers-active')).toBeVisible({ timeout: 4_000 });
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: shot('settings-providers'), fullPage: false });
+    await ctx.close();
+  });
+
   test('settings-shell-about shows the About section', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
