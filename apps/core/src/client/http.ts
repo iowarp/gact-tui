@@ -163,6 +163,21 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/summarize — kicks off async summarization.
+   * The result lands on the SSE stream as a `session.summarized`
+   * event (per SPEC §7.3). 204 on success — no body returned.
+   */
+  summarizeSession(
+    sessionId: string,
+    body: { auto?: boolean; instructions?: string } = {},
+  ): Promise<void> {
+    return this.post<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/summarize`,
+      body,
+    );
+  }
+
+  /**
    * GET /v1/sessions/{id}/export — full session payload as JSON
    * (messages, metadata, agent + model + workspace IDs). Used for
    * 'Export as JSON' downloads from the session kebab menu.

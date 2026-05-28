@@ -409,6 +409,26 @@ function LiveDriven(props: {
     }
   }
 
+  async function summarizeActive() {
+    const id = activeId();
+    if (!id) return;
+    try {
+      await live.client.summarizeSession(id, { auto: true });
+      toast.push({
+        tone: 'info',
+        title: 'Summarizing…',
+        body: 'The backend will emit a session.summarized event when done.',
+        duration: 3000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Summarize failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   async function forkSession(id: string) {
     try {
       const original = rows().find((r) => r.id === id);
@@ -585,6 +605,7 @@ function LiveDriven(props: {
       onShareSession={shareSession}
       onForkSession={forkSession}
       onTogglePin={togglePin}
+      onSummarize={summarizeActive}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -645,6 +666,7 @@ interface ChatLayoutProps {
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
+  onSummarize?: () => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -986,6 +1008,10 @@ function ChatLayout(props: ChatLayoutProps) {
       cycleDensity(props.density, props.setDensity);
       return;
     }
+    if (cmd.id === 'summarize') {
+      void props.onSummarize?.();
+      return;
+    }
     if (cmd.id === 'toggle-inspector') {
       setInspectorOpen((v) => !v);
       return;
@@ -1104,6 +1130,12 @@ function ChatLayout(props: ChatLayoutProps) {
         id: 'new-session',
         trigger: 'new session',
         description: 'Start a fresh session (Ctrl+N)',
+        category: 'action',
+      },
+      {
+        id: 'summarize',
+        trigger: 'summarize session',
+        description: 'Ask the backend to summarize this session',
         category: 'action',
       },
       {
