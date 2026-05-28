@@ -173,3 +173,8 @@
   color: var(--color-success);
   border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
 }
+
+.im__strike {
+  text-decoration-color: color-mix(in srgb, var(--color-muted) 70%, transparent);
+  color: var(--color-muted);
+}

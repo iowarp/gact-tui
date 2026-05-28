@@ -295,7 +295,7 @@ function splitTableRow(row: string): string[] {
 }
 
 interface InlineToken {
-  kind: 'plain' | 'bold' | 'italic' | 'code' | 'link';
+  kind: 'plain' | 'bold' | 'italic' | 'code' | 'link' | 'strike';
   text: string;
   /** Only set for kind === 'link'. The same URL is used for href + text. */
   href?: string;
@@ -308,7 +308,7 @@ function tokenizeInline(s: string): InlineToken[] {
   // Autolinks match bare http/https URLs only; markdown link syntax
   // is intentionally not parsed to keep the href whitelist tight.
   const pattern =
-    /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(https?:\/\/[^\s)>\]"']+)/g;
+    /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(~~[^~]+~~)|(https?:\/\/[^\s)>\]"']+)/g;
   let cur = 0;
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(s)) !== null) {
@@ -316,10 +316,11 @@ function tokenizeInline(s: string): InlineToken[] {
     if (m[1]) out.push({ kind: 'code', text: m[1].slice(1, -1) });
     else if (m[2]) out.push({ kind: 'bold', text: m[2].slice(2, -2) });
     else if (m[3]) out.push({ kind: 'italic', text: m[3].slice(1, -1) });
-    else if (m[4]) {
+    else if (m[4]) out.push({ kind: 'strike', text: m[4].slice(2, -2) });
+    else if (m[5]) {
       // Strip a trailing punctuation char that the regex greedily ate
       // so "see https://example.com." renders as a clean link.
-      let url = m[4];
+      let url = m[5];
       let trailing = '';
       while (url.length > 0 && /[.,;:!?)]/.test(url.slice(-1))) {
         trailing = url.slice(-1) + trailing;
@@ -342,6 +343,8 @@ function renderToken(t: InlineToken) {
       return <em>{t.text}</em>;
     case 'code':
       return <code class="im__inline-code">{t.text}</code>;
+    case 'strike':
+      return <s class="im__strike">{t.text}</s>;
     case 'link':
       return (
         <a
