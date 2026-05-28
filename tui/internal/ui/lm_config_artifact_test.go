@@ -165,60 +165,152 @@ func TestLMConfigAdvancedRowsUseVerticalNavigation(t *testing.T) {
 }
 
 func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
-	a := newLMConfigTestApp()
-	a.MouseEnabled = true
-	a.lmConfig.selected = 0 // LM Studio exposes temperature/max output/context length.
-	a.lmConfig.field = lmFieldTemperature
-	a.lmConfig.temperature = "1.0"
-	a.lmConfig.maxTokens = "4096"
-	a.lmConfig.contextLength = "32768"
+	cases := []struct {
+		name       string
+		selected   int
+		field      lmConfigField
+		start      func(*App)
+		afterInc   func(*testing.T, *App)
+		afterDec   func(*testing.T, *App)
+		fieldLabel string
+	}{
+		{
+			name:       "temperature",
+			selected:   0,
+			field:      lmFieldTemperature,
+			fieldLabel: "temperature",
+			start:      func(a *App) { a.lmConfig.temperature = "1.0" },
+			afterInc: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.temperature != "1.1" {
+					t.Fatalf("increment temperature = %q, want 1.1", a.lmConfig.temperature)
+				}
+			},
+			afterDec: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.temperature != "1.0" {
+					t.Fatalf("decrement temperature = %q, want 1.0", a.lmConfig.temperature)
+				}
+			},
+		},
+		{
+			name:       "max output",
+			selected:   0,
+			field:      lmFieldMaxTokens,
+			fieldLabel: "max output",
+			start:      func(a *App) { a.lmConfig.maxTokens = "4096" },
+			afterInc: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.maxTokens != "4608" {
+					t.Fatalf("increment max output = %q, want 4608", a.lmConfig.maxTokens)
+				}
+			},
+			afterDec: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.maxTokens != "4096" {
+					t.Fatalf("decrement max output = %q, want 4096", a.lmConfig.maxTokens)
+				}
+			},
+		},
+		{
+			name:       "context length",
+			selected:   0,
+			field:      lmFieldContextLength,
+			fieldLabel: "context length",
+			start:      func(a *App) { a.lmConfig.contextLength = "32768" },
+			afterInc: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.contextLength != "36864" {
+					t.Fatalf("increment context length = %q, want 36864", a.lmConfig.contextLength)
+				}
+			},
+			afterDec: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.contextLength != "32768" {
+					t.Fatalf("decrement context length = %q, want 32768", a.lmConfig.contextLength)
+				}
+			},
+		},
+		{
+			name:       "thinking budget",
+			selected:   2,
+			field:      lmFieldThinkingBudget,
+			fieldLabel: "thinking budget",
+			start:      func(a *App) { a.lmConfig.thinkingBudget = "2048" },
+			afterInc: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.thinkingBudget != "3072" {
+					t.Fatalf("increment thinking budget = %q, want 3072", a.lmConfig.thinkingBudget)
+				}
+			},
+			afterDec: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.thinkingBudget != "2048" {
+					t.Fatalf("decrement thinking budget = %q, want 2048", a.lmConfig.thinkingBudget)
+				}
+			},
+		},
+	}
 
-	_ = a.View()
-	targetID := "lm-config:advanced:" + strconv.Itoa(int(lmFieldMaxTokens))
-	target, ok := findHitTargetForTest(a, targetID+":inc")
-	if !ok {
-		t.Fatal("missing semantic LM max output increment target")
-	}
-	if target.rect.w <= 3 {
-		t.Fatalf("advanced increment hit width = %d, want wider than glyph-only", target.rect.w)
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x + target.rect.w/2,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newLMConfigTestApp()
+			a.MouseEnabled = true
+			a.lmConfig.selected = tc.selected
+			a.lmConfig.field = tc.field
+			a.lmConfig.temperature = "1.0"
+			a.lmConfig.maxTokens = "4096"
+			a.lmConfig.contextLength = "32768"
+			a.lmConfig.thinkingBudget = "2048"
+			tc.start(a)
 
-	if cmd != nil {
-		t.Fatal("advanced increment click should not dispatch a command")
-	}
-	if a.lmConfig.field != lmFieldMaxTokens {
-		t.Fatalf("field = %v, want max output", a.lmConfig.field)
-	}
-	if a.lmConfig.maxTokens != "4608" {
-		t.Fatalf("increment click max output = %q, want 4608", a.lmConfig.maxTokens)
-	}
+			targetID := "lm-config:advanced:" + strconv.Itoa(int(tc.field))
+			_ = a.View()
+			target, ok := findHitTargetForTest(a, targetID+":inc")
+			if !ok {
+				t.Fatalf("missing semantic LM %s increment target", tc.fieldLabel)
+			}
+			if target.rect.w <= 1 {
+				t.Fatalf("advanced increment hit width = %d, want wider than glyph-only", target.rect.w)
+			}
+			model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+				X:      target.rect.x + target.rect.w/2,
+				Y:      target.rect.y,
+				Button: tea.MouseLeft,
+			}))
+			a = model.(*App)
 
-	_ = a.View()
-	target, ok = findHitTargetForTest(a, targetID+":dec")
-	if !ok {
-		t.Fatal("missing semantic LM max output decrement target")
-	}
-	if target.rect.w <= 3 {
-		t.Fatalf("advanced decrement hit width = %d, want wider than glyph-only", target.rect.w)
-	}
-	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x + target.rect.w/2,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
+			if cmd != nil {
+				t.Fatal("advanced increment click should not dispatch a command")
+			}
+			if a.lmConfig.field != tc.field {
+				t.Fatalf("field = %v, want %v", a.lmConfig.field, tc.field)
+			}
+			tc.afterInc(t, a)
 
-	if cmd != nil {
-		t.Fatal("advanced decrement click should not dispatch a command")
-	}
-	if a.lmConfig.maxTokens != "4096" {
-		t.Fatalf("decrement click max output = %q, want 4096", a.lmConfig.maxTokens)
+			_ = a.View()
+			target, ok = findHitTargetForTest(a, targetID+":dec")
+			if !ok {
+				t.Fatalf("missing semantic LM %s decrement target", tc.fieldLabel)
+			}
+			if target.rect.w <= 1 {
+				t.Fatalf("advanced decrement hit width = %d, want wider than glyph-only", target.rect.w)
+			}
+			model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+				X:      target.rect.x + target.rect.w/2,
+				Y:      target.rect.y,
+				Button: tea.MouseLeft,
+			}))
+			a = model.(*App)
+
+			if cmd != nil {
+				t.Fatal("advanced decrement click should not dispatch a command")
+			}
+			if a.lmConfig.field != tc.field {
+				t.Fatalf("field = %v, want %v", a.lmConfig.field, tc.field)
+			}
+			tc.afterDec(t, a)
+		})
 	}
 }
 

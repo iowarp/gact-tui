@@ -31,6 +31,7 @@ type FocusZone int
 const (
 	FocusSidebar FocusZone = iota
 	FocusBody
+	FocusRightSidebar
 	FocusInput
 )
 
@@ -38,6 +39,7 @@ type sidebarSection int
 
 const (
 	sidebarSectionSessions sidebarSection = iota
+	sidebarSectionFiles
 	sidebarSectionContext
 )
 
@@ -139,6 +141,14 @@ type App struct {
 	// Context files for the currently selected session (fetched on select).
 	contextFiles   []gact.ContextFile
 	contextFileSel int
+
+	// Local file viewer module. This is process-cwd-backed and does not require
+	// backend filesystem support.
+	fileViewerRoot   string
+	fileTreeEntries  []fileTreeEntry
+	fileTreeExpanded map[string]bool
+	fileTreeSel      int
+	fileTreeErr      string
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -529,6 +539,7 @@ type App struct {
 	// Sidebar sections are independently collapsible so the left pane can grow
 	// without becoming a hard-coded sessions/context layout.
 	sidebarSessionsCollapsed bool
+	sidebarFilesCollapsed    bool
 	sidebarContextCollapsed  bool
 	sidebarSectionFocus      sidebarSection
 	sidebarSectionCursor     bool
@@ -536,6 +547,7 @@ type App struct {
 	rightSidebarModuleIDs    []sidebarModuleID
 	sidebarLayoutConfigured  bool
 	sidebarHitOffsetX        int
+	sidebarHitFocus          FocusZone
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -625,6 +637,7 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		bodySelPartIdx:        -1,
 		previouslyDetached:    map[string]bool{},
 	}
+	app.initFileViewerFromCwd()
 	app.refreshLocalizedPlaceholders()
 	return app
 }
@@ -2399,8 +2412,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.focusNextPane()
 		return a, nil
 	case "shift+tab":
-		a.focus = (a.focus + 2) % 3
-		a.maybeInitBodyCursor()
+		a.focusPane(-1)
 		return a, nil
 	case "ctrl+x":
 		if sid := a.currentSessionID(); sid != "" {
@@ -2472,7 +2484,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	switch a.focus {
-	case FocusSidebar:
+	case FocusSidebar, FocusRightSidebar:
 		return a.handleSidebarKey(k)
 	case FocusBody:
 		return a.handleBodyKey(k)
@@ -2517,6 +2529,34 @@ func (a *App) handleConversationWheel(button tea.MouseButton) tea.Cmd {
 		if a.focus == FocusBody {
 			a.stepPartCursorSelection(+1)
 		}
+	}
+	return nil
+}
+
+func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd {
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
+		a.focus = zone
+		a.sidebarSectionCursor = true
+		a.sidebarSectionFocus = sidebarSectionSessions
+		return nil
+	}
+	delta := 0
+	switch button {
+	case tea.MouseWheelUp:
+		delta = -1
+	case tea.MouseWheelDown:
+		delta = 1
+	default:
+		return nil
+	}
+	a.focus = zone
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = false
+	if a.stepSelectionVisible(delta) {
+		return a.selectSession(a.selected)
 	}
 	return nil
 }
@@ -3731,6 +3771,15 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.contextFileSel--
 			return a, nil
 		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			if a.fileTreeSel <= 0 {
+				a.fileTreeSel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.fileTreeSel--
+			return a, nil
+		}
 		if a.selected == a.firstVisibleSessionIndex() {
 			a.sidebarSectionCursor = true
 			a.sidebarSectionFocus = sidebarSectionSessions
@@ -3744,6 +3793,9 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionCursor {
 			if a.sidebarSectionFocus == sidebarSectionSessions {
 				a.sidebarSectionCursor = false
+			} else if a.sidebarSectionFocus == sidebarSectionFiles && !a.sidebarFilesCollapsed && len(a.visibleFileTreeEntries()) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampFileTreeSelection()
 			} else if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
 				a.sidebarSectionCursor = false
 				a.clampContextFileSelection()
@@ -3755,6 +3807,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionContext {
 			if a.contextFileSel < len(a.contextFiles)-1 {
 				a.contextFileSel++
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			visible := a.visibleFileTreeEntries()
+			if a.fileTreeSel < len(visible)-1 {
+				a.fileTreeSel++
 			}
 			return a, nil
 		}
@@ -3805,6 +3864,10 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if a.contextFileSel >= 0 && a.contextFileSel < len(a.contextFiles) {
 				a.openContextFileDetail(a.contextFiles[a.contextFileSel])
 			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			a.activateFileTreeSelection()
 			return a, nil
 		}
 		a.focus = FocusInput
@@ -3972,6 +4035,23 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		} else {
 			a.transientHint = "context section expanded"
 		}
+	case "F":
+		if !a.sidebarHasEnabledModule(sidebarModuleFiles) {
+			return a, nil
+		}
+		a.sidebarSectionFocus = sidebarSectionFiles
+		a.sidebarSectionCursor = true
+		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
+		if a.sidebarFilesCollapsed {
+			a.transientHint = "files section collapsed (F to expand)"
+		} else {
+			a.transientHint = "files section expanded"
+		}
+	case "r":
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			a.reloadFileViewer()
+			a.transientHint = "files refreshed"
+		}
 	}
 	return a, nil
 }
@@ -3998,13 +4078,14 @@ func (a *App) sidebarPageSize() int {
 	if len(a.sessions) > 0 {
 		footerLines = 2
 	}
+	fileLines := a.sidebarFileViewerRowCount(8)
 	// a.height includes the header row (1) + footer hints row (1) +
 	// optional hint banner row. The pane itself gets a.height-4 outer
 	// rows (header + footer + 2 spacer rows per the layout math in
 	// renderBody). Same inner-row budget as renderSidebar.
 	inner := (a.height - 4) - 2
-	avail := inner - contextLines - footerLines
-	if contextLines > 0 && !a.sidebarContextCollapsed {
+	avail := inner - contextLines - fileLines - footerLines
+	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) {
 		avail--
 	}
 	page := avail / rowsPerSession
@@ -4040,7 +4121,17 @@ func (a *App) firstVisibleSessionIndex() int {
 }
 
 func (a *App) sidebarSections() []sidebarSection {
-	modules := a.sidebarModules()
+	return sidebarSectionsFromModules(a.sidebarModules())
+}
+
+func (a *App) activeSidebarSections() []sidebarSection {
+	if a.focus == FocusRightSidebar {
+		return sidebarSectionsFromModules(a.rightSidebarModules())
+	}
+	return a.sidebarSections()
+}
+
+func sidebarSectionsFromModules(modules []resolvedSidebarModule) []sidebarSection {
 	sections := make([]sidebarSection, 0, len(modules))
 	for _, module := range modules {
 		if module.Disabled {
@@ -4052,7 +4143,7 @@ func (a *App) sidebarSections() []sidebarSection {
 }
 
 func (a *App) sidebarSectionPosition() int {
-	sections := a.sidebarSections()
+	sections := a.activeSidebarSections()
 	for i, section := range sections {
 		if section == a.sidebarSectionFocus {
 			return i
@@ -4062,7 +4153,7 @@ func (a *App) sidebarSectionPosition() int {
 }
 
 func (a *App) focusPreviousSidebarSection() {
-	sections := a.sidebarSections()
+	sections := a.activeSidebarSections()
 	if len(sections) == 0 {
 		return
 	}
@@ -4074,7 +4165,7 @@ func (a *App) focusPreviousSidebarSection() {
 }
 
 func (a *App) focusNextSidebarSection() {
-	sections := a.sidebarSections()
+	sections := a.activeSidebarSections()
 	if len(sections) == 0 {
 		return
 	}
@@ -4087,6 +4178,8 @@ func (a *App) focusNextSidebarSection() {
 
 func (a *App) toggleFocusedSidebarSection() {
 	switch a.sidebarSectionFocus {
+	case sidebarSectionFiles:
+		a.activateSidebarSection(sidebarSectionFiles)
 	case sidebarSectionContext:
 		a.activateSidebarSection(sidebarSectionContext)
 	default:
@@ -4175,12 +4268,13 @@ func (a *App) sidebarVisibleSessionRange(height int, visIdx []int) (int, int) {
 
 func (a *App) sidebarSessionRowsAvailable(height int) int {
 	contextLines := a.sidebarContextRowCount()
+	fileLines := a.sidebarFileViewerRowCount(8)
 	footerLines := 0
 	if len(a.sessions) > 0 {
 		footerLines = 2
 	}
-	avail := (height - 2) - 2 - contextLines - footerLines
-	if contextLines > 0 {
+	avail := (height - 2) - 2 - contextLines - fileLines - footerLines
+	if contextLines > 0 || fileLines > 0 {
 		avail--
 	}
 	if avail < 1 {
@@ -4256,10 +4350,19 @@ func (a *App) activateSidebarSession(index int) tea.Cmd {
 }
 
 func (a *App) activateSidebarSection(section sidebarSection) {
-	a.focus = FocusSidebar
+	if a.focus != FocusRightSidebar {
+		a.focus = FocusSidebar
+	}
 	a.sidebarSectionFocus = section
 	a.sidebarSectionCursor = true
 	switch section {
+	case sidebarSectionFiles:
+		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
+		if a.sidebarFilesCollapsed {
+			a.transientHint = "files section collapsed (F to expand)"
+		} else {
+			a.transientHint = "files section expanded"
+		}
 	case sidebarSectionContext:
 		a.sidebarContextCollapsed = !a.sidebarContextCollapsed
 		if a.sidebarContextCollapsed {
@@ -4314,11 +4417,27 @@ func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sideba
 	if a.hits == nil {
 		return
 	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
 	id := "sidebar:sessions:header"
+	if zone == FocusRightSidebar {
+		id = "right-" + id
+	}
 	if section == sidebarSectionContext {
 		id = "sidebar:context:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:context:header"
+		}
+	} else if section == sidebarSectionFiles {
+		id = "sidebar:files:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:files:header"
+		}
 	}
 	a.registerSidebarContentHit(id, row, width, 1, func(app *App) tea.Cmd {
+		app.focus = zone
 		app.activateSidebarSection(section)
 		return nil
 	})
@@ -4328,7 +4447,18 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 	if a.hits == nil || width <= 0 || height <= 0 {
 		return
 	}
-	a.registerFocusSurfaceHit("sidebar:focus", a.sidebarFocusSurfaceRect(width, height), FocusSidebar, nil)
+	zone := a.sidebarHitFocus
+	id := "sidebar:focus"
+	if zone == FocusRightSidebar {
+		id = "right-sidebar:focus"
+	} else {
+		zone = FocusSidebar
+	}
+	rect := a.sidebarFocusSurfaceRect(width, height)
+	a.registerFocusSurfaceHit(id, rect, zone, nil)
+	a.registerScreenWheelHit(id+":wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleSidebarWheel(zone, button)
+	})
 }
 
 func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
@@ -4343,15 +4473,23 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 	if id == "" {
 		id = fmt.Sprintf("%d", index)
 	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	} else {
+		id = "right-" + id
+	}
 	a.registerSidebarContentHitActions(
 		"sidebar:session:"+id,
 		row,
 		width,
 		rowCount,
 		func(app *App) tea.Cmd {
+			app.focus = zone
 			return app.activateSidebarSession(index)
 		},
 		func(app *App) tea.Cmd {
+			app.focus = zone
 			return app.openSessionActionsForIndex(index)
 		},
 	)
@@ -4375,13 +4513,21 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 	if a.hits == nil {
 		return
 	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	id := "sidebar:context:file:" + cf.Path
+	if zone == FocusRightSidebar {
+		id = "right-sidebar:context:file:" + cf.Path
+	}
 	a.registerSidebarContentHitActions(
-		"sidebar:context:file:"+cf.Path,
+		id,
 		row,
 		width,
 		a.sidebarContextFileRowCount(index),
 		func(app *App) tea.Cmd {
-			app.focus = FocusSidebar
+			app.focus = zone
 			app.sidebarSectionFocus = sidebarSectionContext
 			app.sidebarSectionCursor = true
 			app.contextFileSel = index
@@ -4398,8 +4544,12 @@ func (a *App) registerSidebarCountsHit(row int, width int) {
 	if a.hits == nil {
 		return
 	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
 	a.registerSidebarContentHit("sidebar:counts", row, width, 1, func(app *App) tea.Cmd {
-		app.focus = FocusSidebar
+		app.focus = zone
 		return app.toggleArchivedView()
 	})
 }
@@ -7141,7 +7291,27 @@ func (a *App) openSettingsTab(tab int) tea.Cmd {
 }
 
 func (a *App) focusNextPane() {
-	a.focus = (a.focus + 1) % 3
+	a.focusPane(1)
+}
+
+func (a *App) focusPane(delta int) {
+	order := []FocusZone{FocusSidebar, FocusBody}
+	if len(a.rightSidebarModules()) > 0 {
+		order = append(order, FocusRightSidebar)
+	}
+	order = append(order, FocusInput)
+	pos := 0
+	for i, zone := range order {
+		if zone == a.focus {
+			pos = i
+			break
+		}
+	}
+	pos = (pos + delta) % len(order)
+	if pos < 0 {
+		pos += len(order)
+	}
+	a.focus = order[pos]
 	a.maybeInitBodyCursor()
 }
 
@@ -7696,6 +7866,8 @@ func (a *App) focusLabel(f FocusZone) string {
 		return a.localizer.t(msgChromeFocusSidebar, nil)
 	case FocusBody:
 		return a.localizer.t(msgChromeFocusConversation, nil)
+	case FocusRightSidebar:
+		return a.localizer.t(msgChromeFocusRightSidebar, nil)
 	case FocusInput:
 		return a.localizer.t(msgChromeFocusInput, nil)
 	}
@@ -7703,7 +7875,14 @@ func (a *App) focusLabel(f FocusZone) string {
 }
 
 func (a *App) renderSidebar(width, height int) string {
+	prevOffset := a.sidebarHitOffsetX
+	prevFocus := a.sidebarHitFocus
 	a.sidebarHitOffsetX = 0
+	a.sidebarHitFocus = FocusSidebar
+	defer func() {
+		a.sidebarHitOffsetX = prevOffset
+		a.sidebarHitFocus = prevFocus
+	}()
 	t := a.Theme
 	// CCCCC1: lipgloss .Height(N) is OUTER height (border included).
 	// Previously we passed Height(height-2) treating it as inner content
@@ -7740,7 +7919,7 @@ func (a *App) renderSidebar(width, height int) string {
 		titleText += fmt.Sprintf(" (%d)", len(visIdx))
 	}
 	titlePrefix := ""
-	if a.focus == FocusSidebar && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionSessions {
+	if a.focus == a.sidebarHitFocus && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionSessions {
 		titlePrefix = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 	}
 	title := titlePrefix + lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(disclosure+titleText)
@@ -7910,6 +8089,13 @@ func (a *App) renderSidebar(width, height int) string {
 		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
 	}
 
+	if a.sidebarHasEnabledModule(sidebarModuleFiles) {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
+	}
+
 	// CONTEXT section — show files in the current session's context.
 	if a.sidebarHasEnabledModule(sidebarModuleContext) && a.selected >= 0 && a.selected < len(a.sessions) {
 		contextLines := a.sidebarContextRowCount()
@@ -7939,7 +8125,7 @@ func (a *App) renderSidebar(width, height int) string {
 			contextTitle += fmt.Sprintf(" · %d", len(a.contextFiles))
 		}
 		contextPrefix := ""
-		if a.focus == FocusSidebar && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionContext {
+		if a.focus == a.sidebarHitFocus && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionContext {
 			contextPrefix = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 		}
 		rows = append(rows,
@@ -7954,7 +8140,7 @@ func (a *App) renderSidebar(width, height int) string {
 				row := len(rows)
 				cf := cf
 				marker := " "
-				selected := a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+				selected := a.focus == a.sidebarHitFocus && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
 				if selected {
 					marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 				}
@@ -8003,13 +8189,19 @@ func (a *App) renderSidebar(width, height int) string {
 
 func (a *App) renderRightSidebar(width, height int, offsetX int) string {
 	prevOffset := a.sidebarHitOffsetX
+	prevFocus := a.sidebarHitFocus
 	a.sidebarHitOffsetX = offsetX
+	a.sidebarHitFocus = FocusRightSidebar
 	defer func() {
 		a.sidebarHitOffsetX = prevOffset
+		a.sidebarHitFocus = prevFocus
 	}()
 
 	t := a.Theme
 	style := t.Pane.Width(width - 2).Height(height)
+	if a.focus == FocusRightSidebar {
+		style = t.PaneFoc.Width(width - 2).Height(height)
+	}
 	a.registerSidebarFocusSurface(width, height)
 
 	modules := a.rightSidebarModules()
@@ -8025,6 +8217,8 @@ func (a *App) renderRightSidebar(width, height int, offsetX int) string {
 		switch module.Definition.ID {
 		case sidebarModuleContext:
 			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleFiles:
+			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
 		case sidebarModuleSessions:
 			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
 		default:
@@ -8058,7 +8252,7 @@ func (a *App) renderRightContextModuleRows(width int) []string {
 	for i, cf := range a.contextFiles {
 		row := len(rows)
 		marker := " "
-		selected := a.focus == FocusSidebar && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+		selected := a.focus == a.sidebarHitFocus && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
 		if selected {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 		}

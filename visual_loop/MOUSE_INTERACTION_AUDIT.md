@@ -296,6 +296,18 @@ Scope: audit plus implementation tracking for the semantic interaction migration
 - Provider setup provider/model side-rail hit targets now also use the shared
   box content-top helper, so rows, cells, and rails all share one box-local
   content origin.
+- Sidebar modules now share left/right placement semantics: moving a module to
+  the right removes it from the left, the old one-off context-sidebar setting
+  row is replaced by the sidebar layout editor, and right-sidebar modules have
+  independent focus, hit targets, and wheel/focus surfaces.
+- The sessions sidebar now registers a wheel region over the whole pane, so
+  mouse wheel movement selects later/earlier visible sessions without requiring
+  keyboard focus in the sidebar.
+- The files module adds a local collapsible tree backed by the current working
+  directory, filters noisy hidden/cache directories, exposes semantic row/header
+  hit targets, and opens selected files in the shared detail overlay.
+- Detail overlays now use the shared `×` close-button convention while
+  preserving copy and scroll semantics.
 
 Verified in this pass with focused interaction tests, the full Go suite, rebuilt `tui/gact`, and VHS screenshots under `visual_loop/screenshots/` for settings, provider setup, text-entry, palette, catalog/menu surfaces, memory, deterministic long-transcript scrolling, deterministic context drill-down, deterministic sidebar/session workflows, and deterministic seeded-menu workflows.
 

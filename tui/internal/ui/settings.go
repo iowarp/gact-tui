@@ -133,9 +133,8 @@ func (r settingsTUIStepperRow) stepperHit(increment bool) (int, int) {
 // Bump when adding new knobs; key navigation clamps against this.
 // Rows: 0=collapse threshold, 1=cost warn, 2=cost danger,
 // 3=paste-compress threshold (YYYYY1), 4=intro splash (YYYYY1),
-// 5=terminal mouse capture, 6=context sidebar placement,
-// 7=sidebar layout editor.
-const tuiPrefsRowCount = 8
+// 5=terminal mouse capture, 6=sidebar layout editor.
+const tuiPrefsRowCount = 7
 
 // YYYYY1: paste-compress threshold steps by 1 line (small range
 // — 2 means "compress almost everything", 20 means "rarely
@@ -341,8 +340,6 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case 5:
 				a.MouseEnabled = !a.MouseEnabled
 				a.persistPrefs()
-			case 6:
-				a.cycleContextSidebarPlacement(-1)
 			}
 		}
 		return a, nil
@@ -379,8 +376,6 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case 5:
 				a.MouseEnabled = !a.MouseEnabled
 				a.persistPrefs()
-			case 6:
-				a.cycleContextSidebarPlacement(1)
 			}
 		}
 		return a, nil
@@ -417,7 +412,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.openSettingsAgentDetail()
 			return a, nil
 		case 3:
-			if s.tuiRow == 7 {
+			if s.tuiRow == 6 {
 				a.openSidebarLayoutEditor()
 				return a, nil
 			}
@@ -805,30 +800,20 @@ func (a *App) viewSettings() string {
 		rows = append(rows, block.rows()...)
 		addTUIRowHit("mouse", 5, row, block.height())
 		addTUIControlHits("mouse", 5, row, block)
-		label = a.localizer.t(msgSettingsTUILayoutContext, nil)
-		value = a.contextSidebarPlacementLabel()
-		row = len(rows)
-		block = editableRow(6,
-			label,
-			value,
-			a.localizer.t(msgSettingsTUILayoutContextHint, nil))
-		rows = append(rows, block.rows()...)
-		addTUIRowHit("context-placement", 6, row, block.height())
-		addTUIControlHits("context-placement", 6, row, block)
 		label = a.localizer.t(msgSettingsTUILayoutEditor, nil)
 		value = a.localizer.t(msgSettingsTUILayoutOpen, nil)
 		row = len(rows)
-		block = renderSettingsTUIActionRow(t, innerW, s.tuiRow == 7,
+		block = renderSettingsTUIActionRow(t, innerW, s.tuiRow == 6,
 			label,
 			value,
 			a.localizer.t(msgSettingsTUILayoutEditorHint, nil))
 		rows = append(rows, block.rows()...)
-		addTUIRowHit("layout-editor", 7, row, block.height())
+		addTUIRowHit("layout-editor", 6, row, block.height())
 		addArrowHit("settings:tui:layout-editor:open", row, block.controlStart, maxInt(1, block.controlEnd-block.controlStart), func(app *App) tea.Cmd {
 			if app.settings == nil {
 				app.settings = &settingsState{tab: 3}
 			}
-			app.settings.tuiRow = 7
+			app.settings.tuiRow = 6
 			app.openSidebarLayoutEditor()
 			return nil
 		})

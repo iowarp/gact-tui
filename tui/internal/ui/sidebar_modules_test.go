@@ -65,6 +65,16 @@ func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
 	}
 }
 
+func TestSetSidebarLayoutRightPlacementRemovesLeftDuplicate(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, []string{"context"})
+
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || strings.Join(right, ",") != "context" {
+		t.Fatalf("layout left=%#v right=%#v, want sessions/context without duplicate", left, right)
+	}
+}
+
 func TestSetSidebarLayoutCanRepresentEmptyLeftColumn(t *testing.T) {
 	a := New("http://unused")
 	a.SetSidebarLayout(nil, []string{"context"})
@@ -242,8 +252,11 @@ func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
 	if !strings.Contains(out, "Left") {
 		t.Fatalf("layout editor should render left column:\n%s", out)
 	}
-	if strings.Contains(out, "Available") || strings.Contains(out, "Right") {
-		t.Fatalf("empty columns should not render:\n%s", out)
+	if !strings.Contains(out, "Available") {
+		t.Fatalf("hidden files module should render as available:\n%s", out)
+	}
+	if strings.Contains(out, "Right") {
+		t.Fatalf("empty right column should not render:\n%s", out)
 	}
 }
 

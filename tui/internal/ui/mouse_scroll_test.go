@@ -375,6 +375,75 @@ func TestMouseClickChangesFocusAndCanSelectSidebarSession(t *testing.T) {
 	}
 }
 
+func TestMouseWheelOverSidebarSelectsLaterSessions(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 100
+	a.height = 30
+	a.stage = StageReady
+	a.workspaces = []gact.Workspace{{ID: "ws_default", Name: "default"}}
+	a.wsID = "ws_default"
+	for i := 0; i < 8; i++ {
+		a.sessions = append(a.sessions, gact.Session{
+			ID:     "sess_" + itoa2(i),
+			Title:  "session " + itoa2(i),
+			Status: gact.StatusIdle,
+		})
+	}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:focus:wheel")
+	if !ok {
+		t.Fatal("missing sidebar wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus = %v, want sidebar", a.focus)
+	}
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want next session", a.selected)
+	}
+	if cmd == nil {
+		t.Fatal("sidebar wheel should select the newly highlighted session")
+	}
+}
+
+func TestRightSidebarHasIndependentFocusAndMouseGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 30
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	_ = a.View()
+	rightTarget, ok := findHitTargetForTest(a, "right-sidebar:focus")
+	if !ok {
+		t.Fatal("missing right sidebar focus target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.x+bodyTarget.rect.w > rightTarget.rect.x {
+		t.Fatalf("conversation rect %+v overlaps right sidebar rect %+v", bodyTarget.rect, rightTarget.rect)
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: rightTarget.rect.x, Y: rightTarget.rect.y, Button: tea.MouseLeft}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar {
+		t.Fatalf("focus = %v, want right sidebar", a.focus)
+	}
+}
+
 func TestMouseClickTogglesSidebarSections(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
