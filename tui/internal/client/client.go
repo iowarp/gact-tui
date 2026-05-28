@@ -769,6 +769,46 @@ func (c *Client) ReloadPrompts(ctx context.Context, scope RuntimeScope) (gact.Pr
 	return out.Reload, err
 }
 
+func (c *Client) ListExpertPacks(ctx context.Context, scope RuntimeScope) ([]gact.ExpertPackDefinition, error) {
+	var out struct {
+		ExpertPacks []gact.ExpertPackDefinition `json:"expert_packs"`
+	}
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/expert-packs"+queryString(q), nil, &out)
+	return out.ExpertPacks, err
+}
+
+func (c *Client) GetExpertPack(ctx context.Context, packID string, scope RuntimeScope) (gact.ExpertPackDetail, error) {
+	var out gact.ExpertPackDetail
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/expert-packs/"+url.PathEscape(packID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) ValidateExpertPack(ctx context.Context, req gact.ExpertPackValidateRequest) (gact.ExpertPackValidationResult, error) {
+	var out gact.ExpertPackValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionExpertPack(ctx context.Context, sessionID string) (gact.SessionExpertPackState, error) {
+	var out gact.SessionExpertPackState
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/expert-pack", nil, &out)
+	return out, err
+}
+
+func (c *Client) SetSessionExpertPack(ctx context.Context, sessionID string, req gact.SetSessionExpertPackRequest) (gact.SessionExpertPackState, error) {
+	var out gact.SessionExpertPackState
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/expert-pack", req, &out)
+	return out, err
+}
+
 // RunCommand triggers POST /v1/sessions/{id}/commands/{cmd_id}.
 // cmdID may include a leading slash; it's URL-escaped automatically.
 func (c *Client) RunCommand(ctx context.Context, sessionID, cmdID string) error {

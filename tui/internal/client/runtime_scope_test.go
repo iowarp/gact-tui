@@ -65,6 +65,10 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 				t.Fatalf("reload request = %+v", req)
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"reload": gact.PromptReloadResult{PromptCount: 1, PromptIDs: []string{"p1"}}})
+		case "/v1/expert-packs":
+			_ = json.NewEncoder(w).Encode(map[string]any{"expert_packs": []gact.ExpertPackDefinition{{ID: "ep1", Title: "Expert Pack", Enabled: true}}})
+		case "/v1/expert-packs/ep1":
+			_ = json.NewEncoder(w).Encode(gact.ExpertPackDetail{ExpertPack: gact.ExpertPackDefinition{ID: "ep1", Title: "Expert Pack", Enabled: true}})
 		case "/v1/memory/stats":
 			_ = json.NewEncoder(w).Encode(gact.MemoryStats{})
 		case "/v1/sessions/s1/context/frames":
@@ -106,6 +110,12 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 	if _, err := c.ReloadPrompts(t.Context(), scope); err != nil {
 		t.Fatalf("ReloadPrompts: %v", err)
 	}
+	if _, err := c.ListExpertPacks(t.Context(), scope); err != nil {
+		t.Fatalf("ListExpertPacks: %v", err)
+	}
+	if _, err := c.GetExpertPack(t.Context(), "ep1", scope); err != nil {
+		t.Fatalf("GetExpertPack: %v", err)
+	}
 	if _, err := c.MemoryStatsScoped(t.Context(), scope); err != nil {
 		t.Fatalf("MemoryStatsScoped: %v", err)
 	}
@@ -129,6 +139,12 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 			}
 			if row.path == "/v1/sessions/s1/context/frames" && row.query["limit"] != "5" {
 				t.Fatalf("frame limit = %q, want 5", row.query["limit"])
+			}
+			continue
+		}
+		if row.path == "/v1/expert-packs" || row.path == "/v1/expert-packs/ep1" {
+			if row.query["session_id"] != "" {
+				t.Fatalf("expert-pack catalog should not send session_id query: %v", row.query)
 			}
 			continue
 		}
