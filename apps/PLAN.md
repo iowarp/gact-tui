@@ -2,6 +2,35 @@
 
 Ordered queue of post-harness work. Pick the top unfinished item.
 
+## Wave 0 — bundled sidecar (the FIRST thing to land)
+
+**Why this is Wave 0:** CLIO Desktop is the non-terminal-user product. It must
+ship with `clio-agent` bundled and auto-start it on launch — no connect form,
+no bearer-token paste, no setup. The harness currently ships a connect screen
+as the default route. That is wrong product framing and must be corrected
+before any of the wire-up work below.
+
+0a. **Tauri sidecar declaration.** Add `clio-agent` to
+    `apps/desktop/src-tauri/tauri.conf.json` → `bundle.externalBin`. Build /
+    fetch the platform-specific binary in CI and pin its hash. Per-OS binaries
+    land in `apps/desktop/src-tauri/binaries/clio-agent-<triple>`.
+0b. **Sidecar lifecycle in Rust.** On app launch, spawn the sidecar on a free
+    localhost port with a freshly-generated bearer token. Wait for
+    `/v1/capabilities` to 200 before opening the main window. On app close,
+    kill the sidecar (SIGTERM with a 3s grace, then SIGKILL).
+0c. **Tauri command to expose the local backend handle.** `get_backend()` →
+    `{ url, bearer_token, status }`. Frontend consumes this on mount instead
+    of rendering `<ConnectScreen />`.
+0d. **Replace `<ConnectScreen />` as the default route.** Web shell boots to
+    a "Starting CLIO…" splash, then transitions to the chat shell once the
+    sidecar reports healthy. The connect form moves to
+    `/settings/backends/add-remote` for the advanced "add another backend"
+    case (federation).
+0e. **Pure-web build degraded-mode default.** When running outside Tauri
+    (`window.__TAURI_INTERNALS__` undefined), default to
+    `http://localhost:7777` and auto-attempt `/v1/capabilities` on load. Show
+    the connect form only if that probe fails.
+
 ## Wave 1 — wire up live data
 
 1. **Plumb live `/v1/sessions` into Sidebar.** Replace `fixturesForDemo` with a
