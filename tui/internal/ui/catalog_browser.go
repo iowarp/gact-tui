@@ -674,6 +674,29 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, savePromptProfileCmd(a.c, cb.promptID, profile, "codex")
 			}
 		}
+	case "o":
+		if cb.kind == catalogKindAgents && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			if it.id == "none" {
+				return a, nil
+			}
+			a.setNextTurnAgent(it.id, it.title)
+			a.closeCatalogBrowser()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if cb.kind == catalogKindAgentDetail && cb.agentID != "" {
+			a.setNextTurnAgent(cb.agentID, strings.TrimPrefix(cb.title, "Agent · "))
+			a.closeCatalogBrowser()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+	case "e":
+		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
+			it := cb.items[cb.sel]
+			if strings.HasPrefix(it.id, "profile/") {
+				profile := strings.TrimPrefix(it.id, "profile/")
+				return a, loadPromptEditCmd(a.c, cb.promptID, profile)
+			}
+		}
 	case "up", "k":
 		if cb.sel > 0 {
 			cb.sel--
@@ -914,15 +937,15 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindMcp:
 		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
 	case catalogKindAgents:
-		hintText = "↑/↓ navigate · Enter details · Esc close"
+		hintText = "↑/↓ navigate · Enter details · o use next turn · Esc close"
 	case catalogKindMcpDetail:
 		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
 	case catalogKindAgentDetail:
-		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details · o use next turn · Esc/Backspace back"
 	case catalogKindPrompts:
 		hintText = "↑/↓ navigate · Enter profiles · Esc close"
 	case catalogKindPromptDetail:
-		hintText = "↑/↓ navigate · Enter text/provenance · s save codex profile · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter text/provenance · e edit · s save codex profile · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}

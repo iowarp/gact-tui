@@ -32,6 +32,16 @@ Screenshot "visual_loop/screenshots/semantic_prompt_detail.png"
 Escape
 Sleep 300ms
 
+Type "e"
+Wait+Screen /Edit prompt override/
+Sleep 300ms
+Type " edited override"
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_prompt_editor.png"
+Enter
+Wait+Screen /saved prompt profile codex/
+Sleep 300ms
+
 Type "s"
 Wait+Screen /saved prompt profile codex/
 Sleep 500ms
