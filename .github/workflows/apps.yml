@@ -10,6 +10,8 @@ on:
     paths:
       - 'apps/**'
       - '.github/workflows/apps.yml'
+    tags:
+      - 'clio-desktop-v*'
   pull_request:
     paths:
       - 'apps/**'
@@ -133,3 +135,188 @@ jobs:
 
       - name: Tauri debug build
         run: pnpm --filter @clio/desktop tauri:build:debug
+
+  release:
+    name: release · ${{ matrix.os }} / ${{ matrix.target }}
+    if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
+    needs: [ci, tauri-debug]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle-args: '--bundles msi,nsis'
+          - os: macos-14
+            target: aarch64-apple-darwin
+            bundle-args: '--bundles dmg --target aarch64-apple-darwin'
+          - os: macos-13
+            target: x86_64-apple-darwin
+            bundle-args: '--bundles dmg --target x86_64-apple-darwin'
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundle-args: '--bundles deb,appimage,rpm'
+
+    defaults:
+      run:
+        working-directory: apps
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Linux deps for Tauri
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            pkg-config \
+            patchelf \
+            rpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build sidecar launcher for target triple
+        shell: bash
+        run: bash apps/desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
+        working-directory: ${{ github.workspace }}
+
+      - name: Build web (Tauri frontend)
+        run: pnpm --filter @clio/web build
+
+      - name: Tauri release build (unsigned)
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.bundle-args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+
+      - name: Stage installer artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/clio-stage"
+          mkdir -p "$stage"
+          # Tauri lays bundles under target/release/bundle/<format>/...
+          bundle_root="apps/desktop/src-tauri/target/release/bundle"
+          if [ -d "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
+            bundle_root="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          fi
+          find "$bundle_root" -type f \( \
+              -iname '*.exe' -o -iname '*.msi' -o -iname '*.dmg' \
+              -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.rpm' \
+              \) -exec cp -v {} "$stage/" \;
+          ls -la "$stage"
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate SHA256 sums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/clio-stage"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum * > SHA256SUMS.${{ matrix.target }}.txt
+          else
+            shasum -a 256 * > SHA256SUMS.${{ matrix.target }}.txt
+          fi
+          cat SHA256SUMS.${{ matrix.target }}.txt
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload installer artifacts (per-runner)
+        uses: actions/upload-artifact@v4
+        with:
+          name: clio-desktop-${{ matrix.target }}
+          path: ${{ runner.temp }}/clio-stage/
+          if-no-files-found: error
+
+      - name: Attach installers to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ runner.temp }}/clio-stage/*
+          generate_release_notes: true
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-web:
+    name: release · pure-web zip
+    if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
+    needs: ci
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build @clio/web
+        run: pnpm --filter @clio/web build
+
+      - name: Package pure-web zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF##*/}"
+          version="${tag#clio-desktop-}"
+          stage="$RUNNER_TEMP/clio-web-stage"
+          mkdir -p "$stage"
+          cp -r apps/web/dist "$stage/clio-web-$version"
+          (cd "$stage" && zip -r "clio-web-$version.zip" "clio-web-$version")
+          sha256sum "$stage/clio-web-$version.zip" \
+            > "$stage/SHA256SUMS.web.txt"
+        working-directory: ${{ github.workspace }}
+
+      - name: Attach web bundle to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ runner.temp }}/clio-web-stage/clio-web-*.zip
+            ${{ runner.temp }}/clio-web-stage/SHA256SUMS.web.txt
+          generate_release_notes: true
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
