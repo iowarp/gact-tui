@@ -44,6 +44,11 @@ export const ToastProvider: ParentComponent = (props) => {
     setToasts((cur) => cur.filter((t) => t.id !== id));
   }
 
+  // Cap simultaneously-visible toasts to keep the bottom-right stack
+  // from snowballing during a burst of SSE notifications. Oldest
+  // entries fall off first; pinned (duration:0) entries are exempted.
+  const MAX_VISIBLE = 5;
+
   function push(input: ToastInput): number {
     const id = nextId++;
     const rec: ToastRecord = {
@@ -54,7 +59,14 @@ export const ToastProvider: ParentComponent = (props) => {
       tone: input.tone ?? 'info',
       duration: input.duration ?? 4500,
     };
-    setToasts((cur) => [...cur, rec]);
+    setToasts((cur) => {
+      const next = [...cur, rec];
+      if (next.length <= MAX_VISIBLE) return next;
+      // Evict the oldest non-pinned entry to make room.
+      const evictIdx = next.findIndex((t) => t.duration > 0);
+      if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
+      return [...next.slice(0, evictIdx), ...next.slice(evictIdx + 1)];
+    });
     if (rec.duration > 0) {
       const t = window.setTimeout(() => dismiss(id), rec.duration);
       onCleanup(() => window.clearTimeout(t));
