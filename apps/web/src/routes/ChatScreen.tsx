@@ -306,7 +306,22 @@ function LiveDriven(props: {
       live.refetch();
       setActiveId(sessionId);
     }
-    await live.client.sendMessage(sessionId, { text });
+    try {
+      await live.client.sendMessage(sessionId, { text });
+    } catch (e) {
+      // Common cause: no LM configured. Surface the backend's typed
+      // error envelope instead of leaving the user wondering.
+      const msg = e instanceof Error ? e.message : String(e);
+      const isLmIssue = /lm_provider|provider|api_key|api_base|model/i.test(msg);
+      toast.push({
+        tone: 'error',
+        title: isLmIssue ? 'LM not configured' : 'Send failed',
+        body: isLmIssue
+          ? `${msg} — pick a provider in Settings → Models.`
+          : msg,
+        duration: 6000,
+      });
+    }
   }
 
   async function decidePermission(
