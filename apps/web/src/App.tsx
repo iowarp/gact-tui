@@ -12,6 +12,12 @@ export interface BackendHandle {
 type Route = { name: 'connect' } | { name: 'chat'; backend: BackendHandle };
 
 export function App() {
+  // PRODUCT NOTE (2026-05-27): the default route here is `connect` — that is
+  // WRONG long-term. CLIO Desktop must bundle clio-agent via Tauri sidecar,
+  // auto-start it on launch, and boot the user straight into the chat shell.
+  // The connect form belongs at /settings/backends/add-remote for the
+  // advanced "add another backend" (federation) case only. Tracked as Wave 0
+  // in apps/PLAN.md; do it before any other PLAN.md item.
   const [route, setRoute] = createSignal<Route>({ name: 'connect' });
 
   // Test/visual hook: ?route=chat lands directly on the chat shell with a

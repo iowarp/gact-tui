@@ -51,6 +51,22 @@ state, mid-stream chat, inline permission card, verbose density, and summary den
 
 ## Open blockers
 
+### ⚠ Design correction (caught immediately after harness landed) ⚠
+
+The harness currently shows a **connect screen** with manual URL + bearer token
+entry as the default route. **This is wrong product framing.** CLIO Desktop is
+the non-terminal-user product — it must bundle `clio-agent` (Tauri sidecar
+pattern), auto-launch it on app start, and never show a setup screen.
+
+Fix is Wave 0 in `apps/PLAN.md` — sidecar bundling + lifecycle + replacing the
+default route with a "Starting CLIO…" splash that transitions to chat. The
+connect form moves to `/settings/backends/add-remote` for advanced federation.
+
+The harness scaffolding (workspace, tests, CI, visual loop) is structurally
+correct; only the front-door UX needs reshaping. **Do Wave 0 before Wave 1.**
+
+
+
 - **Tauri build on Linux CI** — the `tauri:build:debug` step needs `libwebkit2gtk-4.1-dev`
   + `libsoup-3.0-dev` + `librsvg2-dev` + `libayatana-appindicator3-dev` installed on the
   runner. The workflow uses `apt-get install` on `ubuntu-22.04`; if the runner image
