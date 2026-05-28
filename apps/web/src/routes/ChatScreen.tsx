@@ -677,6 +677,42 @@ function ChatLayout(props: ChatLayoutProps) {
   );
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
   const [selectedMessageId, setSelectedMessageId] = createSignal<string>('');
+  const [scrolledUp, setScrolledUp] = createSignal(false);
+  const [newSinceScroll, setNewSinceScroll] = createSignal(0);
+  let paneEl: HTMLDivElement | undefined;
+  let lastMessageCount = 0;
+
+  function isAtBottom(el: HTMLElement): boolean {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
+
+  function scrollToBottom() {
+    if (!paneEl) return;
+    paneEl.scrollTo({ top: paneEl.scrollHeight, behavior: 'smooth' });
+    setScrolledUp(false);
+    setNewSinceScroll(0);
+  }
+
+  function onPaneScroll() {
+    if (!paneEl) return;
+    const atBottom = isAtBottom(paneEl);
+    if (atBottom) {
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    } else {
+      setScrolledUp(true);
+    }
+  }
+
+  // Track new messages while the user is reading history; clear the
+  // counter as soon as they scroll back to live.
+  createEffect(() => {
+    const count = props.messages.length;
+    if (scrolledUp() && count > lastMessageCount) {
+      setNewSinceScroll((n) => n + (count - lastMessageCount));
+    }
+    lastMessageCount = count;
+  });
 
   // Shared Client for the discovery pages — same backend, routed
   // through gact_http inside Tauri to dodge CORS.
@@ -1077,7 +1113,12 @@ function ChatLayout(props: ChatLayoutProps) {
           </div>
         </header>
 
-        <div class="chat__pane" data-testid="transcript-pane">
+        <div
+          class="chat__pane"
+          data-testid="transcript-pane"
+          ref={(el) => { paneEl = el; }}
+          onScroll={onPaneScroll}
+        >
           <div class="chat__pane-inner">
             <Show when={props.messages.length === 0 && !props.pendingPermission}>
               <EmptyState
@@ -1101,6 +1142,19 @@ function ChatLayout(props: ChatLayoutProps) {
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
             />
+            <Show when={scrolledUp()}>
+              <button
+                type="button"
+                class="chat__scroll-pill"
+                onClick={scrollToBottom}
+                data-testid="scroll-to-bottom"
+              >
+                <Icon name="chevron-down" size={14} />
+                <Show when={newSinceScroll() > 0} fallback={<span>Jump to latest</span>}>
+                  <span>{newSinceScroll()} new</span>
+                </Show>
+              </button>
+            </Show>
             <Show when={props.streaming && props.messages.length > 0}>
               <div class="chat__typing" data-testid="chat-typing">
                 <span class="chat__typing-avatar" aria-hidden>
