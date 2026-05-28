@@ -15,6 +15,7 @@ import type {
   ProviderDef,
   Session,
   SessionTask,
+  UserQuestion,
   SlashCommandDef,
   Workspace,
 } from '../wire/types.js';
@@ -163,6 +164,20 @@ export class Client {
       `/v1/sessions/${encodeURIComponent(sessionId)}`,
       'DELETE',
       undefined,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/questions — pending ask-user questions
+   * from the orchestrator (#380). Defaults to all statuses.
+   */
+  sessionQuestions(
+    sessionId: string,
+    status?: UserQuestion['status'],
+  ): Promise<{ questions: UserQuestion[] }> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.get<{ questions: UserQuestion[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions${qs}`,
     );
   }
 
