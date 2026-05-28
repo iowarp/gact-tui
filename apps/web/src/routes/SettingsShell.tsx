@@ -9,6 +9,7 @@ import {
   McpPage,
   MemoryPage,
   MetricsPage,
+  PromptsPage,
   ProvidersPage,
   ToolsPage,
   WorkspacesPage,
@@ -23,6 +24,7 @@ export type SettingsSection =
   | 'providers'
   | 'agents'
   | 'tools'
+  | 'prompts'
   | 'mcp'
   | 'memory'
   | 'metrics'
@@ -43,6 +45,7 @@ const SECTIONS: SectionDef[] = [
   { id: 'providers', label: 'Models & providers', icon: 'sparkle', group: 'Agents' },
   { id: 'agents', label: 'Agents', icon: 'agents', group: 'Agents' },
   { id: 'tools', label: 'Commands', icon: 'tool', group: 'Agents' },
+  { id: 'prompts', label: 'Prompts', icon: 'sparkle', group: 'Agents' },
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', group: 'Agents' },
   { id: 'memory', label: 'Memory', icon: 'memory', group: 'Telemetry' },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', group: 'Telemetry' },
@@ -164,6 +167,9 @@ export function SettingsShell(props: SettingsShellProps) {
             </Match>
             <Match when={client() && section() === 'tools'}>
               <ToolsPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'prompts'}>
+              <PromptsPage client={client()!} />
             </Match>
             <Match when={client() && section() === 'mcp'}>
               <McpPage client={client()!} />
