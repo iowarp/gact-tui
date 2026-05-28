@@ -565,6 +565,7 @@ function ChatLayout(props: ChatLayoutProps) {
     true,
   );
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
+  const [selectedMessageId, setSelectedMessageId] = createSignal<string>('');
 
   // Shared Client for the discovery pages — same backend, routed
   // through gact_http inside Tauri to dodge CORS.
@@ -660,8 +661,17 @@ function ChatLayout(props: ChatLayoutProps) {
     return null;
   });
 
+  const inspectorTarget = createMemo<Message | null>(() => {
+    const sid = selectedMessageId();
+    if (sid) {
+      const m = props.messages.find((x) => x.id === sid);
+      if (m) return m;
+    }
+    return latestAssistant();
+  });
+
   const toolCallsForInspector = createMemo(() => {
-    const m = latestAssistant();
+    const m = inspectorTarget();
     if (!m) return [];
     return summarizeToolCalls(m.parts);
   });
@@ -822,6 +832,8 @@ function ChatLayout(props: ChatLayoutProps) {
               onCopy={props.onCopyMessage}
               onRegenerate={props.onRegenerate}
               onEdit={props.onEditMessage}
+              selectedId={selectedMessageId()}
+              onSelect={(m) => setSelectedMessageId(m.id)}
             />
           </div>
         </div>
@@ -851,11 +863,11 @@ function ChatLayout(props: ChatLayoutProps) {
       <Show when={onChat() && inspectorOpen()}>
         <InspectorDrawer
           open
-          message={latestAssistant()}
+          message={inspectorTarget()}
           toolCalls={toolCallsForInspector()}
           costUsd={props.sessionCostUsd ?? 0}
-          tokens={latestAssistant()?.tokens}
-          model={latestAssistant()?.model?.model_id}
+          tokens={inspectorTarget()?.tokens}
+          model={inspectorTarget()?.model?.model_id}
           onClose={() => setInspectorOpen(false)}
         />
       </Show>

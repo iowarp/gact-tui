@@ -15,6 +15,9 @@ export interface TranscriptProps {
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  /** Currently-focused message id (drives the Inspector). */
+  selectedId?: string;
+  onSelect?: (msg: Message) => void;
 }
 
 const ROLE_ICON: Record<string, IconName> = {
@@ -154,14 +157,24 @@ function MessageView(props: {
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  selected?: boolean;
+  onSelect?: (msg: Message) => void;
 }) {
   const role = () => props.msg.role;
   const isAssistant = () => role() === 'assistant';
 
   return (
     <article
-      class={'trx-msg trx-msg--' + role()}
+      class={
+        'trx-msg trx-msg--' + role() + (props.selected ? ' is-selected' : '')
+      }
       data-testid={`msg-${props.msg.id}`}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        // Don't intercept button clicks (copy/regen/edit/diff chips).
+        if (target.closest('button')) return;
+        props.onSelect?.(props.msg);
+      }}
     >
       <header class="trx-msg__head">
         <span class="trx-msg__avatar">
@@ -249,6 +262,8 @@ export function Transcript(props: TranscriptProps) {
             onCopy={props.onCopy}
             onRegenerate={props.onRegenerate}
             onEdit={props.onEdit}
+            selected={m.id === props.selectedId}
+            onSelect={props.onSelect}
           />
         )}
       </For>
