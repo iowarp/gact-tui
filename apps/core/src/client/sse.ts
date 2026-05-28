@@ -7,7 +7,9 @@ export type SseHandler = (event: GactEvent) => void;
  * GactEvent envelope, or null if the block is incomplete / malformed.
  *
  * Only used in tests and any future Node-side consumer; the browser uses
- * `EventSource` directly.
+ * `EventSource` directly. Reflects SPEC §7.2 — the `data:` line carries a
+ * JSON object with `{type, occurred_at, payload}` keys; we return it
+ * verbatim (no spreading), so consumers read `ev.payload.<field>`.
  */
 export function parseSseBlock(block: string): GactEvent | null {
   let eventType: string | undefined;
@@ -24,9 +26,22 @@ export function parseSseBlock(block: string): GactEvent | null {
   }
   if (!eventType || dataLines.length === 0) return null;
   try {
-    const data = JSON.parse(dataLines.join('\n')) as { occurred_at?: string };
-    if (typeof data?.occurred_at !== 'string') return null;
-    return { type: eventType, ...data } as unknown as GactEvent;
+    const env = JSON.parse(dataLines.join('\n')) as {
+      type?: string;
+      occurred_at?: string;
+      payload?: unknown;
+    };
+    // The `event:` header and `data.type` are redundant on purpose (per
+    // SPEC §7.2). Prefer `data.type` when present, fall back to the
+    // header. Reject if both are missing.
+    const innerType = env?.type ?? eventType;
+    if (typeof innerType !== 'string') return null;
+    if (typeof env?.occurred_at !== 'string') return null;
+    return {
+      type: innerType,
+      occurred_at: env.occurred_at,
+      payload: env.payload ?? {},
+    } as unknown as GactEvent;
   } catch {
     return null;
   }

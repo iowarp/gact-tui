@@ -33,10 +33,13 @@ function PartView(props: {
     return <div class="trx-text">{p.text}</div>;
   }
   if (p.type === 'thinking') {
+    // SPEC §4.5 names the field `thinking`; we tolerate the harness
+    // `text` fallback for legacy fixtures.
+    const body = p.thinking ?? p.text ?? '';
     return (
       <details class="trx-thinking">
         <summary>thinking</summary>
-        <pre>{p.text}</pre>
+        <pre>{body}</pre>
       </details>
     );
   }
@@ -63,18 +66,43 @@ function PartView(props: {
     );
   }
   if (p.type === 'tool_result') {
+    // SPEC §4.5 nests results in `content: Part[]` (recursive). The
+    // harness fixtures used a plain `output: string`; render either.
+    const body = (() => {
+      if (typeof p.output === 'string') return p.output;
+      if (Array.isArray(p.content)) {
+        return p.content
+          .map((c) => {
+            if (c.type === 'text') return c.text;
+            if (c.type === 'tool_result') return typeof c.output === 'string' ? c.output : '';
+            return `[${c.type}]`;
+          })
+          .join('\n');
+      }
+      return '';
+    })();
     return (
       <div class={'trx-toolresult ' + (p.is_error ? 'trx-toolresult--err' : '')}>
         <span class="trx-toolresult__icon">⎿</span>
-        <pre>{p.output ?? ''}</pre>
+        <pre>{body}</pre>
       </div>
     );
   }
   if (p.type === 'file_diff') {
+    // SPEC §4.5 file_diff has `before` + `after`; `unified_diff` is an
+    // optional convenience. Compute stats from whichever is present.
     const stats = (() => {
       const ud = p.unified_diff ?? '';
-      const adds = ud.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).length;
-      const dels = ud.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---')).length;
+      if (ud) {
+        const adds = ud.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).length;
+        const dels = ud.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---')).length;
+        return { adds, dels };
+      }
+      const beforeLines = (p.before ?? '').split('\n').length;
+      const afterLines = (p.after ?? '').split('\n').length;
+      // Coarse approximation when only before/after are present.
+      const adds = Math.max(0, afterLines - beforeLines);
+      const dels = Math.max(0, beforeLines - afterLines);
       return { adds, dels };
     })();
     return (

@@ -185,6 +185,69 @@ None for the v0.9.0 release. The `cargo test --lib` + `pnpm -r
 lint/typecheck/test` + visual matrix are all green locally. The
 remote CI matrix is the next thing to watch when the tag fires.
 
+## Post-tag development pass (2026-05-28)
+
+After the v0.9.0 tag landed I shifted from CI watching to actual
+development against the user's running `clio-agent-gact` on `:17800`.
+Probing the real server surfaced three load-bearing wire drifts that
+the fixtures-only test set had hidden — every one of them is now fixed.
+
+### Drift 1 — Capabilities envelope is nested, not flat
+`/v1/capabilities` returns
+`{contract_version, backend, capabilities, transports, auth, extensions}`
+per SPEC §3.3 — boolean flags live under `caps.capabilities.<flag>`,
+the SSE/WebSocket toggles under `caps.transports.<key>`, and the auth
+schemes under `caps.auth`. Our `@clio/core` type had them all at the
+top level, so every `<Show when={caps.X}>` was reading undefined
+against a real backend.
+
+### Drift 2 — SSE envelope uses `payload`, not `data`
+SPEC §7.2 envelope is `{type, occurred_at, payload}`. The harness
+parser spread the JSON onto the envelope, then the reducer read flat
+fields. Against the real server every `message.part.delta` would be a
+no-op. `@clio/core`'s `parseSseBlock`, `EventEnvelope<T>`, and the
+Solid reducer in `apps/web/src/live.ts` now all speak the `payload`
+shape.
+
+### Drift 3 — Part deltas key by `part_id`, not `part_index`
+`message.part.delta` carries `{message_id, part_id, delta: {text_append}}`
+per SPEC §7.4. The harness reducer expected `part_index` flat on the
+envelope. `applyTextAppend` now takes `partId`; the index-based variant
+lives at `applyTextAppendAtIndex` for fixture data that pre-dates the
+spec-aligned Part `id` field.
+
+The wider GactEvent taxonomy now matches SPEC §7.3 (server.connected,
+session.created/updated/deleted/status_changed/summarized/compacted,
+message.part.added/delta/completed/error, tool.call.started/progress/
+completed, permission.requested/resolved, cost.updated, notification).
+Unknown event types are tolerated, not crashed on.
+
+### Spec-aligned Part shapes
+`PartThinking` now uses `thinking` (with `text` accepted for fixture
+back-compat). `PartToolCall` uses `call_id`. `PartToolResult` accepts
+either the spec's recursive `content: Part[]` or the legacy `output:
+string`. New variants land: `redacted_thinking`, `image`,
+`routing_decision`, `error`, `compaction`. Message grows the rich
+fields the real server emits (`model`, `tokens`, `cost_usd`,
+`stop_reason`, `error_info`).
+
+### New: attach-first sidecar lifecycle (`supervisor.rs`)
+The Rust supervisor now probes the conventional `clio start` port
+(:17800) before spawning a fresh `clio-agent-gact`. If a healthy server
+is already answering, the supervisor attaches to it (empty bearer
+token; trust_socket auth handles the localhost case) and the
+SplashScreen transitions immediately. This is the path the user
+actually hits day-to-day: their `clio` is already running with ALCF
+configured, and the desktop shell joins it instead of spawning a
+competing sidecar that has no LM wired.
+
+### New: live integration smoke (`apps/core/tests/live-clio.test.ts`)
+Five vitest specs hit a real `clio-agent-gact` at `CLIO_GACT_URL`
+(default :17800), exercising `/v1/capabilities`, `createSession`,
+`sessions`, `messages`, and the SSE stream's first envelope. Skipped
+automatically when no backend is reachable, so CI runners that don't
+have clio installed don't fail on it.
+
 ## End-to-end sanity (2026-05-28, user-side)
 
 The user ran the existing TUI against their installed

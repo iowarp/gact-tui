@@ -94,10 +94,12 @@ function BackendRow(props: { entry: BackendEntry }) {
         <Show when={props.entry.capabilities}>
           <div class="settings__row-caps">
             contract {props.entry.capabilities?.contract_version}
-            <Show when={props.entry.capabilities?.sse}> · sse</Show>
-            <Show when={props.entry.capabilities?.permissions}> · permissions</Show>
-            <Show when={props.entry.capabilities?.diffs}> · diffs</Show>
-            <Show when={props.entry.capabilities?.agents}> · agents</Show>
+            <Show when={props.entry.capabilities?.transports?.events_sse}> · sse</Show>
+            <Show when={props.entry.capabilities?.capabilities?.permissions}> · permissions</Show>
+            <Show when={props.entry.capabilities?.capabilities?.diffs}> · diffs</Show>
+            <Show when={props.entry.capabilities?.capabilities?.agent_routing}> · agents</Show>
+            <Show when={props.entry.capabilities?.capabilities?.mcp}> · mcp</Show>
+            <Show when={props.entry.capabilities?.capabilities?.memory}> · memory</Show>
           </div>
         </Show>
       </div>
