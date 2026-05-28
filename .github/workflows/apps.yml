@@ -125,6 +125,7 @@ jobs:
             libsoup-3.0-dev \
             librsvg2-dev \
             libayatana-appindicator3-dev \
+            libdbus-1-dev \
             patchelf
 
       - name: pnpm install
