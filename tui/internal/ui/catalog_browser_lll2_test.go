@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,13 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
+
+func writeJSONForTest(t *testing.T, w http.ResponseWriter, v any) {
+	t.Helper()
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		t.Fatalf("encode JSON: %v", err)
+	}
+}
 
 // TestToggleToolDisabled_persists toggles a tool id and verifies the
 // disabled set updates + SaveConfig fires.
@@ -293,6 +301,51 @@ func TestCatalogBrowser_EnterOnAgentDetailRowOpensDetailModal(t *testing.T) {
 	}
 }
 
+func TestLoadAgentDetailIncludesPlannerVisibleCommands(t *testing.T) {
+	var commandQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/agents/clio.expert.data":
+			writeJSONForTest(t, w, gact.AgentDef{ID: "clio.expert.data", Title: "Data Expert", Enabled: true})
+		case "/v1/agents":
+			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{{ID: "clio.expert.data", Title: "Data Expert", Enabled: true}}})
+		case "/v1/tools":
+			writeJSONForTest(t, w, map[string]any{"tools": []gact.Tool{}})
+		case "/v1/commands":
+			commandQuery = r.URL.RawQuery
+			trueValue := true
+			writeJSONForTest(t, w, map[string]any{"commands": []gact.Command{{
+				ID: "/summarize", Title: "Summarize dataset", Source: "user",
+				AgentID: "clio.expert.data", PlannerVisible: &trueValue, AgentInvocable: &trueValue,
+				ArgumentHint: "dataset_id required",
+			}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	msg := loadAgentDetailCmd(client.New(srv.URL), "clio.expert.data", client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"})()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	found := false
+	for _, item := range loaded.items {
+		if item.id == "command//summarize" {
+			found = strings.Contains(item.title, "Summarize dataset") && strings.Contains(item.desc, "planner") && strings.Contains(item.desc, "dataset_id required")
+		}
+	}
+	if !found {
+		t.Fatalf("planner command row missing from agent detail: %#v", loaded.items)
+	}
+	for _, want := range []string{"workspace_id=ws1", "session_id=s1", "agent_id=clio.expert.data", "planner=true"} {
+		if !strings.Contains(commandQuery, want) {
+			t.Fatalf("command query missing %q: %s", want, commandQuery)
+		}
+	}
+}
+
 func TestCatalogBrowser_EnterOnAgentDetailToolLoadsToolDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.catalogBrowserOpen = true
@@ -426,6 +479,8 @@ func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
 					"input_schema":{"type":"object"}
 				}
 			]}`))
+		case "/v1/commands":
+			_, _ = w.Write([]byte(`{"commands":[]}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}

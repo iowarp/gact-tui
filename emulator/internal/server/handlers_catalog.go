@@ -1360,12 +1360,33 @@ func staticMcpPrompts(serverID string) []gact.McpPrompt {
 // --- §6.13 Commands --------------------------------------------------------
 
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"commands": staticCommands()})
+	agentID := strings.TrimSpace(r.URL.Query().Get("agent_id"))
+	plannerOnly := r.URL.Query().Get("planner") == "true"
+	rows := staticCommands()
+	if agentID != "" || plannerOnly {
+		filtered := make([]gact.Command, 0, len(rows))
+		for _, row := range rows {
+			if agentID != "" && row.AgentID != "" && row.AgentID != agentID {
+				continue
+			}
+			if agentID != "" && row.AgentID == "" && row.Source != "builtin" {
+				continue
+			}
+			if plannerOnly && (row.PlannerVisible == nil || !*row.PlannerVisible) {
+				continue
+			}
+			filtered = append(filtered, row)
+		}
+		rows = filtered
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"commands": rows})
 }
 
 func staticCommands() []gact.Command {
+	trueValue := true
+	falseValue := false
 	return []gact.Command{
-		{ID: "/clear", Title: "Clear chat history", Source: "builtin", Shortcut: "ctrl+l"},
+		{ID: "/clear", Title: "Clear chat history", Source: "builtin", Shortcut: "ctrl+l", UserInvocable: &trueValue, AgentInvocable: &falseValue, PlannerVisible: &falseValue},
 		{ID: "/cancel", Title: "Cancel current run", Source: "builtin", Shortcut: "ctrl+c"},
 		{ID: "/model", Title: "Switch model", Source: "builtin",
 			Arguments: []gact.AgentParameter{{Name: "model_id", Type: "string", Required: true}}},
@@ -1395,7 +1416,10 @@ func staticCommands() []gact.Command {
 		{ID: "/duplicate", Title: "Copy current session's title/model/agent to a fresh session", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
-			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
+			AgentID: "clio.expert.data", AgentSource: "builtin", CommandSource: "mcp_prompt", Invocation: "mcp_prompt",
+			UserInvocable: &trueValue, AgentInvocable: &trueValue, PlannerVisible: &trueValue,
+			ArgumentHint: "text required",
+			Arguments:    []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
 	}
 }
 
