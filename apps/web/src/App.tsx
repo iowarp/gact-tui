@@ -166,15 +166,42 @@ function hostLabel(u: string): string {
 function synthCapabilities(): Capabilities {
   return {
     contract_version: '0.2',
-    sessions: true,
-    messages: true,
-    sse: true,
-    diffs: true,
-    tools: true,
-    permissions: true,
-    agents: true,
-    mcp: true,
-    metrics: true,
+    backend: {
+      name: 'fixture',
+      version: '0.0.0',
+      vendor: 'gact-tui',
+    },
+    capabilities: {
+      workspaces: true,
+      sessions: true,
+      subagents: true,
+      mcp: true,
+      files: true,
+      diffs: true,
+      permissions: true,
+      providers: true,
+      commands: true,
+      metrics: true,
+      session_branching: true,
+      session_export: true,
+      cost_tracking: true,
+      thinking_blocks: true,
+      search_messages: true,
+      agent_routing: true,
+      memory: true,
+      structured_errors: true,
+      integration_health: true,
+      tool_telemetry: true,
+    },
+    transports: {
+      events_sse: true,
+      events_websocket: false,
+    },
+    auth: {
+      schemes: ['trust_socket'],
+      current: 'trust_socket',
+    },
+    extensions: [],
   };
 }
 

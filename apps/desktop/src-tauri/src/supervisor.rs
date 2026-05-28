@@ -35,6 +35,13 @@ const CAPABILITIES_TIMEOUT: Duration = Duration::from_secs(30);
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 /// Grace period between SIGTERM (or graceful kill on Windows) and SIGKILL.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
+/// Port the upstream `clio` installer binds by default. If a server is
+/// answering here we attach to it instead of spawning a competing one
+/// — the user's existing config (CLIO_LM_PROVIDER=alcf etc.) is then
+/// honored automatically.
+const ATTACH_PORT: u16 = 17800;
+/// Fast probe used during the attach-first check.
+const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Snapshot of the sidecar handle returned to the frontend.
 ///
@@ -98,9 +105,22 @@ impl Supervisor {
 
     /// Kicks off the sidecar in a worker thread and updates state
     /// in-place as it transitions Starting → Ready/Error.
+    ///
+    /// Attach-first behaviour: if a healthy `clio-agent-gact` is already
+    /// answering on the conventional `:17800` port (the `clio start`
+    /// default), we attach to it rather than spawn a second one. That
+    /// keeps the user's existing LM configuration (ALCF / OpenAI / etc.)
+    /// in play without us needing to mirror their env.
     pub fn start(&self, launcher: PathBuf) {
         let state = self.inner.clone();
         thread::spawn(move || {
+            // 1. Attach to an existing local server if reachable.
+            if let Some(handle) = try_attach_existing() {
+                let mut guard = state.lock().expect("supervisor poisoned");
+                guard.handle = handle;
+                return;
+            }
+            // 2. Otherwise spawn our own.
             let outcome = spawn_and_probe(&launcher);
             let mut guard = state.lock().expect("supervisor poisoned");
             match outcome {
@@ -148,6 +168,34 @@ impl Default for Supervisor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// One-shot probe of the conventional `:17800` port. Returns a Ready
+/// handle (with an empty bearer token — the server's trust_socket auth
+/// scheme accepts localhost requests on its own) when an answer comes
+/// back with a contract_version. Any other outcome returns None and the
+/// caller falls back to spawning a fresh sidecar.
+fn try_attach_existing() -> Option<BackendHandle> {
+    let url = format!("http://127.0.0.1:{}", ATTACH_PORT);
+    let endpoint = format!("{url}/v1/capabilities");
+    let resp = ureq::get(&endpoint)
+        .timeout(ATTACH_PROBE_TIMEOUT)
+        .call()
+        .ok()?;
+    if resp.status() != 200 {
+        return None;
+    }
+    let body = resp.into_string().ok()?;
+    // Cheap shape check — parse the contract_version field. We don't
+    // need the full envelope here; the SplashScreen will refetch and
+    // gate on it client-side.
+    let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
+    parsed.get("contract_version").and_then(|v| v.as_str())?;
+    Some(BackendHandle {
+        url,
+        bearer_token: String::new(),
+        status: BackendStatus::Ready,
+    })
 }
 
 fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), String> {

@@ -15,13 +15,25 @@ export type SessionStatus =
   | 'error'
   | 'finished';
 
+export type EditMode = 'diff' | 'whole' | 'architect' | string;
+export type RoutingMode = 'auto' | 'manual' | string;
+export type SessionMode = 'chat' | 'plan' | string;
+
 export interface Session {
   id: string;
   title: string;
   status: SessionStatus;
   workspace_id?: string;
+  parent_session_id?: string;
   created_at: string;
   updated_at: string;
+  message_count?: number;
+  tokens_input?: number;
+  tokens_output?: number;
+  cost_usd?: number;
+  mode?: SessionMode;
+  edit_mode?: EditMode;
+  routing_mode?: RoutingMode;
   metadata?: Record<string, unknown>;
 }
 
@@ -31,47 +43,149 @@ export interface Workspace {
   root_path: string;
 }
 
-export interface PartText {
+/**
+ * Common fields on every Part per SPEC §4.5: stable `id` within the
+ * message, the `type` discriminator, and optional metadata. The
+ * harness build omitted `id` and used wrong shapes for thinking /
+ * tool_result; the v0.9 cut aligns to the spec.
+ */
+export interface PartBase {
+  id?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PartText extends PartBase {
   type: 'text';
   text: string;
 }
 
-export interface PartThinking {
+export interface PartThinking extends PartBase {
   type: 'thinking';
-  text: string;
+  /** Spec uses `thinking`; we tolerate `text` for backward compat with
+   *  the harness fixture build. New code should write `thinking`. */
+  thinking?: string;
+  text?: string;
+  signature?: string;
 }
 
-export interface PartToolCall {
+export interface PartRedactedThinking extends PartBase {
+  type: 'redacted_thinking';
+  data: string;
+  signature?: string;
+}
+
+export interface PartImage extends PartBase {
+  type: 'image';
+  source: ImageSource;
+}
+
+export interface ImageSource {
+  kind: 'base64' | 'url' | 'file_id';
+  media_type?: string;
+  data?: string;
+  url?: string;
+  file_id?: string;
+}
+
+export interface PartToolCall extends PartBase {
   type: 'tool_call';
-  id: string;
+  /** Spec uses `call_id`; we accept legacy `id` for the harness path. */
+  call_id?: string;
   tool_name: string;
   input?: Record<string, unknown>;
+  server_id?: string;
 }
 
-export interface PartToolResult {
+export interface PartToolResult extends PartBase {
   type: 'tool_result';
-  tool_call_id: string;
+  /** Spec uses `call_id`; we tolerate `tool_call_id` for harness compat. */
+  call_id?: string;
+  tool_call_id?: string;
+  /**
+   * Spec: recursive Part[]. The harness build produced a plain `output`
+   * string; we accept either so existing fixtures keep rendering.
+   */
+  content?: Part[];
   output?: string;
   is_error?: boolean;
+  cached?: boolean;
+  duration_ms?: number;
 }
 
-export interface FileDiff {
+export interface FileDiff extends PartBase {
   type: 'file_diff';
   path: string;
   before?: string | null;
   after?: string | null;
-  unified_diff?: string;
   language?: string | null;
   applied?: boolean;
+  /**
+   * NOT in SPEC §4.5 — a convenience field some backends ship for
+   * pre-rendered unified-diff display. When absent, the DiffPane
+   * synthesizes one from `before` + `after`.
+   */
+  unified_diff?: string;
 }
 
-export type Part = PartText | PartThinking | PartToolCall | PartToolResult | FileDiff;
+export interface PartError extends PartBase {
+  type: 'error';
+  code: string;
+  message: string;
+  recoverable?: boolean;
+}
+
+export interface PartCompaction extends PartBase {
+  type: 'compaction';
+  summary: string;
+  compacted_message_ids: string[];
+  auto: boolean;
+}
+
+export interface PartRoutingDecision extends PartBase {
+  type: 'routing_decision';
+  selected_agent: string;
+  rationale?: string;
+  confidence?: number;
+  heuristic: boolean;
+}
+
+export type Part =
+  | PartText
+  | PartThinking
+  | PartRedactedThinking
+  | PartImage
+  | PartToolCall
+  | PartToolResult
+  | FileDiff
+  | PartError
+  | PartCompaction
+  | PartRoutingDecision;
 
 export interface Message {
   id: string;
+  session_id?: string;
   role: Role;
   parts: Part[];
   created_at?: string;
+  updated_at?: string;
+  model?: { provider_id?: string; model_id?: string } | null;
+  tokens?: {
+    input?: number;
+    output?: number;
+    cache_read?: number;
+    cache_write?: number;
+  };
+  cost_usd?: number;
+  stop_reason?: string | null;
+  error_info?: ErrorInfo | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ErrorInfo {
+  error: string;
+  message: string;
+  recoverable?: boolean;
+  details?: Record<string, unknown>;
 }
 
 export type PermissionScope = 'once' | 'session' | 'always_tool' | 'always_server';
@@ -88,19 +202,82 @@ export interface PermissionRequest {
   created_at: string;
 }
 
+/**
+ * Capabilities envelope per `contract/SPEC.md` §3.3.
+ *
+ * The flat-field shape we shipped in the harness build was wrong against
+ * a real `clio-agent-gact` server — the spec mandates a nested object with
+ * a `backend` identity, a `capabilities` map, `transports`, `auth`,
+ * and an `extensions` array. Capability gating in the UI reads through
+ * `caps.capabilities.<flag>`, not `caps.<flag>` directly.
+ */
 export interface Capabilities {
   contract_version: string;
-  sessions: boolean;
-  messages: boolean;
-  sse: boolean;
-  diffs: boolean;
-  tools: boolean;
-  permissions: boolean;
-  agents: boolean;
-  mcp: boolean;
-  metrics: boolean;
+  backend: BackendIdentity;
+  capabilities: CapabilityFlags;
+  transports: Transports;
+  auth: AuthSchemes;
+  extensions: ExtensionDescriptor[];
+}
+
+export interface BackendIdentity {
+  name: string;
+  version: string;
+  vendor: string;
+  homepage?: string;
+}
+
+/**
+ * Boolean feature flags per SPEC §3.3. Extra flags emitted by future
+ * backends are allowed via the index signature; the typed names match
+ * exactly what the spec enumerates today.
+ */
+export interface CapabilityFlags {
+  workspaces?: boolean;
+  sessions?: boolean;
+  subagents?: boolean;
+  mcp?: boolean;
+  lsp?: boolean;
   files?: boolean;
-  memory?: boolean;
+  diffs?: boolean;
+  permissions?: boolean;
+  providers?: boolean;
+  commands?: boolean;
+  voice?: boolean;
+  scheduled_sessions?: boolean;
+  hooks?: boolean;
+  session_tasks?: boolean;
+  metrics?: boolean;
+  session_branching?: boolean;
+  session_sharing?: boolean;
+  session_export?: boolean;
+  cost_tracking?: boolean;
+  thinking_blocks?: boolean;
+  edit_modes?: boolean;
+  plan_mode?: boolean;
+  search_messages?: boolean;
+  agent_write?: boolean;
+  skills_extraction?: boolean;
   agent_routing?: boolean;
-  [k: string]: unknown;
+  memory?: boolean;
+  structured_errors?: boolean;
+  integration_health?: boolean;
+  tool_telemetry?: boolean;
+  [k: string]: boolean | undefined;
+}
+
+export interface Transports {
+  events_sse?: boolean;
+  events_websocket?: boolean;
+}
+
+export interface AuthSchemes {
+  schemes: string[];
+  current: string;
+}
+
+export interface ExtensionDescriptor {
+  id: string;
+  version?: string;
+  docs?: string;
 }

@@ -119,17 +119,30 @@ export function createLiveTranscript(
       });
     };
 
-    // GACT emits typed events ("event: message.created" + "data: …"), so
-    // EventSource fires per-name listeners; we register one listener per
-    // contract event so the dispatcher stays explicit.
+    // GACT emits typed events ("event: <name>" + "data: {...payload}").
+    // Per SPEC §7.2 the event name comes from the `event:` line; we
+    // register one listener per spec-defined event so the dispatcher
+    // stays explicit. Anything we don't list here is silently tolerated.
     const named = [
-      'session.status',
+      'server.connected',
+      'server.heartbeat',
+      'session.created',
+      'session.updated',
+      'session.status_changed',
+      'session.summarized',
+      'session.compacted',
       'message.created',
       'message.part.added',
       'message.part.delta',
+      'message.part.completed',
       'message.completed',
+      'message.error',
+      'tool.call.started',
+      'tool.call.completed',
       'permission.requested',
-      'usage',
+      'permission.resolved',
+      'cost.updated',
+      'notification',
     ];
     for (const name of named) es.addEventListener(name, onEvent as EventListener);
 
@@ -145,51 +158,71 @@ export function createLiveTranscript(
 
 /**
  * Reduce an envelope-shaped event onto the message + permission signals.
- * Tolerates unknown event types (silently drops them so a backend that
- * ships a richer event surface doesn't blow up older clients).
+ *
+ * Per SPEC §7.2 the envelope is `{type, occurred_at, payload}`. We read
+ * everything out of `payload` so the reducer stays aligned with the
+ * wire. Tolerates unknown event types (silently drops them so a backend
+ * that ships a richer event surface doesn't blow up older clients).
  */
 function reduce(
-  ev: Record<string, unknown>,
+  ev: { type?: string; payload?: Record<string, unknown> },
   hooks: {
     setMessages: (m: Message[] | ((p: Message[]) => Message[])) => void;
     setPendingPermission: (p: PermissionRequest | null) => void;
   },
 ) {
-  const t = ev.type as string | undefined;
+  const t = ev.type;
+  const p = ev.payload ?? {};
   switch (t) {
     case 'message.created': {
-      const msg = ev.message as Message | undefined;
+      const msg = p.message as Message | undefined;
       if (msg) hooks.setMessages((prev) => upsertMessage(prev, msg));
       break;
     }
     case 'message.part.added': {
-      const messageId = ev.message_id as string;
-      const part = ev.part as Message['parts'][number];
+      const messageId = p.message_id as string;
+      const part = p.part as Message['parts'][number];
       if (messageId && part) {
         hooks.setMessages((prev) => appendPart(prev, messageId, part));
       }
       break;
     }
     case 'message.part.delta': {
-      const messageId = ev.message_id as string;
-      const partIndex = ev.part_index as number;
-      const textAppend = ev.text_append as string | undefined;
-      if (messageId && Number.isFinite(partIndex) && textAppend) {
-        hooks.setMessages((prev) => applyTextAppend(prev, messageId, partIndex, textAppend));
+      const messageId = p.message_id as string;
+      const partId = p.part_id as string;
+      const delta = (p.delta as { text_append?: string }) ?? {};
+      if (messageId && partId && delta.text_append) {
+        hooks.setMessages((prev) =>
+          applyTextAppend(prev, messageId, partId, delta.text_append!),
+        );
       }
       break;
     }
     case 'permission.requested': {
-      const req = ev.permission as PermissionRequest | undefined;
+      const req = p.permission as PermissionRequest | undefined;
       if (req) hooks.setPendingPermission(req);
       break;
     }
-    case 'session.status':
+    case 'permission.resolved': {
+      // Clear the inline card — the agent has acked the user's decision.
+      hooks.setPendingPermission(null);
+      break;
+    }
+    case 'session.status_changed':
+    case 'session.created':
+    case 'session.updated':
     case 'message.completed':
-    case 'usage':
+    case 'message.part.completed':
+    case 'message.error':
+    case 'tool.call.started':
+    case 'tool.call.completed':
+    case 'cost.updated':
+    case 'notification':
+    case 'server.connected':
+    case 'server.heartbeat':
     default:
-      // No reducer action needed today; SidebarSession status pip updates
-      // come from the next /v1/sessions refetch.
+      // No transcript-reducer action; sidebar status / cost chips refresh
+      // via the next /v1/sessions poll.
       break;
   }
 }
