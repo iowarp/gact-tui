@@ -133,7 +133,19 @@ type CapabilityFlags struct {
 	ToolTelemetry     bool `json:"tool_telemetry"`     // tool_result.cached + duration_ms
 
 	// CLIO vendor extension: prompt registry browse/resolve/save surface.
-	XClioPromptRegistry bool `json:"x_clio_prompt_registry"`
+	XClioCancellation              string         `json:"x_clio_cancellation,omitempty"`
+	XClioExecutorCancellation      bool           `json:"x_clio_executor_cancellation,omitempty"`
+	XClioTextStreaming             string         `json:"x_clio_text_streaming,omitempty"`
+	XClioSyntheticPosthocStreaming bool           `json:"x_clio_synthetic_posthoc_streaming,omitempty"`
+	XClioStreamFallbackReasons     map[string]any `json:"x_clio_stream_fallback_reasons,omitempty"`
+	XClioDirectDeletePermissions   bool           `json:"x_clio_direct_delete_permissions,omitempty"`
+	XClioPromptRegistry            bool           `json:"x_clio_prompt_registry"`
+	XClioExpertPacks               bool           `json:"x_clio_expert_packs,omitempty"`
+	XClioAgentBlueprints           bool           `json:"x_clio_agent_blueprints,omitempty"`
+	XClioUserQuestions             bool           `json:"x_clio_user_questions,omitempty"`
+	XClioRetryAttempts             bool           `json:"x_clio_retry_attempts,omitempty"`
+	XClioContextFrames             bool           `json:"x_clio_context_frames,omitempty"`
+	XClioCapabilityGaps            map[string]any `json:"x_clio_capability_gaps,omitempty"`
 }
 
 type TransportFlags struct {

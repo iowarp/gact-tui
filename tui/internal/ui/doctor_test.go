@@ -160,7 +160,7 @@ func TestDoctorCapabilitiesUseBoundedScrollWindow(t *testing.T) {
 
 	a.doctor.scroll = 1 << 30
 	out = stripANSI(a.viewDoctor())
-	if !strings.Contains(out, "skills_extraction") {
+	if !strings.Contains(out, "x_clio_capability_gaps") {
 		t.Fatalf("bottom-scrolled doctor modal should show final capability:\n%s", out)
 	}
 	if a.doctor.scroll <= 0 {

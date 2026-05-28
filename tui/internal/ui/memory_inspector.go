@@ -12,26 +12,26 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-func loadMemoryInspectorCmd(c *client.Client, sessionID string, messages []gact.Message) tea.Cmd {
+func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, messages []gact.Message) tea.Cmd {
 	sessionMessages := append([]gact.Message(nil), messages...)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		stats, err := c.MemoryStats(ctx, sessionID)
+		stats, err := c.MemoryStatsScoped(ctx, scope)
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Memory", err: err, standalone: true}
 		}
 		var search *gact.MemorySearchResponse
-		if query := memoryInspectorSearchQuery(sessionMessages); query != "" && sessionID != "" {
+		if query := memoryInspectorSearchQuery(sessionMessages); query != "" && scope.SessionID != "" {
 			if resp, searchErr := c.MemorySearch(ctx, client.MemorySearchRequest{
-				Query: query, SessionID: sessionID, Limit: 5,
+				Query: query, SessionID: scope.SessionID, WorkspaceID: scope.WorkspaceID, Limit: 5,
 			}); searchErr == nil {
 				search = &resp
 			}
 		}
 		var frames []map[string]any
-		if sessionID != "" {
-			if resp, frameErr := c.ListContextFrames(ctx, sessionID, 5); frameErr == nil {
+		if scope.SessionID != "" {
+			if resp, frameErr := c.ListContextFramesScoped(ctx, scope, 5); frameErr == nil {
 				frames = resp.Frames
 			}
 		}

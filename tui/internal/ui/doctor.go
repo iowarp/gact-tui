@@ -279,7 +279,7 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 	out := []string{header, ""}
 
 	// Two-column table.
-	nameW := 22
+	nameW := 28
 	statusW := 14
 	bucketW := innerW - nameW - statusW - 2
 	if bucketW < 18 {
@@ -334,7 +334,19 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
 		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
 		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
+		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor},
+		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor},
+		{"x_clio_text_streaming", caps.Capabilities.XClioTextStreaming != "" && caps.Capabilities.XClioTextStreaming != "none", capVendor},
+		{"x_clio_synthetic_streaming", caps.Capabilities.XClioSyntheticPosthocStreaming, capVendor},
+		{"x_clio_stream_fallbacks", len(caps.Capabilities.XClioStreamFallbackReasons) > 0, capVendor},
+		{"x_clio_delete_permissions", caps.Capabilities.XClioDirectDeletePermissions, capVendor},
 		{"x_clio_prompt_registry", caps.Capabilities.XClioPromptRegistry, capVendor},
+		{"x_clio_expert_packs", caps.Capabilities.XClioExpertPacks, capVendor},
+		{"x_clio_agent_blueprints", caps.Capabilities.XClioAgentBlueprints, capVendor},
+		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor},
+		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor},
+		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor},
+		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor},
 	}
 }
 

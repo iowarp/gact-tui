@@ -33,7 +33,7 @@ func TestCatalogUnifiedTools_RendersAllSources(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL)
-	cmd := loadCatalogBrowserCmd(c, catalogKindTools)
+	cmd := loadCatalogBrowserCmd(c, catalogKindTools, client.RuntimeScope{})
 	msg, ok := cmd().(catalogBrowserLoadedMsg)
 	if !ok {
 		t.Fatalf("cmd returned %T, want catalogBrowserLoadedMsg", cmd())

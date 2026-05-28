@@ -167,11 +167,11 @@ const settingsTabCount = 5
 // per-provider /v1/providers/{id}/models calls also drops Ctrl+S
 // latency from seconds (fan-out across every preset) to one
 // round-trip.
-func loadSettingsCmd(c *client.Client) tea.Cmd {
+func loadSettingsCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		agents, err := c.ListAgents(ctx)
+		agents, err := c.ListAgentsScoped(ctx, scope)
 		if err != nil {
 			return settingsLoadedMsg{loadErr: "agents: " + err.Error()}
 		}
@@ -1099,6 +1099,9 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 		add("Tier", itoa2(ag.Tier))
 	}
 	add("Specialization", ag.Specialization)
+	add("Parent", ag.ParentID)
+	add("Prompt ID", ag.PromptID)
+	add("Prompt profile", ag.PromptProfile)
 	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
 		add("Routes to", strings.Join(routes, ", "))
 	}
@@ -1111,6 +1114,10 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 			model = ag.DefaultModel.ProviderID + "/" + model
 		}
 		add("Default model", model)
+	} else if ag.DefaultModelName != "" {
+		add("Default model", ag.DefaultModelName)
+	} else if ag.DefaultProvider != "" {
+		add("Default provider", ag.DefaultProvider)
 	}
 	if len(ag.Tools) > 0 {
 		add("Tools", strings.Join(ag.Tools, ", "))
@@ -1119,6 +1126,15 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 	}
 	if len(ag.Keywords) > 0 {
 		add("Keywords", strings.Join(ag.Keywords, ", "))
+	}
+	if len(ag.Skills) > 0 {
+		add("Skills", strings.Join(ag.Skills, ", "))
+	}
+	if len(ag.Commands) > 0 {
+		add("Commands", strings.Join(ag.Commands, ", "))
+	}
+	if len(ag.ValidationErrors) > 0 {
+		add("Validation", strings.Join(ag.ValidationErrors, "; "))
 	}
 	add("Prompt provenance", agentPromptResolutionDescription(ag))
 	add("Prompt", ag.SystemPrompt)
