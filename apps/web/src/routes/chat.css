@@ -121,6 +121,7 @@
 
 .chat__meta-item--cost { color: var(--color-accent-cyan); }
 .chat__meta-item--err  { color: var(--color-error); }
+.chat__meta-item--warn { color: var(--color-warning); }
 .chat__meta-item--running {
   color: var(--color-accent);
   font-weight: 500;

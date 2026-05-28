@@ -1488,6 +1488,22 @@ function ChatLayout(props: ChatLayoutProps) {
                 );
               })()}
             </Show>
+            <Show when={props.permMode && props.permMode !== 'ask'}>
+              <button
+                type="button"
+                class={
+                  'chat__meta-item chat__meta-item--clickable chat__meta-item--' +
+                  (props.permMode === 'bypass' || props.permMode === 'auto'
+                    ? 'err'
+                    : 'warn')
+                }
+                title={`Permission mode: ${props.permMode} — click to change`}
+                onClick={() => void props.onPickPermMode?.('ask')}
+                data-testid="perm-mode-chip"
+              >
+                perm · {props.permMode}
+              </button>
+            </Show>
             <span class="chat__meta-item" data-testid="density-chip">
               density · {props.density}
             </span>
