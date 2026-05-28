@@ -1598,6 +1598,7 @@ function ChatLayout(props: ChatLayoutProps) {
             <DiscoveryView
               route={railRoute()}
               client={discoveryClient}
+              activeSessionId={props.activeId}
               onBackToChat={() => setRailRoute('sessions')}
             />
           }
@@ -1945,6 +1946,7 @@ function ChatLayout(props: ChatLayoutProps) {
 function DiscoveryView(props: {
   route: RailRoute;
   client: Client;
+  activeSessionId?: string;
   onBackToChat: () => void;
 }) {
   return (
@@ -1966,7 +1968,10 @@ function DiscoveryView(props: {
           <McpPage client={props.client} />
         </Match>
         <Match when={props.route === 'memory'}>
-          <MemoryPage client={props.client} />
+          <MemoryPage
+            client={props.client}
+            activeSessionId={props.activeSessionId}
+          />
         </Match>
         <Match when={props.route === 'metrics'}>
           <MetricsPage client={props.client} />

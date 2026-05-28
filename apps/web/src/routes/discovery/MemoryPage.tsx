@@ -1,14 +1,43 @@
-import { createResource, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
 
 export interface MemoryPageProps {
   client: Client;
+  /** Optional active session id — when present, also fetches its memory events. */
+  activeSessionId?: string;
+}
+
+interface MemoryEventRow {
+  id?: string;
+  type?: string;
+  scope?: string;
+  created_at?: string;
+  message?: string;
+  payload?: Record<string, unknown>;
+  [k: string]: unknown;
 }
 
 export function MemoryPage(props: MemoryPageProps) {
   const [data, { refetch }] = createResource(() => props.client.memoryStats());
+
+  // Events resource keyed on the active session — only refetches when
+  // the user switches sessions or hits Refresh.
+  const [eventsData, { refetch: refetchEvents }] = createResource(
+    () => props.activeSessionId,
+    async (sid) => {
+      if (!sid) return { events: [] };
+      try {
+        return await props.client.sessionMemoryEvents(sid, 50);
+      } catch {
+        return { events: [] };
+      }
+    },
+  );
+  const events = () => (eventsData()?.events ?? []) as MemoryEventRow[];
+  const [showEvents, setShowEvents] = createSignal(true);
+
   return (
     <DiscoveryPage
       icon="memory"
@@ -18,7 +47,10 @@ export function MemoryPage(props: MemoryPageProps) {
         <button
           type="button"
           class="dp-iconbtn"
-          onClick={() => refetch()}
+          onClick={() => {
+            void refetch();
+            void refetchEvents();
+          }}
           title="Refresh"
         >
           <Icon name="regenerate" size={14} />
@@ -68,6 +100,75 @@ export function MemoryPage(props: MemoryPageProps) {
           </>
         )}
       </Show>
+
+      <Show when={props.activeSessionId}>
+        <button
+          type="button"
+          class="mem__events-toggle"
+          onClick={() => setShowEvents((v) => !v)}
+          data-testid="memory-events-toggle"
+        >
+          <Icon
+            name="chevron-right"
+            size={11}
+            class={'mem__events-chev ' + (showEvents() ? 'is-open' : '')}
+          />
+          <span>
+            Events for current session
+            <Show when={events().length > 0}>
+              {' '}({events().length})
+            </Show>
+          </span>
+        </button>
+        <Show when={showEvents()}>
+          <ul class="mem__events" data-testid="memory-events-list">
+            <Show
+              when={events().length > 0}
+              fallback={
+                <li class="mem__events-empty">
+                  No memory events recorded for this session yet.
+                </li>
+              }
+            >
+              <For each={events()}>
+                {(e) => (
+                  <li class="mem__event" data-testid={`memory-event-${e.id ?? ''}`}>
+                    <span
+                      class={
+                        'mem__event-type mem__event-type--' +
+                        ((e.type ?? 'event').split('.')[0] ?? 'event')
+                      }
+                    >
+                      {e.type ?? 'event'}
+                    </span>
+                    <Show when={e.scope}>
+                      <span class="mem__event-scope">{e.scope}</span>
+                    </Show>
+                    <Show when={e.message}>
+                      <span class="mem__event-message">{e.message}</span>
+                    </Show>
+                    <Show when={e.created_at}>
+                      <span class="mem__event-when">{humanWhen(e.created_at!)}</span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </Show>
+          </ul>
+        </Show>
+      </Show>
     </DiscoveryPage>
   );
+}
+
+function humanWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const delta = Date.now() - d.getTime();
+  const min = Math.round(delta / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.round(hr / 24)}d`;
 }
