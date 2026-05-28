@@ -26,12 +26,16 @@ Screenshot "visual_loop/screenshots/semantic_prompt_profiles.png"
 
 Down
 Enter
-Wait+Screen /Resolution/
+Wait+Screen /Rendered prompt/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_prompt_detail.png"
 Escape
 Sleep 300ms
 
+Down
+Down
+Down
+Down
 Type "e"
 Wait+Screen /Edit prompt override/
 Sleep 300ms
