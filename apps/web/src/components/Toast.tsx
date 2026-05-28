@@ -19,9 +19,25 @@ interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon'>> {
   icon?: IconName;
 }
 
+export interface ToastHistoryEntry {
+  id: number;
+  title: string;
+  body?: string;
+  tone: ToastTone;
+  /** Epoch ms when the toast was pushed. */
+  pushedAt: number;
+}
+
 interface ToastApi {
   push: (input: ToastInput) => number;
   dismiss: (id: number) => void;
+  /** Snapshot of the last ~50 toasts (newest first). */
+  history: () => ToastHistoryEntry[];
+  /** Clears the history list. */
+  clearHistory: () => void;
+  /** Number of unseen history entries (resets to 0 on markHistorySeen). */
+  unseenCount: () => number;
+  markHistorySeen: () => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -33,11 +49,18 @@ export function useToast(): ToastApi {
   return {
     push: () => 0,
     dismiss: () => undefined,
+    history: () => [],
+    clearHistory: () => undefined,
+    unseenCount: () => 0,
+    markHistorySeen: () => undefined,
   };
 }
 
 export const ToastProvider: ParentComponent = (props) => {
   const [toasts, setToasts] = createSignal<ToastRecord[]>([]);
+  const [history, setHistory] = createSignal<ToastHistoryEntry[]>([]);
+  const [unseenCount, setUnseenCount] = createSignal(0);
+  const HISTORY_LIMIT = 50;
   let nextId = 1;
 
   function dismiss(id: number) {
@@ -71,11 +94,33 @@ export const ToastProvider: ParentComponent = (props) => {
       const t = window.setTimeout(() => dismiss(id), rec.duration);
       onCleanup(() => window.clearTimeout(t));
     }
+    // Mirror into the persistent history list (newest first, capped).
+    const histEntry: ToastHistoryEntry = {
+      id,
+      title: rec.title,
+      ...(rec.body ? { body: rec.body } : {}),
+      tone: rec.tone,
+      pushedAt: Date.now(),
+    };
+    setHistory((prev) => [histEntry, ...prev].slice(0, HISTORY_LIMIT));
+    setUnseenCount((n) => n + 1);
     return id;
   }
 
   return (
-    <ToastContext.Provider value={{ push, dismiss }}>
+    <ToastContext.Provider
+      value={{
+        push,
+        dismiss,
+        history,
+        clearHistory: () => {
+          setHistory([]);
+          setUnseenCount(0);
+        },
+        unseenCount,
+        markHistorySeen: () => setUnseenCount(0),
+      }}
+    >
       {props.children}
       <div class="toast-host" data-testid="toast-host" aria-live="polite">
         <For each={toasts()}>

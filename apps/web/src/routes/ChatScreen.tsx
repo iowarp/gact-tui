@@ -30,6 +30,7 @@ import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
+import { NotificationCenter } from '../components/NotificationCenter.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { LeftRail, type RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
@@ -1302,6 +1303,7 @@ function ChatLayout(props: ChatLayoutProps) {
             </span>
           </div>
           <div class="chat__topbar-actions">
+            <NotificationCenter />
             <button
               type="button"
               class="chat__iconbtn"
