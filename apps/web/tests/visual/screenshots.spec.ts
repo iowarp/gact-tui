@@ -283,6 +283,56 @@ test.describe('CLIO harness — visual proofs', () => {
     await ctx.close();
   });
 
+  test('settings-shell-about shows the About section', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    // Open Settings via rail
+    await page.getByTestId('rail-settings').click();
+    await expect(page.getByTestId('settings-shell')).toBeVisible();
+    await page.getByTestId('settings-nav-about').click();
+    await expect(page.getByTestId('settings-about')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('settings-shell-appearance shows theme + density choices', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-appearance').click();
+    await expect(page.getByTestId('settings-appearance')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('settings-shell-appearance'), fullPage: false });
+    await ctx.close();
+  });
+
   test('discovery-metrics shows the metrics dashboard', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();

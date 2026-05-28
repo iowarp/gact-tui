@@ -2,7 +2,7 @@ import { createSignal, Match, Switch } from 'solid-js';
 import { ConnectScreen } from './routes/ConnectScreen.js';
 import { ChatScreen } from './routes/ChatScreen.js';
 import { SplashScreen } from './routes/SplashScreen.js';
-import { SettingsBackends } from './routes/SettingsBackends.js';
+import { SettingsShell } from './routes/SettingsShell.js';
 import { AddRemoteBackend } from './routes/AddRemoteBackend.js';
 import type { Capabilities } from '@clio/core';
 import { inTauri } from './tauri.js';
@@ -120,7 +120,7 @@ export function App() {
           })()}
         </Match>
         <Match when={route().name === 'settings'}>
-          <SettingsBackends
+          <SettingsShell
             onAddRemote={() => setRoute({ name: 'add-remote' })}
             onBack={() => backToChat(registry, setRoute)}
           />
