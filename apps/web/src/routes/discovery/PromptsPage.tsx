@@ -18,9 +18,21 @@ export interface PromptsPageProps {
 export function PromptsPage(props: PromptsPageProps) {
   const [data, { refetch }] = createResource(() => props.client.prompts());
   const [reloading, setReloading] = createSignal(false);
+  const [query, setQuery] = createSignal('');
   const toast = useToast();
 
-  const items = () => data()?.prompts ?? [];
+  const all = () => data()?.prompts ?? [];
+  const items = () => {
+    const q = query().trim().toLowerCase();
+    if (!q) return all();
+    return all().filter(
+      (p) =>
+        p.id.toLowerCase().includes(q) ||
+        (p.title ?? '').toLowerCase().includes(q) ||
+        (p.description ?? '').toLowerCase().includes(q) ||
+        (p.scope ?? '').toLowerCase().includes(q),
+    );
+  };
   const sources = () => data()?.sources ?? [];
 
   async function reload() {
@@ -84,6 +96,19 @@ export function PromptsPage(props: PromptsPageProps) {
             {(s) => <PromptSourceRow source={s} />}
           </For>
         </ul>
+      </Show>
+      <Show when={all().length > 6}>
+        <div class="dp__search-row">
+          <Icon name="search" size={14} class="dp__search-icon" />
+          <input
+            type="text"
+            class="dp__search-input"
+            placeholder="Filter prompts by id, title, description, or scope…"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-testid="prompts-search"
+          />
+        </div>
       </Show>
       <div class="dp__section-title">Prompts ({items().length})</div>
       <div class="dp__grid">
