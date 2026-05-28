@@ -476,3 +476,29 @@
   background: var(--color-surface-alt);
   border-color: var(--color-accent-cyan-30);
 }
+
+.inspector__call-detail-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector__call-copy {
+  margin-left: auto;
+  padding: 1px 6px;
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 4px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.inspector__call-copy:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+}

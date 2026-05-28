@@ -423,13 +423,43 @@ function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
       </button>
       <Show when={open() && callInput()}>
         <div class="inspector__call-detail">
-          <div class="inspector__call-detail-label">input</div>
+          <div class="inspector__call-detail-label">
+            input
+            <button
+              type="button"
+              class="inspector__call-copy"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  void navigator.clipboard.writeText(callInput()!);
+                }
+              }}
+              title="Copy input JSON"
+            >
+              copy
+            </button>
+          </div>
           <pre class="inspector__call-detail-body">{callInput()}</pre>
         </div>
       </Show>
       <Show when={open() && callOutput()}>
         <div class="inspector__call-detail">
-          <div class="inspector__call-detail-label">output</div>
+          <div class="inspector__call-detail-label">
+            output
+            <button
+              type="button"
+              class="inspector__call-copy"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  void navigator.clipboard.writeText(callOutput()!);
+                }
+              }}
+              title="Copy output"
+            >
+              copy
+            </button>
+          </div>
           <pre class="inspector__call-detail-body">{callOutput()}</pre>
         </div>
       </Show>
