@@ -279,6 +279,19 @@ export class Client {
     return this.get<{ workspaces: Workspace[] }>('/v1/workspaces');
   }
 
+  /**
+   * POST /v1/workspaces — register a new workspace root.
+   * Per SPEC §6.1 only `root_path` is required; the backend chooses
+   * an `id` and creates the on-disk metadata directory.
+   */
+  createWorkspace(body: {
+    root_path: string;
+    name?: string;
+    config?: Record<string, unknown>;
+  }): Promise<Workspace> {
+    return this.post<Workspace>('/v1/workspaces', body);
+  }
+
   agents(): Promise<{ agents: AgentDef[] }> {
     return this.get<{ agents: AgentDef[] }>('/v1/agents');
   }
