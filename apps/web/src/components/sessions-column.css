@@ -473,3 +473,23 @@
     transparent 100%
   );
 }
+
+.sx__running-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.sx__running-toggle input {
+  accent-color: var(--color-accent-cyan);
+  cursor: pointer;
+}
+
+.sx__running-toggle:hover {
+  color: var(--color-text);
+}
