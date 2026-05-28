@@ -168,6 +168,120 @@ export class Client {
   }
 
   /**
+   * DELETE /v1/sessions/{sid}/messages/{id} — drop a single message.
+   * Per-message surgical undo, distinct from `undoSession`'s tail trim.
+   */
+  deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/import — recreate a session from its export
+   * JSON blob. Returns the new Session. Companion to exportSession.
+   */
+  importSession(body: Record<string, unknown>): Promise<Session> {
+    return this.post<Session>('/v1/sessions/import', body);
+  }
+
+  /**
+   * GET /v1/sessions/{sid}/messages/search?q=… — backend-side full
+   * text search. Returns relevance-scored hits. Use over client-side
+   * substring once the transcript has more than a few hundred turns.
+   */
+  searchSessionMessages(
+    sessionId: string,
+    q: string,
+  ): Promise<{ matches: Array<{
+    message_id: string;
+    part_id?: string;
+    snippet: string;
+    score?: number;
+  }> }> {
+    const qs = new URLSearchParams({ q }).toString();
+    return this.get<{ matches: Array<{
+      message_id: string;
+      part_id?: string;
+      snippet: string;
+      score?: number;
+    }> }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/search?${qs}`,
+    );
+  }
+
+  /**
+   * GET /v1/memory/search?q=… — cross-session full-text search across
+   * the whole workspace memory (PR #351). Optional session_id scope.
+   */
+  memorySearch(
+    q: string,
+    options: { session_id?: string; workspace_id?: string; limit?: number } = {},
+  ): Promise<{
+    query: string;
+    hits: Array<{
+      session_id: string;
+      message_id: string;
+      role?: string;
+      text: string;
+      score?: number;
+      match_terms?: string[];
+    }>;
+  }> {
+    const qs = new URLSearchParams({ q });
+    if (options.session_id) qs.set('session_id', options.session_id);
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    if (options.limit) qs.set('limit', String(options.limit));
+    return this.get(`/v1/memory/search?${qs}`);
+  }
+
+  /**
+   * GET /v1/sessions/{id}/memory/events — session-scoped memory event
+   * audit log (cache hits, frame writes, tool invocations).
+   */
+  sessionMemoryEvents(
+    sessionId: string,
+    limit = 50,
+  ): Promise<{ events: Array<Record<string, unknown>> }> {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/memory/events${qs}`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/questions/{qid}/answer — resolve a pending
+   * orchestrator question (#380). Body carries the user's reply (free
+   * text for `freeform`, value for `choice` / `confirmation`).
+   */
+  answerSessionQuestion(
+    sessionId: string,
+    questionId: string,
+    body: { answer?: string; selected_options?: string[] },
+  ): Promise<UserQuestion> {
+    return this.post<UserQuestion>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/answer`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/questions/{qid}/cancel — abort a pending
+   * orchestrator question.
+   */
+  cancelSessionQuestion(
+    sessionId: string,
+    questionId: string,
+  ): Promise<UserQuestion> {
+    return this.post<UserQuestion>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/cancel`,
+      {},
+    );
+  }
+
+  /**
    * GET /v1/sessions/{id}/questions — pending ask-user questions
    * from the orchestrator (#380). Defaults to all statuses.
    */
@@ -447,6 +561,48 @@ export class Client {
   }
 
   /**
+   * GET /v1/workspaces/{id}/files — list the file tree (paginated by
+   * cursor). Used to back the composer `@`-mention picker.
+   */
+  workspaceFiles(
+    workspaceId: string,
+    options: { cursor?: string; limit?: number } = {},
+  ): Promise<{
+    files: Array<{ path: string; size?: number; language?: string; mime?: string }>;
+    next_cursor?: string;
+  }> {
+    const qs = new URLSearchParams();
+    if (options.cursor) qs.set('cursor', options.cursor);
+    if (options.limit) qs.set('limit', String(options.limit));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get(`/v1/workspaces/${encodeURIComponent(workspaceId)}/files${suffix}`);
+  }
+
+  /**
+   * GET /v1/workspaces/{id}/files/read?path=… — read a single file's
+   * text content. Used to preview an `@`-mention before sending.
+   */
+  workspaceReadFile(
+    workspaceId: string,
+    path: string,
+  ): Promise<{ path: string; content: string; mime?: string; size?: number }> {
+    const qs = new URLSearchParams({ path }).toString();
+    return this.get(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?${qs}`,
+    );
+  }
+
+  /**
+   * GET /v1/workspaces/{id}/repo_map — indexed tree + per-file token
+   * estimates. Useful for an "overview" panel.
+   */
+  workspaceRepoMap(
+    workspaceId: string,
+  ): Promise<{ tree?: Record<string, unknown>; tokens?: number }> {
+    return this.get(`/v1/workspaces/${encodeURIComponent(workspaceId)}/repo_map`);
+  }
+
+  /**
    * POST /v1/workspaces — register a new workspace root.
    * Per SPEC §6.1 only `root_path` is required; the backend chooses
    * an `id` and creates the on-disk metadata directory.
@@ -467,8 +623,109 @@ export class Client {
     return this.get<{ providers: ProviderDef[] }>('/v1/providers');
   }
 
+  /**
+   * GET /v1/providers/{id}/models — the detailed model list for a
+   * provider. Source field distinguishes built-in vs. discovered;
+   * Error field surfaces per-model issues (deprecated, throttled, …).
+   */
+  providerModels(
+    providerId: string,
+    apiBase?: string,
+  ): Promise<{
+    models: Array<{
+      id: string;
+      label?: string;
+      source?: 'builtin' | 'discovered' | string;
+      error?: string;
+      context_length?: number;
+      cost_usd_per_M_tokens?: number;
+    }>;
+  }> {
+    const qs = new URLSearchParams();
+    if (apiBase) qs.set('api_base', apiBase);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get(`/v1/providers/${encodeURIComponent(providerId)}/models${suffix}`);
+  }
+
   mcpServers(): Promise<{ servers: McpServerInfo[] }> {
     return this.get<{ servers: McpServerInfo[] }>('/v1/mcp/servers');
+  }
+
+  /**
+   * POST /v1/mcp/servers — register a new MCP server. Transport-shaped:
+   * `{name, transport: 'stdio', command, args?, env?}` or
+   * `{name, transport: 'sse' | 'http', url}`. Returns the new server.
+   */
+  installMcpServer(body: {
+    name: string;
+    transport: 'stdio' | 'sse' | 'http';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    url?: string;
+  }): Promise<McpServerInfo> {
+    return this.post<McpServerInfo>('/v1/mcp/servers', body);
+  }
+
+  /** DELETE /v1/mcp/servers/{id} — uninstall an MCP server. */
+  uninstallMcpServer(serverId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /** POST /v1/mcp/servers/{id}/reconnect — force a reconnect attempt. */
+  reconnectMcpServer(serverId: string): Promise<{ status?: string; error?: string }> {
+    return this.post<{ status?: string; error?: string }>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/reconnect`,
+      {},
+    );
+  }
+
+  /**
+   * GET /v1/mcp/servers/{id}/tools — list the tools exposed by an MCP
+   * server. Used by the per-server detail view.
+   */
+  mcpServerTools(serverId: string): Promise<{ tools: Array<{
+    name: string;
+    description?: string;
+    schema?: Record<string, unknown>;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/tools`);
+  }
+
+  /** GET /v1/mcp/servers/{id}/resources — list MCP resources. */
+  mcpServerResources(serverId: string): Promise<{ resources: Array<{
+    uri: string;
+    name?: string;
+    description?: string;
+    mimeType?: string;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/resources`);
+  }
+
+  /** GET /v1/mcp/servers/{id}/prompts — list MCP prompt templates. */
+  mcpServerPrompts(serverId: string): Promise<{ prompts: Array<{
+    name: string;
+    description?: string;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/prompts`);
+  }
+
+  /**
+   * POST /v1/mcp/servers/{id}/resources/read — fetch an MCP resource
+   * by URI. Used for inspecting what an MCP server exposes.
+   */
+  mcpReadResource(
+    serverId: string,
+    uri: string,
+  ): Promise<{ contents: Array<{ uri: string; mimeType?: string; text?: string }> }> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/read`,
+      { uri },
+    );
   }
 
   health(): Promise<HealthSnapshot> {
@@ -593,6 +850,51 @@ export class Client {
       provider_id: string;
       instructions?: string;
     }>(`/v1/providers/${encodeURIComponent(providerId)}/auth`, {});
+  }
+
+  /**
+   * GET /v1/policies — the global + workspace policy that governs
+   * tool / command / memory autonomy. PR #378 added the
+   * `command.agent_invocable` gate.
+   */
+  policies(): Promise<{ policies: Record<string, unknown> }> {
+    return this.get('/v1/policies');
+  }
+
+  /** PUT /v1/policies — replace the policy document. */
+  putPolicies(body: Record<string, unknown>): Promise<unknown> {
+    return this.request<unknown>('/v1/policies', 'PUT', body);
+  }
+
+  /** GET /v1/hooks — list registered pre/post handler URIs. */
+  hooks(): Promise<{ hooks: Array<{
+    id: string;
+    type: 'pre_message' | 'post_message' | 'pre_tool' | 'post_tool' | string;
+    handler_uri: string;
+    metadata?: Record<string, unknown>;
+  }> }> {
+    return this.get('/v1/hooks');
+  }
+
+  /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387). */
+  agentBlueprints(): Promise<{ blueprints: Array<{
+    id: string;
+    name?: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+  }> }> {
+    return this.get('/v1/agent-blueprints');
+  }
+
+  /** GET /v1/expert-packs — list installed expert packs (PR #344/#376). */
+  expertPacks(): Promise<{ packs: Array<{
+    id: string;
+    name?: string;
+    description?: string;
+    runtime_scope?: string;
+    metadata?: Record<string, unknown>;
+  }> }> {
+    return this.get('/v1/expert-packs');
   }
 
   /**
