@@ -449,3 +449,13 @@
   margin: 0;
   line-height: 1.5;
 }
+
+/* Row briefly pulses when SSE bumps it (session.updated etc.).         */
+.sx__row.is-bumped {
+  animation: sx-bump 1.8s ease-out both;
+}
+
+@keyframes sx-bump {
+  0%   { background: color-mix(in srgb, var(--color-accent-cyan) 22%, transparent); }
+  100% { background: transparent; }
+}

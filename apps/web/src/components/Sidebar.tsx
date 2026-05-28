@@ -8,6 +8,8 @@ export interface SidebarSession {
   status: SessionStatus;
   project: string;
   updatedAt: string;
+  /** Epoch ms — last time this row was touched by SSE (drives row pulse). */
+  bumpedAt?: number;
 }
 
 export interface SidebarProps {

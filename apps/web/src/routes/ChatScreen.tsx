@@ -204,6 +204,7 @@ function LiveDriven(props: {
       workspace: row.project,
       updatedAt: row.updatedAt,
       pinned: pins.has(row.id),
+      ...(row.bumpedAt ? { bumpedAt: row.bumpedAt } : {}),
     }));
   });
 
