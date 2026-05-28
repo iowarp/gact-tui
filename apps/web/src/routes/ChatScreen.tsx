@@ -874,6 +874,10 @@ function ChatLayout(props: ChatLayoutProps) {
     'clio.inspector-open.v1',
     true,
   );
+  const [sessionsOpen, setSessionsOpen] = createPersistedBoolean(
+    'clio.sessions-open.v1',
+    true,
+  );
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
   const [selectedMessageId, setSelectedMessageId] = createSignal<string>('');
   const [scrolledUp, setScrolledUp] = createSignal(false);
@@ -994,6 +998,11 @@ function ChatLayout(props: ChatLayoutProps) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i' && onChat()) {
         e.preventDefault();
         setInspectorOpen((v) => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && onChat()) {
+        e.preventDefault();
+        setSessionsOpen((v) => !v);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
@@ -1314,7 +1323,8 @@ function ChatLayout(props: ChatLayoutProps) {
       class={
         'chat ' +
         (onChat() ? '' : 'chat--discovery') +
-        (onChat() && inspectorOpen() ? ' chat--inspector-open' : '')
+        (onChat() && inspectorOpen() ? ' chat--inspector-open' : '') +
+        (onChat() && !sessionsOpen() ? ' chat--no-sessions' : '')
       }
       data-testid="chat-screen"
     >
@@ -1331,7 +1341,7 @@ function ChatLayout(props: ChatLayoutProps) {
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
-      <Show when={onChat()}>
+      <Show when={onChat() && sessionsOpen()}>
         <SessionsColumn
           rows={props.sessions}
           activeId={props.activeId}
