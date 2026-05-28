@@ -165,6 +165,36 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/undo — drops the last N messages from the
+   * session (default 1). Per clio-agent develop turn-rollback work.
+   * Returns the rollback envelope {kept_messages, deleted_messages}.
+   */
+  undoSession(
+    sessionId: string,
+    body: { count?: number } = {},
+  ): Promise<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }> {
+    return this.post<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/undo`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/rewind — drops every message after the
+   * given target_message_id (and the target itself if include_target).
+   * Useful for "back up two turns and try again" workflows.
+   */
+  rewindSession(
+    sessionId: string,
+    body: { message_id: string; include_target?: boolean },
+  ): Promise<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }> {
+    return this.post<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/rewind`,
+      body,
+    );
+  }
+
+  /**
    * POST /v1/sessions/{id}/summarize — kicks off async summarization.
    * The result lands on the SSE stream as a `session.summarized`
    * event (per SPEC §7.3). 204 on success — no body returned.

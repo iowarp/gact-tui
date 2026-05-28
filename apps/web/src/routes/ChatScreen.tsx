@@ -410,6 +410,27 @@ function LiveDriven(props: {
     }
   }
 
+  async function undoActive() {
+    const id = activeId();
+    if (!id) return;
+    if (!confirm('Drop the last message from this session?')) return;
+    try {
+      await live.client.undoSession(id, { count: 1 });
+      await transcript.refetch();
+      toast.push({
+        tone: 'success',
+        title: 'Last message dropped',
+        duration: 2200,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Undo failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   async function summarizeActive() {
     const id = activeId();
     if (!id) return;
@@ -607,6 +628,7 @@ function LiveDriven(props: {
       onForkSession={forkSession}
       onTogglePin={togglePin}
       onSummarize={summarizeActive}
+      onUndoTurn={undoActive}
       models={models()}
       selectedModelId={selectedModelId()}
       onPickModel={pickModel}
@@ -668,6 +690,7 @@ interface ChatLayoutProps {
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
   onSummarize?: () => void | Promise<void>;
+  onUndoTurn?: () => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
   selectedModelId?: string;
@@ -1033,6 +1056,10 @@ function ChatLayout(props: ChatLayoutProps) {
       void props.onSummarize?.();
       return;
     }
+    if (cmd.id === 'undo-turn') {
+      void props.onUndoTurn?.();
+      return;
+    }
     if (cmd.id === 'toggle-inspector') {
       setInspectorOpen((v) => !v);
       return;
@@ -1158,6 +1185,12 @@ function ChatLayout(props: ChatLayoutProps) {
         id: 'summarize',
         trigger: 'summarize session',
         description: 'Ask the backend to summarize this session',
+        category: 'action',
+      },
+      {
+        id: 'undo-turn',
+        trigger: 'undo last turn',
+        description: 'Drop the most recent message from this session',
         category: 'action',
       },
       {

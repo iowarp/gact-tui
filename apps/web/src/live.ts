@@ -64,6 +64,8 @@ export interface LiveTranscriptHandle {
   costUsd: Accessor<number>;
   /** Currently in-flight tool calls (started but not completed). */
   runningTools: Accessor<RunningTool[]>;
+  /** Force-refetch the message list (e.g. after undo/rewind). */
+  refetch: () => Promise<void>;
 }
 
 export interface RunningTool {
@@ -296,6 +298,17 @@ export function createLiveTranscript(
     });
   });
 
+  async function refetch(): Promise<void> {
+    const id = activeSessionId();
+    if (!id) return;
+    try {
+      const { messages: fresh } = await client.messages(id);
+      setMessages(fresh);
+    } catch {
+      // ignore — SSE will catch up on the next event.
+    }
+  }
+
   return {
     messages,
     pendingPermission,
@@ -304,6 +317,7 @@ export function createLiveTranscript(
     lastCompletion,
     costUsd,
     runningTools,
+    refetch,
   };
 }
 
