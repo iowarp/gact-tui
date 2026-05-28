@@ -403,6 +403,20 @@ export interface PromptSource {
   root: string;
 }
 
+/**
+ * Per-session task entry per clio-agent develop /v1/sessions/{sid}/tasks
+ * — lightweight TODO list the agent or user can populate during a turn.
+ */
+export interface SessionTask {
+  id: string;
+  session_id: string;
+  title: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | string;
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface LmConfigSnapshot {
   configured: boolean;
   provider: string;

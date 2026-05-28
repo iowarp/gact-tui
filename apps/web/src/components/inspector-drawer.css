@@ -323,3 +323,62 @@
   font-size: 11px;
   margin-top: 2px;
 }
+
+.inspector__tasks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inspector__task {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color-bg);
+}
+
+.inspector__task-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+
+.inspector__task-pip--running { background: var(--color-warning); animation: ti-pulse 1.4s ease-in-out infinite; }
+.inspector__task-pip--pending { background: var(--color-muted); }
+.inspector__task-pip--completed { background: var(--color-success); }
+.inspector__task-pip--failed { background: var(--color-error); }
+
+@keyframes ti-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+
+.inspector__task-title {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector__task--completed .inspector__task-title {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.inspector__task-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}

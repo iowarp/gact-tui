@@ -529,6 +529,21 @@ function LiveDriven(props: {
     }
   }
 
+  // Live session tasks — feeds the Inspector Tasks tab.
+  const [sessionTasksData, { refetch: refetchTasks }] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return { tasks: [] };
+      try {
+        return await live.client.sessionTasks(sid);
+      } catch {
+        return { tasks: [] };
+      }
+    },
+  );
+  const sessionTasks = createMemo(() => sessionTasksData()?.tasks ?? []);
+  void refetchTasks;
+
   // Live slash commands (powers Cmd+K palette dynamic list).
   const [commandsData] = createResource(() => live.client.commands());
   const slashCommands = createMemo<SlashCommandDef[]>(
@@ -635,6 +650,7 @@ function LiveDriven(props: {
       permMode={permMode()}
       onPickPermMode={pickPermMode}
       slashCommands={slashCommands()}
+      sessionTasks={sessionTasks()}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
@@ -698,6 +714,7 @@ interface ChatLayoutProps {
   permMode?: PermissionMode;
   onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
   slashCommands?: SlashCommandDef[];
+  sessionTasks?: import('@clio/core').SessionTask[];
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
@@ -1530,6 +1547,7 @@ function ChatLayout(props: ChatLayoutProps) {
           costUsd={props.sessionCostUsd ?? 0}
           tokens={inspectorTarget()?.tokens}
           model={inspectorTarget()?.model?.model_id}
+          tasks={props.sessionTasks}
           onClose={() => setInspectorOpen(false)}
         />
       </Show>

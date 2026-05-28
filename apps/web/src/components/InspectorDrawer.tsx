@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { Icon } from './Icon.js';
-import type { Message, Part, FileDiff } from '@clio/core';
+import type { Message, Part, FileDiff, SessionTask } from '@clio/core';
 import { createPersistedString } from '../persisted.js';
 import './inspector-drawer.css';
 
@@ -18,6 +18,8 @@ export interface InspectorDrawerProps {
   model?: string;
   /** Backend integration health entries (from /v1/health when capability is on). */
   integrations?: IntegrationStatus[];
+  /** Per-session task list from /v1/sessions/{id}/tasks. */
+  tasks?: SessionTask[];
   onClose: () => void;
 }
 
@@ -34,7 +36,7 @@ export interface IntegrationStatus {
   summary?: string;
 }
 
-type InspectorTab = 'turn' | 'tools' | 'diffs' | 'thinking' | 'health';
+type InspectorTab = 'turn' | 'tools' | 'diffs' | 'thinking' | 'tasks' | 'health';
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasRunData = () =>
@@ -49,12 +51,14 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     !!props.message?.parts?.some((p) => p.type === 'file_diff');
   const hasIntegrations = () =>
     !!props.integrations && props.integrations.length > 0;
+  const hasTasks = () => !!props.tasks && props.tasks.length > 0;
 
   const hasAnyContent = () =>
     hasRunData() ||
     props.toolCalls.length > 0 ||
     hasThinking() ||
     hasDiffs() ||
+    hasTasks() ||
     hasIntegrations();
 
   // Order matters — the picker walks this list and lands on the
@@ -65,6 +69,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     if (props.toolCalls.length > 0) out.push('tools');
     if (hasDiffs()) out.push('diffs');
     if (hasThinking()) out.push('thinking');
+    if (hasTasks()) out.push('tasks');
     if (hasIntegrations()) out.push('health');
     return out;
   });
@@ -93,6 +98,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     tools: 'Tools',
     diffs: 'Diffs',
     thinking: 'Thinking',
+    tasks: 'Tasks',
     health: 'Health',
   };
 
@@ -231,6 +237,28 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                     <Show when={d.applied}>
                       <span class="inspector__chip inspector__chip--ok">applied</span>
                     </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={hasTasks() && activeTab() === 'tasks'}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">
+              Tasks ({props.tasks!.length})
+            </div>
+            <ul class="inspector__tasks">
+              <For each={props.tasks}>
+                {(t) => (
+                  <li
+                    class={'inspector__task inspector__task--' + t.status}
+                    data-testid={`inspector-task-${t.id}`}
+                  >
+                    <span class={'inspector__task-pip inspector__task-pip--' + t.status} />
+                    <span class="inspector__task-title">{t.title}</span>
+                    <span class="inspector__task-status">{t.status}</span>
                   </li>
                 )}
               </For>

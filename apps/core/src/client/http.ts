@@ -13,6 +13,7 @@ import type {
   PromptSource,
   ProviderDef,
   Session,
+  SessionTask,
   SlashCommandDef,
   Workspace,
 } from '../wire/types.js';
@@ -159,6 +160,55 @@ export class Client {
   deleteSession(sessionId: string): Promise<void> {
     return this.request<void>(
       `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/tasks — list the lightweight TODO entries
+   * scoped to a session (clio-agent develop).
+   */
+  sessionTasks(sessionId: string): Promise<{ tasks: SessionTask[] }> {
+    return this.get<{ tasks: SessionTask[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/tasks`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/tasks — create a session task.
+   */
+  createSessionTask(
+    sessionId: string,
+    body: { title: string; status?: SessionTask['status'] },
+  ): Promise<SessionTask> {
+    return this.post<SessionTask>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/tasks`,
+      body,
+    );
+  }
+
+  /**
+   * PATCH /v1/tasks/{tid} — update a session task. Pass any subset of
+   * {title, status, metadata}.
+   */
+  patchSessionTask(
+    taskId: string,
+    patch: Partial<Pick<SessionTask, 'title' | 'status' | 'metadata'>>,
+  ): Promise<SessionTask> {
+    return this.request<SessionTask>(
+      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /**
+   * DELETE /v1/tasks/{tid} — remove a session task.
+   */
+  deleteSessionTask(taskId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/tasks/${encodeURIComponent(taskId)}`,
       'DELETE',
       undefined,
     );
