@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Show, type JSX } from 'solid-js';
+import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Icon } from './Icon.js';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
@@ -13,6 +13,13 @@ const PERM_DESCRIPTIONS: Record<PermissionMode, string> = {
   auto: 'Auto-approve every action (use with care)',
   bypass: 'Skip permissions entirely',
 };
+
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+}
 
 export interface ModelOption {
   /** Globally-unique id used by the dropdown ("<provider>:<model>"). */
@@ -42,6 +49,13 @@ export interface ComposerProps {
   /** Selected permission mode. */
   permMode?: PermissionMode;
   onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
+
+  /**
+   * Fires when the user types `/` as the first character into an
+   * otherwise empty composer. ChatScreen wires it to open the slash
+   * command palette.
+   */
+  onSlashTyped?: () => void;
 }
 
 export function Composer(props: ComposerProps = {}) {
@@ -100,6 +114,38 @@ export function Composer(props: ComposerProps = {}) {
     setMentionHighlight(0);
   }
 
+  // Attachment state + file picker wiring.
+  const [attachments, setAttachments] = createSignal<AttachedFile[]>([]);
+  let fileInputRef: HTMLInputElement | undefined;
+
+  function pickAttach() {
+    fileInputRef?.click();
+  }
+
+  function onFilesPicked(ev: Event) {
+    const input = ev.currentTarget as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
+    const next: AttachedFile[] = files.map((f) => ({
+      id: cryptoRandomId(),
+      name: f.name,
+      size: f.size,
+      mimeType: f.type || 'application/octet-stream',
+    }));
+    setAttachments((prev) => [...prev, ...next]);
+    input.value = '';
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  function buildSubmitText(body: string, files: AttachedFile[]): string {
+    if (files.length === 0) return body;
+    const header = `[attached ${files.length} file${files.length === 1 ? '' : 's'}: ${files.map((f) => f.name).join(', ')}]`;
+    return `${header}\n\n${body}`;
+  }
+
   async function submit() {
     const t = text().trim();
     if (!t || busy() || props.disabled) return;
@@ -110,11 +156,14 @@ export function Composer(props: ComposerProps = {}) {
     }
     setBusy(true);
     setText('');
+    const attached = attachments();
+    setAttachments([]);
     try {
-      await props.onSubmit(t);
+      await props.onSubmit(buildSubmitText(t, attached));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setText(t);
+      setAttachments(attached);
     } finally {
       setBusy(false);
     }
@@ -129,12 +178,48 @@ export function Composer(props: ComposerProps = {}) {
       </Show>
 
       <div class="composer__shell">
+        <Show when={attachments().length > 0}>
+          <div class="composer__chips" data-testid="composer-attachments">
+            <For each={attachments()}>
+              {(a) => (
+                <span
+                  class="composer__chip"
+                  data-testid={`composer-attachment-${a.id}`}
+                >
+                  <Icon name="attach" size={11} />
+                  <span class="composer__chip-name">{a.name}</span>
+                  <span class="composer__chip-size">{humanSize(a.size)}</span>
+                  <button
+                    type="button"
+                    class="composer__chip-x"
+                    onClick={() => removeAttachment(a.id)}
+                    aria-label={`Remove ${a.name}`}
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </span>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={onFilesPicked}
+          data-testid="composer-file-input"
+        />
+
         <div class="composer__row">
           <button
             type="button"
             class="composer__attach"
-            title="Attach files (drop or paste)"
+            title="Attach files"
             aria-label="Attach files"
+            data-testid="composer-attach"
+            onClick={pickAttach}
           >
             <Icon name="attach" size={16} />
           </button>
@@ -163,6 +248,13 @@ export function Composer(props: ComposerProps = {}) {
                     setMentionHighlight((h) => Math.max(0, h - 1));
                     return;
                   }
+                }
+                // `/` on an empty composer opens the slash palette
+                // (matches Claude / Cursor / VSCode convention).
+                if (e.key === '/' && text().length === 0 && props.onSlashTyped) {
+                  e.preventDefault();
+                  props.onSlashTyped();
+                  return;
                 }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -256,4 +348,20 @@ export function Composer(props: ComposerProps = {}) {
       </div>
     </div>
   );
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(6);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Math.random().toString(36).slice(2, 12);
 }

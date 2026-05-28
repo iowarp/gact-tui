@@ -711,6 +711,7 @@ function ChatLayout(props: ChatLayoutProps) {
           streaming={props.streaming}
           onStop={props.onStop}
           onSubmit={props.onSubmit}
+          onSlashTyped={() => setPaletteOpen(true)}
           models={props.models}
           selectedModelId={props.selectedModelId}
           onPickModel={props.onPickModel}
