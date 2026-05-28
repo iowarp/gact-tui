@@ -17,6 +17,10 @@ Type "@"
 Sleep 900ms
 Screenshot "visual_loop/screenshots/semantic_file_picker.png"
 
+Right
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_file_picker_tree_expanded.png"
+
 Escape
 Sleep 200ms
 Ctrl+C

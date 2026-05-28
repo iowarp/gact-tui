@@ -25,9 +25,8 @@ Down
 Down
 Down
 Down
-Right
-Wait+Screen /context sidebar/
-Wait+Screen /right/
+Wait+Screen /sidebar layout/
+Wait+Screen /open editor/
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_sidebar_layout_settings.png"
 
