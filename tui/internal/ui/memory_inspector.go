@@ -33,6 +33,19 @@ func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, message
 		if scope.SessionID != "" {
 			if resp, frameErr := c.ListContextFramesScoped(ctx, scope, 5); frameErr == nil {
 				frames = resp.Frames
+				if latestID := latestContextFrameID(frames); latestID != "" {
+					if frame, detailErr := c.GetContextFrameScoped(ctx, scope, latestID); detailErr == nil && len(frame) > 0 {
+						frames = append(frames[:len(frames)-1], frame)
+					} else if detailErr != nil {
+						frames = append(frames, map[string]any{
+							"id":     latestID,
+							"status": "detail_error",
+							"metadata": map[string]any{
+								"detail_error": detailErr.Error(),
+							},
+						})
+					}
+				}
 			}
 		}
 		return catalogDetailLoadedMsg{
@@ -41,6 +54,13 @@ func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, message
 			standalone: true,
 		}
 	}
+}
+
+func latestContextFrameID(frames []map[string]any) string {
+	if len(frames) == 0 {
+		return ""
+	}
+	return stringValue(frames[len(frames)-1]["id"])
 }
 
 func formatMemoryInspector(stats gact.MemoryStats) string {
@@ -188,6 +208,9 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 	}
 	if metadata := mapValue(latest["metadata"]); len(metadata) > 0 {
 		rows = append(rows, detailFieldRows("frame_metadata", contextMapSummary(metadata, "retained_context_source", "token_estimate", "context_file_injected_chars"))...)
+		if detailErr := stringValue(metadata["detail_error"]); detailErr != "" {
+			rows = append(rows, detailFieldRows("detail_error", detailErr)...)
+		}
 	}
 	return rows
 }

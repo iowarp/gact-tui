@@ -10,11 +10,32 @@ import (
 )
 
 func (s *Server) handleListContextFrames(w http.ResponseWriter, r *http.Request) {
+	frame, ok := s.contextFrameForSession(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"frames": []map[string]any{frame}})
+}
+
+func (s *Server) handleGetContextFrame(w http.ResponseWriter, r *http.Request) {
+	frame, ok := s.contextFrameForSession(w, r)
+	if !ok {
+		return
+	}
+	frameID := r.PathValue("frame_id")
+	if frameID != "" && frameID != frame["id"] {
+		writeError(w, http.StatusNotFound, "not_found", "context frame not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"frame": frame})
+}
+
+func (s *Server) contextFrameForSession(w http.ResponseWriter, r *http.Request) (map[string]any, bool) {
 	id := r.PathValue("id")
 	sess, err := s.store.GetSession(id)
 	if err != nil {
 		writeStoreError(w, err, "session_not_found", "invalid_session")
-		return
+		return nil, false
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
@@ -27,7 +48,7 @@ func (s *Server) handleListContextFrames(w http.ResponseWriter, r *http.Request)
 	})
 	if err != nil {
 		writeStoreError(w, err, "session_not_found", "invalid_session")
-		return
+		return nil, false
 	}
 	files := s.contextFiles.get(id)
 	items := make([]map[string]any, 0, len(msgs)+len(files))
@@ -76,7 +97,7 @@ func (s *Server) handleListContextFrames(w http.ResponseWriter, r *http.Request)
 		"metadata":             map[string]any{"retained_context_source": "visible_gact_transcript"},
 		"assistant_message_id": latestAssistantMessageID(msgs),
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"frames": []map[string]any{frame}})
+	return frame, true
 }
 
 func messageTextForFrame(msg gact.Message) string {
