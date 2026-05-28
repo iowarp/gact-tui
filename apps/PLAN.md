@@ -1,6 +1,9 @@
 # apps/ — PLAN
 
-Ordered queue of post-harness work. Pick the top unfinished item.
+Ordered queue of post-harness work. The v0.9.0 cut shipped everything
+in Waves 0 – 4 except the items explicitly listed under "Pending for
+v1.0" at the bottom — those move to a follow-up PLAN once v1.0 work
+opens.
 
 ## Wave 0 — bundled sidecar (the FIRST thing to land)
 
@@ -42,60 +45,109 @@ upstream's `clio` installer pattern.
     `http://localhost:7777` and auto-probes `/v1/capabilities`; the connect
     form only renders on probe failure.
 
-## Wave 1 — wire up live data
+## Wave 1 — live wire — ✅ done
 
-1. **Plumb live `/v1/sessions` into Sidebar.** Replace `fixturesForDemo` with a
-   `createResource` over `@clio/core` against the connected backend; reconnect on
-   401/5xx with a chip. Keep fixtures available via `?mock=1` for visual tests.
-2. **Subscribe to per-session SSE.** Wire `EventSource` in a Solid resource keyed by
-   active session id; reduce `message.created/part.added/part.delta/completed` into
-   the transcript store; verify token-by-token streaming in the chat shell.
-3. **POST `/v1/sessions/{id}/messages` from Composer.** Optimistically append a user
-   message; surface errors as a footer toast; honor the disabled-while-streaming rule.
-4. **Implement permission resolution.** POST `/v1/permissions/{pid}` from the four
-   approve buttons + Deny; pull the pending queue from `/v1/permissions?session_id=`
-   and reduce `permission.requested` events into it.
+1. ✅ **/v1/sessions hydrates the Sidebar.** `createLiveSessions()` in
+   `apps/web/src/live.ts` returns a Solid resource over `@clio/core`'s
+   Client and maps Session rows to SidebarSession. Fixtures stay
+   reachable via `?fixture=…` for visual regression.
+2. ✅ **Per-session SSE.** `createLiveTranscript` opens an EventSource
+   keyed by activeId, listens on the seven named GACT events, and
+   reduces them through `applyTextAppend / appendPart / upsertMessage`.
+   SSE status chip in the topbar (open / connecting / closed / error).
+3. ✅ **Composer POSTs messages.** `Client.sendMessage()` + composer
+   `onSubmit`. Enter submits, Shift+Enter newlines, error inline,
+   draft restored on failure.
+4. ✅ **Permission resolution.** `Client.permissions()` for the
+   initial fetch; PermissionCard's four approve buttons + Deny route
+   to `Client.resolvePermission(approve|deny, scope?)`.
 
-## Wave 2 — federated connect
+## Wave 2 — federated connect — ✅ done
 
-5. **Per-backend bearer-token store.** Keyring on desktop (`@tauri-apps/api/store` +
-   `keyring` crate); IndexedDB on web; one common `Persistence` interface in
-   `@clio/core`.
-6. **Backend picker in the composer footer.** Status pip per registered backend
-   (green/amber/red); add-backend modal collects URL + token; web cannot manage SSH
-   (degraded mode); desktop opens the Add-SSH wizard.
-7. **Capability gating.** Wrap diff sidebar, MCP catalog, agent picker, memory chips
-   in `<Show when={caps().X}>` — unknown caps surface in `/doctor`.
+5. ✅ **Per-backend store.** `@clio/core/store/backends.ts` —
+   `BackendEntry` shape, pure reducers (add/remove/setCurrent/update),
+   `InMemoryPersistence`, `LocalStoragePersistence`. Solid wrapper at
+   `apps/web/src/registry.tsx` (context provider + `useBackendRegistry`).
+6. ✅ **Backend picker.** `apps/web/src/components/BackendPicker.tsx`
+   composer-footer dropdown with green/amber/red status pips,
+   "+ Add remote backend" and "⚙ Backends settings" actions. The
+   bundled local sidecar is the auto-selected first entry.
+7. ⚠ **Capability gating.** Plumbing exists (BackendEntry stores
+   `capabilities`, `Show when={caps().X}` is the pattern), and is used
+   for the diffs / sse / permissions chips in SettingsBackends. Wider
+   gating across the chat shell is a v1.0 follow-up; today's
+   clio-agent-gact returns the full capabilities flag set so nothing
+   gates off in practice.
 
-## Wave 3 — desktop-native
+## Wave 3 — desktop-native — ✅ done
 
-8. **SSH-tunneled backend support.** Tauri side: spawn `ssh -L`, parse exit code,
-   surface to UI; OS keychain for keys + passphrases; auto-reconnect on tunnel drop.
-9. **OS notifications + tray.** Hook `permission.requested` and `session.status:idle`
-   while the window is unfocused; tray icon badges the detached-session count.
-10. **Native auto-update.** Tauri's built-in updater pointed at the GitHub Releases
-    manifest; sign builds on each platform.
+8. ✅ **SSH-tunneled backends.** `apps/desktop/src-tauri/src/ssh.rs`
+   TunnelManager spawns `ssh -N -T -L … user@host` with ServerAlive
+   heartbeats; OS keychain (`keyring` native-only) for passphrases;
+   `tunnel_open` Tauri command + `openSshTunnel()` JS bridge.
+9. ✅ **OS notifications + tray.** `tauri-plugin-notification`
+   registered, tray icon with Show / Quit menu wired in
+   `lib.rs::setup()`. Live wire still needs to invoke notifications on
+   `session.status: idle while unfocused`; that's a v1.0 follow-up.
+10. ⚠ **Native auto-update.** Deferred to v1.0 — the v0.9 cut ships
+    re-install from the Releases page. Unsigned installers ⇒ Tauri's
+    updater key+signature pipeline is meaningless without signing.
 
-## Wave 4 — depth
+## Wave 4 — depth — ✅ done
 
-11. **Routes for Settings + Doctor + Metrics.** Full-page; sectioned per
-    `apps/08-decisions.md`.
-12. **Multi-buffer review tab for `file_diff` Parts.** Per-hunk Apply / Reject;
-    keyboard-driven; Cmd+; side-chat affordance.
-13. **Density toggle keybinding.** `Ctrl+O` cycles verbose/normal/summary;
-    per-session persistence.
-14. **Cmd+K slash palette + `@`-mention autocomplete** — overlay anchored to
-    viewport center, anchored to composer respectively.
-15. **Markdown + KaTeX + Mermaid + image rendering** in `tool_result` Parts.
+11. ✅ **Settings route.** `SettingsBackends` + `AddRemoteBackend`
+    live. /doctor and /metrics are v1.0 work (the upstream
+    `clio-agent-gact /health` endpoint covers a lot of what /doctor
+    would surface; wiring it into a dedicated page is follow-up).
+12. ✅ **Multi-buffer diff review.** `DiffPane` overlay with per-hunk
+    Apply/Reject, applied/rejected highlights, +adds/−dels stats.
+    Clicking a file_diff Part in the transcript opens it.
+13. ✅ **Density toggle keybinding.** Global Ctrl+O cycle
+    verbose→normal→summary; density chip in topbar is also clickable.
+14. ✅ **Cmd+K slash palette + @-mention autocomplete.** Both wired.
+    Palette default command set covers /help, /doctor, /agents,
+    /tools, /inspect hdf5|parquet, /sessions, /settings, /clear.
+    @-mention picker ships a default file/agent/tool index.
+15. ⚠ **Markdown + KaTeX + Mermaid + image rendering in tool_result
+    Parts.** Deferred to v1.0 (text rendering only today; the
+    upstream agent's tool_result Parts are mostly plain text and
+    JSON, so this is polish rather than function).
+
+## Pending for v1.0
+
+The items below are explicitly deferred — they require either signing
+infrastructure, a feature in `clio-agent-gact` that's still in
+development, or polish that the v0.9 manual-test cycle would
+prioritize:
+
+- Code signing on every platform (Authenticode / Apple Developer ID /
+  Sigstore-or-GPG) and the Tauri auto-update channel that depends on
+  it.
+- Desktop bearer-token storage moved from localStorage to OS keychain.
+- Notification on `session.status: idle while unfocused` (the Tauri
+  plugin is registered and the tray icon is live; just need the
+  trigger in `live.ts`).
+- /doctor + /metrics full pages.
+- Markdown / KaTeX / Mermaid / image rendering in tool_result.
+- Real semantics for the slash-palette commands beyond navigation.
+- Drag-and-drop file attach in the composer.
 
 ## Done
 
-- ✅ Branch `feat/apps-harness` created off `develop`.
+- ✅ Branch `feat/apps-harness` created off `develop`; PR #74 open.
 - ✅ pnpm workspace + tsconfig base + lint/test/typecheck scripts wired.
-- ✅ `@clio/core` HTTP + SSE + transcript store with unit tests.
-- ✅ `@clio/web` connect + chat shell with sidebar, transcript, composer, permission card.
-- ✅ `@clio/desktop` Tauri 2 scaffold with locked CSP + capabilities.
-- ✅ Playwright visual loop produces the six required PNGs.
-- ✅ `.github/workflows/apps.yml` running lint/typecheck/test/build/visual + Tauri
-  debug build matrix.
-- ✅ Harness docs (STATUS, PLAN, HARNESS, CLAUDE) committed.
+- ✅ `@clio/core` HTTP + SSE + transcript store + backend registry,
+  with 26 vitest specs.
+- ✅ `@clio/web` boots into a SplashScreen → ChatScreen flow with
+  sidebar, transcript, composer, permission card, diff pane, slash
+  palette, @-mention picker.
+- ✅ `@clio/desktop` Tauri 2 shell with externalBin sidecar bundling,
+  Rust supervisor, SSH tunnel manager, tray icon, OS notifications.
+- ✅ Go launcher (`apps/desktop/sidecar-launcher/`) resolves & execs
+  real `clio-agent-gact` from develop branch / system install.
+- ✅ Playwright visual loop produces all 14 required PNGs + the
+  original 6 (20 specs total).
+- ✅ `.github/workflows/apps.yml` runs lint/typecheck/test/build/visual
+  on every push; tauri-debug builds across linux+windows; release
+  matrix fires on `clio-desktop-v*` tag.
+- ✅ Release docs: README, INSTALL, FIRST-RUN, SECURITY.
