@@ -261,6 +261,27 @@ Five vitest specs hit a real `clio-agent-gact` at `CLIO_GACT_URL`
 automatically when no backend is reachable, so CI runners that don't
 have clio installed don't fail on it.
 
+## End-to-end sanity (2026-05-28, autonomous-side)
+
+Launched the freshly-rebuilt `clio-desktop.exe` against the user's
+already-running `clio-agent-gact` and verified the attach-first
+supervisor path works end-to-end on real bits:
+
+```
+TCP  127.0.0.1:17800   0.0.0.0:0           LISTENING    39100  ← user's python (since May 24)
+TCP  127.0.0.1:55547   127.0.0.1:17800     TIME_WAIT    0      ← supervisor's attach probe
+TCP  127.0.0.1:63230   127.0.0.1:17800     ESTABLISHED  39776  ← Tauri WebView (msedgewebview2)
+```
+
+No competing sidecar was spawned — `tasklist /fi imagename eq python.exe`
+showed exactly the same set of pythons before and after the launch, and
+the supervisor's probe (port 55547 in TIME_WAIT above) succeeded against
+the live `:17800` listener. The frontend then opened a single
+ESTABLISHED connection from the WebView, presumably the SSE stream.
+
+The test instance was killed cleanly after; the user's long-running
+python (PID 39100) remained untouched.
+
 ## End-to-end sanity (2026-05-28, user-side)
 
 The user ran the existing TUI against their installed
