@@ -532,6 +532,7 @@ function LiveDriven(props: {
       composerDisabled={false}
       streaming={streaming()}
       sseStatus={transcript.status()}
+      sseReconnectInSec={transcript.reconnectInSec()}
       sessionCostUsd={transcript.costUsd()}
       lastStopReason={transcript.lastCompletion()?.stop_reason}
       onOpenSettings={props.onOpenSettings}
@@ -557,7 +558,8 @@ interface ChatLayoutProps {
   onStop?: () => void | Promise<void>;
   composerDisabled: boolean;
   streaming?: boolean;
-  sseStatus?: 'connecting' | 'open' | 'closed' | 'error';
+  sseStatus?: 'connecting' | 'open' | 'closed' | 'error' | 'reconnecting';
+  sseReconnectInSec?: number;
   preOpen?: string | null;
   sessionCostUsd?: number;
   lastStopReason?: string;
@@ -905,6 +907,7 @@ function ChatLayout(props: ChatLayoutProps) {
       case 'open':
         return 'ok';
       case 'connecting':
+      case 'reconnecting':
         return 'warn';
       case 'error':
         return 'err';
@@ -1005,6 +1008,9 @@ function ChatLayout(props: ChatLayoutProps) {
             <Show when={props.sseStatus}>
               <span class="chat__meta-item" data-testid="sse-status-chip">
                 sse · {props.sseStatus}
+                <Show when={props.sseStatus === 'reconnecting' && (props.sseReconnectInSec ?? 0) > 0}>
+                  {' in '}{props.sseReconnectInSec}s
+                </Show>
               </span>
             </Show>
             <span class="chat__meta-item" data-testid="density-chip">

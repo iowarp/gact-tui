@@ -55,7 +55,9 @@ export interface LiveTranscriptHandle {
   messages: Accessor<Message[]>;
   pendingPermission: Accessor<PermissionRequest | null>;
   /** Connection state to the SSE stream for the current session. */
-  status: Accessor<'connecting' | 'open' | 'closed' | 'error'>;
+  status: Accessor<'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'>;
+  /** Seconds remaining until the next reconnect attempt (0 when not pending). */
+  reconnectInSec: Accessor<number>;
   /** Last known `message.completed` summary for the active session. */
   lastCompletion: Accessor<MessageCompletion | null>;
   /** Per-session cost rolled forward by `cost.updated` events. */
@@ -136,11 +138,17 @@ export function createLiveTranscript(
 ): LiveTranscriptHandle {
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
-  const [status, setStatus] = createSignal<'connecting' | 'open' | 'closed' | 'error'>(
-    'closed',
-  );
+  const [status, setStatus] = createSignal<
+    'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'
+  >('closed');
+  const [reconnectInSec, setReconnectInSec] = createSignal(0);
   const [lastCompletion, setLastCompletion] = createSignal<MessageCompletion | null>(null);
   const [costUsd, setCostUsd] = createSignal<number>(0);
+
+  // Backoff ladder. Each step caps at 10s so we don't go silent for
+  // minutes after a few attempts; the user can still force-recover by
+  // navigating away and back.
+  const BACKOFF_LADDER = [1, 2, 5, 10, 10, 10];
 
   createEffect(() => {
     const id = activeSessionId();
@@ -148,12 +156,12 @@ export function createLiveTranscript(
       setMessages([]);
       setPendingPermission(null);
       setStatus('closed');
+      setReconnectInSec(0);
       setLastCompletion(null);
       setCostUsd(0);
       return;
     }
 
-    setStatus('connecting');
     void client
       .messages(id)
       .then(({ messages: existing }) => setMessages(existing))
@@ -164,25 +172,11 @@ export function createLiveTranscript(
       .then(({ permissions }) => setPendingPermission(permissions[0] ?? null))
       .catch(() => setPendingPermission(null));
 
-    const es = new EventSource(client.sseUrl(id));
-    es.onopen = () => setStatus('open');
-    es.onerror = () => setStatus('error');
-
-    const onEvent = (raw: MessageEvent) => {
-      let ev: unknown;
-      try {
-        ev = JSON.parse(raw.data);
-      } catch {
-        return;
-      }
-      reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
-        setMessages,
-        setPendingPermission,
-        setLastCompletion,
-        setCostUsd,
-        sessionEvents,
-      });
-    };
+    let es: EventSource | null = null;
+    let attempt = 0;
+    let countdownTimer: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
 
     const named = [
       'server.connected',
@@ -206,16 +200,98 @@ export function createLiveTranscript(
       'cost.updated',
       'notification',
     ];
-    for (const name of named) es.addEventListener(name, onEvent as EventListener);
 
-    onCleanup(() => {
+    const onEvent = (raw: MessageEvent) => {
+      let ev: unknown;
+      try {
+        ev = JSON.parse(raw.data);
+      } catch {
+        return;
+      }
+      reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
+        setMessages,
+        setPendingPermission,
+        setLastCompletion,
+        setCostUsd,
+        sessionEvents,
+      });
+    };
+
+    function clearReconnectTimers() {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      setReconnectInSec(0);
+    }
+
+    function teardownEs() {
+      if (!es) return;
       for (const name of named) es.removeEventListener(name, onEvent as EventListener);
       es.close();
+      es = null;
+    }
+
+    function scheduleReconnect() {
+      if (disposed) return;
+      const delay =
+        BACKOFF_LADDER[Math.min(attempt, BACKOFF_LADDER.length - 1)] ?? 10;
+      attempt += 1;
+      setStatus('reconnecting');
+      setReconnectInSec(delay);
+      countdownTimer = setInterval(() => {
+        setReconnectInSec((s) => (s > 1 ? s - 1 : 0));
+      }, 1000);
+      reconnectTimer = setTimeout(() => {
+        clearReconnectTimers();
+        openEs();
+      }, delay * 1000);
+    }
+
+    function openEs() {
+      if (disposed) return;
+      teardownEs();
+      setStatus('connecting');
+      const next = new EventSource(client.sseUrl(id));
+      es = next;
+      next.onopen = () => {
+        attempt = 0;
+        setStatus('open');
+      };
+      next.onerror = () => {
+        // EventSource emits onerror both on transient hiccups and on
+        // permanent close. We treat it uniformly: tear down and back
+        // off. Browser's auto-reconnect is unreliable when the server
+        // rejects mid-stream — explicit control is safer.
+        teardownEs();
+        setStatus('error');
+        scheduleReconnect();
+      };
+      for (const name of named) next.addEventListener(name, onEvent as EventListener);
+    }
+
+    openEs();
+
+    onCleanup(() => {
+      disposed = true;
+      clearReconnectTimers();
+      teardownEs();
       setStatus('closed');
     });
   });
 
-  return { messages, pendingPermission, status, lastCompletion, costUsd };
+  return {
+    messages,
+    pendingPermission,
+    status,
+    reconnectInSec,
+    lastCompletion,
+    costUsd,
+  };
 }
 
 export interface SessionEventSink {
