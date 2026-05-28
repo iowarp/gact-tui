@@ -726,6 +726,7 @@ function LiveDriven(props: {
       sseReconnectInSec={transcript.reconnectInSec()}
       runningTools={transcript.runningTools()}
       sessionCostUsd={transcript.costUsd()}
+      sessionTokens={transcript.lastCompletion()?.tokens}
       lastStopReason={transcript.lastCompletion()?.stop_reason}
       onOpenSettings={props.onOpenSettings}
       onAddRemote={props.onAddRemote}
@@ -753,6 +754,7 @@ interface ChatLayoutProps {
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error' | 'reconnecting';
   sseReconnectInSec?: number;
   runningTools?: RunningTool[];
+  sessionTokens?: { input?: number; output?: number; total?: number };
   preOpen?: string | null;
   sessionCostUsd?: number;
   lastStopReason?: string;
@@ -1456,6 +1458,18 @@ function ChatLayout(props: ChatLayoutProps) {
                 ${(props.sessionCostUsd ?? 0).toFixed(4)}
               </span>
             </Show>
+            <Show
+              when={
+                (props.sessionTokens?.total ?? 0) > 0 ||
+                (props.sessionTokens?.input ?? 0) +
+                  (props.sessionTokens?.output ?? 0) >
+                  0
+              }
+            >
+              <span class="chat__meta-item" data-testid="tokens-chip">
+                {humanTokens(props.sessionTokens)}
+              </span>
+            </Show>
             <Show when={props.lastStopReason}>
               <span
                 class={
@@ -1810,6 +1824,14 @@ function firstFileDiff(messages: Message[]): FileDiff | null {
     }
   }
   return null;
+}
+
+function humanTokens(tokens: { input?: number; output?: number; total?: number } | undefined): string {
+  if (!tokens) return '0 tok';
+  const t = tokens.total ?? (tokens.input ?? 0) + (tokens.output ?? 0);
+  if (t >= 10_000) return `${(t / 1_000).toFixed(1)}k tok`;
+  if (t >= 1_000) return `${(t / 1_000).toFixed(2)}k tok`;
+  return `${t} tok`;
 }
 
 function hostFromUrl(u: string): string {
