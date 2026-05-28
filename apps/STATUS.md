@@ -185,6 +185,36 @@ None for the v0.9.0 release. The `cargo test --lib` + `pnpm -r
 lint/typecheck/test` + visual matrix are all green locally. The
 remote CI matrix is the next thing to watch when the tag fires.
 
+## End-to-end sanity (2026-05-28, user-side)
+
+The user ran the existing TUI against their installed
+`clio-agent-gact` server and got a real conversation back:
+
+```
+● USER
+  hello
+● ASSISTANT
+  ▸ chat · LM-routed
+    Hello! How can I assist you today?
+  (model/provider switched: argonne/gpt-oss-120b)
+```
+
+This validates two things the desktop build depends on but couldn't
+exercise from the autonomous session:
+
+1. The user's `clio-agent-gact` is reachable and ALCF-configured
+   (the `argonne/gpt-oss-120b` response confirms the ALCF inference
+   gateway is wired through to the server).
+2. The auth handshake works against an env-managed bearer token —
+   the TUI doesn't paste one in, it inherits whatever the server is
+   binding. Our Go launcher writes `CLIO_AUTH_TOKEN` into the child
+   env using the same convention, so the desktop shell's supervisor
+   gets the same affordance.
+
+Translation: when the user runs the v0.9 desktop installer tomorrow,
+the launcher exec'ing this same `clio-agent-gact` should land them
+in a working chat shell on the first launch.
+
 ## Pending for v1.0 (out of scope for v0.9)
 
 - Code signing (Authenticode / Apple Developer ID / GPG).
