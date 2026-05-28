@@ -245,6 +245,31 @@ function AppearanceSection() {
           The chat shell remembers your density per session (Ctrl + O cycles).
           The default applies to new sessions.
         </p>
+
+        <div class="dp__section-title">Reset</div>
+        <p class="settings-shell__hint">
+          Clears all <code>clio.*</code> keys from localStorage —
+          drafts, pins, inspector tab, density, active session. Backend
+          credentials live in the registry and are not affected.
+        </p>
+        <button
+          type="button"
+          class="ws-form__btn ws-form__btn--primary"
+          style="margin-top: 8px"
+          onClick={() => {
+            if (typeof localStorage === 'undefined') return;
+            if (!confirm('Clear all local CLIO preferences? This cannot be undone.')) return;
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith('clio.')) localStorage.removeItem(k);
+            }
+            alert('Local preferences cleared. Reloading…');
+            window.location.reload();
+          }}
+          data-testid="settings-reset-prefs"
+        >
+          Reset all preferences
+        </button>
       </div>
     </section>
   );
