@@ -1,4 +1,5 @@
 import { For, Show, createMemo } from 'solid-js';
+import { Icon, type IconName } from './Icon.js';
 import './at-mention-picker.css';
 
 export interface MentionItem {
@@ -60,7 +61,9 @@ export function AtMentionPicker(props: AtMentionPickerProps) {
                 onClick={() => props.onPick(it)}
                 data-testid={`at-mention-item-${it.id}`}
               >
-                <span class={'atmention__kind atmention__kind--' + it.kind}>{glyph(it.kind)}</span>
+                <span class={'atmention__kind atmention__kind--' + it.kind}>
+                  <Icon name={iconFor(it.kind)} size={12} />
+                </span>
                 <span class="atmention__label">{it.label}</span>
                 <Show when={it.detail}>
                   <span class="atmention__detail">{it.detail}</span>
@@ -77,16 +80,16 @@ export function AtMentionPicker(props: AtMentionPickerProps) {
   );
 }
 
-function glyph(kind: MentionItem['kind']): string {
+function iconFor(kind: MentionItem['kind']): IconName {
   switch (kind) {
     case 'file':
-      return '📄';
+      return 'edit';
     case 'dir':
-      return '📁';
+      return 'workspaces';
     case 'agent':
-      return '🤖';
+      return 'bot';
     case 'symbol':
-      return '⚙';
+      return 'tool';
   }
 }
 
