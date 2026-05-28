@@ -228,6 +228,19 @@
   min-width: 0;
 }
 
+/* Inline streaming cursor at the tail of an in-flight assistant turn   */
+.trx-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--color-accent-cyan);
+  font-weight: 700;
+  animation: trx-cursor-blink 1.05s steps(2, start) infinite;
+}
+
+@keyframes trx-cursor-blink {
+  to { visibility: hidden; }
+}
+
 /* Inline error pill on assistant turns that ended in stop_reason=error */
 .trx-msg__error {
   display: flex;
