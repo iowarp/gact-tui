@@ -962,7 +962,8 @@ function ChatLayout(props: ChatLayoutProps) {
   });
 
   // When the active session changes, jump to the bottom (without
-  // smooth scrolling so it feels instant).
+  // smooth scrolling so it feels instant) and focus the composer so
+  // typing works immediately.
   createEffect(() => {
     void props.activeId; // dependency
     queueMicrotask(() => {
@@ -971,6 +972,17 @@ function ChatLayout(props: ChatLayoutProps) {
         setScrolledUp(false);
         setNewSinceScroll(0);
       }
+      const ta = document.querySelector(
+        '[data-testid="composer-input"]',
+      ) as HTMLTextAreaElement | null;
+      // Don't steal focus if a modal/palette is open or the user is
+      // already typing somewhere else (e.g. session-rename input).
+      const ae = document.activeElement;
+      const focusable =
+        ae == null ||
+        ae === document.body ||
+        (ae as HTMLElement).dataset?.testid === 'composer-input';
+      if (ta && focusable) ta.focus();
     });
   });
 
