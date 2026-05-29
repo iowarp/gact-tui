@@ -1077,6 +1077,48 @@ export class Client {
     return this.get('/v1/agent-blueprints');
   }
 
+  /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint
+   * for a session (PR #386/#387). */
+  getSessionBlueprint(
+    sessionId: string,
+  ): Promise<{ blueprint_id?: string | null; [k: string]: unknown }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/agent-blueprint`,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/agent-blueprint — bind a blueprint to the
+   * session. Pass `blueprint_id: null` to clear. */
+  setSessionBlueprint(
+    sessionId: string,
+    body: { blueprint_id: string | null },
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/agent-blueprint`,
+      body,
+    );
+  }
+
+  /** GET /v1/sessions/{id}/expert-pack — currently-bound expert pack. */
+  getSessionExpertPack(
+    sessionId: string,
+  ): Promise<{ pack_id?: string | null; [k: string]: unknown }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/expert-pack`,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/expert-pack — bind a pack. */
+  setSessionExpertPack(
+    sessionId: string,
+    body: { pack_id: string | null },
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/expert-pack`,
+      body,
+    );
+  }
+
   /** GET /v1/expert-packs — list installed expert packs (PR #344/#376). */
   expertPacks(): Promise<{ packs: Array<{
     id: string;

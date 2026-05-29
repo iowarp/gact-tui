@@ -782,6 +782,78 @@ function LiveDriven(props: {
   );
   const schedules = createMemo(() => schedulesData()?.schedules ?? []);
 
+  // Per-session blueprint + expert-pack bindings (PR #386/#387, #344).
+  const [bindingsData, { refetch: refetchBindings }] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return null;
+      try {
+        const [bp, pack, bpList, packList] = await Promise.allSettled([
+          live.client.getSessionBlueprint(sid),
+          live.client.getSessionExpertPack(sid),
+          live.client.agentBlueprints(),
+          live.client.expertPacks(),
+        ]);
+        const blueprint_id =
+          bp.status === 'fulfilled' ? (bp.value.blueprint_id ?? null) : null;
+        const pack_id =
+          pack.status === 'fulfilled' ? (pack.value.pack_id ?? null) : null;
+        const availableBlueprints =
+          bpList.status === 'fulfilled'
+            ? bpList.value.blueprints.map((b) => ({
+                id: b.id,
+                label: b.name ?? b.id,
+                ...(b.description ? { description: b.description } : {}),
+              }))
+            : [];
+        const availablePacks =
+          packList.status === 'fulfilled'
+            ? packList.value.packs.map((p) => ({
+                id: p.id,
+                label: p.name ?? p.id,
+                ...(p.description ? { description: p.description } : {}),
+              }))
+            : [];
+        return { blueprint_id, pack_id, availableBlueprints, availablePacks };
+      } catch {
+        return null;
+      }
+    },
+  );
+  const sessionBindings = createMemo(() => bindingsData());
+
+  async function bindBlueprint(blueprintId: string | null) {
+    const sid = activeId();
+    if (!sid) return;
+    try {
+      await live.client.setSessionBlueprint(sid, { blueprint_id: blueprintId });
+      void refetchBindings();
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Could not bind blueprint',
+        body: e instanceof Error ? e.message : String(e),
+        duration: 5000,
+      });
+    }
+  }
+
+  async function bindExpertPack(packId: string | null) {
+    const sid = activeId();
+    if (!sid) return;
+    try {
+      await live.client.setSessionExpertPack(sid, { pack_id: packId });
+      void refetchBindings();
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Could not bind expert pack',
+        body: e instanceof Error ? e.message : String(e),
+        duration: 5000,
+      });
+    }
+  }
+
   async function createSchedule(body: { cron: string; prompt: string }) {
     const sid = activeId();
     if (!sid) return;
@@ -1027,6 +1099,9 @@ function LiveDriven(props: {
           ? deleteScheduleById
           : undefined
       }
+      sessionBindings={sessionBindings() ?? undefined}
+      onSetBlueprint={bindBlueprint}
+      onSetExpertPack={bindExpertPack}
       detachedSessions={detachedSessions()}
       onReattachDetached={reattachDetached}
       onWalkAway={walkAwayFromActive}
@@ -1123,6 +1198,9 @@ interface ChatLayoutProps {
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
+  sessionBindings?: import('../components/InspectorDrawer.js').SessionBindings;
+  onSetBlueprint?: (id: string | null) => void | Promise<void>;
+  onSetExpertPack?: (id: string | null) => void | Promise<void>;
   detachedSessions?: DetachedSession[];
   onReattachDetached?: (sessionId: string) => void;
   onWalkAway?: () => void;
@@ -2240,6 +2318,9 @@ function ChatLayout(props: ChatLayoutProps) {
           schedules={props.schedules ?? []}
           onCreateSchedule={props.onCreateSchedule}
           onDeleteSchedule={props.onDeleteSchedule}
+          bindings={props.sessionBindings}
+          onSetBlueprint={props.onSetBlueprint}
+          onSetExpertPack={props.onSetExpertPack}
           onRemoveContextFile={props.onRemoveContextFile}
           onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}
