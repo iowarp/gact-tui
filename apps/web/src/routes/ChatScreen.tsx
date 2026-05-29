@@ -242,10 +242,22 @@ function LiveDriven(props: {
   const [streaming, setStreaming] = createSignal(false);
   const toast = useToast();
 
+  const [recentlyRenamed, setRecentlyRenamed] = createSignal<{ sid: string; expiry: number } | null>(null);
+  let renameTimer: ReturnType<typeof setTimeout> | undefined;
+
   const transcript = createLiveTranscript(live.client, activeId, {
     patch: live.patch,
     setRaw: live.setRaw,
     refetch: live.refetch,
+    onTitleChanged: (sid) => {
+      const expiry = Date.now() + 4500;
+      setRecentlyRenamed({ sid, expiry });
+      if (renameTimer) clearTimeout(renameTimer);
+      renameTimer = setTimeout(() => {
+        const cur = recentlyRenamed();
+        if (cur && Date.now() >= cur.expiry) setRecentlyRenamed(null);
+      }, 4600);
+    },
     onNotification: (n) => {
       const tone =
         n.level === 'error' ? 'error' : n.level === 'warning' ? 'warn' : 'info';
@@ -866,6 +878,7 @@ function LiveDriven(props: {
       onDeleteMessage={deleteMessage}
       onPinFile={pinFileToContext}
       composerDisabled={false}
+      renamedSessionId={recentlyRenamed()?.sid ?? null}
       streaming={streaming()}
       sseStatus={transcript.status()}
       sseReconnectInSec={transcript.reconnectInSec()}
@@ -905,6 +918,9 @@ interface ChatLayoutProps {
   sessionTokens?: { input?: number; output?: number; total?: number };
   preOpen?: string | null;
   sessionCostUsd?: number;
+  /** When set to the active session id and recent, the topbar flashes
+   * a "renamed" pill so the user notices an auto-rename. */
+  renamedSessionId?: string | null;
   lastStopReason?: string;
   onNewSession?: () => void | Promise<void>;
   onOpenSettings?: (section?: SettingsSection) => void;
@@ -1646,6 +1662,15 @@ function ChatLayout(props: ChatLayoutProps) {
             >
               {activeRow()?.title ?? 'No session'}
             </span>
+            <Show when={props.renamedSessionId === props.activeId}>
+              <span
+                class="chat__rename-pill"
+                data-testid="chat-renamed-pill"
+                title="The backend just updated this session's title"
+              >
+                renamed
+              </span>
+            </Show>
             <Show when={activeRow()?.workspace}>
               <span class="chat__crumb-sep">/</span>
               <span class="chat__crumb">{activeRow()?.workspace}</span>
