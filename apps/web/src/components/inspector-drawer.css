@@ -724,6 +724,10 @@
   padding: 2px 4px;
 }
 
+.inspector__schedule-preview--bad {
+  color: var(--color-error);
+}
+
 .inspector__binding-select {
   width: 100%;
   background: var(--color-bg);

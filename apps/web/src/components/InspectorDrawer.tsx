@@ -855,6 +855,14 @@ function BindingsTab(props: {
   );
 }
 
+/** Cheap structural check — returns true when the input is 5 or 6
+ * space-separated fields. Doesn't validate field ranges (the backend
+ * is authoritative); just catches blatant typos before submit. */
+function looksLikeCron(s: string): boolean {
+  const fields = s.trim().split(/\s+/);
+  return fields.length === 5 || fields.length === 6;
+}
+
 /** Humanise an ISO timestamp into a short "in N min" or "5h ago"
  * line. Falls back to the raw ISO when unparseable. */
 function humanRelativeIso(iso: string): string {
@@ -1021,8 +1029,12 @@ function SchedulesTab(props: {
           </button>
           <Show when={cron().trim()}>
             <span
-              class="inspector__schedule-preview"
+              class={
+                'inspector__schedule-preview ' +
+                (looksLikeCron(cron()) ? '' : 'inspector__schedule-preview--bad')
+              }
               data-testid="schedule-cron-preview"
+              title={looksLikeCron(cron()) ? '' : 'Cron must be 5 (or 6) space-separated fields'}
             >
               {humanizeCron(cron())}
             </span>
