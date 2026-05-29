@@ -8,6 +8,11 @@
 > at `17aef58`; #7 (memory event log) at `0d4cb64`; #8 (detailed provider
 > models) at `9ae651e`; #9 (paste compression) at `06983d1`; #10 (read-only
 > hooks / policies / blueprints / expert-packs settings) at `fef378b`.
+>
+> **Medium-tier follow-up pass:** #7 theme editor (`319cbae`), #7 locale
+> switcher (`aef0e2d`), #9 Ctrl+G compose modal (`3571d12`), #13 catalog
+> browser (`d59d4e7`), cross-session memory search at `78c8464`, archive
+> filter view at `c97d6f2`, autorename hint at `8bce7c5`.
 > See `apps/CHANGELOG.md` for the running list.
 
 
