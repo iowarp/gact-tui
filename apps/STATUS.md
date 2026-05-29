@@ -585,6 +585,40 @@ changes, no contract changes, no design-system writes.
 - **lm.provider.{changed,failed} SSE toasts** — Desktop reducer was
   silent on both; TUI surfaces them. Wired as info/error toasts so
   model swaps and provider failures aren't invisible. (5c009f1)
+- **Autorename hint pill** — toast alone didn't match the TUI's
+  transient affordance; added a 4.5s topbar badge alongside the toast
+  when SSE `session.updated` changes the title. (443274f)
+- **Inspector Frames tab + session-wide pending diffs** — surfaces
+  `GET /v1/sessions/{id}/context/frames` and aggregates pending diffs
+  across all messages so the user sees everything at once. (9dc8a0a)
+- **Inspector Schedules tab** — list/create/delete cron triggers per
+  session via `GET/POST /v1/sessions/{id}/schedules` + `DELETE
+  /v1/schedules/{id}`. Capability-gated via the schedule list. (cc99559)
+- **Cmd+L shared session modal** — read-only viewer for
+  `GET /v1/shared/{token}`. Accepts a bare token or full clio: URL,
+  renders via the existing Transcript with `density: normal`. (1c71559)
+- **Detached registry** — Cmd+Shift+D parks the active session in
+  `localStorage.clio.detached.{url}`. Palette surfaces parked
+  sessions with "walked away N ago" hints and the picker reattaches
+  + removes the entry. (b6828d5)
+- **SSE context.frame.{created,completed}** — reducer fires
+  `onFrameChanged`; ChatScreen refetches frames so the Inspector list
+  stays live. (b2f93a3)
+- **runCommand for backend slash commands** — palette dispatch now
+  prefers `POST /v1/sessions/{id}/commands/{cmd}` (preserving per-
+  command arg schemas) with a fallback to user-message dispatch
+  when the structured route 404s. (06153a6)
+- **metadata.pinned mirror** — `patchSession` now accepts metadata;
+  toggling a pin writes `metadata.pinned: bool` server-side, and the
+  session list reads it back into the local pin set. TUI and Desktop
+  now agree on which sessions are pinned. (d091abb, 73f2d05)
+- **LeftRail caps coherence** — Doctor entry surfaces under either
+  `caps.doctor` (TUI naming) or `caps.integration_health` (Desktop
+  naming). (df2d97d)
+- **Custom intro splash** — Settings → Appearance has a multi-line
+  textarea persisted to `localStorage.clio.splash.intro.v1`, rendered
+  on the Splash screen between the wordmark and the spinner. Mirrors
+  the TUI's `intro_file` config. (983c089)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
