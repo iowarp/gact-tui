@@ -1,8 +1,21 @@
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import { Icon } from './Icon.js';
 // (icons used by WorkspaceSwitcher are loaded via the shared Icon.)
-import type { SessionStatus } from '@clio/core';
+import type { Client, SessionStatus } from '@clio/core';
 import './sessions-column.css';
+
+function humanWhen(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const delta = Date.now() - d.getTime();
+  const min = Math.round(delta / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.round(hr / 24)}d`;
+}
 
 export interface SessionRow {
   id: string;
@@ -54,17 +67,53 @@ export interface SessionsColumnProps {
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
+  /** When set, enables the "View archive" toggle — clicking it fetches
+   * archived sessions via `client.sessions({archived: true})` and
+   * renders them in place of the live list until the user toggles
+   * back. Read-only browse — selecting an archived row still flows
+   * through `onSelect`. */
+  archivedClient?: Client;
 }
 
 export function SessionsColumn(props: SessionsColumnProps) {
   const [query, setQuery] = createSignal('');
   const [runningOnly, setRunningOnly] = createSignal(false);
+  const [archiveView, setArchiveView] = createSignal(false);
+
+  // Archive bucket — only fetched while the toggle is on. The resource
+  // re-runs every time the toggle flips (false → null hit, true → fresh
+  // pull). On select the row still flows through `onSelect`.
+  const [archiveData] = createResource(
+    () => (archiveView() && props.archivedClient ? props.archivedClient : null),
+    async (c) => {
+      if (!c) return [] as SessionRow[];
+      try {
+        const { sessions } = await c.sessions({ archived: true });
+        return sessions.map((s): SessionRow => ({
+          id: s.id,
+          title: s.title || s.id,
+          status: s.status,
+          updatedAt: humanWhen(s.updated_at),
+          ...(s.workspace_id ? { workspace: s.workspace_id } : {}),
+        }));
+      } catch {
+        return [] as SessionRow[];
+      }
+    },
+  );
+
+  const sourceRows = createMemo(() => {
+    if (archiveView()) return archiveData() ?? [];
+    return props.rows;
+  });
+
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
+    const source = sourceRows();
     let matches =
       !q
-        ? props.rows
-        : props.rows.filter(
+        ? source
+        : source.filter(
             (r) =>
               r.title.toLowerCase().includes(q) ||
               (r.preview ?? '').toLowerCase().includes(q) ||
@@ -170,22 +219,40 @@ export function SessionsColumn(props: SessionsColumnProps) {
             </button>
           </Show>
         </div>
-        <Show
-          when={
-            props.rows.some(
-              (r) => r.status === 'running' || r.status === 'waiting_permission',
-            )
-          }
-        >
-          <label class="sx__running-toggle" data-testid="sessions-running-only">
-            <input
-              type="checkbox"
-              checked={runningOnly()}
-              onChange={(e) => setRunningOnly(e.currentTarget.checked)}
-            />
-            <span>Only show running</span>
-          </label>
-        </Show>
+        <div class="sx__filters">
+          <Show
+            when={
+              props.rows.some(
+                (r) => r.status === 'running' || r.status === 'waiting_permission',
+              ) && !archiveView()
+            }
+          >
+            <label class="sx__running-toggle" data-testid="sessions-running-only">
+              <input
+                type="checkbox"
+                checked={runningOnly()}
+                onChange={(e) => setRunningOnly(e.currentTarget.checked)}
+              />
+              <span>Only show running</span>
+            </label>
+          </Show>
+          <Show when={props.archivedClient}>
+            <button
+              type="button"
+              class={'sx__archive-toggle ' + (archiveView() ? 'is-active' : '')}
+              onClick={() => setArchiveView((v) => !v)}
+              data-testid="sessions-archive-toggle"
+            >
+              <Show
+                when={archiveView()}
+                fallback={<Icon name="sessions" size={11} />}
+              >
+                <Icon name="close" size={11} />
+              </Show>
+              <span>{archiveView() ? 'Back to live' : 'View archive'}</span>
+            </button>
+          </Show>
+        </div>
       </header>
 
       <Show
