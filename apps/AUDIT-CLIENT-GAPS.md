@@ -25,6 +25,20 @@
 > blueprint + expert-pack bindings (`970f1ff`), MCP detail expansion
 > (`32e0628`), blueprint validate/install/uninstall (`c1a29d9`), expert
 > pack validate (`d4f1748`).
+>
+> **Detail-expansion pass:** session.summarized/compacted toasts
+> (`f831fd7`), provider single detail (`1c6f6b1`), context frame single
+> detail (`cb228ce`), MCP resource preview (`480af06`), workspace repo
+> map (`21541e1`), per-agent routing detail (`b6f0476`), Inspector
+> task status cycling (`e851c8e`), human cron preview (`9b0229f`),
+> voice → text file upload (`c8e8a5e`), TTS Client method (`48c7aee`),
+> TTS Speak button (`bb5f8de`), browser-side mic recording (`bf50928`),
+> blueprint MCP enable Client method (`642e42b`).
+>
+> **What's left:** Plugins discovery (`~/.config/gact/plugins/` shell
+> exec) is the only audit item still open — it requires Tauri shell
+> scoping, not just client-side TS, so it lands with the next Tauri
+> pass.
 > See `apps/CHANGELOG.md` for the running list.
 
 
