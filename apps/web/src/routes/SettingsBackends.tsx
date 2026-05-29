@@ -49,7 +49,7 @@ export function SettingsBackends(props: SettingsBackendsProps) {
             <div class="settings__empty">
               <p>No backends registered yet.</p>
               <p>
-                The bundled <code>clio-agent-gact</code> sidecar registers
+                The bundled <code>clio-agent-gact</code> backend registers
                 itself on first launch; additional backends (remote ALCF,
                 SSH-tunneled, etc.) can be added with{' '}
                 <strong>Add remote backend</strong>.
@@ -129,7 +129,7 @@ function BackendRow(props: { entry: BackendEntry }) {
           disabled={props.entry.kind === 'local-sidecar'}
           title={
             props.entry.kind === 'local-sidecar'
-              ? 'The bundled sidecar can’t be removed.'
+              ? 'The bundled clio can’t be removed.'
               : 'Remove this backend'
           }
         >
