@@ -351,6 +351,10 @@ export interface SessionEventSink {
   setRaw?: (
     next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[]),
   ) => void;
+  /** Force a refetch of `/v1/sessions` — used when SSE signals a field
+   * change (title, status, archived) whose new value isn't in the
+   * event payload. */
+  refetch?: () => void;
 }
 
 export interface BackendNotification {
@@ -494,7 +498,19 @@ function reduce(
           updatedAt: 'just now',
           bumpedAt: Date.now(),
         });
-        void changed;
+        // Autorename hint — when the agent (or the user via slash
+        // command) renames the session backend-side, mirror the TUI's
+        // transient "agent renamed this" affordance: refetch so the new
+        // title flows into the sessions list, and surface a quiet info
+        // toast so the change isn't silent.
+        if (changed.includes('title')) {
+          hooks.sessionEvents.refetch?.();
+          hooks.onNotification?.({
+            level: 'info',
+            title: 'Session renamed',
+            body: `Backend updated the title of session ${sid.slice(0, 8)}.`,
+          });
+        }
       }
       break;
     }
