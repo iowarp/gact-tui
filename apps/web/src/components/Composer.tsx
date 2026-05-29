@@ -246,7 +246,10 @@ export function Composer(props: ComposerProps = {}) {
   // Attachment state + file picker wiring.
   const [attachments, setAttachments] = createSignal<AttachedFile[]>([]);
   const [voiceBusy, setVoiceBusy] = createSignal(false);
+  const [recording, setRecording] = createSignal(false);
   let voiceInputRef: HTMLInputElement | undefined;
+  let mediaRecorder: MediaRecorder | null = null;
+  let recordedChunks: Blob[] = [];
 
   async function onVoicePicked(ev: Event) {
     const inp = ev.currentTarget as HTMLInputElement;
@@ -261,6 +264,49 @@ export function Composer(props: ComposerProps = {}) {
       // surfaced via toast upstream — composer stays usable
     } finally {
       setVoiceBusy(false);
+    }
+  }
+
+  /**
+   * Toggle browser-side mic recording via MediaRecorder. On stop, hand
+   * the resulting webm/opus blob to the transcribe callback so the
+   * backend gets a chance to turn it into text. No fancy waveform —
+   * just a record dot while the stream is hot.
+   */
+  async function toggleMicRecording() {
+    if (!props.onTranscribeVoice) return;
+    if (recording()) {
+      mediaRecorder?.stop();
+      return;
+    }
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunks = [];
+      const rec = new MediaRecorder(stream);
+      mediaRecorder = rec;
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      rec.onstop = () => {
+        setRecording(false);
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        recordedChunks = [];
+        if (!props.onTranscribeVoice || blob.size === 0) return;
+        setVoiceBusy(true);
+        void props
+          .onTranscribeVoice(blob, 'mic.webm')
+          .then((txt) => setText((prev) => (prev ? `${prev} ${txt}` : txt)))
+          .catch(() => {
+            /* surfaced upstream */
+          })
+          .finally(() => setVoiceBusy(false));
+      };
+      rec.start();
+      setRecording(true);
+    } catch {
+      setRecording(false);
     }
   }
   let fileInputRef: HTMLInputElement | undefined;
@@ -416,14 +462,31 @@ export function Composer(props: ComposerProps = {}) {
           <Show when={props.onTranscribeVoice}>
             <button
               type="button"
+              class={'composer__attach ' + (recording() ? 'is-recording' : '')}
+              title={
+                recording()
+                  ? 'Stop recording'
+                  : voiceBusy()
+                    ? 'Transcribing…'
+                    : 'Record voice — click again to stop'
+              }
+              aria-label="Record voice"
+              data-testid="composer-mic"
+              onClick={() => void toggleMicRecording()}
+              disabled={voiceBusy() && !recording()}
+            >
+              <Icon name={recording() ? 'stop' : 'mention'} size={16} />
+            </button>
+            <button
+              type="button"
               class="composer__attach"
-              title={voiceBusy() ? 'Transcribing…' : 'Upload audio for transcription'}
-              aria-label="Upload audio for transcription"
+              title="Upload audio file for transcription"
+              aria-label="Upload audio file"
               data-testid="composer-voice"
               onClick={() => voiceInputRef?.click()}
-              disabled={voiceBusy()}
+              disabled={voiceBusy() || recording()}
             >
-              <Icon name={voiceBusy() ? 'circle' : 'mention'} size={16} />
+              <Icon name="attach" size={14} />
             </button>
           </Show>
           <div class="composer__input-wrap">
