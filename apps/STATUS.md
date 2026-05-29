@@ -582,6 +582,9 @@ changes, no contract changes, no design-system writes.
 - **Autorename hint** — when SSE `session.updated` includes `title`
   in `changed_fields`, refetch the sessions list so the new title
   flows in and surface a quiet info toast. (8bce7c5)
+- **lm.provider.{changed,failed} SSE toasts** — Desktop reducer was
+  silent on both; TUI surfaces them. Wired as info/error toasts so
+  model swaps and provider failures aren't invisible. (5c009f1)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
