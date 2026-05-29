@@ -886,6 +886,16 @@ export class Client {
     return this.del(`/v1/agents/${encodeURIComponent(agentId)}`);
   }
 
+  /** GET /v1/sessions/{id}/messages/{msg_id} — single-message fetch.
+   * Used by permalink loading: paste a clio://session/{sid}#{mid}
+   * URL and the client can verify the message exists before scrolling
+   * the transcript. */
+  getMessage(sessionId: string, messageId: string): Promise<Message> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+    );
+  }
+
   /** PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id} —
    * partial patch of a single Part. Used for in-place edits to a
    * tool_result, text fragment, etc. */
