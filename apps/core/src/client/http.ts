@@ -1067,6 +1067,30 @@ export class Client {
     return this.del(`/v1/hooks/${encodeURIComponent(hookId)}`);
   }
 
+  /** POST /v1/agent-blueprints/validate — dry-run validate a blueprint
+   * document before installing. Returns `{ ok, errors? }`. */
+  validateAgentBlueprint(body: Record<string, unknown>): Promise<{
+    ok: boolean;
+    errors?: string[];
+  }> {
+    return this.post('/v1/agent-blueprints/validate', body);
+  }
+
+  /** POST /v1/agent-blueprints — install a blueprint document. */
+  installAgentBlueprint(body: Record<string, unknown>): Promise<{
+    id: string;
+    [k: string]: unknown;
+  }> {
+    return this.post('/v1/agent-blueprints', body);
+  }
+
+  /** DELETE /v1/agent-blueprints/{bp} — uninstall a blueprint. */
+  uninstallAgentBlueprint(blueprintId: string): Promise<void> {
+    return this.del(
+      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}`,
+    );
+  }
+
   /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387). */
   agentBlueprints(): Promise<{ blueprints: Array<{
     id: string;
