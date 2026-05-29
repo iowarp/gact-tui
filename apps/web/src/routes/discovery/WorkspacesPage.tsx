@@ -159,13 +159,41 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
         </div>
       </Show>
       <div class="dp__grid">
-        <For each={items()}>{(w) => <WorkspaceCard ws={w} />}</For>
+        <For each={items()}>{(w) => <WorkspaceCard ws={w} client={props.client} />}</For>
       </div>
     </DiscoveryPage>
   );
 }
 
-function WorkspaceCard(props: { ws: Workspace }) {
+function WorkspaceCard(props: { ws: Workspace; client: Client }) {
+  const [showRepo, setShowRepo] = createSignal(false);
+  const [repoData, setRepoData] = createSignal<{
+    tree?: Record<string, unknown>;
+    tokens?: number;
+  } | null>(null);
+  const [repoLoading, setRepoLoading] = createSignal(false);
+  const [repoErr, setRepoErr] = createSignal<string | null>(null);
+
+  async function loadRepo() {
+    if (repoData() || repoLoading()) return;
+    setRepoLoading(true);
+    setRepoErr(null);
+    try {
+      const d = await props.client.workspaceRepoMap(props.ws.id);
+      setRepoData(d);
+    } catch (e) {
+      setRepoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRepoLoading(false);
+    }
+  }
+
+  function toggleRepo() {
+    const next = !showRepo();
+    setShowRepo(next);
+    if (next) void loadRepo();
+  }
+
   return (
     <article class="dp__card" data-testid={`workspace-card-${props.ws.id}`}>
       <header class="dp__card-head">
@@ -195,6 +223,40 @@ function WorkspaceCard(props: { ws: Workspace }) {
           </dd>
         </Show>
       </dl>
+      <button
+        type="button"
+        class="ws-card__repo-toggle"
+        onClick={toggleRepo}
+        data-testid={`workspace-repo-toggle-${props.ws.id}`}
+      >
+        <Icon
+          name="chevron-right"
+          size={11}
+          class={'ws-card__repo-chev ' + (showRepo() ? 'is-open' : '')}
+        />
+        <span>
+          {showRepo() ? 'Hide' : 'Show'} repo map
+          <Show when={repoData()?.tokens}>{` · ${repoData()!.tokens}t`}</Show>
+        </span>
+      </button>
+      <Show when={showRepo()}>
+        <div class="ws-card__repo">
+          <Show when={repoLoading()}>
+            <div class="ws-card__repo-status">Loading repo map…</div>
+          </Show>
+          <Show when={repoErr()}>
+            <div class="ws-card__repo-err">{repoErr()}</div>
+          </Show>
+          <Show when={repoData()?.tree}>
+            <pre class="ws-card__repo-tree">
+              {JSON.stringify(repoData()!.tree, null, 2)}
+            </pre>
+          </Show>
+          <Show when={!repoLoading() && !repoErr() && !repoData()?.tree}>
+            <div class="ws-card__repo-status">No repo map returned.</div>
+          </Show>
+        </div>
+      </Show>
     </article>
   );
 }
