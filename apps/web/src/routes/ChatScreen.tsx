@@ -1006,6 +1006,11 @@ function LiveDriven(props: {
       detachedSessions={detachedSessions()}
       onReattachDetached={reattachDetached}
       onWalkAway={walkAwayFromActive}
+      onRunCommand={(id, args) => {
+        const sid = activeId();
+        if (!sid) return Promise.reject(new Error('no active session'));
+        return live.client.runCommand(sid, id, args);
+      }}
       onRemoveContextFile={removeContextFile}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
@@ -1097,6 +1102,9 @@ interface ChatLayoutProps {
   detachedSessions?: DetachedSession[];
   onReattachDetached?: (sessionId: string) => void;
   onWalkAway?: () => void;
+  /** Execute a backend slash command via the structured endpoint
+   * POST /v1/sessions/{id}/commands/{cmd}. */
+  onRunCommand?: (commandId: string, args: Record<string, unknown>) => Promise<unknown>;
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
@@ -1547,13 +1555,22 @@ function ChatLayout(props: ChatLayoutProps) {
     }
 
     // First check for /v1/commands rooted by trigger or id — these
-    // are backend-defined and we pass them through as a session
-    // message so the backend resolves the action itself.
+    // are backend-defined. Prefer POST /v1/sessions/{id}/commands/{cmd}
+    // (structured route that preserves per-command arg schemas) and
+    // fall back to "send as user message" only if the structured route
+    // isn't available (404 / 501) or there's no active session.
     const isBackendRoute = !DEFAULT_COMMAND_IDS.has(cmd.id);
     if (isBackendRoute) {
-      // Send the command as a message; the backend's commands service
-      // resolves it (e.g. /clear drops the session log).
-      void props.onSubmit?.(cmd.trigger);
+      const run = props.onRunCommand;
+      if (run && props.activeId) {
+        void Promise.resolve(run(cmd.id, {})).catch(() => {
+          // Last-resort fallback so the user still sees the command
+          // resolve when the backend hasn't wired the structured route.
+          void props.onSubmit?.(cmd.trigger);
+        });
+      } else {
+        void props.onSubmit?.(cmd.trigger);
+      }
       return;
     }
     // Built-in palette commands route to UI affordances.
