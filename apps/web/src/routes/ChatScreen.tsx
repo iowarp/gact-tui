@@ -1573,6 +1573,18 @@ function ChatLayout(props: ChatLayoutProps) {
         void props.onRefreshSessions();
         return;
       }
+      // Cmd/Ctrl+E — quick-edit the last user message. Mirrors the
+      // TUI's "press up to recall" affordance.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && props.onEditMessage) {
+        const lastUser = [...props.messages]
+          .reverse()
+          .find((m) => m.role === 'user');
+        if (lastUser) {
+          e.preventDefault();
+          void props.onEditMessage(lastUser);
+          return;
+        }
+      }
       // Ctrl/Cmd+Shift+D — walk away from the active session and
       // park it in the detached registry so it surfaces in the
       // palette next time we open the app.
