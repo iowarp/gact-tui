@@ -4,6 +4,17 @@ import { Client } from '@clio/core';
 import type { BackendHandle as DesktopHandle, BackendStatus } from '../tauri.js';
 import { getRequestLocale } from '../locale.js';
 import { getBackend, inTauri, tauriFetch } from '../tauri.js';
+
+export const SPLASH_INTRO_KEY = 'clio.splash.intro.v1';
+
+function loadIntro(): string {
+  try {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(SPLASH_INTRO_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
 import { Icon } from '../components/Icon.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
 import './splash.css';
@@ -163,6 +174,11 @@ export function SplashScreen(props: SplashScreenProps) {
         </div>
         <h1 class="splash__wordmark">CLIO Desktop</h1>
         <p class="splash__sub">Starting your local agent…</p>
+        <Show when={loadIntro()}>
+          <pre class="splash__intro" data-testid="splash-intro">
+            {loadIntro()}
+          </pre>
+        </Show>
 
         <Show when={phase() === 'starting' || phase() === 'probing'}>
           <div class="splash__spinner" data-testid="splash-spinner" aria-hidden>
