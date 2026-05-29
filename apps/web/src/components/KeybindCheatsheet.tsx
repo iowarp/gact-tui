@@ -22,6 +22,7 @@ const GROUPS: Group[] = [
     title: 'Navigation',
     items: [
       { combo: [PLATFORM_MOD, 'K'], description: 'Open the command palette' },
+      { combo: [PLATFORM_MOD, 'Shift', 'K'], description: 'Open the catalog browser (agents · tools · MCP · prompts · workspaces)' },
       { combo: [PLATFORM_MOD, 'Shift', '↑'], description: 'Previous session' },
       { combo: [PLATFORM_MOD, 'Shift', '↓'], description: 'Next session' },
       { combo: [PLATFORM_MOD, 'N'], description: 'New session' },

@@ -29,6 +29,7 @@ import { Composer } from '../components/Composer.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
+import { CatalogBrowser } from '../components/CatalogBrowser.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import { ServerSearchPanel } from '../components/ServerSearchPanel.js';
@@ -1007,6 +1008,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal('');
   const [cheatsheetOpen, setCheatsheetOpen] = createSignal(false);
+  const [catalogOpen, setCatalogOpen] = createSignal(false);
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
   const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
@@ -1178,7 +1180,11 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
+        if (e.shiftKey) {
+          setCatalogOpen((v) => !v);
+        } else {
+          setPaletteOpen((v) => !v);
+        }
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
@@ -1951,6 +1957,31 @@ function ChatLayout(props: ChatLayoutProps) {
       <KeybindCheatsheet
         open={cheatsheetOpen()}
         onClose={() => setCheatsheetOpen(false)}
+      />
+
+      <CatalogBrowser
+        open={catalogOpen()}
+        client={discoveryClient}
+        onClose={() => setCatalogOpen(false)}
+        onPick={(t) => {
+          switch (t.kind) {
+            case 'agent':
+              setRailRoute('agents');
+              return;
+            case 'tool':
+              setRailRoute('tools');
+              return;
+            case 'mcp':
+              setRailRoute('mcp');
+              return;
+            case 'prompt':
+              setRailRoute('prompts');
+              return;
+            case 'workspace':
+              setRailRoute('workspaces');
+              return;
+          }
+        }}
       />
 
       <Show when={props.activeId}>
