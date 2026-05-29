@@ -374,3 +374,69 @@ them needs a prompt that the LM actually decides to route through tools.
 - session.updated → autorename pill (transient, animates out in 4.5s).
 - lm.provider.{changed,failed} SSE toasts.
 
+## Wire-shape scan against every clio POST/PUT
+
+Walking `Client.*` against every `body.get(...)` in clio's
+`gact/app.py` surfaced four more mismatches besides E-10's schedule
+`prompt` → `question`. All four would silently produce wrong-state on
+the backend.
+
+**[BROKEN] (E-11) fork sends `from_message_id`; clio reads `at_message_id`.**
+
+`POST /v1/sessions/{id}/fork`. Wire reads `body.get("at_message_id")
+or ""`. Desktop sends `from_message_id`. Net effect: every fork
+branches from the tail of the session, never at the message the
+user clicked. Click a 4-turn-old message to fork there → you get
+a fork of *all* turns, including the 3 you wanted to drop.
+
+Fix: map `from_message_id → at_message_id` at the Client boundary.
+
+**[BROKEN] (E-12) share sends `expires_in_seconds`; clio reads `ttl_s`.**
+
+`POST /v1/sessions/{id}/share`. Wire reads `body.get("ttl_s") or 0`,
+treats 0 as "never expires". Desktop sends `expires_in_seconds`.
+Net effect: every shared link is permanent — the user thinks they
+set an expiry, but the share token never expires.
+
+Fix: map `expires_in_seconds → ttl_s` at the Client boundary.
+
+**[BROKEN] (E-13) createWorkspace sends `config`; clio's
+`CreateWorkspaceRequest` field is `metadata`.**
+
+Plus `name` is desktop-optional but clio-required (pydantic
+`BaseModel` field without default → 422 if missing).
+
+Fix: synth a default `name` from the last path segment when caller
+omits it; map `config → metadata`.
+
+**[BROKEN] (E-14) Session pin + archive both silently no-op against the wire.**
+
+The desktop's `patchSession` sends `{ archived?, metadata? }` for
+both archive toggle and pin-to-top. clio's `UpdateSessionRequest`
+schema has neither field, and pydantic's default
+`model_config` silently drops unknown keys. So:
+
+  - Click "Pin to top" → optimistic UI flips; after a reload the
+    pin is gone.
+  - Toggle the SessionsColumn Archive view → query string
+    `archived=true` is ignored by clio, the same 35 active sessions
+    come back. The "archive bucket" is just a duplicate of the
+    main list with a label change.
+
+Both are clio-side feature gaps, not desktop bugs. Document them
+here as "feature ghosts": UX surfaces wired into a backend that
+doesn't carry the state.
+
+Recommended next steps in clio:
+  - Add `archived: bool` to `UpdateSessionRequest` + `Session`.
+  - Add `metadata: dict` to `UpdateSessionRequest` (merge into
+    session.metadata) so pin / fork-lineage / autorename hints
+    persist.
+  - Honor `?archived=true|false` in `GET /v1/sessions`.
+
+Until clio ships these, the desktop should either hide the affected
+controls or surface a "not yet supported by this backend" pill so
+users don't think the click worked.
+
+
+

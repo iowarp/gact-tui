@@ -686,9 +686,13 @@ export class Client {
     sessionId: string,
     body: { title?: string; from_message_id?: string } = {},
   ): Promise<Session> {
+    // Wire wants `at_message_id`; callers think in `from_message_id`.
+    const { from_message_id, ...rest } = body;
+    const payload: Record<string, unknown> = { ...rest };
+    if (from_message_id) payload['at_message_id'] = from_message_id;
     return this.post<Session>(
       `/v1/sessions/${encodeURIComponent(sessionId)}/fork`,
-      body,
+      payload,
     );
   }
 
@@ -700,11 +704,16 @@ export class Client {
     sessionId: string,
     body: { expires_in_seconds?: number } = {},
   ): Promise<{ token: string; url?: string; expires_at?: string }> {
+    // Wire wants `ttl_s`; callers think in `expires_in_seconds`.
+    const payload: Record<string, unknown> = {};
+    if (typeof body.expires_in_seconds === 'number') {
+      payload['ttl_s'] = body.expires_in_seconds;
+    }
     return this.post<{
       token: string;
       url?: string;
       expires_at?: string;
-    }>(`/v1/sessions/${encodeURIComponent(sessionId)}/share`, body);
+    }>(`/v1/sessions/${encodeURIComponent(sessionId)}/share`, payload);
   }
 
   /**
@@ -840,7 +849,19 @@ export class Client {
     name?: string;
     config?: Record<string, unknown>;
   }): Promise<Workspace> {
-    return this.post<Workspace>('/v1/workspaces', body);
+    // Wire: clio's CreateWorkspaceRequest is { name, root_path,
+    // storage_root, metadata }. Map desktop's `config` → `metadata`,
+    // synth a default name if the caller omitted one (clio's pydantic
+    // model requires `name`).
+    const { name, root_path, config } = body;
+    const fallbackName =
+      name ?? root_path.split(/[\\/]/).filter(Boolean).pop() ?? 'workspace';
+    const payload: Record<string, unknown> = {
+      name: fallbackName,
+      root_path,
+    };
+    if (config) payload['metadata'] = config;
+    return this.post<Workspace>('/v1/workspaces', payload);
   }
 
   /** DELETE /v1/workspaces/{id} — unregister a workspace from the
