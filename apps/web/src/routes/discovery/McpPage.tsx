@@ -143,6 +143,60 @@ export function McpPage(props: McpPageProps) {
   );
 }
 
+function McpResourceRow(props: {
+  s: McpServerInfo;
+  r: { uri: string; name?: string };
+  client: Client;
+}) {
+  const [preview, setPreview] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [err, setErr] = createSignal<string | null>(null);
+
+  async function load() {
+    if (preview() !== null) {
+      setPreview(null);
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await props.client.mcpReadResource(props.s.id, props.r.uri);
+      const text = (r.contents ?? [])
+        .map((c) => c.text ?? `[${c.mimeType ?? 'binary'}]`)
+        .join('\n');
+      setPreview(text || '(empty)');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li class="mcp__detail-row mcp__detail-row--resource">
+      <code class="mcp__detail-name">{props.r.uri}</code>
+      <Show when={props.r.name}>
+        <span class="mcp__detail-desc">{props.r.name}</span>
+      </Show>
+      <button
+        type="button"
+        class="mcp__resource-preview"
+        onClick={() => void load()}
+        disabled={busy()}
+        data-testid={`mcp-resource-preview-${props.s.id}-${props.r.uri}`}
+      >
+        {busy() ? '…' : preview() !== null ? 'Hide' : 'Preview'}
+      </button>
+      <Show when={err()}>
+        <pre class="mcp__resource-err">{err()}</pre>
+      </Show>
+      <Show when={preview() !== null}>
+        <pre class="mcp__resource-text">{preview()}</pre>
+      </Show>
+    </li>
+  );
+}
+
 function McpServerCard(props: {
   s: McpServerInfo;
   client: Client;
@@ -263,14 +317,7 @@ function McpServerCard(props: {
                 <div class="mcp__detail-title">Resources</div>
                 <ul class="mcp__detail-list">
                   <For each={detail()?.resources ?? []}>
-                    {(r) => (
-                      <li class="mcp__detail-row">
-                        <code class="mcp__detail-name">{r.uri}</code>
-                        <Show when={r.name}>
-                          <span class="mcp__detail-desc">{r.name}</span>
-                        </Show>
-                      </li>
-                    )}
+                    {(r) => <McpResourceRow s={props.s} r={r} client={props.client} />}
                   </For>
                 </ul>
               </div>
