@@ -212,3 +212,61 @@
   font-size: 10.5px;
   letter-spacing: 0.04em;
 }
+
+.theme-tokens {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.theme-token {
+  display: grid;
+  grid-template-columns: 1fr 36px 100px 22px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+}
+
+.theme-token__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.theme-token__picker {
+  width: 36px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.theme-token__hex {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.theme-token__reset {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 5px;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.theme-token__reset:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-error);
+}
