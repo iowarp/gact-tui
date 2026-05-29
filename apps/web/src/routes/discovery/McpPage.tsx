@@ -1,4 +1,5 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
+import './mcp-page.css';
 import type { Client, McpServerInfo } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -116,6 +117,7 @@ export function McpPage(props: McpPageProps) {
           {(s) => (
             <McpServerCard
               s={s}
+              client={props.client}
               busy={busy() === s.id}
               onReconnect={() => reconnect(s.id, s.name)}
               onUninstall={() => uninstall(s.id, s.name)}
@@ -143,6 +145,7 @@ export function McpPage(props: McpPageProps) {
 
 function McpServerCard(props: {
   s: McpServerInfo;
+  client: Client;
   busy: boolean;
   onReconnect: () => void;
   onUninstall: () => void;
@@ -160,6 +163,39 @@ function McpServerCard(props: {
         return '';
     }
   };
+  const [expanded, setExpanded] = createSignal(false);
+
+  // Lazy-fetch full detail when the user expands the card. Three
+  // parallel calls so the worst case is one round-trip ≈ slowest of
+  // tools/resources/prompts. Each catch-handles independently — a
+  // server that advertises tools but not resources still shows the
+  // tools.
+  const [detail] = createResource(
+    () => (expanded() ? props.s.id : null),
+    async (sid) => {
+      if (!sid) return null;
+      const [toolsR, resR, promptsR] = await Promise.allSettled([
+        props.client.mcpServerTools(sid),
+        props.client.mcpServerResources(sid),
+        props.client.mcpServerPrompts(sid),
+      ]);
+      return {
+        tools:
+          toolsR.status === 'fulfilled'
+            ? (toolsR.value.tools as Array<{ name: string; description?: string }>)
+            : [],
+        resources:
+          resR.status === 'fulfilled'
+            ? (resR.value.resources as Array<{ uri: string; name?: string }>)
+            : [],
+        prompts:
+          promptsR.status === 'fulfilled'
+            ? (promptsR.value.prompts as Array<{ name: string; description?: string }>)
+            : [],
+      };
+    },
+  );
+
   return (
     <article class="dp__card" data-testid={`mcp-card-${props.s.id}`}>
       <header class="dp__card-head">
@@ -184,6 +220,88 @@ function McpServerCard(props: {
       <Show when={props.s.tools.length > 0}>
         <div class="dp__card-tags">
           <For each={props.s.tools}>{(t) => <span class="dp__tag">{t}</span>}</For>
+        </div>
+      </Show>
+      <button
+        type="button"
+        class="mcp__detail-toggle"
+        onClick={() => setExpanded((v) => !v)}
+        data-testid={`mcp-expand-${props.s.id}`}
+      >
+        <Icon
+          name="chevron-right"
+          size={11}
+          class={'mcp__detail-chev ' + (expanded() ? 'is-open' : '')}
+        />
+        <span>{expanded() ? 'Hide details' : 'Show tools, resources & prompts'}</span>
+      </button>
+      <Show when={expanded()}>
+        <div class="mcp__detail">
+          <Show when={detail.loading}>
+            <div class="mcp__detail-status">Loading…</div>
+          </Show>
+          <Show when={!detail.loading && detail()}>
+            <Show when={(detail()?.tools ?? []).length > 0}>
+              <div class="mcp__detail-section">
+                <div class="mcp__detail-title">Tools</div>
+                <ul class="mcp__detail-list">
+                  <For each={detail()?.tools ?? []}>
+                    {(t) => (
+                      <li class="mcp__detail-row">
+                        <code class="mcp__detail-name">{t.name}</code>
+                        <Show when={t.description}>
+                          <span class="mcp__detail-desc">{t.description}</span>
+                        </Show>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
+            </Show>
+            <Show when={(detail()?.resources ?? []).length > 0}>
+              <div class="mcp__detail-section">
+                <div class="mcp__detail-title">Resources</div>
+                <ul class="mcp__detail-list">
+                  <For each={detail()?.resources ?? []}>
+                    {(r) => (
+                      <li class="mcp__detail-row">
+                        <code class="mcp__detail-name">{r.uri}</code>
+                        <Show when={r.name}>
+                          <span class="mcp__detail-desc">{r.name}</span>
+                        </Show>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
+            </Show>
+            <Show when={(detail()?.prompts ?? []).length > 0}>
+              <div class="mcp__detail-section">
+                <div class="mcp__detail-title">Prompts</div>
+                <ul class="mcp__detail-list">
+                  <For each={detail()?.prompts ?? []}>
+                    {(p) => (
+                      <li class="mcp__detail-row">
+                        <code class="mcp__detail-name">{p.name}</code>
+                        <Show when={p.description}>
+                          <span class="mcp__detail-desc">{p.description}</span>
+                        </Show>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
+            </Show>
+            <Show
+              when={
+                (detail()?.tools.length ?? 0) === 0 &&
+                (detail()?.resources.length ?? 0) === 0 &&
+                (detail()?.prompts.length ?? 0) === 0
+              }
+            >
+              <div class="mcp__detail-status">No detail available.</div>
+            </Show>
+          </Show>
         </div>
       </Show>
       <div class="dp__card-actions">
