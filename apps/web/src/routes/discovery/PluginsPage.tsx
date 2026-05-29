@@ -138,10 +138,22 @@ export function PluginsPage() {
           <Icon name="regenerate" size={14} />
         </button>
       }
-      empty={plugins().length === 0 && !editingId()}
-      emptyTitle="No plugins registered"
-      emptyBody="Use the form below to register your first executable."
     >
+      <Show when={plugins().length === 0 && !editingId()}>
+        <div
+          class="dp__empty"
+          data-testid="plugins-empty-hint"
+          style="padding-block: 16px"
+        >
+          <div class="dp__empty-icon">
+            <Icon name="tool" size={28} />
+          </div>
+          <h2 class="dp__empty-title">No plugins registered</h2>
+          <p class="dp__empty-body">
+            Use the form below to register your first executable.
+          </p>
+        </div>
+      </Show>
       <form class="rmp__install" onSubmit={submitForm} data-testid="plugin-form">
         <div class="rmp__editor-actions" style="justify-content: flex-start; gap: 8px; margin-top: 0; margin-bottom: 10px">
           <strong style="font-family: var(--font-sans); font-size: 13px">
