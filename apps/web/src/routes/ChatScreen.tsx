@@ -1136,6 +1136,32 @@ function LiveDriven(props: {
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
+      onExtractAgent={async () => {
+        const sid = activeId();
+        if (!sid) return;
+        const name = prompt('Name for the extracted agent (optional)') ?? undefined;
+        const description = prompt('One-line description (optional)') ?? undefined;
+        try {
+          const created = await live.client.extractAgent({
+            session_id: sid,
+            ...(name ? { name } : {}),
+            ...(description ? { description } : {}),
+          });
+          toast.push({
+            tone: 'success',
+            title: 'Agent extracted',
+            body: `New definition saved — id ${(created as { id?: string }).id ?? '?'}`,
+            duration: 4000,
+          });
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Extract failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 5000,
+          });
+        }
+      }}
       onCopyMessagePermalink={async (msg) => {
         const sid = activeId();
         if (!sid) return;
@@ -1258,6 +1284,7 @@ interface ChatLayoutProps {
   ) => void | Promise<void>;
   onSpeakMessage?: (msg: import('@clio/core').Message) => void | Promise<void>;
   onCopyMessagePermalink?: (msg: import('@clio/core').Message) => void | Promise<void>;
+  onExtractAgent?: () => void | Promise<void>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -1792,6 +1819,10 @@ function ChatLayout(props: ChatLayoutProps) {
       props.onWalkAway?.();
       return;
     }
+    if (cmd.id === 'extract-agent') {
+      void props.onExtractAgent?.();
+      return;
+    }
     if (cmd.id === 'compose-modal') {
       setComposeOpen(true);
       return;
@@ -1967,6 +1998,12 @@ function ChatLayout(props: ChatLayoutProps) {
         id: 'walk-away',
         trigger: 'walk away',
         description: 'Park the active session in the detached registry (Ctrl+Shift+D)',
+        category: 'action',
+      },
+      {
+        id: 'extract-agent',
+        trigger: 'extract · agent',
+        description: 'Distill a new agent definition from this session (skills_extraction)',
         category: 'action',
       },
       {
