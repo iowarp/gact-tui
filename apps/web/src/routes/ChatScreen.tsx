@@ -1548,6 +1548,14 @@ function ChatLayout(props: ChatLayoutProps) {
         setSharedSessionOpen((v) => !v);
         return;
       }
+      // Cmd/Ctrl+R — refresh the sessions list. We don't override
+      // the browser-default unless we have a handler wired; otherwise
+      // F5 / browser reload still works as expected.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r' && props.onRefreshSessions) {
+        e.preventDefault();
+        void props.onRefreshSessions();
+        return;
+      }
       // Ctrl/Cmd+Shift+D — walk away from the active session and
       // park it in the detached registry so it surfaces in the
       // palette next time we open the app.
