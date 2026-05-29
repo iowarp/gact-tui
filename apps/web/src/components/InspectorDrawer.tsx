@@ -36,6 +36,12 @@ export interface InspectorDrawerProps {
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   /** Delete a schedule (DELETE /v1/schedules/{id}). */
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
+  /** Per-session blueprint + expert-pack bindings (PR #386/#387 + #344). */
+  bindings?: SessionBindings;
+  /** Bind a different blueprint to the active session. Pass null to clear. */
+  onSetBlueprint?: (blueprintId: string | null) => void | Promise<void>;
+  /** Bind a different expert pack to the active session. Pass null to clear. */
+  onSetExpertPack?: (packId: string | null) => void | Promise<void>;
   /** Called when the user clicks a diff entry — opens the DiffPane. */
   onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
@@ -57,6 +63,19 @@ export interface ScheduleRow {
   next_run_at?: string;
   enabled?: boolean;
   prompt?: string;
+}
+
+export interface BindingOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface SessionBindings {
+  blueprint_id: string | null;
+  pack_id: string | null;
+  availableBlueprints: BindingOption[];
+  availablePacks: BindingOption[];
 }
 
 export interface SessionDiffRow {
@@ -87,6 +106,7 @@ type InspectorTab =
   | 'context'
   | 'frames'
   | 'schedules'
+  | 'bindings'
   | 'health';
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
@@ -110,6 +130,12 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     !!props.sessionDiffs && props.sessionDiffs.length > 0;
   const hasSchedules = () =>
     !!props.schedules && (props.schedules.length > 0 || !!props.onCreateSchedule);
+  const hasBindings = () =>
+    !!props.bindings &&
+    (props.bindings.availableBlueprints.length > 0 ||
+      props.bindings.availablePacks.length > 0 ||
+      props.bindings.blueprint_id !== null ||
+      props.bindings.pack_id !== null);
 
   const hasAnyContent = () =>
     hasRunData() ||
@@ -121,6 +147,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     hasContextFiles() ||
     hasFrames() ||
     hasSchedules() ||
+    hasBindings() ||
     hasIntegrations();
 
   // Order matters — the picker walks this list and lands on the
@@ -135,6 +162,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     if (hasContextFiles()) out.push('context');
     if (hasFrames()) out.push('frames');
     if (hasSchedules()) out.push('schedules');
+    if (hasBindings()) out.push('bindings');
     if (hasIntegrations()) out.push('health');
     return out;
   });
@@ -167,6 +195,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     context: 'Context',
     frames: 'Frames',
     schedules: 'Schedules',
+    bindings: 'Bindings',
     health: 'Health',
   };
 
@@ -443,6 +472,14 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           />
         </Show>
 
+        <Show when={hasBindings() && activeTab() === 'bindings'}>
+          <BindingsTab
+            bindings={props.bindings!}
+            onSetBlueprint={props.onSetBlueprint}
+            onSetExpertPack={props.onSetExpertPack}
+          />
+        </Show>
+
         <Show when={hasIntegrations() && activeTab() === 'health'}>
           <section class="inspector__sect">
             <div class="inspector__sect-title">Integrations</div>
@@ -601,6 +638,79 @@ export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
     }
   }
   return out;
+}
+
+/** Per-session blueprint + expert-pack bindings. Dropdowns let the
+ * user swap the active blueprint/pack on the running session
+ * (PRs #386/#387, #344/#376/#377). */
+function BindingsTab(props: {
+  bindings: SessionBindings;
+  onSetBlueprint?: (id: string | null) => void | Promise<void>;
+  onSetExpertPack?: (id: string | null) => void | Promise<void>;
+}) {
+  return (
+    <section class="inspector__sect">
+      <div class="inspector__sect-title">Agent blueprint</div>
+      <select
+        class="inspector__binding-select"
+        value={props.bindings.blueprint_id ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value;
+          void props.onSetBlueprint?.(v === '' ? null : v);
+        }}
+        data-testid="binding-blueprint"
+      >
+        <option value="">— None —</option>
+        <For each={props.bindings.availableBlueprints}>
+          {(bp) => <option value={bp.id}>{bp.label}</option>}
+        </For>
+      </select>
+      <Show
+        when={
+          props.bindings.blueprint_id &&
+          props.bindings.availableBlueprints.find(
+            (b) => b.id === props.bindings.blueprint_id,
+          )?.description
+        }
+      >
+        <p class="inspector__binding-desc">
+          {props.bindings.availableBlueprints.find(
+            (b) => b.id === props.bindings.blueprint_id,
+          )?.description}
+        </p>
+      </Show>
+
+      <div class="inspector__sect-title">Expert pack</div>
+      <select
+        class="inspector__binding-select"
+        value={props.bindings.pack_id ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value;
+          void props.onSetExpertPack?.(v === '' ? null : v);
+        }}
+        data-testid="binding-expert-pack"
+      >
+        <option value="">— None —</option>
+        <For each={props.bindings.availablePacks}>
+          {(p) => <option value={p.id}>{p.label}</option>}
+        </For>
+      </select>
+      <Show
+        when={
+          props.bindings.pack_id &&
+          props.bindings.availablePacks.find(
+            (p) => p.id === props.bindings.pack_id,
+          )?.description
+        }
+      >
+        <p class="inspector__binding-desc">
+          {props.bindings.availablePacks.find(
+            (p) => p.id === props.bindings.pack_id,
+          )?.description}
+        </p>
+      </Show>
+    </section>
+  );
 }
 
 /** Cron-style schedules per session. Renders the list with delete
