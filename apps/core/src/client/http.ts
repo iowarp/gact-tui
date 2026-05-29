@@ -1119,6 +1119,19 @@ export class Client {
     );
   }
 
+  /** POST /v1/agent-blueprints/{bp}/mcp/{descriptor_id}/enable —
+   * activate a specific MCP descriptor bundled inside a blueprint
+   * (PR #386/#387). */
+  enableBlueprintMcp(
+    blueprintId: string,
+    descriptorId: string,
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/mcp/${encodeURIComponent(descriptorId)}/enable`,
+      {},
+    );
+  }
+
   /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387). */
   agentBlueprints(): Promise<{ blueprints: Array<{
     id: string;
