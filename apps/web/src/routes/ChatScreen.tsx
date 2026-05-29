@@ -1822,6 +1822,19 @@ function ChatLayout(props: ChatLayoutProps) {
         setSessionsOpen((v) => !v);
         return;
       }
+      // Cmd+Shift+S forks the active session — the cheatsheet has
+      // promised this since v0.9.0 but no handler existed until now.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === 's' &&
+        props.activeId &&
+        props.onForkSession
+      ) {
+        e.preventDefault();
+        void props.onForkSession(props.activeId);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         void props.onNewSession?.();
