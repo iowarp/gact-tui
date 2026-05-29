@@ -154,6 +154,12 @@ export class Client {
     return this.get<Capabilities>('/v1/capabilities');
   }
 
+  /** GET /v1/sessions/{id} — single-session detail. Used when the
+   * sessions list is paginated and the cached row needs refreshing. */
+  getSession(sessionId: string): Promise<Session> {
+    return this.get<Session>(`/v1/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
   sessions(options: { archived?: boolean } = {}): Promise<{ sessions: Session[] }> {
     const qs = new URLSearchParams();
     if (options.archived !== undefined) {
