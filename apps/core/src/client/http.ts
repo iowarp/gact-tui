@@ -787,6 +787,12 @@ export class Client {
     return this.post<Workspace>('/v1/workspaces', body);
   }
 
+  /** DELETE /v1/workspaces/{id} — unregister a workspace from the
+   * backend. Backend keeps on-disk files; only metadata is dropped. */
+  deleteWorkspace(workspaceId: string): Promise<void> {
+    return this.del(`/v1/workspaces/${encodeURIComponent(workspaceId)}`);
+  }
+
   agents(): Promise<{ agents: AgentDef[] }> {
     return this.get<{ agents: AgentDef[] }>('/v1/agents');
   }
