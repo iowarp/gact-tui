@@ -282,10 +282,11 @@ function McpServerCard(props: {
     () => (expanded() ? props.s.id : null),
     async (sid) => {
       if (!sid) return null;
-      const [toolsR, resR, promptsR] = await Promise.allSettled([
+      const [toolsR, resR, promptsR, tmplR] = await Promise.allSettled([
         props.client.mcpServerTools(sid),
         props.client.mcpServerResources(sid),
         props.client.mcpServerPrompts(sid),
+        props.client.mcpServerResourceTemplates(sid),
       ]);
       return {
         tools:
@@ -299,6 +300,10 @@ function McpServerCard(props: {
         prompts:
           promptsR.status === 'fulfilled'
             ? (promptsR.value.prompts as Array<{ name: string; description?: string }>)
+            : [],
+        templates:
+          tmplR.status === 'fulfilled'
+            ? (tmplR.value.templates as Array<{ uriTemplate: string; name?: string; description?: string }>)
             : [],
       };
     },
@@ -386,11 +391,29 @@ function McpServerCard(props: {
                 </ul>
               </div>
             </Show>
+            <Show when={(detail()?.templates ?? []).length > 0}>
+              <div class="mcp__detail-section">
+                <div class="mcp__detail-title">Resource templates</div>
+                <ul class="mcp__detail-list">
+                  <For each={detail()?.templates ?? []}>
+                    {(t) => (
+                      <li class="mcp__detail-row">
+                        <code class="mcp__detail-name">{t.uriTemplate}</code>
+                        <Show when={t.description}>
+                          <span class="mcp__detail-desc">{t.description}</span>
+                        </Show>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
+            </Show>
             <Show
               when={
                 (detail()?.tools.length ?? 0) === 0 &&
                 (detail()?.resources.length ?? 0) === 0 &&
-                (detail()?.prompts.length ?? 0) === 0
+                (detail()?.prompts.length ?? 0) === 0 &&
+                (detail()?.templates?.length ?? 0) === 0
               }
             >
               <div class="mcp__detail-status">No detail available.</div>
