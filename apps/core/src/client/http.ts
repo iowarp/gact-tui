@@ -1342,14 +1342,36 @@ export class Client {
     );
   }
 
-  /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387). */
-  agentBlueprints(): Promise<{ blueprints: Array<{
+  /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387).
+   *
+   * GACT v0.2 backends shipped the list under either `blueprints` or
+   * `agent_blueprints` depending on which build of the contract they
+   * land on. Normalize to `blueprints` so call sites can rely on a
+   * single shape. */
+  async agentBlueprints(): Promise<{ blueprints: Array<{
     id: string;
     name?: string;
     description?: string;
     metadata?: Record<string, unknown>;
   }> }> {
-    return this.get('/v1/agent-blueprints');
+    const raw = await this.get<Record<string, unknown>>('/v1/agent-blueprints');
+    const list =
+      (raw['blueprints'] as unknown[]) ??
+      (raw['agent_blueprints'] as unknown[]) ??
+      [];
+    return {
+      blueprints: list.map((b) => {
+        const o = b as Record<string, unknown>;
+        return {
+          id: String(o['id'] ?? ''),
+          ...(o['name'] || o['title']
+            ? { name: String(o['name'] ?? o['title']) }
+            : {}),
+          ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
+        };
+      }),
+    };
   }
 
   /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint
@@ -1402,15 +1424,36 @@ export class Client {
     return this.post('/v1/expert-packs/validate', body);
   }
 
-  /** GET /v1/expert-packs — list installed expert packs (PR #344/#376). */
-  expertPacks(): Promise<{ packs: Array<{
+  /** GET /v1/expert-packs — list installed expert packs (PR #344/#376).
+   *
+   * Normalize `packs` vs `expert_packs` for the same reason as
+   * agentBlueprints() above. */
+  async expertPacks(): Promise<{ packs: Array<{
     id: string;
     name?: string;
     description?: string;
     runtime_scope?: string;
     metadata?: Record<string, unknown>;
   }> }> {
-    return this.get('/v1/expert-packs');
+    const raw = await this.get<Record<string, unknown>>('/v1/expert-packs');
+    const list =
+      (raw['packs'] as unknown[]) ??
+      (raw['expert_packs'] as unknown[]) ??
+      [];
+    return {
+      packs: list.map((p) => {
+        const o = p as Record<string, unknown>;
+        return {
+          id: String(o['id'] ?? ''),
+          ...(o['name'] || o['title']
+            ? { name: String(o['name'] ?? o['title']) }
+            : {}),
+          ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['runtime_scope'] ? { runtime_scope: String(o['runtime_scope']) } : {}),
+          ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
+        };
+      }),
+    };
   }
 
   /**
