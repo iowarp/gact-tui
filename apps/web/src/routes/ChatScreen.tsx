@@ -270,6 +270,18 @@ function LiveDriven(props: {
   const [recentlyRenamed, setRecentlyRenamed] = createSignal<{ sid: string; expiry: number } | null>(null);
   let renameTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // When the active session disappears from the sessions list (e.g.
+  // an SSE session.deleted dropped it), bail out to the empty state
+  // instead of leaving a stale id with no live transcript.
+  createMemo(() => {
+    const id = activeId();
+    if (!id) return;
+    const list = live.sessions();
+    if (list && list.length > 0 && !list.find((s) => s.id === id)) {
+      setActiveId('');
+    }
+  });
+
   // Refresh the sessions list when the window regains focus — covers
   // the "I came back from another app and a teammate kicked off a
   // session" case without needing to mash Cmd+R.
