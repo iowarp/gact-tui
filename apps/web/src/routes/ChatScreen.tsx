@@ -674,6 +674,38 @@ function LiveDriven(props: {
   );
   const contextFiles = createMemo(() => contextFilesData()?.files ?? []);
 
+  // Context frames — feeds the Inspector Frames tab. Cap is gated
+  // because not every backend ships memory frames.
+  const [framesData] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return { frames: [] };
+      try {
+        return await live.client.sessionContextFrames(sid);
+      } catch {
+        return { frames: [] };
+      }
+    },
+  );
+  const contextFrames = createMemo(() => framesData()?.frames ?? []);
+
+  // Session-wide pending diffs — feeds the Inspector Diffs tab's
+  // "All pending in session" sub-section. Fetched once per session
+  // switch; SSE delta on message.completed forces a refetch.
+  const [sessionDiffsData, { refetch: refetchSessionDiffs }] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return { diffs: [] };
+      try {
+        return await live.client.sessionDiffs(sid);
+      } catch {
+        return { diffs: [] };
+      }
+    },
+  );
+  const sessionDiffs = createMemo(() => sessionDiffsData()?.diffs ?? []);
+  void refetchSessionDiffs;
+
   async function pinFileToContext(path: string) {
     const sid = activeId();
     if (!sid) return;
@@ -870,6 +902,8 @@ function LiveDriven(props: {
       slashCommands={slashCommands()}
       sessionTasks={sessionTasks()}
       contextFiles={contextFiles()}
+      contextFrames={contextFrames()}
+      sessionDiffs={sessionDiffs()}
       onRemoveContextFile={removeContextFile}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
@@ -953,6 +987,8 @@ interface ChatLayoutProps {
   slashCommands?: SlashCommandDef[];
   sessionTasks?: import('@clio/core').SessionTask[];
   contextFiles?: import('@clio/core').ContextFile[];
+  contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
+  sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
@@ -1973,6 +2009,8 @@ function ChatLayout(props: ChatLayoutProps) {
           model={inspectorTarget()?.model?.model_id}
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
+          frames={props.contextFrames ?? []}
+          sessionDiffs={props.sessionDiffs ?? []}
           onRemoveContextFile={props.onRemoveContextFile}
           onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}
