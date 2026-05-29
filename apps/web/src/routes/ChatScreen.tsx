@@ -2041,11 +2041,6 @@ function ChatLayout(props: ChatLayoutProps) {
       case '/doctor':
         setRailRoute('doctor');
         return;
-      case '/clear': {
-        const pane = document.querySelector('.chat__pane');
-        pane?.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
-        return;
-      }
       case '/help':
       default:
         return;
