@@ -663,6 +663,10 @@ export class Client {
       archived?: boolean;
       agent?: { id?: string; mode?: string };
       model?: { provider_id?: string; model_id?: string };
+      /** Free-form metadata bag. Used for session pinning (key
+       * `pinned: boolean`) so that pin state is coherent across the
+       * TUI and the Desktop. */
+      metadata?: Record<string, unknown>;
     },
   ): Promise<Session> {
     return this.request<Session>(

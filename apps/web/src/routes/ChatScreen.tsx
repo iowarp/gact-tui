@@ -199,14 +199,27 @@ function LiveDriven(props: {
   const [pinnedIds, setPinnedIds] = createSignal<Set<string>>(loadPinnedSet(pinnedKey));
 
   function togglePin(id: string) {
+    let nextPinned = false;
     setPinnedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        nextPinned = false;
+      } else {
+        next.add(id);
+        nextPinned = true;
+      }
       try { localStorage.setItem(pinnedKey, JSON.stringify([...next])); }
       catch { /* ignore */ }
       return next;
     });
+    // Mirror to the server so other clients (TUI) see the same pin
+    // state. Failure is non-fatal — the local store remains authoritative.
+    void live.client
+      .patchSession(id, { metadata: { pinned: nextPinned } })
+      .catch(() => {
+        /* server-side metadata write best-effort */
+      });
   }
 
   const rows = createMemo<SessionRow[]>(() => {
