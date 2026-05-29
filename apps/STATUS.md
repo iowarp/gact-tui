@@ -725,6 +725,20 @@ changes, no contract changes, no design-system writes.
 - **Context-file mode cycle** — Inspector Context tab gains a
   clickable mode badge that cycles read → edit → pin via
   `patchContextFile` (`6076e16`, `507727f`).
+- **MCP resource Subscribe toggle** — POST/DELETE
+  `/v1/mcp/servers/{id}/resources/subscribe` exposed in the row
+  next to Preview. (3ff25a8)
+- **`patchMessagePart`** — Client method for partial Part edits.
+  (db15d32)
+- **Focus refetch** — sessions list auto-refreshes when the window
+  regains focus after >5s away. (332205b)
+- **Mic elapsed counter** — recording badge ticks "Ns" while the
+  MediaRecorder is hot. (6bc73b0)
+- **`getMessage` + `getSession`** — Client methods round out the
+  read surface for permalink resolution and refresh-on-demand
+  use cases. (ee26066, c136978)
+- **Schedule next-run badge humaniser** — ISO timestamps render
+  as "in 5m" / "3h ago" with the raw value in the tooltip. (c26fc32)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
