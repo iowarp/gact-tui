@@ -27,6 +27,9 @@ export interface TranscriptProps {
   currentMatchKey?: string;
   /** When true, the last text part of the last assistant message renders a streaming cursor. */
   streaming?: boolean;
+  /** When set, assistant messages render a Speak button that pulls
+   * TTS audio from POST /v1/sessions/{id}/voice/synthesize. */
+  onSpeak?: (msg: Message) => void | Promise<void>;
 }
 
 const ROLE_ICON: Record<string, IconName> = {
@@ -221,6 +224,7 @@ function MessageView(props: {
   onQuote?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
+  onSpeak?: (msg: Message) => void | Promise<void>;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
   searchQuery?: string;
@@ -282,6 +286,17 @@ function MessageView(props: {
               onClick={() => props.onRegenerate?.(props.msg)}
             >
               <Icon name="regenerate" size={12} />
+            </button>
+          </Show>
+          <Show when={isAssistant() && props.onSpeak}>
+            <button
+              type="button"
+              class="trx-msg__action"
+              title="Speak this message"
+              data-testid={`msg-speak-${props.msg.id}`}
+              onClick={() => void props.onSpeak?.(props.msg)}
+            >
+              <Icon name="bell" size={12} />
             </button>
           </Show>
           <Show when={role() === 'user' && props.onEdit}>
@@ -464,6 +479,7 @@ export function Transcript(props: TranscriptProps) {
               onRegenerate={props.onRegenerate}
               onEdit={props.onEdit}
               onQuote={props.onQuote}
+              onSpeak={props.onSpeak}
               selected={m.id === props.selectedId}
               onSelect={props.onSelect}
               searchQuery={props.searchQuery}
