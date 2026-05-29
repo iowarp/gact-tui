@@ -24,6 +24,7 @@ import {
 import {
   Client,
   applyTextAppend,
+  applyPartCompleted,
   appendPart,
   upsertMessage,
   type Message,
@@ -404,7 +405,13 @@ function reduce(
   const p = ev.payload ?? {};
   switch (t) {
     case 'message.created': {
-      const msg = p.message as Message | undefined;
+      // clio emits the message shape directly in the payload (id /
+      // role / parts at the top level). Older fixtures nested it
+      // under `payload.message`. Accept both so we don't drop the
+      // event silently.
+      const nested = p['message'] as Message | undefined;
+      const flat = (p['id'] && p['role'] ? p : undefined) as Message | undefined;
+      const msg = nested ?? flat;
       if (msg) hooks.setMessages((prev) => upsertMessage(prev, msg));
       break;
     }
@@ -650,7 +657,21 @@ function reduce(
       });
       break;
     }
-    case 'message.part.completed':
+    case 'message.part.completed': {
+      // Batch providers (argonne / claude_code / codex) emit the entire
+      // text on this event instead of via part.delta chunks. Without
+      // this reducer the transcript stays empty even though the turn
+      // finished — `final_text` was being dropped.
+      const messageId = p.message_id as string | undefined;
+      const partId = p.part_id as string | undefined;
+      const finalText = p.final_text as string | undefined;
+      if (messageId && partId && typeof finalText === 'string') {
+        hooks.setMessages((prev) =>
+          applyPartCompleted(prev, messageId, partId, finalText),
+        );
+      }
+      break;
+    }
     case 'server.connected':
     case 'server.heartbeat':
     default:
