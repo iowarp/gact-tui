@@ -247,9 +247,11 @@ export function Composer(props: ComposerProps = {}) {
   const [attachments, setAttachments] = createSignal<AttachedFile[]>([]);
   const [voiceBusy, setVoiceBusy] = createSignal(false);
   const [recording, setRecording] = createSignal(false);
+  const [recordingElapsedMs, setRecordingElapsedMs] = createSignal(0);
   let voiceInputRef: HTMLInputElement | undefined;
   let mediaRecorder: MediaRecorder | null = null;
   let recordedChunks: Blob[] = [];
+  let recordingTimer: ReturnType<typeof setInterval> | undefined;
 
   async function onVoicePicked(ev: Event) {
     const inp = ev.currentTarget as HTMLInputElement;
@@ -290,6 +292,11 @@ export function Composer(props: ComposerProps = {}) {
       };
       rec.onstop = () => {
         setRecording(false);
+        if (recordingTimer) {
+          clearInterval(recordingTimer);
+          recordingTimer = undefined;
+        }
+        setRecordingElapsedMs(0);
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(recordedChunks, { type: 'audio/webm' });
         recordedChunks = [];
@@ -305,6 +312,10 @@ export function Composer(props: ComposerProps = {}) {
       };
       rec.start();
       setRecording(true);
+      const startedAt = Date.now();
+      recordingTimer = setInterval(() => {
+        setRecordingElapsedMs(Date.now() - startedAt);
+      }, 250);
     } catch {
       setRecording(false);
     }
@@ -465,7 +476,7 @@ export function Composer(props: ComposerProps = {}) {
               class={'composer__attach ' + (recording() ? 'is-recording' : '')}
               title={
                 recording()
-                  ? 'Stop recording'
+                  ? `Recording ${Math.floor(recordingElapsedMs() / 1000)}s — click to stop`
                   : voiceBusy()
                     ? 'Transcribing…'
                     : 'Record voice — click again to stop'
@@ -477,6 +488,15 @@ export function Composer(props: ComposerProps = {}) {
             >
               <Icon name={recording() ? 'stop' : 'mention'} size={16} />
             </button>
+            <Show when={recording()}>
+              <span
+                class="composer__mic-elapsed"
+                data-testid="composer-mic-elapsed"
+                aria-live="polite"
+              >
+                {Math.floor(recordingElapsedMs() / 1000)}s
+              </span>
+            </Show>
             <button
               type="button"
               class="composer__attach"
