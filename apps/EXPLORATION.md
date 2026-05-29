@@ -164,3 +164,66 @@ might emit either order.
 **Status:** fixed on the desktop (`apps/core/src/client/http.ts`).
 Filed as clio backend follow-up.
 
+**[BROKEN] (E-6) Chat topbar squeezes the session title to zero width.**
+
+What happened: opened a session whose meta items together totalled
+~516px (5 chips on a 724px chat column). The chat__crumbs flex item
+got squeezed to 12px and the title disappeared. Visually the topbar
+showed `/  2.61k tok end_turn …` — no session name at all.
+
+Root cause: `chat__crumbs` had `flex: 1` (basis 0, shrink allowed) but
+no min-width guarantee. The chat__meta grouping had no shrink budget
+either. When meta + actions + padding exceeded the available width,
+the crumbs basis-0 lost the shrink race.
+
+Fix: `chat__crumbs` is now `flex: 1 0 140px` — reserves 140px of
+guaranteed space for the title. Meta picked up `overflow: hidden`
+and its items got `flex: 0 0 auto` so individual chips don't try to
+break inside themselves.
+
+**Status:** fixed. Title back to visible (67px in this layout).
+
+**[BROKEN] (E-7) Per-message Delete button silently missing from every message.**
+
+What happened: hovered an assistant message; the action row shows
+copy / regen / speak / link / quote — no delete. `DELETE
+/v1/sessions/{sid}/messages/{id}` is correctly implemented in
+clio-agent and the desktop's Client, and ChatScreen.tsx wires
+`onDeleteMessage` all the way through ChatLayout into the Transcript
+shell. But Transcript never threaded the prop down to MessageView,
+so the gating `<Show when={props.onDelete}>` inside MessageView
+always missed and the button never rendered. Every user trying to
+delete a message hit a dead end.
+
+Fix: Transcript now forwards `onDelete={props.onDelete}` to the
+MessageView like all the other action callbacks.
+
+**Status:** fixed. msg-delete-{id} button appears in the action row.
+
+### Chrome controls — verified against live clio + ALCF
+
+End-to-end one minute walkthrough after the fixes above:
+
+- Cmd+K palette opens with 62 items across 11 categories
+  (meta/discovery/data/navigation/builtin/user/jump/perm/settings/action/view).
+  Typing "doctor" filters to 3 rows; Enter on the top row navigates
+  to the Doctor discovery page.
+- Cmd+/ opens the keybind cheatsheet overlay.
+- Cmd+F opens the transcript-search panel.
+- Cmd+B toggles the SessionsColumn (320 → 0 → 320).
+- Sessions archive toggle switches between active + archive lists.
+- Inspector tabs render Turn / Frames / Schedules / Bindings against
+  a real ALCF turn: `stop_reason: end_turn`, tokens `2.43k → 401`,
+  2 context frames both `completed`, schedules tab exposes the cron
+  composer, bindings tab pre-selects `Data Exploration/Search Agent`
+  (the only blueprint clio ships).
+- Doctor page renders integrations (api/sessions/agent/memory/lm)
+  with statuses, capability-gap cards (voice + lsp unsupported),
+  overall=`degraded` because of the LM token annotation.
+- Discovery rails populate: Agents 27 cards, MCP 7 cards, Workspaces
+  1 card, Commands 5 cards (builtin + user-installed), Memory shows
+  search + events surfaces, Metrics shows session/token/cost tiles,
+  Plugins shows registry form with empty hint.
+- Per-message actions: 6 buttons render after the fix
+  (copy/regen/speak/link/quote/delete).
+

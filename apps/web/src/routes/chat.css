@@ -44,8 +44,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Keep the session title visible even when meta items are wide.
+     Without this, 5 meta items + actions squeeze the title to 0px on
+     a 1440px viewport with both side panels open. */
+  flex: 1 0 140px;
   min-width: 0;
-  flex: 1;
 }
 
 .chat__crumb {
@@ -130,6 +133,15 @@
   margin-left: 8px;
   margin-right: 8px;
   height: 24px;
+  /* Allow shrink when crumbs need their guaranteed space, but never
+     force individual items to break inside themselves. */
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.chat__meta-item {
+  flex: 0 0 auto;
 }
 
 .chat__meta-item {
