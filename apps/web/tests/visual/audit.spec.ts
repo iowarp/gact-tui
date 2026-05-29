@@ -460,6 +460,38 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- Pin a session (#119) ----
+  test('Pinning a session shows the pin marker in the row (#119)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    const firstRow = page.locator('[data-testid^="session-row-"]').first();
+    await firstRow.waitFor({ state: 'visible', timeout: 6_000 });
+    const id = (await firstRow.getAttribute('data-testid'))!.replace(
+      'session-row-',
+      '',
+    );
+    const kebab = page.getByTestId(`session-row-kebab-${id}`);
+    await kebab.click();
+    const pinAction = page.getByTestId(`session-row-pin-${id}`);
+    // If the row was already pinned, this would say "Unpin" — still
+    // toggles the state, just inverted. Either way the marker should
+    // be present afterwards if we click Pin (or absent if Unpin).
+    const wasPinned = await page
+      .getByTestId(`session-row-pinned-${id}`)
+      .isVisible()
+      .catch(() => false);
+    if (wasPinned) {
+      // Close menu, re-open, and use pin-to-pin again so we end up pinned.
+      await page.keyboard.press('Escape');
+      await kebab.click();
+    }
+    await pinAction.click();
+    await expect(page.getByTestId(`session-row-pinned-${id}`)).toBeVisible({
+      timeout: 4_000,
+    });
+    await page.screenshot({ path: shot('119-pinned-session'), fullPage: false });
+    await close();
+  });
+
   // ---- Workspaces page (#28 + workspace card features) ----
   test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
     const { page, close } = await connect(browser);
