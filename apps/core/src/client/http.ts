@@ -1172,6 +1172,38 @@ export class Client {
     );
   }
 
+  /**
+   * POST /v1/mcp/servers/{id}/call — invoke a tool on an installed MCP
+   * server. Body: {tool, args, session_id?}. Returns the tool's
+   * structured result (mirrors fastmcp's CallToolResult shape).
+   *
+   * Passing `sessionId` attaches the call to a session context so the
+   * regular tool_observer fires `tool.call.*` SSE events and ledger
+   * entries identical to in-process tool calls.
+   */
+  callMcpTool(
+    serverId: string,
+    body: {
+      tool: string;
+      args?: Record<string, unknown>;
+      sessionId?: string;
+    },
+  ): Promise<{
+    result?: unknown;
+    error?: { message: string; code?: string };
+    is_error?: boolean;
+  }> {
+    const payload: Record<string, unknown> = {
+      tool: body.tool,
+      args: body.args ?? {},
+    };
+    if (body.sessionId) payload.session_id = body.sessionId;
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/call`,
+      payload,
+    );
+  }
+
   async health(): Promise<HealthSnapshot> {
     const url = `${this.baseUrl}/v1/health`;
     const res = await this.fetchImpl(url, { headers: this.headers() });
@@ -1268,6 +1300,51 @@ export class Client {
    */
   reloadPrompts(): Promise<unknown> {
     return this.post<unknown>('/v1/prompts/reload', {});
+  }
+
+  /**
+   * POST /v1/prompts/{id}/render — render a prompt with a context map
+   * substituted (CLIO-owned dynamic context is merged in server-side).
+   * Used by the prompts editor's "Preview" button.
+   */
+  renderPrompt(
+    promptId: string,
+    body: {
+      profile?: string;
+      session_id?: string;
+      workspace_id?: string;
+      context?: Record<string, string>;
+    } = {},
+  ): Promise<{ prompt: Record<string, unknown> }> {
+    return this.post(
+      `/v1/prompts/${encodeURIComponent(promptId)}/render`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/prompts/{id}/validate — validate prompt text against the
+   * registry's parser. If `text` is provided, validates inline; if
+   * omitted, validates the on-disk prompt at the given id. Returns
+   * `{enabled, validation_errors, prompt}`.
+   */
+  validatePrompt(
+    promptId: string,
+    body: {
+      text?: string;
+      profile?: string;
+      session_id?: string;
+      workspace_id?: string;
+    } = {},
+  ): Promise<{
+    enabled: boolean;
+    validation_errors: string[];
+    prompt: Record<string, unknown>;
+  }> {
+    return this.post(
+      `/v1/prompts/${encodeURIComponent(promptId)}/validate`,
+      body,
+    );
   }
 
   /**
