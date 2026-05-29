@@ -47,7 +47,10 @@ describe('InlineMarkdown', () => {
     render(() => <InlineMarkdown text={'prefix\n```python\nprint(\'hi\')\n```\nsuffix'} />);
     const pre = document.querySelector('pre.im__code');
     expect(pre).toBeTruthy();
-    expect(pre?.textContent).toBe("print('hi')");
+    // Inner <code> carries the actual code body; the surrounding <pre>
+    // also wraps a language badge and a copy button.
+    const code = pre?.querySelector('code');
+    expect(code?.textContent).toBe("print('hi')");
     expect(pre?.className).toContain('im__code--python');
   });
 
