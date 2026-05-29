@@ -6,7 +6,7 @@
  * not knowing where to look).
  */
 
-import { createResource, For, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -15,17 +15,51 @@ export interface ClientPageProps {
   client: Client;
 }
 
-/** Hooks: pre/post-message + pre/post-tool handlers. */
+/** Hooks: pre/post-message + pre/post-tool handlers. Read + add + delete. */
 export function HooksPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.hooks().catch(() => ({ hooks: [] })),
   );
   const items = () => data()?.hooks ?? [];
+
+  const [hType, setHType] = createSignal<'pre_message' | 'post_message' | 'pre_tool' | 'post_tool'>(
+    'pre_message',
+  );
+  const [hUri, setHUri] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  async function submitNew(ev: SubmitEvent) {
+    ev.preventDefault();
+    const uri = hUri().trim();
+    if (!uri || busy()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await props.client.createHook({ type: hType(), handler_uri: uri });
+      setHUri('');
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeHook(id: string) {
+    try {
+      await props.client.deleteHook(id);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <DiscoveryPage
       icon="tool"
       title="Hooks"
-      subtitle="Registered pre / post handlers for messages and tools. Read-only — install/remove via the backend's hook config."
+      subtitle="Registered pre / post handlers for messages and tools. Add an HTTP URI and the backend will POST every turn payload to it."
       actions={
         <button
           type="button"
@@ -37,9 +71,9 @@ export function HooksPage(props: ClientPageProps) {
         </button>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0}
+      empty={!data.loading && items().length === 0 && !error()}
       emptyTitle="No hooks registered"
-      emptyBody="Hooks are external HTTP / stdio handlers the backend POSTs to on every turn. Set them up in clio-agent's hook config."
+      emptyBody="Hooks are external HTTP / stdio handlers the backend POSTs to on every turn. Add one below."
     >
       <ul class="rmp__list" data-testid="hooks-list">
         <For each={items()}>
@@ -48,10 +82,61 @@ export function HooksPage(props: ClientPageProps) {
               <span class={'rmp__tag rmp__tag--' + h.type}>{h.type}</span>
               <span class="rmp__name">{h.id}</span>
               <code class="rmp__uri">{h.handler_uri}</code>
+              <button
+                type="button"
+                class="rmp__row-x"
+                title="Delete hook"
+                aria-label={`Delete hook ${h.id}`}
+                onClick={() => void removeHook(h.id)}
+                data-testid={`hook-delete-${h.id}`}
+              >
+                <Icon name="close" size={10} />
+              </button>
             </li>
           )}
         </For>
       </ul>
+      <form class="rmp__form" onSubmit={submitNew} data-testid="hook-form">
+        <select
+          class="rmp__form-select"
+          value={hType()}
+          onChange={(e) =>
+            setHType(
+              e.currentTarget.value as
+                | 'pre_message'
+                | 'post_message'
+                | 'pre_tool'
+                | 'post_tool',
+            )
+          }
+          data-testid="hook-type"
+        >
+          <option value="pre_message">pre_message</option>
+          <option value="post_message">post_message</option>
+          <option value="pre_tool">pre_tool</option>
+          <option value="post_tool">post_tool</option>
+        </select>
+        <input
+          class="rmp__form-input"
+          type="url"
+          placeholder="http://localhost:9999/hook"
+          value={hUri()}
+          onInput={(e) => setHUri(e.currentTarget.value)}
+          data-testid="hook-uri"
+        />
+        <button
+          type="submit"
+          class="rmp__form-add"
+          disabled={busy() || !hUri().trim()}
+          data-testid="hook-add"
+        >
+          <Icon name="plus" size={12} />
+          <span>{busy() ? 'Adding…' : 'Add'}</span>
+        </button>
+      </form>
+      <Show when={error()}>
+        <p class="rmp__form-err">{error()}</p>
+      </Show>
     </DiscoveryPage>
   );
 }

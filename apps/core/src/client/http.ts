@@ -1048,6 +1048,25 @@ export class Client {
     return this.get('/v1/hooks');
   }
 
+  /** POST /v1/hooks — register a new hook. */
+  createHook(body: {
+    type: 'pre_message' | 'post_message' | 'pre_tool' | 'post_tool' | string;
+    handler_uri: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{
+    id: string;
+    type: string;
+    handler_uri: string;
+    metadata?: Record<string, unknown>;
+  }> {
+    return this.post('/v1/hooks', body);
+  }
+
+  /** DELETE /v1/hooks/{id} — remove a hook. */
+  deleteHook(hookId: string): Promise<void> {
+    return this.del(`/v1/hooks/${encodeURIComponent(hookId)}`);
+  }
+
   /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387). */
   agentBlueprints(): Promise<{ blueprints: Array<{
     id: string;
