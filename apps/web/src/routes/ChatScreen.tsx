@@ -766,7 +766,6 @@ function LiveDriven(props: {
     },
   );
   const sessionDiffs = createMemo(() => sessionDiffsData()?.diffs ?? []);
-  void refetchSessionDiffs;
 
   // Per-session schedules — cron triggers from /v1/sessions/{id}/schedules.
   // Capability-gated upstream; the resource silently returns [] when the
@@ -1108,6 +1107,49 @@ function LiveDriven(props: {
         return live.client.sessionContextFrame(sid, fid);
       }}
       sessionDiffs={sessionDiffs()}
+      onApplyAllDiffs={async () => {
+        const sid = activeId();
+        if (!sid) return;
+        try {
+          const r = await live.client.applySessionDiffs(sid);
+          toast.push({
+            tone: 'success',
+            title: 'Diffs applied',
+            body: `${r.applied.length} file${r.applied.length === 1 ? '' : 's'}`,
+            duration: 3000,
+          });
+          void refetchSessionDiffs();
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Apply failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 5000,
+          });
+        }
+      }}
+      onRejectAllDiffs={async () => {
+        const sid = activeId();
+        if (!sid) return;
+        if (!confirm('Reject all pending diffs in this session?')) return;
+        try {
+          const r = await live.client.rejectSessionDiffs(sid);
+          toast.push({
+            tone: 'info',
+            title: 'Diffs rejected',
+            body: `${r.rejected.length} file${r.rejected.length === 1 ? '' : 's'}`,
+            duration: 3000,
+          });
+          void refetchSessionDiffs();
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Reject failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 5000,
+          });
+        }
+      }}
       schedules={schedules()}
       onCreateSchedule={
         props.backend.capabilities?.capabilities?.scheduled_sessions
@@ -1300,6 +1342,8 @@ interface ChatLayoutProps {
   contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
   onLoadFrameDetail?: (frameId: string) => Promise<Record<string, unknown>>;
   sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
+  onApplyAllDiffs?: () => void | Promise<void>;
+  onRejectAllDiffs?: () => void | Promise<void>;
   onCycleTaskStatus?: (
     taskId: string,
     next: import('@clio/core').SessionTask['status'],
@@ -2536,6 +2580,8 @@ function ChatLayout(props: ChatLayoutProps) {
           onLoadFrameDetail={props.onLoadFrameDetail}
           onCycleTaskStatus={props.onCycleTaskStatus}
           sessionDiffs={props.sessionDiffs ?? []}
+          onApplyAllDiffs={props.onApplyAllDiffs}
+          onRejectAllDiffs={props.onRejectAllDiffs}
           schedules={props.schedules ?? []}
           onCreateSchedule={props.onCreateSchedule}
           onDeleteSchedule={props.onDeleteSchedule}

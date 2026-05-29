@@ -294,6 +294,29 @@ export class Client {
     );
   }
 
+  /** POST /v1/sessions/{id}/diffs/apply — apply pending diffs. Pass
+   * `paths` to scope to specific files; empty body applies all. */
+  applySessionDiffs(
+    sessionId: string,
+    body: { paths?: string[] } = {},
+  ): Promise<{ applied: string[] }> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/apply`,
+      body,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/diffs/reject — discard pending diffs. */
+  rejectSessionDiffs(
+    sessionId: string,
+    body: { paths?: string[] } = {},
+  ): Promise<{ rejected: string[] }> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/reject`,
+      body,
+    );
+  }
+
   /**
    * GET /v1/sessions/{id}/diffs — every proposed-but-not-applied diff
    * across the session. Used as a discovery entry point so the user
