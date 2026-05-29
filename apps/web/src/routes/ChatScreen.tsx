@@ -1174,6 +1174,21 @@ function LiveDriven(props: {
         return live.client.runCommand(sid, id, args);
       }}
       onRemoveContextFile={removeContextFile}
+      onCycleContextFileMode={async (path, next) => {
+        const sid = activeId();
+        if (!sid) return;
+        try {
+          await live.client.patchContextFile(sid, { path, mode: next });
+          void refetchContextFiles();
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Mode change failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 4000,
+          });
+        }
+      }}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
       onEditMessage={editMessage}
@@ -1342,6 +1357,10 @@ interface ChatLayoutProps {
   sessionTasks?: import('@clio/core').SessionTask[];
   contextFiles?: import('@clio/core').ContextFile[];
   contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
+  onCycleContextFileMode?: (
+    path: string,
+    next: 'read' | 'edit' | 'pin',
+  ) => void | Promise<void>;
   onLoadFrameDetail?: (frameId: string) => Promise<Record<string, unknown>>;
   sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
   onApplyAllDiffs?: () => void | Promise<void>;
@@ -2599,6 +2618,7 @@ function ChatLayout(props: ChatLayoutProps) {
           onSetBlueprint={props.onSetBlueprint}
           onSetExpertPack={props.onSetExpertPack}
           onRemoveContextFile={props.onRemoveContextFile}
+          onCycleContextFileMode={props.onCycleContextFileMode}
           onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}
         />
