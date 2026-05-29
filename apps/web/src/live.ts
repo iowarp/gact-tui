@@ -33,6 +33,7 @@ import {
   type UserQuestion,
 } from '@clio/core';
 import type { SidebarSession } from './components/Sidebar.js';
+import { getRequestLocale } from './locale.js';
 import { inTauri, tauriFetch } from './tauri.js';
 
 export interface LiveStoreOptions {
@@ -99,6 +100,7 @@ export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
     baseUrl: opts.url,
     bearerToken: opts.bearerToken,
     fetch: inTauri() ? tauriFetch : undefined,
+    getLocale: getRequestLocale,
   });
 
   const [override, setOverride] = createSignal<SidebarSession[] | null>(null);

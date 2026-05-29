@@ -28,6 +28,7 @@ import {
   type Persistence,
 } from '@clio/core';
 import { Client } from '@clio/core';
+import { getRequestLocale } from './locale.js';
 import { inTauri, tauriFetch } from './tauri.js';
 
 export interface BackendRegistry {
@@ -85,6 +86,7 @@ export function createBackendRegistry(
         baseUrl: entry.url,
         bearerToken: entry.bearerToken,
         fetch: inTauri() ? tauriFetch : undefined,
+        getLocale: getRequestLocale,
       });
       const caps = await c.capabilities();
       update(id, { capabilities: caps, lastError: undefined });

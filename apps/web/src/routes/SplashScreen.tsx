@@ -2,6 +2,7 @@ import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import type { Capabilities } from '@clio/core';
 import { Client } from '@clio/core';
 import type { BackendHandle as DesktopHandle, BackendStatus } from '../tauri.js';
+import { getRequestLocale } from '../locale.js';
 import { getBackend, inTauri, tauriFetch } from '../tauri.js';
 import { Icon } from '../components/Icon.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
@@ -143,6 +144,7 @@ export function SplashScreen(props: SplashScreenProps) {
         // Tauri — the WebView's CORS layer blocks a direct fetch to a
         // sidecar that doesn't emit Access-Control-Allow-Origin.
         fetch: inTauri() ? tauriFetch : undefined,
+        getLocale: getRequestLocale,
       });
       const caps: Capabilities = await client.capabilities();
       setPhase('ready');
