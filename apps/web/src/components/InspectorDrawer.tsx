@@ -245,7 +245,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           </div>
         </Show>
 
-        <Show when={availableTabs().length > 1}>
+        <Show when={availableTabs().length > 0}>
           <nav class="inspector__tabs" role="tablist" aria-label="Inspector sections">
             <For each={availableTabs()}>
               {(t) => (

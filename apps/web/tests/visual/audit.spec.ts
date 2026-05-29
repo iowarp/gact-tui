@@ -59,11 +59,18 @@ async function connect(
 /** Select the first available session — many tests need an active
  * session for the Inspector tabs to render. */
 async function pickFirstSession(page: Page) {
+  // Wait for the sessions resource to actually populate — the connect
+  // flow returns as soon as chat-screen mounts, but the GET /sessions
+  // round trip can take a beat behind that.
   const firstRow = page.locator('[data-testid^="session-row-"]').first();
-  if (await firstRow.isVisible().catch(() => false)) {
-    await firstRow.click();
-    await page.waitForTimeout(800);
+  try {
+    await firstRow.waitFor({ state: 'visible', timeout: 6_000 });
+  } catch {
+    return;
   }
+  await firstRow.click();
+  // SSE reconnect + transcript load.
+  await page.waitForTimeout(1_500);
 }
 
 test.describe('CLIO audit-batch verification', () => {
@@ -235,6 +242,86 @@ test.describe('CLIO audit-batch verification', () => {
     await expect(page.getByTestId('doctor-integrations')).toBeVisible({ timeout: 8_000 });
     // LSP section is optional; just capture whatever Doctor renders.
     await page.screenshot({ path: shot('141-doctor-page'), fullPage: false });
+    await close();
+  });
+
+  // ---- MCP install modal (#95) ----
+  test('MCP page exposes install modal (#95)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-mcp').click();
+    await page.getByTestId('mcp-install-open').click();
+    await expect(page.getByTestId('mcp-install-modal')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('95-mcp-install-modal'), fullPage: false });
+    await close();
+  });
+
+  // ---- Policies editor (#103 #123) ----
+  test('Settings → Policies opens JSON editor (#123)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-policies').click();
+    await page.getByTestId('policies-edit').click();
+    await expect(page.getByTestId('policies-editor')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('123-policies-editor'), fullPage: false });
+    await close();
+  });
+
+  // ---- Blueprint validate/install (#126) ----
+  test('Settings → Agent blueprints exposes install/validate (#126)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-blueprints').click();
+    await page.getByTestId('blueprint-install-toggle').click();
+    await expect(page.getByTestId('blueprint-install-input')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('126-blueprint-install'), fullPage: false });
+    await close();
+  });
+
+  // ---- Expert pack validate (#127) ----
+  test('Settings → Expert packs exposes validate flow (#127)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-expert-packs').click();
+    await page.getByTestId('expertpack-validate-toggle').click();
+    await expect(page.getByTestId('expertpack-validate-input')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('127-expertpack-validate'), fullPage: false });
+    await close();
+  });
+
+  // ---- Schedules tab in inspector (#112 #134) ----
+  test('Inspector Schedules tab renders cron preview (#112 #134)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    // Make sure the inspector drawer is actually open; default is open
+    // but the persisted flag may have flipped it off.
+    if (!(await page.getByTestId('inspector-drawer').isVisible().catch(() => false))) {
+      await page.getByTestId('topbar-inspector').click();
+    }
+    await expect(page.getByTestId('inspector-drawer')).toBeVisible({ timeout: 4_000 });
+    // hasSchedules() trips on either existing schedules OR the
+    // onCreateSchedule capability — so the tab is visible whenever
+    // the backend advertises scheduled_sessions.
+    const scheduleTab = page.getByTestId('inspector-tab-schedules');
+    await expect(scheduleTab).toBeVisible({ timeout: 6_000 });
+    await scheduleTab.click();
+    await page.getByTestId('schedule-cron-input').fill('*/5 * * * *');
+    await expect(page.getByTestId('schedule-cron-preview')).toBeVisible({ timeout: 2_000 });
+    await page.screenshot({ path: shot('112-134-schedules-tab'), fullPage: false });
+    await close();
+  });
+
+  // ---- Memory events log (#100) ----
+  test('Memory page exposes session-scoped events list (#100)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    await page.getByTestId('rail-memory').click();
+    const toggle = page.getByTestId('memory-events-toggle');
+    await expect(toggle).toBeVisible({ timeout: 6_000 });
+    await toggle.click();
+    // The list mounts once toggled open; it may be empty for a fresh
+    // session — we still want the structural surface visible.
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('100-memory-events'), fullPage: false });
     await close();
   });
 
