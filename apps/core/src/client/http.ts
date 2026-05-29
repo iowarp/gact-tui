@@ -124,6 +124,10 @@ export class Client {
     return this.request<T>(path, 'POST', body);
   }
 
+  private async del<T = void>(path: string): Promise<T> {
+    return this.request<T>(path, 'DELETE', undefined);
+  }
+
   /**
    * Shared request helper used by POST/PATCH/PUT — `post()` delegates
    * here for back-compat with existing call sites.
@@ -251,6 +255,154 @@ export class Client {
     if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
     if (options.limit) qs.set('limit', String(options.limit));
     return this.get(`/v1/memory/search?${qs}`);
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/frames — the agent's time-series
+   * memory snapshots for this session. Each frame represents a point
+   * where the orchestrator persisted state. Used by the inspector's
+   * Frames sub-section to give users a peek at the underlying memory
+   * layer.
+   */
+  sessionContextFrames(
+    sessionId: string,
+  ): Promise<{
+    frames: Array<{
+      id: string;
+      created_at?: string;
+      status?: string;
+      summary?: string;
+      token_count?: number;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/frames`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/frames/{frame_id} — single-frame
+   * detail (full payload, not just the summary that the list returns).
+   */
+  sessionContextFrame(
+    sessionId: string,
+    frameId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/frames/${encodeURIComponent(frameId)}`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/diffs — every proposed-but-not-applied diff
+   * across the session. Used as a discovery entry point so the user
+   * can see all pending diffs without scrolling the transcript.
+   */
+  sessionDiffs(
+    sessionId: string,
+  ): Promise<{
+    diffs: Array<{
+      path: string;
+      applied?: boolean;
+      message_id?: string;
+      hunks?: Array<{ old_start?: number; old_lines?: number; new_start?: number; new_lines?: number; lines?: string[] }>;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/messages/{msg_id}/diffs — diffs scoped to a
+   * single message (per-turn drill-down).
+   */
+  messageDiffs(
+    sessionId: string,
+    messageId: string,
+  ): Promise<{
+    diffs: Array<{
+      path: string;
+      applied?: boolean;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/diffs`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/commands/{cmd} — execute a slash command
+   * via the structured route rather than dispatching it as a user
+   * message. Preserves per-command argument schemas (a thing the
+   * "send as user message and let the parser split it" path loses).
+   */
+  runCommand(
+    sessionId: string,
+    commandId: string,
+    args: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/commands/${encodeURIComponent(commandId)}`,
+      args,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/schedules — list cron-style triggers for
+   * this session (PR #353 backend surface; SPEC §6.15 marks the
+   * capability as optional).
+   */
+  sessionSchedules(
+    sessionId: string,
+  ): Promise<{
+    schedules: Array<{
+      id: string;
+      cron?: string;
+      next_run_at?: string;
+      enabled?: boolean;
+      prompt?: string;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/schedules — create a new cron trigger.
+   */
+  createSchedule(
+    sessionId: string,
+    body: { cron: string; prompt: string; enabled?: boolean },
+  ): Promise<{ id: string; [k: string]: unknown }> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
+      body,
+    );
+  }
+
+  /**
+   * DELETE /v1/schedules/{id} — remove a cron trigger globally.
+   */
+  deleteSchedule(scheduleId: string): Promise<void> {
+    return this.del(`/v1/schedules/${encodeURIComponent(scheduleId)}`);
+  }
+
+  /**
+   * GET /v1/shared/{token} — load a read-only shared session view by
+   * the share token a sender pasted into chat. Returns the static
+   * transcript snapshot.
+   */
+  loadSharedSession(token: string): Promise<{
+    session: Record<string, unknown>;
+    messages: Array<Record<string, unknown>>;
+  }> {
+    return this.get(`/v1/shared/${encodeURIComponent(token)}`);
   }
 
   /**
