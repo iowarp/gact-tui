@@ -71,10 +71,22 @@ export function HooksPage(props: ClientPageProps) {
         </button>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0 && !error()}
-      emptyTitle="No hooks registered"
-      emptyBody="Hooks are external HTTP / stdio handlers the backend POSTs to on every turn. Add one below."
     >
+      <Show when={!data.loading && items().length === 0 && !error()}>
+        <div
+          class="dp__empty"
+          data-testid="hooks-empty-hint"
+          style="padding-block: 16px"
+        >
+          <div class="dp__empty-icon">
+            <Icon name="tool" size={28} />
+          </div>
+          <h2 class="dp__empty-title">No hooks registered</h2>
+          <p class="dp__empty-body">
+            Hooks are external HTTP / stdio handlers the backend POSTs to on every turn. Add one below.
+          </p>
+        </div>
+      </Show>
       <ul class="rmp__list" data-testid="hooks-list">
         <For each={items()}>
           {(h) => (

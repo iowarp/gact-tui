@@ -1117,8 +1117,21 @@ export class Client {
     );
   }
 
-  health(): Promise<HealthSnapshot> {
-    return this.get<HealthSnapshot>('/v1/health');
+  async health(): Promise<HealthSnapshot> {
+    const url = `${this.baseUrl}/v1/health`;
+    const res = await this.fetchImpl(url, { headers: this.headers() });
+    if (res.ok) return (await res.json()) as HealthSnapshot;
+    if (res.status === 503) {
+      try {
+        const body = (await res.json()) as HealthSnapshot;
+        if (typeof body?.healthy === 'boolean' || Array.isArray(body?.integrations)) {
+          return body;
+        }
+      } catch {
+        // fall through to throw with the original body
+      }
+    }
+    throw new HttpError(res.status, res.statusText, await res.text().catch(() => ''));
   }
 
   /**

@@ -147,6 +147,8 @@ test.describe('CLIO audit-batch verification', () => {
   test('Settings → Appearance renders locale, theme tokens, intro (#104 #106 #121)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await page.getByTestId('rail-settings').click();
+    // Settings shell lands on Backends — click into Appearance.
+    await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible({ timeout: 6_000 });
     await expect(page.locator('[data-testid^="settings-locale-"]').first()).toBeVisible();
     await expect(page.locator('[data-testid^="theme-token-"]').first()).toBeVisible();
@@ -175,20 +177,16 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- Hooks discovery (#122) ----
-  test('Hooks discovery shows add/delete form (#122)', async ({ browser }) => {
+  // ---- Hooks editor (#122) ----
+  test('Settings → Hooks renders editor (#122)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    // Hooks is reachable via the Cmd+K palette settings deeplink. Try
-    // the palette route, fall back to the rail.
-    await page.locator('body').click();
-    await page.keyboard.press('Control+KeyK');
-    await page.getByTestId('palette-input').fill('settings · hooks').catch(() => undefined);
-    await page.waitForTimeout(400);
-    await page.keyboard.press('Enter').catch(() => undefined);
-    await page.waitForTimeout(1_200);
-    const ok = await page.getByTestId('hook-form').isVisible().catch(() => false);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-hooks').click();
+    // Hooks page mounts under settings-hooks; the editor surface
+    // exposes `hook-form` once the page renders. Accept either when
+    // backend has 0 hooks (form-only) or any (form + list).
+    await expect(page.getByTestId('hook-form')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('122-hooks-form'), fullPage: false });
-    expect(ok, 'hook-form should render after palette settings · hooks').toBeTruthy();
     await close();
   });
 
