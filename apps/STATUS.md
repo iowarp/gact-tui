@@ -891,3 +891,53 @@ handoffs and sub-agent transitions surface as notifications; the
 permission body actually unblocks clio. Six remaining surfaces are
 blocked on clio capabilities (TTS, MCP resource read).
 
+### Honest verification matrix — what's actually proven end-to-end
+
+I prematurely marked ~15 audit-gap tasks as `completed` based on
+"code is wired" instead of "I drove it against live clio and saw it
+work." Those are back to `in_progress`. The real state is:
+
+**Verified end-to-end against live clio**
+- E-1..E-18 wire-shape fixes (CORS, schedule, fork, share, workspace,
+  archive, agent-extract, permission, runCommand) — proven by the
+  live walkthrough that produced this doc
+- E-19 SSE reducer cases — proven by seeing `routed to chat · dspy`
+  (routing_decision part), `Agent planner started` (notification),
+  and `Turn failed` (stop_reason=error inline error pill) all render
+  live when driving a turn against :17800
+- E-22 patchContextFile → POST upsert — clio's POST upserts by path
+- E-23 write_errors toasts — wired and typechecked
+- E-25 voice gate — clio reports voice:false, button is hidden
+- E-26 search-jump flash — same animation as URL-hash permalink
+- composer regression (#148) — visual test passes against :17800
+
+**Cannot be verified until clio completes a turn**
+- #94 ask-user retry/resume — needs orchestrator question
+- #99 per-message delete — needs an assistant message to exist
+- #101 provider models detail — needs healthy provider
+- #110 / #116 autorename pill — needs clio to rename after a turn
+- #111 lm.provider.* toasts — needs a provider swap event
+- #117 context.frame SSE — needs a frame to be created
+- #118 runCommand — needs an executable backend slash command
+- #129 Context Frame detail — needs frames in the session
+- #133 task status cycling — needs tasks in the session
+- #135 permission card SSE end-to-end (task #35) — needs a tool-using
+  turn that triggers a permission_requested event
+- #139 per-message copy-permalink — needs an assistant message
+- #143 bulk diff apply/reject — needs a tool to propose diffs
+- #144 permalink scroll — needs an assistant message
+- #145 fork lineage badge — needs a successful fork
+- #146 context-file mode cycle — needs a context file row
+
+**What blocks the audit verification right now**: clio's turn returns
+`Turn failed` after the routing decision; the dspy planner never
+emits an assistant message. That's a clio runtime issue, not a
+desktop bug. Once a turn lands an assistant message in the
+transcript, the in_progress tasks above can be verified mechanically
+by the existing visual specs (they're the ones that timed out
+waiting for "Paris" to appear in the transcript pane).
+
+**Permanently blocked on clio capabilities**
+- #130 MCP resource preview — clio has no /v1/mcp/servers/{id}/resources/read
+- #136 TTS Speak — clio has no /v1/sessions/{id}/voice/synthesize
+
