@@ -32,6 +32,7 @@ Down
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_sidebar_layout_editor_default.png"
 
+Enter
 Right
 Wait+Screen /Available/
 Sleep 300ms

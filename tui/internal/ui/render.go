@@ -1350,8 +1350,18 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		//   ▸ code_expert  ·  heuristic  ·  confidence 0.85
 		//   rationale (dim)
 		glyph := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
+		parent := firstNonEmpty(
+			stringValue(p.Metadata["parent_id"]),
+			stringValue(p.Metadata["parent_agent"]),
+			stringValue(p.Metadata["source_agent"]),
+			"orchestrator",
+		)
+		route := p.SelectedAgent
+		if parent != "" && p.SelectedAgent != "" {
+			route = parent + " -> " + p.SelectedAgent
+		}
 		agentName := lipgloss.NewStyle().Foreground(agentColor(t, p.SelectedAgent)).
-			Bold(true).Render(p.SelectedAgent)
+			Bold(true).Render(route)
 		parts := []string{glyph + agentName}
 		if p.Heuristic {
 			parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("heuristic"))

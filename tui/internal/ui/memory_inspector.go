@@ -135,11 +135,20 @@ func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Me
 
 func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
+	hitRate := fmt.Sprintf("%.1f%%", stats.Cache.HitRate*100)
+	note := "backend cache telemetry"
+	if len(messages) == 0 && (stats.Session == nil || stats.Session.MessagesRetained == 0) {
+		hitRate = "not session-specific yet"
+		note = "no loaded transcript activity yet"
+	} else if totalLookups == 0 {
+		hitRate = "no lookups yet"
+	}
 	rows := appendDetailSection(nil, "ARC cache",
 		detailField{"role", "recent-context retrieval cache"},
+		detailField{"scope", note},
 		detailField{"hits", fmt.Sprintf("%d", stats.Cache.Hits)},
 		detailField{"misses", fmt.Sprintf("%d", stats.Cache.Misses)},
-		detailField{"hit_rate", fmt.Sprintf("%.1f%%", stats.Cache.HitRate*100)},
+		detailField{"hit_rate", hitRate},
 		detailField{"capacity", fmt.Sprintf("%d", stats.Cache.Capacity)},
 		detailField{"lookups", fmt.Sprintf("%d", totalLookups)},
 	)

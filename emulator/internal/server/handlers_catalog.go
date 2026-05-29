@@ -1060,6 +1060,11 @@ func staticTools() []gact.Tool {
 
 func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	agents := staticAgents()
+	s.agentsMu.Lock()
+	for _, agent := range s.agents {
+		agents = append(agents, agent)
+	}
+	s.agentsMu.Unlock()
 	// v0.2 — SPEC §4.3.1: `?tier=N` filters to a specific tier.
 	// Absent = return all tiers (backwards-compat with v0.1).
 	if tierStr := r.URL.Query().Get("tier"); tierStr != "" {
@@ -1090,6 +1095,13 @@ func atoi(s string) int {
 
 func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	s.agentsMu.Lock()
+	if agent, ok := s.agents[id]; ok {
+		s.agentsMu.Unlock()
+		writeJSON(w, http.StatusOK, agent)
+		return
+	}
+	s.agentsMu.Unlock()
 	for _, a := range staticAgents() {
 		if a.ID == id {
 			writeJSON(w, http.StatusOK, a)
@@ -1099,10 +1111,106 @@ func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "agent_not_found", "no agent with id "+id)
 }
 
-// agent_write is false — these are 501s.
-func (s *Server) handleAgentNotImplemented(w http.ResponseWriter, r *http.Request) {
-	writeError(w, http.StatusNotImplemented, "not_implemented",
-		"this emulator's capabilities.agent_write is false; agent write API not supported")
+func (s *Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
+	var agent gact.AgentDef
+	if !decodeJSON(w, r, &agent) {
+		return
+	}
+	if strings.TrimSpace(agent.ID) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "agent id is required")
+		return
+	}
+	agent.Source = firstNonEmptyString(agent.Source, "user")
+	if agent.Title == "" {
+		agent.Title = agent.ID
+	}
+	if !agent.Enabled {
+		agent.Enabled = true
+	}
+	if agent.Metadata == nil {
+		agent.Metadata = map[string]any{}
+	}
+	agent.Metadata["storage_scope"] = "workspace"
+	agent.Metadata["source_path"] = "/workspace/.clio/agents/" + agent.ID + ".md"
+	s.agentsMu.Lock()
+	s.agents[agent.ID] = agent
+	s.agentsMu.Unlock()
+	writeJSON(w, http.StatusCreated, agent)
+}
+
+func (s *Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var patch gact.AgentDef
+	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	s.agentsMu.Lock()
+	defer s.agentsMu.Unlock()
+	agent, ok := s.agents[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "agent_not_found", "user agent not found: "+id)
+		return
+	}
+	if patch.Title != "" {
+		agent.Title = patch.Title
+	}
+	agent.Description = patch.Description
+	agent.SystemPrompt = patch.SystemPrompt
+	agent.Tools = append([]string(nil), patch.Tools...)
+	agent.Keywords = append([]string(nil), patch.Keywords...)
+	if patch.Metadata != nil {
+		agent.Metadata = patch.Metadata
+	}
+	if agent.Metadata == nil {
+		agent.Metadata = map[string]any{}
+	}
+	agent.Metadata["updated_by"] = "gact-emulator"
+	agent.Enabled = patch.Enabled
+	s.agents[id] = agent
+	writeJSON(w, http.StatusOK, agent)
+}
+
+func (s *Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.agentsMu.Lock()
+	defer s.agentsMu.Unlock()
+	if _, ok := s.agents[id]; !ok {
+		writeError(w, http.StatusNotFound, "agent_not_found", "user agent not found: "+id)
+		return
+	}
+	delete(s.agents, id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentExtractRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.AgentID) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "agent_id is required")
+		return
+	}
+	agent := gact.AgentDef{
+		ID:          req.AgentID,
+		Source:      "user",
+		Title:       req.AgentID,
+		Description: "Extracted from " + strings.Join(req.SessionIDs, ", "),
+		SystemPrompt: "Use the observed session goals, tool evidence, and routing decisions as the starting point for this " +
+			"extracted agent.",
+		Tools:    []string{"read_file", "mcp.parquet.read"},
+		Keywords: []string{"extracted", "session"},
+		Enabled:  true,
+		Metadata: map[string]any{
+			"created_by":     "gact-emulator",
+			"extracted_from": req.SessionIDs,
+			"source_path":    "/workspace/.clio/agents/" + req.AgentID + ".md",
+		},
+	}
+	s.agentsMu.Lock()
+	s.agents[agent.ID] = agent
+	s.agentsMu.Unlock()
+	writeJSON(w, http.StatusCreated, agent)
 }
 
 func staticAgents() []gact.AgentDef {

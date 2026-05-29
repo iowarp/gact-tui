@@ -650,6 +650,9 @@ func TestDetailShortPayloadUsesCompactSharedBodyHeight(t *testing.T) {
 	if longRect.y != shortRect.y {
 		t.Fatalf("long detail top = %d, want same top as compact detail %d", longRect.y, shortRect.y)
 	}
+	if longRect.y+longRect.h > long.height-1 {
+		t.Fatalf("long detail bottom = %d, want above footer row %d", longRect.y+longRect.h, long.height-1)
+	}
 }
 
 func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {

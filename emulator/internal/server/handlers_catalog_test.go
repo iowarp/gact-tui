@@ -128,10 +128,21 @@ func TestAgents(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("get: %d", rec2.Code)
 	}
-	// Write API stubbed to 501.
-	rec3 := do(t, h, http.MethodPost, "/v1/agents", map[string]any{"id": "x"})
-	if rec3.Code != http.StatusNotImplemented {
-		t.Errorf("POST: %d, want 501", rec3.Code)
+	rec3 := do(t, h, http.MethodPost, "/v1/agents", map[string]any{"id": "x", "title": "X"})
+	if rec3.Code != http.StatusCreated {
+		t.Fatalf("POST: %d, want 201", rec3.Code)
+	}
+	rec4 := do(t, h, http.MethodPut, "/v1/agents/x", map[string]any{"title": "X2", "enabled": true})
+	if rec4.Code != http.StatusOK {
+		t.Fatalf("PUT: %d, want 200", rec4.Code)
+	}
+	rec5 := do(t, h, http.MethodPost, "/v1/agents/extract", map[string]any{"agent_id": "from-session", "session_ids": []string{"s1"}})
+	if rec5.Code != http.StatusCreated {
+		t.Fatalf("extract: %d, want 201", rec5.Code)
+	}
+	rec6 := do(t, h, http.MethodDelete, "/v1/agents/x", nil)
+	if rec6.Code != http.StatusNoContent {
+		t.Fatalf("DELETE: %d, want 204", rec6.Code)
 	}
 }
 

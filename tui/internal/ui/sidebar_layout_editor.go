@@ -31,6 +31,7 @@ func (a *App) openSidebarLayoutEditor() {
 
 func (a *App) closeSidebarLayoutEditor() {
 	a.sidebarLayoutOpen = false
+	a.sidebarLayoutGrabbed = false
 }
 
 func (a *App) resetSidebarLayoutEditor() {
@@ -39,6 +40,7 @@ func (a *App) resetSidebarLayoutEditor() {
 	a.sidebarLayoutConfigured = false
 	a.sidebarLayoutCol = sidebarLayoutColumnLeft
 	a.sidebarLayoutSel = [3]int{}
+	a.sidebarLayoutGrabbed = false
 	a.persistPrefs()
 }
 
@@ -46,13 +48,13 @@ func (a *App) sidebarLayoutColumns() []sidebarLayoutColumnView {
 	left, right := a.effectiveSidebarLayoutIDs()
 	available := a.availableSidebarModuleIDs(left, right)
 	columns := []sidebarLayoutColumnView{}
-	if len(left) > 0 {
+	if len(left) > 0 || a.sidebarLayoutGrabbed || a.sidebarLayoutCol == sidebarLayoutColumnLeft {
 		columns = append(columns, sidebarLayoutColumnView{id: sidebarLayoutColumnLeft, title: "Left", modules: left})
 	}
-	if len(available) > 0 {
+	if len(available) > 0 || a.sidebarLayoutGrabbed || a.sidebarLayoutCol == sidebarLayoutColumnAvailable {
 		columns = append(columns, sidebarLayoutColumnView{id: sidebarLayoutColumnAvailable, title: "Available", modules: available})
 	}
-	if len(right) > 0 {
+	if len(right) > 0 || a.sidebarLayoutGrabbed || a.sidebarLayoutCol == sidebarLayoutColumnRight {
 		columns = append(columns, sidebarLayoutColumnView{id: sidebarLayoutColumnRight, title: "Right", modules: right})
 	}
 	if len(columns) == 0 {
@@ -129,32 +131,38 @@ func (a *App) handleSidebarLayoutKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q", "ctrl+s":
 		a.closeSidebarLayoutEditor()
 		return a, nil
-	case "tab":
-		a.focusNextSidebarLayoutColumn(1)
-		return a, nil
-	case "shift+tab":
-		a.focusNextSidebarLayoutColumn(-1)
-		return a, nil
 	case "up", "k":
+		if a.sidebarLayoutGrabbed {
+			a.reorderSidebarLayoutModule(-1)
+			return a, nil
+		}
 		a.moveSidebarLayoutSelection(-1)
 		return a, nil
 	case "down", "j":
+		if a.sidebarLayoutGrabbed {
+			a.reorderSidebarLayoutModule(1)
+			return a, nil
+		}
 		a.moveSidebarLayoutSelection(1)
 		return a, nil
-	case "ctrl+up", "shift+up", "[":
-		a.reorderSidebarLayoutModule(-1)
-		return a, nil
-	case "ctrl+down", "shift+down", "]":
-		a.reorderSidebarLayoutModule(1)
-		return a, nil
 	case "left", "h":
-		a.transferSidebarLayoutModule(-1)
+		if a.sidebarLayoutGrabbed {
+			a.transferSidebarLayoutModule(-1)
+		} else {
+			a.focusNextSidebarLayoutColumn(-1)
+		}
 		return a, nil
 	case "right", "l":
-		a.transferSidebarLayoutModule(1)
+		if a.sidebarLayoutGrabbed {
+			a.transferSidebarLayoutModule(1)
+		} else {
+			a.focusNextSidebarLayoutColumn(1)
+		}
 		return a, nil
-	case "enter":
-		a.transferSidebarLayoutModule(defaultSidebarLayoutTransfer(a.sidebarLayoutCol))
+	case "enter", " ":
+		if _, ok := a.selectedSidebarLayoutModule(); ok {
+			a.sidebarLayoutGrabbed = !a.sidebarLayoutGrabbed
+		}
 		return a, nil
 	case "r":
 		a.resetSidebarLayoutEditor()
@@ -236,6 +244,8 @@ func (a *App) transferSidebarLayoutModule(delta int) {
 	a.sidebarLayoutCol = target
 	if idx, ok := a.indexSidebarLayoutModule(target, id); ok {
 		a.sidebarLayoutSel[target] = idx
+	} else {
+		a.sidebarLayoutSel[target] = 0
 	}
 	a.clampSidebarLayoutEditorSelection()
 	a.persistPrefs()
@@ -328,6 +338,9 @@ func (a *App) viewSidebarLayoutEditor() string {
 					meta:     a.sidebarLayoutModuleMeta(id, column.id),
 					selected: column.id == a.sidebarLayoutCol && row == a.sidebarLayoutSel[column.id],
 				}
+				if item.selected && a.sidebarLayoutGrabbed {
+					item.meta = "moving"
+				}
 				cell = a.renderModalListItemLine(item, colW)
 				col := colIdx * (colW + gap)
 				columnID := column.id
@@ -350,7 +363,7 @@ func (a *App) viewSidebarLayoutEditor() string {
 		bodyRows = append(bodyRows, strings.Join(cells, strings.Repeat(" ", gap)))
 	}
 	bodyRows = append(bodyRows, "")
-	bodyRows = append(bodyRows, t.HintLabel.Render("←/→ move between columns  ↑/↓ select  Ctrl+↑/↓ reorder  r reset  Esc close"))
+	bodyRows = append(bodyRows, t.HintLabel.Render("↑/↓ select  ←/→ column  Enter grab/drop  arrows move grabbed  r reset  Esc close"))
 
 	buttons := []menuButton{
 		{id: "sidebar-layout:reset", label: "reset", action: func(app *App) tea.Cmd {

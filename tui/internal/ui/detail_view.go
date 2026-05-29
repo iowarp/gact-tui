@@ -176,12 +176,12 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 //	1  blank between title and body
 //	1  blank between body and hint
 //	1  hint
-//	4  outer screen margin (2 top, 2 bottom)
+//	18 outer screen margin and composer/footer gutter
 //
-// = 12 rows reserved. Prevents the tall-file overflow the user
+// = 26 rows reserved. Prevents the tall-file overflow the user
 // reported ("the window can overflow").
 func (a *App) detailPageSize() int {
-	n := a.height - 12
+	n := a.height - 26
 	if n < 1 {
 		n = 1
 	}

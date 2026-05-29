@@ -18,8 +18,11 @@ Enter
 Wait+Screen /Agents/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_alcf_20260525_agents_catalog.png"
+Down
+Sleep 150ms
+Down
+Sleep 150ms
 Enter
-Wait+Screen /Agent ·/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_alcf_20260525_agent_detail.png"
 Escape
