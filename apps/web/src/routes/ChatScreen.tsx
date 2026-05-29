@@ -1136,6 +1136,22 @@ function LiveDriven(props: {
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
+      onCopyMessagePermalink={async (msg) => {
+        const sid = activeId();
+        if (!sid) return;
+        const link = `clio://session/${sid}#${msg.id}`;
+        try {
+          await navigator.clipboard.writeText(link);
+          toast.push({
+            tone: 'success',
+            title: 'Link copied',
+            body: link,
+            duration: 2500,
+          });
+        } catch {
+          /* clipboard blocked — ignore */
+        }
+      }}
       onSpeakMessage={async (msg) => {
         const sid = activeId();
         if (!sid) return;
@@ -1241,6 +1257,7 @@ interface ChatLayoutProps {
     next: import('@clio/core').SessionTask['status'],
   ) => void | Promise<void>;
   onSpeakMessage?: (msg: import('@clio/core').Message) => void | Promise<void>;
+  onCopyMessagePermalink?: (msg: import('@clio/core').Message) => void | Promise<void>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -2327,6 +2344,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onDelete={props.onDeleteMessage}
               onPinFile={props.onPinFile}
               onSpeak={props.onSpeakMessage}
+              onCopyPermalink={props.onCopyMessagePermalink}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
               searchQuery={searchOpen() ? searchQuery() : ''}
