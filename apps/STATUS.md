@@ -660,6 +660,22 @@ changes, no contract changes, no design-system writes.
   config. (b6f0476)
 - **Inspector task status cycling** — Tasks rows now click to advance
   pending→running→completed via `PATCH /v1/tasks/{tid}`. (e851c8e)
+- **Human cron preview** — Schedule create form prints a tagline like
+  "Every 5 minutes" or "Daily at 09:00" beside the cron input. (9b0229f)
+- **Voice → text via file upload** — Composer gains a file-picker
+  button that uploads audio to `POST /v1/sessions/{id}/voice/transcribe`
+  and injects the transcript. (c8e8a5e)
+- **Voice synth Client method** — `Client.synthesizeVoice` posts text
+  to `/voice/synthesize` and returns the audio Blob. (48c7aee)
+- **TTS speak button** — assistant message rows gain a Speak action
+  that plays the synthesized blob via `HTMLAudioElement`. (bb5f8de)
+- **Browser-side mic recording** — Composer mic button uses
+  `MediaRecorder` to capture audio in-browser, then routes the blob
+  through the same transcribe path. Pulsing red dot while hot —
+  no Tauri mic plugin required. (bf50928)
+- **Blueprint MCP enable Client method** — `enableBlueprintMcp(bp,
+  descriptor)` posts to `/v1/agent-blueprints/{bp}/mcp/{did}/enable`.
+  (642e42b)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
