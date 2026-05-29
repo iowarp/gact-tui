@@ -515,15 +515,17 @@ function LiveDriven(props: {
     }
   }
 
-  async function exportSession(id: string) {
+  async function exportSession(id: string, format: 'json' | 'md' = 'json') {
     try {
       const payload = await live.client.exportSession(id);
-      const json = JSON.stringify(payload, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
+      const body = format === 'md' ? sessionToMarkdown(payload) : JSON.stringify(payload, null, 2);
+      const mime = format === 'md' ? 'text/markdown' : 'application/json';
+      const ext = format === 'md' ? 'md' : 'json';
+      const blob = new Blob([body], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `clio-session-${id}.json`;
+      a.download = `clio-session-${id}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -531,7 +533,7 @@ function LiveDriven(props: {
       toast.push({
         tone: 'success',
         title: 'Session exported',
-        body: `clio-session-${id}.json`,
+        body: `clio-session-${id}.${ext}`,
         duration: 3000,
       });
     } catch (e) {
@@ -1215,7 +1217,7 @@ interface ChatLayoutProps {
   /** Per-session actions (LiveDriven path only). */
   onRenameSession?: (id: string, nextTitle: string) => void | Promise<void>;
   onDeleteSession?: (id: string) => void | Promise<void>;
-  onExportSession?: (id: string) => void | Promise<void>;
+  onExportSession?: (id: string, format?: 'json' | 'md') => void | Promise<void>;
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
@@ -1277,6 +1279,34 @@ function messageToText(msg: Message): string {
     })
     .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * Convert a backend session-export payload to a readable Markdown
+ * document. Best-effort — we mirror the shape exporter currently
+ * returns: `{session: {...}, messages: [...]}` with each message
+ * carrying `role` + `parts[]`.
+ */
+function sessionToMarkdown(payload: unknown): string {
+  const root = payload as {
+    session?: { title?: string; id?: string; created_at?: string };
+    messages?: Message[];
+  };
+  const sess = root.session ?? {};
+  const messages = root.messages ?? [];
+  const lines: string[] = [];
+  lines.push(`# ${sess.title ?? 'CLIO session'}`);
+  if (sess.id) lines.push(`*Session* \`${sess.id}\``);
+  if (sess.created_at) lines.push(`*Started* ${sess.created_at}`);
+  lines.push('');
+  for (const m of messages) {
+    const role = m.role ? m.role.toUpperCase() : 'MESSAGE';
+    lines.push(`---`);
+    lines.push(`### ${role}`);
+    const text = messageToText(m);
+    if (text) lines.push('', text, '');
+  }
+  return lines.join('\n');
 }
 
 function loadPinnedSet(key: string): Set<string> {
@@ -1711,6 +1741,12 @@ function ChatLayout(props: ChatLayoutProps) {
       setComposeOpen(true);
       return;
     }
+    if (cmd.id === 'export-md') {
+      if (props.activeId && props.onExportSession) {
+        void props.onExportSession(props.activeId, 'md');
+      }
+      return;
+    }
     if (cmd.id === 'catalog-browser') {
       setCatalogOpen(true);
       return;
@@ -1864,6 +1900,12 @@ function ChatLayout(props: ChatLayoutProps) {
         id: 'open-shared-session',
         trigger: 'open · shared session',
         description: 'Open a clio: share token (Ctrl+L)',
+        category: 'action',
+      },
+      {
+        id: 'export-md',
+        trigger: 'export · markdown',
+        description: 'Download the active session as a .md file',
         category: 'action',
       },
       {
