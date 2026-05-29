@@ -58,6 +58,11 @@ export interface InspectorDrawerProps {
   onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
   onRemoveContextFile?: (path: string) => void | Promise<void>;
+  /** Cycle a context file's mode (read → edit → pin → read). */
+  onCycleContextFileMode?: (
+    path: string,
+    next: 'read' | 'edit' | 'pin',
+  ) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -474,6 +479,25 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                     <span class="inspector__file-path" title={f.path}>{f.path}</span>
                     <Show when={f.language}>
                       <span class="inspector__file-lang">{f.language}</span>
+                    </Show>
+                    <Show when={props.onCycleContextFileMode}>
+                      <button
+                        type="button"
+                        class="inspector__file-mode"
+                        title="Cycle mode: read → edit → pin"
+                        onClick={() => {
+                          const order: Array<'read' | 'edit' | 'pin'> = [
+                            'read',
+                            'edit',
+                            'pin',
+                          ];
+                          const cur = (f.mode ?? 'read') as 'read' | 'edit' | 'pin';
+                          const next = order[(order.indexOf(cur) + 1) % order.length]!;
+                          void props.onCycleContextFileMode?.(f.path, next);
+                        }}
+                      >
+                        {f.mode ?? 'read'}
+                      </button>
                     </Show>
                     <Show when={props.onRemoveContextFile}>
                       <button

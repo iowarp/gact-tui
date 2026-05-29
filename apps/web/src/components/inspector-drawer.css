@@ -775,3 +775,18 @@
   background: color-mix(in srgb, var(--color-error) 14%, transparent);
   color: var(--color-error);
 }
+
+.inspector__file-mode {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-accent-cyan);
+  cursor: pointer;
+}
+
+.inspector__file-mode:hover {
+  border-color: var(--color-accent-cyan);
+}
