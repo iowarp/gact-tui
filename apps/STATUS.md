@@ -692,6 +692,13 @@ changes, no contract changes, no design-system writes.
   `mcpUnsubscribeResource`, `mcpServerResourceTemplates`,
   `mcpGetPrompt` (`cfee73b`, `c8a6a47`) — methods are wired even
   when no UI hits them yet, so future UI work can drop straight in.
+- **Cmd+E quick-edit** — re-opens the last user message in the
+  composer for in-place editing. (d0bd01d)
+- **Cmd+Y copy transcript** — writes the user/assistant dialogue
+  to the clipboard as plain text. (bd64cb5)
+- **Agent Remove + Extract** — AgentsPage card gains a Remove
+  button (`a34b15c`) and the palette gains an `extract · agent`
+  action that posts to `/v1/agents/extract` (`39982e4`).
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
