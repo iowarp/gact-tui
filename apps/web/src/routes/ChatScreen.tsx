@@ -344,6 +344,21 @@ function LiveDriven(props: {
       // /v1/sessions/{id}/context/frames so the Inspector list updates.
       void refetchFrames();
     },
+    onContextFilesChanged: () => {
+      // context.file.{added,removed} → Inspector Context tab refetch.
+      void refetchContextFiles();
+    },
+    onDiffChanged: () => {
+      // file.diff.{applied,rejected,write_failed} → Inspector Diffs tab
+      // refetch so the queue reflects the new server state.
+      void refetchSessionDiffs();
+    },
+    onMemoryChanged: () => {
+      // memory.search.completed fires when the orchestrator finishes a
+      // recall pass; bump the memory drawer if it's open.
+      // (No resource handle here yet — drawer pulls on open. Stub the
+      // hook so the contract is satisfied and we can wire later.)
+    },
     onNotification: (n) => {
       const tone =
         n.level === 'error' ? 'error' : n.level === 'warning' ? 'warn' : 'info';
