@@ -841,6 +841,16 @@ export class Client {
     return this.get('/v1/lsp/clients');
   }
 
+  /** GET /v1/lsp/clients/{name}/diagnostics — current diagnostics
+   * surfaced by an LSP client. Shape is opaque (backend-dependent). */
+  lspDiagnostics(
+    name: string,
+  ): Promise<{ diagnostics: Array<Record<string, unknown>>; [k: string]: unknown }> {
+    return this.get(
+      `/v1/lsp/clients/${encodeURIComponent(name)}/diagnostics`,
+    );
+  }
+
   /** GET /v1/tools/{id} — single-tool detail (richer than the bulk list). */
   getTool(toolId: string): Promise<Record<string, unknown>> {
     return this.get(`/v1/tools/${encodeURIComponent(toolId)}`);
