@@ -438,5 +438,127 @@ Until clio ships these, the desktop should either hide the affected
 controls or surface a "not yet supported by this backend" pill so
 users don't think the click worked.
 
+### SSE handler gap (E-19)
 
+**[BROKEN] (E-19) Desktop subscribed to 11 SSE event types but had no reducer cases.**
+
+clio emits ~30 distinct event types on the per-session SSE channel.
+The desktop's `named` subscription list was 19 entries; the reduce
+switch's `case` blocks covered 16. The 11-type gap silently dropped
+every event of these kinds:
+
+```
+session.cleared
+message.deleted
+context.file.added
+context.file.removed
+file.diff.applied
+file.diff.rejected
+file.diff.write_failed
+expert_handoff
+subagent.started
+subagent.completed
+memory.search.completed
+turn.retry_requested
+```
+
+Observable user-facing symptoms:
+
+  - User triggers `/clear` → backend wipes the transcript, emits
+    `session.cleared`, desktop keeps showing stale messages until
+    a manual refetch.
+  - Backend deletes a message (e.g. another client undid a turn) →
+    desktop shows a ghost row.
+  - Diff Apply/Reject from elsewhere → Inspector Diffs tab keeps
+    showing the resolved diffs.
+  - Context-file add/remove from a slash command → Inspector Context
+    tab is frozen until session switch.
+  - Sub-agent / expert-handoff signal → user gets no notification.
+  - `turn.retry_requested` (orchestrator retrying after transient
+    LM failure) → silent.
+
+Fix: subscribe to the missing types and add reducer cases that
+either mutate transcript state directly (`session.cleared`,
+`message.deleted`) or fire callbacks (`onContextFilesChanged`,
+`onDiffChanged`, `onMemoryChanged`) to refetch the affected
+resources. Each side-channel event also surfaces a toast so the
+user knows the state changed.
+
+Wired through ChatScreen's three new `onContextFilesChanged`,
+`onDiffChanged`, `onMemoryChanged` callbacks to the existing
+`refetchContextFiles` / `refetchSessionDiffs` / memory drawer
+hooks.
+
+### Wire-shape audit pass 2 (E-20…E-24)
+
+**[BROKEN] (E-20) `callMcpTool` client method was missing entirely.**
+
+clio exposes `POST /v1/mcp/servers/{id}/call` (body `{tool, args,
+session_id?}`) as the canonical way to drive an installed MCP
+server from the UI. The desktop had no client method for it. Any
+"use MCP server X" feature was therefore impossible to build —
+the wire was unreachable.
+
+Fix: add `Client.callMcpTool(serverId, {tool, args, sessionId?})`.
+Passing `sessionId` attaches the call to the session context so
+the tool_observer fires real `tool.call.*` SSE events, identical
+to in-process tool calls. Without it the call still works but the
+UI sees no progress.
+
+**[BROKEN] (E-21) `renderPrompt` / `validatePrompt` missing.**
+
+clio exposes `POST /v1/prompts/{id}/render` (body `{profile?,
+session_id?, workspace_id?, context?}`) and `POST /v1/prompts/{id}
+/validate` (body `{text?, profile?, session_id?, workspace_id?}`).
+The desktop had only `GET /v1/prompts/{id}` for resolution + no
+way to preview a prompt with arguments. The prompts editor's
+"Preview" button currently dead-ends on a 404 (or worse, silently
+shows the unrendered template).
+
+Fix: add `Client.renderPrompt` and `Client.validatePrompt`.
+
+**[BROKEN] (E-22) `patchContextFile` POSTed to a non-existent
+PATCH route.**
+
+The desktop's `Client.patchContextFile` issued `PATCH
+/v1/sessions/{id}/context/files`. clio registers no PATCH for that
+path. The mode-cycle button in the Inspector Context tab therefore
+405'd: every click on read↔edit↔pin failed silently (the UI showed
+a toast saying "Mode change failed" because the request bounced,
+but the user couldn't tell why).
+
+clio's POST endpoint for the same path is an upsert keyed by
+`path`. Repurpose the client method to use POST — the body shape
+is identical and the upsert semantics give us the mode swap for
+free.
+
+Fix: rewrite `patchContextFile` to issue POST instead of PATCH.
+
+**[BROKEN] (E-23) `applySessionDiffs` discarded per-path write
+errors.**
+
+clio's `POST /v1/sessions/{id}/diffs/apply` returns
+`{applied: string[], write_errors?: Record<string, string>}`
+where `write_errors` carries per-path failures whose in-memory
+diff status flipped to `applied` but the actual disk write blew
+up (perm denied, disk full, file outside workspace root). The
+desktop only counted `r.applied.length` and showed a green
+success toast — a partial disk-write failure looked like a clean
+success.
+
+Fix: surface each `write_errors` entry as its own error toast so
+the user knows which file didn't actually write to disk even
+though clio considered the diff applied.
+
+**[BROKEN] (E-24) `answerSessionQuestion` body shape missed `metadata`.**
+
+clio's `AnswerUserQuestionRequest` accepts an optional `metadata`
+map that survives into the answered question's `answer_metadata`
+field and into the resumed turn's caller context. The desktop's
+body type omitted it, so any ask-user resume that wanted to round-
+trip metadata (e.g. UI source, locale, draft id) had no path.
+
+Fix: add `metadata?: Record<string, unknown>` to the client's
+body type. No reducer changes — the field is already in
+clio's response.
 
