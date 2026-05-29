@@ -1087,6 +1087,11 @@ function LiveDriven(props: {
       sessionTasks={sessionTasks()}
       contextFiles={contextFiles()}
       contextFrames={contextFrames()}
+      onLoadFrameDetail={(fid) => {
+        const sid = activeId();
+        if (!sid) return Promise.reject(new Error('no active session'));
+        return live.client.sessionContextFrame(sid, fid);
+      }}
       sessionDiffs={sessionDiffs()}
       schedules={schedules()}
       onCreateSchedule={
@@ -1194,6 +1199,7 @@ interface ChatLayoutProps {
   sessionTasks?: import('@clio/core').SessionTask[];
   contextFiles?: import('@clio/core').ContextFile[];
   contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
+  onLoadFrameDetail?: (frameId: string) => Promise<Record<string, unknown>>;
   sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
@@ -2314,6 +2320,7 @@ function ChatLayout(props: ChatLayoutProps) {
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
           frames={props.contextFrames ?? []}
+          onLoadFrameDetail={props.onLoadFrameDetail}
           sessionDiffs={props.sessionDiffs ?? []}
           schedules={props.schedules ?? []}
           onCreateSchedule={props.onCreateSchedule}
