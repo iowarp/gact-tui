@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Show } from 'solid-js';
+import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import type { Client } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -38,6 +38,34 @@ export function MemoryPage(props: MemoryPageProps) {
   const events = () => (eventsData()?.events ?? []) as MemoryEventRow[];
   const [showEvents, setShowEvents] = createSignal(true);
 
+  // Cross-session memory search (PR #351). Debounced so we don't
+  // hammer /v1/memory/search on every keystroke. Empty query returns
+  // null and the result panel collapses.
+  const [rawQuery, setRawQuery] = createSignal('');
+  const [debouncedQuery, setDebouncedQuery] = createSignal('');
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  function onQueryInput(v: string) {
+    setRawQuery(v);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => setDebouncedQuery(v.trim()), 250);
+  }
+  const searchKey = createMemo(() => {
+    const q = debouncedQuery();
+    return q.length >= 2 ? q : null;
+  });
+  const [searchData] = createResource(
+    () => searchKey(),
+    async (q) => {
+      if (!q) return null;
+      try {
+        const r = await props.client.memorySearch(q, { limit: 50 });
+        return r;
+      } catch {
+        return { query: q, hits: [] };
+      }
+    },
+  );
+
   return (
     <DiscoveryPage
       icon="memory"
@@ -59,6 +87,63 @@ export function MemoryPage(props: MemoryPageProps) {
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
     >
+      <div class="mem__search">
+        <Icon name="search" size={13} />
+        <input
+          type="search"
+          class="mem__search-input"
+          placeholder="Search every session in this workspace…"
+          value={rawQuery()}
+          onInput={(e) => onQueryInput(e.currentTarget.value)}
+          data-testid="memory-search-input"
+        />
+        <Show when={rawQuery()}>
+          <button
+            type="button"
+            class="mem__search-clear"
+            onClick={() => {
+              setRawQuery('');
+              setDebouncedQuery('');
+            }}
+            aria-label="Clear search"
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </Show>
+      </div>
+      <Show when={searchKey()}>
+        <div class="mem__search-results" data-testid="memory-search-results">
+          <Show when={searchData.loading}>
+            <div class="mem__search-status">Searching…</div>
+          </Show>
+          <Show when={!searchData.loading && searchData() && (searchData()?.hits.length ?? 0) === 0}>
+            <div class="mem__search-status">No hits.</div>
+          </Show>
+          <Show when={!searchData.loading && (searchData()?.hits.length ?? 0) > 0}>
+            <ul class="mem__search-list">
+              <For each={searchData()?.hits ?? []}>
+                {(h) => (
+                  <li class="mem__search-hit" data-testid={`memory-search-hit-${h.message_id}`}>
+                    <div class="mem__search-hit-meta">
+                      <Show when={h.role}>
+                        <span class="mem__search-hit-role">{h.role}</span>
+                      </Show>
+                      <span class="mem__search-hit-session">
+                        session {h.session_id.slice(0, 8)}
+                      </span>
+                      <Show when={typeof h.score === 'number'}>
+                        <span class="mem__search-hit-score">{h.score!.toFixed(2)}</span>
+                      </Show>
+                    </div>
+                    <div class="mem__search-hit-text">{h.text}</div>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
+        </div>
+      </Show>
+
       <Show when={data()}>
         {(d) => (
           <>
