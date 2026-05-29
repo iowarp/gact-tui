@@ -109,8 +109,21 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
 
     await expect(page.getByTestId(`msg-copy-${asstMsgId}`)).toBeVisible();
     await expect(page.getByTestId(`msg-delete-${asstMsgId}`)).toBeVisible();
-    await expect(page.getByTestId(`msg-speak-${asstMsgId}`)).toBeVisible();
     await expect(page.getByTestId(`msg-link-${asstMsgId}`)).toBeVisible();
+    // msg-speak is gated on backend.capabilities.voice (per E-25 —
+    // clicking a Speak button on a backend without /voice/synthesize
+    // is a guaranteed error). Assert it only when the backend
+    // advertises voice support.
+    const voiceCapable = await page.evaluate(async (url) => {
+      const r = await fetch(`${url}/v1/capabilities`);
+      const j = await r.json();
+      return Boolean(j?.capabilities?.voice);
+    }, BACKEND);
+    if (voiceCapable) {
+      await expect(page.getByTestId(`msg-speak-${asstMsgId}`)).toBeVisible();
+    } else {
+      await expect(page.getByTestId(`msg-speak-${asstMsgId}`)).toHaveCount(0);
+    }
     await page.screenshot({ path: shot('99-136-139-message-actions'), fullPage: false });
     await ctx.close();
     await browser.close();
@@ -162,6 +175,20 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
   test('msg-speak fires speech synthesis (#136)', async () => {
     const browser = await bootBrowser();
     const { ctx, page } = await openConnected(browser);
+    // E-25: clio without /voice/synthesize advertises voice:false in
+    // capabilities and the desktop hides the Speak button. Skip the
+    // assertion until clio ships TTS.
+    const voiceCapable = await page.evaluate(async (url) => {
+      const r = await fetch(`${url}/v1/capabilities`);
+      const j = await r.json();
+      return Boolean(j?.capabilities?.voice);
+    }, BACKEND);
+    if (!voiceCapable) {
+      test.skip(true, 'backend does not advertise voice capability');
+      await ctx.close();
+      await browser.close();
+      return;
+    }
     const { asstMsgId } = await sendOneTurn(page);
 
     // Stub speechSynthesis so headless chromium doesn't actually try

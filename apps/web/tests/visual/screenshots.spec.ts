@@ -69,6 +69,27 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings-backends lists registered endpoints', async ({ page }) => {
+    // Pure-web preview has no Tauri shell to register the local
+    // sidecar entry, so we seed the registry via localStorage
+    // before navigation (same pattern as the multi-backend-picker
+    // test below). Otherwise the list renders empty and the
+    // testid for the row never appears.
+    await page.addInitScript(() => {
+      const seed = {
+        backends: [
+          {
+            id: 'sidecar:local',
+            label: 'Local sidecar',
+            url: 'http://127.0.0.1:17800',
+            bearerToken: '••••',
+            kind: 'local-sidecar',
+            capabilities: { contract_version: '0.2' },
+          },
+        ],
+        currentId: 'sidecar:local',
+      };
+      window.localStorage.setItem('clio.backends.v1', JSON.stringify(seed));
+    });
     await page.goto('/?route=settings-backends');
     await expect(page.getByTestId('settings-backends')).toBeVisible();
     await expect(page.getByTestId('settings-row-sidecar:local')).toBeVisible();
