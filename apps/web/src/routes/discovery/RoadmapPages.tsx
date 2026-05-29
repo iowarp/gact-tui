@@ -415,32 +415,122 @@ export function BlueprintsPage(props: ClientPageProps) {
   );
 }
 
-/** Expert packs (#344 / #376 / #377). */
+/** Expert packs (#344 / #376 / #377). Read + validate. */
 export function ExpertPacksPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.expertPacks().catch(() => ({ packs: [] })),
   );
   const items = () => data()?.packs ?? [];
+
+  const [validateOpen, setValidateOpen] = createSignal(false);
+  const [docText, setDocText] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  const [verdict, setVerdict] = createSignal<{ ok: boolean; errors?: string[] } | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
+
+  async function submitValidate(ev: SubmitEvent) {
+    ev.preventDefault();
+    setError(null);
+    setVerdict(null);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(docText());
+    } catch (e) {
+      setError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const v = await props.client.validateExpertPack(parsed);
+      setVerdict(v);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <DiscoveryPage
       icon="sparkle"
       title="Expert packs"
       subtitle="Hierarchical prompt + skill bundles that bind to a workspace, session, or single turn."
       actions={
-        <button
-          type="button"
-          class="dp-iconbtn"
-          onClick={() => refetch()}
-          title="Refresh"
-        >
-          <Icon name="regenerate" size={14} />
-        </button>
+        <>
+          <button
+            type="button"
+            class="dp-iconbtn"
+            onClick={() => setValidateOpen((v) => !v)}
+            title="Validate a pack JSON"
+            data-testid="expertpack-validate-toggle"
+          >
+            <Icon name="check" size={14} />
+          </button>
+          <button
+            type="button"
+            class="dp-iconbtn"
+            onClick={() => refetch()}
+            title="Refresh"
+          >
+            <Icon name="regenerate" size={14} />
+          </button>
+        </>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0}
+      empty={!data.loading && items().length === 0 && !validateOpen()}
       emptyTitle="No expert packs installed"
-      emptyBody="Drop a pack under clio-agent/src/clio_agent/experts/ or use the expert-packs install path."
+      emptyBody="Drop a pack under clio-agent/src/clio_agent/experts/ or paste one above to validate."
     >
+      <Show when={validateOpen()}>
+        <form class="rmp__install" onSubmit={submitValidate}>
+          <label class="rmp__install-label" for="ep-validate">
+            Expert pack JSON (validate-only — install via clio-agent CLI)
+          </label>
+          <textarea
+            id="ep-validate"
+            class="rmp__editor"
+            rows={10}
+            placeholder='{"id": "...", "name": "...", "experts": []}'
+            value={docText()}
+            onInput={(e) => setDocText(e.currentTarget.value)}
+            data-testid="expertpack-validate-input"
+          />
+          <Show when={error()}>
+            <p class="rmp__form-err">{error()}</p>
+          </Show>
+          <Show when={verdict()}>
+            <p
+              class={'rmp__form-err ' + (verdict()!.ok ? 'rmp__form-ok' : '')}
+              data-testid="expertpack-verdict"
+            >
+              <Show
+                when={verdict()!.ok}
+                fallback={`✗ ${(verdict()!.errors ?? []).join('; ') || 'invalid'}`}
+              >
+                ✓ Pack JSON looks valid.
+              </Show>
+            </p>
+          </Show>
+          <div class="rmp__editor-actions">
+            <button
+              type="button"
+              class="ws-form__btn"
+              onClick={() => setValidateOpen(false)}
+              disabled={busy()}
+            >
+              Close
+            </button>
+            <button
+              type="submit"
+              class="ws-form__btn ws-form__btn--primary"
+              disabled={busy() || !docText().trim()}
+              data-testid="expertpack-validate-submit"
+            >
+              {busy() ? 'Validating…' : 'Validate'}
+            </button>
+          </div>
+        </form>
+      </Show>
       <div class="dp__grid">
         <For each={items()}>
           {(p) => (
