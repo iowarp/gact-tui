@@ -234,6 +234,8 @@ export function createLiveTranscript(
       'user_question.answered',
       'user_question.cancelled',
       'user_question.resumed',
+      'lm.provider.changed',
+      'lm.provider.failed',
     ];
 
     const onEvent = (raw: MessageEvent) => {
@@ -577,6 +579,27 @@ function reduce(
       // (the caller) refetches the transcript so the resumed turn
       // shows up.
       hooks.setPendingQuestion(null);
+      break;
+    }
+    case 'lm.provider.changed': {
+      const providerId = (p.provider_id as string) ?? 'unknown';
+      const modelId = (p.model_id as string) ?? '';
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Model swapped',
+        body: modelId ? `${providerId} / ${modelId}` : providerId,
+      });
+      break;
+    }
+    case 'lm.provider.failed': {
+      const providerId = (p.provider_id as string) ?? 'unknown';
+      const reason =
+        (p.error as string) ?? (p.message as string) ?? 'no detail provided';
+      hooks.onNotification?.({
+        level: 'error',
+        title: `${providerId} failed`,
+        body: reason,
+      });
       break;
     }
     case 'notification': {
