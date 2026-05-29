@@ -499,6 +499,15 @@
   font-style: italic;
 }
 
+.sx__row-fork {
+  display: inline-block;
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent-cyan);
+  vertical-align: middle;
+}
+
 .sx__title-actions {
   display: inline-flex;
   align-items: center;

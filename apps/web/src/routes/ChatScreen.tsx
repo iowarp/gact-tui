@@ -236,6 +236,7 @@ function LiveDriven(props: {
       // when the user just toggled and the server hasn't responded.
       pinned: pins.has(row.id) || row.metaPinned === true,
       ...(row.bumpedAt ? { bumpedAt: row.bumpedAt } : {}),
+      ...(row.parentId ? { parentId: row.parentId } : {}),
     }));
   });
 
