@@ -31,7 +31,7 @@ export function App() {
 
   // Default route is the Splash. Inside Tauri it polls the Rust supervisor
   // until the bundled sidecar reports ready; in a pure browser it auto-
-  // probes http://localhost:7777/v1/capabilities. The connect form only
+  // probes http://localhost:17800/v1/capabilities. The connect form only
   // appears as a fallback when the pure-web probe fails — it is NEVER the
   // default route. (Per the product correction in
   // memory/feedback_clio_desktop_sidecar.md and Wave 0 in apps/PLAN.md.)
@@ -46,7 +46,7 @@ export function App() {
     setRoute({
       name: 'chat',
       backend: {
-        url: url.searchParams.get('backend') ?? 'http://localhost:7777',
+        url: url.searchParams.get('backend') ?? 'http://localhost:17800',
         bearerToken: '',
         capabilities: synthCapabilities(),
       },
@@ -73,7 +73,7 @@ export function App() {
     // pollute the list.
     registry.add({
       id: 'clio:local',
-      label: inTauri() ? 'Local clio' : 'localhost:7777',
+      label: inTauri() ? 'Local clio' : 'localhost:17800',
       url: b.url,
       bearerToken: b.bearerToken,
       kind: inTauri() ? 'local-sidecar' : 'http',

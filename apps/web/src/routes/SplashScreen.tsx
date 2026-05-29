@@ -26,7 +26,7 @@ import './splash.css';
  * - In Tauri: polls `get_backend` until status flips from `starting`
  *   to `ready` (or `error`). The bundled clio-agent-gact sidecar is
  *   already spawning in the Rust supervisor; we just wait.
- * - In a pure browser: probes `http://localhost:7777/v1/capabilities`
+ * - In a pure browser: probes `http://localhost:17800/v1/capabilities`
  *   directly. If it answers, transition to chat. If not, surface a
  *   "manual connect" prompt that opens ConnectScreen (rendered as a
  *   sibling route, not the default).
@@ -39,7 +39,7 @@ export interface SplashScreenProps {
   onWebFallbackNeeded: () => void;
 }
 
-const PURE_WEB_DEFAULT_BACKEND = 'http://localhost:7777';
+const PURE_WEB_DEFAULT_BACKEND = 'http://localhost:17800';
 const PURE_WEB_PROBE_TIMEOUT_MS = 2_500;
 const TAURI_POLL_INTERVAL_MS = 250;
 const TAURI_MAX_WAIT_MS = 30_000;
@@ -189,7 +189,7 @@ export function SplashScreen(props: SplashScreenProps) {
           <p class="splash__hint">
             {phase() === 'starting'
               ? 'Booting the bundled clio-agent…'
-              : 'Looking for a backend on localhost:7777…'}
+              : 'Looking for a backend on localhost:17800…'}
             <Show when={elapsedMs() > 1500}>
               <span class="splash__elapsed">
                 {' · '}
