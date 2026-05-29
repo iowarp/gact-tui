@@ -72,14 +72,14 @@ export function App() {
     // shows it immediately. Use a stable id so duplicate boots don't
     // pollute the list.
     registry.add({
-      id: 'sidecar:local',
-      label: inTauri() ? 'Local sidecar' : 'localhost:7777',
+      id: 'clio:local',
+      label: inTauri() ? 'Local clio' : 'localhost:7777',
       url: b.url,
       bearerToken: b.bearerToken,
       kind: inTauri() ? 'local-sidecar' : 'http',
       capabilities: b.capabilities,
     });
-    registry.select('sidecar:local');
+    registry.select('clio:local');
     setRoute({ name: 'chat', backend: b });
   }
 
@@ -226,8 +226,8 @@ function synthCapabilities(): Capabilities {
 function seedFixtureBackends(registry: BackendRegistry) {
   if (registry.state().backends.length > 0) return;
   registry.add({
-    id: 'sidecar:local',
-    label: 'Local sidecar',
+    id: 'clio:local',
+    label: 'Local clio',
     url: 'http://127.0.0.1:17800',
     bearerToken: 'demo-token',
     kind: 'local-sidecar',
@@ -254,5 +254,5 @@ function seedFixtureBackends(registry: BackendRegistry) {
     kind: 'http',
     lastError: 'connect ECONNREFUSED 1.2.3.4:443',
   });
-  registry.select('sidecar:local');
+  registry.select('clio:local');
 }

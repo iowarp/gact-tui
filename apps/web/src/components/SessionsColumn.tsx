@@ -273,7 +273,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
             </p>
             <p class="sx__empty-body">
               {props.rows.length === 0
-                ? 'Start a conversation — your sidecar is ready.'
+                ? 'Start a conversation — clio is ready.'
                 : 'Try a different search.'}
             </p>
           </div>
