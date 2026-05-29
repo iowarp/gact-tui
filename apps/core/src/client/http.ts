@@ -150,8 +150,13 @@ export class Client {
     return this.get<Capabilities>('/v1/capabilities');
   }
 
-  sessions(): Promise<{ sessions: Session[] }> {
-    return this.get<{ sessions: Session[] }>('/v1/sessions');
+  sessions(options: { archived?: boolean } = {}): Promise<{ sessions: Session[] }> {
+    const qs = new URLSearchParams();
+    if (options.archived !== undefined) {
+      qs.set('archived', String(options.archived));
+    }
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get<{ sessions: Session[] }>(`/v1/sessions${suffix}`);
   }
 
   session(id: string): Promise<Session> {

@@ -1610,6 +1610,7 @@ function ChatLayout(props: ChatLayoutProps) {
           onShareSession={props.onShareSession}
           onForkSession={props.onForkSession}
           onTogglePin={props.onTogglePin}
+          archivedClient={discoveryClient}
         />
       </Show>
 
