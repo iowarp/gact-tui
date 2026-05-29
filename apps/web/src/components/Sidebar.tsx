@@ -10,6 +10,10 @@ export interface SidebarSession {
   updatedAt: string;
   /** Epoch ms — last time this row was touched by SSE (drives row pulse). */
   bumpedAt?: number;
+  /** Mirrors `metadata.pinned` from the server so the TUI and Desktop
+   * agree on pin state. Reconciled into the local pinnedIds set on
+   * session list refresh. */
+  metaPinned?: boolean;
 }
 
 export interface SidebarProps {
