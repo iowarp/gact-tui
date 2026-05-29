@@ -1143,6 +1143,14 @@ export class Client {
     );
   }
 
+  /** POST /v1/expert-packs/validate — dry-run validate a pack JSON. */
+  validateExpertPack(body: Record<string, unknown>): Promise<{
+    ok: boolean;
+    errors?: string[];
+  }> {
+    return this.post('/v1/expert-packs/validate', body);
+  }
+
   /** GET /v1/expert-packs — list installed expert packs (PR #344/#376). */
   expertPacks(): Promise<{ packs: Array<{
     id: string;

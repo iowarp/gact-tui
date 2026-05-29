@@ -1067,6 +1067,10 @@
   margin-bottom: 6px;
 }
 
+.rmp__form-ok {
+  color: var(--color-success);
+}
+
 .rmp__name {
   font-weight: 600;
   color: var(--color-heading);
