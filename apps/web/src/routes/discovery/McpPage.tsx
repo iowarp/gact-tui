@@ -143,6 +143,60 @@ export function McpPage(props: McpPageProps) {
   );
 }
 
+function McpPromptRow(props: {
+  s: McpServerInfo;
+  p: { name: string; description?: string };
+  client: Client;
+}) {
+  const [rendered, setRendered] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [err, setErr] = createSignal<string | null>(null);
+
+  async function load() {
+    if (rendered() !== null) {
+      setRendered(null);
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await props.client.mcpGetPrompt(props.s.id, props.p.name, {});
+      const text = (r.messages ?? [])
+        .map((m) => `${m.role.toUpperCase()}\n${m.content.text ?? '[non-text]'}`)
+        .join('\n\n');
+      setRendered(text || '(empty)');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li class="mcp__detail-row mcp__detail-row--resource">
+      <code class="mcp__detail-name">{props.p.name}</code>
+      <Show when={props.p.description}>
+        <span class="mcp__detail-desc">{props.p.description}</span>
+      </Show>
+      <button
+        type="button"
+        class="mcp__resource-preview"
+        onClick={() => void load()}
+        disabled={busy()}
+        data-testid={`mcp-prompt-render-${props.s.id}-${props.p.name}`}
+      >
+        {busy() ? '…' : rendered() !== null ? 'Hide' : 'Render'}
+      </button>
+      <Show when={err()}>
+        <pre class="mcp__resource-err">{err()}</pre>
+      </Show>
+      <Show when={rendered() !== null}>
+        <pre class="mcp__resource-text">{rendered()}</pre>
+      </Show>
+    </li>
+  );
+}
+
 function McpResourceRow(props: {
   s: McpServerInfo;
   r: { uri: string; name?: string };
@@ -327,14 +381,7 @@ function McpServerCard(props: {
                 <div class="mcp__detail-title">Prompts</div>
                 <ul class="mcp__detail-list">
                   <For each={detail()?.prompts ?? []}>
-                    {(p) => (
-                      <li class="mcp__detail-row">
-                        <code class="mcp__detail-name">{p.name}</code>
-                        <Show when={p.description}>
-                          <span class="mcp__detail-desc">{p.description}</span>
-                        </Show>
-                      </li>
-                    )}
+                    {(p) => <McpPromptRow s={props.s} p={p} client={props.client} />}
                   </For>
                 </ul>
               </div>
