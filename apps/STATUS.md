@@ -634,6 +634,32 @@ changes, no contract changes, no design-system writes.
   `/v1/mcp/servers/{id}/{tools,resources,prompts}` so users can see
   what each gateway actually exposes without dropping into the TUI.
   (32e0628)
+- **Blueprint validate/install/uninstall** — BlueprintsPage hosts a
+  JSON form that hits `POST /v1/agent-blueprints/validate` then
+  `POST /v1/agent-blueprints`; per-card Uninstall button calls
+  `DELETE /v1/agent-blueprints/{bp}`. (c1a29d9)
+- **Expert pack validate** — dry-run validate via
+  `POST /v1/expert-packs/validate` with verdict display. (d4f1748)
+- **SSE session.summarized / session.compacted** — were swallowed
+  alongside server.connected; now emit info toasts so the user sees
+  when older turns get rolled up. (f831fd7)
+- **Provider single detail** — ProviderCard surfaces
+  `GET /v1/providers/{id}` (vendor, status, auth.kind, required) on
+  the expansion alongside the model list. (1c6f6b1)
+- **Context Frame single-detail** — frames rows expand to lazy-fetch
+  `GET /v1/sessions/{id}/context/frames/{frame_id}` and pretty-print
+  the payload. (cb228ce)
+- **MCP resource preview** — each resource row gains a Preview button
+  that calls `POST /v1/mcp/servers/{id}/resources/read` and shows the
+  text inline. (480af06)
+- **Workspace repo map** — WorkspaceCard toggle reveals a tree pulled
+  from `GET /v1/workspaces/{id}/repo_map`, with token count chip.
+  (21541e1)
+- **Per-agent routing detail** — AgentCard expands to
+  `GET /v1/agents/{id}` and pretty-prints routing + tool + model
+  config. (b6f0476)
+- **Inspector task status cycling** — Tasks rows now click to advance
+  pending→running→completed via `PATCH /v1/tasks/{tid}`. (e851c8e)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
