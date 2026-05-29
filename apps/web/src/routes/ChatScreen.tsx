@@ -1017,8 +1017,16 @@ function LiveDriven(props: {
       contextFrames={contextFrames()}
       sessionDiffs={sessionDiffs()}
       schedules={schedules()}
-      onCreateSchedule={createSchedule}
-      onDeleteSchedule={deleteScheduleById}
+      onCreateSchedule={
+        props.backend.capabilities?.capabilities?.scheduled_sessions
+          ? createSchedule
+          : undefined
+      }
+      onDeleteSchedule={
+        props.backend.capabilities?.capabilities?.scheduled_sessions
+          ? deleteScheduleById
+          : undefined
+      }
       detachedSessions={detachedSessions()}
       onReattachDetached={reattachDetached}
       onWalkAway={walkAwayFromActive}
