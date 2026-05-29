@@ -30,6 +30,7 @@ import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
 import { CatalogBrowser } from '../components/CatalogBrowser.js';
+import { ComposeModal } from '../components/ComposeModal.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import { ServerSearchPanel } from '../components/ServerSearchPanel.js';
@@ -1010,6 +1011,8 @@ function ChatLayout(props: ChatLayoutProps) {
   const [paletteQuery, setPaletteQuery] = createSignal('');
   const [cheatsheetOpen, setCheatsheetOpen] = createSignal(false);
   const [catalogOpen, setCatalogOpen] = createSignal(false);
+  const [composeOpen, setComposeOpen] = createSignal(false);
+  const [draftReloadTick, setDraftReloadTick] = createSignal(0);
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
   const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
@@ -1187,6 +1190,11 @@ function ChatLayout(props: ChatLayoutProps) {
         } else {
           setPaletteOpen((v) => !v);
         }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        setComposeOpen((v) => !v);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
@@ -1917,6 +1925,7 @@ function ChatLayout(props: ChatLayoutProps) {
           permMode={props.permMode}
           onPickPermMode={props.onPickPermMode}
           draftKey={props.activeId || '__new'}
+          draftReloadTick={draftReloadTick()}
           backendSlot={
             <BackendPicker
               onOpenSettings={props.onOpenSettings}
@@ -1959,6 +1968,16 @@ function ChatLayout(props: ChatLayoutProps) {
       <KeybindCheatsheet
         open={cheatsheetOpen()}
         onClose={() => setCheatsheetOpen(false)}
+      />
+
+      <ComposeModal
+        open={composeOpen()}
+        draftKey={props.activeId || '__new'}
+        onSubmit={(text) => props.onSubmit?.(text)}
+        onClose={() => {
+          setComposeOpen(false);
+          setDraftReloadTick((n) => n + 1);
+        }}
       />
 
       <CatalogBrowser
