@@ -246,15 +246,17 @@ function LiveDriven(props: {
     `clio.active-session.${props.backend.url}`,
     '',
   );
+  // Stale-id recovery only — if the persisted active id is gone
+  // (deleted on another client, fresh backend), drop it. DO NOT
+  // auto-select the first session: that effect races with the
+  // composer's draftKey persistence and wipes whatever the user is
+  // typing at the moment the sessions resource resolves. Users land
+  // on the empty state and click a session deliberately.
   createEffect(() => {
     const list = rows();
-    // If the persisted active id is gone (session deleted on another
-    // client, or fresh backend), fall through to the most-recent.
-    if (activeId() && !list.some((r) => r.id === activeId()) && list.length > 0) {
-      setActiveId(list[0]!.id);
-      return;
+    if (activeId() && list.length > 0 && !list.some((r) => r.id === activeId())) {
+      setActiveId('');
     }
-    if (!activeId() && list.length > 0) setActiveId(list[0]!.id);
   });
 
   const [density, setDensity] = createPersistedSignal<TranscriptDensity>(
