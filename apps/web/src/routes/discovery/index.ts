@@ -13,3 +13,4 @@ export { MetricsPage } from './MetricsPage.js';
 export { ProvidersPage } from './ProvidersPage.js';
 export { ToolsPage } from './ToolsPage.js';
 export { WorkspacesPage } from './WorkspacesPage.js';
+export { PluginsPage } from './PluginsPage.js';

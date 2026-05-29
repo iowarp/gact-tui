@@ -6,6 +6,7 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod plugins;
 mod ssh;
 mod supervisor;
 
@@ -179,7 +180,8 @@ pub fn run() {
             harness_info,
             get_backend,
             tunnel_open,
-            gact_http
+            gact_http,
+            plugins::exec_plugin
         ])
         .setup(|app| {
             // Tray icon with a single "Show / Quit" menu — counts as the

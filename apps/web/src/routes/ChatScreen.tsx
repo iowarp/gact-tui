@@ -36,6 +36,7 @@ import {
   removeDetached,
   type DetachedSession,
 } from '../detached.js';
+import { invokePlugin, listPlugins } from '../plugins.js';
 import { CatalogBrowser } from '../components/CatalogBrowser.js';
 import { ComposeModal } from '../components/ComposeModal.js';
 import { SharedSessionModal } from '../components/SharedSessionModal.js';
@@ -65,6 +66,7 @@ import {
   McpPage,
   MemoryPage,
   MetricsPage,
+  PluginsPage,
   PromptsPage,
   ToolsPage,
   WorkspacesPage,
@@ -1939,6 +1941,29 @@ function ChatLayout(props: ChatLayoutProps) {
       void props.onExtractAgent?.();
       return;
     }
+    if (cmd.id.startsWith('plugin:')) {
+      const pid = cmd.id.slice('plugin:'.length);
+      const def = listPlugins().find((p) => p.id === pid);
+      if (def) {
+        void invokePlugin(def)
+          .then((r) => {
+            const out = (r.stdout || r.stderr || '').trim();
+            if (out && props.onSubmit) {
+              const tail =
+                out.length > 1800 ? `${out.slice(0, 1800)}\n… (truncated)` : out;
+              void props.onSubmit(
+                `Plugin \`${def.name}\` (exit ${r.status}, ${r.duration_ms}ms):\n\n\`\`\`\n${tail}\n\`\`\``,
+              );
+            }
+          })
+          .catch((e: unknown) => {
+            void props.onSubmit?.(
+              `Plugin \`${def.name}\` failed: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          });
+      }
+      return;
+    }
     if (cmd.id === 'summarize-with-instructions') {
       void props.onSummarizeWithInstructions?.();
       return;
@@ -2107,6 +2132,16 @@ function ChatLayout(props: ChatLayoutProps) {
             },
           ]
         : []),
+      // Locally-registered plugins with a slash trigger surface
+      // directly in the palette so users can run them via Cmd+K.
+      ...listPlugins()
+        .filter((p) => p.trigger)
+        .map((p) => ({
+          id: `plugin:${p.id}` as const,
+          trigger: p.trigger!,
+          description: p.description ?? `Run ${p.name}`,
+          category: 'action' as const,
+        })),
       {
         id: 'compose-modal',
         trigger: 'compose · fullscreen',
@@ -2766,6 +2801,9 @@ function DiscoveryView(props: {
         </Match>
         <Match when={props.route === 'doctor'}>
           <DoctorPage client={props.client} />
+        </Match>
+        <Match when={props.route === 'plugins'}>
+          <PluginsPage />
         </Match>
       </Switch>
     </Show>
