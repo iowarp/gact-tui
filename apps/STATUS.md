@@ -717,6 +717,14 @@ changes, no contract changes, no design-system writes.
   growth. Pairs with the per-message copy-link action. (eb133b1)
 - **Fork lineage badge** — SessionsColumn shows a ↘ glyph next to
   fork titles with the parent id in the tooltip. (11e67de)
+- **LSP diagnostics Client method** — `lspDiagnostics(name)` hits
+  `/v1/lsp/clients/{name}/diagnostics`. (60cc4ed)
+- **Full agents CRUD** — `putAgent` + `createAgent` added so callers
+  can register or replace definitions, not just list and delete.
+  (3fff86e)
+- **Context-file mode cycle** — Inspector Context tab gains a
+  clickable mode badge that cycles read → edit → pin via
+  `patchContextFile` (`6076e16`, `507727f`).
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
