@@ -631,11 +631,28 @@ function reduce(
       });
       break;
     }
+    case 'session.summarized': {
+      const sid = (p.session_id as string) ?? '';
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Session summarized',
+        body: sid ? `${sid.slice(0, 8)} — older turns rolled into a summary.` : 'Older turns rolled into a summary.',
+      });
+      break;
+    }
+    case 'session.compacted': {
+      const sid = (p.session_id as string) ?? '';
+      const removed = (p.removed_count as number) ?? 0;
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Session compacted',
+        body: `${sid.slice(0, 8)} — dropped ${removed} message${removed === 1 ? '' : 's'}.`,
+      });
+      break;
+    }
     case 'message.part.completed':
     case 'server.connected':
     case 'server.heartbeat':
-    case 'session.summarized':
-    case 'session.compacted':
     default:
       // No transcript-reducer action yet. tool.call.progress + notification
       // are tracked as v1.0 follow-ups for the chat shell.
