@@ -171,6 +171,8 @@ func (a *App) mouseOverlays() []mouseOverlay {
 		{open: a.quitConfirmOpen, view: a.viewQuitConfirm, closeOutside: func(app *App) { app.quitConfirmOpen = false }},
 		{open: a.mcpRemoveOpen, view: a.viewMcpRemove, closeOutside: func(app *App) { app.closeMcpRemoveModal() }},
 		{open: a.mcpInstallOpen, view: a.viewMcpInstall, closeOutside: func(app *App) { app.closeMcpInstallModal() }},
+		{open: a.agentEditOpen, view: a.viewAgentEdit, closeOutside: func(app *App) { app.closeAgentEdit() }},
+		{open: a.agentBlueprintManageOpen, view: a.viewAgentBlueprintManage, closeOutside: func(app *App) { app.closeAgentBlueprintManage() }},
 		{
 			open:         a.filePickerOpen,
 			view:         a.viewFilePicker,

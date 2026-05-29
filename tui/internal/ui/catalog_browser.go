@@ -72,6 +72,7 @@ type catalogItem struct {
 	title     string
 	desc      string
 	statusTag string // e.g. "connected" / "disconnected" for MCP
+	disabled  bool
 }
 
 // catalogBrowserLoadedMsg delivers the fetch result.
@@ -86,6 +87,30 @@ type catalogBrowserLoadedMsg struct {
 	promptID     string
 	expertPackID string
 	blueprintID  string
+}
+
+func (a *App) applyCapabilityGatesToCatalogItems(kind catalogBrowserKind, items []catalogItem) []catalogItem {
+	out := append([]catalogItem(nil), items...)
+	for i := range out {
+		switch {
+		case kind == catalogKindAgents && out[i].id == "action/create-agent":
+			out[i].disabled = !a.caps.Capabilities.AgentWrite
+			if out[i].disabled {
+				out[i].desc = "backend does not advertise agent_write"
+			}
+		case kind == catalogKindAgents && out[i].id == "action/extract-agent":
+			out[i].disabled = !a.caps.Capabilities.SkillsExtraction
+			if out[i].disabled {
+				out[i].desc = "backend does not advertise skills_extraction"
+			}
+		case kind == catalogKindAgentDetail && strings.HasPrefix(out[i].id, "agent-action/"):
+			out[i].disabled = !a.caps.Capabilities.AgentWrite
+			if out[i].disabled {
+				out[i].desc = "backend does not advertise agent_write"
+			}
+		}
+	}
+	return out
 }
 
 type promptSavedMsg struct {
@@ -105,6 +130,13 @@ type agentBlueprintMCPEnabledMsg struct {
 	descriptorID string
 	result       map[string]any
 	err          error
+}
+
+type agentBlueprintManagedMsg struct {
+	blueprintID string
+	action      string
+	result      map[string]any
+	err         error
 }
 
 type catalogDetailLoadedMsg struct {
@@ -226,6 +258,23 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
 			items := agentCatalogItems(agents, kind)
+			if kind == catalogKindAgents {
+				actions := []catalogItem{{
+					id:        "action/create-agent",
+					title:     "Create user agent",
+					desc:      "create a minimal user-owned agent definition",
+					statusTag: "write",
+				}}
+				if scope.SessionID != "" {
+					actions = append(actions, catalogItem{
+						id:        "action/extract-agent",
+						title:     "Extract agent from current session",
+						desc:      "derive a user agent from observed prompts and tool usage",
+						statusTag: "session",
+					})
+				}
+				items = append(actions, items...)
+			}
 			if len(items) == 0 && kind == catalogKindSkills {
 				items = append(items, catalogItem{
 					id:    "none",
@@ -252,7 +301,19 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
-			return catalogBrowserLoadedMsg{kind: kind, items: agentBlueprintCatalogItems(blueprints)}
+			actions := []catalogItem{{
+				id:        "action/install-blueprint",
+				title:     "Install agent blueprint",
+				desc:      "install a local path, git URL, or marketplace source into this workspace",
+				statusTag: "write",
+			}, {
+				id:        "action/validate-blueprint",
+				title:     "Validate agent blueprint",
+				desc:      "preview parsed agents, MCP descriptors, and validation errors before installing",
+				statusTag: "check",
+			}}
+			items := append(actions, agentBlueprintCatalogItems(blueprints)...)
+			return catalogBrowserLoadedMsg{kind: kind, items: items}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}
@@ -434,6 +495,26 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			desc:      agent.Description,
 			statusTag: agent.Source,
 		}}
+		items = append(items, catalogItem{
+			id:        "agent-action/clone",
+			title:     "Clone as user agent",
+			desc:      "create an editable user-owned copy without changing the source definition",
+			statusTag: "write",
+		})
+		if agent.Source == "user" {
+			items = append(items, catalogItem{
+				id:        "agent-action/edit",
+				title:     "Edit user agent",
+				desc:      "update title, description, prompt, tools, keywords, and enabled state",
+				statusTag: "write",
+			})
+			items = append(items, catalogItem{
+				id:        "agent-action/delete",
+				title:     "Delete user agent",
+				desc:      "remove this user-owned agent through CLIO's permission-guarded delete path",
+				statusTag: "delete",
+			})
+		}
 		if parent := agentParentID(agent); parent != "" {
 			items = append(items, catalogItem{
 				id: "agent/" + parent, title: "Parent agent · " + agentTitleByID(allAgents, parent),
@@ -641,6 +722,24 @@ func enableAgentBlueprintMCPCmd(c *client.Client, scope client.RuntimeScope, blu
 	}
 }
 
+func updateAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, blueprintID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result, err := c.UpdateAgentBlueprint(ctx, blueprintID, gact.AgentBlueprintUpdateRequest{WorkspaceID: scope.WorkspaceID, Scope: "workspace"})
+		return agentBlueprintManagedMsg{blueprintID: blueprintID, action: "updated", result: result, err: err}
+	}
+}
+
+func deleteAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, blueprintID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result, err := c.DeleteAgentBlueprint(ctx, blueprintID, "workspace", scope.WorkspaceID)
+		return agentBlueprintManagedMsg{blueprintID: blueprintID, action: "deleted", result: result, err: err}
+	}
+}
+
 func loadPromptResolvedDetailCmd(c *client.Client, scope client.RuntimeScope, promptID, profile string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -803,7 +902,20 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if (cb.kind == catalogKindAgents || cb.kind == catalogKindSkills) && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			if it.disabled {
+				a.transientHint = "action disabled: " + strings.TrimSpace(it.desc)
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			if it.id == "none" {
+				return a, nil
+			}
+			switch it.id {
+			case "action/create-agent":
+				a.openAgentWrite(agentWriteModeCreate, "", "new-agent")
+				return a, nil
+			case "action/extract-agent":
+				seed := "extracted-" + strings.TrimPrefix(a.currentSessionID(), "sess_")
+				a.openAgentWrite(agentWriteModeExtract, "", seed)
 				return a, nil
 			}
 			return a, a.openAgentDetail(it.id, it.title)
@@ -818,6 +930,14 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if cb.kind == catalogKindAgentBlueprints && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			switch it.id {
+			case "action/install-blueprint":
+				a.openAgentBlueprintManage(agentBlueprintManageInstall)
+				return a, nil
+			case "action/validate-blueprint":
+				a.openAgentBlueprintManage(agentBlueprintManageValidate)
+				return a, nil
+			}
 			return a, a.openAgentBlueprintDetail(it.id, it.title)
 		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
@@ -843,8 +963,25 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if cb.kind == catalogKindAgentDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			if it.disabled {
+				a.transientHint = "action disabled for this agent"
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			if strings.HasPrefix(it.id, "agent/") {
 				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+			}
+			if it.id == "agent-action/edit" {
+				return a, loadAgentForEditCmd(a.c, a.runtimeScope(), a.catalogBrowser.agentID)
+			}
+			if it.id == "agent-action/clone" {
+				seed := a.catalogBrowser.agentID + "-copy"
+				a.openAgentWrite(agentWriteModeClone, a.catalogBrowser.agentID, seed)
+				return a, nil
+			}
+			if it.id == "agent-action/delete" {
+				agentID := a.catalogBrowser.agentID
+				a.closeCatalogBrowser()
+				return a, deleteAgentCmd(a.c, agentID)
 			}
 			if strings.HasPrefix(it.id, "tool/") {
 				return a, loadToolDetailCmd(a.c, a.runtimeScope(), strings.TrimPrefix(it.id, "tool/"))
@@ -862,6 +999,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if cb.kind == catalogKindAgentBlueprintDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
+			if it.disabled {
+				a.transientHint = "action disabled: " + strings.TrimSpace(it.desc)
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			switch {
 			case it.id == "activate":
 				sid := a.currentSessionID()
@@ -874,6 +1015,11 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
 			case strings.HasPrefix(it.id, "mcp/"):
 				return a, enableAgentBlueprintMCPCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "mcp/"))
+			case it.id == "blueprint-action/update":
+				return a, updateAgentBlueprintCmd(a.c, a.runtimeScope(), cb.blueprintID)
+			case it.id == "blueprint-action/delete":
+				a.closeCatalogBrowser()
+				return a, deleteAgentBlueprintCmd(a.c, a.runtimeScope(), cb.blueprintID)
 			default:
 				text := strings.TrimSpace(it.desc)
 				if text == "" {
@@ -947,7 +1093,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "o":
 		if cb.kind == catalogKindAgents && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
-			if it.id == "none" {
+			if it.id == "none" || strings.HasPrefix(it.id, "action/") {
 				return a, nil
 			}
 			a.setNextTurnAgent(it.id, it.title)
@@ -1163,8 +1309,8 @@ func (a *App) viewCatalogBrowser() string {
 		// LLL2: dim disabled tools so the user can scan what's off
 		// at a glance. Selected highlight still wins so the cursor
 		// never disappears on a disabled row.
-		isDisabled := a.catalogBrowser.kind == catalogKindTools &&
-			a.disabledTools != nil && a.disabledTools[item.id]
+		isDisabled := item.disabled || (a.catalogBrowser.kind == catalogKindTools &&
+			a.disabledTools != nil && a.disabledTools[item.id])
 		idx := i
 		description := compactCatalogText(item.desc)
 		inlineMeta := ""
@@ -1180,7 +1326,10 @@ func (a *App) viewCatalogBrowser() string {
 			status:      item.statusTag,
 			selected:    i == a.catalogBrowser.sel,
 			disabled:    isDisabled,
-			action: func(app *App) tea.Cmd {
+			action:      nil,
+		})
+		if !isDisabled {
+			listItems[len(listItems)-1].action = func(app *App) tea.Cmd {
 				if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
 					return nil
 				}
@@ -1188,8 +1337,8 @@ func (a *App) viewCatalogBrowser() string {
 				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
 				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
 				return cmd
-			},
-		})
+			}
+		}
 	}
 	descriptionLines := 2
 	if a.catalogBrowser.kind == catalogKindTools {
@@ -1215,11 +1364,11 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindMcp:
 		hintText = "↑/↓ navigate · Enter drill in · i install · d delete · Esc close"
 	case catalogKindAgents:
-		hintText = "↑/↓ navigate · Enter details · o use next turn · Esc close"
+		hintText = "↑/↓ navigate · Enter details/create/extract · o use next turn · Esc close"
 	case catalogKindMcpDetail:
 		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
 	case catalogKindAgentDetail:
-		hintText = "↑/↓ navigate · Enter details · o use next turn · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details/clone/delete · o use next turn · Esc/Backspace back"
 	case catalogKindPrompts:
 		hintText = "↑/↓ navigate · Enter profiles · Esc close"
 	case catalogKindPromptDetail:
@@ -1443,6 +1592,20 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		desc:      formatAgentBlueprintSummary(blueprint),
 		statusTag: firstNonEmpty(blueprint.Scope, "blueprint"),
 	}}
+	manageable := blueprint.Scope == "workspace" || blueprint.Scope == "global"
+	items = append(items, catalogItem{
+		id:        "blueprint-action/update",
+		title:     "Update installed blueprint",
+		desc:      "pull or refresh this installed blueprint through CLIO",
+		statusTag: "manage",
+		disabled:  !manageable,
+	}, catalogItem{
+		id:        "blueprint-action/delete",
+		title:     "Delete installed blueprint",
+		desc:      "remove this installed blueprint; built-in/session definitions are protected",
+		statusTag: "delete",
+		disabled:  !manageable,
+	})
 	if len(blueprint.ValidationErrors) > 0 {
 		items = append(items, catalogItem{id: "validation", title: "Validation errors", desc: strings.Join(blueprint.ValidationErrors, "; "), statusTag: "error"})
 	}

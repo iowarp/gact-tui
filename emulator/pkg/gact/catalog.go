@@ -174,6 +174,11 @@ type AgentCapabilityRef struct {
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
+type AgentExtractRequest struct {
+	SessionIDs []string `json:"session_ids"`
+	AgentID    string   `json:"agent_id"`
+}
+
 type ExpertPackDefinition struct {
 	ID               string         `json:"id"`
 	Version          string         `json:"version,omitempty"`

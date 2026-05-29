@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -24,6 +25,16 @@ func newClaudeSmokeServer(t *testing.T) (*Server, *httptest.Server) {
 	return adapter, srv
 }
 
+func requireRealClaudeSmoke(t *testing.T) {
+	t.Helper()
+	if os.Getenv("GACT_REAL_CLAUDE_SMOKE") != "1" {
+		t.Skip("set GACT_REAL_CLAUDE_SMOKE=1 to run real Claude Code smoke tests")
+	}
+	if _, err := exec.LookPath("claude"); err != nil {
+		t.Skip("claude CLI not on PATH; smoke test requires real Claude Code install")
+	}
+}
+
 // TestSmoke_RealClaude drives the Go adapter end-to-end against the
 // real `claude` CLI. Skips when claude isn't installed (CI / fresh
 // machines) — same pattern as the Python sidecar's smoke tests.
@@ -32,9 +43,7 @@ func newClaudeSmokeServer(t *testing.T) (*Server, *httptest.Server) {
 // real upstream, not a mock. This is the smoke; mocks are not
 // allowed for adapter integration.
 func TestSmoke_RealClaude(t *testing.T) {
-	if _, err := exec.LookPath("claude"); err != nil {
-		t.Skip("claude CLI not on PATH; smoke test requires real Claude Code install")
-	}
+	requireRealClaudeSmoke(t)
 	_, srv := newClaudeSmokeServer(t)
 
 	// Create session
@@ -129,9 +138,7 @@ func TestSmoke_RealClaude(t *testing.T) {
 // background allower that auto-POSTs allow on every pending
 // permission, asserts the round-trip completes idle.
 func TestSmoke_RealClaudePermissionFlow(t *testing.T) {
-	if _, err := exec.LookPath("claude"); err != nil {
-		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
-	}
+	requireRealClaudeSmoke(t)
 	_, srv := newClaudeSmokeServer(t)
 
 	r, _ := http.Post(srv.URL+"/v1/sessions",
@@ -236,9 +243,7 @@ func TestSmoke_RealClaudePermissionFlow(t *testing.T) {
 // stream_event → §7.4 partials translation works against the real
 // CLI.
 func TestSmoke_RealClaudeStreamingDeltas(t *testing.T) {
-	if _, err := exec.LookPath("claude"); err != nil {
-		t.Skip("claude CLI not on PATH; smoke requires real Claude Code install")
-	}
+	requireRealClaudeSmoke(t)
 	_, srv := newClaudeSmokeServer(t)
 
 	// Create session.

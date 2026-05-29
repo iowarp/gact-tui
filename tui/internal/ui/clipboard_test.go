@@ -23,14 +23,41 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 		err error
 	)
 	prev := clipboardWrite
+	prevOSC52 := osc52Write
 	clipboardWrite = func(s string) error {
 		mu.Lock()
 		defer mu.Unlock()
 		got = s
 		return err
 	}
-	t.Cleanup(func() { clipboardWrite = prev })
+	osc52Write = func(string) error {
+		return errors.New("terminal clipboard unavailable")
+	}
+	t.Cleanup(func() {
+		clipboardWrite = prev
+		osc52Write = prevOSC52
+	})
 	return &mu, &got, &err
+}
+
+func TestCopyTextToClipboardFallsBackToOSC52(t *testing.T) {
+	mu, _, errSlot := withClipboardSpy(t)
+	mu.Lock()
+	*errSlot = errors.New("no clipboard utilities available")
+	mu.Unlock()
+	var oscPayload string
+	osc52Write = func(s string) error {
+		oscPayload = s
+		return nil
+	}
+
+	hint := copyTextToClipboard("detail", "payload")
+	if !strings.Contains(hint, "OSC52") || !strings.Contains(hint, "native clipboard unavailable") {
+		t.Fatalf("fallback hint = %q, want truthful OSC52 fallback", hint)
+	}
+	if oscPayload != "payload" {
+		t.Fatalf("osc52 payload = %q, want payload", oscPayload)
+	}
 }
 
 func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
