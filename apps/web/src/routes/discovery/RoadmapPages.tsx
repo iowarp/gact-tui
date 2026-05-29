@@ -261,32 +261,124 @@ export function PoliciesPage(props: ClientPageProps) {
   );
 }
 
-/** Agent blueprints (#386 / #387). */
+/** Agent blueprints (#386 / #387). Read + install + uninstall. */
 export function BlueprintsPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.agentBlueprints().catch(() => ({ blueprints: [] })),
   );
   const items = () => data()?.blueprints ?? [];
+
+  const [installOpen, setInstallOpen] = createSignal(false);
+  const [docText, setDocText] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  async function uninstall(id: string, name: string) {
+    if (!confirm(`Uninstall blueprint "${name}"? This cannot be undone.`)) return;
+    try {
+      await props.client.uninstallAgentBlueprint(id);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function submitInstall(ev: SubmitEvent) {
+    ev.preventDefault();
+    setError(null);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(docText());
+    } catch (e) {
+      setError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const v = await props.client.validateAgentBlueprint(parsed);
+      if (!v.ok) {
+        setError(`Validation failed: ${(v.errors ?? []).join('; ') || 'no detail'}`);
+        return;
+      }
+      await props.client.installAgentBlueprint(parsed);
+      setDocText('');
+      setInstallOpen(false);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <DiscoveryPage
       icon="agents"
       title="Agent blueprints"
-      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Add via clio-agent's blueprint install path."
+      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install a blueprint JSON to add a new expert routing path."
       actions={
-        <button
-          type="button"
-          class="dp-iconbtn"
-          onClick={() => refetch()}
-          title="Refresh"
-        >
-          <Icon name="regenerate" size={14} />
-        </button>
+        <>
+          <button
+            type="button"
+            class="dp-iconbtn"
+            onClick={() => setInstallOpen((v) => !v)}
+            title="Install blueprint"
+            data-testid="blueprint-install-toggle"
+          >
+            <Icon name="plus" size={14} />
+          </button>
+          <button
+            type="button"
+            class="dp-iconbtn"
+            onClick={() => refetch()}
+            title="Refresh"
+          >
+            <Icon name="regenerate" size={14} />
+          </button>
+        </>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0}
+      empty={!data.loading && items().length === 0 && !installOpen()}
       emptyTitle="No blueprints registered"
-      emptyBody="Drop a blueprint YAML into clio-agent/src/clio_agent/blueprints/ or POST /v1/agent-blueprints/install."
+      emptyBody="Paste a blueprint JSON below or drop one in clio-agent/src/clio_agent/blueprints/."
     >
+      <Show when={installOpen()}>
+        <form class="rmp__install" onSubmit={submitInstall}>
+          <label class="rmp__install-label" for="bp-install">
+            Blueprint JSON
+          </label>
+          <textarea
+            id="bp-install"
+            class="rmp__editor"
+            rows={10}
+            placeholder='{"id": "...", "name": "...", "agents": []}'
+            value={docText()}
+            onInput={(e) => setDocText(e.currentTarget.value)}
+            data-testid="blueprint-install-input"
+          />
+          <Show when={error()}>
+            <p class="rmp__form-err">{error()}</p>
+          </Show>
+          <div class="rmp__editor-actions">
+            <button
+              type="button"
+              class="ws-form__btn"
+              onClick={() => setInstallOpen(false)}
+              disabled={busy()}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="ws-form__btn ws-form__btn--primary"
+              disabled={busy() || !docText().trim()}
+              data-testid="blueprint-install-submit"
+            >
+              {busy() ? 'Validating…' : 'Validate + install'}
+            </button>
+          </div>
+        </form>
+      </Show>
       <div class="dp__grid">
         <For each={items()}>
           {(bp) => (
@@ -305,6 +397,16 @@ export function BlueprintsPage(props: ClientPageProps) {
               <Show when={bp.description}>
                 <p class="dp__card-body">{bp.description}</p>
               </Show>
+              <div class="dp__card-actions">
+                <button
+                  type="button"
+                  class="dp__card-btn dp__card-btn--danger"
+                  onClick={() => void uninstall(bp.id, bp.name ?? bp.id)}
+                  data-testid={`blueprint-uninstall-${bp.id}`}
+                >
+                  Uninstall
+                </button>
+              </div>
             </article>
           )}
         </For>
