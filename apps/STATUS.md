@@ -777,3 +777,66 @@ the Playwright suite couldn't run end-to-end. Re-run with `pnpm
   the rest of the chat shell does not yet subscribe to SSE. First post-harness item.
 - **No bearer-token persistence yet** — `@clio/web` keeps the token in component
   state. IndexedDB + OS-keychain persistence is PLAN.md item.
+
+## Audit-batch verification (#149, this overnight pass)
+
+Drove the existing Playwright visual harness against the live clio on
+`127.0.0.1:17800` for every audit-gap surface that is reachable
+without a working LM provider. 30 audit tests now pass with saved
+screenshots under `apps/web/screenshots/audit/<id>-<slug>.png`:
+
+Verified surfaces (Playwright `pnpm --filter @clio/web test:visual --grep audit`):
+#95 mcp-install-modal, #96 at-mention picker, #97 search-messages palette,
+#98 session import, #100 memory events, #102 paste compression,
+#103 settings read-only sections, #104/#106/#121 settings appearance,
+#105 catalog browser, #107 compose modal, #108 memory search,
+#109 archive view, #112/#134 schedules tab + cron preview,
+#113 frames tab, #114 shared session modal, #115 walk-away,
+#119 pin metadata mirror, #120 leftrail rails, #122 hooks editor,
+#123 policies editor, #124 bindings tab, #125 mcp page,
+#126 blueprint install, #127 expertpack validate, #128 providers detail,
+#131/#140 workspaces, #132 agents page, #135/#137 composer voice+mic,
+#138 export-md palette, #141 doctor integrations,
+#142 extract-agent palette, #147 plugins form,
+#148 composer typing.
+
+Real bugs the audit drive surfaced (all fixed this pass):
+- **doctor erroring out on 503** — clio returns `/v1/health` with a 503
+  body that still carries integration data; the client now parses it
+  and renders the table instead of throwing.
+- **plugins + hooks forms hidden behind DiscoveryPage `empty` slot** —
+  the empty-state literally says "use the form below" but the form
+  was suppressed when there were zero items. Rendered the form
+  unconditionally with an inline empty hint.
+- **inspector tab nav hidden when only one tab had data** — `length > 1`
+  guard hid the Schedules tab on fresh sessions. Loosened to `>= 1`.
+- **bindings tab silently empty against real clio** — client typed
+  `agentBlueprints()` as `{ blueprints: [] }` while clio returns
+  `{ agent_blueprints: [] }`. The mismatched field threw inside the
+  bindings createResource, which resolved to null, which made
+  `hasBindings()` false. Same for expert packs. Client now
+  normalizes both shapes.
+- **composer typing eats characters** — draftKey effect re-ran on
+  every keystroke and restored stale localStorage. Wrapped in
+  `untrack`.
+- **SSE flap on activeId** — orphan-detector flipped activeId
+  between empty and the real id, tearing down the stream. Removed.
+
+Blocked on a working LM provider (cannot drive without sending a
+real assistant turn): #94 ask-user retry, #99 per-message delete,
+#101 detailed provider models, #110/#116 autorename hint banner +
+topbar pill, #111 lm.provider toasts, #117 SSE context.frame
+wiring, #118 runCommand for backend slash commands, #129 frame
+detail expansion, #130 mcp resource preview, #133 inspector task
+cycling, #136 TTS speak, #139 per-message copy-link, #143 bulk
+diff apply/reject, #144 permalink scroll-to-message, #145 fork
+lineage badge, #146 context-file mode cycling.
+
+Reason: the live clio backend reports `lm: unavailable - no LM
+configured` in `/v1/health`, so POST `/v1/sessions/{id}/messages`
+503s before producing any message / frame / diff / task / autorename
+event. These surfaces are wired and rendered against fixtures but
+cannot be visually verified end-to-end against this clio. Re-run
+the audit spec once a working provider (ALCF or local Ollama) is
+PUT into `/v1/providers/lm` to clear the remaining 16 items.
+
