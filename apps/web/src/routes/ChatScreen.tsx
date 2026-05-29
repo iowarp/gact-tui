@@ -155,6 +155,7 @@ function FixtureDriven(props: {
   return (
     <ChatLayout
       backendUrl={props.backend.url}
+      voiceCapable={!!props.backend.capabilities?.capabilities?.voice}
       sessions={sessions()}
       activeId={activeId()}
       onSelect={setActiveId}
@@ -681,19 +682,57 @@ function LiveDriven(props: {
 
   // Live providers (powers the composer model picker).
   const [providersData] = createResource(() => live.client.providers());
+  const [lmActive] = createResource(() =>
+    live.client.lmConfig().catch(() => null),
+  );
   const models = createMemo<ModelOption[]>(() => {
     const ps = providersData()?.providers ?? [];
-    return providersToModels(ps);
+    const list = providersToModels(ps);
+    // Surface the clio-configured LM at the top even when it isn't
+    // one of the standard /v1/providers presets (argonne_metis,
+    // codex, claude_code routes don't show up there). Without this
+    // the model chip lies about the active LM and `granite:8b`
+    // appears for an ALCF-wired clio.
+    const lm = lmActive();
+    if (lm && lm.provider && lm.model) {
+      const synthId = `${lm.provider}/${lm.model}`;
+      if (!list.some((m) => m.id === synthId)) {
+        list.unshift({
+          id: synthId,
+          providerId: lm.provider,
+          providerLabel: lm.provider,
+          modelId: lm.model,
+        });
+      }
+    }
+    return list;
   });
   const [selectedModelId, setSelectedModelId] = createSignal<string>('');
-  // Auto-select the first provider's default model.
+  const [userPickedModel, setUserPickedModel] = createSignal(false);
+  // Track the active LM as soon as /v1/providers/lm resolves so the
+  // topbar chip and the dropdown default both reflect what clio is
+  // *actually* using, not the first item in the alphabetical preset
+  // list. If the user manually picks a model, stop overriding.
   createEffect(() => {
-    if (selectedModelId()) return;
-    const first = models()[0];
-    if (first) setSelectedModelId(first.id);
+    if (userPickedModel()) return;
+    const lm = lmActive();
+    if (lm && lm.provider && lm.model) {
+      const synthId = `${lm.provider}/${lm.model}`;
+      if (selectedModelId() !== synthId) setSelectedModelId(synthId);
+      return;
+    }
+    // lmActive still loading → don't pick yet, leave chip blank so
+    // we don't flash the wrong model and then correct it.
+    if (lmActive.loading) return;
+    // lmActive failed → fall back to the first preset.
+    if (!selectedModelId()) {
+      const first = models()[0];
+      if (first) setSelectedModelId(first.id);
+    }
   });
 
   async function pickModel(m: ModelOption) {
+    setUserPickedModel(true);
     setSelectedModelId(m.id);
     const id = activeId();
     if (!id) return;
@@ -1062,6 +1101,7 @@ function LiveDriven(props: {
   return (
     <ChatLayout
       backendUrl={props.backend.url}
+      voiceCapable={!!props.backend.capabilities?.capabilities?.voice}
       sessions={filteredRows()}
       activeId={activeId()}
       workspaces={workspaces()}
@@ -1310,6 +1350,7 @@ function LiveDriven(props: {
 
 interface ChatLayoutProps {
   backendUrl: string;
+  voiceCapable: boolean;
   sessions: SessionRow[];
   activeId: string;
   onSelect: (id: string) => void;
@@ -2608,12 +2649,16 @@ function ChatLayout(props: ChatLayoutProps) {
               ? undefined
               : 'Start a new conversation — first message becomes the title'
           }
-          onTranscribeVoice={async (blob, name) => {
-            const sid = props.activeId;
-            if (!sid) throw new Error('No active session for transcription');
-            const r = await discoveryClient.transcribeVoice(sid, blob, name);
-            return r.text;
-          }}
+          onTranscribeVoice={
+            props.voiceCapable
+              ? async (blob, name) => {
+                  const sid = props.activeId;
+                  if (!sid) throw new Error('No active session for transcription');
+                  const r = await discoveryClient.transcribeVoice(sid, blob, name);
+                  return r.text;
+                }
+              : undefined
+          }
           workspaceClient={discoveryClient}
           workspaceId={
             props.sessions.find((s) => s.id === props.activeId)?.workspace ??

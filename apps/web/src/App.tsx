@@ -96,14 +96,19 @@ export function App() {
         <Match when={route().name === 'connect'}>
           <ConnectScreen
             onConnected={(b) => {
+              const id = 'manual:' + Math.random().toString(36).slice(2, 8);
               registry.add({
-                id: 'manual:' + Math.random().toString(36).slice(2, 8),
+                id,
                 label: hostLabel(b.url),
                 url: b.url,
                 bearerToken: b.bearerToken,
                 kind: 'http',
                 capabilities: b.capabilities,
               });
+              // Mark the freshly-added backend as the current one so
+              // the BackendPicker in the composer shows its label
+              // instead of "no backend".
+              registry.select(id);
               setRoute({ name: 'chat', backend: b });
             }}
           />
