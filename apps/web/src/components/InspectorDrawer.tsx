@@ -20,6 +20,11 @@ export interface InspectorDrawerProps {
   integrations?: IntegrationStatus[];
   /** Per-session task list from /v1/sessions/{id}/tasks. */
   tasks?: SessionTask[];
+  /** Cycle a task's status — wired by ChatScreen to PATCH /v1/tasks/{tid}. */
+  onCycleTaskStatus?: (
+    taskId: string,
+    next: SessionTask['status'],
+  ) => void | Promise<void>;
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
   /** Per-session time-series memory snapshots from
@@ -393,6 +398,21 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                   <li
                     class={'inspector__task inspector__task--' + t.status}
                     data-testid={`inspector-task-${t.id}`}
+                    onClick={() => {
+                      if (!props.onCycleTaskStatus) return;
+                      const order: SessionTask['status'][] = [
+                        'pending',
+                        'running',
+                        'completed',
+                      ];
+                      const i = Math.max(0, order.indexOf(t.status));
+                      const next = order[(i + 1) % order.length]!;
+                      void props.onCycleTaskStatus(t.id, next);
+                    }}
+                    style={props.onCycleTaskStatus ? 'cursor: pointer' : ''}
+                    title={
+                      props.onCycleTaskStatus ? 'Click to cycle status' : undefined
+                    }
                   >
                     <span class={'inspector__task-pip inspector__task-pip--' + t.status} />
                     <span class="inspector__task-title">{t.title}</span>

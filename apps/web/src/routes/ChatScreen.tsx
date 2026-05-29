@@ -1085,6 +1085,19 @@ function LiveDriven(props: {
       onPickPermMode={pickPermMode}
       slashCommands={slashCommands()}
       sessionTasks={sessionTasks()}
+      onCycleTaskStatus={async (tid, next) => {
+        try {
+          await live.client.patchSessionTask(tid, { status: next });
+          void refetchTasks();
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Could not update task',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 5000,
+          });
+        }
+      }}
       contextFiles={contextFiles()}
       contextFrames={contextFrames()}
       onLoadFrameDetail={(fid) => {
@@ -1201,6 +1214,10 @@ interface ChatLayoutProps {
   contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
   onLoadFrameDetail?: (frameId: string) => Promise<Record<string, unknown>>;
   sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
+  onCycleTaskStatus?: (
+    taskId: string,
+    next: import('@clio/core').SessionTask['status'],
+  ) => void | Promise<void>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -2321,6 +2338,7 @@ function ChatLayout(props: ChatLayoutProps) {
           contextFiles={props.contextFiles}
           frames={props.contextFrames ?? []}
           onLoadFrameDetail={props.onLoadFrameDetail}
+          onCycleTaskStatus={props.onCycleTaskStatus}
           sessionDiffs={props.sessionDiffs ?? []}
           schedules={props.schedules ?? []}
           onCreateSchedule={props.onCreateSchedule}
