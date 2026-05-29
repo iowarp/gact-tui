@@ -512,6 +512,21 @@ export class Client {
   }
 
   /**
+   * PATCH /v1/sessions/{id}/context/files — change a file's mode
+   * (read/edit/pin) without removing and re-adding it.
+   */
+  patchContextFile(
+    sessionId: string,
+    body: { path: string; mode: 'read' | 'edit' | 'pin' },
+  ): Promise<unknown> {
+    return this.request<unknown>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+      'PATCH',
+      body,
+    );
+  }
+
+  /**
    * DELETE /v1/sessions/{id}/context/files?path=… — drop a file
    * from the session's context.
    */
