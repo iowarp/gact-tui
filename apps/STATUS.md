@@ -676,6 +676,22 @@ changes, no contract changes, no design-system writes.
 - **Blueprint MCP enable Client method** — `enableBlueprintMcp(bp,
   descriptor)` posts to `/v1/agent-blueprints/{bp}/mcp/{did}/enable`.
   (642e42b)
+- **Markdown session export** — palette `export · markdown` converts
+  the JSON export into a role-headed `.md` blob client-side. (fadfd06)
+- **Cmd+R refresh** — intercepts the browser-reload only when a
+  refetch handler is wired, otherwise falls through to F5. (3679df4)
+- **Per-message permalink** — every transcript row gains a small
+  arrow-up-right action that copies `clio://session/<sid>#<mid>` to
+  the clipboard. (6d320db)
+- **Workspace unregister** — DELETE `/v1/workspaces/{id}` surfaced
+  on the workspace card. (4d41df8)
+- **Doctor → LSP clients** — adds `/v1/lsp/clients` status pips
+  below the integrations list. (ca55fe1)
+- **Client surface bulk-up** — `patchWorkspace`, `lspClients`,
+  `getTool`, `extractAgent`, `deleteAgent`, `mcpSubscribeResource`,
+  `mcpUnsubscribeResource`, `mcpServerResourceTemplates`,
+  `mcpGetPrompt` (`cfee73b`, `c8a6a47`) — methods are wired even
+  when no UI hits them yet, so future UI work can drop straight in.
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
