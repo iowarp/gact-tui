@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js';
+import { For, Show, createEffect, onMount } from 'solid-js';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
@@ -246,6 +246,7 @@ function MessageView(props: {
       class={
         'trx-msg trx-msg--' + role() + (props.selected ? ' is-selected' : '')
       }
+      id={`msg-${props.msg.id}`}
       data-testid={`msg-${props.msg.id}`}
       onClick={(e) => {
         const target = e.target as HTMLElement;
@@ -440,6 +441,31 @@ function humanTime(iso: string): string {
 }
 
 export function Transcript(props: TranscriptProps) {
+  // Permalink navigation. When the URL hash matches a message id
+  // (e.g. user pasted a clio://session/<sid>#<mid> URL into the
+  // address bar), scroll the matching article into view and flash a
+  // brief highlight. Re-runs after the messages list grows so a
+  // late-loading transcript still picks up the hash target.
+  function jumpToHash() {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    const target =
+      hash.startsWith('#msg-') ? hash.slice(1) : `msg-${hash.slice(1)}`;
+    const el = document.getElementById(target);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('trx-msg--flash');
+    setTimeout(() => el.classList.remove('trx-msg--flash'), 1800);
+  }
+  onMount(() => {
+    queueMicrotask(jumpToHash);
+  });
+  createEffect(() => {
+    void props.messages.length;
+    queueMicrotask(jumpToHash);
+  });
+
   // Pre-compute the per-message base-index for the global match
   // numbering so PartView can label each match with a stable key.
   const baseIndexFor = (msgId: string): number => {
