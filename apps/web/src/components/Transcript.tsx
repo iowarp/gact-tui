@@ -523,6 +523,7 @@ export function Transcript(props: TranscriptProps) {
               onQuote={props.onQuote}
               onSpeak={props.onSpeak}
               onCopyPermalink={props.onCopyPermalink}
+              onDelete={props.onDelete}
               selected={m.id === props.selectedId}
               onSelect={props.onSelect}
               searchQuery={props.searchQuery}
