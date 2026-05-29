@@ -1198,6 +1198,20 @@ function LiveDriven(props: {
             body: `${r.applied.length} file${r.applied.length === 1 ? '' : 's'}`,
             duration: 3000,
           });
+          // Per-path write failures from clio's diffs/apply: surface
+          // each as its own error toast so the user knows which file
+          // didn't actually write to disk even though the in-memory
+          // status flipped to applied.
+          if (r.write_errors) {
+            for (const [path, err] of Object.entries(r.write_errors)) {
+              toast.push({
+                tone: 'error',
+                title: `Write failed: ${path}`,
+                body: err,
+                duration: 6000,
+              });
+            }
+          }
           void refetchSessionDiffs();
         } catch (e) {
           toast.push({

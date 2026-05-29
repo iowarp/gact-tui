@@ -311,11 +311,14 @@ export class Client {
   }
 
   /** POST /v1/sessions/{id}/diffs/apply — apply pending diffs. Pass
-   * `paths` to scope to specific files; empty body applies all. */
+   * `paths` to scope to specific files; empty body applies all.
+   * `write_errors` carries per-path failures when the in-memory diff
+   * status flipped to `applied` but the disk write blew up (perm
+   * denied, disk full, …). Callers should surface it. */
   applySessionDiffs(
     sessionId: string,
     body: { paths?: string[] } = {},
-  ): Promise<{ applied: string[] }> {
+  ): Promise<{ applied: string[]; write_errors?: Record<string, string> }> {
     return this.post(
       `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/apply`,
       body,
