@@ -173,10 +173,20 @@ export class Client {
     return this.get<Session>(`/v1/sessions/${encodeURIComponent(id)}`);
   }
 
-  messages(sessionId: string): Promise<{ messages: Message[] }> {
-    return this.get<{ messages: Message[] }>(
+  async messages(sessionId: string): Promise<{ messages: Message[] }> {
+    const out = await this.get<{ messages: Message[] }>(
       `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
     );
+    // Defensive: always present chronological. Some clio versions
+    // return newest-first which renders the conversation backwards.
+    const sorted = (out.messages ?? [])
+      .slice()
+      .sort((a, b) => {
+        const ta = Date.parse(a.created_at ?? '') || 0;
+        const tb = Date.parse(b.created_at ?? '') || 0;
+        return ta - tb;
+      });
+    return { messages: sorted };
   }
 
   /** POST /v1/sessions — creates a new session and returns its id. */

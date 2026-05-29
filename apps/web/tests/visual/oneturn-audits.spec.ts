@@ -1,0 +1,215 @@
+/**
+ * Audit-gap verification under real-turn semantics: drives one ALCF
+ * turn through the webapp, then exercises every surface that needs a
+ * live message/frame/session-update event to render.
+ *
+ * Needs:
+ *   CLIO_GACT_URL — clio with the LM agent wired (default :17801)
+ *
+ * Uses --disable-web-security so EventSource crosses origin from the
+ * preview origin; the Tauri build doesn't need this since it routes
+ * through gact_http.
+ */
+
+import { test, expect, chromium, type Page, type Browser, type BrowserContext } from '@playwright/test';
+import { resolve } from 'node:path';
+
+const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
+const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
+
+function shot(slug: string): string {
+  return resolve(auditDir, `${slug}.png`);
+}
+
+async function bootBrowser(): Promise<Browser> {
+  return await chromium.launch({ args: ['--disable-web-security'] });
+}
+
+async function openConnected(browser: Browser): Promise<{
+  ctx: BrowserContext;
+  page: Page;
+}> {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto('/?route=connect');
+  await page.getByTestId('connect-url').fill(BACKEND);
+  await page.getByTestId('connect-submit').click();
+  await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(800);
+  return { ctx, page };
+}
+
+/** Create a fresh session via the UI, activate it, send one turn,
+ * wait for the assistant text to render. Returns the message ids
+ * so the caller can target per-message UI. */
+async function sendOneTurn(
+  page: Page,
+  text = 'What is the capital of France? One word.',
+): Promise<{ userMsgId: string; asstMsgId: string }> {
+  await page.getByTestId('sessions-new').click();
+  await page.waitForTimeout(1_200);
+  const newRow = page.locator('[data-testid^="session-row-"]').first();
+  await newRow.click();
+  await page.waitForTimeout(600);
+
+  const composer = page.getByTestId('composer-input');
+  await composer.click();
+  await composer.pressSequentially(text, { delay: 8 });
+  await page.getByTestId('composer-send').click();
+
+  // Wait for assistant text to land — the bug we fixed was that this
+  // never rendered. If it does now, the rest of the per-message
+  // actions also have a target.
+  await expect(page.getByTestId('transcript-pane')).toContainText(/Paris/i, {
+    timeout: 120_000,
+  });
+
+  // Pull the two msg ids from the rendered DOM.
+  const msgIds = await page
+    .locator('[data-testid^="msg-"]')
+    .evaluateAll((els: Element[]) =>
+      els
+        .map((e) => (e as HTMLElement).dataset['testid'] ?? '')
+        .filter((id) => id.startsWith('msg-') && !id.includes('-copy-') && !id.includes('-link-')),
+    );
+  // first user, then assistant.
+  const userMsgId = (msgIds[0] ?? '').replace(/^msg-/, '');
+  const asstMsgId = (msgIds[1] ?? '').replace(/^msg-/, '');
+  return { userMsgId, asstMsgId };
+}
+
+test.setTimeout(240_000);
+
+test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
+  // -- chat-renamed-pill #110 #116 -----------------------------------
+  test('autorename pill flashes after session.updated (#110 #116)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await sendOneTurn(page);
+    // The pill is transient — it appears for ~4.5s after autorename.
+    // Look for it within a generous window; clio sends session.updated
+    // ~1–2s after message.completed.
+    const pill = page.getByTestId('chat-renamed-pill');
+    await expect(pill).toBeVisible({ timeout: 15_000 });
+    await page.screenshot({ path: shot('110-116-rename-pill'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- per-message actions row #99 #136 #139 -------------------------
+  test('per-message action buttons render after the turn (#99 #136 #139)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const { asstMsgId } = await sendOneTurn(page);
+
+    // Hover the assistant message so the action row reveals.
+    const msg = page.getByTestId(`msg-${asstMsgId}`);
+    await msg.hover();
+    await page.waitForTimeout(200);
+
+    await expect(page.getByTestId(`msg-copy-${asstMsgId}`)).toBeVisible();
+    await expect(page.getByTestId(`msg-delete-${asstMsgId}`)).toBeVisible();
+    await expect(page.getByTestId(`msg-speak-${asstMsgId}`)).toBeVisible();
+    await expect(page.getByTestId(`msg-link-${asstMsgId}`)).toBeVisible();
+    await page.screenshot({ path: shot('99-136-139-message-actions'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- delete a message #99 ------------------------------------------
+  test('msg-delete removes the message from the transcript (#99)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const { asstMsgId } = await sendOneTurn(page);
+
+    // Accept the confirm() dialog so the delete proceeds.
+    page.on('dialog', (d) => void d.accept());
+
+    const msg = page.getByTestId(`msg-${asstMsgId}`);
+    await msg.hover();
+    await page.getByTestId(`msg-delete-${asstMsgId}`).click();
+
+    // Wait for the message to actually disappear from the DOM.
+    await expect(page.getByTestId(`msg-${asstMsgId}`)).toHaveCount(0, {
+      timeout: 8_000,
+    });
+    await page.screenshot({ path: shot('99-delete-confirmed'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- per-message copy-permalink #139 -------------------------------
+  test('msg-link copies a permalink and surfaces a toast (#139)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    // Clipboard requires permission.
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const { asstMsgId } = await sendOneTurn(page);
+
+    const msg = page.getByTestId(`msg-${asstMsgId}`);
+    await msg.hover();
+    await page.getByTestId(`msg-link-${asstMsgId}`).click();
+    // The handler surfaces a toast — assert one lands.
+    await expect(page.getByTestId('toast-host')).toContainText(/link|permalink|copied/i, {
+      timeout: 4_000,
+    });
+    await page.screenshot({ path: shot('139-permalink-copied'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- TTS speak button #136 -----------------------------------------
+  test('msg-speak fires speech synthesis (#136)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const { asstMsgId } = await sendOneTurn(page);
+
+    // Stub speechSynthesis so headless chromium doesn't actually try
+    // to play audio; record whether speak() was invoked.
+    await page.evaluate(() => {
+      (window as unknown as { __spoke?: boolean }).__spoke = false;
+      if (window.speechSynthesis) {
+        window.speechSynthesis.speak = (utterance) => {
+          (window as unknown as { __spoke?: boolean }).__spoke = true;
+          // Fire end so any wired callbacks resolve.
+          setTimeout(() => utterance.onend?.(new SpeechSynthesisEvent('end', { utterance })), 0);
+        };
+      }
+    });
+
+    const msg = page.getByTestId(`msg-${asstMsgId}`);
+    await msg.hover();
+    await page.getByTestId(`msg-speak-${asstMsgId}`).click();
+    await page.waitForTimeout(500);
+
+    const spoke = await page.evaluate(
+      () => (window as unknown as { __spoke?: boolean }).__spoke === true,
+    );
+    expect(spoke, 'speechSynthesis.speak was invoked').toBe(true);
+    await page.screenshot({ path: shot('136-tts-fired'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- inspector context-frame events fired #117 #129 ----------------
+  test('inspector Frames tab shows the turn frame as completed (#117 #129)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await sendOneTurn(page);
+
+    // Inspector defaults to open; click Frames tab.
+    const framesTab = page.locator('button:has-text("Frames")').first();
+    if (await framesTab.isVisible().catch(() => false)) {
+      await framesTab.click();
+    }
+    await expect(page.locator('text=/ctx_[a-f0-9]+/').first()).toBeVisible({
+      timeout: 4_000,
+    });
+    await expect(page.locator('text=completed').first()).toBeVisible({
+      timeout: 4_000,
+    });
+    await page.screenshot({ path: shot('117-129-frames-completed'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+});

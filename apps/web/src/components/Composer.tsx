@@ -485,6 +485,7 @@ export function Composer(props: ComposerProps = {}) {
         />
 
         <div class="composer__row">
+          <div class="composer__row-lead">
           <button
             type="button"
             class="composer__attach"
@@ -534,6 +535,7 @@ export function Composer(props: ComposerProps = {}) {
               <Icon name="attach" size={14} />
             </button>
           </Show>
+          </div>
           <div class="composer__input-wrap">
             <textarea
               class="composer__input"
