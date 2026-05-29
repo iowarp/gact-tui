@@ -61,14 +61,36 @@ export function AgentsPage(props: AgentsPageProps) {
         </div>
       </Show>
       <div class="dp__grid">
-        <For each={sorted()}>{(a) => <AgentCard agent={a} />}</For>
+        <For each={sorted()}>{(a) => <AgentCard agent={a} client={props.client} />}</For>
       </div>
     </DiscoveryPage>
   );
 }
 
-function AgentCard(props: { agent: AgentDef }) {
+function AgentCard(props: { agent: AgentDef; client: Client }) {
   const tier = () => props.agent.tier ?? null;
+  const [showDetail, setShowDetail] = createSignal(false);
+  const [detail, setDetail] = createSignal<Record<string, unknown> | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [err, setErr] = createSignal<string | null>(null);
+
+  async function toggle() {
+    const next = !showDetail();
+    setShowDetail(next);
+    if (next && !detail() && !busy()) {
+      setBusy(true);
+      setErr(null);
+      try {
+        const d = await props.client.getAgent(props.agent.id);
+        setDetail(d as unknown as Record<string, unknown>);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
+      }
+    }
+  }
+
   return (
     <article class="dp__card" data-testid={`agent-card-${props.agent.id}`}>
       <header class="dp__card-head">
@@ -98,6 +120,34 @@ function AgentCard(props: { agent: AgentDef }) {
           <For each={props.agent.keywords!}>
             {(k) => <span class="dp__tag">#{k}</span>}
           </For>
+        </div>
+      </Show>
+      <button
+        type="button"
+        class="ws-card__repo-toggle"
+        onClick={() => void toggle()}
+        data-testid={`agent-detail-toggle-${props.agent.id}`}
+      >
+        <Icon
+          name="chevron-right"
+          size={11}
+          class={'ws-card__repo-chev ' + (showDetail() ? 'is-open' : '')}
+        />
+        <span>{showDetail() ? 'Hide' : 'Show'} routing detail</span>
+      </button>
+      <Show when={showDetail()}>
+        <div class="ws-card__repo">
+          <Show when={busy()}>
+            <div class="ws-card__repo-status">Loading…</div>
+          </Show>
+          <Show when={err()}>
+            <div class="ws-card__repo-err">{err()}</div>
+          </Show>
+          <Show when={detail() && !busy()}>
+            <pre class="ws-card__repo-tree">
+              {JSON.stringify(detail(), null, 2)}
+            </pre>
+          </Show>
         </div>
       </Show>
     </article>
