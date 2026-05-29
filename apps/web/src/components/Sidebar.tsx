@@ -14,6 +14,9 @@ export interface SidebarSession {
    * agree on pin state. Reconciled into the local pinnedIds set on
    * session list refresh. */
   metaPinned?: boolean;
+  /** Parent session id when this row is a fork — drives the small
+   * "↘" badge in the SessionsColumn so users can see lineage. */
+  parentId?: string;
 }
 
 export interface SidebarProps {

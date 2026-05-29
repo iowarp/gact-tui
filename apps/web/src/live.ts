@@ -671,6 +671,7 @@ function toSidebarSession(s: Session): SidebarSession {
     project,
     updatedAt: humanizeUpdatedAt(s.updated_at),
     ...(metaPinned ? { metaPinned: true } : {}),
+    ...(s.parent_session_id ? { parentId: s.parent_session_id } : {}),
   };
 }
 

@@ -35,6 +35,9 @@ export interface SessionRow {
   pinned?: boolean;
   /** Epoch ms — last time this row was touched by SSE. Drives the pulse. */
   bumpedAt?: number;
+  /** When set, the row is a fork of `parentId` — displayed as a small
+   * lineage hint next to the title. */
+  parentId?: string;
 }
 
 export interface WorkspaceOption {
@@ -407,6 +410,14 @@ function SessionListItem(props: {
                     }}
                   >
                     {props.row.title.trim() || 'Untitled session'}
+                    <Show when={props.row.parentId}>
+                      <span
+                        class="sx__row-fork"
+                        title={`Forked from ${props.row.parentId!.slice(0, 8)}`}
+                      >
+                        ↘
+                      </span>
+                    </Show>
                   </span>
                 }
               >
