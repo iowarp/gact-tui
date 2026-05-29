@@ -706,6 +706,58 @@ function LiveDriven(props: {
   const sessionDiffs = createMemo(() => sessionDiffsData()?.diffs ?? []);
   void refetchSessionDiffs;
 
+  // Per-session schedules — cron triggers from /v1/sessions/{id}/schedules.
+  // Capability-gated upstream; the resource silently returns [] when the
+  // endpoint 501s so the tab still renders the create form.
+  const [schedulesData, { refetch: refetchSchedules }] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return { schedules: [] };
+      try {
+        return await live.client.sessionSchedules(sid);
+      } catch {
+        return { schedules: [] };
+      }
+    },
+  );
+  const schedules = createMemo(() => schedulesData()?.schedules ?? []);
+
+  async function createSchedule(body: { cron: string; prompt: string }) {
+    const sid = activeId();
+    if (!sid) return;
+    try {
+      await live.client.createSchedule(sid, body);
+      void refetchSchedules();
+      toast.push({
+        tone: 'success',
+        title: 'Schedule added',
+        body: body.cron,
+        duration: 2400,
+      });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Could not add schedule',
+        body: e instanceof Error ? e.message : String(e),
+        duration: 5000,
+      });
+    }
+  }
+
+  async function deleteScheduleById(scheduleId: string) {
+    try {
+      await live.client.deleteSchedule(scheduleId);
+      void refetchSchedules();
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Could not delete schedule',
+        body: e instanceof Error ? e.message : String(e),
+        duration: 5000,
+      });
+    }
+  }
+
   async function pinFileToContext(path: string) {
     const sid = activeId();
     if (!sid) return;
@@ -904,6 +956,9 @@ function LiveDriven(props: {
       contextFiles={contextFiles()}
       contextFrames={contextFrames()}
       sessionDiffs={sessionDiffs()}
+      schedules={schedules()}
+      onCreateSchedule={createSchedule}
+      onDeleteSchedule={deleteScheduleById}
       onRemoveContextFile={removeContextFile}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
@@ -989,6 +1044,9 @@ interface ChatLayoutProps {
   contextFiles?: import('@clio/core').ContextFile[];
   contextFrames?: import('../components/InspectorDrawer.js').ContextFrameRow[];
   sessionDiffs?: import('../components/InspectorDrawer.js').SessionDiffRow[];
+  schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
+  onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
+  onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
@@ -2011,6 +2069,9 @@ function ChatLayout(props: ChatLayoutProps) {
           contextFiles={props.contextFiles}
           frames={props.contextFrames ?? []}
           sessionDiffs={props.sessionDiffs ?? []}
+          schedules={props.schedules ?? []}
+          onCreateSchedule={props.onCreateSchedule}
+          onDeleteSchedule={props.onDeleteSchedule}
           onRemoveContextFile={props.onRemoveContextFile}
           onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}

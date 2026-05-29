@@ -30,6 +30,12 @@ export interface InspectorDrawerProps {
    * file_diff parts so the user can see everything pending in the
    * session. */
   sessionDiffs?: SessionDiffRow[];
+  /** Per-session cron triggers from /v1/sessions/{id}/schedules. */
+  schedules?: ScheduleRow[];
+  /** Create a new schedule (POST /v1/sessions/{id}/schedules). */
+  onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
+  /** Delete a schedule (DELETE /v1/schedules/{id}). */
+  onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
   /** Called when the user clicks a diff entry — opens the DiffPane. */
   onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
@@ -43,6 +49,14 @@ export interface ContextFrameRow {
   status?: string;
   summary?: string;
   token_count?: number;
+}
+
+export interface ScheduleRow {
+  id: string;
+  cron?: string;
+  next_run_at?: string;
+  enabled?: boolean;
+  prompt?: string;
 }
 
 export interface SessionDiffRow {
@@ -72,6 +86,7 @@ type InspectorTab =
   | 'tasks'
   | 'context'
   | 'frames'
+  | 'schedules'
   | 'health';
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
@@ -93,6 +108,8 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasFrames = () => !!props.frames && props.frames.length > 0;
   const hasSessionDiffs = () =>
     !!props.sessionDiffs && props.sessionDiffs.length > 0;
+  const hasSchedules = () =>
+    !!props.schedules && (props.schedules.length > 0 || !!props.onCreateSchedule);
 
   const hasAnyContent = () =>
     hasRunData() ||
@@ -103,6 +120,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     hasTasks() ||
     hasContextFiles() ||
     hasFrames() ||
+    hasSchedules() ||
     hasIntegrations();
 
   // Order matters — the picker walks this list and lands on the
@@ -116,6 +134,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     if (hasTasks()) out.push('tasks');
     if (hasContextFiles()) out.push('context');
     if (hasFrames()) out.push('frames');
+    if (hasSchedules()) out.push('schedules');
     if (hasIntegrations()) out.push('health');
     return out;
   });
@@ -147,6 +166,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     tasks: 'Tasks',
     context: 'Context',
     frames: 'Frames',
+    schedules: 'Schedules',
     health: 'Health',
   };
 
@@ -415,6 +435,14 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           </section>
         </Show>
 
+        <Show when={hasSchedules() && activeTab() === 'schedules'}>
+          <SchedulesTab
+            schedules={props.schedules ?? []}
+            onCreate={props.onCreateSchedule}
+            onDelete={props.onDeleteSchedule}
+          />
+        </Show>
+
         <Show when={hasIntegrations() && activeTab() === 'health'}>
           <section class="inspector__sect">
             <div class="inspector__sect-title">Integrations</div>
@@ -573,4 +601,106 @@ export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
     }
   }
   return out;
+}
+
+/** Cron-style schedules per session. Renders the list with delete
+ * buttons + a minimal create form. Capability-gated upstream. */
+function SchedulesTab(props: {
+  schedules: ScheduleRow[];
+  onCreate?: (body: { cron: string; prompt: string }) => void | Promise<void>;
+  onDelete?: (scheduleId: string) => void | Promise<void>;
+}) {
+  const [cron, setCron] = createSignal('');
+  const [prompt, setPrompt] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+
+  async function submit(ev: SubmitEvent) {
+    ev.preventDefault();
+    if (!props.onCreate) return;
+    const c = cron().trim();
+    const p = prompt().trim();
+    if (!c || !p || busy()) return;
+    setBusy(true);
+    try {
+      await props.onCreate({ cron: c, prompt: p });
+      setCron('');
+      setPrompt('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section class="inspector__sect">
+      <div class="inspector__sect-title">
+        Schedules ({props.schedules.length})
+      </div>
+      <ul class="inspector__schedules">
+        <For each={props.schedules}>
+          {(s) => (
+            <li
+              class={
+                'inspector__schedule ' +
+                (s.enabled === false ? 'inspector__schedule--off' : '')
+              }
+              data-testid={`inspector-schedule-${s.id}`}
+            >
+              <div class="inspector__schedule-head">
+                <code class="inspector__schedule-cron">{s.cron ?? '(no cron)'}</code>
+                <Show when={s.enabled === false}>
+                  <span class="inspector__chip">disabled</span>
+                </Show>
+                <Show when={s.next_run_at}>
+                  <span class="inspector__schedule-next">next {s.next_run_at}</span>
+                </Show>
+                <Show when={props.onDelete}>
+                  <button
+                    type="button"
+                    class="inspector__schedule-x"
+                    title="Delete schedule"
+                    aria-label="Delete schedule"
+                    onClick={() => void props.onDelete?.(s.id)}
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </Show>
+              </div>
+              <Show when={s.prompt}>
+                <div class="inspector__schedule-prompt">{s.prompt}</div>
+              </Show>
+            </li>
+          )}
+        </For>
+      </ul>
+      <Show when={props.onCreate}>
+        <form class="inspector__schedule-form" onSubmit={submit}>
+          <input
+            class="inspector__schedule-input inspector__schedule-input--cron"
+            type="text"
+            placeholder="0 9 * * * (cron)"
+            value={cron()}
+            onInput={(e) => setCron(e.currentTarget.value)}
+            data-testid="schedule-cron-input"
+          />
+          <input
+            class="inspector__schedule-input"
+            type="text"
+            placeholder="Prompt to send on schedule"
+            value={prompt()}
+            onInput={(e) => setPrompt(e.currentTarget.value)}
+            data-testid="schedule-prompt-input"
+          />
+          <button
+            type="submit"
+            class="inspector__schedule-add"
+            disabled={busy() || !cron().trim() || !prompt().trim()}
+            data-testid="schedule-add"
+          >
+            <Icon name="plus" size={12} />
+            <span>Add</span>
+          </button>
+        </form>
+      </Show>
+    </section>
+  );
 }
