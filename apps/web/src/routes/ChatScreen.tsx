@@ -29,6 +29,13 @@ import { Composer } from '../components/Composer.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
+import {
+  addDetached,
+  detachedAgo,
+  listDetached,
+  removeDetached,
+  type DetachedSession,
+} from '../detached.js';
 import { CatalogBrowser } from '../components/CatalogBrowser.js';
 import { ComposeModal } from '../components/ComposeModal.js';
 import { SharedSessionModal } from '../components/SharedSessionModal.js';
@@ -245,6 +252,37 @@ function LiveDriven(props: {
 
   const [recentlyRenamed, setRecentlyRenamed] = createSignal<{ sid: string; expiry: number } | null>(null);
   let renameTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Detached registry — sessions the user explicitly walked away from
+  // (Cmd+Shift+D). Hydrated from localStorage so the list survives a
+  // reload, scoped per backend URL.
+  const [detachedSessions, setDetachedSessions] = createSignal<DetachedSession[]>(
+    listDetached(props.backend.url),
+  );
+
+  function reattachDetached(sid: string) {
+    removeDetached(props.backend.url, sid);
+    setDetachedSessions(listDetached(props.backend.url));
+  }
+
+  function walkAwayFromActive() {
+    const sid = activeId();
+    const row = rows().find((r) => r.id === sid);
+    if (!sid || !row) return;
+    addDetached(props.backend.url, {
+      id: sid,
+      title: row.title,
+      ...(row.preview ? { preview: row.preview } : {}),
+      ...(row.workspace ? { workspace: row.workspace } : {}),
+    });
+    setDetachedSessions(listDetached(props.backend.url));
+    toast.push({
+      tone: 'info',
+      title: 'Walked away',
+      body: `${row.title} parked — open Cmd+K to re-attach.`,
+      duration: 3200,
+    });
+  }
 
   const transcript = createLiveTranscript(live.client, activeId, {
     patch: live.patch,
@@ -960,6 +998,9 @@ function LiveDriven(props: {
       schedules={schedules()}
       onCreateSchedule={createSchedule}
       onDeleteSchedule={deleteScheduleById}
+      detachedSessions={detachedSessions()}
+      onReattachDetached={reattachDetached}
+      onWalkAway={walkAwayFromActive}
       onRemoveContextFile={removeContextFile}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
@@ -1048,6 +1089,9 @@ interface ChatLayoutProps {
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
+  detachedSessions?: DetachedSession[];
+  onReattachDetached?: (sessionId: string) => void;
+  onWalkAway?: () => void;
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
@@ -1315,6 +1359,14 @@ function ChatLayout(props: ChatLayoutProps) {
         setSharedSessionOpen((v) => !v);
         return;
       }
+      // Ctrl/Cmd+Shift+D — walk away from the active session and
+      // park it in the detached registry so it surfaces in the
+      // palette next time we open the app.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        props.onWalkAway?.();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
         e.preventDefault();
         setCheatsheetOpen((v) => !v);
@@ -1433,6 +1485,16 @@ function ChatLayout(props: ChatLayoutProps) {
       setRailRoute('sessions');
       return;
     }
+    if (cmd.id.startsWith('detached:')) {
+      const sid = cmd.id.slice('detached:'.length);
+      // Re-attach: select the session, refetch the live list to pick it
+      // up, and yank it out of the detached registry.
+      props.onSelect(sid);
+      setRailRoute('sessions');
+      void props.onRefreshSessions?.();
+      props.onReattachDetached?.(sid);
+      return;
+    }
     if (cmd.id.startsWith('perm:')) {
       const mode = cmd.id.slice('perm:'.length) as PermissionMode;
       void props.onPickPermMode?.(mode);
@@ -1533,6 +1595,19 @@ function ChatLayout(props: ChatLayoutProps) {
         description: s.workspace
           ? `Switch to session in ${s.workspace}`
           : 'Switch to session',
+        category: 'jump',
+      });
+    }
+    // Walked-away sessions from the detached registry — surfaced near
+    // the top of the palette so re-entry is one keystroke.
+    for (const d of props.detachedSessions ?? []) {
+      // Don't double up — if the session is still in the live list,
+      // the regular jump above is fine.
+      if (props.sessions.some((s) => s.id === d.id)) continue;
+      items.push({
+        id: `detached:${d.id}`,
+        trigger: `↶ ${d.title}`,
+        description: `Walked away ${detachedAgo(d.detachedAt)} — Ctrl+. to dismiss`,
         category: 'jump',
       });
     }

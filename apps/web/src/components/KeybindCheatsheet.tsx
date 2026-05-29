@@ -24,6 +24,7 @@ const GROUPS: Group[] = [
       { combo: [PLATFORM_MOD, 'K'], description: 'Open the command palette' },
       { combo: [PLATFORM_MOD, 'Shift', 'K'], description: 'Open the catalog browser (agents · tools · MCP · prompts · workspaces)' },
       { combo: [PLATFORM_MOD, 'L'], description: 'Open a shared CLIO session by token (read-only)' },
+      { combo: [PLATFORM_MOD, 'Shift', 'D'], description: 'Walk away from the active session (Ctrl+K re-attaches)' },
       { combo: [PLATFORM_MOD, 'Shift', '↑'], description: 'Previous session' },
       { combo: [PLATFORM_MOD, 'Shift', '↓'], description: 'Next session' },
       { combo: [PLATFORM_MOD, 'N'], description: 'New session' },
