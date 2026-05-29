@@ -645,12 +645,15 @@ function reduce(
 
 function toSidebarSession(s: Session): SidebarSession {
   const project = workspaceLabel(s);
+  const meta = s.metadata ?? {};
+  const metaPinned = meta['pinned'] === true;
   return {
     id: s.id,
     title: s.title,
     status: s.status as SessionStatus,
     project,
     updatedAt: humanizeUpdatedAt(s.updated_at),
+    ...(metaPinned ? { metaPinned: true } : {}),
   };
 }
 

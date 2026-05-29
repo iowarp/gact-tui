@@ -231,7 +231,10 @@ function LiveDriven(props: {
       status: row.status,
       workspace: row.project,
       updatedAt: row.updatedAt,
-      pinned: pins.has(row.id),
+      // The row is pinned if either local state or the server says so.
+      // Server-side `metadata.pinned` mirrors the TUI; local set wins
+      // when the user just toggled and the server hasn't responded.
+      pinned: pins.has(row.id) || row.metaPinned === true,
       ...(row.bumpedAt ? { bumpedAt: row.bumpedAt } : {}),
     }));
   });
