@@ -562,3 +562,30 @@ Fix: add `metadata?: Record<string, unknown>` to the client's
 body type. No reducer changes — the field is already in
 clio's response.
 
+### UX polish pass (E-25, E-26)
+
+**[UX] (E-25) Speak button on assistant messages was unconditional.**
+
+clio doesn't ship a `/v1/sessions/{id}/voice/synthesize` endpoint
+yet (only `voice/transcribe`). The desktop rendered the Speak
+button on every assistant message anyway, so every click fired
+an error toast — a guaranteed "this feature is broken" UX. The
+voice-input mic was already gated on `backend.capabilities.voice`
+but the TTS output wasn't.
+
+Fix: gate `onSpeak` on the same `voiceCapable` flag in ChatScreen
+so backends without TTS hide the button cleanly.
+
+**[UX] (E-26) Server-search jump didn't flash the matched message.**
+
+The Cmd+Shift+F backend search panel's `onJump` scrolled the hit
+into view but didn't apply the `.trx-msg--flash` animation that
+the URL-hash permalink uses. On a long transcript with adjacent
+rows containing similar text, the user couldn't tell which row
+was the actual hit.
+
+Fix: switch the lookup from `data-testid="msg-${id}"` to
+`getElementById('msg-' + id)` (same id the permalink uses) and
+add the same flash highlight. Both jump paths now key off the
+same id and share the same visual feedback.
+
