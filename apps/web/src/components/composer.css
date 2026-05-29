@@ -108,6 +108,17 @@
   background: var(--color-surface-alt);
 }
 
+.composer__attach.is-recording {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  animation: composer-mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes composer-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 32%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 0%, transparent); }
+}
+
 .composer__send {
   background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-cyan) 100%);
   border: none;
