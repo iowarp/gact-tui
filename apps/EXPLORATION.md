@@ -227,3 +227,79 @@ End-to-end one minute walkthrough after the fixes above:
 - Per-message actions: 6 buttons render after the fix
   (copy/regen/speak/link/quote/delete).
 
+### Per-message actions — verified end-to-end
+
+Drove every action against the live `msg_asst_*` of the Markov-chain
+turn:
+
+- **copy** → clipboard got the assistant body text.
+- **quote** → composer received `> A Markov chain is a stochastic …`
+  (blockquote-prefixed snippet).
+- **link** → clipboard got `clio://session/<sid>#<msg_id>` — clio
+  permalink scheme.
+- **delete** → DELETE /v1/sessions/{sid}/messages/{id} fired, server
+  acked, the message disappeared from the transcript live.
+
+### Phase-1/5 keyboard shortcuts vs intent
+
+- `Ctrl+K` opens the command palette (62 items in 11 categories).
+  Filter narrows correctly; Enter dispatches.
+- `Ctrl+Shift+K` opens the catalog browser.
+- `Ctrl+G` opens the compose modal.
+- `Ctrl+L` opens the shared session modal.
+- `Ctrl+/` opens the keybind cheatsheet.
+- `Ctrl+F` opens the transcript search panel.
+- `Ctrl+B` toggles the SessionsColumn (320 → 0).
+- `Ctrl+S` downloads the session JSON (5.7 kB blob for a 2-turn session).
+- `Ctrl+Shift+D` parks the active session in the detached registry
+  with a "Walked away" toast.
+- `/` on an empty composer opens the slash palette (preventDefault on
+  the `/` keystroke so the textarea stays empty).
+
+### Settings shell — every section rendered against live clio
+
+All 16 nav entries open without error and surface real backend data:
+
+| Section          | What renders against live clio |
+|------------------|---------------------------------|
+| Backends         | :17801 entry with `current` chip + cap flags + Use/Refresh/Remove |
+| Workspaces       | ws_default rooted at C:\Users\jaime + Show repo map / Rename / Unregister |
+| Models & providers | active LM = `argonne · openai/gpt-oss-120b` + Sophia URL + LM Studio preset |
+| Agents           | Main Agent (tier 1) + specialists, routing summary |
+| Commands         | 5 slash cards (/clear /cache-stats /dump-trace /optimize /convert-paper) |
+| Prompts          | global + workspace sources with real paths |
+| Agent blueprints | Data Exploration/Search Agent card + install JSON form |
+| Expert packs     | empty hint + validate JSON form |
+| MCP servers      | adios in_process with 3 tools + Reconnect action |
+| Hooks            | empty hint + Add form (post-fix) |
+| Policies         | "No policy returned" + JSON editor |
+| Memory           | ARC stats — hit rate 62.5%, 5 hits / 3 misses, 1000 capacity, 4 conversations |
+| Metrics          | 35 sessions, 47k/3.1k tokens, $0 cost, 33m uptime, 64 messages |
+| Doctor           | integrations + capability gaps |
+| Appearance       | theme picker + accent palette tokens |
+| About            | CLIO Desktop v0.9.1, contract 0.2, clio-agent-gact 0.1.0, capability flag list |
+
+### Slash command end-to-end
+
+Opened the palette, typed `clear`. Two rows showed:
+1. `/clear  Clear current transcript  meta`       — desktop-local "clear UI"
+2. `/clear  Drop the in-memory log…   builtin`   — clio backend command
+
+**[UX] (E-9) Duplicate `/clear` entries are visually identical.** Real
+user can't tell which clears clio vs which clears the UI. Fix idea:
+prefix the meta variant ("clear · view") or sort by source and group
+under headers ("Local actions" / "Backend commands").
+
+Picked the backend row → clio's `runCommand` actually executed,
+turning into a real LM round-trip ("CLIO responded · 2612 tokens").
+Confirms `runCommand` is wired end-to-end (E-1 of the previous
+audit-batch — verified for real now).
+
+### Defaults / probes
+
+**[BROKEN-MINOR] (E-8) Splash probe and AddRemote default both used `localhost:7777`** while the Connect screen text and clio-agent's `start` command bind `:17800`. Net effect: a fresh
+splash never finds any clio, falls into the "Looking for a backend
+on localhost:7777…" stall, and the AddRemote dialog pre-fills a
+broken URL. Fixed: all references normalized to `:17800`. (clio-agent-gact's argparse default is still `:8100`, which is its own
+problem — operators don't normally run the bare CLI; they `clio start`.)
+

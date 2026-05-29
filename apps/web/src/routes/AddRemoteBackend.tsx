@@ -27,7 +27,7 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
   const [mode, setMode] = createSignal<Mode>('http');
 
   const [label, setLabel] = createSignal('');
-  const [url, setUrl] = createSignal('http://localhost:7777');
+  const [url, setUrl] = createSignal('http://localhost:17800');
   const [token, setToken] = createSignal('');
 
   const [sshHost, setSshHost] = createSignal('');
