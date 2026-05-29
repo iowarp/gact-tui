@@ -454,6 +454,20 @@ test.describe('CLIO audit-batch verification', () => {
   test('Composer exposes voice-upload + mic-record affordances (#135 #137)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await pickFirstSession(page);
+    // Both composer-voice (upload audio file) and composer-mic
+    // (browser recording) are gated on backend.capabilities.voice
+    // — the desktop hides them when clio doesn't have
+    // /voice/transcribe. Skip when not capable.
+    const voiceCapable = await page.evaluate(async (url) => {
+      const r = await fetch(`${url}/v1/capabilities`);
+      const j = await r.json();
+      return Boolean(j?.capabilities?.voice);
+    }, REAL_BACKEND);
+    if (!voiceCapable) {
+      test.skip(true, 'backend does not advertise voice capability');
+      await close();
+      return;
+    }
     await expect(page.getByTestId('composer-voice')).toBeVisible({ timeout: 6_000 });
     await expect(page.getByTestId('composer-mic')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('135-137-composer-voice-mic'), fullPage: false });
