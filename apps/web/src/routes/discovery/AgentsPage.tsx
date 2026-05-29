@@ -61,13 +61,36 @@ export function AgentsPage(props: AgentsPageProps) {
         </div>
       </Show>
       <div class="dp__grid">
-        <For each={sorted()}>{(a) => <AgentCard agent={a} client={props.client} />}</For>
+        <For each={sorted()}>
+          {(a) => (
+            <AgentCard
+              agent={a}
+              client={props.client}
+              onDelete={async () => {
+                if (
+                  !confirm(
+                    `Remove agent "${a.title ?? a.id}"? The on-disk file is preserved.`,
+                  )
+                )
+                  return;
+                try {
+                  await props.client.deleteAgent(a.id);
+                  void refetch();
+                } catch (e) {
+                  alert(
+                    `Delete failed: ${e instanceof Error ? e.message : String(e)}`,
+                  );
+                }
+              }}
+            />
+          )}
+        </For>
       </div>
     </DiscoveryPage>
   );
 }
 
-function AgentCard(props: { agent: AgentDef; client: Client }) {
+function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => void | Promise<void> }) {
   const tier = () => props.agent.tier ?? null;
   const [showDetail, setShowDetail] = createSignal(false);
   const [detail, setDetail] = createSignal<Record<string, unknown> | null>(null);
@@ -120,6 +143,18 @@ function AgentCard(props: { agent: AgentDef; client: Client }) {
           <For each={props.agent.keywords!}>
             {(k) => <span class="dp__tag">#{k}</span>}
           </For>
+        </div>
+      </Show>
+      <Show when={props.onDelete}>
+        <div class="dp__card-actions">
+          <button
+            type="button"
+            class="dp__card-btn dp__card-btn--danger"
+            onClick={() => void props.onDelete?.()}
+            data-testid={`agent-delete-${props.agent.id}`}
+          >
+            Remove
+          </button>
         </div>
       </Show>
       <button
