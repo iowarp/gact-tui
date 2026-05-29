@@ -871,6 +871,24 @@ export class Client {
     return this.del(`/v1/agents/${encodeURIComponent(agentId)}`);
   }
 
+  /** PUT /v1/agents/{id} — replace an existing agent definition. */
+  putAgent(
+    agentId: string,
+    def: Omit<AgentDef, 'id'> & { id?: string },
+  ): Promise<AgentDef> {
+    return this.request<AgentDef>(
+      `/v1/agents/${encodeURIComponent(agentId)}`,
+      'PUT',
+      { ...def, id: agentId },
+    );
+  }
+
+  /** POST /v1/agents — register a new agent definition. The backend
+   * assigns an `id` on success. */
+  createAgent(def: Omit<AgentDef, 'id'>): Promise<AgentDef> {
+    return this.post<AgentDef>('/v1/agents', def);
+  }
+
   agents(): Promise<{ agents: AgentDef[] }> {
     return this.get<{ agents: AgentDef[] }>('/v1/agents');
   }
