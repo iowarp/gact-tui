@@ -1585,6 +1585,24 @@ function ChatLayout(props: ChatLayoutProps) {
           return;
         }
       }
+      // Cmd/Ctrl+Y — copy the whole transcript as plain text. Skips
+      // tool internals so the clipboard ends up with just the
+      // human-readable dialogue.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        const dialogue = props.messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => `### ${m.role.toUpperCase()}\n${messageToText(m)}`)
+          .join('\n\n');
+        if (dialogue.trim() && typeof navigator !== 'undefined' && navigator.clipboard) {
+          void navigator.clipboard.writeText(dialogue).then(() => {
+            // The Toast context isn't accessible here from ChatLayout's
+            // keydown handler, so we lean on the visible side-effect:
+            // the clipboard write itself.
+          });
+        }
+        return;
+      }
       // Ctrl/Cmd+Shift+D — walk away from the active session and
       // park it in the detached registry so it surfaces in the
       // palette next time we open the app.
