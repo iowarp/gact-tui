@@ -414,14 +414,16 @@ export class Client {
 
   /**
    * POST /v1/sessions/{id}/schedules — create a new cron trigger.
+   * Wire wants `question`, callers think in `prompt`; normalize.
    */
   createSchedule(
     sessionId: string,
     body: { cron: string; prompt: string; enabled?: boolean },
   ): Promise<{ id: string; [k: string]: unknown }> {
+    const { prompt, ...rest } = body;
     return this.post(
       `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
-      body,
+      { ...rest, question: prompt },
     );
   }
 
