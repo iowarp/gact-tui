@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show, untrack, type JSX } from 'solid-js';
 import { Icon } from './Icon.js';
 import type { Client } from '@clio/core';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
@@ -135,40 +135,65 @@ export function Composer(props: ComposerProps = {}) {
   let lastKey: string | undefined;
   const storageKey = (k: string) => `clio.draft.${k}`;
   createEffect(() => {
+    // Only react to draftKey changes. text() reads inside are wrapped
+    // in untrack so this effect doesn't re-fire on every keystroke —
+    // an earlier version did, which made it read stale localStorage
+    // and reset the textarea mid-typing, eating the second character.
     const key = props.draftKey;
     if (typeof window === 'undefined') return;
-    if (lastKey && lastKey !== key) {
-      const outgoing = text();
-      if (outgoing) {
-        try { localStorage.setItem(storageKey(lastKey), outgoing); }
-        catch { /* quota / private mode — ignore */ }
-      } else {
-        try { localStorage.removeItem(storageKey(lastKey)); }
-        catch { /* ignore */ }
+    untrack(() => {
+      if (lastKey && lastKey !== key) {
+        const outgoing = text();
+        if (outgoing) {
+          try { localStorage.setItem(storageKey(lastKey), outgoing); }
+          catch { /* ignore */ }
+        } else {
+          try { localStorage.removeItem(storageKey(lastKey)); }
+          catch { /* ignore */ }
+        }
       }
-    }
-    if (key) {
-      try {
-        const restored = localStorage.getItem(storageKey(key)) ?? '';
-        setText(restored);
-      } catch {
+      if (key) {
+        try {
+          const restored = localStorage.getItem(storageKey(key)) ?? '';
+          const current = text();
+          // If the user was typing into the empty-state composer
+          // ('__new') and a real session just became active, carry
+          // the draft forward instead of wiping it.
+          if (!restored && current && lastKey === '__new') {
+            try { localStorage.setItem(storageKey(key), current); }
+            catch { /* ignore */ }
+          } else if (restored !== current) {
+            setText(restored);
+          }
+        } catch {
+          setText('');
+        }
+      } else if (!lastKey) {
+        // First mount without a key — leave whatever is in the box.
+      } else if (text() !== '') {
         setText('');
       }
-    } else if (!lastKey) {
-      // First mount without a key — leave whatever is in the box.
-    } else {
-      setText('');
-    }
-    lastKey = key;
+      lastKey = key;
+    });
   });
 
   // External-trigger reload — bumped when the compose modal closes so
   // whatever text the user typed there flows into the inline textarea.
   // The Solid effect tracks `props.draftReloadTick` and re-reads the
-  // current draftKey from localStorage when it changes.
+  // current draftKey from localStorage when it changes. Skip the
+  // initial firing — otherwise mounting the composer instantly
+  // wipes whatever the user starts typing before Solid's first
+  // effect batch settles.
+  let lastReloadTick: number | undefined;
   createEffect(() => {
     const tick = props.draftReloadTick;
     if (tick === undefined) return;
+    if (lastReloadTick === undefined) {
+      lastReloadTick = tick;
+      return;
+    }
+    if (tick === lastReloadTick) return;
+    lastReloadTick = tick;
     const key = props.draftKey;
     if (!key || typeof window === 'undefined') return;
     try {
