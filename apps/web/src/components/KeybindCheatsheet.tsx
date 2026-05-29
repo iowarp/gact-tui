@@ -26,6 +26,7 @@ const GROUPS: Group[] = [
       { combo: [PLATFORM_MOD, 'L'], description: 'Open a shared CLIO session by token (read-only)' },
       { combo: [PLATFORM_MOD, 'Shift', 'D'], description: 'Walk away from the active session (Ctrl+K re-attaches)' },
       { combo: [PLATFORM_MOD, 'R'], description: 'Refresh the sessions list (instead of reloading the browser)' },
+      { combo: [PLATFORM_MOD, 'E'], description: 'Quick-edit the last user message' },
       { combo: [PLATFORM_MOD, 'Shift', '↑'], description: 'Previous session' },
       { combo: [PLATFORM_MOD, 'Shift', '↓'], description: 'Next session' },
       { combo: [PLATFORM_MOD, 'N'], description: 'New session' },
