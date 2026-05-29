@@ -413,6 +413,53 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- Walk-away parks active session in detached registry (#115) ----
+  test('Ctrl+Shift+D parks the active session as detached (#115)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    await page.locator('body').click();
+    await page.keyboard.press('Control+Shift+KeyD');
+    await expect(page.getByTestId('toast-host')).toContainText('Walked away', { timeout: 4_000 });
+    await page.screenshot({ path: shot('115-walk-away'), fullPage: false });
+    await close();
+  });
+
+  // ---- LeftRail capability-gated rails exist for the live backend (#120) ----
+  test('LeftRail surfaces rail entries for advertised capabilities (#120)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    // Every backend in our test fleet advertises these — they should
+    // all be present in the rail.
+    for (const rail of ['agents', 'mcp', 'memory', 'metrics', 'doctor', 'plugins', 'tools']) {
+      await expect(page.getByTestId(`rail-${rail}`)).toBeVisible({ timeout: 4_000 });
+    }
+    await page.screenshot({ path: shot('120-leftrail-rails'), fullPage: false });
+    await close();
+  });
+
+  // ---- Providers detail in Settings (#128) ----
+  test('Settings → Providers renders provider list with active marker (#128)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-providers').click();
+    // providers-active is the chip on the currently-active provider; if
+    // the backend has no providers, providers-error shows instead.
+    await expect(
+      page.getByTestId('providers-active').or(page.getByTestId('providers-error')),
+    ).toBeVisible({ timeout: 6_000 });
+    await page.screenshot({ path: shot('128-providers-detail'), fullPage: false });
+    await close();
+  });
+
+  // ---- Composer voice + mic affordances render (#135 #137) ----
+  test('Composer exposes voice-upload + mic-record affordances (#135 #137)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    await expect(page.getByTestId('composer-voice')).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('composer-mic')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('135-137-composer-voice-mic'), fullPage: false });
+    await close();
+  });
+
   // ---- Workspaces page (#28 + workspace card features) ----
   test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
     const { page, close } = await connect(browser);
