@@ -159,13 +159,44 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
         </div>
       </Show>
       <div class="dp__grid">
-        <For each={items()}>{(w) => <WorkspaceCard ws={w} client={props.client} />}</For>
+        <For each={items()}>
+          {(w) => (
+            <WorkspaceCard
+              ws={w}
+              client={props.client}
+              onDelete={async () => {
+                if (
+                  !confirm(
+                    `Unregister workspace "${w.name}"? Backend keeps on-disk files; only metadata is dropped.`,
+                  )
+                )
+                  return;
+                try {
+                  await props.client.deleteWorkspace(w.id);
+                  toast.push({
+                    tone: 'success',
+                    title: 'Workspace unregistered',
+                    body: w.name,
+                    duration: 2400,
+                  });
+                  void refetch();
+                } catch (e) {
+                  toast.push({
+                    tone: 'error',
+                    title: 'Delete failed',
+                    body: e instanceof Error ? e.message : String(e),
+                  });
+                }
+              }}
+            />
+          )}
+        </For>
       </div>
     </DiscoveryPage>
   );
 }
 
-function WorkspaceCard(props: { ws: Workspace; client: Client }) {
+function WorkspaceCard(props: { ws: Workspace; client: Client; onDelete?: () => void | Promise<void> }) {
   const [showRepo, setShowRepo] = createSignal(false);
   const [repoData, setRepoData] = createSignal<{
     tree?: Record<string, unknown>;
@@ -239,6 +270,18 @@ function WorkspaceCard(props: { ws: Workspace; client: Client }) {
           <Show when={repoData()?.tokens}>{` · ${repoData()!.tokens}t`}</Show>
         </span>
       </button>
+      <Show when={props.onDelete}>
+        <div class="dp__card-actions">
+          <button
+            type="button"
+            class="dp__card-btn dp__card-btn--danger"
+            onClick={() => void props.onDelete?.()}
+            data-testid={`workspace-delete-${props.ws.id}`}
+          >
+            Unregister
+          </button>
+        </div>
+      </Show>
       <Show when={showRepo()}>
         <div class="ws-card__repo">
           <Show when={repoLoading()}>
