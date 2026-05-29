@@ -793,6 +793,51 @@ export class Client {
     return this.del(`/v1/workspaces/${encodeURIComponent(workspaceId)}`);
   }
 
+  /** PATCH /v1/workspaces/{id} — partial update (rename, config). */
+  patchWorkspace(
+    workspaceId: string,
+    patch: Partial<Pick<Workspace, 'name'>> & { config?: Record<string, unknown> },
+  ): Promise<Workspace> {
+    return this.request<Workspace>(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /** GET /v1/lsp/clients — list configured LSP clients (per-language
+   * server status). Useful for the Doctor health view. */
+  lspClients(): Promise<{
+    clients: Array<{
+      name: string;
+      language?: string;
+      status?: string;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get('/v1/lsp/clients');
+  }
+
+  /** GET /v1/tools/{id} — single-tool detail (richer than the bulk list). */
+  getTool(toolId: string): Promise<Record<string, unknown>> {
+    return this.get(`/v1/tools/${encodeURIComponent(toolId)}`);
+  }
+
+  /** POST /v1/agents/extract — distill a new agent definition from a
+   * session's behavior. Gated by `capabilities.skills_extraction`. */
+  extractAgent(body: {
+    session_id: string;
+    name?: string;
+    description?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.post('/v1/agents/extract', body);
+  }
+
+  /** DELETE /v1/agents/{id} — remove a registered agent. */
+  deleteAgent(agentId: string): Promise<void> {
+    return this.del(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
   agents(): Promise<{ agents: AgentDef[] }> {
     return this.get<{ agents: AgentDef[] }>('/v1/agents');
   }
