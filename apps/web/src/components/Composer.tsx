@@ -102,6 +102,64 @@ export function Composer(props: ComposerProps = {}) {
   const [error, setError] = createSignal<string | null>(null);
   const [mentionHighlight, setMentionHighlight] = createSignal(0);
 
+  // Composer input history — matches the TUI's Ctrl+Up/Down walk
+  // through prior sent messages. Per-session ring persisted to
+  // localStorage so it survives reloads.
+  const HISTORY_CAP = 100;
+  const histKey = () => `clio.input-history.${props.draftKey ?? '__no_session'}`;
+  function readHistory(): string[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(histKey());
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((s) => typeof s === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+  function pushHistory(t: string) {
+    if (!t.trim()) return;
+    const h = readHistory();
+    if (h.length > 0 && h[h.length - 1] === t) return;
+    h.push(t);
+    while (h.length > HISTORY_CAP) h.shift();
+    try {
+      localStorage.setItem(histKey(), JSON.stringify(h));
+    } catch {
+      // ignore quota
+    }
+  }
+  let historyCursor = -1;
+  let historyDraft = '';
+  function historyPrev(): string | null {
+    const h = readHistory();
+    if (h.length === 0) return null;
+    if (historyCursor < 0) {
+      historyDraft = text();
+      historyCursor = h.length;
+    }
+    if (historyCursor > 0) historyCursor--;
+    if (historyCursor >= h.length) historyCursor = h.length - 1;
+    return h[historyCursor] ?? null;
+  }
+  function historyNext(): string | null {
+    if (historyCursor < 0) return null;
+    const h = readHistory();
+    historyCursor++;
+    if (historyCursor >= h.length) {
+      const draft = historyDraft;
+      historyCursor = -1;
+      historyDraft = '';
+      return draft;
+    }
+    return h[historyCursor] ?? null;
+  }
+  function exitHistory() {
+    historyCursor = -1;
+    historyDraft = '';
+  }
+
   // Reset stopping state when streaming actually ends.
   createEffect(() => {
     if (!props.streaming) setStopping(false);
@@ -399,6 +457,8 @@ export function Composer(props: ComposerProps = {}) {
     const t = text().trim();
     if (!t || busy() || props.disabled) return;
     setError(null);
+    pushHistory(t);
+    exitHistory();
     if (!props.onSubmit) {
       setText('');
       return;
@@ -599,6 +659,52 @@ export function Composer(props: ComposerProps = {}) {
                   e.preventDefault();
                   props.onSlashTyped();
                   return;
+                }
+                // TUI parity: ArrowUp / ArrowDown walk the per-session
+                // input history when the caret is at the very top /
+                // very bottom of the textarea. Don't steal from line
+                // navigation in multi-line drafts.
+                if (e.key === 'ArrowUp' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                  const ta = e.currentTarget as HTMLTextAreaElement;
+                  if (ta.selectionStart === 0 && ta.selectionEnd === 0) {
+                    const prev = historyPrev();
+                    if (prev !== null) {
+                      e.preventDefault();
+                      setText(prev);
+                      queueMicrotask(() => {
+                        ta.value = prev;
+                        ta.setSelectionRange(prev.length, prev.length);
+                      });
+                      return;
+                    }
+                  }
+                }
+                if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                  const ta = e.currentTarget as HTMLTextAreaElement;
+                  if (ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length) {
+                    const next = historyNext();
+                    if (next !== null) {
+                      e.preventDefault();
+                      setText(next);
+                      queueMicrotask(() => {
+                        ta.value = next;
+                        ta.setSelectionRange(next.length, next.length);
+                      });
+                      return;
+                    }
+                  }
+                }
+                // Any other navigation key exits history mode so the
+                // user's edit doesn't stomp the cursor walk.
+                if (
+                  e.key !== 'ArrowUp' &&
+                  e.key !== 'ArrowDown' &&
+                  e.key !== 'Shift' &&
+                  e.key !== 'Control' &&
+                  e.key !== 'Meta' &&
+                  e.key !== 'Alt'
+                ) {
+                  exitHistory();
                 }
                 // Ctrl/Cmd+P expands the most recent compressed paste
                 // back into the textarea in place.
