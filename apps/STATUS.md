@@ -552,6 +552,41 @@ Translation: when the user runs the v0.9 desktop installer tomorrow,
 the launcher exec'ing this same `clio-agent-gact` should land them
 in a working chat shell on the first launch.
 
+## Audit-driven medium-tier pass (this session)
+
+A second wave of gap-closures following the 10-priority audit
+(`apps/AUDIT-CLIENT-GAPS.md`). All TypeScript-only — no Tauri/Rust
+changes, no contract changes, no design-system writes.
+
+- **Per-color theme editor** (Settings → Appearance). Accent palette
+  pickers persisted to `localStorage.clio.theme.tokens.v1` and applied
+  via injected `<style id="clio-theme-override">` at load. (319cbae)
+- **Catalog browser** — Cmd+Shift+K opens a unified modal that
+  searches Agents / Commands / MCP / Prompts / Workspaces in one query
+  box. Mirrors the TUI's `/catalog`. Picks route the user to the
+  matching rail page. (d59d4e7)
+- **Locale switcher** (en / es / ja / el). Persisted to
+  `localStorage.clio.locale.v1` and forwarded on every clio request as
+  `Accept-Language` via a new `getLocale` Client option. UI strings
+  stay English until frontend i18n lands. (aef0e2d)
+- **Ctrl+G compose modal** — fullscreen textarea that shares draft
+  storage with the inline composer (`clio.draft.${sessionId}`). Cmd+↵
+  to send, Esc to close-and-save. Composer re-hydrates on close via a
+  `draftReloadTick` prop. (3571d12)
+- **Cross-session memory search** on MemoryPage. Debounced 250ms,
+  hits `GET /v1/memory/search` (PR #351). Renders role-tagged hits
+  with score badges. (78c8464)
+- **Archive view toggle** in SessionsColumn. When set, fetches
+  `GET /v1/sessions?archived=true` into a local resource and renders
+  the bucket in place of the live list. Read-only browse. (c97d6f2)
+- **Autorename hint** — when SSE `session.updated` includes `title`
+  in `changed_fields`, refetch the sessions list so the new title
+  flows in and surface a quiet info toast. (8bce7c5)
+
+Visual proofs: deferred — clio :17800 was down during the session, so
+the Playwright suite couldn't run end-to-end. Re-run with `pnpm
+--filter @clio/web test:visual` after relaunching clio.
+
 ## Pending for v1.0 (out of scope for v0.9)
 
 - Code signing (Authenticode / Apple Developer ID / GPG).
