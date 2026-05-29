@@ -205,6 +205,22 @@ function McpResourceRow(props: {
   const [preview, setPreview] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [err, setErr] = createSignal<string | null>(null);
+  const [subscribed, setSubscribed] = createSignal(false);
+
+  async function toggleSubscribe() {
+    setErr(null);
+    try {
+      if (subscribed()) {
+        await props.client.mcpUnsubscribeResource(props.s.id, props.r.uri);
+        setSubscribed(false);
+      } else {
+        await props.client.mcpSubscribeResource(props.s.id, props.r.uri);
+        setSubscribed(true);
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   async function load() {
     if (preview() !== null) {
@@ -240,6 +256,14 @@ function McpResourceRow(props: {
         data-testid={`mcp-resource-preview-${props.s.id}-${props.r.uri}`}
       >
         {busy() ? '…' : preview() !== null ? 'Hide' : 'Preview'}
+      </button>
+      <button
+        type="button"
+        class="mcp__resource-preview"
+        onClick={() => void toggleSubscribe()}
+        data-testid={`mcp-resource-sub-${props.s.id}-${props.r.uri}`}
+      >
+        {subscribed() ? '✓ Subscribed' : 'Subscribe'}
       </button>
       <Show when={err()}>
         <pre class="mcp__resource-err">{err()}</pre>
