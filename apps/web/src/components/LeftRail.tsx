@@ -39,14 +39,19 @@ const ENTRIES: RailEntry[] = [
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', requires: ['mcp'] },
   { id: 'memory', label: 'Memory', icon: 'memory', requires: ['memory'] },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', requires: ['metrics'] },
-  { id: 'doctor', label: 'Doctor', icon: 'doctor', requires: ['integration_health'] },
+  { id: 'doctor', label: 'Doctor', icon: 'doctor', requires: ['integration_health', 'doctor'] },
 ];
 
 export function LeftRail(props: LeftRailProps) {
   const caps = () => props.caps ?? {};
   const visible = () =>
     ENTRIES.filter(
-      (e) => !e.requires || e.requires.every((flag) => caps()[flag]),
+      (e) =>
+        !e.requires ||
+        // ANY matching capability is enough — some entries (Doctor)
+        // list both the TUI flag (`doctor`) and the Desktop flag
+        // (`integration_health`) for cross-client coherence.
+        e.requires.some((flag) => caps()[flag]),
     );
 
   return (
