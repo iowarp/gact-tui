@@ -272,6 +272,20 @@ function LiveDriven(props: {
   const [streaming, setStreaming] = createSignal(false);
   const toast = useToast();
 
+  // Listen for `clio:toast` custom events so ChatLayout (no Toast
+  // context) can still surface feedback. Used by Cmd+Y transcript
+  // copy and any future deep-layout flow that needs to ping the user.
+  onMount(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && typeof detail === 'object') {
+        toast.push(detail as Parameters<typeof toast.push>[0]);
+      }
+    };
+    window.addEventListener('clio:toast', handler);
+    onCleanup(() => window.removeEventListener('clio:toast', handler));
+  });
+
   const [recentlyRenamed, setRecentlyRenamed] = createSignal<{ sid: string; expiry: number } | null>(null);
   let renameTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1763,9 +1777,20 @@ function ChatLayout(props: ChatLayoutProps) {
           .join('\n\n');
         if (dialogue.trim() && typeof navigator !== 'undefined' && navigator.clipboard) {
           void navigator.clipboard.writeText(dialogue).then(() => {
-            // The Toast context isn't accessible here from ChatLayout's
-            // keydown handler, so we lean on the visible side-effect:
-            // the clipboard write itself.
+            // Surface visible feedback so the user knows the keystroke
+            // landed. ChatLayout doesn't have the Toast context so
+            // dispatch a window-level event ChatScreen catches and
+            // pushes through useToast().
+            window.dispatchEvent(
+              new CustomEvent('clio:toast', {
+                detail: {
+                  tone: 'success',
+                  title: 'Transcript copied',
+                  body: `${props.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length} messages on the clipboard`,
+                  duration: 2400,
+                },
+              }),
+            );
           });
         }
         return;
