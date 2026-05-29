@@ -886,6 +886,22 @@ export class Client {
     return this.del(`/v1/agents/${encodeURIComponent(agentId)}`);
   }
 
+  /** PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id} —
+   * partial patch of a single Part. Used for in-place edits to a
+   * tool_result, text fragment, etc. */
+  patchMessagePart(
+    sessionId: string,
+    messageId: string,
+    partId: string,
+    patch: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.request(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/parts/${encodeURIComponent(partId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
   /** PUT /v1/agents/{id} — replace an existing agent definition. */
   putAgent(
     agentId: string,
