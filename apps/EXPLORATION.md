@@ -303,3 +303,74 @@ on localhost:7777…" stall, and the AddRemote dialog pre-fills a
 broken URL. Fixed: all references normalized to `:17800`. (clio-agent-gact's argparse default is still `:8100`, which is its own
 problem — operators don't normally run the bare CLI; they `clio start`.)
 
+**[BROKEN] (E-10) Inspector → Schedules → Add 422'd because we sent `prompt` but clio reads `question`.**
+
+What happened: filled cron + prompt + clicked Add. Toast: "Could not
+add schedule · internal_error: missing required fields: cron +
+question". Schedule never created.
+
+Root cause: third wire-name mismatch this session, after
+`agent_blueprints`/`blueprints` and `message.created.payload.message`
+nesting. `Client.createSchedule` posted `{ cron, prompt, enabled? }`;
+clio's POST `/v1/sessions/{id}/schedules` reads `body.get("question")`.
+
+Fix: map `prompt → question` inside `Client.createSchedule`. Verified
+end-to-end against live clio: `Every 15 minutes` preview renders,
+server accepts, list reflects it.
+
+## Per-feature verification matrix (live clio + ALCF Sophia)
+
+Verified column = clicked/triggered the feature in the running webapp
+and watched it complete against real backend state.
+
+| Area              | Feature                                       | Verified |
+|-------------------|-----------------------------------------------|---|
+| Connect           | URL+token form → /v1/capabilities probe → chat | ✓ |
+| Connect           | CORS allow on /v1/* from a foreign origin     | ✓ (E-1) |
+| Chat shell        | Composer accepts long input, no collapse      | ✓ (E-2) |
+| Chat shell        | Topbar title visible even with full meta row  | ✓ (E-6) |
+| Chat shell        | Model chip reads the active LM (not preset 0) | ✓ (E-3) |
+| Chat shell        | Backend picker labels the live URL            | ✓ (E-4) |
+| Chat shell        | Message order chronological                   | ✓ (E-5) |
+| Chat shell        | Multi-turn round-trip (user → assistant text) | ✓        |
+| Composer          | `/` opens slash palette on empty input        | ✓        |
+| Composer          | `@` opens at-mention picker w/ workspace files| ✓        |
+| Composer          | Paste compression (5-line → `[pasted N…]`)    | ✓        |
+| Composer          | Voice/mic buttons hidden when voice cap = false | ✓ (E-2) |
+| Inspector         | Turn tab: stop_reason, tokens, cost           | ✓        |
+| Inspector         | Frames tab: ctx_…/completed per turn          | ✓        |
+| Inspector         | Schedules tab + cron humanizer preview        | ✓        |
+| Inspector         | Schedules Add lands a row on the backend      | ✓ (E-10) |
+| Inspector         | Bindings tab: blueprint + pack pickers        | ✓ (earlier fix) |
+| Per-message       | copy → clipboard                              | ✓        |
+| Per-message       | quote → composer with blockquote prefix       | ✓        |
+| Per-message       | permalink → `clio://session/.../#msg_…`       | ✓        |
+| Per-message       | delete → DELETE wire + transcript drops msg   | ✓ (E-7) |
+| Palette           | Cmd+K opens 62 items                          | ✓        |
+| Palette           | filter narrows + Enter navigates              | ✓        |
+| Palette           | runCommand actually dispatches to clio        | ✓        |
+| Palette           | duplicate `/clear` rows removed               | ✓ (E-9) |
+| Catalog           | Cmd+Shift+K renders 27 agents inline          | ✓        |
+| Modals            | Cmd+G compose, Cmd+L shared session           | ✓        |
+| Keyboard          | Cmd+/ cheatsheet, Cmd+F search, Cmd+B columns | ✓        |
+| Keyboard          | Cmd+S downloads session JSON                  | ✓        |
+| Keyboard          | Ctrl+Shift+D walk-away → toast                | ✓        |
+| Rails             | Doctor / Agents / MCP / Memory / Metrics / Plugins / Workspaces / Commands | ✓ |
+| Settings          | all 16 sections render against live data      | ✓        |
+| Settings          | active-LM badge reflects /v1/providers/lm     | ✓ (E-3) |
+| Defaults          | Splash + AddRemote use :17800                 | ✓ (E-8) |
+
+### Outstanding — needs a richer turn to verify
+
+These surfaces are wired but require a tool-using or permission-asking
+turn to drive. clio ships MCP servers + permission flow, but exercising
+them needs a prompt that the LM actually decides to route through tools.
+
+- Permission card flow (request/deny/grant scopes via SSE).
+- Inspector Tools tab + tool_call.progress chip in topbar.
+- Inspector Diffs tab + bulk apply/reject.
+- Inspector Tasks tab + status cycling.
+- Ask-user question card (user_question.created SSE).
+- session.updated → autorename pill (transient, animates out in 4.5s).
+- lm.provider.{changed,failed} SSE toasts.
+
