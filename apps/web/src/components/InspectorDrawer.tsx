@@ -855,6 +855,23 @@ function BindingsTab(props: {
   );
 }
 
+/** Humanise an ISO timestamp into a short "in N min" or "5h ago"
+ * line. Falls back to the raw ISO when unparseable. */
+function humanRelativeIso(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const delta = d.getTime() - Date.now();
+  const sign = delta >= 0 ? '' : 'ago ';
+  const abs = Math.abs(delta);
+  const min = Math.round(abs / 60_000);
+  if (min < 1) return delta >= 0 ? 'imminently' : 'just now';
+  if (min < 60) return `${sign}in ${min}m`.replace('ago in', 'ago').trim();
+  const hr = Math.round(min / 60);
+  if (hr < 24) return delta >= 0 ? `in ${hr}h` : `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  return delta >= 0 ? `in ${day}d` : `${day}d ago`;
+}
+
 /** Best-effort cron → English for the schedule preview line. Doesn't
  * pretend to handle every cron grammar — just the common cases users
  * actually paste (asterisk-slash-N minutes/hours, fixed times,
@@ -949,7 +966,12 @@ function SchedulesTab(props: {
                   <span class="inspector__chip">disabled</span>
                 </Show>
                 <Show when={s.next_run_at}>
-                  <span class="inspector__schedule-next">next {s.next_run_at}</span>
+                  <span
+                    class="inspector__schedule-next"
+                    title={s.next_run_at}
+                  >
+                    next {humanRelativeIso(s.next_run_at!)}
+                  </span>
                 </Show>
                 <Show when={props.onDelete}>
                   <button
