@@ -24,6 +24,13 @@ export interface ClientOptions {
   baseUrl: string;
   bearerToken?: string;
   fetch?: typeof fetch;
+  /**
+   * Returns a BCP-47 language tag (e.g. "es", "ja", "en-US") to include in
+   * `Accept-Language` on every request. Re-evaluated per call so callers
+   * can flip locale at runtime without reconstructing the client.
+   * Return `null`/`undefined` to send no header.
+   */
+  getLocale?: () => string | null | undefined;
 }
 
 export class HttpError extends Error {
@@ -96,6 +103,10 @@ export class Client {
     const h: Record<string, string> = { Accept: 'application/json' };
     if (this.options.bearerToken) {
       h.Authorization = `Bearer ${this.options.bearerToken}`;
+    }
+    const locale = this.options.getLocale?.();
+    if (locale) {
+      h['Accept-Language'] = locale;
     }
     return h;
   }

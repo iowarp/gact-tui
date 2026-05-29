@@ -61,6 +61,7 @@ import {
   WorkspacesPage,
 } from './discovery/index.js';
 import { Client } from '@clio/core';
+import { getRequestLocale } from '../locale.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useToast } from '../components/Toast.js';
 import {
@@ -1156,6 +1157,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const discoveryClient = new Client({
     baseUrl: props.backendUrl,
     fetch: inTauri() ? tauriFetch : undefined,
+    getLocale: getRequestLocale,
   });
 
   onMount(() => {

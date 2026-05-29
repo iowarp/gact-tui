@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { useBackendRegistry } from '../registry.js';
 import { Client, type BackendEntry } from '@clio/core';
+import { getRequestLocale } from '../locale.js';
 import { inTauri } from '../tauri.js';
 import './settings.css';
 
@@ -83,7 +84,11 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
         // Best-effort capability probe before handing off — gives the
         // user immediate feedback (capabilities chip turns green).
         try {
-          const c = new Client({ baseUrl: entry.url, bearerToken: entry.bearerToken });
+          const c = new Client({
+            baseUrl: entry.url,
+            bearerToken: entry.bearerToken,
+            getLocale: getRequestLocale,
+          });
           const caps = await c.capabilities();
           reg.update(id, { capabilities: caps });
         } catch (e) {

@@ -1,6 +1,7 @@
 import { createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
+import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type LocaleTag } from '../locale.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useBackendRegistry } from '../registry.js';
 import { SettingsBackends } from './SettingsBackends.js';
@@ -102,6 +103,7 @@ export function SettingsShell(props: SettingsShellProps) {
       baseUrl: cur.url,
       bearerToken: cur.bearerToken,
       fetch: inTauri() ? tauriFetch : undefined,
+      getLocale: getRequestLocale,
     });
   };
 
@@ -272,6 +274,12 @@ function AppearanceSection() {
     'normal',
   );
   const [tokens, setTokens] = createSignal<Record<string, string>>(loadThemeTokens());
+  const [locale, setLocale] = createSignal<LocaleTag>(loadLocale());
+
+  function changeLocale(next: LocaleTag) {
+    setLocale(next);
+    saveLocale(next);
+  }
 
   function updateToken(key: string, value: string) {
     const next = { ...tokens() };
@@ -372,6 +380,43 @@ function AppearanceSection() {
             data-testid="theme-tokens-reset-all"
           >
             Reset palette to design-system defaults
+          </button>
+        </Show>
+
+        <div class="dp__section-title">Locale</div>
+        <p class="settings-shell__hint">
+          Forwarded to clio as <code>Accept-Language</code> so backend
+          copy (errors, hints, slash command titles) can answer in your
+          preferred language. UI chrome strings stay English until
+          frontend i18n lands.
+        </p>
+        <div class="settings-shell__choices" data-testid="settings-locale-choices">
+          <For each={LOCALES}>
+            {(l) => (
+              <button
+                type="button"
+                class={
+                  'settings-shell__choice ' +
+                  (locale() === l.tag ? 'is-active' : '')
+                }
+                onClick={() => changeLocale(l.tag)}
+                data-testid={`settings-locale-${l.tag}`}
+              >
+                <span class="settings-shell__choice-label">{l.nativeLabel}</span>
+                <span class="settings-shell__choice-sub">{l.label}</span>
+              </button>
+            )}
+          </For>
+        </div>
+        <Show when={locale() !== DEFAULT_LOCALE}>
+          <button
+            type="button"
+            class="ws-form__btn"
+            style="margin-top: 8px"
+            onClick={() => changeLocale(DEFAULT_LOCALE)}
+            data-testid="settings-locale-reset"
+          >
+            Reset to English
           </button>
         </Show>
 
