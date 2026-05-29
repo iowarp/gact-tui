@@ -12,7 +12,19 @@
 > **Medium-tier follow-up pass:** #7 theme editor (`319cbae`), #7 locale
 > switcher (`aef0e2d`), #9 Ctrl+G compose modal (`3571d12`), #13 catalog
 > browser (`d59d4e7`), cross-session memory search at `78c8464`, archive
-> filter view at `c97d6f2`, autorename hint at `8bce7c5`.
+> filter view at `c97d6f2`, autorename hint at `8bce7c5`,
+> `lm.provider.{changed,failed}` SSE at `5c009f1`.
+>
+> **§3-§4 power-user pass:** autorename hint pill (`443274f`), Frames
+> inspector + session-wide diffs (`9dc8a0a`), Schedules tab (`cc99559`),
+> shared session modal (`1c71559`), detached registry (`b6828d5`),
+> `context.frame.*` SSE (`b2f93a3`), `runCommand` for backend slash
+> dispatch (`06153a6`), `metadata.pinned` mirror (`d091abb`, `73f2d05`),
+> LeftRail caps coherence (`df2d97d`), custom intro splash (`983c089`),
+> Hooks editor (`23a98b1`), Policies JSON editor (`a18c80f`), per-session
+> blueprint + expert-pack bindings (`970f1ff`), MCP detail expansion
+> (`32e0628`), blueprint validate/install/uninstall (`c1a29d9`), expert
+> pack validate (`d4f1748`).
 > See `apps/CHANGELOG.md` for the running list.
 
 
