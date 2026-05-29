@@ -10,7 +10,9 @@ export interface DoctorPageProps {
 export function DoctorPage(props: DoctorPageProps) {
   const [data, { refetch }] = createResource(() => props.client.health());
   const [gapsData] = createResource(() => props.client.capabilityGaps().catch(() => null));
+  const [lspData] = createResource(() => props.client.lspClients().catch(() => ({ clients: [] })));
   const integrations = () => data()?.integrations ?? [];
+  const lspClients = () => lspData()?.clients ?? [];
   const gaps = () => {
     const raw = gapsData()?.capability_gaps ?? {};
     return Object.entries(raw).map(([name, details]) => ({
@@ -65,6 +67,36 @@ export function DoctorPage(props: DoctorPageProps) {
       <ul class="doc__list" data-testid="doctor-integrations">
         <For each={integrations()}>{(i) => <IntegrationRow i={i} />}</For>
       </ul>
+      <Show when={lspClients().length > 0}>
+        <div class="dp__section-title">LSP clients</div>
+        <ul class="doc__list" data-testid="doctor-lsp">
+          <For each={lspClients()}>
+            {(c) => (
+              <li class="doc__row" data-testid={`doctor-lsp-${c.name}`}>
+                <span
+                  class={
+                    'doc__row-pip doc__row-pip--' +
+                    (c.status === 'ready' || c.status === 'running'
+                      ? 'ok'
+                      : c.status === 'starting'
+                        ? 'warn'
+                        : c.status
+                          ? 'err'
+                          : '')
+                  }
+                />
+                <span class="doc__row-name">{c.name}</span>
+                <Show when={c.language}>
+                  <span class="dp__tag">{c.language}</span>
+                </Show>
+                <Show when={c.status}>
+                  <span class="doc__row-status">{c.status}</span>
+                </Show>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
       <Show when={gaps().length > 0}>
         <div class="dp__section-title">Capability gaps</div>
         <ul class="doc__gaps" data-testid="doctor-gaps">
