@@ -1,6 +1,6 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-05-28 (post-v0.9.0 development pass)
+**Last updated:** 2026-05-29 (E-19..E-25 wire-shape + SSE handler pass)
 **Branch:** `feat/apps-harness`
 **Phase:** v0.9.1 in flight on `feat/apps-harness` HEAD
 
@@ -839,4 +839,55 @@ event. These surfaces are wired and rendered against fixtures but
 cannot be visually verified end-to-end against this clio. Re-run
 the audit spec once a working provider (ALCF or local Ollama) is
 PUT into `/v1/providers/lm` to clear the remaining 16 items.
+
+## 2026-05-29 — E-19..E-25 wire-shape + SSE handler pass
+
+Driven against live clio on `:17800` (ALCF Sophia / Metis / gpt-oss-120b).
+Six commits landed on `feat/apps-harness`:
+
+- **E-19 (`8ba9a37`)** — Added reducer cases for the 11 SSE event types
+  the desktop subscribed to but silently dropped: `session.cleared`,
+  `message.deleted`, `context.file.{added,removed}`, `file.diff.{applied,
+  rejected,write_failed}`, `expert_handoff`, `subagent.{started,
+  completed}`, `memory.search.completed`, `turn.retry_requested`.
+  Extended `NotificationSink` with `onContextFilesChanged`,
+  `onDiffChanged`, `onMemoryChanged` and routed them through
+  `createLiveTranscript` to ChatScreen's existing `refetchContextFiles` /
+  `refetchSessionDiffs` hooks. `file.diff.write_failed` now surfaces as
+  an error toast.
+
+- **E-20+E-21 (`3d27e3a`)** — Added three missing client methods:
+  `callMcpTool` (POST /v1/mcp/servers/{id}/call — the canonical way to
+  drive an installed MCP server from the UI; was unreachable),
+  `renderPrompt` (POST /v1/prompts/{id}/render), `validatePrompt` (POST
+  /v1/prompts/{id}/validate).
+
+- **E-23 (`2903e58`)** — `applySessionDiffs` was discarding clio's
+  `write_errors` map. Each per-path disk-write failure now surfaces
+  as its own error toast.
+
+- **E-22+E-24 (`f3a4436`)** — Rewrote `patchContextFile` to POST instead
+  of PATCH (clio's POST endpoint upserts; no PATCH route exists so the
+  mode-cycle button was 405'ing). Added optional `metadata` to
+  `answerSessionQuestion`'s body to match clio's `AnswerUserQuestionRequest`.
+
+- **Test alignment (`52c9efb`)** — Updated the `resolvePermission` test
+  to assert the post-E-16 wire shape (`{action}` not `{decision, scope}`).
+  All 36 core tests pass.
+
+- **EXPLORATION update (`1d96c46`)** — Documented E-19..E-24 with the
+  user-facing symptoms and the fix in `apps/EXPLORATION.md`.
+
+- **Voice gating (`ce28adc`)** — Speak button on assistant messages
+  now gates on `backend.capabilities.voice` to mirror the
+  `onTranscribeVoice` gate. Removes a guaranteed error-toast click
+  on backends that don't ship `/voice/synthesize`.
+
+What this pass fixed in user terms: `/clear` now wipes the desktop
+transcript live; another client deleting a message no longer leaves a
+ghost row; the Inspector Diffs tab tracks apply/reject/write_failed from
+any source; the Context tab updates when slash commands edit it; expert
+handoffs and sub-agent transitions surface as notifications; the
+permission body actually unblocks clio. Six remaining surfaces are
+blocked on clio capabilities (TTS, MCP resource read).
 
