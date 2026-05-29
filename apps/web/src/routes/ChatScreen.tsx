@@ -1178,6 +1178,7 @@ function LiveDriven(props: {
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
+      capsFlags={props.backend.capabilities?.capabilities}
       onSummarizeWithInstructions={async () => {
         const sid = activeId();
         if (!sid) return;
@@ -1352,6 +1353,7 @@ interface ChatLayoutProps {
   onCopyMessagePermalink?: (msg: import('@clio/core').Message) => void | Promise<void>;
   onExtractAgent?: () => void | Promise<void>;
   onSummarizeWithInstructions?: () => void | Promise<void>;
+  capsFlags?: import('@clio/core').CapabilityFlags;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -2047,6 +2049,17 @@ function ChatLayout(props: ChatLayoutProps) {
         description: 'Summarize the session with custom instructions (e.g. "extract action items only")',
         category: 'action',
       },
+      ...(props.capsFlags?.skills_extraction
+        ? [
+            {
+              id: 'extract-agent' as const,
+              trigger: 'extract · agent',
+              description:
+                'Distill a new agent definition from this session (skills_extraction)',
+              category: 'action' as const,
+            },
+          ]
+        : []),
       {
         id: 'compose-modal',
         trigger: 'compose · fullscreen',
@@ -2077,12 +2090,8 @@ function ChatLayout(props: ChatLayoutProps) {
         description: 'Park the active session in the detached registry (Ctrl+Shift+D)',
         category: 'action',
       },
-      {
-        id: 'extract-agent',
-        trigger: 'extract · agent',
-        description: 'Distill a new agent definition from this session (skills_extraction)',
-        category: 'action',
-      },
+      // (capability-gated below — only ships when the backend
+      // advertises capabilities.skills_extraction = true.)
       {
         id: 'new-session',
         trigger: 'new session',
