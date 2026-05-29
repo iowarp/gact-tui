@@ -776,9 +776,24 @@ export class Client {
     decision: 'approve' | 'deny',
     scope?: PermissionScope,
   ): Promise<void> {
+    // Wire: clio reads { action: 'allow' | 'deny' | 'allow_session' |
+    // 'allow_workspace' }. Map the UI's decision+scope to the
+    // backend's single enum so permissions actually unblock the
+    // agent (previously the desktop's POST 422'd silently and the
+    // agent stayed waiting forever).
+    let action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace' = 'deny';
+    if (decision === 'approve') {
+      action = 'allow';
+      if (scope === 'session') action = 'allow_session';
+      // `always_tool` / `always_server` aren't first-class on clio yet;
+      // map both to allow_workspace which is the broadest scope clio
+      // currently honors.
+      else if (scope === 'always_tool' || scope === 'always_server') {
+        action = 'allow_workspace';
+      }
+    }
     return this.post<void>(`/v1/permissions/${encodeURIComponent(permissionId)}`, {
-      decision,
-      ...(decision === 'approve' && scope ? { scope } : {}),
+      action,
     });
   }
 
@@ -917,7 +932,14 @@ export class Client {
     name?: string;
     description?: string;
   }): Promise<Record<string, unknown>> {
-    return this.post('/v1/agents/extract', body);
+    // Wire: clio reads { session_ids: [...], agent_id: "..." }.
+    // Callers pass the singular shape that matches the UI.
+    const payload: Record<string, unknown> = {
+      session_ids: [body.session_id],
+      agent_id: (body.name ?? '').toLowerCase().replace(/\W+/g, '-') || body.session_id,
+    };
+    if (body.description) payload['description'] = body.description;
+    return this.post('/v1/agents/extract', payload);
   }
 
   /** DELETE /v1/agents/{id} — remove a registered agent. */
