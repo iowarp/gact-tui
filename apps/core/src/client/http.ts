@@ -971,6 +971,54 @@ export class Client {
     );
   }
 
+  /** POST /v1/mcp/servers/{id}/resources/subscribe — subscribe to
+   * resource-changed events for `uri`. */
+  mcpSubscribeResource(serverId: string, uri: string): Promise<void> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/subscribe`,
+      { uri },
+    );
+  }
+
+  /** DELETE /v1/mcp/servers/{id}/resources/subscribe — unsubscribe. */
+  mcpUnsubscribeResource(serverId: string, uri: string): Promise<void> {
+    return this.request(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/subscribe`,
+      'DELETE',
+      { uri },
+    );
+  }
+
+  /** GET /v1/mcp/servers/{id}/resource_templates — list templated
+   * resources (parameterized URIs). */
+  mcpServerResourceTemplates(serverId: string): Promise<{
+    templates: Array<{
+      uriTemplate: string;
+      name?: string;
+      description?: string;
+    }>;
+  }> {
+    return this.get(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resource_templates`,
+    );
+  }
+
+  /** POST /v1/mcp/servers/{id}/prompts/get — fetch a prompt template
+   * with arguments substituted. */
+  mcpGetPrompt(
+    serverId: string,
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<{
+    description?: string;
+    messages: Array<{ role: string; content: { type: string; text?: string } }>;
+  }> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/prompts/get`,
+      { name, arguments: args },
+    );
+  }
+
   health(): Promise<HealthSnapshot> {
     return this.get<HealthSnapshot>('/v1/health');
   }
