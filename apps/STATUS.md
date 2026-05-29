@@ -619,6 +619,21 @@ changes, no contract changes, no design-system writes.
   textarea persisted to `localStorage.clio.splash.intro.v1`, rendered
   on the Splash screen between the wordmark and the spinner. Mirrors
   the TUI's `intro_file` config. (983c089)
+- **Hooks editor** — promoted the read-only Hooks page to read/write
+  via `POST /v1/hooks` + `DELETE /v1/hooks/{id}`. Type selector
+  (pre_message/post_message/pre_tool/post_tool) + URI input + per-row
+  delete buttons. (23a98b1)
+- **Policies JSON editor** — Policies page now exposes an Edit affordance
+  that switches the JSON pretty-print into a textarea backed by
+  `PUT /v1/policies`. (a18c80f)
+- **Inspector Bindings tab** — swap per-session blueprint + expert
+  pack live via `GET/POST /v1/sessions/{id}/agent-blueprint` and
+  `/expert-pack` (PRs #386/#387, #344). Dropdowns populated from
+  `/v1/agent-blueprints` + `/v1/expert-packs`. (970f1ff)
+- **MCP server detail expansion** — cards now expand to lazy-fetch
+  `/v1/mcp/servers/{id}/{tools,resources,prompts}` so users can see
+  what each gateway actually exposes without dropping into the TUI.
+  (32e0628)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
