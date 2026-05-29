@@ -30,6 +30,10 @@ export interface TranscriptProps {
   /** When set, assistant messages render a Speak button that pulls
    * TTS audio from POST /v1/sessions/{id}/voice/synthesize. */
   onSpeak?: (msg: Message) => void | Promise<void>;
+  /** When set, renders a copy-link action that calls back with the
+   * message id; ChatScreen wraps it into a `clio://session/<sid>#<mid>`
+   * permalink and writes to the clipboard. */
+  onCopyPermalink?: (msg: Message) => void | Promise<void>;
 }
 
 const ROLE_ICON: Record<string, IconName> = {
@@ -225,6 +229,7 @@ function MessageView(props: {
   onDelete?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
   onSpeak?: (msg: Message) => void | Promise<void>;
+  onCopyPermalink?: (msg: Message) => void | Promise<void>;
   selected?: boolean;
   onSelect?: (msg: Message) => void;
   searchQuery?: string;
@@ -297,6 +302,17 @@ function MessageView(props: {
               onClick={() => void props.onSpeak?.(props.msg)}
             >
               <Icon name="bell" size={12} />
+            </button>
+          </Show>
+          <Show when={props.onCopyPermalink}>
+            <button
+              type="button"
+              class="trx-msg__action"
+              title="Copy link to this message"
+              data-testid={`msg-link-${props.msg.id}`}
+              onClick={() => void props.onCopyPermalink?.(props.msg)}
+            >
+              <Icon name="arrow-up-right" size={12} />
             </button>
           </Show>
           <Show when={role() === 'user' && props.onEdit}>
@@ -480,6 +496,7 @@ export function Transcript(props: TranscriptProps) {
               onEdit={props.onEdit}
               onQuote={props.onQuote}
               onSpeak={props.onSpeak}
+              onCopyPermalink={props.onCopyPermalink}
               selected={m.id === props.selectedId}
               onSelect={props.onSelect}
               searchQuery={props.searchQuery}
