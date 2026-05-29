@@ -164,6 +164,24 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
             <WorkspaceCard
               ws={w}
               client={props.client}
+              onRename={async (next) => {
+                try {
+                  await props.client.patchWorkspace(w.id, { name: next });
+                  toast.push({
+                    tone: 'success',
+                    title: 'Workspace renamed',
+                    body: next,
+                    duration: 2400,
+                  });
+                  void refetch();
+                } catch (e) {
+                  toast.push({
+                    tone: 'error',
+                    title: 'Rename failed',
+                    body: e instanceof Error ? e.message : String(e),
+                  });
+                }
+              }}
               onDelete={async () => {
                 if (
                   !confirm(
@@ -196,7 +214,12 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
   );
 }
 
-function WorkspaceCard(props: { ws: Workspace; client: Client; onDelete?: () => void | Promise<void> }) {
+function WorkspaceCard(props: {
+  ws: Workspace;
+  client: Client;
+  onDelete?: () => void | Promise<void>;
+  onRename?: (next: string) => void | Promise<void>;
+}) {
   const [showRepo, setShowRepo] = createSignal(false);
   const [repoData, setRepoData] = createSignal<{
     tree?: Record<string, unknown>;
@@ -270,16 +293,33 @@ function WorkspaceCard(props: { ws: Workspace; client: Client; onDelete?: () => 
           <Show when={repoData()?.tokens}>{` · ${repoData()!.tokens}t`}</Show>
         </span>
       </button>
-      <Show when={props.onDelete}>
+      <Show when={props.onDelete || props.onRename}>
         <div class="dp__card-actions">
-          <button
-            type="button"
-            class="dp__card-btn dp__card-btn--danger"
-            onClick={() => void props.onDelete?.()}
-            data-testid={`workspace-delete-${props.ws.id}`}
-          >
-            Unregister
-          </button>
+          <Show when={props.onRename}>
+            <button
+              type="button"
+              class="dp__card-btn"
+              onClick={async () => {
+                const next = window.prompt('New workspace name', props.ws.name);
+                if (next && next !== props.ws.name) {
+                  await props.onRename?.(next);
+                }
+              }}
+              data-testid={`workspace-rename-${props.ws.id}`}
+            >
+              Rename
+            </button>
+          </Show>
+          <Show when={props.onDelete}>
+            <button
+              type="button"
+              class="dp__card-btn dp__card-btn--danger"
+              onClick={() => void props.onDelete?.()}
+              data-testid={`workspace-delete-${props.ws.id}`}
+            >
+              Unregister
+            </button>
+          </Show>
         </div>
       </Show>
       <Show when={showRepo()}>
