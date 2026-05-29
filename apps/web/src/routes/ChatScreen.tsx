@@ -1134,6 +1134,26 @@ function LiveDriven(props: {
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
+      onSpeakMessage={async (msg) => {
+        const sid = activeId();
+        if (!sid) return;
+        const text = messageToText(msg).slice(0, 4000);
+        if (!text.trim()) return;
+        try {
+          const blob = await live.client.synthesizeVoice(sid, text);
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+          await audio.play();
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'TTS failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 4000,
+          });
+        }
+      }}
       onPinFile={pinFileToContext}
       composerDisabled={false}
       renamedSessionId={recentlyRenamed()?.sid ?? null}
@@ -1218,6 +1238,7 @@ interface ChatLayoutProps {
     taskId: string,
     next: import('@clio/core').SessionTask['status'],
   ) => void | Promise<void>;
+  onSpeakMessage?: (msg: import('@clio/core').Message) => void | Promise<void>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -2255,6 +2276,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onQuote={props.onQuoteMessage}
               onDelete={props.onDeleteMessage}
               onPinFile={props.onPinFile}
+              onSpeak={props.onSpeakMessage}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
               searchQuery={searchOpen() ? searchQuery() : ''}
