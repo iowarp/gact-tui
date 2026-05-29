@@ -2,6 +2,7 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client, ProviderDef } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
+import './providers-detail.css';
 
 export interface ProvidersPageProps {
   client: Client;
@@ -184,13 +185,25 @@ function ProviderCard(props: {
   const [modelsErr, setModelsErr] = createSignal<string | null>(null);
   const [modelsLoading, setModelsLoading] = createSignal(false);
 
+  // Provider single-detail metadata (GET /v1/providers/{id}). Lazy-
+  // fetched alongside the model list so the card has a "Vendor /
+  // status / auth" line that's richer than the bulk list.
+  const [detail, setDetail] = createSignal<Awaited<
+    ReturnType<Client['getProvider']>
+  > | null>(null);
+
   async function loadModels() {
     if (modelsData() || modelsLoading()) return;
     setModelsLoading(true);
     setModelsErr(null);
     try {
-      const data = await props.client.providerModels(props.p.id);
-      setModelsData(data);
+      const [data, det] = await Promise.allSettled([
+        props.client.providerModels(props.p.id),
+        props.client.getProvider(props.p.id),
+      ]);
+      if (data.status === 'fulfilled') setModelsData(data.value);
+      else throw data.reason;
+      if (det.status === 'fulfilled') setDetail(det.value);
     } catch (e) {
       setModelsErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -267,6 +280,25 @@ function ProviderCard(props: {
         <div class="prov__models" data-testid={`provider-models-${props.p.id}`}>
           <Show when={modelsLoading()}>
             <div class="prov__models-loading">Loading…</div>
+          </Show>
+          <Show when={detail() && !modelsLoading()}>
+            <dl class="prov__detail-kv" data-testid={`provider-detail-${props.p.id}`}>
+              <Show when={detail()!.vendor}>
+                <dt>vendor</dt>
+                <dd>{detail()!.vendor}</dd>
+              </Show>
+              <Show when={detail()!.status}>
+                <dt>status</dt>
+                <dd>{detail()!.status}</dd>
+              </Show>
+              <Show when={detail()!.auth?.kind}>
+                <dt>auth kind</dt>
+                <dd>
+                  {detail()!.auth!.kind}
+                  <Show when={detail()!.auth?.required}> · required</Show>
+                </dd>
+              </Show>
+            </dl>
           </Show>
           <Show when={modelsErr()}>
             <div class="prov__models-err">{modelsErr()}</div>

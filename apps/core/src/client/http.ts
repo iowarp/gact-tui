@@ -796,6 +796,26 @@ export class Client {
   }
 
   /**
+   * GET /v1/providers/{id} — single-provider detail (more fields than
+   * the bulk list — includes vendor metadata, status, auth flow, and
+   * deprecation hints). Used by the ProvidersPage card expansion.
+   */
+  getProvider(
+    providerId: string,
+  ): Promise<{
+    id: string;
+    name?: string;
+    vendor?: string;
+    status?: string;
+    auth?: { kind?: string; required?: boolean; supports?: string[] };
+    default_model?: string;
+    metadata?: Record<string, unknown>;
+    [k: string]: unknown;
+  }> {
+    return this.get(`/v1/providers/${encodeURIComponent(providerId)}`);
+  }
+
+  /**
    * GET /v1/providers/{id}/models — the detailed model list for a
    * provider. Source field distinguishes built-in vs. discovered;
    * Error field surfaces per-model issues (deprecated, throttled, …).
