@@ -748,3 +748,30 @@
   line-height: 1.4;
   margin: 0 0 12px;
 }
+
+.inspector__bulk-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.inspector__bulk-btn {
+  background: var(--color-accent-cyan);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inspector__bulk-btn:hover {
+  opacity: 0.9;
+}
+
+.inspector__bulk-btn--danger {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+  color: var(--color-error);
+}

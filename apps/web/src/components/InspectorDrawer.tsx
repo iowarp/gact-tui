@@ -38,6 +38,10 @@ export interface InspectorDrawerProps {
    * file_diff parts so the user can see everything pending in the
    * session. */
   sessionDiffs?: SessionDiffRow[];
+  /** Bulk-apply all pending diffs (POST /v1/sessions/{id}/diffs/apply). */
+  onApplyAllDiffs?: () => void | Promise<void>;
+  /** Bulk-reject all pending diffs. */
+  onRejectAllDiffs?: () => void | Promise<void>;
   /** Per-session cron triggers from /v1/sessions/{id}/schedules. */
   schedules?: ScheduleRow[];
   /** Create a new schedule (POST /v1/sessions/{id}/schedules). */
@@ -356,7 +360,33 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
               </ul>
             </Show>
             <Show when={hasSessionDiffs()}>
-              <div class="inspector__sect-title">All pending in session ({props.sessionDiffs!.length})</div>
+              <div class="inspector__sect-title">
+                All pending in session ({props.sessionDiffs!.length})
+              </div>
+              <Show when={props.onApplyAllDiffs || props.onRejectAllDiffs}>
+                <div class="inspector__bulk-actions">
+                  <Show when={props.onApplyAllDiffs}>
+                    <button
+                      type="button"
+                      class="inspector__bulk-btn"
+                      onClick={() => void props.onApplyAllDiffs?.()}
+                      data-testid="inspector-diffs-apply-all"
+                    >
+                      Apply all
+                    </button>
+                  </Show>
+                  <Show when={props.onRejectAllDiffs}>
+                    <button
+                      type="button"
+                      class="inspector__bulk-btn inspector__bulk-btn--danger"
+                      onClick={() => void props.onRejectAllDiffs?.()}
+                      data-testid="inspector-diffs-reject-all"
+                    >
+                      Reject all
+                    </button>
+                  </Show>
+                </div>
+              </Show>
               <ul class="inspector__diffs">
                 <For each={props.sessionDiffs}>
                   {(d) => (
