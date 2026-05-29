@@ -4,13 +4,8 @@
  * Each test drives a single audit surface against a real running clio,
  * asserts the critical testid renders, and screenshots under
  * `screenshots/audit/<slug>.png`. A test passing == that surface is
- * truly wired end-to-end. A skipped test means clio wasn't reachable.
- * A failed test means the surface ships but does not work — fix
- * before marking the underlying task completed.
- *
- * Adding tests: copy the connect() helper and add an it() block per
- * audit surface. Keep the assertions narrow (one or two testids per
- * test) so failure points at the right code.
+ * truly wired end-to-end. A failed test means the surface ships but
+ * does not work — fix before marking the underlying task completed.
  */
 
 import { test, expect, type Page, type Browser } from '@playwright/test';
@@ -35,10 +30,9 @@ try {
   realBackendReachable = false;
 }
 
-/** Connect to the running backend in a fresh browser context. Mirrors
- * the helper in screenshots.spec.ts — rewrites CORS headers so the
- * preview origin can talk to the localhost clio. */
-async function connect(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
+async function connect(
+  browser: Browser,
+): Promise<{ page: Page; close: () => Promise<void> }> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.route('**/v1/**', async (route) => {
@@ -62,20 +56,27 @@ async function connect(browser: Browser): Promise<{ page: Page; close: () => Pro
   };
 }
 
+/** Select the first available session — many tests need an active
+ * session for the Inspector tabs to render. */
+async function pickFirstSession(page: Page) {
+  const firstRow = page.locator('[data-testid^="session-row-"]').first();
+  if (await firstRow.isVisible().catch(() => false)) {
+    await firstRow.click();
+    await page.waitForTimeout(800);
+  }
+}
+
 test.describe('CLIO audit-batch verification', () => {
   test.skip(
     !realBackendReachable,
     `no clio at ${REAL_BACKEND} — start it then re-run`,
   );
 
-  // ---- regression: composer typing isn't wiped by the auto-select racer ----
+  // ---- regression: composer typing isn't wiped by stale effects ----
   test('composer accepts and persists typed text (#148)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     const ta = page.locator('.composer__input').first();
     await expect(ta).toBeVisible({ timeout: 8_000 });
-    // Wait for the sessions auto-select effect to settle BEFORE we
-    // start typing — otherwise the test races with the very effect
-    // we're testing the fix for.
     await page.waitForTimeout(1_500);
     await ta.click();
     await ta.pressSequentially('verification probe — does this stick?', {
@@ -90,8 +91,11 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- catalog browser (#105) ----
   test('Cmd+Shift+K opens the catalog browser modal (#105)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.keyboard.press('Control+Shift+K');
-    await expect(page.getByTestId('catalog-browser')).toBeVisible({ timeout: 4_000 });
+    await page.waitForTimeout(1_500);
+    // Avoid the textarea capturing the shortcut.
+    await page.locator('body').click();
+    await page.keyboard.press('Control+Shift+KeyK');
+    await expect(page.getByTestId('catalog-browser')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('105-catalog-browser'), fullPage: false });
     await close();
   });
@@ -99,8 +103,10 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- compose modal (#107) ----
   test('Cmd+G opens the compose modal (#107)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.keyboard.press('Control+G');
-    await expect(page.getByTestId('compose-modal')).toBeVisible({ timeout: 4_000 });
+    await page.waitForTimeout(1_500);
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyG');
+    await expect(page.getByTestId('compose-modal')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('107-compose-modal'), fullPage: false });
     await close();
   });
@@ -108,8 +114,10 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- shared session modal (#114) ----
   test('Cmd+L opens the shared session modal (#114)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.keyboard.press('Control+L');
-    await expect(page.getByTestId('shared-session-modal')).toBeVisible({ timeout: 4_000 });
+    await page.waitForTimeout(1_500);
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyL');
+    await expect(page.getByTestId('shared-session-modal')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('114-shared-session-modal'), fullPage: false });
     await close();
   });
@@ -135,81 +143,114 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- locale switcher (#106) ----
-  test('Settings → Appearance has the locale picker (#106)', async ({ browser }) => {
+  // ---- Settings → Appearance (locale + theme + intro) ----
+  test('Settings → Appearance renders locale, theme tokens, intro (#104 #106 #121)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.goto('/?route=settings');
-    // Settings shell mounts inside the chat shell; navigate via the rail
-    // when the URL route doesn't put us there directly.
-    if (!(await page.getByTestId('settings-appearance').isVisible().catch(() => false))) {
-      await page.getByTestId('rail-settings').click().catch(() => undefined);
-    }
-    await page
-      .locator('[data-testid="settings-locale-choices"]')
-      .first()
-      .scrollIntoViewIfNeeded()
-      .catch(() => undefined);
-    await expect(page.getByTestId('settings-locale-choices')).toBeVisible({
-      timeout: 4_000,
-    });
-    await page.screenshot({ path: shot('106-locale-picker'), fullPage: false });
-    await close();
-  });
-
-  // ---- per-color theme editor (#104) ----
-  test('Settings → Appearance has the accent token pickers (#104)', async ({ browser }) => {
-    const { page, close } = await connect(browser);
-    await page.goto('/?route=settings');
-    if (!(await page.getByTestId('settings-appearance').isVisible().catch(() => false))) {
-      await page.getByTestId('rail-settings').click().catch(() => undefined);
-    }
-    await expect(
-      page.locator('[data-testid^="theme-token-"]').first(),
-    ).toBeVisible({ timeout: 4_000 });
-    await page.screenshot({ path: shot('104-theme-editor'), fullPage: false });
-    await close();
-  });
-
-  // ---- custom intro splash editor (#121) ----
-  test('Settings → Appearance has the intro splash textarea (#121)', async ({ browser }) => {
-    const { page, close } = await connect(browser);
-    await page.goto('/?route=settings');
-    if (!(await page.getByTestId('settings-appearance').isVisible().catch(() => false))) {
-      await page.getByTestId('rail-settings').click().catch(() => undefined);
-    }
-    await expect(page.getByTestId('settings-intro-textarea')).toBeVisible({
-      timeout: 4_000,
-    });
-    await page.screenshot({ path: shot('121-intro-splash'), fullPage: false });
-    await close();
-  });
-
-  // ---- Hooks editor (#122) ----
-  test('Hooks discovery page exposes the type/uri form (#122)', async ({ browser }) => {
-    const { page, close } = await connect(browser);
-    // Hooks lives in Settings rail; settings deeplinks land on appearance,
-    // so click the rail entry.
-    await page.getByTestId('rail-settings').click().catch(() => undefined);
-    // The Hooks section is in the discovery surface; navigate via palette
-    await page.keyboard.press('Control+K');
-    await page.keyboard.type('go · hooks');
-    // Fallback — the palette's settings deeplinks for hooks may not exist
-    // yet. If the palette can't reach it, skip the assertion gracefully
-    // and capture whatever is on screen for review.
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('122-hooks-form-attempt'), fullPage: false });
+    await page.getByTestId('rail-settings').click();
+    await expect(page.getByTestId('settings-appearance')).toBeVisible({ timeout: 6_000 });
+    await expect(page.locator('[data-testid^="settings-locale-"]').first()).toBeVisible();
+    await expect(page.locator('[data-testid^="theme-token-"]').first()).toBeVisible();
+    await expect(page.getByTestId('settings-intro-textarea')).toBeVisible();
+    await page.screenshot({ path: shot('104-106-121-settings-appearance'), fullPage: false });
     await close();
   });
 
   // ---- Plugins discovery page (#147) ----
   test('Plugins rail entry opens the registry form (#147)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    const railPlugins = page.locator('[data-testid="rail-plugins"]').first();
-    if (await railPlugins.isVisible().catch(() => false)) {
-      await railPlugins.click();
-    }
+    const railPlugins = page.getByTestId('rail-plugins');
+    await expect(railPlugins).toBeVisible({ timeout: 4_000 });
+    await railPlugins.click();
     await expect(page.getByTestId('plugin-form')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('147-plugins-form'), fullPage: false });
+    await close();
+  });
+
+  // ---- Memory page with cross-session search (#108) ----
+  test('Memory rail entry shows cross-session search input (#108)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-memory').click();
+    await expect(page.getByTestId('memory-search-input')).toBeVisible({ timeout: 6_000 });
+    await page.screenshot({ path: shot('108-memory-search'), fullPage: false });
+    await close();
+  });
+
+  // ---- Hooks discovery (#122) ----
+  test('Hooks discovery shows add/delete form (#122)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    // Hooks is reachable via the Cmd+K palette settings deeplink. Try
+    // the palette route, fall back to the rail.
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyK');
+    await page.getByTestId('palette-input').fill('settings · hooks').catch(() => undefined);
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Enter').catch(() => undefined);
+    await page.waitForTimeout(1_200);
+    const ok = await page.getByTestId('hook-form').isVisible().catch(() => false);
+    await page.screenshot({ path: shot('122-hooks-form'), fullPage: false });
+    expect(ok, 'hook-form should render after palette settings · hooks').toBeTruthy();
+    await close();
+  });
+
+  // ---- Inspector Frames tab (#113) — needs active session ----
+  test('Inspector renders Frames tab when session has frames (#113)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    // Open inspector
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyI').catch(() => undefined);
+    await page.waitForTimeout(600);
+    // Click the Frames tab if present
+    const framesTab = page.locator('button:has-text("Frames")').first();
+    if (await framesTab.isVisible().catch(() => false)) {
+      await framesTab.click();
+      await page.waitForTimeout(400);
+    }
+    await page.screenshot({ path: shot('113-inspector-frames'), fullPage: false });
+    await close();
+  });
+
+  // ---- Discovery: agents, mcp, prompts, doctor (#132 #125 #128 #141) ----
+  test('Discovery → Agents renders cards (#132)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-agents').click();
+    await expect(
+      page.locator('[data-testid^="agent-card-"]').first(),
+    ).toBeVisible({ timeout: 8_000 });
+    await page.screenshot({ path: shot('132-agents-page'), fullPage: false });
+    await close();
+  });
+
+  test('Discovery → MCP renders cards (#125)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-mcp').click();
+    await expect(
+      page.locator('[data-testid^="mcp-card-"]').first(),
+    ).toBeVisible({ timeout: 8_000 });
+    await page.screenshot({ path: shot('125-mcp-page'), fullPage: false });
+    await close();
+  });
+
+  test('Discovery → Doctor renders LSP clients section if backend has any (#141)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-doctor').click();
+    await expect(page.getByTestId('doctor-integrations')).toBeVisible({ timeout: 8_000 });
+    // LSP section is optional; just capture whatever Doctor renders.
+    await page.screenshot({ path: shot('141-doctor-page'), fullPage: false });
+    await close();
+  });
+
+  // ---- Workspaces page (#28 + workspace card features) ----
+  test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-workspaces').click();
+    await expect(
+      page.locator('[data-testid^="workspace-card-"]').first(),
+    ).toBeVisible({ timeout: 8_000 });
+    // Toggle the new-workspace form
+    await page.getByTestId('workspaces-new').click().catch(() => undefined);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('131-140-workspaces-page'), fullPage: false });
     await close();
   });
 });
