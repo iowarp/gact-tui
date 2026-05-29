@@ -12,6 +12,7 @@ export type RailRoute =
   | 'memory'
   | 'metrics'
   | 'settings'
+  | 'plugins'
   | 'doctor';
 
 export interface RailEntry {
@@ -40,6 +41,7 @@ const ENTRIES: RailEntry[] = [
   { id: 'memory', label: 'Memory', icon: 'memory', requires: ['memory'] },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', requires: ['metrics'] },
   { id: 'doctor', label: 'Doctor', icon: 'doctor', requires: ['integration_health', 'doctor'] },
+  { id: 'plugins', label: 'Plugins', icon: 'tool' },
 ];
 
 export function LeftRail(props: LeftRailProps) {
