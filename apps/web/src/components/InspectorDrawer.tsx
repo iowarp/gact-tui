@@ -25,6 +25,9 @@ export interface InspectorDrawerProps {
   /** Per-session time-series memory snapshots from
    * /v1/sessions/{id}/context/frames. Surfaces in the Frames tab. */
   frames?: ContextFrameRow[];
+  /** Lazy-load a single frame's full payload — wired by ChatScreen to
+   * `client.sessionContextFrame(sid, frameId)`. */
+  onLoadFrameDetail?: (frameId: string) => Promise<Record<string, unknown>>;
   /** Per-session pending diffs from /v1/sessions/{id}/diffs — these
    * surface on the Diffs tab in addition to the current message's
    * file_diff parts so the user can see everything pending in the
@@ -373,34 +376,10 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
         </Show>
 
         <Show when={hasFrames() && activeTab() === 'frames'}>
-          <section class="inspector__sect">
-            <div class="inspector__sect-title">
-              Context frames ({props.frames!.length})
-            </div>
-            <ul class="inspector__frames">
-              <For each={props.frames}>
-                {(f) => (
-                  <li
-                    class={'inspector__frame inspector__frame--' + (f.status ?? 'unknown')}
-                    data-testid={`inspector-frame-${f.id}`}
-                  >
-                    <div class="inspector__frame-head">
-                      <span class="inspector__frame-id">{f.id.slice(0, 12)}</span>
-                      <Show when={f.status}>
-                        <span class="inspector__chip">{f.status}</span>
-                      </Show>
-                      <Show when={typeof f.token_count === 'number'}>
-                        <span class="inspector__frame-tokens">{f.token_count}t</span>
-                      </Show>
-                    </div>
-                    <Show when={f.summary}>
-                      <div class="inspector__frame-summary">{f.summary}</div>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </section>
+          <FramesTab
+            frames={props.frames!}
+            onLoadDetail={props.onLoadFrameDetail}
+          />
         </Show>
 
         <Show when={hasTasks() && activeTab() === 'tasks'}>
@@ -638,6 +617,95 @@ export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
     }
   }
   return out;
+}
+
+/** Frames tab — each row expands on click to lazy-fetch the
+ * single-frame detail and pretty-print its payload. */
+function FramesTab(props: {
+  frames: ContextFrameRow[];
+  onLoadDetail?: (frameId: string) => Promise<Record<string, unknown>>;
+}) {
+  const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
+  const [details, setDetails] = createSignal<Record<string, Record<string, unknown> | string>>({});
+
+  async function toggle(id: string) {
+    const cur = new Set(expanded());
+    if (cur.has(id)) {
+      cur.delete(id);
+    } else {
+      cur.add(id);
+      if (props.onLoadDetail && !details()[id]) {
+        try {
+          const d = await props.onLoadDetail(id);
+          setDetails({ ...details(), [id]: d });
+        } catch (e) {
+          setDetails({
+            ...details(),
+            [id]: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+    setExpanded(cur);
+  }
+
+  return (
+    <section class="inspector__sect">
+      <div class="inspector__sect-title">
+        Context frames ({props.frames.length})
+      </div>
+      <ul class="inspector__frames">
+        <For each={props.frames}>
+          {(f) => (
+            <li
+              class={'inspector__frame inspector__frame--' + (f.status ?? 'unknown')}
+              data-testid={`inspector-frame-${f.id}`}
+            >
+              <button
+                type="button"
+                class="inspector__frame-head inspector__frame-head--clickable"
+                onClick={() => void toggle(f.id)}
+                data-testid={`inspector-frame-toggle-${f.id}`}
+              >
+                <Icon
+                  name="chevron-right"
+                  size={11}
+                  class={
+                    'inspector__frame-chev ' +
+                    (expanded().has(f.id) ? 'is-open' : '')
+                  }
+                />
+                <span class="inspector__frame-id">{f.id.slice(0, 12)}</span>
+                <Show when={f.status}>
+                  <span class="inspector__chip">{f.status}</span>
+                </Show>
+                <Show when={typeof f.token_count === 'number'}>
+                  <span class="inspector__frame-tokens">{f.token_count}t</span>
+                </Show>
+              </button>
+              <Show when={f.summary}>
+                <div class="inspector__frame-summary">{f.summary}</div>
+              </Show>
+              <Show when={expanded().has(f.id)}>
+                <Show
+                  when={details()[f.id]}
+                  fallback={
+                    <div class="inspector__frame-loading">Loading…</div>
+                  }
+                >
+                  <pre class="inspector__frame-payload">
+                    {typeof details()[f.id] === 'string'
+                      ? (details()[f.id] as string)
+                      : JSON.stringify(details()[f.id], null, 2)}
+                  </pre>
+                </Show>
+              </Show>
+            </li>
+          )}
+        </For>
+      </ul>
+    </section>
+  );
 }
 
 /** Per-session blueprint + expert-pack bindings. Dropdowns let the
