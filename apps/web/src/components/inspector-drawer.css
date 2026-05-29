@@ -502,3 +502,60 @@
   background: var(--color-surface-alt);
   color: var(--color-heading);
 }
+
+/* Frames tab — time-series memory snapshots from
+   GET /v1/sessions/{id}/context/frames. */
+.inspector__frames {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector__frame {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.inspector__frame--completed {
+  border-left: 3px solid var(--color-success);
+}
+
+.inspector__frame--pending {
+  border-left: 3px solid var(--color-warning);
+}
+
+.inspector__frame--error {
+  border-left: 3px solid var(--color-error);
+}
+
+.inspector__frame-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.inspector__frame-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.inspector__frame-tokens {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-accent-cyan);
+}
+
+.inspector__frame-summary {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--color-text);
+}

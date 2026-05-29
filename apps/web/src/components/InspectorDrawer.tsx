@@ -22,11 +22,33 @@ export interface InspectorDrawerProps {
   tasks?: SessionTask[];
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
+  /** Per-session time-series memory snapshots from
+   * /v1/sessions/{id}/context/frames. Surfaces in the Frames tab. */
+  frames?: ContextFrameRow[];
+  /** Per-session pending diffs from /v1/sessions/{id}/diffs — these
+   * surface on the Diffs tab in addition to the current message's
+   * file_diff parts so the user can see everything pending in the
+   * session. */
+  sessionDiffs?: SessionDiffRow[];
   /** Called when the user clicks a diff entry — opens the DiffPane. */
   onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
   onRemoveContextFile?: (path: string) => void | Promise<void>;
   onClose: () => void;
+}
+
+export interface ContextFrameRow {
+  id: string;
+  created_at?: string;
+  status?: string;
+  summary?: string;
+  token_count?: number;
+}
+
+export interface SessionDiffRow {
+  path: string;
+  applied?: boolean;
+  message_id?: string;
 }
 
 export interface ToolCallSummary {
@@ -49,6 +71,7 @@ type InspectorTab =
   | 'thinking'
   | 'tasks'
   | 'context'
+  | 'frames'
   | 'health';
 
 export function InspectorDrawer(props: InspectorDrawerProps) {
@@ -67,14 +90,19 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasTasks = () => !!props.tasks && props.tasks.length > 0;
   const hasContextFiles = () =>
     !!props.contextFiles && props.contextFiles.length > 0;
+  const hasFrames = () => !!props.frames && props.frames.length > 0;
+  const hasSessionDiffs = () =>
+    !!props.sessionDiffs && props.sessionDiffs.length > 0;
 
   const hasAnyContent = () =>
     hasRunData() ||
     props.toolCalls.length > 0 ||
     hasThinking() ||
     hasDiffs() ||
+    hasSessionDiffs() ||
     hasTasks() ||
     hasContextFiles() ||
+    hasFrames() ||
     hasIntegrations();
 
   // Order matters — the picker walks this list and lands on the
@@ -83,10 +111,11 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     const out: InspectorTab[] = [];
     if (hasRunData()) out.push('turn');
     if (props.toolCalls.length > 0) out.push('tools');
-    if (hasDiffs()) out.push('diffs');
+    if (hasDiffs() || hasSessionDiffs()) out.push('diffs');
     if (hasThinking()) out.push('thinking');
     if (hasTasks()) out.push('tasks');
     if (hasContextFiles()) out.push('context');
+    if (hasFrames()) out.push('frames');
     if (hasIntegrations()) out.push('health');
     return out;
   });
@@ -117,6 +146,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     thinking: 'Thinking',
     tasks: 'Tasks',
     context: 'Context',
+    frames: 'Frames',
     health: 'Health',
   };
 
@@ -241,26 +271,81 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           </section>
         </Show>
 
-        <Show when={hasDiffs() && activeTab() === 'diffs'}>
+        <Show when={(hasDiffs() || hasSessionDiffs()) && activeTab() === 'diffs'}>
           <section class="inspector__sect">
-            <div class="inspector__sect-title">Diffs</div>
-            <ul class="inspector__diffs">
-              <For each={(props.message?.parts ?? []).filter(
-                (p): p is FileDiff => p.type === 'file_diff',
-              )}>
-                {(d) => (
+            <Show when={hasDiffs()}>
+              <div class="inspector__sect-title">This turn's diffs</div>
+              <ul class="inspector__diffs">
+                <For each={(props.message?.parts ?? []).filter(
+                  (p): p is FileDiff => p.type === 'file_diff',
+                )}>
+                  {(d) => (
+                    <li
+                      class={
+                        'inspector__diff ' +
+                        (props.onOpenDiff ? 'inspector__diff--click' : '')
+                      }
+                      data-testid={`inspector-diff-${d.path}`}
+                      onClick={() => props.onOpenDiff?.(d)}
+                    >
+                      <Icon name="diff" size={14} />
+                      <span class="inspector__diff-path">{d.path}</span>
+                      <Show when={d.applied}>
+                        <span class="inspector__chip inspector__chip--ok">applied</span>
+                      </Show>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+            <Show when={hasSessionDiffs()}>
+              <div class="inspector__sect-title">All pending in session ({props.sessionDiffs!.length})</div>
+              <ul class="inspector__diffs">
+                <For each={props.sessionDiffs}>
+                  {(d) => (
+                    <li
+                      class="inspector__diff"
+                      data-testid={`inspector-sdiff-${d.path}`}
+                    >
+                      <Icon name="diff" size={14} />
+                      <span class="inspector__diff-path">{d.path}</span>
+                      <Show when={d.applied}>
+                        <span class="inspector__chip inspector__chip--ok">applied</span>
+                      </Show>
+                      <Show when={!d.applied}>
+                        <span class="inspector__chip">pending</span>
+                      </Show>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          </section>
+        </Show>
+
+        <Show when={hasFrames() && activeTab() === 'frames'}>
+          <section class="inspector__sect">
+            <div class="inspector__sect-title">
+              Context frames ({props.frames!.length})
+            </div>
+            <ul class="inspector__frames">
+              <For each={props.frames}>
+                {(f) => (
                   <li
-                    class={
-                      'inspector__diff ' +
-                      (props.onOpenDiff ? 'inspector__diff--click' : '')
-                    }
-                    data-testid={`inspector-diff-${d.path}`}
-                    onClick={() => props.onOpenDiff?.(d)}
+                    class={'inspector__frame inspector__frame--' + (f.status ?? 'unknown')}
+                    data-testid={`inspector-frame-${f.id}`}
                   >
-                    <Icon name="diff" size={14} />
-                    <span class="inspector__diff-path">{d.path}</span>
-                    <Show when={d.applied}>
-                      <span class="inspector__chip inspector__chip--ok">applied</span>
+                    <div class="inspector__frame-head">
+                      <span class="inspector__frame-id">{f.id.slice(0, 12)}</span>
+                      <Show when={f.status}>
+                        <span class="inspector__chip">{f.status}</span>
+                      </Show>
+                      <Show when={typeof f.token_count === 'number'}>
+                        <span class="inspector__frame-tokens">{f.token_count}t</span>
+                      </Show>
+                    </div>
+                    <Show when={f.summary}>
+                      <div class="inspector__frame-summary">{f.summary}</div>
                     </Show>
                   </li>
                 )}
