@@ -114,6 +114,13 @@
   animation: composer-mic-pulse 1.4s ease-in-out infinite;
 }
 
+.composer__mic-elapsed {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-error);
+  padding: 0 4px;
+}
+
 @keyframes composer-mic-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 32%, transparent); }
   50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 0%, transparent); }
