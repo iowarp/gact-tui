@@ -2,6 +2,7 @@ import { createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'soli
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
 import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type LocaleTag } from '../locale.js';
+import { SPLASH_INTRO_KEY } from './SplashScreen.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useBackendRegistry } from '../registry.js';
 import { SettingsBackends } from './SettingsBackends.js';
@@ -275,6 +276,21 @@ function AppearanceSection() {
   );
   const [tokens, setTokens] = createSignal<Record<string, string>>(loadThemeTokens());
   const [locale, setLocale] = createSignal<LocaleTag>(loadLocale());
+  const [intro, setIntro] = createSignal<string>(
+    typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(SPLASH_INTRO_KEY) ?? '')
+      : '',
+  );
+
+  function changeIntro(v: string) {
+    setIntro(v);
+    try {
+      if (v) localStorage.setItem(SPLASH_INTRO_KEY, v);
+      else localStorage.removeItem(SPLASH_INTRO_KEY);
+    } catch {
+      /* quota — ignore */
+    }
+  }
 
   function changeLocale(next: LocaleTag) {
     setLocale(next);
@@ -442,6 +458,32 @@ function AppearanceSection() {
           The chat shell remembers your density per session (Ctrl + O cycles).
           The default applies to new sessions.
         </p>
+
+        <div class="dp__section-title">Custom intro splash</div>
+        <p class="settings-shell__hint">
+          Mirrors the TUI's <code>intro_file</code> config — drop a short
+          banner here and it'll render on the Splash/Connect screen while
+          CLIO boots. Plain text only (no ANSI escapes).
+        </p>
+        <textarea
+          class="settings-shell__intro"
+          placeholder="e.g. ASCII art, motto, deploy tag, etc."
+          rows={5}
+          value={intro()}
+          onInput={(e) => changeIntro(e.currentTarget.value)}
+          data-testid="settings-intro-textarea"
+        />
+        <Show when={intro()}>
+          <button
+            type="button"
+            class="ws-form__btn"
+            style="margin-top: 8px"
+            onClick={() => changeIntro('')}
+            data-testid="settings-intro-clear"
+          >
+            Clear intro
+          </button>
+        </Show>
 
         <div class="dp__section-title">Reset</div>
         <p class="settings-shell__hint">
