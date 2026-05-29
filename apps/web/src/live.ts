@@ -357,6 +357,9 @@ export interface SessionEventSink {
    * change (title, status, archived) whose new value isn't in the
    * event payload. */
   refetch?: () => void;
+  /** Fired when SSE session.updated says the title changed. ChatScreen
+   * uses this to flash a transient "renamed" pill in the topbar. */
+  onTitleChanged?: (sessionId: string) => void;
 }
 
 export interface BackendNotification {
@@ -507,6 +510,7 @@ function reduce(
         // toast so the change isn't silent.
         if (changed.includes('title')) {
           hooks.sessionEvents.refetch?.();
+          hooks.sessionEvents.onTitleChanged?.(sid);
           hooks.onNotification?.({
             level: 'info',
             title: 'Session renamed',

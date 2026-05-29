@@ -69,6 +69,28 @@
   opacity: 0.5;
 }
 
+.chat__rename-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+  color: var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: chat-rename-flash 4500ms ease-out forwards;
+}
+
+@keyframes chat-rename-flash {
+  0% { opacity: 0; transform: translateY(-2px); }
+  10% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .chat__topbar-actions {
   display: flex;
   align-items: center;
