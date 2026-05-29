@@ -37,6 +37,7 @@ const GROUPS: Group[] = [
       { combo: ['Shift', 'Enter'], description: 'Insert newline' },
       { combo: ['/'], description: 'Open the slash command palette' },
       { combo: ['@'], description: 'Insert an at-mention' },
+      { combo: [PLATFORM_MOD, 'G'], description: 'Open the compose modal — fullscreen draft authoring' },
       { combo: [PLATFORM_MOD, 'S'], description: 'Export current session as JSON' },
       { combo: [PLATFORM_MOD, 'Shift', 'S'], description: 'Fork the current session' },
     ],

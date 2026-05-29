@@ -66,6 +66,13 @@ export interface ComposerProps {
    */
   draftKey?: string;
 
+  /**
+   * Bump to force the composer to re-hydrate its draft from
+   * localStorage. ChatScreen wires this to the compose modal closing
+   * so edits made there land back in the inline textarea immediately.
+   */
+  draftReloadTick?: number;
+
   /** Optional override for the textarea placeholder. */
   placeholder?: string;
 
@@ -148,6 +155,23 @@ export function Composer(props: ComposerProps = {}) {
       setText('');
     }
     lastKey = key;
+  });
+
+  // External-trigger reload — bumped when the compose modal closes so
+  // whatever text the user typed there flows into the inline textarea.
+  // The Solid effect tracks `props.draftReloadTick` and re-reads the
+  // current draftKey from localStorage when it changes.
+  createEffect(() => {
+    const tick = props.draftReloadTick;
+    if (tick === undefined) return;
+    const key = props.draftKey;
+    if (!key || typeof window === 'undefined') return;
+    try {
+      const restored = localStorage.getItem(storageKey(key)) ?? '';
+      setText(restored);
+    } catch {
+      /* ignore */
+    }
   });
 
   // Live persist every keystroke so a crash/reload doesn't lose text.
