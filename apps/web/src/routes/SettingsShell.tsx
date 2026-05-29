@@ -223,11 +223,72 @@ export function SettingsShell(props: SettingsShellProps) {
   );
 }
 
+const ACCENT_TOKENS = [
+  { key: '--color-accent', label: 'Accent (orange)', defaultColor: '#ea7b2a' },
+  { key: '--color-accent-cyan', label: 'Accent (cyan)', defaultColor: '#00d4db' },
+  { key: '--color-success', label: 'Success', defaultColor: '#34d399' },
+  { key: '--color-warning', label: 'Warning', defaultColor: '#fbbf24' },
+  { key: '--color-error', label: 'Error', defaultColor: '#f87171' },
+] as const;
+
+const THEME_TOKENS_KEY = 'clio.theme.tokens.v1';
+
+function loadThemeTokens(): Record<string, string> {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(THEME_TOKENS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function applyThemeTokens(tokens: Record<string, string>) {
+  if (typeof document === 'undefined') return;
+  let style = document.getElementById('clio-theme-override');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'clio-theme-override';
+    document.head.appendChild(style);
+  }
+  const css = Object.entries(tokens)
+    .filter(([, v]) => !!v)
+    .map(([k, v]) => `  ${k}: ${v} !important;`)
+    .join('\n');
+  style.textContent = css ? `:root {\n${css}\n}\n` : '';
+}
+
+// Apply on module load so persisted tokens survive a hard reload.
+if (typeof document !== 'undefined') {
+  applyThemeTokens(loadThemeTokens());
+}
+
 function AppearanceSection() {
   const [theme, setTheme] = createSignal<'dark' | 'light' | 'auto'>('dark');
   const [density, setDensity] = createSignal<'verbose' | 'normal' | 'summary'>(
     'normal',
   );
+  const [tokens, setTokens] = createSignal<Record<string, string>>(loadThemeTokens());
+
+  function updateToken(key: string, value: string) {
+    const next = { ...tokens() };
+    if (value) next[key] = value;
+    else delete next[key];
+    setTokens(next);
+    try { localStorage.setItem(THEME_TOKENS_KEY, JSON.stringify(next)); }
+    catch { /* ignore */ }
+    applyThemeTokens(next);
+  }
+
+  function resetTokens() {
+    setTokens({});
+    try { localStorage.removeItem(THEME_TOKENS_KEY); }
+    catch { /* ignore */ }
+    applyThemeTokens({});
+  }
   return (
     <section class="dp" data-testid="settings-appearance">
       <header class="dp__head">
@@ -265,6 +326,54 @@ function AppearanceSection() {
           Light + Auto themes land in v1.0 alongside the design-system
           token refresh; today only Dark is wired.
         </p>
+
+        <div class="dp__section-title">Accent palette</div>
+        <p class="settings-shell__hint">
+          Overrides the design system's accent tokens at the web
+          layer. Saved to <code>localStorage.{THEME_TOKENS_KEY}</code>
+          and applied on every reload.
+        </p>
+        <div class="theme-tokens">
+          <For each={ACCENT_TOKENS}>
+            {(t) => {
+              const current = () => tokens()[t.key] ?? t.defaultColor;
+              return (
+                <label class="theme-token">
+                  <span class="theme-token__label">{t.label}</span>
+                  <input
+                    type="color"
+                    class="theme-token__picker"
+                    value={current()}
+                    onInput={(e) => updateToken(t.key, e.currentTarget.value)}
+                    data-testid={`theme-token-${t.key}`}
+                  />
+                  <code class="theme-token__hex">{current()}</code>
+                  <Show when={tokens()[t.key]}>
+                    <button
+                      type="button"
+                      class="theme-token__reset"
+                      onClick={() => updateToken(t.key, '')}
+                      title="Reset to design-system default"
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  </Show>
+                </label>
+              );
+            }}
+          </For>
+        </div>
+        <Show when={Object.keys(tokens()).length > 0}>
+          <button
+            type="button"
+            class="ws-form__btn"
+            style="margin-top: 8px"
+            onClick={resetTokens}
+            data-testid="theme-tokens-reset-all"
+          >
+            Reset palette to design-system defaults
+          </button>
+        </Show>
 
         <div class="dp__section-title">Default transcript density</div>
         <div class="settings-shell__choices">
