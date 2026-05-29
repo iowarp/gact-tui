@@ -1204,6 +1204,30 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/voice/transcribe — multipart upload of an
+   * audio blob; backend returns the transcribed text. Mirrors the
+   * TUI's Ctrl+Y flow, but the desktop surfaces this as a file
+   * picker since we don't ship a mic recorder yet.
+   */
+  async transcribeVoice(
+    sessionId: string,
+    audio: Blob,
+    filename = 'voice.webm',
+  ): Promise<{ text: string; duration_ms?: number }> {
+    const url = `${this.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/voice/transcribe`;
+    const fd = new FormData();
+    fd.append('audio', audio, filename);
+    // Don't set Content-Type — the browser sets the multipart boundary.
+    const headers = { ...this.headers() } as Record<string, string>;
+    delete headers['Content-Type'];
+    const res = await this.fetchImpl(url, { method: 'POST', body: fd, headers });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    return (await res.json()) as { text: string; duration_ms?: number };
+  }
+
+  /**
    * Build an SSE URL with the bearer token in the query string. `EventSource`
    * cannot set custom headers, so we fall back to `?auth_token=` per SPEC §7.
    */
