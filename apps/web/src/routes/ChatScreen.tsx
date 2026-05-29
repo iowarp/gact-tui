@@ -31,6 +31,7 @@ import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
 import { CatalogBrowser } from '../components/CatalogBrowser.js';
 import { ComposeModal } from '../components/ComposeModal.js';
+import { SharedSessionModal } from '../components/SharedSessionModal.js';
 import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import { ServerSearchPanel } from '../components/ServerSearchPanel.js';
@@ -1123,6 +1124,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const [cheatsheetOpen, setCheatsheetOpen] = createSignal(false);
   const [catalogOpen, setCatalogOpen] = createSignal(false);
   const [composeOpen, setComposeOpen] = createSignal(false);
+  const [sharedSessionOpen, setSharedSessionOpen] = createSignal(false);
   const [draftReloadTick, setDraftReloadTick] = createSignal(0);
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
@@ -1306,6 +1308,11 @@ function ChatLayout(props: ChatLayoutProps) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         setComposeOpen((v) => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setSharedSessionOpen((v) => !v);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
@@ -2094,6 +2101,12 @@ function ChatLayout(props: ChatLayoutProps) {
       <KeybindCheatsheet
         open={cheatsheetOpen()}
         onClose={() => setCheatsheetOpen(false)}
+      />
+
+      <SharedSessionModal
+        open={sharedSessionOpen()}
+        client={discoveryClient}
+        onClose={() => setSharedSessionOpen(false)}
       />
 
       <ComposeModal
