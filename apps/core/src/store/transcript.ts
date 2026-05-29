@@ -60,6 +60,35 @@ export function applyTextAppendAtIndex(
 }
 
 /**
+ * Apply a `message.part.completed` payload: replace the named part's
+ * text with the server-side `final_text`. Required for batch providers
+ * (argonne, claude_code, codex) where the entire text arrives on the
+ * `part.completed` event because no `part.delta` chunks are emitted.
+ * Tolerates unknown ids (no-op) and non-text parts (no-op).
+ */
+export function applyPartCompleted(
+  messages: Message[],
+  messageId: string,
+  partId: string,
+  finalText: string,
+): Message[] {
+  return messages.map((m) => {
+    if (m.id !== messageId) return m;
+    const parts: Part[] = m.parts.map((p) => {
+      if (p.id !== partId) return p;
+      if (p.type === 'text') {
+        return { ...p, text: finalText };
+      }
+      if (p.type === 'thinking') {
+        return { ...p, thinking: finalText, text: finalText };
+      }
+      return p;
+    });
+    return { ...m, parts };
+  });
+}
+
+/**
  * Insert a freshly-added part at the end of the named message. No-op if
  * the message is not in the list.
  */
