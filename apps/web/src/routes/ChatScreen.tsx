@@ -270,6 +270,21 @@ function LiveDriven(props: {
   const [recentlyRenamed, setRecentlyRenamed] = createSignal<{ sid: string; expiry: number } | null>(null);
   let renameTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Refresh the sessions list when the window regains focus — covers
+  // the "I came back from another app and a teammate kicked off a
+  // session" case without needing to mash Cmd+R.
+  if (typeof window !== 'undefined') {
+    let lastBlurAt = 0;
+    window.addEventListener('blur', () => {
+      lastBlurAt = Date.now();
+    });
+    window.addEventListener('focus', () => {
+      if (Date.now() - lastBlurAt > 5_000) {
+        live.refetch();
+      }
+    });
+  }
+
   // Detached registry — sessions the user explicitly walked away from
   // (Cmd+Shift+D). Hydrated from localStorage so the list survives a
   // reload, scoped per backend URL.
