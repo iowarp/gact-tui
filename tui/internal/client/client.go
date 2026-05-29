@@ -996,6 +996,28 @@ func (c *Client) GetAgentScoped(ctx context.Context, id string, scope RuntimeSco
 	return out, err
 }
 
+func (c *Client) CreateAgent(ctx context.Context, agent gact.AgentDef) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPost, "/v1/agents", agent, &out)
+	return out, err
+}
+
+func (c *Client) UpdateAgent(ctx context.Context, agentID string, agent gact.AgentDef) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPut, "/v1/agents/"+url.PathEscape(agentID), agent, &out)
+	return out, err
+}
+
+func (c *Client) DeleteAgent(ctx context.Context, agentID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/agents/"+url.PathEscape(agentID), nil, nil)
+}
+
+func (c *Client) ExtractAgent(ctx context.Context, req gact.AgentExtractRequest) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPost, "/v1/agents/extract", req, &out)
+	return out, err
+}
+
 // GetTool fetches one tool by id (full definition incl. input/output
 // schemas) via /v1/tools/{id}. Used by `gact tool show` to surface
 // the schema for shell scripts that want to call the tool directly.

@@ -279,19 +279,21 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 	out := []string{header, ""}
 
 	// Two-column table.
-	nameW := 28
+	nameW := 34
 	statusW := 14
-	bucketW := innerW - nameW - statusW - 2
+	uiW := 14
+	bucketW := innerW - nameW - statusW - uiW - 3
 	if bucketW < 18 {
 		bucketW = 18
 	}
 	out = append(out,
 		lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
-			Render(padRight("CAPABILITY", nameW)+padRight("STATUS", statusW)+"BUCKET"),
+			Render(padRight("CAPABILITY", nameW)+padRight("BACKEND", statusW)+padRight("TUI", uiW)+"BUCKET"),
 	)
 	for _, r := range rows {
 		out = append(out, padRight(r.name, nameW)+
 			padRight(capStatusCell(r.on, t), statusW)+
+			padRight(capUISupportCell(r.ui, t), uiW)+
 			capBucketLabel(r.bucket, t),
 		)
 	}
@@ -301,52 +303,52 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 	return []capRow{
 		// Core surfaces (v0.1).
-		{"workspaces", caps.Capabilities.Workspaces, capCore},
-		{"sessions", caps.Capabilities.Sessions, capCore},
-		{"subagents", caps.Capabilities.Subagents, capCore},
-		{"mcp", caps.Capabilities.MCP, capCore},
-		{"files", caps.Capabilities.Files, capCore},
-		{"diffs", caps.Capabilities.Diffs, capCore},
-		{"permissions", caps.Capabilities.Permissions, capCore},
-		{"providers", caps.Capabilities.Providers, capCore},
-		{"commands", caps.Capabilities.Commands, capCore},
-		{"metrics", caps.Capabilities.Metrics, capCore},
+		{"workspaces", caps.Capabilities.Workspaces, capCore, capUIFull, "workspace switch and current workspace label"},
+		{"sessions", caps.Capabilities.Sessions, capCore, capUIFull, "session list, create, attach, messages, SSE"},
+		{"subagents", caps.Capabilities.Subagents, capCore, capUIFull, "subsessions/nanoagent traces and child sessions"},
+		{"mcp", caps.Capabilities.MCP, capCore, capUIFull, "MCP catalog, detail, install/remove/call evidence"},
+		{"files", caps.Capabilities.Files, capCore, capUIFull, "file picker/viewer and context attachment"},
+		{"diffs", caps.Capabilities.Diffs, capCore, capUIFull, "diff list/detail/actions"},
+		{"permissions", caps.Capabilities.Permissions, capCore, capUIFull, "permission banner, actions, audit/policies"},
+		{"providers", caps.Capabilities.Providers, capCore, capUIFull, "provider/model configuration modal"},
+		{"commands", caps.Capabilities.Commands, capCore, capUIFull, "slash command palette and command detail"},
+		{"metrics", caps.Capabilities.Metrics, capCore, capUIFull, "metrics command/detail"},
 		// Useful but optional.
-		{"session_branching", caps.Capabilities.SessionBranching, capExtra},
-		{"session_export", caps.Capabilities.SessionExport, capExtra},
-		{"search_messages", caps.Capabilities.SearchMessages, capExtra},
-		{"cost_tracking", caps.Capabilities.CostTracking, capExtra},
-		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra},
-		{"session_tasks", caps.Capabilities.SessionTasks, capExtra},
+		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary CLIO workflow"},
+		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
+		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
+		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
+		{"edit_modes", caps.Capabilities.EditModes, capExtra, capUIGated, "decoded; no separate edit-mode switch"},
+		{"plan_mode", caps.Capabilities.PlanMode, capExtra, capUIGated, "decoded; no separate plan-mode switch"},
+		{"search_messages", caps.Capabilities.SearchMessages, capExtra, capUIFull, "palette query/message search"},
+		{"session_tasks", caps.Capabilities.SessionTasks, capExtra, capUIFull, "task badges and task detail"},
 		// v0.2 additions.
-		{"agent_routing", caps.Capabilities.AgentRouting, capV02},
-		{"memory", caps.Capabilities.Memory, capV02},
-		{"structured_errors", caps.Capabilities.StructuredErrors, capV02},
-		{"integration_health", caps.Capabilities.IntegrationHealth, capV02},
-		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02},
+		{"agent_routing", caps.Capabilities.AgentRouting, capV02, capUIFull, "routing decisions, expert handoffs, route chains"},
+		{"memory", caps.Capabilities.Memory, capV02, capUIFull, "memory chip, inspector, context frames"},
+		{"structured_errors", caps.Capabilities.StructuredErrors, capV02, capUIFull, "typed error parts and detail surfaces"},
+		{"integration_health", caps.Capabilities.IntegrationHealth, capV02, capUIFull, "doctor health tab and integration rows"},
+		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02, capUIFull, "tool cache/duration evidence"},
 		// Vendor-specific (often unsupported).
-		{"lsp", caps.Capabilities.LSP, capVendor},
-		{"voice", caps.Capabilities.Voice, capVendor},
-		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor},
-		{"hooks", caps.Capabilities.Hooks, capVendor},
-		{"session_sharing", caps.Capabilities.SessionSharing, capVendor},
-		{"edit_modes", caps.Capabilities.EditModes, capVendor},
-		{"plan_mode", caps.Capabilities.PlanMode, capVendor},
-		{"agent_write", caps.Capabilities.AgentWrite, capVendor},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor},
-		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor},
-		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor},
-		{"x_clio_text_streaming", caps.Capabilities.XClioTextStreaming != "" && caps.Capabilities.XClioTextStreaming != "none", capVendor},
-		{"x_clio_synthetic_streaming", caps.Capabilities.XClioSyntheticPosthocStreaming, capVendor},
-		{"x_clio_stream_fallbacks", len(caps.Capabilities.XClioStreamFallbackReasons) > 0, capVendor},
-		{"x_clio_delete_permissions", caps.Capabilities.XClioDirectDeletePermissions, capVendor},
-		{"x_clio_prompt_registry", caps.Capabilities.XClioPromptRegistry, capVendor},
-		{"x_clio_expert_packs", caps.Capabilities.XClioExpertPacks, capVendor},
-		{"x_clio_agent_blueprints", caps.Capabilities.XClioAgentBlueprints, capVendor},
-		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor},
-		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor},
-		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor},
-		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor},
+		{"lsp", caps.Capabilities.LSP, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
+		{"voice", caps.Capabilities.Voice, capVendor, capUIGated, "voice command hook exists; no CLIO voice workflow"},
+		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
+		{"hooks", caps.Capabilities.Hooks, capVendor, capUIGated, "CLI support exists; TUI management not primary"},
+		{"session_sharing", caps.Capabilities.SessionSharing, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
+		{"agent_write", caps.Capabilities.AgentWrite, capVendor, capUIFull, "create/clone/edit/delete surfaced with protected built-ins"},
+		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor, capUIFull, "current-session extraction surfaced from agents catalog"},
+		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor, capUIPartial, "capability visible; cancellation UX needs release proof"},
+		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor, capUIPartial, "capability visible; executor cancel UX needs release proof"},
+		{"x_clio_text_streaming", caps.Capabilities.XClioTextStreaming != "" && caps.Capabilities.XClioTextStreaming != "none", capVendor, capUIFull, "streaming state and fallback rendering"},
+		{"x_clio_synthetic_posthoc_streaming", caps.Capabilities.XClioSyntheticPosthocStreaming, capVendor, capUIFull, "posthoc stream provenance/fallback shown"},
+		{"x_clio_stream_fallback_reasons", len(caps.Capabilities.XClioStreamFallbackReasons) > 0, capVendor, capUIFull, "fallback reasons decoded and shown in details"},
+		{"x_clio_direct_delete_permissions", caps.Capabilities.XClioDirectDeletePermissions, capVendor, capUIFull, "direct permission delete policy surfaced"},
+		{"x_clio_prompt_registry", caps.Capabilities.XClioPromptRegistry, capVendor, capUIFull, "browse/render/validate/save/reload profile overrides"},
+		{"x_clio_expert_packs", caps.Capabilities.XClioExpertPacks, capVendor, capUIFull, "browse/detail/activate with validation metadata"},
+		{"x_clio_agent_blueprints", caps.Capabilities.XClioAgentBlueprints, capVendor, capUIFull, "browse/install/validate/activate/update/delete/MCP enable"},
+		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor, capUIFull, "question SSE lifecycle and answer modal"},
+		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor, capUIFull, "retry attempts and retry-with-model provenance"},
+		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor, capUIFull, "frame list/detail fetch and memory tool detail"},
+		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor, capUIFull, "doctor gaps tab and detail rows"},
 	}
 }
 
@@ -428,7 +430,18 @@ type capRow struct {
 	name   string
 	on     bool
 	bucket capBucket
+	ui     capUISupport
+	notes  string
 }
+
+type capUISupport int
+
+const (
+	capUIFull capUISupport = iota
+	capUIPartial
+	capUIGated
+	capUINotSurfaced
+)
 
 func capStatusCell(on bool, t Theme) string {
 	if on {
@@ -437,6 +450,38 @@ func capStatusCell(on bool, t Theme) string {
 	}
 	return lipgloss.NewStyle().Foreground(t.Danger).Bold(true).
 		Render("● missing")
+}
+
+func capUISupportCell(s capUISupport, t Theme) string {
+	style := lipgloss.NewStyle().Foreground(t.Success).Bold(true)
+	label := "full"
+	switch s {
+	case capUIPartial:
+		style = lipgloss.NewStyle().Foreground(t.Warning).Bold(true)
+		label = "partial"
+	case capUIGated:
+		style = lipgloss.NewStyle().Foreground(t.FgMuted).Bold(true)
+		label = "gated"
+	case capUINotSurfaced:
+		style = lipgloss.NewStyle().Foreground(t.Danger).Bold(true)
+		label = "none"
+	}
+	return style.Render(label)
+}
+
+func capUISupportPlainLabel(s capUISupport) string {
+	switch s {
+	case capUIFull:
+		return "full"
+	case capUIPartial:
+		return "partial"
+	case capUIGated:
+		return "gated"
+	case capUINotSurfaced:
+		return "not surfaced"
+	default:
+		return "unknown"
+	}
 }
 
 func capBucketLabel(b capBucket, t Theme) string {
@@ -549,8 +594,10 @@ func (a *App) openDoctorCapabilityDetail(row capRow) {
 	rows := appendDetailSection(nil, "Capability",
 		detailField{"name", row.name},
 		detailField{"status", capabilityStatusText(row.on)},
+		detailField{"tui_support", capUISupportPlainLabel(row.ui)},
 		detailField{"bucket", capBucketPlainLabel(row.bucket)},
 		detailField{"meaning", capabilityMeaning(row.name, row.bucket)},
+		detailField{"tui_notes", orPlaceholder(row.notes, "none")},
 	)
 	if a.doctor != nil {
 		rows = appendDetailSection(rows, "Backend",

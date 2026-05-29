@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
@@ -47,6 +48,8 @@ type Server struct {
 	hooks         *hooksStore // §6.17 — MMM3
 	tasks         *tasksStore // §6.18 — MMM5
 	prompts       map[string]gact.PromptDefinition
+	agents        map[string]gact.AgentDef
+	agentsMu      sync.Mutex
 	userQuestions map[string]gact.UserQuestion
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
@@ -80,6 +83,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		hooks:         newHooksStore(),
 		tasks:         newTasksStore(),
 		prompts:       staticPromptDefinitions(),
+		agents:        map[string]gact.AgentDef{},
 		userQuestions: map[string]gact.UserQuestion{},
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
@@ -171,10 +175,10 @@ func (s *Server) routes() {
 	// §6.5 — Agents
 	s.mux.HandleFunc("GET /v1/agents", s.handleListAgents)
 	s.mux.HandleFunc("GET /v1/agents/{id}", s.handleGetAgent)
-	s.mux.HandleFunc("POST /v1/agents", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("PUT /v1/agents/{id}", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("DELETE /v1/agents/{id}", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("POST /v1/agents/extract", s.handleAgentNotImplemented)
+	s.mux.HandleFunc("POST /v1/agents", s.handleCreateAgent)
+	s.mux.HandleFunc("PUT /v1/agents/{id}", s.handleUpdateAgent)
+	s.mux.HandleFunc("DELETE /v1/agents/{id}", s.handleDeleteAgent)
+	s.mux.HandleFunc("POST /v1/agents/extract", s.handleExtractAgent)
 
 	// §6.6 — Tools
 	s.mux.HandleFunc("GET /v1/tools", s.handleListTools)

@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
@@ -28,6 +31,74 @@ func TestPromptCatalogItemsSurfaceProfilesAndValidation(t *testing.T) {
 		if !strings.Contains(items[0].desc, want) {
 			t.Fatalf("prompt catalog desc missing %q: %q", want, items[0].desc)
 		}
+	}
+}
+
+func TestPromptAndBlueprintCommandsArePaletteDiscoverableWhenSupported(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.XClioPromptRegistry = true
+	a.caps.Capabilities.XClioExpertPacks = true
+	a.caps.Capabilities.XClioAgentBlueprints = true
+
+	for _, tc := range []struct {
+		filter string
+		id     string
+	}{
+		{filter: "prompts", id: "/prompts"},
+		{filter: "expert-packs", id: "/expert-packs"},
+		{filter: "agent-blueprints", id: "/agent-blueprints"},
+		{filter: "blueprints", id: "/blueprints"},
+		{filter: "agent-blueprint-install", id: "/agent-blueprint-install"},
+		{filter: "agent-blueprint-validate", id: "/agent-blueprint-validate"},
+	} {
+		a.paletteFilter = tc.filter
+		found := false
+		for _, cmd := range a.paletteMatches() {
+			if cmd.ID == tc.id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("palette filter %q did not include %s", tc.filter, tc.id)
+		}
+	}
+}
+
+func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
+	a := newReadyApp(nil, nil)
+
+	a.openAgentBlueprintManage(agentBlueprintManageInstall)
+	installView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Install agent blueprint", "install", "current workspace"} {
+		if !strings.Contains(installView, want) {
+			t.Fatalf("install modal missing %q:\n%s", want, installView)
+		}
+	}
+
+	a.openAgentBlueprintManage(agentBlueprintManageValidate)
+	_, _ = a.handleAgentBlueprintManageKey(keyMsg("/"))
+	if a.agentBlueprintManageInput != "/" {
+		t.Fatalf("slash-prefixed paths should be editable, input=%q", a.agentBlueprintManageInput)
+	}
+	a.agentBlueprintManageInput = ""
+	a.agentBlueprintManageCursor = 0
+	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/AGENT.md\n"})
+	if a.agentBlueprintManageInput != "/workspace/AGENT.md" {
+		t.Fatalf("paste should route to blueprint modal, input=%q", a.agentBlueprintManageInput)
+	}
+	a.agentBlueprintManageInput = ""
+	a.agentBlueprintManageCursor = 0
+	validateView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Validate agent blueprint", "validate", "without", "installing"} {
+		if !strings.Contains(validateView, want) {
+			t.Fatalf("validate modal missing %q:\n%s", want, validateView)
+		}
+	}
+
+	_, _ = a.handleAgentBlueprintManageKey(keyMsg("enter"))
+	if !strings.Contains(a.agentBlueprintManageErr, "required") {
+		t.Fatalf("empty validate submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
 	}
 }
 
@@ -197,8 +268,8 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		}},
 	})
 
-	if len(items) < 4 {
-		t.Fatalf("detail items len = %d, want activation, blueprint, mcp, and agent", len(items))
+	if len(items) < 6 {
+		t.Fatalf("detail items len = %d, want activation, blueprint, management actions, mcp, and agent", len(items))
 	}
 	if items[0].id != "activate" {
 		t.Fatalf("first detail row = %q, want activate", items[0].id)
@@ -206,10 +277,34 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
 	}
-	if items[2].id != "mcp/earthscope" || !strings.Contains(items[2].desc, "earthscope-mcp") {
-		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[2])
+	if items[2].id != "blueprint-action/update" || !items[2].disabled {
+		t.Fatalf("builtin blueprint update action should be visible but disabled: %#v", items[2])
 	}
-	if items[3].id != "agent/data" || !strings.Contains(items[3].desc, "mcp.parquet.read") {
-		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[3])
+	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
+		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
+	}
+	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
+		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
+	}
+	if items[5].id != "agent/data" || !strings.Contains(items[5].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[5])
+	}
+}
+
+func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t *testing.T) {
+	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
+		AgentBlueprint: gact.AgentBlueprintDefinition{
+			ID: "workspace-blueprint", Title: "Workspace Blueprint", Scope: "workspace", Enabled: true,
+		},
+	})
+
+	if len(items) < 4 {
+		t.Fatalf("detail items len = %d, want activation, blueprint, update, delete", len(items))
+	}
+	if items[2].id != "blueprint-action/update" || items[2].disabled {
+		t.Fatalf("workspace blueprint update action should be enabled: %#v", items[2])
+	}
+	if items[3].id != "blueprint-action/delete" || items[3].disabled {
+		t.Fatalf("workspace blueprint delete action should be enabled: %#v", items[3])
 	}
 }

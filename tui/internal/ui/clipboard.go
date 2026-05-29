@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"encoding/base64"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -11,6 +14,11 @@ import (
 // backend without touching the OS clipboard. Production calls through
 // to atotto/clipboard; test files override the variable.
 var clipboardWrite = clipboard.WriteAll
+var osc52Write = func(text string) error {
+	encoded := base64.StdEncoding.EncodeToString([]byte(text))
+	_, err := fmt.Fprintf(os.Stdout, "\x1b]52;c;%s\a", encoded)
+	return err
+}
 
 func copyTextToClipboard(label string, text string) string {
 	return copyExactTextToClipboard(text, "nothing to copy", func(int) string {
@@ -29,7 +37,10 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		return emptyHint
 	}
 	if err := clipboardWrite(text); err != nil {
-		return "copy failed: " + err.Error()
+		if oscErr := osc52Write(text); oscErr != nil {
+			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error()
+		}
+		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
 	}
 	if copiedHint == nil {
 		return "copied content to clipboard"

@@ -171,6 +171,103 @@ func TestCatalogBrowser_OOnAgentSetsOneTurnOverride(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowser_AgentActionsOpenWriteModals(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.sessions = []gact.Session{{ID: "sess_demo", Title: "demo"}}
+	a.selected = 0
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgents,
+		title: "Agents",
+		items: []catalogItem{{id: "action/create-agent", title: "Create user agent"}},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.agentWriteOpen || a.agentWriteMode != agentWriteModeCreate {
+		t.Fatalf("create action should open create modal, open=%v mode=%q", a.agentWriteOpen, a.agentWriteMode)
+	}
+
+	a.closeAgentWrite()
+	a.catalogBrowser.items = []catalogItem{{id: "action/extract-agent", title: "Extract agent"}}
+	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.agentWriteOpen || a.agentWriteMode != agentWriteModeExtract || !strings.Contains(a.agentWriteDraft, "demo") {
+		t.Fatalf("extract action should open extract modal with session-derived id, open=%v mode=%q draft=%q", a.agentWriteOpen, a.agentWriteMode, a.agentWriteDraft)
+	}
+}
+
+func TestCatalogBrowser_AgentDetailCloneActionOpensWriteModal(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:    catalogKindAgentDetail,
+		title:   "Agent · Data",
+		agentID: "data",
+		items:   []catalogItem{{id: "agent-action/clone", title: "Clone as user agent"}},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if !a.agentWriteOpen || a.agentWriteMode != agentWriteModeClone || a.agentWriteSourceID != "data" {
+		t.Fatalf("clone action should open clone modal, open=%v mode=%q source=%q", a.agentWriteOpen, a.agentWriteMode, a.agentWriteSourceID)
+	}
+}
+
+func TestAgentEditModalUpdatesStructuredFields(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openAgentEdit(gact.AgentDef{
+		ID: "user-agent", Source: "user", Title: "User Agent", Description: "old",
+		Tools: []string{"read_file"}, Keywords: []string{"old"}, Enabled: true,
+	})
+
+	a.setAgentEditField(1)
+	a.agentEditDraft.Description = ""
+	a.agentEditCursor = 0
+	a.insertAgentEditText("new description")
+	if a.agentEditDraft.Description != "new description" {
+		t.Fatalf("description = %q", a.agentEditDraft.Description)
+	}
+
+	a.setAgentEditField(3)
+	a.agentEditDraft.Tools = nil
+	a.insertAgentEditText("read_file, mcp.parquet.read")
+	if got := strings.Join(a.agentEditDraft.Tools, ","); got != "read_file,mcp.parquet.read" {
+		t.Fatalf("tools = %q", got)
+	}
+	a.setAgentEditField(5)
+	_, _ = a.handleAgentEditKey(keyMsg("left"))
+	if a.agentEditDraft.Enabled {
+		t.Fatal("enabled toggle did not flip")
+	}
+}
+
+func TestAgentCatalogWriteActionsRespectCapabilities(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := a.applyCapabilityGatesToCatalogItems(catalogKindAgents, []catalogItem{{
+		id: "action/create-agent", title: "Create",
+	}, {
+		id: "action/extract-agent", title: "Extract",
+	}})
+	if !items[0].disabled || !items[1].disabled {
+		t.Fatalf("write actions should be disabled without capabilities: %#v", items)
+	}
+
+	a.caps.Capabilities.AgentWrite = true
+	a.caps.Capabilities.SkillsExtraction = true
+	items = a.applyCapabilityGatesToCatalogItems(catalogKindAgents, items)
+	if items[0].disabled || items[1].disabled {
+		t.Fatalf("write actions should be enabled with capabilities: %#v", items)
+	}
+}
+
+func TestAgentWriteSanitizesIDs(t *testing.T) {
+	if got := sanitizeAgentID("  Data Expert Copy!  "); got != "data-expert-copy" {
+		t.Fatalf("sanitizeAgentID = %q", got)
+	}
+	if got := titleFromAgentID("data-expert.copy"); got != "Data Expert Copy" {
+		t.Fatalf("titleFromAgentID = %q", got)
+	}
+}
+
 func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	parent := &catalogBrowserState{
