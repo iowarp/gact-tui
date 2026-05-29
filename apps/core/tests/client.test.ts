@@ -135,7 +135,12 @@ describe('Client', () => {
     expect(body.parts).toEqual([{ type: 'text', text: 'hello' }]);
   });
 
-  it('resolvePermission carries scope only on approve', async () => {
+  it('resolvePermission maps decision+scope onto clio action enum', async () => {
+    // clio's /v1/permissions/{id} reads `{ action: 'allow' | 'deny' |
+    // 'allow_session' | 'allow_workspace' }`. The desktop's UI thinks
+    // in (decision, scope), so the client must collapse the two into
+    // the single backend enum — otherwise the agent stays waiting
+    // forever (422 silent).
     const observed: Array<Record<string, unknown>> = [];
     const c = new Client({
       baseUrl: 'http://localhost:7777',
@@ -145,10 +150,14 @@ describe('Client', () => {
       }) as typeof fetch,
     });
     await c.resolvePermission('perm_a', 'approve', 'always_tool');
-    await c.resolvePermission('perm_b', 'deny', 'always_tool');
+    await c.resolvePermission('perm_b', 'approve', 'session');
+    await c.resolvePermission('perm_c', 'approve', 'once');
+    await c.resolvePermission('perm_d', 'deny');
     expect(observed).toEqual([
-      { decision: 'approve', scope: 'always_tool' },
-      { decision: 'deny' },
+      { action: 'allow_workspace' },
+      { action: 'allow_session' },
+      { action: 'allow' },
+      { action: 'deny' },
     ]);
   });
 
