@@ -1136,6 +1136,28 @@ function LiveDriven(props: {
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
+      onSummarizeWithInstructions={async () => {
+        const sid = activeId();
+        if (!sid) return;
+        const instructions = prompt('How should clio summarize the session? (e.g. "tldr in 5 sentences", "extract action items only")');
+        if (!instructions) return;
+        try {
+          await live.client.summarizeSession(sid, { auto: false, instructions });
+          toast.push({
+            tone: 'info',
+            title: 'Summarization requested',
+            body: 'session.summarized will fire when done.',
+            duration: 3500,
+          });
+        } catch (e) {
+          toast.push({
+            tone: 'error',
+            title: 'Summarize failed',
+            body: e instanceof Error ? e.message : String(e),
+            duration: 5000,
+          });
+        }
+      }}
       onExtractAgent={async () => {
         const sid = activeId();
         if (!sid) return;
@@ -1285,6 +1307,7 @@ interface ChatLayoutProps {
   onSpeakMessage?: (msg: import('@clio/core').Message) => void | Promise<void>;
   onCopyMessagePermalink?: (msg: import('@clio/core').Message) => void | Promise<void>;
   onExtractAgent?: () => void | Promise<void>;
+  onSummarizeWithInstructions?: () => void | Promise<void>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -1823,6 +1846,10 @@ function ChatLayout(props: ChatLayoutProps) {
       void props.onExtractAgent?.();
       return;
     }
+    if (cmd.id === 'summarize-with-instructions') {
+      void props.onSummarizeWithInstructions?.();
+      return;
+    }
     if (cmd.id === 'compose-modal') {
       setComposeOpen(true);
       return;
@@ -1970,6 +1997,12 @@ function ChatLayout(props: ChatLayoutProps) {
       });
     }
     items.push(
+      {
+        id: 'summarize-with-instructions',
+        trigger: 'summarize · custom',
+        description: 'Summarize the session with custom instructions (e.g. "extract action items only")',
+        category: 'action',
+      },
       {
         id: 'compose-modal',
         trigger: 'compose · fullscreen',
