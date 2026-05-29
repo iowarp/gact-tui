@@ -699,6 +699,13 @@ changes, no contract changes, no design-system writes.
 - **Agent Remove + Extract** — AgentsPage card gains a Remove
   button (`a34b15c`) and the palette gains an `extract · agent`
   action that posts to `/v1/agents/extract` (`39982e4`).
+- **Summarize · custom** — palette command that prompts for
+  instructions before calling `summarizeSession`. (30dd6d5)
+- **Workspace rename** — WorkspaceCard Rename action hits
+  `patchWorkspace`. (7c919d9)
+- **Bulk diff apply / reject** — Inspector Diffs tab gains Apply all
+  / Reject all buttons backed by `applySessionDiffs` /
+  `rejectSessionDiffs`. (15ad321)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
