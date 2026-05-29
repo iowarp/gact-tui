@@ -2662,7 +2662,7 @@ function ChatLayout(props: ChatLayoutProps) {
               onQuote={props.onQuoteMessage}
               onDelete={props.onDeleteMessage}
               onPinFile={props.onPinFile}
-              onSpeak={props.onSpeakMessage}
+              onSpeak={props.voiceCapable ? props.onSpeakMessage : undefined}
               onCopyPermalink={props.onCopyMessagePermalink}
               selectedId={selectedMessageId()}
               onSelect={(m) => setSelectedMessageId(m.id)}
