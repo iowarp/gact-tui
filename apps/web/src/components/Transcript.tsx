@@ -53,8 +53,12 @@ const ROLE_LABEL: Record<string, string> = {
 function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   if (density === 'verbose') return true;
   if (density === 'summary') {
+    // summary keeps the answer + diffs; the routing breadcrumb is
+    // useful but not load-bearing for read-back.
     return part.type === 'text' || part.type === 'file_diff';
   }
+  // normal density: hide thinking; show routing_decision so the user
+  // can see which expert handled the turn.
   return part.type !== 'thinking';
 }
 
@@ -212,6 +216,34 @@ function PartView(props: {
             <Icon name="pin" size={12} />
           </button>
         </Show>
+      </div>
+    );
+  }
+  // routing_decision parts — show clio's chosen expert + rationale so
+  // the user can see why a particular tool/expert handled the turn.
+  // Matches the TUI's detail_view rendering.
+  if (p.type === 'routing_decision') {
+    const selected = (p as Part & { selected_agent?: string }).selected_agent ?? '';
+    const rationale = (p as Part & { rationale?: string }).rationale ?? '';
+    const metadata = (p as Part & { metadata?: Record<string, unknown> }).metadata ?? {};
+    const reason = String(metadata['route_reason'] ?? '');
+    const source = String(metadata['route_source'] ?? '');
+    return (
+      <div class="trx-routing">
+        <span class="trx-routing__icon" aria-hidden>
+          <Icon name="branch" size={11} />
+        </span>
+        <span class="trx-routing__body">
+          <span class="trx-routing__head">
+            routed to <strong>{selected || 'chat'}</strong>
+            <Show when={source}>
+              <span class="trx-routing__src"> · {source}</span>
+            </Show>
+          </span>
+          <Show when={rationale || reason}>
+            <span class="trx-routing__why">{rationale || reason}</span>
+          </Show>
+        </span>
       </div>
     );
   }

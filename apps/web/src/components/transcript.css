@@ -447,3 +447,25 @@
   0%   { background: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent); }
   100% { background: transparent; }
 }
+
+/* Routing-decision breadcrumb — the agent's pick of expert, with the
+   reason it gave. TUI parity (detail_view.go renders these). */
+.trx-routing {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: 8px;
+  background: var(--color-surface-alt);
+  border-left: 2px solid var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-muted);
+  max-width: 100%;
+}
+.trx-routing__icon { color: var(--color-accent-cyan); margin-top: 2px; }
+.trx-routing__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.trx-routing__head strong { color: var(--color-heading); font-weight: 500; }
+.trx-routing__src { color: var(--color-border); }
+.trx-routing__why { color: var(--color-text); opacity: 0.85; }
