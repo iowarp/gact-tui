@@ -325,6 +325,94 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- Inspector Bindings tab (#124) ----
+  test('Inspector Bindings tab renders blueprint + pack pickers (#124)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    // Wait for the bindings resource to actually resolve — it keys on
+    // activeId() which only flips after the row click above.
+    await page
+      .waitForResponse(
+        (r) => r.url().includes('/v1/agent-blueprints') && r.status() === 200,
+        { timeout: 8_000 },
+      )
+      .catch(() => undefined);
+    await page.waitForTimeout(800);
+    if (!(await page.getByTestId('inspector-drawer').isVisible().catch(() => false))) {
+      await page.getByTestId('topbar-inspector').click();
+    }
+    // Dump available tabs so a failure tells us what state the
+    // inspector landed in instead of "element not found".
+    const tabs = await page.locator('[data-testid^="inspector-tab-"]').evaluateAll(
+      (els: Element[]) => els.map((e) => (e as HTMLElement).dataset['testid']),
+    );
+    await page.screenshot({ path: shot('124-bindings-tab'), fullPage: false });
+    expect(tabs, 'inspector should expose Bindings tab').toContain('inspector-tab-bindings');
+    const tab = page.getByTestId('inspector-tab-bindings');
+    await expect(tab).toBeVisible({ timeout: 4_000 });
+    await tab.click();
+    await expect(page.getByTestId('binding-blueprint')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('124-bindings-tab'), fullPage: false });
+    await close();
+  });
+
+  // ---- Composer paste compression (#102) ----
+  test('Composer collapses pastes >=3 lines into a placeholder (#102)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    const ta = page.getByTestId('composer-input');
+    await expect(ta).toBeVisible({ timeout: 6_000 });
+    await ta.click();
+    await page.evaluate(({ text }) => {
+      const el = document.querySelector(
+        '[data-testid="composer-input"]',
+      ) as HTMLTextAreaElement;
+      el.focus();
+      const dt = new DataTransfer();
+      dt.setData('text/plain', text);
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+      );
+    }, { text: 'line1\nline2\nline3\nline4\nline5' });
+    await page.waitForTimeout(400);
+    await expect(ta).toHaveValue(/\[pasted 5 lines · click to expand · #[a-z0-9]+\]/);
+    await page.screenshot({ path: shot('102-paste-compression'), fullPage: false });
+    await close();
+  });
+
+  // ---- Composer @-picker (#96) ----
+  test('Composer @ key opens the workspace at-mention picker (#96)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    const ta = page.getByTestId('composer-input');
+    await expect(ta).toBeVisible({ timeout: 6_000 });
+    await ta.click();
+    await ta.type('@');
+    await expect(page.getByTestId('at-mention-picker')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('96-at-mention-picker'), fullPage: false });
+    await close();
+  });
+
+  // ---- Palette: export-md + extract-agent + search-messages (#138 #142 #97) ----
+  test('Palette exposes export-md / extract-agent / search-messages actions (#138 #142 #97)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyK');
+    await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 4_000 });
+    const input = page.getByTestId('slash-palette-input');
+    await input.fill('export');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('138-palette-export-md'), fullPage: false });
+    await input.fill('extract');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('142-palette-extract-agent'), fullPage: false });
+    await input.fill('search');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('97-palette-search-messages'), fullPage: false });
+    await close();
+  });
+
   // ---- Workspaces page (#28 + workspace card features) ----
   test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
     const { page, close } = await connect(browser);
