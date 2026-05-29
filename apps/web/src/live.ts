@@ -236,6 +236,8 @@ export function createLiveTranscript(
       'user_question.resumed',
       'lm.provider.changed',
       'lm.provider.failed',
+      'context.frame.created',
+      'context.frame.completed',
     ];
 
     const onEvent = (raw: MessageEvent) => {
@@ -254,6 +256,7 @@ export function createLiveTranscript(
         setPendingQuestion,
         sessionEvents,
         onNotification: sessionEvents?.onNotification,
+        onFrameChanged: sessionEvents?.onFrameChanged,
       });
     };
 
@@ -370,6 +373,9 @@ export interface BackendNotification {
 
 export interface NotificationSink {
   onNotification: (n: BackendNotification) => void;
+  /** Fires on context.frame.{created,completed} so consumers can
+   * refetch /v1/sessions/{id}/context/frames. */
+  onFrameChanged?: () => void;
 }
 
 /**
@@ -391,6 +397,7 @@ function reduce(
     setPendingQuestion: (q: UserQuestion | null) => void;
     sessionEvents?: SessionEventSink;
     onNotification?: (n: BackendNotification) => void;
+    onFrameChanged?: () => void;
   },
 ) {
   const t = ev.type;
@@ -583,6 +590,13 @@ function reduce(
       // (the caller) refetches the transcript so the resumed turn
       // shows up.
       hooks.setPendingQuestion(null);
+      break;
+    }
+    case 'context.frame.created':
+    case 'context.frame.completed': {
+      // The frames resource keys off activeId; the simplest correct
+      // path is to fire onFrameChanged so ChatScreen can refetch.
+      hooks.onFrameChanged?.();
       break;
     }
     case 'lm.provider.changed': {

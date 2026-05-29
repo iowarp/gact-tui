@@ -297,6 +297,11 @@ function LiveDriven(props: {
         if (cur && Date.now() >= cur.expiry) setRecentlyRenamed(null);
       }, 4600);
     },
+    onFrameChanged: () => {
+      // SSE flips a frame state — pull fresh from
+      // /v1/sessions/{id}/context/frames so the Inspector list updates.
+      void refetchFrames();
+    },
     onNotification: (n) => {
       const tone =
         n.level === 'error' ? 'error' : n.level === 'warning' ? 'warn' : 'info';
@@ -715,7 +720,7 @@ function LiveDriven(props: {
 
   // Context frames — feeds the Inspector Frames tab. Cap is gated
   // because not every backend ships memory frames.
-  const [framesData] = createResource(
+  const [framesData, { refetch: refetchFrames }] = createResource(
     () => activeId(),
     async (sid) => {
       if (!sid) return { frames: [] };
