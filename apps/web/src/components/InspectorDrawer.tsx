@@ -801,6 +801,52 @@ function BindingsTab(props: {
   );
 }
 
+/** Best-effort cron → English for the schedule preview line. Doesn't
+ * pretend to handle every cron grammar — just the common cases users
+ * actually paste (asterisk-slash-N minutes/hours, fixed times,
+ * days-of-week). Falls back to the raw string so unrecognised forms
+ * still echo back. */
+function humanizeCron(raw: string): string {
+  const cron = raw.trim();
+  if (!cron) return '';
+  const parts = cron.split(/\s+/);
+  if (parts.length < 5) return cron;
+  const [m, h, dom, mon, dow] = parts;
+  // every minute
+  if (m === '*' && h === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return 'Every minute';
+  }
+  // hourly at minute N
+  if (h === '*' && dom === '*' && mon === '*' && dow === '*' && /^\d+$/.test(m ?? '')) {
+    return `Every hour at :${(m ?? '0').padStart(2, '0')}`;
+  }
+  // every N minutes / hours
+  const stepM = (m ?? '').match(/^\*\/(\d+)$/);
+  if (stepM && h === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return `Every ${stepM[1]} minutes`;
+  }
+  const stepH = (h ?? '').match(/^\*\/(\d+)$/);
+  if (stepH && m === '0' && dom === '*' && mon === '*' && dow === '*') {
+    return `Every ${stepH[1]} hours`;
+  }
+  // daily at HH:MM
+  if (/^\d+$/.test(m ?? '') && /^\d+$/.test(h ?? '') && dom === '*' && mon === '*' && dow === '*') {
+    return `Daily at ${(h ?? '0').padStart(2, '0')}:${(m ?? '0').padStart(2, '0')}`;
+  }
+  // weekly at HH:MM on DOW
+  const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (
+    /^\d+$/.test(m ?? '') &&
+    /^\d+$/.test(h ?? '') &&
+    dom === '*' &&
+    mon === '*' &&
+    /^[0-6]$/.test(dow ?? '')
+  ) {
+    return `Weekly on ${DOW[parseInt(dow ?? '0', 10)]} at ${(h ?? '0').padStart(2, '0')}:${(m ?? '0').padStart(2, '0')}`;
+  }
+  return cron;
+}
+
 /** Cron-style schedules per session. Renders the list with delete
  * buttons + a minimal create form. Capability-gated upstream. */
 function SchedulesTab(props: {
@@ -897,6 +943,14 @@ function SchedulesTab(props: {
             <Icon name="plus" size={12} />
             <span>Add</span>
           </button>
+          <Show when={cron().trim()}>
+            <span
+              class="inspector__schedule-preview"
+              data-testid="schedule-cron-preview"
+            >
+              {humanizeCron(cron())}
+            </span>
+          </Show>
         </form>
       </Show>
     </section>
