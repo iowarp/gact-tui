@@ -1087,6 +1087,14 @@ export class Client {
     return this.del(`/v1/hooks/${encodeURIComponent(hookId)}`);
   }
 
+  /** GET /v1/agents/{id} — single-agent detail (richer than the bulk
+   * list — includes routing rules, tools, default model). */
+  getAgent(agentId: string): Promise<AgentDef & {
+    [k: string]: unknown;
+  }> {
+    return this.get(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
   /** POST /v1/agent-blueprints/validate — dry-run validate a blueprint
    * document before installing. Returns `{ ok, errors? }`. */
   validateAgentBlueprint(body: Record<string, unknown>): Promise<{
