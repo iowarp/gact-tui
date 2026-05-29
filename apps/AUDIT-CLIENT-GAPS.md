@@ -35,11 +35,15 @@
 > TTS Speak button (`bb5f8de`), browser-side mic recording (`bf50928`),
 > blueprint MCP enable Client method (`642e42b`).
 >
-> **What's left:** Plugins discovery (`~/.config/gact/plugins/` shell
-> exec) is the only audit item still open — it requires Tauri shell
-> scoping, not just client-side TS, so it lands with the next Tauri
-> pass.
-> See `apps/CHANGELOG.md` for the running list.
+> **Plugins discovery landed:** Tauri side ships an `exec_plugin`
+> command with timeout + output cap, web side adds a Plugins
+> discovery page (register / edit / remove) and a palette dispatch
+> that surfaces every plugin with a `trigger` and posts the captured
+> output back as a fenced-code message into the active session.
+> Web only registers, exec needs the desktop shell. (`b4d56ce`)
+>
+> **All audit items closed.** See `apps/CHANGELOG.md` for the running
+> list.
 
 
 Snapshot date: 2026-05-28. Sources:

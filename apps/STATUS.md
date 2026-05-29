@@ -739,6 +739,14 @@ changes, no contract changes, no design-system writes.
   use cases. (ee26066, c136978)
 - **Schedule next-run badge humaniser** — ISO timestamps render
   as "in 5m" / "3h ago" with the raw value in the tooltip. (c26fc32)
+- **Plugins discovery (final audit item)** — Rust adds an
+  `exec_plugin` Tauri command that runs a path + args with hard
+  timeout and 64 KiB output cap. Web adds a Plugins discovery page
+  (registry editor + Run/Edit/Remove buttons) plus palette
+  dispatch: any plugin with a `trigger` surfaces in Cmd+K and on
+  selection the captured stdout/stderr lands in the active session
+  as a fenced-code message. Pure-web build disables Run with a hint.
+  (b4d56ce)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
