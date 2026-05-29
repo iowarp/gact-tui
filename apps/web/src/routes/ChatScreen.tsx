@@ -245,6 +245,7 @@ function LiveDriven(props: {
   const transcript = createLiveTranscript(live.client, activeId, {
     patch: live.patch,
     setRaw: live.setRaw,
+    refetch: live.refetch,
     onNotification: (n) => {
       const tone =
         n.level === 'error' ? 'error' : n.level === 'warning' ? 'warn' : 'info';
