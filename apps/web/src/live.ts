@@ -218,12 +218,14 @@ export function createLiveTranscript(
       'session.status_changed',
       'session.summarized',
       'session.compacted',
+      'session.cleared',
       'message.created',
       'message.part.added',
       'message.part.delta',
       'message.part.completed',
       'message.completed',
       'message.error',
+      'message.deleted',
       'tool.call.started',
       'tool.call.progress',
       'tool.call.completed',
@@ -239,6 +241,16 @@ export function createLiveTranscript(
       'lm.provider.failed',
       'context.frame.created',
       'context.frame.completed',
+      'context.file.added',
+      'context.file.removed',
+      'file.diff.applied',
+      'file.diff.rejected',
+      'file.diff.write_failed',
+      'expert_handoff',
+      'subagent.started',
+      'subagent.completed',
+      'memory.search.completed',
+      'turn.retry_requested',
     ];
 
     const onEvent = (raw: MessageEvent) => {
@@ -258,6 +270,9 @@ export function createLiveTranscript(
         sessionEvents,
         onNotification: sessionEvents?.onNotification,
         onFrameChanged: sessionEvents?.onFrameChanged,
+        onContextFilesChanged: sessionEvents?.onContextFilesChanged,
+        onDiffChanged: sessionEvents?.onDiffChanged,
+        onMemoryChanged: sessionEvents?.onMemoryChanged,
       });
     };
 
@@ -377,6 +392,15 @@ export interface NotificationSink {
   /** Fires on context.frame.{created,completed} so consumers can
    * refetch /v1/sessions/{id}/context/frames. */
   onFrameChanged?: () => void;
+  /** Fires on context.file.{added,removed} so the Inspector Context tab
+   * can refetch /v1/sessions/{id}/context/files. */
+  onContextFilesChanged?: () => void;
+  /** Fires on file.diff.{applied,rejected,write_failed} so the Inspector
+   * Diffs tab can refetch the session's pending diffs. */
+  onDiffChanged?: () => void;
+  /** Fires on memory.search.completed so any open Memory drawer can
+   * refresh hits. */
+  onMemoryChanged?: () => void;
 }
 
 /**
@@ -399,6 +423,9 @@ function reduce(
     sessionEvents?: SessionEventSink;
     onNotification?: (n: BackendNotification) => void;
     onFrameChanged?: () => void;
+    onContextFilesChanged?: () => void;
+    onDiffChanged?: () => void;
+    onMemoryChanged?: () => void;
   },
 ) {
   const t = ev.type;
@@ -670,6 +697,110 @@ function reduce(
           applyPartCompleted(prev, messageId, partId, finalText),
         );
       }
+      break;
+    }
+    case 'message.deleted': {
+      // clio emits {session_id, message_id} when a message has been
+      // pruned (delete endpoint or undo/rewind). Drop it from the
+      // transcript so the UI doesn't show a stale row.
+      const messageId = p.message_id as string | undefined;
+      if (messageId) {
+        hooks.setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+      break;
+    }
+    case 'session.cleared': {
+      // /v1/sessions/{id}/clear blew the slate clean. Drop every message
+      // and clear permission / running-tool state so the next turn starts
+      // fresh.
+      hooks.setMessages(() => []);
+      hooks.setPendingPermission(null);
+      hooks.setRunningTools(() => []);
+      hooks.setPendingQuestion(null);
+      hooks.setLastCompletion(null);
+      break;
+    }
+    case 'context.file.added':
+    case 'context.file.removed': {
+      // Inspector Context tab pulls /v1/sessions/{id}/context/files; the
+      // event payload doesn't carry the new list, so signal the consumer
+      // to refetch.
+      hooks.onContextFilesChanged?.();
+      break;
+    }
+    case 'file.diff.applied':
+    case 'file.diff.rejected':
+    case 'file.diff.write_failed': {
+      // Diff queue moved — Inspector Diffs tab needs a refetch. We also
+      // surface a notification for write_failed because that's a real
+      // user-actionable signal (perm denied, disk full, ...).
+      hooks.onDiffChanged?.();
+      if (t === 'file.diff.write_failed') {
+        const path = (p.path as string) ?? 'unknown path';
+        const reason = (p.error as string) ?? (p.message as string) ?? 'see logs';
+        hooks.onNotification?.({
+          level: 'error',
+          title: 'Diff write failed',
+          body: `${path} — ${reason}`,
+        });
+      }
+      break;
+    }
+    case 'expert_handoff': {
+      const expertName =
+        (p.expert_name as string) ??
+        (p.target_agent as string) ??
+        (p.agent_id as string) ??
+        'expert';
+      const reason = (p.reason as string) ?? undefined;
+      hooks.onNotification?.({
+        level: 'info',
+        title: `Handed off to ${expertName}`,
+        ...(reason ? { body: reason } : {}),
+      });
+      break;
+    }
+    case 'subagent.started': {
+      const agentName =
+        (p.agent_name as string) ?? (p.agent_id as string) ?? 'sub-agent';
+      const task = p.task as string | undefined;
+      hooks.onNotification?.({
+        level: 'info',
+        title: `Sub-agent started: ${agentName}`,
+        ...(task ? { body: task } : {}),
+      });
+      break;
+    }
+    case 'subagent.completed': {
+      const agentName =
+        (p.agent_name as string) ?? (p.agent_id as string) ?? 'sub-agent';
+      const status = (p.status as string) ?? 'completed';
+      hooks.onNotification?.({
+        level: status === 'error' || status === 'failed' ? 'error' : 'info',
+        title: `Sub-agent ${status}: ${agentName}`,
+      });
+      break;
+    }
+    case 'memory.search.completed': {
+      const hitCount =
+        (p.hit_count as number) ??
+        ((p.hits as unknown[] | undefined)?.length ?? 0);
+      hooks.onMemoryChanged?.();
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Memory search complete',
+        body: `${hitCount} hit${hitCount === 1 ? '' : 's'}.`,
+      });
+      break;
+    }
+    case 'turn.retry_requested': {
+      const reason =
+        (p.reason as string) ?? (p.message as string) ?? 'retrying the last turn';
+      hooks.onNotification?.({
+        level: 'warning',
+        title: 'Turn retry requested',
+        body: reason,
+      });
       break;
     }
     case 'server.connected':
