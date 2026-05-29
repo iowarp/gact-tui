@@ -2302,6 +2302,12 @@ function ChatLayout(props: ChatLayoutProps) {
               ? undefined
               : 'Start a new conversation — first message becomes the title'
           }
+          onTranscribeVoice={async (blob, name) => {
+            const sid = props.activeId;
+            if (!sid) throw new Error('No active session for transcription');
+            const r = await discoveryClient.transcribeVoice(sid, blob, name);
+            return r.text;
+          }}
           workspaceClient={discoveryClient}
           workspaceId={
             props.sessions.find((s) => s.id === props.activeId)?.workspace ??

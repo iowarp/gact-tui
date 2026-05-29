@@ -88,6 +88,11 @@ export interface ComposerProps {
    * Set to 0 to disable.
    */
   pasteCompressThreshold?: number;
+
+  /** When set, renders a voice → text button next to the attach
+   * affordance. ChatScreen wires this to
+   * `client.transcribeVoice(activeId, audioBlob)`. */
+  onTranscribeVoice?: (audio: Blob, filename: string) => Promise<string>;
 }
 
 export function Composer(props: ComposerProps = {}) {
@@ -240,6 +245,24 @@ export function Composer(props: ComposerProps = {}) {
 
   // Attachment state + file picker wiring.
   const [attachments, setAttachments] = createSignal<AttachedFile[]>([]);
+  const [voiceBusy, setVoiceBusy] = createSignal(false);
+  let voiceInputRef: HTMLInputElement | undefined;
+
+  async function onVoicePicked(ev: Event) {
+    const inp = ev.currentTarget as HTMLInputElement;
+    const file = inp.files?.[0];
+    inp.value = '';
+    if (!file || !props.onTranscribeVoice) return;
+    setVoiceBusy(true);
+    try {
+      const txt = await props.onTranscribeVoice(file, file.name);
+      setText((prev) => (prev ? `${prev} ${txt}` : txt));
+    } catch {
+      // surfaced via toast upstream — composer stays usable
+    } finally {
+      setVoiceBusy(false);
+    }
+  }
   let fileInputRef: HTMLInputElement | undefined;
 
   function pickAttach() {
@@ -370,6 +393,15 @@ export function Composer(props: ComposerProps = {}) {
           data-testid="composer-file-input"
         />
 
+        <input
+          ref={voiceInputRef}
+          type="file"
+          accept="audio/*"
+          hidden
+          onChange={onVoicePicked}
+          data-testid="composer-voice-input"
+        />
+
         <div class="composer__row">
           <button
             type="button"
@@ -381,6 +413,19 @@ export function Composer(props: ComposerProps = {}) {
           >
             <Icon name="attach" size={16} />
           </button>
+          <Show when={props.onTranscribeVoice}>
+            <button
+              type="button"
+              class="composer__attach"
+              title={voiceBusy() ? 'Transcribing…' : 'Upload audio for transcription'}
+              aria-label="Upload audio for transcription"
+              data-testid="composer-voice"
+              onClick={() => voiceInputRef?.click()}
+              disabled={voiceBusy()}
+            >
+              <Icon name={voiceBusy() ? 'circle' : 'mention'} size={16} />
+            </button>
+          </Show>
           <div class="composer__input-wrap">
             <textarea
               class="composer__input"
