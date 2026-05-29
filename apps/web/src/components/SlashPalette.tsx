@@ -33,7 +33,6 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
   { id: 'inspect-parquet', trigger: '/inspect parquet', description: 'Inspect a Parquet file', category: 'data' },
   { id: 'sessions', trigger: '/sessions', description: 'List recent sessions', category: 'navigation' },
   { id: 'settings', trigger: '/settings', description: 'Open settings', category: 'meta' },
-  { id: 'clear', trigger: '/clear', description: 'Clear current transcript', category: 'meta' },
 ];
 
 /**
