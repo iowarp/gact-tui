@@ -146,31 +146,117 @@ export function PoliciesPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.policies().catch(() => null),
   );
-  const policies = () => data()?.policies ?? {};
+  const policies = () => (data() as { policies?: Record<string, unknown> } | null)?.policies ?? {};
   const entries = () => Object.entries(policies()) as Array<[string, unknown]>;
+
+  const [draft, setDraft] = createSignal<string>('');
+  const [editing, setEditing] = createSignal(false);
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  function startEdit() {
+    setDraft(JSON.stringify(policies(), null, 2));
+    setEditing(true);
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setError(null);
+  }
+
+  async function saveEdit() {
+    setError(null);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(draft());
+    } catch (e) {
+      setError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await props.client.putPolicies({ policies: parsed });
+      setEditing(false);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <DiscoveryPage
       icon="agents"
       title="Policies"
-      subtitle="Workspace + global autonomy policy that gates tools, commands, and memory access. Read-only here."
+      subtitle="Workspace + global autonomy policy that gates tools, commands, and memory access. Edit the JSON to relax or tighten gates."
       actions={
-        <button
-          type="button"
-          class="dp-iconbtn"
-          onClick={() => refetch()}
-          title="Refresh"
-        >
-          <Icon name="regenerate" size={14} />
-        </button>
+        <>
+          <Show when={!editing()}>
+            <button
+              type="button"
+              class="dp-iconbtn"
+              onClick={startEdit}
+              title="Edit policies"
+              data-testid="policies-edit"
+            >
+              <Icon name="edit" size={14} />
+            </button>
+          </Show>
+          <button
+            type="button"
+            class="dp-iconbtn"
+            onClick={() => refetch()}
+            title="Refresh"
+          >
+            <Icon name="regenerate" size={14} />
+          </button>
+        </>
       }
       loading={data.loading}
-      empty={!data.loading && entries().length === 0}
+      empty={!data.loading && entries().length === 0 && !editing()}
       emptyTitle="No policy returned"
-      emptyBody="Backend exposes /v1/policies but no entries are configured."
+      emptyBody="Backend exposes /v1/policies but no entries are configured. Click Edit to add one."
     >
-      <div class="rmp__pretty">
-        <pre>{JSON.stringify(policies(), null, 2)}</pre>
-      </div>
+      <Show
+        when={editing()}
+        fallback={
+          <div class="rmp__pretty">
+            <pre>{JSON.stringify(policies(), null, 2)}</pre>
+          </div>
+        }
+      >
+        <textarea
+          class="rmp__editor"
+          value={draft()}
+          onInput={(e) => setDraft(e.currentTarget.value)}
+          rows={16}
+          data-testid="policies-editor"
+        />
+        <Show when={error()}>
+          <p class="rmp__form-err">{error()}</p>
+        </Show>
+        <div class="rmp__editor-actions">
+          <button
+            type="button"
+            class="ws-form__btn"
+            onClick={cancelEdit}
+            disabled={busy()}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="ws-form__btn ws-form__btn--primary"
+            onClick={() => void saveEdit()}
+            disabled={busy()}
+            data-testid="policies-save"
+          >
+            {busy() ? 'Saving…' : 'Save policies'}
+          </button>
+        </div>
+      </Show>
     </DiscoveryPage>
   );
 }
