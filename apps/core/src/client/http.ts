@@ -1228,6 +1228,24 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/voice/synthesize — requests TTS audio for
+   * a piece of text. Returns the raw `audio/*` bytes as a Blob so the
+   * caller can hand it to an HTMLAudioElement.
+   */
+  async synthesizeVoice(sessionId: string, text: string): Promise<Blob> {
+    const url = `${this.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/voice/synthesize`;
+    const res = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    return await res.blob();
+  }
+
+  /**
    * Build an SSE URL with the bearer token in the query string. `EventSource`
    * cannot set custom headers, so we fall back to `?auth_token=` per SPEC §7.
    */
