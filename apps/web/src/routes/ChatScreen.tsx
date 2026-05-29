@@ -2841,10 +2841,15 @@ function ChatLayout(props: ChatLayoutProps) {
           onJump={(mid) => {
             setSelectedMessageId(mid);
             queueMicrotask(() => {
-              const el = document.querySelector(
-                `[data-testid="msg-${CSS.escape(mid)}"]`,
-              ) as HTMLElement | null;
-              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Prefer the stable id over the data-testid — the
+              // URL-hash permalink uses the same id, so reusing it
+              // here means a single highlight pattern across both
+              // entry points.
+              const el = document.getElementById(`msg-${mid}`);
+              if (!el) return;
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.classList.add('trx-msg--flash');
+              setTimeout(() => el.classList.remove('trx-msg--flash'), 1800);
             });
           }}
           onClose={() => setServerSearchOpen(false)}
