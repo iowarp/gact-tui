@@ -1577,6 +1577,22 @@ function ChatLayout(props: ChatLayoutProps) {
       setInspectorOpen((v) => !v);
       return;
     }
+    if (cmd.id === 'open-shared-session') {
+      setSharedSessionOpen(true);
+      return;
+    }
+    if (cmd.id === 'walk-away') {
+      props.onWalkAway?.();
+      return;
+    }
+    if (cmd.id === 'compose-modal') {
+      setComposeOpen(true);
+      return;
+    }
+    if (cmd.id === 'catalog-browser') {
+      setCatalogOpen(true);
+      return;
+    }
 
     // First check for /v1/commands rooted by trigger or id — these
     // are backend-defined. Prefer POST /v1/sessions/{id}/commands/{cmd}
@@ -1710,6 +1726,30 @@ function ChatLayout(props: ChatLayoutProps) {
       });
     }
     items.push(
+      {
+        id: 'compose-modal',
+        trigger: 'compose · fullscreen',
+        description: 'Open the fullscreen compose modal (Ctrl+G)',
+        category: 'action',
+      },
+      {
+        id: 'catalog-browser',
+        trigger: 'catalog · all',
+        description: 'Unified search across agents/tools/MCP/prompts (Ctrl+Shift+K)',
+        category: 'navigation',
+      },
+      {
+        id: 'open-shared-session',
+        trigger: 'open · shared session',
+        description: 'Open a clio: share token (Ctrl+L)',
+        category: 'action',
+      },
+      {
+        id: 'walk-away',
+        trigger: 'walk away',
+        description: 'Park the active session in the detached registry (Ctrl+Shift+D)',
+        category: 'action',
+      },
       {
         id: 'new-session',
         trigger: 'new session',
