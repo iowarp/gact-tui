@@ -706,6 +706,17 @@ changes, no contract changes, no design-system writes.
 - **Bulk diff apply / reject** — Inspector Diffs tab gains Apply all
   / Reject all buttons backed by `applySessionDiffs` /
   `rejectSessionDiffs`. (15ad321)
+- **MCP prompt render** — prompt rows in the MCP detail expansion
+  hit `mcpGetPrompt` and pretty-print the templated messages. (5cda766)
+- **MCP resource_templates** — the detail expansion lists templated
+  URIs alongside resources. (781bd08)
+- **Skills_extraction caps gate** — the `extract · agent` palette
+  entry only ships when the backend advertises it. (55bb4f5)
+- **Permalink scroll-to-message** — Transcript watches the URL hash
+  and scrolls/flashes the matching message on mount + transcript
+  growth. Pairs with the per-message copy-link action. (eb133b1)
+- **Fork lineage badge** — SessionsColumn shows a ↘ glyph next to
+  fork titles with the parent id in the tooltip. (11e67de)
 
 Visual proofs: deferred — clio :17800 was down during the session, so
 the Playwright suite couldn't run end-to-end. Re-run with `pnpm
