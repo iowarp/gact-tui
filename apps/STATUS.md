@@ -107,6 +107,16 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-2: diff syntax highlighting + line-number gutter.** DiffPane now
+  renders an old/new line-number gutter (seeded from the `@@ -a,b +c,d @@` header,
+  non-selectable) and per-line hljs syntax highlighting (language from file extension,
+  ~30 mapped; falls back to plain text for unknown). hljs token colors layer on top of
+  the add/del tints. Also resolves the deferred T1 "code-block line numbers" sub-item
+  in the diff context (the transcript code-block gutter remains deferred — horizontal
+  scroll conflict documented there). PROOF: refreshed `diff-pane-open.png` +
+  `diff-per-hunk-apply.png` (gutter + Go keywords/strings visibly tokenized);
+  DiffPane.test.tsx 8/8 (gutter seeding from @@ header, .go highlighting, unknown-ext
+  fallback); web unit 60/60; fixture visual 31/31; lint/typecheck/build green.
 - 2026-06-01 **W3 Tier-2: TTFT + token-rate chip (real-turn proven).** `live.ts` gains
   `streamStats` (StreamStats: ttftMs / tokensPerSec / streaming) tracked from the raw SSE
   feed; topbar secondary chip "ttft N.Ns · ~N tok/s". **Three real findings from

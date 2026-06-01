@@ -111,18 +111,57 @@
 }
 
 .diffpane__line {
-  padding: 0 12px;
+  display: flex;
+  align-items: baseline;
+  padding: 0 12px 0 0;
   white-space: pre;
+}
+
+/* Old/new line-number gutter (W3 Tier-2). */
+.diffpane__lineno {
+  flex: 0 0 38px;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--color-muted);
+  opacity: 0.6;
+  user-select: none;
+  font-size: 11px;
+}
+
+.diffpane__line-sign {
+  flex: 0 0 16px;
+  text-align: center;
+  user-select: none;
+  font-weight: 600;
+}
+
+.diffpane__line-code {
+  flex: 1;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  /* hljs token colors apply on top of the add/del tint. */
+  padding: 0;
 }
 
 .diffpane__line--add {
   background: rgba(52, 211, 153, 0.10);
+}
+
+.diffpane__line--add .diffpane__line-sign {
   color: var(--color-success);
 }
 
 .diffpane__line--del {
   background: rgba(248, 113, 113, 0.10);
+}
+
+.diffpane__line--del .diffpane__line-sign {
   color: var(--color-error);
+}
+
+.diffpane__line--del .diffpane__line-code {
+  opacity: 0.75;
 }
 
 .diffpane__line--ctx {
