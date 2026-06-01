@@ -35,7 +35,7 @@ import {
 } from '@clio/core';
 import type { SidebarSession } from './components/Sidebar.js';
 import { getRequestLocale } from './locale.js';
-import { inTauri, tauriFetch } from './tauri.js';
+import { inTauri, tauriFetch, openTauriSse, type SseBridgeHandle } from './tauri.js';
 
 export interface LiveStoreOptions {
   url: string;
@@ -204,6 +204,12 @@ export function createLiveTranscript(
       .catch(() => setPendingPermission(null));
 
     let es: EventSource | null = null;
+    // Desktop (Tauri) routes SSE through the Rust bridge instead of a raw
+    // EventSource so live-streaming doesn't depend on clio's CORS (see
+    // tauri.ts openTauriSse + issue #111). `bridge` holds the close handle;
+    // `bridgeGen` invalidates in-flight async callbacks after teardown.
+    let bridge: SseBridgeHandle | null = null;
+    let bridgeGen = 0;
     let attempt = 0;
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -253,10 +259,12 @@ export function createLiveTranscript(
       'turn.retry_requested',
     ];
 
-    const onEvent = (raw: MessageEvent) => {
+    // Parse one SSE event's `data:` payload and reduce it. Shared by the
+    // browser EventSource path (raw.data) and the Tauri bridge path.
+    const handleData = (dataStr: string) => {
       let ev: unknown;
       try {
-        ev = JSON.parse(raw.data);
+        ev = JSON.parse(dataStr);
       } catch {
         return;
       }
@@ -275,6 +283,7 @@ export function createLiveTranscript(
         onMemoryChanged: sessionEvents?.onMemoryChanged,
       });
     };
+    const onEvent = (raw: MessageEvent) => handleData(raw.data);
 
     function clearReconnectTimers() {
       if (countdownTimer) {
@@ -289,6 +298,12 @@ export function createLiveTranscript(
     }
 
     function teardownEs() {
+      // Invalidate any in-flight bridge callbacks (open resolves async).
+      bridgeGen += 1;
+      if (bridge) {
+        bridge.close();
+        bridge = null;
+      }
       if (!es) return;
       for (const name of named) es.removeEventListener(name, onEvent as EventListener);
       es.close();
@@ -315,6 +330,55 @@ export function createLiveTranscript(
       if (disposed) return;
       teardownEs();
       setStatus('connecting');
+
+      // Desktop: stream through the Rust bridge (no WebView CORS, token
+      // travels in the sseUrl query string). teardownEs() bumped
+      // bridgeGen, so capture it and ignore any callback from a stream
+      // that's since been torn down (open resolves asynchronously).
+      if (inTauri()) {
+        const gen = bridgeGen;
+        const stale = () => gen !== bridgeGen || disposed;
+        void openTauriSse(client.sseUrl(id), {
+          onOpen: () => {
+            if (stale()) return;
+            attempt = 0;
+            setStatus('open');
+          },
+          onData: (data) => {
+            if (stale()) return;
+            handleData(data);
+          },
+          onError: () => {
+            if (stale()) return;
+            bridge = null;
+            setStatus('error');
+            scheduleReconnect();
+          },
+          onClosed: () => {
+            if (stale()) return;
+            // Server-initiated close (EOF) — treat like an error and
+            // back off; a teardown-initiated close is filtered by stale().
+            bridge = null;
+            setStatus('error');
+            scheduleReconnect();
+          },
+        })
+          .then((h) => {
+            if (gen !== bridgeGen) {
+              // Torn down while the open was in flight — close immediately.
+              h.close();
+              return;
+            }
+            bridge = h;
+          })
+          .catch(() => {
+            if (stale()) return;
+            setStatus('error');
+            scheduleReconnect();
+          });
+        return;
+      }
+
       const next = new EventSource(client.sseUrl(id));
       es = next;
       next.onopen = () => {

@@ -7,6 +7,7 @@
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
 mod plugins;
+mod sse_bridge;
 mod ssh;
 mod supervisor;
 
@@ -176,11 +177,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(state)
         .manage(TunnelManager::new())
+        .manage(sse_bridge::SseRegistry::new())
         .invoke_handler(tauri::generate_handler![
             harness_info,
             get_backend,
             tunnel_open,
             gact_http,
+            sse_bridge::gact_sse_open,
+            sse_bridge::gact_sse_close,
             plugins::exec_plugin
         ])
         .setup(|app| {
@@ -218,6 +222,9 @@ pub fn run() {
                 }
                 if let Some(tm) = window.app_handle().try_state::<TunnelManager>() {
                     tm.shutdown_all();
+                }
+                if let Some(sse) = window.app_handle().try_state::<sse_bridge::SseRegistry>() {
+                    sse.stop_all();
                 }
             }
         })
