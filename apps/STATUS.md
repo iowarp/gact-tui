@@ -17,7 +17,7 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
 |------|----------------|-------|
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
-| W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | not-started |
+| W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
 | W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | not-started |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
@@ -29,7 +29,10 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
   DSPy agent returning an `ask_user` action. → **FLAG-GATED**: enable on a SEPARATE
   clio, induce a question, drive the desktop card + answer round-trip; verify the
   desktop reads the question shape (watch for an E-27-style wire mismatch).
-- **TTS `/voice/synthesize`** — re-check source; clio reports `voice:false` on :17800; if truly absent → file iowarp/clio-agent issue.
+- **user_question** — RESOLVED status: live :17800 advertises `x_clio_user_questions=True` (app.py:7267, unconditional). Desktop MUST support it. → drive: trigger an `ask_user` action (agent returns ask_user), verify the desktop question card renders + answer round-trips (watch for an E-27-style wire mismatch). Target FLAG-GATED/LIVE-PROVEN.
+- **TTS `/voice/synthesize` + voice transcribe** — clio's own `x_clio_capability_gaps.voice` declares status=`unsupported`, advertised=false, client_behavior=`render_disabled`, category=future_capability. → DOCUMENTED (clio-declared gap, NOT a desktop bug, NO issue needed); verify the desktop renders voice controls disabled/hidden per the gap.
+- **LSP** — clio `x_clio_capability_gaps.lsp` = `unsupported`/render_disabled. → verify the desktop Doctor LSP surface honors the gap (render-disabled), DOCUMENTED.
+- **/optimize command** — clio gap `optimizer_command` = `unavailable`/render_disabled. → verify palette renders it disabled, DOCUMENTED.
 - **MCP `/resources/read`** — re-check source; if absent → issue.
 - **autorename `session.updated(title)`** — re-check whether clio emits it under any path; else issue.
 - **`lm.provider.{changed,failed}` on session SSE** — re-check emit path; else issue.
