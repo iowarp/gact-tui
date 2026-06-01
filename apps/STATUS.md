@@ -76,7 +76,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 - [x] **DONE**: `expert_handoff` Part was dropped (no renderer; `'expert_handoff'` wasn't in the Part union, and a dead top-level SSE reducer case + named-event subscription pretended it was an event). Added `PartExpertHandoff` to the wire union + a Transcript renderer (mirrors routing_decision: who handled it + status + summary, from `metadata`/`text`); removed the dead live.ts event case + subscription. Verified vs clio source (Part emit app.py:3224 + `_expert_handoff_summary` field names). typecheck/lint/web-build green; core 41/41.
 - [ ] `DELETE agent-blueprints/{id}` omits `scope`+`workspace_id` → won't match builtin/global. http.ts:1470.
 - [ ] `compact` reducer reads `p.removed_count`; clio emits `archived_count` → toast "dropped 0". live.ts:819.
-- [ ] `lm.provider.changed/.failed`: clio publishes `session_id=""`, bus has no wildcard → never delivered. **CROSS-SIDE** → file clio issue + desktop note. app.py:15157, events.py:104.
+- [x] `lm.provider.changed/.failed`: clio published `session_id=""` but the bus fanned only to same-session subscribers → session SSE streams never got them → toasts never fired. **DONE (backend PR):** `iowarp/clio-agent#530` (closes #529, stacked on #527) makes `EventBus.subscribe` also fan the session queue into the global `""` bucket + replay the global tail, preserving session isolation; 3 bus tests + existing SSE/streaming green; 1345 passed @81.48%. Desktop already subscribes to `lm.provider.*` (gap-111), so the toasts light up once #530 merges + clio restarts. (No gact code change — cross-side resolved by the backend fix.)
 
 **🔴 WIRE-FIX Tier C (latent/cosmetic):** rewind has no UI call site (http.ts:642); `files/read` expects JSON but clio returns raw text (latent); frame list reads `token_count`/`summary` vs clio `tokens_estimated` (dead chips); schedule list reads `prompt`/`next_run_at` vs clio `question`/`last_fired_at`/`fire_count` (dead chips); `user_question.resumed` reads `p.question` (ids-only payload → should refetch/clear); blueprint/pack `*_id:null` clear → clio 400; `UserQuestion` type omits `answer_metadata`; subagent reducer reads `agent_name` then `agent_id` (works via fallback).
 
@@ -105,6 +105,19 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W2 Tier-B/C sweep (continuous, post-feedback).** Landed, all green+pushed:
+  blueprint/expert-pack install+validate → clio path contract (`1a91457`); Regenerate →
+  `retryTurn` + `turn.retry_*` subscription (`7733594`); blueprint/pack modal PNGs +
+  subtitle (`fbe13d4`); `expert_handoff` Part renderer + dead-listener removal (`44c9bce`).
+  Backend: clio **PR #530** (closes #529) — bus now delivers global `session_id=""`
+  events (lm.provider.*, mcp.server.*) to per-session SSE subscribers; 4th stacked clio
+  PR (#522→#523→#527→#530). Core 41/41, fixture visual 29/29, typecheck/lint/build green
+  throughout. Two self-flagged gaps from the review closed: regenerate message-id
+  assumption verified-correct against clio source; the missing modal screenshots captured.
+  **Remaining W2:** restore desktop MCP Reconnect button once #523 merges; dead-SSE-branch
+  cleanup (tool.call.progress/cost.updated/notification/session.created/message.error —
+  verify-then-remove; session.summarized is now LIVE via #522); confirm routing_decision
+  render (conflicting notes). Then W3 UX backlog.
 - 2026-06-01 **gap-96 DESKTOP DONE — hybrid attach (upload + reference); fake button killed.**
   Composer clip → grouped menu: **Upload from computer…** (real base64 → POST
   /attachments, gated on `capabilities.attachments_upload`) + **Reference a workspace
