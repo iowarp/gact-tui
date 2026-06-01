@@ -35,27 +35,9 @@ export function McpPage(props: McpPageProps) {
     }
   }
 
-  async function reconnect(id: string, name: string) {
-    setBusy(id);
-    try {
-      await props.client.reconnectMcpServer(id);
-      toast.push({
-        tone: 'info',
-        title: 'Reconnect requested',
-        body: name,
-        duration: 2400,
-      });
-      void refetch();
-    } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Reconnect failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
-    } finally {
-      setBusy(null);
-    }
-  }
+  // NOTE: MCP reconnect is intentionally not exposed — clio has no
+  // POST /v1/mcp/servers/{id}/reconnect route (404). Tracked upstream:
+  // iowarp/clio-agent#520. Re-add the button when that route lands.
   const all = () => data()?.servers ?? [];
   const items = () => {
     const q = query().trim().toLowerCase();
@@ -119,7 +101,6 @@ export function McpPage(props: McpPageProps) {
               s={s}
               client={props.client}
               busy={busy() === s.id}
-              onReconnect={() => reconnect(s.id, s.name)}
               onUninstall={() => uninstall(s.id, s.name)}
             />
           )}
@@ -279,7 +260,6 @@ function McpServerCard(props: {
   s: McpServerInfo;
   client: Client;
   busy: boolean;
-  onReconnect: () => void;
   onUninstall: () => void;
 }) {
   const tone = () => {
@@ -446,15 +426,6 @@ function McpServerCard(props: {
         </div>
       </Show>
       <div class="dp__card-actions">
-        <button
-          type="button"
-          class="dp__card-btn"
-          disabled={props.busy}
-          onClick={props.onReconnect}
-          data-testid={`mcp-reconnect-${props.s.id}`}
-        >
-          {props.busy ? 'Working…' : 'Reconnect'}
-        </button>
         <button
           type="button"
           class="dp__card-btn dp__card-btn--danger"

@@ -77,7 +77,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 **🔴 WIRE-FIX Tier C (latent/cosmetic):** rewind has no UI call site (http.ts:642); `files/read` expects JSON but clio returns raw text (latent); frame list reads `token_count`/`summary` vs clio `tokens_estimated` (dead chips); schedule list reads `prompt`/`next_run_at` vs clio `question`/`last_fired_at`/`fire_count` (dead chips); `user_question.resumed` reads `p.question` (ids-only payload → should refetch/clear); blueprint/pack `*_id:null` clear → clio 400; `UserQuestion` type omits `answer_metadata`; subagent reducer reads `agent_name` then `agent_id` (works via fallback).
 
 **🟠 ABSENT-FILE-ISSUE (proven absent in clio → file iowarp/clio-agent issue + remove/hide dead UI):**
-- [ ] `POST mcp/servers/{id}/reconnect` — Reconnect button on EVERY card 404s (always-visible). Remove button + file issue.
+- [x] `POST mcp/servers/{id}/reconnect` — Reconnect button on EVERY card 404'd (always-visible). **DONE**: filed **iowarp/clio-agent#520** (proven absent: 404 + no route in source) and removed the dead button from McpPage (kept the client method for forward-compat). typecheck+lint+MCP audit green.
 - [ ] latent 404s: mcp `resources/read`, `resources/subscribe`, `prompts/get` (render only when a server exposes them); `resource_templates` (swallowed).
 - [ ] dead SSE reducer branches clio never emits: `tool.call.progress`, `cost.updated` (cost rides message.completed), `notification` (client-synthesized), `session.summarized`, `session.created`, `message.error` (rides message.completed). Remove or doc forward-compat.
 
