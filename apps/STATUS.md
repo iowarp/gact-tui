@@ -107,6 +107,29 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **gap-96 upload vertical (backend) → clio PR-3 (stacked); base64-over-ssh decided.**
+  User chose the ambitious scope: build a real upload backend. Grounding proved the
+  bridge — a registered context file IS read into the agent prompt
+  (`_enrich_with_context_files`→`read_bytes`, `test_context_injection`), so **upload =
+  write bytes into `{workspace}/.clio/attachments/{sid}/` + register as a context file**
+  → the agent consumes it with zero pipeline change. **PR-3 `iowarp/clio-agent#527`**
+  (`feat/session-attachments`, STACKED on `feat/mcp-reconnect`): `POST
+  /v1/sessions/{id}/attachments` + `attachments_upload` capability; 9 tests incl. e2e
+  consumed-by-agent + traversal-confined (posix+windows); 1342 passed @81.47%. Closes
+  #526. Vision (images→LM) deferred as issue #528 (orthogonal, MODERATE).
+  **SSH-CRITICAL DECISION (user prompt "consider ssh semantics"):** encoding is
+  **base64-in-JSON, NOT multipart** — proven by reading the transport: `tauri.ts:105`
+  does `String(body)` (FormData → `"[object FormData]"`) and `gact_http`
+  (`lib.rs:69/105`) is `Option<String>`+`send_string`, so multipart is dead in the
+  shipped desktop AND over the ssh tunnel; base64 rides the JSON path both already
+  forward. Upload-over-tunnel is the ONLY bridge for a LOCAL file → REMOTE (ssh) agent.
+  (Bonus latent bug found: existing `transcribeVoice` uses FormData → broken in the
+  Tauri shell, same root cause; voice is gated off so it's latent.)
+  **Next (desktop, `feat/apps-harness`):** clip → grouped menu (Browse workspace [path
+  ref, reuse @-picker] | Upload [base64 → /attachments]); ref/upload chips; drag-drop
+  disambiguation (`application/x-gact-path` = ref, OS bytes = upload); DELETE the fake
+  `[attached N files]` header; `uploadAttachment` core method (base64-JSON, NOT
+  FormData); PNG `attach-hybrid-menu.png`.
 - 2026-06-01 **Backend doctrine unlocked → two clio-agent PRs (file→implement→PR, stacked).**
   User lifted the clio-agent no-touch rule: proven gaps now become real PRs the user
   reviews+merges. **PR-1 `iowarp/clio-agent#522`** (branch `feat/session-summarize` off
