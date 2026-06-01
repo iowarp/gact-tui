@@ -63,7 +63,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 - [ ] `POST agent-blueprints/install` POSTs bare `/v1/agent-blueprints` + inline doc → 405. Repoint to `/install`, body `{source|path, scope}`. http.ts:1463; RoadmapPages.tsx:298.
 - [ ] `POST agent-blueprints/validate` + `expert-packs/validate` send inline doc, read `{ok,errors}`; clio reads `{path,scope}`, returns `{enabled,validation_errors}` → 400 + always "Validation failed". http.ts:1455/1565.
 - [ ] `POST sessions/{sid}/summarize` is 404 (clio has no route) + UI waits on `session.summarized` (never fires). Remove the action + dead SSE wait (or repoint /compact). http.ts:673, ChatScreen.tsx:657/1297, live.ts:228/810.
-- [ ] `DELETE context/files` sends `?path=` query; clio reads JSON body only → silent no-op. Send `{path}` body. http.ts:564.
+- [x] `DELETE context/files` sent `?path=` query; clio reads JSON body only → silent no-op. **DONE**: `removeContextFile` now sends `{path}` body. Confirmed live (query→204 but stays; body→removed). LIVE-PROVEN: oneturn `(#80)` seeds a file, removes it via the inspector, asserts it's gone.
 
 **🔴 WIRE-FIX Tier B (wrong/degraded, not crashing):**
 - [ ] Regenerate re-sends via `sendMessage` instead of `POST messages/{id}/retry` → loses attempt lineage. Add `retryTurn()`. ChatScreen.tsx:1054.

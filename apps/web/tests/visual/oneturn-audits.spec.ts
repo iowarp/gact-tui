@@ -477,4 +477,44 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await ctx.close();
     await browser.close();
   });
+
+  // -- context-file remove (body, not query) #80 ---------------------
+  // clio reads the path from the DELETE JSON body; the client used to send
+  // it as a ?query → 204 no-op (file reappeared on refetch). Now body.
+  test('context-file remove actually removes it (#80)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const sid = await page.evaluate(async (base) => {
+      const s = await (
+        await fetch(`${base}/v1/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace_id: 'ws_default' }),
+        })
+      ).json();
+      await fetch(`${base}/v1/sessions/${s.id}/context/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '.gitconfig', mode: 'read' }),
+      });
+      return s.id as string;
+    }, BACKEND);
+    await page.getByTestId('sessions-refresh').click();
+    await page.waitForTimeout(800);
+    await page.getByTestId(`session-row-${sid}`).click();
+    await page.waitForTimeout(900);
+    await page.getByTestId('inspector-tab-context').click();
+    await expect(page.getByTestId('inspector-file-.gitconfig')).toBeVisible({
+      timeout: 8_000,
+    });
+    await page.getByRole('button', { name: 'Remove .gitconfig from context' }).click();
+    // Must actually disappear (refetch returns empty) — the query-vs-body bug
+    // left it present.
+    await expect(page.getByTestId('inspector-file-.gitconfig')).toHaveCount(0, {
+      timeout: 8_000,
+    });
+    await page.screenshot({ path: shot('80-context-remove'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
 });

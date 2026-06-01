@@ -558,15 +558,16 @@ export class Client {
   }
 
   /**
-   * DELETE /v1/sessions/{id}/context/files?path=… — drop a file
-   * from the session's context.
+   * DELETE /v1/sessions/{id}/context/files — drop a file from the
+   * session's context. clio reads `path` from the JSON BODY only (it
+   * ignores a `?path=` query), so a query-only delete 204s but is a
+   * silent no-op (the file reappears on refetch). Send it in the body.
    */
   removeContextFile(sessionId: string, path: string): Promise<void> {
-    const qs = new URLSearchParams({ path }).toString();
     return this.request<void>(
-      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files?${qs}`,
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
       'DELETE',
-      undefined,
+      { path },
     );
   }
 
