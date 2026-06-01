@@ -589,3 +589,43 @@ Fix: switch the lookup from `data-testid="msg-${id}"` to
 add the same flash highlight. Both jump paths now key off the
 same id and share the same visual feedback.
 
+### Live-turn verification pass (E-27, E-28)
+
+These surfaced only once clio completed real tool-using turns on
+:17800 — the fixtures-and-capability-only passes couldn't reach them.
+
+**[BROKEN] (E-27) Permission card never rendered over SSE.**
+
+The live SSE reducer (`live.ts`) read `payload.permission`, but clio
+emits `permission.requested` with the fields flat in the payload and
+the tool identity nested under `tool_call.tool_name`:
+
+```json
+{ "id": "perm_…", "session_id": "sess_…",
+  "tool_call": { "tool_name": "shell_bash", "input": { "command": "…" } } }
+```
+
+`setPendingPermission` was therefore never called against any real
+backend — only the fixture path (which nests the whole request under
+`payload.permission` with `tool_name` at top level) ever worked. So
+task #35 ("permission decisions arrive over SSE") was untestable: the
+card never appeared. The whole human-in-the-loop tool-approval flow
+was dead end-to-end.
+
+Fix: map clio's flat shape into `PermissionRequest`
+(`tool_name = tool_call.tool_name`, `tool_call.input = tool_call.input`)
+while still accepting the legacy nested fixture shape. Verified live: a
+tool-using prompt → `permission.requested (shell_bash)` → card renders
+with the tool name → a decision clears it via `permission.resolved`.
+
+**[BROKEN] (E-28) Backend slash commands 404'd — none ever dispatched.**
+
+clio's `/v1/commands` lists ids with a leading slash (`/cache-stats`),
+but `POST /v1/sessions/{id}/commands/{cmd}` keys on the bare name
+(`cache-stats`). `runCommand` posted the id verbatim, so
+`encodeURIComponent("/cache-stats")` made the path `…/commands/%2Fcache-stats`
+→ 404. Every palette-dispatched backend command silently failed.
+
+Fix: strip a leading slash from the command id before encoding.
+Verified live: `/cache-stats` → 200 with a `system_message` result.
+
