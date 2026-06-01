@@ -171,6 +171,9 @@ export function createLiveTranscript(
   // minutes after a few attempts; the user can still force-recover by
   // navigating away and back.
   const BACKOFF_LADDER = [1, 2, 5, 10, 10, 10];
+  // Desktop only: if the Rust SSE bridge hasn't opened within this window,
+  // fall back to a raw EventSource so live streaming never stalls.
+  const BRIDGE_FALLBACK_MS = 4000;
 
   createEffect(() => {
     const id = activeSessionId();
@@ -326,59 +329,9 @@ export function createLiveTranscript(
       }, delay * 1000);
     }
 
-    function openEs() {
-      if (disposed) return;
-      teardownEs();
-      setStatus('connecting');
-
-      // Desktop: stream through the Rust bridge (no WebView CORS, token
-      // travels in the sseUrl query string). teardownEs() bumped
-      // bridgeGen, so capture it and ignore any callback from a stream
-      // that's since been torn down (open resolves asynchronously).
-      if (inTauri()) {
-        const gen = bridgeGen;
-        const stale = () => gen !== bridgeGen || disposed;
-        void openTauriSse(client.sseUrl(id), {
-          onOpen: () => {
-            if (stale()) return;
-            attempt = 0;
-            setStatus('open');
-          },
-          onData: (data) => {
-            if (stale()) return;
-            handleData(data);
-          },
-          onError: () => {
-            if (stale()) return;
-            bridge = null;
-            setStatus('error');
-            scheduleReconnect();
-          },
-          onClosed: () => {
-            if (stale()) return;
-            // Server-initiated close (EOF) — treat like an error and
-            // back off; a teardown-initiated close is filtered by stale().
-            bridge = null;
-            setStatus('error');
-            scheduleReconnect();
-          },
-        })
-          .then((h) => {
-            if (gen !== bridgeGen) {
-              // Torn down while the open was in flight — close immediately.
-              h.close();
-              return;
-            }
-            bridge = h;
-          })
-          .catch(() => {
-            if (stale()) return;
-            setStatus('error');
-            scheduleReconnect();
-          });
-        return;
-      }
-
+    // Raw browser EventSource path — used by the pure-web build, and as the
+    // desktop fallback when the Rust SSE bridge doesn't open (see openEs).
+    function openEventSource() {
       const next = new EventSource(client.sseUrl(id));
       es = next;
       next.onopen = () => {
@@ -395,6 +348,96 @@ export function createLiveTranscript(
         scheduleReconnect();
       };
       for (const name of named) next.addEventListener(name, onEvent as EventListener);
+    }
+
+    function openEs() {
+      if (disposed) return;
+      teardownEs();
+      setStatus('connecting');
+
+      // Desktop: prefer the Rust SSE bridge (CORS-independent, carries the
+      // bearer token an EventSource can't — see issue #111). But the bridge
+      // must never be a single point of failure for live streaming: if it
+      // doesn't reach `onOpen` within BRIDGE_FALLBACK_MS, or it errors/closes
+      // before opening, or the invoke rejects, fall back to a raw EventSource
+      // (which works whenever clio sends permissive CORS, as it does today).
+      // teardownEs() bumped bridgeGen, so capture it and ignore any callback
+      // from a stream that's since been torn down (open resolves async).
+      if (inTauri()) {
+        const gen = bridgeGen;
+        const stale = () => gen !== bridgeGen || disposed;
+        let opened = false;
+        let fellBack = false;
+        let fbTimer: ReturnType<typeof setTimeout> | null = null;
+        const clearFb = () => {
+          if (fbTimer) {
+            clearTimeout(fbTimer);
+            fbTimer = null;
+          }
+        };
+        const fallBack = () => {
+          if (stale() || opened || fellBack) return;
+          fellBack = true;
+          clearFb();
+          if (bridge) {
+            bridge.close();
+            bridge = null;
+          }
+          openEventSource();
+        };
+        fbTimer = setTimeout(fallBack, BRIDGE_FALLBACK_MS);
+        void openTauriSse(client.sseUrl(id), {
+          onOpen: () => {
+            if (stale() || fellBack) return;
+            opened = true;
+            clearFb();
+            attempt = 0;
+            setStatus('open');
+          },
+          onData: (data) => {
+            if (stale() || fellBack) return;
+            handleData(data);
+          },
+          onError: () => {
+            if (stale()) return;
+            clearFb();
+            bridge = null;
+            if (!opened) {
+              fallBack();
+            } else {
+              setStatus('error');
+              scheduleReconnect();
+            }
+          },
+          onClosed: () => {
+            if (stale()) return;
+            clearFb();
+            bridge = null;
+            if (!opened) {
+              // Closed before it ever opened — bridge unusable; fall back.
+              fallBack();
+            } else {
+              setStatus('error');
+              scheduleReconnect();
+            }
+          },
+        })
+          .then((h) => {
+            if (gen !== bridgeGen || fellBack) {
+              // Torn down / already fell back while opening — drop it.
+              h.close();
+              return;
+            }
+            bridge = h;
+          })
+          .catch(() => {
+            if (stale()) return;
+            fallBack();
+          });
+        return;
+      }
+
+      openEventSource();
     }
 
     openEs();

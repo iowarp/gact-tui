@@ -16,7 +16,7 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
 | Wave | Exit criterion | State |
 |------|----------------|-------|
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
-| W1 Verifier trust | tauri-driver WebView e2e green-or-documented | PARTIAL — harness built; `element/value` send doesn't fire SolidJS input (fix pending) |
+| W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | not-started |
 | W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | not-started |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
@@ -40,6 +40,16 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
   memory/sharing/doctor) — confirm LIVE-PROVEN (many already are via audit/oneturn specs).
 - **Hardening (W4):** SSE drop→reconnect (Rust bridge), concurrent turns, large
   transcript, supervisor SPAWN path, shutdown reaping, ssh error paths, homelab real-turn hop.
+- **FINDING (W1) — Rust SSE bridge does NOT open in the real WebView2.** The
+  production-debug app launched via tauri-driver sat at `sse · connecting` forever
+  (composer disabled, no stream), even though the isolated Rust `run_stream` test and
+  the `--disable-web-security` web path both pass. REST (`gact_http`) works fine.
+  Mitigation shipped: `live.ts` now does **bridge-first with an EventSource fallback**
+  (BRIDGE_FALLBACK_MS=4s) — desktop streaming works (clio sends `ACAO:*`), proven by
+  the W1 e2e (`sse · open`, msg rendered, permission card up). **Caveat:** while the
+  bridge falls back, its CORS-independence purpose (#111) is defeated in the real app.
+  Root-cause of the bridge (likely the `invoke`→`Channel` open path in WebView2, or an
+  async teardown race) is a **tracked follow-up** (not a clio gap — a desktop bug).
 
 ### Frozen UX backlog — tiered; one visit/item; DEFER-with-reason allowed, NO mid-run expansion (new ideas → `apps/PLAN.md`)
 **T1 (high-impact):** code syntax-highlighting + line numbers + per-block copy · first-run
@@ -57,6 +67,18 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W1 = green (with a real finding).** Real-WebView2 e2e
+  (`TAURI_E2E=1 node --test tests/webview-e2e.test.mjs`) now passes 1/1: send a
+  tool-using prompt → `permission.requested` over SSE → card renders → deny clears it,
+  all driven through the actual Tauri WebView2 via tauri-driver + msedgedriver. Two
+  fixes: (1) WebDriver `element/value` didn't fire SolidJS's `input` event so the
+  composer never registered the text → `typeInto` now sets the value via `execute/sync`
+  and dispatches a real `InputEvent`. (2) **The Rust SSE bridge never opened in the real
+  WebView2** (stuck `connecting`, composer disabled) — added a bridge-first **EventSource
+  fallback** in `live.ts` (`BRIDGE_FALLBACK_MS`), so streaming connects (`sse · open`).
+  Bridge root-cause is a tracked desktop follow-up (see matrix FINDING). Proof:
+  `w1-webview-permission.png`. Commit: <next>. **Next: W2 parity re-verification, starting
+  with the FLAG-GATED user_question (ask-user) flow.**
 - 2026-06-01 **W0 baseline = green.** lint + typecheck + unit (core/web vitest + desktop smoke 5/5) + `pnpm --filter @clio/web build` OK. `cargo test --lib` 14/14 vs live :17800 (gact_http ×3, sse_bridge ×2, supervisor ×6, ssh bad_host; the SSH_TUNNEL-gated tunnel + homelab tests no-op-skip — those are W4). Fixture `screenshots.spec.ts` 28/28 after fixing the lone red: `connect-screen` did a bare `goto('/')` and expected the connect screen, but with clio up the splash auto-advances past it → switched to `?route=connect` (deterministic; matches audit/oneturn specs). `tauri:build:debug` built green earlier this session (no non-test Rust changes since). clio :17800 agent=ready. **Next: W1 — fix the tauri-driver `element/value` send so SolidJS registers the composer input, get the real-WebView2 permission round-trip green.**
 
 ## v0.9.1 blockers (what must be true before re-tagging)
