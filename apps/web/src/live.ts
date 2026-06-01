@@ -56,6 +56,8 @@ export interface LiveSessionsHandle {
 
 export interface LiveTranscriptHandle {
   messages: Accessor<Message[]>;
+  /** True while the initial message list for the active session loads. */
+  messagesLoading: Accessor<boolean>;
   pendingPermission: Accessor<PermissionRequest | null>;
   /** Connection state to the SSE stream for the current session. */
   status: Accessor<'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'>;
@@ -161,6 +163,9 @@ export function createLiveTranscript(
   sessionEvents?: SessionEventSink & Partial<NotificationSink>,
 ): LiveTranscriptHandle {
   const [messages, setMessages] = createSignal<Message[]>([]);
+  // True while the initial GET /messages for the active session is in
+  // flight — drives transcript skeletons on session switch.
+  const [messagesLoading, setMessagesLoading] = createSignal(false);
   const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
   const [status, setStatus] = createSignal<
     'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'
@@ -186,6 +191,7 @@ export function createLiveTranscript(
     const id = activeSessionId();
     if (!id) {
       setMessages([]);
+      setMessagesLoading(false);
       setPendingPermission(null);
       setStatus('closed');
       setReconnectInSec(0);
@@ -203,10 +209,14 @@ export function createLiveTranscript(
       .then(({ questions }) => setPendingQuestion(questions[0] ?? null))
       .catch(() => setPendingQuestion(null));
 
+    // Loading flips true on every session switch so the transcript can
+    // render skeletons instead of flashing an empty conversation.
+    setMessagesLoading(true);
     void client
       .messages(id)
       .then(({ messages: existing }) => setMessages(existing))
-      .catch(() => setMessages([]));
+      .catch(() => setMessages([]))
+      .finally(() => setMessagesLoading(false));
 
     void client
       .permissions(id)
@@ -496,6 +506,7 @@ export function createLiveTranscript(
 
   return {
     messages,
+    messagesLoading,
     pendingPermission,
     status,
     reconnectInSec,

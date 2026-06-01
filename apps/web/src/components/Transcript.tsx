@@ -9,6 +9,9 @@ export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
 
 export interface TranscriptProps {
   messages: Message[];
+  /** True while the message list is loading (session switch) — renders
+   * skeleton bubbles instead of a blank pane (W3 Tier-1). */
+  loading?: boolean;
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
   /** Optional per-message action callbacks. Wired in LiveDriven mode. */
@@ -306,7 +309,9 @@ function MessageView(props: {
   return (
     <article
       class={
-        'trx-msg trx-msg--' + role() + (props.selected ? ' is-selected' : '')
+        // anim-rise: subtle entrance motion as messages mount (W3 Tier-1);
+        // collapses to instant under prefers-reduced-motion.
+        'trx-msg anim-rise trx-msg--' + role() + (props.selected ? ' is-selected' : '')
       }
       id={`msg-${props.msg.id}`}
       data-testid={`msg-${props.msg.id}`}
@@ -569,6 +574,17 @@ export function Transcript(props: TranscriptProps) {
 
   return (
     <div class="trx" data-density={props.density} data-testid="transcript">
+      <Show when={props.loading && props.messages.length === 0}>
+        {/* Skeleton conversation while messages load on session switch
+            (W3 Tier-1) — alternating user/assistant shaped bubbles. */}
+        <div class="trx__skeleton" data-testid="transcript-skeleton" aria-hidden="true">
+          <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--user" />
+          <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--assistant" />
+          <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--assistant trx__skeleton-bubble--short" />
+          <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--user trx__skeleton-bubble--short" />
+          <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--assistant" />
+        </div>
+      </Show>
       <For each={props.messages}>
         {(m) => {
           const target = streamingTarget();

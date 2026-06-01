@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`). T1 remaining: skeleton loaders/motion, topbar overflow, settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`). T1 remaining: topbar overflow, settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,6 +107,21 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1: skeleton loaders + motion.** Content-shaped skeletons replace
+  spinners/blank panes on the three loading surfaces: (1) **DiscoveryPage** — skeleton
+  card grid mirroring the dp__body layout (shared by all 9 discovery pages); (2)
+  **SessionsColumn** — new `loading` prop renders skeleton rows while /v1/sessions loads
+  (kills the "No sessions yet" flash on first paint); (3) **Transcript** — new `loading`
+  prop + `live.ts messagesLoading` signal renders alternating user/assistant skeleton
+  bubbles on session switch. **Motion:** `.anim-rise` entrance animation on transcript
+  messages (8px rise + fade, 200ms); shared `.skeleton` shimmer; **`prefers-reduced-motion`
+  honored globally** (all animations/transitions collapse to instant — a11y). PROOF:
+  live-driven audit.spec.ts "(W3 skeletons)" — gated /v1/agents fetch shows skeleton grid
+  → released → resolves to real content; PNG `audit/w3-skeleton-discovery.png`; unit
+  `Skeletons.test.tsx` 6/6 (all three surfaces, loading + loaded states); web unit 38/38;
+  fixture visual 31/31; lint/typecheck/build green. Verification vs self-controlled :17801
+  (user's :17800 still down). Next W3 T1: topbar overflow menu → settings depth → a11y
+  (focus traps, aria-live, high-contrast) → onboarding → code line numbers.
 - 2026-06-01 **W3 Tier-1: actionable error states (every error offers a next action).**
   Structural fixes to the two shared components, then wired through every call site:
   (1) **Toast API gains `action: {label, onClick}`** — clicking runs the callback +

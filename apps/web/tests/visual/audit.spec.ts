@@ -595,6 +595,30 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-1: skeleton loaders ----
+  test('Discovery page shows content-shaped skeletons while loading (W3 skeletons)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    // Hold the agents fetch open until released — the page must render the
+    // skeleton card grid (not a blank pane / spinner) for the whole window.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    await page.route('**/v1/agents**', async (route) => {
+      await gate;
+      await route.fallback();
+    });
+    await page.getByTestId('rail-agents').click();
+    await expect(page.getByTestId('dp-loading')).toBeVisible({ timeout: 6_000 });
+    await expect(page.locator('.dp__skeleton-card').first()).toBeVisible();
+    await page.screenshot({ path: shot('w3-skeleton-discovery'), fullPage: false });
+    // Release the gate → skeletons resolve into real content.
+    release();
+    await expect(page.getByTestId('dp-loading')).toBeHidden({ timeout: 8_000 });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await close();
+  });
+
   test('Send failure surfaces an actionable error toast (W3 error states)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await pickFirstSession(page);
