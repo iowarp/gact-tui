@@ -139,6 +139,33 @@ describe('Client', () => {
     expect(seenUrl).toBe('http://localhost:7777/v1/agent-blueprints/install');
   });
 
+  it('retryTurn POSTs to messages/{id}/retry preserving attempt lineage', async () => {
+    let seenUrl: string | null = null;
+    let seenBody: unknown = null;
+    const fetchImpl: typeof fetch = (input, init) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      seenBody = init?.body ? JSON.parse(init.body as string) : null;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'att_1',
+            session_id: 's',
+            source_message_id: 'msg_9',
+            status: 'queued',
+            created_at: '',
+            updated_at: '',
+          }),
+          { status: 202, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    const a = await c.retryTurn('s', 'msg_9', { execute: true });
+    expect(seenUrl).toBe('http://localhost:7777/v1/sessions/s/messages/msg_9/retry');
+    expect(seenBody).toEqual({ execute: true });
+    expect(a.id).toBe('att_1');
+  });
+
   it('lifts structured GACT error envelopes onto HttpError.errorInfo', async () => {
     const body = JSON.stringify({
       error: {

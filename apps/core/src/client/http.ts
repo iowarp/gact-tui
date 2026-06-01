@@ -2,6 +2,7 @@ import type {
   AgentDef,
   Capabilities,
   ContextFile,
+  TurnAttempt,
   HealthSnapshot,
   LmConfigSnapshot,
   McpServerInfo,
@@ -1520,6 +1521,31 @@ export class Client {
     [k: string]: unknown;
   }> {
     return this.get(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /** POST /v1/sessions/{sid}/messages/{id}/retry — re-run a turn while
+   * PRESERVING attempt lineage (clio records a TurnAttempt + emits
+   * `turn.retry_*` events, returns 202). Pass the assistant message being
+   * regenerated; clio derives the source user message. `execute:true`
+   * actually re-runs it (vs just recording the attempt). This is the
+   * correct path for Regenerate — plain re-send via sendMessage lost the
+   * attempt history. Requires capabilities.x_clio_retry_attempts. */
+  retryTurn(
+    sessionId: string,
+    messageId: string,
+    body: { execute?: boolean; notes?: string; provider_id?: string; model_id?: string } = {},
+  ): Promise<TurnAttempt> {
+    return this.post<TurnAttempt>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/retry`,
+      body,
+    );
+  }
+
+  /** GET /v1/sessions/{sid}/attempts — list recorded retry attempts. */
+  listAttempts(sessionId: string): Promise<{ attempts: TurnAttempt[] }> {
+    return this.get<{ attempts: TurnAttempt[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/attempts`,
+    );
   }
 
   /** POST /v1/agent-blueprints/validate — validate a blueprint on the

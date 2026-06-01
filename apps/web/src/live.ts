@@ -260,6 +260,10 @@ export function createLiveTranscript(
       'subagent.completed',
       'memory.search.completed',
       'turn.retry_requested',
+      'turn.retry_running',
+      'turn.retry_completed',
+      'turn.retry_failed',
+      'turn.retry_cancelled',
     ];
 
     // Parse one SSE event's `data:` payload and reduce it. Shared by the
@@ -952,6 +956,38 @@ function reduce(
         level: 'warning',
         title: 'Turn retry requested',
         body: reason,
+      });
+      break;
+    }
+    case 'turn.retry_running': {
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Retry running',
+        body: 'Re-running the turn…',
+      });
+      break;
+    }
+    case 'turn.retry_completed': {
+      // Clears the "requested/running" state for the user; the regenerated
+      // turn itself streams in via the normal message.* events.
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Retry completed',
+        body: 'The retried turn finished.',
+      });
+      break;
+    }
+    case 'turn.retry_failed': {
+      const reason =
+        (p.warning as string) ?? (p.message as string) ?? 'the retry failed';
+      hooks.onNotification?.({ level: 'error', title: 'Retry failed', body: reason });
+      break;
+    }
+    case 'turn.retry_cancelled': {
+      hooks.onNotification?.({
+        level: 'warning',
+        title: 'Retry cancelled',
+        body: 'The retry was cancelled.',
       });
       break;
     }

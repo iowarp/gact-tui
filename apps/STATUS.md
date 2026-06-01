@@ -72,9 +72,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 - [x] `DELETE context/files` sent `?path=` query; clio reads JSON body only → silent no-op. **DONE**: `removeContextFile` now sends `{path}` body. Confirmed live (query→204 but stays; body→removed). LIVE-PROVEN: oneturn `(#80)` seeds a file, removes it via the inspector, asserts it's gone.
 
 **🔴 WIRE-FIX Tier B (wrong/degraded, not crashing):**
-- [ ] Regenerate re-sends via `sendMessage` instead of `POST messages/{id}/retry` → loses attempt lineage. Add `retryTurn()`. ChatScreen.tsx:1054.
-- [ ] `turn.retry_{running|completed|failed|cancelled}` not subscribed (only `_requested`) → toast never clears. live.ts:262.
-- [ ] `x_clio_retry_attempts` surface missing: add `retryTurn()`/`listAttempts()` + `TurnAttempt` type (do as one unit with the two above).
+- [x] **DONE (one unit):** Regenerate now calls `retryTurn(sid, msg.id, {execute:true})` (`POST /v1/sessions/{sid}/messages/{id}/retry`, 202 → TurnAttempt) instead of blindly re-sending the user text — preserves attempt lineage; clio derives the source user message. Added `retryTurn()` + `listAttempts()` + the `TurnAttempt` wire type. Subscribed `turn.retry_{running,completed,failed,cancelled}` (was only `_requested`) so the toast resolves. Verified vs clio source (retry route + `turn.retry_{status}` emit family + RetryTurnRequest/TurnAttempt models). core 41/41 (retryTurn URL/body test); typecheck+lint+web-build green.
 - [ ] `expert_handoff`: dead SSE listener + the `Part(type='expert_handoff')` has no renderer (dropped). Mirror routing_decision. live.ts:881, Transcript.tsx:250.
 - [ ] `DELETE agent-blueprints/{id}` omits `scope`+`workspace_id` → won't match builtin/global. http.ts:1470.
 - [ ] `compact` reducer reads `p.removed_count`; clio emits `archived_count` → toast "dropped 0". live.ts:819.
