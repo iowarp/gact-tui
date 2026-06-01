@@ -124,6 +124,15 @@ git push origin clio-desktop-v0.9.1
 
 ---
 
-## Dry-run result
+## Dry-run result — ✅ PASSED (Windows leg)
 
-_Pending — filled in by the release dry-run build below._
+`pnpm --filter @clio/desktop tauri build` on this Windows box, 2026-06-01:
+
+- Web build: ✓ (3.98 s)
+- Rust release compile: ✓ (2 m 49 s — includes the W4 tree-kill fix)
+- Application: `target/release/clio-desktop.exe` ✓
+- Installer: `target/release/bundle/msi/CLIO Desktop_0.9.0_x64_en-US.msi`
+  (4.9 MB) ✓
+
+The Windows leg of the release matrix is therefore proven locally end-to-end.
+macOS (aarch64 + x64) and Linux legs are produced by CI on the tag push.
