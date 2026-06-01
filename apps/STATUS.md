@@ -107,6 +107,13 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1: fuzzy command palette (Cmd+K).** Replaced substring filtering
+  with a dependency-free subsequence scorer + ranking — `"dctr"` now surfaces `/doctor`.
+  Caught + fixed a mis-rank while eyeballing the PNG (description-only matches were
+  outranking trigger matches); trigger matches now always rank above description-only.
+  PROOF: `slash-palette-fuzzy.png` + unit test (sparse subsequence) + visual test; web
+  unit 27/27; typecheck/lint/build green. **Follow-up:** apply the same scorer to the
+  @-mention picker + slash-command picker (extract `fuzzyScore` to a shared util).
 - 2026-06-01 **W3 Tier-1 started: code-block syntax highlighting (+ existing per-block copy).**
   Added `highlight.js` (lib/common, ~35 langs); `CodeBlock` now highlights via hljs
   (declared fence lang, else auto-detect; hljs escapes source → injection-safe innerHTML).
