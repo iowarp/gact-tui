@@ -209,6 +209,8 @@ function synthCapabilities(): Capabilities {
       structured_errors: true,
       integration_health: true,
       tool_telemetry: true,
+      attachments_upload: true,
+      session_summary: true,
     },
     transports: {
       events_sse: true,

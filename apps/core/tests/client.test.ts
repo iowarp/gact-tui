@@ -71,6 +71,37 @@ describe('Client', () => {
     expect(seenBody).toEqual({ auto: false, instructions: 'tldr' });
   });
 
+  it('uploadAttachment POSTs base64-encoded bytes to /attachments', async () => {
+    let seenUrl: string | null = null;
+    let seenBody: { file?: string; filename?: string; mime_type?: string; mode?: string } | null =
+      null;
+    const fetchImpl: typeof fetch = (input, init) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      seenBody = init?.body ? JSON.parse(init.body as string) : null;
+      return Promise.resolve(
+        new Response(JSON.stringify({ path: '.clio/attachments/s/x.txt', mode: 'read' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    const bytes = new Uint8Array([104, 105]); // "hi"
+    const file = {
+      name: 'x.txt',
+      type: 'text/plain',
+      arrayBuffer: () => Promise.resolve(bytes.buffer as ArrayBuffer),
+    };
+    const row = await c.uploadAttachment('sess_abc', file, 'read');
+    expect(seenUrl).toBe('http://localhost:7777/v1/sessions/sess_abc/attachments');
+    // NOT multipart — a JSON body with the bytes base64-encoded.
+    expect(seenBody!.filename).toBe('x.txt');
+    expect(seenBody!.mime_type).toBe('text/plain');
+    expect(seenBody!.mode).toBe('read');
+    expect(seenBody!.file).toBe('aGk='); // base64("hi")
+    expect(row.path).toBe('.clio/attachments/s/x.txt');
+  });
+
   it('lifts structured GACT error envelopes onto HttpError.errorInfo', async () => {
     const body = JSON.stringify({
       error: {

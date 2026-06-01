@@ -542,6 +542,46 @@ export class Client {
   }
 
   /**
+   * POST /v1/sessions/{id}/attachments — upload a file's BYTES into the
+   * session workspace. clio writes them under `.clio/attachments/{sid}/`
+   * and registers them as a context file the agent reads next turn.
+   *
+   * Encoded as base64-in-JSON, NOT multipart, on purpose: the CLIO
+   * Desktop transports HTTP through a Tauri/ureq bridge that forwards
+   * only UTF-8 string bodies (a `FormData` stringifies to
+   * "[object FormData]"), and over an SSH tunnel the body must survive
+   * that same bridge — so multipart cannot work in the shipped desktop.
+   * base64 rides the JSON path the proxy + tunnel already handle, which
+   * is also what lets a LOCAL file reach a REMOTE (ssh) agent: the bytes
+   * travel the tunnel and land in the remote workspace.
+   *
+   * `file` is structurally a browser `File` (name/type/arrayBuffer) but
+   * typed minimally so it's unit-testable without a DOM.
+   */
+  async uploadAttachment(
+    sessionId: string,
+    file: { name: string; type?: string; arrayBuffer(): Promise<ArrayBuffer> },
+    mode: 'read' | 'pin' = 'read',
+  ): Promise<ContextFile> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+    return this.post<ContextFile>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/attachments`,
+      {
+        file: b64,
+        filename: file.name,
+        mime_type: file.type || 'application/octet-stream',
+        mode,
+      },
+    );
+  }
+
+  /**
    * Change a context file's mode (read/edit/pin). clio's
    * POST /v1/sessions/{id}/context/files endpoint upserts by path, so
    * we POST the new mode (no separate PATCH endpoint exists). The

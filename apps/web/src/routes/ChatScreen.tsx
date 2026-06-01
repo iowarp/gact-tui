@@ -2739,6 +2739,17 @@ function ChatLayout(props: ChatLayoutProps) {
                 }
               : undefined
           }
+          attachmentsCapable={!!props.caps?.capabilities?.attachments_upload}
+          onUploadFile={
+            props.caps?.capabilities?.attachments_upload
+              ? async (file) => {
+                  const sid = props.activeId;
+                  if (!sid) throw new Error('No active session for upload');
+                  const row = await discoveryClient.uploadAttachment(sid, file);
+                  return { path: row.path };
+                }
+              : undefined
+          }
           workspaceClient={discoveryClient}
           workspaceId={
             // Prefer the active session's own workspace; otherwise use the
