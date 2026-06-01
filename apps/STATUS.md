@@ -25,7 +25,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
 | W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | **EXIT-MET 2026-06-01**: all 23 backlog items terminal — T1 8/8 DONE, T2 6 DONE + 3 DEFERRED, T3 6 DEFERRED (see "W3 CLOSURE" section; every DONE has a PNG, every DEFERRED a concrete reason). Prior in-progress note: | T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`), **first-run onboarding tour** (`audit/w3-onboarding-welcome.png` + `w3-onboarding-composer.png`). **TIER 1 COMPLETE** (one deferred sub-item: code-block line numbers). Now: Tier-2 → Tier-3. |
-| W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | IN-PROGRESS 2026-06-01: ✅SSE drop→reconnect PROVEN (oneturn-audits "W4: SSE drop", `audit/w4-sse-drop.png` + `w4-sse-reconnected.png`; **found+fixed a real gap: no offline/online listeners — a dropped network left the EventSource silently dead; live.ts now tears down on `offline` and reconnects instantly on `online`**). ✅Concurrent turns PROVEN (2 parallel ALCF turns, `w4-concurrent-turns.png`). ✅Large transcript PROVEN (120-msg import renders+scrolls, `w4-large-transcript.png`). ✅Rust rows: cargo --lib 14/14 vs :17801 (gact_http ×3, sse_bridge ×2, supervisor ×6, ssh bad_host). ⏳Remaining: supervisor SPAWN, shutdown reaping, ssh tunnel + homelab hop (need SSH_TUNNEL_* / homelab). |
+| W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | IN-PROGRESS 2026-06-01: ✅SSE drop→reconnect PROVEN (oneturn-audits "W4: SSE drop", `audit/w4-sse-drop.png` + `w4-sse-reconnected.png`; **found+fixed a real gap: no offline/online listeners — a dropped network left the EventSource silently dead; live.ts now tears down on `offline` and reconnects instantly on `online`**). ✅Concurrent turns PROVEN (2 parallel ALCF turns, `w4-concurrent-turns.png`). ✅Large transcript PROVEN (120-msg import renders+scrolls, `w4-large-transcript.png`). ✅Rust rows: cargo --lib 14/14 vs :17801 (gact_http ×3, sse_bridge ×2, supervisor ×6, ssh bad_host). ✅Supervisor SPAWN PROVEN (new `spawn_path_launches_probes_and_reaps` test — real launcher → real clio spawn → capabilities answer). ✅Shutdown reaping PROVEN — **REAL BUG FOUND+FIXED: on Windows, killing the Go launcher orphaned the clio-agent-gact grandchild (every app close leaked a Python process); Supervisor::shutdown now tree-kills via `taskkill /T /F`**. ✅SSH tunnel forward + reaping + bad-host PROVEN against the REAL homelab (10.0.0.102, localhost-only :18900 service; cargo 15/15 with SSH_TUNNEL_* env). ⏳Remaining: ONE real clio turn through the tunnel (clio install on homelab in progress — cloned from GitHub, uv install running). |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
 ### Verification matrix — RE-VERIFY against clio-agent SOURCE (do NOT trust prior "blocked" labels)
@@ -153,6 +153,20 @@ a11y ✅DONE (`audit/w3-a11y-focus-trap.png` + high-contrast preset).
   covers every command.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W4 hardening (Rust rows): supervisor SPAWN + shutdown reaping + REAL homelab
+  ssh tunnel — all PROVEN.** New `spawn_path_launches_probes_and_reaps` test: Go launcher →
+  spawns a real clio-agent-gact on an ephemeral port → /v1/capabilities answers →
+  Supervisor::shutdown reaps → port stops answering. **REAL BUG FOUND + FIXED:** on
+  Windows, `Child::kill` (TerminateProcess) killed only the Go launcher and orphaned the
+  clio-agent-gact grandchild — every CLIO Desktop close leaked a Python/uvicorn process.
+  Supervisor::shutdown now tree-kills (`taskkill /T /F`). Two test-design corrections
+  along the way: (1) clio's trust_socket auth accepts localhost without a bearer → no
+  negative-auth assertion possible; (2) two orphaned test clios from the failing
+  iterations were cleaned up (ports 57413/53496). **SSH tunnel rows ran for REAL against
+  the homelab** (SSH_TUNNEL_HOST=10.0.0.102, remote localhost-only :18900): forward ✓,
+  reaping ✓, bad-host ✓. cargo --lib **15/15**. Remaining W4: one real clio TURN through
+  the homelab tunnel — clio-agent is being provisioned on the homelab (GitHub clone +
+  uv install, in progress; the original scp transfer stalled and was abandoned).
 - 2026-06-01 **W4 hardening (browser rows): SSE drop/reconnect + concurrent turns + large
   transcript — all PROVEN vs :17801.** Three new oneturn-audits tests: (1) "W4: SSE drop"
   — `context.setOffline(true)` → status flips to error/reconnecting with countdown →
