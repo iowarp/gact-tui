@@ -125,6 +125,16 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     // the chat shell. Generous window for boot + attach + agent-ready.
     await waitFor(sid, '[data-testid="chat-screen"], [data-testid="sessions-column"]', 30_000);
 
+    // First-run onboarding tour (W3): on a fresh WebView2 profile the tour
+    // overlays the chat — skip it so the rest of the flow can click through.
+    // (Persisted, so subsequent runs on the same profile won't see it.)
+    await sleep(600);
+    const skipTour = await findMaybe(sid, '[data-testid="onboarding-skip"]');
+    if (skipTour) {
+      await click(sid, skipTour);
+      await sleep(400);
+    }
+
     // Fresh session, then a tool-using prompt → clio emits
     // permission.requested, delivered over the SSE bridge.
     const newBtn = await waitFor(sid, '[data-testid="sessions-new"]', 8_000);

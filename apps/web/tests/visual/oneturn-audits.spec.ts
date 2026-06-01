@@ -31,6 +31,11 @@ async function openConnected(browser: Browser): Promise<{
 }> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
+  // Returning-user profile — the first-run onboarding tour has its own
+  // dedicated test in audit.spec.ts and must not overlay these flows.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('clio.onboarding-done.v1', '1');
+  });
   await page.goto('/?route=connect');
   await page.getByTestId('connect-url').fill(BACKEND);
   await page.getByTestId('connect-submit').click();

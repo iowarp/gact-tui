@@ -23,6 +23,10 @@ test('webapp drives one ALCF turn (capital of France)', async () => {
   });
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
+  // Returning-user profile — keep the first-run tour out of this flow.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('clio.onboarding-done.v1', '1');
+  });
 
   await page.goto('/?route=connect');
   await page.getByTestId('connect-url').fill(BACKEND);

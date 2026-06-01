@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`). T1 remaining: first-run onboarding (then the deferred code line-numbers sub-item). Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`), **first-run onboarding tour** (`audit/w3-onboarding-welcome.png` + `w3-onboarding-composer.png`). **TIER 1 COMPLETE** (one deferred sub-item: code-block line numbers). Now: Tier-2 → Tier-3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,6 +107,30 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1: first-run onboarding tour — TIER 1 COMPLETE.** New
+  `OnboardingTour.tsx`: 5-step spotlight walkthrough (welcome → composer → sessions →
+  left rail → command palette) shown once per profile in LIVE mode (never fixtures).
+  Each step dims the app and rings the REAL UI element (cyan glow ring positioned via
+  getBoundingClientRect) with a callout card; Skip/Back/Next; finish persists
+  `clio.onboarding-done.v1`. Focus-trapped (reuses trapFocusRef). All existing live tests
+  updated to a returning-user profile (init-script flag) — audit connect(), oneturn
+  openConnected(), oneturn inline, screenshots' 8 live tests, my 3 manual-context tests;
+  the desktop webview-e2e defensively clicks Skip if the tour appears on a fresh WebView2
+  profile. **Two regressions caught by green-baseline runs and fixed before commit:**
+  (1) screenshots.spec's 7 inline live tests (discovery/settings captures) lacked the
+  opt-out → tour blocked their rail clicks → patched via shared-boilerplate replace;
+  (2) the persistence assertion originally relied on reload-reconnect (lands on connect
+  form, not chat) → asserts the localStorage flag directly.
+  PROOF: audit.spec.ts "(W3 onboarding)" vs :17801 — fresh profile → tour appears →
+  steps through all 5 titles → finishes → flag persisted. PNGs
+  `audit/w3-onboarding-welcome.png` (centered welcome card) +
+  `audit/w3-onboarding-composer.png` (spotlight ring on the real composer). Unit
+  `OnboardingTour.test.tsx` 5/5; web unit 52/52; core 41/41 (incl. live vs :17801);
+  fixture visual 31/31; full W3 audit sweep 9/9; lint/typecheck/build green.
+  **W3 Tier-1 is now COMPLETE** (last remaining sub-item: code-block line numbers,
+  deferred from the syntax-highlight item). Next: W3 Tier-2 (diff highlighting, command
+  history/frecency, file/image previews, drag-drop polish, token-rate/TTFT, light/dark,
+  edit history, per-tool progress, teaching empty-states) → Tier-3 → W4 hardening.
 - 2026-06-01 **W3 Tier-1: settings depth (presets + high-contrast, test-connection, notif prefs).**
   (1) **Theme presets** in Settings → Appearance: Default / **High contrast** (a11y —
   pure-black bg, white text, boosted borders) / Dim. Presets ride the existing
