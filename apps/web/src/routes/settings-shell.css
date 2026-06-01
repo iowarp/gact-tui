@@ -208,6 +208,33 @@
   margin: 0 0 24px;
 }
 
+/* Notification preference toggles (W3 settings depth). */
+.settings-shell__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  max-width: 600px;
+}
+
+.settings-shell__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.settings-shell__toggle input[type='checkbox'] {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent-cyan);
+  cursor: pointer;
+}
+
 .settings-shell__caps {
   max-width: 720px;
 }

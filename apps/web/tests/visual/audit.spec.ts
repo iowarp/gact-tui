@@ -595,6 +595,46 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-1: settings depth ----
+  test('Appearance presets apply high-contrast tokens live (W3 settings)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.waitForTimeout(800);
+    await page.getByTestId('rail-settings').click();
+    // Navigate to the Appearance section.
+    await page.getByTestId('settings-nav-appearance').click();
+    await expect(page.getByTestId('settings-appearance')).toBeVisible({ timeout: 6_000 });
+    const preset = page.getByTestId('settings-preset-high-contrast');
+    await expect(preset).toBeVisible();
+    await preset.click();
+    // The override stylesheet must now force the high-contrast background.
+    await expect
+      .poll(async () =>
+        page.evaluate(() =>
+          getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+        ),
+      )
+      .toBe('#000000');
+    await page.screenshot({ path: shot('w3-settings-high-contrast'), fullPage: false });
+    // Back to default so the persisted preset doesn't bleed into other tests.
+    await page.getByTestId('settings-preset-default').click();
+    await close();
+  });
+
+  test('Per-backend Test connection shows latency against live clio (W3 settings)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.waitForTimeout(800);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-backends').click();
+    // The connect() flow registers the live backend; find its row's Test button.
+    const testBtn = page.locator('[data-testid^="settings-row-test-"]:not([data-testid*="result"])').first();
+    await expect(testBtn).toBeVisible({ timeout: 6_000 });
+    await testBtn.click();
+    const result = page.locator('[data-testid^="settings-row-test-result-"]').first();
+    await expect(result).toContainText(/ok · \d+ms/, { timeout: 8_000 });
+    await page.screenshot({ path: shot('w3-settings-test-connection'), fullPage: false });
+    await close();
+  });
+
   // ---- W3 Tier-1 a11y: modal focus trap ----
   test('Command palette traps Tab focus and restores it on close (W3 a11y)', async ({ browser }) => {
     const { page, close } = await connect(browser);

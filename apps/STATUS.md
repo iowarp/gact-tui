@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion** (`audit/w3-a11y-focus-trap.png`; high-contrast theme rides the settings-depth item). T1 remaining: settings depth (incl. high-contrast preset), first-run onboarding. Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`). T1 remaining: first-run onboarding (then the deferred code line-numbers sub-item). Then T2/T3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,7 +107,23 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
-- 2026-06-01 **W3 Tier-1 a11y: modal focus traps + aria-live streaming.** New
+- 2026-06-01 **W3 Tier-1: settings depth (presets + high-contrast, test-connection, notif prefs).**
+  (1) **Theme presets** in Settings → Appearance: Default / **High contrast** (a11y —
+  pure-black bg, white text, boosted borders) / Dim. Presets ride the existing
+  `applyThemeTokens` override pipe so they compose with the per-color editor and persist.
+  (2) **Per-backend Test connection** in Settings → Backends: probes /v1/capabilities with
+  timing → "ok · Nms" chip or "failed" (+ error tooltip) — distinct from Refresh.
+  (3) **Notification prefs**: new `src/notif-prefs.ts` (persisted signal) + toggles in
+  Appearance; gates the "CLIO responded" turn-completion toast and SSE connect/disconnect
+  toasts in ChatScreen. Error toasts are never silenced (they carry recovery actions).
+  PROOF: audit.spec.ts "(W3 settings)" ×2 vs :17801 — high-contrast preset flips
+  `--color-bg` to #000000 live (PNG `audit/w3-settings-high-contrast.png` shows the page
+  IN high-contrast with the toggles); Test button shows real latency
+  (`audit/w3-settings-test-connection.png`, "ok · 13ms"). Unit `SettingsDepth.test.tsx`
+  4/4; web unit 47/47; fixture visual 31/31 (one flaky multi-backend-picker page-load
+  timeout under system load — passed clean in isolation + on the full re-run; not a
+  regression). lint/typecheck/build green. **a11y T1 item now fully DONE** (high-contrast
+  was its last sub-item). Next W3 T1: first-run onboarding → code line numbers (deferred). New
   `src/focus-trap.ts` (`trapFocus` + Solid `trapFocusRef` ref helper): Tab/Shift+Tab wrap
   inside open modals, focus restores to the opener on close. Applied to ALL 7 overlay
   dialogs (SlashPalette, CatalogBrowser, ComposeModal, McpInstallModal,

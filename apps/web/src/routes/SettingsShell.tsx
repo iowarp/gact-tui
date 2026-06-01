@@ -3,6 +3,7 @@ import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
 import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type LocaleTag } from '../locale.js';
 import { SPLASH_INTRO_KEY } from './SplashScreen.js';
+import { notifPrefs, setNotifPref } from '../notif-prefs.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useBackendRegistry } from '../registry.js';
 import { SettingsBackends } from './SettingsBackends.js';
@@ -236,6 +237,53 @@ const ACCENT_TOKENS = [
 
 const THEME_TOKENS_KEY = 'clio.theme.tokens.v1';
 
+/**
+ * Theme presets (W3 Tier-1: settings depth + a11y high-contrast).
+ * Each preset is a token-override set applied through the same
+ * `applyThemeTokens` pipe as the per-color editor, so presets and manual
+ * tweaks share persistence and reset behavior.
+ */
+const THEME_PRESETS: Record<string, { label: string; tokens: Record<string, string> }> = {
+  default: {
+    label: 'Default',
+    tokens: {},
+  },
+  'high-contrast': {
+    label: 'High contrast',
+    tokens: {
+      '--color-bg': '#000000',
+      '--color-surface': '#0a0a0a',
+      '--color-surface-alt': '#161616',
+      '--color-text': '#ffffff',
+      '--color-heading': '#ffffff',
+      '--color-muted': '#d4d4d4',
+      '--color-border-30': '#777777',
+      '--color-border-60': '#aaaaaa',
+      '--color-border': '#ffffff',
+      '--color-accent': '#ffb366',
+      '--color-accent-cyan': '#7ae7ff',
+      '--color-success': '#7dffc4',
+      '--color-warning': '#ffe066',
+      '--color-error': '#ff9090',
+    },
+  },
+  dim: {
+    label: 'Dim',
+    tokens: {
+      '--color-bg': '#101216',
+      '--color-surface': '#16181d',
+      '--color-surface-alt': '#1c1f25',
+      '--color-text': '#a8adb8',
+      '--color-heading': '#c5cad3',
+      '--color-muted': '#6b7280',
+      '--color-accent': '#c4682a',
+      '--color-accent-cyan': '#0aa6ad',
+    },
+  },
+};
+
+const THEME_PRESET_KEY = 'clio.theme.preset.v1';
+
 function loadThemeTokens(): Record<string, string> {
   if (typeof localStorage === 'undefined') return {};
   try {
@@ -313,6 +361,34 @@ function AppearanceSection() {
     catch { /* ignore */ }
     applyThemeTokens({});
   }
+
+  // ---- Theme presets (settings depth + a11y high-contrast) ----
+  const [activePreset, setActivePreset] = createSignal<string>(
+    typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(THEME_PRESET_KEY) ?? 'default')
+      : 'default',
+  );
+
+  function applyPreset(id: string) {
+    const preset = THEME_PRESETS[id];
+    if (!preset) return;
+    setActivePreset(id);
+    setTokens(preset.tokens);
+    try {
+      localStorage.setItem(THEME_PRESET_KEY, id);
+      if (Object.keys(preset.tokens).length > 0) {
+        localStorage.setItem(THEME_TOKENS_KEY, JSON.stringify(preset.tokens));
+      } else {
+        localStorage.removeItem(THEME_TOKENS_KEY);
+      }
+    } catch {
+      /* quota — ignore */
+    }
+    applyThemeTokens(preset.tokens);
+  }
+
+  // ---- Notification preferences (settings depth) ----
+  const prefs = notifPrefs;
   return (
     <section class="dp" data-testid="settings-appearance">
       <header class="dp__head">
@@ -350,6 +426,65 @@ function AppearanceSection() {
           Light + Auto themes land in v1.0 alongside the design-system
           token refresh; today only Dark is wired.
         </p>
+
+        <div class="dp__section-title">Presets</div>
+        <p class="settings-shell__hint">
+          One-click token sets. <strong>High contrast</strong> maximizes
+          text/background separation for low-vision use; <strong>Dim</strong>{' '}
+          softens the palette for late-night sessions. Presets write the same
+          overrides as the per-color editor below, so you can fine-tune after
+          applying one.
+        </p>
+        <div class="settings-shell__choices" data-testid="settings-theme-presets">
+          <For each={Object.entries(THEME_PRESETS)}>
+            {([id, preset]) => (
+              <button
+                type="button"
+                class={
+                  'settings-shell__choice ' +
+                  (activePreset() === id ? 'is-active' : '')
+                }
+                onClick={() => applyPreset(id)}
+                data-testid={`settings-preset-${id}`}
+              >
+                <span
+                  class="settings-shell__choice-swatch"
+                  style={{
+                    background: preset.tokens['--color-bg'] ?? '#0d1320',
+                    border: `2px solid ${preset.tokens['--color-heading'] ?? '#e8ecf4'}`,
+                  }}
+                />
+                <span class="settings-shell__choice-label">{preset.label}</span>
+              </button>
+            )}
+          </For>
+        </div>
+
+        <div class="dp__section-title">Notifications</div>
+        <p class="settings-shell__hint">
+          Which events surface as toasts. Errors always show — they carry
+          recovery actions.
+        </p>
+        <div class="settings-shell__toggles" data-testid="settings-notif-prefs">
+          <label class="settings-shell__toggle">
+            <input
+              type="checkbox"
+              checked={prefs().turnCompletions}
+              onChange={(e) => setNotifPref('turnCompletions', e.currentTarget.checked)}
+              data-testid="notif-pref-turn-completions"
+            />
+            <span>Turn completions — “CLIO responded” after each finished turn</span>
+          </label>
+          <label class="settings-shell__toggle">
+            <input
+              type="checkbox"
+              checked={prefs().connectionStatus}
+              onChange={(e) => setNotifPref('connectionStatus', e.currentTarget.checked)}
+              data-testid="notif-pref-connection-status"
+            />
+            <span>Connection status — SSE disconnect / reconnect notices</span>
+          </label>
+        </div>
 
         <div class="dp__section-title">Accent palette</div>
         <p class="settings-shell__hint">

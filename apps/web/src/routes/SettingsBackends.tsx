@@ -1,6 +1,7 @@
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import { useBackendRegistry } from '../registry.js';
 import type { BackendEntry } from '@clio/core';
+import { inTauri, tauriFetch } from '../tauri.js';
 import './settings.css';
 
 export interface SettingsBackendsProps {
@@ -76,6 +77,41 @@ function BackendRow(props: { entry: BackendEntry }) {
     return { label: 'unknown', cls: 'chip--warn' };
   };
 
+  // Per-backend connection test (W3 settings depth): probe /v1/capabilities
+  // with timing and surface latency or the failure inline — distinct from
+  // Refresh, which silently re-pulls capabilities into the registry.
+  const [testResult, setTestResult] = createSignal<
+    { state: 'idle' } | { state: 'running' } | { state: 'ok'; ms: number } | { state: 'fail'; error: string }
+  >({ state: 'idle' });
+
+  async function testConnection() {
+    setTestResult({ state: 'running' });
+    const started = performance.now();
+    try {
+      const fetchImpl = inTauri() ? tauriFetch : globalThis.fetch;
+      const res = await fetchImpl(
+        `${props.entry.url.replace(/\/+$/, '')}/v1/capabilities`,
+        {
+          headers: props.entry.bearerToken
+            ? { Authorization: `Bearer ${props.entry.bearerToken}` }
+            : {},
+        },
+      );
+      const ms = Math.round(performance.now() - started);
+      if (!res.ok) {
+        setTestResult({ state: 'fail', error: `HTTP ${res.status} after ${ms}ms` });
+        return;
+      }
+      await res.json();
+      setTestResult({ state: 'ok', ms });
+    } catch (e) {
+      setTestResult({
+        state: 'fail',
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   return (
     <li class="settings__row" data-testid={`settings-row-${props.entry.id}`}>
       <div class="settings__row-main">
@@ -104,6 +140,40 @@ function BackendRow(props: { entry: BackendEntry }) {
         </Show>
       </div>
       <div class="settings__row-actions">
+        <Show when={testResult().state !== 'idle'}>
+          {(() => {
+            const r = testResult();
+            if (r.state === 'running')
+              return <span class="chip" data-testid={`settings-row-test-result-${props.entry.id}`}>testing…</span>;
+            if (r.state === 'ok')
+              return (
+                <span class="chip chip--ok" data-testid={`settings-row-test-result-${props.entry.id}`}>
+                  ok · {r.ms}ms
+                </span>
+              );
+            if (r.state === 'fail')
+              return (
+                <span
+                  class="chip chip--err"
+                  data-testid={`settings-row-test-result-${props.entry.id}`}
+                  title={r.error}
+                >
+                  failed
+                </span>
+              );
+            return null;
+          })()}
+        </Show>
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid={`settings-row-test-${props.entry.id}`}
+          onClick={() => void testConnection()}
+          disabled={testResult().state === 'running'}
+          title="Probe /v1/capabilities and measure latency"
+        >
+          Test
+        </button>
         <button
           type="button"
           class="btn btn--secondary"
