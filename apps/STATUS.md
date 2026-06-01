@@ -1019,6 +1019,70 @@ Permission was the lone broken case.
 - **#130** MCP resource preview — no `/v1/mcp/servers/{id}/resources/read`
 - **#136** TTS Speak — no `/v1/sessions/{id}/voice/synthesize` (voice:false)
 
+## 2026-05-31 — desktop-shell verification (the part web tests can't reach)
+
+The web Playwright suite drives the SolidJS frontend with
+`--disable-web-security` against clio directly, which bypasses every
+desktop-native layer. This pass exercised those layers for real.
+
+### Desktop-native Rust integration tests (new, `cargo test --lib`)
+- **`gact_http` proxy (3 tests, gated on CLIO_GACT_URL)** — the HTTP
+  bridge the WebView actually uses (REST is routed through the Rust
+  `ureq` command because the WebView origin is cross-origin to the
+  sidecar). Asserts capabilities GET passthrough, POST create-session,
+  and that a 4xx returns `Ok(resp)` with the real status + SPEC §14
+  error envelope (not `Err(transport)` — the frontend can only lift
+  HttpError from the former).
+- **`ssh.rs` tunnel (1 test, gated on SSH_TUNNEL_*)** — `TunnelManager::open`
+  spawns a real `ssh -L` and an HTTP body forwards back through the
+  local port. **Verified live against the homelab** (`jcernuda@10.0.0.102`
+  → remote loopback `:18900`, a GACT-shaped mock): the contract envelope
+  arrived through the tunnel.
+- 10/10 lib tests pass (3 gact_http + 1 ssh + 6 supervisor).
+
+### Real app launched against live clio (screenshot proof)
+`desktop-real-app-live.png` is the actual `clio-desktop.exe` WebView2
+window (title "CLIO Desktop") rendering the chat shell against clio
+:17800 through the real Tauri stack:
+- **Supervisor attach-first** worked — sessions column populated from
+  clio (REST via `gact_http`).
+- Topbar shows **`sse · open`** — the `EventSource` connected, so live
+  streaming works in the desktop (see CORS finding below).
+- The ↘ **fork lineage badge** (#145), the **routing_decision** part and
+  the **`routing_error` inline pill + Retry** (#42) all render in the
+  real shell.
+
+### FINDING — SSE rides on clio CORS, REST does not (latent fragility)
+REST is routed through `gact_http` (CORS-proof: Rust has no CORS layer),
+but **SSE uses a raw `new EventSource(sseUrl)` in `live.ts` that does NOT
+go through the bridge**. It only works because the current develop clio
+now emits `access-control-allow-origin: *` on **every** endpoint —
+verified including `/v1/sessions/{id}/events` and the OPTIONS preflight.
+Implications:
+- Against this clio, desktop SSE works (confirmed: `sse · open`).
+- Against a clio build/config that drops CORS, desktop **REST would
+  survive (bridged) but live streaming would silently die** while the UI
+  looks connected. The `gact_http` CORS fix is now effectively
+  belt-and-suspenders for REST; SSE is unprotected.
+- Recommendation (not done — real work, flagged for the release bar):
+  either route SSE through a Tauri bridge too (stream events over an IPC
+  channel) or make the desktop assert clio CORS on connect and warn.
+
+### Still NOT covered (honest release-readiness gaps)
+- **Full WebView click-automation** — driving the real Tauri UI
+  (clicking the permission card, typing in the composer, etc.) needs
+  `tauri-driver` + a matching `msedgedriver` WebDriver harness, which is
+  not set up. Today the desktop UI is verified by: (a) the shared
+  frontend logic passing the web Playwright suite against live clio, and
+  (b) the screenshot above. The actual click-path through WebView2 is
+  not automated.
+- **Hardening matrix** — not yet driven: SSE drop + reconnect-backoff
+  against a real connection cut, concurrent turns across sessions, large
+  transcript rendering, the supervisor *spawn* path (only *attach* is
+  exercised — there's no bundled launcher on this box), shutdown reaping
+  of sidecar + tunnels, and ssh tunnel error paths (bad host / wrong key
+  / ssh-not-on-PATH).
+
 ### Verified by shared mechanism, not cold-driven
 - **#144 permalink scroll-to-message** — the scroll+flash path
   (`getElementById` → `scrollIntoView` → `trx-msg--flash`) is the same
