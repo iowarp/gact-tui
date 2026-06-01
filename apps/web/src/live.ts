@@ -746,7 +746,17 @@ function reduce(
     }
     case 'user_question.created':
     case 'user_question.resumed': {
-      const q = p.question as UserQuestion | undefined;
+      // clio emits the UserQuestion fields FLAT in the payload
+      // (Event payload = question.model_dump()), NOT nested under
+      // `p.question`. Older fixtures nested it. Reading only `p.question`
+      // meant the ask-user card never rendered against live clio — the
+      // same wire-shape class as the permission E-27 bug. Accept both.
+      const nested = p['question'] as UserQuestion | undefined;
+      const flat =
+        !nested && typeof p['id'] === 'string' && typeof p['prompt'] === 'string'
+          ? (p as unknown as UserQuestion)
+          : undefined;
+      const q = nested ?? flat;
       if (q && q.status === 'pending') hooks.setPendingQuestion(q);
       break;
     }

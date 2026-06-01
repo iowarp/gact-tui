@@ -419,4 +419,62 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await ctx.close();
     await browser.close();
   });
+
+  // -- ask-user question card over SSE #94 ---------------------------
+  // clio advertises x_clio_user_questions=true and emits the UserQuestion
+  // fields FLAT in the user_question.created payload. The reducer used to
+  // read payload.question (always undefined) so the card never rendered —
+  // same wire class as the permission E-27 bug, now fixed. Drive it: create
+  // a question via the API; clio emits user_question.created over SSE; the
+  // desktop card must render and answering must clear it.
+  test('ask-user question card renders over SSE and clears on answer (#94)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await page.getByTestId('sessions-new').click();
+    await page.waitForTimeout(1_200);
+    const row = page.locator('[data-testid^="session-row-"]').first();
+    await row.click();
+    await page.waitForTimeout(800);
+    const sid = ((await row.getAttribute('data-testid')) ?? '').replace(
+      'session-row-',
+      '',
+    );
+    expect(sid).toMatch(/^sess_/);
+
+    // Create a confirmation question via clio's API (flag-gated capability).
+    const qid = await page.evaluate(
+      async ({ base, sid }) => {
+        const r = await fetch(`${base}/v1/sessions/${sid}/questions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: 'Proceed with the migration plan?',
+            kind: 'confirmation',
+          }),
+        });
+        const j = await r.json();
+        return j.id as string;
+      },
+      { base: BACKEND, sid },
+    );
+    expect(qid).toMatch(/^/);
+
+    // The card must render — proves user_question.created reduces correctly.
+    await expect(page.getByTestId(`user-question-${qid}`)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId(`user-question-${qid}`)).toContainText(
+      /migration plan/i,
+    );
+    await page.screenshot({ path: shot('94-ask-user-card'), fullPage: false });
+
+    // Answering (confirmation → Yes) must clear the card.
+    await page.getByTestId('user-question-yes').click();
+    await expect(page.getByTestId(`user-question-${qid}`)).toHaveCount(0, {
+      timeout: 10_000,
+    });
+    await page.screenshot({ path: shot('94-ask-user-answered'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
 });

@@ -29,7 +29,7 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
   DSPy agent returning an `ask_user` action. → **FLAG-GATED**: enable on a SEPARATE
   clio, induce a question, drive the desktop card + answer round-trip; verify the
   desktop reads the question shape (watch for an E-27-style wire mismatch).
-- **user_question** — RESOLVED status: live :17800 advertises `x_clio_user_questions=True` (app.py:7267, unconditional). Desktop MUST support it. → drive: trigger an `ask_user` action (agent returns ask_user), verify the desktop question card renders + answer round-trips (watch for an E-27-style wire mismatch). Target FLAG-GATED/LIVE-PROVEN.
+- **user_question / ask-user (#94)** — ✅ LIVE-PROVEN (was mislabeled "blocked"). Found + fixed an E-27-class WIRE BUG: clio emits the `UserQuestion` fields FLAT in the `user_question.created` payload (`Event payload = row.model_dump()`), but `live.ts` read `payload.question` → card never rendered. Fixed to read the flat shape. Proven against live :17800: POST a confirmation question → card renders (`94-ask-user-card.png`) → Yes clears it (`94-ask-user-answered.png`). Test: oneturn-audits `(#94)`.
 - **TTS `/voice/synthesize` + voice transcribe** — clio's own `x_clio_capability_gaps.voice` declares status=`unsupported`, advertised=false, client_behavior=`render_disabled`, category=future_capability. → DOCUMENTED (clio-declared gap, NOT a desktop bug, NO issue needed); verify the desktop renders voice controls disabled/hidden per the gap.
 - **LSP** — clio `x_clio_capability_gaps.lsp` = `unsupported`/render_disabled. → verify the desktop Doctor LSP surface honors the gap (render-disabled), DOCUMENTED.
 - **/optimize command** — clio gap `optimizer_command` = `unavailable`/render_disabled. → verify palette renders it disabled, DOCUMENTED.
@@ -70,6 +70,15 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W2 #94 ask-user = LIVE-PROVEN (real wire bug fixed).** clio emits
+  `user_question.created` with the UserQuestion fields FLAT in the payload
+  (`row.model_dump()`); `live.ts` read `payload.question` (always undefined) so the
+  ask-user card never rendered — the exact E-27 class. Fixed the reducer to read the
+  flat shape (accepting legacy nested). Drove it live on :17800: created a
+  confirmation question via the API → card rendered with the prompt → clicking Yes
+  answered + cleared it. Proof: `94-ask-user-card.png` / `94-ask-user-answered.png`,
+  oneturn-audits `(#94)`. Web unit 26 + fixture visual 28 green. (Parallel: a
+  read-only W2 verification workflow is sweeping the remaining surfaces.) Commit: <next>.
 - 2026-06-01 **W1 = green (with a real finding).** Real-WebView2 e2e
   (`TAURI_E2E=1 node --test tests/webview-e2e.test.mjs`) now passes 1/1: send a
   tool-using prompt → `permission.requested` over SSE → card renders → deny clears it,
