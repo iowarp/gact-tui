@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import type { Client } from '@clio/core';
+import { fuzzyRank } from '../fuzzy.js';
 import { Icon, type IconName } from './Icon.js';
 import './at-mention-picker.css';
 
@@ -86,8 +87,13 @@ export function AtMentionPicker(props: AtMentionPickerProps) {
   const filtered = createMemo(() => {
     const q = props.query.toLowerCase();
     if (!q) return merged();
-    return merged().filter(
-      (it) => it.label.toLowerCase().includes(q) || (it.detail ?? '').toLowerCase().includes(q),
+    // Fuzzy subsequence ranking (shared with the command palette); label
+    // matches outrank detail-only matches.
+    return fuzzyRank(
+      merged(),
+      q,
+      (it) => it.label,
+      (it) => it.detail ?? '',
     );
   });
 

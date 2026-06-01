@@ -6,6 +6,7 @@ import {
   onCleanup,
   Show,
 } from 'solid-js';
+import { fuzzyRank } from '../fuzzy.js';
 import './slash-palette.css';
 
 export interface SlashCommand {
@@ -43,26 +44,6 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
  * provided by the caller so the same modal can render dynamic suggestions
  * (e.g. from `/v1/agents` once Wave 2 capability gating is live).
  */
-/** Subsequence fuzzy score: -1 if `q` is not a subsequence of `text`, else a
- * score rewarding contiguous runs + word-boundary hits, so "gs" ranks
- * "go · settings" above "tags". `q` is assumed already lower-cased. */
-function fuzzyScore(text: string, q: string): number {
-  if (!q) return 0;
-  const t = text.toLowerCase();
-  let ti = 0;
-  let score = 0;
-  let streak = 0;
-  for (const ch of q) {
-    const found = t.indexOf(ch, ti);
-    if (found === -1) return -1;
-    streak = found === ti ? streak + 1 : 0;
-    score += 1 + streak * 2;
-    if (found === 0 || /[\s\-_/.]/.test(t[found - 1] ?? '')) score += 3;
-    ti = found + 1;
-  }
-  return score - t.length * 0.01; // tie-break toward tighter matches
-}
-
 export function SlashPalette(props: SlashPaletteProps) {
   const [highlight, setHighlight] = createSignal(0);
   let inputRef: HTMLInputElement | undefined;
@@ -70,21 +51,14 @@ export function SlashPalette(props: SlashPaletteProps) {
   const filtered = createMemo(() => {
     const q = props.query.replace(/^\//, '').toLowerCase();
     if (!q) return props.commands;
-    // Fuzzy subsequence match + ranking — a command matches if `q` is a
-    // subsequence of its trigger or description; tighter matches rank first.
-    return props.commands
-      .map((c) => {
-        const trig = fuzzyScore(c.trigger, q);
-        const desc = fuzzyScore(c.description, q);
-        // A trigger match ALWAYS outranks a description-only match, so a
-        // sparse query like "dctr" surfaces `/doctor` above commands that
-        // merely contain the subsequence somewhere in their description.
-        const score = trig >= 0 ? trig + 1000 : desc;
-        return { c, score };
-      })
-      .filter((r) => r.score >= 0)
-      .sort((a, b) => b.score - a.score)
-      .map((r) => r.c);
+    // Fuzzy subsequence ranking (shared util); trigger matches outrank
+    // description-only matches so "dctr" surfaces "/doctor" first.
+    return fuzzyRank(
+      props.commands,
+      q,
+      (c) => c.trigger,
+      (c) => c.description,
+    );
   });
 
   // Refocus the input each time the palette opens, after the Show

@@ -112,8 +112,10 @@ search/filter · native window menus / polish.
   Caught + fixed a mis-rank while eyeballing the PNG (description-only matches were
   outranking trigger matches); trigger matches now always rank above description-only.
   PROOF: `slash-palette-fuzzy.png` + unit test (sparse subsequence) + visual test; web
-  unit 27/27; typecheck/lint/build green. **Follow-up:** apply the same scorer to the
-  @-mention picker + slash-command picker (extract `fuzzyScore` to a shared util).
+  unit 27/27; typecheck/lint/build green. **Extended (same session):** pulled
+  `fuzzyScore`/`fuzzyRank` into `src/fuzzy.ts`; the command/slash palette AND the
+  @-mention picker now share it (label/trigger matches outrank detail/description). The
+  full backlog item "fuzzy search (palette + @-picker + slash-picker)" is DONE.
 - 2026-06-01 **W3 Tier-1 started: code-block syntax highlighting (+ existing per-block copy).**
   Added `highlight.js` (lib/common, ~35 langs); `CodeBlock` now highlights via hljs
   (declared fence lang, else auto-detect; hljs escapes source → injection-safe innerHTML).
