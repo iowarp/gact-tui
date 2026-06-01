@@ -292,6 +292,22 @@ export interface ExtensionDescriptor {
   docs?: string;
 }
 
+/** One recorded retry of a turn (x_clio_retry_attempts). Returned by
+ * POST /v1/sessions/{id}/messages/{mid}/retry and GET .../attempts; also
+ * the payload of the `turn.retry_*` SSE events. */
+export interface TurnAttempt {
+  id: string;
+  session_id: string;
+  source_message_id: string;
+  status: 'recorded' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  notes?: string;
+  model?: { provider_id?: string; model_id?: string };
+  warning?: string;
+  metadata?: Record<string, unknown>;
+}
+
 /* ---------- Discovery surface — agents, providers, mcp, etc. ---------- */
 
 export interface AgentDef {

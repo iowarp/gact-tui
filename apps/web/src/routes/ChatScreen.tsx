@@ -1037,38 +1037,26 @@ function LiveDriven(props: {
       });
       return;
     }
-    // Find the user message immediately before msg, re-send its text.
-    const msgs = transcript.messages();
-    const idx = msgs.findIndex((m) => m.id === msg.id);
-    for (let i = idx - 1; i >= 0; i--) {
-      const candidate = msgs[i];
-      if (candidate?.role !== 'user') continue;
-      const textPart = candidate.parts.find((p) => p.type === 'text');
-      if (textPart && textPart.type === 'text' && textPart.text) {
-        toast.push({
-          tone: 'info',
-          title: 'Regenerating',
-          body: `Re-sending: "${textPart.text.slice(0, 60)}${textPart.text.length > 60 ? '…' : ''}"`,
-          duration: 2200,
-        });
-        try {
-          await live.client.sendMessage(id, { text: textPart.text });
-        } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Regenerate failed',
-            body: e instanceof Error ? e.message : String(e),
-          });
-        }
-        return;
-      }
-    }
+    // Retry the turn through the attempt-tracking path (records a
+    // TurnAttempt + emits turn.retry_* events) rather than blindly
+    // re-sending the user text, which dropped the attempt lineage. clio
+    // derives the source user message from this (assistant) message id;
+    // execute:true re-runs it and the new turn streams in via message.*.
     toast.push({
-      tone: 'warn',
-      title: 'Nothing to regenerate',
-      body: 'No prior user message found above this turn.',
-      duration: 2500,
+      tone: 'info',
+      title: 'Regenerating',
+      body: 'Re-running this turn…',
+      duration: 2200,
     });
+    try {
+      await live.client.retryTurn(id, msg.id, { execute: true });
+    } catch (e) {
+      toast.push({
+        tone: 'error',
+        title: 'Regenerate failed',
+        body: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   function quoteMessage(msg: Message) {
