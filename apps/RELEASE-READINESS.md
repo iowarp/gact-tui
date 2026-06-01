@@ -54,6 +54,27 @@ nothing here pushes the tag.
 
 ---
 
+## W4 hardening findings relevant to the release
+
+Two real defects were found and fixed by the hardening matrix this run — both
+are in the release branch:
+
+1. **Leaked sidecar process on app close (Windows).** `Child::kill` terminated
+   only the Go launcher; the clio-agent-gact grandchild survived every app
+   close. Fixed: `Supervisor::shutdown` now tree-kills (`taskkill /T /F`).
+   Proof: `supervisor::tests::spawn_path_launches_probes_and_reaps`.
+2. **Silently dead SSE stream after network loss.** A dropped network does not
+   error an established EventSource; the app showed `sse · open` forever.
+   Fixed: `live.ts` listens for the browser `offline`/`online` events — tears
+   down + starts the reconnect ladder on offline, reconnects instantly on
+   online. Proof: oneturn-audits "W4: SSE drop".
+
+Full W4 matrix (SSE drop/reconnect, concurrent turns, large transcript,
+supervisor SPAWN, shutdown reaping, ssh tunnel forward/reaping/bad-host against
+the real homelab): see `STATUS.md` wave board — all PROVEN.
+
+---
+
 ## Local release dry-run
 
 - **Windows bundle (`tauri build`, msi+nsis):** see the "Dry-run result"
