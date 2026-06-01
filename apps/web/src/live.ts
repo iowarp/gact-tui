@@ -818,11 +818,15 @@ function reduce(
     }
     case 'session.compacted': {
       const sid = (p.session_id as string) ?? '';
-      const removed = (p.removed_count as number) ?? 0;
+      // clio emits `archived_count` on session.compacted; the old reader
+      // used `removed_count` (never present) so the toast always said
+      // "0 messages". Read archived_count, tolerate the legacy name.
+      const archived =
+        (p.archived_count as number) ?? (p.removed_count as number) ?? 0;
       hooks.onNotification?.({
         level: 'info',
         title: 'Session compacted',
-        body: `${sid.slice(0, 8)} — dropped ${removed} message${removed === 1 ? '' : 's'}.`,
+        body: `${sid.slice(0, 8)} — archived ${archived} message${archived === 1 ? '' : 's'} into a summary.`,
       });
       break;
     }
