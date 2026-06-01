@@ -267,3 +267,14 @@ textarea {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* a11y (W3 Tier-1): a single consistent keyboard-focus ring on every
+   interactive element. :focus-visible fires for keyboard nav (Tab) but not
+   mouse clicks, so it adds no noise for pointer users. Components with their
+   own focus styling (e.g. .field inputs use a border-color change) keep it
+   via higher specificity. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-cyan, #56c2d6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
