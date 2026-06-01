@@ -23,6 +23,56 @@ explicitly deferred to v1.0.
   before the main window is opened. If the probe fails for 30s the
   splash flips to an error state instead of showing a chat shell.
 
+## Attach-first path + cross-origin exposure (FINDING — 2026-05-31)
+
+The section above describes the **bundled-sidecar** flow, where the
+supervisor mints a token and a random web page can't know it. But the
+path most users actually hit is **attach-first**: the supervisor probes
+the conventional `clio start` port (`:17800`) and, if a healthy server
+is already answering, **attaches to it with an empty bearer token**,
+relying on clio's `trust_socket` auth scheme (localhost is trusted).
+That changes the threat model, and two facts compound it:
+
+1. **clio emits `Access-Control-Allow-Origin: *` on every endpoint.**
+   Verified 2026-05-31 against develop HEAD (`a350a43`), including
+   `/v1/capabilities`, the SSE `/v1/sessions/{id}/events` stream, and
+   the `OPTIONS` preflight. So *any* web origin — not just the desktop
+   WebView — is allowed to read clio's responses.
+2. **The attach path carries no token**, so `trust_socket` is the only
+   gate, and `trust_socket` trusts *any* localhost caller.
+
+**Combined exposure:** while the user's clio is running on `:17800`,
+any web page open in their *normal* browser can call
+`http://127.0.0.1:17800/v1/...`, read the responses (ACAO `*`), and —
+because there's no token and localhost is trusted — **create sessions,
+read transcripts, and drive tool calls** (e.g. `shell_bash`). That is a
+classic local-service cross-origin / CSRF exposure that can reach code
+execution through the agent's tool surface. It is a property of the
+clio + browser combination, not of any single desktop bug, which is why
+it is filed here against the auth model rather than as a UI defect.
+
+**Mitigations (none shipped yet — tracked for the release bar):**
+- **(a)** Desktop should send a bearer token even on the attach path
+  (requires clio to accept/issue one for an already-running instance),
+  so `trust_socket`-alone is never the only gate.
+- **(b)** clio should scope `Access-Control-Allow-Origin` to the known
+  desktop origin instead of `*` (this is a clio-side change).
+- **(c)** ✅ **Done.** Route **all** WebView↔clio traffic — including SSE —
+  through Rust so the WebView never depends on clio's CORS. SSE now
+  streams through the `gact_sse_open`/`gact_sse_close` bridge
+  (`src/sse_bridge.rs`): Rust reads the stream and forwards each event
+  over a Tauri Channel, and the bearer token rides in the sseUrl query
+  string (an `EventSource` can't send headers). The pure-web build still
+  uses `EventSource`. Verified by a live integration test
+  (`sse_bridge::tests::streams_real_clio_events_through_the_parser`) and
+  the existing visual suite (EventSource path unchanged). This removes
+  the desktop's dependence on clio CORS for live streaming; (a) and (b)
+  remain open for the REST/attach-token side.
+
+See `apps/05-open-questions.md` Q4 (auth model) — this finding is the
+concrete cross-origin consequence of `trust_socket` being the only
+implemented scheme.
+
 ## Frontend handle exposure
 
 - The frontend never sees the bundled-sidecar URL or token until it

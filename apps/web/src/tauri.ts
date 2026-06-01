@@ -145,3 +145,66 @@ export async function openSshTunnel(req: TunnelRequest): Promise<TunnelHandle> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<TunnelHandle>('tunnel_open', { request: req });
 }
+
+interface SseBridgeMessage {
+  kind: 'open' | 'event' | 'error' | 'closed';
+  data?: string;
+  message?: string;
+}
+
+export interface SseBridgeHandle {
+  close: () => void;
+}
+
+export interface SseBridgeHandlers {
+  onOpen: () => void;
+  /** Raw SSE `data:` payload (a JSON envelope) for one event. */
+  onData: (data: string) => void;
+  onError: (message?: string) => void;
+  onClosed: () => void;
+}
+
+/**
+ * Open an SSE stream through the Rust `gact_sse_open` bridge instead of
+ * a raw browser `EventSource`. Rust reads the stream (no WebView CORS
+ * layer) and forwards each event's data over a Tauri Channel. This is
+ * what makes desktop live-streaming independent of clio's CORS headers
+ * — and lets the bearer token ride along (EventSource can't set headers;
+ * the token travels in the sseUrl query string per SPEC §7). See
+ * `apps/SECURITY.md` + issue #111.
+ *
+ * Pure-web build: callers should guard via `inTauri()` and fall back to
+ * `new EventSource(...)`.
+ */
+export async function openTauriSse(
+  url: string,
+  handlers: SseBridgeHandlers,
+): Promise<SseBridgeHandle> {
+  if (!inTauri()) {
+    throw new Error('openTauriSse() called outside Tauri shell');
+  }
+  const { invoke, Channel } = await import('@tauri-apps/api/core');
+  const ch = new Channel<SseBridgeMessage>();
+  ch.onmessage = (m) => {
+    switch (m.kind) {
+      case 'open':
+        handlers.onOpen();
+        break;
+      case 'event':
+        if (typeof m.data === 'string') handlers.onData(m.data);
+        break;
+      case 'error':
+        handlers.onError(m.message);
+        break;
+      case 'closed':
+        handlers.onClosed();
+        break;
+    }
+  };
+  const id = await invoke<number>('gact_sse_open', { url, headers: {}, onEvent: ch });
+  return {
+    close: () => {
+      void invoke('gact_sse_close', { id });
+    },
+  };
+}
