@@ -251,4 +251,47 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await ctx.close();
     await browser.close();
   });
+
+  /** Create a fresh session via the UI and send `text` without waiting
+   * for an assistant reply — for flows that pause mid-turn (permission). */
+  async function newSessionAndSend(page: Page, text: string): Promise<void> {
+    await page.getByTestId('sessions-new').click();
+    await page.waitForTimeout(1_200);
+    await page.locator('[data-testid^="session-row-"]').first().click();
+    await page.waitForTimeout(600);
+    const composer = page.getByTestId('composer-input');
+    await composer.click();
+    await composer.pressSequentially(text, { delay: 6 });
+    await page.getByTestId('composer-send').click();
+  }
+
+  // -- permission card over SSE #35 #135-perm ------------------------
+  // This is the headline live bug: the SSE reducer read `payload.permission`
+  // but clio emits the permission fields flat in the payload with the tool
+  // identity under `tool_call.tool_name`, so the card never rendered against
+  // a real backend. A tool-using prompt makes clio emit
+  // `permission.requested` (shell_bash) and pause the turn; we deny to keep
+  // the repo clean while still proving the decision round-trips over SSE.
+  test('permission card renders over SSE and clears on a decision (#35 #135)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await newSessionAndSend(
+      page,
+      'Run the shell command: echo hi > clio_perm_probe.txt',
+    );
+    // The card MUST appear — this is the reducer fix under test.
+    await expect(page.getByTestId('permission-card')).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByTestId('permission-card')).toContainText(/shell_bash/i);
+    await page.screenshot({ path: shot('35-135-permission-card'), fullPage: false });
+    // A decision must clear the card (clio emits permission.resolved).
+    await page.getByTestId('permcard-deny').click();
+    await expect(page.getByTestId('permission-card')).toHaveCount(0, {
+      timeout: 15_000,
+    });
+    await page.screenshot({ path: shot('35-135-permission-resolved'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
 });

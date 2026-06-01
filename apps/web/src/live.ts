@@ -504,7 +504,32 @@ function reduce(
       break;
     }
     case 'permission.requested': {
-      const req = p.permission as PermissionRequest | undefined;
+      // clio emits the permission fields flat in the payload with the
+      // tool identity nested under `tool_call.tool_name`:
+      //   { id, session_id, tool_call: { tool_name, input } }
+      // Older fixtures nested the whole request under `payload.permission`
+      // with `tool_name` at the top level. Accept both — reading only
+      // `p.permission` meant the card never rendered against live clio.
+      const nested = p['permission'] as PermissionRequest | undefined;
+      let req = nested;
+      if (!req && typeof p['id'] === 'string') {
+        const tc = p['tool_call'] as
+          | { tool_name?: string; input?: Record<string, unknown> }
+          | undefined;
+        req = {
+          id: p['id'] as string,
+          session_id: (p['session_id'] as string) ?? '',
+          tool_name:
+            tc?.tool_name ?? (p['tool_name'] as string | undefined) ?? 'tool',
+          tool_call: tc?.input ? { input: tc.input } : undefined,
+          risk: p['risk'] as PermissionRequest['risk'],
+          reason: p['reason'] as string | undefined,
+          created_at:
+            (p['created_at'] as string | undefined) ??
+            (p['occurred_at'] as string | undefined) ??
+            '',
+        };
+      }
       if (req) hooks.setPendingPermission(req);
       break;
     }
