@@ -149,6 +149,14 @@ export interface PartRoutingDecision extends PartBase {
   heuristic: boolean;
 }
 
+/** clio delegated the turn to a sub-expert. The handoff detail
+ * (agent_id/parent_id/status/output_summary) rides in `metadata`; `text`
+ * is a ready-made summary. Rendered inline in the transcript. */
+export interface PartExpertHandoff extends PartBase {
+  type: 'expert_handoff';
+  text?: string;
+}
+
 export type Part =
   | PartText
   | PartThinking
@@ -159,7 +167,8 @@ export type Part =
   | FileDiff
   | PartError
   | PartCompaction
-  | PartRoutingDecision;
+  | PartRoutingDecision
+  | PartExpertHandoff;
 
 export interface Message {
   id: string;
