@@ -361,6 +361,35 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await browser.close();
   });
 
+  // -- backend slash command dispatch #118 ---------------------------
+  // The palette routes backend-defined commands through
+  // POST /v1/sessions/{id}/commands/{cmd} (runCommand). Verified live:
+  // /cache-stats → 200 with a system_message result. Assert the dispatch
+  // actually reaches clio's command endpoint.
+  test('palette dispatches a backend slash command via runCommand (#118)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await page.getByTestId('sessions-new').click();
+    await page.waitForTimeout(1_200);
+    await page.locator('[data-testid^="session-row-"]').first().click();
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Control+k');
+    await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('slash-palette-input').fill('cache-stats');
+    await page.waitForTimeout(400);
+    const [resp] = await Promise.all([
+      page.waitForResponse(
+        (r) => /\/commands\//.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 10_000 },
+      ),
+      page.locator('[data-testid^="slash-palette-item-"]').first().click(),
+    ]);
+    expect(resp.status()).toBe(200);
+    await page.screenshot({ path: shot('118-runcommand'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
   // -- permission card over SSE #35 #135-perm ------------------------
   // This is the headline live bug: the SSE reducer read `payload.permission`
   // but clio emits the permission fields flat in the payload with the tool

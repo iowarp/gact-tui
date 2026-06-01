@@ -450,6 +450,30 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- Provider models detail expansion (#101) ----
+  test('Settings → Providers expands a provider to show models (#101)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-providers').click();
+    await expect(
+      page.getByTestId('providers-active').or(page.getByTestId('providers-error')),
+    ).toBeVisible({ timeout: 6_000 });
+    // Expand the first provider's models — GET /v1/providers/{id}/models.
+    // The container renders whether the provider returns a model list or
+    // a source/error detail (e.g. an unreachable local provider), which
+    // is enough to prove the round-trip is wired end-to-end.
+    const toggle = page.locator('[data-testid^="provider-models-toggle-"]').first();
+    await toggle.click();
+    await expect(
+      page.locator('[data-testid^="provider-models-"]').first(),
+    ).toBeVisible({ timeout: 6_000 });
+    await page.screenshot({ path: shot('101-provider-models'), fullPage: false });
+    // The models fetch can still be in flight; drop the CORS route shim
+    // before teardown so a late route.fetch() doesn't error the test.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await close();
+  });
+
   // ---- Composer voice + mic affordances render (#135 #137) ----
   test('Composer exposes voice-upload + mic-record affordances (#135 #137)', async ({ browser }) => {
     const { page, close } = await connect(browser);

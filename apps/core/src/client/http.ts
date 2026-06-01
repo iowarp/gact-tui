@@ -387,8 +387,13 @@ export class Client {
     commandId: string,
     args: Record<string, unknown> = {},
   ): Promise<Record<string, unknown>> {
+    // clio's /v1/commands lists ids with a leading slash (e.g.
+    // "/cache-stats"), but the command endpoint keys on the bare name
+    // ("cache-stats"). Posting the id verbatim yields "%2Fcache-stats"
+    // → 404, so no backend slash command ever dispatched. Strip it.
+    const cmd = commandId.replace(/^\/+/, '');
     return this.post(
-      `/v1/sessions/${encodeURIComponent(sessionId)}/commands/${encodeURIComponent(commandId)}`,
+      `/v1/sessions/${encodeURIComponent(sessionId)}/commands/${encodeURIComponent(cmd)}`,
       args,
     );
   }
