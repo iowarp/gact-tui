@@ -8,6 +8,34 @@
   gap: 24px;
 }
 
+/* Skeleton conversation while messages load on session switch (W3 Tier-1).
+   Bubbles alternate sides like a real user/assistant exchange. */
+.trx__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 8px 0;
+}
+
+.trx__skeleton-bubble {
+  height: 56px;
+  border-radius: 12px;
+  width: 65%;
+}
+
+.trx__skeleton-bubble--short {
+  height: 36px;
+  width: 40%;
+}
+
+.trx__skeleton-bubble--user {
+  align-self: flex-end;
+}
+
+.trx__skeleton-bubble--assistant {
+  align-self: flex-start;
+}
+
 .trx-msg {
   display: flex;
   flex-direction: column;

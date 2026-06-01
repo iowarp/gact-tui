@@ -1068,6 +1068,8 @@ function LiveDriven(props: {
       backendUrl={props.backend.url}
       voiceCapable={!!props.backend.capabilities?.capabilities?.voice}
       sessions={filteredRows()}
+      sessionsLoading={live.sessions.loading}
+      messagesLoading={transcript.messagesLoading()}
       activeId={activeId()}
       workspaces={workspaces()}
       selectedWorkspaceId={selectedWorkspaceId()}
@@ -1296,11 +1298,16 @@ interface ChatLayoutProps {
   backendUrl: string;
   voiceCapable: boolean;
   sessions: SessionRow[];
+  /** True while /v1/sessions loads — SessionsColumn renders skeleton rows. */
+  sessionsLoading?: boolean;
   activeId: string;
   onSelect: (id: string) => void;
   density: TranscriptDensity;
   setDensity: (d: TranscriptDensity) => void;
   messages: Message[];
+  /** True while the active session's messages load — Transcript renders
+   * skeleton bubbles. */
+  messagesLoading?: boolean;
   pendingPermission: PermissionRequest | null;
   pendingQuestion?: import('@clio/core').UserQuestion | null;
   onSubmit?: (text: string) => Promise<void> | void;
@@ -2300,6 +2307,7 @@ function ChatLayout(props: ChatLayoutProps) {
       <Show when={onChat() && sessionsOpen()}>
         <SessionsColumn
           rows={props.sessions}
+          loading={props.sessionsLoading}
           activeId={props.activeId}
           onSelect={props.onSelect}
           onNewSession={props.onNewSession}
@@ -2573,6 +2581,7 @@ function ChatLayout(props: ChatLayoutProps) {
             </Show>
             <Transcript
               messages={props.messages}
+              loading={props.messagesLoading}
               density={props.density}
               onOpenDiff={(d) => setActiveDiff(d)}
               onCopy={props.onCopyMessage}

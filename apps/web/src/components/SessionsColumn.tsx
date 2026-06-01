@@ -59,6 +59,9 @@ export interface SessionsColumnProps {
   /** Currently-selected workspace id ("__all" for unfiltered). */
   selectedWorkspaceId?: string;
   onPickWorkspace?: (id: string) => void;
+  /** True while the sessions list is loading — renders skeleton rows
+   * instead of the empty state so first paint doesn't flash "No sessions". */
+  loading?: boolean;
   /** Manual list refresh — usually wired to live.refetch(). */
   onRefresh?: () => void | Promise<void>;
   /** Import a session from a JSON blob (POST /v1/sessions/import). */
@@ -261,22 +264,40 @@ export function SessionsColumn(props: SessionsColumnProps) {
       <Show
         when={filtered().length > 0}
         fallback={
-          <div
-            class="sx__empty"
-            data-testid={props.rows.length === 0 ? 'sidebar-empty' : 'sessions-empty'}
+          <Show
+            when={props.loading && props.rows.length === 0}
+            fallback={
+              <div
+                class="sx__empty"
+                data-testid={props.rows.length === 0 ? 'sidebar-empty' : 'sessions-empty'}
+              >
+                <div class="sx__empty-icon">
+                  <Icon name="sparkle" size={28} />
+                </div>
+                <p class="sx__empty-title">
+                  {props.rows.length === 0 ? 'No sessions yet' : 'No matches'}
+                </p>
+                <p class="sx__empty-body">
+                  {props.rows.length === 0
+                    ? 'Start a conversation — clio is ready.'
+                    : 'Try a different search.'}
+                </p>
+              </div>
+            }
           >
-            <div class="sx__empty-icon">
-              <Icon name="sparkle" size={28} />
-            </div>
-            <p class="sx__empty-title">
-              {props.rows.length === 0 ? 'No sessions yet' : 'No matches'}
-            </p>
-            <p class="sx__empty-body">
-              {props.rows.length === 0
-                ? 'Start a conversation — clio is ready.'
-                : 'Try a different search.'}
-            </p>
-          </div>
+            {/* Skeleton rows while /v1/sessions loads (W3 Tier-1) — shaped
+                like real session rows so the layout doesn't jump. */}
+            <ul class="sx__list" data-testid="sessions-skeleton" aria-hidden="true">
+              <For each={[0, 1, 2, 3, 4]}>
+                {() => (
+                  <li class="sx__skeleton-row">
+                    <div class="skeleton sx__skeleton-title" />
+                    <div class="skeleton sx__skeleton-meta" />
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
         }
       >
         <ul class="sx__list">

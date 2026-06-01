@@ -416,6 +416,26 @@
   background: transparent;
 }
 
+/* Skeleton session rows while /v1/sessions loads (W3 Tier-1). */
+.sx__skeleton-row {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-30);
+}
+
+.sx__skeleton-title {
+  height: 14px;
+  width: 70%;
+}
+
+.sx__skeleton-meta {
+  height: 10px;
+  width: 45%;
+}
+
 .sx__empty {
   margin: 32px 14px;
   padding: 20px;

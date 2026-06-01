@@ -41,9 +41,18 @@ export function DiscoveryPage(props: DiscoveryPageProps) {
       </header>
 
       <Show when={props.loading}>
+        {/* Content-shaped skeleton (W3 Tier-1) — mirrors the card grid the
+            data will land in, instead of a context-free spinner. */}
         <div class="dp__loading" data-testid="dp-loading">
-          <div class="dp__spinner" />
-          <span>Loading…</span>
+          <div class="dp__skeleton-grid" aria-hidden="true">
+            <div class="skeleton dp__skeleton-card" />
+            <div class="skeleton dp__skeleton-card" />
+            <div class="skeleton dp__skeleton-card" />
+            <div class="skeleton dp__skeleton-card" />
+            <div class="skeleton dp__skeleton-card" />
+            <div class="skeleton dp__skeleton-card" />
+          </div>
+          <span class="dp__loading-label">Loading…</span>
         </div>
       </Show>
 
