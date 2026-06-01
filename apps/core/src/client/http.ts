@@ -1522,21 +1522,37 @@ export class Client {
     return this.get(`/v1/agents/${encodeURIComponent(agentId)}`);
   }
 
-  /** POST /v1/agent-blueprints/validate — dry-run validate a blueprint
-   * document before installing. Returns `{ ok, errors? }`. */
-  validateAgentBlueprint(body: Record<string, unknown>): Promise<{
-    ok: boolean;
-    errors?: string[];
-  }> {
-    return this.post('/v1/agent-blueprints/validate', body);
+  /** POST /v1/agent-blueprints/validate — validate a blueprint on the
+   * clio host BY PATH. clio reads `{path, scope?}` (NOT an inline doc) and
+   * returns `{enabled, validation_errors, ...}`; normalised here to
+   * `{ok, errors}` so call sites stay simple. */
+  async validateAgentBlueprint(body: {
+    path: string;
+    scope?: string;
+  }): Promise<{ ok: boolean; errors: string[]; raw: Record<string, unknown> }> {
+    const raw = await this.post<Record<string, unknown>>(
+      '/v1/agent-blueprints/validate',
+      body,
+    );
+    return {
+      ok: raw['enabled'] === true,
+      errors: (raw['validation_errors'] as string[] | undefined) ?? [],
+      raw,
+    };
   }
 
-  /** POST /v1/agent-blueprints — install a blueprint document. */
-  installAgentBlueprint(body: Record<string, unknown>): Promise<{
-    id: string;
-    [k: string]: unknown;
-  }> {
-    return this.post('/v1/agent-blueprints', body);
+  /** POST /v1/agent-blueprints/install — install from a path or git source.
+   * clio reads `{source|url|path, scope: 'workspace'|'global', workspace_id?}`.
+   * (The bare `/v1/agent-blueprints` collection is GET-only — POSTing there
+   * 405s, which is the bug this replaces.) */
+  installAgentBlueprint(body: {
+    source?: string;
+    path?: string;
+    url?: string;
+    scope?: string;
+    workspace_id?: string;
+  }): Promise<{ id?: string; [k: string]: unknown }> {
+    return this.post('/v1/agent-blueprints/install', body);
   }
 
   /** DELETE /v1/agent-blueprints/{bp} — uninstall a blueprint. */
@@ -1633,12 +1649,22 @@ export class Client {
     );
   }
 
-  /** POST /v1/expert-packs/validate — dry-run validate a pack JSON. */
-  validateExpertPack(body: Record<string, unknown>): Promise<{
-    ok: boolean;
-    errors?: string[];
-  }> {
-    return this.post('/v1/expert-packs/validate', body);
+  /** POST /v1/expert-packs/validate — validate a pack on the clio host BY
+   * PATH (`{path, scope?}`); clio returns `{enabled, validation_errors}`,
+   * normalised here to `{ok, errors}`. */
+  async validateExpertPack(body: {
+    path: string;
+    scope?: string;
+  }): Promise<{ ok: boolean; errors: string[]; raw: Record<string, unknown> }> {
+    const raw = await this.post<Record<string, unknown>>(
+      '/v1/expert-packs/validate',
+      body,
+    );
+    return {
+      ok: raw['enabled'] === true,
+      errors: (raw['validation_errors'] as string[] | undefined) ?? [],
+      raw,
+    };
   }
 
   /** GET /v1/expert-packs — list installed expert packs (PR #344/#376).
