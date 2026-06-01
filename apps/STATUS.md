@@ -107,6 +107,15 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-2: command palette frecency.** New `src/frecency.ts` — every
+  palette pick records count + last-used (Firefox-style frecency: today ×4 / week ×2 /
+  older ×1, capped at 100 entries); the empty-query palette ranks used commands first,
+  top-3 badged "recent". Session jumps excluded (ids churn). Fuzzy ranking still owns
+  ordering once a query is typed. PROOF: audit.spec.ts "(W3 frecency)" vs :17801 — pick
+  "go · doctor" → reopen palette → it's FIRST with the recent chip; PNG
+  `audit/w3-palette-frecency.png`. Unit `Frecency.test.ts` 5/5; web unit 57/57; fixture
+  visual 31/31; lint/typecheck/build green. Next T2: token-rate/TTFT while streaming →
+  diff syntax highlighting → light/dark toggle → previews → remaining T2/T3.
 - 2026-06-01 **W3 Tier-1: first-run onboarding tour — TIER 1 COMPLETE.** New
   `OnboardingTour.tsx`: 5-step spotlight walkthrough (welcome → composer → sessions →
   left rail → command palette) shown once per profile in LIVE mode (never fixtures).
