@@ -137,7 +137,10 @@
      force individual items to break inside themselves. */
   min-width: 0;
   flex: 0 1 auto;
-  overflow: hidden;
+  /* Visible (not hidden): at narrow widths the secondary chips collapse
+     into the ⋯ overflow menu, whose dropdown must escape this box —
+     clipping is no longer the overflow defense, the menu is. */
+  overflow: visible;
 }
 
 .chat__meta-item {
@@ -180,6 +183,35 @@
 .chat__meta-item--clickable:hover {
   background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+}
+
+/* Topbar overflow menu (W3 Tier-1): the ⋯ button + dropdown that holds
+   the secondary chips when the topbar is too narrow to show them inline. */
+.chat__overflow-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.chat__overflow-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 180px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-60);
+  border-radius: 10px;
+  box-shadow: var(--shadow-xl);
+  animation: anim-rise 160ms ease-out both;
+}
+
+.chat__overflow-menu .chat__meta-item {
+  height: auto;
 }
 
 .chat__running-dot {

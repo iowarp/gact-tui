@@ -595,6 +595,72 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-1: topbar overflow when chips don't fit (priority+ pattern) ----
+  test('Narrow topbar collapses secondary chips into a ⋯ overflow menu (W3 overflow)', async ({ browser }) => {
+    // Narrow window: the secondary chips (density/model/perm/cost/tokens)
+    // must NOT render inline; a ⋯ button opens them in a dropdown.
+    const ctx = await browser.newContext({ viewport: { width: 760, height: 720 } });
+    const page = await ctx.newPage();
+    // Inspector closed for a clean reading-mode capture; even without it
+    // the chips can't fit a 760px window.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.inspector-open.v1', 'false');
+    });
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(800);
+
+    // Inline density chip must be collapsed away; the overflow button shown.
+    const overflowBtn = page.getByTestId('topbar-overflow');
+    await expect(overflowBtn).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('density-chip')).toBeHidden();
+    // Open the menu → the secondary chips render inside it.
+    await overflowBtn.click();
+    const menu = page.getByTestId('topbar-overflow-menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByTestId('density-chip')).toBeVisible();
+    await page.screenshot({ path: shot('w3-topbar-overflow'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('Wide topbar renders secondary chips inline, no overflow button (W3 overflow)', async ({ browser }) => {
+    // Inspector closed → the topbar gets the full main-column width at
+    // 1280px, so every chip fits inline and no ⋯ button appears.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.inspector-open.v1', 'false');
+    });
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('density-chip')).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('topbar-overflow')).toBeHidden();
+    await ctx.close();
+  });
+
   // ---- W3 Tier-1: skeleton loaders ----
   test('Discovery page shows content-shaped skeletons while loading (W3 skeletons)', async ({ browser }) => {
     const { page, close } = await connect(browser);

@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`). T1 remaining: topbar overflow, settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`). T1 remaining: settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,7 +107,19 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
-- 2026-06-01 **W3 Tier-1: skeleton loaders + motion.** Content-shaped skeletons replace
+- 2026-06-01 **W3 Tier-1: topbar overflow menu (priority+ pattern).** Secondary topbar
+  chips (cost/tokens/stop-reason/model/perm/density) now collapse into a "⋯" dropdown
+  when they don't FIT, instead of being silently clipped by `overflow:hidden` (the old
+  behavior — chips were invisible at 1280px with the inspector open). Detection is
+  actual-fit (meta `scrollWidth > clientWidth`), NOT a fixed breakpoint — the chip set
+  is dynamic and the topbar width depends on inspector state; a width threshold misfired
+  and broke 4 fixture density tests (caught by the green-baseline run, fixed before
+  commit). Re-expansion uses a learned width ratchet to prevent flapping. Primary chips
+  (session status / sse / running tools) always stay inline. PROOF: audit.spec.ts
+  "(W3 overflow)" ×2 vs :17801 — narrow (760px) collapses + menu opens with the chips;
+  wide (inspector closed) renders inline with no ⋯. PNG `audit/w3-topbar-overflow.png`.
+  Fixture visual 31/31 (regression fixed); web unit 38/38; lint/typecheck/build green.
+  Next W3 T1: settings depth → a11y (focus traps, aria-live, high-contrast) → onboarding. Content-shaped skeletons replace
   spinners/blank panes on the three loading surfaces: (1) **DiscoveryPage** — skeleton
   card grid mirroring the dp__body layout (shared by all 9 discovery pages); (2)
   **SessionsColumn** — new `loading` prop renders skeleton rows while /v1/sessions loads
