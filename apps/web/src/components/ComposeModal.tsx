@@ -1,5 +1,6 @@
 import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import { Icon } from './Icon.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './compose-modal.css';
 
 export interface ComposeModalProps {
@@ -103,7 +104,9 @@ export function ComposeModal(props: ComposeModalProps) {
       <div
         class="cmp"
         role="dialog"
+        aria-modal="true"
         aria-label="Compose prompt"
+        ref={trapFocusRef}
         data-testid="compose-modal"
       >
         <header class="cmp__head">

@@ -573,7 +573,16 @@ export function Transcript(props: TranscriptProps) {
   };
 
   return (
-    <div class="trx" data-density={props.density} data-testid="transcript">
+    // aria-live: screen readers announce streamed content as it lands
+    // (polite — queued behind the user's current reading position).
+    // aria-busy flags the in-flight turn so AT can defer announcement.
+    <div
+      class="trx"
+      data-density={props.density}
+      data-testid="transcript"
+      aria-live="polite"
+      aria-busy={props.streaming ? 'true' : 'false'}
+    >
       <Show when={props.loading && props.messages.length === 0}>
         {/* Skeleton conversation while messages load on session switch
             (W3 Tier-1) — alternating user/assistant shaped bubbles. */}

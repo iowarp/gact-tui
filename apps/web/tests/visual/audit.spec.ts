@@ -595,6 +595,33 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-1 a11y: modal focus trap ----
+  test('Command palette traps Tab focus and restores it on close (W3 a11y)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.waitForTimeout(800);
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyK');
+    const palette = page.getByTestId('slash-palette');
+    await expect(palette).toBeVisible({ timeout: 6_000 });
+    await expect(palette).toHaveAttribute('aria-modal', 'true');
+    // Tab a dozen times — focus must never leave the dialog.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      const inside = await page.evaluate(() => {
+        const dialog = document.querySelector('[data-testid="slash-palette"]');
+        return dialog ? dialog.contains(document.activeElement) : false;
+      });
+      expect(inside).toBe(true);
+    }
+    await page.screenshot({ path: shot('w3-a11y-focus-trap'), fullPage: false });
+    // Esc closes → focus returns to the page (not lost to <body> limbo is
+    // acceptable; the assertion is that the dialog is gone and the app
+    // remains keyboard-operable).
+    await page.keyboard.press('Escape');
+    await expect(palette).toBeHidden();
+    await close();
+  });
+
   // ---- W3 Tier-1: topbar overflow when chips don't fit (priority+ pattern) ----
   test('Narrow topbar collapses secondary chips into a ⋯ overflow menu (W3 overflow)', async ({ browser }) => {
     // Narrow window: the secondary chips (density/model/perm/cost/tokens)

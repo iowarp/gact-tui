@@ -1,6 +1,7 @@
 import { For, Show, createResource, createSignal, onCleanup, onMount } from 'solid-js';
 import type { Client } from '@clio/core';
 import { Icon } from './Icon.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './server-search-panel.css';
 
 export interface ServerSearchPanelProps {
@@ -73,7 +74,9 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
           <aside
             class="ssp"
             role="dialog"
+            aria-modal="true"
             aria-label="Backend message search"
+            ref={trapFocusRef}
             data-testid="server-search-panel"
           >
             <header class="ssp__head">

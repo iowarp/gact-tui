@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { Client } from '@clio/core';
 import { Icon } from './Icon.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './mcp-install-modal.css';
 
 export interface McpInstallModalProps {
@@ -98,7 +99,9 @@ export function McpInstallModal(props: McpInstallModalProps) {
       <div
         class="mim"
         role="dialog"
+        aria-modal="true"
         aria-label="Install an MCP server"
+        ref={trapFocusRef}
         data-testid="mcp-install-modal"
       >
         <header class="mim__head">
