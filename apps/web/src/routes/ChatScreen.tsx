@@ -19,6 +19,7 @@ import type {
   SlashCommandDef,
 } from '@clio/core';
 import type { RunningTool } from '../live.js';
+import { notifPrefs } from '../notif-prefs.js';
 import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
 import { fixturesForDemo } from '../fixtures/demo.js';
@@ -391,46 +392,53 @@ function LiveDriven(props: {
   });
 
   // SSE state-change toasts so the user notices reconnects + errors.
+  // Gated on the connection-status notification preference (Settings →
+  // Appearance → Notifications) — the topbar sse chip still shows state
+  // when these are off.
   let lastSseStatus: typeof transcript.status extends () => infer R ? R : never = 'closed';
   createEffect(() => {
     const s = transcript.status();
     if (s === lastSseStatus) return;
-    if (s === 'error' && lastSseStatus !== 'error') {
-      toast.push({
-        tone: 'error',
-        title: 'SSE disconnected',
-        body: 'Lost the stream from the backend — auto-reconnect is counting down.',
-        duration: 8000,
-        action: {
-          label: 'Reconnect now',
-          onClick: () => transcript.reconnectNow(),
-        },
-      });
-    }
-    if (s === 'open' && lastSseStatus === 'error') {
-      toast.push({
-        tone: 'success',
-        title: 'SSE reconnected',
-        duration: 2500,
-      });
+    if (notifPrefs().connectionStatus) {
+      if (s === 'error' && lastSseStatus !== 'error') {
+        toast.push({
+          tone: 'error',
+          title: 'SSE disconnected',
+          body: 'Lost the stream from the backend — auto-reconnect is counting down.',
+          duration: 8000,
+          action: {
+            label: 'Reconnect now',
+            onClick: () => transcript.reconnectNow(),
+          },
+        });
+      }
+      if (s === 'open' && lastSseStatus === 'error') {
+        toast.push({
+          tone: 'success',
+          title: 'SSE reconnected',
+          duration: 2500,
+        });
+      }
     }
     lastSseStatus = s;
   });
 
-  // Surface a completed turn so users notice when CLIO finishes.
+  // Surface a completed turn so users notice when CLIO finishes. Success
+  // toasts are gated on the turn-completions notification preference;
+  // error completions ALWAYS toast (errors are never silenced).
   let lastCompletionId: string | undefined;
   createEffect(() => {
     const c = transcript.lastCompletion();
     if (!c || c.message_id === lastCompletionId) return;
     lastCompletionId = c.message_id;
-    const tone = c.stop_reason === 'error' ? 'error' : 'success';
+    const isError = c.stop_reason === 'error';
+    if (!isError && !notifPrefs().turnCompletions) return;
     toast.push({
-      tone,
-      title: c.stop_reason === 'error' ? 'Turn ended in error' : 'CLIO responded',
-      body:
-        c.stop_reason === 'error'
-          ? 'See the message error pill for detail.'
-          : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
+      tone: isError ? 'error' : 'success',
+      title: isError ? 'Turn ended in error' : 'CLIO responded',
+      body: isError
+        ? 'See the message error pill for detail.'
+        : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
       duration: 3500,
     });
   });
