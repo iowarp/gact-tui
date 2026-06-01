@@ -1,6 +1,6 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-05-29 (E-19..E-25 wire-shape + SSE handler pass)
+**Last updated:** 2026-05-31 (live-turn verification pass — E-27/E-28 fixes)
 **Branch:** `feat/apps-harness`
 **Phase:** v0.9.1 in flight on `feat/apps-harness` HEAD
 
@@ -941,3 +941,90 @@ waiting for "Paris" to appear in the transcript pane).
 - #130 MCP resource preview — clio has no /v1/mcp/servers/{id}/resources/read
 - #136 TTS Speak — clio has no /v1/sessions/{id}/voice/synthesize
 
+## 2026-05-31 — live-turn verification pass (clio :17800, ALCF Metis)
+
+Re-spawned clio on :17800 (`CLIO_LM_PROVIDER=argonne`, Metis /
+gpt-oss-120b), smoke-confirmed a real turn (`Paris`, stop_reason
+end_turn), then drove the 15 re-opened audit gaps against it. The
+earlier "dspy Turn failed" era is gone — turns complete — so the
+specs that timed out on `Paris` now have a real assistant message to
+target. This pass **supersedes** the matrix above.
+
+### Real bugs found and fixed (each its own commit)
+- **Permission card never rendered over SSE (#35).** `live.ts` reducer
+  read `payload.permission`, but clio emits the fields flat with the
+  tool identity under `tool_call.tool_name`
+  (`{id, session_id, tool_call:{tool_name, input}}`). So
+  `setPendingPermission` never fired and the card was dead against any
+  real backend — only the fixture path (which nests under
+  `payload.permission`) ever worked. Now maps clio's flat shape;
+  verified live: a tool-using prompt → `permission.requested
+  (shell_bash)` → card renders → deny clears it via
+  `permission.resolved`. (`ff37f4e`)
+- **Backend slash commands never dispatched (#118).** clio's
+  `/v1/commands` lists ids with a leading slash (`/cache-stats`), but
+  `POST /commands/{cmd}` keys on the bare name; the client posted the
+  id verbatim → `%2Fcache-stats` → 404. `runCommand` now strips the
+  leading slash; verified live: palette → `/cache-stats` → 200.
+  (`8faec8e`)
+- **(test bug) oneturn msg-id extraction** blocklisted only
+  `-copy-`/`-link-`, letting `msg-edit-`/`msg-delete-` button ids
+  through so the helper returned a button fragment as the assistant
+  message id — the per-message specs hung to the 240s timeout. Anchored
+  on `msg-msg_` (container ids start with `msg_`). (`3341470`)
+
+### Reducer audit (vs captured live payloads)
+Diffed every message/frame/status reducer case against real clio
+payloads. All correct: `message.created` (flat id/role/parts),
+`message.part.added` (message_id/part), `message.part.completed`
+(final_text — batch-mode authoritative text), `message.completed`
+(message_id/stop_reason/tokens), `context.frame.*`, `session.status_changed`.
+Permission was the lone broken case.
+
+### Verified end-to-end against live clio (PNG proofs in screenshots/audit/)
+- **#35 / #135-perm** permission card over SSE + decision round-trip
+- **#99** per-message delete removes the row
+- **#117 / #129** inspector Frames tab shows the turn frame completed
+- **#139** per-message copy-permalink toast
+- **#133** inspector task status cycles (PATCH /v1/tasks/{tid})
+- **#145** fork lineage ↘ badge (clio fork → `parent_session_id`)
+- **#146** context-file mode cycles read→edit (POST upsert)
+- **#118** palette dispatches a backend slash command (→ 200)
+- **#101** Settings → Providers expands a provider's models
+  (GET /v1/providers/{id}/models)
+
+`oneturn-audits.spec.ts`: 10 passed, 1 skipped (TTS, voice:false).
+36 core unit tests pass.
+
+### Blocked on clio behavior (this build) — documented, not failing
+- **#110 / #116 autorename pill** — clio derives the session title from
+  the id at creation (`session <suffix>`) and emits **no**
+  `session.updated(title)` event after a turn (confirmed: 3 turns, 0
+  `session.updated` events, only `session.status_changed`). The pill is
+  wired to that event so it can't fire. `oneturn-audits` pins the real
+  no-pill behavior (`110-116-no-rename-pill.png`); a future autorename
+  build flips it red.
+- **#94 ask-user retry** — no `user_question` event even on a
+  deliberately ambiguous prompt ("Fix it."); this orchestrator just
+  answers.
+- **#111 lm.provider.{changed,failed} toasts** — `PUT /v1/providers/lm`
+  emits no `lm.provider.*` event on the session SSE stream the desktop
+  subscribes to.
+- **#143 bulk diff apply/reject** — the agent edits files via
+  `shell_bash` (`echo > file`), which emits no `file.diff.*`; the
+  session diffs endpoint stays `{diffs:[]}`. No diff-proposing edit tool
+  is exercised, so there's nothing to apply/reject.
+
+### Permanently blocked on clio capabilities
+- **#130** MCP resource preview — no `/v1/mcp/servers/{id}/resources/read`
+- **#136** TTS Speak — no `/v1/sessions/{id}/voice/synthesize` (voice:false)
+
+### Verified by shared mechanism, not cold-driven
+- **#144 permalink scroll-to-message** — the scroll+flash path
+  (`getElementById` → `scrollIntoView` → `trx-msg--flash`) is the same
+  one exercised by the passing #139 copy-link and search-jump specs. The
+  distinct cold-permalink-on-load path needs the app to remount with the
+  hash present, which the transient Playwright connect (no backend
+  persistence across `page.reload()`) can't provide. Not a clio block;
+  deferred to a desktop-shell reload test where the backend is
+  persisted.
