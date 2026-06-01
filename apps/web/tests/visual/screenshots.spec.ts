@@ -256,6 +256,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('discovery-agents lists the tier-1/2 agent catalog', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -279,6 +284,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('discovery-mcp lists the MCP servers + their tool counts', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -304,6 +314,11 @@ test.describe('CLIO harness — visual proofs', () => {
   }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -328,6 +343,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('settings-providers shows the active LM + Use as LM buttons', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -352,6 +372,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('settings-shell-about shows the About section', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -378,6 +403,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('settings-shell-appearance shows theme + density choices', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -402,6 +432,11 @@ test.describe('CLIO harness — visual proofs', () => {
   test('discovery-metrics shows the metrics dashboard', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run onboarding tour (W3) has its
+    // own dedicated audit test and must not block these click-throughs.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
         await route.continue();
@@ -432,6 +467,11 @@ test.describe('CLIO harness — visual proofs', () => {
     // missing CORS header on the response and let the chat shell mount.
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    // Returning-user profile — the first-run tour must not cover the shell
+    // in this capture (it has its own dedicated audit test + PNG).
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
     await page.route('**/v1/**', async (route) => {
       // SSE responses are unbounded — route.fetch() would hang reading
       // the body. Let those pass through to the browser, which will

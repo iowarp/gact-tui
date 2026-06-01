@@ -35,6 +35,11 @@ async function connect(
 ): Promise<{ page: Page; close: () => Promise<void> }> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
+  // Returning-user profile: the first-run onboarding tour must not overlay
+  // the surfaces these tests drive. The tour has its own dedicated test.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('clio.onboarding-done.v1', '1');
+  });
   await page.route('**/v1/**', async (route) => {
     if (route.request().url().includes('/events')) {
       await route.continue();
@@ -595,6 +600,57 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-1: first-run onboarding tour ----
+  test('First run shows the onboarding tour; finishing it persists (W3 onboarding)', async ({ browser }) => {
+    // Fresh profile — NO onboarding flag → the tour must auto-appear after
+    // the chat shell mounts.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+
+    // Tour appears on the welcome step.
+    const tour = page.getByTestId('onboarding-tour');
+    await expect(tour).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('onboarding-title')).toContainText('Welcome');
+    await page.screenshot({ path: shot('w3-onboarding-welcome'), fullPage: false });
+
+    // Step through every page — titles change, spotlight follows.
+    const next = page.getByTestId('onboarding-next');
+    await next.click(); // → composer
+    await expect(page.getByTestId('onboarding-title')).toContainText('Ask anything');
+    await page.screenshot({ path: shot('w3-onboarding-composer'), fullPage: false });
+    await next.click(); // → sessions
+    await expect(page.getByTestId('onboarding-title')).toContainText('Sessions');
+    await next.click(); // → rail
+    await expect(page.getByTestId('onboarding-title')).toContainText('Discovery');
+    await next.click(); // → palette
+    await expect(page.getByTestId('onboarding-title')).toContainText('palette');
+    // Finish.
+    await next.click();
+    await expect(tour).toBeHidden();
+
+    // Finishing persists the done-flag, so the tour never auto-shows again.
+    // (Asserted on the flag directly — reloading ?route=connect lands on the
+    // connect form, not chat, since the manual connection isn't persisted.)
+    const flag = await page.evaluate(() =>
+      window.localStorage.getItem('clio.onboarding-done.v1'),
+    );
+    expect(flag).toBe('1');
+    await ctx.close();
+  });
+
   // ---- W3 Tier-1: settings depth ----
   test('Appearance presets apply high-contrast tokens live (W3 settings)', async ({ browser }) => {
     const { page, close } = await connect(browser);
@@ -669,9 +725,11 @@ test.describe('CLIO audit-batch verification', () => {
     const ctx = await browser.newContext({ viewport: { width: 760, height: 720 } });
     const page = await ctx.newPage();
     // Inspector closed for a clean reading-mode capture; even without it
-    // the chips can't fit a 760px window.
+    // the chips can't fit a 760px window. Returning-user profile so the
+    // onboarding tour doesn't overlay the topbar.
     await page.addInitScript(() => {
       window.localStorage.setItem('clio.inspector-open.v1', 'false');
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
     });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {
@@ -708,6 +766,7 @@ test.describe('CLIO audit-batch verification', () => {
     const page = await ctx.newPage();
     await page.addInitScript(() => {
       window.localStorage.setItem('clio.inspector-open.v1', 'false');
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
     });
     await page.route('**/v1/**', async (route) => {
       if (route.request().url().includes('/events')) {

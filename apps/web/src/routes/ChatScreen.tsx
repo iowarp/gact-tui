@@ -38,6 +38,11 @@ import {
   type DetachedSession,
 } from '../detached.js';
 import { invokePlugin, listPlugins } from '../plugins.js';
+import {
+  OnboardingTour,
+  markOnboardingDone,
+  shouldShowOnboarding,
+} from '../components/OnboardingTour.js';
 import { CatalogBrowser } from '../components/CatalogBrowser.js';
 import { ComposeModal } from '../components/ComposeModal.js';
 import { SharedSessionModal } from '../components/SharedSessionModal.js';
@@ -1078,6 +1083,7 @@ function LiveDriven(props: {
       sessions={filteredRows()}
       sessionsLoading={live.sessions.loading}
       messagesLoading={transcript.messagesLoading()}
+      enableOnboarding={true}
       activeId={activeId()}
       workspaces={workspaces()}
       selectedWorkspaceId={selectedWorkspaceId()}
@@ -1316,6 +1322,9 @@ interface ChatLayoutProps {
   /** True while the active session's messages load — Transcript renders
    * skeleton bubbles. */
   messagesLoading?: boolean;
+  /** Live mode only: show the first-run onboarding tour when the profile
+   * has never completed it. Fixture mode never enables this. */
+  enableOnboarding?: boolean;
   pendingPermission: PermissionRequest | null;
   pendingQuestion?: import('@clio/core').UserQuestion | null;
   onSubmit?: (text: string) => Promise<void> | void;
@@ -1506,6 +1515,15 @@ function ChatLayout(props: ChatLayoutProps) {
   const [searchQuery, setSearchQuery] = createSignal('');
   const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
   const [serverSearchOpen, setServerSearchOpen] = createSignal(false);
+
+  // First-run onboarding tour (W3 Tier-1) — live mode only, once per profile.
+  const [tourOpen, setTourOpen] = createSignal(
+    !!props.enableOnboarding && shouldShowOnboarding(),
+  );
+  function finishTour() {
+    markOnboardingDone();
+    setTourOpen(false);
+  }
 
   // Topbar overflow (W3 Tier-1): collapse the lower-priority meta chips
   // (cost / tokens / stop reason / model / perm / density) into a "⋯" menu
@@ -2829,6 +2847,8 @@ function ChatLayout(props: ChatLayoutProps) {
         open={cheatsheetOpen()}
         onClose={() => setCheatsheetOpen(false)}
       />
+
+      <OnboardingTour open={tourOpen()} onFinish={finishTour} />
 
       <SharedSessionModal
         open={sharedSessionOpen()}
