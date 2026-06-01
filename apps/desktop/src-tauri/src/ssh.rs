@@ -273,4 +273,94 @@ mod tunnel_tests {
         // contract envelope; any 2xx/4xx still proves bytes traversed.
         eprintln!("tunnel reached remote service; body/preview: {last:.120}");
     }
+
+    fn local_serves(url: &str) -> bool {
+        matches!(
+            ureq::get(&format!("{url}/v1/capabilities"))
+                .timeout(Duration::from_millis(1200))
+                .call(),
+            Ok(_) | Err(ureq::Error::Status(_, _))
+        )
+    }
+
+    /// HARDENING: a tunnel to a host that refuses the SSH connection
+    /// must NOT end up forwarding. With `ExitOnForwardFailure=yes` the
+    /// ssh child exits, so the local port never serves. Guards against a
+    /// "looks connected but is a black hole" false-positive.
+    #[test]
+    fn bad_host_does_not_forward() {
+        if !super::ssh_available() {
+            eprintln!("skip: ssh not on PATH");
+            return;
+        }
+        let mgr = TunnelManager::new();
+        // 127.0.0.1:22 has no sshd on a stock Windows box → connection
+        // refused fast → ssh exits → no forward (deterministic, no slow
+        // black-hole timeout).
+        let handle = mgr
+            .open(TunnelRequest {
+                host: "127.0.0.1".into(),
+                user: "nobody".into(),
+                remote_port: 18900,
+                key_path: String::new(),
+                passphrase: None,
+            })
+            .expect("open() returns Ok once the child is spawned");
+        // Give ssh a moment to fail + exit.
+        let mut served = false;
+        for _ in 0..8 {
+            if local_serves(&handle.local_url) {
+                served = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(400));
+        }
+        mgr.shutdown_all();
+        assert!(
+            !served,
+            "a tunnel to a refusing host must not forward, but {} answered",
+            handle.local_url
+        );
+    }
+
+    /// HARDENING: shutdown_all() must reap the ssh child so the local
+    /// forwarded port stops serving. Proves teardown actually kills the
+    /// tunnel rather than leaking it.
+    #[test]
+    fn reaping_stops_forwarding() {
+        let Some((host, user, key_path, remote_port)) = cfg() else {
+            eprintln!("skip: SSH_TUNNEL_* env not set");
+            return;
+        };
+        let mgr = TunnelManager::new();
+        let handle = mgr
+            .open(TunnelRequest { host, user, remote_port, key_path, passphrase: None })
+            .expect("tunnel open");
+        // Wait until it forwards.
+        let mut up = false;
+        for _ in 0..24 {
+            if local_serves(&handle.local_url) {
+                up = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        assert!(up, "tunnel never came up at {}", handle.local_url);
+
+        // Reap, then the local port must stop serving.
+        mgr.shutdown_all();
+        let mut down = false;
+        for _ in 0..16 {
+            if !local_serves(&handle.local_url) {
+                down = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        assert!(
+            down,
+            "forwarding still alive after shutdown_all — tunnel leaked at {}",
+            handle.local_url
+        );
+    }
 }
