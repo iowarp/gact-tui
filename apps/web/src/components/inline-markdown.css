@@ -39,6 +39,53 @@
   color: var(--color-text);
 }
 
+/* highlight.js token theme — mapped to the CLIO palette so code blocks stay
+   on-brand instead of importing a clashing third-party theme. */
+.im__code code.hljs {
+  display: block;
+  white-space: pre;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--color-muted);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type,
+.hljs-name {
+  color: var(--color-accent, #6e9bff);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-regexp,
+.hljs-addition {
+  color: #6fcf97;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: #e0a35e;
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-built_in {
+  color: var(--color-accent-cyan, #56c2d6);
+}
+.hljs-meta,
+.hljs-tag,
+.hljs-deletion {
+  color: var(--color-muted);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}
+
 /* Headings + lists + links — additions for the v0.9.1 polish pass.    */
 .im__h {
   margin: 16px 0 6px;

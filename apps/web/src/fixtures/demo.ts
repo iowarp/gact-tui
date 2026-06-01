@@ -44,7 +44,7 @@ export function fixturesForDemo(): DemoFixtures {
           input: { path: 'src/handlers.go' },
         },
         { type: 'tool_result', tool_call_id: 'tc-read-1', output: 'func handle(r *Request) {\n    println("got request")\n}\n' },
-        { type: 'text', text: "Here's the patch — switched to structured logging and surfaced an error return." },
+        { type: 'text', text: "Here's the patch — switched to structured logging and surfaced an error return.\n\n```go\nfunc handle(w http.ResponseWriter, r *http.Request) {\n\tif err := process(r); err != nil {\n\t\tlog.Error(\"process failed\", \"err\", err)\n\t\thttp.Error(w, \"internal\", 500)\n\t\treturn\n\t}\n\tlog.Info(\"handled request\", \"path\", r.URL.Path)\n}\n```" },
         {
           type: 'file_diff',
           path: 'src/handlers.go',

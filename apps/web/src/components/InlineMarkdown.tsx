@@ -1,4 +1,5 @@
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
+import hljs from 'highlight.js/lib/common';
 
 export interface InlineMarkdownProps {
   text: string;
@@ -171,6 +172,25 @@ function CodeBlock(props: { lang: string | null; body: string }) {
     });
   }
 
+  // Syntax-highlight via highlight.js. It HTML-escapes the source, so the
+  // returned markup is safe to inject. Use the declared fence language when
+  // hljs knows it, else auto-detect; fall back to escaped plain text.
+  const highlighted = createMemo(() => {
+    const code = props.body;
+    const lang = (props.lang ?? '').toLowerCase();
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    } catch {
+      return code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  });
+
   return (
     <pre class={'im__code ' + (props.lang ? `im__code--${props.lang}` : '')}>
       <Show when={props.lang}>
@@ -185,7 +205,8 @@ function CodeBlock(props: { lang: string | null; body: string }) {
       >
         {copied() ? 'copied' : 'copy'}
       </button>
-      <code>{props.body}</code>
+      {/* hljs HTML-escapes the source, so this markup is injection-safe. */}
+      <code class="hljs" innerHTML={highlighted()} />
     </pre>
   );
 }
