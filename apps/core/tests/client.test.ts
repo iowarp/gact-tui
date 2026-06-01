@@ -52,6 +52,25 @@ describe('Client', () => {
     await expect(c.capabilities()).rejects.toBeInstanceOf(HttpError);
   });
 
+  it('summarizeSession POSTs to /v1/sessions/{id}/summarize with the body', async () => {
+    let seenUrl: string | null = null;
+    let seenMethod: string | undefined;
+    let seenBody: unknown = null;
+    const fetchImpl: typeof fetch = (input, init) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      seenMethod = init?.method;
+      seenBody = init?.body ? JSON.parse(init.body as string) : null;
+      return Promise.resolve(
+        new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    await c.summarizeSession('sess_abc', { auto: false, instructions: 'tldr' });
+    expect(seenUrl).toBe('http://localhost:7777/v1/sessions/sess_abc/summarize');
+    expect(seenMethod).toBe('POST');
+    expect(seenBody).toEqual({ auto: false, instructions: 'tldr' });
+  });
+
   it('lifts structured GACT error envelopes onto HttpError.errorInfo', async () => {
     const body = JSON.stringify({
       error: {
