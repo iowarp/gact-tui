@@ -190,7 +190,9 @@ function previewFromFixture(
 
 function LiveDriven(props: {
   backend: BackendHandle;
-  onOpenSettings?: () => void;
+  // Accepts a section so error toasts can deep-link (e.g. 'providers'
+  // when a send fails because no LM is configured).
+  onOpenSettings?: (section?: SettingsSection) => void;
   onAddRemote?: () => void;
 }) {
   const live = createLiveSessions({
@@ -271,6 +273,18 @@ function LiveDriven(props: {
   );
   const [streaming, setStreaming] = createSignal(false);
   const toast = useToast();
+
+  /** Error toast with a one-click Retry action. Every operation failure
+   * routes through here so no error is a dead-end (W3 Tier-1: actionable
+   * error states) — the retry closure is simply the failed operation. */
+  function failToast(title: string, e: unknown, retry?: () => void) {
+    toast.push({
+      tone: 'error',
+      title,
+      body: e instanceof Error ? e.message : String(e),
+      ...(retry ? { action: { label: 'Retry', onClick: retry } } : {}),
+    });
+  }
 
   // Listen for `clio:toast` custom events so ChatLayout (no Toast
   // context) can still surface feedback. Used by Cmd+Y transcript
@@ -385,8 +399,12 @@ function LiveDriven(props: {
       toast.push({
         tone: 'error',
         title: 'SSE disconnected',
-        body: 'Lost the stream from the backend; reconnect on next message.',
-        duration: 5000,
+        body: 'Lost the stream from the backend — auto-reconnect is counting down.',
+        duration: 8000,
+        action: {
+          label: 'Reconnect now',
+          onClick: () => transcript.reconnectNow(),
+        },
       });
     }
     if (s === 'open' && lastSseStatus === 'error') {
@@ -429,16 +447,26 @@ function LiveDriven(props: {
       await live.client.sendMessage(sessionId, { text });
     } catch (e) {
       // Common cause: no LM configured. Surface the backend's typed
-      // error envelope instead of leaving the user wondering.
+      // error envelope instead of leaving the user wondering — and give
+      // a one-click next action (deep-link to Models settings / retry).
       const msg = e instanceof Error ? e.message : String(e);
       const isLmIssue = /lm_provider|provider|api_key|api_base|model/i.test(msg);
       toast.push({
         tone: 'error',
         title: isLmIssue ? 'LM not configured' : 'Send failed',
         body: isLmIssue
-          ? `${msg} — pick a provider in Settings → Models.`
+          ? `${msg} — pick a provider in Settings → Models & providers.`
           : msg,
-        duration: 6000,
+        duration: 8000,
+        action: isLmIssue
+          ? {
+              label: 'Open model settings',
+              onClick: () => props.onOpenSettings?.('providers'),
+            }
+          : {
+              label: 'Retry',
+              onClick: () => void sendUserMessage(text),
+            },
       });
     }
   }
@@ -467,11 +495,7 @@ function LiveDriven(props: {
       // SSE will clear the card via user_question.answered.
       await transcript.refetch();
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Answer failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Answer failed', e, () => void answerQuestion(body));
     }
   }
 
@@ -482,11 +506,7 @@ function LiveDriven(props: {
     try {
       await live.client.cancelSessionQuestion(id, q.id);
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Cancel failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Cancel failed', e, () => void cancelQuestion());
     }
   }
 
@@ -518,11 +538,7 @@ function LiveDriven(props: {
         duration: 3000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Import failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Import failed', e, () => void importSession(blob));
     }
   }
 
@@ -531,11 +547,7 @@ function LiveDriven(props: {
       await live.client.patchSession(id, { title: nextTitle });
       live.patch(id, { title: nextTitle });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Rename failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Rename failed', e, () => void renameSession(id, nextTitle));
     }
   }
 
@@ -548,11 +560,7 @@ function LiveDriven(props: {
       catch { /* ignore */ }
       toast.push({ tone: 'success', title: 'Session deleted', duration: 2200 });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Delete failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Delete failed', e, () => void deleteSession(id));
     }
   }
 
@@ -578,11 +586,7 @@ function LiveDriven(props: {
         duration: 3000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Export failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Export failed', e, () => void exportSession(id, format));
     }
   }
 
@@ -601,11 +605,7 @@ function LiveDriven(props: {
         duration: 5000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Share failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Share failed', e, () => void shareSession(id));
     }
   }
 
@@ -621,11 +621,7 @@ function LiveDriven(props: {
         duration: 3000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Compact failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Compact failed', e, () => void compactActive());
     }
   }
 
@@ -642,11 +638,7 @@ function LiveDriven(props: {
         duration: 2200,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Undo failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Undo failed', e, () => void undoActive());
     }
   }
 
@@ -662,11 +654,7 @@ function LiveDriven(props: {
         duration: 3000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Summarize failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Summarize failed', e, () => void summarizeActive());
     }
   }
 
@@ -685,11 +673,7 @@ function LiveDriven(props: {
         duration: 3000,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Fork failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Fork failed', e, () => void forkSession(id));
     }
   }
 
@@ -909,12 +893,7 @@ function LiveDriven(props: {
       await live.client.setSessionBlueprint(sid, { blueprint_id: blueprintId });
       void refetchBindings();
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Could not bind blueprint',
-        body: e instanceof Error ? e.message : String(e),
-        duration: 5000,
-      });
+      failToast('Could not bind blueprint', e, () => void bindBlueprint(blueprintId));
     }
   }
 
@@ -925,12 +904,7 @@ function LiveDriven(props: {
       await live.client.setSessionExpertPack(sid, { pack_id: packId });
       void refetchBindings();
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Could not bind expert pack',
-        body: e instanceof Error ? e.message : String(e),
-        duration: 5000,
-      });
+      failToast('Could not bind expert pack', e, () => void bindExpertPack(packId));
     }
   }
 
@@ -947,12 +921,7 @@ function LiveDriven(props: {
         duration: 2400,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Could not add schedule',
-        body: e instanceof Error ? e.message : String(e),
-        duration: 5000,
-      });
+      failToast('Could not add schedule', e, () => void createSchedule(body));
     }
   }
 
@@ -961,12 +930,7 @@ function LiveDriven(props: {
       await live.client.deleteSchedule(scheduleId);
       void refetchSchedules();
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Could not delete schedule',
-        body: e instanceof Error ? e.message : String(e),
-        duration: 5000,
-      });
+      failToast('Could not delete schedule', e, () => void deleteScheduleById(scheduleId));
     }
   }
 
@@ -983,11 +947,7 @@ function LiveDriven(props: {
         duration: 2400,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Pin failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Pin failed', e, () => void pinFileToContext(path));
     }
   }
 
@@ -1004,11 +964,7 @@ function LiveDriven(props: {
         duration: 2200,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Remove failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Remove failed', e, () => void removeContextFile(path));
     }
   }
 
@@ -1051,11 +1007,7 @@ function LiveDriven(props: {
     try {
       await live.client.retryTurn(id, msg.id, { execute: true });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Regenerate failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Regenerate failed', e, () => void regenerateMessage(msg));
     }
   }
 
@@ -1091,11 +1043,7 @@ function LiveDriven(props: {
         duration: 2200,
       });
     } catch (e) {
-      toast.push({
-        tone: 'error',
-        title: 'Delete failed',
-        body: e instanceof Error ? e.message : String(e),
-      });
+      failToast('Delete failed', e, () => void deleteMessage(msg));
     }
   }
 
@@ -1154,17 +1102,12 @@ function LiveDriven(props: {
       onPickPermMode={pickPermMode}
       slashCommands={slashCommands()}
       sessionTasks={sessionTasks()}
-      onCycleTaskStatus={async (tid, next) => {
+      onCycleTaskStatus={async function cycleTask(tid, next) {
         try {
           await live.client.patchSessionTask(tid, { status: next });
           void refetchTasks();
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Could not update task',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 5000,
-          });
+          failToast('Could not update task', e, () => void cycleTask(tid, next));
         }
       }}
       contextFiles={contextFiles()}
@@ -1202,12 +1145,7 @@ function LiveDriven(props: {
           }
           void refetchSessionDiffs();
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Apply failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 5000,
-          });
+          failToast('Apply failed', e);
         }
       }}
       onRejectAllDiffs={async () => {
@@ -1224,12 +1162,7 @@ function LiveDriven(props: {
           });
           void refetchSessionDiffs();
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Reject failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 5000,
-          });
+          failToast('Reject failed', e);
         }
       }}
       schedules={schedules()}
@@ -1255,19 +1188,14 @@ function LiveDriven(props: {
         return live.client.runCommand(sid, id, args);
       }}
       onRemoveContextFile={removeContextFile}
-      onCycleContextFileMode={async (path, next) => {
+      onCycleContextFileMode={async function cycleMode(path, next) {
         const sid = activeId();
         if (!sid) return;
         try {
           await live.client.patchContextFile(sid, { path, mode: next });
           void refetchContextFiles();
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Mode change failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 4000,
-          });
+          failToast('Mode change failed', e, () => void cycleMode(path, next));
         }
       }}
       onCopyMessage={copyMessageToClipboard}
@@ -1290,12 +1218,7 @@ function LiveDriven(props: {
             duration: 3500,
           });
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Summarize failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 5000,
-          });
+          failToast('Summarize failed', e);
         }
       }}
       onExtractAgent={async () => {
@@ -1316,12 +1239,7 @@ function LiveDriven(props: {
             duration: 4000,
           });
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'Extract failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 5000,
-          });
+          failToast('Extract failed', e);
         }
       }}
       onCopyMessagePermalink={async (msg) => {
@@ -1340,7 +1258,7 @@ function LiveDriven(props: {
           /* clipboard blocked — ignore */
         }
       }}
-      onSpeakMessage={async (msg) => {
+      onSpeakMessage={async function speakMessage(msg) {
         const sid = activeId();
         if (!sid) return;
         const text = messageToText(msg).slice(0, 4000);
@@ -1352,12 +1270,7 @@ function LiveDriven(props: {
           audio.addEventListener('ended', () => URL.revokeObjectURL(url));
           await audio.play();
         } catch (e) {
-          toast.push({
-            tone: 'error',
-            title: 'TTS failed',
-            body: e instanceof Error ? e.message : String(e),
-            duration: 4000,
-          });
+          failToast('TTS failed', e, () => void speakMessage(msg));
         }
       }}
       onPinFile={pinFileToContext}

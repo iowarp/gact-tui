@@ -92,6 +92,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0 && !showForm()}
       emptyTitle="No workspaces registered"
       emptyBody="Click + above to add one — CLIO needs a root path before it can read or write files."

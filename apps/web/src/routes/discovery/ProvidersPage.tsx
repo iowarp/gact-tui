@@ -95,6 +95,7 @@ export function ProvidersPage(props: ProvidersPageProps) {
           ? String((providers.error as Error).message ?? providers.error)
           : null
       }
+      onRetry={() => void refetchProviders()}
       empty={!providers.loading && items().length === 0}
       emptyTitle="No providers configured"
       emptyBody="Set CLIO_LM_PROVIDER on the backend or add a provider via Settings."

@@ -40,6 +40,7 @@ export function DoctorPage(props: DoctorPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && integrations().length === 0}
       emptyTitle="No integration data"
       emptyBody="Backend does not expose /v1/health or has no integrations registered."

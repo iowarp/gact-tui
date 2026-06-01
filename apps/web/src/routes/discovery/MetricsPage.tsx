@@ -26,6 +26,7 @@ export function MetricsPage(props: MetricsPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
     >
       <Show when={data()}>
         {(d) => (

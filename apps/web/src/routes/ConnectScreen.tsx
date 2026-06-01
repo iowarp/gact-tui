@@ -31,6 +31,17 @@ export function ConnectScreen(props: ConnectScreenProps) {
     }
   }
 
+  // Actionable hint derived from the failure shape — tells the user what to
+  // try next instead of leaving a bare HTTP code / network error.
+  const errorHint = () => {
+    const msg = error();
+    if (!msg) return null;
+    if (/401|403/.test(msg)) return 'The backend rejected the credentials — paste a token from `clio-agent token issue`.';
+    if (/404/.test(msg)) return 'That URL responded but is not a GACT backend — check the port.';
+    if (/HTTP \d/.test(msg)) return 'The backend answered with an error — check its logs, then press Connect to retry.';
+    return 'Nothing answered at that URL — is clio running? Start it with `clio start`, then press Connect to retry.';
+  };
+
   return (
     <div class="connect" data-testid="connect-screen-bg">
       <main class="connect__main" data-testid="connect-screen">
@@ -80,7 +91,10 @@ export function ConnectScreen(props: ConnectScreenProps) {
           <Show when={error()}>
             <div class="connect__error" data-testid="connect-error">
               <Icon name="help" size={14} />
-              <span>{error()}</span>
+              <span>
+                {error()}
+                <span class="connect__error-hint">{errorHint()}</span>
+              </span>
             </div>
           </Show>
 

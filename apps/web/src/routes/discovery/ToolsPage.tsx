@@ -38,6 +38,7 @@ export function ToolsPage(props: ToolsPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0}
       emptyTitle="No commands registered"
       emptyBody="Backend exposes no /v1/commands; the composer's slash palette falls back to defaults."

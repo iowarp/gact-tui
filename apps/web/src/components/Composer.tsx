@@ -443,6 +443,41 @@ export function Composer(props: ComposerProps = {}) {
     input.value = '';
   }
 
+  // Original File objects keyed by chip id so a failed upload can be
+  // retried in place (actionable error states) — not reactive on purpose.
+  const uploadSources = new Map<string, File>();
+
+  /** Run (or re-run) the upload for one chip id. */
+  async function uploadOne(id: string, f: File) {
+    if (!props.onUploadFile) return;
+    setAttachments((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, pending: true, error: undefined } : a,
+      ),
+    );
+    try {
+      const res = await props.onUploadFile(f);
+      const path = res && typeof res === 'object' ? res.path : undefined;
+      uploadSources.delete(id); // landed — no retry needed
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, pending: false, ...(path ? { path } : {}) } : a,
+        ),
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setAttachments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, pending: false, error: msg } : a)),
+      );
+    }
+  }
+
+  /** Re-attempt a failed upload from its chip's Retry button. */
+  function retryUpload(id: string) {
+    const f = uploadSources.get(id);
+    if (f) void uploadOne(id, f);
+  }
+
   /**
    * Upload real bytes for each file (base64 → POST /attachments). A chip
    * appears immediately in `pending` state, then resolves to the
@@ -453,6 +488,7 @@ export function Composer(props: ComposerProps = {}) {
     if (files.length === 0 || !props.onUploadFile) return;
     for (const f of files) {
       const id = cryptoRandomId();
+      uploadSources.set(id, f);
       setAttachments((prev) => [
         ...prev,
         {
@@ -464,20 +500,7 @@ export function Composer(props: ComposerProps = {}) {
           pending: true,
         },
       ]);
-      try {
-        const res = await props.onUploadFile(f);
-        const path = res && typeof res === 'object' ? res.path : undefined;
-        setAttachments((prev) =>
-          prev.map((a) =>
-            a.id === id ? { ...a, pending: false, ...(path ? { path } : {}) } : a,
-          ),
-        );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        setAttachments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, pending: false, error: msg } : a)),
-        );
-      }
+      await uploadOne(id, f);
     }
   }
 
@@ -506,6 +529,7 @@ export function Composer(props: ComposerProps = {}) {
   }
 
   function removeAttachment(id: string) {
+    uploadSources.delete(id);
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -588,6 +612,15 @@ export function Composer(props: ComposerProps = {}) {
                     }
                   >
                     <span class="composer__chip-size composer__chip-size--error">failed</span>
+                    <button
+                      type="button"
+                      class="composer__chip-retry"
+                      onClick={() => retryUpload(a.id)}
+                      data-testid={`composer-attachment-retry-${a.id}`}
+                      aria-label={`Retry upload of ${a.name}`}
+                    >
+                      Retry
+                    </button>
                   </Show>
                   <button
                     type="button"

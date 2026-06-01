@@ -10,6 +10,9 @@ export interface DiscoveryPageProps {
   actions?: JSX.Element;
   loading?: boolean;
   error?: string | null;
+  /** Called when the user clicks Retry in the error state — wire it to the
+   * page's refetch so a failed fetch is never a dead-end. */
+  onRetry?: () => void;
   /** Optional empty-state message when content is empty (caller decides). */
   emptyTitle?: string;
   emptyBody?: string;
@@ -48,6 +51,16 @@ export function DiscoveryPage(props: DiscoveryPageProps) {
         <div class="dp__error" data-testid="dp-error">
           <Icon name="close" size={14} />
           <span>{props.error}</span>
+          <Show when={props.onRetry}>
+            <button
+              type="button"
+              class="dp__error-retry"
+              data-testid="dp-error-retry"
+              onClick={() => props.onRetry?.()}
+            >
+              Retry
+            </button>
+          </Show>
         </div>
       </Show>
 

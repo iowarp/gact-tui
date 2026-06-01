@@ -4,6 +4,15 @@ import './toast.css';
 
 export type ToastTone = 'info' | 'success' | 'warn' | 'error';
 
+/** Clickable next-action on a toast — the thing that turns an error
+ * notification from a dead-end into a recovery path (W3 Tier-1:
+ * "every error offers a next action"). Clicking runs the callback and
+ * dismisses the toast. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastInput {
   title: string;
   body?: string;
@@ -11,12 +20,15 @@ export interface ToastInput {
   /** Auto-dismiss after this many ms. Defaults to 4500; 0 disables. */
   duration?: number;
   icon?: IconName;
+  /** Optional action button (e.g. Retry / Open settings / Reconnect now). */
+  action?: ToastAction;
 }
 
-interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon'>> {
+interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon' | 'action'>> {
   id: number;
   body?: string;
   icon?: IconName;
+  action?: ToastAction;
 }
 
 export interface ToastHistoryEntry {
@@ -80,7 +92,9 @@ export const ToastProvider: ParentComponent = (props) => {
       body: input.body,
       icon: input.icon,
       tone: input.tone ?? 'info',
-      duration: input.duration ?? 4500,
+      // Toasts with an action linger longer so the user has time to click it.
+      duration: input.duration ?? (input.action ? 8000 : 4500),
+      action: input.action,
     };
     setToasts((cur) => {
       const next = [...cur, rec];
@@ -136,6 +150,19 @@ export const ToastProvider: ParentComponent = (props) => {
               <div class="toast__main">
                 <div class="toast__title">{t.title}</div>
                 {t.body && <div class="toast__body">{t.body}</div>}
+                {t.action && (
+                  <button
+                    type="button"
+                    class="toast__action"
+                    data-testid={`toast-action-${t.id}`}
+                    onClick={() => {
+                      t.action?.onClick();
+                      dismiss(t.id);
+                    }}
+                  >
+                    {t.action.label}
+                  </button>
+                )}
               </div>
               <button
                 type="button"
