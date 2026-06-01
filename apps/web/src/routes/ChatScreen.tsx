@@ -2723,10 +2723,16 @@ function ChatLayout(props: ChatLayoutProps) {
           }
           workspaceClient={discoveryClient}
           workspaceId={
+            // Prefer the active session's own workspace; otherwise use the
+            // explicitly selected one (unless it's the "__all" sentinel).
+            // NOTE: the parens matter — `??` binds tighter than `?:`, so the
+            // old unparenthesized form resolved to `undefined` whenever the
+            // session HAD a workspace (the ternary condition went truthy),
+            // which silently disabled the @-mention file picker.
             props.sessions.find((s) => s.id === props.activeId)?.workspace ??
-            props.selectedWorkspaceId === '__all'
+            (props.selectedWorkspaceId === '__all'
               ? undefined
-              : props.selectedWorkspaceId
+              : props.selectedWorkspaceId)
           }
           models={props.models}
           selectedModelId={props.selectedModelId}

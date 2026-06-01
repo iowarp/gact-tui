@@ -829,18 +829,42 @@ export class Client {
    * GET /v1/workspaces/{id}/files — list the file tree (paginated by
    * cursor). Used to back the composer `@`-mention picker.
    */
-  workspaceFiles(
+  async workspaceFiles(
     workspaceId: string,
     options: { cursor?: string; limit?: number } = {},
   ): Promise<{
-    files: Array<{ path: string; size?: number; language?: string; mime?: string }>;
+    files: Array<{
+      path: string;
+      size?: number;
+      language?: string;
+      mime?: string;
+      type?: string;
+    }>;
     next_cursor?: string;
   }> {
     const qs = new URLSearchParams();
     if (options.cursor) qs.set('cursor', options.cursor);
     if (options.limit) qs.set('limit', String(options.limit));
     const suffix = qs.toString() ? `?${qs}` : '';
-    return this.get(`/v1/workspaces/${encodeURIComponent(workspaceId)}/files${suffix}`);
+    // clio returns `{entries: [{path,type,size,modified}]}`; older/other
+    // backends may return `{files: [...]}`. Normalize to `{files}` so the
+    // @-mention picker (which reads res.files) works either way — reading
+    // res.files against clio's `entries` threw and silently showed zero files.
+    const raw = await this.get<{
+      entries?: Array<{ path: string; type?: string; size?: number }>;
+      files?: Array<{ path: string; size?: number; language?: string; mime?: string }>;
+      next_cursor?: string;
+    }>(`/v1/workspaces/${encodeURIComponent(workspaceId)}/files${suffix}`);
+    const src = raw.files ?? raw.entries ?? [];
+    return {
+      files: src.map((e) => ({
+        path: e.path,
+        ...(typeof e.size === 'number' ? { size: e.size } : {}),
+        ...('language' in e && e.language ? { language: e.language } : {}),
+        ...('type' in e && e.type ? { type: e.type } : {}),
+      })),
+      next_cursor: raw.next_cursor,
+    };
   }
 
   /**
