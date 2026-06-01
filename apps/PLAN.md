@@ -113,6 +113,32 @@ upstream's `clio` installer pattern.
     upstream agent's tool_result Parts are mostly plain text and
     JSON, so this is polish rather than function).
 
+## vNext — deferred from the W3 UX backlog (release-readiness goal, 2026-06-01)
+
+Each was visited once and deferred with a reason (full rationale in
+`STATUS.md` → "W3 CLOSURE"):
+
+- **File & image inline previews** (transcript + @-picker) — needs a clio
+  binary/image file-serving endpoint first (candidate clio-agent PR; today
+  `files/read` returns raw text only).
+- **Light theme** — needs light-mode tokens in the (read-only) design system;
+  the preset infrastructure (Default / High contrast / Dim) is already wired.
+- **Message edit history / "edited" markers** — needs a clio message-version
+  endpoint; desktop-only markers would be fake state.
+- **Retry-with-notes / retry-with-model UI** — `retryTurn()` already accepts
+  both; add a variant menu on the Regenerate button.
+- **Inspector execution timeline** — visualization layer over the existing
+  Turn/Tools/Frames tabs.
+- **Large-list virtualization** — only if transcripts beyond the 120-message
+  W4 hardening target show degradation.
+- **Settings import/export**, **notification-center search/filter**,
+  **native window menus** — stretch polish.
+- **Transcript code-block line-number gutter** — the DiffPane has one now;
+  the transcript variant needs per-line splitting of hljs output to avoid
+  fighting horizontal scroll.
+- **Restore desktop MCP Reconnect button** once clio-agent PR #523 merges.
+- **Lazy-load / trim highlight.js** for the pure-web bundle (+55 kB gzip).
+
 ## Pending for v1.0
 
 The items below are explicitly deferred — they require either signing
