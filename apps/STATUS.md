@@ -54,6 +54,37 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
   Root-cause of the bridge (likely the `invoke`→`Channel` open path in WebView2, or an
   async teardown race) is a **tracked follow-up** (not a clio gap — a desktop bug).
 
+### W2 ACTION QUEUE — from the parity verification workflow (wf_a9bd8de8, 7 agents, exhaustive)
+Each item: fix → verify (live where possible) → commit (STATUS in same commit). Work Tier-A first.
+
+**🔴 WIRE-FIX Tier A (silent failures on advertised, user-reachable surfaces):**
+- [x] SSE `user_question.created` nested `p.question` → flat (DONE, commit 06321a0; workflow independently re-derived it).
+- [ ] `GET workspaces/{id}/files` reads `res.files`; clio sends `{entries}` → @-mention picker shows ZERO files (`.map` throws, swallowed). http.ts:835, AtMentionPicker.tsx:64-75.
+- [ ] `POST agent-blueprints/install` POSTs bare `/v1/agent-blueprints` + inline doc → 405. Repoint to `/install`, body `{source|path, scope}`. http.ts:1463; RoadmapPages.tsx:298.
+- [ ] `POST agent-blueprints/validate` + `expert-packs/validate` send inline doc, read `{ok,errors}`; clio reads `{path,scope}`, returns `{enabled,validation_errors}` → 400 + always "Validation failed". http.ts:1455/1565.
+- [ ] `POST sessions/{sid}/summarize` is 404 (clio has no route) + UI waits on `session.summarized` (never fires). Remove the action + dead SSE wait (or repoint /compact). http.ts:673, ChatScreen.tsx:657/1297, live.ts:228/810.
+- [ ] `DELETE context/files` sends `?path=` query; clio reads JSON body only → silent no-op. Send `{path}` body. http.ts:564.
+
+**🔴 WIRE-FIX Tier B (wrong/degraded, not crashing):**
+- [ ] Regenerate re-sends via `sendMessage` instead of `POST messages/{id}/retry` → loses attempt lineage. Add `retryTurn()`. ChatScreen.tsx:1054.
+- [ ] `turn.retry_{running|completed|failed|cancelled}` not subscribed (only `_requested`) → toast never clears. live.ts:262.
+- [ ] `x_clio_retry_attempts` surface missing: add `retryTurn()`/`listAttempts()` + `TurnAttempt` type (do as one unit with the two above).
+- [ ] `expert_handoff`: dead SSE listener + the `Part(type='expert_handoff')` has no renderer (dropped). Mirror routing_decision. live.ts:881, Transcript.tsx:250.
+- [ ] `DELETE agent-blueprints/{id}` omits `scope`+`workspace_id` → won't match builtin/global. http.ts:1470.
+- [ ] `compact` reducer reads `p.removed_count`; clio emits `archived_count` → toast "dropped 0". live.ts:819.
+- [ ] `lm.provider.changed/.failed`: clio publishes `session_id=""`, bus has no wildcard → never delivered. **CROSS-SIDE** → file clio issue + desktop note. app.py:15157, events.py:104.
+
+**🔴 WIRE-FIX Tier C (latent/cosmetic):** rewind has no UI call site (http.ts:642); `files/read` expects JSON but clio returns raw text (latent); frame list reads `token_count`/`summary` vs clio `tokens_estimated` (dead chips); schedule list reads `prompt`/`next_run_at` vs clio `question`/`last_fired_at`/`fire_count` (dead chips); `user_question.resumed` reads `p.question` (ids-only payload → should refetch/clear); blueprint/pack `*_id:null` clear → clio 400; `UserQuestion` type omits `answer_metadata`; subagent reducer reads `agent_name` then `agent_id` (works via fallback).
+
+**🟠 ABSENT-FILE-ISSUE (proven absent in clio → file iowarp/clio-agent issue + remove/hide dead UI):**
+- [ ] `POST mcp/servers/{id}/reconnect` — Reconnect button on EVERY card 404s (always-visible). Remove button + file issue.
+- [ ] latent 404s: mcp `resources/read`, `resources/subscribe`, `prompts/get` (render only when a server exposes them); `resource_templates` (swallowed).
+- [ ] dead SSE reducer branches clio never emits: `tool.call.progress`, `cost.updated` (cost rides message.completed), `notification` (client-synthesized), `session.summarized`, `session.created`, `message.error` (rides message.completed). Remove or doc forward-compat.
+
+**🟢 DOCUMENTED-GAP (confirm desktop honors):** voice=false (desktop HIDES — safe, confirm), lsp=false (404→hidden, correct), `/optimize` optimizer_command render_disabled but desktop fires it (→ gate disabled = WIRE-FIX), `routing_decision` Part render (CONFLICTING notes — eyeball Transcript.tsx:225).
+
+Full matrix: workflow run wf_a9bd8de8 output (temp). Surprises: ask-user broke on live SSE path despite #94 passing (REST-seed masked it — now fixed); @-picker empty; MCP reconnect always 404; blueprint/pack flow non-functional; lm.provider undeliverable; retry unimplemented.
+
 ### Frozen UX backlog — tiered; one visit/item; DEFER-with-reason allowed, NO mid-run expansion (new ideas → `apps/PLAN.md`)
 **T1 (high-impact):** code syntax-highlighting + line numbers + per-block copy · first-run
 onboarding/tour · fuzzy search (Cmd+K palette + @-picker + slash-picker) · actionable
