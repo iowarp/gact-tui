@@ -566,4 +566,56 @@ test.describe('CLIO audit-batch verification', () => {
     await page.screenshot({ path: shot('131-140-workspaces-page'), fullPage: false });
     await close();
   });
+
+  // ---- W3 Tier-1: actionable error states ----
+  test('Discovery fetch failure shows Retry and recovers when clicked (W3 error states)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    // Break the agents fetch: the page must render an error banner WITH a
+    // Retry button (no dead-end), and clicking Retry after the network
+    // recovers must repopulate the page without a reload.
+    let broken = true;
+    await page.route('**/v1/agents**', async (route) => {
+      if (broken) {
+        await route.abort('connectionrefused');
+        return;
+      }
+      // Defer to the CORS-shim route installed by connect().
+      await route.fallback();
+    });
+    await page.getByTestId('rail-agents').click();
+    await expect(page.getByTestId('dp-error')).toBeVisible({ timeout: 8_000 });
+    const retry = page.getByTestId('dp-error-retry');
+    await expect(retry).toBeVisible();
+    await page.screenshot({ path: shot('w3-error-discovery-retry'), fullPage: false });
+    // Network "recovers" → Retry refetches in place.
+    broken = false;
+    await retry.click();
+    await expect(page.getByTestId('dp-error')).toBeHidden({ timeout: 8_000 });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await close();
+  });
+
+  test('Send failure surfaces an actionable error toast (W3 error states)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    // Break message POSTs so the send fails fast (no real LM turn fired).
+    await page.route('**/v1/sessions/*/messages', async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.abort('connectionrefused');
+        return;
+      }
+      await route.fallback();
+    });
+    const ta = page.locator('.composer__input').first();
+    await expect(ta).toBeVisible({ timeout: 8_000 });
+    await ta.click();
+    await ta.fill('this send is intercepted and must fail');
+    await ta.press('Enter');
+    // The error toast must carry a clickable next action (Retry).
+    await expect(page.locator('.toast--error')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('.toast__action')).toBeVisible();
+    await page.screenshot({ path: shot('w3-error-toast-action'), fullPage: false });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await close();
+  });
 });

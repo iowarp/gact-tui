@@ -71,6 +71,10 @@ export interface LiveTranscriptHandle {
   pendingQuestion: Accessor<UserQuestion | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
   refetch: () => Promise<void>;
+  /** Skip the backoff countdown and reconnect the SSE stream right now —
+   * wired to the "Reconnect now" action on the disconnect toast. No-op when
+   * the stream is already open or no session is active. */
+  reconnectNow: () => void;
 }
 
 export interface RunningTool {
@@ -166,6 +170,9 @@ export function createLiveTranscript(
   const [costUsd, setCostUsd] = createSignal<number>(0);
   const [runningTools, setRunningTools] = createSignal<RunningTool[]>([]);
   const [pendingQuestion, setPendingQuestion] = createSignal<UserQuestion | null>(null);
+  // Bound inside the per-session effect (it closes over that session's
+  // openEs/timers); exposed via the public reconnectNow() API.
+  let reconnectNowRef: (() => void) | null = null;
 
   // Backoff ladder. Each step caps at 10s so we don't go silent for
   // minutes after a few attempts; the user can still force-recover by
@@ -455,10 +462,21 @@ export function createLiveTranscript(
       openEventSource();
     }
 
+    // Manual reconnect (toast "Reconnect now" action): cancel any pending
+    // backoff and reopen immediately. Resets the attempt counter so the
+    // next failure starts the ladder from the bottom again.
+    reconnectNowRef = () => {
+      if (disposed) return;
+      attempt = 0;
+      clearReconnectTimers();
+      openEs();
+    };
+
     openEs();
 
     onCleanup(() => {
       disposed = true;
+      reconnectNowRef = null;
       clearReconnectTimers();
       teardownEs();
       setStatus('closed');
@@ -486,6 +504,11 @@ export function createLiveTranscript(
     runningTools,
     pendingQuestion,
     refetch,
+    reconnectNow: () => {
+      // Don't tear down a healthy stream — only act when degraded.
+      if (status() === 'open') return;
+      reconnectNowRef?.();
+    },
   };
 }
 

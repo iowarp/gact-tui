@@ -105,6 +105,14 @@
   word-break: break-word;
 }
 
+/* What-to-do-next line under the raw error (actionable error states). */
+.connect__error-hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+}
+
 .connect__actions {
   display: flex;
   align-items: center;

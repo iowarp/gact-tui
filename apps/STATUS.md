@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring. T1 remaining: actionable error states, skeleton loaders/motion, topbar overflow, settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`). T1 remaining: skeleton loaders/motion, topbar overflow, settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,6 +107,35 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1: actionable error states (every error offers a next action).**
+  Structural fixes to the two shared components, then wired through every call site:
+  (1) **Toast API gains `action: {label, onClick}`** — clicking runs the callback +
+  dismisses; error toasts with actions linger 8s. (2) **DiscoveryPage error banner
+  gains an `onRetry` Retry button** — wired to `refetch()` on ALL 9 discovery pages
+  (Agents/Doctor/MCP/Memory/Prompts/Metrics/Workspaces/Tools/Providers). (3) **ChatScreen:**
+  every operation catch-block now routes through `failToast(title, e, retry)` — the
+  retry closure is the failed operation itself (send/answer/cancel/import/rename/delete/
+  export/share/compact/undo/summarize/fork/bind-blueprint/bind-pack/schedules/pin/remove/
+  regenerate/delete-msg/task-cycle/mode-change/TTS); SSE-disconnect toast gains
+  **"Reconnect now"** (new `live.ts reconnectNow()` API — skips the backoff countdown);
+  LM-not-configured send failure gains **"Open model settings"** (deep-links Settings →
+  providers). (4) **Composer:** failed upload chips gain a per-chip **Retry** button
+  (re-uses the kept File handle). (5) **ConnectScreen:** error now includes a
+  what-to-do-next hint (401/404/network-specific). RoadmapPages/PluginsPage form errors
+  already render inline next to their submit button (actionable as-is).
+  PROOF: live-driven `audit.spec.ts` "(W3 error states)" ×2 — discovery fetch failure
+  shows Retry AND recovers when clicked (route un-abort → refetch repopulates);
+  send failure surfaces toast with Retry action. PNGs `audit/w3-error-discovery-retry.png`,
+  `audit/w3-error-toast-action.png`. Unit `ErrorActions.test.tsx` 5/5 (toast action click +
+  dismiss; DiscoveryPage retry). Web unit 32/32, fixture visual 31/31, lint/typecheck/build green.
+  **ENVIRONMENT NOTE:** the user's clio at :17800 is DOWN (nothing listening — NOT
+  touched per the never-rebind rule). Verification this loop ran against a SEPARATE
+  self-controlled clio on **:17801** built from the PR-stack branch
+  (`feat/event-bus-globals` = develop + PR #522/#523/#527/#530), started with ALCF env.
+  That instance advertises `session_summary` + `attachments_upload` — so PR-gated
+  surfaces are now live-provable. Re-verify against the user's :17800 when it returns.
+  Next: W3 Tier-1 skeleton loaders/motion → topbar overflow → settings depth → a11y
+  (focus traps, aria-live, high-contrast) → onboarding → line numbers.
 - 2026-06-01 **W3 Tier-1: fuzzy command palette (Cmd+K).** Replaced substring filtering
   with a dependency-free subsequence scorer + ranking — `"dctr"` now surfaces `/doctor`.
   Caught + fixed a mis-rank while eyeballing the PNG (description-only matches were

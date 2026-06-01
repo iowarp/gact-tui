@@ -64,6 +64,38 @@
   line-height: 1.45;
 }
 
+/* Next-action button (Retry / Open settings / Reconnect now). Tone-matched
+   outline so it reads as part of the toast, not a global primary button. */
+.toast__action {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--color-accent-cyan);
+  color: var(--color-accent-cyan);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.toast__action:hover {
+  background: var(--color-accent-cyan-10);
+}
+
+.toast--error .toast__action {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.toast--error .toast__action:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
 .toast__close {
   width: 22px;
   height: 22px;

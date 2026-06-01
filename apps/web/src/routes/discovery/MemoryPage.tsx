@@ -86,6 +86,7 @@ export function MemoryPage(props: MemoryPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
     >
       <div class="mem__search">
         <Icon name="search" size={13} />

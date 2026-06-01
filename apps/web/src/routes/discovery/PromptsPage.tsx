@@ -85,6 +85,7 @@ export function PromptsPage(props: PromptsPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0}
       emptyTitle="No prompts registered"
       emptyBody="Backend doesn't expose /v1/prompts or no prompt sources are mounted."

@@ -77,6 +77,7 @@ export function McpPage(props: McpPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0}
       emptyTitle="No MCP servers"
       emptyBody="Register a server via the backend's tool gateway config."

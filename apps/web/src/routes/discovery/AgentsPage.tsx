@@ -43,6 +43,7 @@ export function AgentsPage(props: AgentsPageProps) {
       }
       loading={data.loading}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
+      onRetry={() => void refetch()}
       empty={!data.loading && agents().length === 0}
       emptyTitle="No agents registered"
       emptyBody="Your backend reports zero agents — capability gating likely hides the tier-2 specialists."
