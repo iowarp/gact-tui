@@ -210,6 +210,17 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('at-mention-picker'), fullPage: false });
   });
 
+  test('attach menu offers upload + workspace reference (gap-96)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    await page.getByTestId('composer-attach').click();
+    await expect(page.getByTestId('composer-attach-menu')).toBeVisible();
+    // Real upload entry (gated on capabilities.attachments_upload, which
+    // the fixture advertises) + the @-reference entry side by side.
+    await expect(page.getByTestId('composer-attach-upload')).toBeVisible();
+    await expect(page.getByTestId('composer-attach-mention')).toBeVisible();
+    await page.screenshot({ path: shot('attach-hybrid-menu'), fullPage: false });
+  });
+
   // Real-backend visual proof — only captured when a clio-agent-gact
   // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
   // CI runners without the install don't fail. On the developer's box

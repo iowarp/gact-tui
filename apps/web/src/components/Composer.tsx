@@ -20,6 +20,14 @@ export interface AttachedFile {
   name: string;
   size: number;
   mimeType: string;
+  /** 'upload' = real bytes sent to the backend; refs ride the @-mention path. */
+  kind?: 'upload';
+  /** Backend-returned workspace path once the upload lands. */
+  path?: string;
+  /** Upload in flight. */
+  pending?: boolean;
+  /** Upload failed; message for the chip tooltip. */
+  error?: string;
 }
 
 export interface ModelOption {
@@ -40,6 +48,15 @@ export interface ComposerProps {
   onStop?: () => void | Promise<void>;
   mentionItems?: MentionItem[];
   onSubmit?: (text: string) => Promise<void> | void;
+
+  /**
+   * Upload a file's bytes to the backend (POST /attachments). Returns the
+   * registered context-file path. When absent or `attachmentsCapable` is
+   * false, the Upload menu item is hidden — references still work via @.
+   */
+  onUploadFile?: (file: File) => Promise<{ path?: string } | void>;
+  /** Backend advertises capabilities.attachments_upload. */
+  attachmentsCapable?: boolean;
 
   /** Live model options pulled from /v1/providers. */
   models?: ModelOption[];
@@ -404,31 +421,70 @@ export function Composer(props: ComposerProps = {}) {
     }
   }
   let fileInputRef: HTMLInputElement | undefined;
+  const [attachMenuOpen, setAttachMenuOpen] = createSignal(false);
 
-  function pickAttach() {
+  function openUpload() {
+    setAttachMenuOpen(false);
     fileInputRef?.click();
+  }
+
+  function mentionWorkspaceFile() {
+    // References ride the @-mention path: clio parses `@path` in the
+    // message into a context attachment and strips the marker, so the
+    // agent reads the file by reference (no bytes move). Dropping an `@`
+    // in opens the existing AtMentionPicker over the live workspace files.
+    setAttachMenuOpen(false);
+    setText((t) => (t === '' || t.endsWith(' ') || t.endsWith('@') ? t + '@' : t + ' @'));
   }
 
   function onFilesPicked(ev: Event) {
     const input = ev.currentTarget as HTMLInputElement;
-    addFiles(Array.from(input.files ?? []));
+    void addUploadedFiles(Array.from(input.files ?? []));
     input.value = '';
   }
 
-  function addFiles(files: File[]) {
-    if (files.length === 0) return;
-    const next: AttachedFile[] = files.map((f) => ({
-      id: cryptoRandomId(),
-      name: f.name,
-      size: f.size,
-      mimeType: f.type || 'application/octet-stream',
-    }));
-    setAttachments((prev) => [...prev, ...next]);
+  /**
+   * Upload real bytes for each file (base64 → POST /attachments). A chip
+   * appears immediately in `pending` state, then resolves to the
+   * backend-returned path or an error — never a fake text header (the old
+   * behaviour embedded "[attached N files]" and sent NO bytes).
+   */
+  async function addUploadedFiles(files: File[]) {
+    if (files.length === 0 || !props.onUploadFile) return;
+    for (const f of files) {
+      const id = cryptoRandomId();
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id,
+          name: f.name,
+          size: f.size,
+          mimeType: f.type || 'application/octet-stream',
+          kind: 'upload',
+          pending: true,
+        },
+      ]);
+      try {
+        const res = await props.onUploadFile(f);
+        const path = res && typeof res === 'object' ? res.path : undefined;
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === id ? { ...a, pending: false, ...(path ? { path } : {}) } : a,
+          ),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setAttachments((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, pending: false, error: msg } : a)),
+        );
+      }
+    }
   }
 
   const [dragging, setDragging] = createSignal(false);
   function onDragOver(e: DragEvent) {
-    if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
+    const types = Array.from(e.dataTransfer?.types ?? []);
+    if (types.includes('Files') || types.includes('application/x-gact-path')) {
       e.preventDefault();
       setDragging(true);
     }
@@ -439,18 +495,18 @@ export function Composer(props: ComposerProps = {}) {
   function onDrop(e: DragEvent) {
     e.preventDefault();
     setDragging(false);
-    const files = Array.from(e.dataTransfer?.files ?? []);
-    addFiles(files);
+    // In-app drag of a workspace file → reference via @-mention (no bytes
+    // move; the agent already sees it). OS file drop → real upload.
+    const refPath = e.dataTransfer?.getData('application/x-gact-path');
+    if (refPath) {
+      setText((t) => (t === '' || t.endsWith(' ') ? t : t + ' ') + '@' + refPath + ' ');
+      return;
+    }
+    void addUploadedFiles(Array.from(e.dataTransfer?.files ?? []));
   }
 
   function removeAttachment(id: string) {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }
-
-  function buildSubmitText(body: string, files: AttachedFile[]): string {
-    if (files.length === 0) return body;
-    const header = `[attached ${files.length} file${files.length === 1 ? '' : 's'}: ${files.map((f) => f.name).join(', ')}]`;
-    return `${header}\n\n${body}`;
   }
 
   async function submit() {
@@ -465,16 +521,18 @@ export function Composer(props: ComposerProps = {}) {
     }
     setBusy(true);
     setText('');
-    const attached = attachments();
+    // Uploaded files are already registered as context files server-side
+    // (the upload fired when they were picked/dropped), and @-mentions are
+    // parsed from the text by clio — so the message body is sent as-is and
+    // the chips are cleared (the Context inspector is the source of truth).
     setAttachments([]);
     try {
-      await props.onSubmit(buildSubmitText(expandPastes(t), attached));
+      await props.onSubmit(expandPastes(t));
       // Clear the stash on successful send.
       setPasteStash({});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setText(t);
-      setAttachments(attached);
     } finally {
       setBusy(false);
     }
@@ -507,11 +565,30 @@ export function Composer(props: ComposerProps = {}) {
               {(a) => (
                 <span
                   class="composer__chip"
+                  classList={{
+                    'composer__chip--pending': !!a.pending,
+                    'composer__chip--error': !!a.error,
+                  }}
                   data-testid={`composer-attachment-${a.id}`}
+                  title={a.error ? `Upload failed: ${a.error}` : (a.path ?? a.name)}
                 >
-                  <Icon name="attach" size={11} />
+                  <Show
+                    when={a.pending}
+                    fallback={<Icon name={a.error ? 'close' : 'attach'} size={11} />}
+                  >
+                    <span class="composer__chip-spin" aria-label="uploading" />
+                  </Show>
                   <span class="composer__chip-name">{a.name}</span>
-                  <span class="composer__chip-size">{humanSize(a.size)}</span>
+                  <Show
+                    when={a.error}
+                    fallback={
+                      <span class="composer__chip-size">
+                        {a.pending ? 'uploading…' : humanSize(a.size)}
+                      </span>
+                    }
+                  >
+                    <span class="composer__chip-size composer__chip-size--error">failed</span>
+                  </Show>
                   <button
                     type="button"
                     class="composer__chip-x"
@@ -546,16 +623,64 @@ export function Composer(props: ComposerProps = {}) {
 
         <div class="composer__row">
           <div class="composer__row-lead">
-          <button
-            type="button"
-            class="composer__attach"
-            title="Attach files"
-            aria-label="Attach files"
-            data-testid="composer-attach"
-            onClick={pickAttach}
-          >
-            <Icon name="attach" size={16} />
-          </button>
+          <div class="composer__attach-wrap">
+            <button
+              type="button"
+              class="composer__attach"
+              title="Add context"
+              aria-label="Add context"
+              aria-haspopup="menu"
+              aria-expanded={attachMenuOpen()}
+              data-testid="composer-attach"
+              onClick={() => setAttachMenuOpen((v) => !v)}
+            >
+              <Icon name="attach" size={16} />
+            </button>
+            <Show when={attachMenuOpen()}>
+              <div
+                class="composer__attach-backdrop"
+                onClick={() => setAttachMenuOpen(false)}
+                aria-hidden
+              />
+              <div class="composer__attach-menu" role="menu" data-testid="composer-attach-menu">
+                <div class="composer__attach-menu-group">From your computer</div>
+                <Show
+                  when={props.attachmentsCapable && props.onUploadFile}
+                  fallback={
+                    <div class="composer__attach-menuitem is-disabled" data-testid="composer-attach-upload-disabled">
+                      <Icon name="attach" size={13} />
+                      <span class="composer__attach-menuitem-label">Upload from computer…</span>
+                      <span class="composer__attach-menuitem-sub">backend has no upload</span>
+                    </div>
+                  }
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="composer__attach-menuitem"
+                    data-testid="composer-attach-upload"
+                    onClick={openUpload}
+                  >
+                    <Icon name="attach" size={13} />
+                    <span class="composer__attach-menuitem-label">Upload from computer…</span>
+                    <span class="composer__attach-menuitem-sub">sends file bytes</span>
+                  </button>
+                </Show>
+                <div class="composer__attach-menu-group">In this workspace</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="composer__attach-menuitem"
+                  data-testid="composer-attach-mention"
+                  onClick={mentionWorkspaceFile}
+                >
+                  <Icon name="workspaces" size={13} />
+                  <span class="composer__attach-menuitem-label">Reference a workspace file</span>
+                  <span class="composer__attach-menuitem-sub">@ — agent reads by path</span>
+                </button>
+              </div>
+            </Show>
+          </div>
           <Show when={props.onTranscribeVoice}>
             <button
               type="button"

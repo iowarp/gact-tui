@@ -107,6 +107,20 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **gap-96 DESKTOP DONE — hybrid attach (upload + reference); fake button killed.**
+  Composer clip → grouped menu: **Upload from computer…** (real base64 → POST
+  /attachments, gated on `capabilities.attachments_upload`) + **Reference a workspace
+  file** (rides the existing @-mention path — clio parses `@path` into a context attach).
+  DELETED the FAKE `[attached N files]` header (it embedded text and sent ZERO bytes);
+  uploads now show pending→done/error chips and register as context files server-side.
+  Drag-drop disambiguates `application/x-gact-path` (reference) vs OS bytes (upload).
+  `core.uploadAttachment` is base64-JSON (NOT FormData — Tauri/ssh-proxy safe);
+  fixture `synthCapabilities` now advertises `attachments_upload` + `session_summary`.
+  PROOF: `screenshots/attach-hybrid-menu.png`; fixture visual suite 29/29; core 38/38
+  (uploadAttachment base64 asserted); lint + typecheck + web-build green. Backend half =
+  clio PR-3 `iowarp/clio-agent#527`. **gap-96 upload vertical COMPLETE** (backend +
+  desktop; vision deferred issue #528). Next: restore the desktop MCP Reconnect button
+  once #523 merges; W2 Tier-B (retry/attempts unit), then the W3 UX backlog.
 - 2026-06-01 **gap-96 upload vertical (backend) → clio PR-3 (stacked); base64-over-ssh decided.**
   User chose the ambitious scope: build a real upload backend. Grounding proved the
   bridge — a registered context file IS read into the agent prompt
