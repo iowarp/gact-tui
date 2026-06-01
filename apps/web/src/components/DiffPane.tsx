@@ -1,4 +1,5 @@
 import { For, createSignal, Show } from 'solid-js';
+import hljs from 'highlight.js/lib/common';
 import type { FileDiff } from '@clio/core';
 import './diff-pane.css';
 
@@ -17,16 +18,16 @@ export interface DiffPaneProps {
 type HunkState = 'pending' | 'applied' | 'rejected';
 
 /**
- * Multi-buffer diff viewer for file_diff Parts (Wave 4).
+ * Multi-buffer diff viewer for file_diff Parts (Wave 4 + W3 Tier-2).
  *
  * Parses the `unified_diff` field into hunks and renders each with
- * its own Apply / Reject buttons. The unified-diff parser is
- * intentionally simple — it groups @@ headers + their following
- * lines and trusts the backend to emit well-formed diffs (clio-agent
- * uses its `fs_propose_edit` tool which produces canonical hunks).
+ * its own Apply / Reject buttons, an old/new line-number gutter, and
+ * per-line syntax highlighting (language inferred from the file
+ * extension; hljs escapes the source so innerHTML is injection-safe).
  */
 export function DiffPane(props: DiffPaneProps) {
   const hunks = () => parseHunks(props.diff.unified_diff ?? '');
+  const lang = () => langForPath(props.diff.path ?? '');
   const [states, setStates] = createSignal<HunkState[]>([]);
 
   // Initialize states array when hunks length changes.
@@ -110,7 +111,9 @@ export function DiffPane(props: DiffPaneProps) {
                   </div>
                 </header>
                 <pre class="diffpane__hunk-body">
-                  <For each={hunk.lines}>{(ln) => <DiffLine line={ln} />}</For>
+                  <For each={hunk.lines}>
+                    {(ln) => <DiffLine line={ln} lang={lang()} />}
+                  </For>
                 </pre>
               </li>
             )}
@@ -121,13 +124,37 @@ export function DiffPane(props: DiffPaneProps) {
   );
 }
 
-function DiffLine(p: { line: string }) {
-  const sign = p.line.startsWith('+')
-    ? 'add'
-    : p.line.startsWith('-')
-      ? 'del'
-      : 'ctx';
-  return <div class={'diffpane__line diffpane__line--' + sign}>{p.line || ' '}</div>;
+function DiffLine(p: { line: DiffLineInfo; lang: string | null }) {
+  // Per-line highlighting loses multi-line constructs (block comments) but
+  // is the standard approach for diff viewers — each line stands alone.
+  const content = () => p.line.text.slice(1); // strip the +/-/space sign
+  const highlighted = () => {
+    if (!p.lang || !content()) return null;
+    try {
+      return hljs.highlight(content(), { language: p.lang }).value;
+    } catch {
+      return null;
+    }
+  };
+  return (
+    <div class={'diffpane__line diffpane__line--' + p.line.sign}>
+      {/* Old/new line-number gutter (W3 Tier-2). Non-selectable so copying
+          the diff body doesn't pick up the numbers. */}
+      <span class="diffpane__lineno" aria-hidden="true">
+        {p.line.oldNo ?? ''}
+      </span>
+      <span class="diffpane__lineno" aria-hidden="true">
+        {p.line.newNo ?? ''}
+      </span>
+      <span class="diffpane__line-sign" aria-hidden="true">
+        {p.line.sign === 'add' ? '+' : p.line.sign === 'del' ? '−' : ' '}
+      </span>
+      <Show when={highlighted() !== null} fallback={<code class="diffpane__line-code">{content() || ' '}</code>}>
+        {/* hljs HTML-escapes the source, so this markup is injection-safe. */}
+        <code class="diffpane__line-code hljs" innerHTML={highlighted()!} />
+      </Show>
+    </div>
+  );
 }
 
 function NoHunks(p: { raw: string }) {
@@ -141,28 +168,88 @@ function NoHunks(p: { raw: string }) {
   );
 }
 
+interface DiffLineInfo {
+  /** Raw line including the +/-/space prefix. */
+  text: string;
+  sign: 'add' | 'del' | 'ctx';
+  /** Line number in the OLD file (null for added lines). */
+  oldNo: number | null;
+  /** Line number in the NEW file (null for deleted lines). */
+  newNo: number | null;
+}
+
 interface Hunk {
   header: string;
-  lines: string[];
+  lines: DiffLineInfo[];
   adds: number;
   dels: number;
+}
+
+/** Map a file path to an hljs language id (per-line highlight). */
+function langForPath(path: string): string | null {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    ts: 'typescript',
+    tsx: 'typescript',
+    js: 'javascript',
+    jsx: 'javascript',
+    mjs: 'javascript',
+    py: 'python',
+    rs: 'rust',
+    go: 'go',
+    java: 'java',
+    rb: 'ruby',
+    sh: 'bash',
+    bash: 'bash',
+    css: 'css',
+    html: 'xml',
+    xml: 'xml',
+    json: 'json',
+    yaml: 'yaml',
+    yml: 'yaml',
+    md: 'markdown',
+    sql: 'sql',
+    c: 'c',
+    h: 'c',
+    cpp: 'cpp',
+    hpp: 'cpp',
+    cs: 'csharp',
+    php: 'php',
+    kt: 'kotlin',
+    swift: 'swift',
+    toml: 'ini',
+    ini: 'ini',
+  };
+  return map[ext] ?? null;
 }
 
 function parseHunks(unified: string): Hunk[] {
   const lines = unified.split(/\r?\n/);
   const out: Hunk[] = [];
   let current: Hunk | null = null;
+  let oldNo = 0;
+  let newNo = 0;
   for (const ln of lines) {
     if (ln.startsWith('@@')) {
       if (current) out.push(current);
       current = { header: ln, lines: [], adds: 0, dels: 0 };
+      // `@@ -oldStart,oldCount +newStart,newCount @@` → seed the gutter.
+      const m = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(ln);
+      oldNo = m ? parseInt(m[1]!, 10) : 1;
+      newNo = m ? parseInt(m[2]!, 10) : 1;
       continue;
     }
     if (!current) continue;
     if (ln.startsWith('+++') || ln.startsWith('---')) continue;
-    current.lines.push(ln);
-    if (ln.startsWith('+')) current.adds++;
-    else if (ln.startsWith('-')) current.dels++;
+    if (ln.startsWith('+')) {
+      current.lines.push({ text: ln, sign: 'add', oldNo: null, newNo: newNo++ });
+      current.adds++;
+    } else if (ln.startsWith('-')) {
+      current.lines.push({ text: ln, sign: 'del', oldNo: oldNo++, newNo: null });
+      current.dels++;
+    } else {
+      current.lines.push({ text: ln, sign: 'ctx', oldNo: oldNo++, newNo: newNo++ });
+    }
   }
   if (current) out.push(current);
   return out;

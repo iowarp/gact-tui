@@ -66,4 +66,38 @@ describe('DiffPane', () => {
     ));
     expect(screen.getByTestId('diff-pane').textContent).toContain('no parseable hunks');
   });
+
+  // W3 Tier-2: line-number gutter + per-line syntax highlighting.
+  it('renders an old/new line-number gutter seeded from the @@ header', () => {
+    render(() => <DiffPane diff={sampleDiff} onClose={() => undefined} />);
+    const hunk = screen.getByTestId('diff-pane-hunk-0');
+    const gutters = hunk.querySelectorAll('.diffpane__lineno');
+    // Every line renders two gutter cells (old | new).
+    expect(gutters.length).toBeGreaterThan(0);
+    expect(gutters.length % 2).toBe(0);
+    // The @@ -3,4 +3,5 @@ header seeds both sides at line 3: the first
+    // line is a deletion → old=3, new empty.
+    expect(gutters[0]?.textContent).toBe('3');
+    expect(gutters[1]?.textContent).toBe('');
+  });
+
+  it('syntax-highlights diff lines for known file extensions (.go)', () => {
+    render(() => <DiffPane diff={sampleDiff} onClose={() => undefined} />);
+    const hunk = screen.getByTestId('diff-pane-hunk-0');
+    // hljs wraps Go keywords (func/return) in .hljs-keyword spans.
+    expect(hunk.querySelectorAll('.hljs-keyword').length).toBeGreaterThan(0);
+  });
+
+  it('falls back to plain text for unknown extensions', () => {
+    render(() => (
+      <DiffPane
+        diff={{ ...sampleDiff, path: 'data/blob.xyz' }}
+        onClose={() => undefined}
+      />
+    ));
+    const hunk = screen.getByTestId('diff-pane-hunk-0');
+    expect(hunk.querySelectorAll('.hljs-keyword').length).toBe(0);
+    // Content still renders.
+    expect(hunk.textContent).toContain('func handle');
+  });
 });
