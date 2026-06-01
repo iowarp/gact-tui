@@ -139,16 +139,34 @@ impl Supervisor {
     }
 
     /// Best-effort reap of the child process on app shutdown.
+    ///
+    /// W4 hardening finding: the child we spawn is the Go *launcher*, which
+    /// in turn spawns the real `clio-agent-gact` (Python/uvicorn) as ITS
+    /// child. On Windows, `Child::kill` is TerminateProcess on the launcher
+    /// only — the grandchild kept running, leaking a clio process every
+    /// time the app closed. The fix kills the whole process TREE.
     pub fn shutdown(&self) {
         let mut guard = match self.inner.lock() {
             Ok(g) => g,
             Err(p) => p.into_inner(),
         };
         if let Some(mut child) = guard.child.take() {
-            // On Windows there is no SIGTERM; `kill` is the equivalent of
-            // TerminateProcess. We give the child up to SHUTDOWN_GRACE to
-            // exit cleanly (it does its own uvicorn graceful shutdown when
-            // it sees the parent gone), then force-kill if still alive.
+            // Windows: kill the tree (launcher + clio-agent-gact + uvicorn
+            // workers). taskkill /T walks the child-process tree; /F because
+            // there is no SIGTERM equivalent to deliver first.
+            #[cfg(windows)]
+            {
+                let _ = Command::new("taskkill")
+                    .args(["/T", "/F", "/PID", &child.id().to_string()])
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
+            // Unix: the launcher execs/waits on clio in the same process
+            // group; killing the launcher delivers SIGKILL to it and uvicorn
+            // shuts down when its parent dies. (Tree-kill via process groups
+            // is a follow-up if a Linux/macOS leak is ever observed.)
             let _ = child.kill();
             let deadline = Instant::now() + SHUTDOWN_GRACE;
             loop {
@@ -401,5 +419,59 @@ mod tests {
         let back: BackendHandle = serde_json::from_str(&j).expect("deserialize");
         assert_eq!(back.url, h.url);
         assert!(matches!(back.status, BackendStatus::Ready));
+    }
+
+    /// W4 hardening: the SPAWN path + shutdown reaping, end-to-end.
+    ///
+    /// Spawns the real Go launcher (which resolves a real clio-agent-gact —
+    /// on the dev box via the repo-local develop install), waits until the
+    /// sidecar answers /v1/capabilities with the generated bearer token,
+    /// then reaps it through Supervisor::shutdown and asserts the port
+    /// actually stops answering (no orphaned sidecar).
+    ///
+    /// Soft-skips when the launcher binary or a resolvable clio-agent-gact
+    /// is absent (e.g. CI without `pnpm fetch-sidecar` / no clio install) —
+    /// those environments can't exercise the spawn path at all.
+    #[test]
+    fn spawn_path_launches_probes_and_reaps() {
+        let launcher = match locate_launcher() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("skip: {e}");
+                return;
+            }
+        };
+        let (handle, child) = match spawn_and_probe(&launcher) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e}");
+                return;
+            }
+        };
+
+        // The sidecar is up: spawn_and_probe proved /v1/capabilities answers
+        // 200. (Note: clio's auth model is trust_socket — localhost requests
+        // are accepted with or without the bearer token, so there is no
+        // negative-auth assertion to make here; the token only matters for
+        // non-localhost transports.)
+
+        // Reap through the same path the app shutdown uses.
+        let sup = Supervisor::new();
+        {
+            let mut g = sup.inner.lock().expect("fresh supervisor");
+            g.handle = handle.clone();
+            g.child = Some(child);
+        }
+        sup.shutdown();
+
+        // After reaping, the port stops answering entirely (transport error,
+        // not an HTTP status) — i.e. no orphaned process holds the socket.
+        let after = ureq::get(&format!("{}/v1/capabilities", handle.url))
+            .timeout(Duration::from_secs(2))
+            .call();
+        assert!(
+            matches!(after, Err(ureq::Error::Transport(_))),
+            "sidecar port still answering after shutdown reap: {after:?}"
+        );
     }
 }
