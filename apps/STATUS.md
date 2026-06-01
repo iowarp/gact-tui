@@ -70,6 +70,19 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W2 live-proof sweep = green.** Full UI surface driven vs live :17800:
+  `oneturn-audits.spec.ts` 11 passed + 1 skip (TTS voice gap), `audit.spec.ts` 30
+  passed + 1 skip (composer voice/mic gap) — i.e. permission, ask-user, delete,
+  frames, fork, task-cycle, link, runCommand, context-cycle, no-rename, MCP/blueprints/
+  expert-packs/providers/prompts/schedules/workspaces/memory/doctor/etc. all LIVE-PROVEN.
+  Plus the 14 cargo `--lib` Rust-path tests + the real-WebView2 e2e. **SSE taxonomy
+  verified complete:** every event clio emits (app.py `type="…"`) is subscribed in
+  `live.ts` named[] once message-*part* types (routing_decision/text/thinking/file_diff)
+  are excluded — so no dropped events; the only issues were payload-*shape* bugs within
+  handled events (permission E-27 + ask-user, both fixed). Remaining W2: confirm
+  capability-gap honoring (voice✓ via flag; lsp/optimize render-disabled), and
+  re-verify MCP `/resources/read`, autorename, `lm.provider.*`-on-stream, diff tools
+  against clio source (the W2 verification workflow is mapping these).
 - 2026-06-01 **W2 #94 ask-user = LIVE-PROVEN (real wire bug fixed).** clio emits
   `user_question.created` with the UserQuestion fields FLAT in the payload
   (`row.model_dump()`); `live.ts` read `payload.question` (always undefined) so the
