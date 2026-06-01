@@ -1499,6 +1499,54 @@ function ChatLayout(props: ChatLayoutProps) {
   const [currentMatchIdx, setCurrentMatchIdx] = createSignal(0);
   const [serverSearchOpen, setServerSearchOpen] = createSignal(false);
 
+  // Topbar overflow (W3 Tier-1): collapse the lower-priority meta chips
+  // (cost / tokens / stop reason / model / perm / density) into a "⋯" menu
+  // when they don't actually FIT — priority+ pattern, not a fixed
+  // breakpoint, because the chip set is dynamic (cost/model/perm chips
+  // come and go) and the topbar width depends on the inspector state.
+  const [topbarNarrow, setTopbarNarrow] = createSignal(false);
+  const [overflowOpen, setOverflowOpen] = createSignal(false);
+  let topbarRef: HTMLElement | undefined;
+  let metaRef: HTMLDivElement | undefined;
+  // Topbar width the chips needed when we last collapsed — only try
+  // expanding again once the topbar grows past it (prevents flapping).
+  let expandAtWidth = 0;
+  const evaluateOverflow = () => {
+    if (!topbarRef) return;
+    const topbarW = topbarRef.clientWidth;
+    if (!topbarNarrow()) {
+      const meta = metaRef;
+      if (meta && meta.scrollWidth > meta.clientWidth + 2) {
+        expandAtWidth = topbarW + (meta.scrollWidth - meta.clientWidth) + 48;
+        setTopbarNarrow(true);
+      }
+    } else if (topbarW >= expandAtWidth) {
+      // Wide enough again — try inline; re-collapses if still too tight.
+      setTopbarNarrow(false);
+      setOverflowOpen(false);
+    }
+  };
+  onMount(() => {
+    if (typeof ResizeObserver === 'undefined' || !topbarRef) return;
+    const ro = new ResizeObserver(evaluateOverflow);
+    ro.observe(topbarRef);
+    if (metaRef) ro.observe(metaRef);
+    queueMicrotask(evaluateOverflow);
+    onCleanup(() => ro.disconnect());
+  });
+  // Chip-set changes (a cost/model/perm chip appearing) don't always resize
+  // the observed boxes, so re-evaluate when the driving props change too.
+  createEffect(() => {
+    void props.sessionCostUsd;
+    void props.sessionTokens;
+    void props.lastStopReason;
+    void props.selectedModelId;
+    void props.permMode;
+    void props.sseStatus;
+    void props.runningTools?.length;
+    queueMicrotask(evaluateOverflow);
+  });
+
   const totalMatches = createMemo(() => {
     const q = searchQuery().trim().toLowerCase();
     if (!q) return 0;
@@ -2275,6 +2323,88 @@ function ChatLayout(props: ChatLayoutProps) {
 
   const onChat = () => railRoute() === 'sessions';
 
+  // Lower-priority topbar chips. Rendered inline when the topbar is wide;
+  // collapsed into the "⋯" overflow menu when narrow (W3 Tier-1). Defined
+  // once so both render paths share the exact same chips.
+  const SecondaryChips = () => (
+    <>
+      <Show when={(props.sessionCostUsd ?? 0) > 0}>
+        <span
+          class="chat__meta-item chat__meta-item--cost"
+          data-testid="session-cost-chip"
+        >
+          ${(props.sessionCostUsd ?? 0).toFixed(4)}
+        </span>
+      </Show>
+      <Show
+        when={
+          (props.sessionTokens?.total ?? 0) > 0 ||
+          (props.sessionTokens?.input ?? 0) +
+            (props.sessionTokens?.output ?? 0) >
+            0
+        }
+      >
+        <span class="chat__meta-item" data-testid="tokens-chip">
+          {humanTokens(props.sessionTokens)}
+        </span>
+      </Show>
+      <Show when={props.lastStopReason}>
+        <span
+          class={
+            'chat__meta-item ' +
+            (props.lastStopReason === 'error' ? 'chat__meta-item--err' : '')
+          }
+          data-testid="stop-reason-chip"
+        >
+          {props.lastStopReason}
+        </span>
+      </Show>
+      <Show when={props.selectedModelId && props.models?.length}>
+        {(() => {
+          const m = props.models!.find((x) => x.id === props.selectedModelId);
+          if (!m) return null;
+          return (
+            <button
+              type="button"
+              class="chat__meta-item chat__meta-item--model chat__meta-item--clickable"
+              data-testid="model-chip"
+              title={`${m.providerLabel} · ${m.modelId} — click for Settings → Models`}
+              onClick={() => props.onOpenSettings?.('providers')}
+            >
+              <Icon name="sparkle" size={10} />
+              {m.modelId}
+            </button>
+          );
+        })()}
+      </Show>
+      <Show when={props.permMode && props.permMode !== 'ask'}>
+        <button
+          type="button"
+          class={
+            'chat__meta-item chat__meta-item--clickable chat__meta-item--' +
+            (props.permMode === 'bypass' || props.permMode === 'auto'
+              ? 'err'
+              : 'warn')
+          }
+          title={`Permission mode: ${props.permMode} — click to change`}
+          onClick={() => void props.onPickPermMode?.('ask')}
+          data-testid="perm-mode-chip"
+        >
+          perm · {props.permMode}
+        </button>
+      </Show>
+      <button
+        type="button"
+        class="chat__meta-item chat__meta-item--clickable"
+        data-testid="density-chip"
+        title="Cycle density (Ctrl+O)"
+        onClick={() => cycleDensity(props.density, props.setDensity)}
+      >
+        density · {props.density}
+      </button>
+    </>
+  );
+
   return (
     <div
       class={
@@ -2340,7 +2470,7 @@ function ChatLayout(props: ChatLayoutProps) {
             />
           }
         >
-        <header class="chat__topbar">
+        <header class="chat__topbar" ref={topbarRef}>
           <div class="chat__crumbs">
             <span
               class="chat__crumb chat__crumb-head"
@@ -2373,7 +2503,7 @@ function ChatLayout(props: ChatLayoutProps) {
               <span class="chat__crumb">{activeRow()?.workspace}</span>
             </Show>
           </div>
-          <div class="chat__meta">
+          <div class="chat__meta" ref={metaRef}>
             <Show when={activeRow()?.status === 'waiting_permission'}>
               <span
                 class="chat__meta-item chat__meta-item--warn"
@@ -2390,39 +2520,6 @@ function ChatLayout(props: ChatLayoutProps) {
                 title="Session entered an error state"
               >
                 session · error
-              </span>
-            </Show>
-            <Show when={(props.sessionCostUsd ?? 0) > 0}>
-              <span
-                class="chat__meta-item chat__meta-item--cost"
-                data-testid="session-cost-chip"
-              >
-                ${(props.sessionCostUsd ?? 0).toFixed(4)}
-              </span>
-            </Show>
-            <Show
-              when={
-                (props.sessionTokens?.total ?? 0) > 0 ||
-                (props.sessionTokens?.input ?? 0) +
-                  (props.sessionTokens?.output ?? 0) >
-                  0
-              }
-            >
-              <span class="chat__meta-item" data-testid="tokens-chip">
-                {humanTokens(props.sessionTokens)}
-              </span>
-            </Show>
-            <Show when={props.lastStopReason}>
-              <span
-                class={
-                  'chat__meta-item ' +
-                  (props.lastStopReason === 'error'
-                    ? 'chat__meta-item--err'
-                    : '')
-                }
-                data-testid="stop-reason-chip"
-              >
-                {props.lastStopReason}
               </span>
             </Show>
             <Show when={props.sseStatus}>
@@ -2460,49 +2557,37 @@ function ChatLayout(props: ChatLayoutProps) {
                 );
               })()}
             </Show>
-            <Show when={props.selectedModelId && props.models?.length}>
-              {(() => {
-                const m = props.models!.find((x) => x.id === props.selectedModelId);
-                if (!m) return null;
-                return (
-                  <button
-                    type="button"
-                    class="chat__meta-item chat__meta-item--model chat__meta-item--clickable"
-                    data-testid="model-chip"
-                    title={`${m.providerLabel} · ${m.modelId} — click for Settings → Models`}
-                    onClick={() => props.onOpenSettings?.('providers')}
+            {/* Wide topbar: secondary chips render inline. Narrow: they
+                collapse into the ⋯ overflow menu (W3 Tier-1). */}
+            <Show when={!topbarNarrow()}>
+              <SecondaryChips />
+            </Show>
+            <Show when={topbarNarrow()}>
+              <div class="chat__overflow-anchor">
+                <button
+                  type="button"
+                  class={
+                    'chat__meta-item chat__meta-item--clickable' +
+                    (overflowOpen() ? ' is-active' : '')
+                  }
+                  data-testid="topbar-overflow"
+                  title="More session info"
+                  aria-expanded={overflowOpen()}
+                  onClick={() => setOverflowOpen((v) => !v)}
+                >
+                  ⋯
+                </button>
+                <Show when={overflowOpen()}>
+                  <div
+                    class="chat__overflow-menu"
+                    data-testid="topbar-overflow-menu"
+                    role="menu"
                   >
-                    <Icon name="sparkle" size={10} />
-                    {m.modelId}
-                  </button>
-                );
-              })()}
+                    <SecondaryChips />
+                  </div>
+                </Show>
+              </div>
             </Show>
-            <Show when={props.permMode && props.permMode !== 'ask'}>
-              <button
-                type="button"
-                class={
-                  'chat__meta-item chat__meta-item--clickable chat__meta-item--' +
-                  (props.permMode === 'bypass' || props.permMode === 'auto'
-                    ? 'err'
-                    : 'warn')
-                }
-                title={`Permission mode: ${props.permMode} — click to change`}
-                onClick={() => void props.onPickPermMode?.('ask')}
-                data-testid="perm-mode-chip"
-              >
-                perm · {props.permMode}
-              </button>
-            </Show>
-            <button
-              type="button"
-              class="chat__meta-item chat__meta-item--clickable"
-              data-testid="density-chip"
-              title="Cycle density (Ctrl+O)"
-              onClick={() => cycleDensity(props.density, props.setDensity)}
-            >
-              density · {props.density}
-            </button>
           </div>
           <div class="chat__topbar-actions">
             <NotificationCenter />
