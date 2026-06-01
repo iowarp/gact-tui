@@ -107,6 +107,25 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-2: TTFT + token-rate chip (real-turn proven).** `live.ts` gains
+  `streamStats` (StreamStats: ttftMs / tokensPerSec / streaming) tracked from the raw SSE
+  feed; topbar secondary chip "ttft N.Ns · ~N tok/s". **Three real findings from
+  live-driving this against :17801 (each was a wrong assumption fixed before commit):**
+  (1) This clio build emits **ZERO `message.part.delta`** for ALCF turns
+  (`x_clio_synthetic_posthoc_streaming=false`) — content arrives as complete
+  `message.part.added` parts, so TTFT measures first CONTENT arrival (added OR delta),
+  not first delta. (2) In batch mode the assistant message.created + parts + completed
+  all arrive in one burst → TTFT must anchor on the **user** message arrival (the latency
+  the human actually experiences), not the assistant message. (3) **audit.spec.ts cannot
+  receive SSE at all** (stock Playwright browser = EventSource CORS-blocked) — SSE-dependent
+  live tests MUST live in oneturn-audits.spec.ts (--disable-web-security). The rate is
+  computed from clio's REAL tokens.output on message.completed (end-to-end generation
+  rate, honest for both batch + live-streaming providers); sub-300ms "turns" (SSE replay
+  bursts) are filtered out rather than shown as fake 0.0s stats.
+  PROOF: oneturn-audits "(W3 stream stats)" — real ALCF turn → chip shows
+  "ttft 0.8s · ~123 tok/s" (PNG `audit/w3-stream-stats.png`, in the overflow menu since
+  the inspector was open). Core 41/41, web 57/57, fixture visual 31/31, lint/typecheck/
+  build green. Next T2: diff syntax highlighting → light/dark → previews → rest of T2/T3.
 - 2026-06-01 **W3 Tier-2: command palette frecency.** New `src/frecency.ts` — every
   palette pick records count + last-used (Firefox-style frecency: today ×4 / week ×2 /
   older ×1, capped at 100 entries); the empty-query palette ranks used commands first,
