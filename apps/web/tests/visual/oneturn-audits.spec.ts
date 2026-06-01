@@ -265,6 +265,102 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await page.getByTestId('composer-send').click();
   }
 
+  // -- fork lineage badge #145 ---------------------------------------
+  // clio's fork returns the child with `parent_session_id` set (NOT
+  // parent_id / forked_from), which live.ts maps to row.parentId → the
+  // ↘ lineage badge. Verified live: POST /fork → 201 with
+  // parent_session_id + a "(fork)" title suffix.
+  test('forking a session shows the lineage badge (#145)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await page.getByTestId('sessions-new').click();
+    await page.waitForTimeout(1_200);
+    await page.locator('[data-testid^="session-row-"]').first().click();
+    await page.waitForTimeout(500);
+    // Cmd/Ctrl+Shift+S forks the active session.
+    await page.keyboard.press('Control+Shift+S');
+    await page.waitForTimeout(2_500);
+    await expect(page.locator('.sx__row-fork').first()).toBeVisible({
+      timeout: 8_000,
+    });
+    await page.screenshot({ path: shot('145-fork-lineage'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- inspector task status cycling #133 ----------------------------
+  // Seed a task via the live API, open it, and cycle its status —
+  // exercises PATCH /v1/tasks/{tid} round-trip end-to-end.
+  test('inspector task status cycles via PATCH (#133)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const sid = await page.evaluate(async (base) => {
+      const s = await (
+        await fetch(`${base}/v1/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        })
+      ).json();
+      await fetch(`${base}/v1/sessions/${s.id}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'verify task cycling', status: 'pending' }),
+      });
+      return s.id as string;
+    }, BACKEND);
+    await page.getByTestId('sessions-refresh').click();
+    await page.waitForTimeout(800);
+    await page.getByTestId(`session-row-${sid}`).click();
+    await page.waitForTimeout(900);
+    await page.getByTestId('inspector-tab-tasks').click();
+    const row = page.locator('[data-testid^="inspector-task-"]').first();
+    await expect(row.locator('.inspector__task-status')).toHaveText(/pending/i);
+    await row.click();
+    await expect(row.locator('.inspector__task-status')).toHaveText(/running/i, {
+      timeout: 8_000,
+    });
+    await page.screenshot({ path: shot('133-task-cycled'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- context-file mode cycling #146 --------------------------------
+  // Seed a real workspace file into context, then cycle its mode badge
+  // (read → edit) — exercises the POST upsert on
+  // /v1/sessions/{id}/context/files end-to-end.
+  test('context-file mode cycles read → edit (#146)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const sid = await page.evaluate(async (base) => {
+      const s = await (
+        await fetch(`${base}/v1/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace_id: 'ws_default' }),
+        })
+      ).json();
+      await fetch(`${base}/v1/sessions/${s.id}/context/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '.gitconfig', mode: 'read' }),
+      });
+      return s.id as string;
+    }, BACKEND);
+    await page.getByTestId('sessions-refresh').click();
+    await page.waitForTimeout(800);
+    await page.getByTestId(`session-row-${sid}`).click();
+    await page.waitForTimeout(900);
+    await page.getByTestId('inspector-tab-context').click();
+    const modeBtn = page.locator('.inspector__file-mode').first();
+    await expect(modeBtn).toHaveText(/read/i);
+    await modeBtn.click();
+    await expect(modeBtn).toHaveText(/edit/i, { timeout: 8_000 });
+    await page.screenshot({ path: shot('146-context-mode-cycle'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
   // -- permission card over SSE #35 #135-perm ------------------------
   // This is the headline live bug: the SSE reducer read `payload.permission`
   // but clio emits the permission fields flat in the payload with the tool
