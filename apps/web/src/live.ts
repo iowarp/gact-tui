@@ -218,6 +218,18 @@ export function createLiveTranscript(
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
 
+    // SSE event types this stream listens for. Several handlers below are
+    // FORWARD-COMPAT — clio does not emit them today, but the handlers are
+    // kept (and listed here) so the desktop lights up if/when it does:
+    //   • session.created      — sessions are added via REST + a refetch
+    //   • tool.call.progress   — per-tool progress (a planned feature)
+    //   • cost.updated         — clio folds cost into message.completed
+    //   • message.error        — clio folds errors into message.completed
+    //                            (stop_reason=error + error_info)
+    // KNOWN LATENT GAP: because cost.updated never fires on live clio, the
+    // session-level cost signal (setCostUsd) stays 0 — the only feeders are
+    // this dead event + the reset. Fix when wiring session cost from
+    // message.completed / Session.cost_usd (logged in apps/STATUS.md).
     const named = [
       'server.connected',
       'server.heartbeat',
