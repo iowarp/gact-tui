@@ -15,7 +15,7 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
 ### Wave board
 | Wave | Exit criterion | State |
 |------|----------------|-------|
-| W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | not-started |
+| W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | PARTIAL — harness built; `element/value` send doesn't fire SolidJS input (fix pending) |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | not-started |
 | W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | not-started |
@@ -57,7 +57,7 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
-- _(run starts here)_
+- 2026-06-01 **W0 baseline = green.** lint + typecheck + unit (core/web vitest + desktop smoke 5/5) + `pnpm --filter @clio/web build` OK. `cargo test --lib` 14/14 vs live :17800 (gact_http ×3, sse_bridge ×2, supervisor ×6, ssh bad_host; the SSH_TUNNEL-gated tunnel + homelab tests no-op-skip — those are W4). Fixture `screenshots.spec.ts` 28/28 after fixing the lone red: `connect-screen` did a bare `goto('/')` and expected the connect screen, but with clio up the splash auto-advances past it → switched to `?route=connect` (deterministic; matches audit/oneturn specs). `tauri:build:debug` built green earlier this session (no non-test Rust changes since). clio :17800 agent=ready. **Next: W1 — fix the tauri-driver `element/value` send so SolidJS registers the composer input, get the real-WebView2 permission round-trip green.**
 
 ## v0.9.1 blockers (what must be true before re-tagging)
 

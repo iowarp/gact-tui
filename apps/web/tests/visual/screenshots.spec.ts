@@ -22,7 +22,12 @@ try {
 
 test.describe('CLIO harness — visual proofs', () => {
   test('connect-screen renders wordmark and form', async ({ page }) => {
-    await page.goto('/');
+    // Force the connect route explicitly. A bare `/` is non-deterministic:
+    // when a backend is reachable (clio on :17800, which this project
+    // requires for live testing) the splash auto-probes and advances past
+    // connect, so the screen never renders. `?route=connect` is the
+    // intended way to view it (the audit/oneturn specs use it too).
+    await page.goto('/?route=connect');
     await expect(page.getByTestId('connect-screen')).toBeVisible();
     await expect(page.getByTestId('connect-submit')).toBeVisible();
     await page.screenshot({ path: shot('connect-screen'), fullPage: false });
