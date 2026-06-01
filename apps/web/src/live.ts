@@ -255,7 +255,6 @@ export function createLiveTranscript(
       'file.diff.applied',
       'file.diff.rejected',
       'file.diff.write_failed',
-      'expert_handoff',
       'subagent.started',
       'subagent.completed',
       'memory.search.completed',
@@ -902,20 +901,9 @@ function reduce(
       }
       break;
     }
-    case 'expert_handoff': {
-      const expertName =
-        (p.expert_name as string) ??
-        (p.target_agent as string) ??
-        (p.agent_id as string) ??
-        'expert';
-      const reason = (p.reason as string) ?? undefined;
-      hooks.onNotification?.({
-        level: 'info',
-        title: `Handed off to ${expertName}`,
-        ...(reason ? { body: reason } : {}),
-      });
-      break;
-    }
+    // expert_handoff is a message Part (rendered inline in Transcript), not a
+    // standalone SSE event — clio never publishes one, so the old top-level
+    // case here was dead. Removed.
     case 'subagent.started': {
       const agentName =
         (p.agent_name as string) ?? (p.agent_id as string) ?? 'sub-agent';

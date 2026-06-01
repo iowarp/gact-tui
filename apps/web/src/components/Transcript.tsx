@@ -247,6 +247,36 @@ function PartView(props: {
       </div>
     );
   }
+  // expert_handoff parts — clio delegated the turn to a sub-expert; show
+  // who handled it + the status/summary. (clio emits this as a Part, not a
+  // standalone event, so it must be rendered here or it's silently dropped.)
+  if (p.type === 'expert_handoff') {
+    const hp = p as Part & { metadata?: Record<string, unknown>; text?: string };
+    const meta = hp.metadata ?? {};
+    const agent = String(meta['agent_id'] ?? meta['expert'] ?? 'expert');
+    const parent = String(meta['parent_id'] ?? meta['parent'] ?? '').trim();
+    const status = String(meta['status'] ?? 'observed');
+    const output = String(meta['output_summary'] ?? meta['summary'] ?? '').trim();
+    const summary = hp.text ?? '';
+    return (
+      <div class="trx-routing">
+        <span class="trx-routing__icon" aria-hidden>
+          <Icon name="bot" size={11} />
+        </span>
+        <span class="trx-routing__body">
+          <span class="trx-routing__head">
+            <Show when={parent} fallback={<>handoff to <strong>{agent}</strong></>}>
+              handoff <strong>{parent}</strong> → <strong>{agent}</strong>
+            </Show>
+            <span class="trx-routing__src"> · {status}</span>
+          </span>
+          <Show when={output || summary}>
+            <span class="trx-routing__why">{output || summary}</span>
+          </Show>
+        </span>
+      </div>
+    );
+  }
   return null;
 }
 
