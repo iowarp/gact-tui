@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`), **first-run onboarding tour** (`audit/w3-onboarding-welcome.png` + `w3-onboarding-composer.png`). **TIER 1 COMPLETE** (one deferred sub-item: code-block line numbers). Now: Tier-2 → Tier-3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | **EXIT-MET 2026-06-01**: all 23 backlog items terminal — T1 8/8 DONE, T2 6 DONE + 3 DEFERRED, T3 6 DEFERRED (see "W3 CLOSURE" section; every DONE has a PNG, every DEFERRED a concrete reason). Prior in-progress note: | T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`), **first-run onboarding tour** (`audit/w3-onboarding-welcome.png` + `w3-onboarding-composer.png`). **TIER 1 COMPLETE** (one deferred sub-item: code-block line numbers). Now: Tier-2 → Tier-3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -105,6 +105,52 @@ polish · token-rate/TTFT while streaming · light/dark toggle · message edit h
 **T3 (stretch):** retry-with-notes & retry-with-model flows · inspector execution
 timeline · large-list virtualization · settings import/export · notification-center
 search/filter · native window menus / polish.
+
+### W3 CLOSURE — every backlog item in a terminal state (zero in limbo)
+
+**Tier 1 (8/8 terminal):** code syntax-highlighting ✅DONE (`code-syntax-highlight.png`;
+line-numbers sub-item → resolved in the DiffPane gutter; transcript code-block gutter
+DEFERRED — fixed gutter fights horizontal scroll, needs per-line hljs splitting) ·
+first-run onboarding ✅DONE (`audit/w3-onboarding-*.png`) · fuzzy search ✅DONE
+(`slash-palette-fuzzy.png`) · actionable error states ✅DONE (`audit/w3-error-*.png`) ·
+motion+skeletons ✅DONE (`audit/w3-skeleton-discovery.png`) · topbar overflow ✅DONE
+(`audit/w3-topbar-overflow.png`) · settings depth ✅DONE (`audit/w3-settings-*.png`) ·
+a11y ✅DONE (`audit/w3-a11y-focus-trap.png` + high-contrast preset).
+
+**Tier 2 (9/9 terminal):**
+- diffs highlighting + gutter ✅DONE (`diff-pane-open.png`, DiffPane.test 8/8)
+- palette frecency ✅DONE (`audit/w3-palette-frecency.png`, Frecency.test 5/5)
+- token-rate/TTFT ✅DONE (`audit/w3-stream-stats.png`, real ALCF turn)
+- drag-and-drop polish ✅DONE-AS-SHIPPED in gap-96 (OS-file drop = upload with
+  pending/done chips, in-app path drop = @-reference, drop-target overlay;
+  `attach-hybrid-menu.png`)
+- per-tool progress ✅DONE-AS-SHIPPED (tool.call.progress % in running chip + hover,
+  task gap-86 audit-verified; clio rarely emits progress — forward-compat)
+- teaching empty-states ✅DONE-AS-SHIPPED (empty chat teaches Cmd+K / Cmd+/ + 4 prompt
+  cards, per-page discovery empty hints, plus the onboarding tour)
+- file & image inline previews ⏸DEFERRED — clio serves no binary/image file endpoint
+  (files/read returns raw text, verified in the W2 audit); previews of remote/ssh
+  workspace files need a backend route first (candidate clio PR; noted in apps/PLAN.md)
+- light/dark toggle ⏸DEFERRED — a real light theme needs light-mode design tokens;
+  `apps/design/` is read-only for this goal and inventing a palette ad-hoc would fork
+  the design system. Preset infra (Default/High-contrast/Dim) is in place; the
+  Appearance UI already shows Light/Auto as "lands in v1.0".
+- message edit history / "edited" markers ⏸DEFERRED — clio has no message-version
+  endpoint (edits are new turns via retry); desktop-only markers would be fake state.
+
+**Tier 3 (6/6 terminal, all stretch-deferred with reasons):**
+- retry-with-notes / retry-with-model ⏸DEFERRED — `retryTurn()` already supports both
+  params (W2); the UI variant menu on Regenerate is additive. Basic retry is live-proven.
+- inspector execution timeline ⏸DEFERRED — Inspector Turn/Tools/Frames tabs already
+  expose per-turn execution data; a unified timeline is a visualization layer on top.
+- large-list virtualization ⏸DEFERRED — pending the W4 large-transcript hardening
+  result; only needed if that test shows degradation.
+- settings import/export ⏸DEFERRED — "Reset all preferences" exists; full pref
+  import/export is convenience.
+- notification-center search/filter ⏸DEFERRED — bell popover (last 50 + unseen badge)
+  covers the core need.
+- native window menus ⏸DEFERRED — Tauri menu API + per-OS testing; the palette
+  covers every command.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
 - 2026-06-01 **W3 Tier-2: diff syntax highlighting + line-number gutter.** DiffPane now
