@@ -701,6 +701,43 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await browser.close();
   });
 
+  // -- W4: ssh-homelab real-turn hop -----------------------------------
+  // Gated on CLIO_TUNNEL_URL (an ssh -L tunnel to a remote clio). The test
+  // drives the desktop UI against the TUNNELED endpoint and verifies a
+  // session whose turn ran on the remote box (claude_code provider) renders
+  // end-to-end. Repeatable: open a tunnel, export CLIO_TUNNEL_URL, run.
+  test('W4: desktop UI drives a remote clio through an ssh tunnel (homelab hop)', async () => {
+    const tunnelUrl = process.env['CLIO_TUNNEL_URL'];
+    test.skip(!tunnelUrl, 'CLIO_TUNNEL_URL not set — open an ssh -L tunnel first');
+    const browser = await bootBrowser();
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(tunnelUrl!);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
+
+    // The remote session list loads through the tunnel; open the hop
+    // session (created by the curl-side proof) or any session with messages.
+    await page.waitForTimeout(1_500);
+    const hopRow = page
+      .locator('[data-testid^="session-row-"]')
+      .filter({ hasText: /homelab|w4-homelab-hop/i })
+      .first();
+    await expect(hopRow).toBeVisible({ timeout: 10_000 });
+    await hopRow.click();
+    // The remote turn's reply must render in the transcript.
+    await expect(page.getByTestId('transcript-pane')).toContainText(/homelab/i, {
+      timeout: 15_000,
+    });
+    await page.screenshot({ path: shot('w4-homelab-hop'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
   // -- W3 Tier-2: TTFT + token-rate chip after a real turn ------------
   // Verified provider modes: live-streaming providers emit
   // message.part.delta; batch providers (ALCF here, with
