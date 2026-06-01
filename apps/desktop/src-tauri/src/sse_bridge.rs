@@ -288,4 +288,55 @@ mod tests {
             "bridge should forward at least one parsed SSE event with a type field"
         );
     }
+
+    /// HARDENING: setting the stop flag must terminate the reader thread
+    /// (it notices at the next line, which clio's heartbeat keeps within
+    /// a few seconds) and emit a final `closed`. Proves session-switch /
+    /// shutdown teardown doesn't leak SSE threads holding clio sockets.
+    #[test]
+    fn stop_flag_terminates_the_reader() {
+        let Some(base) = backend() else {
+            eprintln!("skip: no clio at CLIO_GACT_URL");
+            return;
+        };
+        let body = ureq::post(&format!("{base}/v1/sessions"))
+            .set("Content-Type", "application/json")
+            .send_string("{}")
+            .ok()
+            .and_then(|r| r.into_string().ok())
+            .expect("create session");
+        let sid = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|j| j.get("id").and_then(|v| v.as_str()).map(String::from))
+            .expect("session id");
+
+        let closed = Arc::new(AtomicBool::new(false));
+        let stop = Arc::new(AtomicBool::new(false));
+        let url = format!("{base}/v1/sessions/{sid}/events");
+        let closed2 = closed.clone();
+        let stop2 = stop.clone();
+        let reader = thread::spawn(move || {
+            run_stream(&url, &HashMap::new(), &stop2, |m| {
+                if m.kind == "closed" {
+                    closed2.store(true, Ordering::Relaxed);
+                }
+            });
+        });
+
+        thread::sleep(Duration::from_millis(800)); // let it connect
+        stop.store(true, Ordering::Relaxed);
+
+        // The thread must exit within a heartbeat window or two.
+        let mut joined = false;
+        for _ in 0..40 {
+            if reader.is_finished() {
+                joined = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        assert!(joined, "reader thread did not stop within ~20s of stop flag");
+        let _ = reader.join();
+        assert!(closed.load(Ordering::Relaxed), "reader should emit 'closed' on stop");
+    }
 }
