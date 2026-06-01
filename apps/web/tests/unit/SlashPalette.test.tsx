@@ -44,6 +44,23 @@ describe('SlashPalette', () => {
     expect(screen.queryByTestId('slash-palette-item-help')).toBeNull();
   });
 
+  it('matches sparse fuzzy queries (subsequence, not substring)', () => {
+    // "dctr" is a subsequence of "doctor" (d·c·t·r) but NOT a substring —
+    // substring filtering would drop it; fuzzy ranking keeps it.
+    const { q, setQ } = withQuery('dctr');
+    render(() => (
+      <SlashPalette
+        open={true}
+        query={q()}
+        commands={DEFAULT_COMMANDS}
+        onQueryChange={setQ}
+        onPick={() => undefined}
+        onClose={() => undefined}
+      />
+    ));
+    expect(screen.queryByTestId('slash-palette-item-doctor')).toBeTruthy();
+  });
+
   it('fires onPick when an item is clicked', () => {
     let picked = '';
     render(() => (

@@ -232,6 +232,16 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
   });
 
+  test('command palette fuzzy-matches sparse queries (W3 Tier-1)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal&open=palette');
+    await expect(page.getByTestId('slash-palette')).toBeVisible();
+    // "dctr" is not a substring of any command, but is a subsequence of
+    // "doctor" — fuzzy ranking surfaces it.
+    await page.keyboard.type('dctr');
+    await expect(page.getByTestId('slash-palette-item-doctor')).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('slash-palette-fuzzy'), fullPage: false });
+  });
+
   // Real-backend visual proof — only captured when a clio-agent-gact
   // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
   // CI runners without the install don't fail. On the developer's box
