@@ -600,6 +600,11 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // (The TTFT/token-rate stream-stats test lives in oneturn-audits.spec.ts —
+  // it needs real SSE delivery, which requires the --disable-web-security
+  // browser those live-turn tests run in. EventSource is CORS-blocked in
+  // this spec's stock browser.)
+
   // ---- W3 Tier-2: palette frecency ----
   test('Palette ranks previously-used commands first with a recent badge (W3 frecency)', async ({ browser }) => {
     const { page, close } = await connect(browser);

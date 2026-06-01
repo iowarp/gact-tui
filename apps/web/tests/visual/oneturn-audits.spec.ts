@@ -522,4 +522,32 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await ctx.close();
     await browser.close();
   });
+
+  // -- W3 Tier-2: TTFT + token-rate chip after a real turn ------------
+  // Verified provider modes: live-streaming providers emit
+  // message.part.delta; batch providers (ALCF here, with
+  // x_clio_synthetic_posthoc_streaming=false) emit complete
+  // message.part.added parts and zero deltas. The chip must materialize
+  // for BOTH — TTFT measures first content arrival, the rate comes from
+  // clio's real token count on message.completed.
+  test('topbar shows TTFT + token rate after a real turn (W3 stream stats)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    await sendOneTurn(page);
+
+    // The chip lands inline, or inside the ⋯ overflow menu when the chip
+    // set outgrows the topbar (inspector open by default) — both are
+    // correct UX states.
+    const overflowBtn = page.getByTestId('topbar-overflow');
+    if (await overflowBtn.isVisible()) {
+      await overflowBtn.click();
+    }
+    const chip = page.getByTestId('stream-stats-chip');
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await expect(chip).toContainText('ttft');
+    await expect(chip).toContainText('tok/s');
+    await page.screenshot({ path: shot('w3-stream-stats'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
 });

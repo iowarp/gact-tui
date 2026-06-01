@@ -71,6 +71,8 @@ export interface LiveTranscriptHandle {
   runningTools: Accessor<RunningTool[]>;
   /** Currently pending orchestrator ask-user questions (PR #380). */
   pendingQuestion: Accessor<UserQuestion | null>;
+  /** TTFT + token-rate of the most recent turn (null before the first turn). */
+  streamStats: Accessor<StreamStats | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
   refetch: () => Promise<void>;
   /** Skip the backoff countdown and reconnect the SSE stream right now —
@@ -87,6 +89,18 @@ export interface RunningTool {
   progress?: number;
   /** Last status message from tool.call.progress. */
   progressMessage?: string;
+}
+
+/** Streaming performance of the most recent turn (W3 Tier-2). */
+export interface StreamStats {
+  /** Time from assistant message.created → first text delta, in ms. */
+  ttftMs: number | null;
+  /** Output token rate. While streaming this is a ~4-chars/token estimate;
+   * once message.completed lands it's recomputed from clio's real
+   * tokens.output count. */
+  tokensPerSec: number | null;
+  /** True while the turn is still streaming. */
+  streaming: boolean;
 }
 
 export interface MessageCompletion {
@@ -179,6 +193,93 @@ export function createLiveTranscript(
   // openEs/timers); exposed via the public reconnectNow() API.
   let reconnectNowRef: (() => void) | null = null;
 
+  // --- Streaming performance stats (W3 Tier-2: token-rate / TTFT) ---
+  // Tracked from the raw SSE feed before reduction. Two provider modes
+  // exist (verified against live clio): live-streaming providers emit
+  // message.part.delta; batch providers (e.g. ALCF with
+  // x_clio_synthetic_posthoc_streaming=false) emit complete
+  // message.part.added parts and ZERO deltas. TTFT therefore measures
+  // first CONTENT arrival (added or delta), and the rate is end-to-end
+  // generation throughput from clio's real token count on completion.
+  const [streamStats, setStreamStats] = createSignal<StreamStats | null>(null);
+  let turnStartedAt = 0;
+  let firstContentAt = 0;
+  let deltaChars = 0;
+
+  function trackStreamStats(ev: { type?: string; payload?: Record<string, unknown> }) {
+    const p = ev.payload ?? {};
+    switch (ev.type) {
+      case 'message.created': {
+        // The clock starts at the USER message — that's the latency the
+        // human actually experiences. (Anchoring on the assistant message
+        // reads ~0ms in batch mode, where clio creates the assistant
+        // message and its parts together at the END of the turn.)
+        if ((p['role'] as string) === 'user') {
+          turnStartedAt = performance.now();
+          firstContentAt = 0;
+          deltaChars = 0;
+          setStreamStats({ ttftMs: null, tokensPerSec: null, streaming: true });
+        }
+        break;
+      }
+      case 'message.part.added':
+      case 'message.part.delta': {
+        if (!turnStartedAt) break;
+        // Only assistant content counts. Part payloads don't carry a role,
+        // so the user message's own part (which arrives within the same
+        // instant as its message.created) is filtered with a 50ms guard.
+        const now = performance.now();
+        if (now - turnStartedAt < 50) break;
+        if (!firstContentAt) {
+          firstContentAt = now;
+          setStreamStats({
+            ttftMs: Math.round(firstContentAt - turnStartedAt),
+            tokensPerSec: null,
+            streaming: true,
+          });
+        }
+        if (ev.type === 'message.part.delta') {
+          // Live estimate (~4 chars/token) until the real count lands.
+          const delta = (p['delta'] as { text_append?: string }) ?? {};
+          deltaChars += (delta.text_append ?? '').length;
+          const elapsedSec = (now - firstContentAt) / 1000;
+          if (elapsedSec > 0.25) {
+            setStreamStats((s) => ({
+              ttftMs: s?.ttftMs ?? null,
+              tokensPerSec: Math.round(deltaChars / 4 / elapsedSec),
+              streaming: true,
+            }));
+          }
+        }
+        break;
+      }
+      case 'message.completed': {
+        if (!turnStartedAt) break;
+        const tokens = p['tokens'] as { output?: number } | undefined;
+        const end = performance.now();
+        const turnSec = (end - turnStartedAt) / 1000;
+        // Sub-300ms "turns" are SSE replay bursts (history replayed on
+        // connect), not real generation — show nothing rather than lie.
+        if (turnSec < 0.3) {
+          setStreamStats(null);
+          turnStartedAt = 0;
+          break;
+        }
+        setStreamStats({
+          ttftMs: firstContentAt
+            ? Math.round(firstContentAt - turnStartedAt)
+            : Math.round(end - turnStartedAt),
+          // End-to-end generation rate from clio's REAL token count —
+          // meaningful for both batch and live-streaming providers.
+          tokensPerSec: tokens?.output ? Math.round(tokens.output / turnSec) : null,
+          streaming: false,
+        });
+        turnStartedAt = 0;
+        break;
+      }
+    }
+  }
+
   // Backoff ladder. Each step caps at 10s so we don't go silent for
   // minutes after a few attempts; the user can still force-recover by
   // navigating away and back.
@@ -189,6 +290,12 @@ export function createLiveTranscript(
 
   createEffect(() => {
     const id = activeSessionId();
+    // Stream stats are per-session — reset whenever the session changes
+    // (including to "no session").
+    setStreamStats(null);
+    turnStartedAt = 0;
+    firstContentAt = 0;
+    deltaChars = 0;
     if (!id) {
       setMessages([]);
       setMessagesLoading(false);
@@ -303,6 +410,7 @@ export function createLiveTranscript(
       } catch {
         return;
       }
+      trackStreamStats(ev as { type?: string; payload?: Record<string, unknown> });
       reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
         setMessages,
         setPendingPermission,
@@ -514,6 +622,7 @@ export function createLiveTranscript(
     costUsd,
     runningTools,
     pendingQuestion,
+    streamStats,
     refetch,
     reconnectNow: () => {
       // Don't tear down a healthy stream — only act when degraded.

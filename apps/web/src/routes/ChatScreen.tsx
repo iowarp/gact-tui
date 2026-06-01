@@ -18,7 +18,7 @@ import type {
   ProviderDef,
   SlashCommandDef,
 } from '@clio/core';
-import type { RunningTool } from '../live.js';
+import type { RunningTool, StreamStats } from '../live.js';
 import { notifPrefs } from '../notif-prefs.js';
 import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
@@ -1297,6 +1297,7 @@ function LiveDriven(props: {
       sseStatus={transcript.status()}
       sseReconnectInSec={transcript.reconnectInSec()}
       runningTools={transcript.runningTools()}
+      streamStats={transcript.streamStats()}
       sessionCostUsd={transcript.costUsd()}
       sessionTokens={transcript.lastCompletion()?.tokens}
       lastStopReason={transcript.lastCompletion()?.stop_reason}
@@ -1338,6 +1339,8 @@ interface ChatLayoutProps {
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error' | 'reconnecting';
   sseReconnectInSec?: number;
   runningTools?: RunningTool[];
+  /** TTFT + token rate of the most recent turn (W3 Tier-2). */
+  streamStats?: StreamStats | null;
   sessionTokens?: { input?: number; output?: number; total?: number };
   preOpen?: string | null;
   sessionCostUsd?: number;
@@ -2399,6 +2402,36 @@ function ChatLayout(props: ChatLayoutProps) {
           data-testid="stop-reason-chip"
         >
           {props.lastStopReason}
+        </span>
+      </Show>
+      {/* TTFT + token rate of the most recent turn (W3 Tier-2). Live
+          estimate while streaming; recomputed from clio's real token
+          count once the turn completes. */}
+      <Show
+        when={
+          props.streamStats &&
+          (props.streamStats.ttftMs != null || props.streamStats.tokensPerSec != null)
+        }
+      >
+        <span
+          class="chat__meta-item"
+          data-testid="stream-stats-chip"
+          title="Time-to-first-token · output token rate of the most recent turn"
+        >
+          <Show when={props.streamStats?.ttftMs != null}>
+            ttft {((props.streamStats?.ttftMs ?? 0) / 1000).toFixed(1)}s
+          </Show>
+          <Show
+            when={
+              props.streamStats?.ttftMs != null &&
+              props.streamStats?.tokensPerSec != null
+            }
+          >
+            {' · '}
+          </Show>
+          <Show when={props.streamStats?.tokensPerSec != null}>
+            ~{props.streamStats?.tokensPerSec} tok/s
+          </Show>
         </span>
       </Show>
       <Show when={props.selectedModelId && props.models?.length}>
