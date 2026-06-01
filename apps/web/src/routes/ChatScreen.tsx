@@ -38,6 +38,7 @@ import {
   type DetachedSession,
 } from '../detached.js';
 import { invokePlugin, listPlugins } from '../plugins.js';
+import { frecencyVersion, rankByFrecency, recordCommandUse } from '../frecency.js';
 import {
   OnboardingTour,
   markOnboardingDone,
@@ -1936,6 +1937,14 @@ function ChatLayout(props: ChatLayoutProps) {
   function handlePick(cmd: SlashCommand) {
     setPaletteOpen(false);
 
+    // Frecency (W3 Tier-2): every pick bumps the command so the
+    // empty-query palette learns what this user actually reaches for.
+    // Session jumps are excluded — session ids churn, so ranking them
+    // would just pin stale ids.
+    if (!cmd.id.startsWith('jump:') && !cmd.id.startsWith('detached:')) {
+      recordCommandUse(cmd.id);
+    }
+
     // Dynamic items the layout injects (jump:<sid>, perm:<mode>, etc.)
     // are namespaced by id so they don't collide with backend slash
     // commands.
@@ -2303,7 +2312,14 @@ function ChatLayout(props: ChatLayoutProps) {
         category: 'view',
       },
     );
-    return items;
+    // Frecency (W3 Tier-2): commands the user has actually used rank to
+    // the top of the empty-query palette, the most-frecent few badged as
+    // "recent". The fuzzy ranker still owns ordering once a query is typed.
+    void frecencyVersion(); // reactive dep — re-rank after every pick
+    const { ranked, recentIds } = rankByFrecency(items, (c) => c.id);
+    return ranked.map((c) =>
+      recentIds.has(c.id) ? { ...c, category: 'recent' } : c,
+    );
   });
 
   const activeRow = () => props.sessions.find((s) => s.id === props.activeId);

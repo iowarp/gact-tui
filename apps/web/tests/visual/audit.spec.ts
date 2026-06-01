@@ -600,6 +600,31 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  // ---- W3 Tier-2: palette frecency ----
+  test('Palette ranks previously-used commands first with a recent badge (W3 frecency)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.waitForTimeout(800);
+    await page.locator('body').click();
+
+    // Use the "go · doctor" command once.
+    await page.keyboard.press('Control+KeyK');
+    await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 6_000 });
+    await page.keyboard.type('go · doctor');
+    await page.getByTestId('slash-palette-item-rail:doctor').click();
+    await expect(page.getByTestId('dp-doctor')).toBeVisible({ timeout: 8_000 });
+
+    // Reopen with an empty query: rail:doctor must now be the FIRST item
+    // and carry the "recent" badge.
+    await page.locator('body').click();
+    await page.keyboard.press('Control+KeyK');
+    await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 6_000 });
+    const firstItem = page.locator('.slash-palette__item').first();
+    await expect(firstItem).toHaveAttribute('data-testid', 'slash-palette-item-rail:doctor');
+    await expect(firstItem.locator('.chip')).toContainText('recent');
+    await page.screenshot({ path: shot('w3-palette-frecency'), fullPage: false });
+    await close();
+  });
+
   // ---- W3 Tier-1: first-run onboarding tour ----
   test('First run shows the onboarding tour; finishing it persists (W3 onboarding)', async ({ browser }) => {
     // Fresh profile — NO onboarding flag → the tour must auto-appear after
