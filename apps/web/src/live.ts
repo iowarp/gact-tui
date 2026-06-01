@@ -223,13 +223,13 @@ export function createLiveTranscript(
     // kept (and listed here) so the desktop lights up if/when it does:
     //   • session.created      — sessions are added via REST + a refetch
     //   • tool.call.progress   — per-tool progress (a planned feature)
-    //   • cost.updated         — clio folds cost into message.completed
+    //   • cost.updated         — redundant: session cost is now accumulated
+    //                            from message.completed (per-turn cost_usd),
+    //                            matching clio's server-side rollup; this
+    //                            event would only be a direct session-total
+    //                            override, which clio never sends.
     //   • message.error        — clio folds errors into message.completed
     //                            (stop_reason=error + error_info)
-    // KNOWN LATENT GAP: because cost.updated never fires on live clio, the
-    // session-level cost signal (setCostUsd) stays 0 — the only feeders are
-    // this dead event + the reset. Fix when wiring session cost from
-    // message.completed / Session.cost_usd (logged in apps/STATUS.md).
     const named = [
       'server.connected',
       'server.heartbeat',
@@ -591,6 +591,16 @@ function reduce(
         cost_usd: p.cost_usd as number | undefined,
       };
       hooks.setLastCompletion(completion);
+      // Session-level cost accumulates per completed turn. clio sends the
+      // PER-TURN cost on message.completed (cost_usd=turn_cost) and adds it to
+      // the session total server-side; it never emits a standalone
+      // cost.updated, so this is the real feeder for the topbar cost chip.
+      // setCostUsd is reset to 0 on session switch, and SSE replay rebuilds
+      // the running sum on reconnect / when switching into a session.
+      if (typeof completion.cost_usd === 'number') {
+        const turnCost = completion.cost_usd;
+        hooks.setCostUsd((prev) => prev + turnCost);
+      }
       hooks.setMessages((prev) =>
         prev.map((m) =>
           m.id === completion.message_id
