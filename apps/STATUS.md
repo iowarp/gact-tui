@@ -4,6 +4,61 @@
 **Branch:** `feat/apps-harness`
 **Phase:** v0.9.1 in flight on `feat/apps-harness` HEAD
 
+## ACTIVE RUN LEDGER — release-readiness `/goal` (READ THIS FIRST)
+
+Live ledger for the long-horizon release-readiness goal. Full plan:
+`~/.claude/plans/mellow-yawning-map.md`. Update the boards in place; append to the
+session log. **No item is DONE without a named proof artifact** (test name + PNG, a
+`cargo --lib` line, or a flag-gated UI drive). **Source of truth = clio-agent source
+(`gact/types.py`, `app.py`) + live `/v1/capabilities`, NOT `contract/SPEC.md`** (stale).
+
+### Wave board
+| Wave | Exit criterion | State |
+|------|----------------|-------|
+| W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | not-started |
+| W1 Verifier trust | tauri-driver WebView e2e green-or-documented | PARTIAL — harness built; `element/value` send doesn't fire SolidJS input (fix pending) |
+| W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | not-started |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | not-started |
+| W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
+| W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
+
+### Verification matrix — RE-VERIFY against clio-agent SOURCE (do NOT trust prior "blocked" labels)
+- **user_question / ask-user retry — NOT blocked** (I mislabeled it). clio-agent
+  implements it: `app.py` emits `user_question.created/answered/resumed/cancelled`;
+  capability advertised `x_clio_user_questions=True` (`app.py:7267`); trigger = the
+  DSPy agent returning an `ask_user` action. → **FLAG-GATED**: enable on a SEPARATE
+  clio, induce a question, drive the desktop card + answer round-trip; verify the
+  desktop reads the question shape (watch for an E-27-style wire mismatch).
+- **TTS `/voice/synthesize`** — re-check source; clio reports `voice:false` on :17800; if truly absent → file iowarp/clio-agent issue.
+- **MCP `/resources/read`** — re-check source; if absent → issue.
+- **autorename `session.updated(title)`** — re-check whether clio emits it under any path; else issue.
+- **`lm.provider.{changed,failed}` on session SSE** — re-check emit path; else issue.
+- **diff-emitting edit tool (`file.diff.*`)** — re-check whether any tool proposes diffs; else issue.
+- **PATCH `/v1/sessions` partial; policies PUT write shape** — re-check + fix desktop or issue.
+- **All other wired surfaces** (sessions/messages/permissions/tasks/context/frames/
+  schedules/agents/blueprints/expert-packs/prompts/providers/mcp/workspaces/commands/
+  memory/sharing/doctor) — confirm LIVE-PROVEN (many already are via audit/oneturn specs).
+- **Hardening (W4):** SSE drop→reconnect (Rust bridge), concurrent turns, large
+  transcript, supervisor SPAWN path, shutdown reaping, ssh error paths, homelab real-turn hop.
+
+### Frozen UX backlog — tiered; one visit/item; DEFER-with-reason allowed, NO mid-run expansion (new ideas → `apps/PLAN.md`)
+**T1 (high-impact):** code syntax-highlighting + line numbers + per-block copy · first-run
+onboarding/tour · fuzzy search (Cmd+K palette + @-picker + slash-picker) · actionable
+error states (every error offers a next action) · motion + skeleton loaders · topbar
+overflow menu at narrow widths · settings depth (per-backend test-connection, theme
+presets, notification prefs) · a11y (modal focus traps, visible focus rings, `aria-live`
+on toasts/streaming, high-contrast theme).
+**T2 (app-like):** syntax-highlighted diffs + line gutter · command history/recents/
+frecency in palette · file & image inline previews (transcript + @-picker) · drag-and-drop
+polish · token-rate/TTFT while streaming · light/dark toggle · message edit history /
+"edited" markers · per-tool progress bars · teaching empty-states.
+**T3 (stretch):** retry-with-notes & retry-with-model flows · inspector execution
+timeline · large-list virtualization · settings import/export · notification-center
+search/filter · native window menus / polish.
+
+### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- _(run starts here)_
+
 ## v0.9.1 blockers (what must be true before re-tagging)
 
 1. **WebView CORS fix verified end-to-end** — commit `38a65bf` routes
