@@ -1,6 +1,7 @@
 import { For, Show, createResource, createSignal, onCleanup, onMount } from 'solid-js';
 import type { Client } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './catalog-browser.css';
 
 export interface CatalogBrowserProps {
@@ -178,7 +179,9 @@ export function CatalogBrowser(props: CatalogBrowserProps) {
             <div
               class="cbr"
               role="dialog"
+              aria-modal="true"
               aria-label="Catalog browser"
+              ref={trapFocusRef}
               data-testid="catalog-browser"
             >
               <header class="cbr__head">

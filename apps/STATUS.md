@@ -24,7 +24,7 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
 | W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
-| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`). T1 remaining: settings depth, modal focus traps + aria-live + high-contrast, first-run onboarding. Then T2/T3. |
+| W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | IN-PROGRESS 2026-06-01: T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion** (`audit/w3-a11y-focus-trap.png`; high-contrast theme rides the settings-depth item). T1 remaining: settings depth (incl. high-contrast preset), first-run onboarding. Then T2/T3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | not-started |
 | W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | not-started |
 
@@ -107,6 +107,21 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1 a11y: modal focus traps + aria-live streaming.** New
+  `src/focus-trap.ts` (`trapFocus` + Solid `trapFocusRef` ref helper): Tab/Shift+Tab wrap
+  inside open modals, focus restores to the opener on close. Applied to ALL 7 overlay
+  dialogs (SlashPalette, CatalogBrowser, ComposeModal, McpInstallModal,
+  SharedSessionModal, KeybindCheatsheet, ServerSearchPanel) + `aria-modal="true"` on each.
+  Transcript gains `aria-live="polite"` + `aria-busy` while streaming so screen readers
+  announce streamed turns. Combined with the earlier focus-visible ring +
+  prefers-reduced-motion, the a11y T1 sub-items are done EXCEPT high-contrast theme,
+  which moves into the settings-depth item (it ships as a theme preset there — not
+  dropped). PROOF: audit.spec.ts "(W3 a11y)" vs :17801 — Cmd+K palette, 12×Tab stays
+  inside the dialog, Esc closes; PNG `audit/w3-a11y-focus-trap.png`; unit
+  `FocusTrap.test.tsx` 5/5 (wrap fwd/back, restore-on-release, real SlashPalette mount);
+  web unit 43/43; fixture visual 31/31; lint/typecheck/build green.
+  Next W3 T1: settings depth (test-connection, theme presets incl. high-contrast,
+  notification prefs) → first-run onboarding → code line numbers.
 - 2026-06-01 **W3 Tier-1: topbar overflow menu (priority+ pattern).** Secondary topbar
   chips (cost/tokens/stop-reason/model/perm/density) now collapse into a "⋯" dropdown
   when they don't FIT, instead of being silently clipped by `overflow:hidden` (the old

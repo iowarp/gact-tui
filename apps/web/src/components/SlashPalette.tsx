@@ -7,6 +7,7 @@ import {
   Show,
 } from 'solid-js';
 import { fuzzyRank } from '../fuzzy.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './slash-palette.css';
 
 export interface SlashCommand {
@@ -95,7 +96,13 @@ export function SlashPalette(props: SlashPaletteProps) {
   return (
     <Show when={props.open}>
       <div class="slash-palette__backdrop" onClick={props.onClose} />
-      <div class="slash-palette" role="dialog" data-testid="slash-palette">
+      <div
+        class="slash-palette"
+        role="dialog"
+        aria-modal="true"
+        ref={trapFocusRef}
+        data-testid="slash-palette"
+      >
         <header class="slash-palette__head">
           <span class="eyebrow">cmd + k · command palette</span>
         </header>

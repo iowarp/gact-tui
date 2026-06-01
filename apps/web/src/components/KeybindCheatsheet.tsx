@@ -1,5 +1,6 @@
 import { For, Show, onCleanup, onMount } from 'solid-js';
 import { Icon } from './Icon.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './keybind-cheatsheet.css';
 
 export interface KeybindCheatsheetProps {
@@ -77,7 +78,13 @@ export function KeybindCheatsheet(props: KeybindCheatsheetProps) {
   return (
     <Show when={props.open}>
       <div class="kb__backdrop" onClick={props.onClose} />
-      <div class="kb" role="dialog" aria-modal="true" data-testid="keybind-cheatsheet">
+      <div
+        class="kb"
+        role="dialog"
+        aria-modal="true"
+        ref={trapFocusRef}
+        data-testid="keybind-cheatsheet"
+      >
         <header class="kb__head">
           <span class="eyebrow">keyboard shortcuts</span>
           <button

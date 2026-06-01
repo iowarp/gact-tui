@@ -2,6 +2,7 @@ import { Show, createResource, createSignal, onCleanup, onMount } from 'solid-js
 import type { Client, Message } from '@clio/core';
 import { Icon } from './Icon.js';
 import { Transcript } from './Transcript.js';
+import { trapFocusRef } from '../focus-trap.js';
 import './shared-session-modal.css';
 
 export interface SharedSessionModalProps {
@@ -78,7 +79,9 @@ export function SharedSessionModal(props: SharedSessionModalProps) {
             <div
               class="ssm"
               role="dialog"
+              aria-modal="true"
               aria-label="Open shared session"
+              ref={trapFocusRef}
               data-testid="shared-session-modal"
             >
               <header class="ssm__head">
