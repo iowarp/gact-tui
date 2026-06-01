@@ -381,15 +381,38 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- Composer @-picker (#96) ----
-  test('Composer @ key opens the workspace at-mention picker (#96)', async ({ browser }) => {
+  test('Composer @ picker lists real workspace files (#96)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await pickFirstSession(page);
+    // Create a ws_default-bound session so the picker has a workspace to
+    // list, then activate it. (clio returns files under `entries`; the
+    // client used to read `res.files` and silently showed zero.)
+    const sid = await page.evaluate(async (base) => {
+      const s = await (
+        await fetch(`${base}/v1/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace_id: 'ws_default' }),
+        })
+      ).json();
+      return s.id as string;
+    }, REAL_BACKEND);
+    await page.getByTestId('sessions-refresh').click();
+    await page.waitForTimeout(800);
+    await page.getByTestId(`session-row-${sid}`).click();
+    await page.waitForTimeout(800);
+
     const ta = page.getByTestId('composer-input');
     await expect(ta).toBeVisible({ timeout: 6_000 });
     await ta.click();
     await ta.type('@');
     await expect(page.getByTestId('at-mention-picker')).toBeVisible({ timeout: 4_000 });
+    // The picker must surface at least one real workspace file (proves the
+    // entries->files normalization; previously this list was always empty).
+    await expect(
+      page.locator('[data-testid^="at-mention-item-file:"]').first(),
+    ).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('96-at-mention-picker'), fullPage: false });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
     await close();
   });
 

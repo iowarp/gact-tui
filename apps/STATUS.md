@@ -59,7 +59,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 
 **🔴 WIRE-FIX Tier A (silent failures on advertised, user-reachable surfaces):**
 - [x] SSE `user_question.created` nested `p.question` → flat (DONE, commit 06321a0; workflow independently re-derived it).
-- [ ] `GET workspaces/{id}/files` reads `res.files`; clio sends `{entries}` → @-mention picker shows ZERO files (`.map` throws, swallowed). http.ts:835, AtMentionPicker.tsx:64-75.
+- [x] `GET workspaces/{id}/files` reads `res.files`; clio sends `{entries}` → @-mention picker showed ZERO files. **DONE** (commit pending): `workspaceFiles` now normalizes `entries`→`files`; ALSO found+fixed a `??`-vs-`?:` operator-precedence bug in ChatScreen `workspaceId` that resolved to `undefined` whenever the session had a workspace (double root cause). LIVE-PROVEN: strengthened #96 asserts real file items appear.
 - [ ] `POST agent-blueprints/install` POSTs bare `/v1/agent-blueprints` + inline doc → 405. Repoint to `/install`, body `{source|path, scope}`. http.ts:1463; RoadmapPages.tsx:298.
 - [ ] `POST agent-blueprints/validate` + `expert-packs/validate` send inline doc, read `{ok,errors}`; clio reads `{path,scope}`, returns `{enabled,validation_errors}` → 400 + always "Validation failed". http.ts:1455/1565.
 - [ ] `POST sessions/{sid}/summarize` is 404 (clio has no route) + UI waits on `session.summarized` (never fires). Remove the action + dead SSE wait (or repoint /compact). http.ts:673, ChatScreen.tsx:657/1297, live.ts:228/810.
