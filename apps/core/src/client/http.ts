@@ -667,9 +667,16 @@ export class Client {
   }
 
   /**
-   * POST /v1/sessions/{id}/summarize — kicks off async summarization.
-   * The result lands on the SSE stream as a `session.summarized`
-   * event (per SPEC §7.3). 204 on success — no body returned.
+   * POST /v1/sessions/{id}/summarize — kicks off async summarization; the
+   * result is expected to land on the SSE stream as `session.summarized`.
+   *
+   * NOT YET IMPLEMENTED IN clio-agent: there is no such route (returns 404)
+   * and clio never emits `session.summarized` (verified against source —
+   * the only `summarize` in app.py is internal to `compact`). This is a
+   * distinct planned feature from `compact` (a user-facing TLDR/abstract,
+   * not context-window management); tracked as an iowarp/clio-agent issue.
+   * The desktop gates its summarize actions on `capabilities.session_summary`
+   * so this method is only invoked once a backend advertises support.
    */
   summarizeSession(
     sessionId: string,

@@ -808,6 +808,12 @@ function reduce(
       break;
     }
     case 'session.summarized': {
+      // FORWARD-COMPAT: clio-agent does not emit this yet (no /summarize
+      // route; proven against source — the only `summarize` in app.py is
+      // internal to /compact). Kept subscribed so the desktop lights up the
+      // moment a backend implements the planned session-summary feature
+      // (tracked as the iowarp/clio-agent summarize PR). Until then this
+      // branch is simply never reached.
       const sid = (p.session_id as string) ?? '';
       hooks.onNotification?.({
         level: 'info',

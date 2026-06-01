@@ -251,6 +251,16 @@ export interface CapabilityFlags {
   session_branching?: boolean;
   session_sharing?: boolean;
   session_export?: boolean;
+  /**
+   * Forward-compat: an explicit session-summary action (a user-facing
+   * TLDR/abstract-with-instructions, distinct from `compact` which mutates
+   * the context window). clio-agent does NOT implement this yet — there is no
+   * `POST /v1/sessions/{id}/summarize` route and it never emits
+   * `session.summarized` (proven against source; tracked as iowarp/clio-agent
+   * issue). The desktop's summarize palette actions are gated on this flag so
+   * they stay hidden until a backend advertises the capability.
+   */
+  session_summary?: boolean;
   cost_tracking?: boolean;
   thinking_blocks?: boolean;
   edit_modes?: boolean;

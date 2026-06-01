@@ -12,6 +12,12 @@ session log. **No item is DONE without a named proof artifact** (test name + PNG
 `cargo --lib` line, or a flag-gated UI drive). **Source of truth = clio-agent source
 (`gact/types.py`, `app.py`) + live `/v1/capabilities`, NOT `contract/SPEC.md`** (stale).
 
+**ID convention (2026-06-01):** internal audit-gap IDs are written `gap-NN` (NO bare
+`#NN` — GitHub auto-links those to unrelated repo issues); only genuine issues use
+`owner/repo#NN`. **Backend gaps now → file issue + IMPLEMENT + open PR** (the user
+lifted the clio-agent no-touch rule on 2026-06-01; PRs stack from `develop`, PR-N
+branched off PR-(N-1); the user reviews+merges). PRs only — never push develop/main.
+
 ### Wave board
 | Wave | Exit criterion | State |
 |------|----------------|-------|
@@ -62,7 +68,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 - [x] `GET workspaces/{id}/files` reads `res.files`; clio sends `{entries}` → @-mention picker showed ZERO files. **DONE** (commit pending): `workspaceFiles` now normalizes `entries`→`files`; ALSO found+fixed a `??`-vs-`?:` operator-precedence bug in ChatScreen `workspaceId` that resolved to `undefined` whenever the session had a workspace (double root cause). LIVE-PROVEN: strengthened #96 asserts real file items appear.
 - [ ] `POST agent-blueprints/install` POSTs bare `/v1/agent-blueprints` + inline doc → 405. Repoint to `/install`, body `{source|path, scope}`. http.ts:1463; RoadmapPages.tsx:298.
 - [ ] `POST agent-blueprints/validate` + `expert-packs/validate` send inline doc, read `{ok,errors}`; clio reads `{path,scope}`, returns `{enabled,validation_errors}` → 400 + always "Validation failed". http.ts:1455/1565.
-- [ ] `POST sessions/{sid}/summarize` is 404 (clio has no route) + UI waits on `session.summarized` (never fires). Remove the action + dead SSE wait (or repoint /compact). http.ts:673, ChatScreen.tsx:657/1297, live.ts:228/810.
+- [x] `POST sessions/{sid}/summarize` was 404 (clio had no route) + UI waited on `session.summarized` (never fired). **RESOLVED via the build-the-backend doctrine, NOT delete** (per user: summarize is a distinct planned feature ≠ compact): implemented the route in clio-agent (PR `iowarp/clio-agent#522`, closes #521 — non-destructive TLDR, emits `session.summarized`, advertises `session_summary`; 8 tests, full gate green). Desktop gates both summarize palette commands on `capabilities.session_summary` (hidden until a backend advertises it; light up once #522 merges). `live.ts` `session.summarized` branch marked forward-compat; core test asserts the client POST. LIVE-PROVEN after #522 merges + clio restart.
 - [x] `DELETE context/files` sent `?path=` query; clio reads JSON body only → silent no-op. **DONE**: `removeContextFile` now sends `{path}` body. Confirmed live (query→204 but stays; body→removed). LIVE-PROVEN: oneturn `(#80)` seeds a file, removes it via the inspector, asserts it's gone.
 
 **🔴 WIRE-FIX Tier B (wrong/degraded, not crashing):**
@@ -77,7 +83,7 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 **🔴 WIRE-FIX Tier C (latent/cosmetic):** rewind has no UI call site (http.ts:642); `files/read` expects JSON but clio returns raw text (latent); frame list reads `token_count`/`summary` vs clio `tokens_estimated` (dead chips); schedule list reads `prompt`/`next_run_at` vs clio `question`/`last_fired_at`/`fire_count` (dead chips); `user_question.resumed` reads `p.question` (ids-only payload → should refetch/clear); blueprint/pack `*_id:null` clear → clio 400; `UserQuestion` type omits `answer_metadata`; subagent reducer reads `agent_name` then `agent_id` (works via fallback).
 
 **🟠 ABSENT-FILE-ISSUE (proven absent in clio → file iowarp/clio-agent issue + remove/hide dead UI):**
-- [x] `POST mcp/servers/{id}/reconnect` — Reconnect button on EVERY card 404'd (always-visible). **DONE**: filed **iowarp/clio-agent#520** (proven absent: 404 + no route in source) and removed the dead button from McpPage (kept the client method for forward-compat). typecheck+lint+MCP audit green.
+- [x] `POST mcp/servers/{id}/reconnect` — Reconnect button on EVERY card 404'd (always-visible). Filed **iowarp/clio-agent#520** (proven absent) + removed the dead button from McpPage (kept the client method for forward-compat). **NOW IMPLEMENTED:** PR `iowarp/clio-agent#523` (stacked on #522, closes #520) adds the route — re-probes the stored transport spec, updates the registry in place, emits `mcp.server.reconnected`/`.error`; 5 tests, full gate green. **FOLLOW-UP (apps/PLAN.md):** restore the desktop Reconnect button once #523 merges (gate it so it only shows when reachable).
 - [ ] latent 404s: mcp `resources/read`, `resources/subscribe`, `prompts/get` (render only when a server exposes them); `resource_templates` (swallowed).
 - [ ] dead SSE reducer branches clio never emits: `tool.call.progress`, `cost.updated` (cost rides message.completed), `notification` (client-synthesized), `session.summarized`, `session.created`, `message.error` (rides message.completed). Remove or doc forward-compat.
 
@@ -101,6 +107,25 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **Backend doctrine unlocked → two clio-agent PRs (file→implement→PR, stacked).**
+  User lifted the clio-agent no-touch rule: proven gaps now become real PRs the user
+  reviews+merges. **PR-1 `iowarp/clio-agent#522`** (branch `feat/session-summarize` off
+  `develop`): `POST /v1/sessions/{id}/summarize` — non-destructive user-facing TLDR
+  (appends a synthetic summary; ≠ compact which replaces the ledger), emits
+  `session.summarized`, advertises `session_summary`; `test_session_summarize.py` 8/8;
+  mypy clean; `pytest -m "not integration"` 1328 passed @81.43% (the 5 failures are
+  pre-existing on `develop` — Windows path-handling — verified by running them on clean
+  develop). Closes #521. **PR-2 `iowarp/clio-agent#523`** (branch `feat/mcp-reconnect`
+  STACKED on PR-1): `POST /v1/mcp/servers/{id}/reconnect` — re-probe stored spec, update
+  registry in place, emit `mcp.server.reconnected`/`.error`; `test_mcp_reconnect.py` 5/5;
+  1333 passed @81.46%. Closes #520. **Desktop half (this push):** gate both summarize
+  palette commands on `capabilities.session_summary`; `summarizeSession` core test; gact
+  lint+typecheck+unit(core 37 / web / desktop 5)+web-build green.
+  **Next:** gap-96 attach redesign — clio has NO upload endpoint (confirmed in source);
+  the current composer attach button is a FAKE (embeds `[attached N files]` text but
+  never sends bytes) → replace with a workspace path-picker + drag-drop-to-reference,
+  `@` kept as a power shortcut, PNG proof. Then stacked follow-on PRs (lm.provider
+  wildcard delivery, mcp resources/read) + restore the desktop Reconnect button.
 - 2026-06-01 **W2 live-proof sweep = green.** Full UI surface driven vs live :17800:
   `oneturn-audits.spec.ts` 11 passed + 1 skip (TTS voice gap), `audit.spec.ts` 30
   passed + 1 skip (composer voice/mic gap) — i.e. permission, ask-user, delete,

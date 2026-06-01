@@ -2199,12 +2199,23 @@ function ChatLayout(props: ChatLayoutProps) {
       });
     }
     items.push(
-      {
-        id: 'summarize-with-instructions',
-        trigger: 'summarize · custom',
-        description: 'Summarize the session with custom instructions (e.g. "extract action items only")',
-        category: 'action',
-      },
+      // Summarize (TLDR-with-instructions) is a distinct user-facing action
+      // from `compact` (context-window management). clio-agent does not
+      // implement it yet — no /summarize route, no session.summarized event
+      // (proven against source; iowarp/clio-agent issue filed). Gate on the
+      // forward-compat `session_summary` flag so we never ship a button that
+      // 404s; it lights up automatically when a backend advertises it.
+      ...(props.capsFlags?.session_summary
+        ? [
+            {
+              id: 'summarize-with-instructions' as const,
+              trigger: 'summarize · custom',
+              description:
+                'Summarize the session with custom instructions (e.g. "extract action items only")',
+              category: 'action' as const,
+            },
+          ]
+        : []),
       ...(props.capsFlags?.skills_extraction
         ? [
             {
@@ -2264,12 +2275,19 @@ function ChatLayout(props: ChatLayoutProps) {
         description: 'Start a fresh session (Ctrl+N)',
         category: 'action',
       },
-      {
-        id: 'summarize',
-        trigger: 'summarize session',
-        description: 'Ask the backend to summarize this session',
-        category: 'action',
-      },
+      // (capability-gated — only ships when the backend advertises
+      // capabilities.session_summary; see the summarize-with-instructions
+      // note above. clio-agent has no /summarize route today.)
+      ...(props.capsFlags?.session_summary
+        ? [
+            {
+              id: 'summarize' as const,
+              trigger: 'summarize session',
+              description: 'Ask the backend to summarize this session',
+              category: 'action' as const,
+            },
+          ]
+        : []),
       {
         id: 'undo-turn',
         trigger: 'undo last turn',
