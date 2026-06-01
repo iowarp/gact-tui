@@ -107,6 +107,17 @@ timeline · large-list virtualization · settings import/export · notification-
 search/filter · native window menus / polish.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **W3 Tier-1 started: code-block syntax highlighting (+ existing per-block copy).**
+  Added `highlight.js` (lib/common, ~35 langs); `CodeBlock` now highlights via hljs
+  (declared fence lang, else auto-detect; hljs escapes source → injection-safe innerHTML).
+  Token theme mapped to the CLIO palette (on-brand, not a third-party theme import).
+  PROOF: `screenshots/code-syntax-highlight.png` (Go block, real `.hljs-*` tokens
+  asserted) + fixture visual 30/30; typecheck/lint/build green; core 41/41. Added a Go
+  fence to a demo assistant message so the feature is provable. **Bundle cost:** web
+  initial chunk gzip 91→146 kB (+55) — fine for the bundled desktop; for the pure-web
+  build, lazy-load hljs or trim languages later (follow-up). **Line numbers:** deferred
+  (a fixed gutter fights the code block's horizontal-scroll; needs per-line splitting of
+  hljs output — next W3 sub-item, not shipped here to avoid a fragile gutter).
 - 2026-06-01 **W2 Tier-B/C sweep (continuous, post-feedback).** Landed, all green+pushed:
   blueprint/expert-pack install+validate → clio path contract (`1a91457`); Regenerate →
   `retryTurn` + `turn.retry_*` subscription (`7733594`); blueprint/pack modal PNGs +

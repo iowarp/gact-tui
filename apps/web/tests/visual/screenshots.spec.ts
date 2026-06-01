@@ -221,6 +221,17 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('attach-hybrid-menu'), fullPage: false });
   });
 
+  test('code blocks render with syntax highlighting (W3 Tier-1)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    // hljs tokenises the fenced code; assert real tokens rendered (not just
+    // the .hljs wrapper) so the proof is highlighting, not plain text.
+    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
+    await expect(
+      page.locator('.im__code .hljs-keyword, .im__code .hljs-string, .im__code .hljs-built_in').first(),
+    ).toBeVisible({ timeout: 4_000 });
+    await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
+  });
+
   // Real-backend visual proof — only captured when a clio-agent-gact
   // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
   // CI runners without the install don't fail. On the developer's box
