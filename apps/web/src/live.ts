@@ -590,11 +590,33 @@ export function createLiveTranscript(
       openEs();
     };
 
+    // Hardening (W4): react to the OS/browser network state. A dropped
+    // network does NOT error an established EventSource — it just goes
+    // silently dead — so on `offline` tear the stream down and start the
+    // reconnect ladder; on `online` reconnect immediately instead of
+    // waiting out the backoff. Covers laptop sleep/wake + wifi switching.
+    const onOffline = () => {
+      if (disposed) return;
+      teardownEs();
+      setStatus('error');
+      scheduleReconnect();
+    };
+    const onOnline = () => {
+      if (disposed) return;
+      attempt = 0;
+      clearReconnectTimers();
+      openEs();
+    };
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
+
     openEs();
 
     onCleanup(() => {
       disposed = true;
       reconnectNowRef = null;
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
       clearReconnectTimers();
       teardownEs();
       setStatus('closed');
