@@ -331,7 +331,7 @@ export function BlueprintsPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="agents"
       title="Agent blueprints"
-      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install a blueprint JSON to add a new expert routing path."
+      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install one by path (on the clio host) or git URL to add a new expert routing path."
       actions={
         <>
           <button
