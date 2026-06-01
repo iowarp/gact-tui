@@ -286,10 +286,17 @@ export function BlueprintsPage(props: ClientPageProps) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  async function uninstall(id: string, name: string) {
+  async function uninstall(id: string, name: string, bpScope?: string) {
     if (!confirm(`Uninstall blueprint "${name}"? This cannot be undone.`)) return;
     try {
-      await props.client.uninstallAgentBlueprint(id);
+      // Pass the blueprint's own scope so global installs can actually be
+      // matched (clio's DELETE defaults to workspace scope) — W2 wire fix.
+      await props.client.uninstallAgentBlueprint(
+        id,
+        bpScope === 'global' || bpScope === 'workspace'
+          ? { scope: bpScope }
+          : undefined,
+      );
       void refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -430,7 +437,13 @@ export function BlueprintsPage(props: ClientPageProps) {
                 <button
                   type="button"
                   class="dp__card-btn dp__card-btn--danger"
-                  onClick={() => void uninstall(bp.id, bp.name ?? bp.id)}
+                  onClick={() =>
+                    void uninstall(
+                      bp.id,
+                      bp.name ?? bp.id,
+                      (bp as { scope?: string }).scope,
+                    )
+                  }
                   data-testid={`blueprint-uninstall-${bp.id}`}
                 >
                   Uninstall
