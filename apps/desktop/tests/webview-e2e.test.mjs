@@ -89,7 +89,19 @@ async function click(sid, el) {
 }
 
 async function typeInto(sid, el, text) {
-  await wd('POST', `/session/${sid}/element/${el}/value`, { text });
+  // WebDriver's element/value sets the textarea value but does NOT reliably
+  // fire the 'input' event SolidJS's controlled composer listens on, so the
+  // signal never updates and the send dispatches empty. Set the value via
+  // the native setter and dispatch a real InputEvent so the framework sees it.
+  await wd('POST', `/session/${sid}/execute/sync`, {
+    script:
+      'const el = arguments[0], v = arguments[1]; el.focus();' +
+      "const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');" +
+      'if (d && d.set) { d.set.call(el, v); } else { el.value = v; }' +
+      "el.dispatchEvent(new InputEvent('input', { bubbles: true, data: v, inputType: 'insertText' }));" +
+      "el.dispatchEvent(new Event('change', { bubbles: true }));",
+    args: [{ [EL]: el }, text],
+  });
 }
 
 test('real WebView: permission card renders + clears through the Tauri stack', { skip: !enabled ? 'TAURI_E2E!=1 or build/driver missing' : false }, async () => {
@@ -129,9 +141,21 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     await click(sid, send);
 
     // The permission card must render in the REAL WebView — proving the
-    // SSE bridge delivers permission.requested end-to-end through Rust.
+    // SSE path delivers permission.requested end-to-end (the Rust bridge,
+    // or the EventSource fallback when the bridge doesn't open).
     const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000);
     assert.ok(card, 'permission card should render');
+    // Capture the proof screenshot while the card is up.
+    try {
+      const png = await wd('GET', `/session/${sid}/screenshot`);
+      const fs = await import('node:fs');
+      fs.writeFileSync(
+        resolve(root, '..', 'web', 'screenshots', 'audit', 'w1-webview-permission.png'),
+        Buffer.from(png.value, 'base64'),
+      );
+    } catch {
+      /* screenshot is best-effort proof */
+    }
 
     // A decision must clear it.
     const deny = await waitFor(sid, '[data-testid="permcard-deny"]', 5_000);
