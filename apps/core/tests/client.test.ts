@@ -139,6 +139,23 @@ describe('Client', () => {
     expect(seenUrl).toBe('http://localhost:7777/v1/agent-blueprints/install');
   });
 
+  it('uninstallAgentBlueprint passes scope/workspace_id query params (W2 wire fix)', async () => {
+    let seenUrl: string | null = null;
+    const fetchImpl: typeof fetch = (input) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      return Promise.resolve(new Response(null, { status: 204 }));
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    // Without opts: bare DELETE (clio defaults to workspace scope).
+    await c.uninstallAgentBlueprint('bp_x');
+    expect(seenUrl).toBe('http://localhost:7777/v1/agent-blueprints/bp_x');
+    // With a global scope: must ride as a query param or clio can't match it.
+    await c.uninstallAgentBlueprint('bp_y', { scope: 'global' });
+    expect(seenUrl).toBe(
+      'http://localhost:7777/v1/agent-blueprints/bp_y?scope=global',
+    );
+  });
+
   it('retryTurn POSTs to messages/{id}/retry preserving attempt lineage', async () => {
     let seenUrl: string | null = null;
     let seenBody: unknown = null;

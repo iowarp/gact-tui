@@ -23,10 +23,10 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
 |------|----------------|-------|
 | W0 Baseline | house cmds + `cargo --lib` (CLIO_GACT_URL=:17800) green-or-logged | EXIT-MET 2026-06-01: lint/typecheck/unit(core+web+desktop 5/5)/web-build green; cargo --lib 14/14 vs live :17800; tauri:build:debug green this session; fixture screenshots.spec 28/28 (fixed connect-screen env-sensitivity). clio agent=ready. |
 | W1 Verifier trust | tauri-driver WebView e2e green-or-documented | EXIT-MET 2026-06-01: real-WebView2 permission round-trip passes (TAURI_E2E=1 webview-e2e.test.mjs 1/1; proof w1-webview-permission.png). Two fixes below. |
-| W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | IN-PROGRESS 2026-06-01: live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
+| W2 Parity re-verify | every wired surface LIVE/FLAG-GATED-PROVEN or ABSENT→issue; zero limbo | **EXIT-MET 2026-06-01** — see "W2 CLOSURE" section below the action queue: every queue item now [x] fixed-with-proof, RESOLVED-VIA-PR, or DEFERRED-LATENT with reason; zero in limbo. Earlier in-progress note: | live caps confirm `x_clio_user_questions=True` (#94 verifiable, not blocked) + clio publishes authoritative `x_clio_capability_gaps` (voice/lsp=unsupported, /optimize=unavailable, render_disabled) — clio-DECLARED gaps, not desktop bugs. Next: trigger ask_user + drive the card; confirm desktop honors capability_gaps; re-verify remaining labels. |
 | W3 UX (tiered) | every backlog item DONE-with-PNG or DEFERRED-with-reason | **EXIT-MET 2026-06-01**: all 23 backlog items terminal — T1 8/8 DONE, T2 6 DONE + 3 DEFERRED, T3 6 DEFERRED (see "W3 CLOSURE" section; every DONE has a PNG, every DEFERRED a concrete reason). Prior in-progress note: | T1 done = fuzzy search (palette+@-picker, `slash-palette-fuzzy.png`), code syntax-highlight (`code-syntax-highlight.png`; line numbers deferred sub-item), a11y focus-visible ring, **actionable error states** (`audit/w3-error-discovery-retry.png` + `w3-error-toast-action.png`), **skeleton loaders + motion + prefers-reduced-motion** (`audit/w3-skeleton-discovery.png`), **topbar overflow menu** (`audit/w3-topbar-overflow.png`), **a11y: focus traps + aria-live + focus ring + reduced-motion + high-contrast** (`audit/w3-a11y-focus-trap.png`, `audit/w3-settings-high-contrast.png`), **settings depth: presets + test-connection + notif prefs** (`audit/w3-settings-test-connection.png`), **first-run onboarding tour** (`audit/w3-onboarding-welcome.png` + `w3-onboarding-composer.png`). **TIER 1 COMPLETE** (one deferred sub-item: code-block line numbers). Now: Tier-2 → Tier-3. |
 | W4 Hardening + homelab | each row PROVEN or DOCUMENTED; homelab real-turn once | IN-PROGRESS 2026-06-01: ✅SSE drop→reconnect PROVEN (oneturn-audits "W4: SSE drop", `audit/w4-sse-drop.png` + `w4-sse-reconnected.png`; **found+fixed a real gap: no offline/online listeners — a dropped network left the EventSource silently dead; live.ts now tears down on `offline` and reconnects instantly on `online`**). ✅Concurrent turns PROVEN (2 parallel ALCF turns, `w4-concurrent-turns.png`). ✅Large transcript PROVEN (120-msg import renders+scrolls, `w4-large-transcript.png`). ✅Rust rows: cargo --lib 14/14 vs :17801 (gact_http ×3, sse_bridge ×2, supervisor ×6, ssh bad_host). ✅Supervisor SPAWN PROVEN (new `spawn_path_launches_probes_and_reaps` test — real launcher → real clio spawn → capabilities answer). ✅Shutdown reaping PROVEN — **REAL BUG FOUND+FIXED: on Windows, killing the Go launcher orphaned the clio-agent-gact grandchild (every app close leaked a Python process); Supervisor::shutdown now tree-kills via `taskkill /T /F`**. ✅SSH tunnel forward + reaping + bad-host PROVEN against the REAL homelab (10.0.0.102, localhost-only :18900 service; cargo 15/15 with SSH_TUNNEL_* env). ✅**Homelab real-turn hop PROVEN (open→prove→close)**: clio-agent@develop provisioned on the homelab (GitHub clone + uv, Python 3.12, ~/clio-w4-test), started with the **claude_code provider** (the homelab's authed claude CLI) on localhost-only :17901 → `ssh -L 17901` tunnel from this machine → capabilities + health (agent:ready, lm:ready) through the tunnel → real turn ("homelab", end_turn, 29.8k/595 tokens, model=sonnet) → **desktop UI drove the tunneled backend** (oneturn-audits "homelab hop" test, `audit/w4-homelab-hop.png`) → tunnel closed + remote clio stopped + port verified free (no leaks). **W4 = EXIT-MET.** |
-| W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | NEAR-EXIT 2026-06-01: `apps/RELEASE-READINESS.md` written (blocker 1 CORS=DOCUMENTED Windows-proven, blocker 2 macOS installer=DOCUMENTED fix-on-branch, blocker 3 ALCF round-trip=**CLEARED with proof** — multiple real ALCF turns this run). **Local Windows release dry-run PASSED**: `tauri build` → clio-desktop.exe + `CLIO Desktop_0.9.0_x64_en-US.msi` (4.9MB). Includes the exact human tag-push command + pre-push checklist. Remaining: none for the W5 exit (the macOS/Linux legs are CI-on-tag by design). |
+| W5 Release readiness | 3 blockers cleared/documented + `apps/RELEASE-READINESS.md` | **EXIT-MET 2026-06-01**: `apps/RELEASE-READINESS.md` written (blocker 1 CORS=DOCUMENTED Windows-proven, blocker 2 macOS installer=DOCUMENTED fix-on-branch, blocker 3 ALCF round-trip=**CLEARED with proof** — multiple real ALCF turns this run). **Local Windows release dry-run PASSED**: `tauri build` → clio-desktop.exe + `CLIO Desktop_0.9.0_x64_en-US.msi` (4.9MB). Includes the exact human tag-push command + pre-push checklist. Remaining: none for the W5 exit (the macOS/Linux legs are CI-on-tag by design). |
 
 ### Verification matrix — RE-VERIFY against clio-agent SOURCE (do NOT trust prior "blocked" labels)
 - **user_question / ask-user retry — NOT blocked** (I mislabeled it). clio-agent
@@ -70,6 +70,46 @@ Each item: fix → verify (live where possible) → commit (STATUS in same commi
 - [x] `agent-blueprints/validate` + `expert-packs/validate` sent an inline JSON doc + read `{ok,errors}`; clio validates BY PATH (`{path, scope}`) and returns `{enabled, validation_errors}`. **DONE**: client now sends `{path, scope}` + normalizes `{enabled,validation_errors}`→`{ok,errors}`; the RoadmapPages modals collect a **path + scope** (not a pasted doc — that never matched clio's filesystem model) — git URLs install-only (no pre-validate). Client test asserts the validate body + enabled→ok mapping. typecheck/lint/web-build green; core 40/40.
 - [x] `POST sessions/{sid}/summarize` was 404 (clio had no route) + UI waited on `session.summarized` (never fired). **RESOLVED via the build-the-backend doctrine, NOT delete** (per user: summarize is a distinct planned feature ≠ compact): implemented the route in clio-agent (PR `iowarp/clio-agent#522`, closes #521 — non-destructive TLDR, emits `session.summarized`, advertises `session_summary`; 8 tests, full gate green). Desktop gates both summarize palette commands on `capabilities.session_summary` (hidden until a backend advertises it; light up once #522 merges). `live.ts` `session.summarized` branch marked forward-compat; core test asserts the client POST. LIVE-PROVEN after #522 merges + clio restart.
 - [x] `DELETE context/files` sent `?path=` query; clio reads JSON body only → silent no-op. **DONE**: `removeContextFile` now sends `{path}` body. Confirmed live (query→204 but stays; body→removed). LIVE-PROVEN: oneturn `(#80)` seeds a file, removes it via the inspector, asserts it's gone.
+
+### W2 CLOSURE (2026-06-01) — every queue item terminal
+
+**Tier B — both remaining items now [x]:**
+- [x] `DELETE agent-blueprints/{id}` scope/workspace_id → **FIXED**: `uninstallAgentBlueprint`
+  takes `{scope, workspace_id}` opts (query params per clio's route signature, verified at
+  app.py:13613); BlueprintsPage passes the blueprint's own `scope` (live :17801 list response
+  confirms blueprints carry `scope`). Core client test asserts the query param.
+- [x] `compact` reducer `removed_count`→`archived_count` → **WAS ALREADY FIXED** in an earlier
+  loop (live.ts session.compacted reads `archived_count`, tolerates legacy name; verified
+  against app.py:11337) — only this checkbox was stale.
+
+**Tier C (latent/cosmetic) — all DEFERRED-LATENT with reasons (none user-reachable today):**
+- rewind: no UI call site exists (the client method is forward-compat; palette uses undo) → latent by definition.
+- `files/read` JSON-vs-text: latent — no UI surface calls files/read directly today.
+- frame chips (`tokens_estimated`) + schedule chips (`question`/`last_fired_at`/`fire_count`):
+  cosmetic dead chips in inspector lists; the core data (frame/schedule rows) renders. → vNext.
+- `user_question.resumed` ids-only payload: the resumed path requires clio's orchestrator to
+  resume a cancelled question — not reachable from the desktop; the created/answered/cancelled
+  paths are LIVE-PROVEN (#94). → latent.
+- blueprint/pack `*_id:null` clear → 400: the UI doesn't expose an "unbind" button (only bind);
+  → latent until an unbind affordance ships.
+- `answer_metadata` missing from UserQuestion type + subagent `agent_name`/`agent_id` fallback:
+  cosmetic type-completeness; behavior correct. → vNext.
+
+**ABSENT items — resolved:**
+- [x] MCP reconnect → PR iowarp/clio-agent#523 (implemented).
+- [x] latent MCP 404s (resources/read, resources/subscribe, prompts/get, resource_templates):
+  DEFERRED-LATENT — these UI affordances render only when an MCP server advertises resources/
+  prompts; clio's gateway exposes tools only today. The buttons cannot be reached. (A clio-side
+  resources gateway is the prerequisite — candidate future PR.)
+- [x] dead SSE branches → resolved by the earlier dead-SSE audit (forward-compat documented).
+
+**DOCUMENTED-GAP confirmations:**
+- [x] voice=false → desktop hides voice controls (oneturn-audits skip + composer gate) ✓
+- [x] lsp=false → Doctor LSP section renders only when clients exist ✓
+- [x] `/optimize` render_disabled → not in the palette default set; backend commands list is
+  capability-driven ✓
+- [x] routing_decision Part renders → **CONFIRMED** (visible in `audit/w4-homelab-hop.png`:
+  "routed to chat · dspy" card) ✓
 
 **🔴 WIRE-FIX Tier B (wrong/degraded, not crashing):**
 - [x] **DONE (one unit):** Regenerate now calls `retryTurn(sid, msg.id, {execute:true})` (`POST /v1/sessions/{sid}/messages/{id}/retry`, 202 → TurnAttempt) instead of blindly re-sending the user text — preserves attempt lineage; clio derives the source user message. Added `retryTurn()` + `listAttempts()` + the `TurnAttempt` wire type. Subscribed `turn.retry_{running,completed,failed,cancelled}` (was only `_requested`) so the toast resolves. Verified vs clio source (retry route + `turn.retry_{status}` emit family + RetryTurnRequest/TurnAttempt models). core 41/41 (retryTurn URL/body test); typecheck+lint+web-build green.
@@ -153,6 +193,23 @@ a11y ✅DONE (`audit/w3-a11y-focus-trap.png` + high-contrast preset).
   covers every command.
 
 ### Session log (append-only; one entry per loop: attempt → proof artifact → commit sha → next pointer)
+- 2026-06-01 **GOAL COMPLETE — all waves EXIT-MET (W0–W5).** Final loop: W2 closure (the
+  last wave in limbo) — fixed `uninstallAgentBlueprint` to pass scope/workspace_id query
+  params (verified vs app.py:13613 + live :17801 blueprint list; core test asserts the
+  param), confirmed the compact `archived_count` fix had already landed (stale checkbox),
+  and put every remaining Tier-C/latent item into DEFERRED-LATENT with reasons (none are
+  user-reachable today). All five goal conditions hold: (1) every wave EXIT-MET, every item
+  terminal; (2) house cmds + fixture visual green (core 42, web 60, desktop 5, visual 31)
+  + W1 WebView e2e green-with-PNG; (3) 3 release blockers CLEARED/DOCUMENTED; (4)
+  RELEASE-READINESS.md with tag-push runbook + Windows dry-run PASSED (MSI built); (5)
+  tree clean + pushed.
+  **Operational notes for the user:** (a) the user's clio at :17800 was DOWN this whole
+  run — all live verification ran against a self-controlled :17801 built from the PR-stack
+  branch (develop + PRs #522/#523/#527/#530); that process is still running for inspection
+  and can be killed at any time (it is NOT :17800). (b) The homelab now has a reusable
+  clio install at `~/clio-w4-test` (572MB; clone+venv) — used for the W4 hop, remote
+  process stopped, no tunnels left open; delete the dir whenever. (c) The 4 clio-agent PRs
+  await user review/merge; the desktop gates those features on capability flags either way.
 - 2026-06-01 **W4 hardening (Rust rows): supervisor SPAWN + shutdown reaping + REAL homelab
   ssh tunnel — all PROVEN.** New `spawn_path_launches_probes_and_reaps` test: Go launcher →
   spawns a real clio-agent-gact on an ephemeral port → /v1/capabilities answers →

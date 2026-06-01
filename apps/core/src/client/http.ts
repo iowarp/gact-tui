@@ -1581,10 +1581,23 @@ export class Client {
     return this.post('/v1/agent-blueprints/install', body);
   }
 
-  /** DELETE /v1/agent-blueprints/{bp} — uninstall a blueprint. */
-  uninstallAgentBlueprint(blueprintId: string): Promise<void> {
+  /**
+   * DELETE /v1/agent-blueprints/{bp} — uninstall a blueprint.
+   *
+   * clio's route takes `scope` ("global" | "workspace", default workspace)
+   * and `workspace_id` query params; omitting them means a global
+   * blueprint can never be matched for deletion (W2 wire fix).
+   */
+  uninstallAgentBlueprint(
+    blueprintId: string,
+    opts?: { scope?: 'global' | 'workspace'; workspace_id?: string },
+  ): Promise<void> {
+    const params = new URLSearchParams();
+    if (opts?.scope) params.set('scope', opts.scope);
+    if (opts?.workspace_id) params.set('workspace_id', opts.workspace_id);
+    const qs = params.toString();
     return this.del(
-      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}`,
+      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}${qs ? `?${qs}` : ''}`,
     );
   }
 
