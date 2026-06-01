@@ -281,7 +281,8 @@ export function BlueprintsPage(props: ClientPageProps) {
   const items = () => data()?.blueprints ?? [];
 
   const [installOpen, setInstallOpen] = createSignal(false);
-  const [docText, setDocText] = createSignal('');
+  const [pathText, setPathText] = createSignal('');
+  const [scope, setScope] = createSignal<'workspace' | 'global'>('workspace');
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -298,22 +299,25 @@ export function BlueprintsPage(props: ClientPageProps) {
   async function submitInstall(ev: SubmitEvent) {
     ev.preventDefault();
     setError(null);
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(docText());
-    } catch (e) {
-      setError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    const src = pathText().trim();
+    if (!src) {
+      setError('Enter a blueprint path on the clio host, or a git URL.');
       return;
     }
+    // clio validates a blueprint on DISK by path; a git/URL source is
+    // cloned only at install time, so only path sources can be pre-validated.
+    const looksRemote = /:\/\//.test(src) || src.startsWith('git@');
     setBusy(true);
     try {
-      const v = await props.client.validateAgentBlueprint(parsed);
-      if (!v.ok) {
-        setError(`Validation failed: ${(v.errors ?? []).join('; ') || 'no detail'}`);
-        return;
+      if (!looksRemote) {
+        const v = await props.client.validateAgentBlueprint({ path: src, scope: scope() });
+        if (!v.ok) {
+          setError(`Validation failed: ${v.errors.join('; ') || 'no detail'}`);
+          return;
+        }
       }
-      await props.client.installAgentBlueprint(parsed);
-      setDocText('');
+      await props.client.installAgentBlueprint({ source: src, scope: scope() });
+      setPathText('');
       setInstallOpen(false);
       void refetch();
     } catch (e) {
@@ -352,22 +356,35 @@ export function BlueprintsPage(props: ClientPageProps) {
       loading={data.loading}
       empty={!data.loading && items().length === 0 && !installOpen()}
       emptyTitle="No blueprints registered"
-      emptyBody="Paste a blueprint JSON below or drop one in clio-agent/src/clio_agent/blueprints/."
+      emptyBody="Install one by path (on the clio host) or a git URL via the + button."
     >
       <Show when={installOpen()}>
         <form class="rmp__install" onSubmit={submitInstall}>
           <label class="rmp__install-label" for="bp-install">
-            Blueprint JSON
+            Blueprint path (on the clio host) or git URL
           </label>
-          <textarea
+          <input
             id="bp-install"
             class="rmp__editor"
-            rows={10}
-            placeholder='{"id": "...", "name": "...", "agents": []}'
-            value={docText()}
-            onInput={(e) => setDocText(e.currentTarget.value)}
+            type="text"
+            placeholder="src/clio_agent/agent_blueprints/builtin/data-exploration · or https://github.com/org/bp.git"
+            value={pathText()}
+            onInput={(e) => setPathText(e.currentTarget.value)}
             data-testid="blueprint-install-input"
           />
+          <label class="rmp__install-label" for="bp-scope">
+            Scope
+          </label>
+          <select
+            id="bp-scope"
+            class="rmp__editor"
+            value={scope()}
+            onChange={(e) => setScope(e.currentTarget.value as 'workspace' | 'global')}
+            data-testid="blueprint-install-scope"
+          >
+            <option value="workspace">workspace</option>
+            <option value="global">global</option>
+          </select>
           <Show when={error()}>
             <p class="rmp__form-err">{error()}</p>
           </Show>
@@ -383,7 +400,7 @@ export function BlueprintsPage(props: ClientPageProps) {
             <button
               type="submit"
               class="ws-form__btn ws-form__btn--primary"
-              disabled={busy() || !docText().trim()}
+              disabled={busy() || !pathText().trim()}
               data-testid="blueprint-install-submit"
             >
               {busy() ? 'Validating…' : 'Validate + install'}
@@ -435,7 +452,8 @@ export function ExpertPacksPage(props: ClientPageProps) {
   const items = () => data()?.packs ?? [];
 
   const [validateOpen, setValidateOpen] = createSignal(false);
-  const [docText, setDocText] = createSignal('');
+  const [pathText, setPathText] = createSignal('');
+  const [scope, setScope] = createSignal<'workspace' | 'global' | 'session'>('session');
   const [busy, setBusy] = createSignal(false);
   const [verdict, setVerdict] = createSignal<{ ok: boolean; errors?: string[] } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
@@ -444,16 +462,14 @@ export function ExpertPacksPage(props: ClientPageProps) {
     ev.preventDefault();
     setError(null);
     setVerdict(null);
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(docText());
-    } catch (e) {
-      setError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    const path = pathText().trim();
+    if (!path) {
+      setError('Enter the expert-pack path on the clio host.');
       return;
     }
     setBusy(true);
     try {
-      const v = await props.client.validateExpertPack(parsed);
+      const v = await props.client.validateExpertPack({ path, scope: scope() });
       setVerdict(v);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -491,22 +507,38 @@ export function ExpertPacksPage(props: ClientPageProps) {
       loading={data.loading}
       empty={!data.loading && items().length === 0 && !validateOpen()}
       emptyTitle="No expert packs installed"
-      emptyBody="Drop a pack under clio-agent/src/clio_agent/experts/ or paste one above to validate."
+      emptyBody="Drop a pack under clio-agent/src/clio_agent/experts/ then validate it by path above."
     >
       <Show when={validateOpen()}>
         <form class="rmp__install" onSubmit={submitValidate}>
           <label class="rmp__install-label" for="ep-validate">
-            Expert pack JSON (validate-only — install via clio-agent CLI)
+            Expert pack path (on the clio host)
           </label>
-          <textarea
+          <input
             id="ep-validate"
             class="rmp__editor"
-            rows={10}
-            placeholder='{"id": "...", "name": "...", "experts": []}'
-            value={docText()}
-            onInput={(e) => setDocText(e.currentTarget.value)}
+            type="text"
+            placeholder="src/clio_agent/experts/my-pack"
+            value={pathText()}
+            onInput={(e) => setPathText(e.currentTarget.value)}
             data-testid="expertpack-validate-input"
           />
+          <label class="rmp__install-label" for="ep-scope">
+            Scope
+          </label>
+          <select
+            id="ep-scope"
+            class="rmp__editor"
+            value={scope()}
+            onChange={(e) =>
+              setScope(e.currentTarget.value as 'workspace' | 'global' | 'session')
+            }
+            data-testid="expertpack-validate-scope"
+          >
+            <option value="session">session</option>
+            <option value="workspace">workspace</option>
+            <option value="global">global</option>
+          </select>
           <Show when={error()}>
             <p class="rmp__form-err">{error()}</p>
           </Show>
@@ -535,7 +567,7 @@ export function ExpertPacksPage(props: ClientPageProps) {
             <button
               type="submit"
               class="ws-form__btn ws-form__btn--primary"
-              disabled={busy() || !docText().trim()}
+              disabled={busy() || !pathText().trim()}
               data-testid="expertpack-validate-submit"
             >
               {busy() ? 'Validating…' : 'Validate'}

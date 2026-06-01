@@ -102,6 +102,43 @@ describe('Client', () => {
     expect(row.path).toBe('.clio/attachments/s/x.txt');
   });
 
+  it('validateAgentBlueprint posts {path,scope} and maps enabled→ok', async () => {
+    let seenUrl: string | null = null;
+    let seenBody: unknown = null;
+    const fetchImpl: typeof fetch = (input, init) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      seenBody = init?.body ? JSON.parse(init.body as string) : null;
+      return Promise.resolve(
+        new Response(JSON.stringify({ enabled: true, validation_errors: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    const v = await c.validateAgentBlueprint({ path: 'src/bp', scope: 'workspace' });
+    expect(seenUrl).toBe('http://localhost:7777/v1/agent-blueprints/validate');
+    expect(seenBody).toEqual({ path: 'src/bp', scope: 'workspace' });
+    expect(v.ok).toBe(true);
+    expect(v.errors).toEqual([]);
+  });
+
+  it('installAgentBlueprint posts to /install (not the GET-only collection)', async () => {
+    let seenUrl: string | null = null;
+    const fetchImpl: typeof fetch = (input) => {
+      seenUrl = typeof input === 'string' ? input : input.toString();
+      return Promise.resolve(
+        new Response('{"id":"bp_1"}', {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    };
+    const c = new Client({ baseUrl: 'http://localhost:7777', fetch: fetchImpl });
+    await c.installAgentBlueprint({ source: 'src/bp', scope: 'workspace' });
+    expect(seenUrl).toBe('http://localhost:7777/v1/agent-blueprints/install');
+  });
+
   it('lifts structured GACT error envelopes onto HttpError.errorInfo', async () => {
     const body = JSON.stringify({
       error: {
