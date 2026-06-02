@@ -1,0 +1,107 @@
+/*
+ * Hooks page — runtime-hook status panel (read-only) + declarative-hook
+ * editor layout overrides. The shared .rmp__* / .dp__* rules live in
+ * components/discovery-page.css; this file adds only the hooks-specific
+ * surfaces (GAP 4 runtime panel) and the 4-column editor form.
+ */
+
+/* GAP 4 — runtime hooks status panel. */
+.rmp__panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.rmp__panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.rmp__panel-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0;
+}
+
+.rmp__panel-note {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+}
+
+.rmp__panel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rmp__panel-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.rmp__panel-backend {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent-cyan);
+  background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
+  border: 1px solid var(--color-accent-cyan-30);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+.rmp__panel-backend--off {
+  color: var(--color-muted);
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-30);
+}
+
+.rmp__panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.rmp__chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-heading);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.rmp__chip--muted {
+  color: var(--color-muted);
+  opacity: 0.6;
+}
+
+/* Tag colours for the two event kinds the shared sheet doesn't cover. */
+.rmp__tag--semantic_event {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.rmp__tag--on_error {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+  color: var(--color-error);
+}
+
+/* GAP 5 — declarative editor gained a command|url handler-kind <select>,
+   so the form is now 4 columns (event, kind, value, add). */
+.rmp__form--hooks {
+  grid-template-columns: minmax(120px, auto) minmax(90px, auto) 1fr auto;
+}

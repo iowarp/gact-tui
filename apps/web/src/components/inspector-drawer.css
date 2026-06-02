@@ -753,6 +753,43 @@
   margin: 0 0 12px;
 }
 
+/* gap-07: read-only binding provenance (workspace / path / overlay /
+   activation) from clio's workspace-management work. */
+.inspector__binding-prov {
+  margin: 0;
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspector__binding-prov-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.inspector__binding-prov-row dt {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.inspector__binding-prov-row dd {
+  margin: 0;
+  color: var(--color-text);
+  word-break: break-all;
+  text-align: right;
+}
+
+.inspector__binding-prov-row--activation dd {
+  color: var(--color-accent-cyan);
+}
+
 .inspector__bulk-actions {
   display: flex;
   gap: 6px;
@@ -965,6 +1002,43 @@
 .inspector__tl-event--running .inspector__tl-dot {
   border-color: var(--color-warning);
   background: var(--color-warning);
+}
+
+/* GAP 3: semantic execution-trace rows. Muted accent dot by default;       */
+/* status modifiers (--error / --running) above still win when present.     */
+.inspector__sect-title--semantic {
+  margin-top: 14px;
+}
+
+.inspector__semantic-turn {
+  margin-top: 6px;
+}
+
+.inspector__semantic-turn-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 6px 0 2px;
+}
+
+.inspector__timeline--semantic {
+  margin-top: 2px;
+}
+
+.inspector__tl-event--semantic .inspector__tl-dot {
+  border-color: var(--color-accent-cyan);
+}
+
+.inspector__tl-event--semantic.inspector__tl-event--running .inspector__tl-dot {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+}
+
+.inspector__tl-event--semantic.inspector__tl-event--error .inspector__tl-dot {
+  border-color: var(--color-error);
+  background: var(--color-error);
 }
 
 .inspector__tl-body {

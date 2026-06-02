@@ -6,6 +6,7 @@ import type {
   Message,
   Part,
   FileDiff,
+  SemanticEventPayload,
   SessionTask,
   TurnAttempt,
 } from '@clio/core';
@@ -69,6 +70,14 @@ export interface InspectorDrawerProps {
   onSetBlueprint?: (blueprintId: string | null) => void | Promise<void>;
   /** Bind a different expert pack to the active session. Pass null to clear. */
   onSetExpertPack?: (packId: string | null) => void | Promise<void>;
+  /** Read-only semantic execution trace for the active session
+   * (clio `x_clio_semantic_events`). Passed pre-filtered to the active
+   * session by ChatScreen; the Timeline tab groups them by turn_id and
+   * renders rows the part-derived timeline doesn't already cover. */
+  semanticEvents?: SemanticEventPayload[];
+  /** Capability gate — only render the semantic rows when the backend
+   * advertises `x_clio_semantic_events`. */
+  semanticEventsEnabled?: boolean;
   /** Called when the user clicks a diff entry — opens the DiffPane. */
   onOpenDiff?: (diff: FileDiff) => void;
   /** Callback to remove a context file (DELETE /v1/sessions/{id}/context/files). */
@@ -108,6 +117,15 @@ export interface SessionBindings {
   pack_id: string | null;
   availableBlueprints: BindingOption[];
   availablePacks: BindingOption[];
+  /** clio #479/#482 (gap-07) — read-only binding provenance: the
+   * workspace owning the binding, the resolved blueprint path, the
+   * session-level field overrides (agent_overlay), and which layer
+   * supplied each active_agent_blueprint_* value (activation). All
+   * optional: older backends don't send them. */
+  workspace_id?: string;
+  blueprint_path?: string;
+  overlay?: Record<string, unknown>;
+  activation?: Record<string, unknown>;
 }
 
 export interface SessionDiffRow {
@@ -288,6 +306,116 @@ export function assembleTimeline(msg: Message): TimelineEvent[] {
   return events;
 }
 
+// ---- Semantic execution trace (GAP 3) ----
+
+/** Event types whose information is already shown as part-derived timeline
+ * rows (tool calls, permission prompts, ask-user, sub-agents) — skipped in
+ * the semantic feed to avoid double display. */
+const SEMANTIC_DUP_PREFIXES = [
+  'tool.call.',
+  'permission.requested',
+  'user_question.created',
+  'subagent.',
+] as const;
+
+function isDuplicateSemantic(eventType: string): boolean {
+  return SEMANTIC_DUP_PREFIXES.some((p) =>
+    p.endsWith('.') ? eventType.startsWith(p) : eventType === p,
+  );
+}
+
+/** Map a semantic-event status onto the timeline's tri-state dot. clio
+ * statuses include started/running/completed/failed/blocked. */
+function semanticDot(status?: string): 'ok' | 'error' | 'running' {
+  if (status === 'failed' || status === 'blocked') return 'error';
+  if (status === 'started' || status === 'running') return 'running';
+  return 'ok';
+}
+
+export interface SemanticTimelineRow {
+  eventId: string;
+  label: string;
+  eventType: string;
+  status: 'ok' | 'error' | 'running';
+  at?: string;
+}
+
+export interface SemanticTurnGroup {
+  turnId: string;
+  rows: SemanticTimelineRow[];
+}
+
+/**
+ * Group semantic events into per-turn timeline rows. Drops the event types
+ * already covered by part-derived rows, sorts each turn's rows by
+ * occurred_at, and returns turn groups newest-first. Never renders the
+ * free-form redacted dicts (actor/subject/…) — only id/status/summary/
+ * occurred_at, which clio guarantees are never redacted.
+ */
+export function groupSemanticEvents(
+  events: SemanticEventPayload[],
+): SemanticTurnGroup[] {
+  const byTurn = new Map<string, SemanticTimelineRow[]>();
+  const turnOrder: string[] = [];
+  let firstSeenAt = 0;
+  const firstSeen = new Map<string, number>();
+
+  for (const ev of events) {
+    if (!ev || typeof ev.event_type !== 'string') continue;
+    if (isDuplicateSemantic(ev.event_type)) continue;
+    const turnId = ev.turn_id ?? '(no turn)';
+    if (!byTurn.has(turnId)) {
+      byTurn.set(turnId, []);
+      turnOrder.push(turnId);
+      firstSeen.set(turnId, firstSeenAt++);
+    }
+    byTurn.get(turnId)!.push({
+      eventId: ev.event_id,
+      // summary is never redacted; event_type is the honest fallback.
+      label: (ev.summary && ev.summary.trim()) || ev.event_type,
+      eventType: ev.event_type,
+      status: semanticDot(ev.status),
+      ...(ev.occurred_at ? { at: ev.occurred_at } : {}),
+    });
+  }
+
+  const cmpAt = (a: SemanticTimelineRow, b: SemanticTimelineRow): number => {
+    const ta = a.at ? Date.parse(a.at) : NaN;
+    const tb = b.at ? Date.parse(b.at) : NaN;
+    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+    if (Number.isNaN(ta)) return 1;
+    if (Number.isNaN(tb)) return -1;
+    return ta - tb;
+  };
+
+  const groups: SemanticTurnGroup[] = turnOrder.map((turnId) => ({
+    turnId,
+    rows: [...byTurn.get(turnId)!].sort(cmpAt),
+  }));
+
+  // Newest turn group first. Use the latest occurred_at in each group, then
+  // fall back to first-seen arrival order so groups with no timestamps keep
+  // a stable, sensible order.
+  const latestOf = (g: SemanticTurnGroup): number => {
+    let max = -Infinity;
+    for (const r of g.rows) {
+      const t = r.at ? Date.parse(r.at) : NaN;
+      if (!Number.isNaN(t) && t > max) max = t;
+    }
+    return max;
+  };
+  groups.sort((a, b) => {
+    const la = latestOf(a);
+    const lb = latestOf(b);
+    if (la !== lb && Number.isFinite(la) && Number.isFinite(lb)) return lb - la;
+    if (Number.isFinite(la) !== Number.isFinite(lb)) {
+      return Number.isFinite(lb) ? 1 : -1;
+    }
+    return (firstSeen.get(b.turnId) ?? 0) - (firstSeen.get(a.turnId) ?? 0);
+  });
+  return groups;
+}
+
 export function InspectorDrawer(props: InspectorDrawerProps) {
   const hasRunData = () =>
     props.message?.stop_reason ||
@@ -327,11 +455,24 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     hasFrames() ||
     hasSchedules() ||
     hasBindings() ||
+    hasSemantic() ||
     hasIntegrations();
 
+  // GAP 3: semantic execution trace, gated on the capability flag, with the
+  // part-derived duplicates stripped + grouped by turn (newest first).
+  const semanticGroups = createMemo<SemanticTurnGroup[]>(() =>
+    props.semanticEventsEnabled
+      ? groupSemanticEvents(props.semanticEvents ?? [])
+      : [],
+  );
+  const hasSemantic = () => semanticGroups().some((g) => g.rows.length > 0);
+
   // Order matters — the picker walks this list and lands on the
-  // first tab whose data is present.
-  const hasTimeline = () => !!props.message && props.message.parts.length > 0;
+  // first tab whose data is present. The Timeline tab also surfaces when a
+  // semantic trace exists even if the message has no renderable parts (e.g.
+  // a blocked user turn).
+  const hasTimeline = () =>
+    (!!props.message && props.message.parts.length > 0) || hasSemantic();
   const hasAttempts = () => !!props.attempts && props.attempts.length > 0;
 
   const availableTabs = createMemo<InspectorTab[]>(() => {
@@ -508,61 +649,116 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
 
         <Show when={hasTimeline() && activeTab() === 'timeline'}>
           <section class="inspector__sect" data-testid="inspector-timeline">
-            <div class="inspector__sect-title">Execution timeline</div>
-            {(() => {
-              const events = createMemo(() =>
-                props.message ? assembleTimeline(props.message) : [],
-              );
-              const maxDuration = createMemo(() =>
-                Math.max(1, ...events().map((e) => e.durationMs ?? 0)),
-              );
-              return (
-                <ol class="inspector__timeline" data-testid="inspector-timeline-list">
-                  <For each={events()}>
-                    {(ev) => (
-                      <li
-                        class={
-                          'inspector__tl-event' +
-                          ` inspector__tl-event--${ev.kind}` +
-                          ` inspector__tl-event--${ev.status}`
-                        }
-                        data-testid={`timeline-event-${ev.kind}`}
-                      >
-                        <span class="inspector__tl-dot" aria-hidden="true" />
-                        <div class="inspector__tl-body">
-                          <div class="inspector__tl-head">
-                            <span class="inspector__tl-label">{ev.label}</span>
-                            <Show when={ev.durationMs != null}>
-                              <span class="inspector__tl-dur">
-                                {ev.durationMs! >= 1000
-                                  ? `${(ev.durationMs! / 1000).toFixed(1)}s`
-                                  : `${ev.durationMs}ms`}
-                              </span>
+            <Show when={!!props.message && props.message.parts.length > 0}>
+              <div class="inspector__sect-title">Execution timeline</div>
+              {(() => {
+                const events = createMemo(() =>
+                  props.message ? assembleTimeline(props.message) : [],
+                );
+                const maxDuration = createMemo(() =>
+                  Math.max(1, ...events().map((e) => e.durationMs ?? 0)),
+                );
+                return (
+                  <ol class="inspector__timeline" data-testid="inspector-timeline-list">
+                    <For each={events()}>
+                      {(ev) => (
+                        <li
+                          class={
+                            'inspector__tl-event' +
+                            ` inspector__tl-event--${ev.kind}` +
+                            ` inspector__tl-event--${ev.status}`
+                          }
+                          data-testid={`timeline-event-${ev.kind}`}
+                        >
+                          <span class="inspector__tl-dot" aria-hidden="true" />
+                          <div class="inspector__tl-body">
+                            <div class="inspector__tl-head">
+                              <span class="inspector__tl-label">{ev.label}</span>
+                              <Show when={ev.durationMs != null}>
+                                <span class="inspector__tl-dur">
+                                  {ev.durationMs! >= 1000
+                                    ? `${(ev.durationMs! / 1000).toFixed(1)}s`
+                                    : `${ev.durationMs}ms`}
+                                </span>
+                              </Show>
+                              <Show when={ev.at}>
+                                <span class="inspector__tl-time">
+                                  {new Date(ev.at!).toLocaleTimeString()}
+                                </span>
+                              </Show>
+                            </div>
+                            <Show when={ev.detail}>
+                              <div class="inspector__tl-detail">{ev.detail}</div>
                             </Show>
-                            <Show when={ev.at}>
-                              <span class="inspector__tl-time">
-                                {new Date(ev.at!).toLocaleTimeString()}
-                              </span>
+                            <Show when={ev.durationMs != null}>
+                              <div
+                                class="inspector__tl-bar"
+                                style={{
+                                  width: `${Math.max(2, Math.round((ev.durationMs! / maxDuration()) * 100))}%`,
+                                }}
+                              />
                             </Show>
                           </div>
-                          <Show when={ev.detail}>
-                            <div class="inspector__tl-detail">{ev.detail}</div>
-                          </Show>
-                          <Show when={ev.durationMs != null}>
-                            <div
-                              class="inspector__tl-bar"
-                              style={{
-                                width: `${Math.max(2, Math.round((ev.durationMs! / maxDuration()) * 100))}%`,
-                              }}
-                            />
-                          </Show>
-                        </div>
-                      </li>
-                    )}
-                  </For>
-                </ol>
-              );
-            })()}
+                        </li>
+                      )}
+                    </For>
+                  </ol>
+                );
+              })()}
+            </Show>
+
+            {/* GAP 3: read-only semantic execution trace, grouped by turn
+                (newest first). Only id/status/summary/occurred_at are
+                rendered — the free-form actor/subject/… dicts may carry
+                redaction sentinels and are never shown. */}
+            <Show when={hasSemantic()}>
+              <div
+                class="inspector__sect-title inspector__sect-title--semantic"
+                data-testid="inspector-semantic-title"
+              >
+                Semantic trace
+              </div>
+              <For each={semanticGroups()}>
+                {(group) => (
+                  <div
+                    class="inspector__semantic-turn"
+                    data-testid={`semantic-turn-${group.turnId}`}
+                  >
+                    <Show when={group.turnId !== '(no turn)'}>
+                      <div class="inspector__semantic-turn-head">
+                        turn {group.turnId.slice(0, 8)}
+                      </div>
+                    </Show>
+                    <ol class="inspector__timeline inspector__timeline--semantic">
+                      <For each={group.rows}>
+                        {(row) => (
+                          <li
+                            class={
+                              'inspector__tl-event inspector__tl-event--semantic' +
+                              ` inspector__tl-event--${row.status}`
+                            }
+                            data-testid={`semantic-event-${row.eventId}`}
+                            data-event-type={row.eventType}
+                          >
+                            <span class="inspector__tl-dot" aria-hidden="true" />
+                            <div class="inspector__tl-body">
+                              <div class="inspector__tl-head">
+                                <span class="inspector__tl-label">{row.label}</span>
+                                <Show when={row.at}>
+                                  <span class="inspector__tl-time">
+                                    {new Date(row.at!).toLocaleTimeString()}
+                                  </span>
+                                </Show>
+                              </div>
+                            </div>
+                          </li>
+                        )}
+                      </For>
+                    </ol>
+                  </div>
+                )}
+              </For>
+            </Show>
           </section>
         </Show>
 
@@ -1219,6 +1415,58 @@ function BindingsTab(props: {
             (p) => p.id === props.bindings.pack_id,
           )?.description}
         </p>
+      </Show>
+
+      {/* gap-07: read-only binding provenance from clio's
+          workspace-management work (#479/#480/#482). Only rendered when
+          the backend sends any of it — older backends show nothing. */}
+      <Show
+        when={
+          props.bindings.workspace_id ||
+          props.bindings.blueprint_path ||
+          Object.keys(props.bindings.overlay ?? {}).length > 0 ||
+          Object.keys(props.bindings.activation ?? {}).length > 0
+        }
+      >
+        <div class="inspector__sect-title">Binding provenance</div>
+        <dl class="inspector__binding-prov" data-testid="binding-provenance">
+          <Show when={props.bindings.workspace_id}>
+            <div class="inspector__binding-prov-row">
+              <dt>Workspace</dt>
+              <dd data-testid="binding-workspace">
+                {props.bindings.workspace_id}
+              </dd>
+            </div>
+          </Show>
+          <Show when={props.bindings.blueprint_path}>
+            <div class="inspector__binding-prov-row">
+              <dt>Blueprint path</dt>
+              <dd data-testid="binding-blueprint-path">
+                {props.bindings.blueprint_path}
+              </dd>
+            </div>
+          </Show>
+          <For each={Object.entries(props.bindings.overlay ?? {})}>
+            {([key, value]) => (
+              <div class="inspector__binding-prov-row inspector__binding-prov-row--overlay">
+                <dt>{key}</dt>
+                <dd data-testid={`binding-overlay-${key}`}>
+                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                </dd>
+              </div>
+            )}
+          </For>
+          <For each={Object.entries(props.bindings.activation ?? {})}>
+            {([key, value]) => (
+              <div class="inspector__binding-prov-row inspector__binding-prov-row--activation">
+                <dt>{key}</dt>
+                <dd data-testid={`binding-activation-${key}`}>
+                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                </dd>
+              </div>
+            )}
+          </For>
+        </dl>
       </Show>
     </section>
   );

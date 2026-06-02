@@ -27,8 +27,10 @@ import {
   applyPartCompleted,
   appendPart,
   upsertMessage,
+  type ErrorInfo,
   type Message,
   type PermissionRequest,
+  type SemanticEventPayload,
   type Session,
   type SessionStatus,
   type UserQuestion,
@@ -71,6 +73,11 @@ export interface LiveTranscriptHandle {
   runningTools: Accessor<RunningTool[]>;
   /** Currently pending orchestrator ask-user questions (PR #380). */
   pendingQuestion: Accessor<UserQuestion | null>;
+  /** Read-only semantic execution trace for the active session
+   * (clio `x_clio_semantic_events`). Append-only, cleared on session
+   * switch, capped at SEMANTIC_FEED_CAP. Feeds the Inspector timeline —
+   * NOT the transcript (the plain events already drive that). */
+  semanticEvents: Accessor<SemanticEventPayload[]>;
   /** TTFT + token-rate of the most recent turn (null before the first turn). */
   streamStats: Accessor<StreamStats | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
@@ -195,6 +202,10 @@ export function createLiveTranscript(
   const [costUsd, setCostUsd] = createSignal<number>(0);
   const [runningTools, setRunningTools] = createSignal<RunningTool[]>([]);
   const [pendingQuestion, setPendingQuestion] = createSignal<UserQuestion | null>(null);
+  // Read-only semantic execution trace (clio x_clio_semantic_events). Stored
+  // for the ACTIVE session only, append-order, capped so a long-lived
+  // session can't grow it without bound.
+  const [semanticEvents, setSemanticEvents] = createSignal<SemanticEventPayload[]>([]);
   // Bound inside the per-session effect (it closes over that session's
   // openEs/timers); exposed via the public reconnectNow() API.
   let reconnectNowRef: (() => void) | null = null;
@@ -293,6 +304,9 @@ export function createLiveTranscript(
   // Desktop only: if the Rust SSE bridge hasn't opened within this window,
   // fall back to a raw EventSource so live streaming never stalls.
   const BRIDGE_FALLBACK_MS = 4000;
+  // Cap the semantic feed so a long-running session can't grow it without
+  // bound — it's an observability timeline, not the source of truth.
+  const SEMANTIC_FEED_CAP = 500;
 
   createEffect(() => {
     const id = activeSessionId();
@@ -302,6 +316,9 @@ export function createLiveTranscript(
     turnStartedAt = 0;
     firstContentAt = 0;
     deltaChars = 0;
+    // The semantic feed is per-session; clear it on every session switch so
+    // events never bleed between conversations.
+    setSemanticEvents([]);
     if (!id) {
       setMessages([]);
       setMessagesLoading(false);
@@ -383,6 +400,7 @@ export function createLiveTranscript(
       'permission.requested',
       'permission.resolved',
       'cost.updated',
+      'semantic.event',
       'notification',
       'user_question.created',
       'user_question.answered',
@@ -424,6 +442,8 @@ export function createLiveTranscript(
         setCostUsd,
         setRunningTools,
         setPendingQuestion,
+        setSemanticEvents,
+        semanticFeedCap: SEMANTIC_FEED_CAP,
         sessionEvents,
         onNotification: sessionEvents?.onNotification,
         onFrameChanged: sessionEvents?.onFrameChanged,
@@ -650,6 +670,7 @@ export function createLiveTranscript(
     costUsd,
     runningTools,
     pendingQuestion,
+    semanticEvents,
     streamStats,
     refetch,
     reconnectNow: () => {
@@ -697,30 +718,45 @@ export interface NotificationSink {
   onMemoryChanged?: () => void;
 }
 
+/** Setters + side-effect sinks the SSE reducer drives. Optional members
+ * are forward-compat hooks not every call site wires (e.g. the semantic
+ * feed). Exported so unit tests can stub a subset. */
+export interface ReduceHooks {
+  setMessages: (m: Message[] | ((p: Message[]) => Message[])) => void;
+  setPendingPermission: (p: PermissionRequest | null) => void;
+  setLastCompletion: (c: MessageCompletion | null) => void;
+  setCostUsd: (n: number | ((p: number) => number)) => void;
+  setRunningTools: (
+    n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
+  ) => void;
+  setPendingQuestion: (q: UserQuestion | null) => void;
+  setSemanticEvents?: (
+    n:
+      | SemanticEventPayload[]
+      | ((p: SemanticEventPayload[]) => SemanticEventPayload[]),
+  ) => void;
+  semanticFeedCap?: number;
+  sessionEvents?: SessionEventSink;
+  onNotification?: (n: BackendNotification) => void;
+  onFrameChanged?: () => void;
+  onContextFilesChanged?: () => void;
+  onDiffChanged?: () => void;
+  onMemoryChanged?: () => void;
+}
+
 /**
  * Reduce an envelope-shaped event onto the message + permission signals.
  * Per SPEC §7.2 every payload lives under `ev.payload`. Tolerates
  * unknown event types (silently drops them so a backend that ships a
  * richer event surface doesn't blow up older clients).
+ *
+ * Exported (alongside `ReduceHooks`) so the SSE reduction can be unit
+ * tested directly without standing up a live EventSource — every state
+ * mutation flows through the `hooks` setters, which the test stubs.
  */
-function reduce(
+export function reduce(
   ev: { type?: string; payload?: Record<string, unknown> },
-  hooks: {
-    setMessages: (m: Message[] | ((p: Message[]) => Message[])) => void;
-    setPendingPermission: (p: PermissionRequest | null) => void;
-    setLastCompletion: (c: MessageCompletion | null) => void;
-    setCostUsd: (n: number | ((p: number) => number)) => void;
-    setRunningTools: (
-      n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
-    ) => void;
-    setPendingQuestion: (q: UserQuestion | null) => void;
-    sessionEvents?: SessionEventSink;
-    onNotification?: (n: BackendNotification) => void;
-    onFrameChanged?: () => void;
-    onContextFilesChanged?: () => void;
-    onDiffChanged?: () => void;
-    onMemoryChanged?: () => void;
-  },
+  hooks: ReduceHooks,
 ) {
   const t = ev.type;
   const p = ev.payload ?? {};
@@ -762,6 +798,12 @@ function reduce(
         tokens: p.tokens as MessageCompletion['tokens'],
         cost_usd: p.cost_usd as number | undefined,
       };
+      // GAP 1: a blocked turn (pre_message hook) folds its error into
+      // message.completed with stop_reason "blocked" + error_info, and it
+      // targets the USER message (no assistant message is ever created).
+      // Carry both onto the message so the transcript can render the
+      // "Turn blocked" pill. Verified against live :17803.
+      const errorInfo = p.error_info as ErrorInfo | undefined;
       hooks.setLastCompletion(completion);
       // Session-level cost accumulates per completed turn. clio sends the
       // PER-TURN cost on message.completed (cost_usd=turn_cost) and adds it to
@@ -781,6 +823,7 @@ function reduce(
                 stop_reason: completion.stop_reason,
                 tokens: completion.tokens ?? m.tokens,
                 cost_usd: completion.cost_usd ?? m.cost_usd,
+                ...(errorInfo ? { error_info: errorInfo } : {}),
               }
             : m,
         ),
@@ -805,6 +848,25 @@ function reduce(
     case 'cost.updated': {
       const cost = p.cost_usd as number | undefined;
       if (typeof cost === 'number') hooks.setCostUsd(cost);
+      break;
+    }
+    case 'semantic.event': {
+      // GAP 3: clio publishes a read-only execution trace on the SAME
+      // per-session SSE stream. DEDUP RULE: store ALL of them in the
+      // semantic feed (the Inspector timeline filters/dedups for display),
+      // but DO NOT create transcript messages/parts/toasts from them — the
+      // plain events (tool.call.*, permission.requested, …) already drive
+      // the UI; semantic events are an observability timeline only.
+      const sev = p as unknown as SemanticEventPayload;
+      if (sev && typeof sev.event_id === 'string' && hooks.setSemanticEvents) {
+        const cap = hooks.semanticFeedCap ?? 500;
+        hooks.setSemanticEvents((prev) => {
+          // Idempotent on replay/reconnect — event_id is stable + unique.
+          if (prev.some((e) => e.event_id === sev.event_id)) return prev;
+          const next = [...prev, sev];
+          return next.length > cap ? next.slice(next.length - cap) : next;
+        });
+      }
       break;
     }
     case 'permission.requested': {

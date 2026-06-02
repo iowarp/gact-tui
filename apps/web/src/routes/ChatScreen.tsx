@@ -942,10 +942,41 @@ function LiveDriven(props: {
           live.client.agentBlueprints(),
           live.client.expertPacks(),
         ]);
+        // Current clio (workspace-management work #479/#482) sends
+        // `active_agent_blueprint_id` / `active_expert_pack_id`; older
+        // builds sent `blueprint_id` / `pack_id`. Read both — empty
+        // string means "unbound" on the new shape.
         const blueprint_id =
-          bp.status === 'fulfilled' ? (bp.value.blueprint_id ?? null) : null;
+          bp.status === 'fulfilled'
+            ? (bp.value.blueprint_id ??
+                (bp.value.active_agent_blueprint_id || null))
+            : null;
         const pack_id =
-          pack.status === 'fulfilled' ? (pack.value.pack_id ?? null) : null;
+          pack.status === 'fulfilled'
+            ? (pack.value.pack_id ??
+                (pack.value.active_expert_pack_id || null))
+            : null;
+        // gap-07: read-only binding provenance (workspace, resolved
+        // path, overlay, activation) — only present on current clio.
+        const provenance =
+          bp.status === 'fulfilled'
+            ? {
+                ...(bp.value.workspace_id
+                  ? { workspace_id: bp.value.workspace_id }
+                  : {}),
+                ...(bp.value.active_agent_blueprint_path
+                  ? { blueprint_path: bp.value.active_agent_blueprint_path }
+                  : {}),
+                ...(bp.value.agent_overlay &&
+                Object.keys(bp.value.agent_overlay).length > 0
+                  ? { overlay: bp.value.agent_overlay }
+                  : {}),
+                ...(bp.value.activation &&
+                Object.keys(bp.value.activation).length > 0
+                  ? { activation: bp.value.activation }
+                  : {}),
+              }
+            : {};
         const availableBlueprints =
           bpList.status === 'fulfilled'
             ? bpList.value.blueprints.map((b) => ({
@@ -962,7 +993,13 @@ function LiveDriven(props: {
                 ...(p.description ? { description: p.description } : {}),
               }))
             : [];
-        return { blueprint_id, pack_id, availableBlueprints, availablePacks };
+        return {
+          blueprint_id,
+          pack_id,
+          availableBlueprints,
+          availablePacks,
+          ...provenance,
+        };
       } catch {
         return null;
       }
@@ -1432,6 +1469,10 @@ function LiveDriven(props: {
         }
       }}
       onPinFile={pinFileToContext}
+      semanticEvents={transcript.semanticEvents()}
+      semanticEventsEnabled={
+        !!props.backend.capabilities?.capabilities?.['x_clio_semantic_events']
+      }
       composerDisabled={false}
       renamedSessionId={recentlyRenamed()?.sid ?? null}
       streaming={streaming()}
@@ -1567,6 +1608,11 @@ interface ChatLayoutProps {
   onQuoteMessage?: (msg: Message) => void;
   onDeleteMessage?: (msg: Message) => void;
   onPinFile?: (path: string) => void;
+  /** Read-only semantic execution trace for the active session (GAP 3) —
+   * feeds the Inspector Timeline tab. */
+  semanticEvents?: import('@clio/core').SemanticEventPayload[];
+  /** Capability gate for the semantic trace (x_clio_semantic_events). */
+  semanticEventsEnabled?: boolean;
 }
 
 function messageToText(msg: Message): string {
@@ -2559,6 +2605,18 @@ function ChatLayout(props: ChatLayoutProps) {
 
   const capsFlags = () => props.caps?.capabilities ?? {};
 
+  // Boolean-only projection of the capability flags. clio's real
+  // capabilities map mixes booleans with string + nested-object flags
+  // (x_clio_hook_backend, x_clio_hook_events, …); LeftRail only consumes
+  // the boolean feature gates, so narrow to those before handing it over.
+  const capsBoolFlags = (): Record<string, boolean | undefined> => {
+    const out: Record<string, boolean | undefined> = {};
+    for (const [k, v] of Object.entries(capsFlags())) {
+      if (typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  };
+
   const onChat = () => railRoute() === 'sessions';
 
   // Lower-priority topbar chips. Rendered inline when the topbar is wide;
@@ -2685,7 +2743,7 @@ function ChatLayout(props: ChatLayoutProps) {
     >
       <LeftRail
         active={railRoute()}
-        caps={capsFlags()}
+        caps={capsBoolFlags()}
         onSelect={(id) => {
           if (id === 'settings') {
             props.onOpenSettings?.();
@@ -3074,6 +3132,8 @@ function ChatLayout(props: ChatLayoutProps) {
           bindings={props.sessionBindings}
           onSetBlueprint={props.onSetBlueprint}
           onSetExpertPack={props.onSetExpertPack}
+          semanticEvents={props.semanticEvents}
+          semanticEventsEnabled={props.semanticEventsEnabled}
           onRemoveContextFile={props.onRemoveContextFile}
           onCycleContextFileMode={props.onCycleContextFileMode}
           onOpenDiff={(d) => setActiveDiff(d)}
