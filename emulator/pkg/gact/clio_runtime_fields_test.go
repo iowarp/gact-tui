@@ -82,6 +82,11 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"agent_invocable": true,
 		"planner_visible": true,
 		"agent_id": "analysis",
+		"command_source": "agent_blueprint",
+		"command_scope": "agent_blueprint",
+		"command_path": "/tmp/work/.clio/agent-blueprints/qc/commands/analyze.md",
+		"agent_blueprint_id": "qc-agent",
+		"agent_blueprint_root": "/tmp/work/.clio/agent-blueprints/qc",
 		"argument_hint": "dataset"
 	}`), &cmd); err != nil {
 		t.Fatalf("decode command: %v", err)
@@ -89,6 +94,11 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 	if cmd.UserInvocable == nil || *cmd.UserInvocable ||
 		cmd.AgentInvocable == nil || !*cmd.AgentInvocable ||
 		cmd.PlannerVisible == nil || !*cmd.PlannerVisible ||
+		cmd.CommandSource != "agent_blueprint" ||
+		cmd.CommandScope != "agent_blueprint" ||
+		cmd.CommandPath == "" ||
+		cmd.AgentBlueprintID != "qc-agent" ||
+		cmd.AgentBlueprintRoot == "" ||
 		cmd.ArgumentHint != "dataset" {
 		t.Fatalf("command = %+v", cmd)
 	}

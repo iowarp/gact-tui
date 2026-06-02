@@ -4071,6 +4071,64 @@ func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
 	}
 }
 
+func TestLoadCommandsCmdUsesActiveSessionScope(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/commands" {
+			http.NotFound(w, r)
+			return
+		}
+		gotQuery = r.URL.RawQuery
+		writeJSONForTest(t, w, map[string]any{"commands": []gact.Command{{
+			ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint", AgentBlueprintID: "qc-agent",
+		}}})
+	}))
+	defer srv.Close()
+
+	msg := loadCommandsCmd(client.New(srv.URL), client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"})()
+	loaded, ok := msg.(commandsLoadedMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want commandsLoadedMsg", msg)
+	}
+	if loaded.err != nil {
+		t.Fatalf("load commands err = %v", loaded.err)
+	}
+	if loaded.sessionID != "s1" || loaded.workspaceID != "ws1" {
+		t.Fatalf("scope = %q/%q, want s1/ws1", loaded.sessionID, loaded.workspaceID)
+	}
+	if len(loaded.commands) != 1 || loaded.commands[0].AgentBlueprintID != "qc-agent" {
+		t.Fatalf("commands = %#v", loaded.commands)
+	}
+	for _, want := range []string{"workspace_id=ws1", "session_id=s1"} {
+		if !strings.Contains(gotQuery, want) {
+			t.Fatalf("command query missing %q: %s", want, gotQuery)
+		}
+	}
+}
+
+func TestCommandsLoadedMsgIgnoresStaleSessionAndAppliesCurrent(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "s1", Title: "one"}, {ID: "s2", Title: "two"}}, nil)
+	a.selected = 0
+	a.wsID = "ws1"
+	a.commands = []gact.Command{{ID: "/old", Title: "Old"}}
+
+	_, _ = a.Update(commandsLoadedMsg{
+		sessionID: "s2", workspaceID: "ws1",
+		commands: []gact.Command{{ID: "/wrong", Title: "Wrong"}},
+	})
+	if len(a.commands) != 1 || a.commands[0].ID != "/old" {
+		t.Fatalf("stale command response should not replace palette: %#v", a.commands)
+	}
+
+	_, _ = a.Update(commandsLoadedMsg{
+		sessionID: "s1", workspaceID: "ws1",
+		commands: []gact.Command{{ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint"}},
+	})
+	if len(a.commands) != 1 || a.commands[0].ID != "/validate-dataset" {
+		t.Fatalf("current command response not applied: %#v", a.commands)
+	}
+}
+
 func TestPaletteFilterEditsAtCursor(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.stage = StageReady

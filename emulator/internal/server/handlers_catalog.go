@@ -969,6 +969,7 @@ func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
 		Enabled:     true,
 		Tier:        1,
 		Tools:       []string{"mcp.parquet.read", "mcp.adios.inspect"},
+		Commands:    []string{"/validate-dataset"},
 		Metadata: map[string]any{
 			"agent_blueprint_id":          blueprintID,
 			"agent_blueprint_root_expert": "data",
@@ -1543,7 +1544,15 @@ func staticMcpPrompts(serverID string) []gact.McpPrompt {
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 	agentID := strings.TrimSpace(r.URL.Query().Get("agent_id"))
 	plannerOnly := r.URL.Query().Get("planner") == "true"
+	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
 	rows := staticCommands()
+	if sessionID != "" {
+		if sess, err := s.store.GetSession(sessionID); err == nil {
+			if blueprintID := stringFromAny(sess.Metadata["active_agent_blueprint_id"]); blueprintID != "" {
+				rows = append(rows, staticAgentBlueprintPackagedCommands(blueprintID)...)
+			}
+		}
+	}
 	if agentID != "" || plannerOnly {
 		filtered := make([]gact.Command, 0, len(rows))
 		for _, row := range rows {
@@ -1561,6 +1570,29 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 		rows = filtered
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"commands": rows})
+}
+
+func staticAgentBlueprintPackagedCommands(blueprintID string) []gact.Command {
+	trueValue := true
+	return []gact.Command{{
+		ID:                 "/validate-dataset",
+		Title:              "Validate Dataset",
+		Description:        "Validate a dataset before analysis",
+		Source:             "agent_blueprint",
+		AgentID:            "data",
+		AgentSource:        "agent_blueprint",
+		CommandSource:      "agent_blueprint",
+		CommandScope:       "agent_blueprint",
+		CommandPath:        "/workspace/.clio/agent-blueprints/" + blueprintID + "/commands/validate-dataset.md",
+		AgentBlueprintID:   blueprintID,
+		AgentBlueprintRoot: "/workspace/.clio/agent-blueprints/" + blueprintID,
+		Invocation:         "agent",
+		UserInvocable:      &trueValue,
+		AgentInvocable:     &trueValue,
+		PlannerVisible:     &trueValue,
+		ArgumentHint:       "<path>",
+		Arguments:          []gact.AgentParameter{{Name: "path", Type: "string", Required: true}},
+	}}
 }
 
 func staticCommands() []gact.Command {

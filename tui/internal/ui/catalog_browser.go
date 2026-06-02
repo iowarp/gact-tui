@@ -2293,7 +2293,11 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		parts = append(parts, "tools: "+toolSummary)
 	}
 	if len(agent.Commands) > 0 {
-		parts = append(parts, fmt.Sprintf("%d commands", len(agent.Commands)))
+		commandSummary := strings.Join(agent.Commands, ", ")
+		if len(agent.Commands) > 3 {
+			commandSummary = strings.Join(agent.Commands[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Commands)-3)
+		}
+		parts = append(parts, "commands: "+commandSummary)
 	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)

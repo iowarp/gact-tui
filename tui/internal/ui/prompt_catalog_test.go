@@ -328,7 +328,7 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		}},
 		Agents: []gact.AgentDef{{
 			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
-			Tools: []string{"mcp.parquet.read"},
+			Tools: []string{"mcp.parquet.read"}, Commands: []string{"/validate-dataset"},
 		}},
 	})
 
@@ -373,6 +373,42 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	}
 	if items[6].id != "agent/data" || !strings.Contains(items[6].desc, "mcp.parquet.read") {
 		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[6])
+	}
+	if !strings.Contains(items[6].desc, "commands: /validate-dataset") {
+		t.Fatalf("agent row should show declared packaged commands: %#v", items[6])
+	}
+}
+
+func TestPaletteCommandSubtitleSurfacesAgentBlueprintCommandProvenance(t *testing.T) {
+	trueValue := true
+	command := gact.Command{
+		ID:                 "/validate-dataset",
+		Title:              "Validate Dataset",
+		CommandSource:      "agent_blueprint",
+		CommandScope:       "agent_blueprint",
+		CommandPath:        "/tmp/work/.clio/agent-blueprints/qc/commands/validate-dataset.md",
+		AgentBlueprintID:   "qc-agent",
+		AgentBlueprintRoot: "/tmp/work/.clio/agent-blueprints/qc",
+		AgentID:            "root",
+		UserInvocable:      &trueValue,
+		AgentInvocable:     &trueValue,
+		PlannerVisible:     &trueValue,
+		ArgumentHint:       "<path>",
+	}
+
+	got := paletteCommandSubtitle(command)
+	for _, want := range []string{
+		"agent blueprint: qc-agent",
+		"user",
+		"agent",
+		"planner",
+		"owner: root",
+		"args: <path>",
+		"path: commands/validate-dataset.md",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("subtitle missing %q: %q", want, got)
+		}
 	}
 }
 

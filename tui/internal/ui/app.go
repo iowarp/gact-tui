@@ -937,6 +937,15 @@ func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 	}
 }
 
+func loadCommandsCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		commands, err := c.ListCommandsScoped(ctx, client.CommandFilter{RuntimeScope: scope})
+		return commandsLoadedMsg{sessionID: scope.SessionID, workspaceID: scope.WorkspaceID, commands: commands, err: err}
+	}
+}
+
 // startSSECmd opens the SSE stream and returns the first event.
 //
 // Connection setup (StreamEvents → http.Client.Do) blocks until the
@@ -1243,6 +1252,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, a.selectSession(pick))
 		}
 		return a, tea.Batch(cmds...)
+
+	case commandsLoadedMsg:
+		if m.err != nil {
+			return a, nil
+		}
+		if m.sessionID != "" && m.sessionID != a.currentSessionID() {
+			return a, nil
+		}
+		if m.workspaceID != "" && m.workspaceID != a.wsID {
+			return a, nil
+		}
+		a.commands = m.commands
+		return a, nil
 
 	case memoryStatsMsg:
 		// CLIO-BBBBBBBBBB4: cache the latest snapshot; the footer's
@@ -5853,6 +5875,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 		loadMessagesCmd(a.c, sid),
 		loadContextFilesCmd(a.c, sid),
 		loadSessionTasksCmd(a.c, sid), // UUU1: refresh task badge
+		loadCommandsCmd(a.c, a.runtimeScope()),
 		a.startSSECmd(sid),
 	)
 }
@@ -10606,7 +10629,19 @@ func paletteCommandSubtitle(c gact.Command) string {
 		}
 		return c.Status
 	}
-	policy := make([]string, 0, 5)
+	policy := make([]string, 0, 8)
+	if c.CommandSource == "agent_blueprint" {
+		label := "agent blueprint"
+		if c.AgentBlueprintID != "" {
+			label += ": " + c.AgentBlueprintID
+		}
+		policy = append(policy, label)
+	} else if c.CommandSource != "" && c.CommandSource != c.Source {
+		policy = append(policy, "source: "+c.CommandSource)
+	}
+	if c.CommandScope != "" && c.CommandScope != c.CommandSource {
+		policy = append(policy, "scope: "+c.CommandScope)
+	}
 	if c.UserInvocable != nil {
 		if *c.UserInvocable {
 			policy = append(policy, "user")
@@ -10625,6 +10660,9 @@ func paletteCommandSubtitle(c gact.Command) string {
 	}
 	if c.ArgumentHint != "" {
 		policy = append(policy, "args: "+c.ArgumentHint)
+	}
+	if c.CommandPath != "" && c.CommandSource == "agent_blueprint" {
+		policy = append(policy, "path: "+shortPathLabel(c.CommandPath))
 	}
 	if len(policy) > 0 {
 		return strings.Join(policy, " · ")
@@ -10648,6 +10686,22 @@ func samePaletteCommandText(a, b string) bool {
 	a = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(a)), "/")
 	b = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(b)), "/")
 	return a != "" && a == b
+}
+
+func shortPathLabel(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	path = strings.ReplaceAll(path, "\\", "/")
+	const marker = "/commands/"
+	if idx := strings.LastIndex(path, marker); idx >= 0 {
+		return "commands/" + strings.TrimPrefix(path[idx+len(marker):], "/")
+	}
+	if idx := strings.LastIndex(path, "/"); idx >= 0 && idx < len(path)-1 {
+		return path[idx+1:]
+	}
+	return path
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -11132,6 +11186,13 @@ type connectedMsg struct {
 	wsID     string
 	sessions []gact.Session
 	commands []gact.Command
+}
+
+type commandsLoadedMsg struct {
+	sessionID   string
+	workspaceID string
+	commands    []gact.Command
+	err         error
 }
 
 // CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats

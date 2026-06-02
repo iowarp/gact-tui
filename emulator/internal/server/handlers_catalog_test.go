@@ -261,6 +261,42 @@ func TestCommands(t *testing.T) {
 	}
 }
 
+func TestCommandsIncludeActiveAgentBlueprintPackagedCommands(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/commands", nil)
+	if strings.Contains(rec.Body.String(), "/validate-dataset") {
+		t.Fatalf("packaged command leaked into unscoped workspace command list: %s", rec.Body.String())
+	}
+
+	activate := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/agent-blueprint", map[string]string{"blueprint_id": "data-exploration"})
+	if activate.Code != http.StatusOK {
+		t.Fatalf("activate blueprint: %d %s", activate.Code, activate.Body.String())
+	}
+
+	sessionCommands := do(t, h, http.MethodGet, "/v1/commands?session_id="+sid, nil)
+	if sessionCommands.Code != http.StatusOK {
+		t.Fatalf("session commands: %d", sessionCommands.Code)
+	}
+	for _, want := range []string{
+		`"id":"/validate-dataset"`,
+		`"command_source":"agent_blueprint"`,
+		`"agent_blueprint_id":"data-exploration"`,
+		`"command_scope":"agent_blueprint"`,
+		`"command_path":"/workspace/.clio/agent-blueprints/data-exploration/commands/validate-dataset.md"`,
+	} {
+		if !strings.Contains(sessionCommands.Body.String(), want) {
+			t.Fatalf("packaged command response missing %q:\n%s", want, sessionCommands.Body.String())
+		}
+	}
+
+	plannerCommands := do(t, h, http.MethodGet, "/v1/commands?session_id="+sid+"&planner=true&agent_id=data", nil)
+	if plannerCommands.Code != http.StatusOK || !strings.Contains(plannerCommands.Body.String(), "/validate-dataset") {
+		t.Fatalf("planner commands missing packaged command: %d %s", plannerCommands.Code, plannerCommands.Body.String())
+	}
+}
+
 // --- §6.16 Metrics ---------------------------------------------------------
 
 func TestMetrics(t *testing.T) {
