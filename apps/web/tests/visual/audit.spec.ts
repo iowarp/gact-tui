@@ -901,4 +901,54 @@ test.describe('CLIO audit-batch verification', () => {
     await page.screenshot({ path: shot('item8-notif-search'), fullPage: false });
     await close();
   });
+
+  test('Settings export/import round-trips real preferences (1.0 item 7)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+
+    // Seed a recognizable preference value.
+    await page.evaluate(() => {
+      window.localStorage.setItem('clio.density.v1', 'verbose');
+      window.localStorage.setItem('clio.locale.v1', 'es');
+    });
+
+    // Settings → Data & backups → Export (real browser download).
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-data').click();
+    await expect(page.getByTestId('settings-data')).toBeVisible();
+    const downloadP = page.waitForEvent('download');
+    await page.getByTestId('settings-export-btn').click();
+    const download = await downloadP;
+    const filePath = await download.path();
+    expect(filePath).toBeTruthy();
+
+    // The exported envelope carries our prefs and NEVER the backend registry.
+    const { readFileSync } = await import('node:fs');
+    const envelope = JSON.parse(readFileSync(filePath!, 'utf-8')) as {
+      version: number;
+      prefs: Record<string, string>;
+    };
+    expect(envelope.version).toBe(1);
+    expect(envelope.prefs['clio.density.v1']).toBe('verbose');
+    expect(envelope.prefs['clio.locale.v1']).toBe('es');
+    expect(envelope.prefs['clio.backends.v1']).toBeUndefined();
+
+    // Change the prefs, then import the exported file → values restored.
+    await page.evaluate(() => {
+      window.localStorage.setItem('clio.density.v1', 'summary');
+      window.localStorage.setItem('clio.locale.v1', 'en');
+    });
+    await page.getByTestId('settings-import-file').setInputFiles(filePath!);
+    await expect(page.getByTestId('settings-import-result')).toBeVisible({
+      timeout: 5_000,
+    });
+    await page.screenshot({ path: shot('item7-settings-roundtrip'), fullPage: false });
+    // Values are back to the exported snapshot (import applies before reload).
+    const restored = await page.evaluate(() => ({
+      density: window.localStorage.getItem('clio.density.v1'),
+      locale: window.localStorage.getItem('clio.locale.v1'),
+    }));
+    expect(restored.density).toBe('verbose');
+    expect(restored.locale).toBe('es');
+    await close();
+  });
 });
