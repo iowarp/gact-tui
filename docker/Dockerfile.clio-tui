@@ -1,0 +1,101 @@
+# =============================================================================
+# clio-tui — CLIO agent + the Bubbletea TUI in ONE interactive container
+#
+# A single container that:
+#   - starts clio-agent-gact on 127.0.0.1:7777 in the background,
+#   - waits for /v1/capabilities,
+#   - exec's the `gact` TUI with GACT_BACKEND pointing at the local clio.
+#
+# Run it INTERACTIVELY (the TUI needs a TTY):
+#   docker run -it --rm clio-tui
+#
+# Build context is the REPO ROOT — the TUI is a go.work workspace member with
+# replace directives into ../emulator and ../contract/conformance, so the whole
+# Go workspace is copied and built from the root.
+#
+# Build:
+#   docker build -f docker/Dockerfile.clio-tui -t clio-tui .
+#   docker build -f docker/Dockerfile.clio-tui --build-arg CLIO_REF=develop -t clio-tui .
+#
+# Provider wiring (without one, chat 503s with agent:unavailable — expected):
+#   docker run -it --rm \
+#     -e CLIO_LM_PROVIDER=openai -e CLIO_LM_MODEL=gpt-4o-mini \
+#     -e CLIO_LM_API_KEY=sk-... clio-tui
+#
+# Inspect the entry points without a TTY:
+#   docker run --rm --entrypoint sh clio-tui -c \
+#     "clio-agent-gact --help && /usr/local/bin/gact --help"
+# =============================================================================
+
+# --- stage 1: build the gact TUI binary (Go workspace) ----------------------
+# go.work pins go 1.25.8; use the matching toolchain.
+FROM golang:1.25-bookworm AS go-builder
+
+WORKDIR /src
+
+# The TUI module replace-directives reference ../emulator and
+# ../contract/conformance, and go.work lists every workspace member, so copy
+# the whole workspace. These are small Go sources (no vendored deps).
+COPY go.work go.work.sum ./
+COPY tui/ ./tui/
+COPY emulator/ ./emulator/
+COPY contract/ ./contract/
+COPY adapters/ ./adapters/
+
+# Static-ish build of just the TUI command. CGO off keeps the binary portable
+# across the slim runtime base.
+ENV CGO_ENABLED=0 GOOS=linux
+RUN go build -C tui -trimpath -ldflags="-s -w" -o /out/gact . \
+    && /out/gact --help >/dev/null 2>&1 || true
+
+# --- stage 2: install clio-agent (needs git for the VCS pip install) --------
+FROM python:3.12-slim AS clio-builder
+
+ARG CLIO_REF=develop
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv "$VIRTUAL_ENV" \
+    && pip install --upgrade pip \
+    && pip install "clio-agent @ git+https://github.com/iowarp/clio-agent.git@${CLIO_REF}"
+
+# --- stage 3: runtime (python venv + the gact binary) -----------------------
+FROM python:3.12-slim AS runtime
+
+ARG CLIO_REF=develop
+LABEL org.opencontainers.image.title="clio-tui" \
+      org.opencontainers.image.description="CLIO agent + Bubbletea TUI in one interactive container" \
+      org.opencontainers.image.source="https://github.com/iowarp/gact-tui" \
+      org.opencontainers.image.licenses="MIT" \
+      ai.iowarp.clio.ref="${CLIO_REF}"
+
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    CLIO_GACT_HOST=127.0.0.1 \
+    CLIO_GACT_PORT=7777 \
+    GACT_THEME=dark \
+    HOME=/home/clio \
+    TERM=xterm-256color
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 clio
+
+COPY --from=clio-builder /opt/venv /opt/venv
+COPY --from=go-builder /out/gact /usr/local/bin/gact
+COPY docker/clio-tui-entrypoint.sh /usr/local/bin/clio-tui-entrypoint.sh
+RUN chmod +x /usr/local/bin/clio-tui-entrypoint.sh /usr/local/bin/gact
+
+USER clio
+WORKDIR /home/clio
+
+# No HEALTHCHECK: this is an interactive foreground TUI, not a service.
+ENTRYPOINT ["/usr/local/bin/clio-tui-entrypoint.sh"]
