@@ -9,10 +9,12 @@
     "test": "node --test tests/smoke.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
+    "build-clio-runtime": "node scripts/build-clio-runtime.mjs",
     "tauri": "tauri",
     "tauri:dev": "pnpm fetch-sidecar && tauri dev",
     "tauri:build": "pnpm fetch-sidecar && tauri build",
-    "tauri:build:debug": "pnpm fetch-sidecar && tauri build --debug --no-bundle"
+    "tauri:build:debug": "pnpm fetch-sidecar && tauri build --debug --no-bundle",
+    "tauri:build:bundled": "pnpm fetch-sidecar && pnpm build-clio-runtime && tauri build --config tauri.bundled.conf.json"
   },
   "dependencies": {
     "@clio/web": "workspace:*",

@@ -138,26 +138,36 @@ jobs:
         run: pnpm --filter @clio/desktop tauri:build:debug
 
   release:
-    name: release · ${{ matrix.os }} / ${{ matrix.target }}
+    name: release · ${{ matrix.variant }} · ${{ matrix.os }} / ${{ matrix.target }}
     if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
     needs: [ci, tauri-debug]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
+      # Cross-product: {lite, bundled} × 4 target triples = 8 jobs.
+      # `variant` and `target` are real axes; `include` attaches os +
+      # bundle-args keyed on `target` (matching an existing axis key
+      # EXPANDS those combinations rather than adding standalone jobs).
       matrix:
+        variant: [lite, bundled]
+        target:
+          - x86_64-pc-windows-msvc
+          - aarch64-apple-darwin
+          - x86_64-apple-darwin
+          - x86_64-unknown-linux-gnu
         include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
             bundle-args: '--bundles msi,nsis'
-          - os: macos-14
-            target: aarch64-apple-darwin
+          - target: aarch64-apple-darwin
+            os: macos-14
             bundle-args: '--bundles dmg --target aarch64-apple-darwin'
-          - os: macos-13
-            target: x86_64-apple-darwin
+          - target: x86_64-apple-darwin
+            os: macos-13
             bundle-args: '--bundles dmg --target x86_64-apple-darwin'
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
             bundle-args: '--bundles deb,appimage,rpm'
 
     defaults:
@@ -192,6 +202,10 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Install uv (bundled runtime build)
+        if: matrix.variant == 'bundled'
+        uses: astral-sh/setup-uv@v5
+
       - name: Linux deps for Tauri
         if: matrix.os == 'ubuntu-22.04'
         run: |
@@ -214,11 +228,23 @@ jobs:
         run: bash apps/desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
         working-directory: ${{ github.workspace }}
 
+      - name: Build embedded clio-agent runtime (bundled, macOS/Linux)
+        if: matrix.variant == 'bundled' && matrix.os != 'windows-latest'
+        shell: bash
+        run: bash apps/desktop/scripts/build-clio-runtime.sh
+        working-directory: ${{ github.workspace }}
+
+      - name: Build embedded clio-agent runtime (bundled, Windows)
+        if: matrix.variant == 'bundled' && matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/build-clio-runtime.ps1
+        working-directory: apps/desktop
+
       - name: Build web (Tauri frontend)
         run: pnpm --filter @clio/web build
 
       - name: Tauri release build (unsigned)
-        run: pnpm --filter @clio/desktop tauri build ${{ matrix.bundle-args }}
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
@@ -234,10 +260,25 @@ jobs:
           if [ -d "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
             bundle_root="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           fi
+          # The bundled variant shares productName/version with lite, so
+          # Tauri emits identically-named installers. Tag bundled outputs
+          # with a `-bundled` suffix (before the extension) so the two
+          # variants are distinguishable on the Release page.
+          variant='${{ matrix.variant }}'
           find "$bundle_root" -type f \( \
               -iname '*.exe' -o -iname '*.msi' -o -iname '*.dmg' \
               -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.rpm' \
-              \) -exec cp -v {} "$stage/" \;
+              \) -print0 | while IFS= read -r -d '' f; do
+            base="$(basename "$f")"
+            if [ "$variant" = "bundled" ]; then
+              ext="${base##*.}"
+              stem="${base%.*}"
+              dest="$stage/${stem}-bundled.${ext}"
+            else
+              dest="$stage/$base"
+            fi
+            cp -v "$f" "$dest"
+          done
           ls -la "$stage"
         working-directory: ${{ github.workspace }}
 
@@ -246,18 +287,19 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/clio-stage"
+          sums="SHA256SUMS.${{ matrix.target }}.${{ matrix.variant }}.txt"
           if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum * > SHA256SUMS.${{ matrix.target }}.txt
+            sha256sum * > "$sums"
           else
-            shasum -a 256 * > SHA256SUMS.${{ matrix.target }}.txt
+            shasum -a 256 * > "$sums"
           fi
-          cat SHA256SUMS.${{ matrix.target }}.txt
+          cat "$sums"
         working-directory: ${{ github.workspace }}
 
       - name: Upload installer artifacts (per-runner)
         uses: actions/upload-artifact@v4
         with:
-          name: clio-desktop-${{ matrix.target }}
+          name: clio-desktop-${{ matrix.variant }}-${{ matrix.target }}
           path: ${{ runner.temp }}/clio-stage/
           if-no-files-found: error
 
