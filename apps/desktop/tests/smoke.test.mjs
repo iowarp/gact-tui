@@ -53,3 +53,20 @@ test('sidecar-launcher Go module declares no workspace tie-in', () => {
   // just verify the module path is the expected one so tauri.conf.json
   // and the fetch-sidecar contract stay aligned.
 });
+
+test('Tauri SSE path does not fall back to raw browser EventSource', () => {
+  const live = readFileSync(resolve(root, '..', 'web', 'src', 'live.ts'), 'utf8');
+  assert.doesNotMatch(live, /BRIDGE_FALLBACK_MS/);
+  assert.doesNotMatch(live, /function\s+fallBack\s*\(/);
+
+  const tauriStart = live.indexOf('if (inTauri()) {');
+  assert.notEqual(tauriStart, -1, 'expected an explicit Tauri SSE branch');
+  const pureWebCall = live.indexOf('openEventSource();', tauriStart);
+  assert.notEqual(pureWebCall, -1, 'expected pure-web EventSource call after Tauri branch');
+  const tauriBranch = live.slice(tauriStart, pureWebCall);
+  assert.doesNotMatch(
+    tauriBranch,
+    /openEventSource\s*\(/,
+    'Tauri SSE must retry the Rust bridge, not raw EventSource',
+  );
+});

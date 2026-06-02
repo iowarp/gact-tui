@@ -337,16 +337,13 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
   memory/sharing/doctor) — confirm LIVE-PROVEN (many already are via audit/oneturn specs).
 - **Hardening (W4):** SSE drop→reconnect (Rust bridge), concurrent turns, large
   transcript, supervisor SPAWN path, shutdown reaping, ssh error paths, homelab real-turn hop.
-- **FINDING (W1) — Rust SSE bridge does NOT open in the real WebView2.** The
-  production-debug app launched via tauri-driver sat at `sse · connecting` forever
-  (composer disabled, no stream), even though the isolated Rust `run_stream` test and
-  the `--disable-web-security` web path both pass. REST (`gact_http`) works fine.
-  Mitigation shipped: `live.ts` now does **bridge-first with an EventSource fallback**
-  (BRIDGE_FALLBACK_MS=4s) — desktop streaming works (clio sends `ACAO:*`), proven by
-  the W1 e2e (`sse · open`, msg rendered, permission card up). **Caveat:** while the
-  bridge falls back, its CORS-independence purpose (#111) is defeated in the real app.
-  Root-cause of the bridge (likely the `invoke`→`Channel` open path in WebView2, or an
-  async teardown race) is a **tracked follow-up** (not a clio gap — a desktop bug).
+- **FINDING (W1) — Rust SSE bridge must be the only desktop stream path.** Earlier
+  W1 work used a bridge-first raw-`EventSource` fallback when the Rust SSE bridge did
+  not open in WebView2. That made desktop streaming work but defeated #111's
+  CORS-independence goal. Current `live.ts` keeps the pure-web `EventSource` path, but
+  Tauri now retries the Rust bridge through the normal reconnect ladder instead of
+  falling back to WebView SSE. If WebView2 bridge startup regresses, it should surface
+  as `sse · reconnecting` rather than silently returning to CLIO CORS/trust_socket.
 
 ### W2 ACTION QUEUE — from the parity verification workflow (wf_a9bd8de8, 7 agents, exhaustive)
 Each item: fix → verify (live where possible) → commit (STATUS in same commit). Work Tier-A first.
@@ -795,8 +792,8 @@ a11y ✅DONE (`audit/w3-a11y-focus-trap.png` + high-contrast preset).
   fixes: (1) WebDriver `element/value` didn't fire SolidJS's `input` event so the
   composer never registered the text → `typeInto` now sets the value via `execute/sync`
   and dispatches a real `InputEvent`. (2) **The Rust SSE bridge never opened in the real
-  WebView2** (stuck `connecting`, composer disabled) — added a bridge-first **EventSource
-  fallback** in `live.ts` (`BRIDGE_FALLBACK_MS`), so streaming connects (`sse · open`).
+  WebView2** (stuck `connecting`, composer disabled). The temporary raw-`EventSource`
+  fallback was removed for #111; Tauri now reconnects through the Rust bridge only.
   Bridge root-cause is a tracked desktop follow-up (see matrix FINDING). Proof:
   `w1-webview-permission.png`. Commit: <next>. **Next: W2 parity re-verification, starting
   with the FLAG-GATED user_question (ask-user) flow.**
