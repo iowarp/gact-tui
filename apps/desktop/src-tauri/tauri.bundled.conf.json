@@ -1,6 +1,5 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "//": "Bundled-variant config OVERLAY. Used as `tauri build --config tauri.bundled.conf.json`, which DEEP-MERGES over tauri.conf.json. Same productName/identifier (same app, bigger installer); the only delta is shipping the embedded clio-agent runtime so the app works fully offline. Resource globs are relative to src-tauri/ (where tauri.conf.json lives). The clio-runtime/ tree is produced by scripts/build-clio-runtime.{ps1,sh} before the build and is .gitignored. CI renames the staged installers with a `-bundled` suffix so they are distinguishable from the lite ones (which share productName/version).",
   "bundle": {
     "resources": ["clio-runtime/**/*"]
   }

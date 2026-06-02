@@ -244,7 +244,11 @@ jobs:
         run: pnpm --filter @clio/web build
 
       - name: Tauri release build (unsigned)
-        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
+        # NOTE: the tauri CLI resolves --config relative to its CWD, which
+        # pnpm --filter sets to apps/desktop — NOT to src-tauri/. The first
+        # 0.7.0 release run failed all 4 bundled jobs on exactly this: a bare
+        # tauri.bundled.conf.json "does not exist" from apps/desktop.
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
