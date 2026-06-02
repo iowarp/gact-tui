@@ -265,6 +265,18 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('retry-model-submenu'), fullPage: false });
   });
 
+  test('inline images + retry lineage render in the transcript (1.0 items 2+3)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=previews');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    // Base64 image part renders as a real <img>.
+    await expect(page.getByTestId('trx-image')).toBeVisible();
+    // Backend file references get an honest placeholder, not a broken img.
+    await expect(page.getByTestId('trx-image-unavailable')).toBeVisible();
+    // The retry-created user message carries the lineage chip.
+    await expect(page.getByTestId('msg-retry-chip-m-user-retry')).toBeVisible();
+    await page.screenshot({ path: shot('previews-and-retry'), fullPage: false });
+  });
+
   test('inspector execution timeline renders turn events (1.0 item 5)', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal');
     await expect(page.getByTestId('inspector-drawer')).toBeVisible();

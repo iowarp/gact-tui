@@ -79,9 +79,11 @@ const ROLE_LABEL: Record<string, string> = {
 function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   if (density === 'verbose') return true;
   if (density === 'summary') {
-    // summary keeps the answer + diffs; the routing breadcrumb is
-    // useful but not load-bearing for read-back.
-    return part.type === 'text' || part.type === 'file_diff';
+    // summary keeps the answer + diffs + images; the routing breadcrumb
+    // is useful but not load-bearing for read-back.
+    return (
+      part.type === 'text' || part.type === 'file_diff' || part.type === 'image'
+    );
   }
   // normal density: hide thinking; show routing_decision so the user
   // can see which expert handled the turn.
@@ -301,6 +303,33 @@ function PartView(props: {
           </Show>
         </span>
       </div>
+    );
+  }
+  // Inline image parts (1.0 item 2). base64/url sources render directly;
+  // backend file references show an honest placeholder until fetched.
+  if (p.type === 'image') {
+    const src =
+      p.source.kind === 'base64' && p.source.data
+        ? `data:${p.source.media_type ?? 'image/png'};base64,${p.source.data}`
+        : p.source.kind === 'url'
+          ? p.source.url
+          : undefined;
+    if (!src) {
+      return (
+        <div class="trx-image-unavailable" data-testid="trx-image-unavailable">
+          <Icon name="attach" size={12} />
+          <span>image attachment (backend file reference — open the Inspector Context tab to preview)</span>
+        </div>
+      );
+    }
+    return (
+      <img
+        class="trx-image"
+        src={src}
+        alt={p.source.media_type ?? 'image attachment'}
+        loading="lazy"
+        data-testid="trx-image"
+      />
     );
   }
   return null;
@@ -536,6 +565,19 @@ function MessageView(props: {
         <span class="trx-msg__role">{ROLE_LABEL[role()] ?? role()}</span>
         <Show when={isAssistant() && props.msg.model?.model_id}>
           <span class="trx-msg__model">{props.msg.model?.model_id}</span>
+        </Show>
+        <Show when={props.msg.metadata?.['retry_attempt_id']}>
+          {/* Retry lineage chip (1.0 item 3) — this message was created by
+              clio's retry route; the full attempt history (notes, status,
+              model override) lives in the Inspector's Attempts tab. All
+              server-side state: survives reload. */}
+          <span
+            class="trx-msg__retry-chip"
+            title="Created by a retry — see the Inspector's Attempts tab for the lineage"
+            data-testid={`msg-retry-chip-${props.msg.id}`}
+          >
+            ↻ retry
+          </span>
         </Show>
         <Show when={props.msg.created_at}>
           <span

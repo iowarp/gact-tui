@@ -465,6 +465,40 @@
   background: color-mix(in srgb, var(--color-error) 14%, transparent);
 }
 
+/* Inline image parts (1.0 item 2). */
+.trx-image {
+  max-width: min(480px, 100%);
+  max-height: 360px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-30);
+  display: block;
+  margin: 4px 0;
+}
+
+.trx-image-unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--color-border-30);
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+/* Retry lineage chip (1.0 item 3). */
+.trx-msg__retry-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 50%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  cursor: default;
+}
+
 /* Virtual windowing (1.0 item 6): spacers are inert geometry; the
    entrance animation is suppressed because DOM nodes mount/unmount
    constantly as the window slides — replaying the rise on every scroll

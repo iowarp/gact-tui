@@ -2,6 +2,7 @@ import type {
   AgentDef,
   Capabilities,
   ContextFile,
+  ContextFileContent,
   TurnAttempt,
   HealthSnapshot,
   LmConfigSnapshot,
@@ -610,6 +611,22 @@ export class Client {
       'DELETE',
       { path },
     );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/files/content?path=… — fetch a registered
+   * context file's (or uploaded attachment's) bytes back as base64-JSON
+   * (clio PR iowarp/clio-agent#533). Gate call sites on
+   * `capabilities.x_clio_files_content` — older backends 404 this route.
+   */
+  async getContextFileContent(
+    sessionId: string,
+    path: string,
+  ): Promise<ContextFileContent> {
+    const raw = await this.get<{ file: ContextFileContent }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files/content?path=${encodeURIComponent(path)}`,
+    );
+    return raw.file;
   }
 
   /**

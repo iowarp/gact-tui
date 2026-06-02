@@ -103,6 +103,40 @@ export function fixturesForDemo(): DemoFixtures {
     },
   };
 
+  // Previews fixture (1.0 items 2+3): an inline image part + a retry-created
+  // user message (metadata.retry_attempt_id) so both render deterministically.
+  const TINY_PNG =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const previews: Message[] = [
+    ...normal,
+    {
+      id: 'm-user-retry',
+      role: 'user',
+      metadata: { retry_attempt_id: 'attempt_demo_1' },
+      parts: [
+        {
+          type: 'text',
+          text: 'Read src/handlers.go and rewrite the println calls to use log.Info.\n\n[Retry notes]\nUse structured logging with zap instead.',
+        },
+      ],
+    },
+    {
+      id: 'm-asst-image',
+      role: 'assistant',
+      parts: [
+        { type: 'text', text: 'Here is the chart you asked for:' },
+        {
+          type: 'image',
+          source: { kind: 'base64', media_type: 'image/png', data: TINY_PNG },
+        },
+        {
+          type: 'image',
+          source: { kind: 'file_id', file_id: 'file_abc123' },
+        },
+      ],
+    },
+  ];
+
   return {
     sessions,
     byName: {
@@ -111,6 +145,7 @@ export function fixturesForDemo(): DemoFixtures {
       verbose,
       summary: verbose,
       permission: normal,
+      previews,
     },
     permission,
   };

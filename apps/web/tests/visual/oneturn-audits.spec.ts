@@ -966,6 +966,23 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     ).toBe(true);
 
     await page.screenshot({ path: shot('item4-retry-notes-turn'), fullPage: false });
+
+    // ---- 1.0 item 3: the same lineage surfaces in the UI ----
+    // The retry-created user message carries the ↻ retry chip…
+    await expect(
+      page.locator('[data-testid^="msg-retry-chip-"]').first(),
+    ).toBeVisible({ timeout: 10_000 });
+    // …and the Inspector's Attempts tab lists the attempt with our notes.
+    const drawer = page.getByTestId('inspector-drawer');
+    if (!(await drawer.isVisible())) {
+      await page.getByTestId('topbar-inspector').click();
+    }
+    await page.getByTestId('inspector-tab-attempts').click();
+    await expect(page.getByTestId('inspector-attempts')).toBeVisible();
+    await expect(page.getByTestId('inspector-attempts')).toContainText(
+      'three words',
+    );
+    await page.screenshot({ path: shot('item3-attempts-tab'), fullPage: false });
     await ctx.close();
     await browser.close();
   });
