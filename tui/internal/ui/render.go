@@ -1658,6 +1658,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
 
+	case partTypeRuntimeProvenance:
+		head := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
+			Render("◇ runtime provenance")
+		body := strings.TrimSpace(p.Text)
+		if body == "" {
+			body = "structured execution evidence"
+		}
+		rendered := lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(indent(wrap(body, wrapW-2), "  "))
+		prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("  [trace, tools, skills, delegation · ")
+		keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("]")
+		return lipgloss.JoinVertical(lipgloss.Left, head, rendered, prefix+keyStyle.Render("Ctrl+E")+suffix)
+
 	default:
 		// Unknown part type — preserve presence (per SPEC §8.3) so the user
 		// sees something instead of silently swallowing it.

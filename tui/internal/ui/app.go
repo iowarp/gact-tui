@@ -6049,6 +6049,7 @@ func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageErrorInfo(m)
 	normalizeMessagePartialAnswerLabels(m)
 	normalizeMessageToolEvidence(m)
+	normalizeMessageRuntimeProvenance(m)
 }
 
 func normalizeMessageCompactionSummaries(m *gact.Message) {
@@ -6152,6 +6153,9 @@ func shouldRenderConversationMessage(m gact.Message) bool {
 		return true
 	}
 	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
+		return true
+	}
+	if hasRuntimeProvenance(m) {
 		return true
 	}
 	return false

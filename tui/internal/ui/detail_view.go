@@ -454,6 +454,8 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 		title = "agent question"
 	case gact.PartTypeRetryAttempt:
 		title = "retry attempt"
+	case partTypeRuntimeProvenance:
+		title = "runtime provenance"
 	case gact.PartTypeToolResult:
 		title = "tool result"
 		if p.ToolName != "" {
@@ -575,6 +577,14 @@ func partDetailText(p gact.Part) string {
 		} else if p.Text != "" {
 			rows = append(rows, detailFieldRows("notes", p.Text)...)
 		}
+	case partTypeRuntimeProvenance:
+		rp := mapValue(p.Metadata["runtime_provenance"])
+		if len(rp) > 0 {
+			return runtimeProvenanceDetailText(rp)
+		}
+		if p.Text != "" {
+			rows = append(rows, detailFieldRows("summary", p.Text)...)
+		}
 	case gact.PartTypeToolResult:
 		if p.ToolName != "" {
 			rows = append(rows, detailFieldRows("tool", p.ToolName)...)
@@ -694,6 +704,9 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	case gact.PartTypeCompaction:
 		used["synthetic_from"] = true
 		used["synthetic"] = true
+	case partTypeRuntimeProvenance:
+		used["synthetic_from"] = true
+		used["runtime_provenance"] = true
 	}
 	remaining := map[string]any{}
 	for key, value := range p.Metadata {
