@@ -727,6 +727,100 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await browser.close();
   });
 
+  // -- 1.0 item 6: 1000-message virtualized transcript -------------------
+  test('1000-message session renders a bounded DOM window (1.0 item 6)', async () => {
+    test.setTimeout(300_000);
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+
+    // Import 1000 messages through the real backend.
+    const sid = await page.evaluate(async (base) => {
+      const now = new Date().toISOString();
+      const messages = [];
+      for (let i = 0; i < 1000; i++) {
+        messages.push({
+          id: `msg_virt_${String(i).padStart(4, '0')}`,
+          role: i % 2 === 0 ? 'user' : 'assistant',
+          created_at: now,
+          updated_at: now,
+          parts: [
+            {
+              id: `prt_virt_${i}`,
+              type: 'text',
+              text: `Virtual message ${i}: ${'lorem ipsum dolor sit amet '.repeat(6)}`,
+            },
+          ],
+        });
+      }
+      const created = await (
+        await fetch(`${base}/v1/sessions/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: '1',
+            session: { title: 'item6-virtual-1000' },
+            messages,
+          }),
+        })
+      ).json();
+      return created.id as string;
+    }, BACKEND);
+
+    const start = Date.now();
+    await page.getByTestId('sessions-refresh').click();
+    await page.waitForTimeout(800);
+    await page.getByTestId(`session-row-${sid}`).click();
+
+    // Messages render (the window is at the bottom after session open).
+    await expect
+      .poll(async () => page.locator('[data-testid^="msg-msg_"]').count(), {
+        timeout: 30_000,
+      })
+      .toBeGreaterThan(0);
+    const renderMs = Date.now() - start;
+    // The whole point: the DOM holds a bounded window, NOT all 1000 rows.
+    const domCount = await page.locator('[data-testid^="msg-msg_"]').count();
+    expect(domCount).toBeLessThan(200);
+    // Spacers carry the geometry of the off-screen messages.
+    await expect(page.getByTestId('trx-spacer-top')).toBeAttached();
+    await expect(page.getByTestId('trx-spacer-bottom')).toBeAttached();
+
+    // Scroll to the very top → the first imported message mounts.
+    await page.getByTestId('transcript-pane').evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await expect(page.getByTestId('msg-msg_virt_0000')).toBeAttached({
+      timeout: 10_000,
+    });
+    await page.screenshot({ path: shot('item6-virtual-top'), fullPage: false });
+
+    // Jump back to the bottom → the last message mounts; DOM stays bounded.
+    await page.getByTestId('transcript-pane').evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect(page.getByTestId('msg-msg_virt_0999')).toBeAttached({
+      timeout: 10_000,
+    });
+    const domCountAfterScroll = await page
+      .locator('[data-testid^="msg-msg_"]')
+      .count();
+    expect(domCountAfterScroll).toBeLessThan(200);
+
+    // Initial render must be fast even with 1000 messages in state.
+    expect(renderMs).toBeLessThan(15_000);
+    await page.screenshot({ path: shot('item6-virtual-1000'), fullPage: false });
+
+    // Clean up: delete the bulky test session from the live backend.
+    await page.evaluate(
+      async ({ base, id }) => {
+        await fetch(`${base}/v1/sessions/${id}`, { method: 'DELETE' });
+      },
+      { base: BACKEND, id: sid },
+    );
+    await ctx.close();
+    await browser.close();
+  });
+
   // -- W4: ssh-homelab real-turn hop -----------------------------------
   // Gated on CLIO_TUNNEL_URL (an ssh -L tunnel to a remote clio). The test
   // drives the desktop UI against the TUNNELED endpoint and verifies a

@@ -80,7 +80,8 @@ import {
 } from './discovery/index.js';
 import { Client } from '@clio/core';
 import { getRequestLocale } from '../locale.js';
-import { inTauri, tauriFetch } from '../tauri.js';
+import { inTauri, onMenuAction, tauriFetch } from '../tauri.js';
+import { dispatchMenuAction } from '../menu-actions.js';
 import { useToast } from '../components/Toast.js';
 import {
   createPersistedBoolean,
@@ -1755,6 +1756,9 @@ function ChatLayout(props: ChatLayoutProps) {
   const [scrolledUp, setScrolledUp] = createSignal(false);
   const [newSinceScroll, setNewSinceScroll] = createSignal(0);
   let paneEl: HTMLDivElement | undefined;
+  // Signal twin of paneEl — Transcript needs the scroll container as a
+  // reactive prop for virtual windowing (1.0 item 6).
+  const [paneSignal, setPaneSignal] = createSignal<HTMLElement>();
   let lastMessageCount = 0;
 
   function isAtBottom(el: HTMLElement): boolean {
@@ -2041,6 +2045,46 @@ function ChatLayout(props: ChatLayoutProps) {
     };
     window.addEventListener('keydown', onKey, true);
     onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  });
+
+  // Native window-menu actions (1.0 item 9, JS half) — each menu item maps
+  // to the SAME handler its keyboard shortcut uses, so the two never drift.
+  // No-op outside the Tauri shell (pure-web has no native menus).
+  onMount(() => {
+    const unsub = onMenuAction((action) => {
+      dispatchMenuAction(action, {
+        newSession: () => void props.onNewSession?.(),
+        importSession: () => {
+          // The import affordance is a file-picker in the SessionsColumn —
+          // make sure the column is visible, then open the picker.
+          setSessionsOpen(true);
+          queueMicrotask(() => {
+            (
+              document.querySelector(
+                '[data-testid="sessions-import"]',
+              ) as HTMLElement | null
+            )?.click();
+          });
+        },
+        exportSession: () => {
+          if (props.activeId && props.onExportSession)
+            void props.onExportSession(props.activeId);
+        },
+        openSettings: () => props.onOpenSettings?.(),
+        toggleInspector: () => setInspectorOpen((v) => !v),
+        toggleSessions: () => setSessionsOpen((v) => !v),
+        cycleDensity: () => cycleDensity(props.density, props.setDensity),
+        commandPalette: () => setPaletteOpen((v) => !v),
+        keyboardShortcuts: () => setCheatsheetOpen((v) => !v),
+        // Rust toggles real window fullscreen natively; the web chrome has
+        // nothing to sync today.
+        fullscreen: () => undefined,
+        helpDocs: () =>
+          window.open('https://github.com/iowarp/clio-agent#readme', '_blank'),
+        about: () => props.onOpenSettings?.('about'),
+      });
+    });
+    onCleanup(unsub);
   });
 
   function handlePick(cmd: SlashCommand) {
@@ -2822,7 +2866,10 @@ function ChatLayout(props: ChatLayoutProps) {
         <div
           class="chat__pane"
           data-testid="transcript-pane"
-          ref={(el) => { paneEl = el; }}
+          ref={(el) => {
+            paneEl = el;
+            setPaneSignal(el);
+          }}
           onScroll={onPaneScroll}
         >
           <div class="chat__pane-inner">
@@ -2866,6 +2913,7 @@ function ChatLayout(props: ChatLayoutProps) {
               searchQuery={searchOpen() ? searchQuery() : ''}
               currentMatchKey={currentMatchKey()}
               streaming={props.streaming}
+              scrollEl={paneSignal()}
             />
             <Show when={scrolledUp()}>
               <button
