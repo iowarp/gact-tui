@@ -25,14 +25,14 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | 2 | Inline file & image previews (transcript + @-picker) | IN-PROGRESS | Backend half DONE: clio PR **iowarp/clio-agent#533** (closes #532) — `GET /v1/sessions/{sid}/context/files/content?path=…` → base64-JSON + `x_clio_files_content` capability; 14 tests, mypy clean, stacked 5th (#522→#523→#527→#530→#533). Desktop half pending. |
 | 3 | Message edit history / "edited" markers (honest design) | PENDING | — |
 | 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
-| 5 | Inspector execution timeline | PENDING | — |
+| 5 | Inspector execution timeline | **DONE** | assembleTimeline + Timeline tab; Timeline.test 7/7; fixture `inspector-timeline.png` (suite 37/37); LIVE oneturn "(1.0 item 5)" vs :17801 — real ALCF turn timeline with wire timestamps/tokens/elapsed (`audit/item5-timeline-live.png`) |
 | 6 | Large-transcript virtualization (1000+ msg proof) | **DONE** | VirtualTranscript.test 5/5; LIVE oneturn "(1.0 item 6)" vs :17801 — 1000 imported messages → DOM stays <200 nodes, top/bottom scroll mounts the right rows (`audit/item6-virtual-1000.png` + `item6-virtual-top.png`); 120-msg under-threshold test still full-renders |
 | 7 | Settings import/export | **DONE** | SettingsExport.test 6/6 (roundtrip + credential-exclusion guard); fixture `settings-data-section.png` + `settings-data-exported.png` (suite 34/34); LIVE audit "(1.0 item 7)" vs :17801 — real download → modify → import → values restored (`audit/item7-settings-roundtrip.png`) |
 | 8 | Notification-center search/filter | **DONE** | NotificationCenter.test 7/7; fixture `notification-center{,-search,-filtered}.png` (suite 33/33); LIVE audit "(1.0 item 8)" vs :17801 — real send-failure notification searched + tone-filtered (`audit/item8-notif-search.png`) |
 | 9 | Native window menus (Tauri) | **DONE** | Rust: menu.rs + cargo --lib 21/21. JS: menu-actions.ts dispatch + MenuActions.test 3/3 (incl. JS↔Rust contract test reading menu.rs). REAL-APP PROOF: debug exe launched → **OS screenshot shows the native File/Edit/View/Help menu bar on the running app** (`item9-native-menu.png`) → graceful close, zero leaked processes |
 | E1 | Transcript code-block line-number gutter | **DONE** | InlineMarkdown.test 12/12 (gutter numbers, no-gutter on 1-line, copy-without-numbers); refreshed `code-syntax-highlight.png` shows the gutter; fixture suite 36/36 |
 | E2 | hljs lazy-load (pure-web bundle size) | **DONE** | HljsLazy.test 4/4; initial chunk **524→366 kB minified (156→104 kB gzip)**, hljs in its own async chunk; highlighting still asserted in fixture tests (eventually-consistent) |
-| E3 | Restore MCP Reconnect button (capability-gated on #523) | PENDING | — |
+| E3 | Restore MCP Reconnect button (capability-gated on #523) | **DONE** | McpReconnect.test 4/4; LIVE audit "(1.0 item E3)" run against BOTH backends — :17801 (PR stack, route exists) = success toast + refetch; :17800 (develop, no route) = 404 → button disabled + latched + "not supported" tooltip (`audit/item-e3-mcp-reconnect.png`). No silent failures either way. |
 | H | Final hardening + full test sweep (web + desktop + Rust) | PENDING | — |
 
 States: PENDING → IN-PROGRESS → **DONE** (named test + PNG + live proof, cited in the
@@ -40,6 +40,22 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Items 5 + E3 DONE.**
+  **Item 5 — Inspector execution timeline:** new Timeline tab assembled by a pure
+  `assembleTimeline(message)` (exported, unit-tested): started → routing → thinking →
+  tools (paired with results: status + measured duration_ms + duration bars) → diffs →
+  response text → completed (stop reason, real token counts, cost, elapsed from the
+  wire's own created/updated stamps). Honest representation: the wire orders parts but
+  doesn't timestamp them — so the timeline shows sequence + only real timestamps/
+  durations, never fabricated ones. PROOF: Timeline.test 7/7; fixture
+  `inspector-timeline.png` (37/37); LIVE vs :17801 real turn
+  (`audit/item5-timeline-live.png`).
+  **Item E3 — MCP Reconnect button restored** (background-agent + live verification):
+  graceful-degradation gating since clio has no reconnect capability flag — on a backend
+  WITH the route (PR #523 stack, :17801): success toast + list refetch; on develop
+  (:17800): the 404 disables + latches the button with a "not supported" tooltip + one
+  info toast. LIVE-PROVEN against BOTH backends in one parameterized audit test;
+  `audit/item-e3-mcp-reconnect.png`. McpReconnect.test 4/4.
 - 2026-06-02 **Items 6 + 9 + E1 + E2 DONE (one combined landing).**
   **Item 6 — transcript virtualization:** Transcript.tsx gains estimate-based windowed
   rendering past 150 messages (scroll-position window + buffer, spacer divs preserve

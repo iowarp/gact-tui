@@ -10,11 +10,22 @@ export interface McpPageProps {
   client: Client;
 }
 
+/** Tooltip + info-toast copy when the backend lacks the reconnect route. */
+const RECONNECT_UNSUPPORTED_TITLE =
+  'Not supported by this backend (needs clio-agent with MCP reconnect)';
+
 export function McpPage(props: McpPageProps) {
   const [data, { refetch }] = createResource(() => props.client.mcpServers());
   const [query, setQuery] = createSignal('');
   const [installOpen, setInstallOpen] = createSignal(false);
   const [busy, setBusy] = createSignal<string | null>(null);
+  // Graceful degradation: clio advertises no capability flag for the
+  // reconnect route, so we discover support empirically. The first 404
+  // proves the route is absent on THIS backend (older clio on develop);
+  // we latch this so every card's button disables and further clicks
+  // don't re-fire a doomed request. The button stays honest on both old
+  // and new backends instead of silently 404'ing (the W2 dead-button bug).
+  const [reconnectUnsupported, setReconnectUnsupported] = createSignal(false);
   const toast = useToast();
 
   async function uninstall(id: string, name: string) {
@@ -35,9 +46,43 @@ export function McpPage(props: McpPageProps) {
     }
   }
 
-  // NOTE: MCP reconnect is intentionally not exposed — clio has no
-  // POST /v1/mcp/servers/{id}/reconnect route (404). Tracked upstream:
-  // iowarp/clio-agent#520. Re-add the button when that route lands.
+  async function reconnect(id: string, name: string) {
+    // Latched-off guard: once a 404 has marked the route unsupported the
+    // button is disabled, but defend the handler too in case it fires.
+    if (reconnectUnsupported()) return;
+    setBusy(id);
+    try {
+      await props.client.reconnectMcpServer(id);
+      toast.push({ tone: 'success', title: `Reconnected ${name}`, duration: 2400 });
+      // Refetch so status / tool counts reflect the re-probed transport.
+      void refetch();
+    } catch (e) {
+      // HttpError (from @clio/core) carries a numeric `.status`. A 404
+      // means the backend has no reconnect route — degrade gracefully:
+      // disable every reconnect button + one explanatory info toast.
+      const status = (e as { status?: number } | null)?.status;
+      if (status === 404) {
+        setReconnectUnsupported(true);
+        toast.push({
+          tone: 'info',
+          title: 'Reconnect not available',
+          body: RECONNECT_UNSUPPORTED_TITLE,
+          duration: 5000,
+        });
+      } else {
+        // 500 / network / etc. are transient — surface the error but
+        // leave the button enabled so the user can retry.
+        toast.push({
+          tone: 'error',
+          title: 'Reconnect failed',
+          body: e instanceof Error ? e.message : String(e),
+        });
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const all = () => data()?.servers ?? [];
   const items = () => {
     const q = query().trim().toLowerCase();
@@ -102,6 +147,8 @@ export function McpPage(props: McpPageProps) {
               s={s}
               client={props.client}
               busy={busy() === s.id}
+              reconnectUnsupported={reconnectUnsupported()}
+              onReconnect={() => void reconnect(s.id, s.name)}
               onUninstall={() => uninstall(s.id, s.name)}
             />
           )}
@@ -261,6 +308,9 @@ function McpServerCard(props: {
   s: McpServerInfo;
   client: Client;
   busy: boolean;
+  /** Latched when a prior reconnect 404'd → the backend has no route. */
+  reconnectUnsupported: boolean;
+  onReconnect: () => void;
   onUninstall: () => void;
 }) {
   const tone = () => {
@@ -427,6 +477,16 @@ function McpServerCard(props: {
         </div>
       </Show>
       <div class="dp__card-actions">
+        <button
+          type="button"
+          class="dp__card-btn"
+          disabled={props.busy || props.reconnectUnsupported}
+          title={props.reconnectUnsupported ? RECONNECT_UNSUPPORTED_TITLE : undefined}
+          onClick={props.onReconnect}
+          data-testid={`mcp-reconnect-${props.s.id}`}
+        >
+          {props.busy ? 'Working…' : 'Reconnect'}
+        </button>
         <button
           type="button"
           class="dp__card-btn dp__card-btn--danger"
