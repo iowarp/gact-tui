@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -534,13 +535,117 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	if loaded.errText != "" {
 		t.Fatalf("unexpected MCP detail error: %s", loaded.errText)
 	}
-	if len(loaded.items) != 1 {
-		t.Fatalf("items = %#v, want one tool row", loaded.items)
+	if len(loaded.items) != 2 {
+		t.Fatalf("items = %#v, want reconnect action plus one tool row", loaded.items)
+	}
+	if loaded.items[0].id != "mcp-action/reconnect" {
+		t.Fatalf("first MCP detail row = %#v, want reconnect action", loaded.items[0])
 	}
 	for _, want := range []string{"server: mcp_adios", "agents: Data expert · data_analysis"} {
-		if !strings.Contains(loaded.items[0].desc, want) {
-			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[0])
+		if !strings.Contains(loaded.items[1].desc, want) {
+			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[1])
 		}
+	}
+}
+
+func TestMcpDetailReconnectActionDispatchesBackendCall(t *testing.T) {
+	var reconnects int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/mcp/servers/mcp_docs/reconnect" {
+			reconnects++
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+
+	a := NewWithTheme(server.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+		items:       []catalogItem{{id: "mcp-action/reconnect", title: "Reconnect server"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on reconnect action should dispatch command")
+	}
+	msg := cmd()
+	done, ok := msg.(mcpReconnectDoneMsg)
+	if !ok {
+		t.Fatalf("message = %#v, want mcpReconnectDoneMsg", msg)
+	}
+	if done.err != nil || done.serverID != "mcp_docs" || reconnects != 1 {
+		t.Fatalf("done=%#v reconnects=%d", done, reconnects)
+	}
+}
+
+func TestMcpDetailReconnectShortcutDispatchesBackendCall(t *testing.T) {
+	var reconnects int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/mcp/servers/mcp_docs/reconnect" {
+			reconnects++
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+
+	a := NewWithTheme(server.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+		items:       []catalogItem{{id: "tool/read_file", title: "[tool] read_file"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(keyMsg("r"))
+	if cmd == nil {
+		t.Fatal("r in MCP detail should dispatch reconnect command")
+	}
+	msg := cmd()
+	done, ok := msg.(mcpReconnectDoneMsg)
+	if !ok {
+		t.Fatalf("message = %#v, want mcpReconnectDoneMsg", msg)
+	}
+	if done.err != nil || done.serverID != "mcp_docs" || reconnects != 1 {
+		t.Fatalf("done=%#v reconnects=%d", done, reconnects)
+	}
+}
+
+func TestMcpReconnectDoneSurfacesSuccessAndFailure(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+	}
+
+	model, cmd := a.Update(mcpReconnectDoneMsg{serverID: "mcp_docs"})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "reconnected MCP mcp_docs") {
+		t.Fatalf("success hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("success should schedule hint expiry and refresh MCP state")
+	}
+
+	model, cmd = a.Update(mcpReconnectDoneMsg{serverID: "mcp_docs", err: errors.New("probe failed")})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "mcp reconnect failed: probe failed") {
+		t.Fatalf("failure hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("failure should schedule hint expiry")
 	}
 }
 

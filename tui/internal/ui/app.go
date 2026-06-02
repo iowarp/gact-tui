@@ -2250,6 +2250,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.mcpRemoveOptions = nil
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
 
+	case mcpReconnectDoneMsg:
+		if m.err != nil {
+			a.transientHint = "mcp reconnect failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "reconnected MCP " + m.serverID
+		cmds := []tea.Cmd{scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c)}
+		if a.catalogBrowserOpen && a.catalogBrowser != nil &&
+			a.catalogBrowser.kind == catalogKindMcpDetail &&
+			a.catalogBrowser.mcpServerID == m.serverID {
+			cmds = append(cmds, loadMcpDetailCmd(a.c, a.runtimeScope(), m.serverID))
+		}
+		return a, tea.Batch(cmds...)
+
 	case settingsLoadedMsg:
 		if a.settings == nil {
 			a.settings = &settingsState{}

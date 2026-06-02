@@ -414,6 +414,12 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 		var errs []string
 		agents, _ := c.ListAgentsScoped(ctx, scope)
 
+		items = append(items, catalogItem{
+			id:        "mcp-action/reconnect",
+			title:     "Reconnect server",
+			desc:      "re-probe this MCP server and surface backend reconnect errors truthfully",
+			statusTag: "action",
+		})
 		if tools, err := c.McpServerTools(ctx, serverID); err != nil {
 			errs = append(errs, "tools: "+err.Error())
 		} else {
@@ -947,6 +953,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindMcpDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			switch {
+			case it.id == "mcp-action/reconnect":
+				return a, mcpReconnectCmd(a.c, cb.mcpServerID)
 			case strings.HasPrefix(it.id, "tool/"):
 				return a, loadToolDetailCmd(a.c, a.runtimeScope(), strings.TrimPrefix(it.id, "tool/"))
 			case strings.HasPrefix(it.id, "res/"):
@@ -1138,6 +1146,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindMcp {
 			a.closeCatalogBrowser()
 			return a, a.openMcpRemoveModal()
+		}
+	case "r":
+		if cb.kind == catalogKindMcpDetail && cb.mcpServerID != "" {
+			return a, mcpReconnectCmd(a.c, cb.mcpServerID)
 		}
 	}
 	return a, nil
@@ -1366,7 +1378,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindAgents:
 		hintText = "↑/↓ navigate · Enter details/create/extract · o use next turn · Esc close"
 	case catalogKindMcpDetail:
-		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details/action · r reconnect · Esc/Backspace back"
 	case catalogKindAgentDetail:
 		hintText = "↑/↓ navigate · Enter details/clone/delete · o use next turn · Esc/Backspace back"
 	case catalogKindPrompts:

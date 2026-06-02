@@ -241,12 +241,26 @@ func mcpUninstallCmd(c *client.Client, serverID string) tea.Cmd {
 	}
 }
 
+func mcpReconnectCmd(c *client.Client, serverID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := c.McpReconnect(ctx, serverID)
+		return mcpReconnectDoneMsg{serverID: serverID, err: err}
+	}
+}
+
 type mcpInstallDoneMsg struct {
 	result map[string]any
 	err    error
 }
 
 type mcpUninstallDoneMsg struct {
+	serverID string
+	err      error
+}
+
+type mcpReconnectDoneMsg struct {
 	serverID string
 	err      error
 }
