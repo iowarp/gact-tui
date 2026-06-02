@@ -3310,7 +3310,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				if sid == "" {
 					a.transientHint = "no active session to compact"
 				} else {
-					a.transientHint = "compact requested — backend support is provisional"
+					a.transientHint = "session summary requested"
 					extraCmds = append(extraCmds, requestCompactCmd(a.c, sid))
 				}
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
@@ -5016,10 +5016,14 @@ func (a *App) openContextFileDetail(cf gact.ContextFile) tea.Cmd {
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
-	if a.caps.Capabilities.XClioFilesContent && a.currentSessionID() != "" {
+	if a.shouldLoadContextFileContent() {
 		return loadContextFileContentCmd(a.c, a.currentSessionID(), cf.Path)
 	}
 	return nil
+}
+
+func (a *App) shouldLoadContextFileContent() bool {
+	return a.currentSessionID() != ""
 }
 
 func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
@@ -5078,17 +5082,23 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 }
 
 func (a *App) appendContextFilePreviewRows(rows []string, cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
-	if !a.caps.Capabilities.XClioFilesContent {
-		return appendDetailSection(rows, "Content",
-			detailField{"preview", "unavailable (backend does not advertise x_clio_files_content)"},
-		)
-	}
 	if contentErr != nil {
 		return appendDetailSection(rows, "Content",
 			detailField{"preview_error", contentErr.Error()},
 		)
 	}
 	if strings.TrimSpace(content.Data) == "" {
+		if !a.shouldLoadContextFileContent() {
+			return appendDetailSection(rows, "Content",
+				detailField{"preview", "unavailable (no active session)"},
+			)
+		}
+		if !a.caps.Capabilities.XClioFilesContent {
+			return appendDetailSection(rows, "Content",
+				detailField{"preview", "loading..."},
+				detailField{"capability", "x_clio_files_content not advertised; probing endpoint"},
+			)
+		}
 		return appendDetailSection(rows, "Content",
 			detailField{"preview", "loading..."},
 		)

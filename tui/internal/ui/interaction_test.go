@@ -5748,6 +5748,80 @@ func TestContextFileDetailLoadsCLIOContentPreview(t *testing.T) {
 	}
 }
 
+func TestContextFileDetailProbesContentWhenCapabilityMissing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/sess_1/context/files/content" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"file": gact.ContextFileContent{
+				Path:      "notes/result.txt",
+				Size:      19,
+				MediaType: "text/plain; charset=utf-8",
+				Encoding:  "base64",
+				Data:      base64.StdEncoding.EncodeToString([]byte("preview from CLIO\n")),
+			},
+		})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "sess_1", WorkspaceID: "ws_default", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "notes/result.txt", Mode: "read", Size: 19, Language: "text"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:notes/result.txt")
+	if !ok {
+		t.Fatal("missing context file hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("context detail should probe content endpoint even when capability flag is absent")
+	}
+	if !strings.Contains(a.detailView.fullText, "x_clio_files_content not advertised; probing endpoint") {
+		t.Fatalf("initial detail should explain endpoint probe:\n%s", a.detailView.fullText)
+	}
+
+	model, _ = a.Update(cmd())
+	a = model.(*App)
+	if strings.Contains(a.detailView.fullText, "unavailable") {
+		t.Fatalf("successful probe should not leave unavailable text:\n%s", a.detailView.fullText)
+	}
+	for _, want := range []string{"media_type: text/plain; charset=utf-8", "preview from CLIO"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("probed context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestContextFileDetailProbeSurfacesBackendError(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.sessions = []gact.Session{{ID: "sess_1"}}
+	a.selected = 0
+	rows := a.contextFileDetailRowsWithContent(
+		gact.ContextFile{Path: "missing.txt", Mode: "read"},
+		gact.ContextFileContent{},
+		errors.New("context file not found"),
+	)
+	out := strings.Join(rows, "\n")
+	if !strings.Contains(out, "preview_error: context file not found") {
+		t.Fatalf("context detail should surface backend error:\n%s", out)
+	}
+	if strings.Contains(out, "unavailable") {
+		t.Fatalf("backend error should not be hidden behind unavailable text:\n%s", out)
+	}
+}
+
 func TestContextFileDetailSummarizesBinaryContent(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.caps.Capabilities.XClioFilesContent = true
