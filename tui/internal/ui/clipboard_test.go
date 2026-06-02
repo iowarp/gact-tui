@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,9 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	)
 	prev := clipboardWrite
 	prevOSC52 := osc52Write
+	prevLookPath := clipboardLookPath
+	prevRunCommand := clipboardRunCommand
+	prevAtotto := clipboardAtottoWrite
 	clipboardWrite = func(s string) error {
 		mu.Lock()
 		defer mu.Unlock()
@@ -36,8 +40,43 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	t.Cleanup(func() {
 		clipboardWrite = prev
 		osc52Write = prevOSC52
+		clipboardLookPath = prevLookPath
+		clipboardRunCommand = prevRunCommand
+		clipboardAtottoWrite = prevAtotto
 	})
 	return &mu, &got, &err
+}
+
+func withNativeClipboardSpy(t *testing.T, available map[string]bool, failures map[string]error) *[]string {
+	t.Helper()
+	prevLookPath := clipboardLookPath
+	prevRunCommand := clipboardRunCommand
+	prevAtotto := clipboardAtottoWrite
+	attempts := []string{}
+	clipboardLookPath = func(name string) (string, error) {
+		if available[name] {
+			return "/fake/bin/" + name, nil
+		}
+		return "", errors.New("not found")
+	}
+	clipboardRunCommand = func(name string, args []string, input string) error {
+		base := name[strings.LastIndex(name, "/")+1:]
+		attempts = append(attempts, base+":"+input)
+		if err := failures[base]; err != nil {
+			return err
+		}
+		return nil
+	}
+	clipboardAtottoWrite = func(string) error {
+		attempts = append(attempts, "atotto")
+		return errors.New("atotto unavailable")
+	}
+	t.Cleanup(func() {
+		clipboardLookPath = prevLookPath
+		clipboardRunCommand = prevRunCommand
+		clipboardAtottoWrite = prevAtotto
+	})
+	return &attempts
 }
 
 func TestCopyTextToClipboardFallsBackToOSC52(t *testing.T) {
@@ -57,6 +96,57 @@ func TestCopyTextToClipboardFallsBackToOSC52(t *testing.T) {
 	}
 	if oscPayload != "payload" {
 		t.Fatalf("osc52 payload = %q, want payload", oscPayload)
+	}
+}
+
+func TestWriteNativeClipboardUsesFirstInstalledUtility(t *testing.T) {
+	attempts := withNativeClipboardSpy(t, map[string]bool{
+		"wl-copy": true,
+		"xclip":   true,
+	}, nil)
+
+	if err := writeNativeClipboard("payload"); err != nil {
+		t.Fatalf("writeNativeClipboard: %v", err)
+	}
+	if got := strings.Join(*attempts, ","); got != "wl-copy:payload" {
+		t.Fatalf("attempts = %q, want wl-copy only", got)
+	}
+}
+
+func TestWriteNativeClipboardFallsThroughInstalledUtilities(t *testing.T) {
+	attempts := withNativeClipboardSpy(t, map[string]bool{
+		"wl-copy": true,
+		"xclip":   true,
+	}, map[string]error{
+		"wl-copy": errors.New("wayland denied"),
+	})
+
+	if err := writeNativeClipboard("payload"); err != nil {
+		t.Fatalf("writeNativeClipboard: %v", err)
+	}
+	if got := strings.Join(*attempts, ","); got != "wl-copy:payload,xclip:payload" {
+		t.Fatalf("attempts = %q, want wl-copy then xclip", got)
+	}
+}
+
+func TestWriteNativeClipboardReportsAllFallbacksWhenUnavailable(t *testing.T) {
+	attempts := withNativeClipboardSpy(t, map[string]bool{
+		"xsel": true,
+	}, map[string]error{
+		"xsel": errors.New("display unavailable"),
+	})
+
+	err := writeNativeClipboard("payload")
+	if err == nil {
+		t.Fatal("writeNativeClipboard succeeded unexpectedly")
+	}
+	for _, want := range []string{"xsel", "display unavailable", "atotto/clipboard", "wl-copy", "xclip", "termux-clipboard-set"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error missing %q:\n%v", want, err)
+		}
+	}
+	if got := fmt.Sprint(*attempts); !strings.Contains(got, "xsel:payload") || !strings.Contains(got, "atotto") {
+		t.Fatalf("attempts = %v, want xsel and atotto", *attempts)
 	}
 }
 
