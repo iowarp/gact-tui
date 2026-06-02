@@ -265,6 +265,20 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('retry-model-submenu'), fullPage: false });
   });
 
+  test('inspector execution timeline renders turn events (1.0 item 5)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('inspector-drawer')).toBeVisible();
+    await page.getByTestId('inspector-tab-timeline').click();
+    await expect(page.getByTestId('inspector-timeline')).toBeVisible();
+    // The fixture turn: started → tool (ReadFile) → response text → diff,
+    // in part order (the wire guarantees order; only real data is shown).
+    await expect(page.getByTestId('timeline-event-started')).toBeVisible();
+    await expect(page.getByTestId('timeline-event-tool')).toBeVisible();
+    await expect(page.getByTestId('timeline-event-text')).toBeVisible();
+    await expect(page.getByTestId('timeline-event-diff')).toBeVisible();
+    await page.screenshot({ path: shot('inspector-timeline'), fullPage: false });
+  });
+
   test('light theme renders the chat shell on the light palette (1.0 item 1)', async ({ page }) => {
     // Seeding the mode flag is all it takes — theme.ts initTheme() applies
     // the full light palette on module load (same path a real user's

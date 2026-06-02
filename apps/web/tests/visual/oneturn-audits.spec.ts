@@ -886,6 +886,32 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await browser.close();
   });
 
+  // -- 1.0 item 5: inspector execution timeline --------------------------
+  test('inspector timeline shows a real turn with live timing (1.0 item 5)', async () => {
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const { asstMsgId } = await sendOneTurn(page);
+
+    // Select the assistant message so the Inspector focuses this turn.
+    await page.getByTestId(`msg-${asstMsgId}`).click();
+    // Open the inspector if it isn't already.
+    const drawer = page.getByTestId('inspector-drawer');
+    if (!(await drawer.isVisible())) {
+      await page.getByTestId('topbar-inspector').click();
+    }
+    await expect(drawer).toBeVisible();
+    await page.getByTestId('inspector-tab-timeline').click();
+    await expect(page.getByTestId('inspector-timeline')).toBeVisible();
+    // A completed real turn: started + response text + completed with REAL
+    // wire data (stop reason, token counts, elapsed seconds).
+    await expect(page.getByTestId('timeline-event-started')).toBeVisible();
+    await expect(page.getByTestId('timeline-event-completed')).toBeVisible();
+    await expect(page.getByTestId('timeline-event-completed')).toContainText('tok');
+    await page.screenshot({ path: shot('item5-timeline-live'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
   // -- 1.0 item 4: regenerate variants (notes + model) ------------------
   test('regenerate-with-notes runs a real retry turn with lineage (1.0 item 4)', async () => {
     // Two real turns (initial + retry) — give this test its own budget.
