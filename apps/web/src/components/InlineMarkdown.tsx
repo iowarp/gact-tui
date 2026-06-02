@@ -1,5 +1,5 @@
-import { For, Show, createMemo, createSignal } from 'solid-js';
-import hljs from 'highlight.js/lib/common';
+import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
+import { getHljs, hljsSync } from '../hljs-lazy.js';
 
 export interface InlineMarkdownProps {
   text: string;
@@ -155,13 +155,36 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
   );
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /**
- * Renders a fenced code block with a hover-revealed Copy button and
- * a short visual ack ("copied!") after a successful clipboard write.
+ * Renders a fenced code block with a hover-revealed Copy button, a
+ * non-selectable line-number gutter (for multi-line blocks), and
+ * syntax highlighting.
+ *
+ * highlight.js loads on demand (see hljs-lazy): the block first renders
+ * HTML-escaped plain source, then re-renders highlighted once hljs
+ * resolves. The signal flip drives the re-render. The Copy button always
+ * copies the RAW source (props.body) — never the line numbers.
  */
 function CodeBlock(props: { lang: string | null; body: string }) {
   const [copied, setCopied] = createSignal(false);
+  // Flips once hljs has loaded so the highlight memo re-runs.
+  const [hljsReady, setHljsReady] = createSignal(hljsSync() !== null);
   let resetTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onMount(() => {
+    if (hljsSync()) {
+      setHljsReady(true);
+      return;
+    }
+    void getHljs().then(() => setHljsReady(true));
+  });
 
   function copy() {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return;
@@ -172,11 +195,16 @@ function CodeBlock(props: { lang: string | null; body: string }) {
     });
   }
 
-  // Syntax-highlight via highlight.js. It HTML-escapes the source, so the
-  // returned markup is safe to inject. Use the declared fence language when
-  // hljs knows it, else auto-detect; fall back to escaped plain text.
+  // Syntax-highlight via highlight.js once it has loaded. hljs HTML-escapes
+  // the source, so the returned markup is safe to inject. Use the declared
+  // fence language when hljs knows it, else auto-detect. Until hljs loads
+  // (or if it errors) we fall back to escaped plain text so the code is
+  // always visible and never raw-injects user content.
   const highlighted = createMemo(() => {
     const code = props.body;
+    // Touch the readiness signal so this memo re-runs when hljs arrives.
+    const hljs = hljsReady() ? hljsSync() : null;
+    if (!hljs) return escapeHtml(code);
     const lang = (props.lang ?? '').toLowerCase();
     try {
       if (lang && hljs.getLanguage(lang)) {
@@ -184,12 +212,16 @@ function CodeBlock(props: { lang: string | null; body: string }) {
       }
       return hljs.highlightAuto(code).value;
     } catch {
-      return code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      return escapeHtml(code);
     }
   });
+
+  // Split the (possibly highlighted) HTML into per-line rows so the gutter
+  // can sit beside each line. hljs output is line-oriented HTML; splitting
+  // on \n keeps tokens intact because hljs never emits a token that spans
+  // a newline. Only show the gutter for blocks with more than one line.
+  const lines = createMemo(() => highlighted().split('\n'));
+  const showGutter = () => lines().length > 1;
 
   return (
     <pre class={'im__code ' + (props.lang ? `im__code--${props.lang}` : '')}>
@@ -206,7 +238,24 @@ function CodeBlock(props: { lang: string | null; body: string }) {
         {copied() ? 'copied' : 'copy'}
       </button>
       {/* hljs HTML-escapes the source, so this markup is injection-safe. */}
-      <code class="hljs" innerHTML={highlighted()} />
+      <Show
+        when={showGutter()}
+        fallback={<code class="hljs" innerHTML={highlighted()} />}
+      >
+        <code class="hljs im__code--numbered">
+          <For each={lines()}>
+            {(line, i) => (
+              <span class="im__code-row">
+                <span class="im__code-lineno" aria-hidden="true">
+                  {i() + 1}
+                </span>
+                {/* Per-line highlighted HTML; escaped by hljs / escapeHtml. */}
+                <span class="im__code-linecode" innerHTML={line || ' '} />
+              </span>
+            )}
+          </For>
+        </code>
+      </Show>
     </pre>
   );
 }
