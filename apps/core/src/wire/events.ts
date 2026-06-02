@@ -1,4 +1,11 @@
-import type { Message, Part, PermissionRequest, Session, SessionStatus } from './types.js';
+import type {
+  ErrorInfo,
+  Message,
+  Part,
+  PermissionRequest,
+  Session,
+  SessionStatus,
+} from './types.js';
 
 /**
  * SSE envelope shape per `contract/SPEC.md` §7.2.
@@ -84,6 +91,54 @@ export interface MessageCompletedPayload {
   stop_reason: string;
   tokens?: { input?: number; output?: number; total?: number };
   cost_usd?: number;
+  /**
+   * Structured error envelope when the turn did NOT produce a normal
+   * assistant reply. Verified against live clio (develop @ 176518d): when
+   * a `pre_message` hook blocks a turn, clio emits `message.completed` with
+   * `stop_reason: "blocked"` and this `error_info` — and it targets the
+   * USER message id (no assistant message is ever created). Matches the
+   * `ErrorInfo` shape in types.ts. */
+  error_info?: ErrorInfo;
+}
+
+/**
+ * Per-session semantic execution event (clio `x_clio_semantic_events`).
+ * Published over the SAME SSE stream as the plain `tool.call.*` /
+ * `permission.requested` events, under SSE type `semantic.event`, with the
+ * envelope `{type, occurred_at, payload: <this dict>}`.
+ *
+ * This is a READ-ONLY observability trace — the plain events already drive
+ * the transcript/permission UI, so semantic events must NOT create
+ * transcript messages, parts, or toasts. They feed the Inspector timeline.
+ *
+ * NOTE on redaction: `actor` / `subject` / `blueprint` / `provider` /
+ * `payload` are free-form dicts whose string values may be the literal
+ * sentinel `"[redacted]:N chars"`. Those sentinels must never be rendered
+ * as content. `event_id` / `status` / `summary` / `occurred_at` and the
+ * id linkage fields are never redacted. */
+export interface SemanticEventPayload {
+  schema_version?: string;
+  event_id: string;
+  event_type: string;
+  session_id?: string;
+  workspace_id?: string;
+  trace_id?: string;
+  /** The turn this event belongs to. clio sets this to the USER message id. */
+  turn_id?: string;
+  span_id?: string;
+  parent_span_id?: string;
+  status?: 'started' | 'running' | 'completed' | 'failed' | 'blocked' | string;
+  summary?: string;
+  /** Free-form dicts — string values may be redaction sentinels. */
+  actor?: Record<string, unknown>;
+  subject?: Record<string, unknown>;
+  blueprint?: Record<string, unknown>;
+  provider?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  live_observed?: boolean;
+  detail_level?: string;
+  occurred_at?: string;
+  [k: string]: unknown;
 }
 
 export interface MessageErrorPayload {
@@ -164,6 +219,7 @@ export type GactEvent =
   | (EventEnvelope<PermissionRequestedPayload> & { type: 'permission.requested' })
   | (EventEnvelope<PermissionResolvedPayload> & { type: 'permission.resolved' })
   | (EventEnvelope<CostUpdatedPayload> & { type: 'cost.updated' })
+  | (EventEnvelope<SemanticEventPayload> & { type: 'semantic.event' })
   | (EventEnvelope<NotificationPayload> & { type: 'notification' });
 
 /**
@@ -192,5 +248,6 @@ export const RELEVANT_EVENTS = [
   'permission.requested',
   'permission.resolved',
   'cost.updated',
+  'semantic.event',
   'notification',
 ] as const;

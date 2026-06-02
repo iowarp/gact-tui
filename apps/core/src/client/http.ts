@@ -22,6 +22,31 @@ import type {
   Workspace,
 } from '../wire/types.js';
 
+/**
+ * The six declarative-hook event kinds clio accepts (verified against
+ * live :17803 `x_clio_hook_events`). A bare `string` is also tolerated on
+ * the wire so an unknown future kind doesn't break parsing.
+ */
+export type HookEvent =
+  | 'pre_tool'
+  | 'post_tool'
+  | 'pre_message'
+  | 'post_message'
+  | 'semantic_event'
+  | 'on_error';
+
+/** A declarative hook row as returned by GET/POST /v1/hooks. */
+export interface HookRow {
+  id: string;
+  event: HookEvent | string;
+  /** Local command/script path. Empty string when a `url` hook instead. */
+  command?: string;
+  /** HTTP endpoint clio would POST to. Empty string when a `command` hook. */
+  url?: string;
+  session_id?: string;
+  workspace_id?: string;
+}
+
 export interface ClientOptions {
   baseUrl: string;
   bearerToken?: string;
@@ -1503,31 +1528,42 @@ export class Client {
     return this.request<unknown>('/v1/policies', 'PUT', body);
   }
 
-  /** GET /v1/hooks — list registered pre/post handler URIs. */
-  hooks(): Promise<{ hooks: Array<{
-    id: string;
-    type: 'pre_message' | 'post_message' | 'pre_tool' | 'post_tool' | string;
-    handler_uri: string;
-    metadata?: Record<string, unknown>;
-  }> }> {
+  /**
+   * GET /v1/hooks — list registered declarative hooks. clio sends rows
+   * shaped `{id, event, command, url, session_id, workspace_id}` (verified
+   * against live :17803 + app.py:19121-19166). The desktop previously
+   * typed these as `{id, type, handler_uri}`, so every field rendered
+   * `undefined`. The six valid `event` kinds are pre_tool / post_tool /
+   * pre_message / post_message / semantic_event / on_error.
+   *
+   * HONESTY NOTE: on the current clio build these declarative rows are
+   * STORED but NOT dispatched during turns (app.py:8384-8389 is
+   * storage-only). The hooks that actually fire are the file-based
+   * runtime hooks reported via capabilities (x_clio_hook_backend /
+   * x_clio_hook_events).
+   */
+  hooks(): Promise<{ hooks: HookRow[] }> {
     return this.get('/v1/hooks');
   }
 
-  /** POST /v1/hooks — register a new hook. */
+  /**
+   * POST /v1/hooks — register a new declarative hook. clio REQUIRES a
+   * non-empty `event` (else 400 "hook missing required field: event")
+   * plus `command` OR `url` (else 400 "hook needs command or url"). The
+   * desktop previously POSTed `{type, handler_uri}`, which clio ignored —
+   * every add 400'd. Send the real wire shape and return the created row.
+   */
   createHook(body: {
-    type: 'pre_message' | 'post_message' | 'pre_tool' | 'post_tool' | string;
-    handler_uri: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<{
-    id: string;
-    type: string;
-    handler_uri: string;
-    metadata?: Record<string, unknown>;
-  }> {
+    event: HookEvent | string;
+    command?: string;
+    url?: string;
+    session_id?: string;
+    workspace_id?: string;
+  }): Promise<HookRow> {
     return this.post('/v1/hooks', body);
   }
 
-  /** DELETE /v1/hooks/{id} — remove a hook. */
+  /** DELETE /v1/hooks/{id} — remove a hook (204). */
   deleteHook(hookId: string): Promise<void> {
     return this.del(`/v1/hooks/${encodeURIComponent(hookId)}`);
   }
@@ -1664,10 +1700,24 @@ export class Client {
   }
 
   /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint
-   * for a session (PR #386/#387). */
-  getSessionBlueprint(
-    sessionId: string,
-  ): Promise<{ blueprint_id?: string | null; [k: string]: unknown }> {
+   * for a session (PR #386/#387).
+   *
+   * clio's workspace-management work (#479/#480/#482, on develop since
+   * 2026-06) renamed the binding field to `active_agent_blueprint_id`
+   * and added read-only provenance: `agent_overlay` (session-level
+   * blueprint field overrides), `activation` (which metadata layer
+   * supplied each active_agent_blueprint_* value), and the owning
+   * `workspace_id`. Older builds sent `blueprint_id` — both are typed
+   * so call sites can fall back. */
+  getSessionBlueprint(sessionId: string): Promise<{
+    blueprint_id?: string | null;
+    active_agent_blueprint_id?: string;
+    active_agent_blueprint_path?: string;
+    workspace_id?: string;
+    agent_overlay?: Record<string, unknown>;
+    activation?: Record<string, unknown>;
+    [k: string]: unknown;
+  }> {
     return this.get(
       `/v1/sessions/${encodeURIComponent(sessionId)}/agent-blueprint`,
     );
@@ -1685,10 +1735,18 @@ export class Client {
     );
   }
 
-  /** GET /v1/sessions/{id}/expert-pack — currently-bound expert pack. */
-  getSessionExpertPack(
-    sessionId: string,
-  ): Promise<{ pack_id?: string | null; [k: string]: unknown }> {
+  /** GET /v1/sessions/{id}/expert-pack — currently-bound expert pack.
+   *
+   * Same field rename as getSessionBlueprint(): current clio sends
+   * `active_expert_pack_id` (+ path + workspace_id); older builds sent
+   * `pack_id`. */
+  getSessionExpertPack(sessionId: string): Promise<{
+    pack_id?: string | null;
+    active_expert_pack_id?: string;
+    active_expert_pack_path?: string;
+    workspace_id?: string;
+    [k: string]: unknown;
+  }> {
     return this.get(
       `/v1/sessions/${encodeURIComponent(sessionId)}/expert-pack`,
     );
