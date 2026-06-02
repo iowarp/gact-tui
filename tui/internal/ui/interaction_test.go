@@ -2298,7 +2298,7 @@ func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
 	}
 }
 
-func TestHeaderActionsAlignToRenderedMainRow(t *testing.T) {
+func TestHeaderActionsAlignToTerminalRightEdge(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 150
 	a.height = 36
@@ -2315,13 +2315,14 @@ func TestHeaderActionsAlignToRenderedMainRow(t *testing.T) {
 		t.Fatalf("rendered view is missing main row: %q", view.Content)
 	}
 	headerW := lipgloss.Width(lines[0])
-	rowW := lipgloss.Width(lines[1])
-	if headerW != rowW {
-		t.Fatalf("header width = %d, want rendered row width %d\nheader=%q\nrow=%q", headerW, rowW, lines[0], lines[1])
+	if headerW != a.width {
+		t.Fatalf("header width = %d, want terminal width %d\nheader=%q", headerW, a.width, lines[0])
 	}
 	visibleRowEdge := lipgloss.Width(strings.TrimRight(lines[1], " "))
-	if got := quitTarget.rect.x + quitTarget.rect.w; got != visibleRowEdge {
-		t.Fatalf("quit action right edge = %d, want visible pane edge %d", got, visibleRowEdge)
+	if got := quitTarget.rect.x + quitTarget.rect.w; got != a.width {
+		t.Fatalf("quit action right edge = %d, want terminal edge %d", got, a.width)
+	} else if got < visibleRowEdge {
+		t.Fatalf("quit action right edge = %d should not sit left of pane edge %d", got, visibleRowEdge)
 	}
 }
 

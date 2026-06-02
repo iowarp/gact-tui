@@ -8005,7 +8005,7 @@ func (a *App) viewMainBase() string {
 		rowParts = append(rowParts, rightSidebar)
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
-	header := a.renderHeaderForWidth(renderedBlockWidth(row))
+	header := a.renderHeaderForWidth(a.width)
 	footer := a.renderFooter()
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
