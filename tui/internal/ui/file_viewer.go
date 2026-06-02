@@ -1,14 +1,20 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 type fileTreeEntry struct {
@@ -230,9 +236,46 @@ func (a *App) openFileViewerDetail(entry fileTreeEntry) {
 		partID:    entry.Path,
 		title:     "File · " + entry.Path,
 		fullText:  strings.Join(rows, "\n"),
+		localPath: fullPath,
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+}
+
+func (a *App) uploadCurrentFileDetail() tea.Cmd {
+	if a.detailView == nil || a.detailView.messageID != "files" || strings.TrimSpace(a.detailView.localPath) == "" {
+		a.transientHint = "upload unavailable for this detail"
+		return scheduleHintExpire(a.transientHint)
+	}
+	sid := a.currentSessionID()
+	if sid == "" {
+		a.transientHint = "no active session to upload into"
+		return scheduleHintExpire(a.transientHint)
+	}
+	if !a.caps.Capabilities.AttachmentsUpload {
+		a.transientHint = "attachment upload unsupported by this backend"
+		return scheduleHintExpire(a.transientHint)
+	}
+	path := a.detailView.localPath
+	a.transientHint = "uploading " + filepath.Base(path) + "..."
+	return tea.Batch(scheduleHintExpire(a.transientHint), uploadAttachmentFileCmd(a.c, sid, path, "read"))
+}
+
+func uploadAttachmentFileCmd(c *client.Client, sessionID, path, mode string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return contextFileUploadedMsg{sessionID: sessionID, localPath: path, err: err}
+		}
+		mimeType := mime.TypeByExtension(filepath.Ext(path))
+		if mimeType == "" && len(data) > 0 {
+			mimeType = http.DetectContentType(data[:minInt(len(data), 512)])
+		}
+		cf, err := c.UploadAttachment(ctx, sessionID, filepath.Base(path), mimeType, mode, data)
+		return contextFileUploadedMsg{sessionID: sessionID, localPath: path, file: cf, err: err}
+	}
 }
 
 func (a *App) fileViewerRootLabel() string {

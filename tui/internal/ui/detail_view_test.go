@@ -412,6 +412,28 @@ func TestCatalogBackedDetailUsesBackButton(t *testing.T) {
 	}
 }
 
+func TestFileDetailShowsUploadAffordance(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:     "File · README.md",
+		messageID: "files",
+		fullText:  "path: README.md\n\n# demo",
+		localPath: "/tmp/demo/README.md",
+	}
+
+	out := ansi.Strip(a.View().Content)
+	if !strings.Contains(out, "upload") || !strings.Contains(out, "u upload") {
+		t.Fatalf("file detail should expose upload button and key hint:\n%s", out)
+	}
+	if _, ok := findHitTargetForTest(a, "button:detail:upload"); !ok {
+		t.Fatal("missing semantic upload button target")
+	}
+}
+
 func TestCatalogBackedDetailBlocksBackgroundHits(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120

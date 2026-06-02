@@ -19,6 +19,7 @@ type bulkyPartRef struct {
 	partID    string
 	title     string // rendered header ("ReadFile(main.go) → output")
 	fullText  string
+	localPath string
 }
 
 type detailField struct {
@@ -143,6 +144,8 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "y":
 		return a, a.copyDetailViewToClipboard()
+	case "u":
+		return a, a.uploadCurrentFileDetail()
 	case "up", "k":
 		if a.detailScroll > 0 {
 			a.detailScroll--
@@ -236,10 +239,22 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			},
 		},
 	}
+	if a.detailView != nil && a.detailView.messageID == "files" && a.detailView.localPath != "" {
+		buttons = append([]menuButton{{
+			id:    "detail:upload",
+			label: "upload",
+			action: func(app *App) tea.Cmd {
+				return app.uploadCurrentFileDetail()
+			},
+		}}, buttons...)
+	}
 
 	hint := opts.hint
 	if hint == "" {
 		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
+	}
+	if a.detailView != nil && a.detailView.messageID == "files" && a.detailView.localPath != "" {
+		hint = "u upload  " + hint
 	}
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{

@@ -167,6 +167,13 @@ type contextFileAddedMsg struct {
 	err       error
 }
 
+type contextFileUploadedMsg struct {
+	sessionID string
+	localPath string
+	file      gact.ContextFile
+	err       error
+}
+
 type contextFileRemovedMsg struct {
 	sessionID string
 	path      string

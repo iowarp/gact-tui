@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -139,5 +143,88 @@ func TestFileViewerMouseClickUsesSemanticHitTarget(t *testing.T) {
 	a = model.(*App)
 	if !a.fileTreeExpanded["docs"] {
 		t.Fatal("clicking folder row should expand it")
+	}
+}
+
+func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
+	root := seedFileViewerTree(t)
+	var uploadBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/attachments" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&uploadBody); err != nil {
+			t.Fatalf("decode upload body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/README.md",
+			Mode:     "read",
+			Size:     7,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.caps.Capabilities.AttachmentsUpload = true
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 1 // README.md
+	a.activateFileTreeSelection()
+	if !a.detailViewOpen || a.detailView == nil || a.detailView.localPath == "" {
+		t.Fatalf("expected file detail with local path, detail=%#v", a.detailView)
+	}
+
+	model, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("upload action should dispatch a command")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		if len(batch) != 2 {
+			t.Fatalf("upload action batch length = %d, want hint + upload", len(batch))
+		}
+		msg = batch[1]()
+	}
+	uploaded, ok := msg.(contextFileUploadedMsg)
+	if !ok {
+		t.Fatalf("upload command returned %T, want contextFileUploadedMsg", msg)
+	}
+	if uploaded.err != nil {
+		t.Fatalf("upload failed: %v", uploaded.err)
+	}
+	if uploadBody["filename"] != "README.md" || uploadBody["mode"] != "read" {
+		t.Fatalf("upload body = %#v", uploadBody)
+	}
+	if uploadBody["file"] != base64.StdEncoding.EncodeToString([]byte("# demo\n")) {
+		t.Fatalf("upload file = %#v", uploadBody["file"])
+	}
+
+	model, _ = a.Update(uploaded)
+	a = model.(*App)
+	if len(a.contextFiles) != 1 || !a.contextFiles[0].Uploaded {
+		t.Fatalf("context files after upload = %#v", a.contextFiles)
+	}
+	if !strings.Contains(a.transientHint, "uploaded .clio/attachments/s1/README.md to context") {
+		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
+func TestFileViewerDetailUploadRequiresCapability(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{messageID: "files", localPath: "/tmp/report.txt"}
+
+	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
+	if cmd == nil {
+		t.Fatal("unsupported upload should still schedule hint expiry")
+	}
+	if a.transientHint != "attachment upload unsupported by this backend" {
+		t.Fatalf("hint = %q", a.transientHint)
 	}
 }

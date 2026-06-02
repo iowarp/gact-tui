@@ -566,6 +566,7 @@ type ContextFile struct {
 	LastModified string `json:"last_modified,omitempty"`
 	Size         int64  `json:"size,omitempty"`
 	Language     string `json:"language,omitempty"`
+	Uploaded     bool   `json:"uploaded,omitempty"`
 }
 
 type ContextFileContent struct {

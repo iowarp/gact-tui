@@ -33,6 +33,31 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 }
 
+func TestCtrlIPaneCycleMatchesTab(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus after ctrl+i = %v, want sidebar", a.focus)
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusBody {
+		t.Fatalf("focus after second ctrl+i = %v, want body", a.focus)
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusRightSidebar {
+		t.Fatalf("focus after third ctrl+i = %v, want right sidebar", a.focus)
+	}
+}
+
 func TestOverlayHitActivationIgnoresBaseTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	baseHits := 0

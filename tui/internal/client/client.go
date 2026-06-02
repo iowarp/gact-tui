@@ -8,6 +8,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -968,6 +969,22 @@ func (c *Client) ContextFileContent(ctx context.Context, sessionID, path string)
 	q.Set("path", path)
 	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/context/files/content?"+q.Encode(), nil, &out)
 	return out.File, err
+}
+
+func (c *Client) UploadAttachment(ctx context.Context, sessionID, filename, mimeType, mode string, data []byte) (gact.ContextFile, error) {
+	var out gact.ContextFile
+	body := map[string]any{
+		"file":     base64.StdEncoding.EncodeToString(data),
+		"filename": filename,
+	}
+	if mimeType != "" {
+		body["mime_type"] = mimeType
+	}
+	if mode != "" {
+		body["mode"] = mode
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/attachments", body, &out)
+	return out, err
 }
 
 // ListMcpServers returns all MCP servers known to the backend. Powers

@@ -329,6 +329,33 @@ func TestContextFiles(t *testing.T) {
 		t.Fatalf("content = %+v decoded=%q", contentBody.File, string(decoded))
 	}
 
+	// upload bytes as an attachment and preview them through the same context content endpoint.
+	recUpload := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/attachments", attachmentUploadRequest{
+		File:     base64.StdEncoding.EncodeToString([]byte("uploaded body\n")),
+		Filename: "upload.txt",
+		Mode:     "read",
+	})
+	if recUpload.Code != http.StatusOK {
+		t.Fatalf("upload: %d", recUpload.Code)
+	}
+	var uploaded gact.ContextFile
+	mustDecode(t, recUpload, &uploaded)
+	if !uploaded.Uploaded || uploaded.Size != int64(len("uploaded body\n")) {
+		t.Fatalf("uploaded context file = %+v", uploaded)
+	}
+	recUploadedContent := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/context/files/content?path="+url.QueryEscape(uploaded.Path), nil)
+	if recUploadedContent.Code != http.StatusOK {
+		t.Fatalf("uploaded content: %d", recUploadedContent.Code)
+	}
+	mustDecode(t, recUploadedContent, &contentBody)
+	decoded, err = base64.StdEncoding.DecodeString(contentBody.File.Data)
+	if err != nil {
+		t.Fatalf("decode uploaded content: %v", err)
+	}
+	if string(decoded) != "uploaded body\n" || contentBody.File.MediaType != "text/plain; charset=utf-8" {
+		t.Fatalf("uploaded content = %+v decoded=%q", contentBody.File, string(decoded))
+	}
+
 	// patch
 	rec3 := do(t, h, http.MethodPatch, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
 		Path: readme, Mode: "read",

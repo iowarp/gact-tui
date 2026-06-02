@@ -10,6 +10,7 @@ import (
 	"image/color"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -1750,6 +1751,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.transientHint = "added " + m.file.Path + " to context"
 		return a, nil
 
+	case contextFileUploadedMsg:
+		if m.err != nil {
+			a.transientHint = "upload failed: " + m.err.Error()
+			return a, nil
+		}
+		if a.currentSessionID() == m.sessionID {
+			a.mergeContextFiles([]gact.ContextFile{m.file})
+		}
+		label := firstNonEmpty(m.file.Path, filepath.Base(m.localPath))
+		a.transientHint = "uploaded " + label + " to context"
+		return a, nil
+
 	case contextFileRemovedMsg:
 		if m.err != nil {
 			a.transientHint = "remove failed: " + m.err.Error()
@@ -2725,7 +2738,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		// Fall through to focus dispatch so the textarea consumes it.
-	case "tab":
+	case "tab", "ctrl+i":
 		a.focusNextPane()
 		return a, nil
 	case "shift+tab":
@@ -5037,6 +5050,9 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 	}
 	if cf.Size > 0 {
 		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
+	}
+	if cf.Uploaded {
+		fileFields = append(fileFields, detailField{"source", "uploaded attachment"})
 	}
 	if strings.TrimSpace(cf.Language) != "" {
 		fileFields = append(fileFields, detailField{"language", cf.Language})
@@ -9366,6 +9382,9 @@ func (a *App) sidebarContextFileMeta(cf gact.ContextFile) string {
 	parts := make([]string, 0, 4)
 	if lang := strings.TrimSpace(cf.Language); lang != "" {
 		parts = append(parts, lang)
+	}
+	if cf.Uploaded {
+		parts = append(parts, "uploaded")
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		title := strings.TrimSpace(a.sessions[a.selected].Title)

@@ -1796,6 +1796,13 @@ type contextFileRequest struct {
 	Mode string `json:"mode"`
 }
 
+type attachmentUploadRequest struct {
+	File     string `json:"file"`
+	Filename string `json:"filename"`
+	MimeType string `json:"mime_type"`
+	Mode     string `json:"mode"`
+}
+
 func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.store.GetSession(id); err != nil {
@@ -1821,6 +1828,65 @@ func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.contextFiles.add(id, cf)
 	writeJSON(w, http.StatusCreated, cf)
+}
+
+func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req attachmentUploadRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.File) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "file required")
+		return
+	}
+	data, err := base64.StdEncoding.DecodeString(req.File)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "file must be valid base64")
+		return
+	}
+	name := path.Base(strings.ReplaceAll(strings.TrimSpace(req.Filename), "\\", "/"))
+	if name == "." || name == "/" || name == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "filename required")
+		return
+	}
+	mode := req.Mode
+	if mode == "" {
+		mode = "read"
+	}
+	if mode != "read" && mode != "pin" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "mode must be read or pin")
+		return
+	}
+	dir, err := os.MkdirTemp("", "gact-attachment-"+id+"-")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "attachment_error", err.Error())
+		return
+	}
+	dest := filepath.Join(dir, name)
+	if err := os.WriteFile(dest, data, 0o600); err != nil {
+		writeError(w, http.StatusInternalServerError, "attachment_error", err.Error())
+		return
+	}
+	cf := gact.ContextFile{
+		Path:     dest,
+		Mode:     mode,
+		AddedAt:  time.Now().UTC().Format(time.RFC3339),
+		Size:     int64(len(data)),
+		Language: contextFileLanguage(name),
+		Uploaded: true,
+	}
+	s.contextFiles.add(id, cf)
+	s.bus.Publish(events.Event{
+		Type:      "context.file.added",
+		SessionID: id,
+		Payload:   map[string]any{"session_id": id, "file": cf},
+	})
+	writeJSON(w, http.StatusOK, cf)
 }
 
 func (s *Server) handleContextFileContent(w http.ResponseWriter, r *http.Request) {

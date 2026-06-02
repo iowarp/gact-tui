@@ -317,7 +317,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary CLIO workflow"},
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
 		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIPartial, "/compact calls session summarize; summary UX needs release proof"},
-		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIPartial, "attachment upload capability decoded; picker/send UX needs release proof"},
+		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "files detail uploads bytes and merges returned context file"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
 		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
 		{"edit_modes", caps.Capabilities.EditModes, capExtra, capUIGated, "decoded; no separate edit-mode switch"},

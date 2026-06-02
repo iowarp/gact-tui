@@ -32,7 +32,7 @@ Support classes:
 | Session sharing | `session_sharing` | none | Decoded only. |
 | Session export | `session_export` | gated | Decoded, export UI is not a 0.9 CLIO path. |
 | Session summary | `session_summary` | partial | `/compact` calls `POST /v1/sessions/{id}/summarize`; summary display UX and release visual proof remain tracked by 1.0 hardening. |
-| Attachment upload | `attachments_upload` | partial | Capability is decoded; file picker/send attachment UX needs release proof against live CLIO. |
+| Attachment upload | `attachments_upload` | full | Files sidebar detail can upload local/workspace file bytes to `POST /v1/sessions/{id}/attachments`, merges the returned context file, and surfaces upload errors truthfully. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |
 | Edit modes | `edit_modes` | gated | Decoded, no separate edit-mode switch. |

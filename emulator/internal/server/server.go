@@ -199,6 +199,7 @@ func (s *Server) routes() {
 	// §6.9 — Files & context
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files", s.handleListContextFiles)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files/content", s.handleContextFileContent)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/attachments", s.handleUploadAttachment)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/context/files", s.handleAddContextFile)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/context/files", s.handleDeleteContextFile)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
