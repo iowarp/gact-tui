@@ -27,7 +27,7 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
 | 5 | Inspector execution timeline | PENDING | — |
 | 6 | Large-transcript virtualization (1000+ msg proof) | PENDING | — |
-| 7 | Settings import/export | PENDING | — |
+| 7 | Settings import/export | **DONE** | SettingsExport.test 6/6 (roundtrip + credential-exclusion guard); fixture `settings-data-section.png` + `settings-data-exported.png` (suite 34/34); LIVE audit "(1.0 item 7)" vs :17801 — real download → modify → import → values restored (`audit/item7-settings-roundtrip.png`) |
 | 8 | Notification-center search/filter | **DONE** | NotificationCenter.test 7/7; fixture `notification-center{,-search,-filtered}.png` (suite 33/33); LIVE audit "(1.0 item 8)" vs :17801 — real send-failure notification searched + tone-filtered (`audit/item8-notif-search.png`) |
 | 9 | Native window menus (Tauri) | PENDING | — |
 | E1 | Transcript code-block line-number gutter | PENDING | — |
@@ -40,6 +40,17 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Item 7 DONE — Settings export/import (Data & backups).** New
+  `settings-export.ts`: versioned envelope (`{version:1, exportedAt, app, prefs}`) of
+  every `clio.*` localStorage key as raw strings — EXCEPT `clio.backends.v1` (bearer
+  tokens never leave the machine; also never applied on import even from a tampered
+  file). New Settings → "Data & backups" section: Export downloads
+  `clio-settings-<timestamp>.json`; Import restores via file picker + reload.
+  PROOF: unit `SettingsExport.test.ts` 6/6 (roundtrip, credential exclusion both ways,
+  version/JSON validation); fixture `settings-data-section.png` +
+  `settings-data-exported.png` with a real browser download asserted (suite 34/34);
+  LIVE audit "(1.0 item 7)" vs :17801 — export → file content verified (prefs in, registry
+  out) → prefs changed → import → values restored (`audit/item7-settings-roundtrip.png`).
 - 2026-06-02 **Item 8 DONE — Notification-center search + tone filter.** Bell popover
   gains a fuzzy search input (shared `fuzzy.ts` matcher; title outranks body) + tone
   filter chips (All/Errors/Warnings/Success/Info) + a no-match empty state. New

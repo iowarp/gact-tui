@@ -6,6 +6,7 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod menu;
 mod plugins;
 mod sse_bridge;
 mod ssh;
@@ -211,6 +212,17 @@ pub fn run() {
                     _ => {}
                 })
                 .build(app)?;
+
+            // Native window/app menu (1.0 item 9). Non-predefined items emit
+            // the `clio:menu` event the SolidJS frontend listens for; Quit +
+            // the Edit submenu are predefined and handled natively. The tray
+            // menu above is independent and keeps working.
+            let app_menu = menu::build_menu(app.handle())?;
+            app.set_menu(app_menu)?;
+            app.on_menu_event(|app, ev| {
+                menu::handle_menu_event(app, ev.id().as_ref());
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

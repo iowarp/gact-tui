@@ -447,6 +447,41 @@ test.describe('CLIO harness — visual proofs', () => {
     await ctx.close();
   });
 
+  test('settings-data section exports preferences (1.0 item 7)', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-data').click();
+    await expect(page.getByTestId('settings-data')).toBeVisible();
+    await expect(page.getByTestId('settings-export-btn')).toBeVisible();
+    await expect(page.getByTestId('settings-import-btn')).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot('settings-data-section'), fullPage: false });
+    // Export triggers a real browser download of the versioned envelope.
+    const downloadP = page.waitForEvent('download');
+    await page.getByTestId('settings-export-btn').click();
+    const download = await downloadP;
+    expect(download.suggestedFilename()).toMatch(/^clio-settings-.*\.json$/);
+    await page.screenshot({ path: shot('settings-data-exported'), fullPage: false });
+    await ctx.close();
+  });
+
   test('settings-shell-appearance shows theme + density choices', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
