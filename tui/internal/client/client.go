@@ -249,6 +249,19 @@ func (c *Client) ListWorkspaces(ctx context.Context) ([]gact.Workspace, error) {
 	return out.Workspaces, err
 }
 
+type CreateWorkspaceRequest struct {
+	Name     string         `json:"name,omitempty"`
+	RootPath string         `json:"root_path"`
+	Config   map[string]any `json:"config,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+func (c *Client) CreateWorkspace(ctx context.Context, req CreateWorkspaceRequest) (gact.Workspace, error) {
+	var out gact.Workspace
+	err := c.do(ctx, http.MethodPost, "/v1/workspaces", req, &out)
+	return out, err
+}
+
 // --- §6.2 sessions ---------------------------------------------------------
 
 // CreateSessionRequest matches server.CreateSessionRequest (kept here to

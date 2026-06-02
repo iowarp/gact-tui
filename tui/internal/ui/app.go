@@ -454,8 +454,16 @@ type App struct {
 	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
 	// already-loaded workspace list (connectCmd populates it) so the
 	// modal opens without re-hitting the backend.
-	workspaceSwitchOpen bool
-	workspaceSwitchSel  int
+	workspaceSwitchOpen    bool
+	workspaceSwitchSel     int
+	workspaceCreateOpen    bool
+	workspaceCreateName    string
+	workspaceCreateNameCur int
+	workspaceCreateRoot    string
+	workspaceCreateRootCur int
+	workspaceCreateField   int
+	workspaceCreateSaving  bool
+	workspaceCreateError   string
 
 	// Rename modal — inline prompt to change a session's title.
 	// Opened by `e` on a selected session in the sidebar. We roll
@@ -2413,6 +2421,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.selected = 0
 		return a, tea.Batch(a.selectSession(0), loadAgentHierarchyCmd(a.c, a.runtimeScope()))
+
+	case workspaceCreatedMsg:
+		a.workspaceCreateSaving = false
+		if m.err != nil {
+			a.workspaceCreateError = m.err.Error()
+			a.workspaceCreateOpen = true
+			a.workspaceSwitchOpen = true
+			return a, nil
+		}
+		created := m.workspace
+		found := false
+		for i := range a.workspaces {
+			if a.workspaces[i].ID == created.ID {
+				a.workspaces[i] = created
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.workspaces = append(a.workspaces, created)
+		}
+		a.closeWorkspaceSwitchModal()
+		if a.sseCancel != nil {
+			a.sseCancel()
+			a.sseCancel = nil
+		}
+		a.wsID = created.ID
+		a.sessions = nil
+		a.selected = -1
+		a.messages = nil
+		a.contextFiles = nil
+		a.pendingPermissions = nil
+		a.syncFileViewerRootToWorkspace()
+		a.transientHint = "created workspace " + workspaceLabel(created)
+		return a, listSessionsCmd(a.c, created.ID)
 
 	case agentHierarchyLoadedMsg:
 		a.agentHierarchyAgents = m.agents
@@ -8262,10 +8305,6 @@ func (a *App) registerHeaderChipHits(rendered []string, hits []headerChip) {
 }
 
 func (a *App) openWorkspaceSwitch() {
-	if len(a.workspaces) == 0 {
-		a.transientHint = "no workspaces available"
-		return
-	}
 	a.workspaceSwitchOpen = true
 	a.workspaceSwitchSel = 0
 	for i, w := range a.workspaces {

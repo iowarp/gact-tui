@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,8 +41,8 @@ func makeSwitcherApp(t *testing.T) *App {
 	a.stage = StageReady
 	a.width, a.height = 100, 30
 	a.workspaces = []gact.Workspace{
-		{ID: "ws_a", Name: "alpha"},
-		{ID: "ws_b", Name: "bravo"},
+		{ID: "ws_a", Name: "alpha", RootPath: "/tmp/alpha"},
+		{ID: "ws_b", Name: "bravo", RootPath: "/tmp/bravo"},
 	}
 	a.wsID = "ws_a"
 	a.sessions = sessionsByWS["ws_a"]
@@ -159,15 +160,16 @@ func TestWorkspaceSwitcher_StaleSwitchedMsgIgnored(t *testing.T) {
 	}
 }
 
-func TestWorkspaceSwitcher_EmptyWorkspacesShowsToastNotModal(t *testing.T) {
+func TestWorkspaceSwitcher_EmptyWorkspacesOpensCreateCapableModal(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaces = nil
 	a.handleKey(tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl})
-	if a.workspaceSwitchOpen {
-		t.Error("should not open the modal when there are no workspaces")
+	if !a.workspaceSwitchOpen {
+		t.Error("should open the modal when there are no workspaces")
 	}
-	if a.transientHint == "" {
-		t.Error("expected a toast explaining why nothing opened")
+	out := stripANSI(a.viewWorkspaceSwitch())
+	if !strings.Contains(out, "no workspaces yet") || !strings.Contains(out, "new") {
+		t.Fatalf("empty switcher should explain create path:\n%s", out)
 	}
 }
 
@@ -292,6 +294,7 @@ func TestWorkspaceSwitcherUsesSharedModalListMarkers(t *testing.T) {
 	for _, want := range []string{
 		"Switch workspace",
 		"▌ alpha  ws_a",
+		"root: /tmp/alpha",
 		"[current]",
 		"bravo  ws_b",
 		"Enter switch",
@@ -388,5 +391,176 @@ func TestWorkspaceSwitcherNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
 	}
 	if a.workspaceSwitchSel != 0 || a.wsID != "ws_a" {
 		t.Fatalf("non-row click changed selection/state: sel=%d ws=%s", a.workspaceSwitchSel, a.wsID)
+	}
+}
+
+func TestWorkspaceSwitcherNewButtonOpensCreateForm(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.workspaceSwitchOpen = true
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:workspace-switch:new")
+	if !ok {
+		t.Fatal("missing semantic new-workspace button")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("new workspace button should not dispatch before form submit")
+	}
+	if !a.workspaceSwitchOpen || !a.workspaceCreateOpen {
+		t.Fatalf("new workspace should open create form, switch=%v create=%v", a.workspaceSwitchOpen, a.workspaceCreateOpen)
+	}
+}
+
+func TestWorkspaceCreateFormSwitchesFieldsByTabAndMouse(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.openWorkspaceCreate()
+
+	a.handleWorkspaceSwitchKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if a.workspaceCreateField != 1 {
+		t.Fatalf("Tab should move to root field, got %d", a.workspaceCreateField)
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "workspace-create:field:name")
+	if !ok {
+		t.Fatal("missing name field hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("field click should not dispatch")
+	}
+	if a.workspaceCreateField != 0 {
+		t.Fatalf("name field click should select field 0, got %d", a.workspaceCreateField)
+	}
+}
+
+func TestWorkspaceCreateRequiresRootPath(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.openWorkspaceCreate()
+	a.workspaceCreateRoot = ""
+	a.workspaceCreateRootCur = 0
+
+	_, cmd := a.handleWorkspaceSwitchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("empty root should not dispatch create command")
+	}
+	if !strings.Contains(a.workspaceCreateError, "root path is required") {
+		t.Fatalf("workspaceCreateError = %q", a.workspaceCreateError)
+	}
+	if a.workspaceCreateField != 1 {
+		t.Fatalf("empty root should focus root field, got %d", a.workspaceCreateField)
+	}
+}
+
+func TestWorkspaceCreateSuccessSwitchesAndClearsScopedState(t *testing.T) {
+	created := gact.Workspace{ID: "ws_new", Name: "new", RootPath: "/tmp/new"}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/workspaces":
+			var req map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode create workspace: %v", err)
+			}
+			if req["name"] != "new" || req["root_path"] != "/tmp/new" {
+				t.Fatalf("workspace create body = %#v", req)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(created)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sessions":
+			if got := r.URL.Query().Get("workspace_id"); got != "ws_new" {
+				t.Fatalf("sessions workspace_id = %q", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"sessions": []gact.Session{{ID: "s_new", Title: "fresh"}}})
+		default:
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.width, a.height = 100, 30
+	a.workspaces = []gact.Workspace{{ID: "ws_old", Name: "old", RootPath: "/tmp/old"}}
+	a.wsID = "ws_old"
+	a.sessions = []gact.Session{{ID: "s_old", Title: "old"}}
+	a.selected = 0
+	a.messages = []gact.Message{{ID: "m_old"}}
+	a.contextFiles = []gact.ContextFile{{Path: "old.txt"}}
+	a.fileViewerRoot = "/tmp/old"
+	a.openWorkspaceCreate()
+	a.workspaceCreateName = "new"
+	a.workspaceCreateNameCur = 3
+	a.workspaceCreateRoot = "/tmp/new"
+	a.workspaceCreateRootCur = len("/tmp/new")
+
+	_, cmd := a.handleWorkspaceSwitchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("create should dispatch command")
+	}
+	msg := cmd()
+	createdMsg, ok := msg.(workspaceCreatedMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want workspaceCreatedMsg", msg)
+	}
+	model, cmd := a.Update(createdMsg)
+	a = model.(*App)
+	if a.wsID != "ws_new" {
+		t.Fatalf("wsID = %q, want ws_new", a.wsID)
+	}
+	if a.workspaceSwitchOpen || a.workspaceCreateOpen {
+		t.Fatalf("create success should close modals, switch=%v create=%v", a.workspaceSwitchOpen, a.workspaceCreateOpen)
+	}
+	if len(a.sessions) != 0 || len(a.messages) != 0 || len(a.contextFiles) != 0 || a.selected != -1 {
+		t.Fatalf("scoped state not cleared: sessions=%d messages=%d context=%d selected=%d", len(a.sessions), len(a.messages), len(a.contextFiles), a.selected)
+	}
+	if a.fileViewerRoot != "/tmp/new" {
+		t.Fatalf("fileViewerRoot = %q, want /tmp/new", a.fileViewerRoot)
+	}
+	if cmd == nil {
+		t.Fatal("create success should reload sessions for new workspace")
+	}
+
+	reloadMsg := cmd()
+	switched, ok := reloadMsg.(workspaceSwitchedMsg)
+	if !ok {
+		t.Fatalf("reload cmd returned %T, want workspaceSwitchedMsg", reloadMsg)
+	}
+	if switched.wsID != "ws_new" || len(switched.sessions) != 1 {
+		t.Fatalf("workspace switched msg = %+v", switched)
+	}
+}
+
+func TestWorkspaceCreateFailureStaysOpenAndShowsError(t *testing.T) {
+	a := makeSwitcherApp(t)
+	a.openWorkspaceCreate()
+	a.workspaceCreateSaving = true
+
+	model, cmd := a.Update(workspaceCreatedMsg{err: errors.New("boom")})
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("create failure should not dispatch follow-up command")
+	}
+	if !a.workspaceSwitchOpen || !a.workspaceCreateOpen {
+		t.Fatalf("create failure should keep form open, switch=%v create=%v", a.workspaceSwitchOpen, a.workspaceCreateOpen)
+	}
+	if a.workspaceCreateSaving {
+		t.Fatal("create failure should clear saving flag")
+	}
+	if !strings.Contains(a.workspaceCreateError, "boom") {
+		t.Fatalf("workspaceCreateError = %q", a.workspaceCreateError)
 	}
 }
