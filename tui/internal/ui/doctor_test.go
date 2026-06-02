@@ -2,6 +2,8 @@ package ui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -75,6 +77,20 @@ func TestDoctorCapabilityRowsCoverDecodedCapabilityFlags(t *testing.T) {
 		}
 		if !seen[name] {
 			t.Fatalf("decoded capability flag %q is missing from doctorCapabilityRows", name)
+		}
+	}
+}
+
+func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
+	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	doc := string(raw)
+	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {
+		if !strings.Contains(doc, "`"+row.name+"`") {
+			t.Fatalf("capability matrix missing backend field %q", row.name)
 		}
 	}
 }

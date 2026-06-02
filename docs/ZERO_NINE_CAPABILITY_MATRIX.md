@@ -57,6 +57,11 @@ Support classes:
 | CLIO user questions | `x_clio_user_questions` | full | Question SSE lifecycle and answer modal are surfaced. |
 | CLIO retry attempts | `x_clio_retry_attempts` | full | Retry attempts and retry-with-model provenance are surfaced. |
 | CLIO context frames | `x_clio_context_frames` | full | Frame list/detail fetch and memory-tool detail are surfaced. |
+| CLIO semantic events | `x_clio_semantic_events` | full | Semantic execution events are reduced into live transcript evidence. |
+| CLIO semantic trace backend | `x_clio_semantic_trace_backend` | full | Trace backend metadata is visible in Doctor. |
+| CLIO semantic trace detail | `x_clio_semantic_trace_detail` | full | Trace detail metadata is visible in Doctor. |
+| CLIO hook backend | `x_clio_hook_backend` | full | Hook backend metadata is visible in Doctor. |
+| CLIO hook events | `x_clio_hook_events` | full | Hook event metadata is visible in Doctor. |
 | CLIO context file content | `x_clio_files_content` | partial | Capability is decoded; context/file preview drill-down remains tracked by sidebar/context hardening. |
 | CLIO capability gaps | `x_clio_capability_gaps` | full | Doctor gaps tab and row detail are surfaced. |
 
