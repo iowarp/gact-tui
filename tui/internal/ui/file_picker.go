@@ -511,9 +511,9 @@ func (a *App) viewFilePicker() string {
 	treeRows := a.filePickerTreeRows()
 	useTree := a.filePicker.treeMode && a.filePicker.filter == ""
 
-	// Always show a fixed rows height so the modal doesn't reflow its
-	// surrounding chrome as the user types.
-	const resultRows = 10
+	// Keep a stable result height while the user types, but let taller
+	// terminals show more files instead of forcing a cramped 10-row picker.
+	resultRows := a.filePickerResultRows()
 	rows := []string{filterRow, ""}
 	resultStartRow := len(rows)
 	var list modalListRender
@@ -627,6 +627,13 @@ func (a *App) viewFilePicker() string {
 		},
 	})
 	return rendered.modal
+}
+
+func (a *App) filePickerResultRows() int {
+	if a.height <= 0 {
+		return 10
+	}
+	return clampInt(a.height-20, 10, 18)
 }
 
 func filePickerEntryMeta(entry gact.FileEntry) string {

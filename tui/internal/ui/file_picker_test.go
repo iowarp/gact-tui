@@ -90,3 +90,37 @@ func TestFilePickerTypingUsesFuzzyFileResultsNotFolderRows(t *testing.T) {
 		t.Fatalf("filtered picker should show flat fuzzy file result, not folder rows:\n%s", out)
 	}
 }
+
+func TestFilePickerResultRowsScaleWithTerminalHeight(t *testing.T) {
+	a := newFilePickerTreeTestApp()
+
+	a.height = 30
+	if got := a.filePickerResultRows(); got != 10 {
+		t.Fatalf("short terminal result rows = %d, want 10", got)
+	}
+
+	a.height = 40
+	if got := a.filePickerResultRows(); got != 18 {
+		t.Fatalf("tall terminal result rows = %d, want capped 18", got)
+	}
+}
+
+func TestFilePickerTallTerminalShowsMoreRows(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 42
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{loaded: true, sel: 16}
+	for i := 0; i < 24; i++ {
+		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "file_" + itoa2(i) + ".txt"})
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "file-picker:item:16"); !ok {
+		t.Fatal("selected row should be visible in tall file picker")
+	}
+	if _, ok := findHitTargetForTest(a, "file-picker:item:8"); !ok {
+		t.Fatal("tall file picker should retain more surrounding rows")
+	}
+}
