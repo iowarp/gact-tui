@@ -1,0 +1,297 @@
+/* ============================================================
+   CLIO / IOWarp Design Tokens
+   Source: iowarp/iowarp.ai-website — Tailwind v4 @theme block
+   Use as a drop-in foundation for any CLIO-branded artifact.
+   ============================================================ */
+
+/* ---------- Webfonts (self-hosted, from the website repo) ---------- */
+@font-face {
+  font-family: "Oxanium";
+  src: url("./fonts/Oxanium/Oxanium-VariableFont_wght.ttf") format("truetype");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf") format("truetype");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrains_Mono/JetBrainsMono-Italic-VariableFont_wght.ttf") format("truetype");
+  font-weight: 100 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bungee Spice";
+  src: url("./fonts/Bungee_Spice/BungeeSpice-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ============ BASE PALETTE ============ */
+  /* Foundation — the dark canvas */
+  --color-bg:          #000000; /* page background — pure black */
+  --color-surface:     #0a0f1a; /* cards / nav / artifact frames */
+  --color-surface-alt: #0f1f35; /* nested surfaces, hover wells */
+
+  /* Text */
+  --color-heading: #e0e8f0; /* H1–H4, statement text */
+  --color-text:    #4a90b5; /* default body — desaturated slate-cyan */
+  --color-muted:   #5a778c; /* secondary text, labels, captions */
+
+  /* Borders & dividers */
+  --color-border:     #2d638b; /* lines, card outlines (use /30–/60) */
+  --color-glow-cyan:  #4a90b599; /* ::selection background */
+
+  /* Brand accents — the two hero hues */
+  --color-accent:       #ea7b2a; /* warm orange — primary CTAs, "Core" rail */
+  --color-accent-cyan:  #00d4db; /* electric cyan — links, "Agent" rail */
+
+  /* Semantic */
+  --color-success: #34d399; /* available, online */
+  --color-warning: #fbbf24; /* coming soon, in-dev */
+  --color-error:   #f87171; /* offline traffic-light, errors */
+
+  /* Convenience tints — used throughout the site at /10, /20, /40 etc.
+     Provided here as pre-mixed values for environments without
+     color-mix() support. */
+  --color-accent-cyan-10: rgba(0, 212, 219, 0.10);
+  --color-accent-cyan-20: rgba(0, 212, 219, 0.20);
+  --color-accent-cyan-30: rgba(0, 212, 219, 0.30);
+  --color-accent-warm-10: rgba(234, 123, 42, 0.10);
+  --color-accent-warm-20: rgba(234, 123, 42, 0.20);
+  --color-border-30:      rgba(45, 99, 139, 0.30);
+  --color-border-60:      rgba(45, 99, 139, 0.60);
+
+  /* ============ TYPE ============ */
+  --font-sans:    "Oxanium", system-ui, sans-serif;          /* default */
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace; /* code, terminal, tags */
+  --font-display: "Bungee Spice", "Oxanium", sans-serif;     /* WORDMARK ONLY — see notes */
+
+  /* Type scale (matches Tailwind v4 site config) */
+  --text-xs:   0.75rem;  /* 12 — micro tags */
+  --text-sm:   0.875rem; /* 14 — secondary */
+  --text-base: 1rem;     /* 16 — body */
+  --text-lg:   1.125rem; /* 18 — lede */
+  --text-xl:   1.25rem;  /* 20 — small heading / subhead */
+  --text-2xl:  1.5rem;   /* 24 */
+  --text-3xl:  1.875rem; /* 30 */
+  --text-4xl:  2.25rem;  /* 36 */
+  --text-5xl:  3rem;     /* 48 */
+  --text-6xl:  3.75rem;  /* 60 */
+  --text-7xl:  4.5rem;   /* 72 — hero on lg+ */
+
+  /* Weights actually used on the site */
+  --fw-normal:     400;
+  --fw-medium:     500;
+  --fw-semibold:   600;
+  --fw-bold:       700;
+  --fw-extrabold:  800;
+
+  /* Letter-spacing */
+  --tracking-tight:   -0.025em; /* hero headlines */
+  --tracking-wider:    0.05em;
+  --tracking-widest:   0.1em;
+  --tracking-eyebrow:  0.2em;   /* uppercase section eyebrows */
+
+  /* Line-height */
+  --leading-hero:     1.08; /* big display headlines */
+  --leading-tight:    1.25;
+  --leading-snug:     1.375;
+  --leading-body:     1.6;  /* default site body line-height */
+  --leading-relaxed:  1.625;
+
+  /* ============ RADII ============ */
+  --radius-sm:   0.25rem;  /* 4  — small pills / chips */
+  --radius-md:   0.375rem; /* 6  — tags, mini chips */
+  --radius-lg:   0.5rem;   /* 8  — buttons, inputs */
+  --radius-xl:   0.75rem;  /* 12 — primary cards */
+  --radius-2xl:  1rem;     /* 16 — hero artifact, bento outer */
+  --radius-pill: 9999px;   /* status badges, dot pills */
+
+  /* ============ SHADOWS (canonical site values) ============ */
+  /* Outer drops — almost always pure black, layered with a colored glow */
+  --shadow-card:    0 1px 3px 0 rgba(0,0,0,.10), 0 1px 2px -1px rgba(0,0,0,.10);
+  --shadow-lg:      0 10px 15px -3px rgba(0,0,0,.10), 0 4px 6px -4px rgba(0,0,0,.10);
+  --shadow-xl:      0 20px 25px -5px rgba(0,0,0,.10), 0 8px 10px -6px rgba(0,0,0,.10);
+  --shadow-2xl:     0 25px 50px -12px rgba(0,0,0,.40);
+  --shadow-artifact:0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,219,0.06);
+
+  /* Colored glows — for hover/active states on accent surfaces */
+  --glow-cyan-sm:  0 0 20px rgba(0,212,219,0.08);
+  --glow-cyan-md:  0 0 24px rgba(0,212,219,0.15);
+  --glow-cyan-lg:  0 0 36px rgba(0,212,219,0.10);
+  --glow-warm-sm:  0 0 20px rgba(234,123,42,0.15);
+  --glow-warm-md:  0 0 25px rgba(234,123,42,0.30);
+  --glow-warm-lg:  0 0 40px rgba(234,123,42,0.50);
+
+  /* ============ SPACING (4-px scale, matches Tailwind) ============ */
+  --space-1:  0.25rem; /*  4 */
+  --space-2:  0.5rem;  /*  8 */
+  --space-3:  0.75rem; /* 12 */
+  --space-4:  1rem;    /* 16 */
+  --space-5:  1.25rem; /* 20 */
+  --space-6:  1.5rem;  /* 24 */
+  --space-8:  2rem;    /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+  --space-12: 3rem;    /* 48 */
+  --space-16: 4rem;    /* 64 */
+  --space-20: 5rem;    /* 80 */
+  --space-28: 7rem;    /* 112 — typical section vertical padding */
+
+  /* ============ MOTION ============ */
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1); /* reveal animations */
+  --dur-fast:   200ms;
+  --dur-base:   300ms;
+  --dur-reveal: 700ms;
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   Apply these defaults inside a CLIO surface. They mirror the
+   site's component conventions.
+   ============================================================ */
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-glow-cyan);
+  color: var(--color-heading);
+}
+
+/* Headings ---------------------------------------------------- */
+h1, .h1 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-extrabold);
+  font-size: clamp(2.75rem, 6vw, var(--text-7xl));
+  line-height: var(--leading-hero);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-heading);
+}
+h2, .h2 {
+  font-weight: var(--fw-bold);
+  font-size: clamp(1.875rem, 4vw, var(--text-5xl));
+  line-height: 1.15;
+  color: var(--color-heading);
+}
+h3, .h3 {
+  font-weight: var(--fw-bold);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  color: var(--color-heading);
+}
+h4, .h4 {
+  font-weight: var(--fw-semibold);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--color-heading);
+}
+
+/* Eyebrow — small, uppercase, wide-tracked label above section titles */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--color-accent-cyan);
+}
+
+/* Body text --------------------------------------------------- */
+p, .p {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  max-width: 65ch;
+}
+.lede {
+  font-size: var(--text-lg);
+  color: var(--color-muted);
+  max-width: 42rem;
+}
+.muted { color: var(--color-muted); }
+.heading-color { color: var(--color-heading); }
+
+/* Code & mono ------------------------------------------------- */
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+code {
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  color: var(--color-accent-cyan);
+}
+
+/* Gradient cyan text — used on the second line of the hero headline */
+.gradient-text-cyan {
+  background: linear-gradient(135deg, #00d4db, #e0e8f0, #00d4db, #4a90b5, #00d4db);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: clio-gradient-shimmer 6s ease infinite;
+}
+@keyframes clio-gradient-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* Wordmark — Bungee Spice. Use SPARINGLY, almost always for the
+   string "IOWarp" or a single hero glyph. Never for body or paragraphs. */
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ============================================================
+   COMPONENT TOKENS — convenience helpers, optional
+   ============================================================ */
+
+.surface       { background: var(--color-surface);     border: 1px solid var(--color-border-30); border-radius: var(--radius-xl); }
+.surface-alt   { background: var(--color-surface-alt); border: 1px solid var(--color-border-30); border-radius: var(--radius-xl); }
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  color: #fff;
+  background: var(--color-accent);
+  border-radius: var(--radius-xl);
+  transition: transform var(--dur-base) var(--ease-out), background var(--dur-fast);
+  box-shadow: var(--glow-warm-md);
+}
+.btn-primary:hover { transform: scale(1.04); background: #d66a1f; }
+
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-weight: var(--fw-bold);
+  color: var(--color-accent-cyan);
+  background: transparent;
+  border: 1px solid var(--color-accent-cyan-30);
+  border-radius: var(--radius-xl);
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.btn-secondary:hover { background: rgba(0,212,219,0.08); border-color: rgba(0,212,219,0.6); }

@@ -1,0 +1,103 @@
+.cmp__backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-bg) 75%, transparent);
+  backdrop-filter: blur(6px);
+  z-index: 82;
+}
+
+.cmp {
+  position: fixed;
+  inset: 6vh 8vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 16px;
+  box-shadow: 0 32px 80px -16px rgba(0, 0, 0, 0.6);
+  z-index: 83;
+  overflow: hidden;
+  animation: cmp-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cmp-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.cmp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 8px;
+  border-bottom: 1px solid var(--color-border-30);
+}
+
+.cmp__close {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--color-muted);
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.cmp__close:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent-cyan);
+}
+
+.cmp__textarea {
+  flex: 1;
+  background: var(--color-bg);
+  border: none;
+  padding: 18px 22px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text);
+  resize: none;
+  outline: none;
+}
+
+.cmp__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border-30);
+  background: var(--color-surface);
+}
+
+.cmp__hint {
+  margin-left: auto;
+}
+
+.cmp__send {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-accent-cyan);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--dur-fast);
+}
+
+.cmp__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cmp__send:not(:disabled):hover {
+  opacity: 0.9;
+}
