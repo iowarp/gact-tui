@@ -22,9 +22,13 @@ export interface ToastInput {
   icon?: IconName;
   /** Optional action button (e.g. Retry / Open settings / Reconnect now). */
   action?: ToastAction;
+  /** Record into the notification-center history WITHOUT showing a
+   * visible toast — for ambient events that belong in the bell, not
+   * on screen (1.0 item 8). */
+  silent?: boolean;
 }
 
-interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon' | 'action'>> {
+interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon' | 'action' | 'silent'>> {
   id: number;
   body?: string;
   icon?: IconName;
@@ -96,17 +100,21 @@ export const ToastProvider: ParentComponent = (props) => {
       duration: input.duration ?? (input.action ? 8000 : 4500),
       action: input.action,
     };
-    setToasts((cur) => {
-      const next = [...cur, rec];
-      if (next.length <= MAX_VISIBLE) return next;
-      // Evict the oldest non-pinned entry to make room.
-      const evictIdx = next.findIndex((t) => t.duration > 0);
-      if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
-      return [...next.slice(0, evictIdx), ...next.slice(evictIdx + 1)];
-    });
-    if (rec.duration > 0) {
-      const t = window.setTimeout(() => dismiss(id), rec.duration);
-      onCleanup(() => window.clearTimeout(t));
+    // Silent entries skip the visible toast stack entirely — they exist
+    // only in the bell history (1.0 item 8).
+    if (!input.silent) {
+      setToasts((cur) => {
+        const next = [...cur, rec];
+        if (next.length <= MAX_VISIBLE) return next;
+        // Evict the oldest non-pinned entry to make room.
+        const evictIdx = next.findIndex((t) => t.duration > 0);
+        if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
+        return [...next.slice(0, evictIdx), ...next.slice(evictIdx + 1)];
+      });
+      if (rec.duration > 0) {
+        const t = window.setTimeout(() => dismiss(id), rec.duration);
+        onCleanup(() => window.clearTimeout(t));
+      }
     }
     // Mirror into the persistent history list (newest first, capped).
     const histEntry: ToastHistoryEntry = {

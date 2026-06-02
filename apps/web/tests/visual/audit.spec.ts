@@ -864,4 +864,41 @@ test.describe('CLIO audit-batch verification', () => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await close();
   });
+
+  test('Notification center search + tone filter over real notifications (1.0 item 8)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await pickFirstSession(page);
+    // Produce a REAL error notification: abort message POSTs → the send
+    // failure toast (with Retry action) lands in the bell history.
+    await page.route('**/v1/sessions/*/messages', async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.abort('connectionrefused');
+        return;
+      }
+      await route.fallback();
+    });
+    const ta = page.locator('.composer__input').first();
+    await expect(ta).toBeVisible({ timeout: 8_000 });
+    await ta.click();
+    await ta.fill('this send is intercepted to seed a notification');
+    await ta.press('Enter');
+    await expect(page.locator('.toast--error')).toBeVisible({ timeout: 8_000 });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+    // The real notification is searchable + filterable in the bell.
+    // (Scope text assertions to the panel — the error toast itself may
+    // still be on screen and carries the same title.)
+    await page.getByTestId('notification-bell').click();
+    const panel = page.getByTestId('notification-panel');
+    await expect(panel).toBeVisible();
+    await page.getByTestId('notification-search').fill('send');
+    await expect(panel.getByText('Send failed')).toBeVisible();
+    await page.getByTestId('notification-search').fill('zzzznomatch');
+    await expect(page.getByTestId('notification-no-match')).toBeVisible();
+    await page.getByTestId('notification-search').fill('');
+    await page.getByTestId('notification-tone-error').click();
+    await expect(panel.getByText('Send failed')).toBeVisible();
+    await page.screenshot({ path: shot('item8-notif-search'), fullPage: false });
+    await close();
+  });
 });

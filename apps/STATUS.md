@@ -28,7 +28,7 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | 5 | Inspector execution timeline | PENDING | — |
 | 6 | Large-transcript virtualization (1000+ msg proof) | PENDING | — |
 | 7 | Settings import/export | PENDING | — |
-| 8 | Notification-center search/filter | PENDING | — |
+| 8 | Notification-center search/filter | **DONE** | NotificationCenter.test 7/7; fixture `notification-center{,-search,-filtered}.png` (suite 33/33); LIVE audit "(1.0 item 8)" vs :17801 — real send-failure notification searched + tone-filtered (`audit/item8-notif-search.png`) |
 | 9 | Native window menus (Tauri) | PENDING | — |
 | E1 | Transcript code-block line-number gutter | PENDING | — |
 | E2 | hljs lazy-load (pure-web bundle size) | PENDING | — |
@@ -40,6 +40,17 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Item 8 DONE — Notification-center search + tone filter.** Bell popover
+  gains a fuzzy search input (shared `fuzzy.ts` matcher; title outranks body) + tone
+  filter chips (All/Errors/Warnings/Success/Info) + a no-match empty state. New
+  `toast.push({silent: true})` option records history-only entries (no visible toast) —
+  used to seed the fixture suite deterministically and genuinely useful for ambient
+  events. PROOF: unit `NotificationCenter.test.tsx` 7/7 (incl. silent-push semantics +
+  a non-silent regression guard); fixture `notification-center.png` +
+  `notification-center-search.png` + `notification-center-filtered.png` (suite 33/33);
+  LIVE audit.spec "(1.0 item 8)" vs :17801 — a REAL send-failure notification (aborted
+  POST → error toast → history) searched, no-match state shown, tone-filtered
+  (`audit/item8-notif-search.png`).
 - 2026-06-02 **Item 4 DONE — Regenerate variant menu (plain / with-notes / with-model).**
   Transcript's Regenerate action now opens a variant menu: plain retry, "with notes…"
   (inline textarea → `RetryTurnRequest.notes`), "with model" (submenu fed by the live

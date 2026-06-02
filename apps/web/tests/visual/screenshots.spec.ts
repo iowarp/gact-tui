@@ -265,6 +265,30 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('retry-model-submenu'), fullPage: false });
   });
 
+  test('notification center searches + filters history (1.0 item 8)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    // Fixture mode seeds 5 silent history entries → unseen badge shows.
+    await expect(page.getByTestId('notification-badge')).toBeVisible();
+    await page.getByTestId('notification-bell').click();
+    const panel = page.getByTestId('notification-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Send failed')).toBeVisible();
+    await expect(panel.getByText('CLIO responded')).toBeVisible();
+    await page.screenshot({ path: shot('notification-center'), fullPage: false });
+    // Search narrows to the matching entry.
+    await page.getByTestId('notification-search').fill('fail');
+    await expect(panel.getByText('Send failed')).toBeVisible();
+    await expect(panel.getByText('CLIO responded')).toHaveCount(0);
+    await page.screenshot({ path: shot('notification-center-search'), fullPage: false });
+    // Tone chip filters by kind (clear search first).
+    await page.getByTestId('notification-search').fill('');
+    await page.getByTestId('notification-tone-warn').click();
+    await expect(panel.getByText('Permission requested')).toBeVisible();
+    await expect(panel.getByText('Send failed')).toHaveCount(0);
+    await page.screenshot({ path: shot('notification-center-filtered'), fullPage: false });
+  });
+
   // Real-backend visual proof — only captured when a clio-agent-gact
   // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
   // CI runners without the install don't fail. On the developer's box

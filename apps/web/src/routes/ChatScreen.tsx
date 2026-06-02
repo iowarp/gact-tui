@@ -129,6 +129,21 @@ function FixtureDriven(props: {
   onAddRemote?: () => void;
 }) {
   const fixtures = fixturesForDemo();
+  // Seed the notification center with silent (history-only) entries so its
+  // search/filter UI is provable in the deterministic fixture suite
+  // (1.0 item 8). Silent pushes never render visible toasts, so the other
+  // fixture screenshots are unaffected (only the bell badge appears).
+  const fixtureToast = useToast();
+  onMount(() => {
+    const seed: Array<{ title: string; body: string; tone: 'info' | 'success' | 'warn' | 'error' }> = [
+      { title: 'CLIO responded', body: 'refactor logger — turn completed in 12.4s', tone: 'success' },
+      { title: 'Send failed', body: 'network unreachable — retry available', tone: 'error' },
+      { title: 'Permission requested', body: 'WriteFile wants access to src/handlers.go', tone: 'warn' },
+      { title: 'SSE reconnected', body: 'stream re-established after a drop', tone: 'info' },
+      { title: 'Session exported', body: 'refactor-logger.json written to disk', tone: 'success' },
+    ];
+    for (const s of seed) fixtureToast.push({ ...s, silent: true });
+  });
   const isEmpty = props.fixture === 'empty-sidebar';
   const rows: SessionRow[] = isEmpty
     ? []
