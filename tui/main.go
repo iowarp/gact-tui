@@ -481,6 +481,8 @@ Common flags (all subcommands):
   --theme STR      dark | light      (env: GACT_THEME)
 
 TUI-only flags:
+  --workspace STR  startup workspace id, exact name, or root path
+                   (env: GACT_WORKSPACE; config: workspace).
   --voice-cmd STR  shell command that records audio to stdout, run on
                    Ctrl+Y. See scripts/voice-record.sh for an example.
                    (env: GACT_VOICE_CMD, config: voice_command)`)
@@ -974,6 +976,8 @@ func runTUI() {
 
 	backend := flag.String("backend", defaultBackend,
 		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
+	workspace := flag.String("workspace", "",
+		"startup workspace id, exact name, or root path (env: GACT_WORKSPACE, config: workspace)")
 	theme := flag.String("theme", defaultTheme,
 		"colour theme (env: GACT_THEME, config: theme) — use --list-themes to see options")
 	voiceCmd := flag.String("voice-cmd", "",
@@ -995,6 +999,7 @@ func runTUI() {
 	}
 
 	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalWorkspace := config.Resolve(cfg.Workspace, os.Getenv("GACT_WORKSPACE"), *workspace, "")
 	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
 
 	// P2: load a user-supplied custom theme if present at
@@ -1010,6 +1015,7 @@ func runTUI() {
 	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
+	app.SetInitialWorkspace(finalWorkspace)
 	finalLocale := config.Resolve(cfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
 	app.SetLocale(finalLocale)
 	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")

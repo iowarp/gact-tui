@@ -30,6 +30,11 @@ for _ in $(seq 1 40); do
   sleep 0.1
 done
 
-./tui/gact --backend "$backend" --no-intro &
+args=(--backend "$backend" --no-intro)
+if [ -n "${GACT_START_WORKSPACE:-}" ]; then
+  args+=(--workspace "$GACT_START_WORKSPACE")
+fi
+
+./tui/gact "${args[@]}" &
 tui_pid=$!
 wait "$tui_pid"

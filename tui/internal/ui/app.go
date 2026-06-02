@@ -94,6 +94,12 @@ type App struct {
 	// delete is otherwise a no-op for the registry. (BBBBBBBB1)
 	PruneDetachedRegistry func(sessionID string)
 
+	// InitialWorkspaceSelector is applied on the first backend
+	// connection. It accepts a workspace id, exact name, or exact root
+	// path. Once the user switches workspaces, reconnects stay pinned to
+	// the current workspace id instead of falling back to this value.
+	InitialWorkspaceSelector string
+
 	// LLLLLLLL1: transientHintAt stamps when transientHint was last
 	// set to a non-empty value. handleKey's blanket-clear on any
 	// keypress honours a minimum-display floor so hints that arrive
@@ -727,6 +733,13 @@ type DetachedRegistryEntry struct {
 // program is run when intro_skip is not set. (JJJ1)
 func (a *App) EnableIntro() { a.stage = StageIntro }
 
+// SetInitialWorkspace selects the workspace to use on startup. The selector is
+// resolved after /v1/workspaces is loaded and may be a workspace id, exact
+// workspace name, or exact root path.
+func (a *App) SetInitialWorkspace(selector string) {
+	a.InitialWorkspaceSelector = strings.TrimSpace(selector)
+}
+
 // MMMMMMMMM1: introTickMsg advances the animated splash by one
 // frame. introTick returns a cmd that re-fires itself on the
 // fixed frame cadence so the splash loops smoothly.
@@ -770,10 +783,22 @@ func (a *App) Init() tea.Cmd {
 		// reads "press any key to continue".
 		return a.introTickCmd()
 	}
-	return connectCmd(a.c)
+	return a.connectCmd()
 }
 
-func connectCmd(c *client.Client) tea.Cmd {
+func (a *App) connectCmd() tea.Cmd {
+	return connectCmd(a.c, a.connectWorkspaceSelector())
+}
+
+func (a *App) connectWorkspaceSelector() string {
+	selector := strings.TrimSpace(a.wsID)
+	if selector == "" {
+		selector = a.InitialWorkspaceSelector
+	}
+	return strings.TrimSpace(selector)
+}
+
+func connectCmd(c *client.Client, workspaceSelector string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -796,7 +821,10 @@ func connectCmd(c *client.Client) tea.Cmd {
 		var sessions []gact.Session
 		var wsID string
 		if len(wss) > 0 {
-			wsID = wss[0].ID
+			wsID, err = selectStartupWorkspaceID(wss, workspaceSelector)
+			if err != nil {
+				return errMsg{err: err, stage: "workspaces"}
+			}
 			sessions, err = c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
 			if err != nil {
 				return errMsg{err: err, stage: "sessions"}
@@ -814,6 +842,59 @@ func connectCmd(c *client.Client) tea.Cmd {
 			RuntimeScope: client.RuntimeScope{WorkspaceID: wsID},
 		})
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
+	}
+}
+
+func selectStartupWorkspaceID(workspaces []gact.Workspace, selector string) (string, error) {
+	if len(workspaces) == 0 {
+		return "", nil
+	}
+	selector = strings.TrimSpace(selector)
+	if selector == "" {
+		return workspaces[0].ID, nil
+	}
+	for _, ws := range workspaces {
+		if ws.ID == selector {
+			return ws.ID, nil
+		}
+	}
+	if id, err := selectWorkspaceByField(workspaces, selector, func(ws gact.Workspace) string {
+		return ws.Name
+	}, "name"); id != "" || err != nil {
+		return id, err
+	}
+	if id, err := selectWorkspaceByField(workspaces, selector, func(ws gact.Workspace) string {
+		return filepath.Clean(ws.RootPath)
+	}, "root"); id != "" || err != nil {
+		return id, err
+	}
+	return "", fmt.Errorf("workspace %q not found", selector)
+}
+
+func selectWorkspaceByField(
+	workspaces []gact.Workspace,
+	selector string,
+	field func(gact.Workspace) string,
+	fieldName string,
+) (string, error) {
+	selector = filepath.Clean(strings.TrimSpace(selector))
+	var matches []gact.Workspace
+	for _, ws := range workspaces {
+		value := strings.TrimSpace(field(ws))
+		if value == "" {
+			continue
+		}
+		if value == selector {
+			matches = append(matches, ws)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return "", nil
+	case 1:
+		return matches[0].ID, nil
+	default:
+		return "", fmt.Errorf("workspace %s %q is ambiguous; use workspace id", fieldName, selector)
 	}
 }
 
@@ -1638,7 +1719,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.stage = StageConnecting
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 
 	case spinnerTickMsg:
 		a.spinnerFrame++
@@ -2683,7 +2764,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 		a.stage = StageConnecting
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 	}
 
 	// StageError is a special case: Ctrl+R retries immediately (skips
@@ -2697,7 +2778,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+r":
 			a.stage = StageConnecting
 			a.connectRetryAttempts = 0
-			return a, connectCmd(a.c)
+			return a, a.connectCmd()
 		}
 		return a, nil
 	}
@@ -2869,7 +2950,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, createSessionCmd(a.c, a.wsID)
 	case "ctrl+r":
 		// Manual reconnect / refresh.
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 	case "ctrl+e":
 		// Z1: when the body cursor is set and the selected message
 		// has a bulky tool_result or text part, expand THAT one.
@@ -7709,7 +7790,7 @@ func (a *App) viewConnecting() string {
 	a.registerScreenSurfaceHit("connecting:retry", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
 		app.connectRetryAttempts = 0
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
@@ -7782,7 +7863,7 @@ func (a *App) viewIntro() string {
 	t := a.Theme
 	a.registerScreenSurfaceHit("intro:continue", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
 	// terminal has room, render the embedded grc.iit.edu logo. If
@@ -7889,7 +7970,7 @@ func (a *App) viewErrorModal() string {
 			action: func(app *App) tea.Cmd {
 				app.stage = StageConnecting
 				app.connectRetryAttempts = 0
-				return connectCmd(app.c)
+				return app.connectCmd()
 			},
 		},
 		{
@@ -8643,7 +8724,7 @@ func (a *App) registerFooterActionHits(rendered string) {
 		return nil
 	})
 	a.registerFooterPlainHit(plain, y, "footer:reconnect", "(reconnecting…)", func(app *App) tea.Cmd {
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	a.registerFooterPlainHit(plain, y, "footer:memory", a.localizer.t(msgFooterMemoryHit, nil), func(app *App) tea.Cmd {
 		if !app.caps.Capabilities.Memory {
