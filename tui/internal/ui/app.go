@@ -6002,6 +6002,19 @@ func messageHasPartType(m *gact.Message, partType string) bool {
 	return false
 }
 
+func shouldRenderConversationMessage(m gact.Message) bool {
+	if len(m.Parts) > 0 || isModelSwapMarker(m) || m.ErrorInfo != nil {
+		return true
+	}
+	if len(normalizeToolEvidenceRows(m.Metadata["tools_called"])) > 0 {
+		return true
+	}
+	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
+		return true
+	}
+	return false
+}
+
 func normalizeMessageErrorInfo(m *gact.Message) {
 	if m == nil || m.ErrorInfo == nil || messageHasPartType(m, gact.PartTypeError) {
 		return
@@ -6841,8 +6854,8 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 }
 
 func (a *App) applySemanticEvent(e client.SSEEvent) {
-	pl, ok := e.Payload["payload"].(map[string]any)
-	if !ok || len(pl) == 0 {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
 		return
 	}
 	sid := a.replaySessionID(stringValue(pl["session_id"]))
@@ -6880,8 +6893,8 @@ func (a *App) applySemanticEvent(e client.SSEEvent) {
 }
 
 func (a *App) applyToolCallStarted(e client.SSEEvent) {
-	pl, ok := e.Payload["payload"].(map[string]any)
-	if !ok || len(pl) == 0 {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
 		return
 	}
 	sid := a.replaySessionID(stringValue(pl["session_id"]))
@@ -6920,8 +6933,8 @@ func (a *App) applyToolCallStarted(e client.SSEEvent) {
 }
 
 func (a *App) applyToolCallCompleted(e client.SSEEvent) {
-	pl, ok := e.Payload["payload"].(map[string]any)
-	if !ok || len(pl) == 0 {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
 		return
 	}
 	sid := a.replaySessionID(stringValue(pl["session_id"]))
@@ -7056,7 +7069,17 @@ func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
 	if e.ID != "" {
 		return "semantic_event_" + stableIDFragment(e.ID)
 	}
+	if pl := eventPayload(e); stringValue(pl["event_id"]) != "" {
+		return "semantic_event_" + stableIDFragment(stringValue(pl["event_id"]))
+	}
 	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+stringValue(e.Payload["occurred_at"]))
+}
+
+func eventPayload(e client.SSEEvent) map[string]any {
+	if pl, ok := e.Payload["payload"].(map[string]any); ok && len(pl) > 0 {
+		return pl
+	}
+	return e.Payload
 }
 
 func semanticEventSummary(payload map[string]any, eventType string) string {
@@ -7067,13 +7090,72 @@ func semanticEventSummary(payload map[string]any, eventType string) string {
 	if summary := stringValue(payload["summary"]); summary != "" {
 		bits = append(bits, "summary: "+summary)
 	}
+	if blueprint := compactSemanticMap(payload["blueprint"]); blueprint != "" {
+		bits = append(bits, "blueprint: "+blueprint)
+	}
+	if provider := compactSemanticMap(payload["provider"]); provider != "" {
+		bits = append(bits, "provider: "+provider)
+	}
 	if actor := compactSemanticMap(payload["actor"]); actor != "" {
 		bits = append(bits, "actor: "+actor)
 	}
 	if subject := compactSemanticMap(payload["subject"]); subject != "" {
 		bits = append(bits, "subject: "+subject)
 	}
+	if detail := compactSemanticPayload(payload["payload"]); detail != "" {
+		bits = append(bits, "payload: "+detail)
+	}
 	return strings.Join(bits, " · ")
+}
+
+func compactSemanticPayload(raw any) string {
+	m := mapValue(raw)
+	if len(m) == 0 {
+		return ""
+	}
+	preferred := []string{
+		"tool",
+		"tool_name",
+		"call_id",
+		"telemetry_source",
+		"duration_ms",
+		"cached",
+		"ok",
+		"error",
+		"route",
+		"selected_agent",
+		"parent_id",
+		"agent_id",
+		"model",
+		"provider",
+	}
+	seen := map[string]bool{}
+	var parts []string
+	for _, key := range preferred {
+		if value := semanticScalarText(m[key]); value != "" {
+			parts = append(parts, key+"="+value)
+			seen[key] = true
+		}
+	}
+	if len(parts) >= 4 {
+		return strings.Join(parts[:4], ", ")
+	}
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		if !seen[key] {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if value := semanticScalarText(m[key]); value != "" {
+			parts = append(parts, key+"="+value)
+			if len(parts) >= 4 {
+				break
+			}
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func compactSemanticMap(raw any) string {
@@ -7088,11 +7170,29 @@ func compactSemanticMap(raw any) string {
 	sort.Strings(keys)
 	var parts []string
 	for _, key := range keys {
-		if value := strings.TrimSpace(stringValue(m[key])); value != "" {
+		if value := semanticScalarText(m[key]); value != "" {
 			parts = append(parts, key+"="+value)
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+func semanticScalarText(v any) string {
+	switch value := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(value)
+	case bool:
+		if value {
+			return "true"
+		}
+		return "false"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, json.Number:
+		return strings.TrimSpace(fmt.Sprint(value))
+	default:
+		return ""
+	}
 }
 
 func optionalBoolValue(v any) (bool, bool) {
@@ -9316,8 +9416,12 @@ func (a *App) renderBody(width, height int) string {
 		// (the role header would otherwise be empty noise).
 		inlineResults, absorbed := pairToolResults(a.messages)
 		lastModelLabel := ""
+		var prevRendered *gact.Message
 		for i, m := range a.messages {
 			if absorbed[i] {
+				continue
+			}
+			if !shouldRenderConversationMessage(m) {
 				continue
 			}
 			if isModelSwapMarker(m) {
@@ -9336,10 +9440,6 @@ func (a *App) renderBody(width, height int) string {
 				}
 				lastModelLabel = label
 			}
-			var prev *gact.Message
-			if i > 0 {
-				prev = &a.messages[i-1]
-			}
 			// TTTTTTTTT1: pass the selected part ID so the per-block
 			// `▸ ` marker paints on the currently focused part. Only
 			// honoured on the selected message; empty string on every
@@ -9351,8 +9451,8 @@ func (a *App) renderBody(width, height int) string {
 			if len(rows) > 0 {
 				fullLine++
 			}
-			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
-			for _, block := range t.conversationPartHitBlocks(m, prev, width-4, inlineResults[i]) {
+			row := t.renderMessageInContextWithResultsSelected(m, prevRendered, width-4, inlineResults[i], selPartID)
+			for _, block := range t.conversationPartHitBlocks(m, prevRendered, width-4, inlineResults[i]) {
 				block.msgIdx = i
 				block.fullStart += fullLine
 				hitBlocks = append(hitBlocks, block)
@@ -9370,6 +9470,7 @@ func (a *App) renderBody(width, height int) string {
 			}
 			rows = append(rows, row)
 			fullLine += renderedStringLineCount(row)
+			prevRendered = &a.messages[i]
 		}
 		// Pending-turn indicator: when the session is running but the latest
 		// message hasn't produced any visible parts yet (e.g. user just

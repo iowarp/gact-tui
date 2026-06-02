@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
@@ -113,6 +115,36 @@ func TestRenderPartDoesNotBadgeLiveStream(t *testing.T) {
 	}
 }
 
+func TestRenderBodySuppressesEmptyAssistantShells(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{
+			ID:        "m_empty",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+		},
+		{
+			ID:        "m_answer",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+			Parts:     []gact.Part{{ID: "p_answer", Type: gact.PartTypeText, Text: "real answer"}},
+		},
+	}
+
+	out := ansi.Strip(a.View().Content)
+	if strings.Contains(out, "(no parts)") {
+		t.Fatalf("empty assistant shell should be hidden:\n%s", out)
+	}
+	if !strings.Contains(out, "real answer") {
+		t.Fatalf("non-empty answer should still render:\n%s", out)
+	}
+}
+
 func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
@@ -142,6 +174,76 @@ func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
 	}
 	if part.Metadata["semantic_event"] != true || part.Metadata["trace_id"] != "trace_1" {
 		t.Fatalf("semantic metadata = %#v", part.Metadata)
+	}
+}
+
+func TestApplySemanticEventSummarizesCLIOSemanticToolPayload(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "sem_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "tool.call.completed",
+			"status":       "completed",
+			"summary":      "Tool NdpSearchDatasets completed.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"tool": "NdpSearchDatasets"},
+			"subject":      map[string]any{"call_id": "call_1"},
+			"payload": map[string]any{
+				"tool":             "NdpSearchDatasets",
+				"call_id":          "call_1",
+				"ok":               true,
+				"duration_ms":      42.5,
+				"cached":           false,
+				"telemetry_source": "live_observer",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	got := a.messages[0].Parts[0].Thinking
+	for _, want := range []string{
+		"tool.call.completed",
+		"actor: tool=NdpSearchDatasets",
+		"subject: call_id=call_1",
+		"payload: tool=NdpSearchDatasets",
+		"call_id=call_1",
+		"telemetry_source=live_observer",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("semantic summary missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{
+			"event_id":   "sem_direct",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"trace_id":   "trace_1",
+			"event_type": "turn.started",
+			"status":     "running",
+			"summary":    "Turn started.",
+		},
+	})
+
+	if len(a.messages) != 1 || !strings.Contains(a.messages[0].Parts[0].Thinking, "turn.started") {
+		t.Fatalf("direct semantic payload not reduced: %#v", a.messages)
 	}
 }
 
