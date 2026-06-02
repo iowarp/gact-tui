@@ -61,6 +61,27 @@ func TestWorkspaceSwitcher_CtrlWOpensWithCurrentSelected(t *testing.T) {
 	}
 }
 
+func TestWorkspaceHeaderLabelIncludesCompactRoot(t *testing.T) {
+	short := workspaceHeaderLabelPlain(gact.Workspace{ID: "ws_b", Name: "bravo", RootPath: "/tmp/bravo"})
+	if short != "bravo @ /tmp/bravo" {
+		t.Fatalf("short workspace header = %q", short)
+	}
+
+	long := workspaceHeaderLabelPlain(gact.Workspace{
+		ID:       "ws_demo",
+		Name:     "demo",
+		RootPath: "/home/jcernuda/projects/clio/benchmarks/current",
+	})
+	if long != "demo @ /.../benchmarks/current" {
+		t.Fatalf("long workspace header = %q", long)
+	}
+
+	noRoot := workspaceHeaderLabelPlain(gact.Workspace{ID: "ws_default", Name: "default"})
+	if noRoot != "default" {
+		t.Fatalf("no-root workspace header = %q", noRoot)
+	}
+}
+
 func TestWorkspaceSwitcher_EscClosesWithoutSideEffects(t *testing.T) {
 	a := makeSwitcherApp(t)
 	a.workspaceSwitchOpen = true

@@ -5,6 +5,10 @@ port="${GACT_WORKSPACE_SWITCH_PORT:-41893}"
 backend="http://127.0.0.1:${port}"
 log="${TMPDIR:-/tmp}/gact-semantic-workspace.log"
 
+mkdir -p /tmp/gact-analysis /tmp/gact-visual
+printf 'workspace visual fixture\n' >/tmp/gact-visual/README.md
+printf 'workspace analysis fixture\n' >/tmp/gact-analysis/README.md
+
 .tools/emulator-server \
   -port "$port" \
   -timing fast \

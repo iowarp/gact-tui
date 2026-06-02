@@ -12,11 +12,18 @@ Show
 
 Wait+Screen /CONVERSATION/
 Sleep 1200ms
+Screenshot "visual_loop/screenshots/semantic_workspace_header_root.png"
 
 Ctrl+W
 Sleep 400ms
 Screenshot "visual_loop/screenshots/semantic_workspace_switch.png"
 
+Type "n"
+Sleep 400ms
+Screenshot "visual_loop/screenshots/semantic_workspace_create_form.png"
+
+Escape
+Sleep 100ms
 Escape
 Sleep 200ms
 Ctrl+C

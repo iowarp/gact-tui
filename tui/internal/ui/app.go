@@ -8443,16 +8443,10 @@ func (a *App) headerWorkspaceLabel() string {
 	}
 	for _, w := range a.workspaces {
 		if w.ID == a.wsID {
-			if name := strings.TrimSpace(w.Name); name != "" {
-				return name
-			}
-			return w.ID
+			return workspaceHeaderLabelPlain(w)
 		}
 	}
-	if name := strings.TrimSpace(a.workspaces[0].Name); name != "" {
-		return name
-	}
-	return a.workspaces[0].ID
+	return workspaceHeaderLabelPlain(a.workspaces[0])
 }
 
 func (a *App) headerModelLabel(s gact.Session) string {

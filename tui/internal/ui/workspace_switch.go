@@ -466,6 +466,41 @@ func workspaceLabelPlain(ws gact.Workspace) string {
 	return ws.Name + "  " + ws.ID
 }
 
+func workspaceHeaderLabelPlain(ws gact.Workspace) string {
+	label := strings.TrimSpace(ws.Name)
+	if label == "" {
+		label = strings.TrimSpace(ws.ID)
+	}
+	if label == "" {
+		return ""
+	}
+	root := workspaceHeaderRootPlain(ws.RootPath)
+	if root == "" {
+		return label
+	}
+	return label + " @ " + root
+}
+
+func workspaceHeaderRootPlain(root string) string {
+	root = strings.TrimSpace(strings.ReplaceAll(root, "\\", "/"))
+	if root == "" {
+		return ""
+	}
+	if strings.HasPrefix(root, "~") {
+		return root
+	}
+	trimmed := strings.Trim(root, "/")
+	parts := strings.Split(trimmed, "/")
+	if trimmed == "" || len(parts) <= 3 {
+		return root
+	}
+	prefix := ""
+	if strings.HasPrefix(root, "/") {
+		prefix = "/"
+	}
+	return prefix + ".../" + strings.Join(parts[len(parts)-2:], "/")
+}
+
 func workspaceRootPlain(ws gact.Workspace) string {
 	root := strings.TrimSpace(ws.RootPath)
 	if root == "" {
