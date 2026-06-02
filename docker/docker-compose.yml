@@ -1,0 +1,70 @@
+# =============================================================================
+# CLIO Docker Compose — convenience launcher for the API-only and web stacks.
+#
+# Profiles (nothing starts unless you name a profile):
+#   api  — headless GACT REST API on http://localhost:17800
+#   web  — agent + browser UI on http://localhost:17800
+#
+# Usage (run from this docker/ directory):
+#   docker compose --profile api up -d        # REST API only
+#   docker compose --profile web up -d        # agent + web UI
+#   docker compose --profile web logs -f
+#   docker compose --profile web down         # tear down
+#
+# The clio-tui image is interactive (needs a TTY) and is intentionally NOT a
+# compose service — run it directly:
+#   docker run -it --rm clio-tui
+#
+# LLM provider wiring: copy the env block below or use an env file
+#   (docker compose --profile web --env-file ./clio.env up -d).
+# Without a provider, the agent runs in capability-only mode and chat
+# requests 503 with `agent:unavailable` — this is expected.
+# =============================================================================
+
+services:
+  clio-api:
+    profiles: ["api"]
+    image: clio-api
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.clio-api
+      args:
+        CLIO_REF: ${CLIO_REF:-develop}
+    # Headless REST API. Host 17800 -> container 7777.
+    ports:
+      - "${CLIO_API_PORT:-17800}:7777"
+    environment:
+      # --- Optional LLM provider (uncomment / set via --env-file) ----------
+      # CLIO_LM_PROVIDER: openai          # openai | anthropic | openrouter | argonne
+      # CLIO_LM_MODEL: gpt-4o-mini
+      # CLIO_LM_API_BASE: https://api.openai.com/v1
+      # CLIO_LM_API_KEY: ${CLIO_LM_API_KEY:-}
+      # --- Optional bearer auth on the API ---------------------------------
+      # CLIO_AUTH_TOKEN: ${CLIO_AUTH_TOKEN:-}
+      CLIO_LM_PROVIDER: ${CLIO_LM_PROVIDER:-}
+      CLIO_LM_MODEL: ${CLIO_LM_MODEL:-}
+      CLIO_LM_API_BASE: ${CLIO_LM_API_BASE:-}
+      CLIO_LM_API_KEY: ${CLIO_LM_API_KEY:-}
+      CLIO_AUTH_TOKEN: ${CLIO_AUTH_TOKEN:-}
+    restart: unless-stopped
+
+  clio-web:
+    profiles: ["web"]
+    image: clio-web
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.clio-web
+      args:
+        CLIO_REF: ${CLIO_REF:-develop}
+    # Browser UI + same-origin /v1 proxy. Map host 17800 so the web app's
+    # pure-web splash auto-probe (http://localhost:17800) connects with no
+    # manual step. clio itself stays on container-internal loopback.
+    ports:
+      - "${CLIO_WEB_PORT:-17800}:80"
+    environment:
+      CLIO_LM_PROVIDER: ${CLIO_LM_PROVIDER:-}
+      CLIO_LM_MODEL: ${CLIO_LM_MODEL:-}
+      CLIO_LM_API_BASE: ${CLIO_LM_API_BASE:-}
+      CLIO_LM_API_KEY: ${CLIO_LM_API_KEY:-}
+      CLIO_AUTH_TOKEN: ${CLIO_AUTH_TOKEN:-}
+    restart: unless-stopped
