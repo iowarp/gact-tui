@@ -1526,12 +1526,15 @@ func expertPackDescription(pack gact.ExpertPackDefinition) string {
 }
 
 func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
-	parts := make([]string, 0, 7)
+	parts := make([]string, 0, 10)
 	if blueprint.Version != "" {
 		parts = append(parts, "version: "+blueprint.Version)
 	}
 	if blueprint.RootExpert != "" {
 		parts = append(parts, "root: "+blueprint.RootExpert)
+	}
+	if provenance := agentBlueprintProvenanceLine(blueprint); provenance != "" {
+		parts = append(parts, provenance)
 	}
 	if blueprint.DefinitionPath != "" {
 		parts = append(parts, "definition: "+blueprint.DefinitionPath)
@@ -1669,8 +1672,13 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
 }
 
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
-	parts := make([]string, 0, 5)
-	for _, key := range []string{"transport", "command", "url", "source"} {
+	parts := make([]string, 0, 10)
+	for _, key := range []string{"transport", "command", "url", "source", "trust", "install", "runtime", "verification"} {
+		if value := stringValue(descriptor[key]); value != "" {
+			parts = append(parts, key+": "+value)
+		}
+	}
+	for _, key := range []string{"env_policy", "source_blueprint_id", "server_id"} {
 		if value := stringValue(descriptor[key]); value != "" {
 			parts = append(parts, key+": "+value)
 		}
@@ -1698,6 +1706,7 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 		detailField{"root", blueprint.Root},
 		detailField{"definition", firstNonEmpty(blueprint.DefinitionPath, blueprint.RootPath)},
 	)
+	rows = appendAgentBlueprintProvenanceSection(rows, blueprint)
 	if len(blueprint.ValidationErrors) > 0 {
 		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(blueprint.ValidationErrors, "\n")})
 	}
@@ -1706,8 +1715,8 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 			rows = appendDetailSection(rows, "Defaults", detailField{"", string(payload)})
 		}
 	}
-	if len(blueprint.Metadata) > 0 {
-		if payload, err := json.MarshalIndent(blueprint.Metadata, "", "  "); err == nil {
+	if metadata := agentBlueprintDisplayMetadata(blueprint); len(metadata) > 0 {
+		if payload, err := json.MarshalIndent(metadata, "", "  "); err == nil {
 			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
 		}
 	}
@@ -1715,6 +1724,84 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 		rows = appendDetailSection(rows, "Description", detailField{"", blueprint.Description})
 	}
 	return strings.Join(rows, "\n")
+}
+
+func agentBlueprintInstallMetadata(blueprint gact.AgentBlueprintDefinition) map[string]any {
+	install := mapValue(blueprint.Metadata["install"])
+	if len(install) > 0 {
+		return install
+	}
+	return blueprint.Metadata
+}
+
+func agentBlueprintDisplayMetadata(blueprint gact.AgentBlueprintDefinition) map[string]any {
+	if len(blueprint.Metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(blueprint.Metadata))
+	for key, value := range blueprint.Metadata {
+		if key == "install" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func agentBlueprintProvenanceLine(blueprint gact.AgentBlueprintDefinition) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	parts := make([]string, 0, 5)
+	if kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"])); kind != "" {
+		parts = append(parts, "source: "+kind)
+	}
+	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+		parts = append(parts, "from: "+source)
+	}
+	if ref := stringValue(install["ref"]); ref != "" {
+		parts = append(parts, "ref: "+ref)
+	}
+	if commit := shortHash(stringValue(install["commit"])); commit != "" {
+		parts = append(parts, "commit: "+commit)
+	}
+	if checksum := shortHash(stringValue(install["checksum"])); checksum != "" {
+		parts = append(parts, "checksum: "+checksum)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBlueprintDefinition) []string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	if len(install) == 0 {
+		return rows
+	}
+	fields := []detailField{
+		{"source", firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))},
+		{"source_kind", firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]))},
+		{"ref", stringValue(install["ref"])},
+		{"commit", stringValue(install["commit"])},
+		{"checksum", stringValue(install["checksum"])},
+		{"installed_at", stringValue(install["installed_at"])},
+		{"scope", firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)},
+	}
+	hasValue := false
+	for _, field := range fields {
+		if strings.TrimSpace(field.value) != "" {
+			hasValue = true
+			break
+		}
+	}
+	if !hasValue {
+		return rows
+	}
+	return appendDetailSection(rows, "Source provenance", fields...)
+}
+
+func shortHash(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
 }
 
 func stringListFromAny(value any) []string {

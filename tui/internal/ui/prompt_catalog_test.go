@@ -226,6 +226,37 @@ func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "seismic-market", Title: "Seismic Marketplace", Version: "1.2.0", Scope: "workspace",
+		RootExpert: "orchestrator", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/seismic-agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"commit":       "0123456789abcdef",
+			"checksum":     "abcdef0123456789",
+			"installed_at": "2026-06-02T20:00:00Z",
+			"scope":        "workspace",
+		}},
+	}})
+
+	if len(items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(items))
+	}
+	for _, want := range []string{
+		"source: git",
+		"from: https://example.org/community/seismic-agents.git",
+		"ref: main",
+		"commit: 0123456789ab",
+		"checksum: abcdef012345",
+	} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint provenance desc missing %q: %q", want, items[0].desc)
+		}
+	}
+}
+
 func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	items := expertPackDetailItems(gact.ExpertPackDetail{
 		ExpertPack: gact.ExpertPackDefinition{
@@ -257,10 +288,17 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		AgentBlueprint: gact.AgentBlueprintDefinition{
 			ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
 			RootExpert: "data", Enabled: true, Defaults: map[string]any{"prompt_profile": "heavy"},
+			Metadata: map[string]any{"install": map[string]any{
+				"source":       "/tmp/community-blueprints",
+				"source_kind":  "path",
+				"checksum":     "abcdef0123456789",
+				"installed_at": "2026-06-02T20:00:00Z",
+			}},
 		},
 		MCPDescriptors: []map[string]any{{
 			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
 			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
+			"trust": "community", "install": "manual", "runtime": "stdio", "env_policy": "restricted",
 		}},
 		Agents: []gact.AgentDef{{
 			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
@@ -277,11 +315,24 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
 	}
+	for _, want := range []string{"Source provenance", "source: /tmp/community-blueprints", "source_kind: path", "checksum: abcdef0123456789"} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint summary missing provenance %q:\n%s", want, items[1].desc)
+		}
+	}
+	if strings.Contains(items[1].desc, `"install"`) {
+		t.Fatalf("blueprint install provenance should be structured, not raw metadata JSON:\n%s", items[1].desc)
+	}
 	if items[2].id != "blueprint-action/update" || !items[2].disabled {
 		t.Fatalf("builtin blueprint update action should be visible but disabled: %#v", items[2])
 	}
 	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
 		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
+	}
+	for _, want := range []string{"earthscope-mcp", "trust: community", "install: manual", "runtime: stdio", "env_policy: restricted"} {
+		if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, want) {
+			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[4])
+		}
 	}
 	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
 		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
