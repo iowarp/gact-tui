@@ -316,8 +316,8 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		// Useful but optional.
 		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary CLIO workflow"},
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
-		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIGated, "summary route is capability-gated; current CLIO may not advertise it"},
-		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIGated, "file upload action is capability-gated; enable only when backend advertises it"},
+		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIPartial, "uses CLIO summarize route; display UX still needs release proof"},
+		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action and context merge are surfaced when advertised"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
 		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
 		{"edit_modes", caps.Capabilities.EditModes, capExtra, capUIGated, "decoded; no separate edit-mode switch"},
@@ -355,7 +355,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"x_clio_semantic_trace_detail", caps.Capabilities.XClioSemanticTraceDetail != "", capVendor, capUIFull, "trace detail metadata visible"},
 		{"x_clio_hook_backend", caps.Capabilities.XClioHookBackend != "", capVendor, capUIFull, "hook backend metadata visible"},
 		{"x_clio_hook_events", len(caps.Capabilities.XClioHookEvents) > 0, capVendor, capUIFull, "hook event metadata visible"},
-		{"x_clio_files_content", caps.Capabilities.XClioFilesContent, capVendor, capUIGated, "context preview uses advertised flag or truthful endpoint probe when flag is absent"},
+		{"x_clio_files_content", caps.Capabilities.XClioFilesContent, capVendor, capUIFull, "context file previews render text, binary summaries, and truthful preview errors"},
 		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor, capUIFull, "doctor gaps tab and detail rows"},
 	}
 }

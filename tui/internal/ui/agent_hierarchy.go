@@ -23,6 +23,16 @@ type agentHierarchyRow struct {
 	depth int
 }
 
+type agentHierarchyRuntimeState string
+
+const (
+	agentHierarchyStateNone     agentHierarchyRuntimeState = ""
+	agentHierarchyStateSession  agentHierarchyRuntimeState = "session"
+	agentHierarchyStateObserved agentHierarchyRuntimeState = "observed"
+	agentHierarchyStateActive   agentHierarchyRuntimeState = "active"
+	agentHierarchyStateLive     agentHierarchyRuntimeState = "live"
+)
+
 func loadAgentHierarchyCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -149,10 +159,10 @@ func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget 
 func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected bool) string {
 	t := a.Theme
 	agent := row.agent
-	current := a.selected >= 0 && a.selected < len(a.sessions) && a.sessions[a.selected].Agent.ID == agent.ID
+	runtimeState := a.agentHierarchyRuntimeState(agent.ID)
 	marker := " "
 	nameStyle := t.HintLabel
-	if current {
+	if runtimeState == agentHierarchyStateSession || runtimeState == agentHierarchyStateActive || runtimeState == agentHierarchyStateLive {
 		marker = ">"
 		nameStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 	}
@@ -165,9 +175,13 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 	if row.depth > 0 {
 		branch = "└─ "
 	}
-	meta := firstNonEmpty(agent.Specialization, agent.Source)
+	meta := firstNonEmpty(string(runtimeState), agent.Specialization, agent.Source)
 	if agent.Tier > 0 {
-		meta = fmt.Sprintf("t%d", agent.Tier)
+		metaParts := []string{fmt.Sprintf("t%d", agent.Tier)}
+		if meta != "" {
+			metaParts = append(metaParts, meta)
+		}
+		meta = strings.Join(metaParts, " · ")
 	}
 	contentW := width - 6
 	if contentW < 8 {
@@ -185,6 +199,168 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 		line += " " + metaStyle.Render(meta)
 	}
 	return truncate(line, contentW)
+}
+
+func (a *App) agentHierarchyRuntimeState(agentID string) agentHierarchyRuntimeState {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return agentHierarchyStateNone
+	}
+	best := agentHierarchyStateNone
+	if a.selected >= 0 && a.selected < len(a.sessions) && a.sessions[a.selected].Agent.ID == agentID {
+		best = strongerAgentHierarchyState(best, agentHierarchyStateSession)
+	}
+	for i := len(a.messages) - 1; i >= 0; i-- {
+		msg := a.messages[i]
+		best = strongerAgentHierarchyState(best, agentStateFromRuntimeProvenance(agentID, mapValue(msg.Metadata["runtime_provenance"])))
+		for j := len(msg.Parts) - 1; j >= 0; j-- {
+			best = strongerAgentHierarchyState(best, agentStateFromPart(agentID, msg.Parts[j]))
+			if best == agentHierarchyStateLive {
+				return best
+			}
+		}
+	}
+	return best
+}
+
+func strongerAgentHierarchyState(a, b agentHierarchyRuntimeState) agentHierarchyRuntimeState {
+	if agentHierarchyStateRank(b) > agentHierarchyStateRank(a) {
+		return b
+	}
+	return a
+}
+
+func agentHierarchyStateRank(state agentHierarchyRuntimeState) int {
+	switch state {
+	case agentHierarchyStateLive:
+		return 4
+	case agentHierarchyStateActive:
+		return 3
+	case agentHierarchyStateObserved:
+		return 2
+	case agentHierarchyStateSession:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func agentStateFromPart(agentID string, part gact.Part) agentHierarchyRuntimeState {
+	state := agentHierarchyStateNone
+	if part.Type == gact.PartTypeExpertHandoff {
+		state = strongerAgentHierarchyState(state, agentStateFromRuntimeRow(agentID, part.Metadata))
+	}
+	rawEvent := mapValue(part.Metadata["raw_event"])
+	if len(rawEvent) > 0 {
+		state = strongerAgentHierarchyState(state, agentStateFromSemanticEvent(agentID, rawEvent))
+	}
+	if part.Type == partTypeRuntimeProvenance {
+		state = strongerAgentHierarchyState(state, agentStateFromRuntimeProvenance(agentID, mapValue(part.Metadata["runtime_provenance"])))
+	}
+	return state
+}
+
+func agentStateFromSemanticEvent(agentID string, event map[string]any) agentHierarchyRuntimeState {
+	if len(event) == 0 {
+		return agentHierarchyStateNone
+	}
+	eventType := stringValue(event["event_type"])
+	status := strings.ToLower(stringValue(event["status"]))
+	actor := mapValue(event["actor"])
+	subject := mapValue(event["subject"])
+	payload := mapValue(event["payload"])
+	matchesActor := mapReferencesAgent(actor, agentID)
+	matchesSubject := mapReferencesAgent(subject, agentID)
+	matchesPayload := mapReferencesAgent(payload, agentID)
+	if !matchesActor && !matchesSubject && !matchesPayload {
+		return agentHierarchyStateNone
+	}
+	if strings.HasSuffix(eventType, ".started") || status == "running" {
+		return agentHierarchyStateLive
+	}
+	if eventType == "agent.invocation.completed" || eventType == "llm.response.completed" {
+		if matchesActor || matchesPayload {
+			return agentHierarchyStateActive
+		}
+	}
+	if eventType == "delegation.parent_resumed" || eventType == "delegation.completed" || strings.HasSuffix(eventType, ".completed") {
+		return agentHierarchyStateObserved
+	}
+	return agentHierarchyStateObserved
+}
+
+func agentStateFromRuntimeProvenance(agentID string, rp map[string]any) agentHierarchyRuntimeState {
+	if len(rp) == 0 {
+		return agentHierarchyStateNone
+	}
+	state := agentHierarchyStateNone
+	agent := mapValue(rp["agent"])
+	for _, key := range []string{"active_expert_id", "active_agent_id", "selected_agent_id", "id"} {
+		if stringValue(agent[key]) == agentID {
+			state = strongerAgentHierarchyState(state, agentHierarchyStateActive)
+		}
+	}
+	delegation := mapValue(rp["delegation"])
+	for _, row := range runtimeRowMaps(delegation["events"]) {
+		state = strongerAgentHierarchyState(state, agentStateFromFinalRuntimeRow(agentID, row))
+	}
+	return state
+}
+
+func agentStateFromFinalRuntimeRow(agentID string, row map[string]any) agentHierarchyRuntimeState {
+	if !mapReferencesAgent(row, agentID) {
+		return agentHierarchyStateNone
+	}
+	stage := strings.ToLower(firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["event_type"]),
+		stringValue(row["status"]),
+	))
+	if strings.Contains(stage, "active") {
+		return agentHierarchyStateActive
+	}
+	return agentHierarchyStateObserved
+}
+
+func agentStateFromRuntimeRow(agentID string, row map[string]any) agentHierarchyRuntimeState {
+	if !mapReferencesAgent(row, agentID) {
+		return agentHierarchyStateNone
+	}
+	stage := strings.ToLower(firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["event_type"]),
+		stringValue(row["status"]),
+	))
+	if strings.Contains(stage, "started") || stage == "running" || strings.Contains(stage, "tool.started") {
+		return agentHierarchyStateLive
+	}
+	if strings.Contains(stage, "active") {
+		return agentHierarchyStateActive
+	}
+	return agentHierarchyStateObserved
+}
+
+func mapReferencesAgent(m map[string]any, agentID string) bool {
+	if len(m) == 0 || agentID == "" {
+		return false
+	}
+	for _, key := range []string{
+		"agent_id",
+		"active_agent_id",
+		"active_expert_id",
+		"selected_agent_id",
+		"child_id",
+		"parent_id",
+		"resumed_from",
+		"dispatch_target",
+		"agent",
+		"id",
+	} {
+		if stringValue(m[key]) == agentID {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) sidebarAgentHierarchyRowCount(rowBudget int) int {
