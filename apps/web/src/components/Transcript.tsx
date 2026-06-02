@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
@@ -45,7 +45,22 @@ export interface TranscriptProps {
    * message id; ChatScreen wraps it into a `clio://session/<sid>#<mid>`
    * permalink and writes to the clipboard. */
   onCopyPermalink?: (msg: Message) => void | Promise<void>;
+  /** The scrollable ancestor (ChatScreen's `chat__pane`). Required for
+   * virtual windowing of very large transcripts (1.0 item 6) — without it
+   * (or below the threshold) every message renders, exactly as before. */
+  scrollEl?: HTMLElement;
 }
+
+// ---- Virtual windowing (1.0 item 6) ----
+// Past this many messages only the on-screen slice (+ buffer) renders;
+// spacer divs preserve the scroll geometry so the scrollbar, autoscroll
+// and jump-to-bottom keep working. Below the threshold behavior is
+// byte-identical to the original full render.
+const VIRTUAL_THRESHOLD = 150;
+const VIRTUAL_BUFFER = 10;
+const EST_HEIGHT = 132;
+/** Flex gap between .trx children — included in per-message height. */
+const TRX_GAP = 24;
 
 const ROLE_ICON: Record<string, IconName> = {
   user: 'user',
@@ -698,6 +713,120 @@ function humanTime(iso: string): string {
 }
 
 export function Transcript(props: TranscriptProps) {
+  // ---- Virtual windowing state (1.0 item 6) ----
+  const [scrollTop, setScrollTop] = createSignal(0);
+  const [viewH, setViewH] = createSignal(900);
+  const [measureTick, setMeasureTick] = createSignal(0);
+  /** Measured per-message heights (px, incl. flex gap). Estimates until
+   * a message has actually rendered once. */
+  const measured = new Map<string, number>();
+
+  const virtual = () =>
+    props.messages.length > VIRTUAL_THRESHOLD && !!props.scrollEl;
+
+  // Track the scroll container's position + viewport size.
+  createEffect(() => {
+    const el = props.scrollEl;
+    if (!el) return;
+    const onScroll = () => setScrollTop(el.scrollTop);
+    onScroll();
+    setViewH(el.clientHeight || 900);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => setViewH(el.clientHeight || 900));
+      ro.observe(el);
+    }
+    onCleanup(() => {
+      el.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
+    });
+  });
+
+  const heightOf = (id: string) => measured.get(id) ?? EST_HEIGHT;
+
+  /** Visible [start, end) index range + spacer heights. */
+  const vwindow = createMemo(() => {
+    if (!virtual()) {
+      return { start: 0, end: props.messages.length, padTop: 0, padBottom: 0 };
+    }
+    void measureTick();
+    const msgs = props.messages;
+    const top = scrollTop();
+    const vh = viewH();
+    // First message whose bottom edge crosses the viewport top.
+    let acc = 0;
+    let start = 0;
+    while (start < msgs.length && acc + heightOf(msgs[start]!.id) < top) {
+      acc += heightOf(msgs[start]!.id);
+      start++;
+    }
+    // Fill the viewport (+ overscan) going forward.
+    let end = start;
+    let fill = 0;
+    while (end < msgs.length && fill < vh + 400) {
+      fill += heightOf(msgs[end]!.id);
+      end++;
+    }
+    // Symmetric buffer rows so fast scrolling has content ready.
+    const bStart = Math.max(0, start - VIRTUAL_BUFFER);
+    const bEnd = Math.min(msgs.length, end + VIRTUAL_BUFFER);
+    let padTop = 0;
+    for (let i = 0; i < bStart; i++) padTop += heightOf(msgs[i]!.id);
+    let padBottom = 0;
+    for (let i = bEnd; i < msgs.length; i++) padBottom += heightOf(msgs[i]!.id);
+    return { start: bStart, end: bEnd, padTop, padBottom };
+  });
+
+  const visible = createMemo(() => {
+    const w = vwindow();
+    return virtual() ? props.messages.slice(w.start, w.end) : props.messages;
+  });
+
+  // After every windowed render, measure real heights so the spacer
+  // estimates converge on reality (messages have variable heights).
+  createEffect(() => {
+    if (!virtual()) return;
+    const slice = visible();
+    requestAnimationFrame(() => {
+      let changed = false;
+      for (const m of slice) {
+        const el = document.getElementById(`msg-${m.id}`);
+        if (!el) continue;
+        const h = el.offsetHeight + TRX_GAP;
+        if (h > TRX_GAP && Math.abs((measured.get(m.id) ?? 0) - h) > 1) {
+          measured.set(m.id, h);
+          changed = true;
+        }
+      }
+      if (changed) setMeasureTick((n) => n + 1);
+    });
+  });
+
+  /** Estimated pixel offset of message #idx (for off-window jumps). */
+  function offsetOfIndex(idx: number): number {
+    let sum = 0;
+    for (let i = 0; i < idx && i < props.messages.length; i++) {
+      sum += heightOf(props.messages[i]!.id);
+    }
+    return sum;
+  }
+
+  // Cmd+F navigation across a virtualized transcript: when the focused
+  // match's message is outside the rendered window, scroll the container
+  // to its estimated offset so it mounts — ChatScreen's own effect then
+  // fine-scrolls to the exact <mark> element.
+  createEffect(() => {
+    const key = props.currentMatchKey;
+    if (!key || !virtual()) return;
+    const msgId = key.slice(0, key.lastIndexOf(':'));
+    const idx = props.messages.findIndex((m) => m.id === msgId);
+    if (idx === -1) return;
+    const w = vwindow();
+    if (idx >= w.start && idx < w.end) return;
+    props.scrollEl?.scrollTo({ top: offsetOfIndex(idx), behavior: 'auto' });
+  });
+
   // Permalink navigation. When the URL hash matches a message id
   // (e.g. user pasted a clio://session/<sid>#<mid> URL into the
   // address bar), scroll the matching article into view and flash a
@@ -710,7 +839,19 @@ export function Transcript(props: TranscriptProps) {
     const target =
       hash.startsWith('#msg-') ? hash.slice(1) : `msg-${hash.slice(1)}`;
     const el = document.getElementById(target);
-    if (!el) return;
+    if (!el) {
+      // Virtual mode: the message may exist but sit outside the rendered
+      // window — scroll to its estimated offset so it mounts, then retry.
+      if (virtual()) {
+        const id = target.replace(/^msg-/, '');
+        const idx = props.messages.findIndex((m) => m.id === id);
+        if (idx !== -1) {
+          props.scrollEl?.scrollTo({ top: offsetOfIndex(idx) });
+          setTimeout(jumpToHash, 150);
+        }
+      }
+      return;
+    }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.add('trx-msg--flash');
     setTimeout(() => el.classList.remove('trx-msg--flash'), 1800);
@@ -767,7 +908,7 @@ export function Transcript(props: TranscriptProps) {
     // (polite — queued behind the user's current reading position).
     // aria-busy flags the in-flight turn so AT can defer announcement.
     <div
-      class="trx"
+      class={'trx' + (virtual() ? ' trx--virtual' : '')}
       data-density={props.density}
       data-testid="transcript"
       aria-live="polite"
@@ -784,7 +925,15 @@ export function Transcript(props: TranscriptProps) {
           <div class="skeleton trx__skeleton-bubble trx__skeleton-bubble--assistant" />
         </div>
       </Show>
-      <For each={props.messages}>
+      <Show when={virtual()}>
+        <div
+          class="trx__spacer"
+          style={{ height: `${vwindow().padTop}px` }}
+          aria-hidden="true"
+          data-testid="trx-spacer-top"
+        />
+      </Show>
+      <For each={visible()}>
         {(m) => {
           const target = streamingTarget();
           const partIdx = target?.msgId === m.id ? target.partIdx : -1;
@@ -814,6 +963,14 @@ export function Transcript(props: TranscriptProps) {
           );
         }}
       </For>
+      <Show when={virtual()}>
+        <div
+          class="trx__spacer"
+          style={{ height: `${vwindow().padBottom}px` }}
+          aria-hidden="true"
+          data-testid="trx-spacer-bottom"
+        />
+      </Show>
     </div>
   );
 }

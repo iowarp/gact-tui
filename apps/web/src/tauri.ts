@@ -146,6 +146,46 @@ export async function openSshTunnel(req: TunnelRequest): Promise<TunnelHandle> {
   return invoke<TunnelHandle>('tunnel_open', { request: req });
 }
 
+/** Native menu action ids — must stay in lockstep with the Rust
+ * MENU_SPEC in src-tauri/src/menu.rs (1.0 item 9). */
+export type MenuAction =
+  | 'new-session'
+  | 'import-session'
+  | 'export-session'
+  | 'open-settings'
+  | 'toggle-inspector'
+  | 'toggle-sessions'
+  | 'cycle-density'
+  | 'command-palette'
+  | 'keyboard-shortcuts'
+  | 'fullscreen'
+  | 'help-docs'
+  | 'about';
+
+/**
+ * Subscribe to native window-menu actions (1.0 item 9). The Rust side
+ * emits `clio:menu` with `{action}` for every non-predefined menu item.
+ * Returns an unsubscribe function. Pure-web build: native menus don't
+ * exist, so this is a no-op.
+ */
+export function onMenuAction(handler: (action: MenuAction) => void): () => void {
+  if (!inTauri()) return () => undefined;
+  let unlisten: (() => void) | null = null;
+  let cancelled = false;
+  void import('@tauri-apps/api/event').then(async ({ listen }) => {
+    const un = await listen<{ action: MenuAction }>('clio:menu', (e) => {
+      handler(e.payload.action);
+    });
+    // The subscriber may have cleaned up before listen() resolved.
+    if (cancelled) un();
+    else unlisten = un;
+  });
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}
+
 interface SseBridgeMessage {
   kind: 'open' | 'event' | 'error' | 'closed';
   data?: string;

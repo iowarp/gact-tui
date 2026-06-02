@@ -465,6 +465,18 @@
   background: color-mix(in srgb, var(--color-error) 14%, transparent);
 }
 
+/* Virtual windowing (1.0 item 6): spacers are inert geometry; the
+   entrance animation is suppressed because DOM nodes mount/unmount
+   constantly as the window slides — replaying the rise on every scroll
+   step would shimmer. */
+.trx__spacer {
+  flex-shrink: 0;
+}
+
+.trx--virtual .trx-msg.anim-rise {
+  animation: none;
+}
+
 /* Regenerate variant menu (1.0 item 4) — anchored dropdown under the
    regenerate action with plain / with-notes / with-model entries. */
 .trx-regen {

@@ -26,12 +26,12 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | 3 | Message edit history / "edited" markers (honest design) | PENDING | — |
 | 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
 | 5 | Inspector execution timeline | PENDING | — |
-| 6 | Large-transcript virtualization (1000+ msg proof) | PENDING | — |
+| 6 | Large-transcript virtualization (1000+ msg proof) | **DONE** | VirtualTranscript.test 5/5; LIVE oneturn "(1.0 item 6)" vs :17801 — 1000 imported messages → DOM stays <200 nodes, top/bottom scroll mounts the right rows (`audit/item6-virtual-1000.png` + `item6-virtual-top.png`); 120-msg under-threshold test still full-renders |
 | 7 | Settings import/export | **DONE** | SettingsExport.test 6/6 (roundtrip + credential-exclusion guard); fixture `settings-data-section.png` + `settings-data-exported.png` (suite 34/34); LIVE audit "(1.0 item 7)" vs :17801 — real download → modify → import → values restored (`audit/item7-settings-roundtrip.png`) |
 | 8 | Notification-center search/filter | **DONE** | NotificationCenter.test 7/7; fixture `notification-center{,-search,-filtered}.png` (suite 33/33); LIVE audit "(1.0 item 8)" vs :17801 — real send-failure notification searched + tone-filtered (`audit/item8-notif-search.png`) |
-| 9 | Native window menus (Tauri) | IN-PROGRESS | Rust half DONE: menu.rs (File/Edit/View/Help, `clio:menu` event contract, 12 action-ids), cargo --lib 21/21. **Also fixed: a broken `tauri(test)` dev-dependency (accidentally committed in df48b26) that crashed every cargo test on Windows.** JS listener half pending. |
-| E1 | Transcript code-block line-number gutter | PENDING | — |
-| E2 | hljs lazy-load (pure-web bundle size) | PENDING | — |
+| 9 | Native window menus (Tauri) | **DONE** | Rust: menu.rs + cargo --lib 21/21. JS: menu-actions.ts dispatch + MenuActions.test 3/3 (incl. JS↔Rust contract test reading menu.rs). REAL-APP PROOF: debug exe launched → **OS screenshot shows the native File/Edit/View/Help menu bar on the running app** (`item9-native-menu.png`) → graceful close, zero leaked processes |
+| E1 | Transcript code-block line-number gutter | **DONE** | InlineMarkdown.test 12/12 (gutter numbers, no-gutter on 1-line, copy-without-numbers); refreshed `code-syntax-highlight.png` shows the gutter; fixture suite 36/36 |
+| E2 | hljs lazy-load (pure-web bundle size) | **DONE** | HljsLazy.test 4/4; initial chunk **524→366 kB minified (156→104 kB gzip)**, hljs in its own async chunk; highlighting still asserted in fixture tests (eventually-consistent) |
 | E3 | Restore MCP Reconnect button (capability-gated on #523) | PENDING | — |
 | H | Final hardening + full test sweep (web + desktop + Rust) | PENDING | — |
 
@@ -40,6 +40,32 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Items 6 + 9 + E1 + E2 DONE (one combined landing).**
+  **Item 6 — transcript virtualization:** Transcript.tsx gains estimate-based windowed
+  rendering past 150 messages (scroll-position window + buffer, spacer divs preserve
+  scroll geometry, measured-height refinement, off-window Cmd+F/permalink jump fallback,
+  entrance animation suppressed in virtual mode). Below the threshold behavior is
+  unchanged (the 120-msg W4 test still full-renders). PROOF: VirtualTranscript.test 5/5;
+  LIVE "(1.0 item 6)" vs :17801 — 1000 imported messages → DOM <200 nodes at every scroll
+  position, scroll-to-top mounts msg #0, scroll-to-bottom mounts msg #999
+  (`audit/item6-virtual-1000.png`, `audit/item6-virtual-top.png`); test session deleted after.
+  **Item 9 — native window menus (JS half + real-app proof):** tauri.ts `onMenuAction()`
+  listener + menu-actions.ts dispatch map (12 action-ids routed to the SAME handlers the
+  keybinds use); MenuActions.test 3/3 including a cross-language contract test that reads
+  menu.rs and asserts the id sets match exactly. REAL-APP PROOF: launched the debug
+  clio-desktop.exe (spawn path, real sidecar) → OS-level window screenshot shows the
+  native **File Edit View Help** menu bar above the live app (`item9-native-menu.png`) →
+  graceful close → process set identical to pre-launch (zero leaks).
+  **E1 — code-block line gutter** (background-agent): per-line hljs splitting with a
+  sticky non-selectable gutter (>1-line blocks only); Copy still copies raw source.
+  **E2 — hljs lazy-load** (background-agent): dynamic import → initial web chunk
+  524→366 kB minified (156→104 kB gzip), hljs in its own async chunk; the 500 kB chunk
+  warning is gone. InlineMarkdown.test 12/12, DiffPane.test 8/8, HljsLazy.test 4/4.
+  All gates green: typecheck/lint, web unit 103/103, build, fixture visual 36/36.
+  **Emergent issue (noted for item H):** `pnpm fetch-sidecar` is broken on this box (Go
+  tries to fetch a linux/amd64 toolchain under git-bash); bypassed by calling
+  `tauri build` directly since the launcher binary already exists. Needs a fix or a
+  documented workaround before the next release build.
 - 2026-06-02 **Item 1 DONE — Light theme + Auto mode.** New `src/theme.ts` module (extracted
   from SettingsShell): full 24-token light palette (every design-system color token + new
   override-only tokens for hljs string/number colors and diff add/del tints — those were
