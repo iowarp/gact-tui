@@ -129,6 +129,28 @@ func TestWriteNativeClipboardFallsThroughInstalledUtilities(t *testing.T) {
 	}
 }
 
+func TestWriteNativeClipboardUsesPlatformBridgeUtilities(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		available map[string]bool
+		want      string
+	}{
+		{name: "macos", available: map[string]bool{"pbcopy": true}, want: "pbcopy:payload"},
+		{name: "wsl clip", available: map[string]bool{"clip.exe": true}, want: "clip.exe:payload"},
+		{name: "wsl powershell", available: map[string]bool{"powershell.exe": true}, want: "powershell.exe:payload"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			attempts := withNativeClipboardSpy(t, tc.available, nil)
+			if err := writeNativeClipboard("payload"); err != nil {
+				t.Fatalf("writeNativeClipboard: %v", err)
+			}
+			if got := strings.Join(*attempts, ","); got != tc.want {
+				t.Fatalf("attempts = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestWriteNativeClipboardReportsAllFallbacksWhenUnavailable(t *testing.T) {
 	attempts := withNativeClipboardSpy(t, map[string]bool{
 		"xsel": true,
@@ -140,7 +162,7 @@ func TestWriteNativeClipboardReportsAllFallbacksWhenUnavailable(t *testing.T) {
 	if err == nil {
 		t.Fatal("writeNativeClipboard succeeded unexpectedly")
 	}
-	for _, want := range []string{"xsel", "display unavailable", "atotto/clipboard", "wl-copy", "xclip", "termux-clipboard-set"} {
+	for _, want := range []string{"xsel", "display unavailable", "atotto/clipboard", "wl-copy", "xclip", "pbcopy", "clip.exe", "powershell.exe", "termux-clipboard-set"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("error missing %q:\n%v", want, err)
 		}

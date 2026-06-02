@@ -66,6 +66,9 @@ func nativeClipboardCommands() []clipboardCommand {
 		{name: "wl-copy"},
 		{name: "xclip", args: []string{"-selection", "clipboard"}},
 		{name: "xsel", args: []string{"--clipboard", "--input"}},
+		{name: "pbcopy"},
+		{name: "clip.exe"},
+		{name: "powershell.exe", args: []string{"-NoProfile", "-Command", "$input | Set-Clipboard"}},
 		{name: "termux-clipboard-set"},
 	}
 }
@@ -73,7 +76,7 @@ func nativeClipboardCommands() []clipboardCommand {
 func writeNativeClipboard(text string) error {
 	var tried []string
 	var failures []string
-	fallbackNames := "wl-copy, xclip, xsel, termux-clipboard-set, atotto/clipboard"
+	fallbackNames := "wl-copy, xclip, xsel, pbcopy, clip.exe, powershell.exe, termux-clipboard-set, atotto/clipboard"
 	for _, cmd := range nativeClipboardCommands() {
 		path, err := clipboardLookPath(cmd.name)
 		if err != nil {
