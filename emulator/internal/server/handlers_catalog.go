@@ -6,6 +6,7 @@ package server
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
@@ -1812,8 +1814,54 @@ func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 		req.Mode = "read"
 	}
 	cf := gact.ContextFile{Path: req.Path, Mode: req.Mode, AddedAt: time.Now().UTC().Format(time.RFC3339)}
+	if info, err := os.Stat(req.Path); err == nil && info.Mode().IsRegular() {
+		cf.Size = info.Size()
+		cf.LastModified = info.ModTime().UTC().Format(time.RFC3339)
+		cf.Language = contextFileLanguage(req.Path)
+	}
 	s.contextFiles.add(id, cf)
 	writeJSON(w, http.StatusCreated, cf)
+}
+
+func (s *Server) handleContextFileContent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	rawPath := strings.TrimSpace(r.URL.Query().Get("path"))
+	if rawPath == "" {
+		writeError(w, http.StatusBadRequest, "invalid_query", "path required")
+		return
+	}
+	var cf gact.ContextFile
+	found := false
+	for _, candidate := range s.contextFiles.get(id) {
+		if candidate.Path == rawPath {
+			cf = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+		return
+	}
+	data, err := os.ReadFile(cf.Path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "file_not_found", "context file not found on disk")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"file": gact.ContextFileContent{
+			Path:        cf.Path,
+			DisplayPath: cf.Path,
+			Size:        int64(len(data)),
+			MediaType:   contextFileMediaType(cf.Path, data),
+			Encoding:    "base64",
+			Data:        base64.StdEncoding.EncodeToString(data),
+		},
+	})
 }
 
 func (s *Server) handleDeleteContextFile(w http.ResponseWriter, r *http.Request) {
@@ -1840,6 +1888,50 @@ func (s *Server) handlePatchContextFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+}
+
+func contextFileLanguage(filePath string) string {
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".md", ".markdown":
+		return "markdown"
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".txt", ".log":
+		return "text"
+	default:
+		return ""
+	}
+}
+
+func contextFileMediaType(filePath string, data []byte) string {
+	if len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n" {
+		return "image/png"
+	}
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".md", ".markdown":
+		return "text/markdown; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".yaml", ".yml":
+		return "application/yaml; charset=utf-8"
+	case ".go":
+		return "text/x-go; charset=utf-8"
+	case ".py":
+		return "text/x-python; charset=utf-8"
+	case ".txt", ".log":
+		return "text/plain; charset=utf-8"
+	default:
+		if utf8.Valid(data) {
+			return "text/plain; charset=utf-8"
+		}
+		return "application/octet-stream"
+	}
 }
 
 // Workspace files: minimal listing of a tree on disk. Returns 200 with empty

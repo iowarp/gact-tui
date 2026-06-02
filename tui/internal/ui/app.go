@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -863,6 +864,15 @@ func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
+func loadContextFileContentCmd(c *client.Client, sessionID, path string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		content, err := c.ContextFileContent(ctx, sessionID, path)
+		return contextFileContentLoadedMsg{sessionID: sessionID, path: path, content: content, err: err}
+	}
+}
+
 // loadSessionTasksCmd fetches §6.18 tasks for a session. Used by
 // UUU1 to render a `(N tasks)` badge on the sidebar row. Failures
 // are silent — tasks are optional capability and we don't want to
@@ -1641,6 +1651,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.contextFiles = m.files
 			a.clampContextFileSelection()
 		}
+		return a, nil
+
+	case contextFileContentLoadedMsg:
+		if a.currentSessionID() != m.sessionID {
+			return a, nil
+		}
+		if !a.detailViewOpen || a.detailView == nil || a.detailView.messageID != "context" || a.detailView.partID != m.path {
+			return a, nil
+		}
+		cf, ok := a.contextFileByPath(m.path)
+		if !ok {
+			return a, nil
+		}
+		a.detailView.fullText = strings.Join(a.contextFileDetailRowsWithContent(cf, m.content, m.err), "\n")
+		a.detailScroll = 0
 		return a, nil
 
 	case postFailedMsg:
@@ -4248,7 +4273,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionContext {
 			a.clampContextFileSelection()
 			if a.contextFileSel >= 0 && a.contextFileSel < len(a.contextFiles) {
-				a.openContextFileDetail(a.contextFiles[a.contextFileSel])
+				return a, a.openContextFileDetail(a.contextFiles[a.contextFileSel])
 			}
 			return a, nil
 		}
@@ -4935,8 +4960,7 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 			app.sidebarSectionFocus = sidebarSectionContext
 			app.sidebarSectionCursor = true
 			app.contextFileSel = index
-			app.openContextFileDetail(cf)
-			return nil
+			return app.openContextFileDetail(cf)
 		},
 		func(app *App) tea.Cmd {
 			return app.openContextActionsForIndex(index)
@@ -4982,7 +5006,7 @@ func (a *App) sidebarContentRect(row int, width int) mouseRect {
 	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
 }
 
-func (a *App) openContextFileDetail(cf gact.ContextFile) {
+func (a *App) openContextFileDetail(cf gact.ContextFile) tea.Cmd {
 	rows := a.contextFileDetailRows(cf)
 	a.detailView = &bulkyPartRef{
 		messageID: "context",
@@ -4992,9 +5016,17 @@ func (a *App) openContextFileDetail(cf gact.ContextFile) {
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+	if a.caps.Capabilities.XClioFilesContent && a.currentSessionID() != "" {
+		return loadContextFileContentCmd(a.c, a.currentSessionID(), cf.Path)
+	}
+	return nil
 }
 
 func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
+	return a.contextFileDetailRowsWithContent(cf, gact.ContextFileContent{}, nil)
+}
+
+func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
 	fileFields := []detailField{
 		{"path", cf.Path},
 		{"mode", contextModeDescription(cf.Mode)},
@@ -5012,6 +5044,7 @@ func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 		fileFields = append(fileFields, detailField{"last_modified", cf.LastModified})
 	}
 	rows := appendDetailSection(nil, "File", fileFields...)
+	rows = a.appendContextFilePreviewRows(rows, cf, content, contentErr)
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		sessionFields := []detailField{
@@ -5042,6 +5075,89 @@ func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
 	return rows
+}
+
+func (a *App) appendContextFilePreviewRows(rows []string, cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
+	if !a.caps.Capabilities.XClioFilesContent {
+		return appendDetailSection(rows, "Content",
+			detailField{"preview", "unavailable (backend does not advertise x_clio_files_content)"},
+		)
+	}
+	if contentErr != nil {
+		return appendDetailSection(rows, "Content",
+			detailField{"preview_error", contentErr.Error()},
+		)
+	}
+	if strings.TrimSpace(content.Data) == "" {
+		return appendDetailSection(rows, "Content",
+			detailField{"preview", "loading..."},
+		)
+	}
+	path := firstNonEmpty(content.Path, cf.Path)
+	displayPath := firstNonEmpty(content.DisplayPath, path)
+	contentFields := []detailField{
+		{"path", path},
+		{"display_path", displayPath},
+	}
+	if content.Size > 0 {
+		contentFields = append(contentFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(content.Size), content.Size)})
+	}
+	if strings.TrimSpace(content.MediaType) != "" {
+		contentFields = append(contentFields, detailField{"media_type", content.MediaType})
+	}
+	if strings.TrimSpace(content.Encoding) != "" {
+		contentFields = append(contentFields, detailField{"encoding", content.Encoding})
+	}
+	if !contextFileContentIsText(content.MediaType) {
+		contentFields = append(contentFields, detailField{"preview", "binary content not rendered in terminal detail"})
+		return appendDetailSection(rows, "Content", contentFields...)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(content.Data)
+	if err != nil {
+		contentFields = append(contentFields, detailField{"preview_error", "could not decode base64 content: " + err.Error()})
+		return appendDetailSection(rows, "Content", contentFields...)
+	}
+	text := strings.ReplaceAll(string(decoded), "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	const maxPreviewRunes = 12000
+	truncated := false
+	if len([]rune(text)) > maxPreviewRunes {
+		runes := []rune(text)
+		text = string(runes[:maxPreviewRunes])
+		truncated = true
+	}
+	contentFields = append(contentFields, detailField{"preview", text})
+	if truncated {
+		contentFields = append(contentFields, detailField{"truncated", fmt.Sprintf("shown first %d characters", maxPreviewRunes)})
+	}
+	return appendDetailSection(rows, "Content", contentFields...)
+}
+
+func contextFileContentIsText(mediaType string) bool {
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if strings.HasPrefix(mediaType, "text/") || strings.Contains(mediaType, "charset=utf-8") {
+		return true
+	}
+	for _, prefix := range []string{
+		"application/json",
+		"application/xml",
+		"application/yaml",
+		"application/toml",
+	} {
+		if strings.HasPrefix(mediaType, prefix) {
+			return true
+		}
+	}
+	return mediaType == ""
+}
+
+func (a *App) contextFileByPath(path string) (gact.ContextFile, bool) {
+	for _, cf := range a.contextFiles {
+		if cf.Path == path {
+			return cf, true
+		}
+	}
+	return gact.ContextFile{}, false
 }
 
 func contextModeDescription(mode string) string {
@@ -10923,6 +11039,13 @@ type reconnectMsg struct {
 type contextFilesLoadedMsg struct {
 	sessionID string
 	files     []gact.ContextFile
+}
+
+type contextFileContentLoadedMsg struct {
+	sessionID string
+	path      string
+	content   gact.ContextFileContent
+	err       error
 }
 
 type voiceTranscribedMsg struct {

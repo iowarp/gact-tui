@@ -960,6 +960,16 @@ func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) 
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
 }
 
+func (c *Client) ContextFileContent(ctx context.Context, sessionID, path string) (gact.ContextFileContent, error) {
+	var out struct {
+		File gact.ContextFileContent `json:"file"`
+	}
+	q := url.Values{}
+	q.Set("path", path)
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/context/files/content?"+q.Encode(), nil, &out)
+	return out.File, err
+}
+
 // ListMcpServers returns all MCP servers known to the backend. Powers
 // the /mcp slash-command modal.
 func (c *Client) ListMcpServers(ctx context.Context) ([]gact.McpServer, error) {

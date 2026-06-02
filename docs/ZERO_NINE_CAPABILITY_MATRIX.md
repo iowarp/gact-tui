@@ -62,7 +62,7 @@ Support classes:
 | CLIO semantic trace detail | `x_clio_semantic_trace_detail` | full | Trace detail metadata is visible in Doctor. |
 | CLIO hook backend | `x_clio_hook_backend` | full | Hook backend metadata is visible in Doctor. |
 | CLIO hook events | `x_clio_hook_events` | full | Hook event metadata is visible in Doctor. |
-| CLIO context file content | `x_clio_files_content` | partial | Capability is decoded; context/file preview drill-down remains tracked by sidebar/context hardening. |
+| CLIO context file content | `x_clio_files_content` | full | Context-file bytes are fetched from CLIO and rendered as text previews or binary-safe metadata in the detail view. |
 | CLIO capability gaps | `x_clio_capability_gaps` | full | Doctor gaps tab and row detail are surfaced. |
 
 Release rule: a new decoded capability cannot be added without assigning one of these support classes in `doctorCapabilityRows`; `TestDoctorCapabilityRowsCoverDecodedCapabilityFlags` enforces row coverage.

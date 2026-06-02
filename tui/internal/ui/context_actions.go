@@ -47,8 +47,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 			key:         "Enter",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
-				app.openContextFileDetail(cf)
-				return nil
+				return app.openContextFileDetail(cf)
 			},
 		},
 		{

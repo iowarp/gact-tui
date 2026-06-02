@@ -30,13 +30,13 @@ done
 
 curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
-  -d '{"path":"docs/ARC_MEMORY_LAYER.md","mode":"read"}' >/dev/null
+  -d '{"path":"visual_loop/README.md","mode":"read"}' >/dev/null
 curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
-  -d '{"path":"src/clio_agent/gact/app.py","mode":"edit"}' >/dev/null
+  -d '{"path":"docs/ZERO_NINE_CAPABILITY_MATRIX.md","mode":"edit"}' >/dev/null
 curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
-  -d '{"path":"visual_loop/README.md","mode":"pin"}' >/dev/null
+  -d '{"path":"tui/internal/ui/app.go","mode":"pin"}' >/dev/null
 
 env GACT_ATTACH_SESSION_ID="$session_id" ./tui/gact --backend "$backend" --no-intro &
 tui_pid=$!

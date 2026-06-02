@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/base64"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -287,10 +289,15 @@ func TestMetrics(t *testing.T) {
 func TestContextFiles(t *testing.T) {
 	srv, _, sid := newServerWithSession(t)
 	h := srv.Handler()
+	dir := t.TempDir()
+	readme := filepath.Join(dir, "readme.md")
+	if err := os.WriteFile(readme, []byte("# Readme\n\nPreview text.\n"), 0o600); err != nil {
+		t.Fatalf("write context fixture: %v", err)
+	}
 
 	// add
 	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
-		Path: "main.go", Mode: "edit",
+		Path: readme, Mode: "edit",
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("add: %d", rec.Code)
@@ -302,13 +309,29 @@ func TestContextFiles(t *testing.T) {
 		Files []gact.ContextFile `json:"files"`
 	}
 	mustDecode(t, rec2, &listBody)
-	if len(listBody.Files) != 1 || listBody.Files[0].Path != "main.go" {
+	if len(listBody.Files) != 1 || listBody.Files[0].Path != readme || listBody.Files[0].Size == 0 || listBody.Files[0].Language != "markdown" {
 		t.Errorf("list = %+v", listBody)
+	}
+
+	recContent := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/context/files/content?path="+url.QueryEscape(readme), nil)
+	if recContent.Code != http.StatusOK {
+		t.Fatalf("content: %d", recContent.Code)
+	}
+	var contentBody struct {
+		File gact.ContextFileContent `json:"file"`
+	}
+	mustDecode(t, recContent, &contentBody)
+	decoded, err := base64.StdEncoding.DecodeString(contentBody.File.Data)
+	if err != nil {
+		t.Fatalf("decode content: %v", err)
+	}
+	if string(decoded) != "# Readme\n\nPreview text.\n" || contentBody.File.MediaType != "text/markdown; charset=utf-8" {
+		t.Fatalf("content = %+v decoded=%q", contentBody.File, string(decoded))
 	}
 
 	// patch
 	rec3 := do(t, h, http.MethodPatch, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
-		Path: "main.go", Mode: "read",
+		Path: readme, Mode: "read",
 	})
 	if rec3.Code != http.StatusOK {
 		t.Errorf("patch: %d", rec3.Code)
@@ -322,7 +345,7 @@ func TestContextFiles(t *testing.T) {
 	}
 
 	// delete
-	rec4 := do(t, h, http.MethodDelete, "/v1/sessions/"+sid+"/context/files", contextFileRequest{Path: "main.go"})
+	rec4 := do(t, h, http.MethodDelete, "/v1/sessions/"+sid+"/context/files", contextFileRequest{Path: readme})
 	if rec4.Code != http.StatusNoContent {
 		t.Errorf("delete: %d", rec4.Code)
 	}

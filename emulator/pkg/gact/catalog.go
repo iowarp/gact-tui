@@ -568,6 +568,15 @@ type ContextFile struct {
 	Language     string `json:"language,omitempty"`
 }
 
+type ContextFileContent struct {
+	Path        string `json:"path"`
+	DisplayPath string `json:"display_path,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	MediaType   string `json:"media_type,omitempty"`
+	Encoding    string `json:"encoding,omitempty"`
+	Data        string `json:"data,omitempty"`
+}
+
 // FileEntry is one entry from a directory listing.
 type FileEntry struct {
 	Path     string `json:"path"`

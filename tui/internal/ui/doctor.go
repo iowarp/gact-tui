@@ -355,7 +355,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"x_clio_semantic_trace_detail", caps.Capabilities.XClioSemanticTraceDetail != "", capVendor, capUIFull, "trace detail metadata visible"},
 		{"x_clio_hook_backend", caps.Capabilities.XClioHookBackend != "", capVendor, capUIFull, "hook backend metadata visible"},
 		{"x_clio_hook_events", len(caps.Capabilities.XClioHookEvents) > 0, capVendor, capUIFull, "hook event metadata visible"},
-		{"x_clio_files_content", caps.Capabilities.XClioFilesContent, capVendor, capUIPartial, "context-file preview capability decoded; sidebar/detail UX needs release proof"},
+		{"x_clio_files_content", caps.Capabilities.XClioFilesContent, capVendor, capUIFull, "context-file content preview in detail view"},
 		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor, capUIFull, "doctor gaps tab and detail rows"},
 	}
 }
