@@ -231,6 +231,25 @@ visual-loop changes cannot be hidden behind a stale CLIO launcher. Then run the
 VHS tapes under `visual_loop/tapes/` and inspect the resulting PNGs under
 `visual_loop/screenshots/`.
 
+### Temporal live-observability gate
+
+Screenshots alone can miss the worst streaming regression: the TUI appears
+frozen during a long CLIO turn, then the final settled transcript looks fine.
+Pair live or benchmark captures with the JSONL temporal assertion:
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.jsonl \
+  --report visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.temporal.md
+```
+
+Default `benchmark-hierarchy` mode requires this order before final completion:
+route/delegate, child expert active, tool started, tool completed, parent
+resumed. Use `--mode basic-tools` only for synthetic smoke cases that do not
+exercise hierarchy. A strict failure with a basic-tools pass means live tool
+visibility exists, but the benchmark hierarchy/parent-resume semantics are not
+yet proven.
+
 Fresh ALCF corpus from 2026-05-25:
 
 - Backend used for capture: `http://127.0.0.1:41918`
