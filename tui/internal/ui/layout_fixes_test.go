@@ -292,6 +292,34 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 	}
 }
 
+func TestPaste_CtrlPExpansionGrowsInputPane(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3\nline 4\nline 5"})
+	a = out.(*App)
+	if !strings.Contains(a.input.Value(), "[pasted content") {
+		t.Fatalf("setup: paste did not compress: %q", a.input.Value())
+	}
+
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	a = out.(*App)
+
+	rendered := renderAtSize(a, 110, 30)
+	if got := lipgloss.Height(rendered); got > 30 {
+		t.Fatalf("expanded paste pushed view over viewport: %d > 30", got)
+	}
+	plain := ansi.Strip(rendered)
+	if strings.Contains(plain, "[pasted content") {
+		t.Fatalf("expanded paste still shows placeholder:\n%s", plain)
+	}
+	if !strings.Contains(plain, "line 5") {
+		t.Fatalf("expanded paste last line missing; input pane did not grow:\n%s", plain)
+	}
+}
+
 // TestFilePicker_OpensOnAtAndInserts verifies M6: typing `@` at the
 // start of input opens the picker, Enter on a loaded entry inserts
 // `@path` into the buffer and records a send-time context attachment.
