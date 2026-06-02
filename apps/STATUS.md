@@ -1,10 +1,38 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-06-02 (clio #534 support run complete)
-**Branch:** `feat/apps-harness`
-**Phase:** 1.0-ready + clio #534 surface support
+**Last updated:** 2026-06-02 (distribution + release-0.7 run)
+**Branch:** `feat/distribution-and-release` (PR #74 / feat-apps-harness already merged into develop @ `8d7d9a3`)
+**Phase:** distribution engineering + release-pipeline test (0.7) → then 0.9 lab release after clio verification
 
-## CLIO #534 SUPPORT BOARD (2026-06-02 — newest run, READ THIS FIRST)
+## DISTRIBUTION + RELEASE 0.7 BOARD (2026-06-02 — newest run, READ THIS FIRST)
+
+The user's direction: "lets do proper not easy" — a real distribution story for
+the whole stack, every channel, then exercise the actual release pipeline with a
+test tag. The install-script path stays supported; everything below is ADDITIVE.
+
+| # | Item | State | Proof |
+|---|------|-------|-------|
+| D1 | **Docker: clio-api** — standalone GACT REST API container (host TUI/desktop connect to it) | **DONE (local)** | `docker/Dockerfile.clio-api`; built 1.03 GB; live container test: /v1/capabilities 200 + POST /sessions + healthcheck healthy |
+| D2 | **Docker: clio-web** — clio + web UI in one container (nginx + SSE-safe /v1 proxy) | **DONE (local)** | `docker/Dockerfile.clio-web`; built 1.05 GB; live test: index.html served, capabilities through proxy, session create, SSE `server.connected` streamed through nginx |
+| D3 | **Docker: clio-tui** — clio + Bubbletea TUI interactive container | **DONE (local)** | `docker/Dockerfile.clio-tui`; built 1.06 GB; boot smoke: clio up + `gact new` created a session inside the container |
+| D4 | **Docker compose + ghcr publishing** | **DONE (local)** | `docker/docker-compose.yml` (api/web profiles, up/down clean); `.github/workflows/docker.yml` publishes ghcr.io/iowarp/clio-{api,web,tui} on release tags |
+| D5 | **Desktop "one-swoop" first launch** — auto-installs clio with streamed progress instead of a dead-end error card; manual card stays as fallback | **DONE (local)** | supervisor.rs `needs_install` status + `install_clio` command (streams `clio:install-progress`); splash auto-install view; cargo 27/27, web 153/153, fixture PNG `first-run-install.png` |
+| D6 | **Desktop bundled variant** — clio runtime (329 MB, relocatable uv venv) embedded as Tauri resources; launcher resolves bundled-first | **DONE (local)** | `build-clio-runtime.{ps1,sh,mjs}` + `tauri.bundled.conf.json` + launcher priority-0 + 8 Go tests; end-to-end proof: launcher → bundled runtime → clio boots → capabilities 200 |
+| D7 | **Launcher hygiene** — hardcoded dev-machine path removed from shipped binaries (replaced by `CLIO_DEV_REPO` env) | **DONE** | `main_test.go` TestCandidatePathsNoHardcodedDevPath |
+| D8 | **CI release matrix** — lite + bundled × 4 OS targets (8 installer jobs) + docker images + pure-web zip | **DONE (needs tag to prove)** | apps.yml release matrix `variant: [lite, bundled]`; proven by the 0.7 tag run |
+| D9 | **TUI live test vs real clio** | **DONE** | Protocol-level live proof via the gact CLI vs :17803 (develop @ `176518d` + ALCF): `ping` ok → `new` → `ask` returned a real assistant reply ("Paris is the capital of France.", session `sess_b92fe41b38dd`) → `log` dumps both messages. Same client stack the interactive TUI uses; interactive rendering covered by the TUI's own teatest suite (all green, 271s). VHS visual recording is environment-blocked on Windows (vhs cannot spawn ttyd); the tape `visual_loop/tapes/release_07_tui_live_turn.tape` is committed for Linux/CI use. |
+| D10 | **Release semantics test** — develop→main PR, delete stale v0.9.0 release+tag (user-authorized), tag `clio-desktop-v0.7.0`, verify all pipeline artifacts | IN PROGRESS | v0.9.0 release+tag DELETED ✓; PR #115 (feat/distribution-and-release → develop) open; remaining: CI green → merge → develop→main PR → tag → pipeline verification |
+
+Versioning decision (user): delete the stale GitHub release `clio-desktop-v0.9.0`
+(2026-05-28, obsolete) + its tag, then the sequence is 0.7 (pipeline test) → 0.9
+(lab demo / bug-hunt build) → 1.0 (public).
+
+### Session log — distribution run (append-only)
+- 2026-06-02 Three parallel background agents built D1-D8 (Docker / auto-install /
+  bundled variant); all gates green on the combined tree (pnpm 3×, cargo 27, go 8,
+  fixture visual 39/39). TUI test + release steps run in the main session.
+
+## PREVIOUS RUN — CLIO #534 SUPPORT BOARD (2026-06-02)
 
 The user asked whether the desktop supports clio's newly-merged feature set
 (develop commit `6e064d9`, PR #534: semantic execution event spine + runtime/
