@@ -55,6 +55,13 @@ const (
 	envDevRepo         = "CLIO_DEV_REPO"
 	envBearer          = "CLIO_AUTH_TOKEN"
 	envGactContractVer = "CLIO_GACT_CONTRACT"
+	// envBundledDir is set by the Tauri supervisor (lib.rs setup) to the
+	// app's REAL resource dir + /clio-runtime, resolved via Tauri's own
+	// path API. This makes the bundled runtime discoverable regardless of
+	// the platform's resource layout (Linux deb/rpm put resources under
+	// /usr/lib/<app>/ while the launcher sidecar lands in /usr/bin/ — a
+	// layout the exe-relative probes below cannot reach).
+	envBundledDir = "CLIO_BUNDLED_RUNTIME_DIR"
 )
 
 // gactBinName is the clio-agent-gact executable's basename for the
@@ -177,7 +184,17 @@ func devRepoCandidate() string {
 func candidatePaths(dir string) []string {
 	var paths []string
 
-	// Priority 0: the bundled runtime shipped next to the launcher.
+	// Priority 0a: the bundled runtime dir handed to us by the Tauri
+	// supervisor (resolved through Tauri's resource-dir API — correct on
+	// every platform/installer layout, including Linux /usr/lib/<app>/).
+	if bundled := os.Getenv(envBundledDir); bundled != "" {
+		for _, sd := range []string{venvScriptDir(), "Scripts", "bin"} {
+			paths = append(paths, filepath.Join(bundled, ".venv", sd, gactBinName()))
+		}
+	}
+
+	// Priority 0b: the bundled runtime shipped next to the launcher
+	// (Windows installers + macOS .app, where exe-relative probing works).
 	if dir != "" {
 		paths = append(paths, bundledCandidates(dir)...)
 	}
