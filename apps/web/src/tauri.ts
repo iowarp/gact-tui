@@ -24,6 +24,11 @@ export interface BackendHandle {
 export type BackendStatus =
   | { kind: 'starting' }
   | { kind: 'ready' }
+  // First run: the bundled launcher resolved no clio-agent-gact (exit 2).
+  // The Splash reacts by auto-running `installClio()` (one swoop) rather
+  // than showing the manual copy-paste error card. Only ever reported
+  // inside the Tauri shell — the pure-web path can't produce it.
+  | { kind: 'needs_install' }
   | { kind: 'error'; detail: string };
 
 /**
@@ -191,6 +196,80 @@ export function onMenuAction(handler: (action: MenuAction) => void): () => void 
   return () => {
     cancelled = true;
     unlisten?.();
+  };
+}
+
+/**
+ * Kick off the first-run "one swoop" clio-agent install. Runs the upstream
+ * installer in the Rust supervisor and streams progress back over the
+ * `clio:install-*` events (subscribe via {@link onInstallProgress}).
+ *
+ * Resolves as soon as the worker thread is launched — NOT when the install
+ * finishes. Completion is signalled by `clio:install-done` /
+ * `clio:install-failed`, so callers must subscribe BEFORE invoking.
+ *
+ * Pure-web build: no Tauri, so this is a no-op (the `needs_install` status
+ * can never occur outside the shell).
+ */
+export async function installClio(): Promise<void> {
+  if (!inTauri()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('install_clio');
+}
+
+/** Payload of `clio:install-failed`. `code` is the installer's exit code, or
+ * null when it could not be launched at all. `tail` is the last ~30 lines of
+ * combined stdout/stderr. */
+export interface InstallFailure {
+  code: number | null;
+  tail: string;
+}
+
+/** Handlers for the streamed first-run install. */
+export interface InstallProgressHandlers {
+  /** One stdout/stderr line from the installer. */
+  onLine: (line: string) => void;
+  /** Installer exited 0 — the Splash should re-poll `get_backend`. */
+  onDone: () => void;
+  /** Installer exited non-zero (or couldn't launch) — fall back to the
+   * manual error card. */
+  onFailed: (failure: InstallFailure) => void;
+}
+
+/**
+ * Subscribe to the streamed first-run install events emitted by the Rust
+ * `install_clio` command. Returns an unsubscribe function that detaches all
+ * three listeners. Mirrors {@link onMenuAction}'s pattern (listen on a
+ * dynamic import, swallow if cancelled before the listener resolved).
+ *
+ * Pure-web build: no Tauri events, so this is a no-op returning a no-op
+ * disposer.
+ */
+export function onInstallProgress(handlers: InstallProgressHandlers): () => void {
+  if (!inTauri()) return () => undefined;
+  const unlisteners: Array<() => void> = [];
+  let cancelled = false;
+  const attach = (un: () => void) => {
+    if (cancelled) un();
+    else unlisteners.push(un);
+  };
+  void import('@tauri-apps/api/event').then(async ({ listen }) => {
+    attach(
+      await listen<{ line: string }>('clio:install-progress', (e) => {
+        handlers.onLine(e.payload.line);
+      }),
+    );
+    attach(await listen('clio:install-done', () => handlers.onDone()));
+    attach(
+      await listen<InstallFailure>('clio:install-failed', (e) => {
+        handlers.onFailed(e.payload);
+      }),
+    );
+  });
+  return () => {
+    cancelled = true;
+    for (const un of unlisteners) un();
+    unlisteners.length = 0;
   };
 }
 

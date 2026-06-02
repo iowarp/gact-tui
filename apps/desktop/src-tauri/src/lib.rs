@@ -49,6 +49,37 @@ fn get_backend(state: tauri::State<'_, Mutex<Supervisor>>) -> BackendHandle {
         .snapshot()
 }
 
+/// First-run "one swoop" install. When `get_backend` reports
+/// `{kind: "needs_install"}` the frontend Splash invokes this command,
+/// which runs the upstream clio-agent installer and streams progress back
+/// as Tauri events:
+///
+/// - `clio:install-progress` `{line: string}` — one stdout/stderr line.
+/// - `clio:install-done` — installer exited 0; the frontend re-polls
+///   `get_backend` (the supervisor resolves clio at the conventional
+///   install prefix on the next start).
+/// - `clio:install-failed` `{code: number|null, tail: string}` — non-zero
+///   exit; the frontend falls back to the manual error card + Retry.
+///
+/// Runs on a worker thread so the IPC call returns immediately; all
+/// outcomes are reported via the events above, not the return value.
+#[tauri::command]
+fn install_clio(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let restart_app = app.clone();
+        supervisor::install_clio(app, move || {
+            // Installer succeeded — re-kick the supervisor so the freshly
+            // installed clio-agent-gact resolves and the frontend's
+            // get_backend re-poll sees Starting → Ready.
+            if let Some(state) = restart_app.try_state::<Mutex<Supervisor>>() {
+                if let Ok(s) = state.lock() {
+                    s.restart();
+                }
+            }
+        });
+    });
+}
+
 /// Open an SSH tunnel for an `ssh-tunnel` backend entry. Returns the
 /// local URL the frontend should point its Client at, or an error code
 /// the AddRemote wizard can route to a user-actionable message.
@@ -182,6 +213,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             harness_info,
             get_backend,
+            install_clio,
             tunnel_open,
             gact_http,
             sse_bridge::gact_sse_open,

@@ -73,6 +73,16 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('starting-clio-splash'), fullPage: false });
   });
 
+  test('first-run-install renders the one-swoop install view', async ({ page }) => {
+    await page.goto('/?route=splash&install=demo');
+    await expect(page.getByTestId('splash-installing')).toBeVisible();
+    await expect(page.getByTestId('splash-install-log')).toBeVisible();
+    await page.screenshot({
+      path: shot('first-run-install'),
+      fullPage: false,
+    });
+  });
+
   test('settings-backends lists registered endpoints', async ({ page }) => {
     // The `?route=settings-backends` query triggers `seedFixtureBackends`
     // in App.tsx, which adds three demo entries (`clio:local`,
