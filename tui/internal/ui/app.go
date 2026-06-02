@@ -6943,15 +6943,15 @@ func (a *App) applyToolCallCompleted(e client.SSEEvent) {
 	if msg == nil {
 		return
 	}
-	okResult := boolValue(pl["ok"])
 	errText := firstNonEmpty(stringValue(pl["error"]), stringValue(pl["message"]))
+	okResult, okKnown := optionalBoolValue(pl["ok"])
 	resultText := firstNonEmpty(errText, stringValue(pl["summary"]), "completed")
 	result := gact.Part{
 		ID:       "semantic_" + callID + "_result",
 		Type:     gact.PartTypeToolResult,
 		CallID:   callID,
 		ToolName: toolName,
-		IsError:  !okResult || errText != "",
+		IsError:  errText != "" || (okKnown && !okResult),
 		Content: []gact.Part{{
 			ID:   "semantic_" + callID + "_result_text",
 			Type: gact.PartTypeText,
@@ -7095,15 +7095,21 @@ func compactSemanticMap(raw any) string {
 	return strings.Join(parts, ", ")
 }
 
-func boolValue(v any) bool {
+func optionalBoolValue(v any) (bool, bool) {
 	switch b := v.(type) {
 	case bool:
-		return b
+		return b, true
 	case string:
 		b = strings.TrimSpace(strings.ToLower(b))
-		return b == "true" || b == "ok" || b == "success"
+		switch b {
+		case "true", "ok", "success", "completed", "complete", "done":
+			return true, true
+		case "false", "error", "failed", "failure":
+			return false, true
+		}
+		return false, false
 	default:
-		return false
+		return false, false
 	}
 }
 

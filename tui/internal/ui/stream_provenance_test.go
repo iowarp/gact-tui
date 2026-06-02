@@ -180,6 +180,9 @@ func TestApplyToolCallEventsAddLiveToolPartsAndDeduplicateMirroredParts(t *testi
 	if a.messages[0].Parts[0].Type != gact.PartTypeToolCall || a.messages[0].Parts[1].Type != gact.PartTypeToolResult {
 		t.Fatalf("unexpected live parts = %#v", a.messages[0].Parts)
 	}
+	if a.messages[0].Parts[1].IsError {
+		t.Fatalf("explicit ok=true should not render as an error: %#v", a.messages[0].Parts[1])
+	}
 
 	a.messages = append(a.messages, gact.Message{ID: "msg_1", SessionID: "s1", Role: gact.RoleAssistant})
 	a.applySSE(client.SSEEvent{
@@ -202,5 +205,29 @@ func TestApplyToolCallEventsAddLiveToolPartsAndDeduplicateMirroredParts(t *testi
 	}
 	if !a.hasToolPart("call_1", gact.PartTypeToolCall) {
 		t.Fatalf("mirrored tool call should remain: %#v", a.messages)
+	}
+}
+
+func TestApplyToolCallCompletedWithoutOkDoesNotAssumeError(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.completed",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"call_id":    "call_1",
+			"tool":       "read_file",
+			"summary":    "completed",
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("live result = %#v", a.messages)
+	}
+	if part := a.messages[0].Parts[0]; part.IsError {
+		t.Fatalf("missing ok should not imply error unless an error field is present: %#v", part)
 	}
 }
