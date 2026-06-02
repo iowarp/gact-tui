@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -129,8 +130,18 @@ func requestCompactCmd(c *client.Client, sessionID string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		if err := c.SummarizeSession(ctx, sessionID, true, ""); err != nil {
-			return errMsg{err: err, stage: "compact"}
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
 		}
-		return nil
+		session, err := c.GetSession(ctx, sessionID)
+		if err != nil {
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
+		}
+		return sessionSummarizedMsg{sessionID: sessionID, session: session}
 	}
+}
+
+type sessionSummarizedMsg struct {
+	sessionID string
+	session   gact.Session
+	err       error
 }

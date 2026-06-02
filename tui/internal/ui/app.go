@@ -1544,6 +1544,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case sessionSummarizedMsg:
+		if m.err != nil {
+			a.transientHint = "summary failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if idx := a.sessionIndexByID(m.sessionID); idx >= 0 {
+			a.sessions[idx] = m.session
+			a.sortSessionsByActivity()
+			if selected := a.sessionIndexByID(m.sessionID); selected >= 0 {
+				a.selected = selected
+			}
+		}
+		summary := strings.TrimSpace(m.session.Summary)
+		if summary == "" {
+			a.transientHint = "summary completed"
+		} else {
+			a.transientHint = "summary: " + truncate(strings.Join(strings.Fields(summary), " "), 120)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), reloadSessionsCmd(a.c, a.wsID))
+
 	case errMsg:
 		// Search failures shouldn't blow away the whole UI — clear the
 		// in-flight flag and surface a single empty result so the user
@@ -4806,10 +4826,24 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 		return 1
 	}
 	rows := 2
+	if a.sessionSidebarSummaryText(sessionIndex) != "" {
+		rows++
+	}
 	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
 		rows++
 	}
 	return rows
+}
+
+func (a *App) sessionSidebarSummaryText(sessionIndex int) string {
+	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
+		return ""
+	}
+	s := a.sessions[sessionIndex]
+	if isChildSession(s) {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
 }
 
 func (a *App) activateSidebarSession(index int) tea.Cmd {
@@ -9116,6 +9150,10 @@ func (a *App) renderSidebar(width, height int) string {
 			}
 			statusLine := statusIndent + statusStyle.Render(truncate(statusText, statusBudget))
 			rows = append(rows, titleLine, statusLine)
+			if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
+				summaryText := "summary: " + summary
+				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
+			}
 			if !a.showChildSessions {
 				if children := a.childSessionCount(s.ID); children > 0 {
 					childWord := "children"
@@ -9369,6 +9407,9 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 			status += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
 		}
 		rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(status, width-8)))
+		if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
+			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
+		}
 	}
 	if endIdx < len(visIdx) {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
