@@ -1,9 +1,19 @@
-import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Capabilities } from '@clio/core';
 import { Client } from '@clio/core';
-import type { BackendHandle as DesktopHandle, BackendStatus } from '../tauri.js';
+import type {
+  BackendHandle as DesktopHandle,
+  BackendStatus,
+  InstallFailure,
+} from '../tauri.js';
 import { getRequestLocale } from '../locale.js';
-import { getBackend, inTauri, tauriFetch } from '../tauri.js';
+import {
+  getBackend,
+  inTauri,
+  installClio,
+  onInstallProgress,
+  tauriFetch,
+} from '../tauri.js';
 
 export const SPLASH_INTRO_KEY = 'clio.splash.intro.v1';
 
@@ -43,16 +53,38 @@ const PURE_WEB_DEFAULT_BACKEND = 'http://localhost:17800';
 const PURE_WEB_PROBE_TIMEOUT_MS = 2_500;
 const TAURI_POLL_INTERVAL_MS = 250;
 const TAURI_MAX_WAIT_MS = 30_000;
+/** Lines kept in the scrolling install log pane (newest-trailing). */
+const INSTALL_LOG_MAX_LINES = 200;
 
 export function SplashScreen(props: SplashScreenProps) {
   const [phase, setPhase] = createSignal<
-    'starting' | 'probing' | 'error' | 'ready'
+    'starting' | 'probing' | 'installing' | 'error' | 'ready'
   >('starting');
   const [error, setError] = createSignal<string | null>(null);
   const [elapsedMs, setElapsedMs] = createSignal(0);
+  const [installLog, setInstallLog] = createSignal<string[]>([]);
+  // True when the current `error` phase was reached via a failed auto-install
+  // (as opposed to a generic backend error). Drives the install-specific
+  // testids + a Retry that re-runs the installer rather than re-polling.
+  const [installFailed, setInstallFailed] = createSignal(false);
 
   let cancelled = false;
   let elapsedInterval: ReturnType<typeof setInterval> | null = null;
+  let stopInstallEvents: (() => void) | null = null;
+  let logPaneEl: HTMLPreElement | undefined;
+
+  function appendInstallLine(line: string) {
+    setInstallLog((prev) => {
+      const next = [...prev, line];
+      return next.length > INSTALL_LOG_MAX_LINES
+        ? next.slice(next.length - INSTALL_LOG_MAX_LINES)
+        : next;
+    });
+    // Auto-scroll to the newest line after the DOM updates.
+    queueMicrotask(() => {
+      if (logPaneEl) logPaneEl.scrollTop = logPaneEl.scrollHeight;
+    });
+  }
 
   function startElapsedTimer() {
     if (elapsedInterval) return;
@@ -77,6 +109,22 @@ export function SplashScreen(props: SplashScreenProps) {
       setPhase('starting');
       return;
     }
+    // Visual-proof hook for the first-run install view. `needs_install`
+    // only ever occurs inside the Tauri shell, so the pure-web visual
+    // harness can't reach it organically — this parks the splash in the
+    // `installing` state with sample log lines for the screenshot.
+    if (params.get('install') === 'demo') {
+      setPhase('installing');
+      setInstallLog([
+        'Cloning iowarp/clio-agent@develop…',
+        'Creating virtualenv at %LOCALAPPDATA%\\clio\\clio-agent\\.venv',
+        'Resolving dependencies (142 packages)…',
+        'Downloading torch-2.4.0 (797 MB)',
+        '  ████████████████░░░░  72%  574 MB / 797 MB',
+        'Installing collected packages: numpy, pydantic, fastapi, uvicorn…',
+      ]);
+      return;
+    }
     if (inTauri()) {
       void waitForTauriBackend();
     } else {
@@ -87,6 +135,8 @@ export function SplashScreen(props: SplashScreenProps) {
   onCleanup(() => {
     cancelled = true;
     stopElapsedTimer();
+    stopInstallEvents?.();
+    stopInstallEvents = null;
   });
 
   async function waitForTauriBackend() {
@@ -108,6 +158,13 @@ export function SplashScreen(props: SplashScreenProps) {
         await handoff(handle.url, handle.bearer_token);
         return;
       }
+      if (status.kind === 'needs_install') {
+        // First run: clio-agent-gact isn't installed. Auto-run the upstream
+        // installer (one swoop — no click) and switch to the install view.
+        stopElapsedTimer();
+        startInstall();
+        return;
+      }
       if (status.kind === 'error') {
         setPhase('error');
         setError(status.detail);
@@ -122,6 +179,56 @@ export function SplashScreen(props: SplashScreenProps) {
           `Check the clio-agent-gact install (CLIO_REF=develop).`,
       );
     }
+  }
+
+  /**
+   * One-swoop first-run install. Subscribes to the streamed installer
+   * events FIRST (so no `clio:install-done` can race past the listener),
+   * switches to the `installing` view, then kicks off `install_clio`.
+   *
+   * - progress line → append to the scrolling log pane.
+   * - done → detach, re-poll the backend (the normal splash → chat
+   *   transition takes over once clio resolves at its install prefix).
+   * - failed → detach, fall back to the manual error card with the tail.
+   */
+  function startInstall() {
+    setInstallLog([]);
+    setError(null);
+    setInstallFailed(false);
+    setPhase('installing');
+    cancelled = false;
+
+    stopInstallEvents?.();
+    stopInstallEvents = onInstallProgress({
+      onLine: (line) => {
+        if (!cancelled) appendInstallLine(line);
+      },
+      onDone: () => {
+        stopInstallEvents?.();
+        stopInstallEvents = null;
+        if (cancelled) return;
+        // clio is now installed; re-poll get_backend — the supervisor
+        // resolves it at the conventional prefix on the next start.
+        void waitForTauriBackend();
+      },
+      onFailed: (failure: InstallFailure) => {
+        stopInstallEvents?.();
+        stopInstallEvents = null;
+        if (cancelled) return;
+        setInstallFailed(true);
+        setPhase('error');
+        setError(installFailureMessage(failure));
+      },
+    });
+
+    void installClio().catch((e) => {
+      stopInstallEvents?.();
+      stopInstallEvents = null;
+      if (cancelled) return;
+      setInstallFailed(true);
+      setPhase('error');
+      setError(`Auto-install couldn't start: ${describe(e)}`);
+    });
   }
 
   async function probePureWebBackend() {
@@ -199,12 +306,47 @@ export function SplashScreen(props: SplashScreenProps) {
           </p>
         </Show>
 
+        <Show when={phase() === 'installing'}>
+          <div class="splash__install" data-testid="splash-installing">
+            <div class="splash__spinner" aria-hidden>
+              <div class="splash__dot" />
+              <div class="splash__dot" />
+              <div class="splash__dot" />
+            </div>
+            <p class="splash__install-title">
+              Setting up the CLIO agent backend (first run)
+            </p>
+            <p class="splash__install-note">
+              This downloads the clio-agent Python packages (~800&nbsp;MB) and
+              takes a few minutes. You only have to do this once.
+            </p>
+            <pre
+              class="splash__install-log"
+              data-testid="splash-install-log"
+              ref={logPaneEl}
+              aria-live="polite"
+            >
+              <For each={installLog()}>{(line) => <div>{line}</div>}</For>
+            </pre>
+          </div>
+        </Show>
+
         <Show when={phase() === 'error'}>
-          <div class="splash__error" data-testid="splash-error">
-            <div class="splash__error-eyebrow">Couldn't start CLIO</div>
+          <div
+            class="splash__error"
+            data-testid={installFailed() ? 'splash-install-failed' : 'splash-error'}
+          >
+            <div class="splash__error-eyebrow">
+              {installFailed() ? "Couldn't install CLIO" : "Couldn't start CLIO"}
+            </div>
             <p class="splash__error-msg">{error()}</p>
             <p class="splash__error-hint">
-              Install <code>clio-agent</code> from the develop branch and restart:
+              {installFailed()
+                ? 'Automatic setup failed. You can retry, or install clio-agent manually and restart:'
+                : 'Install '}
+              <Show when={!installFailed()}>
+                <code>clio-agent</code> from the develop branch and restart:
+              </Show>
             </p>
             <code class="splash__cmd">{installRecipeForPlatform()}</code>
             <div class="splash__error-actions">
@@ -212,6 +354,11 @@ export function SplashScreen(props: SplashScreenProps) {
                 type="button"
                 class="splash__btn"
                 onClick={() => {
+                  if (installFailed()) {
+                    // Retry the one-swoop install from scratch.
+                    startInstall();
+                    return;
+                  }
                   setError(null);
                   cancelled = false;
                   if (inTauri()) {
@@ -220,7 +367,7 @@ export function SplashScreen(props: SplashScreenProps) {
                     void probePureWebBackend();
                   }
                 }}
-                data-testid="splash-retry"
+                data-testid={installFailed() ? 'splash-install-retry' : 'splash-retry'}
               >
                 Retry
               </button>
@@ -238,6 +385,18 @@ export function SplashScreen(props: SplashScreenProps) {
       </main>
     </div>
   );
+}
+
+/**
+ * Render a friendly one-liner for a failed auto-install, appending the
+ * exit code and the tail of the installer output when present.
+ */
+function installFailureMessage(failure: InstallFailure): string {
+  const code =
+    failure.code == null ? 'could not be launched' : `exited with code ${failure.code}`;
+  const base = `The clio-agent installer ${code}.`;
+  const tail = failure.tail?.trim();
+  return tail ? `${base}\n\n${tail}` : base;
 }
 
 function describe(e: unknown): string {
