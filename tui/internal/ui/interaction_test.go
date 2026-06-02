@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -4560,6 +4561,80 @@ func TestConversationActionMenuRewindDispatchesSelectedMessage(t *testing.T) {
 	}
 	if a.conversationActionsOpen {
 		t.Fatal("rewind action should close the action menu")
+	}
+}
+
+func TestSessionRewindDoneSuccessReloadsMessages(t *testing.T) {
+	reloadedNewestFirst := []gact.Message{{
+		ID:        "m1",
+		SessionID: "s1",
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "checkpoint"}},
+	}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/s1/messages" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(client.ListMessagesResponse{Messages: reloadedNewestFirst})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.c = client.New(srv.URL)
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "checkpoint"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "deleted"}}},
+	}
+
+	model, cmd := a.Update(sessionRewindDoneMsg{sessionID: "s1", deleted: []string{"m2"}})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "rewound 1 message(s)") {
+		t.Fatalf("hint = %q, want rewind count", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("successful rewind should dispatch a reload batch")
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want tea.BatchMsg", msg)
+	}
+	var loaded messagesLoadedMsg
+	for i := len(batch) - 1; i >= 0; i-- {
+		c := batch[i]
+		if c == nil {
+			continue
+		}
+		if m, ok := c().(messagesLoadedMsg); ok {
+			loaded = m
+			break
+		}
+	}
+	if loaded.sessionID != "s1" || len(loaded.messages) != 1 || loaded.messages[0].ID != "m1" {
+		t.Fatalf("reload msg = %#v", loaded)
+	}
+	model, _ = a.Update(loaded)
+	a = model.(*App)
+	if len(a.messages) != 1 || a.messages[0].ID != "m1" {
+		t.Fatalf("messages after reload = %#v", a.messages)
+	}
+}
+
+func TestSessionRewindDoneFailureSurfacesErrorWithoutReload(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.stage = StageReady
+
+	model, cmd := a.Update(sessionRewindDoneMsg{sessionID: "s1", err: errors.New("message not found")})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "rewind failed: message not found") {
+		t.Fatalf("hint = %q, want underlying rewind error", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("failure should still schedule hint expiry")
 	}
 }
 
