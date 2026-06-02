@@ -31,8 +31,8 @@ Support classes:
 | Session branching | `session_branching` | gated | Decoded, no primary CLIO workflow. |
 | Session sharing | `session_sharing` | none | Decoded only. |
 | Session export | `session_export` | gated | Decoded, export UI is not a 0.9 CLIO path. |
-| Session summary | `session_summary` | partial | `/compact` calls `POST /v1/sessions/{id}/summarize`; summary display UX and release visual proof remain tracked by 1.0 hardening. |
-| Attachment upload | `attachments_upload` | full | Files sidebar detail can upload local/workspace file bytes to `POST /v1/sessions/{id}/attachments`, merges the returned context file, and surfaces upload errors truthfully. |
+| Session summary | `session_summary` | gated | Decoded and wired for backends that advertise the route. Current CLIO `develop` audit did not find this surface advertised/routed, so the TUI must keep unsupported states truthful rather than implying `/compact` summary support. |
+| Attachment upload | `attachments_upload` | gated | Files sidebar detail can upload bytes when the backend advertises `attachments_upload`; current CLIO `develop` audit did not find this surface advertised/routed, so upload affordances must stay capability-gated. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |
 | Edit modes | `edit_modes` | gated | Decoded, no separate edit-mode switch. |
@@ -62,7 +62,7 @@ Support classes:
 | CLIO semantic trace detail | `x_clio_semantic_trace_detail` | full | Trace detail metadata is visible in Doctor. |
 | CLIO hook backend | `x_clio_hook_backend` | full | Hook backend metadata is visible in Doctor. |
 | CLIO hook events | `x_clio_hook_events` | full | Hook event metadata is visible in Doctor. |
-| CLIO context file content | `x_clio_files_content` | full | Context-file bytes are fetched from CLIO and rendered as text previews or binary-safe metadata in the detail view. The TUI also probes the endpoint when current CLIO exposes it but omits the vendor flag, surfacing real preview errors instead of hiding them behind a missing capability. |
+| CLIO context file content | `x_clio_files_content` | gated | Context-file bytes are rendered as text previews or binary-safe metadata when the endpoint is available. Current CLIO `develop` audit did not find this vendor flag advertised, so the TUI uses probe-backed detail fetches and surfaces real preview errors instead of claiming support from the missing flag. |
 | CLIO capability gaps | `x_clio_capability_gaps` | full | Doctor gaps tab and row detail are surfaced. |
 
 Release rule: a new decoded capability cannot be added without assigning one of these support classes in `doctorCapabilityRows`; `TestDoctorCapabilityRowsCoverDecodedCapabilityFlags` enforces row coverage.

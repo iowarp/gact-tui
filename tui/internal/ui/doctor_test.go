@@ -122,8 +122,8 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		byName[row.name] = row
 	}
 	for name, want := range map[string]capUISupport{
-		"session_summary":                    capUIPartial,
-		"attachments_upload":                 capUIFull,
+		"session_summary":                    capUIGated,
+		"attachments_upload":                 capUIGated,
 		"agent_write":                        capUIFull,
 		"skills_extraction":                  capUIFull,
 		"x_clio_prompt_registry":             capUIFull,
@@ -137,7 +137,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		"x_clio_semantic_trace_detail":       capUIFull,
 		"x_clio_hook_backend":                capUIFull,
 		"x_clio_hook_events":                 capUIFull,
-		"x_clio_files_content":               capUIFull,
+		"x_clio_files_content":               capUIGated,
 		"x_clio_capability_gaps":             capUIFull,
 		"x_clio_synthetic_posthoc_streaming": capUIFull,
 		"x_clio_stream_fallback_reasons":     capUIFull,
