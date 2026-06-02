@@ -1,7 +1,8 @@
-import { For, Show, createEffect, onMount } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
+import type { ModelOption } from './Composer.js';
 import './transcript.css';
 import './inline-markdown.css';
 
@@ -17,6 +18,13 @@ export interface TranscriptProps {
   /** Optional per-message action callbacks. Wired in LiveDriven mode. */
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
+  /** Retry variants (1.0 item 4). When either is provided the Regenerate
+   * button opens a variant menu instead of firing immediately; clio's
+   * retry route accepts `notes` and `provider_id`/`model_id` overrides. */
+  onRegenerateWithNotes?: (msg: Message, notes: string) => void;
+  onRegenerateWithModel?: (msg: Message, model: ModelOption) => void;
+  /** Available models for the "Regenerate with model" submenu. */
+  models?: ModelOption[];
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
@@ -283,12 +291,196 @@ function PartView(props: {
   return null;
 }
 
+/** Regenerate variant menu (1.0 item 4). Plain regenerate, regenerate with
+ * notes (inline textarea), and regenerate with a different model — all ride
+ * clio's retry route which accepts `notes` + `provider_id`/`model_id`. */
+function RegenMenu(props: {
+  msg: Message;
+  models?: ModelOption[];
+  onRegenerate?: (msg: Message) => void;
+  onRegenerateWithNotes?: (msg: Message, notes: string) => void;
+  onRegenerateWithModel?: (msg: Message, model: ModelOption) => void;
+}) {
+  const [open, setOpen] = createSignal(false);
+  const [mode, setMode] = createSignal<'menu' | 'notes' | 'models'>('menu');
+  const [notes, setNotes] = createSignal('');
+  let rootEl: HTMLSpanElement | undefined;
+
+  const hasVariants = () =>
+    Boolean(props.onRegenerateWithNotes || props.onRegenerateWithModel);
+
+  function close() {
+    setOpen(false);
+    setMode('menu');
+    setNotes('');
+  }
+
+  // Close on outside click / Escape while open.
+  createEffect(() => {
+    if (!open()) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootEl && !rootEl.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        close();
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey, true);
+    onCleanup(() => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey, true);
+    });
+  });
+
+  return (
+    <span class="trx-regen" ref={rootEl}>
+      <button
+        type="button"
+        class="trx-msg__action"
+        title="Regenerate response"
+        data-testid={`msg-regen-${props.msg.id}`}
+        onClick={() => {
+          // Without variant callbacks (fixtures / older call sites) keep the
+          // original immediate-regenerate behaviour.
+          if (!hasVariants()) {
+            props.onRegenerate?.(props.msg);
+            return;
+          }
+          if (open()) close();
+          else setOpen(true);
+        }}
+      >
+        <Icon name="regenerate" size={12} />
+      </button>
+      <Show when={open()}>
+        <div
+          class="trx-regen__menu"
+          role="menu"
+          data-testid={`regen-menu-${props.msg.id}`}
+        >
+          <Show when={mode() === 'menu'}>
+            <button
+              type="button"
+              class="trx-regen__item"
+              role="menuitem"
+              data-testid={`regen-plain-${props.msg.id}`}
+              onClick={() => {
+                close();
+                props.onRegenerate?.(props.msg);
+              }}
+            >
+              <Icon name="regenerate" size={12} />
+              <span>Regenerate</span>
+            </button>
+            <Show when={props.onRegenerateWithNotes}>
+              <button
+                type="button"
+                class="trx-regen__item"
+                role="menuitem"
+                data-testid={`regen-notes-${props.msg.id}`}
+                onClick={() => setMode('notes')}
+              >
+                <Icon name="edit" size={12} />
+                <span>Regenerate with notes…</span>
+              </button>
+            </Show>
+            <Show
+              when={props.onRegenerateWithModel && (props.models?.length ?? 0) > 0}
+            >
+              <button
+                type="button"
+                class="trx-regen__item"
+                role="menuitem"
+                data-testid={`regen-model-${props.msg.id}`}
+                onClick={() => setMode('models')}
+              >
+                <Icon name="bot" size={12} />
+                <span>Regenerate with model</span>
+                <Icon name="chevron-right" size={10} />
+              </button>
+            </Show>
+          </Show>
+          <Show when={mode() === 'notes'}>
+            <div class="trx-regen__notes">
+              <textarea
+                class="trx-regen__textarea"
+                rows={3}
+                placeholder="Guidance for the retry — e.g. “shorter”, “use Python”, “cite sources”"
+                value={notes()}
+                data-testid={`regen-notes-input-${props.msg.id}`}
+                onInput={(e) => setNotes(e.currentTarget.value)}
+              />
+              <div class="trx-regen__row">
+                <button
+                  type="button"
+                  class="trx-regen__btn"
+                  onClick={() => setMode('menu')}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  class="trx-regen__btn trx-regen__btn--primary"
+                  data-testid={`regen-notes-submit-${props.msg.id}`}
+                  disabled={!notes().trim()}
+                  onClick={() => {
+                    const n = notes().trim();
+                    if (!n) return;
+                    close();
+                    props.onRegenerateWithNotes?.(props.msg, n);
+                  }}
+                >
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          </Show>
+          <Show when={mode() === 'models'}>
+            <div class="trx-regen__models">
+              <button
+                type="button"
+                class="trx-regen__item trx-regen__item--back"
+                onClick={() => setMode('menu')}
+              >
+                ← Back
+              </button>
+              <For each={props.models ?? []}>
+                {(m) => (
+                  <button
+                    type="button"
+                    class="trx-regen__item"
+                    role="menuitem"
+                    data-testid={`regen-pick-${m.id}-${props.msg.id}`}
+                    onClick={() => {
+                      close();
+                      props.onRegenerateWithModel?.(props.msg, m);
+                    }}
+                  >
+                    <span class="trx-regen__model-id">{m.modelId}</span>
+                    <span class="trx-regen__model-provider">{m.providerLabel}</span>
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+      </Show>
+    </span>
+  );
+}
+
 function MessageView(props: {
   msg: Message;
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
   onCopy?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
+  onRegenerateWithNotes?: (msg: Message, notes: string) => void;
+  onRegenerateWithModel?: (msg: Message, model: ModelOption) => void;
+  models?: ModelOption[];
   onEdit?: (msg: Message) => void;
   onQuote?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
@@ -351,15 +543,13 @@ function MessageView(props: {
             </button>
           </Show>
           <Show when={isAssistant() && props.onRegenerate}>
-            <button
-              type="button"
-              class="trx-msg__action"
-              title="Regenerate response"
-              data-testid={`msg-regen-${props.msg.id}`}
-              onClick={() => props.onRegenerate?.(props.msg)}
-            >
-              <Icon name="regenerate" size={12} />
-            </button>
+            <RegenMenu
+              msg={props.msg}
+              models={props.models}
+              onRegenerate={props.onRegenerate}
+              onRegenerateWithNotes={props.onRegenerateWithNotes}
+              onRegenerateWithModel={props.onRegenerateWithModel}
+            />
           </Show>
           <Show when={isAssistant() && props.onSpeak}>
             <button
@@ -606,6 +796,9 @@ export function Transcript(props: TranscriptProps) {
               onPinFile={props.onPinFile}
               onCopy={props.onCopy}
               onRegenerate={props.onRegenerate}
+              onRegenerateWithNotes={props.onRegenerateWithNotes}
+              onRegenerateWithModel={props.onRegenerateWithModel}
+              models={props.models}
               onEdit={props.onEdit}
               onQuote={props.onQuote}
               onSpeak={props.onSpeak}

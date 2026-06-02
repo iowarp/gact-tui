@@ -465,6 +465,141 @@
   background: color-mix(in srgb, var(--color-error) 14%, transparent);
 }
 
+/* Regenerate variant menu (1.0 item 4) — anchored dropdown under the
+   regenerate action with plain / with-notes / with-model entries. */
+.trx-regen {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Keep the action row visible while its menu is open (the row normally
+   fades out when the pointer leaves the message). */
+.trx-msg:has(.trx-regen__menu) .trx-msg__actions {
+  opacity: 1;
+}
+
+.trx-regen__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 41;
+  min-width: 220px;
+  padding: 5px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.trx-regen__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 8px;
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+.trx-regen__item:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+}
+
+.trx-regen__item--back {
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.trx-regen__item > span:first-of-type {
+  flex: 1;
+}
+
+.trx-regen__model-id {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.trx-regen__model-provider {
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.trx-regen__models {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.trx-regen__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+}
+
+.trx-regen__textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 56px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 7px;
+  padding: 7px 8px;
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.trx-regen__textarea:focus {
+  outline: none;
+  border-color: var(--color-accent-cyan);
+}
+
+.trx-regen__row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.trx-regen__btn {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 7px;
+  padding: 5px 10px;
+  color: var(--color-text);
+  font-size: 11.5px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+.trx-regen__btn:hover {
+  background: var(--color-surface-alt);
+}
+
+.trx-regen__btn--primary {
+  background: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+
+.trx-regen__btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Permalink-jump highlight — flashes briefly after URL hash routes
    focus to a specific message. */
 .trx-msg--flash {

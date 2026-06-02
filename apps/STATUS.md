@@ -1,10 +1,77 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-05-31 (live-turn verification pass — E-27/E-28 fixes)
+**Last updated:** 2026-06-02 (1.0 closure run started)
 **Branch:** `feat/apps-harness`
-**Phase:** v0.9.1 in flight on `feat/apps-harness` HEAD
+**Phase:** v0.9.1 → 1.0 closure on `feat/apps-harness` HEAD
 
-## ACTIVE RUN LEDGER — release-readiness `/goal` (READ THIS FIRST)
+## ACTIVE RUN LEDGER — 1.0 CLOSURE `/goal` (2026-06-02 — READ THIS FIRST)
+
+**Goal:** implement, test, review, and close ALL 9 pending vNext items + any emergent
+issues; extensive hardening + testing of web AND desktop; 100% 1.0-ready. **DEFERRED is
+not a legal terminal state this run** — every item ends DONE-with-proof, or (only where
+a backend capability is genuinely missing) ABSENT→stacked-PR-opened with the desktop
+side capability-gated.
+
+**Environment this run:** the user's clio at **:17800 is back UP** (develop build — no
+PR-gated capabilities). The self-run **:17801** PR-stack instance (develop + PRs
+#522/#523/#527/#530) is still up and advertises `session_summary`/`attachments_upload`/
+mcp-reconnect. Use :17800 for production-parity verification, :17801 for PR-gated
+surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
+
+### 1.0 item board (this run's source of truth)
+| # | Item | State | Proof |
+|---|------|-------|-------|
+| 1 | Light theme (+ Auto/system preset) | PENDING | — |
+| 2 | Inline file & image previews (transcript + @-picker) | IN-PROGRESS | Backend half DONE: clio PR **iowarp/clio-agent#533** (closes #532) — `GET /v1/sessions/{sid}/context/files/content?path=…` → base64-JSON + `x_clio_files_content` capability; 14 tests, mypy clean, stacked 5th (#522→#523→#527→#530→#533). Desktop half pending. |
+| 3 | Message edit history / "edited" markers (honest design) | PENDING | — |
+| 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
+| 5 | Inspector execution timeline | PENDING | — |
+| 6 | Large-transcript virtualization (1000+ msg proof) | PENDING | — |
+| 7 | Settings import/export | PENDING | — |
+| 8 | Notification-center search/filter | PENDING | — |
+| 9 | Native window menus (Tauri) | PENDING | — |
+| E1 | Transcript code-block line-number gutter | PENDING | — |
+| E2 | hljs lazy-load (pure-web bundle size) | PENDING | — |
+| E3 | Restore MCP Reconnect button (capability-gated on #523) | PENDING | — |
+| H | Final hardening + full test sweep (web + desktop + Rust) | PENDING | — |
+
+States: PENDING → IN-PROGRESS → **DONE** (named test + PNG + live proof, cited in the
+session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked clio PR
+opened, desktop side capability-gated). Nothing else is terminal.
+
+### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Item 4 DONE — Regenerate variant menu (plain / with-notes / with-model).**
+  Transcript's Regenerate action now opens a variant menu: plain retry, "with notes…"
+  (inline textarea → `RetryTurnRequest.notes`), "with model" (submenu fed by the live
+  providers list → `provider_id`/`model_id` override). Fixture mode passes no-op message
+  actions + a static model list so the menu is provable deterministically.
+  PROOF: unit `RegenMenu.test.tsx` 7/7; fixture `retry-menu-open.png` +
+  `retry-model-submenu.png` (suite 32/32); LIVE oneturn-audits "(1.0 item 4)" vs :17801 —
+  menu on a real turn → notes submitted → clio created the retry user message + a second
+  assistant turn + recorded a TurnAttempt with our notes (verified via GET /attempts);
+  PNGs `audit/item4-retry-menu.png` + `audit/item4-retry-notes-turn.png`.
+  **Two real findings fixed along the way (test-infra hardening):**
+  (1) `sendOneTurn` clicked the FIRST session row — wrong whenever any old session is
+  pinned (pinned rows sort first); every test was silently dumping turns into a stale
+  pinned session. Now: API-created session + exact `session-row-{sid}` selection.
+  (2) clio's planner rejects direct answers as `stale_or_invalid_answer_text` when the
+  IDENTICAL prompt is replayed across runs (DSPy LM cache) → intermittent "Turn failed"
+  on the fixed test question. Now: unique nonce per test turn. Also unpinned the stale
+  test session on :17801 (environment hygiene).
+- 2026-06-02 **Item 2 backend half DONE — clio PR iowarp/clio-agent#533** (closes #532,
+  stacked 5th on #530): `GET /v1/sessions/{sid}/context/files/content?path=…` serves
+  registered context-file/attachment bytes as base64-JSON (`{"file":{path, display_path,
+  size, media_type, encoding:"base64", data}}`) with traversal confinement + 10MiB preview
+  cap; advertises `x_clio_files_content`. 14 endpoint tests; zero new full-suite failures;
+  mypy clean. Worktree kept at `D:\...\clio-agent-content-pr` for a live test server.
+  Desktop half (capability-gated preview UI) is next for item 2.
+- 2026-06-02 Run started. Grounding workflow launched (11 read-only agents mapping all
+  items + extras against gact + clio-agent source). Baseline gates re-verified at
+  b422d22 (lint/typecheck/unit/build + fixture visual 31/31 after a browser-crash flake
+  re-run). :17800 answered 200 at run start but went 503 (degraded) shortly after — NOT
+  touched per the never-rebind rule; all live verification targets :17801.
+
+## PRIOR RUN LEDGER — release-readiness `/goal` (COMPLETE 2026-06-01)
 
 Live ledger for the long-horizon release-readiness goal. Full plan:
 `~/.claude/plans/mellow-yawning-map.md`. Update the boards in place; append to the

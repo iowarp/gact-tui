@@ -176,9 +176,39 @@ function FixtureDriven(props: {
       onOpenSettings={props.onOpenSettings}
       onAddRemote={props.onAddRemote}
       caps={props.backend.capabilities}
+      // Message actions are no-ops in fixture mode but must be present so
+      // the action row (copy / regenerate variant menu) is visually provable
+      // in the deterministic fixture suite (1.0 item 4).
+      onCopyMessage={() => undefined}
+      onRegenerate={() => undefined}
+      onRegenerateWithNotes={() => undefined}
+      onRegenerateWithModel={() => undefined}
+      models={FIXTURE_MODELS}
     />
   );
 }
+
+/** Static model list for the fixture-mode regenerate-with-model submenu. */
+const FIXTURE_MODELS: ModelOption[] = [
+  {
+    id: 'anthropic:claude-opus-4',
+    providerId: 'anthropic',
+    modelId: 'claude-opus-4',
+    providerLabel: 'Anthropic',
+  },
+  {
+    id: 'anthropic:claude-sonnet-4',
+    providerId: 'anthropic',
+    modelId: 'claude-sonnet-4',
+    providerLabel: 'Anthropic',
+  },
+  {
+    id: 'argonne_metis:gpt-oss-120b',
+    providerId: 'argonne_metis',
+    modelId: 'gpt-oss-120b',
+    providerLabel: 'ALCF Metis',
+  },
+];
 
 function previewFromFixture(
   fix: string,
@@ -1025,6 +1055,62 @@ function LiveDriven(props: {
     }
   }
 
+  // Retry variants (1.0 item 4) — clio's retry route accepts `notes`
+  // (steering guidance appended to the re-run) and provider/model overrides.
+  async function regenerateWithNotes(msg: Message, notes: string) {
+    const id = activeId();
+    if (!id) return;
+    if (streaming()) {
+      toast.push({
+        tone: 'warn',
+        title: 'Already streaming',
+        body: 'Wait for the current turn to finish before regenerating.',
+        duration: 2500,
+      });
+      return;
+    }
+    toast.push({
+      tone: 'info',
+      title: 'Regenerating with notes',
+      body: notes.length > 96 ? notes.slice(0, 93) + '…' : notes,
+      duration: 2500,
+    });
+    try {
+      await live.client.retryTurn(id, msg.id, { execute: true, notes });
+    } catch (e) {
+      failToast('Regenerate failed', e, () => void regenerateWithNotes(msg, notes));
+    }
+  }
+
+  async function regenerateWithModel(msg: Message, model: ModelOption) {
+    const id = activeId();
+    if (!id) return;
+    if (streaming()) {
+      toast.push({
+        tone: 'warn',
+        title: 'Already streaming',
+        body: 'Wait for the current turn to finish before regenerating.',
+        duration: 2500,
+      });
+      return;
+    }
+    toast.push({
+      tone: 'info',
+      title: `Regenerating with ${model.modelId}`,
+      body: `via ${model.providerLabel}`,
+      duration: 2500,
+    });
+    try {
+      await live.client.retryTurn(id, msg.id, {
+        execute: true,
+        provider_id: model.providerId,
+        model_id: model.modelId,
+      });
+    } catch (e) {
+      failToast('Regenerate failed', e, () => void regenerateWithModel(msg, model));
+    }
+  }
+
   function quoteMessage(msg: Message) {
     const text = messageToText(msg);
     if (!text) return;
@@ -1217,6 +1303,8 @@ function LiveDriven(props: {
       }}
       onCopyMessage={copyMessageToClipboard}
       onRegenerate={regenerateMessage}
+      onRegenerateWithNotes={regenerateWithNotes}
+      onRegenerateWithModel={regenerateWithModel}
       onEditMessage={editMessage}
       onQuoteMessage={quoteMessage}
       onDeleteMessage={deleteMessage}
@@ -1413,6 +1501,9 @@ interface ChatLayoutProps {
   /** Message-level actions. */
   onCopyMessage?: (msg: Message) => void;
   onRegenerate?: (msg: Message) => void;
+  /** Retry variants (1.0 item 4) — notes + model overrides on clio's retry route. */
+  onRegenerateWithNotes?: (msg: Message, notes: string) => void;
+  onRegenerateWithModel?: (msg: Message, model: ModelOption) => void;
   onEditMessage?: (msg: Message) => void;
   onQuoteMessage?: (msg: Message) => void;
   onDeleteMessage?: (msg: Message) => void;
@@ -2746,6 +2837,9 @@ function ChatLayout(props: ChatLayoutProps) {
               onOpenDiff={(d) => setActiveDiff(d)}
               onCopy={props.onCopyMessage}
               onRegenerate={props.onRegenerate}
+              onRegenerateWithNotes={props.onRegenerateWithNotes}
+              onRegenerateWithModel={props.onRegenerateWithModel}
+              models={props.models}
               onEdit={props.onEditMessage}
               onQuote={props.onQuoteMessage}
               onDelete={props.onDeleteMessage}
