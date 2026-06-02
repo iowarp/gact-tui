@@ -31,7 +31,7 @@ Support classes:
 | Session branching | `session_branching` | gated | Decoded, no primary CLIO workflow. |
 | Session sharing | `session_sharing` | none | Decoded only. |
 | Session export | `session_export` | gated | Decoded, export UI is not a 0.9 CLIO path. |
-| Session summary | `session_summary` | partial | `/compact` uses the current CLIO `POST /v1/sessions/{id}/summarize` route and surfaces backend errors truthfully; summary placement/display polish remains tracked for 1.0. |
+| Session summary | `session_summary` | full | `/compact` uses the current CLIO `POST /v1/sessions/{id}/summarize` route, refreshes backend session truth, renders the returned selected-session summary row, and surfaces backend errors truthfully. |
 | Attachment upload | `attachments_upload` | full | Files sidebar detail can upload bytes when the backend advertises `attachments_upload`, then merge the returned context file and show uploaded provenance. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |

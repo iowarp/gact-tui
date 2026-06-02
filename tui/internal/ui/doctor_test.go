@@ -122,7 +122,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		byName[row.name] = row
 	}
 	for name, want := range map[string]capUISupport{
-		"session_summary":                    capUIPartial,
+		"session_summary":                    capUIFull,
 		"attachments_upload":                 capUIFull,
 		"agent_write":                        capUIFull,
 		"skills_extraction":                  capUIFull,

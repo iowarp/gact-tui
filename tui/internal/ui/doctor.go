@@ -316,7 +316,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		// Useful but optional.
 		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary CLIO workflow"},
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
-		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIPartial, "uses CLIO summarize route; display UX still needs release proof"},
+		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "compact command, backend refresh, selected-session summary row, and errors are surfaced"},
 		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action and context merge are surfaced when advertised"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
 		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
