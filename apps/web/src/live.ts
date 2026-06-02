@@ -1,0 +1,1281 @@
+/**
+ * Live data plumbing for ChatScreen — Wave 1 + post-tag refresh.
+ *
+ * These Solid factories own the connection to a single GACT v0.2
+ * backend (`@clio/core` Client). They expose signals the existing
+ * components already consume (`SidebarSession[]`, `Message[]`,
+ * `PermissionRequest | null`) so the visual proof set can keep
+ * driving the same JSX with `?fixture=…` while the live build flips
+ * over to real data when no fixture is requested.
+ *
+ * Refresh from SSE: session.status_changed / session.created / .updated /
+ * .deleted patch the sidebar list in-place; message.completed records
+ * the stop_reason + tokens on the in-flight assistant message.
+ */
+
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  onCleanup,
+  type Accessor,
+  type Resource,
+} from 'solid-js';
+import {
+  Client,
+  applyTextAppend,
+  applyPartCompleted,
+  appendPart,
+  upsertMessage,
+  type ErrorInfo,
+  type Message,
+  type PermissionRequest,
+  type SemanticEventPayload,
+  type Session,
+  type SessionStatus,
+  type UserQuestion,
+} from '@clio/core';
+import type { SidebarSession } from './components/Sidebar.js';
+import { getRequestLocale } from './locale.js';
+import { inTauri, tauriFetch, openTauriSse, type SseBridgeHandle } from './tauri.js';
+
+export interface LiveStoreOptions {
+  url: string;
+  bearerToken: string;
+}
+
+export interface LiveSessionsHandle {
+  sessions: Resource<SidebarSession[]>;
+  /** Re-fetch the sessions list (e.g. after creating a new session). */
+  refetch: () => void;
+  /** Patch a single session in-place — used by the SSE reducer. */
+  patch: (id: string, patch: Partial<SidebarSession>) => void;
+  /** Replace the cached session list (additions/removals from SSE). */
+  setRaw: (next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[])) => void;
+  /** Surface the underlying Client for one-off RPCs (sendMessage etc.). */
+  client: Client;
+}
+
+export interface LiveTranscriptHandle {
+  messages: Accessor<Message[]>;
+  /** True while the initial message list for the active session loads. */
+  messagesLoading: Accessor<boolean>;
+  pendingPermission: Accessor<PermissionRequest | null>;
+  /** Connection state to the SSE stream for the current session. */
+  status: Accessor<'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'>;
+  /** Seconds remaining until the next reconnect attempt (0 when not pending). */
+  reconnectInSec: Accessor<number>;
+  /** Last known `message.completed` summary for the active session. */
+  lastCompletion: Accessor<MessageCompletion | null>;
+  /** Per-session cost rolled forward by `cost.updated` events. */
+  costUsd: Accessor<number>;
+  /** Currently in-flight tool calls (started but not completed). */
+  runningTools: Accessor<RunningTool[]>;
+  /** Currently pending orchestrator ask-user questions (PR #380). */
+  pendingQuestion: Accessor<UserQuestion | null>;
+  /** Read-only semantic execution trace for the active session
+   * (clio `x_clio_semantic_events`). Append-only, cleared on session
+   * switch, capped at SEMANTIC_FEED_CAP. Feeds the Inspector timeline —
+   * NOT the transcript (the plain events already drive that). */
+  semanticEvents: Accessor<SemanticEventPayload[]>;
+  /** TTFT + token-rate of the most recent turn (null before the first turn). */
+  streamStats: Accessor<StreamStats | null>;
+  /** Force-refetch the message list (e.g. after undo/rewind). */
+  refetch: () => Promise<void>;
+  /** Skip the backoff countdown and reconnect the SSE stream right now —
+   * wired to the "Reconnect now" action on the disconnect toast. No-op when
+   * the stream is already open or no session is active. */
+  reconnectNow: () => void;
+  /** Optimistically clear the pending permission card after a successful
+   * resolve POST. The card must not depend on the `permission.resolved`
+   * SSE round-trip alone — on the desktop the bridge/fallback stream can
+   * miss the event window (found by the real-WebView e2e), and a 200 from
+   * the resolve endpoint already proves the permission is settled. */
+  clearPendingPermission: () => void;
+}
+
+export interface RunningTool {
+  callId: string;
+  toolName: string;
+  startedAt: number;
+  /** Optional progress 0..1 from `tool.call.progress` events. */
+  progress?: number;
+  /** Last status message from tool.call.progress. */
+  progressMessage?: string;
+}
+
+/** Streaming performance of the most recent turn (W3 Tier-2). */
+export interface StreamStats {
+  /** Time from assistant message.created → first text delta, in ms. */
+  ttftMs: number | null;
+  /** Output token rate. While streaming this is a ~4-chars/token estimate;
+   * once message.completed lands it's recomputed from clio's real
+   * tokens.output count. */
+  tokensPerSec: number | null;
+  /** True while the turn is still streaming. */
+  streaming: boolean;
+}
+
+export interface MessageCompletion {
+  message_id: string;
+  stop_reason: string;
+  tokens?: { input?: number; output?: number; total?: number };
+  cost_usd?: number;
+}
+
+/**
+ * Lists sessions on the connected backend. Used by Sidebar. Returns a
+ * Solid resource that auto-fetches on mount, exposes a manual refetch,
+ * and a `patch` helper for SSE-driven in-place updates so the pip flips
+ * green→amber→red without us hammering /v1/sessions.
+ */
+export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
+  const client = new Client({
+    baseUrl: opts.url,
+    bearerToken: opts.bearerToken,
+    fetch: inTauri() ? tauriFetch : undefined,
+    getLocale: getRequestLocale,
+  });
+
+  const [override, setOverride] = createSignal<SidebarSession[] | null>(null);
+  const [resource, { refetch }] = createResource<SidebarSession[]>(async () => {
+    const { sessions: rows } = await client.sessions();
+    const next = rows.map(toSidebarSession);
+    setOverride(null); // resource is fresh — discard local SSE-side overrides
+    return next;
+  });
+
+  const sessions: Resource<SidebarSession[]> = new Proxy(resource, {
+    apply() {
+      // Resources are called as functions; merge override on top of latest.
+      const base = resource() ?? [];
+      const o = override();
+      return o ?? base;
+    },
+    get(target, prop, recv) {
+      if (prop === Symbol.toPrimitive) return undefined;
+      return Reflect.get(target, prop, recv);
+    },
+  }) as Resource<SidebarSession[]>;
+
+  function patch(id: string, p: Partial<SidebarSession>) {
+    const base = override() ?? resource() ?? [];
+    const exists = base.find((b) => b.id === id);
+    if (!exists) return;
+    setOverride(base.map((b) => (b.id === id ? { ...b, ...p } : b)));
+  }
+
+  function setRaw(
+    next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[]),
+  ) {
+    const base = override() ?? resource() ?? [];
+    setOverride(typeof next === 'function' ? next(base) : next);
+  }
+
+  return { sessions, refetch: () => void refetch(), patch, setRaw, client };
+}
+
+/**
+ * Manages the message + permission state for `activeSessionId`. When the
+ * accessor changes (user clicks a different sidebar row), the previous
+ * EventSource is torn down and a new one is opened.
+ *
+ * The optional `sessionEvents` callback is invoked for every SSE event
+ * touching the sessions list so the caller can patch SidebarSession[]
+ * (see `createLiveSessions().patch`).
+ */
+export function createLiveTranscript(
+  client: Client,
+  activeSessionId: Accessor<string>,
+  sessionEvents?: SessionEventSink & Partial<NotificationSink>,
+): LiveTranscriptHandle {
+  const [messages, setMessages] = createSignal<Message[]>([]);
+  // True while the initial GET /messages for the active session is in
+  // flight — drives transcript skeletons on session switch.
+  const [messagesLoading, setMessagesLoading] = createSignal(false);
+  const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
+  const [status, setStatus] = createSignal<
+    'connecting' | 'open' | 'closed' | 'error' | 'reconnecting'
+  >('closed');
+  const [reconnectInSec, setReconnectInSec] = createSignal(0);
+  const [lastCompletion, setLastCompletion] = createSignal<MessageCompletion | null>(null);
+  const [costUsd, setCostUsd] = createSignal<number>(0);
+  const [runningTools, setRunningTools] = createSignal<RunningTool[]>([]);
+  const [pendingQuestion, setPendingQuestion] = createSignal<UserQuestion | null>(null);
+  // Read-only semantic execution trace (clio x_clio_semantic_events). Stored
+  // for the ACTIVE session only, append-order, capped so a long-lived
+  // session can't grow it without bound.
+  const [semanticEvents, setSemanticEvents] = createSignal<SemanticEventPayload[]>([]);
+  // Bound inside the per-session effect (it closes over that session's
+  // openEs/timers); exposed via the public reconnectNow() API.
+  let reconnectNowRef: (() => void) | null = null;
+
+  // --- Streaming performance stats (W3 Tier-2: token-rate / TTFT) ---
+  // Tracked from the raw SSE feed before reduction. Two provider modes
+  // exist (verified against live clio): live-streaming providers emit
+  // message.part.delta; batch providers (e.g. ALCF with
+  // x_clio_synthetic_posthoc_streaming=false) emit complete
+  // message.part.added parts and ZERO deltas. TTFT therefore measures
+  // first CONTENT arrival (added or delta), and the rate is end-to-end
+  // generation throughput from clio's real token count on completion.
+  const [streamStats, setStreamStats] = createSignal<StreamStats | null>(null);
+  let turnStartedAt = 0;
+  let firstContentAt = 0;
+  let deltaChars = 0;
+
+  function trackStreamStats(ev: { type?: string; payload?: Record<string, unknown> }) {
+    const p = ev.payload ?? {};
+    switch (ev.type) {
+      case 'message.created': {
+        // The clock starts at the USER message — that's the latency the
+        // human actually experiences. (Anchoring on the assistant message
+        // reads ~0ms in batch mode, where clio creates the assistant
+        // message and its parts together at the END of the turn.)
+        if ((p['role'] as string) === 'user') {
+          turnStartedAt = performance.now();
+          firstContentAt = 0;
+          deltaChars = 0;
+          setStreamStats({ ttftMs: null, tokensPerSec: null, streaming: true });
+        }
+        break;
+      }
+      case 'message.part.added':
+      case 'message.part.delta': {
+        if (!turnStartedAt) break;
+        // Only assistant content counts. Part payloads don't carry a role,
+        // so the user message's own part (which arrives within the same
+        // instant as its message.created) is filtered with a 50ms guard.
+        const now = performance.now();
+        if (now - turnStartedAt < 50) break;
+        if (!firstContentAt) {
+          firstContentAt = now;
+          setStreamStats({
+            ttftMs: Math.round(firstContentAt - turnStartedAt),
+            tokensPerSec: null,
+            streaming: true,
+          });
+        }
+        if (ev.type === 'message.part.delta') {
+          // Live estimate (~4 chars/token) until the real count lands.
+          const delta = (p['delta'] as { text_append?: string }) ?? {};
+          deltaChars += (delta.text_append ?? '').length;
+          const elapsedSec = (now - firstContentAt) / 1000;
+          if (elapsedSec > 0.25) {
+            setStreamStats((s) => ({
+              ttftMs: s?.ttftMs ?? null,
+              tokensPerSec: Math.round(deltaChars / 4 / elapsedSec),
+              streaming: true,
+            }));
+          }
+        }
+        break;
+      }
+      case 'message.completed': {
+        if (!turnStartedAt) break;
+        const tokens = p['tokens'] as { output?: number } | undefined;
+        const end = performance.now();
+        const turnSec = (end - turnStartedAt) / 1000;
+        // Sub-300ms "turns" are SSE replay bursts (history replayed on
+        // connect), not real generation — show nothing rather than lie.
+        if (turnSec < 0.3) {
+          setStreamStats(null);
+          turnStartedAt = 0;
+          break;
+        }
+        setStreamStats({
+          ttftMs: firstContentAt
+            ? Math.round(firstContentAt - turnStartedAt)
+            : Math.round(end - turnStartedAt),
+          // End-to-end generation rate from clio's REAL token count —
+          // meaningful for both batch and live-streaming providers.
+          tokensPerSec: tokens?.output ? Math.round(tokens.output / turnSec) : null,
+          streaming: false,
+        });
+        turnStartedAt = 0;
+        break;
+      }
+    }
+  }
+
+  // Backoff ladder. Each step caps at 10s so we don't go silent for
+  // minutes after a few attempts; the user can still force-recover by
+  // navigating away and back.
+  const BACKOFF_LADDER = [1, 2, 5, 10, 10, 10];
+  // Desktop only: if the Rust SSE bridge hasn't opened within this window,
+  // fall back to a raw EventSource so live streaming never stalls.
+  const BRIDGE_FALLBACK_MS = 4000;
+  // Cap the semantic feed so a long-running session can't grow it without
+  // bound — it's an observability timeline, not the source of truth.
+  const SEMANTIC_FEED_CAP = 500;
+
+  createEffect(() => {
+    const id = activeSessionId();
+    // Stream stats are per-session — reset whenever the session changes
+    // (including to "no session").
+    setStreamStats(null);
+    turnStartedAt = 0;
+    firstContentAt = 0;
+    deltaChars = 0;
+    // The semantic feed is per-session; clear it on every session switch so
+    // events never bleed between conversations.
+    setSemanticEvents([]);
+    if (!id) {
+      setMessages([]);
+      setMessagesLoading(false);
+      setPendingPermission(null);
+      setStatus('closed');
+      setReconnectInSec(0);
+      setLastCompletion(null);
+      setCostUsd(0);
+      setRunningTools([]);
+      setPendingQuestion(null);
+      return;
+    }
+
+    // Seed pending questions on session activation — there might be
+    // one already waiting from before SSE was connected.
+    void client
+      .sessionQuestions(id, 'pending')
+      .then(({ questions }) => setPendingQuestion(questions[0] ?? null))
+      .catch(() => setPendingQuestion(null));
+
+    // Loading flips true on every session switch so the transcript can
+    // render skeletons instead of flashing an empty conversation.
+    setMessagesLoading(true);
+    void client
+      .messages(id)
+      .then(({ messages: existing }) => setMessages(existing))
+      .catch(() => setMessages([]))
+      .finally(() => setMessagesLoading(false));
+
+    void client
+      .permissions(id)
+      .then(({ permissions }) => setPendingPermission(permissions[0] ?? null))
+      .catch(() => setPendingPermission(null));
+
+    let es: EventSource | null = null;
+    // Desktop (Tauri) routes SSE through the Rust bridge instead of a raw
+    // EventSource so live-streaming doesn't depend on clio's CORS (see
+    // tauri.ts openTauriSse + issue #111). `bridge` holds the close handle;
+    // `bridgeGen` invalidates in-flight async callbacks after teardown.
+    let bridge: SseBridgeHandle | null = null;
+    let bridgeGen = 0;
+    let attempt = 0;
+    let countdownTimer: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+
+    // SSE event types this stream listens for. Several handlers below are
+    // FORWARD-COMPAT — clio does not emit them today, but the handlers are
+    // kept (and listed here) so the desktop lights up if/when it does:
+    //   • session.created      — sessions are added via REST + a refetch
+    //   • tool.call.progress   — per-tool progress (a planned feature)
+    //   • cost.updated         — redundant: session cost is now accumulated
+    //                            from message.completed (per-turn cost_usd),
+    //                            matching clio's server-side rollup; this
+    //                            event would only be a direct session-total
+    //                            override, which clio never sends.
+    //   • message.error        — clio folds errors into message.completed
+    //                            (stop_reason=error + error_info)
+    const named = [
+      'server.connected',
+      'server.heartbeat',
+      'session.created',
+      'session.updated',
+      'session.deleted',
+      'session.status_changed',
+      'session.summarized',
+      'session.compacted',
+      'session.cleared',
+      'message.created',
+      'message.part.added',
+      'message.part.delta',
+      'message.part.completed',
+      'message.completed',
+      'message.error',
+      'message.deleted',
+      'tool.call.started',
+      'tool.call.progress',
+      'tool.call.completed',
+      'permission.requested',
+      'permission.resolved',
+      'cost.updated',
+      'semantic.event',
+      'notification',
+      'user_question.created',
+      'user_question.answered',
+      'user_question.cancelled',
+      'user_question.resumed',
+      'lm.provider.changed',
+      'lm.provider.failed',
+      'context.frame.created',
+      'context.frame.completed',
+      'context.file.added',
+      'context.file.removed',
+      'file.diff.applied',
+      'file.diff.rejected',
+      'file.diff.write_failed',
+      'subagent.started',
+      'subagent.completed',
+      'memory.search.completed',
+      'turn.retry_requested',
+      'turn.retry_running',
+      'turn.retry_completed',
+      'turn.retry_failed',
+      'turn.retry_cancelled',
+    ];
+
+    // Parse one SSE event's `data:` payload and reduce it. Shared by the
+    // browser EventSource path (raw.data) and the Tauri bridge path.
+    const handleData = (dataStr: string) => {
+      let ev: unknown;
+      try {
+        ev = JSON.parse(dataStr);
+      } catch {
+        return;
+      }
+      trackStreamStats(ev as { type?: string; payload?: Record<string, unknown> });
+      reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
+        setMessages,
+        setPendingPermission,
+        setLastCompletion,
+        setCostUsd,
+        setRunningTools,
+        setPendingQuestion,
+        setSemanticEvents,
+        semanticFeedCap: SEMANTIC_FEED_CAP,
+        sessionEvents,
+        onNotification: sessionEvents?.onNotification,
+        onFrameChanged: sessionEvents?.onFrameChanged,
+        onContextFilesChanged: sessionEvents?.onContextFilesChanged,
+        onDiffChanged: sessionEvents?.onDiffChanged,
+        onMemoryChanged: sessionEvents?.onMemoryChanged,
+      });
+    };
+    const onEvent = (raw: MessageEvent) => handleData(raw.data);
+
+    function clearReconnectTimers() {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      setReconnectInSec(0);
+    }
+
+    function teardownEs() {
+      // Invalidate any in-flight bridge callbacks (open resolves async).
+      bridgeGen += 1;
+      if (bridge) {
+        bridge.close();
+        bridge = null;
+      }
+      if (!es) return;
+      for (const name of named) es.removeEventListener(name, onEvent as EventListener);
+      es.close();
+      es = null;
+    }
+
+    function scheduleReconnect() {
+      if (disposed) return;
+      const delay =
+        BACKOFF_LADDER[Math.min(attempt, BACKOFF_LADDER.length - 1)] ?? 10;
+      attempt += 1;
+      setStatus('reconnecting');
+      setReconnectInSec(delay);
+      countdownTimer = setInterval(() => {
+        setReconnectInSec((s) => (s > 1 ? s - 1 : 0));
+      }, 1000);
+      reconnectTimer = setTimeout(() => {
+        clearReconnectTimers();
+        openEs();
+      }, delay * 1000);
+    }
+
+    // Raw browser EventSource path — used by the pure-web build, and as the
+    // desktop fallback when the Rust SSE bridge doesn't open (see openEs).
+    function openEventSource() {
+      const next = new EventSource(client.sseUrl(id));
+      es = next;
+      next.onopen = () => {
+        attempt = 0;
+        setStatus('open');
+      };
+      next.onerror = () => {
+        // EventSource emits onerror both on transient hiccups and on
+        // permanent close. We treat it uniformly: tear down and back
+        // off. Browser's auto-reconnect is unreliable when the server
+        // rejects mid-stream — explicit control is safer.
+        teardownEs();
+        setStatus('error');
+        scheduleReconnect();
+      };
+      for (const name of named) next.addEventListener(name, onEvent as EventListener);
+    }
+
+    function openEs() {
+      if (disposed) return;
+      teardownEs();
+      setStatus('connecting');
+
+      // Desktop: prefer the Rust SSE bridge (CORS-independent, carries the
+      // bearer token an EventSource can't — see issue #111). But the bridge
+      // must never be a single point of failure for live streaming: if it
+      // doesn't reach `onOpen` within BRIDGE_FALLBACK_MS, or it errors/closes
+      // before opening, or the invoke rejects, fall back to a raw EventSource
+      // (which works whenever clio sends permissive CORS, as it does today).
+      // teardownEs() bumped bridgeGen, so capture it and ignore any callback
+      // from a stream that's since been torn down (open resolves async).
+      if (inTauri()) {
+        const gen = bridgeGen;
+        const stale = () => gen !== bridgeGen || disposed;
+        let opened = false;
+        let fellBack = false;
+        let fbTimer: ReturnType<typeof setTimeout> | null = null;
+        const clearFb = () => {
+          if (fbTimer) {
+            clearTimeout(fbTimer);
+            fbTimer = null;
+          }
+        };
+        const fallBack = () => {
+          if (stale() || opened || fellBack) return;
+          fellBack = true;
+          clearFb();
+          if (bridge) {
+            bridge.close();
+            bridge = null;
+          }
+          openEventSource();
+        };
+        fbTimer = setTimeout(fallBack, BRIDGE_FALLBACK_MS);
+        void openTauriSse(client.sseUrl(id), {
+          onOpen: () => {
+            if (stale() || fellBack) return;
+            opened = true;
+            clearFb();
+            attempt = 0;
+            setStatus('open');
+          },
+          onData: (data) => {
+            if (stale() || fellBack) return;
+            handleData(data);
+          },
+          onError: () => {
+            if (stale()) return;
+            clearFb();
+            bridge = null;
+            if (!opened) {
+              fallBack();
+            } else {
+              setStatus('error');
+              scheduleReconnect();
+            }
+          },
+          onClosed: () => {
+            if (stale()) return;
+            clearFb();
+            bridge = null;
+            if (!opened) {
+              // Closed before it ever opened — bridge unusable; fall back.
+              fallBack();
+            } else {
+              setStatus('error');
+              scheduleReconnect();
+            }
+          },
+        })
+          .then((h) => {
+            if (gen !== bridgeGen || fellBack) {
+              // Torn down / already fell back while opening — drop it.
+              h.close();
+              return;
+            }
+            bridge = h;
+          })
+          .catch(() => {
+            if (stale()) return;
+            fallBack();
+          });
+        return;
+      }
+
+      openEventSource();
+    }
+
+    // Manual reconnect (toast "Reconnect now" action): cancel any pending
+    // backoff and reopen immediately. Resets the attempt counter so the
+    // next failure starts the ladder from the bottom again.
+    reconnectNowRef = () => {
+      if (disposed) return;
+      attempt = 0;
+      clearReconnectTimers();
+      openEs();
+    };
+
+    // Hardening (W4): react to the OS/browser network state. A dropped
+    // network does NOT error an established EventSource — it just goes
+    // silently dead — so on `offline` tear the stream down and start the
+    // reconnect ladder; on `online` reconnect immediately instead of
+    // waiting out the backoff. Covers laptop sleep/wake + wifi switching.
+    const onOffline = () => {
+      if (disposed) return;
+      teardownEs();
+      setStatus('error');
+      scheduleReconnect();
+    };
+    const onOnline = () => {
+      if (disposed) return;
+      attempt = 0;
+      clearReconnectTimers();
+      openEs();
+    };
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
+
+    openEs();
+
+    onCleanup(() => {
+      disposed = true;
+      reconnectNowRef = null;
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
+      clearReconnectTimers();
+      teardownEs();
+      setStatus('closed');
+    });
+  });
+
+  async function refetch(): Promise<void> {
+    const id = activeSessionId();
+    if (!id) return;
+    try {
+      const { messages: fresh } = await client.messages(id);
+      setMessages(fresh);
+    } catch {
+      // ignore — SSE will catch up on the next event.
+    }
+  }
+
+  return {
+    messages,
+    messagesLoading,
+    pendingPermission,
+    status,
+    reconnectInSec,
+    lastCompletion,
+    costUsd,
+    runningTools,
+    pendingQuestion,
+    semanticEvents,
+    streamStats,
+    refetch,
+    reconnectNow: () => {
+      // Don't tear down a healthy stream — only act when degraded.
+      if (status() === 'open') return;
+      reconnectNowRef?.();
+    },
+    clearPendingPermission: () => setPendingPermission(null),
+  };
+}
+
+export interface SessionEventSink {
+  patch: (id: string, p: Partial<SidebarSession>) => void;
+  setRaw?: (
+    next: SidebarSession[] | ((prev: SidebarSession[]) => SidebarSession[]),
+  ) => void;
+  /** Force a refetch of `/v1/sessions` — used when SSE signals a field
+   * change (title, status, archived) whose new value isn't in the
+   * event payload. */
+  refetch?: () => void;
+  /** Fired when SSE session.updated says the title changed. ChatScreen
+   * uses this to flash a transient "renamed" pill in the topbar. */
+  onTitleChanged?: (sessionId: string) => void;
+}
+
+export interface BackendNotification {
+  level: 'info' | 'warning' | 'error';
+  title: string;
+  body?: string;
+}
+
+export interface NotificationSink {
+  onNotification: (n: BackendNotification) => void;
+  /** Fires on context.frame.{created,completed} so consumers can
+   * refetch /v1/sessions/{id}/context/frames. */
+  onFrameChanged?: () => void;
+  /** Fires on context.file.{added,removed} so the Inspector Context tab
+   * can refetch /v1/sessions/{id}/context/files. */
+  onContextFilesChanged?: () => void;
+  /** Fires on file.diff.{applied,rejected,write_failed} so the Inspector
+   * Diffs tab can refetch the session's pending diffs. */
+  onDiffChanged?: () => void;
+  /** Fires on memory.search.completed so any open Memory drawer can
+   * refresh hits. */
+  onMemoryChanged?: () => void;
+}
+
+/** Setters + side-effect sinks the SSE reducer drives. Optional members
+ * are forward-compat hooks not every call site wires (e.g. the semantic
+ * feed). Exported so unit tests can stub a subset. */
+export interface ReduceHooks {
+  setMessages: (m: Message[] | ((p: Message[]) => Message[])) => void;
+  setPendingPermission: (p: PermissionRequest | null) => void;
+  setLastCompletion: (c: MessageCompletion | null) => void;
+  setCostUsd: (n: number | ((p: number) => number)) => void;
+  setRunningTools: (
+    n: RunningTool[] | ((p: RunningTool[]) => RunningTool[]),
+  ) => void;
+  setPendingQuestion: (q: UserQuestion | null) => void;
+  setSemanticEvents?: (
+    n:
+      | SemanticEventPayload[]
+      | ((p: SemanticEventPayload[]) => SemanticEventPayload[]),
+  ) => void;
+  semanticFeedCap?: number;
+  sessionEvents?: SessionEventSink;
+  onNotification?: (n: BackendNotification) => void;
+  onFrameChanged?: () => void;
+  onContextFilesChanged?: () => void;
+  onDiffChanged?: () => void;
+  onMemoryChanged?: () => void;
+}
+
+/**
+ * Reduce an envelope-shaped event onto the message + permission signals.
+ * Per SPEC §7.2 every payload lives under `ev.payload`. Tolerates
+ * unknown event types (silently drops them so a backend that ships a
+ * richer event surface doesn't blow up older clients).
+ *
+ * Exported (alongside `ReduceHooks`) so the SSE reduction can be unit
+ * tested directly without standing up a live EventSource — every state
+ * mutation flows through the `hooks` setters, which the test stubs.
+ */
+export function reduce(
+  ev: { type?: string; payload?: Record<string, unknown> },
+  hooks: ReduceHooks,
+) {
+  const t = ev.type;
+  const p = ev.payload ?? {};
+  switch (t) {
+    case 'message.created': {
+      // clio emits the message shape directly in the payload (id /
+      // role / parts at the top level). Older fixtures nested it
+      // under `payload.message`. Accept both so we don't drop the
+      // event silently.
+      const nested = p['message'] as Message | undefined;
+      const flat = (p['id'] && p['role'] ? p : undefined) as Message | undefined;
+      const msg = nested ?? flat;
+      if (msg) hooks.setMessages((prev) => upsertMessage(prev, msg));
+      break;
+    }
+    case 'message.part.added': {
+      const messageId = p.message_id as string;
+      const part = p.part as Message['parts'][number];
+      if (messageId && part) {
+        hooks.setMessages((prev) => appendPart(prev, messageId, part));
+      }
+      break;
+    }
+    case 'message.part.delta': {
+      const messageId = p.message_id as string;
+      const partId = p.part_id as string;
+      const delta = (p.delta as { text_append?: string }) ?? {};
+      if (messageId && partId && delta.text_append) {
+        hooks.setMessages((prev) =>
+          applyTextAppend(prev, messageId, partId, delta.text_append!),
+        );
+      }
+      break;
+    }
+    case 'message.completed': {
+      const completion: MessageCompletion = {
+        message_id: p.message_id as string,
+        stop_reason: (p.stop_reason as string) ?? 'unknown',
+        tokens: p.tokens as MessageCompletion['tokens'],
+        cost_usd: p.cost_usd as number | undefined,
+      };
+      // GAP 1: a blocked turn (pre_message hook) folds its error into
+      // message.completed with stop_reason "blocked" + error_info, and it
+      // targets the USER message (no assistant message is ever created).
+      // Carry both onto the message so the transcript can render the
+      // "Turn blocked" pill. Verified against live :17803.
+      const errorInfo = p.error_info as ErrorInfo | undefined;
+      hooks.setLastCompletion(completion);
+      // Session-level cost accumulates per completed turn. clio sends the
+      // PER-TURN cost on message.completed (cost_usd=turn_cost) and adds it to
+      // the session total server-side; it never emits a standalone
+      // cost.updated, so this is the real feeder for the topbar cost chip.
+      // setCostUsd is reset to 0 on session switch, and SSE replay rebuilds
+      // the running sum on reconnect / when switching into a session.
+      if (typeof completion.cost_usd === 'number') {
+        const turnCost = completion.cost_usd;
+        hooks.setCostUsd((prev) => prev + turnCost);
+      }
+      hooks.setMessages((prev) =>
+        prev.map((m) =>
+          m.id === completion.message_id
+            ? {
+                ...m,
+                stop_reason: completion.stop_reason,
+                tokens: completion.tokens ?? m.tokens,
+                cost_usd: completion.cost_usd ?? m.cost_usd,
+                ...(errorInfo ? { error_info: errorInfo } : {}),
+              }
+            : m,
+        ),
+      );
+      // Clear any lingering running-tool indicators — a completed
+      // turn means none should still be in flight.
+      hooks.setRunningTools(() => []);
+      break;
+    }
+    case 'message.error': {
+      const messageId = p.message_id as string;
+      const error = p.error as Message['error_info'] | undefined;
+      if (messageId && error) {
+        hooks.setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, error_info: error, stop_reason: 'error' } : m,
+          ),
+        );
+      }
+      break;
+    }
+    case 'cost.updated': {
+      const cost = p.cost_usd as number | undefined;
+      if (typeof cost === 'number') hooks.setCostUsd(cost);
+      break;
+    }
+    case 'semantic.event': {
+      // GAP 3: clio publishes a read-only execution trace on the SAME
+      // per-session SSE stream. DEDUP RULE: store ALL of them in the
+      // semantic feed (the Inspector timeline filters/dedups for display),
+      // but DO NOT create transcript messages/parts/toasts from them — the
+      // plain events (tool.call.*, permission.requested, …) already drive
+      // the UI; semantic events are an observability timeline only.
+      const sev = p as unknown as SemanticEventPayload;
+      if (sev && typeof sev.event_id === 'string' && hooks.setSemanticEvents) {
+        const cap = hooks.semanticFeedCap ?? 500;
+        hooks.setSemanticEvents((prev) => {
+          // Idempotent on replay/reconnect — event_id is stable + unique.
+          if (prev.some((e) => e.event_id === sev.event_id)) return prev;
+          const next = [...prev, sev];
+          return next.length > cap ? next.slice(next.length - cap) : next;
+        });
+      }
+      break;
+    }
+    case 'permission.requested': {
+      // clio emits the permission fields flat in the payload with the
+      // tool identity nested under `tool_call.tool_name`:
+      //   { id, session_id, tool_call: { tool_name, input } }
+      // Older fixtures nested the whole request under `payload.permission`
+      // with `tool_name` at the top level. Accept both — reading only
+      // `p.permission` meant the card never rendered against live clio.
+      const nested = p['permission'] as PermissionRequest | undefined;
+      let req = nested;
+      if (!req && typeof p['id'] === 'string') {
+        const tc = p['tool_call'] as
+          | { tool_name?: string; input?: Record<string, unknown> }
+          | undefined;
+        req = {
+          id: p['id'] as string,
+          session_id: (p['session_id'] as string) ?? '',
+          tool_name:
+            tc?.tool_name ?? (p['tool_name'] as string | undefined) ?? 'tool',
+          tool_call: tc?.input ? { input: tc.input } : undefined,
+          risk: p['risk'] as PermissionRequest['risk'],
+          reason: p['reason'] as string | undefined,
+          created_at:
+            (p['created_at'] as string | undefined) ??
+            (p['occurred_at'] as string | undefined) ??
+            '',
+        };
+      }
+      if (req) hooks.setPendingPermission(req);
+      break;
+    }
+    case 'permission.resolved': {
+      hooks.setPendingPermission(null);
+      break;
+    }
+    case 'session.status_changed': {
+      const sid = p.session_id as string;
+      const next = p.status as SessionStatus;
+      if (sid && next && hooks.sessionEvents) {
+        hooks.sessionEvents.patch(sid, {
+          status: next,
+          bumpedAt: Date.now(),
+        });
+      }
+      break;
+    }
+    case 'session.created': {
+      const s = p.session as Session | undefined;
+      if (s && hooks.sessionEvents?.setRaw) {
+        const next = toSidebarSession(s);
+        hooks.sessionEvents.setRaw((prev) => {
+          if (prev.some((b) => b.id === next.id)) return prev;
+          return [next, ...prev];
+        });
+      }
+      break;
+    }
+    case 'session.updated': {
+      const sid = p.session_id as string;
+      if (sid && hooks.sessionEvents) {
+        const changed = (p.changed_fields as string[]) ?? [];
+        // We don't get the new field values here; the simplest correct
+        // thing is to mark the row as "updatedAt: just now" + bump it.
+        hooks.sessionEvents.patch(sid, {
+          updatedAt: 'just now',
+          bumpedAt: Date.now(),
+        });
+        // Autorename hint — when the agent (or the user via slash
+        // command) renames the session backend-side, mirror the TUI's
+        // transient "agent renamed this" affordance: refetch so the new
+        // title flows into the sessions list, and surface a quiet info
+        // toast so the change isn't silent.
+        if (changed.includes('title')) {
+          hooks.sessionEvents.refetch?.();
+          hooks.sessionEvents.onTitleChanged?.(sid);
+          hooks.onNotification?.({
+            level: 'info',
+            title: 'Session renamed',
+            body: `Backend updated the title of session ${sid.slice(0, 8)}.`,
+          });
+        }
+      }
+      break;
+    }
+    case 'session.deleted': {
+      const sid = p.session_id as string;
+      if (sid && hooks.sessionEvents?.setRaw) {
+        hooks.sessionEvents.setRaw((prev) => prev.filter((b) => b.id !== sid));
+      }
+      break;
+    }
+    case 'tool.call.started': {
+      const toolName = (p.tool_name as string) ?? 'tool';
+      const callId =
+        (p.call_id as string) ??
+        (p.tool_call_id as string) ??
+        `${toolName}-${Date.now()}`;
+      hooks.setRunningTools((prev) => {
+        if (prev.some((t) => t.callId === callId)) return prev;
+        return [...prev, { callId, toolName, startedAt: Date.now() }];
+      });
+      break;
+    }
+    case 'tool.call.progress': {
+      const callId = (p.call_id as string) ?? (p.tool_call_id as string);
+      if (!callId) break;
+      const progressVal = p.progress;
+      const totalVal = p.total;
+      const message = p.message as string | undefined;
+      const ratio =
+        typeof progressVal === 'number' && typeof totalVal === 'number' && totalVal > 0
+          ? Math.min(1, Math.max(0, progressVal / totalVal))
+          : typeof progressVal === 'number' && progressVal <= 1
+          ? Math.min(1, Math.max(0, progressVal))
+          : undefined;
+      hooks.setRunningTools((prev) =>
+        prev.map((t) =>
+          t.callId === callId
+            ? {
+                ...t,
+                ...(ratio != null ? { progress: ratio } : {}),
+                ...(message ? { progressMessage: message } : {}),
+              }
+            : t,
+        ),
+      );
+      break;
+    }
+    case 'tool.call.completed': {
+      const callId = (p.call_id as string) ?? (p.tool_call_id as string);
+      if (callId) {
+        hooks.setRunningTools((prev) => prev.filter((t) => t.callId !== callId));
+      }
+      break;
+    }
+    case 'user_question.created':
+    case 'user_question.resumed': {
+      // clio emits the UserQuestion fields FLAT in the payload
+      // (Event payload = question.model_dump()), NOT nested under
+      // `p.question`. Older fixtures nested it. Reading only `p.question`
+      // meant the ask-user card never rendered against live clio — the
+      // same wire-shape class as the permission E-27 bug. Accept both.
+      const nested = p['question'] as UserQuestion | undefined;
+      const flat =
+        !nested && typeof p['id'] === 'string' && typeof p['prompt'] === 'string'
+          ? (p as unknown as UserQuestion)
+          : undefined;
+      const q = nested ?? flat;
+      if (q && q.status === 'pending') hooks.setPendingQuestion(q);
+      break;
+    }
+    case 'user_question.answered':
+    case 'user_question.cancelled': {
+      // Either resolution clears the active card. The post-handler
+      // (the caller) refetches the transcript so the resumed turn
+      // shows up.
+      hooks.setPendingQuestion(null);
+      break;
+    }
+    case 'context.frame.created':
+    case 'context.frame.completed': {
+      // The frames resource keys off activeId; the simplest correct
+      // path is to fire onFrameChanged so ChatScreen can refetch.
+      hooks.onFrameChanged?.();
+      break;
+    }
+    case 'lm.provider.changed': {
+      const providerId = (p.provider_id as string) ?? 'unknown';
+      const modelId = (p.model_id as string) ?? '';
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Model swapped',
+        body: modelId ? `${providerId} / ${modelId}` : providerId,
+      });
+      break;
+    }
+    case 'lm.provider.failed': {
+      const providerId = (p.provider_id as string) ?? 'unknown';
+      const reason =
+        (p.error as string) ?? (p.message as string) ?? 'no detail provided';
+      hooks.onNotification?.({
+        level: 'error',
+        title: `${providerId} failed`,
+        body: reason,
+      });
+      break;
+    }
+    case 'notification': {
+      const level = (p.level as string) ?? 'info';
+      const title = (p.title as string) ?? 'Notification';
+      const body = p.body as string | undefined;
+      hooks.onNotification?.({
+        level: level === 'warning' || level === 'error' ? level : 'info',
+        title,
+        ...(body ? { body } : {}),
+      });
+      break;
+    }
+    case 'session.summarized': {
+      // FORWARD-COMPAT: clio-agent does not emit this yet (no /summarize
+      // route; proven against source — the only `summarize` in app.py is
+      // internal to /compact). Kept subscribed so the desktop lights up the
+      // moment a backend implements the planned session-summary feature
+      // (tracked as the iowarp/clio-agent summarize PR). Until then this
+      // branch is simply never reached.
+      const sid = (p.session_id as string) ?? '';
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Session summarized',
+        body: sid ? `${sid.slice(0, 8)} — older turns rolled into a summary.` : 'Older turns rolled into a summary.',
+      });
+      break;
+    }
+    case 'session.compacted': {
+      const sid = (p.session_id as string) ?? '';
+      // clio emits `archived_count` on session.compacted; the old reader
+      // used `removed_count` (never present) so the toast always said
+      // "0 messages". Read archived_count, tolerate the legacy name.
+      const archived =
+        (p.archived_count as number) ?? (p.removed_count as number) ?? 0;
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Session compacted',
+        body: `${sid.slice(0, 8)} — archived ${archived} message${archived === 1 ? '' : 's'} into a summary.`,
+      });
+      break;
+    }
+    case 'message.part.completed': {
+      // Batch providers (argonne / claude_code / codex) emit the entire
+      // text on this event instead of via part.delta chunks. Without
+      // this reducer the transcript stays empty even though the turn
+      // finished — `final_text` was being dropped.
+      const messageId = p.message_id as string | undefined;
+      const partId = p.part_id as string | undefined;
+      const finalText = p.final_text as string | undefined;
+      if (messageId && partId && typeof finalText === 'string') {
+        hooks.setMessages((prev) =>
+          applyPartCompleted(prev, messageId, partId, finalText),
+        );
+      }
+      break;
+    }
+    case 'message.deleted': {
+      // clio emits {session_id, message_id} when a message has been
+      // pruned (delete endpoint or undo/rewind). Drop it from the
+      // transcript so the UI doesn't show a stale row.
+      const messageId = p.message_id as string | undefined;
+      if (messageId) {
+        hooks.setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+      break;
+    }
+    case 'session.cleared': {
+      // /v1/sessions/{id}/clear blew the slate clean. Drop every message
+      // and clear permission / running-tool state so the next turn starts
+      // fresh.
+      hooks.setMessages(() => []);
+      hooks.setPendingPermission(null);
+      hooks.setRunningTools(() => []);
+      hooks.setPendingQuestion(null);
+      hooks.setLastCompletion(null);
+      break;
+    }
+    case 'context.file.added':
+    case 'context.file.removed': {
+      // Inspector Context tab pulls /v1/sessions/{id}/context/files; the
+      // event payload doesn't carry the new list, so signal the consumer
+      // to refetch.
+      hooks.onContextFilesChanged?.();
+      break;
+    }
+    case 'file.diff.applied':
+    case 'file.diff.rejected':
+    case 'file.diff.write_failed': {
+      // Diff queue moved — Inspector Diffs tab needs a refetch. We also
+      // surface a notification for write_failed because that's a real
+      // user-actionable signal (perm denied, disk full, ...).
+      hooks.onDiffChanged?.();
+      if (t === 'file.diff.write_failed') {
+        const path = (p.path as string) ?? 'unknown path';
+        const reason = (p.error as string) ?? (p.message as string) ?? 'see logs';
+        hooks.onNotification?.({
+          level: 'error',
+          title: 'Diff write failed',
+          body: `${path} — ${reason}`,
+        });
+      }
+      break;
+    }
+    // expert_handoff is a message Part (rendered inline in Transcript), not a
+    // standalone SSE event — clio never publishes one, so the old top-level
+    // case here was dead. Removed.
+    case 'subagent.started': {
+      const agentName =
+        (p.agent_name as string) ?? (p.agent_id as string) ?? 'sub-agent';
+      const task = p.task as string | undefined;
+      hooks.onNotification?.({
+        level: 'info',
+        title: `Sub-agent started: ${agentName}`,
+        ...(task ? { body: task } : {}),
+      });
+      break;
+    }
+    case 'subagent.completed': {
+      const agentName =
+        (p.agent_name as string) ?? (p.agent_id as string) ?? 'sub-agent';
+      const status = (p.status as string) ?? 'completed';
+      hooks.onNotification?.({
+        level: status === 'error' || status === 'failed' ? 'error' : 'info',
+        title: `Sub-agent ${status}: ${agentName}`,
+      });
+      break;
+    }
+    case 'memory.search.completed': {
+      const hitCount =
+        (p.hit_count as number) ??
+        ((p.hits as unknown[] | undefined)?.length ?? 0);
+      hooks.onMemoryChanged?.();
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Memory search complete',
+        body: `${hitCount} hit${hitCount === 1 ? '' : 's'}.`,
+      });
+      break;
+    }
+    case 'turn.retry_requested': {
+      const reason =
+        (p.reason as string) ?? (p.message as string) ?? 'retrying the last turn';
+      hooks.onNotification?.({
+        level: 'warning',
+        title: 'Turn retry requested',
+        body: reason,
+      });
+      break;
+    }
+    case 'turn.retry_running': {
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Retry running',
+        body: 'Re-running the turn…',
+      });
+      break;
+    }
+    case 'turn.retry_completed': {
+      // Clears the "requested/running" state for the user; the regenerated
+      // turn itself streams in via the normal message.* events.
+      hooks.onNotification?.({
+        level: 'info',
+        title: 'Retry completed',
+        body: 'The retried turn finished.',
+      });
+      break;
+    }
+    case 'turn.retry_failed': {
+      const reason =
+        (p.warning as string) ?? (p.message as string) ?? 'the retry failed';
+      hooks.onNotification?.({ level: 'error', title: 'Retry failed', body: reason });
+      break;
+    }
+    case 'turn.retry_cancelled': {
+      hooks.onNotification?.({
+        level: 'warning',
+        title: 'Retry cancelled',
+        body: 'The retry was cancelled.',
+      });
+      break;
+    }
+    case 'server.connected':
+    case 'server.heartbeat':
+    default:
+      // No transcript-reducer action yet. tool.call.progress + notification
+      // are tracked as v1.0 follow-ups for the chat shell.
+      break;
+  }
+}
+
+function toSidebarSession(s: Session): SidebarSession {
+  const project = workspaceLabel(s);
+  const meta = s.metadata ?? {};
+  const metaPinned = meta['pinned'] === true;
+  return {
+    id: s.id,
+    title: s.title,
+    status: s.status as SessionStatus,
+    project,
+    updatedAt: humanizeUpdatedAt(s.updated_at),
+    ...(metaPinned ? { metaPinned: true } : {}),
+    ...(s.parent_session_id ? { parentId: s.parent_session_id } : {}),
+  };
+}
+
+function workspaceLabel(s: Session): string {
+  if (s.workspace_id) return s.workspace_id;
+  const meta = s.metadata ?? {};
+  if (typeof meta['project'] === 'string') return meta['project'];
+  return 'workspace';
+}
+
+function humanizeUpdatedAt(iso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const delta = Date.now() - d.getTime();
+  const min = Math.round(delta / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.round(hr / 24);
+  return `${day}d`;
+}
