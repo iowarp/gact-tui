@@ -902,6 +902,34 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  test('MCP Reconnect button behaves honestly on the live backend (1.0 item E3)', async ({ browser }) => {
+    const { page, close } = await connect(browser);
+    await page.getByTestId('rail-mcp').click();
+    await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
+    const btn = page.locator('[data-testid^="mcp-reconnect-"]').first();
+    await expect(btn).toBeVisible({ timeout: 8_000 });
+    await btn.click();
+    await page.waitForTimeout(2_000);
+    // Two honest outcomes, depending on the connected backend:
+    //  - PR-stack backend (route exists): success toast, button stays enabled.
+    //  - develop backend (route absent → 404): button disabled + latched with
+    //    a "not supported" tooltip. NO silent failure either way.
+    const disabled = await btn.isDisabled();
+    if (disabled) {
+      // Degraded-and-latched path (backend without the route).
+      await expect(btn).toHaveAttribute('title', /not supported/i);
+    } else {
+      // Success path: the toast was pushed (it may have already expired —
+      // check the notification history instead of racing the toast).
+      await page.getByTestId('notification-bell').click();
+      await expect(
+        page.getByTestId('notification-panel').getByText(/Reconnected/i).first(),
+      ).toBeVisible();
+    }
+    await page.screenshot({ path: shot('item-e3-mcp-reconnect'), fullPage: false });
+    await close();
+  });
+
   test('Settings export/import round-trips real preferences (1.0 item 7)', async ({ browser }) => {
     const { page, close } = await connect(browser);
 
