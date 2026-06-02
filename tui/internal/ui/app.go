@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"image/color"
 	"math/rand"
 	"os"
@@ -5748,6 +5749,12 @@ func (a *App) applySSE(e client.SSEEvent) {
 		a.applyPermissionRequested(e)
 	case "permission.resolved":
 		a.applyPermissionResolved(e)
+	case "semantic.event":
+		a.applySemanticEvent(e)
+	case "tool.call.started":
+		a.applyToolCallStarted(e)
+	case "tool.call.completed":
+		a.applyToolCallCompleted(e)
 	case "subagent.started", "subagent.completed":
 		// Refresh sidebar so the new subsession appears (or its status updates).
 		a.pendingSidebarRefresh = true
@@ -6814,6 +6821,9 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 		return
 	}
 	part := decodePart(partRaw)
+	if part.CallID != "" && (part.Type == gact.PartTypeToolCall || part.Type == gact.PartTypeToolResult) {
+		a.removeSyntheticSemanticToolParts(part.CallID)
+	}
 	for i := range a.messages {
 		if a.messages[i].ID == msgID {
 			for j := range a.messages[i].Parts {
@@ -6828,6 +6838,279 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 			return
 		}
 	}
+}
+
+func (a *App) applySemanticEvent(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok || len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
+	if eventType == "" {
+		return
+	}
+	partID := semanticEventPartID(e, eventType, stringValue(pl["turn_id"]))
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil || messageHasPartID(*msg, partID) {
+		return
+	}
+	part := gact.Part{
+		ID:       partID,
+		Type:     gact.PartTypeThinking,
+		Thinking: semanticEventSummary(pl, eventType),
+		Metadata: map[string]any{
+			"semantic_event": true,
+			"event_type":     eventType,
+			"trace_id":       stringValue(pl["trace_id"]),
+			"turn_id":        stringValue(pl["turn_id"]),
+			"status":         stringValue(pl["status"]),
+			"detail_level":   stringValue(pl["detail_level"]),
+			"stream_source":  "semantic_event",
+			"raw_event":      pl,
+		},
+	}
+	msg.Parts = append(msg.Parts, part)
+}
+
+func (a *App) applyToolCallStarted(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok || len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	callID := firstNonEmpty(stringValue(pl["call_id"]), stringValue(pl["id"]))
+	toolName := firstNonEmpty(stringValue(pl["tool"]), stringValue(pl["tool_name"]), "tool")
+	if callID == "" {
+		callID = "semantic_" + stableIDFragment(toolName+"_"+stringValue(pl["turn_id"])+"_"+e.ID)
+	}
+	if a.hasToolPart(callID, gact.PartTypeToolCall) {
+		return
+	}
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil {
+		return
+	}
+	msg.Parts = append(msg.Parts, gact.Part{
+		ID:       "semantic_" + callID + "_call",
+		Type:     gact.PartTypeToolCall,
+		CallID:   callID,
+		ToolName: toolName,
+		Input:    mapValue(pl["args"]),
+		Metadata: map[string]any{
+			"semantic_event":   true,
+			"stream_source":    "semantic_event",
+			"telemetry_source": firstNonEmpty(stringValue(pl["telemetry_source"]), "semantic_event"),
+			"status":           "running",
+			"raw_event":        pl,
+		},
+	})
+}
+
+func (a *App) applyToolCallCompleted(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok || len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	callID := firstNonEmpty(stringValue(pl["call_id"]), stringValue(pl["id"]))
+	toolName := firstNonEmpty(stringValue(pl["tool"]), stringValue(pl["tool_name"]), "tool")
+	if callID == "" {
+		callID = "semantic_" + stableIDFragment(toolName+"_"+stringValue(pl["turn_id"])+"_"+e.ID)
+	}
+	if a.hasToolPart(callID, gact.PartTypeToolResult) {
+		return
+	}
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil {
+		return
+	}
+	okResult := boolValue(pl["ok"])
+	errText := firstNonEmpty(stringValue(pl["error"]), stringValue(pl["message"]))
+	resultText := firstNonEmpty(errText, stringValue(pl["summary"]), "completed")
+	result := gact.Part{
+		ID:       "semantic_" + callID + "_result",
+		Type:     gact.PartTypeToolResult,
+		CallID:   callID,
+		ToolName: toolName,
+		IsError:  !okResult || errText != "",
+		Content: []gact.Part{{
+			ID:   "semantic_" + callID + "_result_text",
+			Type: gact.PartTypeText,
+			Text: resultText,
+		}},
+		Metadata: map[string]any{
+			"semantic_event":   true,
+			"stream_source":    "semantic_event",
+			"telemetry_source": firstNonEmpty(stringValue(pl["telemetry_source"]), "semantic_event"),
+			"raw_event":        pl,
+		},
+	}
+	if duration, ok := floatValue(pl["duration_ms"]); ok {
+		result.DurationMS = duration
+	}
+	if cached, ok := pl["cached"].(bool); ok {
+		result.Cached = cached
+	}
+	msg.Parts = append(msg.Parts, result)
+}
+
+func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		sessionID = a.currentSessionID()
+	}
+	if sessionID == "" {
+		return nil
+	}
+	msgID := "semantic_live"
+	if turnID != "" {
+		msgID += "_" + stableIDFragment(turnID)
+	} else {
+		msgID += "_" + stableIDFragment(sessionID)
+	}
+	for i := range a.messages {
+		if a.messages[i].ID == msgID {
+			return &a.messages[i]
+		}
+	}
+	now := time.Now()
+	a.messages = append(a.messages, gact.Message{
+		ID:        msgID,
+		SessionID: sessionID,
+		Role:      gact.RoleAssistant,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Metadata: map[string]any{
+			"semantic_live_message": true,
+			"turn_id":               turnID,
+		},
+	})
+	return &a.messages[len(a.messages)-1]
+}
+
+func (a *App) hasToolPart(callID, partType string) bool {
+	callID = strings.TrimSpace(callID)
+	if callID == "" {
+		return false
+	}
+	for _, msg := range a.messages {
+		for _, part := range msg.Parts {
+			if part.CallID == callID && part.Type == partType {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *App) removeSyntheticSemanticToolParts(callID string) {
+	callID = strings.TrimSpace(callID)
+	if callID == "" {
+		return
+	}
+	for mi := range a.messages {
+		parts := a.messages[mi].Parts[:0]
+		for _, part := range a.messages[mi].Parts {
+			if part.CallID == callID && part.Metadata != nil && part.Metadata["semantic_event"] == true {
+				continue
+			}
+			parts = append(parts, part)
+		}
+		a.messages[mi].Parts = parts
+	}
+}
+
+func messageHasPartID(msg gact.Message, partID string) bool {
+	partID = strings.TrimSpace(partID)
+	if partID == "" {
+		return false
+	}
+	for _, part := range msg.Parts {
+		if part.ID == partID {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
+	if e.ID != "" {
+		return "semantic_event_" + stableIDFragment(e.ID)
+	}
+	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+stringValue(e.Payload["occurred_at"]))
+}
+
+func semanticEventSummary(payload map[string]any, eventType string) string {
+	bits := []string{"event: " + eventType}
+	if status := stringValue(payload["status"]); status != "" {
+		bits = append(bits, "status: "+status)
+	}
+	if summary := stringValue(payload["summary"]); summary != "" {
+		bits = append(bits, "summary: "+summary)
+	}
+	if actor := compactSemanticMap(payload["actor"]); actor != "" {
+		bits = append(bits, "actor: "+actor)
+	}
+	if subject := compactSemanticMap(payload["subject"]); subject != "" {
+		bits = append(bits, "subject: "+subject)
+	}
+	return strings.Join(bits, " · ")
+}
+
+func compactSemanticMap(raw any) string {
+	m := mapValue(raw)
+	if len(m) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var parts []string
+	for _, key := range keys {
+		if value := strings.TrimSpace(stringValue(m[key])); value != "" {
+			parts = append(parts, key+"="+value)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func boolValue(v any) bool {
+	switch b := v.(type) {
+	case bool:
+		return b
+	case string:
+		b = strings.TrimSpace(strings.ToLower(b))
+		return b == "true" || b == "ok" || b == "success"
+	default:
+		return false
+	}
+}
+
+func stableIDFragment(s string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(s))
+	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 func (a *App) applyPartDelta(e client.SSEEvent) {

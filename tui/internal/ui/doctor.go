@@ -348,6 +348,11 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor, capUIFull, "question SSE lifecycle and answer modal"},
 		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor, capUIFull, "retry attempts and retry-with-model provenance"},
 		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor, capUIFull, "frame list/detail fetch and memory tool detail"},
+		{"x_clio_semantic_events", caps.Capabilities.XClioSemanticEvents, capVendor, capUIFull, "semantic execution events reduced into live transcript evidence"},
+		{"x_clio_semantic_trace_backend", caps.Capabilities.XClioSemanticTraceBackend != "", capVendor, capUIFull, "trace backend metadata visible"},
+		{"x_clio_semantic_trace_detail", caps.Capabilities.XClioSemanticTraceDetail != "", capVendor, capUIFull, "trace detail metadata visible"},
+		{"x_clio_hook_backend", caps.Capabilities.XClioHookBackend != "", capVendor, capUIFull, "hook backend metadata visible"},
+		{"x_clio_hook_events", len(caps.Capabilities.XClioHookEvents) > 0, capVendor, capUIFull, "hook event metadata visible"},
 		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor, capUIFull, "doctor gaps tab and detail rows"},
 	}
 }

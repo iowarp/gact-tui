@@ -199,6 +199,11 @@ type CapabilityFlags struct {
 	XClioUserQuestions             bool           `json:"x_clio_user_questions,omitempty"`
 	XClioRetryAttempts             bool           `json:"x_clio_retry_attempts,omitempty"`
 	XClioContextFrames             bool           `json:"x_clio_context_frames,omitempty"`
+	XClioSemanticEvents            bool           `json:"x_clio_semantic_events,omitempty"`
+	XClioSemanticTraceBackend      string         `json:"x_clio_semantic_trace_backend,omitempty"`
+	XClioSemanticTraceDetail       string         `json:"x_clio_semantic_trace_detail,omitempty"`
+	XClioHookBackend               string         `json:"x_clio_hook_backend,omitempty"`
+	XClioHookEvents                map[string]any `json:"x_clio_hook_events,omitempty"`
 	XClioCapabilityGaps            map[string]any `json:"x_clio_capability_gaps,omitempty"`
 }
 

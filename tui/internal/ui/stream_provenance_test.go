@@ -112,3 +112,95 @@ func TestRenderPartDoesNotBadgeLiveStream(t *testing.T) {
 		t.Fatalf("live stream should not render post-hoc badge: %q", got)
 	}
 }
+
+func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "7",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "agent.invocation.started",
+			"status":       "running",
+			"summary":      "Agent data started.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent": "data"},
+		}},
+	})
+
+	if len(a.messages) != 1 {
+		t.Fatalf("messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeThinking || !strings.Contains(part.Thinking, "agent.invocation.started") || !strings.Contains(part.Thinking, "agent=data") {
+		t.Fatalf("semantic part = %#v", part)
+	}
+	if part.Metadata["semantic_event"] != true || part.Metadata["trace_id"] != "trace_1" {
+		t.Fatalf("semantic metadata = %#v", part.Metadata)
+	}
+}
+
+func TestApplyToolCallEventsAddLiveToolPartsAndDeduplicateMirroredParts(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.started",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"call_id":    "call_1",
+			"tool":       "ndp_search_datasets",
+			"args":       map[string]any{"search_terms": "seismic"},
+		}},
+	})
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.completed",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":       "s1",
+			"turn_id":          "turn_1",
+			"call_id":          "call_1",
+			"tool":             "ndp_search_datasets",
+			"ok":               true,
+			"duration_ms":      42.0,
+			"summary":          "completed",
+			"telemetry_source": "live_observer",
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 2 {
+		t.Fatalf("live tool parts = %#v", a.messages)
+	}
+	if a.messages[0].Parts[0].Type != gact.PartTypeToolCall || a.messages[0].Parts[1].Type != gact.PartTypeToolResult {
+		t.Fatalf("unexpected live parts = %#v", a.messages[0].Parts)
+	}
+
+	a.messages = append(a.messages, gact.Message{ID: "msg_1", SessionID: "s1", Role: gact.RoleAssistant})
+	a.applySSE(client.SSEEvent{
+		Type: "message.part.added",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"message_id": "msg_1",
+			"part": map[string]any{
+				"id":        "real_call",
+				"type":      "tool_call",
+				"call_id":   "call_1",
+				"tool_name": "ndp_search_datasets",
+				"input":     map[string]any{"search_terms": "seismic"},
+			},
+		}},
+	})
+
+	if a.hasToolPart("call_1", gact.PartTypeToolResult) {
+		t.Fatalf("synthetic semantic result should be removed after mirrored tool part: %#v", a.messages)
+	}
+	if !a.hasToolPart("call_1", gact.PartTypeToolCall) {
+		t.Fatalf("mirrored tool call should remain: %#v", a.messages)
+	}
+}

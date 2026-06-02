@@ -4505,6 +4505,64 @@ func TestConversationPartRightClickOpensSemanticActionMenu(t *testing.T) {
 	}
 }
 
+func TestConversationActionMenuRewindDispatchesSelectedMessage(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/rewind" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode rewind request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"deleted_messages": []string{"m2"}})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.c = client.New(srv.URL)
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.focus = FocusBody
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "question"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "answer"}}},
+	}
+
+	_ = a.openConversationActionsForPart(0, 0)
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation-actions:rewind-to-message")
+	if !ok {
+		t.Fatal("missing semantic rewind action target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("rewind action should dispatch backend command")
+	}
+	msg := cmd()
+	done, ok := msg.(sessionRewindDoneMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want sessionRewindDoneMsg", msg)
+	}
+	if done.err != nil || len(done.deleted) != 1 || done.deleted[0] != "m2" {
+		t.Fatalf("rewind done = %#v", done)
+	}
+	if got["to_message_id"] != "m1" || got["include_target"] != false {
+		t.Fatalf("rewind request = %#v", got)
+	}
+	if a.conversationActionsOpen {
+		t.Fatal("rewind action should close the action menu")
+	}
+}
+
 func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

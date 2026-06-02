@@ -20,6 +20,11 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 			"x_clio_user_questions": true,
 			"x_clio_retry_attempts": true,
 			"x_clio_context_frames": true,
+			"x_clio_semantic_events": true,
+			"x_clio_semantic_trace_backend": "file",
+			"x_clio_semantic_trace_detail": "semantic",
+			"x_clio_hook_backend": "python",
+			"x_clio_hook_events": {"semantic.event": {"status": "enabled"}},
 			"x_clio_capability_gaps": {"memory": {"status": "partial"}}
 		}
 	}`), &caps); err != nil {
@@ -27,6 +32,11 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 	}
 	if caps.Capabilities.XClioCancellation != "best_effort" ||
 		!caps.Capabilities.XClioAgentBlueprints ||
+		!caps.Capabilities.XClioSemanticEvents ||
+		caps.Capabilities.XClioSemanticTraceBackend != "file" ||
+		caps.Capabilities.XClioSemanticTraceDetail != "semantic" ||
+		caps.Capabilities.XClioHookBackend != "python" ||
+		len(caps.Capabilities.XClioHookEvents) != 1 ||
 		len(caps.Capabilities.XClioStreamFallbackReasons) != 1 ||
 		len(caps.Capabilities.XClioCapabilityGaps) != 1 {
 		t.Fatalf("capabilities = %+v", caps.Capabilities)
