@@ -81,6 +81,8 @@ func TestDoctorCapabilityRowsCoverDecodedCapabilityFlags(t *testing.T) {
 
 func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		SessionSummary:                 true,
+		AttachmentsUpload:              true,
 		AgentWrite:                     true,
 		SkillsExtraction:               true,
 		XClioPromptRegistry:            true,
@@ -94,6 +96,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		XClioSemanticTraceDetail:       "semantic",
 		XClioHookBackend:               "python",
 		XClioHookEvents:                map[string]any{"semantic.event": map[string]any{"status": "enabled"}},
+		XClioFilesContent:              true,
 		XClioCapabilityGaps:            map[string]any{"agent_write": map[string]any{"status": "full"}},
 		XClioSyntheticPosthocStreaming: true,
 		XClioStreamFallbackReasons:     map[string]any{"provider": map[string]any{"reason": "batch"}},
@@ -103,6 +106,8 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		byName[row.name] = row
 	}
 	for name, want := range map[string]capUISupport{
+		"session_summary":                    capUIPartial,
+		"attachments_upload":                 capUIPartial,
 		"agent_write":                        capUIFull,
 		"skills_extraction":                  capUIFull,
 		"x_clio_prompt_registry":             capUIFull,
@@ -116,6 +121,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		"x_clio_semantic_trace_detail":       capUIFull,
 		"x_clio_hook_backend":                capUIFull,
 		"x_clio_hook_events":                 capUIFull,
+		"x_clio_files_content":               capUIPartial,
 		"x_clio_capability_gaps":             capUIFull,
 		"x_clio_synthetic_posthoc_streaming": capUIFull,
 		"x_clio_stream_fallback_reasons":     capUIFull,

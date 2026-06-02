@@ -9,6 +9,8 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 	var caps Capabilities
 	if err := json.Unmarshal([]byte(`{
 		"capabilities": {
+			"session_summary": true,
+			"attachments_upload": true,
 			"x_clio_cancellation": "best_effort",
 			"x_clio_executor_cancellation": true,
 			"x_clio_text_streaming": "best_effort_live",
@@ -25,14 +27,18 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 			"x_clio_semantic_trace_detail": "semantic",
 			"x_clio_hook_backend": "python",
 			"x_clio_hook_events": {"semantic.event": {"status": "enabled"}},
+			"x_clio_files_content": true,
 			"x_clio_capability_gaps": {"memory": {"status": "partial"}}
 		}
 	}`), &caps); err != nil {
 		t.Fatalf("decode capabilities: %v", err)
 	}
 	if caps.Capabilities.XClioCancellation != "best_effort" ||
+		!caps.Capabilities.SessionSummary ||
+		!caps.Capabilities.AttachmentsUpload ||
 		!caps.Capabilities.XClioAgentBlueprints ||
 		!caps.Capabilities.XClioSemanticEvents ||
+		!caps.Capabilities.XClioFilesContent ||
 		caps.Capabilities.XClioSemanticTraceBackend != "file" ||
 		caps.Capabilities.XClioSemanticTraceDetail != "semantic" ||
 		caps.Capabilities.XClioHookBackend != "python" ||

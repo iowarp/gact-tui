@@ -118,6 +118,8 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			SessionBranching:  true,
 			SessionSharing:    false,
 			SessionExport:     true,
+			SessionSummary:    true,
+			AttachmentsUpload: true,
 			CostTracking:      true,
 			ThinkingBlocks:    true,
 			EditModes:         false,
@@ -135,6 +137,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			XClioPromptRegistry:  true,
 			XClioExpertPacks:     true,
 			XClioAgentBlueprints: true,
+			XClioFilesContent:    true,
 		},
 		Transports: gact.TransportFlags{
 			EventsSSE:       true,

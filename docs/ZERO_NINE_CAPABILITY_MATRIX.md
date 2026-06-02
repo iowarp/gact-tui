@@ -1,13 +1,13 @@
 # GACT TUI 0.9 Capability Matrix
 
-Date: 2026-05-29
+Date: 2026-06-02
 
 This matrix maps every decoded `CapabilityFlags` field to the intended TUI behavior. The Doctor capability tab renders the same support classes so users can distinguish backend support from TUI coverage.
 
 Support classes:
 
 - `full`: surfaced in the primary TUI or a drill-down view.
-- `partial`: decoded and partially surfaced, but still tracked by a 0.9 blocker.
+- `partial`: decoded and partially surfaced, but still tracked by a hardening issue.
 - `gated`: decoded and intentionally disabled or hidden unless a backend/workflow makes it actionable.
 - `none`: decoded but not user-surfaced in the current TUI.
 
@@ -31,6 +31,8 @@ Support classes:
 | Session branching | `session_branching` | gated | Decoded, no primary CLIO workflow. |
 | Session sharing | `session_sharing` | none | Decoded only. |
 | Session export | `session_export` | gated | Decoded, export UI is not a 0.9 CLIO path. |
+| Session summary | `session_summary` | partial | `POST /v1/sessions/{id}/summarize` client support exists; summary UX and release visual proof remain tracked by 1.0 hardening. |
+| Attachment upload | `attachments_upload` | partial | Capability is decoded; file picker/send attachment UX needs release proof against live CLIO. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |
 | Edit modes | `edit_modes` | gated | Decoded, no separate edit-mode switch. |
@@ -55,6 +57,7 @@ Support classes:
 | CLIO user questions | `x_clio_user_questions` | full | Question SSE lifecycle and answer modal are surfaced. |
 | CLIO retry attempts | `x_clio_retry_attempts` | full | Retry attempts and retry-with-model provenance are surfaced. |
 | CLIO context frames | `x_clio_context_frames` | full | Frame list/detail fetch and memory-tool detail are surfaced. |
+| CLIO context file content | `x_clio_files_content` | partial | Capability is decoded; context/file preview drill-down remains tracked by sidebar/context hardening. |
 | CLIO capability gaps | `x_clio_capability_gaps` | full | Doctor gaps tab and row detail are surfaced. |
 
 Release rule: a new decoded capability cannot be added without assigning one of these support classes in `doctorCapabilityRows`; `TestDoctorCapabilityRowsCoverDecodedCapabilityFlags` enforces row coverage.

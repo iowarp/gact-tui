@@ -171,6 +171,8 @@ type CapabilityFlags struct {
 	SessionBranching  bool `json:"session_branching"`
 	SessionSharing    bool `json:"session_sharing"`
 	SessionExport     bool `json:"session_export"`
+	SessionSummary    bool `json:"session_summary"`
+	AttachmentsUpload bool `json:"attachments_upload"`
 	CostTracking      bool `json:"cost_tracking"`
 	ThinkingBlocks    bool `json:"thinking_blocks"`
 	EditModes         bool `json:"edit_modes"`
@@ -204,6 +206,7 @@ type CapabilityFlags struct {
 	XClioSemanticTraceDetail       string         `json:"x_clio_semantic_trace_detail,omitempty"`
 	XClioHookBackend               string         `json:"x_clio_hook_backend,omitempty"`
 	XClioHookEvents                map[string]any `json:"x_clio_hook_events,omitempty"`
+	XClioFilesContent              bool           `json:"x_clio_files_content,omitempty"`
 	XClioCapabilityGaps            map[string]any `json:"x_clio_capability_gaps,omitempty"`
 }
 
