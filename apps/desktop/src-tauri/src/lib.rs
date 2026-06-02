@@ -192,17 +192,6 @@ fn status_text_for(code: u16) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let supervisor = Supervisor::new();
-
-    // Locate the bundled launcher and kick off the sidecar boot. If the
-    // launcher is missing, leave the handle in BackendStatus::Error so the
-    // frontend Splash renders a recoverable error card.
-    match supervisor::locate_launcher() {
-        Ok(launcher) => supervisor.start(launcher),
-        Err(e) => supervisor.set_error(format!(
-            "sidecar launcher missing: {e}. Run `pnpm fetch-sidecar` and rebuild."
-        )),
-    }
-
     let state = Mutex::new(supervisor);
 
     tauri::Builder::default()
@@ -221,6 +210,36 @@ pub fn run() {
             plugins::exec_plugin
         ])
         .setup(|app| {
+            // Make the BUNDLED clio runtime (if this build is the bundled
+            // installer variant) discoverable by the sidecar launcher on
+            // EVERY platform layout. Tauri's resource dir differs per
+            // installer: next-to-exe on Windows, Contents/Resources on
+            // macOS, /usr/lib/<app>/ on Linux deb/rpm — the last of which
+            // the launcher's exe-relative probes (it lives in /usr/bin/)
+            // cannot reach. The launcher is spawned as our child, so it
+            // inherits this env var; it probes it at top priority.
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                let runtime = resource_dir.join("clio-runtime");
+                if runtime.is_dir() {
+                    std::env::set_var("CLIO_BUNDLED_RUNTIME_DIR", &runtime);
+                }
+            }
+
+            // Locate the bundled launcher and kick off the sidecar boot —
+            // AFTER the env var above so the spawned launcher sees it. If
+            // the launcher is missing, leave the handle in Error so the
+            // frontend Splash renders a recoverable error card.
+            {
+                let sup = app.state::<Mutex<Supervisor>>();
+                let sup = sup.lock().expect("supervisor poisoned");
+                match supervisor::locate_launcher() {
+                    Ok(launcher) => sup.start(launcher),
+                    Err(e) => sup.set_error(format!(
+                        "sidecar launcher missing: {e}. Run `pnpm fetch-sidecar` and rebuild."
+                    )),
+                }
+            }
+
             // Tray icon with a single "Show / Quit" menu — counts as the
             // platform-native badge surface for `detached sessions` once
             // the live wire grows a session count signal we can push

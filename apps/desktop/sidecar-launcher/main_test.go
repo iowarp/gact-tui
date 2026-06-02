@@ -30,6 +30,7 @@ func bundledGactPath(exeDir string) string {
 // exec.LookPath cannot accidentally find a system clio-agent-gact.
 func clearResolutionEnv(t *testing.T) {
 	t.Helper()
+	t.Setenv(envBundledDir, "")
 	t.Setenv(envOverride, "")
 	t.Setenv(envDevRepo, "")
 	t.Setenv("PATH", "")
@@ -82,6 +83,32 @@ func TestBundledCandidatesProbesResourceLayouts(t *testing.T) {
 	}
 	if !strings.Contains(joined, string(os.PathSeparator)+"bin"+string(os.PathSeparator)) {
 		t.Errorf("bundledCandidates missing bin/ probe:\n%s", joined)
+	}
+}
+
+// The supervisor-provided bundled dir (CLIO_BUNDLED_RUNTIME_DIR, resolved
+// through Tauri's resource-dir API) must outrank every other candidate —
+// including the exe-relative bundled probes. This is what makes the
+// bundled variant work on Linux deb/rpm, where resources live under
+// /usr/lib/<app>/ and exe-relative probing from /usr/bin/ cannot reach
+// them.
+func TestCandidatePathsSupervisorBundledDirFirst(t *testing.T) {
+	clearResolutionEnv(t)
+	exe := t.TempDir()
+	supervisorDir := filepath.Join(t.TempDir(), "resources", "clio-runtime")
+	t.Setenv(envBundledDir, supervisorDir)
+	// Set competing sources to prove the supervisor dir wins.
+	t.Setenv(envOverride, filepath.Join(t.TempDir(), "override", gactBinName()))
+	t.Setenv(envDevRepo, t.TempDir())
+
+	paths := candidatePaths(exe)
+	if len(paths) == 0 {
+		t.Fatal("candidatePaths returned nothing")
+	}
+	want := filepath.Join(supervisorDir, ".venv", venvScriptDir(), gactBinName())
+	if paths[0] != want {
+		t.Fatalf("expected supervisor bundled dir first; got %q (want %q)\nall: %v",
+			paths[0], want, paths)
 	}
 }
 
