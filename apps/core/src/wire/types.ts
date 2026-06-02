@@ -290,7 +290,31 @@ export interface CapabilityFlags {
    * desktop's inline file/image previews (1.0 item 2).
    */
   x_clio_files_content?: boolean;
-  [k: string]: boolean | undefined;
+  /**
+   * The backend publishes per-session `semantic.event` SSE frames (a
+   * read-only execution trace). Gates the Inspector timeline's semantic
+   * rows (verified true on live :17803).
+   */
+  x_clio_semantic_events?: boolean;
+  /**
+   * Identifier for the hook execution backend, e.g. `"local_python"`.
+   * Surfaced verbatim; not gated on.
+   */
+  x_clio_hook_backend?: string;
+  /**
+   * Count of registered hooks by event name, e.g.
+   * `{pre_message: 1, post_tool: 0, …}`. A non-zero `pre_message` means a
+   * turn can be blocked (see GAP 1 — blocked `message.completed`).
+   */
+  x_clio_hook_events?: Record<string, number>;
+  /**
+   * Loosened to admit clio's real capabilities map, which mixes booleans
+   * with string flags (e.g. `x_clio_hook_backend`, `x_clio_text_streaming`)
+   * and nested object flags (e.g. `x_clio_hook_events`,
+   * `x_clio_stream_fallback_reasons`, `x_clio_capability_gaps`). Verified
+   * against GET /v1/capabilities on live :17803.
+   */
+  [k: string]: boolean | string | number | Record<string, unknown> | undefined;
 }
 
 /** Response of GET /v1/sessions/{id}/context/files/content (clio #533). */
