@@ -5,6 +5,18 @@ import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type
 import { SPLASH_INTRO_KEY } from './SplashScreen.js';
 import { notifPrefs, setNotifPref } from '../notif-prefs.js';
 import { downloadSettings, importSettings } from '../settings-export.js';
+import {
+  THEME_MODE_KEY,
+  THEME_PRESETS,
+  THEME_PRESET_KEY,
+  THEME_TOKENS_KEY,
+  applyPresetTokens,
+  applyThemeTokens,
+  loadThemeMode,
+  loadThemeTokens,
+  setThemeMode,
+  type ThemeMode,
+} from '../theme.js';
 import { useToast } from '../components/Toast.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useBackendRegistry } from '../registry.js';
@@ -242,90 +254,12 @@ const ACCENT_TOKENS = [
   { key: '--color-error', label: 'Error', defaultColor: '#f87171' },
 ] as const;
 
-const THEME_TOKENS_KEY = 'clio.theme.tokens.v1';
-
-/**
- * Theme presets (W3 Tier-1: settings depth + a11y high-contrast).
- * Each preset is a token-override set applied through the same
- * `applyThemeTokens` pipe as the per-color editor, so presets and manual
- * tweaks share persistence and reset behavior.
- */
-const THEME_PRESETS: Record<string, { label: string; tokens: Record<string, string> }> = {
-  default: {
-    label: 'Default',
-    tokens: {},
-  },
-  'high-contrast': {
-    label: 'High contrast',
-    tokens: {
-      '--color-bg': '#000000',
-      '--color-surface': '#0a0a0a',
-      '--color-surface-alt': '#161616',
-      '--color-text': '#ffffff',
-      '--color-heading': '#ffffff',
-      '--color-muted': '#d4d4d4',
-      '--color-border-30': '#777777',
-      '--color-border-60': '#aaaaaa',
-      '--color-border': '#ffffff',
-      '--color-accent': '#ffb366',
-      '--color-accent-cyan': '#7ae7ff',
-      '--color-success': '#7dffc4',
-      '--color-warning': '#ffe066',
-      '--color-error': '#ff9090',
-    },
-  },
-  dim: {
-    label: 'Dim',
-    tokens: {
-      '--color-bg': '#101216',
-      '--color-surface': '#16181d',
-      '--color-surface-alt': '#1c1f25',
-      '--color-text': '#a8adb8',
-      '--color-heading': '#c5cad3',
-      '--color-muted': '#6b7280',
-      '--color-accent': '#c4682a',
-      '--color-accent-cyan': '#0aa6ad',
-    },
-  },
-};
-
-const THEME_PRESET_KEY = 'clio.theme.preset.v1';
-
-function loadThemeTokens(): Record<string, string> {
-  if (typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(THEME_TOKENS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null) return parsed;
-  } catch {
-    /* ignore */
-  }
-  return {};
-}
-
-function applyThemeTokens(tokens: Record<string, string>) {
-  if (typeof document === 'undefined') return;
-  let style = document.getElementById('clio-theme-override');
-  if (!style) {
-    style = document.createElement('style');
-    style.id = 'clio-theme-override';
-    document.head.appendChild(style);
-  }
-  const css = Object.entries(tokens)
-    .filter(([, v]) => !!v)
-    .map(([k, v]) => `  ${k}: ${v} !important;`)
-    .join('\n');
-  style.textContent = css ? `:root {\n${css}\n}\n` : '';
-}
-
-// Apply on module load so persisted tokens survive a hard reload.
-if (typeof document !== 'undefined') {
-  applyThemeTokens(loadThemeTokens());
-}
+// Theming moved to ../theme.ts (1.0 item 1 — light theme + auto mode).
+// Importing it also runs its module-load init (re-applies persisted
+// tokens / re-arms the auto-mode OS listener on reload).
 
 function AppearanceSection() {
-  const [theme, setTheme] = createSignal<'dark' | 'light' | 'auto'>('dark');
+  const [theme, setTheme] = createSignal<ThemeMode>(loadThemeMode());
   const [density, setDensity] = createSignal<'verbose' | 'normal' | 'summary'>(
     'normal',
   );
@@ -381,17 +315,27 @@ function AppearanceSection() {
     if (!preset) return;
     setActivePreset(id);
     setTokens(preset.tokens);
+    applyPresetTokens(id);
+    // Keep the theme-mode buttons coherent: the Light preset IS light mode;
+    // every other preset is dark-based.
+    const mode: ThemeMode = id === 'light' ? 'light' : 'dark';
+    setTheme(mode);
     try {
-      localStorage.setItem(THEME_PRESET_KEY, id);
-      if (Object.keys(preset.tokens).length > 0) {
-        localStorage.setItem(THEME_TOKENS_KEY, JSON.stringify(preset.tokens));
-      } else {
-        localStorage.removeItem(THEME_TOKENS_KEY);
-      }
+      localStorage.setItem(THEME_MODE_KEY, mode);
     } catch {
-      /* quota — ignore */
+      /* ignore */
     }
-    applyThemeTokens(preset.tokens);
+  }
+
+  /** Theme mode buttons (1.0 item 1): dark / light / auto. Light applies the
+   * Light preset; auto follows the OS scheme live. Keeps the preset row in
+   * sync since both write the same token store. */
+  function changeThemeMode(next: ThemeMode) {
+    setTheme(next);
+    setThemeMode(next);
+    const presetId = next === 'light' ? 'light' : 'default';
+    setActivePreset(presetId);
+    setTokens(THEME_PRESETS[presetId]?.tokens ?? {});
   }
 
   // ---- Notification preferences (settings depth) ----
@@ -420,7 +364,7 @@ function AppearanceSection() {
                   'settings-shell__choice ' +
                   (theme() === t ? 'is-active' : '')
                 }
-                onClick={() => setTheme(t)}
+                onClick={() => changeThemeMode(t)}
                 data-testid={`settings-theme-${t}`}
               >
                 <span class={`settings-shell__choice-swatch swatch--${t}`} />
@@ -430,8 +374,9 @@ function AppearanceSection() {
           </For>
         </div>
         <p class="settings-shell__hint">
-          Light + Auto themes land in v1.0 alongside the design-system
-          token refresh; today only Dark is wired.
+          <strong>Dark</strong> is the CLIO default. <strong>Light</strong>{' '}
+          applies the full light palette. <strong>Auto</strong> follows your
+          OS appearance setting and switches live.
         </p>
 
         <div class="dp__section-title">Presets</div>

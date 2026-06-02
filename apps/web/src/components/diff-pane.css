@@ -145,7 +145,8 @@
 }
 
 .diffpane__line--add {
-  background: rgba(52, 211, 153, 0.10);
+  /* Overridable by theme presets (light mode uses darker tint bases). */
+  background: var(--color-diff-add-bg, rgba(52, 211, 153, 0.10));
 }
 
 .diffpane__line--add .diffpane__line-sign {
@@ -153,7 +154,7 @@
 }
 
 .diffpane__line--del {
-  background: rgba(248, 113, 113, 0.10);
+  background: var(--color-diff-del-bg, rgba(248, 113, 113, 0.10));
 }
 
 .diffpane__line--del .diffpane__line-sign {

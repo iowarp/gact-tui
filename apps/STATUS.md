@@ -21,7 +21,7 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 ### 1.0 item board (this run's source of truth)
 | # | Item | State | Proof |
 |---|------|-------|-------|
-| 1 | Light theme (+ Auto/system preset) | PENDING | — |
+| 1 | Light theme (+ Auto/system preset) | **DONE** | LightTheme.test 7/7 (full token coverage + auto-mode matchMedia); fixture `light-theme-chat.png` + `light-theme-diff.png` + live-switch `settings-light-theme.png` (suite 36/36) |
 | 2 | Inline file & image previews (transcript + @-picker) | IN-PROGRESS | Backend half DONE: clio PR **iowarp/clio-agent#533** (closes #532) — `GET /v1/sessions/{sid}/context/files/content?path=…` → base64-JSON + `x_clio_files_content` capability; 14 tests, mypy clean, stacked 5th (#522→#523→#527→#530→#533). Desktop half pending. |
 | 3 | Message edit history / "edited" markers (honest design) | PENDING | — |
 | 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
@@ -29,7 +29,7 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | 6 | Large-transcript virtualization (1000+ msg proof) | PENDING | — |
 | 7 | Settings import/export | **DONE** | SettingsExport.test 6/6 (roundtrip + credential-exclusion guard); fixture `settings-data-section.png` + `settings-data-exported.png` (suite 34/34); LIVE audit "(1.0 item 7)" vs :17801 — real download → modify → import → values restored (`audit/item7-settings-roundtrip.png`) |
 | 8 | Notification-center search/filter | **DONE** | NotificationCenter.test 7/7; fixture `notification-center{,-search,-filtered}.png` (suite 33/33); LIVE audit "(1.0 item 8)" vs :17801 — real send-failure notification searched + tone-filtered (`audit/item8-notif-search.png`) |
-| 9 | Native window menus (Tauri) | PENDING | — |
+| 9 | Native window menus (Tauri) | IN-PROGRESS | Rust half DONE: menu.rs (File/Edit/View/Help, `clio:menu` event contract, 12 action-ids), cargo --lib 21/21. **Also fixed: a broken `tauri(test)` dev-dependency (accidentally committed in df48b26) that crashed every cargo test on Windows.** JS listener half pending. |
 | E1 | Transcript code-block line-number gutter | PENDING | — |
 | E2 | hljs lazy-load (pure-web bundle size) | PENDING | — |
 | E3 | Restore MCP Reconnect button (capability-gated on #523) | PENDING | — |
@@ -40,6 +40,29 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Item 1 DONE — Light theme + Auto mode.** New `src/theme.ts` module (extracted
+  from SettingsShell): full 24-token light palette (every design-system color token + new
+  override-only tokens for hljs string/number colors and diff add/del tints — those were
+  hardcoded dark values in CSS, now `var(--…, fallback)`). Theme modes: Dark (design-system
+  default), Light (applies the palette), Auto (follows `prefers-color-scheme` LIVE via a
+  matchMedia listener; re-armed on reload by `initTheme()`). The Appearance theme buttons
+  are now real (were decorative); presets and modes stay in sync (Light preset == light
+  mode). `apps/design/` untouched (read-only) — light lives at the web layer as overrides.
+  PROOF: unit `LightTheme.test.ts` 7/7 (token coverage incl. hljs/diff, persistence,
+  matchMedia auto-switch live, init from bare flag); fixture `light-theme-chat.png` +
+  `light-theme-diff.png` (light chat + light diff pane); live-switch test clicks
+  Light in Settings → computed `--color-bg` flips to `#f4f6fa` → `settings-light-theme.png`
+  → Dark restores `#000000`. Suite 36/36.
+- 2026-06-02 **Item 9 (Rust half) — native window menus + REGRESSION FIX.** Background-agent
+  built `src-tauri/src/menu.rs`: File/Edit/View/Help native menu (declarative MENU_SPEC →
+  build_menu interpreter), Edit/Quit as OS-predefined items, accelerators (CmdOrCtrl+N/S/
+  Comma/I/B/K//, Ctrl+O, F11), non-predefined items emit `clio:menu` `{action}` to all
+  windows (12 documented action-ids); fullscreen also toggles natively. 6 cargo tests
+  (spec structure, id→action coverage, accelerator contract). **Regression found+fixed:**
+  the prior accidental commit (df48b26) carried a `tauri` dev-dependency with the `test`
+  feature — on Windows that links wry into the test binary → `STATUS_ENTRYPOINT_NOT_FOUND`
+  → EVERY cargo --lib test failed at HEAD. Removed; pure-data spec tests need no mock
+  runtime. cargo build 0 / cargo test --lib **21/21**. JS listener half is next.
 - 2026-06-02 **Item 7 DONE — Settings export/import (Data & backups).** New
   `settings-export.ts`: versioned envelope (`{version:1, exportedAt, app, prefs}`) of
   every `clio.*` localStorage key as raw strings — EXCEPT `clio.backends.v1` (bearer
