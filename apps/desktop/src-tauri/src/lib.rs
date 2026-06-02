@@ -13,10 +13,10 @@ mod ssh;
 mod supervisor;
 
 use serde::{Deserialize, Serialize};
+use ssh::{TunnelHandle, TunnelManager, TunnelRequest};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
-use ssh::{TunnelHandle, TunnelManager, TunnelRequest};
 use supervisor::{BackendHandle, Supervisor};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -260,8 +260,8 @@ mod gact_http_tests {
     use std::collections::HashMap;
 
     fn backend() -> Option<String> {
-        let url = std::env::var("CLIO_GACT_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
+        let url =
+            std::env::var("CLIO_GACT_URL").unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
         // Probe reachability so the test self-skips off a dev box.
         match ureq::get(&format!("{url}/v1/capabilities"))
             .timeout(std::time::Duration::from_millis(800))

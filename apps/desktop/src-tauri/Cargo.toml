@@ -25,10 +25,6 @@ hex = "0.4"
 # Wave 3: SSH tunnel + OS keychain
 keyring = { version = "3.6", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
 
-[dev-dependencies]
-# Enables `tauri::test::mock_app` for the native menu unit tests (menu.rs).
-tauri = { version = "2.0", features = ["test"] }
-
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
