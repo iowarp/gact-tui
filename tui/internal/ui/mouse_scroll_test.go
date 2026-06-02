@@ -444,6 +444,65 @@ func TestRightSidebarHasIndependentFocusAndMouseGeometry(t *testing.T) {
 	}
 }
 
+func TestRightSidebarOwnsFullAllocatedColumn(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	_, bodyH, _ := a.mainPaneGeometry()
+	view := a.View()
+	rightTarget, ok := findHitTargetForTest(a, "right-sidebar:focus")
+	if !ok {
+		t.Fatal("missing right sidebar focus target")
+	}
+	if rightTarget.rect.h != bodyH {
+		t.Fatalf("right sidebar focus height = %d, want full body height %d", rightTarget.rect.h, bodyH)
+	}
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("rendered view is missing main row: %q", view.Content)
+	}
+	rightBorderX := thirdRuneIndexForTest(lines[1], '╭')
+	if rightBorderX < 0 {
+		t.Fatalf("could not find rendered right sidebar top border in row: %q", lines[1])
+	}
+	if rightTarget.rect.x != rightBorderX {
+		t.Fatalf("right sidebar focus x = %d, want rendered border x %d from row %q", rightTarget.rect.x, rightBorderX, lines[1])
+	}
+	for _, x := range []int{rightTarget.rect.x, rightTarget.rect.x + 1, rightTarget.rect.x + rightTarget.rect.w/2} {
+		a.focus = FocusBody
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      x,
+			Y:      rightTarget.rect.y + rightTarget.rect.h - 1,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if a.focus != FocusRightSidebar {
+			t.Fatalf("click at x=%d in right column focused %v, want right sidebar", x, a.focus)
+		}
+		_ = a.View()
+	}
+}
+
+func thirdRuneIndexForTest(s string, want rune) int {
+	seen := 0
+	for i, r := range []rune(s) {
+		if r != want {
+			continue
+		}
+		seen++
+		if seen == 3 {
+			return i
+		}
+	}
+	return -1
+}
+
 func TestMouseClickTogglesSidebarSections(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

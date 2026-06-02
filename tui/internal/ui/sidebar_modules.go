@@ -10,6 +10,7 @@ type sidebarModuleID string
 
 const (
 	sidebarModuleSessions sidebarModuleID = "sessions"
+	sidebarModuleAgents   sidebarModuleID = "agents"
 	sidebarModuleFiles    sidebarModuleID = "files"
 	sidebarModuleContext  sidebarModuleID = "context"
 )
@@ -43,6 +44,13 @@ func sidebarModuleRegistry() map[sidebarModuleID]sidebarModuleDefinition {
 			Title:            msgSidebarTitle,
 			DefaultPlacement: sidebarPlacementLeft,
 			PersistenceKey:   "sidebar.sessions",
+		},
+		sidebarModuleAgents: {
+			ID:               sidebarModuleAgents,
+			Section:          sidebarSectionAgents,
+			Title:            msgSidebarAgents,
+			DefaultPlacement: sidebarPlacementLeft,
+			PersistenceKey:   "sidebar.agents",
 		},
 		sidebarModuleFiles: {
 			ID:               sidebarModuleFiles,

@@ -13,10 +13,11 @@ THEME     ?= dark
 TIMING    ?= realistic
 PREFIX    ?= $(HOME)/.local
 BINDIR    ?= $(PREFIX)/bin
+CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
-        screenshots clean fmt vet install uninstall
+        screenshots clean fmt vet install dev-install uninstall
 
 help: ## Print this help message.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -110,6 +111,16 @@ install: build ## Install gact + emulator-server to $(BINDIR) (default ~/.local/
 	@echo
 	@echo "Make sure $(BINDIR) is on PATH. For tab-completion:"
 	@echo "  scripts/completion.sh   # prints per-shell install instructions"
+
+dev-install: build-tui ## Rebuild TUI and link both shell gact + CLIO's gact to this checkout.
+	@install -d $(BINDIR) $(dir $(CLIO_GACT_BIN))
+	ln -sfn $(CURDIR)/$(TUI_BIN) $(BINDIR)/gact
+	ln -sfn $(CURDIR)/$(TUI_BIN) $(CLIO_GACT_BIN)
+	@echo
+	@echo "Linked current checkout:"
+	@printf "  shell gact: %s -> %s\n" "$(BINDIR)/gact" "$$(readlink -f $(BINDIR)/gact)"
+	@printf "  CLIO gact:  %s -> %s\n" "$(CLIO_GACT_BIN)" "$$(readlink -f $(CLIO_GACT_BIN))"
+	@stat -c "  binary mtime: %y %n" $(TUI_BIN)
 
 uninstall: ## Remove the installed binaries.
 	rm -f $(BINDIR)/gact $(BINDIR)/emulator-server

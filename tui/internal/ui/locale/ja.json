@@ -152,6 +152,7 @@
   "sidebar.more_above": "↑ さらに {{count}} 件",
   "sidebar.more_below": "さらに {{count}} 件 ↓",
   "sidebar.files": "ファイル",
+  "sidebar.agents": "エージェント",
   "sidebar.context": "コンテキスト",
   "sidebar.no_files": "(ファイルなし)",
   "sidebar.counts.active_first": "アクティブ {{active}} · アーカイブ {{archived}}",

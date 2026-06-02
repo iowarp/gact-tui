@@ -152,6 +152,7 @@
   "sidebar.more_above": "↑ ακόμη {{count}}",
   "sidebar.more_below": "ακόμη {{count}} ↓",
   "sidebar.files": "ΑΡΧΕΙΑ",
+  "sidebar.agents": "ΠΡΑΚΤΟΡΕΣ",
   "sidebar.context": "ΠΕΡΙΕΧΟΜΕΝΟ",
   "sidebar.no_files": "(χωρίς αρχεία)",
   "sidebar.counts.active_first": "{{active}} ενεργές · {{archived}} αρχειοθετημένες",

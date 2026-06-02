@@ -1425,6 +1425,48 @@ func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigCloseGlyphIsCenteredInHeaderButton(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	plain := ansi.Strip(a.viewLMConfig())
+	closeLine := ""
+	for _, line := range strings.Split(plain, "\n") {
+		if strings.Contains(line, "Configure CLIO") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+			closeLine = line
+			break
+		}
+	}
+	if closeLine == "" {
+		t.Fatalf("provider header with close button not found:\n%s", plain)
+	}
+	xCol := strings.LastIndex(closeLine, "x")
+	if xCol < 2 || xCol+2 >= len(closeLine) {
+		t.Fatalf("provider close x has no visible box padding in line: %q", closeLine)
+	}
+	if closeLine[xCol-2:xCol] != "  " || closeLine[xCol+1:xCol+3] != "  " {
+		t.Fatalf("provider close x should be centered with two cells on each side: %q", closeLine)
+	}
+}
+
+func TestLMConfigHeaderGapsOwnModalBackground(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	styledLine := ""
+	for _, line := range strings.Split(a.viewLMConfig(), "\n") {
+		if strings.Contains(line, "Configure CLIO") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+			styledLine = line
+			break
+		}
+	}
+	if styledLine == "" {
+		t.Fatalf("provider header with close button not found")
+	}
+	bg := "48;2;25;25;35"
+	if strings.Count(styledLine, bg) < 3 {
+		t.Fatalf("provider header gaps should carry modal background escapes, got %d in %q", strings.Count(styledLine, bg), styledLine)
+	}
+}
+
 func TestLMConfigRefreshButtonUsesCtrlRRefreshSemantics(t *testing.T) {
 	a := newLMConfigTestApp()
 

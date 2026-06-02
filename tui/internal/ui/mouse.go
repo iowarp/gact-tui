@@ -15,8 +15,6 @@ type mouseRect struct {
 	h int
 }
 
-const mouseCommandButtonWidth = 4
-
 func (a *App) inputCommandChipPlain() string {
 	chip := lipgloss.NewStyle().
 		Foreground(a.Theme.Bg).
@@ -25,6 +23,10 @@ func (a *App) inputCommandChipPlain() string {
 		Padding(0, 1).
 		Render("/")
 	return ansi.Strip(chip) + " "
+}
+
+func (a *App) inputCommandChipWidth() int {
+	return lipgloss.Width(a.inputCommandChipPlain())
 }
 
 func (a *App) renderMouseInputCommand(inputView string) string {
@@ -54,9 +56,13 @@ func (a *App) registerInputCommandHit(conversationHeight int, hintHeight int) {
 	if !a.MouseEnabled || a.hits == nil {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
 	plain := a.inputCommandChipPlain()
-	a.registerScreenTextSpanHit("input:command", sidebarW+1, 1+conversationHeight+hintHeight+1, plain, 0, plain, func(app *App) tea.Cmd {
+	a.registerScreenHit("input:command", mouseRect{
+		x: a.bodyPaneOffsetX() + 2,
+		y: 1 + conversationHeight + hintHeight + 1,
+		w: lipgloss.Width(plain),
+		h: 1,
+	}, func(app *App) tea.Cmd {
 		app.focus = FocusInput
 		app.openCommandPalette()
 		return nil
@@ -73,11 +79,10 @@ func (a *App) registerInputFocusSurface(conversationHeight int, hintHeight int, 
 }
 
 func (a *App) inputFocusSurfaceRect(conversationHeight int, hintHeight int, inputHeight int, bodyWidth int) mouseRect {
-	sidebarW, _, _ := a.mainPaneGeometry()
 	return mouseRect{
-		x: sidebarW,
+		x: a.bodyPaneOffsetX(),
 		y: 1 + conversationHeight,
-		w: bodyWidth,
+		w: renderedPaneOuterWidth(bodyWidth),
 		h: hintHeight + inputHeight,
 	}
 }
@@ -86,8 +91,7 @@ func (a *App) registerInputTextareaCursorHits(conversationHeight int, hintHeight
 	if !a.MouseEnabled || a.hits == nil {
 		return
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
-	startX := sidebarW + 1 + mouseCommandButtonWidth + 2
+	startX := a.bodyPaneOffsetX() + 2 + a.inputCommandChipWidth() + 2
 	startY := 1 + conversationHeight + hintHeight + 1
 	a.registerScreenTextareaRegion("input", startX, startY, a.input.Value(), func(app *App, lineIdx int, col int) {
 		app.focus = FocusInput

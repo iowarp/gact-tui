@@ -613,7 +613,7 @@ func TestScrollableDetailCloseButtonAlignsWithSharedFrameHeader(t *testing.T) {
 	rect := overlayMouseRect(rendered.modal, a.width, a.height)
 	closeLine := -1
 	for i, line := range strings.Split(ansi.Strip(rendered.modal), "\n") {
-		if strings.Contains(line, "Evidence") && strings.Contains(line, "×") {
+		if strings.Contains(line, "Evidence") && strings.Contains(line, "x") {
 			closeLine = i
 			break
 		}

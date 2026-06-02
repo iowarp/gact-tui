@@ -8,6 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func seedFileViewerTree(t *testing.T) string {
@@ -28,7 +30,7 @@ func seedFileViewerTree(t *testing.T) string {
 	return root
 }
 
-func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
+func TestFileViewerLazilyLoadsCurrentDirectoryTree(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.SetFileViewerRoot(seedFileViewerTree(t))
 
@@ -40,7 +42,11 @@ func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
 		t.Fatalf("visible entries = %#v, want sorted dirs first", visible)
 	}
 
-	a.fileTreeExpanded["docs"] = true
+	if len(a.fileTreeEntries) != 2 {
+		t.Fatalf("root load should only include immediate children, got %#v", a.fileTreeEntries)
+	}
+	a.fileTreeSel = 0
+	a.activateFileTreeSelection()
 	visible = a.visibleFileTreeEntries()
 	paths := make([]string, 0, len(visible))
 	for _, entry := range visible {
@@ -48,6 +54,29 @@ func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
 	}
 	if strings.Join(paths, ",") != "docs,docs/api,docs/guide.md,README.md" {
 		t.Fatalf("expanded paths = %#v", paths)
+	}
+	if len(a.fileTreeEntries) != 4 {
+		t.Fatalf("expanding docs should load only docs' immediate children, got %#v", a.fileTreeEntries)
+	}
+}
+
+func TestFileViewerFollowsActiveWorkspaceRoot(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := seedFileViewerTree(t)
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+
+	a.syncFileViewerRootToWorkspace()
+
+	if a.fileViewerRoot != root {
+		t.Fatalf("file viewer root = %q, want workspace root %q", a.fileViewerRoot, root)
+	}
+	if a.fileTreeRootMode != "workspace" {
+		t.Fatalf("file viewer root mode = %q, want workspace", a.fileTreeRootMode)
+	}
+	out := ansi.Strip(a.renderFileViewerModuleRows(42, 0, 8)[1])
+	if !strings.Contains(out, "workspace:") {
+		t.Fatalf("root label should indicate workspace mode, got %q", out)
 	}
 }
 

@@ -152,6 +152,7 @@
   "sidebar.more_above": "↑ {{count}} more",
   "sidebar.more_below": "{{count}} more ↓",
   "sidebar.files": "FILES",
+  "sidebar.agents": "AGENTS",
   "sidebar.context": "CONTEXT",
   "sidebar.no_files": "(no files)",
   "sidebar.counts.active_first": "{{active}} active · {{archived}} archived",

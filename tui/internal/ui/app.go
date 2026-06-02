@@ -39,6 +39,7 @@ type sidebarSection int
 
 const (
 	sidebarSectionSessions sidebarSection = iota
+	sidebarSectionAgents
 	sidebarSectionFiles
 	sidebarSectionContext
 )
@@ -142,6 +143,11 @@ type App struct {
 	contextFiles   []gact.ContextFile
 	contextFileSel int
 
+	agentHierarchyAgents   []gact.AgentDef
+	agentHierarchyErr      string
+	agentHierarchySel      int
+	sidebarAgentsCollapsed bool
+
 	// Local file viewer module. This is process-cwd-backed and does not require
 	// backend filesystem support.
 	fileViewerRoot   string
@@ -149,6 +155,7 @@ type App struct {
 	fileTreeExpanded map[string]bool
 	fileTreeSel      int
 	fileTreeErr      string
+	fileTreeRootMode string
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -583,6 +590,7 @@ type App struct {
 	sidebarLayoutGrabbed     bool
 	sidebarHitOffsetX        int
 	sidebarHitFocus          FocusZone
+	bodyHitOffsetX           int
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -1185,6 +1193,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.caps = m.caps
 		a.workspaces = m.wss
 		a.wsID = m.wsID
+		a.syncFileViewerRootToWorkspace()
 		a.sessions = m.sessions
 		a.sortSessionsByActivity()
 		a.commands = m.commands
@@ -1198,6 +1207,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.caps.Capabilities.Memory {
 			cmds = append(cmds, memoryStatsScopedCmd(a.c, client.RuntimeScope{WorkspaceID: a.wsID}))
 		}
+		cmds = append(cmds, loadAgentHierarchyCmd(a.c, a.runtimeScope()))
 		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
 		// whether the backend exposes runtime LM config + whether
 		// it needs the user to configure one. Failures (404 from
@@ -2355,14 +2365,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.sessions = m.sessions
+		a.syncFileViewerRootToWorkspace()
 		a.sortSessionsByActivity()
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
-			return a, nil
+			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 		a.selected = 0
-		return a, a.selectSession(0)
+		return a, tea.Batch(a.selectSession(0), loadAgentHierarchyCmd(a.c, a.runtimeScope()))
+
+	case agentHierarchyLoadedMsg:
+		a.agentHierarchyAgents = m.agents
+		a.agentHierarchyErr = m.err
+		a.clampAgentHierarchySelection()
+		return a, nil
 	}
 	return a, nil
 }
@@ -2974,18 +2991,18 @@ func (a *App) permissionBannerActionRect(action permissionBannerAction, bodyWidt
 	if action.width <= 0 || action.col >= contentW {
 		return mouseRect{}, false
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	label := action.label
 	if label == "" {
 		label = strings.Repeat("x", action.width)
 	}
 	line := strings.Repeat(" ", action.col) + label
-	rect, ok := screenTextSpanRect(sidebarW+3, 3, line, action.col, label)
+	rect, ok := screenTextSpanRect(bodyX+3, 3, line, action.col, label)
 	if !ok {
 		return mouseRect{}, false
 	}
-	if rect.x+rect.w > sidebarW+3+contentW {
-		rect.w = sidebarW + 3 + contentW - rect.x
+	if rect.x+rect.w > bodyX+3+contentW {
+		rect.w = bodyX + 3 + contentW - rect.x
 	}
 	if rect.w < 1 {
 		return mouseRect{}, false
@@ -3002,9 +3019,9 @@ func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, b
 		return
 	}
 	actionCopy := action
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	line := strings.Repeat(" ", action.col) + action.label
-	a.registerClippedScreenTextSpanHit("permission:"+action.id, sidebarW+3, 3, line, action.col, action.label, sidebarW+3+contentW, func(app *App) tea.Cmd {
+	a.registerClippedScreenTextSpanHit("permission:"+action.id, bodyX+3, 3, line, action.col, action.label, bodyX+3+contentW, func(app *App) tea.Cmd {
 		return respondPermissionCmd(app.c, permissionID, actionCopy.action)
 	})
 }
@@ -4129,6 +4146,15 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.fileTreeSel--
 			return a, nil
 		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			if a.agentHierarchySel <= 0 {
+				a.agentHierarchySel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.agentHierarchySel--
+			return a, nil
+		}
 		if a.selected == a.firstVisibleSessionIndex() {
 			a.sidebarSectionCursor = true
 			a.sidebarSectionFocus = sidebarSectionSessions
@@ -4145,6 +4171,9 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			} else if a.sidebarSectionFocus == sidebarSectionFiles && !a.sidebarFilesCollapsed && len(a.visibleFileTreeEntries()) > 0 {
 				a.sidebarSectionCursor = false
 				a.clampFileTreeSelection()
+			} else if a.sidebarSectionFocus == sidebarSectionAgents && !a.sidebarAgentsCollapsed && len(a.visibleAgentHierarchyRows()) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampAgentHierarchySelection()
 			} else if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
 				a.sidebarSectionCursor = false
 				a.clampContextFileSelection()
@@ -4163,6 +4192,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			visible := a.visibleFileTreeEntries()
 			if a.fileTreeSel < len(visible)-1 {
 				a.fileTreeSel++
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			visible := a.visibleAgentHierarchyRows()
+			if a.agentHierarchySel < len(visible)-1 {
+				a.agentHierarchySel++
 			}
 			return a, nil
 		}
@@ -4218,6 +4254,9 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionFiles {
 			a.activateFileTreeSelection()
 			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			return a, a.openSelectedAgentHierarchyDetail()
 		}
 		a.focus = FocusInput
 		return a, nil
@@ -4400,6 +4439,8 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionFiles {
 			a.reloadFileViewer()
 			a.transientHint = "files refreshed"
+		} else if a.sidebarSectionFocus == sidebarSectionAgents {
+			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 	}
 	return a, nil
@@ -4428,13 +4469,14 @@ func (a *App) sidebarPageSize() int {
 		footerLines = 2
 	}
 	fileLines := a.sidebarFileViewerRowCount(8)
+	agentLines := a.sidebarAgentHierarchyRowCount(8)
 	// a.height includes the header row (1) + footer hints row (1) +
 	// optional hint banner row. The pane itself gets a.height-4 outer
 	// rows (header + footer + 2 spacer rows per the layout math in
 	// renderBody). Same inner-row budget as renderSidebar.
 	inner := (a.height - 4) - 2
-	avail := inner - contextLines - fileLines - footerLines
-	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) {
+	avail := inner - contextLines - fileLines - agentLines - footerLines
+	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) || (agentLines > 0 && !a.sidebarAgentsCollapsed) {
 		avail--
 	}
 	page := avail / rowsPerSession
@@ -4705,6 +4747,13 @@ func (a *App) activateSidebarSection(section sidebarSection) {
 	a.sidebarSectionFocus = section
 	a.sidebarSectionCursor = true
 	switch section {
+	case sidebarSectionAgents:
+		a.sidebarAgentsCollapsed = !a.sidebarAgentsCollapsed
+		if a.sidebarAgentsCollapsed {
+			a.transientHint = "agents section collapsed"
+		} else {
+			a.transientHint = "agents section expanded"
+		}
 	case sidebarSectionFiles:
 		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
 		if a.sidebarFilesCollapsed {
@@ -4779,6 +4828,11 @@ func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sideba
 		if zone == FocusRightSidebar {
 			id = "right-sidebar:context:header"
 		}
+	} else if section == sidebarSectionAgents {
+		id = "sidebar:agents:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:agents:header"
+		}
 	} else if section == sidebarSectionFiles {
 		id = "sidebar:files:header"
 		if zone == FocusRightSidebar {
@@ -4811,7 +4865,7 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 }
 
 func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
-	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: width, h: height}
+	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: renderedPaneOuterWidth(width), h: height}
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -6762,6 +6816,13 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 	part := decodePart(partRaw)
 	for i := range a.messages {
 		if a.messages[i].ID == msgID {
+			for j := range a.messages[i].Parts {
+				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
+					a.messages[i].Parts[j] = part
+					normalizeMessagePresentation(&a.messages[i])
+					return
+				}
+			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
 			return
@@ -7137,7 +7198,7 @@ func (a *App) viewError() string {
 		Height(a.height).
 		Foreground(t.Fg).
 		Background(t.Bg).
-		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+		Render(overlay(blankScreen(a.width, a.height, t.Bg), modal, a.width, a.height))
 }
 
 func (a *App) viewErrorModal() string {
@@ -7191,11 +7252,11 @@ func (a *App) viewErrorModal() string {
 	return modal
 }
 
-func blankScreen(width int, height int) string {
+func blankScreen(width int, height int, bg color.Color) string {
 	if width < 1 || height < 1 {
 		return ""
 	}
-	line := strings.Repeat(" ", width)
+	line := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
 	lines := make([]string, height)
 	for i := range lines {
 		lines[i] = line
@@ -7332,21 +7393,28 @@ func (a *App) viewMainBase() string {
 		bodyW = 20
 	}
 
-	header := a.renderHeader()
-	footer := a.renderFooter()
-
 	// LLL5: align the sidebar's bottom border with the conversation
 	// pane's bottom border. Previously the sidebar took the full bodyH
 	// (which includes the input box + transient hint row), so its
 	// bottom corner sat 3+ rows below the conversation pane's corner —
 	// the seam between sidebar `╯` and input `╭` looked broken.
-	// Compute the same convH that renderBody uses, give the sidebar
-	// exactly that, and let JoinHorizontal pad blank rows below it.
+	// Compute the same convH that renderBody uses for the left sidebar.
+	// The optional right sidebar spans bodyH so its hit target owns the
+	// full column beside both the transcript and composer.
 	sidebar := a.renderSidebar(sidebarW, convH)
+	sidebar = fitLinesWithBackground(sidebar, convH, a.Theme.Bg)
+
+	prevBodyOffset := a.bodyHitOffsetX
+	a.bodyHitOffsetX = renderedBlockWidth(sidebar)
 	body := a.renderBody(bodyW, bodyH)
+	body = fitLinesWithBackground(body, bodyH, a.Theme.Bg)
+	a.bodyHitOffsetX = prevBodyOffset
+
 	rightSidebar := ""
 	if rightSidebarW > 0 {
-		rightSidebar = a.renderRightSidebar(rightSidebarW, convH, sidebarW+bodyW)
+		rightOffsetX := renderedBlockWidth(sidebar) + renderedBlockWidth(body)
+		rightSidebar = a.renderRightSidebar(rightSidebarW, bodyH, rightOffsetX)
+		rightSidebar = fitLinesWithBackground(rightSidebar, bodyH, a.Theme.Bg)
 	}
 
 	// CCCCC1: force exact row counts on both stacks. lipgloss's
@@ -7354,17 +7422,13 @@ func (a *App) viewMainBase() string {
 	// content is shorter the pane stays short and the border `╰╯`
 	// floats up. fitLines guarantees both stacks span the rows the
 	// horizontal layout expects.
-	sidebar = fitLines(sidebar, convH)
-	body = fitLines(body, bodyH)
-	if rightSidebarW > 0 {
-		rightSidebar = fitLines(rightSidebar, convH)
-	}
-
 	rowParts := []string{sidebar, body}
 	if rightSidebarW > 0 {
 		rowParts = append(rowParts, rightSidebar)
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
+	header := a.renderHeaderForWidth(renderedBlockWidth(row))
+	footer := a.renderFooter()
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
 	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
@@ -7405,19 +7469,26 @@ func (a *App) rightSidebarWidth(leftSidebarW int) int {
 }
 
 func (a *App) renderHeader() string {
+	return a.renderHeaderForWidth(a.width)
+}
+
+func (a *App) renderHeaderForWidth(width int) string {
 	t := a.Theme
 	// Required parts (badge + connection label + SSE health dot) always render.
 	// Optional parts (workspace + session + status) are dropped when
 	// there's no room.
 	actions := a.headerActions()
 	actionBar := a.renderHeaderActionBar(actions)
-	actionW := lipgloss.Width(actionBar)
+	actionW := lipgloss.Width(ansi.Strip(actionBar))
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
 	backendLabel := a.headerBackendLabel()
 	backend := t.Header.Render(backendLabel)
 	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
-	avail := a.width - lipgloss.Width(required) - actionW
+	if width < 1 {
+		width = a.width
+	}
+	avail := width - lipgloss.Width(required) - actionW
 
 	optional := []headerChip{}
 	if workspaceName := a.headerWorkspaceLabel(); workspaceName != "" {
@@ -7537,14 +7608,14 @@ func (a *App) renderHeader() string {
 	}
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-	pad := a.width - lipgloss.Width(line) - actionW
+	pad := width - lipgloss.Width(line) - actionW
 	if pad < 0 {
 		pad = 0
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
 	header := line + bg + actionBar
 	a.registerHeaderChipHits(rendered, hits)
-	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions)
+	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions, actionW)
 	return header
 }
 
@@ -7582,7 +7653,7 @@ func (a *App) headerActions() []headerAction {
 		},
 		{
 			id:    "quit",
-			label: "×",
+			label: "x",
 			action: func(app *App) tea.Cmd {
 				app.openQuitConfirm()
 				return nil
@@ -7599,23 +7670,27 @@ func (a *App) renderHeaderActionBar(actions []headerAction) string {
 	for _, action := range actions {
 		cells = append(cells, a.renderHeaderActionCell(action.label))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, " "))
+	spacer := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Render(" ")
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, spacer))
 }
 
 func (a *App) renderHeaderActionCell(label string) string {
-	pad := 1
-	if label == "×" {
-		pad = 2
+	labelW := lipgloss.Width(label)
+	width := lipgloss.Width(label) + 2
+	if label == "x" {
+		width = 5
 	}
+	leftPad, rightPad := centeredPadding(labelW, width)
 	return lipgloss.NewStyle().
 		Foreground(a.Theme.Bg).
 		Background(a.Theme.Primary).
 		Bold(true).
-		Padding(0, pad).
+		PaddingLeft(leftPad).
+		PaddingRight(rightPad).
 		Render(label)
 }
 
-func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
+func (a *App) registerHeaderActionHits(startCol int, actions []headerAction, actionBarWidth int) {
 	if a.height <= 0 || len(actions) == 0 {
 		return
 	}
@@ -7623,7 +7698,10 @@ func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
 	for i, action := range actions {
 		cell := ansi.Strip(a.renderHeaderActionCell(action.label))
 		w := lipgloss.Width(cell)
-		a.registerScreenTextSpanHit("header:"+action.id, col, 0, cell, 0, cell, action.action)
+		if i == len(actions)-1 && actionBarWidth > col-startCol {
+			w = actionBarWidth - (col - startCol)
+		}
+		a.registerScreenHit("header:"+action.id, mouseRect{x: col, y: 0, w: w, h: 1}, action.action)
 		col += w
 		if i < len(actions)-1 {
 			col++
@@ -8472,6 +8550,13 @@ func (a *App) renderSidebar(width, height int) string {
 		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
 	}
 
+	if a.sidebarHasEnabledModule(sidebarModuleAgents) {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		rows = append(rows, a.renderAgentHierarchyModuleRows(width, len(rows), 8)...)
+	}
+
 	if a.sidebarHasEnabledModule(sidebarModuleFiles) {
 		if len(rows) > 0 {
 			rows = append(rows, "")
@@ -8596,8 +8681,10 @@ func (a *App) renderRightSidebar(width, height int, offsetX int) string {
 		switch module.Definition.ID {
 		case sidebarModuleContext:
 			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleAgents:
+			rows = append(rows, a.renderAgentHierarchyModuleRows(width, len(rows), max(8, height-len(rows)-3))...)
 		case sidebarModuleFiles:
-			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
+			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), max(8, height-len(rows)-3))...)
 		case sidebarModuleSessions:
 			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
 		default:
@@ -9047,12 +9134,12 @@ func (a *App) renderBody(width, height int) string {
 	// the input box stayed pinned to bodyH-inputH, making the bottom
 	// of the layout look broken whenever the conversation grew past
 	// the original short content.
-	msgPane = fitLines(msgPane, msgH)
+	msgPane = fitLinesWithBackground(msgPane, msgH, t.Bg)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
 	inputTextW := width - 4
 	if a.MouseEnabled {
-		inputTextW -= mouseCommandButtonWidth
+		inputTextW -= a.inputCommandChipWidth()
 	}
 	if inputTextW < 8 {
 		inputTextW = 8
@@ -9084,7 +9171,7 @@ func (a *App) renderBody(width, height int) string {
 		a.registerInputCommandHit(msgH, hintH)
 		a.registerInputTextareaCursorHits(msgH, hintH)
 	}
-	inputPane := fitLines(inputStyle.Render(inputView), inputH)
+	inputPane := fitLinesWithBackground(inputStyle.Render(inputView), inputH, t.Bg)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
@@ -9353,6 +9440,10 @@ func clampLines(s string, max int) string {
 // JoinHorizontal to fill the gap with neighbour content. Forcing the
 // row count keeps borders from drifting between sidebar and body.
 func fitLines(s string, n int) string {
+	return fitLinesWithBackground(s, n, nil)
+}
+
+func fitLinesWithBackground(s string, n int, bg color.Color) string {
 	if n < 1 {
 		return ""
 	}
@@ -9360,10 +9451,32 @@ func fitLines(s string, n int) string {
 	if len(lines) > n {
 		lines = lines[:n]
 	}
+	padLine := ""
+	if bg != nil {
+		width := 0
+		for _, line := range lines {
+			if w := lipgloss.Width(line); w > width {
+				width = w
+			}
+		}
+		if width > 0 {
+			padLine = lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
+		}
+	}
 	for len(lines) < n {
-		lines = append(lines, "")
+		lines = append(lines, padLine)
 	}
 	return strings.Join(lines, "\n")
+}
+
+func renderedBlockWidth(s string) int {
+	width := 0
+	for _, line := range strings.Split(s, "\n") {
+		if w := lipgloss.Width(line); w > width {
+			width = w
+		}
+	}
+	return width
 }
 
 // VVVVVVVVV1: adjustScrollForSelectedPart finds the ▸ marker in the
@@ -9651,7 +9764,7 @@ func (a *App) registerConversationContentWheelHit(id string, row int, col int, w
 }
 
 func (a *App) conversationContentRect(row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool) mouseRect {
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	contentW := bodyWidth - 4
 	if contentW < 1 {
 		contentW = 1
@@ -9679,7 +9792,7 @@ func (a *App) conversationContentRect(row int, col int, width int, height int, b
 		bodyTop++
 	}
 	return mouseRect{
-		x: sidebarW + 2 + col,
+		x: bodyX + 2 + col,
 		y: bodyTop + row,
 		w: width,
 		h: height,
@@ -9696,13 +9809,30 @@ func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth
 }
 
 func (a *App) conversationFocusSurfaceRect(conversationHeight int, bodyWidth int) mouseRect {
-	sidebarW, _, _ := a.mainPaneGeometry()
 	return mouseRect{
-		x: sidebarW,
+		x: a.bodyPaneOffsetX(),
 		y: 1,
-		w: bodyWidth,
+		w: renderedPaneOuterWidth(bodyWidth),
 		h: conversationHeight,
 	}
+}
+
+func (a *App) bodyPaneOffsetX() int {
+	if a.bodyHitOffsetX > 0 {
+		return a.bodyHitOffsetX
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	return sidebarW
+}
+
+func renderedPaneOuterWidth(requested int) int {
+	if requested > 2 {
+		return requested - 2
+	}
+	if requested < 1 {
+		return 1
+	}
+	return requested
 }
 
 func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {

@@ -1500,8 +1500,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			glyphStyle = glyphStyle.Foreground(t.Danger)
 			barStyle = barStyle.Foreground(t.Danger)
 		}
+		content := p.Content
+		rawText := flattenToolResult(p)
+		hasRawDetail := p.Metadata != nil && p.Metadata["raw_result"] != nil
+		if !p.IsError {
+			if summary := summarizeToolResultText(p.ToolName, rawText); summary != "" {
+				if strings.TrimSpace(summary) != strings.TrimSpace(rawText) {
+					hasRawDetail = true
+				}
+				content = []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: summary,
+				}}
+			}
+		}
 		var text strings.Builder
-		for i, c := range p.Content {
+		for i, c := range content {
 			if i > 0 {
 				text.WriteString("\n")
 			}
@@ -1542,7 +1556,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 				Render(" to expand]")
 			hint := prefix + keyStyle.Render("Ctrl+E") + suffix
 			body = body + "\n" + hint
-		} else if p.Metadata != nil && p.Metadata["raw_result"] != nil {
+		} else if hasRawDetail {
 			label := "raw detail"
 			if provenance := promotedEvidenceLabel(p); provenance != "" {
 				label = provenance + " · raw detail"

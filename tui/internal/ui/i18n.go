@@ -153,6 +153,7 @@ const (
 	msgSidebarMoreAbove              messageID = "sidebar.more_above"
 	msgSidebarMoreBelow              messageID = "sidebar.more_below"
 	msgSidebarFiles                  messageID = "sidebar.files"
+	msgSidebarAgents                 messageID = "sidebar.agents"
 	msgSidebarContext                messageID = "sidebar.context"
 	msgSidebarNoFiles                messageID = "sidebar.no_files"
 	msgSidebarCountsActiveFirst      messageID = "sidebar.counts.active_first"

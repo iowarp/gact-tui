@@ -224,8 +224,12 @@ Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
 
 The current Linux/WSL visual loop reuses the persisted CLIO benchmark sessions;
 do not rerun the ALCF benchmark unless the CLIO trace-capture semantics change.
-Rebuild `tui/gact`, run the VHS tapes under `visual_loop/tapes/`, and inspect
-the resulting PNGs under `visual_loop/screenshots/`.
+On Linux/WSL, rebuild and relink with `make dev-install` before launching
+`gact` through either the shell or CLIO. That target points both
+`~/.local/bin/gact` and `~/.local/share/clio/gact` at the current checkout so
+visual-loop changes cannot be hidden behind a stale CLIO launcher. Then run the
+VHS tapes under `visual_loop/tapes/` and inspect the resulting PNGs under
+`visual_loop/screenshots/`.
 
 Fresh ALCF corpus from 2026-05-25:
 

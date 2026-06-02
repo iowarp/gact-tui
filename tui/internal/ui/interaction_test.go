@@ -1763,13 +1763,13 @@ func TestBasePaneFocusSurfaceRectsUseSharedGeometry(t *testing.T) {
 	a.width = 120
 	a.height = 36
 
-	if got, want := a.sidebarFocusSurfaceRect(30, 32), (mouseRect{x: 0, y: 1, w: 30, h: 32}); got != want {
+	if got, want := a.sidebarFocusSurfaceRect(30, 32), (mouseRect{x: 0, y: 1, w: 28, h: 32}); got != want {
 		t.Fatalf("sidebar focus rect = %+v, want %+v", got, want)
 	}
-	if got, want := a.conversationFocusSurfaceRect(28, 88), (mouseRect{x: 30, y: 1, w: 88, h: 28}); got != want {
+	if got, want := a.conversationFocusSurfaceRect(28, 88), (mouseRect{x: 30, y: 1, w: 86, h: 28}); got != want {
 		t.Fatalf("conversation focus rect = %+v, want %+v", got, want)
 	}
-	if got, want := a.inputFocusSurfaceRect(28, 1, 3, 88), (mouseRect{x: 30, y: 29, w: 88, h: 4}); got != want {
+	if got, want := a.inputFocusSurfaceRect(28, 1, 3, 88), (mouseRect{x: 30, y: 29, w: 86, h: 4}); got != want {
 		t.Fatalf("input focus rect = %+v, want %+v", got, want)
 	}
 }
@@ -2239,7 +2239,7 @@ func TestHeaderSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	a.settingsOpen = false
 	a.settings = nil
 	_ = a.View()
-	quitTarget, ok := findHitTargetForTest(a, "header:quit")
+	quitTarget, ok := findLastHitTargetWithPrefixForTest(a, "header:quit")
 	if !ok {
 		t.Fatal("missing visible header quit hit target")
 	}
@@ -2264,10 +2264,37 @@ func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
 
 	header := ansi.Strip(a.renderHeader())
 
-	for _, want := range []string{"×", "help", "settings"} {
+	for _, want := range []string{"x", "help", "settings"} {
 		if !strings.Contains(header, want) {
 			t.Fatalf("header action %q should be visible in top chrome: %q", want, header)
 		}
+	}
+}
+
+func TestHeaderActionsAlignToRenderedMainRow(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 150
+	a.height = 36
+	a.MouseEnabled = true
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	view := a.View()
+	quitTarget, ok := findLastHitTargetWithPrefixForTest(a, "header:quit")
+	if !ok {
+		t.Fatal("missing visible header quit hit target")
+	}
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("rendered view is missing main row: %q", view.Content)
+	}
+	headerW := lipgloss.Width(lines[0])
+	rowW := lipgloss.Width(lines[1])
+	if headerW != rowW {
+		t.Fatalf("header width = %d, want rendered row width %d\nheader=%q\nrow=%q", headerW, rowW, lines[0], lines[1])
+	}
+	visibleRowEdge := lipgloss.Width(strings.TrimRight(lines[1], " "))
+	if got := quitTarget.rect.x + quitTarget.rect.w; got != visibleRowEdge {
+		t.Fatalf("quit action right edge = %d, want visible pane edge %d", got, visibleRowEdge)
 	}
 }
 
@@ -3574,6 +3601,42 @@ func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	a = model.(*App)
 	if a.catalogBrowser.sel != 1 {
 		t.Fatalf("wheel outside list should not move catalog selection, got %d", a.catalogBrowser.sel)
+	}
+}
+
+func TestAgentBlueprintCatalogMouseWheelWorksAcrossBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	items := make([]catalogItem, 0, 18)
+	for i := 0; i < 18; i++ {
+		items = append(items, catalogItem{
+			id:    "blueprint-" + itoa2(i),
+			title: "Blueprint " + itoa2(i),
+			desc:  "workspace markdown agent blueprint",
+		})
+	}
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: items,
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:list:wheel:body:wheel")
+	if !ok {
+		t.Fatal("missing full-body blueprint catalog wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x + target.rect.w - 2,
+		Y:      target.rect.y + target.rect.h - 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel over blueprint catalog body should move selection, got %d", a.catalogBrowser.sel)
 	}
 }
 
@@ -5272,21 +5335,17 @@ func TestInputCommandChipHitUsesRenderedTextGeometry(t *testing.T) {
 	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
 	a.selected = 0
 
-	_ = a.View()
+	view := a.View()
 	target, ok := findHitTargetForTest(a, "input:command")
 	if !ok {
 		t.Fatal("missing semantic input command hit target")
 	}
-	sidebarW, bodyH, _ := a.mainPaneGeometry()
-	conversationHeight := a.conversationPaneHeight(bodyH)
-	want := mouseRect{
-		x: sidebarW + 1,
-		y: 1 + conversationHeight + 1,
-		w: lipgloss.Width(a.inputCommandChipPlain()),
-		h: 1,
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if target.rect.y < 0 || target.rect.y >= len(lines) {
+		t.Fatalf("input command y=%d outside rendered screen with %d rows", target.rect.y, len(lines))
 	}
-	if target.rect != want {
-		t.Fatalf("input command rect = %+v, want %+v", target.rect, want)
+	if got := renderedCellsForTest(lines[target.rect.y], target.rect.x, target.rect.w); got != a.inputCommandChipPlain() {
+		t.Fatalf("input command hit covers %q, want rendered chip %q on line %q", got, a.inputCommandChipPlain(), lines[target.rect.y])
 	}
 }
 
@@ -5296,7 +5355,7 @@ func TestInputFocusSurfaceRectUsesMainPaneGeometry(t *testing.T) {
 	a.height = 36
 
 	rect := a.inputFocusSurfaceRect(28, 1, 3, 88)
-	want := mouseRect{x: 30, y: 29, w: 88, h: 4}
+	want := mouseRect{x: 30, y: 29, w: 86, h: 4}
 	if rect != want {
 		t.Fatalf("input focus rect = %+v, want %+v", rect, want)
 	}
@@ -5732,6 +5791,21 @@ func findHitTargetForTest(a *App, id string) (uiHitTarget, bool) {
 		}
 	}
 	return uiHitTarget{}, false
+}
+
+func renderedCellsForTest(line string, x int, width int) string {
+	if x < 0 || width < 1 {
+		return ""
+	}
+	cells := []rune(line)
+	if x >= len(cells) {
+		return ""
+	}
+	end := x + width
+	if end > len(cells) {
+		end = len(cells)
+	}
+	return string(cells[x:end])
 }
 
 func findLastHitTargetWithPrefixForTest(a *App, prefix string) (uiHitTarget, bool) {
