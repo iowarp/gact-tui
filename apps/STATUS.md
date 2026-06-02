@@ -40,6 +40,31 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **CLIO PR STACK: REVIEWED → FIXED → REBASED → ALL MERGED INTO develop.**
+  The user reviewed the 5 open clio-agent PRs and requested fixes + merge. Executed:
+  **(1) Stack restructure + review fixes** (6-agent workflow): rebased everything onto
+  current develop in a NEW order (#530 first, per the user's "merge early" call), then
+  per-PR fixes as visible commits — #530: subscriber_count("") fan-in audited (no reader
+  affected; documented in code); #522: summary prompt moved from hardcoded route text to
+  a packaged prompt-registry entry (`session_summarize`, profile-aware, overridable, with
+  in-code fallback) + 3 new tests; #523: transport-spec validation (structured 4xx for
+  malformed stdio/http specs) + timeout around reconnect/probe; #527: unique temp-file
+  for atomic writes (concurrency race fixed), confinement checked before any disk write,
+  oversized-base64 rejected BEFORE decode; #533: workspace confinement tightened (rows
+  with workspace_id are ALWAYS rechecked against the workspace root, absolute paths
+  served as-is only when boundary-less). Stack verification: ancestry intact, 1418
+  passed / 6 pre-existing-on-develop failures / 0 new, mypy clean.
+  **(2) Merge cascade** (squash merges, bottom-up, tree-identity-verified rebases between
+  each): develop now carries `acad868` (#530) → `4bb04e9` (#535*) → `d3e3df2` (#523) →
+  `b2f9d59` (#527) → `176518d` (#533). *#535 replaces #522: GitHub auto-closed #522
+  unrecoverably when its base branch was deleted by the #530 merge (same branch, same
+  commits, tree-identical). Procedure was corrected after that first bite (retarget
+  dependents BEFORE deleting parent branches) — no other PR was lost. All 5 feature
+  branches deleted from origin; local clio-agent develop synced to `176518d`.
+  **Implication for the desktop:** every capability-gated feature (summarize, MCP
+  reconnect, attachments upload, global event toasts, file-content previews) lights up
+  on any clio built from develop ≥ `176518d`. The :17801/:17802 test instances are now
+  obsolete (their PR-stack purpose is merged); :17801 left running as a test backend.
 - 2026-06-02 **Item H DONE — 1.0 CLOSURE RUN COMPLETE. All 13 board rows terminal.**
   Final sweep: fixture 38/38 · full live audit suite 42 passed (1 catalog-browser
   flake re-passed in isolation; 2 legit voice/mic skips) · full live oneturn suite 19
