@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -46,6 +47,31 @@ func TestSplashKeyDismisses(t *testing.T) {
 	}
 }
 
+func TestSplashClickDismissesThroughSemanticTarget(t *testing.T) {
+	a := New("http://test.local")
+	a.EnableIntro()
+	a.MouseEnabled = true
+	a.width, a.height = 80, 24
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "intro:continue")
+	if !ok {
+		t.Fatal("missing intro continue hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.stage != StageConnecting {
+		t.Fatalf("stage after intro click = %v, want connecting", a.stage)
+	}
+	if cmd == nil {
+		t.Fatal("intro click should dispatch connect command")
+	}
+}
+
 // TestViewIntro_RendersDefaults checks the splash output includes
 // the baked-in name + a "press any key" hint when no custom file
 // was loaded.
@@ -63,6 +89,19 @@ func TestViewIntro_RendersDefaults(t *testing.T) {
 	// (≥ 4 rows of forward-slash ornament from the slant font).
 	if strings.Count(out, "/") < 8 {
 		t.Errorf("expected slant-style ASCII art in splash: %q", out)
+	}
+}
+
+func TestViewIntro_CompactHeightDoesNotOverflow(t *testing.T) {
+	for _, height := range []int{6, 10, 16} {
+		a := New("http://test.local")
+		a.EnableIntro()
+		a.width, a.height = 80, height
+
+		renderedHeight := len(strings.Split(ansi.Strip(a.viewIntro()), "\n"))
+		if renderedHeight > height {
+			t.Fatalf("intro height at terminal height %d = %d", height, renderedHeight)
+		}
 	}
 }
 

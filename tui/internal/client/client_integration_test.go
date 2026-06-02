@@ -27,13 +27,39 @@ func pickPort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+func testBinaryPath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
+func stableTestBinaryPath(t *testing.T, repoRoot, name string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	dir := filepath.Join(repoRoot, ".tools", "test-bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create test bin dir: %v", err)
+	}
+	return filepath.Join(dir, name)
+}
+
+func stopTestProcess(p *os.Process) {
+	if runtime.GOOS == "windows" {
+		_ = p.Kill()
+		return
+	}
+	_ = p.Signal(os.Interrupt)
+}
+
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
 	// Build relative to this test file's location.
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..", "..")
+	bin := stableTestBinaryPath(t, repoRoot, "emulator-server-tui-client")
 	cmd := exec.Command("go", "build", "-o", bin, "./emulator/cmd/emulator-server")
 	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -54,7 +80,7 @@ func startEmulator(t *testing.T) (string, func()) {
 		if err == nil && resp.StatusCode == 200 {
 			resp.Body.Close()
 			return url, func() {
-				_ = srv.Process.Signal(os.Interrupt)
+				stopTestProcess(srv.Process)
 				_ = srv.Wait()
 			}
 		}
@@ -175,10 +201,36 @@ func TestClientFullFlow(t *testing.T) {
 	if cmds, err := c.ListCommands(ctx); err != nil || len(cmds) == 0 {
 		t.Errorf("ListCommands: err=%v len=%d", err, len(cmds))
 	}
+	if prompts, err := c.ListPrompts(ctx); err != nil || len(prompts) == 0 {
+		t.Errorf("ListPrompts: err=%v len=%d", err, len(prompts))
+	} else {
+		resolved, err := c.GetPrompt(ctx, prompts[0].ID, prompts[0].DefaultProfile)
+		if err != nil {
+			t.Errorf("GetPrompt: %v", err)
+		} else if resolved.ID != prompts[0].ID || resolved.Text == "" {
+			t.Errorf("GetPrompt resolved = %+v, want id/text", resolved)
+		}
+		saved, err := c.SavePrompt(ctx, prompts[0].ID, gact.PromptSaveRequest{
+			Profile: "codex", Title: prompts[0].Title, Text: resolved.Text,
+			Metadata: map[string]any{"test": "client"},
+		})
+		if err != nil {
+			t.Errorf("SavePrompt: %v", err)
+		} else if _, ok := saved.Profiles["codex"]; !ok {
+			t.Errorf("SavePrompt profiles = %#v, want codex", saved.Profiles)
+		}
+	}
 	if m, err := c.Metrics(ctx); err != nil {
 		t.Errorf("Metrics: %v", err)
 	} else if m.Sessions.Total < 1 {
 		t.Errorf("metrics sessions = %d", m.Sessions.Total)
+	}
+	if search, err := c.MemorySearch(ctx, MemorySearchRequest{
+		Query: "hello world", SessionID: sess.ID, Limit: 5,
+	}); err != nil {
+		t.Errorf("MemorySearch: %v", err)
+	} else if len(search.SearchedSessions) == 0 {
+		t.Errorf("MemorySearch searched_sessions empty: %+v", search)
 	}
 
 	// Error handling — 404 surfaces as *Error.

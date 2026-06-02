@@ -1,0 +1,6 @@
+target/
+Cargo.lock
+gen/schemas/
+# Embedded clio-agent runtime for the bundled installer variant.
+# Built on demand by scripts/build-clio-runtime.{ps1,sh}; never committed.
+clio-runtime/

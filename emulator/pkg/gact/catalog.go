@@ -1,5 +1,11 @@
 package gact
 
+import (
+	"bytes"
+	"encoding/json"
+	"sort"
+)
+
 // Catalog types — providers, models, tools, MCP servers, agents, commands.
 // These reflect SPEC §6.5 (agents), §6.6 (tools), §6.7 (MCP), §6.12
 // (providers), §6.13 (commands), §6.16 (metrics).
@@ -22,8 +28,8 @@ type AuthMethod string
 
 const (
 	// AuthMethodNone — provider needs no credentials (lm_studio /
-	// ollama on localhost, meridian, codex bridges, ALCF compute-node
-	// vLLMs that accept the literal "EMPTY" key).
+	// ollama on localhost, codex via the CLI subscription, and local
+	// OpenAI-compatible vLLM servers that accept the literal "EMPTY" key).
 	AuthMethodNone AuthMethod = "none"
 
 	// AuthMethodAPIKey — user pastes a long-lived API key (Anthropic,
@@ -82,6 +88,7 @@ func (a AuthProvider) NeedsLogin() bool {
 type Model struct {
 	ID              string         `json:"id"`
 	Name            string         `json:"name"`
+	Description     string         `json:"description,omitempty"`
 	ContextWindow   int            `json:"context_window"`
 	MaxOutputTokens int            `json:"max_output_tokens"`
 	Supports        ModelSupports  `json:"supports"`
@@ -118,6 +125,9 @@ type Tool struct {
 	OutputSchema      map[string]any   `json:"output_schema,omitempty"`
 	Annotations       *ToolAnnotations `json:"annotations,omitempty"`
 	PermissionDefault string           `json:"permission_default,omitempty"` // "allow"|"ask"|"deny"
+	Owner             string           `json:"owner,omitempty"`
+	Tags              []string         `json:"tags,omitempty"`
+	VisibleTo         []string         `json:"visible_to,omitempty"`
 }
 
 // AgentDef is a reusable agent persona/recipe (SPEC §6.5).
@@ -128,20 +138,334 @@ type Tool struct {
 // tier-2 specialists so the TUI can render a routing badge and
 // colour it by specialization.
 type AgentDef struct {
-	ID           string           `json:"id"`
-	Source       string           `json:"source"` // builtin|user|recipe|skill
-	Title        string           `json:"title"`
-	Description  string           `json:"description,omitempty"`
-	SystemPrompt string           `json:"system_prompt,omitempty"`
-	Parameters   []AgentParameter `json:"parameters,omitempty"`
-	DefaultModel *ModelRef        `json:"default_model,omitempty"`
-	Tools        []string         `json:"tools,omitempty"`
-	Metadata     map[string]any   `json:"metadata,omitempty"`
+	ID               string               `json:"id"`
+	Source           string               `json:"source"` // builtin|user|recipe|skill
+	Title            string               `json:"title"`
+	Description      string               `json:"description,omitempty"`
+	ParentID         string               `json:"parent_id,omitempty"`
+	SystemPrompt     string               `json:"system_prompt,omitempty"`
+	PromptID         string               `json:"prompt_id,omitempty"`
+	PromptProfile    string               `json:"prompt_profile,omitempty"`
+	DefaultProvider  string               `json:"default_provider,omitempty"`
+	Parameters       []AgentParameter     `json:"parameters,omitempty"`
+	DefaultModel     *ModelRef            `json:"default_model,omitempty"`
+	DefaultModelName string               `json:"-"`
+	Tools            []string             `json:"tools,omitempty"`
+	Skills           []string             `json:"skills,omitempty"`
+	Commands         []string             `json:"commands,omitempty"`
+	CapabilityRefs   []AgentCapabilityRef `json:"capability_refs,omitempty"`
+	Metadata         map[string]any       `json:"metadata,omitempty"`
+	Enabled          bool                 `json:"enabled,omitempty"`
+	ValidationErrors []string             `json:"validation_errors,omitempty"`
 
 	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
 	Specialization string   `json:"specialization,omitempty"` // free-form tag — UI palette hint (code_editing, data_analysis, research, …)
 	Keywords       []string `json:"keywords,omitempty"`       // intent tokens the tier-1 router matches
+}
+
+type AgentCapabilityRef struct {
+	Kind        string         `json:"kind,omitempty"`
+	ID          string         `json:"id,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Source      string         `json:"source,omitempty"`
+	Status      string         `json:"status,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type AgentExtractRequest struct {
+	SessionIDs []string `json:"session_ids"`
+	AgentID    string   `json:"agent_id"`
+}
+
+type ExpertPackDefinition struct {
+	ID               string         `json:"id"`
+	Version          string         `json:"version,omitempty"`
+	Title            string         `json:"title,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	Scope            string         `json:"scope,omitempty"`
+	Root             string         `json:"root,omitempty"`
+	ManifestPath     string         `json:"manifest_path,omitempty"`
+	DefinitionPath   string         `json:"definition_path,omitempty"`
+	Enabled          bool           `json:"enabled"`
+	ValidationErrors []string       `json:"validation_errors,omitempty"`
+	Defaults         map[string]any `json:"defaults,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+}
+
+type ExpertPackDetail struct {
+	ExpertPack ExpertPackDefinition `json:"expert_pack"`
+	Agents     []AgentDef           `json:"agents,omitempty"`
+}
+
+type ExpertPackValidateRequest struct {
+	Path  string `json:"path,omitempty"`
+	Scope string `json:"scope,omitempty"`
+}
+
+type ExpertPackValidationResult struct {
+	Enabled          bool                 `json:"enabled"`
+	ValidationErrors []string             `json:"validation_errors,omitempty"`
+	Pack             ExpertPackDefinition `json:"pack,omitempty"`
+	Agents           []AgentDef           `json:"agents,omitempty"`
+}
+
+type SessionExpertPackState struct {
+	SessionID            string                `json:"session_id"`
+	WorkspaceID          string                `json:"workspace_id,omitempty"`
+	ActiveExpertPackID   string                `json:"active_expert_pack_id,omitempty"`
+	ActiveExpertPackPath string                `json:"active_expert_pack_path,omitempty"`
+	ExpertPack           *ExpertPackDefinition `json:"expert_pack,omitempty"`
+	Session              *Session              `json:"session,omitempty"`
+}
+
+type SetSessionExpertPackRequest struct {
+	PackID   string `json:"pack_id,omitempty"`
+	Path     string `json:"path,omitempty"`
+	PackPath string `json:"pack_path,omitempty"`
+}
+
+type AgentBlueprintDefinition struct {
+	ID               string         `json:"id"`
+	Version          string         `json:"version,omitempty"`
+	Title            string         `json:"title,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	Scope            string         `json:"scope,omitempty"`
+	Root             string         `json:"root,omitempty"`
+	RootPath         string         `json:"root_path,omitempty"`
+	DefinitionPath   string         `json:"definition_path,omitempty"`
+	RootExpert       string         `json:"root_expert,omitempty"`
+	Enabled          bool           `json:"enabled"`
+	ValidationErrors []string       `json:"validation_errors,omitempty"`
+	Defaults         map[string]any `json:"defaults,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+}
+
+type AgentBlueprintDetail struct {
+	AgentBlueprint AgentBlueprintDefinition `json:"agent_blueprint"`
+	Agents         []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors []map[string]any         `json:"mcp_descriptors,omitempty"`
+}
+
+type AgentBlueprintValidateRequest struct {
+	Path  string `json:"path,omitempty"`
+	Scope string `json:"scope,omitempty"`
+}
+
+type AgentBlueprintValidationResult struct {
+	Enabled          bool                     `json:"enabled"`
+	ValidationErrors []string                 `json:"validation_errors,omitempty"`
+	AgentBlueprint   AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
+	Agents           []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors   []map[string]any         `json:"mcp_descriptors,omitempty"`
+}
+
+type AgentBlueprintInstallRequest struct {
+	Source      string `json:"source,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	Ref         string `json:"ref,omitempty"`
+	BlueprintID string `json:"blueprint_id,omitempty"`
+}
+
+type AgentBlueprintUpdateRequest struct {
+	Scope       string `json:"scope,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+type SessionAgentBlueprintState struct {
+	SessionID                string                    `json:"session_id"`
+	WorkspaceID              string                    `json:"workspace_id,omitempty"`
+	ActiveAgentBlueprintID   string                    `json:"active_agent_blueprint_id,omitempty"`
+	ActiveAgentBlueprintPath string                    `json:"active_agent_blueprint_path,omitempty"`
+	AgentBlueprint           *AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
+	AgentOverlay             map[string]any            `json:"agent_overlay,omitempty"`
+	Session                  *Session                  `json:"session,omitempty"`
+}
+
+type SetSessionAgentBlueprintRequest struct {
+	BlueprintID      string `json:"blueprint_id,omitempty"`
+	AgentBlueprintID string `json:"agent_blueprint_id,omitempty"`
+	Path             string `json:"path,omitempty"`
+	BlueprintPath    string `json:"blueprint_path,omitempty"`
+}
+
+type SessionAgentOverlayResponse struct {
+	SessionID    string         `json:"session_id"`
+	AgentOverlay map[string]any `json:"agent_overlay,omitempty"`
+	Session      *Session       `json:"session,omitempty"`
+}
+
+type AgentBlueprintMCPEnableRequest struct {
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+// PromptProfile is one resolved profile body for a CLIO prompt registry
+// definition. It is a vendor extension, advertised by
+// capabilities.x_clio_prompt_registry.
+type PromptProfile struct {
+	Name       string         `json:"name"`
+	Text       string         `json:"text"`
+	Scope      string         `json:"scope"`
+	SourcePath string         `json:"source_path,omitempty"`
+	Provider   string         `json:"provider,omitempty"`
+	Model      string         `json:"model,omitempty"`
+	Checksum   string         `json:"checksum,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
+// PromptDefinition is returned by GET /v1/prompts.
+type PromptDefinition struct {
+	ID               string                   `json:"id"`
+	Title            string                   `json:"title,omitempty"`
+	Description      string                   `json:"description,omitempty"`
+	DefaultProfile   string                   `json:"default_profile,omitempty"`
+	Profiles         map[string]PromptProfile `json:"profiles,omitempty"`
+	Scope            string                   `json:"scope,omitempty"`
+	SourcePath       string                   `json:"source_path,omitempty"`
+	Enabled          bool                     `json:"enabled"`
+	ValidationErrors []string                 `json:"validation_errors,omitempty"`
+	Metadata         map[string]any           `json:"metadata,omitempty"`
+}
+
+// ResolvedPrompt is returned by GET /v1/prompts/{id}?profile=...
+type ResolvedPrompt struct {
+	ID               string         `json:"id"`
+	Profile          string         `json:"profile"`
+	Text             string         `json:"text"`
+	Title            string         `json:"title,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	Scope            string         `json:"scope,omitempty"`
+	SourcePath       string         `json:"source_path,omitempty"`
+	Provider         string         `json:"provider,omitempty"`
+	Model            string         `json:"model,omitempty"`
+	Checksum         string         `json:"checksum,omitempty"`
+	FallbackProfile  string         `json:"fallback_profile,omitempty"`
+	ValidationErrors []string       `json:"validation_errors,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+}
+
+// PromptSaveRequest is accepted by PUT /v1/prompts/{id}.
+type PromptSaveRequest struct {
+	Profile     string         `json:"profile,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Text        string         `json:"text"`
+	Provider    string         `json:"provider,omitempty"`
+	Model       string         `json:"model,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type PromptRenderRequest struct {
+	Profile     string            `json:"profile,omitempty"`
+	SessionID   string            `json:"session_id,omitempty"`
+	WorkspaceID string            `json:"workspace_id,omitempty"`
+	Context     map[string]string `json:"context,omitempty"`
+}
+
+type PromptValidateRequest struct {
+	Profile     string `json:"profile,omitempty"`
+	Text        string `json:"text,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+type PromptValidationResult struct {
+	Enabled          bool             `json:"enabled"`
+	ValidationErrors []string         `json:"validation_errors,omitempty"`
+	Prompt           PromptDefinition `json:"prompt,omitempty"`
+}
+
+type PromptReloadResult struct {
+	PromptCount int            `json:"prompt_count"`
+	PromptIDs   []string       `json:"prompt_ids,omitempty"`
+	Sources     []PromptSource `json:"sources,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type PromptSource struct {
+	Scope string `json:"scope,omitempty"`
+	Root  string `json:"root,omitempty"`
+}
+
+// UnmarshalJSON accepts both the shared GACT array shape for
+// parameters and CLIO's current object/map shape. Settings must not
+// fail the whole agent catalog because one backend serializes
+// parameters as {"name": value} instead of [{"name": "..."}].
+func (a *AgentDef) UnmarshalJSON(data []byte) error {
+	type alias AgentDef
+	var raw struct {
+		alias
+		Parameters   json.RawMessage `json:"parameters,omitempty"`
+		DefaultModel json.RawMessage `json:"default_model,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	out := AgentDef(raw.alias)
+	if len(raw.Parameters) > 0 && !bytes.Equal(raw.Parameters, []byte("null")) {
+		params, err := decodeAgentParameters(raw.Parameters)
+		if err != nil {
+			return err
+		}
+		out.Parameters = params
+	}
+	if len(raw.DefaultModel) > 0 && !bytes.Equal(raw.DefaultModel, []byte("null")) {
+		var ref ModelRef
+		if err := json.Unmarshal(raw.DefaultModel, &ref); err == nil && (ref.ProviderID != "" || ref.ModelID != "" || ref.Variant != "") {
+			out.DefaultModel = &ref
+		} else {
+			var model string
+			if err := json.Unmarshal(raw.DefaultModel, &model); err == nil {
+				out.DefaultModelName = model
+			}
+		}
+	}
+	*a = out
+	return nil
+}
+
+func decodeAgentParameters(data []byte) ([]AgentParameter, error) {
+	var list []AgentParameter
+	if err := json.Unmarshal(data, &list); err == nil {
+		return list, nil
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]AgentParameter, 0, len(keys))
+	for _, key := range keys {
+		param := AgentParameter{Name: key, Type: "string"}
+		if spec, ok := obj[key].(map[string]any); ok {
+			if typ, ok := spec["type"].(string); ok && typ != "" {
+				param.Type = typ
+			}
+			if desc, ok := spec["description"].(string); ok {
+				param.Description = desc
+			}
+			if required, ok := spec["required"].(bool); ok {
+				param.Required = required
+			}
+			if opts, ok := spec["options"].([]any); ok {
+				for _, opt := range opts {
+					if s, ok := opt.(string); ok {
+						param.Options = append(param.Options, s)
+					}
+				}
+			}
+		}
+		out = append(out, param)
+	}
+	return out, nil
 }
 
 // AgentParameter is a fillable input on an agent recipe.
@@ -272,13 +596,26 @@ type FileDiff struct {
 
 // Command is one slash command available in the catalog (SPEC §6.13).
 type Command struct {
-	ID          string           `json:"id"`
-	Title       string           `json:"title"`
-	Description string           `json:"description,omitempty"`
-	Source      string           `json:"source"` // builtin|mcp_prompt|recipe|user
-	ServerID    string           `json:"server_id,omitempty"`
-	Arguments   []AgentParameter `json:"arguments,omitempty"`
-	Shortcut    string           `json:"shortcut,omitempty"`
+	ID             string           `json:"id"`
+	Title          string           `json:"title"`
+	Description    string           `json:"description,omitempty"`
+	Source         string           `json:"source"` // builtin|mcp_prompt|recipe|user
+	ServerID       string           `json:"server_id,omitempty"`
+	Arguments      []AgentParameter `json:"arguments,omitempty"`
+	Shortcut       string           `json:"shortcut,omitempty"`
+	Status         string           `json:"status,omitempty"`
+	Enabled        bool             `json:"enabled,omitempty"`
+	Error          string           `json:"error,omitempty"`
+	DisabledReason string           `json:"disabled_reason,omitempty"`
+	AgentID        string           `json:"agent_id,omitempty"`
+	AgentSource    string           `json:"agent_source,omitempty"`
+	CommandSource  string           `json:"command_source,omitempty"`
+	Invocation     string           `json:"invocation,omitempty"`
+	UserInvocable  *bool            `json:"user_invocable,omitempty"`
+	AgentInvocable *bool            `json:"agent_invocable,omitempty"`
+	PlannerVisible *bool            `json:"planner_visible,omitempty"`
+	ArgumentHint   string           `json:"argument_hint,omitempty"`
+	PromptTemplate string           `json:"prompt_template,omitempty"`
 }
 
 // Metrics is the body of GET /v1/metrics (SPEC §6.16).

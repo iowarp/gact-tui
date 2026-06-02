@@ -4,8 +4,13 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
+
+func (a *App) closeRenameModal() {
+	a.renameOpen = false
+	a.renameDraft = ""
+	a.renameCursor = 0
+}
 
 // handleRenameKey drives the rename-session overlay. Minimal line
 // editor — backspace/delete, home/end, arrow keys, printable chars,
@@ -14,9 +19,7 @@ import (
 func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.renameOpen = false
-		a.renameDraft = ""
-		a.renameCursor = 0
+		a.closeRenameModal()
 		return a, nil
 	case "enter":
 		return a.commitRename()
@@ -75,9 +78,7 @@ func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // don't want to clobber a session title with "" by accident.
 func (a *App) commitRename() (tea.Model, tea.Cmd) {
 	title := strings.TrimSpace(a.renameDraft)
-	a.renameOpen = false
-	a.renameDraft = ""
-	a.renameCursor = 0
+	a.closeRenameModal()
 	if title == "" {
 		a.transientHint = "rename cancelled (empty title)"
 		return a, nil
@@ -103,38 +104,37 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 // viewRename renders the inline rename prompt. Matches the workspace-
 // switcher / settings overlay shape.
 func (a *App) viewRename() string {
-	t := a.Theme
 	w := a.modalWidth()
-
-	// Minimal cursor rendering — a reverse-video block at a.renameCursor.
-	runes := []rune(a.renameDraft)
-	cur := a.renameCursor
-	if cur > len(runes) {
-		cur = len(runes)
+	buttons := []menuButton{
+		{
+			id:    "rename:save",
+			label: "save",
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.commitRename()
+				return cmd
+			},
+		},
+		{
+			id:    "rename:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.closeRenameModal()
+				return nil
+			},
+		},
 	}
-	var editor string
-	cursorStyle := lipgloss.NewStyle().Reverse(true).Foreground(t.Fg)
-	if cur == len(runes) {
-		editor = string(runes) + cursorStyle.Render(" ")
-	} else {
-		editor = string(runes[:cur]) +
-			cursorStyle.Render(string(runes[cur:cur+1])) +
-			string(runes[cur+1:])
-	}
-
-	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Rename session"),
-		"",
-		lipgloss.NewStyle().Foreground(t.Fg).Render("> " + editor),
-		"",
-		t.HintLabel.Render("Enter save  Esc cancel  ←/→ move  Home/End jump"),
-	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:       w,
+		title:       "Rename session",
+		buttons:     buttons,
+		surfaceID:   "rename",
+		editor:      a.renderCursorEditor(a.renameDraft, a.renameCursor),
+		editorID:    "rename",
+		editorValue: a.renameDraft,
+		cursorAction: func(app *App, cursor int) {
+			app.renameCursor = cursor
+		},
+		footer: a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Esc cancel", "Left/Right move", "Home/End jump")),
+	})
+	return rendered.modal
 }

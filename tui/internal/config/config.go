@@ -25,10 +25,15 @@ import (
 type Config struct {
 	BackendURL        *string `json:"backend_url,omitempty"`
 	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
+	Locale            *string `json:"locale,omitempty"`        // "en" | "es" | "ja"
 	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
 	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`
+	// SidebarLayout controls the composable sidebar module order. Unknown
+	// module ids are preserved so newer configs degrade visibly instead of
+	// silently dropping future modules.
+	SidebarLayout *SidebarLayout `json:"sidebar_layout,omitempty"`
 	// YYYYY1: minimum line count for a paste to get the compressed
 	// `[pasted content: N lines]` placeholder. nil/0 means default 3.
 	PasteCompressThreshold *int `json:"paste_compress_threshold,omitempty"`
@@ -40,6 +45,8 @@ type Config struct {
 	// IntroSkip suppresses the JJJ1 splash screen. Default behaviour
 	// (nil/false) is to show the splash on TUI startup.
 	IntroSkip *bool `json:"intro_skip,omitempty"`
+	// MouseEnabled controls terminal mouse reporting. Nil means on.
+	MouseEnabled *bool `json:"mouse_enabled,omitempty"`
 	// IntroFile points at a custom splash file (`logo` block followed
 	// by a blank line and a `name` block, both ASCII art). Empty =
 	// use the baked-in default. Resolves relative paths against
@@ -56,6 +63,14 @@ type Config struct {
 	// (or 0) is treated as "pre-versioned" and runs all migrations.
 	// MMM2.
 	ConfigVersion *int `json:"config_version,omitempty"`
+}
+
+// SidebarLayout is the human-editable module placement shape for the TUI
+// sidebars. Only Left is rendered today; Right is reserved for the paired
+// composable module work without requiring another config migration.
+type SidebarLayout struct {
+	Left  []string `json:"left,omitempty"`
+	Right []string `json:"right,omitempty"`
 }
 
 // Save writes cfg to path, creating parent directories as needed.

@@ -4,10 +4,12 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 // Config configures a Server.
@@ -35,16 +37,20 @@ type Config struct {
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg          Config
-	started      time.Time
-	mux          *http.ServeMux
-	store        *store.Store
-	bus          *events.Bus
-	perms        *store.Permissions
-	contextFiles *contextFileSet
-	latency      *latencyTracker
-	hooks        *hooksStore // §6.17 — MMM3
-	tasks        *tasksStore // §6.18 — MMM5
+	cfg           Config
+	started       time.Time
+	mux           *http.ServeMux
+	store         *store.Store
+	bus           *events.Bus
+	perms         *store.Permissions
+	contextFiles  *contextFileSet
+	latency       *latencyTracker
+	hooks         *hooksStore // §6.17 — MMM3
+	tasks         *tasksStore // §6.18 — MMM5
+	prompts       map[string]gact.PromptDefinition
+	agents        map[string]gact.AgentDef
+	agentsMu      sync.Mutex
+	userQuestions map[string]gact.UserQuestion
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -76,6 +82,9 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		latency:       newLatencyTracker(1024),
 		hooks:         newHooksStore(),
 		tasks:         newTasksStore(),
+		prompts:       staticPromptDefinitions(),
+		agents:        map[string]gact.AgentDef{},
+		userQuestions: map[string]gact.UserQuestion{},
 		onUserMessage: cfg.OnUserMessage,
 		onCancel:      cfg.OnCancel,
 	}
@@ -121,6 +130,7 @@ func (s *Server) routes() {
 	// §3 — Capability discovery + health
 	s.mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)
+	s.mux.HandleFunc("GET /v1/capability-gaps", s.handleCapabilityGaps)
 
 	// §6.1 — Workspaces
 	s.mux.HandleFunc("GET /v1/workspaces", s.handleListWorkspaces)
@@ -150,6 +160,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/sessions/{id}/messages/{msg_id}", s.handleGetMessage)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/messages/{msg_id}", s.handleDeleteMessage)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id}", s.handlePatchPart)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/questions", s.handleListQuestions)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions", s.handleCreateQuestion)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/answer", s.handleAnswerQuestion)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/cancel", s.handleCancelQuestion)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/attempts", s.handleListAttempts)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/messages/{msg_id}/retry", s.handleRetryMessage)
 
 	// §6.11 — Permissions
 	s.mux.HandleFunc("GET /v1/permissions", s.handleListPermissions)
@@ -159,10 +175,10 @@ func (s *Server) routes() {
 	// §6.5 — Agents
 	s.mux.HandleFunc("GET /v1/agents", s.handleListAgents)
 	s.mux.HandleFunc("GET /v1/agents/{id}", s.handleGetAgent)
-	s.mux.HandleFunc("POST /v1/agents", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("PUT /v1/agents/{id}", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("DELETE /v1/agents/{id}", s.handleAgentNotImplemented)
-	s.mux.HandleFunc("POST /v1/agents/extract", s.handleAgentNotImplemented)
+	s.mux.HandleFunc("POST /v1/agents", s.handleCreateAgent)
+	s.mux.HandleFunc("PUT /v1/agents/{id}", s.handleUpdateAgent)
+	s.mux.HandleFunc("DELETE /v1/agents/{id}", s.handleDeleteAgent)
+	s.mux.HandleFunc("POST /v1/agents/extract", s.handleExtractAgent)
 
 	// §6.6 — Tools
 	s.mux.HandleFunc("GET /v1/tools", s.handleListTools)
@@ -185,6 +201,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/sessions/{id}/context/files", s.handleAddContextFile)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/context/files", s.handleDeleteContextFile)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/frames", s.handleListContextFrames)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/frames/{frame_id}", s.handleGetContextFrame)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/files", s.handleWorkspaceFiles)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/files/read", s.handleWorkspaceFileRead)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/repo_map", s.handleRepoMap)
@@ -199,12 +217,42 @@ func (s *Server) routes() {
 
 	// §6.12 — Providers + Models
 	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)
+	s.mux.HandleFunc("GET /v1/providers/lm", s.handleGetLMProvider)
+	s.mux.HandleFunc("PUT /v1/providers/lm", s.handlePutLMProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
 
 	// §6.13 — Commands
 	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/commands/{cmd_id}", s.handleSessionCommand)
+
+	// CLIO prompt registry extension
+	s.mux.HandleFunc("GET /v1/prompts", s.handleListPrompts)
+	s.mux.HandleFunc("GET /v1/prompts/{id}", s.handleGetPrompt)
+	s.mux.HandleFunc("POST /v1/prompts/{id}/render", s.handleRenderPrompt)
+	s.mux.HandleFunc("POST /v1/prompts/{id}/validate", s.handleValidatePrompt)
+	s.mux.HandleFunc("POST /v1/prompts/reload", s.handleReloadPrompts)
+	s.mux.HandleFunc("PUT /v1/prompts/{id}", s.handleSavePrompt)
+
+	// CLIO expert-pack runtime extension
+	s.mux.HandleFunc("GET /v1/expert-packs", s.handleListExpertPacks)
+	s.mux.HandleFunc("GET /v1/expert-packs/{id}", s.handleGetExpertPack)
+	s.mux.HandleFunc("POST /v1/expert-packs/validate", s.handleValidateExpertPack)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/expert-pack", s.handleGetSessionExpertPack)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/expert-pack", s.handleSetSessionExpertPack)
+
+	// CLIO agent-blueprint extension
+	s.mux.HandleFunc("GET /v1/agent-blueprints", s.handleListAgentBlueprints)
+	s.mux.HandleFunc("GET /v1/agent-blueprints/{id}", s.handleGetAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/validate", s.handleValidateAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/install", s.handleInstallAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/update", s.handleUpdateAgentBlueprint)
+	s.mux.HandleFunc("DELETE /v1/agent-blueprints/{id}", s.handleDeleteAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/mcp/{descriptor_id}/enable", s.handleEnableAgentBlueprintMCP)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-blueprint", s.handleGetSessionAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/agent-blueprint", s.handleSetSessionAgentBlueprint)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-overlay", s.handleGetSessionAgentOverlay)
+	s.mux.HandleFunc("PUT /v1/sessions/{id}/agent-overlay", s.handlePutSessionAgentOverlay)
 
 	// §6.14 — Voice
 	s.mux.HandleFunc("POST /v1/sessions/{id}/voice/transcribe", s.handleVoiceTranscribe)
@@ -214,6 +262,10 @@ func (s *Server) routes() {
 
 	// §6.19 — Memory stats (v0.2 — CLIO-BBBBBBBBBB3)
 	s.mux.HandleFunc("GET /v1/memory/stats", s.handleMemoryStats)
+	s.mux.HandleFunc("GET /v1/memory/search", s.handleMemorySearch)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/search-sessions", s.handleMemoryToolSearchSessions)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/read-session-summary", s.handleMemoryToolReadSessionSummary)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/memory/tools/read-context-frame", s.handleMemoryToolReadContextFrame)
 
 	// §6.17 — Hooks (MMM3)
 	s.mux.HandleFunc("GET /v1/hooks", s.handleListHooks)

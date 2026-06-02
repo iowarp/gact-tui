@@ -3,10 +3,13 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/color"
 	"math/rand"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,7 +31,16 @@ type FocusZone int
 const (
 	FocusSidebar FocusZone = iota
 	FocusBody
+	FocusRightSidebar
 	FocusInput
+)
+
+type sidebarSection int
+
+const (
+	sidebarSectionSessions sidebarSection = iota
+	sidebarSectionFiles
+	sidebarSectionContext
 )
 
 // Stage is the high-level UI state.
@@ -43,10 +55,15 @@ const (
 	StageIntro
 )
 
+const modelSwapMarkerKind = "model_provider_swap"
+
 // App is the root Bubbletea model.
 type App struct {
 	BackendURL string
-	Theme      Theme
+	// BackendLabel is an optional human-readable deployment identity,
+	// such as "myclio (clio)", supplied by `gact connect <name>`.
+	BackendLabel string
+	Theme        Theme
 
 	// VoiceCommand is a shell command line that records audio and writes
 	// the bytes to stdout. Invoked by Ctrl+Y. Empty ⇒ Ctrl+Y posts a tiny
@@ -85,11 +102,16 @@ type App struct {
 	// (cleared by the next key press). Used for non-fatal feedback like
 	// config-reload outcomes that don't deserve the full error stage.
 	transientHint string
+	localizer     Localizer
 
 	// DisableAltScreen turns off the alternate-screen-buffer mode. Used
 	// by tests because teatest's PTY simulation doesn't capture writes
 	// while in alt-screen mode. NEVER set this in production.
 	DisableAltScreen bool
+	// MouseEnabled controls terminal mouse reporting and mouse handlers.
+	// It defaults to true, but is persisted as Settings > TUI because
+	// some terminals or remote shells make mouse capture intrusive.
+	MouseEnabled bool
 
 	c *client.Client
 
@@ -117,7 +139,16 @@ type App struct {
 	stickyToBottom bool
 
 	// Context files for the currently selected session (fetched on select).
-	contextFiles []gact.ContextFile
+	contextFiles   []gact.ContextFile
+	contextFileSel int
+
+	// Local file viewer module. This is process-cwd-backed and does not require
+	// backend filesystem support.
+	fileViewerRoot   string
+	fileTreeEntries  []fileTreeEntry
+	fileTreeExpanded map[string]bool
+	fileTreeSel      int
+	fileTreeErr      string
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -163,7 +194,8 @@ type App struct {
 	// paste into individual KeyPressMsg events between Start/End (seen
 	// in some tmux + Windows Terminal combos), this flag is what
 	// actually prevents message splitting.
-	inPaste bool
+	inPaste     bool
+	pasteBuffer string
 
 	// searchHitMessageID marks the message that was jumped to from the
 	// palette ?search results. The render layer draws a gutter marker
@@ -199,6 +231,13 @@ type App struct {
 	// PgDn'd past the marker deliberately.
 	pendingPartScroll bool
 
+	// hits is rebuilt during View() and maps rendered terminal cells
+	// back to semantic UI actions. Mouse Update paths consult it first
+	// so components can own their own click semantics instead of
+	// scattering view-specific coordinate math through mouse.go.
+	hits               *uiHitRegistry
+	baseHitTargetCount int
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -210,6 +249,7 @@ type App struct {
 	// of a new word.
 	filePickerOpen bool
 	filePicker     *filePickerState
+	fileMentions   []composerFileMention
 
 	// Catalog browser (L5): /mcp /tools /skills open a read-only list
 	// modal backed by the matching catalog endpoint.
@@ -293,7 +333,8 @@ type App struct {
 	// switching away and back doesn't wipe what the user was typing.
 	// Lifetime is the app process — restart drops the map (N5 tracks
 	// persistence via config.json).
-	inputDraftBySession map[string]string
+	inputDraftBySession   map[string]string
+	fileMentionsBySession map[string][]composerFileMention
 
 	// lastLoadedSessionID is the session ID the input buffer currently
 	// belongs to. selectSession uses this (not currentSessionID which
@@ -319,15 +360,18 @@ type App struct {
 	// the palette switches to message-search mode: Enter submits the
 	// query (everything after "?"), results replace the matches list,
 	// a second Enter jumps the conversation viewport to the hit.
-	paletteOpen   bool
-	paletteFilter string
-	paletteSel    int
-	searchMatches []client.SearchMatch
-	searching     bool // true while the SearchMessages cmd is in flight
+	paletteOpen      bool
+	paletteFilter    string
+	paletteCursor    int
+	paletteCursorSet bool
+	paletteSel       int
+	searchMatches    []client.SearchMatch
+	searching        bool // true while the SearchMessages cmd is in flight
 
 	// Help overlay
-	helpOpen bool
-	helpTab  int // active tab index when helpOpen; see helpTabs
+	helpOpen   bool
+	helpTab    int // active tab index when helpOpen; see helpTabs
+	helpScroll int
 
 	// ZZZZZZZZZ1: Ctrl+C confirmation overlay. User feedback: "ctrl+c
 	// should have a confirmation window, close? yes no detach". Opens
@@ -340,6 +384,12 @@ type App struct {
 	// Settings overlay
 	settingsOpen bool
 	settings     *settingsState
+
+	// Sidebar layout editor. Opened from Settings > TUI and backed by
+	// the same sidebar_layout.left/right config shape.
+	sidebarLayoutOpen bool
+	sidebarLayoutCol  int
+	sidebarLayoutSel  [3]int
 
 	// Metrics overlay
 	metricsOpen bool
@@ -368,12 +418,23 @@ type App struct {
 	// a.mcpServers slice (filtered to third-party).
 	mcpInstallOpen   bool
 	mcpInstallInput  string
+	mcpInstallCursor int
 	mcpInstallErr    string
 	mcpInstallSaving bool
 	mcpRemoveOpen    bool
 	mcpRemoveOptions []gact.McpServer
 	mcpRemoveSel     int
 	mcpRemoveSaving  bool
+
+	// Agent blueprint install / validate overlay. Opened from the
+	// /agent-blueprints catalog action rows and shared by both workflows:
+	// install accepts a path/URL/source, validate accepts a path.
+	agentBlueprintManageOpen   bool
+	agentBlueprintManageMode   string
+	agentBlueprintManageInput  string
+	agentBlueprintManageCursor int
+	agentBlueprintManageErr    string
+	agentBlueprintManageSaving bool
 
 	// Cached MCP server list, populated each time /mcp opens. The remove
 	// modal reads from this so it doesn't need an extra round-trip.
@@ -395,12 +456,75 @@ type App struct {
 	renameDraft  string
 	renameCursor int
 
+	// Session action menu. Opened from a rendered session row's
+	// secondary-click target, or with `m` from sidebar focus. It uses
+	// the shared selectable-list modal so row-local actions follow the
+	// same sizing, button, wheel, and click semantics as the larger
+	// catalogs.
+	sessionActionsOpen bool
+	sessionActionsSel  int
+
+	// Context action menu. Mirrors sessionActions for rendered context
+	// rows so file metadata/detail/copy/remove actions share the same
+	// selectable modal primitives instead of growing sidebar-specific
+	// coordinate branches.
+	contextActionsOpen bool
+	contextActionsSel  int
+
+	// Conversation action menu. Opened from rendered transcript part
+	// secondary-click targets, or `m` in body focus. Keeps transcript
+	// row actions on the same shared selectable-list modal primitive
+	// as sidebar row-local actions.
+	conversationActionsOpen bool
+	conversationActionsSel  int
+
+	// Ask-user and retry-note modals. These use separate draft buffers so
+	// answering an agent question or retrying with notes never mutates the
+	// normal composer draft.
+	askUserOpen      bool
+	askUserQuestion  gact.AgentQuestion
+	askUserDraft     string
+	askUserCursor    int
+	askUserChoice    int
+	retryNotesOpen   bool
+	retryMessageID   string
+	retryNotesDraft  string
+	retryNotesCursor int
+	retryModelOpen   bool
+	retryModelMsgID  string
+	retryModelDraft  string
+	retryModelCursor int
+
 	// Context-file add modal — same shape as rename, different
 	// purpose. Opened by `o` in sidebar focus. Enter POSTs to
 	// /v1/sessions/{id}/context/files; Esc cancels.
 	contextAddOpen   bool
 	contextAddDraft  string
 	contextAddCursor int
+	contextAddMode   string
+
+	nextTurnAgentID    string
+	nextTurnAgentTitle string
+
+	promptEditOpen    bool
+	promptEditID      string
+	promptEditProfile string
+	promptEditDraft   string
+	promptEditCursor  int
+	promptEditTitle   string
+
+	agentWriteOpen     bool
+	agentWriteMode     string
+	agentWriteSourceID string
+	agentWriteDraft    string
+	agentWriteCursor   int
+	agentEditOpen      bool
+	agentEditOriginal  string
+	agentEditDraft     gact.AgentDef
+	agentEditField     int
+	agentEditCursor    int
+	agentEditErr       string
+	agentEditSaving    bool
 
 	// Floating detail view (L3) — shows a bulky tool_result's full
 	// content in a scrollable modal. Opens on Ctrl+E from body focus
@@ -440,6 +564,25 @@ type App struct {
 	// in-progress ones. Toggled via `b` in sidebar focus. Parallels
 	// the JJJJJJJJ1 `d` detached-only pattern.
 	showBusyOnly bool
+
+	// showChildSessions expands materialized child/nanoagent sessions
+	// in the sidebar. Default is collapsed so benchmark runs with many
+	// child sessions keep top-level conversations scannable.
+	showChildSessions bool
+
+	// Sidebar sections are independently collapsible so the left pane can grow
+	// without becoming a hard-coded sessions/context layout.
+	sidebarSessionsCollapsed bool
+	sidebarFilesCollapsed    bool
+	sidebarContextCollapsed  bool
+	sidebarSectionFocus      sidebarSection
+	sidebarSectionCursor     bool
+	sidebarModuleIDs         []sidebarModuleID
+	rightSidebarModuleIDs    []sidebarModuleID
+	sidebarLayoutConfigured  bool
+	sidebarLayoutGrabbed     bool
+	sidebarHitOffsetX        int
+	sidebarHitFocus          FocusZone
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -487,12 +630,6 @@ func New(backendURL string) *App {
 // NewWithTheme constructs an App with a specific theme.
 func NewWithTheme(backendURL string, theme Theme) *App {
 	ta := textarea.New()
-	// ZZZZZ1: placeholder leads with the always-works newline option
-	// (\\<Enter>) because Shift+Enter requires terminal support
-	// (kitty/xterm extended modifiers / modifyOtherKeys); not all
-	// terminals send the modifier through. \\<Enter> works everywhere
-	// since it's just a literal char + Enter the handler intercepts.
-	ta.Placeholder = "type a message — Enter to send · \\<Enter> for newline (Shift+Enter on supporting terminals)"
 	// VVVVV1: render `> ` only on the first row of the input. Wrapped /
 	// multi-line input previously got a `>` gutter on every visible
 	// row, which the user called "ugly". Continuation rows now use
@@ -518,12 +655,14 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		key.WithHelp("shift+enter", "newline"),
 	)
 	ta.Focus()
-	return &App{
+	app := &App{
 		BackendURL:            backendURL,
 		Theme:                 theme,
+		localizer:             newLocalizer(os.Getenv("GACT_LOCALE")),
 		c:                     client.New(backendURL),
 		stage:                 StageConnecting,
 		focus:                 FocusInput,
+		MouseEnabled:          true,
 		selected:              -1,
 		stickyToBottom:        true,
 		input:                 ta,
@@ -533,6 +672,9 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		bodySelPartIdx:        -1,
 		previouslyDetached:    map[string]bool{},
 	}
+	app.initFileViewerFromCwd()
+	app.refreshLocalizedPlaceholders()
+	return app
 }
 
 // LoadDetachedRegistry seeds previouslyDetached from the local
@@ -649,7 +791,9 @@ func connectCmd(c *client.Client) tea.Cmd {
 				return errMsg{err: err, stage: "sessions"}
 			}
 		}
-		commands, _ := c.ListCommands(ctx)
+		commands, _ := c.ListCommandsScoped(ctx, client.CommandFilter{
+			RuntimeScope: client.RuntimeScope{WorkspaceID: wsID},
+		})
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
 	}
 }
@@ -658,10 +802,14 @@ func connectCmd(c *client.Client) tea.Cmd {
 // sessionID is optional (pass "" for global-only). Errors land as a
 // transient hint rather than blowing up — stats are decorative.
 func memoryStatsCmd(c *client.Client, sessionID string) tea.Cmd {
+	return memoryStatsScopedCmd(c, client.RuntimeScope{SessionID: sessionID})
+}
+
+func memoryStatsScopedCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		stats, err := c.MemoryStats(ctx, sessionID)
+		stats, err := c.MemoryStatsScoped(ctx, scope)
 		if err != nil {
 			return errMsg{err: err, stage: "memory_stats"}
 		}
@@ -685,6 +833,7 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 		// Reverse so we have chronological (oldest-first) order for display.
 		out := make([]gact.Message, len(msgs))
 		for i, m := range msgs {
+			normalizeMessagePresentation(&m)
 			out[len(msgs)-1-i] = m
 		}
 		return messagesLoadedMsg{sessionID: sessionID, messages: out}
@@ -783,6 +932,9 @@ func (a *App) startSSECmd(sessionID string) tea.Cmd {
 			LastEventID: lastSeen,
 		})
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return sseOpenCanceledMsg{sessionID: sessionID}
+			}
 			return errMsg{err: err, stage: "sse"}
 		}
 		return sseConnectedMsg{events: events, errs: errs}
@@ -794,6 +946,10 @@ func (a *App) startSSECmd(sessionID string) tea.Cmd {
 type sseConnectedMsg struct {
 	events <-chan client.SSEEvent
 	errs   <-chan error
+}
+
+type sseOpenCanceledMsg struct {
+	sessionID string
 }
 
 func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
@@ -818,6 +974,14 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 // Update handler can restore the text to the input (rather than
 // sending the whole UI to StageError for a transient backend blip).
 func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
+	return postMessageWithMentionsAndAgentCmd(c, sessionID, text, text, nil, "")
+}
+
+func postMessageWithMentionsCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention) tea.Cmd {
+	return postMessageWithMentionsAndAgentCmd(c, sessionID, draftText, text, mentions, "")
+}
+
+func postMessageWithMentionsAndAgentCmd(c *client.Client, sessionID, draftText, text string, mentions []composerFileMention, agentID string) tea.Cmd {
 	return func() tea.Msg {
 		// Real LLM turns can easily run 10s+ (Haiku via a proxy is
 		// ~5-15s; Sonnet via a ReAct loop can be minutes). 120s gives
@@ -826,22 +990,88 @@ func postMessageCmd(c *client.Client, sessionID, text string) tea.Cmd {
 		// progress anyway.
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
+		mentionCopy := cloneComposerFileMentions(mentions)
+		seen := map[string]bool{}
+		attached := make([]gact.ContextFile, 0, len(mentionCopy))
+		for _, mention := range mentionCopy {
+			path := strings.TrimSpace(mention.Path)
+			if path == "" || seen[path] {
+				continue
+			}
+			seen[path] = true
+			mode := mention.Mode
+			if mode == "" {
+				mode = "read"
+			}
+			cf, err := c.AddContextFile(ctx, sessionID, path, mode)
+			if err != nil {
+				return postFailedMsg{
+					text:     draftText,
+					mentions: mentionCopy,
+					err:      fmt.Errorf("attach %s: %w", path, err),
+				}
+			}
+			attached = append(attached, cf)
+		}
+		text = sanitizeSelectedFileMentions(text, mentionCopy)
 		_, err := c.PostMessage(ctx, sessionID, client.PostMessageRequest{
-			Parts: []gact.Part{gact.NewTextPart(text)},
+			Parts:   []gact.Part{gact.NewTextPart(text)},
+			AgentID: agentID,
 		})
 		if err != nil {
-			return postFailedMsg{text: text, err: err}
+			return postFailedMsg{text: draftText, mentions: mentionCopy, err: err}
 		}
-		return msgPostedAck{sessionID: sessionID, text: text}
+		return msgPostedAck{sessionID: sessionID, text: text, contextFiles: attached}
 	}
+}
+
+func (a *App) setNextTurnAgent(agentID, title string) {
+	a.nextTurnAgentID = strings.TrimSpace(agentID)
+	a.nextTurnAgentTitle = strings.TrimSpace(title)
+	label := firstNonEmpty(a.nextTurnAgentTitle, a.nextTurnAgentID)
+	a.transientHint = "next turn agent: " + label
+	a.focus = FocusInput
 }
 
 // postFailedMsg is the sole signal that PostMessage failed. Lets the
 // Update handler restore the user's text into the textarea so a
 // transient network blip doesn't cost them their message.
 type postFailedMsg struct {
-	text string
-	err  error
+	text     string
+	mentions []composerFileMention
+	err      error
+}
+
+func (a *App) postFailureHint(err error) string {
+	if err == nil {
+		return a.localizer.t(msgPostFailureRetry, nil)
+	}
+	var backendErr *client.Error
+	if errors.As(err, &backendErr) && backendErr.Code == "agent_not_available" {
+		switch stringDetail(backendErr.Details, "agent_status") {
+		case "starting":
+			return a.localizer.t(msgPostFailureAgentStarting, nil)
+		case "failed":
+			return a.localizer.t(msgPostFailureAgentFailed, nil)
+		case "not_configured":
+			return a.localizer.t(msgPostFailureAgentNotConfigured, nil)
+		default:
+			return a.localizer.t(msgPostFailureAgentUnknown, nil)
+		}
+	}
+	return a.localizer.t(msgPostFailureRetryWithError, map[string]string{"error": err.Error()})
+}
+
+func stringDetail(details map[string]any, key string) string {
+	if details == nil {
+		return ""
+	}
+	value, ok := details[key]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return text
 }
 
 // --- Update ---------------------------------------------------------------
@@ -870,6 +1100,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return a.handleKey(m)
 
+	case tea.MouseWheelMsg:
+		return a.handleMouseWheel(m)
+	case tea.MouseClickMsg:
+		return a.handleMouseClick(m)
+
 	case introTickMsg:
 		// MMMMMMMMM1: while the splash is up, advance the logo
 		// frame and schedule the next tick. As soon as we leave
@@ -886,13 +1121,32 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteStartMsg:
 		a.inPaste = true
+		a.pasteBuffer = ""
 		// Don't forward to textarea — PasteStartMsg is a state signal,
 		// not content. The textarea handles content via PasteMsg.
 		return a, nil
 	case tea.PasteEndMsg:
+		a.compactBufferedPaste()
 		a.inPaste = false
+		a.pasteBuffer = ""
 		return a, nil
 	case tea.PasteMsg:
+		if a.lmConfigOpen && a.lmConfig != nil {
+			a.handleLMConfigPaste(m.Content)
+			return a, nil
+		}
+		if a.agentWriteOpen {
+			a.insertAgentWriteText(m.Content)
+			return a, nil
+		}
+		if a.agentEditOpen {
+			a.insertAgentEditText(m.Content)
+			return a, nil
+		}
+		if a.agentBlueprintManageOpen {
+			a.insertAgentBlueprintManageText(m.Content)
+			return a, nil
+		}
 		// Compose modal takes paste routing whenever it's open — that's
 		// the whole point of "pastes render expanded" there.
 		if a.composeOpen && a.compose != nil {
@@ -932,6 +1186,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.workspaces = m.wss
 		a.wsID = m.wsID
 		a.sessions = m.sessions
+		a.sortSessionsByActivity()
 		a.commands = m.commands
 		// Bootstrap the spinner tick loop. The handler gates
 		// rescheduling on anySessionRunning(), so this fires exactly
@@ -941,7 +1196,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// memory, pull an initial snapshot so the footer chip paints
 		// right away. Session-scoped refresh happens on status_changed.
 		if a.caps.Capabilities.Memory {
-			cmds = append(cmds, memoryStatsCmd(a.c, ""))
+			cmds = append(cmds, memoryStatsScopedCmd(a.c, client.RuntimeScope{WorkspaceID: a.wsID}))
 		}
 		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
 		// whether the backend exposes runtime LM config + whether
@@ -975,13 +1230,68 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//      except clio-agent-gact today) get here; nothing to do.
 		//   3. info != nil + configured == false → pop the modal so
 		//      the user can pick a provider before they type.
-		if m.err != nil || m.info == nil {
+		if m.err != nil {
+			if a.lmConfigOpen {
+				a.lmConfigOpen = false
+				a.lmConfig = nil
+				a.settingsOpen = true
+				if a.settings == nil {
+					a.settings = &settingsState{}
+				}
+				a.settings.tab = 0
+				a.settings.loadErr = "provider config unavailable: " + m.err.Error()
+			}
 			return a, nil
+		}
+		if m.info == nil {
+			if a.lmConfigOpen {
+				a.lmConfigOpen = false
+				a.lmConfig = nil
+				a.settingsOpen = true
+				if a.settings == nil {
+					a.settings = &settingsState{}
+				}
+				a.settings.tab = 0
+				a.settings.loadErr = "this backend does not support runtime LM provider config (/v1/providers/lm)"
+			}
+			return a, nil
+		}
+		previousProviderState := ""
+		if a.lmProviderInfo != nil {
+			previousProviderState = strings.TrimSpace(a.lmProviderInfo.State)
 		}
 		// Cache for the header chip (#363) so renderHeader can show the
 		// active model without poking lmConfig (which is only populated
 		// when the modal is open).
 		a.lmProviderInfo = m.info
+		if !a.lmConfigOpen && previousProviderState == "configuring" {
+			switch m.info.State {
+			case "ready":
+				if m.info.Configured {
+					a.clearLocalSessionModelRefs()
+					a.transientHint = "LM configured: " +
+						m.info.Provider + "/" + m.info.Model
+					a.appendModelSwapMarker(m.info)
+					cmds := []tea.Cmd{scheduleHintExpire(a.transientHint)}
+					if a.wsID != "" {
+						cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+					}
+					return a, tea.Batch(cmds...)
+				}
+			case "error":
+				msg := strings.TrimSpace(m.info.StatusMessage)
+				if msg == "" {
+					msg = strings.TrimSpace(m.info.Error)
+				}
+				if msg == "" {
+					msg = "LM provider configuration failed"
+				}
+				a.transientHint = msg
+				return a, scheduleHintExpire(a.transientHint)
+			case "configuring":
+				return a, lmConfigPollCmd(a.c)
+			}
+		}
 		if a.lmConfigOpen {
 			// Modal was opened by the user (Settings → Change provider…)
 			// or already showing — populate with the freshly-fetched info.
@@ -989,12 +1299,56 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.lmConfig = &lmConfigState{}
 			}
 			a.lmConfig.info = m.info
-			return a, a.lmConfigSyncFromPreset()
+			if a.lmConfig.saving {
+				switch m.info.State {
+				case "ready":
+					if m.info.Configured {
+						a.lmConfig.saving = false
+						a.clearLocalSessionModelRefs()
+						a.lmConfigOpen = false
+						a.lmConfig = nil
+						a.transientHint = "LM configured: " +
+							m.info.Provider + "/" + m.info.Model
+						a.appendModelSwapMarker(m.info)
+						cmds := []tea.Cmd{scheduleHintExpire(a.transientHint)}
+						if a.wsID != "" {
+							cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+						}
+						return a, tea.Batch(cmds...)
+					}
+				case "error":
+					a.lmConfig.saving = false
+					msg := strings.TrimSpace(m.info.StatusMessage)
+					if msg == "" {
+						msg = strings.TrimSpace(m.info.Error)
+					}
+					if msg == "" {
+						msg = "LM provider configuration failed"
+					}
+					a.lmConfig.err = errors.New(msg)
+					return a, nil
+				case "configuring":
+					return a, lmConfigPollCmd(a.c)
+				}
+			}
+			a.lmConfigSelectDefaultPreset()
+			cmds := []tea.Cmd{}
+			if cmd := a.lmConfigSyncFromPreset(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			cmds = append(cmds, a.lmConfigBackgroundProbeCmds()...)
+			return a, tea.Batch(cmds...)
 		}
 		if !m.info.Configured {
 			a.lmConfigOpen = true
 			a.lmConfig = &lmConfigState{info: m.info}
-			return a, a.lmConfigSyncFromPreset()
+			a.lmConfigSelectDefaultPreset()
+			cmds := []tea.Cmd{}
+			if cmd := a.lmConfigSyncFromPreset(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			cmds = append(cmds, a.lmConfigBackgroundProbeCmds()...)
+			return a, tea.Batch(cmds...)
 		}
 		return a, nil
 
@@ -1011,11 +1365,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.lmConfig.modelCatalogWarnings == nil {
 			a.lmConfig.modelCatalogWarnings = map[string]string{}
 		}
-		if m.err == nil {
-			a.lmConfig.modelCatalogs[m.presetID] = m.models
+		if a.lmConfig.modelCatalogSources == nil {
+			a.lmConfig.modelCatalogSources = map[string]string{}
+		}
+		if a.lmConfig.modelCatalogPending == nil {
+			a.lmConfig.modelCatalogPending = map[string]bool{}
+		}
+		if a.lmConfig.modelCatalogRetries == nil {
+			a.lmConfig.modelCatalogRetries = map[string]int{}
+		}
+		delete(a.lmConfig.modelCatalogPending, m.presetID)
+		preferredModel := ""
+		if len(m.models) > 0 {
+			preferredModel = strings.TrimSpace(m.models[0].ID)
+		}
+		if m.err == nil && m.warning == "" {
+			a.lmConfig.modelCatalogs[m.presetID] = lmConfigSortModels(m.models)
+			a.lmConfig.modelCatalogRetries[m.presetID] = 0
 		} else {
 			a.lmConfig.modelCatalogs[m.presetID] = nil
 		}
+		a.lmConfig.modelCatalogSources[m.presetID] = m.source
 		// Stash the backend's fallback reason (or transport error) so
 		// the picker can render an actionable banner. Empty string
 		// when the catalog came back live.
@@ -1028,22 +1398,57 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			a.lmConfig.modelCatalogWarnings[m.presetID] = ""
 		}
-		if a.lmConfigCurrentPresetID() == m.presetID && len(m.models) > 0 {
-			suggested := ""
-			if a.lmConfig.selected >= 0 && a.lmConfig.selected < len(a.lmConfig.info.Presets) {
-				suggested = a.lmConfig.info.Presets[a.lmConfig.selected].SuggestedModel
+		if a.lmConfigCurrentPresetID() == m.presetID && m.warning == "" && len(m.models) > 0 {
+			if p := a.lmConfigCurrentPreset(); p != nil {
+				if strings.TrimSpace(a.lmConfig.model) == "" &&
+					strings.TrimSpace(p.SuggestedModel) == "" &&
+					preferredModel != "" {
+					a.lmConfig.model = preferredModel
+				}
+				a.lmConfigSnapModelToCatalog(*p)
 			}
-			idx := 0
-			for i, mm := range m.models {
-				if mm.ID == suggested || mm.ID == a.lmConfig.model {
-					idx = i
-					break
+		}
+		a.lmConfig.lmConfigEnsureVisibleField()
+		if cmd := a.lmConfigMaybeRetryModelFetch(m.presetID); cmd != nil {
+			return a, cmd
+		}
+		return a, nil
+
+	case lmConfigAuthedMsg:
+		if a.lmConfig == nil {
+			return a, nil
+		}
+		a.lmConfig.authenticating = false
+		if m.err != nil {
+			a.lmConfig.authMessage = "auth failed: " + m.err.Error()
+			return a, nil
+		}
+		if m.resp.IsAuthenticated {
+			a.lmConfig.authMessage = "ALCF Globus token ready"
+			if a.lmConfig.info != nil {
+				for i := range a.lmConfig.info.Presets {
+					if a.lmConfig.info.Presets[i].ID == m.providerID {
+						a.lmConfig.info.Presets[i].Status = "ready"
+						a.lmConfig.info.Presets[i].StatusMessage = "Globus token ready"
+						a.lmConfig.info.Presets[i].IsAuthenticated = true
+						break
+					}
 				}
 			}
-			a.lmConfig.modelIndex = idx
-			if a.lmConfig.model == "" || a.lmConfig.model == suggested {
-				a.lmConfig.model = m.models[idx].ID
+			delete(a.lmConfig.modelCatalogs, m.providerID)
+			delete(a.lmConfig.modelCatalogWarnings, m.providerID)
+			delete(a.lmConfig.modelCatalogSources, m.providerID)
+			delete(a.lmConfig.modelCatalogPending, m.providerID)
+			if p := a.lmConfigCurrentPreset(); p != nil && p.ID == m.providerID {
+				a.lmConfig.lmConfigEnsureVisibleField()
+				return a, a.lmConfigQueueModelFetch(*p, a.lmConfig.apiBase)
 			}
+			return a, nil
+		}
+		if m.resp.Instructions != "" {
+			a.lmConfig.authMessage = m.resp.Instructions
+		} else {
+			a.lmConfig.authMessage = "ALCF auth did not complete"
 		}
 		return a, nil
 
@@ -1056,14 +1461,44 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.lmConfig.err = m.err
 			return a, nil
 		}
-		// Success: dismiss the modal + retry whatever the user
-		// was waiting on. A reconnect refreshes capabilities +
-		// sessions in case the agent reload changed something.
+		if m.info != nil && m.info.State == "configuring" {
+			a.lmProviderInfo = m.info
+			a.transientHint = "LM configuration in progress: " +
+				m.info.Provider + "/" + m.info.Model
+			a.lmConfigOpen = false
+			a.lmConfig = nil
+			return a, tea.Batch(
+				scheduleHintExpire(a.transientHint),
+				lmConfigPollCmd(a.c),
+			)
+		}
+		if m.info != nil && m.info.State == "error" {
+			msg := strings.TrimSpace(m.info.StatusMessage)
+			if msg == "" {
+				msg = strings.TrimSpace(m.info.Error)
+			}
+			if msg == "" {
+				msg = "LM provider configuration failed"
+			}
+			a.lmConfig.err = errors.New(msg)
+			return a, nil
+		}
+		// Success: the backend has already loaded/swapped the global
+		// LM. Mirror that state locally now, before the next user send,
+		// so stale per-session ModelRefs cannot leak into headers,
+		// Settings, or a later PATCH flow.
+		a.lmProviderInfo = m.info
+		a.clearLocalSessionModelRefs()
 		a.lmConfigOpen = false
 		a.lmConfig = nil
 		a.transientHint = "LM configured: " +
 			m.info.Provider + "/" + m.info.Model
-		return a, scheduleHintExpire(a.transientHint)
+		a.appendModelSwapMarker(m.info)
+		cmds := []tea.Cmd{scheduleHintExpire(a.transientHint)}
+		if a.wsID != "" {
+			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+		}
+		return a, tea.Batch(cmds...)
 
 	case doctorFetchedMsg:
 		// CLIO-BBBBBBBBBB4: /doctor modal finished its /v1/health
@@ -1075,6 +1510,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.doctor.err = m.err
 			a.doctor.health = m.health
 			a.doctor.caps = m.caps
+			a.doctor.gaps = m.gaps
 		}
 		return a, nil
 
@@ -1091,6 +1527,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just hides the chip until the next refresh.
 		if m.stage == "memory_stats" {
 			return a, nil
+		}
+		if m.stage == "command" {
+			a.transientHint = fmt.Sprintf("command failed: %v", m.err)
+			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.stage = StageError
 		a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
@@ -1188,6 +1628,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case contextFilesLoadedMsg:
 		if a.currentSessionID() == m.sessionID {
 			a.contextFiles = m.files
+			a.clampContextFileSelection()
 		}
 		return a, nil
 
@@ -1197,12 +1638,42 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// just press Enter again once the backend is back. Surface a
 		// transient hint so they know what happened.
 		a.input.SetValue(m.text)
-		a.transientHint = "message not sent — press Enter to retry · " + m.err.Error()
+		a.fileMentions = cloneComposerFileMentions(m.mentions)
+		a.transientHint = a.postFailureHint(m.err)
+		return a, nil
+
+	case agentQuestionAnsweredMsg:
+		if m.err != nil {
+			a.transientHint = "answer failed: " + m.err.Error()
+			return a, nil
+		}
+		a.transientHint = "answer submitted"
+		if m.sessionID != "" {
+			return a, loadMessagesCmd(a.c, m.sessionID)
+		}
+		return a, nil
+
+	case retryTurnStartedMsg:
+		if m.err != nil {
+			a.transientHint = "retry failed: " + m.err.Error()
+			return a, nil
+		}
+		label := shortID(m.attempt.ID)
+		if label == "" {
+			label = "retry"
+		}
+		a.transientHint = "retry attempt queued: " + label
+		if m.sessionID != "" {
+			return a, loadMessagesCmd(a.c, m.sessionID)
+		}
 		return a, nil
 
 	case msgPostedAck:
 		// User message is in the store; the SSE stream will reflect it via
 		// the message.created event the server publishes.
+		if a.currentSessionID() == m.sessionID && len(m.contextFiles) > 0 {
+			a.mergeContextFiles(m.contextFiles)
+		}
 		//
 		// Auto-rename: if this was the first user message AND the
 		// session still carries the default "new session …" title,
@@ -1238,9 +1709,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// session we're currently showing — stale responses from a
 		// since-switched session get dropped.
 		if a.currentSessionID() == m.sessionID {
-			a.contextFiles = append(a.contextFiles, m.file)
+			a.mergeContextFiles([]gact.ContextFile{m.file})
 		}
 		a.transientHint = "added " + m.file.Path + " to context"
+		return a, nil
+
+	case contextFileRemovedMsg:
+		if m.err != nil {
+			a.transientHint = "remove failed: " + m.err.Error()
+			return a, nil
+		}
+		if a.currentSessionID() == m.sessionID {
+			filtered := a.contextFiles[:0]
+			for _, cf := range a.contextFiles {
+				if cf.Path != m.path {
+					filtered = append(filtered, cf)
+				}
+			}
+			a.contextFiles = filtered
+			a.clampContextFileSelection()
+			if a.detailViewOpen && a.detailView != nil && a.detailView.messageID == "context" && a.detailView.partID == m.path {
+				a.closeDetailView()
+			}
+		}
+		a.transientHint = "removed " + m.path + " from context"
 		return a, nil
 
 	case sessionArchivedMsg:
@@ -1311,6 +1803,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.sseErrs = m.errs
 		return a, waitForSSE(m.events, m.errs)
 
+	case sseOpenCanceledMsg:
+		// Expected during fast session/model/provider transitions: opening
+		// an old SSE stream can lose the race to the next selection and get
+		// cancelled before response headers arrive. Do not show that as a
+		// connection error; the newer stream/reconnect path owns recovery.
+		return a, nil
+
 	case sseEventMsg:
 		// Event arrival means the stream is healthy — reset the
 		// reconnect backoff so the NEXT disconnect waits 250 ms, not
@@ -1335,7 +1834,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// fetch per turn completion, no extra polling.
 		if a.caps.Capabilities.Memory &&
 			prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
-			cmds = append(cmds, memoryStatsCmd(a.c, a.currentSessionID()))
+			cmds = append(cmds, memoryStatsScopedCmd(a.c, a.runtimeScope()))
 		}
 		if a.pendingSidebarRefresh && a.wsID != "" {
 			a.pendingSidebarRefresh = false
@@ -1389,15 +1888,25 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sessionCreatedMsg:
 		a.sessions = append([]gact.Session{m.session}, a.sessions...)
-		a.selected = 0
-		return a, a.selectSession(0)
+		a.sortSessionsByActivity()
+		a.selected = a.sessionIndexByID(m.session.ID)
+		if a.selected < 0 {
+			a.selected = 0
+		}
+		return a, a.selectSession(a.selected)
 
 	case filePickerLoadedMsg:
 		if a.filePicker == nil {
 			return a, nil
 		}
-		a.filePicker.entries = m.entries
 		a.filePicker.loaded = true
+		if m.err != nil {
+			a.filePicker.entries = nil
+			a.filePicker.errText = m.err.Error()
+			return a, nil
+		}
+		a.filePicker.entries = m.entries
+		a.filePicker.errText = ""
 		return a, nil
 
 	case catalogBrowserLoadedMsg:
@@ -1410,13 +1919,228 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindMcpDetail && m.mcpServerID != a.catalogBrowser.mcpServerID {
 			return a, nil
 		}
+		if m.kind == catalogKindAgentDetail && m.mcpServerID != a.catalogBrowser.agentID {
+			return a, nil
+		}
+		if m.kind == catalogKindPromptDetail && m.promptID != a.catalogBrowser.promptID {
+			return a, nil
+		}
+		if m.kind == catalogKindExpertPackDetail && m.expertPackID != a.catalogBrowser.expertPackID {
+			return a, nil
+		}
+		if m.kind == catalogKindAgentBlueprintDetail && m.blueprintID != a.catalogBrowser.blueprintID {
+			return a, nil
+		}
 		a.catalogBrowser.loading = false
-		a.catalogBrowser.items = m.items
+		a.catalogBrowser.items = a.applyCapabilityGatesToCatalogItems(m.kind, m.items)
 		a.catalogBrowser.errText = m.errText
-		if a.catalogBrowser.sel >= len(m.items) {
+		if a.catalogBrowser.sel >= len(a.catalogBrowser.items) {
 			a.catalogBrowser.sel = 0
 		}
+		a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(
+			a.catalogBrowser.kind,
+			a.catalogBrowser.sel,
+			a.catalogBrowser.offset,
+			len(a.catalogBrowser.items),
+		)
 		return a, nil
+
+	case catalogDetailLoadedMsg:
+		if !m.standalone && !a.catalogBrowserOpen {
+			return a, nil
+		}
+		text := m.text
+		if m.err != nil {
+			text = "error: " + m.err.Error()
+		}
+		if strings.TrimSpace(text) == "" {
+			text = "(no detail returned)"
+		}
+		a.openCatalogDetail(m.title, text)
+		return a, nil
+
+	case expertPackActivatedMsg:
+		if m.err != nil {
+			a.transientHint = "expert pack activation failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "activated expert pack " + m.packID
+		var cmds []tea.Cmd
+		cmds = append(cmds, scheduleHintExpire(a.transientHint))
+		if m.state.Session != nil {
+			for i, s := range a.sessions {
+				if s.ID == m.state.Session.ID {
+					a.sessions[i] = *m.state.Session
+					break
+				}
+			}
+		}
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindExpertPackDetail {
+			cmds = append(cmds, loadExpertPackDetailCmd(a.c, a.runtimeScope(), m.packID))
+		}
+		return a, tea.Batch(cmds...)
+
+	case promptSavedMsg:
+		if m.err != nil {
+			a.transientHint = "prompt save failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "saved prompt profile " + m.profile
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindPromptDetail && a.catalogBrowser.promptID == m.promptID {
+			cmd = loadPromptDetailCmd(a.c, m.promptID, a.runtimeScope())
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintActivatedMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint activation failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "activated agent blueprint " + m.blueprintID
+		if m.state.Session != nil {
+			if idx := a.sessionIndexByID(m.state.Session.ID); idx >= 0 {
+				a.sessions[idx] = *m.state.Session
+			}
+		}
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintMCPEnabledMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint MCP enable failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "enabled blueprint MCP " + m.descriptorID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintManagedMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint " + m.action + " failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "agent blueprint " + m.action + ": " + m.blueprintID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil {
+			switch a.catalogBrowser.kind {
+			case catalogKindAgentBlueprints:
+				cmd = loadCatalogBrowserCmd(a.c, catalogKindAgentBlueprints, a.runtimeScope())
+			case catalogKindAgentBlueprintDetail:
+				cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+			}
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case promptEditLoadedMsg:
+		if m.err != nil {
+			a.transientHint = "prompt edit failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.openPromptEdit(m.prompt.ID, m.prompt.Profile, m.prompt.Title, m.prompt.Text)
+		return a, nil
+
+	case agentWriteDoneMsg:
+		if m.err != nil {
+			a.transientHint = "agent write failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = agentWriteHint(m.mode, m.agent)
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil {
+			switch a.catalogBrowser.kind {
+			case catalogKindAgents:
+				cmd = loadCatalogBrowserCmd(a.c, catalogKindAgents, a.runtimeScope())
+			case catalogKindAgentDetail:
+				cmd = a.openAgentDetail(m.agent.ID, firstNonEmpty(m.agent.Title, m.agent.ID))
+			}
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentLoadedForEditMsg:
+		if m.err != nil {
+			a.transientHint = "agent edit failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.agent.Source != "user" {
+			a.transientHint = "only user-owned agents can be edited"
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.openAgentEdit(m.agent)
+		return a, nil
+
+	case agentEditedMsg:
+		a.agentEditSaving = false
+		if m.err != nil {
+			a.agentEditErr = m.err.Error()
+			return a, nil
+		}
+		agentID := firstNonEmpty(m.agent.ID, a.agentEditOriginal)
+		a.closeAgentEdit()
+		a.transientHint = "updated agent " + agentID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil {
+			switch a.catalogBrowser.kind {
+			case catalogKindAgents:
+				cmd = loadCatalogBrowserCmd(a.c, catalogKindAgents, a.runtimeScope())
+			case catalogKindAgentDetail:
+				cmd = loadAgentDetailCmd(a.c, agentID, a.runtimeScope())
+			}
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentDeletedMsg:
+		if m.err != nil {
+			a.transientHint = "agent delete failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "deleted agent " + m.agentID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgents {
+			cmd = loadCatalogBrowserCmd(a.c, catalogKindAgents, a.runtimeScope())
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintManageDoneMsg:
+		a.agentBlueprintManageSaving = false
+		if m.err != nil {
+			a.agentBlueprintManageErr = m.err.Error()
+			return a, nil
+		}
+		a.closeAgentBlueprintManage()
+		if m.action == agentBlueprintManageValidate {
+			a.transientHint = "agent blueprint validated: " + m.source
+			a.openCatalogDetail("Agent blueprint validation", formatAgentBlueprintValidation(m.check))
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "agent blueprint installed: " + m.source
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprints {
+			cmd = loadCatalogBrowserCmd(a.c, catalogKindAgentBlueprints, a.runtimeScope())
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case sessionRewindDoneMsg:
+		if m.err != nil {
+			a.transientHint = "rewind failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = fmt.Sprintf("rewound %d message(s)", len(m.deleted))
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), loadMessagesCmd(a.c, m.sessionID))
+
+	case sessionUndoDoneMsg:
+		if m.err != nil {
+			a.transientHint = "undo failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = fmt.Sprintf("undid %d message(s)", len(m.reverted))
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), loadMessagesCmd(a.c, m.sessionID))
 
 	case mcpServersFetchedMsg:
 		a.mcpServers = m.servers
@@ -1451,6 +2175,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.mcpInstallOpen = false
 		a.mcpInstallInput = ""
+		a.mcpInstallCursor = 0
 		a.mcpInstallErr = ""
 		name, _ := m.result["name"].(string)
 		id, _ := m.result["id"].(string)
@@ -1472,14 +2197,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.settings == nil {
 			a.settings = &settingsState{}
 		}
-		a.settings.agentList = m.agents
+		a.settings.agentList = selectableSessionAgents(m.agents)
 		a.settings.loadErr = m.loadErr
 		// Pre-select current agent if present. Model selection lives in
 		// the lifecycle LM-config modal, not here — Tab 0 just shows
 		// the active model and a "Change provider…" entry point.
 		if a.selected >= 0 && a.selected < len(a.sessions) {
 			cur := a.sessions[a.selected]
-			for i, ag := range m.agents {
+			for i, ag := range a.settings.agentList {
 				if ag.ID == cur.Agent.ID {
 					a.settings.agentSel = i
 					break
@@ -1510,6 +2235,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		if m.agentID != "" {
+			a.transientHint = "agent: " + m.agentID
+			return a, scheduleHintExpire(a.transientHint)
+		}
 		// Close the Settings modal if it was driving the PATCH (the
 		// shared LM-config widgets dispatch through here in session-
 		// patch mode). Surface a transient hint so the user has a
@@ -1518,8 +2247,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.settingsOpen = false
 			a.lmConfig.saving = false
 			ref := m.session.Model
+			if m.model != nil {
+				ref = *m.model
+			}
 			if ref.ProviderID != "" {
 				a.transientHint = "model: " + ref.ProviderID + "/" + ref.ModelID
+				return a, scheduleHintExpire(a.transientHint)
 			}
 		}
 		return a, nil
@@ -1581,9 +2314,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// (e.g. after a subsession is created).
 		prevID := a.currentSessionID()
 		a.sessions = m.sessions
+		a.sortSessionsByActivity()
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.currentStatus = ""
 			return a, nil
 		}
 		// Try to find the prior session in the new list.
@@ -1596,12 +2331,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if newIdx >= 0 {
 			a.selected = newIdx
+			a.currentStatus = a.sessions[newIdx].Status
 			// No need to reload messages — same session.
 			return a, nil
 		}
-		// Prior session is gone — fall back to the first.
-		a.selected = 0
-		return a, a.selectSession(0)
+		// Prior session is gone. Keep the cursor on the same visual row
+		// when possible, which selects the session below the removed one.
+		// If the removed session was the last row, select the new last row.
+		newIdx = a.selected
+		if newIdx < 0 {
+			newIdx = 0
+		}
+		if newIdx >= len(a.sessions) {
+			newIdx = len(a.sessions) - 1
+		}
+		a.selected = newIdx
+		return a, a.selectSession(newIdx)
 
 	case workspaceSwitchedMsg:
 		// Ignore stale responses — if the user switched again before
@@ -1610,6 +2355,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.sessions = m.sessions
+		a.sortSessionsByActivity()
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
@@ -1795,8 +2541,38 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.renameOpen {
 		return a.handleRenameKey(k)
 	}
+	if a.sessionActionsOpen {
+		return a.handleSessionActionsKey(k)
+	}
+	if a.contextActionsOpen {
+		return a.handleContextActionsKey(k)
+	}
+	if a.conversationActionsOpen {
+		return a.handleConversationActionsKey(k)
+	}
+	if a.askUserOpen {
+		return a.handleAskUserKey(k)
+	}
+	if a.retryNotesOpen {
+		return a.handleRetryNotesKey(k)
+	}
+	if a.retryModelOpen {
+		return a.handleRetryModelKey(k)
+	}
 	if a.contextAddOpen {
 		return a.handleContextAddKey(k)
+	}
+	if a.promptEditOpen {
+		return a.handlePromptEditKey(k)
+	}
+	if a.agentWriteOpen {
+		return a.handleAgentWriteKey(k)
+	}
+	if a.agentEditOpen {
+		return a.handleAgentEditKey(k)
+	}
+	if a.agentBlueprintManageOpen {
+		return a.handleAgentBlueprintManageKey(k)
 	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
@@ -1816,6 +2592,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.mcpRemoveOpen {
 		return a.handleMcpRemoveKey(k)
 	}
+	if a.sidebarLayoutOpen {
+		return a.handleSidebarLayoutKey(k)
+	}
 	if a.settingsOpen {
 		return a.handleSettingsKey(k)
 	}
@@ -1827,14 +2606,29 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "?", "esc", "ctrl+c":
 			a.helpOpen = false
 			a.helpTab = 0
+			a.helpScroll = 0
 		case "left", "h":
 			if a.helpTab > 0 {
 				a.helpTab--
+				a.helpScroll = 0
 			}
 		case "right", "l", "tab":
 			if a.helpTab < helpTabCount-1 {
 				a.helpTab++
+				a.helpScroll = 0
 			}
+		case "up", "k":
+			a.helpScroll--
+		case "down", "j":
+			a.helpScroll++
+		case "pgup", "ctrl+u":
+			a.helpScroll -= a.helpBodyPageSize()
+		case "pgdown", "ctrl+d":
+			a.helpScroll += a.helpBodyPageSize()
+		case "g", "home":
+			a.helpScroll = 0
+		case "G", "end":
+			a.helpScroll = 1 << 30
 		}
 		return a, nil
 	}
@@ -1872,8 +2666,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.quitConfirmOpen {
 			return a.applyQuitConfirmSelection()
 		}
-		a.quitConfirmOpen = true
-		a.quitConfirmSelected = 0 // default: close
+		a.openQuitConfirm()
 		return a, nil
 	case "?":
 		// Open help when there's nothing to type into — covers both
@@ -1885,16 +2678,15 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// still compose normally.
 		if a.focus != FocusInput || a.input.Value() == "" {
 			a.helpOpen = true
+			a.helpScroll = 0
 			return a, nil
 		}
 		// Fall through to focus dispatch so the textarea consumes it.
 	case "tab":
-		a.focus = (a.focus + 1) % 3
-		a.maybeInitBodyCursor()
+		a.focusNextPane()
 		return a, nil
 	case "shift+tab":
-		a.focus = (a.focus + 2) % 3
-		a.maybeInitBodyCursor()
+		a.focusPane(-1)
 		return a, nil
 	case "ctrl+x":
 		if sid := a.currentSessionID(); sid != "" {
@@ -1933,15 +2725,10 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+s":
 		// Open Settings. Seed themeSel to the currently-active theme
 		// so the Theme tab doesn't "reset" to dark on every open.
-		a.settingsOpen = true
-		a.settings = &settingsState{}
-		if themeName(a.Theme) == "light" {
-			a.settings.themeSel = 1
-		}
 		// Tab 0 (Model) is now a thin "Change provider…" entry point —
 		// the heavy lmConfig fetch only fires when the user actually
 		// presses Enter on that row, not on every Ctrl+S.
-		return a, loadSettingsCmd(a.c)
+		return a, a.openSettingsTab(0)
 	case "ctrl+t":
 		// Open Metrics modal.
 		a.metricsOpen = true
@@ -1958,18 +2745,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// refreshCmd keeps it fresh — so the modal opens without a
 		// round-trip. Selection defaults to the current workspace so
 		// Enter is a no-op unless the user moves off it.
-		if len(a.workspaces) == 0 {
-			a.transientHint = "no workspaces available"
-			return a, nil
-		}
-		a.workspaceSwitchOpen = true
-		a.workspaceSwitchSel = 0
-		for i, w := range a.workspaces {
-			if w.ID == a.wsID {
-				a.workspaceSwitchSel = i
-				break
-			}
-		}
+		a.openWorkspaceSwitch()
 		return a, nil
 	case "ctrl+y":
 		// "Yo" — voice transcribe. If VoiceCommand is set, run it to
@@ -1982,12 +2758,120 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	switch a.focus {
-	case FocusSidebar:
+	case FocusSidebar, FocusRightSidebar:
 		return a.handleSidebarKey(k)
 	case FocusBody:
 		return a.handleBodyKey(k)
 	case FocusInput:
 		return a.handleInputKey(k)
+	}
+	return a, nil
+}
+
+func (a *App) handleMouseWheel(m tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if !a.MouseEnabled {
+		return a, nil
+	}
+	mouse := m.Mouse()
+	if a.mouseOverlayOpen() {
+		if cmd, handled := a.activateOverlayWheelHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+			return a, cmd
+		}
+		if cmd, handled := a.handleOverlayMouseWheel(m); handled {
+			return a, cmd
+		}
+		return a, nil
+	}
+	if cmd, handled := a.activateWheelHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+		return a, cmd
+	}
+	return a, nil
+}
+
+func (a *App) handleConversationWheel(button tea.MouseButton) tea.Cmd {
+	if len(a.messages) == 0 {
+		return nil
+	}
+	switch button {
+	case tea.MouseWheelUp:
+		a.scrollConversationLines(-3)
+		if a.focus == FocusBody {
+			a.stepPartCursorSelection(-1)
+		}
+	case tea.MouseWheelDown:
+		a.scrollConversationLines(3)
+		if a.focus == FocusBody {
+			a.stepPartCursorSelection(+1)
+		}
+	}
+	return nil
+}
+
+func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd {
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
+		a.focus = zone
+		a.sidebarSectionCursor = true
+		a.sidebarSectionFocus = sidebarSectionSessions
+		return nil
+	}
+	delta := 0
+	switch button {
+	case tea.MouseWheelUp:
+		delta = -1
+	case tea.MouseWheelDown:
+		delta = 1
+	default:
+		return nil
+	}
+	a.focus = zone
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = false
+	if a.stepSelectionVisible(delta) {
+		return a.selectSession(a.selected)
+	}
+	return nil
+}
+
+func (a *App) scrollConversationLines(delta int) {
+	if delta == 0 {
+		return
+	}
+	a.pendingPartScroll = false
+	if delta < 0 {
+		a.scrollOffset += -delta
+		a.stickyToBottom = false
+		return
+	}
+	if a.scrollOffset <= delta {
+		a.scrollOffset = 0
+		a.stickyToBottom = true
+		return
+	}
+	a.scrollOffset -= delta
+	a.stickyToBottom = false
+}
+
+func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if !a.MouseEnabled {
+		return a, nil
+	}
+	mouse := m.Mouse()
+	if a.mouseOverlayOpen() {
+		if mouse.Button == tea.MouseLeft && a.mouseClickInsideTopOverlay(mouse) {
+			if cmd, handled := a.activateOverlayHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+				return a, cmd
+			}
+		}
+		if cmd, handled := a.handleOverlayMouseClick(m); handled {
+			return a, cmd
+		}
+		return a, nil
+	}
+	if cmd, handled := a.activateHitAt(mouse.X, mouse.Y, mouse.Button); handled {
+		return a, cmd
 	}
 	return a, nil
 }
@@ -2011,6 +2895,120 @@ func (a *App) handlePermissionKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
+type permissionBannerAction struct {
+	id     string
+	label  string
+	action gact.PermissionAction
+	col    int
+	width  int
+}
+
+func permissionBannerActions() []permissionBannerAction {
+	return []permissionBannerAction{
+		{id: "allow", label: "A:allow", action: gact.PermAllow},
+		{id: "deny", label: "D:deny", action: gact.PermDeny},
+		{id: "session", label: "S:session", action: gact.PermAllowSession},
+		{id: "workspace", label: "W:workspace", action: gact.PermAllowWorkspace},
+	}
+}
+
+func (a *App) renderPermissionBanner(summary string, contentWidth int) (string, []permissionBannerAction) {
+	t := a.Theme
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+	actions := permissionBannerActions()
+	actionLabels := make([]string, 0, len(actions))
+	for _, action := range actions {
+		actionLabels = append(actionLabels, action.label)
+	}
+	actionText := strings.Join(actionLabels, " ")
+	separator := "  "
+	message := a.localizer.t(msgConversationPermissionNeeded, map[string]string{"summary": summary})
+	if before, _, ok := strings.Cut(message, " — "); ok {
+		message = before
+	}
+	// Keep a small gutter because the conversation pane's outer fitting can
+	// wrap styled banner text a few cells before the raw content width.
+	messageWidth := contentWidth - 10 - lipgloss.Width(separator) - lipgloss.Width(actionText)
+	if messageWidth < 0 {
+		messageWidth = 0
+	}
+	message = truncate(message, messageWidth)
+	col := lipgloss.Width(message + separator)
+	for i := range actions {
+		actions[i].col = col
+		actions[i].width = lipgloss.Width(actions[i].label)
+		col += actions[i].width + 1
+	}
+	rendered := message + separator
+	for i, action := range actions {
+		if i > 0 {
+			rendered += " "
+		}
+		rendered += action.label
+	}
+	return lipgloss.NewStyle().
+		Foreground(t.Bg).
+		Background(t.Warning).
+		Padding(0, 1).
+		Bold(true).
+		Render(rendered), actions
+}
+
+func (a *App) registerPermissionBannerHits(actions []permissionBannerAction, bodyWidth int) {
+	if len(actions) == 0 || len(a.pendingPermissions) == 0 {
+		return
+	}
+	permissionID := a.pendingPermissions[0].ID
+	for _, action := range actions {
+		a.registerPermissionBannerActionHit(action, bodyWidth, permissionID)
+	}
+}
+
+func (a *App) permissionBannerActionRect(action permissionBannerAction, bodyWidth int) (mouseRect, bool) {
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	if action.width <= 0 || action.col >= contentW {
+		return mouseRect{}, false
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	label := action.label
+	if label == "" {
+		label = strings.Repeat("x", action.width)
+	}
+	line := strings.Repeat(" ", action.col) + label
+	rect, ok := screenTextSpanRect(sidebarW+3, 3, line, action.col, label)
+	if !ok {
+		return mouseRect{}, false
+	}
+	if rect.x+rect.w > sidebarW+3+contentW {
+		rect.w = sidebarW + 3 + contentW - rect.x
+	}
+	if rect.w < 1 {
+		return mouseRect{}, false
+	}
+	return rect, true
+}
+
+func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, bodyWidth int, permissionID string) {
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	if action.width <= 0 || action.col >= contentW {
+		return
+	}
+	actionCopy := action
+	sidebarW, _, _ := a.mainPaneGeometry()
+	line := strings.Repeat(" ", action.col) + action.label
+	a.registerClippedScreenTextSpanHit("permission:"+action.id, sidebarW+3, 3, line, action.col, action.label, sidebarW+3+contentW, func(app *App) tea.Cmd {
+		return respondPermissionCmd(app.c, permissionID, actionCopy.action)
+	})
+}
+
 // handlePaletteKey is the slash-command palette key router.
 func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	searchMode := a.isSearchMode()
@@ -2019,6 +3017,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if searchMode {
 		rowCount = len(a.searchMatches)
 	}
+	a.clampPaletteCursor()
 
 	switch k.String() {
 	case "esc", "ctrl+c":
@@ -2063,12 +3062,17 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if kind, ok := catalogCommandForID(cmd.ID); ok {
 				return a, a.openCatalogBrowser(kind)
 			}
+			if cmd.Status != "" && cmd.Status != "available" {
+				reason := firstNonEmpty(cmd.DisabledReason, cmd.Error, "command unavailable")
+				a.transientHint = cmd.ID + ": " + reason
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			// /agents reuses Settings > Agent tab — the richer picker
 			// there already shows descriptions + mode + selection.
 			if cmd.ID == "/agent" || cmd.ID == "/agents" {
 				a.settingsOpen = true
 				a.settings = &settingsState{tab: 1}
-				return a, loadSettingsCmd(a.c)
+				return a, loadSettingsCmd(a.c, a.runtimeScope())
 			}
 
 			// /theme-next and /theme-prev cycle the palette without
@@ -2088,6 +3092,20 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.metricsOpen = true
 				a.metrics = &metricsState{loading: true}
 				return a, loadMetricsCmd(a.c)
+			}
+			if cmd.ID == "/memory" {
+				if !a.caps.Capabilities.Memory {
+					a.transientHint = "memory inspector unsupported by this backend"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				return a, loadMemoryInspectorCmd(a.c, a.runtimeScope(), a.messages)
+			}
+			if cmd.ID == "/permissions" {
+				if !a.caps.Capabilities.Permissions {
+					a.transientHint = "permission audit unsupported by this backend"
+					return a, scheduleHintExpire(a.transientHint)
+				}
+				return a, loadPermissionsInspectorCmd(a.c, a.currentSessionID())
 			}
 
 			// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor opens the backend
@@ -2141,16 +3159,6 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 
-			// /scenarios jumps to the Scenarios help tab. Saves the
-			// user from pressing ? then → five times to get the
-			// trigger keyword cheat sheet — especially useful mid-
-			// conversation after the empty-state crib disappears.
-			if cmd.ID == "/scenarios" {
-				a.helpOpen = true
-				a.helpTab = helpTabIndex("Scenarios")
-				return a, nil
-			}
-
 			// /new creates a new session inline so users don't have
 			// to remember Ctrl+N or tab into the sidebar.
 			if cmd.ID == "/new" {
@@ -2181,11 +3189,10 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if cmd.ID == "/sessions" {
 				a.paletteOpen = false
 				a.paletteFilter = ""
+				a.paletteCursor = 0
+				a.paletteCursorSet = false
 				a.paletteSel = 0
-				a.focus = FocusSidebar
-				a.sessionFilterActive = true
-				a.filterSnapshot = a.sessionFilter
-				a.sessionFilter = ""
+				a.enterSidebarFilter(true)
 				return a, nil
 			}
 
@@ -2271,6 +3278,12 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case "/mcp-remove":
 				extraCmds = append(extraCmds, a.openMcpRemoveModal())
 				return a, tea.Batch(extraCmds...)
+			case "/agent-blueprint-install":
+				a.openAgentBlueprintManage(agentBlueprintManageInstall)
+				return a, tea.Batch(extraCmds...)
+			case "/agent-blueprint-validate":
+				a.openAgentBlueprintManage(agentBlueprintManageValidate)
+				return a, tea.Batch(extraCmds...)
 			}
 			// Any non-/clear action cancels a pending clear — same
 			// anti-accident pattern as K5's armed delete.
@@ -2291,20 +3304,86 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(extraCmds...)
 		}
 	case "backspace":
-		if len(a.paletteFilter) > 0 {
-			a.paletteFilter = a.paletteFilter[:len(a.paletteFilter)-1]
-			a.paletteSel = 0
-			// Any edit invalidates a previously-fetched result list.
-			a.searchMatches = nil
+		if a.paletteCursor > 0 {
+			runes := []rune(a.paletteFilter)
+			runes = append(runes[:a.paletteCursor-1], runes[a.paletteCursor:]...)
+			a.paletteFilter = string(runes)
+			a.paletteCursor--
+			a.resetPaletteAfterFilterEdit()
 		}
+	case "delete":
+		runes := []rune(a.paletteFilter)
+		if a.paletteCursor < len(runes) {
+			runes = append(runes[:a.paletteCursor], runes[a.paletteCursor+1:]...)
+			a.paletteFilter = string(runes)
+			a.resetPaletteAfterFilterEdit()
+		}
+	case "left":
+		a.paletteCursorSet = true
+		if a.paletteCursor > 0 {
+			a.paletteCursor--
+		}
+	case "right":
+		a.paletteCursorSet = true
+		if a.paletteCursor < len([]rune(a.paletteFilter)) {
+			a.paletteCursor++
+		}
+	case "home", "ctrl+a":
+		a.paletteCursorSet = true
+		a.paletteCursor = 0
+	case "end", "ctrl+e":
+		a.paletteCursorSet = true
+		a.paletteCursor = len([]rune(a.paletteFilter))
 	default:
 		if k.Text != "" {
-			a.paletteFilter += k.Text
-			a.paletteSel = 0
-			a.searchMatches = nil
+			runes := []rune(a.paletteFilter)
+			insert := []rune(k.Text)
+			out := make([]rune, 0, len(runes)+len(insert))
+			out = append(out, runes[:a.paletteCursor]...)
+			out = append(out, insert...)
+			out = append(out, runes[a.paletteCursor:]...)
+			a.paletteFilter = string(out)
+			a.paletteCursor += len(insert)
+			a.resetPaletteAfterFilterEdit()
 		}
 	}
 	return a, nil
+}
+
+func (a *App) clampPaletteCursor() {
+	if !a.paletteCursorSet && a.paletteFilter != "" {
+		a.paletteCursor = len([]rune(a.paletteFilter))
+	}
+	a.paletteCursorSet = true
+	max := len([]rune(a.paletteFilter))
+	if a.paletteCursor < 0 {
+		a.paletteCursor = 0
+	}
+	if a.paletteCursor > max {
+		a.paletteCursor = max
+	}
+}
+
+func (a *App) paletteCursorValue() int {
+	if !a.paletteCursorSet && a.paletteFilter != "" {
+		return len([]rune(a.paletteFilter))
+	}
+	cursor := a.paletteCursor
+	if cursor < 0 {
+		return 0
+	}
+	max := len([]rune(a.paletteFilter))
+	if cursor > max {
+		return max
+	}
+	return cursor
+}
+
+func (a *App) resetPaletteAfterFilterEdit() {
+	a.paletteCursorSet = true
+	a.paletteSel = 0
+	a.searchMatches = nil
+	a.searching = false
 }
 
 // closePalette resets all palette state — same dance is needed in three
@@ -2312,9 +3391,15 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (a *App) closePalette() {
 	a.paletteOpen = false
 	a.paletteFilter = ""
+	a.paletteCursor = 0
+	a.paletteCursorSet = false
 	a.paletteSel = 0
 	a.searchMatches = nil
 	a.searching = false
+}
+
+func (a *App) paletteCloseButtons() []menuButton {
+	return []menuButton{closeMenuButton("palette:close", func(app *App) { app.closePalette() })}
 }
 
 // isSearchMode reports whether the palette filter is in message-search
@@ -2341,12 +3426,47 @@ func (a *App) scrollToSelectedMessage() {
 	}
 	a.scrollOffset = len(a.messages) - a.bodySelMsgIdx - 1
 	a.stickyToBottom = a.scrollOffset == 0
+	if a.selectedPartIsBottomBlock() {
+		a.scrollOffset = 0
+		a.stickyToBottom = true
+		a.pendingPartScroll = false
+		return
+	}
 	// VVVVVVVVV1: arm the post-render scroll adjustment so the View
 	// path can nudge the viewport to keep the ▸ marker visible. The
 	// base message-anchored offset is rough (measures in messages,
 	// scrollClip wants lines); the per-part fine-tune reads the
 	// rendered body and lines up the marker properly.
 	a.pendingPartScroll = true
+}
+
+func (a *App) selectedPartIsBottomBlock() bool {
+	if a.bodySelMsgIdx < 0 || a.bodySelMsgIdx >= len(a.messages) {
+		return false
+	}
+	_, absorbed := pairToolResults(a.messages)
+	lastVisible := -1
+	for i := len(a.messages) - 1; i >= 0; i-- {
+		if absorbed[i] {
+			continue
+		}
+		if len(addressablePartsOf(a.messages[i])) == 0 {
+			continue
+		}
+		lastVisible = i
+		break
+	}
+	if a.bodySelMsgIdx != lastVisible {
+		return false
+	}
+	addr := addressablePartsOf(a.messages[a.bodySelMsgIdx])
+	return len(addr) > 0 && a.bodySelPartIdx == len(addr)-1
+}
+
+func (a *App) reattachConversationBottom() {
+	a.scrollOffset = 0
+	a.stickyToBottom = true
+	a.pendingPartScroll = false
 }
 
 // maybeInitBodyCursor seeds the body message cursor when the user
@@ -2482,8 +3602,20 @@ func (a *App) selectedPartID() string {
 //   - Absorbed tool messages are skipped silently.
 //   - At the conversation ends, stay on the current part (no wrap).
 func (a *App) stepPartCursor(dir int) {
-	if len(a.messages) == 0 {
+	if a.stepPartCursorSelection(dir) {
+		a.scrollToSelectedMessage()
 		return
+	}
+	if dir > 0 {
+		a.scrollOffset = 0
+		a.stickyToBottom = true
+		a.pendingPartScroll = false
+	}
+}
+
+func (a *App) stepPartCursorSelection(dir int) bool {
+	if len(a.messages) == 0 {
+		return false
 	}
 	if dir == 0 {
 		dir = 1
@@ -2499,8 +3631,7 @@ func (a *App) stepPartCursor(dir int) {
 			a.bodySelMsgIdx = a.snapToVisibleMsg(0, 1)
 			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 		}
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 
 	_, absorbed := pairToolResults(a.messages)
@@ -2529,8 +3660,7 @@ func (a *App) stepPartCursor(dir int) {
 	next := partIdx + dir
 	if next >= 0 && next < len(addr) {
 		a.bodySelPartIdx = next
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 
 	// Need to cross to the next/previous non-absorbed message.
@@ -2551,10 +3681,10 @@ func (a *App) stepPartCursor(dir int) {
 		} else {
 			a.bodySelPartIdx = len(newAddr) - 1
 		}
-		a.scrollToSelectedMessage()
-		return
+		return true
 	}
 	// At the conversation end — stay put.
+	return false
 }
 
 // firstAddressablePartIdx returns the index into m's addressable parts
@@ -2648,6 +3778,11 @@ func (a *App) paletteCurrentValue(id string) string {
 			return "session empty"
 		}
 		return fmt.Sprintf("%d messages", n)
+	case "/memory":
+		if !a.caps.Capabilities.Memory {
+			return "unsupported"
+		}
+		return "ARC context"
 	case "/cancel":
 		if a.currentStatus == gact.StatusRunning ||
 			a.currentStatus == gact.StatusWaitingPermission {
@@ -2692,28 +3827,59 @@ func (a *App) paletteMatches() []gact.Command {
 	for _, c := range all {
 		seen[c.ID] = true
 	}
+	localCmd := func(id, titleKey, descKey string) gact.Command {
+		return gact.Command{
+			ID:          id,
+			Title:       a.localizer.t(messageID(titleKey), nil),
+			Description: a.localizer.t(messageID(descKey), nil),
+			Source:      "builtin",
+		}
+	}
 	localCmds := []gact.Command{
-		{ID: "/metrics", Title: "Metrics", Description: "Backend latency/cost/token totals", Source: "builtin"},
-		{ID: "/theme", Title: "Theme", Description: "Pick a colour palette (Ctrl+Alt+T cycles without modal)", Source: "builtin"},
-		{ID: "/theme-export", Title: "Export theme", Description: "Write active palette to ~/.config/gact/theme.json", Source: "builtin"},
-		{ID: "/mcp", Title: "MCP servers", Description: "Browse bundled + installed MCP servers (i = install, d = delete)", Source: "builtin"},
-		{ID: "/tools", Title: "Tools catalog", Description: "Unified catalog of every tool the agent can invoke", Source: "builtin"},
-		{ID: "/catalog", Title: "Catalog", Description: "Alias for /tools — same unified view", Source: "builtin"},
-		{ID: "/skills", Title: "Skills", Description: "List available skills (backend-dependent)", Source: "builtin"},
-		{ID: "/agents-list", Title: "Agents catalog", Description: "Read-only browse of registered agents", Source: "builtin"},
-		{ID: "/mode", Title: "Routing mode", Description: "Cycle: auto → chat → experts → auto (forces chat path or expert-only routing)", Source: "builtin"},
-		{ID: "/clear", Title: "Clear conversation", Description: "Wipe the on-screen conversation; session keeps its ID + settings", Source: "builtin"},
-		{ID: "/copy", Title: "Copy last reply", Description: "Copy the most recent assistant message to clipboard (or /tmp if no DISPLAY)", Source: "builtin"},
-		{ID: "/diff", Title: "Workspace diff", Description: "Show `git diff --stat` of the current working directory in a modal", Source: "builtin"},
-		{ID: "/compact", Title: "Compact session", Description: "Ask the backend to summarise the conversation and reclaim context", Source: "builtin"},
+		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
+		localCmd("/memory", "command.memory.title", "command.memory.desc"),
+		{ID: "/permissions", Title: "Permissions", Description: "Inspect permission audit and policy rows", Source: "builtin"},
+		localCmd("/theme", "command.theme.title", "command.theme.desc"),
+		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
+		localCmd("/mcp", "command.mcp.title", "command.mcp.desc"),
+		localCmd("/tools", "command.tools.title", "command.tools.desc"),
+		localCmd("/catalog", "command.catalog.title", "command.catalog.desc"),
+		localCmd("/skills", "command.skills.title", "command.skills.desc"),
+		localCmd("/agents-list", "command.agents.title", "command.agents.desc"),
+		localCmd("/mode", "command.mode.title", "command.mode.desc"),
+		localCmd("/clear", "command.clear.title", "command.clear.desc"),
+		localCmd("/copy", "command.copy.title", "command.copy.desc"),
+		localCmd("/diff", "command.diff.title", "command.diff.desc"),
+		localCmd("/compact", "command.compact.title", "command.compact.desc"),
+	}
+	if a.caps.Capabilities.XClioPromptRegistry {
+		localCmds = append(localCmds, gact.Command{
+			ID: "/prompts", Title: "Prompts", Description: "Browse CLIO prompt catalog and profiles", Source: "builtin",
+		})
+	}
+	if a.caps.Capabilities.XClioExpertPacks {
+		localCmds = append(localCmds, gact.Command{
+			ID: "/expert-packs", Title: "Expert Packs", Description: "Browse and activate CLIO expert-pack runtimes", Source: "builtin",
+		})
+	}
+	if a.caps.Capabilities.XClioAgentBlueprints {
+		localCmds = append(localCmds,
+			gact.Command{
+				ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Browse and manage CLIO markdown agent blueprints", Source: "builtin",
+			},
+			gact.Command{
+				ID: "/blueprints", Title: "Blueprints", Description: "Open CLIO markdown agent blueprints", Source: "builtin",
+			},
+			gact.Command{
+				ID: "/agent-blueprint-install", Title: "Install Agent Blueprint", Description: "Install a CLIO markdown agent blueprint into the workspace", Source: "builtin",
+			},
+			gact.Command{
+				ID: "/agent-blueprint-validate", Title: "Validate Agent Blueprint", Description: "Validate a CLIO markdown agent blueprint path before installing", Source: "builtin",
+			},
+		)
 	}
 	if a.caps.Capabilities.IntegrationHealth {
-		localCmds = append(localCmds, gact.Command{
-			ID:          "/doctor",
-			Title:       "Doctor",
-			Description: "Backend health + per-subsystem status",
-			Source:      "builtin",
-		})
+		localCmds = append(localCmds, localCmd("/doctor", "command.doctor.title", "command.doctor.desc"))
 	}
 	for _, c := range localCmds {
 		if !seen[c.ID] {
@@ -2732,7 +3898,19 @@ func (a *App) paletteMatches() []gact.Command {
 			out = append(out, c)
 		}
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return paletteExactCommandMatch(out[i].ID, needle) && !paletteExactCommandMatch(out[j].ID, needle)
+	})
 	return out
+}
+
+func paletteExactCommandMatch(id, filter string) bool {
+	id = strings.ToLower(strings.TrimSpace(id))
+	filter = strings.ToLower(strings.TrimSpace(filter))
+	if id == "" || filter == "" {
+		return false
+	}
+	return id == filter || strings.TrimPrefix(id, "/") == strings.TrimPrefix(filter, "/")
 }
 
 // searchMessagesCmd POSTs to /v1/sessions/{id}/messages/search and
@@ -2757,15 +3935,13 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		// Default model + agent so the user can send a message immediately
-		// without first opening Settings. The defaults match the emulator's
-		// best-tier capabilities (Anthropic Claude Opus 4.7) — adapters
-		// for other backends should fall through gracefully if they don't
-		// know this model and either map it or surface an error.
+		// Default agent only. CLIO-style backends use one global LM
+		// configured through /v1/providers/lm; sending an Anthropic
+		// per-session ModelRef here makes later global-provider swaps
+		// fail because the stale session model no longer matches.
 		s, err := c.CreateSession(ctx, client.CreateSessionRequest{
 			WorkspaceID: wsID,
 			Title:       "new session " + time.Now().UTC().Format("15:04:05"),
-			Model:       &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
 			Agent:       &gact.AgentRef{ID: "default"},
 		})
 		if err != nil {
@@ -2775,9 +3951,16 @@ func createSessionCmd(c *client.Client, wsID string) tea.Cmd {
 	}
 }
 
+func (a *App) clearLocalSessionModelRefs() {
+	for i := range a.sessions {
+		a.sessions[i].Model = gact.ModelRef{}
+	}
+}
+
 // duplicateSessionCmd creates a new session carrying over the source
-// session's title + model + agent but with zero messages. "Same kind
-// of work, fresh context."
+// session's title + agent but with zero messages. Model refs are not
+// copied because CLIO uses a global LM provider; preserving a stale
+// per-session model ref makes the next send fail after provider swaps.
 func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -2790,10 +3973,6 @@ func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cm
 		req := client.CreateSessionRequest{
 			WorkspaceID: wsID,
 			Title:       title,
-		}
-		if src.Model.ModelID != "" {
-			m := src.Model
-			req.Model = &m
 		}
 		if src.Agent.ID != "" {
 			ag := src.Agent
@@ -2848,26 +4027,57 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = c.RunCommand(ctx, sessionID, cmdID)
+		if err := c.RunCommand(ctx, sessionID, cmdID); err != nil {
+			return errMsg{err: err, stage: "command"}
+		}
 		return nil
 	}
 }
 
-// deleteMessageCmd fires a background DELETE /v1/messages/{id}. The
-// TUI already dropped the message locally so there's no message for
-// us to emit on success; failures are silently swallowed because the
-// user's next session switch or Ctrl+R will re-sync from the backend.
-// If delete failures become a real problem, switch to an errMsg-
-// returning command with a retry UX.
-func deleteMessageCmd(c *client.Client, messageID string) tea.Cmd {
+// deleteMessageCmd fires a background DELETE for a message. The TUI already
+// dropped the message locally so there's no message for us to emit on success;
+// failures are silently swallowed because the user's next session switch or
+// Ctrl+R will re-sync from the backend. If delete failures become a real
+// problem, switch to an errMsg-returning command with a retry UX.
+func deleteMessageCmd(c *client.Client, sessionID, messageID string) tea.Cmd {
 	return func() tea.Msg {
 		if messageID == "" {
 			return nil
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = c.DeleteMessage(ctx, messageID)
+		_ = c.DeleteMessage(ctx, sessionID, messageID)
 		return nil
+	}
+}
+
+type sessionRewindDoneMsg struct {
+	sessionID string
+	deleted   []string
+	err       error
+}
+
+type sessionUndoDoneMsg struct {
+	sessionID string
+	reverted  []string
+	err       error
+}
+
+func rewindSessionCmd(c *client.Client, sessionID, messageID string, includeTarget bool) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		deleted, err := c.RewindSession(ctx, sessionID, messageID, includeTarget)
+		return sessionRewindDoneMsg{sessionID: sessionID, deleted: deleted, err: err}
+	}
+}
+
+func undoSessionCmd(c *client.Client, sessionID string, count int) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		reverted, err := c.UndoSession(ctx, sessionID, count)
+		return sessionUndoDoneMsg{sessionID: sessionID, reverted: reverted, err: err}
 	}
 }
 
@@ -2880,39 +4090,142 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a.handleSidebarFilterKey(k)
 	}
 
+	if a.sidebarSessionsCollapsed {
+		a.sidebarSectionCursor = true
+		switch k.String() {
+		case "up", "k", "left", "pgup", "ctrl+u", "g", "home":
+			a.focusPreviousSidebarSection()
+			return a, nil
+		case "down", "j", "right", "pgdown", "ctrl+d", "G", "end":
+			a.focusNextSidebarSection()
+			return a, nil
+		case "enter":
+			a.toggleFocusedSidebarSection()
+			return a, nil
+		}
+	}
+
 	switch k.String() {
 	case "up", "k":
+		if a.sidebarSectionCursor {
+			a.focusPreviousSidebarSection()
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			if a.contextFileSel <= 0 {
+				a.contextFileSel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.contextFileSel--
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			if a.fileTreeSel <= 0 {
+				a.fileTreeSel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.fileTreeSel--
+			return a, nil
+		}
+		if a.selected == a.firstVisibleSessionIndex() {
+			a.sidebarSectionCursor = true
+			a.sidebarSectionFocus = sidebarSectionSessions
+			return a, nil
+		}
 		if a.stepSelectionVisible(-1) {
+			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
 		}
 	case "down", "j":
+		if a.sidebarSectionCursor {
+			if a.sidebarSectionFocus == sidebarSectionSessions {
+				a.sidebarSectionCursor = false
+			} else if a.sidebarSectionFocus == sidebarSectionFiles && !a.sidebarFilesCollapsed && len(a.visibleFileTreeEntries()) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampFileTreeSelection()
+			} else if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampContextFileSelection()
+			} else {
+				a.focusNextSidebarSection()
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			if a.contextFileSel < len(a.contextFiles)-1 {
+				a.contextFileSel++
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			visible := a.visibleFileTreeEntries()
+			if a.fileTreeSel < len(visible)-1 {
+				a.fileTreeSel++
+			}
+			return a, nil
+		}
 		if a.stepSelectionVisible(+1) {
+			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
 		}
+	case "left":
+		a.sidebarSectionCursor = true
+		a.focusPreviousSidebarSection()
+		return a, nil
+	case "right":
+		a.sidebarSectionCursor = true
+		a.focusNextSidebarSection()
+		return a, nil
 	case "g", "home":
 		// Jump to first VISIBLE session.
 		vis := a.visibleSessionIndexes()
 		if len(vis) > 0 && a.selected != vis[0] {
+			a.sidebarSectionCursor = false
 			a.selected = vis[0]
 			return a, a.selectSession(a.selected)
 		}
 	case "G", "end":
 		vis := a.visibleSessionIndexes()
 		if len(vis) > 0 && a.selected != vis[len(vis)-1] {
+			a.sidebarSectionCursor = false
 			a.selected = vis[len(vis)-1]
 			return a, a.selectSession(a.selected)
 		}
 	case "pgup", "ctrl+u":
 		if a.stepSelectionVisible(-a.sidebarPageSize()) {
+			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
 		}
 	case "pgdown", "ctrl+d":
 		if a.stepSelectionVisible(+a.sidebarPageSize()) {
+			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
 		}
 	case "enter":
+		if a.sidebarSectionCursor {
+			a.toggleFocusedSidebarSection()
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionContext {
+			a.clampContextFileSelection()
+			if a.contextFileSel >= 0 && a.contextFileSel < len(a.contextFiles) {
+				a.openContextFileDetail(a.contextFiles[a.contextFileSel])
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			a.activateFileTreeSelection()
+			return a, nil
+		}
 		a.focus = FocusInput
 		return a, nil
+	case "m":
+		if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor {
+			return a, a.openContextActionsForIndex(a.contextFileSel)
+		}
+		return a, a.openSessionActionsForIndex(a.selected)
 	case "n":
 		if a.wsID != "" {
 			return a, createSessionCmd(a.c, a.wsID)
@@ -2961,16 +4274,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// "no matches"). Match the universal TUI convention: '/' opens
 		// the global command palette regardless of focus. Sidebar
 		// filter is now bound to 'f' (see below).
-		a.paletteOpen = true
-		a.paletteFilter = ""
-		a.paletteSel = 0
+		a.openCommandPalette()
 		return a, nil
 	case "f":
 		// Sidebar filter — was '/' before. Same semantics: enter
 		// inline edit; Enter commits, Esc cancels + restores the
 		// previous filter.
-		a.sessionFilterActive = true
-		a.filterSnapshot = a.sessionFilter
+		a.enterSidebarFilter(false)
 		return a, nil
 	case "A":
 		// Archive toggle — PATCH archived to the opposite of the
@@ -2989,21 +4299,14 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.contextAddOpen = true
 		a.contextAddDraft = ""
 		a.contextAddCursor = 0
+		a.contextAddMode = "read"
 		return a, nil
 	case "h":
 		// Toggle archived vs active view. Refetches the session list
 		// with the new filter; the result falls into the existing
 		// sessionsRefreshedMsg branch which preserves selection where
 		// possible.
-		a.showArchived = !a.showArchived
-		if a.showArchived {
-			a.transientHint = "showing archived sessions (h to go back)"
-		} else {
-			a.transientHint = "showing active sessions"
-		}
-		if a.wsID != "" {
-			return a, reloadSessionsForView(a.c, a.wsID, a.showArchived)
-		}
+		return a, a.toggleArchivedView()
 	case "d":
 		// JJJJJJJJ1: toggle detached-only sidebar view — narrows the
 		// list to sessions the user previously Ctrl+Z-walked-away
@@ -3031,11 +4334,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "no session selected to copy"
 			return a, nil
 		}
-		if err := clipboardWrite(sid); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = "copied " + sid + " to clipboard"
+		a.transientHint = copyTextToClipboard(sid, sid)
 	case "b":
 		// XXXXXXXX1: toggle busy-only sidebar view — narrows the
 		// list to sessions whose status is running or
@@ -3058,6 +4357,50 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "showing all sessions"
 		}
 		a.ensureSelectedVisible()
+	case "c":
+		a.showChildSessions = !a.showChildSessions
+		if a.showChildSessions {
+			a.transientHint = "showing child sessions (c to collapse)"
+		} else {
+			a.transientHint = "child sessions collapsed (c to show)"
+		}
+		a.ensureSelectedVisible()
+	case "S":
+		a.sidebarSectionFocus = sidebarSectionSessions
+		a.sidebarSectionCursor = true
+		a.sidebarSessionsCollapsed = !a.sidebarSessionsCollapsed
+		if a.sidebarSessionsCollapsed {
+			a.transientHint = "sessions section collapsed (S to expand)"
+		} else {
+			a.sidebarSectionCursor = false
+			a.transientHint = "sessions section expanded"
+		}
+	case "C":
+		a.sidebarSectionFocus = sidebarSectionContext
+		a.sidebarSectionCursor = true
+		a.sidebarContextCollapsed = !a.sidebarContextCollapsed
+		if a.sidebarContextCollapsed {
+			a.transientHint = "context section collapsed (C to expand)"
+		} else {
+			a.transientHint = "context section expanded"
+		}
+	case "F":
+		if !a.sidebarHasEnabledModule(sidebarModuleFiles) {
+			return a, nil
+		}
+		a.sidebarSectionFocus = sidebarSectionFiles
+		a.sidebarSectionCursor = true
+		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
+		if a.sidebarFilesCollapsed {
+			a.transientHint = "files section collapsed (F to expand)"
+		} else {
+			a.transientHint = "files section expanded"
+		}
+	case "r":
+		if a.sidebarSectionFocus == sidebarSectionFiles {
+			a.reloadFileViewer()
+			a.transientHint = "files refreshed"
+		}
 	}
 	return a, nil
 }
@@ -3069,26 +4412,29 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // drifted by 1-2 rows depending on context-file count + R2 footer,
 // causing PgDn to jump past the last visible session).
 func (a *App) sidebarPageSize() int {
-	const rowsPerSession = 3
+	const rowsPerSession = 2
 	contextLines := 0
 	if a.selected >= 0 {
-		if n := len(a.contextFiles); n > 0 {
-			contextLines = 2 + n
+		if a.sidebarContextCollapsed {
+			contextLines = 1
+		} else if n := len(a.contextFiles); n > 0 {
+			contextLines = 1 + n
 		} else {
-			contextLines = 3
+			contextLines = 2
 		}
 	}
 	footerLines := 0
 	if len(a.sessions) > 0 {
 		footerLines = 2
 	}
+	fileLines := a.sidebarFileViewerRowCount(8)
 	// a.height includes the header row (1) + footer hints row (1) +
 	// optional hint banner row. The pane itself gets a.height-4 outer
 	// rows (header + footer + 2 spacer rows per the layout math in
 	// renderBody). Same inner-row budget as renderSidebar.
 	inner := (a.height - 4) - 2
-	avail := inner - contextLines - footerLines
-	if contextLines > 0 {
+	avail := inner - contextLines - fileLines - footerLines
+	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) {
 		avail--
 	}
 	page := avail / rowsPerSession
@@ -3096,6 +4442,593 @@ func (a *App) sidebarPageSize() int {
 		page = 1
 	}
 	return page
+}
+
+func (a *App) clampContextFileSelection() {
+	if len(a.contextFiles) == 0 {
+		a.contextFileSel = 0
+		return
+	}
+	if a.contextFileSel < 0 {
+		a.contextFileSel = 0
+	}
+	if a.contextFileSel >= len(a.contextFiles) {
+		a.contextFileSel = len(a.contextFiles) - 1
+	}
+}
+
+func (a *App) hasContextSection() bool {
+	return a.selected >= 0 && a.selected < len(a.sessions)
+}
+
+func (a *App) firstVisibleSessionIndex() int {
+	vis := a.visibleSessionIndexes()
+	if len(vis) == 0 {
+		return -1
+	}
+	return vis[0]
+}
+
+func (a *App) sidebarSections() []sidebarSection {
+	return sidebarSectionsFromModules(a.sidebarModules())
+}
+
+func (a *App) activeSidebarSections() []sidebarSection {
+	if a.focus == FocusRightSidebar {
+		return sidebarSectionsFromModules(a.rightSidebarModules())
+	}
+	return a.sidebarSections()
+}
+
+func sidebarSectionsFromModules(modules []resolvedSidebarModule) []sidebarSection {
+	sections := make([]sidebarSection, 0, len(modules))
+	for _, module := range modules {
+		if module.Disabled {
+			continue
+		}
+		sections = append(sections, module.Definition.Section)
+	}
+	return sections
+}
+
+func (a *App) sidebarSectionPosition() int {
+	sections := a.activeSidebarSections()
+	for i, section := range sections {
+		if section == a.sidebarSectionFocus {
+			return i
+		}
+	}
+	return 0
+}
+
+func (a *App) focusPreviousSidebarSection() {
+	sections := a.activeSidebarSections()
+	if len(sections) == 0 {
+		return
+	}
+	pos := a.sidebarSectionPosition()
+	if pos > 0 {
+		pos--
+	}
+	a.sidebarSectionFocus = sections[pos]
+}
+
+func (a *App) focusNextSidebarSection() {
+	sections := a.activeSidebarSections()
+	if len(sections) == 0 {
+		return
+	}
+	pos := a.sidebarSectionPosition()
+	if pos < len(sections)-1 {
+		pos++
+	}
+	a.sidebarSectionFocus = sections[pos]
+}
+
+func (a *App) toggleFocusedSidebarSection() {
+	switch a.sidebarSectionFocus {
+	case sidebarSectionFiles:
+		a.activateSidebarSection(sidebarSectionFiles)
+	case sidebarSectionContext:
+		a.activateSidebarSection(sidebarSectionContext)
+	default:
+		a.activateSidebarSection(sidebarSectionSessions)
+	}
+}
+
+func (a *App) sidebarContextTitleRow(height int) (int, bool) {
+	if !a.hasContextSection() {
+		return 0, false
+	}
+	row := 2 // SESSIONS title + blank.
+	if a.sessionFilterActive || a.sessionFilter != "" {
+		row += 2
+	}
+
+	visIdx := a.visibleSessionIndexes()
+	if !a.sidebarSessionsCollapsed {
+		startIdx, endIdx := a.sidebarVisibleSessionRange(height, visIdx)
+		if startIdx > 0 {
+			row++
+		}
+		if a.sessionFilter != "" && len(visIdx) == 0 {
+			row++
+		}
+		for i := startIdx; i < endIdx; i++ {
+			row += a.sidebarSessionRowCount(visIdx[i])
+		}
+		if endIdx < len(visIdx) {
+			row++
+		}
+	}
+	return row, true
+}
+
+func (a *App) sidebarVisibleSessionRange(height int, visIdx []int) (int, int) {
+	if a.sidebarSessionsCollapsed || len(visIdx) == 0 {
+		return 0, 0
+	}
+	selVis := -1
+	for i, idx := range visIdx {
+		if idx == a.selected {
+			selVis = i
+			break
+		}
+	}
+	startIdx := 0
+	anchorVis := selVis
+	if selVis >= 0 && a.showChildSessions && a.selected >= 0 && a.selected < len(a.sessions) && !isChildSession(a.sessions[a.selected]) {
+		for j := selVis + 1; j < len(visIdx); j++ {
+			if !isChildSession(a.sessions[visIdx[j]]) || a.sessions[visIdx[j]].ParentSessionID != a.sessions[a.selected].ID {
+				break
+			}
+			anchorVis = j
+		}
+	}
+	avail := a.sidebarSessionRowsAvailable(height)
+	if avail < 1 {
+		avail = 1
+	}
+	if anchorVis >= 0 {
+		used := 0
+		startIdx = anchorVis
+		for startIdx >= 0 {
+			next := used + a.sidebarSessionRowCount(visIdx[startIdx])
+			if used > 0 && next > avail {
+				break
+			}
+			used = next
+			startIdx--
+		}
+		startIdx++
+	}
+	endIdx := startIdx
+	used := 0
+	for endIdx < len(visIdx) {
+		next := used + a.sidebarSessionRowCount(visIdx[endIdx])
+		if used > 0 && next > avail {
+			break
+		}
+		used = next
+		endIdx++
+	}
+	return startIdx, endIdx
+}
+
+func (a *App) sidebarSessionRowsAvailable(height int) int {
+	contextLines := a.sidebarContextRowCount()
+	fileLines := a.sidebarFileViewerRowCount(8)
+	footerLines := 0
+	if len(a.sessions) > 0 {
+		footerLines = 2
+	}
+	avail := (height - 2) - 2 - contextLines - fileLines - footerLines
+	if contextLines > 0 || fileLines > 0 {
+		avail--
+	}
+	if avail < 1 {
+		return 1
+	}
+	return avail
+}
+
+func (a *App) sidebarContextRowCount() int {
+	if a.selected < 0 {
+		return 0
+	}
+	if a.sidebarContextCollapsed {
+		return 1
+	}
+	if len(a.contextFiles) == 0 {
+		return 2
+	}
+	rows := 1
+	for i := range a.contextFiles {
+		rows += a.sidebarContextFileRowCount(i)
+	}
+	return rows
+}
+
+func (a *App) sidebarContextFileRowCount(index int) int {
+	if index < 0 || index >= len(a.contextFiles) {
+		return 0
+	}
+	if index == a.contextFileSel {
+		return 2
+	}
+	return 1
+}
+
+func (a *App) sidebarSessionRowCount(sessionIndex int) int {
+	if sessionIndex < 0 || sessionIndex >= len(a.sessions) {
+		return 0
+	}
+	s := a.sessions[sessionIndex]
+	if isChildSession(s) {
+		return 1
+	}
+	rows := 2
+	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
+		rows++
+	}
+	return rows
+}
+
+func (a *App) activateSidebarSession(index int) tea.Cmd {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	if index < 0 || index >= len(a.sessions) {
+		return nil
+	}
+	if index != a.selected {
+		a.sidebarSectionCursor = false
+		a.selected = index
+		return a.selectSession(index)
+	}
+	if a.childSessionCount(a.sessions[index].ID) > 0 {
+		a.sidebarSectionCursor = false
+		a.showChildSessions = !a.showChildSessions
+		if a.showChildSessions {
+			a.transientHint = "showing child sessions (c to collapse)"
+		} else {
+			a.transientHint = "child sessions collapsed (c to show)"
+		}
+		a.ensureSelectedVisible()
+	}
+	return nil
+}
+
+func (a *App) activateSidebarSection(section sidebarSection) {
+	if a.focus != FocusRightSidebar {
+		a.focus = FocusSidebar
+	}
+	a.sidebarSectionFocus = section
+	a.sidebarSectionCursor = true
+	switch section {
+	case sidebarSectionFiles:
+		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
+		if a.sidebarFilesCollapsed {
+			a.transientHint = "files section collapsed (F to expand)"
+		} else {
+			a.transientHint = "files section expanded"
+		}
+	case sidebarSectionContext:
+		a.sidebarContextCollapsed = !a.sidebarContextCollapsed
+		if a.sidebarContextCollapsed {
+			a.transientHint = "context section collapsed (C to expand)"
+		} else {
+			a.transientHint = "context section expanded"
+		}
+	default:
+		a.sidebarSessionsCollapsed = !a.sidebarSessionsCollapsed
+		if a.sidebarSessionsCollapsed {
+			a.transientHint = "sessions section collapsed (S to expand)"
+		} else {
+			a.sidebarSectionCursor = false
+			a.transientHint = "sessions section expanded"
+		}
+	}
+}
+
+func (a *App) enterSidebarFilter(clear bool) {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = true
+	a.sessionFilterActive = true
+	a.filterSnapshot = a.sessionFilter
+	if clear {
+		a.sessionFilter = ""
+	}
+}
+
+func (a *App) toggleArchivedView() tea.Cmd {
+	a.showArchived = !a.showArchived
+	if a.showArchived {
+		a.transientHint = "showing archived sessions (h to go back)"
+	} else {
+		a.transientHint = "showing active sessions"
+	}
+	if a.wsID != "" {
+		return reloadSessionsForView(a.c, a.wsID, a.showArchived)
+	}
+	return nil
+}
+
+func (a *App) openCommandPalette() {
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteCursor = 0
+	a.paletteCursorSet = true
+	a.paletteSel = 0
+}
+
+func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sidebarSection) {
+	if a.hits == nil {
+		return
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	id := "sidebar:sessions:header"
+	if zone == FocusRightSidebar {
+		id = "right-" + id
+	}
+	if section == sidebarSectionContext {
+		id = "sidebar:context:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:context:header"
+		}
+	} else if section == sidebarSectionFiles {
+		id = "sidebar:files:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:files:header"
+		}
+	}
+	a.registerSidebarContentHit(id, row, width, 1, func(app *App) tea.Cmd {
+		app.focus = zone
+		app.activateSidebarSection(section)
+		return nil
+	})
+}
+
+func (a *App) registerSidebarFocusSurface(width, height int) {
+	if a.hits == nil || width <= 0 || height <= 0 {
+		return
+	}
+	zone := a.sidebarHitFocus
+	id := "sidebar:focus"
+	if zone == FocusRightSidebar {
+		id = "right-sidebar:focus"
+	} else {
+		zone = FocusSidebar
+	}
+	rect := a.sidebarFocusSurfaceRect(width, height)
+	a.registerFocusSurfaceHit(id, rect, zone, nil)
+	a.registerScreenWheelHit(id+":wheel", rect, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleSidebarWheel(zone, button)
+	})
+}
+
+func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
+	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: width, h: height}
+}
+
+func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
+	if a.hits == nil || index < 0 || index >= len(a.sessions) || rowCount <= 0 {
+		return
+	}
+	id := a.sessions[index].ID
+	if id == "" {
+		id = fmt.Sprintf("%d", index)
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	} else {
+		id = "right-" + id
+	}
+	a.registerSidebarContentHitActions(
+		"sidebar:session:"+id,
+		row,
+		width,
+		rowCount,
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			return app.activateSidebarSession(index)
+		},
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			return app.openSessionActionsForIndex(index)
+		},
+	)
+}
+
+func (a *App) registerSidebarFilterHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	a.registerSidebarContentHit("sidebar:filter", row, width, 1, func(app *App) tea.Cmd {
+		app.enterSidebarFilter(false)
+		return nil
+	})
+}
+
+func (a *App) registerSidebarContextHeaderHit(row int, width int) {
+	a.registerSidebarSectionHeaderHit(row, width, sidebarSectionContext)
+}
+
+func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf gact.ContextFile) {
+	if a.hits == nil {
+		return
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	id := "sidebar:context:file:" + cf.Path
+	if zone == FocusRightSidebar {
+		id = "right-sidebar:context:file:" + cf.Path
+	}
+	a.registerSidebarContentHitActions(
+		id,
+		row,
+		width,
+		a.sidebarContextFileRowCount(index),
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			app.sidebarSectionFocus = sidebarSectionContext
+			app.sidebarSectionCursor = true
+			app.contextFileSel = index
+			app.openContextFileDetail(cf)
+			return nil
+		},
+		func(app *App) tea.Cmd {
+			return app.openContextActionsForIndex(index)
+		},
+	)
+}
+
+func (a *App) registerSidebarCountsHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	a.registerSidebarContentHit("sidebar:counts", row, width, 1, func(app *App) tea.Cmd {
+		app.focus = zone
+		return app.toggleArchivedView()
+	})
+}
+
+func (a *App) registerSidebarContentHit(id string, row int, width int, height int, action uiHitAction) {
+	a.registerSidebarContentHitActions(id, row, width, height, action, nil)
+}
+
+func (a *App) registerSidebarContentHitActions(id string, row int, width int, height int, action uiHitAction, secondaryAction uiHitAction) {
+	if a.hits == nil {
+		return
+	}
+	rect := a.sidebarContentRect(row, width)
+	if height < 1 {
+		height = 1
+	}
+	rect.h = height
+	a.registerScreenHitActions(id, rect, action, secondaryAction)
+}
+
+func (a *App) sidebarContentRect(row int, width int) mouseRect {
+	w := width - 4
+	if w < 1 {
+		w = 1
+	}
+	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
+}
+
+func (a *App) openContextFileDetail(cf gact.ContextFile) {
+	rows := a.contextFileDetailRows(cf)
+	a.detailView = &bulkyPartRef{
+		messageID: "context",
+		partID:    cf.Path,
+		title:     "Context file · " + shortContextPath(cf.Path),
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
+	fileFields := []detailField{
+		{"path", cf.Path},
+		{"mode", contextModeDescription(cf.Mode)},
+	}
+	if cf.Size > 0 {
+		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
+	}
+	if strings.TrimSpace(cf.Language) != "" {
+		fileFields = append(fileFields, detailField{"language", cf.Language})
+	}
+	if strings.TrimSpace(cf.AddedAt) != "" {
+		fileFields = append(fileFields, detailField{"added_at", cf.AddedAt})
+	}
+	if strings.TrimSpace(cf.LastModified) != "" {
+		fileFields = append(fileFields, detailField{"last_modified", cf.LastModified})
+	}
+	rows := appendDetailSection(nil, "File", fileFields...)
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		s := a.sessions[a.selected]
+		sessionFields := []detailField{
+			{"title", orPlaceholder(s.Title, a.localizer.t(msgSidebarUntitled, nil))},
+			{"id", s.ID},
+			{"status", orPlaceholder(s.Status, "unknown")},
+		}
+		if s.WorkspaceID != "" {
+			sessionFields = append(sessionFields, detailField{"workspace", s.WorkspaceID})
+		}
+		if s.ParentSessionID != "" {
+			sessionFields = append(sessionFields, detailField{"parent_session_id", s.ParentSessionID})
+		}
+		if s.Agent.ID != "" {
+			sessionFields = append(sessionFields, detailField{"agent", s.Agent.ID})
+		}
+		if !s.UpdatedAt.IsZero() || !s.CreatedAt.IsZero() {
+			activity := sessionActivityTime(s)
+			sessionFields = append(sessionFields, detailField{"latest_activity", activity.UTC().Format(time.RFC3339)})
+		}
+		if s.MessageCount > 0 {
+			sessionFields = append(sessionFields, detailField{"messages", fmt.Sprintf("%d", s.MessageCount)})
+		}
+		rows = appendDetailSection(rows, "Session", sessionFields...)
+	}
+	rows = appendDetailSection(rows, "Actions",
+		detailField{"o", "add another context file"},
+		detailField{"Esc / Ctrl+E", "close detail"},
+	)
+	return rows
+}
+
+func contextModeDescription(mode string) string {
+	switch mode {
+	case "read":
+		return "read (backend may inspect contents)"
+	case "edit":
+		return "edit (backend may propose changes)"
+	case "pin":
+		return "pin (always retained in context)"
+	case "":
+		return "unknown"
+	default:
+		return mode
+	}
+}
+
+func shortContextPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "(unknown)"
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) <= 2 {
+		return path
+	}
+	return "…/" + strings.Join(parts[len(parts)-2:], "/")
+}
+
+func humanBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	value := float64(size)
+	for _, suffix := range []string{"KiB", "MiB", "GiB", "TiB"} {
+		value /= unit
+		if value < unit {
+			return fmt.Sprintf("%.1f %s", value, suffix)
+		}
+	}
+	return fmt.Sprintf("%.1f PiB", value/unit)
 }
 
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -3132,11 +5065,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.scrollOffset += 10
 		a.stickyToBottom = false
 	case "pgdown", "ctrl+d":
-		a.scrollOffset -= 10
-		if a.scrollOffset <= 0 {
-			a.scrollOffset = 0
-			a.stickyToBottom = true
-		}
+		a.reattachConversationBottom()
 	case "g":
 		// g jumps the cursor to the first addressable block. TTTTTTTTT1:
 		// also lands on the first part of that message so the per-block
@@ -3179,29 +5108,33 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if sid := a.currentSessionID(); sid != "" && a.hasPendingDiffs() {
 			return a, rejectDiffsCmd(a.c, sid)
 		}
+	case "m":
+		return a, a.openConversationActionsForSelection()
 	case "y":
-		// Yank: when the body cursor is set, copy THAT message's text;
-		// otherwise fall back to "latest assistant". Feedback is a
-		// transient toast because clipboard success is otherwise
-		// invisible.
+		// Yank: when the body cursor is on an addressable part, copy
+		// that semantic block first (tool result, diff, text, etc.).
+		// Fall back to the selected message's text, then latest
+		// assistant text. Feedback is a transient toast because
+		// clipboard success is otherwise invisible.
 		var (
 			text string
 			ok   bool
 		)
 		if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
-			text, ok = messageText(a.messages[a.bodySelMsgIdx])
+			text, ok = selectedConversationBlockText(a.messages, a.bodySelMsgIdx, a.bodySelPartIdx)
+			if !ok {
+				text, ok = messageText(a.messages[a.bodySelMsgIdx])
+			}
 		} else {
 			text, ok = lastAssistantText(a.messages)
 		}
 		if !ok {
-			a.transientHint = "nothing to copy — selected message has no text"
+			a.transientHint = "nothing to copy — selected block has no text"
 			return a, nil
 		}
-		if err := clipboardWrite(text); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = fmt.Sprintf("copied %d chars to clipboard", len(text))
+		a.transientHint = copyExactTextToClipboard(text, "nothing to copy — selected block has no text", func(chars int) string {
+			return fmt.Sprintf("copied %d chars to clipboard", chars)
+		})
 	case "Y":
 		// PPPPPPPP1: yank the FULL conversation as role-prefixed
 		// markdown so the user can paste an entire turn into a bug
@@ -3212,11 +5145,9 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.transientHint = "nothing to copy — conversation has no text yet"
 			return a, nil
 		}
-		if err := clipboardWrite(text); err != nil {
-			a.transientHint = "copy failed: " + err.Error()
-			return a, nil
-		}
-		a.transientHint = fmt.Sprintf("copied full conversation (%d chars) to clipboard", len(text))
+		a.transientHint = copyExactTextToClipboard(text, "nothing to copy — conversation has no text yet", func(chars int) string {
+			return fmt.Sprintf("copied full conversation (%d chars) to clipboard", chars)
+		})
 	case "R":
 		// Retry: when the body cursor is on a user message, resend
 		// that one's text; otherwise fall back to "latest user".
@@ -3290,8 +5221,12 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		a.transientHint = "deleted message"
+		deleteSessionID := target.SessionID
+		if deleteSessionID == "" {
+			deleteSessionID = a.currentSessionID()
+		}
 		return a, tea.Batch(
-			deleteMessageCmd(a.c, target.ID),
+			deleteMessageCmd(a.c, deleteSessionID, target.ID),
 			scheduleHintExpire(a.transientHint),
 		)
 	}
@@ -3311,11 +5246,11 @@ func (a *App) hasPendingDiffs() bool {
 	return false
 }
 
-func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+func applyDiffsCmd(c *client.Client, sessionID string, paths ...string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, nil)
+		applied, writeErrors, err := c.ApplyDiffs(ctx, sessionID, paths)
 		if err != nil {
 			return errMsg{err: err, stage: "apply-diffs"}
 		}
@@ -3323,11 +5258,11 @@ func applyDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
-func rejectDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
+func rejectDiffsCmd(c *client.Client, sessionID string, paths ...string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		rejected, err := c.RejectDiffs(ctx, sessionID, nil)
+		rejected, err := c.RejectDiffs(ctx, sessionID, paths)
 		if err != nil {
 			return errMsg{err: err, stage: "reject-diffs"}
 		}
@@ -3337,12 +5272,16 @@ func rejectDiffsCmd(c *client.Client, sessionID string) tea.Cmd {
 
 func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
+	if a.inPaste {
+		a.recordPasteKey(k)
+		var cmd tea.Cmd
+		a.input, cmd = a.input.Update(k)
+		return a, cmd
+	}
 
 	// Slash on empty input opens the palette.
 	if key == "/" && a.input.Value() == "" {
-		a.paletteOpen = true
-		a.paletteFilter = ""
-		a.paletteSel = 0
+		a.openCommandPalette()
 		return a, nil
 	}
 
@@ -3387,11 +5326,6 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// PasteEnd yet), DO NOT intercept — route the key to the textarea
 	// so embedded newlines become literal newlines instead of
 	// triggering multiple "send" actions.
-	if key == "enter" && a.inPaste {
-		var cmd tea.Cmd
-		a.input, cmd = a.input.Update(k)
-		return a, cmd
-	}
 	if key == "enter" {
 		raw := a.input.Value()
 		if strings.HasSuffix(raw, "\\") {
@@ -3406,8 +5340,11 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// buffer so the backend sees the real body, not the compressed
 		// sigil. Send-time expansion keeps the input readable right up
 		// until the moment the message is dispatched.
+		draftText := strings.TrimSpace(raw)
 		text := strings.TrimSpace(a.expandPasteText(raw))
+		mentions := activeComposerFileMentions(raw, a.fileMentions)
 		a.input.Reset()
+		a.fileMentions = nil
 		a.pastes = nil
 		a.exitHistory()
 		// N1: successful dispatch invalidates any saved draft for
@@ -3415,12 +5352,16 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// a clean slate rather than the already-sent text resurfacing.
 		if sid := a.currentSessionID(); sid != "" {
 			delete(a.inputDraftBySession, sid)
+			delete(a.fileMentionsBySession, sid)
 		}
 		if text == "" || a.currentSessionID() == "" {
 			return a, nil
 		}
 		a.pushInputHistory(text)
-		return a, postMessageCmd(a.c, a.currentSessionID(), text)
+		agentID := a.nextTurnAgentID
+		a.nextTurnAgentID = ""
+		a.nextTurnAgentTitle = ""
+		return a, postMessageWithMentionsAndAgentCmd(a.c, a.currentSessionID(), draftText, text, mentions, agentID)
 	}
 	if key == "ctrl+p" {
 		// Expand the most recent compressed paste in-place so the user
@@ -3437,6 +5378,7 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if key == "esc" {
 		a.input.Reset()
+		a.fileMentions = nil
 		a.exitHistory()
 		return a, nil
 	}
@@ -3457,6 +5399,78 @@ func (a *App) currentSessionID() string {
 		return ""
 	}
 	return a.sessions[a.selected].ID
+}
+
+func (a *App) runtimeScope() client.RuntimeScope {
+	return client.RuntimeScope{
+		WorkspaceID: a.wsID,
+		SessionID:   a.currentSessionID(),
+	}
+}
+
+func (a *App) sessionIndexByID(id string) int {
+	for i, s := range a.sessions {
+		if s.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func sessionActivityTime(s gact.Session) time.Time {
+	if !s.UpdatedAt.IsZero() {
+		return s.UpdatedAt
+	}
+	return s.CreatedAt
+}
+
+func (a *App) sortSessionsByActivity() {
+	if len(a.sessions) < 2 {
+		return
+	}
+	sort.SliceStable(a.sessions, func(i, j int) bool {
+		left := sessionActivityTime(a.sessions[i])
+		right := sessionActivityTime(a.sessions[j])
+		if left.Equal(right) {
+			return a.sessions[i].ID < a.sessions[j].ID
+		}
+		return left.After(right)
+	})
+}
+
+func (a *App) appendModelSwapMarker(info *client.LMProviderInfo) {
+	if info == nil || !info.Configured || strings.TrimSpace(info.Model) == "" {
+		return
+	}
+	sid := a.currentSessionID()
+	if sid == "" {
+		return
+	}
+	label := joinModelLabel(info.Provider, info.Model)
+	if label == "" {
+		return
+	}
+	if len(a.messages) > 0 {
+		last := a.messages[len(a.messages)-1]
+		if isModelSwapMarker(last) && last.Metadata["label"] == label {
+			return
+		}
+	}
+	now := time.Now()
+	a.messages = append(a.messages, gact.Message{
+		ID:        fmt.Sprintf("local_model_swap_%d", now.UnixNano()),
+		SessionID: sid,
+		Role:      gact.RoleSystem,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Metadata: map[string]any{
+			"gact_tui_kind": modelSwapMarkerKind,
+			"label":         label,
+			"provider":      info.Provider,
+			"model":         info.Model,
+		},
+	})
+	a.stickyToBottom = true
 }
 
 // selectSession switches the active session, loads messages + context files,
@@ -3521,6 +5535,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 
 	a.messages = nil
 	a.contextFiles = nil
+	a.contextFileSel = 0
 	a.scrollOffset = 0
 	a.stickyToBottom = true
 	a.currentStatus = a.sessions[idx].Status
@@ -3552,11 +5567,16 @@ func (a *App) selectSession(idx int) tea.Cmd {
 func (a *App) swapInputDraftFor(newSID string) {
 	if a.lastLoadedSessionID != "" && a.lastLoadedSessionID != newSID {
 		a.stashDraft(a.lastLoadedSessionID, a.input.Value())
+		a.stashFileMentions(a.lastLoadedSessionID, activeComposerFileMentions(a.input.Value(), a.fileMentions))
 	}
 	a.input.Reset()
+	a.fileMentions = nil
 	a.pastes = nil
 	if saved, ok := a.inputDraftBySession[newSID]; ok {
 		a.input.SetValue(saved)
+	}
+	if mentions, ok := a.fileMentionsBySession[newSID]; ok {
+		a.fileMentions = cloneComposerFileMentions(mentions)
 	}
 	a.lastLoadedSessionID = newSID
 }
@@ -3577,6 +5597,43 @@ func (a *App) stashDraft(sid, val string) {
 		a.inputDraftBySession = map[string]string{}
 	}
 	a.inputDraftBySession[sid] = val
+}
+
+func (a *App) stashFileMentions(sid string, mentions []composerFileMention) {
+	if sid == "" {
+		return
+	}
+	if len(mentions) == 0 {
+		delete(a.fileMentionsBySession, sid)
+		return
+	}
+	if a.fileMentionsBySession == nil {
+		a.fileMentionsBySession = map[string][]composerFileMention{}
+	}
+	a.fileMentionsBySession[sid] = cloneComposerFileMentions(mentions)
+}
+
+func (a *App) mergeContextFiles(files []gact.ContextFile) {
+	if len(files) == 0 {
+		return
+	}
+	for _, file := range files {
+		if file.Path == "" {
+			continue
+		}
+		replaced := false
+		for i := range a.contextFiles {
+			if a.contextFiles[i].Path == file.Path {
+				a.contextFiles[i] = file
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			a.contextFiles = append(a.contextFiles, file)
+		}
+	}
+	a.clampContextFileSelection()
 }
 
 // applySSE folds an incoming event into local state.
@@ -3601,32 +5658,38 @@ func (a *App) applySSE(e client.SSEEvent) {
 		// doesn't emit a dedicated cost.updated event — promote those
 		// fields into the cost-updated path so the footer's $ meter
 		// catches up live without waiting for a session reload.
+		a.applyMessageCompleted(e)
 		a.applyCostUpdated(e)
 	case "session.status_changed":
 		if pl != nil {
 			v, _ := pl["status"].(string)
 			if v != "" {
-				// Update the header's view of the currently-selected
-				// session…
-				a.currentStatus = v
-				// …and mirror into a.sessions so the sidebar status
-				// dots match reality. Events can arrive for the
-				// currently-selected session OR for a sibling (a
-				// subagent running on another session), so key on
-				// session_id from the payload rather than assuming
-				// it's always the selected one.
 				targetSID, _ := pl["session_id"].(string)
 				if targetSID == "" {
 					targetSID = a.currentSessionID()
 				}
+				if a.shouldIgnoreStatusReplay(targetSID, v, e) {
+					return
+				}
+				// Mirror into a.sessions so the sidebar status dots match
+				// reality. Events can arrive for the currently-selected
+				// session OR for a sibling (a subagent running elsewhere),
+				// so key on session_id from the payload.
 				for i := range a.sessions {
 					if a.sessions[i].ID == targetSID {
 						a.sessions[i].Status = v
 						break
 					}
 				}
+				if targetSID == a.currentSessionID() {
+					a.currentStatus = v
+				}
 			}
 		}
+	case "user_question.created":
+		a.applyUserQuestionCreated(e)
+	case "user_question.answered", "user_question.cancelled":
+		a.applyUserQuestionResolved(e)
 	case "permission.requested":
 		a.applyPermissionRequested(e)
 	case "permission.resolved":
@@ -3672,6 +5735,929 @@ func (a *App) applySSE(e client.SSEEvent) {
 			}
 		}
 	}
+}
+
+func (a *App) shouldIgnoreStatusReplay(sessionID, incoming string, e client.SSEEvent) bool {
+	if incoming != gact.StatusRunning && incoming != gact.StatusWaitingPermission {
+		return false
+	}
+	idx := -1
+	for i := range a.sessions {
+		if a.sessions[i].ID == sessionID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 || !sessionStatusIsTerminal(a.sessions[idx].Status) {
+		return false
+	}
+	eventTime, ok := sseOccurredAt(e)
+	if !ok || a.sessions[idx].UpdatedAt.IsZero() {
+		return false
+	}
+	return !eventTime.After(a.sessions[idx].UpdatedAt)
+}
+
+func (a *App) shouldIgnoreSessionReplay(sessionID string, e client.SSEEvent) bool {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false
+	}
+	idx := -1
+	for i := range a.sessions {
+		if a.sessions[i].ID == sessionID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 || a.sessions[idx].UpdatedAt.IsZero() {
+		return false
+	}
+	eventTime, ok := sseOccurredAt(e)
+	if !ok {
+		return false
+	}
+	return !eventTime.After(a.sessions[idx].UpdatedAt)
+}
+
+func (a *App) replaySessionID(sessionID string) string {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID != "" {
+		return sessionID
+	}
+	return a.currentSessionID()
+}
+
+func sessionStatusIsTerminal(status string) bool {
+	switch status {
+	case gact.StatusIdle, gact.StatusError, gact.StopReasonCancelled, "completed", "failed":
+		return true
+	default:
+		return false
+	}
+}
+
+func sseOccurredAt(e client.SSEEvent) (time.Time, bool) {
+	raw := strings.TrimSpace(stringValue(e.Payload["occurred_at"]))
+	if raw == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+func (a *App) applyMessageCompleted(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	if sid := a.replaySessionID(stringValue(pl["session_id"])); a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	msgID, _ := pl["message_id"].(string)
+	if msgID == "" {
+		return
+	}
+	for i := range a.messages {
+		if a.messages[i].ID != msgID {
+			continue
+		}
+		metadata, ok := pl["metadata"].(map[string]any)
+		if !ok || len(metadata) == 0 {
+			return
+		}
+		if a.messages[i].Metadata == nil {
+			a.messages[i].Metadata = map[string]any{}
+		}
+		for k, v := range metadata {
+			a.messages[i].Metadata[k] = v
+		}
+		normalizeMessagePresentation(&a.messages[i])
+		return
+	}
+}
+
+func normalizeMessagePresentation(m *gact.Message) {
+	normalizeMessageCompactionSummaries(m)
+	normalizeMessageExpertHandoffs(m)
+	normalizeMessageErrorInfo(m)
+	normalizeMessagePartialAnswerLabels(m)
+	normalizeMessageToolEvidence(m)
+}
+
+func normalizeMessageCompactionSummaries(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartType(m, gact.PartTypeCompaction) {
+		return
+	}
+	for i := range m.Parts {
+		part := &m.Parts[i]
+		if part.Type != gact.PartTypeText {
+			continue
+		}
+		text := strings.TrimSpace(part.Text)
+		if !isCompactSummaryPart(*part, text) {
+			continue
+		}
+		part.Type = gact.PartTypeCompaction
+		part.Summary = compactSummaryText(text)
+		part.Text = ""
+		if part.Metadata == nil {
+			part.Metadata = map[string]any{}
+		}
+		part.Metadata["synthetic_from"] = "compact_summary_text"
+		return
+	}
+}
+
+func isCompactSummaryPart(part gact.Part, text string) bool {
+	if strings.HasPrefix(strings.ToLower(text), "[compact summary]") {
+		return true
+	}
+	if part.Metadata == nil {
+		return false
+	}
+	return strings.TrimSpace(fmt.Sprint(part.Metadata["synthetic"])) == "compact_summary"
+}
+
+func compactSummaryText(text string) string {
+	text = strings.TrimSpace(text)
+	if strings.HasPrefix(strings.ToLower(text), "[compact summary]") {
+		text = strings.TrimSpace(text[len("[compact summary]"):])
+	}
+	return text
+}
+
+func normalizeMessageExpertHandoffs(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant {
+		return
+	}
+	tools := normalizeToolEvidenceRows(m.Metadata["tools_called"])
+	if messageHasPartType(m, gact.PartTypeExpertHandoff) {
+		filterExistingExpertHandoffParts(m, tools)
+		return
+	}
+	rows := normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])
+	rows = filterRedundantDirectToolHandoffRows(rows, tools)
+	if len(rows) == 0 {
+		return
+	}
+	synthetic := make([]gact.Part, 0, len(rows))
+	for i, row := range rows {
+		md := map[string]any{}
+		for k, v := range row {
+			md[k] = v
+		}
+		md["synthetic_from"] = "expert_handoffs_metadata"
+		synthetic = append(synthetic, gact.Part{
+			ID:       fmt.Sprintf("synthetic_expert_handoff_%d", i+1),
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     expertHandoffSummary(row),
+			Metadata: md,
+		})
+	}
+	insertAt := len(m.Parts)
+	for i, part := range m.Parts {
+		if part.Type == gact.PartTypeThinking || part.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+len(synthetic))
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, synthetic...)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func messageHasPartType(m *gact.Message, partType string) bool {
+	for _, part := range m.Parts {
+		if part.Type == partType {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeMessageErrorInfo(m *gact.Message) {
+	if m == nil || m.ErrorInfo == nil || messageHasPartType(m, gact.PartTypeError) {
+		return
+	}
+	metadata := map[string]any{
+		"synthetic_from": "message_error_info",
+	}
+	if len(m.ErrorInfo.Details) > 0 {
+		metadata["details"] = m.ErrorInfo.Details
+	}
+	if m.ErrorInfo.RetryAfterS != nil {
+		metadata["retry_after_s"] = *m.ErrorInfo.RetryAfterS
+	}
+	part := gact.Part{
+		ID:          "synthetic_message_error_info",
+		Type:        gact.PartTypeError,
+		Code:        m.ErrorInfo.Error,
+		Message:     m.ErrorInfo.Message,
+		Recoverable: m.ErrorInfo.Recoverable,
+		Metadata:    metadata,
+	}
+	insertAt := len(m.Parts)
+	for i, existing := range m.Parts {
+		if existing.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+1)
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, part)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func normalizeMessagePartialAnswerLabels(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant {
+		return
+	}
+	if m.StopReason != gact.StopReasonError && m.ErrorInfo == nil && !messageHasPartType(m, gact.PartTypeError) {
+		return
+	}
+	seenError := false
+	hasErrorPart := messageHasPartType(m, gact.PartTypeError)
+	for i := range m.Parts {
+		part := &m.Parts[i]
+		if part.Type == gact.PartTypeError {
+			seenError = true
+			continue
+		}
+		if part.Type != gact.PartTypeText {
+			continue
+		}
+		if hasErrorPart && !seenError {
+			continue
+		}
+		if part.Metadata == nil {
+			part.Metadata = map[string]any{}
+		}
+		part.Metadata["partial_after_error"] = true
+	}
+}
+
+func filterExistingExpertHandoffParts(m *gact.Message, tools []toolEvidenceRow) {
+	if m == nil || len(tools) == 0 {
+		return
+	}
+	filtered := m.Parts[:0]
+	for _, part := range m.Parts {
+		if part.Type == gact.PartTypeExpertHandoff && isRedundantDirectToolHandoff(part.Metadata) {
+			continue
+		}
+		filtered = append(filtered, part)
+	}
+	m.Parts = filtered
+}
+
+func normalizeExpertHandoffRows(raw any) []map[string]any {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	rows := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if row, ok := item.(map[string]any); ok {
+			rows = append(rows, row)
+		}
+	}
+	return rows
+}
+
+func filterRedundantDirectToolHandoffRows(rows []map[string]any, tools []toolEvidenceRow) []map[string]any {
+	if len(rows) == 0 || len(tools) == 0 {
+		return rows
+	}
+	filtered := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		if isRedundantDirectToolHandoff(row) {
+			continue
+		}
+		filtered = append(filtered, row)
+	}
+	return filtered
+}
+
+func isRedundantDirectToolHandoff(row map[string]any) bool {
+	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["dispatch_target"]),
+	)))
+	if stage != "direct_tool" {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(row["status"]), "observed")))
+	if status != "success" && status != "ok" {
+		return false
+	}
+	return firstNonEmpty(
+		stringValue(row["output_summary"]),
+		stringValue(row["summary"]),
+		stringValue(row["error"]),
+	) == ""
+}
+
+func expertHandoffSummary(row map[string]any) string {
+	agent := firstNonEmpty(
+		stringValue(row["agent_id"]),
+		stringValue(row["expert"]),
+		"expert",
+	)
+	parent := firstNonEmpty(
+		stringValue(row["parent_id"]),
+		stringValue(row["parent"]),
+	)
+	stage := firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["dispatch_target"]),
+	)
+	status := firstNonEmpty(stringValue(row["status"]), "observed")
+	output := firstNonEmpty(
+		stringValue(row["output_summary"]),
+		stringValue(row["summary"]),
+	)
+	route := agent
+	if parent != "" {
+		route = parent + " -> " + agent
+	}
+	bits := []string{route, status}
+	if stage != "" {
+		bits = append(bits, stage)
+	}
+	if output != "" {
+		bits = append(bits, output)
+	}
+	return strings.Join(bits, " | ")
+}
+
+// normalizeMessageToolEvidence promotes CLIO's metadata-only tool telemetry
+// into first-class tool_call/tool_result parts so conversation order matches
+// execution order and the body cursor can focus/expand the tool details.
+func normalizeMessageToolEvidence(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || assistantCarriedToolCall(m) {
+		return
+	}
+	rows := normalizeToolEvidenceRows(m.Metadata["tools_called"])
+	if len(rows) == 0 {
+		return
+	}
+	var synthetic []gact.Part
+	for i, row := range rows {
+		if row.Name == "" {
+			continue
+		}
+		callID := fmt.Sprintf("tool_evidence_%d", i+1)
+		synthetic = append(synthetic, gact.Part{
+			ID:       "synthetic_" + callID + "_call",
+			Type:     gact.PartTypeToolCall,
+			CallID:   callID,
+			ToolName: row.Name,
+			Input:    toolEvidenceInput(row.Args),
+			Metadata: map[string]any{
+				"synthetic_from": "tools_called_metadata",
+			},
+		})
+		resultText := toolEvidenceResultText(row.Name, row.Result)
+		if row.RepeatCount > 0 {
+			repeatNotice := "trace repeated " + strconv.Itoa(row.RepeatCount) + " more time" + plural(row.RepeatCount) + " with the same call/result"
+			if strings.TrimSpace(resultText) == "" {
+				resultText = repeatNotice
+			} else {
+				resultText += "\n" + repeatNotice
+			}
+		}
+		resultPart := gact.Part{
+			ID:       "synthetic_" + callID + "_result",
+			Type:     gact.PartTypeToolResult,
+			CallID:   callID,
+			ToolName: row.Name,
+			IsError:  toolEvidenceRowIsError(row),
+			Content: []gact.Part{{
+				ID:   "synthetic_" + callID + "_result_text",
+				Type: gact.PartTypeText,
+				Text: resultText,
+			}},
+			Metadata: map[string]any{
+				"synthetic_from": "tools_called_metadata",
+				"raw_result":     row.Result,
+			},
+		}
+		if row.DurationMS != nil {
+			resultPart.DurationMS = *row.DurationMS
+		}
+		if row.Cached != nil {
+			resultPart.Cached = *row.Cached
+		}
+		synthetic = append(synthetic, resultPart)
+	}
+	if len(synthetic) == 0 {
+		return
+	}
+	insertAt := len(m.Parts)
+	for i, part := range m.Parts {
+		if part.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+len(synthetic))
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, synthetic...)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func toolEvidenceInput(raw any) map[string]any {
+	if raw == nil {
+		return nil
+	}
+	if input, ok := raw.(map[string]any); ok {
+		return input
+	}
+	return map[string]any{"args": raw}
+}
+
+func toolEvidenceResultText(toolName string, raw any) string {
+	if raw == nil {
+		return ""
+	}
+	if result, ok := raw.(map[string]any); ok {
+		if summary := summarizeErrorResult(result); summary != "" {
+			return summary
+		}
+		if stdout, ok := result["stdout"].(string); ok && strings.TrimSpace(stdout) != "" {
+			return strings.TrimSpace(stdout)
+		}
+		if errorText, ok := result["error"].(string); ok && strings.TrimSpace(errorText) != "" {
+			return strings.TrimSpace(errorText)
+		}
+	}
+	if summary := summarizeToolResult(toolName, raw); summary != "" {
+		return summary
+	}
+	if text := compactJSON(raw); text != "" {
+		return text
+	}
+	return fmt.Sprint(raw)
+}
+
+func summarizeToolResult(toolName string, raw any) string {
+	result, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	if text := summarizeErrorResult(result); text != "" {
+		return text
+	}
+	lowerTool := strings.ToLower(toolName)
+	if strings.HasPrefix(lowerTool, "ndp_") {
+		if text := summarizeNDPResult(result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "parquet") {
+		if text := summarizeTableLikeResult("parquet", result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "csv") {
+		if text := summarizeTableLikeResult("csv", result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "hdf5") || strings.Contains(lowerTool, "h5") {
+		if text := summarizeContainerResult("hdf5", result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "adios") || strings.Contains(lowerTool, "bp5") || strings.Contains(lowerTool, "bp4") {
+		if text := summarizeContainerResult("adios", result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "sac") || strings.Contains(lowerTool, "seismic") {
+		if text := summarizeSACResult(result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "shell") || strings.Contains(lowerTool, "bash") || strings.Contains(lowerTool, "command") {
+		if text := summarizeShellResult(result); text != "" {
+			return text
+		}
+	}
+	if strings.Contains(lowerTool, "plot") || strings.Contains(lowerTool, "chart") ||
+		strings.Contains(lowerTool, "visual") || strings.Contains(lowerTool, "dashboard") {
+		if text := summarizeVisualizationResult(result); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func summarizeErrorResult(result map[string]any) string {
+	errorPayload, ok := result["error"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	var rows []string
+	rows = append(rows, "error result:")
+	if code := firstStringValue(errorPayload, "code", "type"); code != "" {
+		rows = append(rows, "code: "+code)
+	}
+	if message := firstStringValue(errorPayload, "message", "error"); message != "" {
+		rows = append(rows, "message: "+shortenKnownPaths(message))
+	}
+	if nextAction := firstStringValue(errorPayload, "next_action", "recovery"); nextAction != "" {
+		rows = append(rows, "next action: "+shortenKnownPaths(nextAction))
+	}
+	if path := firstStringValue(errorPayload, "path", "filepath", "file"); path != "" {
+		rows = append(rows, "path: "+shortenPathForInline(path))
+	}
+	if field := firstStringValue(errorPayload, "field"); field != "" {
+		rows = append(rows, "field: "+field)
+	}
+	if tool := firstStringValue(errorPayload, "tool"); tool != "" {
+		rows = append(rows, "tool: "+tool)
+	}
+	return strings.Join(rows, "\n")
+}
+
+func summarizeTableLikeResult(label string, result map[string]any) string {
+	rows := summarizeStatusRows(result)
+	if path := firstStringValue(result, "path", "file", "file_path", "dataset_path"); path != "" {
+		rows = append(rows, "file: "+path)
+	}
+	if table := firstStringValue(result, "table", "dataset", "name"); table != "" {
+		rows = append(rows, "dataset: "+table)
+	}
+	dtype := firstStringValue(result, "dtype", "type", "data_type")
+	if column := firstStringValue(result, "column", "column_name", "field", "variable"); column != "" {
+		line := "column: " + column
+		if dtype != "" {
+			line += " · type: " + dtype
+		}
+		rows = append(rows, line)
+	}
+	stats := summarizeNumericFields(result, []string{
+		"rows", "row_count", "count", "nulls", "null_count", "unique", "mean", "std", "min", "median", "max",
+	})
+	if stats != "" {
+		rows = append(rows, stats)
+	}
+	if dtype != "" && firstStringValue(result, "column", "column_name", "field", "variable") == "" {
+		rows = append(rows, "type: "+dtype)
+	}
+	if cols := summarizeColumnNames(result); cols != "" {
+		rows = append(rows, "columns: "+cols)
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	rows = append([]string{label + " result:"}, rows...)
+	return strings.Join(rows, "\n")
+}
+
+func summarizeContainerResult(label string, result map[string]any) string {
+	rows := summarizeStatusRows(result)
+	if path := firstStringValue(result, "path", "file", "file_path"); path != "" {
+		rows = append(rows, "file: "+path)
+	}
+	if datasets := summarizeNamedItems(result, "datasets", "dataset_paths", "groups"); datasets != "" {
+		rows = append(rows, "datasets: "+datasets)
+	}
+	if variables := summarizeNamedItems(result, "variables", "variable_names"); variables != "" {
+		rows = append(rows, "variables: "+variables)
+	}
+	if attrs := summarizeNamedItems(result, "attributes", "attrs"); attrs != "" {
+		rows = append(rows, "attributes: "+attrs)
+	}
+	if shape := summarizeNamedItems(result, "shape", "dims", "dimensions"); shape != "" {
+		rows = append(rows, "shape: "+shape)
+	}
+	if dtype := firstStringValue(result, "dtype", "type", "data_type"); dtype != "" {
+		rows = append(rows, "type: "+dtype)
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	rows = append([]string{label + " result:"}, rows...)
+	return strings.Join(rows, "\n")
+}
+
+func summarizeSACResult(result map[string]any) string {
+	rows := summarizeStatusRows(result)
+	if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "value"); artifact != "" {
+		rows = append(rows, "artifact: "+shortenPathForInline(artifact))
+	}
+	if stats := summarizeNumericFields(result, []string{
+		"sac_trace_count", "traces_plotted", "traces_analyzed", "traces", "npts", "sample_rate_hz", "sampling_rate", "delta", "duration_s", "duration", "min", "max", "mean",
+	}); stats != "" {
+		rows = append(rows, stats)
+	}
+	if path := firstStringValue(result, "path", "file", "file_path", "filepath"); path != "" {
+		rows = append(rows, "file: "+shortenPathForInline(path))
+	}
+	if station := firstStringValue(result, "station", "kstnm"); station != "" {
+		rows = append(rows, "station: "+station)
+	}
+	if channel := firstStringValue(result, "channel", "kcmpnm", "component"); channel != "" {
+		rows = append(rows, "channel: "+channel)
+	}
+	if members := summarizeNamedItems(result, "members", "sample_members"); members != "" {
+		rows = append(rows, "members: "+shortenKnownPaths(members))
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	rows = append([]string{"sac result:"}, rows...)
+	return strings.Join(rows, "\n")
+}
+
+func summarizeShellResult(result map[string]any) string {
+	rows := summarizeStatusRows(result)
+	if code, ok := floatValue(result["exit_code"]); ok {
+		rows = append(rows, fmt.Sprintf("exit_code: %.0f", code))
+	}
+	for _, key := range []string{"stdout", "stderr", "error"} {
+		if text := strings.TrimSpace(stringValue(result[key])); text != "" {
+			rows = append(rows, key+": "+truncateString(strings.Join(strings.Fields(text), " "), 220))
+		}
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	return strings.Join(rows, "\n")
+}
+
+func summarizeVisualizationResult(result map[string]any) string {
+	rows := summarizeStatusRows(result)
+	if path := firstStringValue(result, "output_path", "artifact_path", "artifact", "value", "path", "file", "file_path"); path != "" {
+		rows = append(rows, "artifact: "+shortenPathForInline(path))
+	}
+	if chart := firstStringValue(result, "chart_type", "plot_type", "type"); chart != "" {
+		rows = append(rows, "chart: "+chart)
+	}
+	if x := firstStringValue(result, "x_column", "x", "x_axis"); x != "" {
+		rows = append(rows, "x: "+x)
+	}
+	if y := firstStringValue(result, "y_column", "y", "y_axis"); y != "" {
+		rows = append(rows, "y: "+y)
+	}
+	if summary := firstStringValue(result, "title", "summary", "description"); summary != "" {
+		rows = append(rows, "summary: "+truncateString(strings.Join(strings.Fields(summary), " "), 180))
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	rows = append([]string{"artifact result:"}, rows...)
+	return strings.Join(rows, "\n")
+}
+
+func summarizeStatusRows(result map[string]any) []string {
+	var rows []string
+	if status := firstStringValue(result, "status", "state"); status != "" {
+		rows = append(rows, "status: "+status)
+	} else if meta, ok := result["_meta"].(map[string]any); ok {
+		if status := firstStringValue(meta, "status", "state"); status != "" {
+			rows = append(rows, "status: "+status)
+		}
+	}
+	if errText := firstStringValue(result, "error", "message"); errText != "" {
+		rows = append(rows, "error: "+errText)
+	}
+	return rows
+}
+
+func firstStringValue(result map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(stringValue(result[key])); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func summarizeNumericFields(result map[string]any, keys []string) string {
+	var bits []string
+	for _, key := range keys {
+		if value, ok := floatValue(result[key]); ok {
+			bits = append(bits, fmt.Sprintf("%s: %s", key, formatCompactFloat(value)))
+		}
+	}
+	return strings.Join(bits, " · ")
+}
+
+func formatCompactFloat(value float64) string {
+	if value == float64(int64(value)) {
+		return fmt.Sprintf("%.0f", value)
+	}
+	return fmt.Sprintf("%.4g", value)
+}
+
+func summarizeColumnNames(result map[string]any) string {
+	for _, key := range []string{"columns", "schema", "fields"} {
+		if text := summarizeNamedItems(result, key); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func summarizeNamedItems(result map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if text := summarizeAnyItems(result[key]); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func summarizeAnyItems(raw any) string {
+	switch value := raw.(type) {
+	case nil:
+		return ""
+	case []any:
+		items := make([]string, 0, min(len(value), 5))
+		for _, item := range value {
+			items = appendSummaryItem(items, item)
+			if len(items) >= 5 {
+				break
+			}
+		}
+		if len(value) > len(items) {
+			items = append(items, fmt.Sprintf("... %d more", len(value)-len(items)))
+		}
+		return strings.Join(items, ", ")
+	case map[string]any:
+		if nested, ok := value["items"]; ok {
+			return summarizeAnyItems(nested)
+		}
+		items := make([]string, 0, min(len(value), 5))
+		keys := make([]string, 0, len(value))
+		for key := range value {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			item := value[key]
+			label := strings.TrimSpace(key)
+			if label == "" {
+				continue
+			}
+			if itemMap, ok := item.(map[string]any); ok {
+				if dtype := firstStringValue(itemMap, "dtype", "type", "data_type"); dtype != "" {
+					label += " " + dtype
+				}
+			}
+			items = append(items, label)
+			if len(items) >= 5 {
+				break
+			}
+		}
+		if len(value) > len(items) {
+			items = append(items, fmt.Sprintf("... %d more", len(value)-len(items)))
+		}
+		return strings.Join(items, ", ")
+	case string:
+		return strings.TrimSpace(value)
+	default:
+		return strings.TrimSpace(fmt.Sprint(value))
+	}
+}
+
+func appendSummaryItem(items []string, item any) []string {
+	switch typed := item.(type) {
+	case string:
+		if text := strings.TrimSpace(typed); text != "" {
+			return append(items, text)
+		}
+	case map[string]any:
+		name := firstNonEmpty(
+			firstStringValue(typed, "name", "path", "column", "dataset", "variable", "title"),
+			"(unnamed)",
+		)
+		if dtype := firstStringValue(typed, "dtype", "type", "data_type"); dtype != "" {
+			name += " " + dtype
+		}
+		return append(items, name)
+	default:
+		text := strings.TrimSpace(fmt.Sprint(item))
+		if text != "" {
+			return append(items, text)
+		}
+	}
+	return items
+}
+
+func summarizeNDPResult(result map[string]any) string {
+	var rows []string
+	if status := stringValue(result["status"]); status != "" {
+		rows = append(rows, "status: "+status)
+	} else if meta, ok := result["_meta"].(map[string]any); ok {
+		if status := stringValue(meta["status"]); status != "" {
+			rows = append(rows, "status: "+status)
+		}
+	}
+	if count, ok := floatValue(result["count"]); ok {
+		rows = append(rows, fmt.Sprintf("count: %.0f", count))
+	}
+	if ds, ok := result["datasets"].(map[string]any); ok {
+		if items, ok := ds["items"].([]any); ok {
+			rows = append(rows, summarizeNDPItems("datasets", items)...)
+		}
+	}
+	if orgs, ok := result["organizations"].(map[string]any); ok {
+		if items, ok := orgs["items"].([]any); ok {
+			rows = append(rows, summarizeNDPItems("organizations", items)...)
+		}
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	return strings.Join(rows, "\n")
+}
+
+func summarizeNDPItems(label string, items []any) []string {
+	rows := []string{fmt.Sprintf("%s:", label)}
+	limit := min(len(items), 5)
+	for i := 0; i < limit; i++ {
+		item, ok := items[i].(map[string]any)
+		if !ok {
+			continue
+		}
+		title := firstNonEmpty(
+			stringValue(item["title"]),
+			stringValue(item["name"]),
+			stringValue(item["id"]),
+		)
+		if title == "" {
+			title = "(untitled)"
+		}
+		var bits []string
+		if org := stringValue(item["owner_org"]); org != "" {
+			bits = append(bits, "org: "+org)
+		}
+		if n, ok := floatValue(item["resource_count"]); ok {
+			bits = append(bits, fmt.Sprintf("resources: %.0f", n))
+		}
+		if formats := compactStringItems(item["resource_formats"]); formats != "" {
+			bits = append(bits, "formats: "+formats)
+		}
+		if url := firstCompactStringItem(item["resource_urls"]); url != "" {
+			bits = append(bits, "url: "+url)
+		}
+		suffix := ""
+		if len(bits) > 0 {
+			suffix = " · " + strings.Join(bits, " · ")
+		}
+		rows = append(rows, "- "+title+suffix)
+	}
+	if hidden := len(items) - limit; hidden > 0 {
+		rows = append(rows, fmt.Sprintf("... %d more", hidden))
+	}
+	return rows
+}
+
+func compactStringItems(raw any) string {
+	container, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	items, ok := container["items"].([]any)
+	if !ok {
+		return ""
+	}
+	values := make([]string, 0, min(len(items), 4))
+	for _, item := range items {
+		value := strings.TrimSpace(fmt.Sprint(item))
+		if value != "" {
+			values = append(values, value)
+		}
+		if len(values) >= 4 {
+			break
+		}
+	}
+	return strings.Join(values, ", ")
+}
+
+func firstCompactStringItem(raw any) string {
+	container, ok := raw.(map[string]any)
+	if !ok {
+		return ""
+	}
+	items, ok := container["items"].([]any)
+	if !ok || len(items) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(items[0]))
 }
 
 // applyCostUpdated rolls the latest cost/tokens into the local sessions
@@ -3745,7 +6731,11 @@ func (a *App) applyMessageCreated(e client.SSEEvent) {
 	if !ok {
 		return
 	}
+	if sid := a.replaySessionID(stringValue(mp["session_id"])); a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
 	m := decodeMessage(mp)
+	normalizeMessagePresentation(&m)
 	// Replace existing message with same ID if present (server may re-emit).
 	for i, existing := range a.messages {
 		if existing.ID == m.ID {
@@ -3766,10 +6756,14 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 	if msgID == "" || partRaw == nil {
 		return
 	}
+	if sid := a.replaySessionID(stringValue(pl["session_id"])); a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
 	part := decodePart(partRaw)
 	for i := range a.messages {
 		if a.messages[i].ID == msgID {
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
+			normalizeMessagePresentation(&a.messages[i])
 			return
 		}
 	}
@@ -3786,6 +6780,9 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 	if msgID == "" || partID == "" {
 		return
 	}
+	if sid := a.replaySessionID(stringValue(pl["session_id"])); a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
 	for i := range a.messages {
 		if a.messages[i].ID != msgID {
 			continue
@@ -3796,6 +6793,18 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 			}
 			if v, ok := delta["text_append"].(string); ok {
 				a.messages[i].Parts[j].Text += v
+			}
+			if v, ok := pl["stream_source"].(string); ok && v != "" {
+				if a.messages[i].Parts[j].Metadata == nil {
+					a.messages[i].Parts[j].Metadata = map[string]any{}
+				}
+				a.messages[i].Parts[j].Metadata["stream_source"] = v
+			}
+			if v, ok := pl["stream_fallback"].(map[string]any); ok && len(v) > 0 {
+				if a.messages[i].Parts[j].Metadata == nil {
+					a.messages[i].Parts[j].Metadata = map[string]any{}
+				}
+				a.messages[i].Parts[j].Metadata["stream_fallback"] = v
 			}
 			if v, ok := delta["thinking_append"].(string); ok {
 				a.messages[i].Parts[j].Thinking += v
@@ -3821,6 +6830,9 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 	}
 	msgID, _ := pl["message_id"].(string)
 	partID, _ := pl["part_id"].(string)
+	if sid := a.replaySessionID(stringValue(pl["session_id"])); a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
 	for i := range a.messages {
 		if a.messages[i].ID != msgID {
 			continue
@@ -3894,6 +6906,7 @@ func (a *App) View() tea.View {
 		v.AltScreen = true
 		return v
 	}
+	a.beginHitFrame()
 	var content string
 	switch a.stage {
 	case StageIntro:
@@ -3909,6 +6922,9 @@ func (a *App) View() tea.View {
 	v.AltScreen = !a.DisableAltScreen
 	v.BackgroundColor = a.Theme.Bg
 	v.ForegroundColor = a.Theme.Fg
+	if a.MouseEnabled {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	// T1: reflect the active session's title in the terminal window
 	// title so tmux / alacritty / kitty / iterm tabs show what the
 	// user is looking at. Fallback is the bare "GACT" brand when no
@@ -3968,14 +6984,22 @@ func (a *App) windowTitle() string {
 
 func (a *App) viewConnecting() string {
 	t := a.Theme
+	a.registerScreenSurfaceHit("connecting:retry", func(app *App) tea.Cmd {
+		app.stage = StageConnecting
+		app.connectRetryAttempts = 0
+		return connectCmd(app.c)
+	})
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
 		Align(lipgloss.Center, lipgloss.Center).
 		Foreground(t.Fg).Background(t.Bg)
 	body := lipgloss.JoinVertical(lipgloss.Center,
-		t.HeaderTitle.Render(" GACT TUI "),
+		t.HeaderTitle.Render(" "+a.localizer.t(msgChromeConnectingTitle, nil)+" "),
 		"",
-		t.HintLabel.Render("Connecting to "+a.BackendURL+"…"),
+		t.HintLabel.Render(a.localizer.t(msgChromeConnectingStatus,
+			map[string]string{"backend": a.BackendURL})),
+		"",
+		t.HintLabel.Italic(true).Render(a.localizer.t(msgChromeConnectingRetry, nil)),
 	)
 	return box.Render(body)
 }
@@ -4034,6 +7058,10 @@ func (a *App) SetIntroFromFile(path string) error {
 
 func (a *App) viewIntro() string {
 	t := a.Theme
+	a.registerScreenSurfaceHit("intro:continue", func(app *App) tea.Cmd {
+		app.stage = StageConnecting
+		return connectCmd(app.c)
+	})
 	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
 	// terminal has room, render the embedded grc.iit.edu logo. If
 	// the animation-frames embed is populated, cycle through the
@@ -4073,45 +7101,113 @@ func (a *App) viewIntro() string {
 		logoBlock = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render(logoStr)
 	}
 	nameStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	nameText := strings.Join(name, "\n")
+	if a.width > 0 && lipgloss.Width(nameText) > a.width-4 {
+		nameText = "CLIO"
+	}
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
 		Align(lipgloss.Center, lipgloss.Center).
 		Foreground(t.Fg).Background(t.Bg)
-	body := lipgloss.JoinVertical(lipgloss.Center,
-		logoBlock,
-		"",
-		nameStyle.Render(strings.Join(name, "\n")),
-		"",
-		t.HintLabel.Italic(true).Render("press any key to continue"),
-	)
+	nameBlock := nameStyle.Render(nameText)
+	hint := t.HintLabel.Italic(true).Render("press any key to continue")
+	parts := []string{}
+	if strings.TrimSpace(ansi.Strip(logoBlock)) != "" {
+		parts = append(parts, logoBlock)
+	}
+	if len(parts) > 0 {
+		parts = append(parts, "")
+	}
+	parts = append(parts, nameBlock, "", hint)
+	body := lipgloss.JoinVertical(lipgloss.Center, parts...)
+	if a.height > 0 && lipgloss.Height(body) > a.height {
+		body = lipgloss.JoinVertical(lipgloss.Center, nameBlock, "", hint)
+	}
+	if a.height > 0 && lipgloss.Height(body) > a.height {
+		body = lipgloss.JoinVertical(lipgloss.Center, nameStyle.Render("CLIO"), hint)
+	}
 	return box.Render(body)
 }
 
 func (a *App) viewError() string {
 	t := a.Theme
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Danger).Render("Connection error")
-	hint := t.HintLabel.Render("Backend: " + a.BackendURL)
-	keys := t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
-		t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit")
+	modal := a.viewErrorModal()
+	return lipgloss.NewStyle().
+		Width(a.width).
+		Height(a.height).
+		Foreground(t.Fg).
+		Background(t.Bg).
+		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+}
+
+func (a *App) viewErrorModal() string {
+	t := a.Theme
+	w := a.modalWidth()
+	contentW := modalInsetListWidth(w)
+	hint := t.HintLabel.Render(a.localizer.t(msgChromeBackend,
+		map[string]string{"backend": a.BackendURL}))
 	retryHint := ""
 	if a.connectRetryAttempts > 0 {
 		retryHint = t.HintLabel.Render(fmt.Sprintf(
 			"auto-retry pending (attempt %d)", a.connectRetryAttempts+1))
 	}
-	body := t.Pane.BorderForeground(t.Danger).Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			title, "", a.stageError, "", hint, "", retryHint, "", keys,
-		),
-	)
-	box := lipgloss.NewStyle().
-		Width(a.width).Height(a.height).
-		Align(lipgloss.Center, lipgloss.Center).
-		Foreground(t.Fg).Background(t.Bg)
-	return box.Render(body)
+	errorText := lipgloss.NewStyle().
+		Foreground(t.Fg).
+		Background(t.BgSubtle).
+		Width(contentW).
+		Render(a.stageError)
+	rows := []string{errorText, "", hint}
+	if retryHint != "" {
+		rows = append(rows, "", retryHint)
+	}
+	buttons := []menuButton{
+		{
+			id:    "error:retry",
+			label: "retry",
+			action: func(app *App) tea.Cmd {
+				app.stage = StageConnecting
+				app.connectRetryAttempts = 0
+				return connectCmd(app.c)
+			},
+		},
+		{
+			id:    "error:quit",
+			label: "quit",
+			action: func(app *App) tea.Cmd {
+				return tea.Quit
+			},
+		},
+	}
+	modal := a.renderModalFrame(modalFrameOptions{
+		width:      w,
+		title:      a.localizer.t(msgChromeConnectionError, nil),
+		titleColor: t.Danger,
+		border:     t.Danger,
+		buttons:    buttons,
+		body:       lipgloss.JoinVertical(lipgloss.Left, rows...),
+		footer: t.HintKey.Render("Ctrl+R") + t.HintLabel.Render(" retry now  ") +
+			t.HintKey.Render("Ctrl+C") + t.HintLabel.Render(" quit"),
+	})
+	return modal
+}
+
+func blankScreen(width int, height int) string {
+	if width < 1 || height < 1 {
+		return ""
+	}
+	line := strings.Repeat(" ", width)
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (a *App) viewMain() string {
 	base := a.viewMainBase()
+	if a.hits != nil {
+		a.baseHitTargetCount = len(a.hits.targets)
+	}
 	// Overlay layers (last-rendered wins).
 	if a.paletteOpen {
 		base = overlay(base, a.viewPalette(), a.width, a.height)
@@ -4121,6 +7217,9 @@ func (a *App) viewMain() string {
 	}
 	if a.settingsOpen {
 		base = overlay(base, a.viewSettings(), a.width, a.height)
+	}
+	if a.sidebarLayoutOpen {
+		base = overlay(base, a.viewSidebarLayoutEditor(), a.width, a.height)
 	}
 	if a.metricsOpen {
 		base = overlay(base, a.viewMetrics(), a.width, a.height)
@@ -4137,8 +7236,41 @@ func (a *App) viewMain() string {
 	if a.renameOpen {
 		base = overlay(base, a.viewRename(), a.width, a.height)
 	}
+	if a.sessionActionsOpen {
+		base = overlay(base, a.viewSessionActions(), a.width, a.height)
+	}
+	if a.contextActionsOpen {
+		base = overlay(base, a.viewContextActions(), a.width, a.height)
+	}
+	if a.conversationActionsOpen {
+		base = overlay(base, a.viewConversationActions(), a.width, a.height)
+	}
+	if a.askUserOpen {
+		base = overlay(base, a.viewAskUser(), a.width, a.height)
+	}
+	if a.retryNotesOpen {
+		base = overlay(base, a.viewRetryNotes(), a.width, a.height)
+	}
+	if a.retryModelOpen {
+		base = overlay(base, a.viewRetryModel(), a.width, a.height)
+	}
 	if a.contextAddOpen {
 		base = overlay(base, a.viewContextAdd(), a.width, a.height)
+	}
+	if a.catalogBrowserOpen {
+		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
+	}
+	if a.promptEditOpen {
+		base = overlay(base, a.viewPromptEdit(), a.width, a.height)
+	}
+	if a.agentWriteOpen {
+		base = overlay(base, a.viewAgentWrite(), a.width, a.height)
+	}
+	if a.agentEditOpen {
+		base = overlay(base, a.viewAgentEdit(), a.width, a.height)
+	}
+	if a.agentBlueprintManageOpen {
+		base = overlay(base, a.viewAgentBlueprintManage(), a.width, a.height)
 	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
@@ -4148,9 +7280,6 @@ func (a *App) viewMain() string {
 	}
 	if a.filePickerOpen {
 		base = overlay(base, a.viewFilePicker(), a.width, a.height)
-	}
-	if a.catalogBrowserOpen {
-		base = overlay(base, a.viewCatalogBrowser(), a.width, a.height)
 	}
 	if a.mcpInstallOpen {
 		base = overlay(base, a.viewMcpInstall(), a.width, a.height)
@@ -4196,17 +7325,9 @@ func (a *App) conversationPaneHeight(bodyH int) int {
 }
 
 func (a *App) viewMainBase() string {
-	headerH := 1
-	footerH := 1
-	bodyH := a.height - headerH - footerH
-	if bodyH < 5 {
-		bodyH = 5
-	}
-	sidebarW := 30
-	if sidebarW > a.width/3 {
-		sidebarW = a.width / 3
-	}
-	bodyW := a.width - sidebarW
+	sidebarW, bodyH, convH := a.mainPaneGeometry()
+	rightSidebarW := a.rightSidebarWidth(sidebarW)
+	bodyW := a.width - sidebarW - rightSidebarW
 	if bodyW < 20 {
 		bodyW = 20
 	}
@@ -4221,10 +7342,12 @@ func (a *App) viewMainBase() string {
 	// the seam between sidebar `╯` and input `╭` looked broken.
 	// Compute the same convH that renderBody uses, give the sidebar
 	// exactly that, and let JoinHorizontal pad blank rows below it.
-	convH := a.conversationPaneHeight(bodyH)
-
 	sidebar := a.renderSidebar(sidebarW, convH)
 	body := a.renderBody(bodyW, bodyH)
+	rightSidebar := ""
+	if rightSidebarW > 0 {
+		rightSidebar = a.renderRightSidebar(rightSidebarW, convH, sidebarW+bodyW)
+	}
 
 	// CCCCC1: force exact row counts on both stacks. lipgloss's
 	// .Height(N) only sets a *minimum* outer height; if the inner
@@ -4233,8 +7356,15 @@ func (a *App) viewMainBase() string {
 	// horizontal layout expects.
 	sidebar = fitLines(sidebar, convH)
 	body = fitLines(body, bodyH)
+	if rightSidebarW > 0 {
+		rightSidebar = fitLines(rightSidebar, convH)
+	}
 
-	row := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, body)
+	rowParts := []string{sidebar, body}
+	if rightSidebarW > 0 {
+		rowParts = append(rowParts, rightSidebar)
+	}
+	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
 	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
@@ -4242,60 +7372,123 @@ func (a *App) viewMainBase() string {
 	return clampLines(full, a.height)
 }
 
+func (a *App) mainPaneGeometry() (sidebarW int, bodyH int, convH int) {
+	const headerH = 1
+	const footerH = 1
+	bodyH = a.height - headerH - footerH
+	if bodyH < 5 {
+		bodyH = 5
+	}
+	sidebarW = 30
+	if sidebarW > a.width/3 {
+		sidebarW = a.width / 3
+	}
+	convH = a.conversationPaneHeight(bodyH)
+	return sidebarW, bodyH, convH
+}
+
+func (a *App) rightSidebarWidth(leftSidebarW int) int {
+	if len(a.rightSidebarModules()) == 0 {
+		return 0
+	}
+	width := 30
+	if maxW := a.width / 4; maxW > 0 && width > maxW {
+		width = maxW
+	}
+	if width < 24 {
+		width = 24
+	}
+	if a.width-leftSidebarW-width < 60 {
+		return 0
+	}
+	return width
+}
+
 func (a *App) renderHeader() string {
 	t := a.Theme
-	// Required parts (badge + URL + SSE health dot) always render.
+	// Required parts (badge + connection label + SSE health dot) always render.
 	// Optional parts (workspace + session + status) are dropped when
 	// there's no room.
+	actions := a.headerActions()
+	actionBar := a.renderHeaderActionBar(actions)
+	actionW := lipgloss.Width(actionBar)
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
-	url := t.Header.Render(a.BackendURL)
-	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, url)
-	avail := a.width - lipgloss.Width(required)
+	backendLabel := a.headerBackendLabel()
+	backend := t.Header.Render(backendLabel)
+	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
+	avail := a.width - lipgloss.Width(required) - actionW
 
-	optional := []string{}
-	if len(a.workspaces) > 0 {
-		optional = append(optional, "ws: "+a.workspaces[0].Name)
+	optional := []headerChip{}
+	if workspaceName := a.headerWorkspaceLabel(); workspaceName != "" {
+		optional = append(optional, headerChip{
+			id: "workspace",
+			label: a.localizer.t(msgChromeWorkspace,
+				map[string]string{"value": workspaceName}),
+			action: func(app *App) tea.Cmd {
+				app.openWorkspaceSwitch()
+				return nil
+			},
+		})
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
-		optional = append(optional, "session: "+s.Title)
-		// Model/agent surface what's actually running. Drop down to
-		// just the model_id so the header stays compact (the provider
-		// is rarely ambiguous in practice).
-		if s.Model.ModelID != "" {
-			optional = append(optional, "model: "+s.Model.ModelID)
+		optional = append(optional, headerChip{
+			id: "session",
+			label: a.localizer.t(msgChromeSession,
+				map[string]string{"value": s.Title}),
+			action: func(app *App) tea.Cmd {
+				app.focus = FocusSidebar
+				app.sidebarSectionFocus = sidebarSectionSessions
+				app.sidebarSectionCursor = false
+				app.ensureSelectedVisible()
+				return nil
+			},
+		})
+		if model := a.headerModelLabel(s); model != "" {
+			optional = append(optional, headerChip{
+				id: "model",
+				label: a.localizer.t(msgChromeModel,
+					map[string]string{"value": model}),
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(0)
+				},
+			})
 		}
-		if s.Agent.ID != "" {
-			optional = append(optional, "agent: "+s.Agent.ID)
+		if agent := a.headerAgentLabel(s.Agent); agent != "" {
+			optional = append(optional, headerChip{
+				id:    "agent",
+				label: agent,
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(1)
+				},
+			})
 		}
-	}
-	// CLIO-style backends ship a global LM config (PUT /v1/providers/lm)
-	// rather than a per-session ModelRef, so the per-session chip above
-	// stays empty. Surface the global config in the header too — strip
-	// any provider/ prefix for compactness.
-	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
-		bare := a.lmProviderInfo.Model
-		if i := strings.Index(bare, "/"); i >= 0 {
-			bare = bare[i+1:]
-		}
-		// Avoid duplicating when the per-session ModelRef already
-		// surfaced the same model id.
-		alreadyShown := false
-		for _, o := range optional {
-			if strings.HasPrefix(o, "model: ") && strings.HasSuffix(o, bare) {
-				alreadyShown = true
-				break
-			}
-		}
-		if !alreadyShown {
-			optional = append(optional, "model: "+bare)
+		if routing := a.headerRoutingLabel(s); routing != "" {
+			optional = append(optional, headerChip{
+				id:    "routing",
+				label: routing,
+				action: func(app *App) tea.Cmd {
+					return app.openSettingsTab(0)
+				},
+			})
 		}
 	}
 	statusBadge := ""
+	var statusAction uiHitAction
 	if a.currentStatus != "" {
 		statusBadge = t.StatusBadge.Render(a.currentStatus)
 		avail -= lipgloss.Width(statusBadge)
+		statusAction = func(app *App) tea.Cmd {
+			if app.caps.Capabilities.IntegrationHealth {
+				app.doctorOpen = true
+				app.doctor = &doctorState{loading: true}
+				return doctorFetchCmd(app.c)
+			}
+			app.metricsOpen = true
+			app.metrics = &metricsState{loading: true}
+			return loadMetricsCmd(app.c)
+		}
 	}
 	// DDDDDDDD1: detached-count chip — always-visible reminder that
 	// the user has Ctrl+Z-walked-away sessions on this backend that
@@ -4314,14 +7507,25 @@ func (a *App) renderHeader() string {
 		avail -= lipgloss.Width(detachChip)
 	}
 
-	rendered := []string{required}
+	rendered := []string{badge, dot, backend}
+	hits := []headerChip{{
+		id:       "backend",
+		rendered: backend,
+		action: func(app *App) tea.Cmd {
+			app.metricsOpen = true
+			app.metrics = &metricsState{loading: true}
+			return loadMetricsCmd(app.c)
+		},
+	}}
 	for _, opt := range optional {
-		styled := t.Header.Render(truncate(opt, avail-2))
+		styled := t.Header.Render(truncate(opt.label, avail-2))
 		w := lipgloss.Width(styled)
 		if w > avail {
 			break
 		}
+		opt.rendered = styled
 		rendered = append(rendered, styled)
+		hits = append(hits, opt)
 		avail -= w
 	}
 	if detachChip != "" {
@@ -4329,15 +7533,240 @@ func (a *App) renderHeader() string {
 	}
 	if statusBadge != "" {
 		rendered = append(rendered, statusBadge)
+		hits = append(hits, headerChip{id: "status", rendered: statusBadge, action: statusAction})
 	}
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-	pad := a.width - lipgloss.Width(line)
+	pad := a.width - lipgloss.Width(line) - actionW
 	if pad < 0 {
 		pad = 0
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
-	return line + bg
+	header := line + bg + actionBar
+	a.registerHeaderChipHits(rendered, hits)
+	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions)
+	return header
+}
+
+type headerChip struct {
+	id       string
+	label    string
+	rendered string
+	action   uiHitAction
+}
+
+type headerAction struct {
+	id     string
+	label  string
+	action uiHitAction
+}
+
+func (a *App) headerActions() []headerAction {
+	return []headerAction{
+		{
+			id:    "help",
+			label: "help",
+			action: func(app *App) tea.Cmd {
+				app.helpOpen = true
+				app.helpTab = 0
+				app.helpScroll = 0
+				return nil
+			},
+		},
+		{
+			id:    "settings",
+			label: "settings",
+			action: func(app *App) tea.Cmd {
+				return app.openSettingsTab(0)
+			},
+		},
+		{
+			id:    "quit",
+			label: "×",
+			action: func(app *App) tea.Cmd {
+				app.openQuitConfirm()
+				return nil
+			},
+		},
+	}
+}
+
+func (a *App) renderHeaderActionBar(actions []headerAction) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	cells := make([]string, 0, len(actions))
+	for _, action := range actions {
+		cells = append(cells, a.renderHeaderActionCell(action.label))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, " "))
+}
+
+func (a *App) renderHeaderActionCell(label string) string {
+	pad := 1
+	if label == "×" {
+		pad = 2
+	}
+	return lipgloss.NewStyle().
+		Foreground(a.Theme.Bg).
+		Background(a.Theme.Primary).
+		Bold(true).
+		Padding(0, pad).
+		Render(label)
+}
+
+func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
+	if a.height <= 0 || len(actions) == 0 {
+		return
+	}
+	col := startCol
+	for i, action := range actions {
+		cell := ansi.Strip(a.renderHeaderActionCell(action.label))
+		w := lipgloss.Width(cell)
+		a.registerScreenTextSpanHit("header:"+action.id, col, 0, cell, 0, cell, action.action)
+		col += w
+		if i < len(actions)-1 {
+			col++
+		}
+	}
+}
+
+func (a *App) registerHeaderChipHits(rendered []string, hits []headerChip) {
+	if a.height <= 0 || len(rendered) == 0 || len(hits) == 0 {
+		return
+	}
+	col := 0
+	hitIdx := 0
+	for _, segment := range rendered {
+		w := lipgloss.Width(segment)
+		if hitIdx < len(hits) && segment == hits[hitIdx].rendered && hits[hitIdx].action != nil {
+			plain := ansi.Strip(segment)
+			a.registerScreenTextSpanHit("header:chip:"+hits[hitIdx].id, col, 0, plain, 0, plain, hits[hitIdx].action)
+			hitIdx++
+		}
+		col += w
+	}
+}
+
+func (a *App) openWorkspaceSwitch() {
+	if len(a.workspaces) == 0 {
+		a.transientHint = "no workspaces available"
+		return
+	}
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 0
+	for i, w := range a.workspaces {
+		if w.ID == a.wsID {
+			a.workspaceSwitchSel = i
+			break
+		}
+	}
+}
+
+func (a *App) openSettingsTab(tab int) tea.Cmd {
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: tab}
+	a.seedSettingsSelections()
+	return loadSettingsCmd(a.c, a.runtimeScope())
+}
+
+func (a *App) focusNextPane() {
+	a.focusPane(1)
+}
+
+func (a *App) focusPane(delta int) {
+	order := []FocusZone{FocusSidebar, FocusBody}
+	if len(a.rightSidebarModules()) > 0 {
+		order = append(order, FocusRightSidebar)
+	}
+	order = append(order, FocusInput)
+	pos := 0
+	for i, zone := range order {
+		if zone == a.focus {
+			pos = i
+			break
+		}
+	}
+	pos = (pos + delta) % len(order)
+	if pos < 0 {
+		pos += len(order)
+	}
+	a.focus = order[pos]
+	a.maybeInitBodyCursor()
+}
+
+func (a *App) headerBackendLabel() string {
+	if label := strings.TrimSpace(a.BackendLabel); label != "" {
+		return label
+	}
+	return a.BackendURL
+}
+
+func (a *App) headerWorkspaceLabel() string {
+	if len(a.workspaces) == 0 {
+		return ""
+	}
+	for _, w := range a.workspaces {
+		if w.ID == a.wsID {
+			if name := strings.TrimSpace(w.Name); name != "" {
+				return name
+			}
+			return w.ID
+		}
+	}
+	if name := strings.TrimSpace(a.workspaces[0].Name); name != "" {
+		return name
+	}
+	return a.workspaces[0].ID
+}
+
+func (a *App) headerModelLabel(s gact.Session) string {
+	// Historical sessions may not have a persisted model ref. In that case,
+	// avoid attributing the current backend model to old trace data.
+	if s.MessageCount > 0 && s.Model.ModelID == "" {
+		return ""
+	}
+	if a.lmProviderInfo != nil && a.lmProviderInfo.Configured && a.lmProviderInfo.Model != "" {
+		return compactModelLabel(a.lmProviderInfo.Provider, a.lmProviderInfo.Model)
+	}
+	if s.Model.ModelID == "" {
+		return ""
+	}
+	return compactModelLabel(s.Model.ProviderID, s.Model.ModelID)
+}
+
+func compactModelLabel(provider, model string) string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ""
+	}
+	provider = strings.TrimSpace(provider)
+	if provider == "" || strings.HasPrefix(model, provider+"/") {
+		return model
+	}
+	return provider + "/" + model
+}
+
+func (a *App) headerAgentLabel(agent gact.AgentRef) string {
+	id := strings.TrimSpace(agent.ID)
+	if id == "" || id == "default" || id == "main" {
+		return ""
+	}
+	if mode := strings.TrimSpace(agent.Mode); mode != "" {
+		id += " (" + mode + ")"
+	}
+	return a.localizer.t(msgChromeAgent, map[string]string{"id": id})
+}
+
+func (a *App) headerRoutingLabel(s gact.Session) string {
+	mode := strings.TrimSpace(s.RoutingMode)
+	if mode == "" {
+		mode = strings.TrimSpace(s.Mode)
+	}
+	if mode == "" {
+		return ""
+	}
+	return a.localizer.t(msgChromeRouting, map[string]string{"value": mode})
 }
 
 func (a *App) renderFooter() string {
@@ -4353,18 +7782,12 @@ func (a *App) renderFooter() string {
 	mk := func(key, label string) string {
 		return t.HintKey.Render(key) + t.HintLabel.Render(" "+label)
 	}
-	clusters := [][]string{
-		{mk("Ctrl+N", "new")},
-		{mk("Tab", "pane"), mk("Ctrl+S", "settings"), mk("/", "cmd"), mk("?", "help")},
-		{mk("ctrl+c", "quit")},
+	focus := a.focusLabel(a.focus)
+	if a.lmConfigOpen {
+		focus = a.localizer.t(msgChromeFocusProviderSetup, nil)
 	}
-	parts := make([]string, 0, len(clusters))
-	for _, c := range clusters {
-		parts = append(parts, strings.Join(c, dot))
-	}
-	hintLine := strings.Join(parts, pipe)
-
-	left := t.HintLabel.Render("focus: " + focusLabel(a.focus))
+	left := t.HintLabel.Render(a.localizer.t(msgChromeFocus,
+		map[string]string{"value": focus}))
 	// Surface SSE reconnect state: while the backoff counter is > 0
 	// the stream is down and we're waiting to retry. J2's reset-on-
 	// event drops this back to nothing as soon as the stream is
@@ -4402,13 +7825,9 @@ func (a *App) renderFooter() string {
 			case hr >= 0.50:
 				hrColor = t.Warning
 			}
-			// Label is "mem" (memory cache hit rate) — was bare "cache"
-			// which users reasonably read as context-window cache.
-			// Memory here = the agent's ARC memory layer; the rate is
-			// hits / (hits+misses).
 			chip := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(t.FgMuted).Padding(0, 1).
-				Render("mem")
+				Render(a.localizer.t(msgFooterMemoryHit, nil))
 			rate := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(hrColor).Bold(true).Padding(0, 1).
 				Render(fmt.Sprintf("%.0f%%", hr*100))
@@ -4449,30 +7868,401 @@ func (a *App) renderFooter() string {
 			right += chip + tokens
 		}
 	}
+	available := a.width - lipgloss.Width(left) - lipgloss.Width(right) - 8
+	if available < 1 {
+		available = 1
+	}
+	hintBudget := available - 16
+	if hintBudget < 1 {
+		hintBudget = 1
+	}
+	clusters := a.footerHintClusters(mk, hintBudget)
+	parts := make([]string, 0, len(clusters))
+	for _, c := range clusters {
+		if len(c) == 0 {
+			continue
+		}
+		parts = append(parts, strings.Join(c, dot))
+	}
+	hintLine := strings.Join(parts, pipe)
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
 	if gap < 1 {
 		gap = 1
 	}
-	return lipgloss.NewStyle().
+	rendered := lipgloss.NewStyle().
 		Width(a.width).Background(t.BgSubtle).Foreground(t.FgMuted).
 		Padding(0, 1).Render(
 		left + "  " + hintLine + strings.Repeat(" ", gap) + right,
 	)
+	a.registerFooterActionHits(rendered)
+	return rendered
 }
 
-func focusLabel(f FocusZone) string {
+func (a *App) registerFooterActionHits(rendered string) {
+	if a.height <= 0 {
+		return
+	}
+	plain := ansi.Strip(rendered)
+	y := a.height - 1
+	focus := a.focusLabel(a.focus)
+	if a.lmConfigOpen {
+		focus = a.localizer.t(msgChromeFocusProviderSetup, nil)
+	}
+	focusText := a.localizer.t(msgChromeFocus, map[string]string{"value": focus})
+	a.registerFooterPlainHit(plain, y, "footer:focus", focusText, func(app *App) tea.Cmd {
+		app.focusNextPane()
+		return nil
+	})
+	a.registerFooterPlainHit(plain, y, "footer:reconnect", "(reconnecting…)", func(app *App) tea.Cmd {
+		return connectCmd(app.c)
+	})
+	a.registerFooterPlainHit(plain, y, "footer:memory", a.localizer.t(msgFooterMemoryHit, nil), func(app *App) tea.Cmd {
+		if !app.caps.Capabilities.Memory {
+			return nil
+		}
+		return loadMemoryInspectorCmd(app.c, app.runtimeScope(), app.messages)
+	})
+	a.registerFooterActionHit(plain, y, "footer:pane", "Tab", a.localizer.t(msgFooterPane, nil), func(app *App) tea.Cmd {
+		app.focusNextPane()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:settings", "Ctrl+S", a.localizer.t(msgFooterSettings, nil), func(app *App) tea.Cmd {
+		return app.openSettingsTab(0)
+	})
+	a.registerFooterActionHit(plain, y, "footer:command", "/", a.localizer.t(msgFooterCommand, nil), func(app *App) tea.Cmd {
+		app.openCommandPalette()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:help", "?", a.localizer.t(msgFooterHelp, nil), func(app *App) tea.Cmd {
+		app.helpOpen = true
+		app.helpTab = 0
+		app.helpScroll = 0
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:details", "Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("enter"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:bottom", "G", a.localizer.t(msgFooterConversationBottom, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("G"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:copy", "y", a.localizer.t(msgFooterConversationCopy, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("y"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:copy-full", "Y", a.localizer.t(msgFooterConversationCopyFull, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("Y"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:retry", "R", a.localizer.t(msgFooterConversationRetry, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("R"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:conversation:delete", "d", a.localizer.t(msgFooterConversationDelete, nil), func(app *App) tea.Cmd {
+		app.focus = FocusBody
+		_, cmd := app.handleBodyKey(keyMsg("d"))
+		return cmd
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:open", "Enter", a.localizer.t(msgFooterSidebarOpen, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("enter"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:rename", "e", a.localizer.t(msgFooterSidebarRename, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("e"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:delete", "x", a.localizer.t(msgFooterSidebarDelete, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("x"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:children", "c", a.localizer.t(msgFooterSidebarChildren, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("c"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:context", "o", a.localizer.t(msgFooterSidebarContext, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("o"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:archive", "A", a.localizer.t(msgFooterSidebarArchive, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("A"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:copy-id", "y", a.localizer.t(msgFooterSidebarCopyID, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("y"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter", "f", a.localizer.t(msgFooterSidebarFilter, nil), func(app *App) tea.Cmd {
+		return app.routeSidebarFooterKey(keyMsg("f"))
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter:apply", "Enter", a.localizer.t(msgFooterSidebarApply, nil), func(app *App) tea.Cmd {
+		app.commitSidebarFilter()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:sidebar:filter:cancel", "Esc", a.localizer.t(msgFooterSidebarCancel, nil), func(app *App) tea.Cmd {
+		app.cancelSidebarFilter()
+		return nil
+	})
+	a.registerFooterActionHit(plain, y, "footer:quit", "Ctrl+C", a.localizer.t(msgFooterQuit, nil), func(app *App) tea.Cmd {
+		app.openQuitConfirm()
+		return nil
+	})
+}
+
+func (a *App) registerFooterActionHit(plain string, y int, id string, key string, label string, action uiHitAction) {
+	target := key + " " + label
+	col := strings.Index(plain, target)
+	if col < 0 {
+		return
+	}
+	a.registerScreenTextSpanHit(id, 0, y, plain, col, target, action)
+}
+
+func (a *App) routeSidebarFooterKey(k tea.KeyPressMsg) tea.Cmd {
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	if !a.sidebarSessionsCollapsed {
+		a.sidebarSectionCursor = false
+	}
+	_, cmd := a.handleSidebarKey(k)
+	return cmd
+}
+
+func (a *App) registerFooterPlainHit(plain string, y int, id string, target string, action uiHitAction) {
+	if target == "" {
+		return
+	}
+	col := strings.Index(plain, target)
+	if col < 0 {
+		return
+	}
+	a.registerScreenTextSpanHit(id, 0, y, plain, col, target, action)
+}
+
+func (a *App) footerContextHintVariants(mk func(string, string) string) [][]string {
+	switch a.focus {
+	case FocusSidebar:
+		if a.sessionFilterActive {
+			return [][]string{
+				{
+					mk("type", a.localizer.t(msgFooterSidebarFilterType, nil)),
+					mk("Enter", a.localizer.t(msgFooterSidebarApply, nil)),
+					mk("Esc", a.localizer.t(msgFooterSidebarCancel, nil)),
+				},
+				{
+					mk("Enter", a.localizer.t(msgFooterSidebarApply, nil)),
+					mk("Esc", a.localizer.t(msgFooterSidebarCancel, nil)),
+				},
+			}
+		}
+		if a.sidebarSessionsCollapsed || a.sidebarSectionCursor {
+			return [][]string{
+				{
+					mk("↑/↓", a.localizer.t(msgFooterSidebarSections, nil)),
+					mk("Enter", a.localizer.t(msgFooterSidebarToggle, nil)),
+					mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
+				},
+				{
+					mk("↑/↓", a.localizer.t(msgFooterSidebarSections, nil)),
+					mk("Enter", a.localizer.t(msgFooterSidebarToggle, nil)),
+				},
+			}
+		}
+		return [][]string{
+			{
+				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
+				mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
+				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
+				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
+				mk("o", a.localizer.t(msgFooterSidebarContext, nil)),
+				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
+			},
+			{
+				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
+				mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
+				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
+				mk("c", a.localizer.t(msgFooterSidebarChildren, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
+				mk("S/C", a.localizer.t(msgFooterSidebarSections, nil)),
+			},
+			{
+				mk("e", a.localizer.t(msgFooterSidebarRename, nil)),
+				mk("x", a.localizer.t(msgFooterSidebarDelete, nil)),
+				mk("A", a.localizer.t(msgFooterSidebarArchive, nil)),
+				mk("y", a.localizer.t(msgFooterSidebarCopyID, nil)),
+			},
+			{
+				mk("↑/↓", a.localizer.t(msgFooterSidebarSelect, nil)),
+				mk("Enter", a.localizer.t(msgFooterSidebarOpen, nil)),
+				mk("f", a.localizer.t(msgFooterSidebarFilter, nil)),
+			},
+		}
+	case FocusBody:
+		return [][]string{
+			{
+				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+				mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
+			},
+			{
+				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+			},
+			{
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
+				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+			},
+			{
+				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+			},
+		}
+	case FocusInput:
+		return [][]string{
+			{
+				mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+				mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+				mk("Ctrl+G", a.localizer.t(msgFooterInputCompose, nil)),
+			},
+			{
+				mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+				mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+			},
+		}
+	default:
+		return [][]string{{}}
+	}
+}
+
+func (a *App) footerGlobalHintVariants(mk func(string, string) string) [][]string {
+	return [][]string{{
+		mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+		mk("Tab", a.localizer.t(msgFooterPane, nil)),
+		mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
+		mk("/", a.localizer.t(msgFooterCommand, nil)),
+		mk("?", a.localizer.t(msgFooterHelp, nil)),
+	}, {
+		mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+		mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
+		mk("/", a.localizer.t(msgFooterCommand, nil)),
+		mk("?", a.localizer.t(msgFooterHelp, nil)),
+	}, {
+		mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+		mk("Ctrl+S", a.localizer.t(msgFooterSettings, nil)),
+		mk("?", a.localizer.t(msgFooterHelp, nil)),
+	}, {
+		mk("?", a.localizer.t(msgFooterHelp, nil)),
+	}}
+}
+
+func (a *App) footerHintClusters(mk func(string, string) string, available int) [][]string {
+	contexts := a.footerContextHintVariants(mk)
+	globals := a.footerGlobalHintVariants(mk)
+	exit := []string{mk("Ctrl+C", a.localizer.t(msgFooterQuit, nil))}
+	if a.focus != FocusInput {
+		for _, context := range contexts {
+			for _, global := range globals {
+				clusters := [][]string{context, global, exit}
+				if footerClustersWidth(clusters) <= available {
+					return clusters
+				}
+			}
+		}
+		for _, global := range globals {
+			clusters := [][]string{global, exit}
+			if footerClustersWidth(clusters) <= available {
+				return clusters
+			}
+		}
+		return [][]string{
+			{
+				mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+				mk("?", a.localizer.t(msgFooterHelp, nil)),
+			},
+			exit,
+		}
+	}
+	for _, global := range globals {
+		for _, context := range contexts {
+			clusters := [][]string{context, global, exit}
+			if footerClustersWidth(clusters) <= available {
+				return clusters
+			}
+		}
+		clusters := [][]string{global, exit}
+		if footerClustersWidth(clusters) <= available {
+			return clusters
+		}
+	}
+	return [][]string{
+		{
+			mk("Ctrl+N", a.localizer.t(msgFooterNew, nil)),
+			mk("?", a.localizer.t(msgFooterHelp, nil)),
+		},
+		exit,
+	}
+}
+
+func footerClustersWidth(clusters [][]string) int {
+	parts := make([]string, 0, len(clusters))
+	for _, cluster := range clusters {
+		if len(cluster) == 0 {
+			continue
+		}
+		parts = append(parts, strings.Join(cluster, " · "))
+	}
+	return lipgloss.Width(strings.Join(parts, "  │  "))
+}
+
+func (a *App) focusLabel(f FocusZone) string {
 	switch f {
 	case FocusSidebar:
-		return "sidebar"
+		return a.localizer.t(msgChromeFocusSidebar, nil)
 	case FocusBody:
-		return "conversation"
+		return a.localizer.t(msgChromeFocusConversation, nil)
+	case FocusRightSidebar:
+		return a.localizer.t(msgChromeFocusRightSidebar, nil)
 	case FocusInput:
-		return "input"
+		return a.localizer.t(msgChromeFocusInput, nil)
 	}
 	return "?"
 }
 
 func (a *App) renderSidebar(width, height int) string {
+	prevOffset := a.sidebarHitOffsetX
+	prevFocus := a.sidebarHitFocus
+	a.sidebarHitOffsetX = 0
+	a.sidebarHitFocus = FocusSidebar
+	defer func() {
+		a.sidebarHitOffsetX = prevOffset
+		a.sidebarHitFocus = prevFocus
+	}()
 	t := a.Theme
 	// CCCCC1: lipgloss .Height(N) is OUTER height (border included).
 	// Previously we passed Height(height-2) treating it as inner content
@@ -4482,199 +8272,260 @@ func (a *App) renderSidebar(width, height int) string {
 	if a.focus == FocusSidebar {
 		style = t.PaneFoc.Width(width - 2).Height(height)
 	}
-	// JJJJJJJJ1 + XXXXXXXX1: surface the active sidebar filter in
-	// the title so the narrower view is visible even after the
-	// transient hint fades. Two mutually-non-exclusive filters —
-	// if both d and b were on, stacked suffix.
-	titleText := "SESSIONS"
-	switch {
-	case a.showDetachedOnly && a.showBusyOnly:
-		titleText = "SESSIONS · detached + busy"
-	case a.showDetachedOnly:
-		titleText = "SESSIONS · detached"
-	case a.showBusyOnly:
-		titleText = "SESSIONS · busy"
-	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(titleText)
-	rows := []string{title, ""}
-	if len(a.sessions) == 0 {
-		rows = append(rows,
-			t.HintLabel.Render("no sessions"),
-			"",
-			t.HintKey.Render("n")+t.HintLabel.Render(" to create"))
+	a.registerSidebarFocusSurface(width, height)
+	rows := []string{}
+	if a.sidebarHasEnabledModule(sidebarModuleSessions) {
+		// Build the filter-filtered view once so the scroll math and the
+		// render loop work off the same subset.
+		visIdx := a.visibleSessionIndexes()
+
+		// JJJJJJJJ1 + XXXXXXXX1: surface the active sidebar filter in
+		// the title so the narrower view is visible even after the
+		// transient hint fades. Two mutually-non-exclusive filters —
+		// if both d and b were on, stacked suffix.
+		titleText := a.sidebarModuleTitle(sidebarModuleSessions)
+		switch {
+		case a.showDetachedOnly && a.showBusyOnly:
+			titleText = a.localizer.t(msgSidebarTitleDetachedBusy, nil)
+		case a.showDetachedOnly:
+			titleText = a.localizer.t(msgSidebarTitleDetached, nil)
+		case a.showBusyOnly:
+			titleText = a.localizer.t(msgSidebarTitleBusy, nil)
+		}
+		if a.showChildSessions && !a.sidebarSessionsCollapsed {
+			titleText += " · " + a.localizer.t(msgSidebarTitleChildren, nil)
+		}
+		disclosure := "▾ "
+		if a.sidebarSessionsCollapsed {
+			disclosure = "▸ "
+			titleText += fmt.Sprintf(" (%d)", len(visIdx))
+		}
+		titlePrefix := ""
+		if a.focus == a.sidebarHitFocus && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionSessions {
+			titlePrefix = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+		}
+		title := titlePrefix + lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(disclosure+titleText)
+		rows = append(rows, title, "")
+		a.registerSidebarSectionHeaderHit(0, width, sidebarSectionSessions)
+		if len(a.sessions) == 0 {
+			rows = append(rows,
+				t.HintLabel.Render(a.localizer.t(msgSidebarNoSessions, nil)),
+				"",
+				t.HintKey.Render("n")+t.HintLabel.Render(" "+a.localizer.t(msgSidebarCreate, nil)))
+		}
+
+		// Filter indicator row — shown above the session list whenever a
+		// filter is active. "editing" while sessionFilterActive, static
+		// after commit. Blank when no filter so existing layout is
+		// unchanged.
+		if a.sessionFilterActive || a.sessionFilter != "" {
+			filterText := a.sessionFilter
+			if a.sessionFilterActive {
+				filterText += "_"
+			}
+			label := a.localizer.t(msgSidebarFilter, nil) + " "
+			if a.sessionFilter == "" && a.sessionFilterActive {
+				label = a.localizer.t(msgSidebarFilterPrompt, nil)
+				filterText = ""
+			}
+			rows = append(rows,
+				lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+					Render(label+filterText),
+				"")
+			a.registerSidebarFilterHit(len(rows)-2, width)
+		}
+
+		// The shared range helper accounts for variable-height parent, child, and
+		// collapsed-child rows so visible session rows and semantic hit rows stay in
+		// one geometry model.
+		startIdx, endIdx := a.sidebarVisibleSessionRange(height, visIdx)
+		if !a.sidebarSessionsCollapsed && startIdx > 0 {
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+				Render(" "+a.localizer.tf(msgSidebarMoreAbove, map[string]any{"count": startIdx})))
+		}
+		if !a.sidebarSessionsCollapsed && a.sessionFilter != "" && len(visIdx) == 0 {
+			rows = append(rows, t.HintLabel.Render(" "+a.localizer.t(msgSidebarNoMatches, nil)))
+		}
+		for i := startIdx; i < endIdx; i++ {
+			sIdx := visIdx[i]
+			s := a.sessions[sIdx]
+			row := len(rows)
+			a.registerSidebarSessionHit(row, width, sIdx, a.sidebarSessionRowCount(sIdx))
+			marker := " "
+			titleIndent := ""
+			statusIndent := "  "
+			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+			statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
+			if isChildSession(s) {
+				titleIndent = " └─ "
+				if i+1 < endIdx {
+					next := a.sessions[visIdx[i+1]]
+					if isChildSession(next) && next.ParentSessionID == s.ParentSessionID {
+						titleIndent = " ├─ "
+					}
+				}
+				statusIndent = "    "
+				titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
+			}
+			if sIdx == a.selected && !a.sidebarSectionCursor && a.sidebarSectionFocus == sidebarSectionSessions {
+				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+				titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+			}
+			title := s.Title
+			if title == "" {
+				title = a.localizer.t(msgSidebarUntitled, nil)
+			}
+			if isChildSession(s) {
+				title = childSessionDisplayTitle(s, title)
+			}
+			// Sidebar row layout: marker · indent · dot+space · title (truncated)
+			// The status dot replaces the old second-line italic status text,
+			// collapsing two lines into one and giving the status a splash of
+			// colour/motion (spinner for running, ⚠ for waiting_permission,
+			// muted · for idle). The raw status word is preserved on the second
+			// line as a muted caption so accessibility doesn't lose information.
+			dot := a.sessionStatusDot(s.Status)
+			// UUU1: append `(N tasks)` badge when the session has open
+			// pending/running §6.18 tasks. Loaded lazily on selectSession.
+			taskBadge := ""
+			if n := a.taskCountBySession[s.ID]; n > 0 {
+				taskBadge = "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
+					Render(fmt.Sprintf("(%d tasks)", n))
+			}
+			// BBBBBBBB1: ↩ marker for sessions the user has previously
+			// detached from (loaded from the local detached.json registry
+			// at startup). Tells the user "this is one I walked away
+			// from" without leaving the TUI to run `gact detached`.
+			detachBadge := ""
+			if a.previouslyDetached[s.ID] {
+				detachBadge = " " + lipgloss.NewStyle().Foreground(t.Secondary).
+					Render("↩")
+			}
+			childMeta := ""
+			if isChildSession(s) {
+				childMeta = childSidebarMeta(s)
+			}
+			// Reserve room for the actual prefix/badges so title truncation cannot
+			// wrap into a second visual row inside the narrow bordered pane.
+			prefix := marker + titleIndent + dot
+			titleBudget := (width - 6) - lipgloss.Width(prefix) -
+				lipgloss.Width(taskBadge) - lipgloss.Width(detachBadge)
+			if childMeta != "" {
+				titleBudget -= lipgloss.Width(" · " + childMeta)
+			}
+			minTitleBudget := 6
+			if isChildSession(s) {
+				minTitleBudget = 4
+			}
+			if titleBudget < minTitleBudget {
+				titleBudget = minTitleBudget
+			}
+			if titleBudget < 1 {
+				titleBudget = 6
+			}
+			titleLine := prefix + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
+			// HHHHHHHH1: append humanized "Nm ago" to the status line so
+			// users can tell which sessions are stale at a glance. Sits
+			// next to the status word in the same muted italic — same
+			// row, no extra vertical space. Zero UpdatedAt (fresh sessions
+			// the backend hasn't filled in yet) renders without the age
+			// suffix so the row isn't a lie.
+			statusText := s.Status
+			if tools := sessionToolCount(s); tools > 0 {
+				statusText += fmt.Sprintf(" · %d tool%s", tools, plural(tools))
+			}
+			if !s.UpdatedAt.IsZero() && !isChildSession(s) {
+				statusText += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
+			}
+			if isChildSession(s) {
+				if childMeta != "" {
+					titleLine += statusStyle.Render(" · " + childMeta)
+				}
+				rows = append(rows, titleLine)
+				continue
+			}
+			statusBudget := width - 6 - lipgloss.Width(statusIndent)
+			if statusBudget < 4 {
+				statusBudget = 4
+			}
+			statusLine := statusIndent + statusStyle.Render(truncate(statusText, statusBudget))
+			rows = append(rows, titleLine, statusLine)
+			if !a.showChildSessions {
+				if children := a.childSessionCount(s.ID); children > 0 {
+					childWord := "children"
+					if children == 1 {
+						childWord = "child"
+					}
+					childText := fmt.Sprintf("%d %s collapsed", children, childWord)
+					rows = append(rows, statusIndent+statusStyle.Render(truncate(childText, statusBudget)))
+				}
+			}
+		}
+		if !a.sidebarSessionsCollapsed && endIdx < len(visIdx) {
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+				Render(" "+a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": len(visIdx) - endIdx})))
+		}
 	}
 
-	// Filter indicator row — shown above the session list whenever a
-	// filter is active. "editing" while sessionFilterActive, static
-	// after commit. Blank when no filter so existing layout is
-	// unchanged.
-	if a.sessionFilterActive || a.sessionFilter != "" {
-		filterText := a.sessionFilter
-		if a.sessionFilterActive {
-			filterText += "_"
-		}
-		label := "filter: "
-		if a.sessionFilter == "" && a.sessionFilterActive {
-			label = "filter: (type to filter)"
-			filterText = ""
-		}
-		rows = append(rows,
-			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-				Render(label+filterText),
-			"")
+	for _, module := range a.sidebarDisabledModules() {
+		rows = append(rows, "")
+		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
 	}
 
-	// Build the filter-filtered view once so the scroll math and the
-	// render loop work off the same subset.
-	visIdx := a.visibleSessionIndexes()
-
-	// Each session takes 3 rows (title + status + spacer). Scroll the
-	// session list so the selected entry stays visible. We reserve room
-	// for the SESSIONS title (2 rows) + CONTEXT section (2 + N rows
-	// when N>0, 3 rows for the "(no files)" placeholder) + the R2
-	// "N active · M archived" footer (2 rows: blank + label) + pane
-	// border padding (2 rows). Anything not fitting is hidden with
-	// "↑ N more" / "N more ↓" indicators at the edges. RRRRRRRRR1:
-	// the footer used to be unaccounted for, which made certain
-	// (sessions × contextFiles) combos overflow the pane and push
-	// everything to the right of the sidebar a few rows down.
-	const rowsPerSession = 3
-	contextLines := 0
-	if a.selected >= 0 {
-		if n := len(a.contextFiles); n > 0 {
-			contextLines = 2 + n // CONTEXT header + blank + N file rows
-		} else {
-			contextLines = 3 // CONTEXT header + blank + "(no files)"
+	if a.sidebarHasEnabledModule(sidebarModuleFiles) {
+		if len(rows) > 0 {
+			rows = append(rows, "")
 		}
-	}
-	// R2 footer = blank + label = 2 rows whenever any session exists.
-	footerLines := 0
-	if len(a.sessions) > 0 {
-		footerLines = 2
-	}
-	// Available rows for sessions inside the pane: height-2 (border),
-	// minus the fixed header (SESSIONS title + blank = 2), minus
-	// contextLines, minus footerLines, minus 1 safety spacer between
-	// sessions list and CONTEXT when both render.
-	avail := (height - 2) - 2 - contextLines - footerLines
-	if contextLines > 0 {
-		avail-- // blank spacer between session list and CONTEXT
-	}
-	if avail < rowsPerSession {
-		avail = rowsPerSession
-	}
-	maxSessions := avail / rowsPerSession
-
-	// Find the selected session's position within the visible list.
-	selVis := -1
-	for i, idx := range visIdx {
-		if idx == a.selected {
-			selVis = i
-			break
-		}
-	}
-	startIdx := 0
-	if selVis >= 0 && selVis >= maxSessions {
-		startIdx = selVis - maxSessions + 1
-	}
-	endIdx := startIdx + maxSessions
-	if endIdx > len(visIdx) {
-		endIdx = len(visIdx)
-	}
-	if startIdx > 0 {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
-			Render(fmt.Sprintf("  ↑ %d more", startIdx)))
-	}
-	if a.sessionFilter != "" && len(visIdx) == 0 {
-		rows = append(rows, t.HintLabel.Render("  (no matches)"))
-	}
-	for i := startIdx; i < endIdx; i++ {
-		sIdx := visIdx[i]
-		s := a.sessions[sIdx]
-		marker := "  "
-		indent := ""
-		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		statusStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
-		if s.ParentSessionID != "" {
-			indent = "  └ "
-			titleStyle = titleStyle.Foreground(t.FgMuted).Italic(true)
-		}
-		if sIdx == a.selected {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-		}
-		title := s.Title
-		if title == "" {
-			title = "untitled"
-		}
-		// Sidebar row layout: marker · indent · dot+space · title (truncated)
-		// The status dot replaces the old second-line italic status text,
-		// collapsing two lines into one and giving the status a splash of
-		// colour/motion (spinner for running, ⚠ for waiting_permission,
-		// muted · for idle). The raw status word is preserved on the second
-		// line as a muted caption so accessibility doesn't lose information.
-		dot := a.sessionStatusDot(s.Status)
-		// UUU1: append `(N tasks)` badge when the session has open
-		// pending/running §6.18 tasks. Loaded lazily on selectSession.
-		taskBadge := ""
-		if n := a.taskCountBySession[s.ID]; n > 0 {
-			taskBadge = "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-				Render(fmt.Sprintf("(%d tasks)", n))
-		}
-		// BBBBBBBB1: ↩ marker for sessions the user has previously
-		// detached from (loaded from the local detached.json registry
-		// at startup). Tells the user "this is one I walked away
-		// from" without leaving the TUI to run `gact detached`.
-		detachBadge := ""
-		if a.previouslyDetached[s.ID] {
-			detachBadge = " " + lipgloss.NewStyle().Foreground(t.Secondary).
-				Render("↩")
-		}
-		// Reserve room for badges so title truncation doesn't collide.
-		titleBudget := width - 8 - len(indent) - lipgloss.Width(taskBadge) - lipgloss.Width(detachBadge)
-		if titleBudget < 6 {
-			titleBudget = 6
-		}
-		titleLine := marker + indent + dot + titleStyle.Render(truncate(title, titleBudget)) + detachBadge + taskBadge
-		// HHHHHHHH1: append humanized "Nm ago" to the status line so
-		// users can tell which sessions are stale at a glance. Sits
-		// next to the status word in the same muted italic — same
-		// row, no extra vertical space. Zero UpdatedAt (fresh sessions
-		// the backend hasn't filled in yet) renders without the age
-		// suffix so the row isn't a lie.
-		statusText := s.Status
-		if !s.UpdatedAt.IsZero() {
-			statusText += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
-		}
-		statusLine := "  " + indent + "  " + statusStyle.Render(statusText)
-		rows = append(rows, titleLine, statusLine, "")
-	}
-	if endIdx < len(visIdx) {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
-			Render(fmt.Sprintf("  %d more ↓", len(visIdx)-endIdx)))
+		rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
 	}
 
 	// CONTEXT section — show files in the current session's context.
-	if a.selected >= 0 && a.selected < len(a.sessions) {
-		rows = append(rows,
-			lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("CONTEXT"),
-			"")
-		if len(a.contextFiles) == 0 {
-			rows = append(rows, t.HintLabel.Render("(no files)"))
+	if a.sidebarHasEnabledModule(sidebarModuleContext) && a.selected >= 0 && a.selected < len(a.sessions) {
+		contextLines := a.sidebarContextRowCount()
+		footerLines := 0
+		if len(a.sessions) > 0 {
+			footerLines = 2
 		}
-		for _, cf := range a.contextFiles {
-			modeChar := "?"
-			modeColor := t.FgMuted
-			switch cf.Mode {
-			case "edit":
-				modeChar, modeColor = "E", t.Warning
-			case "read":
-				modeChar, modeColor = "R", t.RoleUser
-			case "pin":
-				modeChar, modeColor = "P", t.Secondary
+		if inner := height - 2; inner > 0 {
+			allowedBeforeContext := inner - contextLines - footerLines
+			if allowedBeforeContext < 1 {
+				allowedBeforeContext = 1
 			}
-			modeBadge := lipgloss.NewStyle().Foreground(modeColor).Bold(true).Render(modeChar)
-			rows = append(rows, "  "+modeBadge+" "+t.HintLabel.Render(truncate(cf.Path, width-10)))
+			if len(rows) > allowedBeforeContext {
+				rows = rows[:allowedBeforeContext]
+				rows[len(rows)-1] = lipgloss.NewStyle().Foreground(t.FgMuted).
+					Render(" " + a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": 1}))
+			}
+		}
+		contextTitle := a.sidebarModuleTitle(sidebarModuleContext)
+		contextDisclosure := "▾ "
+		if a.sidebarContextCollapsed {
+			contextDisclosure = "▸ "
+			contextTitle += fmt.Sprintf(" · %d", len(a.contextFiles))
+		}
+		contextPrefix := ""
+		if a.focus == a.sidebarHitFocus && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionContext {
+			contextPrefix = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+		}
+		rows = append(rows,
+			contextPrefix+lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(contextDisclosure+contextTitle))
+		contextHeaderRow := len(rows) - 1
+		a.registerSidebarContextHeaderHit(contextHeaderRow, width)
+		if !a.sidebarContextCollapsed {
+			if len(a.contextFiles) == 0 {
+				rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSidebarNoFiles, nil)))
+			}
+			for i, cf := range a.contextFiles {
+				row := len(rows)
+				cf := cf
+				marker := " "
+				selected := a.focus == a.sidebarHitFocus && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+				if selected {
+					marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+				}
+				rows = append(rows, a.renderSidebarContextFileRows(cf, width, marker, selected, i)...)
+				a.registerSidebarContextFileHit(row, width, i, cf)
+			}
 		}
 	}
 
@@ -4691,13 +8542,15 @@ func (a *App) renderSidebar(width, height int) string {
 		}
 	}
 	if active > 0 || archived > 0 {
-		label := fmt.Sprintf("%d active · %d archived", active, archived)
+		label := a.localizer.tf(msgSidebarCountsActiveFirst, map[string]any{"active": active, "archived": archived})
 		if a.showArchived {
-			label = fmt.Sprintf("%d archived · %d active", archived, active)
+			label = a.localizer.tf(msgSidebarCountsArchivedFirst, map[string]any{"active": active, "archived": archived})
 		}
+		countsRow := len(rows) + 1
 		rows = append(rows,
 			"",
 			lipgloss.NewStyle().Foreground(t.FgFaint).Italic(true).Render(label))
+		a.registerSidebarCountsHit(countsRow, width)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
@@ -4711,6 +8564,249 @@ func (a *App) renderSidebar(width, height int) string {
 		body = clampLines(body, inner)
 	}
 	return style.Render(body)
+}
+
+func (a *App) renderRightSidebar(width, height int, offsetX int) string {
+	prevOffset := a.sidebarHitOffsetX
+	prevFocus := a.sidebarHitFocus
+	a.sidebarHitOffsetX = offsetX
+	a.sidebarHitFocus = FocusRightSidebar
+	defer func() {
+		a.sidebarHitOffsetX = prevOffset
+		a.sidebarHitFocus = prevFocus
+	}()
+
+	t := a.Theme
+	style := t.Pane.Width(width - 2).Height(height)
+	if a.focus == FocusRightSidebar {
+		style = t.PaneFoc.Width(width - 2).Height(height)
+	}
+	a.registerSidebarFocusSurface(width, height)
+
+	modules := a.rightSidebarModules()
+	rows := make([]string, 0, height)
+	for _, module := range modules {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		if module.Disabled {
+			rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+			continue
+		}
+		switch module.Definition.ID {
+		case sidebarModuleContext:
+			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleFiles:
+			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
+		case sidebarModuleSessions:
+			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
+		default:
+			rows = append(rows, a.renderDisabledSidebarModule(resolvedSidebarModule{
+				Definition: module.Definition,
+				Disabled:   true,
+				Reason:     "renderer unavailable",
+			}, width)...)
+		}
+	}
+	if len(rows) == 0 {
+		rows = append(rows, t.HintLabel.Render("no modules"))
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	if inner := height - 2; inner > 0 {
+		body = clampLines(body, inner)
+	}
+	return style.Render(body)
+}
+
+func (a *App) renderRightContextModuleRows(width int) []string {
+	t := a.Theme
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render("▾ " + a.sidebarModuleTitle(sidebarModuleContext))
+	rows := []string{title}
+	a.registerSidebarContextHeaderHit(0, width)
+	if len(a.contextFiles) == 0 {
+		return append(rows, t.HintLabel.Render(a.localizer.t(msgSidebarNoFiles, nil)))
+	}
+	for i, cf := range a.contextFiles {
+		row := len(rows)
+		marker := " "
+		selected := a.focus == a.sidebarHitFocus && a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarSectionCursor && i == a.contextFileSel
+		if selected {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+		}
+		rows = append(rows, a.renderSidebarContextFileRows(cf, width, marker, selected, i)...)
+		a.registerSidebarContextFileHit(row, width, i, cf)
+	}
+	return rows
+}
+
+func (a *App) renderRightSessionsModuleRows(width int) []string {
+	t := a.Theme
+	visIdx := a.visibleSessionIndexes()
+	titleText := a.sidebarModuleTitle(sidebarModuleSessions)
+	disclosure := "▾ "
+	if a.sidebarSessionsCollapsed {
+		disclosure = "▸ "
+		titleText += fmt.Sprintf(" (%d)", len(visIdx))
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render(disclosure + titleText)
+	rows := []string{title}
+	a.registerSidebarSectionHeaderHit(0, width, sidebarSectionSessions)
+	if a.sidebarSessionsCollapsed {
+		return append(rows, a.sidebarSessionCountsRow())
+	}
+	if len(a.sessions) == 0 {
+		return append(rows,
+			t.HintLabel.Render(a.localizer.t(msgSidebarNoSessions, nil)),
+			t.HintKey.Render("n")+t.HintLabel.Render(" "+a.localizer.t(msgSidebarCreate, nil)))
+	}
+	startIdx, endIdx := a.sidebarVisibleSessionRange(18, visIdx)
+	if startIdx > 0 {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(" "+a.localizer.tf(msgSidebarMoreAbove, map[string]any{"count": startIdx})))
+	}
+	for i := startIdx; i < endIdx; i++ {
+		sIdx := visIdx[i]
+		s := a.sessions[sIdx]
+		row := len(rows)
+		a.registerSidebarSessionHit(row, width, sIdx, a.sidebarSessionRowCount(sIdx))
+		marker := " "
+		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
+		if sIdx == a.selected && !a.sidebarSectionCursor && a.sidebarSectionFocus == sidebarSectionSessions {
+			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
+			titleStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		}
+		name := s.Title
+		if name == "" {
+			name = a.localizer.t(msgSidebarUntitled, nil)
+		}
+		dot := a.sessionStatusDot(s.Status)
+		prefix := marker + dot + " "
+		nameBudget := width - 6 - lipgloss.Width(prefix)
+		if nameBudget < 6 {
+			nameBudget = 6
+		}
+		rows = append(rows, prefix+titleStyle.Render(truncate(name, nameBudget)))
+		status := s.Status
+		if !s.UpdatedAt.IsZero() {
+			status += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
+		}
+		rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(status, width-8)))
+	}
+	if endIdx < len(visIdx) {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(" "+a.localizer.tf(msgSidebarMoreBelow, map[string]any{"count": len(visIdx) - endIdx})))
+	}
+	rows = append(rows, a.sidebarSessionCountsRow())
+	return rows
+}
+
+func (a *App) sidebarSessionCountsRow() string {
+	active, archived := 0, 0
+	for _, s := range a.sessions {
+		if s.ArchivedAt != nil {
+			archived++
+		} else {
+			active++
+		}
+	}
+	return lipgloss.NewStyle().Foreground(a.Theme.FgFaint).Italic(true).
+		Render(a.localizer.tf(msgSidebarCountsActiveFirst, map[string]any{"active": active, "archived": archived}))
+}
+
+func (a *App) renderSidebarContextFileRows(cf gact.ContextFile, width int, marker string, selected bool, index int) []string {
+	t := a.Theme
+	contentW := width - 6
+	if contentW < 1 {
+		contentW = 1
+	}
+	modeLabel, modeColor := contextModeLabelAndColor(cf.Mode, t)
+	suffix := modeLabel
+	if cf.Size > 0 {
+		suffix += " · " + humanBytes(cf.Size)
+	}
+	suffixStyle := lipgloss.NewStyle().Foreground(modeColor).Italic(true)
+	pathStyle := t.HintLabel
+	if selected {
+		pathStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	}
+	suffixW := lipgloss.Width(suffix)
+	pathBudget := contentW - lipgloss.Width(marker) - suffixW - 1
+	if pathBudget < 6 && cf.Size > 0 {
+		suffix = modeLabel
+		suffixW = lipgloss.Width(suffix)
+		pathBudget = contentW - lipgloss.Width(marker) - suffixW - 1
+	}
+	if pathBudget < 4 {
+		pathBudget = 4
+	}
+	line := marker + pathStyle.Render(truncate(cf.Path, pathBudget)) + " " + suffixStyle.Render(suffix)
+	rows := []string{truncate(line, contentW)}
+	if a.sidebarContextFileRowCount(index) < 2 {
+		return rows
+	}
+	meta := a.sidebarContextFileMeta(cf)
+	if meta == "" {
+		return rows
+	}
+	metaIndent := strings.Repeat(" ", maxInt(1, lipgloss.Width(marker)))
+	metaBudget := contentW - lipgloss.Width(metaIndent)
+	if metaBudget < 4 {
+		metaBudget = 4
+	}
+	rows = append(rows, metaIndent+t.HintLabel.Italic(true).Render(truncate(meta, metaBudget)))
+	return rows
+}
+
+func (a *App) sidebarContextFileMeta(cf gact.ContextFile) string {
+	parts := make([]string, 0, 4)
+	if lang := strings.TrimSpace(cf.Language); lang != "" {
+		parts = append(parts, lang)
+	}
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		title := strings.TrimSpace(a.sessions[a.selected].Title)
+		if title == "" {
+			title = a.sessions[a.selected].ID
+		}
+		if title != "" {
+			parts = append(parts, title)
+		}
+	}
+	if modified := compactContextTimestamp(cf.LastModified); modified != "" {
+		parts = append(parts, modified)
+	} else if added := compactContextTimestamp(cf.AddedAt); added != "" {
+		parts = append(parts, added)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func compactContextTimestamp(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return raw
+	}
+	return t.UTC().Format("Jan 2 15:04")
+}
+
+func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
+	switch mode {
+	case "edit":
+		return "edit", t.Warning
+	case "read":
+		return "read", t.RoleUser
+	case "pin":
+		return "pin", t.Secondary
+	case "":
+		return "unknown", t.FgMuted
+	default:
+		return mode, t.FgMuted
+	}
 }
 
 func (a *App) renderBody(width, height int) string {
@@ -4732,6 +8828,10 @@ func (a *App) renderBody(width, height int) string {
 		hintH = 1
 	}
 	inputH := height - msgH - hintH
+	if a.MouseEnabled {
+		a.registerConversationFocusSurface(msgH, width)
+		a.registerInputFocusSurface(msgH, hintH, inputH, width)
+	}
 
 	// Conversation pane. CCCCC1: lipgloss .Height(N) is OUTER (border
 	// included); the previous Height(msgH-2) made the bordered region
@@ -4741,7 +8841,8 @@ func (a *App) renderBody(width, height int) string {
 		msgStyle = t.PaneFoc.Width(width - 2).Height(msgH)
 	}
 
-	titleLine := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("CONVERSATION")
+	titleLine := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
+		Render(a.localizer.t(msgConversationTitle, nil))
 	statusLine := ""
 	if a.currentStatus != "" && a.currentStatus != gact.StatusIdle {
 		// Running sessions get the animated spinner; waiting_permission
@@ -4761,14 +8862,11 @@ func (a *App) renderBody(width, height int) string {
 
 	// Permission banner takes priority
 	permBanner := ""
+	var permActions []permissionBannerAction
 	if len(a.pendingPermissions) > 0 {
 		p := a.pendingPermissions[0]
-		permBanner = lipgloss.NewStyle().
-			Foreground(t.Bg).
-			Background(t.Warning).
-			Padding(0, 1).
-			Bold(true).
-			Render(fmt.Sprintf("⚠ Permission needed: %s — (allow/deny via /v1/permissions)", p.Summary))
+		permBanner, permActions = a.renderPermissionBanner(p.Summary, width-4)
+		a.registerPermissionBannerHits(permActions, width)
 	}
 
 	var body string
@@ -4778,32 +8876,32 @@ func (a *App) renderBody(width, height int) string {
 			Bold(true).Foreground(t.Primary).Padding(0, 2).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(t.Primary).
-			Render("Press " +
-				lipgloss.NewStyle().Foreground(t.Bg).Background(t.Primary).Padding(0, 1).Render("Ctrl+N") +
-				" to start your first conversation")
+			Render(a.localizer.t(msgConversationFirstPrompt, map[string]string{
+				"key": lipgloss.NewStyle().Foreground(t.Bg).Background(t.Primary).Padding(0, 1).Render("Ctrl+N"),
+			}))
 		// KKKKK1: surface the per-session lifecycle keys here. The user
 		// reported they didn't know rename/delete/archive existed —
 		// the help overlay had them but the empty-state crib (the
 		// thing they actually see first) didn't.
 		hints := lipgloss.JoinVertical(lipgloss.Left,
-			t.HintLabel.Render("In sidebar (Tab to focus):"),
-			"  "+t.HintKey.Render("n")+t.HintLabel.Render(" new")+
-				"   "+t.HintKey.Render("e")+t.HintLabel.Render(" rename")+
-				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" delete (x again to confirm)"),
-			"  "+t.HintKey.Render("A")+t.HintLabel.Render(" archive")+
-				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" archived")+
-				"   "+t.HintKey.Render("d")+t.HintLabel.Render(" detached")+
-				"   "+t.HintKey.Render("b")+t.HintLabel.Render(" busy")+
-				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" filter"),
-			"  "+t.HintKey.Render("o")+t.HintLabel.Render(" attach a file as context")+
-				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" pick"),
+			t.HintLabel.Render(a.localizer.t(msgConversationSidebarIntro, nil)),
+			"  "+t.HintKey.Render("n")+t.HintLabel.Render(" "+a.localizer.t(msgConversationNew, nil))+
+				"   "+t.HintKey.Render("e")+t.HintLabel.Render(" "+a.localizer.t(msgConversationRename, nil))+
+				"   "+t.HintKey.Render("x")+t.HintLabel.Render(" "+a.localizer.t(msgConversationDelete, nil)),
+			"  "+t.HintKey.Render("A")+t.HintLabel.Render(" "+a.localizer.t(msgConversationArchive, nil))+
+				"   "+t.HintKey.Render("h")+t.HintLabel.Render(" "+a.localizer.t(msgConversationArchived, nil))+
+				"   "+t.HintKey.Render("d")+t.HintLabel.Render(" "+a.localizer.t(msgConversationDetached, nil))+
+				"   "+t.HintKey.Render("b")+t.HintLabel.Render(" "+a.localizer.t(msgConversationBusy, nil))+
+				"   "+t.HintKey.Render("/")+t.HintLabel.Render(" "+a.localizer.t(msgConversationFilter, nil)),
+			"  "+t.HintKey.Render("o")+t.HintLabel.Render(" "+a.localizer.t(msgConversationAttachFile, nil))+
+				"   "+t.HintKey.Render("↑/↓")+t.HintLabel.Render(" "+a.localizer.t(msgConversationPick, nil)),
 			"",
-			t.HintLabel.Render("Other things to try:"),
-			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" pick a model / agent"),
-			"  "+t.HintKey.Render("/")+t.HintLabel.Render(" command palette  ·  ")+
-				t.HintKey.Render("?")+t.HintLabel.Render(" help"),
-			"  "+t.HintKey.Render("Ctrl+Z")+t.HintLabel.Render(" detach (TUI exits; ")+
-				t.HintKey.Render("gact attach <sid>")+t.HintLabel.Render(" reattaches)"),
+			t.HintLabel.Render(a.localizer.t(msgConversationOtherThings, nil)),
+			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" "+a.localizer.t(msgConversationPickModelAgent, nil)),
+			"  "+t.HintKey.Render("/")+t.HintLabel.Render(" "+a.localizer.t(msgConversationCommandPalette, nil)+"  ·  ")+
+				t.HintKey.Render("?")+t.HintLabel.Render(" "+a.localizer.t(msgConversationHelp, nil)),
+			"  "+t.HintKey.Render("Ctrl+Z")+t.HintLabel.Render(" "+a.localizer.t(msgConversationDetachPrefix, nil)+" ")+
+				t.HintKey.Render("gact attach <sid>")+t.HintLabel.Render(" "+a.localizer.t(msgConversationReattaches, nil)),
 		)
 		// EEEEEEEE1: when the user has detached sessions on this
 		// backend, surface that on the empty-state callout so the
@@ -4814,9 +8912,9 @@ func (a *App) renderBody(width, height int) string {
 		if n := len(a.previouslyDetached); n > 0 {
 			resumeHint = lipgloss.NewStyle().
 				Bold(true).Foreground(t.Secondary).
-				Render(fmt.Sprintf("↩ %d detached session(s) on this backend — ", n)) +
+				Render(a.localizer.tf(msgConversationDetachedSessions, map[string]any{"count": n})+" ") +
 				t.HintKey.Render("gact attach") +
-				t.HintLabel.Render(" (no args) resumes the most recent")
+				t.HintLabel.Render(" "+a.localizer.t(msgConversationResumeMostRecent, nil))
 		}
 		if resumeHint != "" {
 			body = lipgloss.JoinVertical(lipgloss.Left, callout, "", resumeHint, "", hints)
@@ -4825,40 +8923,42 @@ func (a *App) renderBody(width, height int) string {
 		}
 	} else if len(a.messages) == 0 {
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			t.HintLabel.Render("(no messages yet — type below to send the first one)"),
+			t.HintLabel.Render(a.localizer.t(msgConversationNoMessages, nil)),
 			"",
-			t.HintLabel.Render("Try one of these to see different flows:"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("read main.go")+
-				"           "+t.HintLabel.Render("normal turn (text + tool call + result)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("delete the temp dir")+
-				"    "+t.HintLabel.Render("triggers a permission prompt (a/d/s/w to respond)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("propose an edit to main.go")+
-				" "+t.HintLabel.Render("triggers a diff (a/r in body to apply/reject)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("split this with a sub-agent")+
-				" "+t.HintLabel.Render("spawns a code_reviewer subagent"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("write a long explain")+
-				"       "+t.HintLabel.Render("long assistant reply (~60 lines)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("dump the log")+
-				"              "+t.HintLabel.Render("large tool output (~80 lines)"),
-			"  "+lipgloss.NewStyle().Foreground(t.Secondary).Render("many tools please")+
-				"         "+t.HintLabel.Render("3 tool calls in one turn"),
-			"",
-			t.HintLabel.Render("Also try:"),
-			"  "+t.HintKey.Render("@")+t.HintLabel.Render(" to attach a workspace file  ·  ")+
-				t.HintKey.Render("Ctrl+G")+t.HintLabel.Render(" to compose in a big window"),
-			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" settings  ·  ")+
-				t.HintKey.Render("/theme")+t.HintLabel.Render(" to pick a palette"),
+			"  "+t.HintKey.Render("@")+t.HintLabel.Render(" "+a.localizer.t(msgConversationAttachWorkspace, nil)+"  ·  ")+
+				t.HintKey.Render("Ctrl+G")+t.HintLabel.Render(" "+a.localizer.t(msgConversationCompose, nil)),
+			"  "+t.HintKey.Render("Ctrl+S")+t.HintLabel.Render(" "+a.localizer.t(msgConversationSettings, nil)+"  ·  ")+
+				t.HintKey.Render("/theme")+t.HintLabel.Render(" "+a.localizer.t(msgConversationPickPalette, nil)),
 		)
 	} else {
 		var rows []string
+		var hitBlocks []conversationPartHitBlock
+		fullLine := 0
 		// III1: pair tool_results to their tool_calls so each call's
 		// output renders directly under it. Tool messages whose entire
 		// payload was absorbed get skipped from standalone rendering
 		// (the role header would otherwise be empty noise).
 		inlineResults, absorbed := pairToolResults(a.messages)
+		lastModelLabel := ""
 		for i, m := range a.messages {
 			if absorbed[i] {
 				continue
+			}
+			if isModelSwapMarker(m) {
+				if label := modelSwapMarkerLabel(m); label != "" {
+					lastModelLabel = label
+				}
+			} else if label := modelRefLabel(m); label != "" {
+				if lastModelLabel != "" && label != lastModelLabel {
+					rows = append(rows, t.renderModelSwapDivider(gact.Message{
+						Role: gact.RoleSystem,
+						Metadata: map[string]any{
+							"gact_tui_kind": modelSwapMarkerKind,
+							"label":         label,
+						},
+					}, width-4))
+				}
+				lastModelLabel = label
 			}
 			var prev *gact.Message
 			if i > 0 {
@@ -4872,7 +8972,15 @@ func (a *App) renderBody(width, height int) string {
 			if i == a.bodySelMsgIdx && a.focus == FocusBody {
 				selPartID = a.selectedPartID()
 			}
+			if len(rows) > 0 {
+				fullLine++
+			}
 			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
+			for _, block := range t.conversationPartHitBlocks(m, prev, width-4, inlineResults[i]) {
+				block.msgIdx = i
+				block.fullStart += fullLine
+				hitBlocks = append(hitBlocks, block)
+			}
 			// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
 			// per user feedback: "i also dont see the value with the
 			// message selector and global turn selector rather just have
@@ -4885,6 +8993,7 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
+			fullLine += renderedStringLineCount(row)
 		}
 		// Pending-turn indicator: when the session is running but the latest
 		// message hasn't produced any visible parts yet (e.g. user just
@@ -4894,7 +9003,7 @@ func (a *App) renderBody(width, height int) string {
 			thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
 				Render(a.spinnerChar()) + " " +
 				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render("CLIO is thinking…")
+					Render(a.localizer.t(msgConversationThinking, nil))
 			rows = append(rows, "", thinkLine)
 		}
 		body = strings.Join(rows, "\n")
@@ -4921,6 +9030,8 @@ func (a *App) renderBody(width, height int) string {
 			a.adjustScrollForSelectedPart(body, conversationH)
 			a.pendingPartScroll = false
 		}
+		a.registerConversationWheelHit(conversationH, width, permBanner != "")
+		a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
 		body = a.scrollClip(body, conversationH, t)
 	}
 
@@ -4939,8 +9050,19 @@ func (a *App) renderBody(width, height int) string {
 	msgPane = fitLines(msgPane, msgH)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
-	a.input.SetWidth(width - 4)
-	a.input.SetHeight(inputH - 2)
+	inputTextW := width - 4
+	if a.MouseEnabled {
+		inputTextW -= mouseCommandButtonWidth
+	}
+	if inputTextW < 8 {
+		inputTextW = 8
+	}
+	a.input.SetWidth(inputTextW)
+	inputInnerH := inputH - 2
+	if a.nextTurnAgentID != "" && inputInnerH > 1 {
+		inputInnerH--
+	}
+	a.input.SetHeight(inputInnerH)
 	if a.focus == FocusInput {
 		a.input.Focus()
 	} else {
@@ -4951,7 +9073,18 @@ func (a *App) renderBody(width, height int) string {
 	if a.focus == FocusInput {
 		inputStyle = t.PaneFoc.Width(width - 2).Height(inputH)
 	}
-	inputPane := fitLines(inputStyle.Render(a.input.View()), inputH)
+	inputView := a.input.View()
+	if a.nextTurnAgentID != "" {
+		label := firstNonEmpty(a.nextTurnAgentTitle, a.nextTurnAgentID)
+		inputView = t.HintLabel.Render("agent for next turn: ") +
+			t.HintKey.Render(label) + "\n" + inputView
+	}
+	if a.MouseEnabled {
+		inputView = a.renderMouseInputCommand(inputView)
+		a.registerInputCommandHit(msgH, hintH)
+		a.registerInputTextareaCursorHits(msgH, hintH)
+	}
+	inputPane := fitLines(inputStyle.Render(inputView), inputH)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
@@ -5000,6 +9133,41 @@ func (a *App) insertPastePlaceholder(content string, lineCount int) {
 	a.input.SetValue(cur + placeholder + " ")
 }
 
+func (a *App) recordPasteKey(k tea.KeyPressMsg) {
+	switch k.String() {
+	case "enter":
+		a.pasteBuffer += "\n"
+	case "tab":
+		a.pasteBuffer += "\t"
+	default:
+		if text := k.Key().Text; text != "" {
+			a.pasteBuffer += text
+		}
+	}
+}
+
+func (a *App) compactBufferedPaste() {
+	content := a.pasteBuffer
+	if strings.TrimSpace(content) == "" {
+		return
+	}
+	lineCount := strings.Count(content, "\n") + 1
+	threshold := a.Theme.PasteCompressThreshold
+	if threshold <= 0 {
+		threshold = 3
+	}
+	if lineCount < threshold {
+		return
+	}
+	raw := a.input.Value()
+	if strings.HasSuffix(raw, content) {
+		a.input.SetValue(strings.TrimSuffix(raw, content))
+	} else if idx := strings.LastIndex(raw, content); idx >= 0 {
+		a.input.SetValue(raw[:idx] + raw[idx+len(content):])
+	}
+	a.insertPastePlaceholder(content, lineCount)
+}
+
 // expandPasteText returns raw with every recorded paste placeholder
 // substituted for its full content. Used at send time so the backend
 // receives the pasted material verbatim, and by Ctrl+P to reveal the
@@ -5020,15 +9188,22 @@ func (a *App) expandMostRecentPaste() {
 	if len(a.pastes) == 0 {
 		return
 	}
-	last := a.pastes[len(a.pastes)-1]
-	buf := a.input.Value()
-	if !strings.Contains(buf, last.placeholder) {
-		// Placeholder was already deleted manually; drop the record.
-		a.pastes = a.pastes[:len(a.pastes)-1]
+	a.expandPasteSegment(len(a.pastes) - 1)
+}
+
+func (a *App) expandPasteSegment(idx int) {
+	if idx < 0 || idx >= len(a.pastes) {
 		return
 	}
-	a.input.SetValue(strings.Replace(buf, last.placeholder, last.content, 1))
-	a.pastes = a.pastes[:len(a.pastes)-1]
+	seg := a.pastes[idx]
+	buf := a.input.Value()
+	if !strings.Contains(buf, seg.placeholder) {
+		// Placeholder was already deleted manually; drop the record.
+		a.pastes = append(a.pastes[:idx], a.pastes[idx+1:]...)
+		return
+	}
+	a.input.SetValue(strings.Replace(buf, seg.placeholder, seg.content, 1))
+	a.pastes = append(a.pastes[:idx], a.pastes[idx+1:]...)
 }
 
 // humanAgeShort renders a duration as a compact 2-3 char age
@@ -5049,6 +9224,81 @@ func humanAgeShort(d time.Duration) string {
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	}
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+}
+
+func sessionChildKind(s gact.Session) string {
+	for _, key := range []string{"session_type", "kind", "runtime_type"} {
+		if value := stringValue(s.Metadata[key]); value != "" {
+			return value
+		}
+	}
+	if s.Agent.Mode != "" {
+		return s.Agent.Mode
+	}
+	return ""
+}
+
+func isChildSession(s gact.Session) bool {
+	return s.ParentSessionID != ""
+}
+
+func (a *App) childSessionCount(parentID string) int {
+	if parentID == "" {
+		return 0
+	}
+	count := 0
+	for _, s := range a.sessions {
+		if s.ParentSessionID == parentID {
+			count++
+		}
+	}
+	return count
+}
+
+func sessionToolCount(s gact.Session) int {
+	for _, key := range []string{"tool_count", "tools_count"} {
+		if n, ok := floatValue(s.Metadata[key]); ok && n > 0 {
+			return int(n)
+		}
+	}
+	return 0
+}
+
+func childSidebarMeta(s gact.Session) string {
+	var bits []string
+	if s.Status != "" && s.Status != gact.StatusIdle {
+		bits = append(bits, s.Status)
+	}
+	if tools := sessionToolCount(s); tools > 0 {
+		bits = append(bits, fmt.Sprintf("%dt", tools))
+	}
+	if len(bits) == 0 {
+		return s.Status
+	}
+	return strings.Join(bits, " · ")
+}
+
+func childSessionDisplayTitle(s gact.Session, fallback string) string {
+	title := strings.TrimSpace(fallback)
+	if s.Agent.ID != "" {
+		title = s.Agent.ID
+	}
+	for _, suffix := range []string{" subagent", " nanoagent"} {
+		title = strings.TrimSuffix(title, suffix)
+	}
+	title = strings.TrimSuffix(title, "_validator")
+	title = strings.ReplaceAll(title, "_", " ")
+	switch strings.ToLower(title) {
+	case "csv":
+		return "CSV"
+	case "adios":
+		return "ADIOS"
+	case "hdf5":
+		return "HDF5"
+	case "bp5", "bp4":
+		return strings.ToUpper(title)
+	}
+	return title
 }
 
 // prependGutter inserts gutter at the start of every line of s.
@@ -5144,15 +9394,24 @@ func fitLines(s string, n int) string {
 //	          == len(lines) - maxRows - scrollOffset + margin
 //	scrollOffset = len(lines) - markerRow - maxRows + margin
 func (a *App) adjustScrollForSelectedPart(body string, viewportH int) {
-	const marker = "▸ "
-	if !strings.Contains(body, marker) {
+	plainBody := ansi.Strip(body)
+	marker := "▌ "
+	idx := strings.Index(plainBody, marker)
+	if idx < 0 {
+		// Older tests and historical render paths used the routing
+		// triangle as the cursor marker. Prefer the current bar marker
+		// so routing-decision triangles do not steal the scroll target,
+		// but keep this fallback for compatibility.
+		marker = "▸ "
+		idx = strings.Index(plainBody, marker)
+	}
+	if !strings.Contains(plainBody, marker) {
 		return
 	}
-	// Line index of the first ▸ occurrence. We only emit the marker
+	// Line index of the first cursor occurrence. We only emit the marker
 	// on the selected part's first line, so this is unambiguous.
-	idx := strings.Index(body, marker)
-	markerRow := strings.Count(body[:idx], "\n")
-	totalLines := strings.Count(body, "\n") + 1
+	markerRow := strings.Count(plainBody[:idx], "\n")
+	totalLines := strings.Count(plainBody, "\n") + 1
 	if viewportH < 1 {
 		viewportH = 1
 	}
@@ -5198,18 +9457,265 @@ func (a *App) scrollClip(body string, maxRows int, _ Theme) string {
 	if len(lines) <= maxRows {
 		return body
 	}
-	if a.stickyToBottom {
-		return strings.Join(lines[len(lines)-maxRows:], "\n")
+	start := len(lines) - maxRows
+	if !a.stickyToBottom {
+		start -= a.scrollOffset
+	}
+	win := boundedScrollWindow(len(lines), maxRows, start)
+	return strings.Join(lines[win.start:win.end], "\n")
+}
+
+func (a *App) conversationScrollStart(body string, maxRows int) int {
+	if maxRows < 1 {
+		return 0
+	}
+	lines := strings.Split(body, "\n")
+	if len(lines) <= maxRows {
+		return 0
 	}
 	start := len(lines) - maxRows - a.scrollOffset
-	if start < 0 {
-		start = 0
+	if a.stickyToBottom {
+		start = len(lines) - maxRows
 	}
-	end := start + maxRows
-	if end > len(lines) {
-		end = len(lines)
+	return boundedScrollWindow(len(lines), maxRows, start).start
+}
+
+func (a *App) registerConversationPartHits(blocks []conversationPartHitBlock, body string, viewportRows int, bodyWidth int, hasPermissionBanner bool) {
+	if len(blocks) == 0 || viewportRows < 1 {
+		return
 	}
-	return strings.Join(lines[start:end], "\n")
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	visibleStart := a.conversationScrollStart(body, viewportRows)
+	visibleEnd := visibleStart + viewportRows
+	for _, block := range blocks {
+		if block.height <= 0 || block.msgIdx < 0 || block.msgIdx >= len(a.messages) {
+			continue
+		}
+		start := block.fullStart
+		end := block.fullStart + block.height
+		if end <= visibleStart || start >= visibleEnd {
+			continue
+		}
+		screenStart := max(start, visibleStart)
+		screenEnd := min(end, visibleEnd)
+		msgIdx := block.msgIdx
+		addrIdx := block.addrIdx
+		a.registerConversationContentHitActions(
+			fmt.Sprintf("conversation:part:%d:%d", msgIdx, addrIdx),
+			screenStart-visibleStart,
+			0,
+			contentW,
+			screenEnd-screenStart,
+			bodyWidth,
+			hasPermissionBanner,
+			func(app *App) tea.Cmd {
+				if msgIdx < 0 || msgIdx >= len(app.messages) {
+					return nil
+				}
+				addr := addressablePartsOf(app.messages[msgIdx])
+				if addrIdx < 0 || addrIdx >= len(addr) {
+					return nil
+				}
+				alreadySelected := app.focus == FocusBody &&
+					app.bodySelMsgIdx == msgIdx &&
+					app.bodySelPartIdx == addrIdx
+				app.focus = FocusBody
+				app.bodySelMsgIdx = msgIdx
+				app.bodySelPartIdx = addrIdx
+				app.stickyToBottom = false
+				app.pendingPartScroll = false
+				app.searchHitMessageID = ""
+				if alreadySelected {
+					app.openDetailForSelection()
+				}
+				return nil
+			},
+			func(app *App) tea.Cmd {
+				return app.openConversationActionsForPart(msgIdx, addrIdx)
+			},
+		)
+		if block.opensDetail && block.detailStart >= 0 {
+			detailRow := block.detailStart
+			if detailRow >= visibleStart && detailRow < visibleEnd {
+				a.registerConversationContentHitActions(
+					fmt.Sprintf("conversation:detail:%d:%d", msgIdx, addrIdx),
+					detailRow-visibleStart,
+					0,
+					contentW,
+					1,
+					bodyWidth,
+					hasPermissionBanner,
+					func(app *App) tea.Cmd {
+						if msgIdx < 0 || msgIdx >= len(app.messages) {
+							return nil
+						}
+						addr := addressablePartsOf(app.messages[msgIdx])
+						if addrIdx < 0 || addrIdx >= len(addr) {
+							return nil
+						}
+						app.focus = FocusBody
+						app.bodySelMsgIdx = msgIdx
+						app.bodySelPartIdx = addrIdx
+						app.stickyToBottom = false
+						app.pendingPartScroll = false
+						app.searchHitMessageID = ""
+						app.openDetailForSelection()
+						return nil
+					},
+					func(app *App) tea.Cmd {
+						return app.openConversationActionsForPart(msgIdx, addrIdx)
+					},
+				)
+			}
+		}
+		for _, action := range block.diffActions {
+			actionRow := action.row
+			if actionRow < visibleStart || actionRow >= visibleEnd {
+				continue
+			}
+			actionPath := action.path
+			actionName := action.action
+			actionCol := action.col - 1
+			if actionCol < 0 {
+				actionCol = 0
+			}
+			actionW := action.width + 2
+			if actionW < 1 {
+				actionW = 1
+			}
+			if actionCol+actionW > contentW {
+				actionW = contentW - actionCol
+			}
+			if actionW < 1 {
+				continue
+			}
+			a.registerConversationContentHit(
+				fmt.Sprintf("conversation:diff:%s:%s", actionName, actionPath),
+				actionRow-visibleStart,
+				actionCol,
+				actionW,
+				1,
+				bodyWidth,
+				hasPermissionBanner,
+				func(app *App) tea.Cmd {
+					if msgIdx < 0 || msgIdx >= len(app.messages) {
+						return nil
+					}
+					addr := addressablePartsOf(app.messages[msgIdx])
+					if addrIdx >= 0 && addrIdx < len(addr) {
+						app.focus = FocusBody
+						app.bodySelMsgIdx = msgIdx
+						app.bodySelPartIdx = addrIdx
+						app.stickyToBottom = false
+						app.pendingPartScroll = false
+						app.searchHitMessageID = ""
+					}
+					sid := app.currentSessionID()
+					if sid == "" {
+						app.transientHint = actionName + " diff: no active session"
+						return nil
+					}
+					switch actionName {
+					case "apply":
+						return applyDiffsCmd(app.c, sid, actionPath)
+					case "reject":
+						return rejectDiffsCmd(app.c, sid, actionPath)
+					default:
+						return nil
+					}
+				},
+			)
+		}
+	}
+}
+
+func (a *App) registerConversationContentHit(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiHitAction) {
+	a.registerConversationContentHitActions(id, row, col, width, height, bodyWidth, hasPermissionBanner, action, nil)
+}
+
+func (a *App) registerConversationContentHitActions(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiHitAction, secondaryAction uiHitAction) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenHitActions(id, a.conversationContentRect(row, col, width, height, bodyWidth, hasPermissionBanner), action, secondaryAction)
+}
+
+func (a *App) registerConversationContentWheelHit(id string, row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool, action uiWheelAction) {
+	if a.hits == nil {
+		return
+	}
+	a.registerScreenWheelHit(id, a.conversationContentRect(row, col, width, height, bodyWidth, hasPermissionBanner), action)
+}
+
+func (a *App) conversationContentRect(row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool) mouseRect {
+	sidebarW, _, _ := a.mainPaneGeometry()
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	if col < 0 {
+		col = 0
+	}
+	if col >= contentW {
+		col = contentW - 1
+	}
+	if width < 1 {
+		width = 1
+	}
+	if col+width > contentW {
+		width = contentW - col
+	}
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	bodyTop := 4
+	if hasPermissionBanner {
+		bodyTop++
+	}
+	return mouseRect{
+		x: sidebarW + 2 + col,
+		y: bodyTop + row,
+		w: width,
+		h: height,
+	}
+}
+
+func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth int) {
+	if a.hits == nil || conversationHeight <= 0 || bodyWidth <= 0 {
+		return
+	}
+	a.registerFocusSurfaceHit("conversation:body:focus", a.conversationFocusSurfaceRect(conversationHeight, bodyWidth), FocusBody, func(app *App) {
+		app.maybeInitBodyCursor()
+	})
+}
+
+func (a *App) conversationFocusSurfaceRect(conversationHeight int, bodyWidth int) mouseRect {
+	sidebarW, _, _ := a.mainPaneGeometry()
+	return mouseRect{
+		x: sidebarW,
+		y: 1,
+		w: bodyWidth,
+		h: conversationHeight,
+	}
+}
+
+func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {
+	if viewportRows < 1 {
+		return
+	}
+	contentW := bodyWidth - 4
+	if contentW < 1 {
+		contentW = 1
+	}
+	a.registerConversationContentWheelHit("conversation:body:wheel", 0, 0, contentW, viewportRows, bodyWidth, hasPermissionBanner, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.handleConversationWheel(button)
+	})
 }
 
 func truncate(s string, max int) string {
@@ -5222,57 +9728,151 @@ func truncate(s string, max int) string {
 	if max <= 1 {
 		return "…"
 	}
-	return s[:max-1] + "…"
+	return ansi.Truncate(s, max, "…")
 }
 
 // viewPalette renders the slash-command palette as a centered modal.
 func (a *App) viewPalette() string {
 	t := a.Theme
 	w := a.modalWidth()
+	listW := modalInsetListWidth(w)
 
 	if a.isSearchMode() {
 		return a.viewPaletteSearch(w)
 	}
 
 	matches := a.paletteMatches()
+	buttons := a.paletteCloseButtons()
+	filterPrefix := a.localizer.t(msgPaletteFilter, nil) + " "
+	filterCursor := a.paletteCursorValue()
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Commands"),
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render("filter: " + a.paletteFilter + "_"),
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render("(start with ? to search session messages)"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(filterPrefix + renderPaletteCursorEditor(a.paletteFilter, filterCursor)),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteSearchHint, nil)),
 		"",
 	}
 	if len(matches) == 0 {
-		rows = append(rows, t.HintLabel.Render("(no matches)"))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteNoMatches, nil)))
 	}
-	for i, c := range matches {
-		marker := "  "
-		titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		descStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
-		if i == a.paletteSel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-		}
-		line := marker + titleStyle.Render(c.ID) + "  " + descStyle.Render(c.Title)
-		// Q3: settings-style commands surface their current state
-		// inline so users know what they'd be changing before they
-		// hit Enter. Rendered as a faint suffix in Secondary so it
-		// stands out without competing with the title.
-		if hint := a.paletteCurrentValue(c.ID); hint != "" {
-			valStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-			line += "  " + valStyle.Render("· "+hint)
-		}
-		rows = append(rows, truncate(line, w-2))
+	listStartRow := len(rows)
+	itemBudget := a.modalListItemBudget(6, 1, 16)
+	win := selectedItemWindow(len(matches), a.paletteSel, itemBudget)
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	var list modalListRender
+	for i := win.start; i < win.end; i++ {
+		c := matches[i]
+		idx := i
+		listItems = append(listItems, modalListItem{
+			id:       fmt.Sprintf("palette:command:%d", idx),
+			title:    c.ID,
+			meta:     paletteCommandSubtitle(c),
+			status:   a.paletteCurrentValue(c.ID),
+			selected: i == a.paletteSel,
+			action: func(app *App) tea.Cmd {
+				matches := app.paletteMatches()
+				if idx < 0 || idx >= len(matches) {
+					return nil
+				}
+				app.paletteSel = idx
+				_, cmd := app.handlePaletteKey(keyMsg("enter"))
+				return cmd
+			},
+		})
 	}
-	rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter run  Esc close"))
+	if len(listItems) > 0 {
+		list = a.renderModalList(listItems, modalListOptions{
+			width:            listW,
+			rowBudget:        16,
+			descriptionLines: 0,
+		})
+		rows = append(rows, list.rows...)
+	}
+	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   a.localizer.t(msgPaletteCommandsTitle, nil),
+			buttons: buttons,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       a.paletteBodyPageSize(),
+		window:         win,
+		wheelID:        "palette:list:wheel",
+		surfaceWheelID: "palette",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
+			return nil
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.paletteSel = clampSelection(index, len(app.paletteMatches()))
+			return nil
+		},
+	})
+	if rendered.bodyRow >= 0 {
+		a.registerInlineCursorHits(rendered.modal, rendered.bodyRow, "palette-filter", lipgloss.Width(filterPrefix), a.paletteFilter, func(app *App, cursor int) {
+			app.paletteCursor = cursor
+			app.paletteCursorSet = true
+		})
+	}
+	return rendered.modal
+}
+
+func paletteCommandSubtitle(c gact.Command) string {
+	id := strings.TrimSpace(c.ID)
+	title := strings.TrimSpace(c.Title)
+	desc := strings.TrimSpace(c.Description)
+	if c.Status != "" && c.Status != "available" {
+		reason := strings.TrimSpace(firstNonEmpty(c.DisabledReason, c.Error))
+		if reason != "" {
+			return c.Status + " · " + reason
+		}
+		return c.Status
+	}
+	policy := make([]string, 0, 5)
+	if c.UserInvocable != nil {
+		if *c.UserInvocable {
+			policy = append(policy, "user")
+		} else {
+			policy = append(policy, "not-user")
+		}
+	}
+	if c.AgentInvocable != nil && *c.AgentInvocable {
+		policy = append(policy, "agent")
+	}
+	if c.PlannerVisible != nil && *c.PlannerVisible {
+		policy = append(policy, "planner")
+	}
+	if c.AgentID != "" {
+		policy = append(policy, "owner: "+c.AgentID)
+	}
+	if c.ArgumentHint != "" {
+		policy = append(policy, "args: "+c.ArgumentHint)
+	}
+	if len(policy) > 0 {
+		return strings.Join(policy, " · ")
+	}
+	if desc != "" && !samePaletteCommandText(desc, id) && !samePaletteCommandText(desc, title) {
+		return desc
+	}
+	if c.AgentID != "" {
+		return "agent: " + c.AgentID
+	}
+	if title != "" && !samePaletteCommandText(title, id) {
+		return title
+	}
+	if c.Source != "" {
+		return c.Source
+	}
+	return ""
+}
+
+func samePaletteCommandText(a, b string) bool {
+	a = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(a)), "/")
+	b = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(b)), "/")
+	return a != "" && a == b
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -5282,47 +9882,112 @@ func (a *App) viewPalette() string {
 //  3. results loaded — render each match with msg id + snippet
 func (a *App) viewPaletteSearch(w int) string {
 	t := a.Theme
-	query := strings.TrimSpace(a.paletteFilter[1:])
+	queryRaw := strings.TrimPrefix(a.paletteFilter, "?")
+	query := strings.TrimSpace(queryRaw)
+	queryCursor := a.paletteCursorValue() - 1
+	queryRunes := []rune(queryRaw)
+	if queryCursor < 0 {
+		queryCursor = 0
+	}
+	if queryCursor > len(queryRunes) {
+		queryCursor = len(queryRunes)
+	}
+	listStartRow := -1
+	var list modalListRender
+	win := scrollWindow{total: len(a.searchMatches)}
+	listW := modalInsetListWidth(w)
+	buttons := a.paletteCloseButtons()
+	queryPrefix := a.localizer.t(msgPaletteQuery, nil) + " "
 	rows := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render("Search messages"),
-		lipgloss.NewStyle().Foreground(t.FgMuted).Render("query: " + query + "_"),
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(queryPrefix + renderPaletteCursorEditor(queryRaw, queryCursor)),
 		"",
 	}
 	switch {
 	case a.searching:
-		rows = append(rows, t.HintLabel.Render("searching…"))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteSearching, nil)))
 	case query == "":
-		rows = append(rows, t.HintLabel.Render("(type a query, then Enter to search)"))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteTypeQuery, nil)))
 	case len(a.searchMatches) == 0:
-		rows = append(rows, t.HintLabel.Render("Enter to search this session for: "+query))
+		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteEnterSearch, map[string]string{"query": query})))
 	default:
-		for i, m := range a.searchMatches {
-			marker := "  "
-			titleStyle := lipgloss.NewStyle().Foreground(t.Fg)
-			snippetStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
-			if i == a.paletteSel {
-				marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-				titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
-			}
-			head := marker + titleStyle.Render(shortID(m.MessageID))
-			snippet := snippetStyle.Render(strings.ReplaceAll(strings.TrimSpace(m.Snippet), "\n", " "))
-			rows = append(rows, truncate(head+"  "+snippet, w-2))
+		listStartRow = len(rows)
+		itemBudget := a.modalListItemBudget(5, 2, 8)
+		win = selectedItemWindow(len(a.searchMatches), a.paletteSel, itemBudget)
+		listItems := make([]modalListItem, 0, win.end-win.start)
+		for i := win.start; i < win.end; i++ {
+			m := a.searchMatches[i]
+			idx := i
+			listItems = append(listItems, modalListItem{
+				id:          fmt.Sprintf("palette:search:%d", idx),
+				title:       shortID(m.MessageID),
+				description: strings.ReplaceAll(strings.TrimSpace(m.Snippet), "\n", " "),
+				selected:    i == a.paletteSel,
+				action: func(app *App) tea.Cmd {
+					if idx < 0 || idx >= len(app.searchMatches) {
+						return nil
+					}
+					app.paletteSel = idx
+					_, cmd := app.handlePaletteKey(keyMsg("enter"))
+					return cmd
+				},
+			})
 		}
+		list = a.renderModalList(listItems, modalListOptions{
+			width:            listW,
+			rowBudget:        12,
+			descriptionLines: 1,
+		})
+		rows = append(rows, list.rows...)
 	}
 	if len(a.searchMatches) > 0 {
-		rows = append(rows, "", t.HintLabel.Render("↑/↓ select  Enter jump  Esc close"))
+		rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteJumpHint, nil)))
 	} else {
-		rows = append(rows, "", t.HintLabel.Render("Esc close"))
+		rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteCloseHint, nil)))
 	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   a.localizer.t(msgPaletteSearchTitle, nil),
+			buttons: buttons,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       a.paletteBodyPageSize(),
+		window:         win,
+		wheelID:        "palette:search:list:wheel",
+		surfaceWheelID: "palette",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.searchMatches), button)
+			return nil
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			app.paletteSel = clampSelection(index, len(app.searchMatches))
+			return nil
+		},
+	})
+	if rendered.bodyRow >= 0 {
+		a.registerInlineCursorHits(rendered.modal, rendered.bodyRow, "palette-search-query", lipgloss.Width(queryPrefix), queryRaw, func(app *App, cursor int) {
+			if strings.HasPrefix(app.paletteFilter, "?") {
+				app.paletteCursor = cursor + 1
+				app.paletteCursorSet = true
+			}
+		})
+	}
+	return rendered.modal
+}
+
+func renderPaletteCursorEditor(value string, cursor int) string {
+	runes := []rune(value)
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(runes) {
+		cursor = len(runes)
+	}
+	return string(runes[:cursor]) + "_" + string(runes[cursor:])
 }
 
 // shortID truncates a message ID for display (e.g. "msg_1a2b3c4d…").
@@ -5335,76 +10000,81 @@ func shortID(id string) string {
 
 // helpTabs is the fixed list of help-overlay tabs. Keep the slice sorted
 // by pane-discovery order (global → where the cursor is → deeper modes).
+type helpKey struct {
+	key    string
+	descID messageID
+}
+
 var helpTabs = []struct {
 	title string
-	keys  [][2]string // {key, description}
+	keys  []helpKey
 }{
 	{
 		title: "Global",
-		keys: [][2]string{
-			{"Tab / ⇧Tab", "cycle focus (sidebar → body → input)"},
-			{"Ctrl+N", "new session"},
-			{"Ctrl+W", "switch workspace"},
-			{"Ctrl+S", "settings (model / agent / theme / TUI)"},
-			{"Ctrl+T", "backend metrics"},
-			{"Ctrl+Alt+T", "cycle colour theme (Kitty-only; else /theme-next)"},
-			{"Ctrl+R", "refresh / reconnect"},
-			{"Ctrl+L", "reload config from disk"},
-			{"Ctrl+X", "cancel running scenario"},
-			{"Ctrl+Y", "voice transcribe"},
-			{"Ctrl+Z", "detach (TUI exits; `gact attach <sid>` reattaches)"},
-			{"?", "toggle this help"},
-			{"Esc", "close overlay / clear input"},
-			{"Ctrl+C", "quit (cancels in-flight turn before exit)"},
+		keys: []helpKey{
+			{"Tab / ⇧Tab", "help.global.cycle_focus"},
+			{"Ctrl+N", "help.global.new_session"},
+			{"Ctrl+W", "help.global.switch_workspace"},
+			{"Ctrl+S", "help.global.settings"},
+			{"Ctrl+T", "help.global.metrics"},
+			{"Ctrl+Alt+T", "help.global.cycle_theme"},
+			{"Ctrl+R", "help.global.refresh"},
+			{"Ctrl+L", "help.global.reload_config"},
+			{"Ctrl+X", "help.global.cancel_turn"},
+			{"Ctrl+Y", "help.global.voice"},
+			{"Ctrl+Z", "help.global.detach"},
+			{"?", "help.global.toggle_help"},
+			{"Esc", "help.global.escape"},
+			{"Ctrl+C", "help.global.quit"},
 		},
 	},
 	{
 		title: "Sidebar",
-		keys: [][2]string{
-			{"↑/↓ · j/k", "pick session (auto-loads messages)"},
-			{"g / G", "jump to first / last session"},
-			{"PgUp/PgDn", "page up / down"},
-			{"n", "new session"},
-			{"e", "rename session"},
-			{"x", "delete session (press x again to confirm)"},
-			{"A", "archive session (un-archive in archived view)"},
-			{"h", "toggle archived / active view"},
-			{"d", "toggle detached-only view (sessions you Ctrl+Z-walked-away-from)"},
-			{"b", "toggle busy-only view (running + waiting_permission sessions)"},
-			{"y", "yank selected session id to clipboard (pipe into gact log/attach/etc.)"},
-			{"/", "filter sessions by title"},
-			{"o", "add file to session context"},
+		keys: []helpKey{
+			{"↑/↓ · j/k", "help.sidebar.pick"},
+			{"g / G", "help.sidebar.jump"},
+			{"PgUp/PgDn", "help.sidebar.page"},
+			{"n", "help.sidebar.new"},
+			{"e", "help.sidebar.rename"},
+			{"x", "help.sidebar.delete"},
+			{"A", "help.sidebar.archive"},
+			{"h", "help.sidebar.toggle_archived"},
+			{"d", "help.sidebar.toggle_detached"},
+			{"b", "help.sidebar.toggle_busy"},
+			{"y", "help.sidebar.yank"},
+			{"/", "help.sidebar.filter"},
+			{"o", "help.sidebar.context"},
 		},
 	},
 	{
 		title: "Conversation",
-		keys: [][2]string{
-			{"↑/↓ · j/k", "move block cursor — walks part-by-part across turns (▸ marks the selected block)"},
-			{"g / G", "cursor to first / last block"},
-			{"PgUp/PgDn · Ctrl+U/D", "raw page scroll (cursor stays put)"},
-			{"y", "copy selected (or last assistant) message to clipboard"},
-			{"Y", "copy full conversation as role-prefixed markdown"},
-			{"R", "retry — resend last user message"},
-			{"d", "delete last message (optimistic; targets newest)"},
-			{"t", "toggle per-message timestamps"},
-			{"n / N", "next / prev block (alias for ↓/↑)"},
-			{"Ctrl+E · Enter", "expand the cursor's bulky output in floating detail view"},
-			{"a / r", "apply / reject pending diff"},
+		keys: []helpKey{
+			{"↑/↓ · j/k", "help.conversation.move_cursor"},
+			{"g / G", "help.conversation.jump"},
+			{"PgUp/PgDn · Ctrl+U/D", "help.conversation.page"},
+			{"y", "help.conversation.copy_selected"},
+			{"Y", "help.conversation.copy_full"},
+			{"R", "help.conversation.retry"},
+			{"d", "help.conversation.delete"},
+			{"t", "help.conversation.timestamps"},
+			{"n / N", "help.conversation.next_prev"},
+			{"Ctrl+E · Enter", "help.conversation.expand"},
+			{"a / r", "help.conversation.diff"},
 		},
 	},
 	{
 		title: "Input",
-		keys: [][2]string{
-			{"Enter", "send"},
-			{"\\<Enter>", "newline (always works — Claude-Code style)"},
-			{"Shift+Enter · Alt+Enter · Ctrl+J", "newline (terminal-dependent)"},
-			{"↑ on empty", "recall prior prompt (per-session history)"},
-			{"/", "open command palette"},
-			{"/?<query>", "search session messages in palette"},
-			{"Paste ≥ N lines", "auto-compresses (N = Settings → TUI → paste compress)"},
-			{"Ctrl+P", "expand most recent compressed paste in-place"},
-			{"Ctrl+G · Ctrl+⇧P", "open compose modal (long-form editor)"},
-			{"@", "open fuzzy workspace-file picker (inserts @path)"},
+		keys: []helpKey{
+			{"Enter", "help.input.send"},
+			{"\\<Enter>", "help.input.newline_always"},
+			{"Shift+Enter · Alt+Enter · Ctrl+J", "help.input.newline_terminal"},
+			{"↑ on empty", "help.input.recall"},
+			{"/", "help.input.palette"},
+			{"/?<query>", "help.input.search"},
+			{"Paste ≥ N lines", "help.input.paste"},
+			{"Ctrl+P", "help.input.expand_paste"},
+			{"Ctrl+G · Ctrl+⇧P", "help.input.compose"},
+			{"@", "help.input.file_picker"},
 		},
 	},
 	{
@@ -5412,56 +10082,39 @@ var helpTabs = []struct {
 		// shows them all; this tab serves as a quick-reference for
 		// the newer ones that might not jump out of the flat list.
 		title: "Commands",
-		keys: [][2]string{
-			{"/clear", "wipe messages in this session"},
-			{"/cancel", "halt the running assistant turn"},
-			{"/new", "create a new session"},
-			{"/rename", "rename the current session"},
-			{"/mcp", "list connected MCP servers (server health/reconnect)"},
-			{"/tools", "unified catalog: built-in tools + every MCP-exposed tool"},
-			{"/catalog", "alias for /tools — same unified view"},
-			{"/skills", "list available skills (backend-dependent)"},
-			{"/agents", "switch agent (opens Settings > Agent)"},
-			{"/scenarios", "jump to the Scenarios help tab"},
-			{"/sessions", "focus sidebar + start title filter"},
-			{"/theme", "open Theme picker (dark/light/dracula/…) "},
-			{"/theme-export", "save active palette to ~/.config/gact/theme.json"},
-			{"/metrics", "open metrics modal (same as Ctrl+T)"},
-			{"/theme-next", "cycle to next theme (Ctrl+Alt+T on Kitty)"},
-			{"/theme-prev", "cycle to previous theme"},
-			{"/duplicate", "copy current session (title/model/agent; fresh messages)"},
-			{"/help", "show help message from backend"},
-			{"/diff", "show pending diffs (a/r in body to apply/reject)"},
+		keys: []helpKey{
+			{"/clear", "help.commands.clear"},
+			{"/cancel", "help.commands.cancel"},
+			{"/new", "help.commands.new"},
+			{"/rename", "help.commands.rename"},
+			{"/mcp", "help.commands.mcp"},
+			{"/tools", "help.commands.tools"},
+			{"/catalog", "help.commands.catalog"},
+			{"/skills", "help.commands.skills"},
+			{"/agents", "help.commands.agents"},
+			{"/sessions", "help.commands.sessions"},
+			{"/theme", "help.commands.theme"},
+			{"/theme-export", "help.commands.theme_export"},
+			{"/metrics", "help.commands.metrics"},
+			{"/memory", "help.commands.memory"},
+			{"/theme-next", "help.commands.theme_next"},
+			{"/theme-prev", "help.commands.theme_prev"},
+			{"/duplicate", "help.commands.duplicate"},
+			{"/help", "help.commands.help"},
+			{"/diff", "help.commands.diff"},
 		},
 	},
 	{
 		title: "Permission",
-		keys: [][2]string{
-			{"a / d", "allow / deny once"},
-			{"s", "allow for this session"},
-			{"w", "allow for this workspace"},
-		},
-	},
-	{
-		// Scenario triggers — the emulator routes messages by keyword
-		// into different scripts. The empty-state crib listed these
-		// but disappeared once a message landed. Surfacing them here
-		// means users can always remember "how do I get a long reply
-		// again?" even mid-conversation (issue #4).
-		title: "Scenarios",
-		keys: [][2]string{
-			{"read main.go", "normal turn (text + tool call + result)"},
-			{"delete the temp dir", "triggers a permission prompt (a/d/s/w)"},
-			{"propose an edit to main.go", "file_diff part — a / r in body to apply/reject"},
-			{"split this with a sub-agent", "spawns a code_reviewer subagent"},
-			{"write a long explain", "long assistant reply (~60 lines)"},
-			{"dump the log", "large tool output (~80 lines) — Ctrl+E to expand"},
-			{"many tools please", "3 tool calls in one turn"},
+		keys: []helpKey{
+			{"a / d", "help.permission.once"},
+			{"s", "help.permission.session"},
+			{"w", "help.permission.workspace"},
 		},
 	},
 }
 
-const helpTabCount = 7
+var helpTabCount = len(helpTabs)
 
 // helpTabIndex returns the slice position of the tab with the given
 // title, or 0 (Global) if not found. Lets slash-command handlers
@@ -5476,6 +10129,25 @@ func helpTabIndex(title string) int {
 	return 0
 }
 
+func (a *App) localizedHelpTabTitle(title string) string {
+	switch title {
+	case "Global":
+		return a.localizer.t(msgHelpTabGlobal, nil)
+	case "Sidebar":
+		return a.localizer.t(msgHelpTabSidebar, nil)
+	case "Conversation":
+		return a.localizer.t(msgHelpTabConversation, nil)
+	case "Input":
+		return a.localizer.t(msgHelpTabInput, nil)
+	case "Commands":
+		return a.localizer.t(msgHelpTabCommands, nil)
+	case "Permission":
+		return a.localizer.t(msgHelpTabPermission, nil)
+	default:
+		return title
+	}
+}
+
 // viewHelp renders the help overlay as a tabbed modal. Each tab scopes
 // keybindings to a pane or mode so the list always fits in-view —
 // replacing the older L7 single-scroll layout that users reported as
@@ -5484,20 +10156,22 @@ func helpTabIndex(title string) int {
 // Navigation: ←/→ or h/l or Tab cycles tabs; ?/Esc closes.
 func (a *App) viewHelp() string {
 	t := a.Theme
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Keybindings")
+	w := a.modalWidth()
 
-	// Tab header — highlight the active tab.
-	tabCells := make([]string, 0, len(helpTabs))
+	tabHits := make([]menuTab, 0, len(helpTabs))
 	for i, tab := range helpTabs {
-		style := lipgloss.NewStyle().Padding(0, 1).Foreground(t.FgMuted)
-		if i == a.helpTab {
-			style = lipgloss.NewStyle().Padding(0, 1).
-				Foreground(t.Bg).Background(t.Primary).Bold(true)
-		}
-		tabCells = append(tabCells, style.Render(tab.title))
+		tabIdx := i
+		tabHits = append(tabHits, menuTab{
+			id:     "help-" + strings.ToLower(tab.title),
+			label:  a.localizedHelpTabTitle(tab.title),
+			active: i == a.helpTab,
+			action: func(app *App) tea.Cmd {
+				app.helpTab = tabIdx
+				app.helpScroll = 0
+				return nil
+			},
+		})
 	}
-	tabRow := lipgloss.JoinHorizontal(lipgloss.Top, tabCells...)
 
 	// Body — the current tab's key list. Clamp helpTab defensively so a
 	// future out-of-range value doesn't crash the render.
@@ -5505,26 +10179,93 @@ func (a *App) viewHelp() string {
 	if idx < 0 || idx >= len(helpTabs) {
 		idx = 0
 	}
-	rows := make([]string, 0, len(helpTabs[idx].keys))
-	for _, kp := range helpTabs[idx].keys {
-		rows = append(rows,
-			t.HintKey.Render(kp[0])+"  "+t.HintLabel.Render(kp[1]))
-	}
-	keys := lipgloss.JoinVertical(lipgloss.Left, rows...)
-
-	hint := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted).
-		Render("← →  switch tab    ?  close")
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", tabRow, "", keys, "", hint,
+	var (
+		content   string
+		helpList  modalListRender
+		helpWidth = modalScrollableBodyWidth(w)
 	)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(a.modalWidth()).
-		Render(body)
+	items := make([]modalListItem, 0, len(helpTabs[idx].keys))
+	for _, kp := range helpTabs[idx].keys {
+		key := kp.key
+		item := modalListItem{
+			id:    "help:key:" + strings.NewReplacer("/", "", " ", "-", "⇧", "shift").Replace(strings.ToLower(key)),
+			title: key,
+			meta:  a.localizer.t(kp.descID, nil),
+		}
+		if helpTabs[idx].title == "Commands" {
+			command := key
+			item.id = "help:command:" + strings.TrimPrefix(command, "/")
+			item.action = func(app *App) tea.Cmd {
+				app.helpOpen = false
+				app.helpTab = 0
+				app.helpScroll = 0
+				app.focus = FocusInput
+				app.input.Focus()
+				app.input.SetValue(command)
+				app.input.CursorEnd()
+				app.transientHint = "command staged: " + command
+				return nil
+			}
+		}
+		items = append(items, item)
+	}
+	if len(items) > 0 {
+		columns := 1
+		if helpTabs[idx].title == "Commands" && helpWidth >= 72 {
+			columns = 2
+		}
+		helpList = a.renderModalList(items, modalListOptions{
+			width:            helpWidth,
+			rowBudget:        len(items),
+			descriptionLines: 0,
+			columns:          columns,
+			minColumnWidth:   34,
+		})
+		content = lipgloss.JoinVertical(lipgloss.Left, helpList.rows...)
+	} else {
+		content = ""
+	}
+	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
+		app.helpOpen = false
+		app.helpTab = 0
+		app.helpScroll = 0
+	})}
+	hintStyle := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted)
+	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
+		frame: modalFrameOptions{
+			width:      w,
+			title:      a.localizer.t(msgHelpTitle, nil),
+			buttons:    buttons,
+			tabs:       tabHits,
+			tabPadding: 1,
+			tabSpacing: 0,
+		},
+		content:     content,
+		pageSize:    a.helpBodyPageSize(),
+		scroll:      a.helpScroll,
+		wheelID:     "help",
+		footerHint:  a.localizer.t(msgHelpHint, nil),
+		footerStyle: &hintStyle,
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			app.helpScroll = moveScrollOffsetByWheel(app.helpScroll, button)
+			return nil
+		},
+		scrollTo: func(app *App, scroll int) tea.Cmd {
+			app.helpScroll = scroll
+			return nil
+		},
+	})
+	a.helpScroll = rendered.window.scroll
+	a.registerWindowedModalListHits(rendered, 0, helpWidth, helpList)
+	return rendered.modal
+}
+
+func (a *App) helpBodyPageSize() int {
+	return a.modalBodyRows(14)
+}
+
+func (a *App) paletteBodyPageSize() int {
+	return a.modalBodyRows(14)
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have
@@ -5557,11 +10298,8 @@ func overlay(base, top string, w, h int) string {
 			tW = wl
 		}
 	}
-	startY := (h - tH) / 2
+	startY := modalOverlayTop(h, tH)
 	startX := (w - tW) / 2
-	if startY < 0 {
-		startY = 0
-	}
 	if startX < 0 {
 		startX = 0
 	}
@@ -5645,8 +10383,9 @@ type sseEventMsg struct {
 type sseClosedMsg struct{}
 
 type msgPostedAck struct {
-	sessionID string
-	text      string // the user message just posted; used by auto-rename
+	sessionID    string
+	text         string // the user message just posted; used by auto-rename
+	contextFiles []gact.ContextFile
 }
 
 type sessionCreatedMsg struct {

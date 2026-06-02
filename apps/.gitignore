@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
+coverage/
+*.log
+.DS_Store
+
+# Tauri
+desktop/src-tauri/target/
+desktop/src-tauri/Cargo.lock
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Local config
+.env
+.env.local

@@ -64,7 +64,8 @@ func TestDefaultPathHonorsXDG(t *testing.T) {
 	t.Setenv("GACT_CONFIG", "")
 	t.Setenv("XDG_CONFIG_HOME", "/somewhere/x")
 	got, _ := DefaultPath()
-	if got != "/somewhere/x/gact/config.json" {
+	want := filepath.Join("/somewhere/x", "gact", "config.json")
+	if got != want {
 		t.Errorf("path = %q", got)
 	}
 }
@@ -76,7 +77,7 @@ func TestDefaultPathFallsBackToHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(got, "/.config/gact/config.json") {
+	if !strings.HasSuffix(got, filepath.Join(".config", "gact", "config.json")) {
 		t.Errorf("expected ~/.config/gact/config.json suffix, got %q", got)
 	}
 }
@@ -88,7 +89,13 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "subdir", "config.json")
 	ct := 12
-	original := Config{CollapseThreshold: &ct}
+	original := Config{
+		CollapseThreshold: &ct,
+		SidebarLayout: &SidebarLayout{
+			Left:  []string{"sessions", "future-tools", "context"},
+			Right: []string{"memory"},
+		},
+	}
 	if err := Save(original, p); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -99,6 +106,15 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	}
 	if loaded.CollapseThreshold == nil || *loaded.CollapseThreshold != 12 {
 		t.Errorf("round-trip lost threshold: got %v", loaded.CollapseThreshold)
+	}
+	if loaded.SidebarLayout == nil {
+		t.Fatal("round-trip lost sidebar layout")
+	}
+	if got := strings.Join(loaded.SidebarLayout.Left, ","); got != "sessions,future-tools,context" {
+		t.Errorf("left sidebar layout = %q", got)
+	}
+	if got := strings.Join(loaded.SidebarLayout.Right, ","); got != "memory" {
+		t.Errorf("right sidebar layout = %q", got)
 	}
 }
 

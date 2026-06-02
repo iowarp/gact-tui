@@ -1,0 +1,446 @@
+/* Modern three-pane desktop layout.
+   rail (56) · sessions (320) · main (1fr) · inspector (0|340)
+*/
+.chat {
+  display: grid;
+  grid-template-columns: 56px 320px 1fr auto;
+  height: 100vh;
+  background: var(--color-bg);
+  min-height: 0;
+}
+
+/* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
+   and the inspector — they're chat-specific affordances. */
+.chat--discovery {
+  grid-template-columns: 56px 1fr;
+}
+
+/* Cmd+B focus mode: collapse the sessions column.                       */
+.chat--no-sessions {
+  grid-template-columns: 56px 1fr auto;
+}
+
+.chat__main-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-bg);
+}
+
+/* Topbar: workspace breadcrumb · status · per-turn meta · panel toggles  */
+.chat__topbar {
+  height: 52px;
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-border-30);
+  background: var(--color-bg);
+}
+
+.chat__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Keep the session title visible even when meta items are wide.
+     Without this, 5 meta items + actions squeeze the title to 0px on
+     a 1440px viewport with both side panels open. */
+  flex: 1 0 140px;
+  min-width: 0;
+}
+
+.chat__crumb {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat__crumb-head {
+  font-weight: 600;
+  color: var(--color-heading);
+  font-size: 15px;
+}
+
+.chat__crumb-sep {
+  color: var(--color-border);
+  opacity: 0.5;
+}
+
+.chat__rename-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+  color: var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: chat-rename-flash 4500ms ease-out forwards;
+}
+
+@keyframes chat-rename-flash {
+  0% { opacity: 0; transform: translateY(-2px); }
+  10% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.chat__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat__iconbtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.chat__iconbtn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+}
+
+.chat__iconbtn.is-active {
+  background: var(--color-surface);
+  color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan-30);
+}
+
+.chat__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-left: 1px solid var(--color-border-30);
+  margin-left: 8px;
+  margin-right: 8px;
+  height: 24px;
+  /* Allow shrink when crumbs need their guaranteed space, but never
+     force individual items to break inside themselves. */
+  min-width: 0;
+  flex: 0 1 auto;
+  /* Visible (not hidden): at narrow widths the secondary chips collapse
+     into the ⋯ overflow menu, whose dropdown must escape this box —
+     clipping is no longer the overflow defense, the menu is. */
+  overflow: visible;
+}
+
+.chat__meta-item {
+  flex: 0 0 auto;
+}
+
+.chat__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.chat__meta-item--cost { color: var(--color-accent-cyan); }
+.chat__meta-item--err  { color: var(--color-error); }
+.chat__meta-item--warn { color: var(--color-warning); }
+.chat__meta-item--running {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.chat__meta-item--model {
+  color: var(--color-accent-cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.chat__meta-item--clickable {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.chat__meta-item--clickable:hover {
+  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+}
+
+/* Topbar overflow menu (W3 Tier-1): the ⋯ button + dropdown that holds
+   the secondary chips when the topbar is too narrow to show them inline. */
+.chat__overflow-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.chat__overflow-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 180px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-60);
+  border-radius: 10px;
+  box-shadow: var(--shadow-xl);
+  animation: anim-rise 160ms ease-out both;
+}
+
+.chat__overflow-menu .chat__meta-item {
+  height: auto;
+}
+
+.chat__running-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: inline-block;
+  animation: chat-running-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-running-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+
+/* Conversation pane: generous reading column                            */
+.chat__pane {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--color-bg);
+  padding: 24px 0 96px;
+  scroll-padding-bottom: 96px;
+}
+
+.chat__pane-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  transition: max-width var(--dur-base) var(--ease-out);
+}
+
+/* When the inspector is collapsed the chat__main-col has the extra
+   340px of room — let the reading column claim a chunk of it instead
+   of leaving a stranded gutter on the right. */
+.chat:not(.chat--inspector-open) .chat__pane-inner {
+  max-width: 960px;
+}
+
+/* Empty-conversation state                                              */
+.chat__empty {
+  text-align: center;
+  padding: 80px 24px 32px;
+  color: var(--color-muted);
+}
+
+.chat__empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 22%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent-cyan) 22%, transparent) 100%
+  );
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+  color: var(--color-accent-cyan);
+}
+
+.chat__empty-title {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.chat__empty-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-muted);
+  max-width: 480px;
+  margin: 0 auto 24px;
+  line-height: 1.55;
+}
+
+.chat__empty-prompts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.chat__empty-prompt {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  padding: 12px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+
+.chat__empty-prompt:hover {
+  border-color: var(--color-accent-cyan);
+  background: var(--color-surface-alt);
+}
+
+.chat__empty-prompt-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-cyan);
+  margin-bottom: 4px;
+}
+
+/* Sticky "jump to latest" pill when the user has scrolled up.            */
+.chat__scroll-pill {
+  position: sticky;
+  bottom: 16px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+  z-index: 4;
+  transition: transform var(--dur-fast), background var(--dur-fast);
+  animation: chat-scroll-pill-in 220ms ease-out both;
+}
+
+.chat__scroll-pill:hover {
+  background: var(--color-surface-alt);
+  transform: translateY(-1px);
+}
+
+@keyframes chat-scroll-pill-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* "CLIO is responding" inline indicator                                  */
+.chat__typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-top: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 16px;
+  width: max-content;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  animation: chat-typing-in 240ms ease-out both;
+}
+
+@keyframes chat-typing-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat__typing-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+    135deg,
+    var(--color-accent) 0%,
+    var(--color-accent-cyan) 100%
+  );
+  color: var(--color-bg);
+}
+
+.chat__typing-label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chat__typing-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.chat__typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-cyan);
+  opacity: 0.35;
+  animation: chat-typing-pulse 1.2s ease-in-out infinite;
+}
+
+.chat__typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.chat__typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes chat-typing-pulse {
+  0%,100% { opacity: 0.35; transform: scale(0.85); }
+  40%     { opacity: 1; transform: scale(1.15); }
+}
+
+.chat__empty-tip {
+  margin-top: 24px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+.chat__empty-kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-heading);
+}

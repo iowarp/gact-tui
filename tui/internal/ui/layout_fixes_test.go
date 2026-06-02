@@ -7,6 +7,7 @@
 package ui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -293,7 +294,7 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 
 // TestFilePicker_OpensOnAtAndInserts verifies M6: typing `@` at the
 // start of input opens the picker, Enter on a loaded entry inserts
-// `@path` into the buffer and triggers an AddContextFile command.
+// `@path` into the buffer and records a send-time context attachment.
 func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
 	a := newReadyApp(sessions, nil)
@@ -334,9 +335,58 @@ func TestFilePicker_OpensOnAtAndInserts(t *testing.T) {
 	if !strings.Contains(a.input.Value(), "@internal/store/store.go") {
 		t.Fatalf("insert missing: %q", a.input.Value())
 	}
-	if cmd == nil {
-		t.Fatalf("expected addContextFile cmd after insert")
+	if cmd != nil {
+		t.Fatalf("picker selection should not attach until send")
 	}
+	if len(a.fileMentions) != 1 || a.fileMentions[0].Path != "internal/store/store.go" {
+		t.Fatalf("file mentions = %#v, want selected store path", a.fileMentions)
+	}
+}
+
+// TestFilePicker_LoadFailureStaysInPicker verifies a workspace file
+// listing failure is local to the picker. The picker is an optional
+// convenience path; a backend 404/500 here should not knock the whole
+// TUI into StageError.
+func TestFilePicker_LoadFailureStaysInPicker(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width = 110
+
+	out, _ := a.Update(tea.KeyPressMsg{Code: '@', Text: "@"})
+	a = out.(*App)
+	if !a.filePickerOpen {
+		t.Fatalf("@ on empty didn't open picker")
+	}
+
+	out, cmd := a.Update(filePickerLoadedMsg{err: errors.New("gact: 500 backend down " + strings.Repeat("while loading workspace files ", 8))})
+	a = out.(*App)
+	if cmd != nil {
+		t.Fatalf("file picker load failure returned unexpected cmd")
+	}
+	if a.stage != StageReady {
+		t.Fatalf("stage = %v, want StageReady", a.stage)
+	}
+	if !a.filePickerOpen || a.filePicker == nil {
+		t.Fatalf("file picker should stay open on load failure")
+	}
+	if a.filePicker.errText == "" {
+		t.Fatalf("file picker error text was not recorded")
+	}
+	view := a.viewFilePicker()
+	if !strings.Contains(view, "file picker unavailable") {
+		t.Fatalf("picker view did not surface error: %q", view)
+	}
+	for _, line := range strings.Split(ansi.Strip(view), "\n") {
+		if strings.Contains(line, "file picker unavailable") {
+			content := strings.TrimSpace(strings.Trim(line, "│"))
+			if got, want := lipgloss.Width(content), modalInsetListWidth(a.modalWidth()); got > want {
+				t.Fatalf("picker error content width = %d, want <= shared inset width %d: %q", got, want, content)
+			}
+			return
+		}
+	}
+	t.Fatalf("picker error line missing from view: %q", view)
 }
 
 // TestDeleteLastMessage_DropsLocally verifies N3: pressing `d` on
@@ -1039,6 +1089,42 @@ func TestFilePicker_AtMidWordPassesThrough(t *testing.T) {
 	}
 }
 
+func TestInputTextareaClickPlacesCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.width, a.height = 120, 36
+	a.focus = FocusBody
+	a.input.SetValue("abcdef")
+	a.input.CursorEnd()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "input:cursor:0:2")
+	if !ok {
+		t.Fatal("missing input textarea cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("input cursor click should not dispatch a command")
+	}
+	if a.focus != FocusInput {
+		t.Fatalf("focus = %v, want input", a.focus)
+	}
+	if a.input.Line() != 0 || a.input.Column() != 2 {
+		t.Fatalf("input cursor line=%d col=%d, want 0:2", a.input.Line(), a.input.Column())
+	}
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'Z', Text: "Z"})
+	a = model.(*App)
+	if got := a.input.Value(); got != "abZcdef" {
+		t.Fatalf("typing after click inserted at %q, want abZcdef", got)
+	}
+}
+
 // TestCompose_OpenCommitCancel covers M5's full state machine:
 // Ctrl+G opens with seeded draft, Ctrl+S commits the modal body back
 // to the base input, Esc cancels and preserves the pre-modal draft.
@@ -1094,6 +1180,236 @@ func TestCompose_OpenCommitCancel(t *testing.T) {
 	}
 	if a2.input.Value() != "original" {
 		t.Fatalf("cancel overwrote base input: %q", a2.input.Value())
+	}
+}
+
+func TestComposeButtonsUseSemanticHitTargets(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+	a.compose.ta.SetValue("seed from button")
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:commit")
+	if !ok {
+		t.Fatal("missing compose commit button hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if a.composeOpen {
+		t.Fatal("commit button should close compose modal")
+	}
+	if got := a.input.Value(); got != "seed from button" {
+		t.Fatalf("commit button wrote %q", got)
+	}
+}
+
+func TestComposeCopyButtonUsesScopedClipboard(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue("draft line one\ndraft line two")
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:copy")
+	if !ok {
+		t.Fatal("missing compose copy button hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose copy button should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose copy should leave compose modal open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "draft line one\ndraft line two" {
+		t.Fatalf("compose copy clipboard = %q", gotCopy)
+	}
+	if !strings.Contains(a.transientHint, "copied compose draft") {
+		t.Fatalf("compose copy hint = %q, want confirmation", a.transientHint)
+	}
+}
+
+func TestComposeButtonsAlignWithSharedHeader(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "button:compose:commit")
+	if !ok {
+		t.Fatal("missing compose commit button hit target")
+	}
+	if _, ok := findHitTargetForTest(a, "button:compose:copy"); !ok {
+		t.Fatal("missing compose copy button hit target")
+	}
+	view := a.viewCompose()
+	rect := overlayMouseRect(view, a.width, a.height)
+	if wantY := rect.y + 2; target.rect.y != wantY {
+		t.Fatalf("compose commit button y = %d, want shared frame header row %d", target.rect.y, wantY)
+	}
+}
+
+func TestComposeTextareaClickPlacesCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("seed")
+	a.openCompose()
+	a.compose.ta.SetValue("alpha\nbravo")
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "textarea:compose:cursor:1:2")
+	if !ok {
+		t.Fatal("missing compose textarea cursor target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose cursor click should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose cursor click should keep compose open")
+	}
+	if a.compose.ta.Line() != 1 || a.compose.ta.Column() != 2 {
+		t.Fatalf("compose cursor line=%d col=%d, want 1:2", a.compose.ta.Line(), a.compose.ta.Column())
+	}
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'Z', Text: "Z"})
+	a = model.(*App)
+	if got := a.compose.ta.Value(); got != "alpha\nbrZavo" {
+		t.Fatalf("typing after compose click inserted at %q, want alpha/brZavo", got)
+	}
+}
+
+func TestComposeMouseWheelMovesTextareaCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue(strings.Join([]string{
+		"line 00", "line 01", "line 02", "line 03", "line 04",
+		"line 05", "line 06", "line 07", "line 08", "line 09",
+		"line 10", "line 11", "line 12", "line 13", "line 14",
+	}, "\n"))
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	startLine := a.compose.ta.Line()
+	target, ok := findHitTargetForTest(a, "textarea:compose:wheel")
+	if !ok {
+		t.Fatal("missing compose textarea wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose wheel should not dispatch a command")
+	}
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose wheel should keep compose open")
+	}
+	if got := a.compose.ta.Line(); got >= startLine {
+		t.Fatalf("wheel up should move the compose cursor upward, got line %d from %d", got, startLine)
+	}
+}
+
+func TestComposeMouseWheelOnModalChromeDoesNotMoveTextareaCursor(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.openCompose()
+	a.compose.ta.SetValue(strings.Join([]string{
+		"line 00", "line 01", "line 02", "line 03", "line 04",
+		"line 05", "line 06", "line 07", "line 08", "line 09",
+	}, "\n"))
+	a.compose.ta.CursorEnd()
+
+	_ = a.View()
+	startLine := a.compose.ta.Line()
+	surface, ok := findHitTargetForTest(a, "compose:surface:wheel")
+	if !ok {
+		t.Fatal("missing compose surface wheel target")
+	}
+	rect := overlayMouseRect(a.viewCompose(), a.width, a.height)
+	if surface.rect != rect {
+		t.Fatalf("compose surface wheel rect = %+v, want modal rect %+v", surface.rect, rect)
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      rect.x + 1,
+		Y:      rect.y + 1,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("compose chrome wheel should not dispatch a command")
+	}
+	if got := a.compose.ta.Line(); got != startLine {
+		t.Fatalf("wheel on compose chrome should not move cursor, got line %d from %d", got, startLine)
+	}
+}
+
+func TestComposeOutsideClickUsesSharedCancelState(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.width, a.height = 120, 40
+	a.input.SetValue("original")
+	a.openCompose()
+	a.compose.ta.SetValue("discarded edit")
+
+	_ = a.View()
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      0,
+		Y:      0,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("outside click should not dispatch a command")
+	}
+	if a.composeOpen || a.compose != nil {
+		t.Fatalf("outside click should close compose, open=%v compose=%v", a.composeOpen, a.compose)
+	}
+	if got := a.input.Value(); got != "original" {
+		t.Fatalf("outside click should cancel without changing base input, got %q", got)
 	}
 }
 
@@ -1171,6 +1487,9 @@ func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 		// HHHHH1: /catalog is the alias for the unified-tools view.
 		{"/catalog", true, catalogKindTools},
 		{"/skills", true, catalogKindSkills},
+		{"/prompts", true, catalogKindPrompts},
+		{"/agent-blueprints", true, catalogKindAgentBlueprints},
+		{"/blueprints", true, catalogKindAgentBlueprints},
 		{"/clear", false, 0},
 		{"/help", false, 0},
 	}

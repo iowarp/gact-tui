@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"encoding/base64"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -11,6 +14,39 @@ import (
 // backend without touching the OS clipboard. Production calls through
 // to atotto/clipboard; test files override the variable.
 var clipboardWrite = clipboard.WriteAll
+var osc52Write = func(text string) error {
+	encoded := base64.StdEncoding.EncodeToString([]byte(text))
+	_, err := fmt.Fprintf(os.Stdout, "\x1b]52;c;%s\a", encoded)
+	return err
+}
+
+func copyTextToClipboard(label string, text string) string {
+	return copyExactTextToClipboard(text, "nothing to copy", func(int) string {
+		if strings.TrimSpace(label) == "" {
+			label = "content"
+		}
+		return "copied " + label + " to clipboard"
+	})
+}
+
+func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(chars int) string) string {
+	if strings.TrimSpace(text) == "" {
+		if strings.TrimSpace(emptyHint) == "" {
+			return "nothing to copy"
+		}
+		return emptyHint
+	}
+	if err := clipboardWrite(text); err != nil {
+		if oscErr := osc52Write(text); oscErr != nil {
+			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error()
+		}
+		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
+	}
+	if copiedHint == nil {
+		return "copied content to clipboard"
+	}
+	return copiedHint(len(text))
+}
 
 // messageText returns the concatenated text/thinking content of a
 // single message — the same flattening rule lastAssistantText uses.
@@ -39,6 +75,84 @@ func messageText(m gact.Message) (string, bool) {
 		return "", false
 	}
 	return b.String(), true
+}
+
+func selectedConversationBlockText(msgs []gact.Message, msgIdx int, addrIdx int) (string, bool) {
+	if msgIdx < 0 || msgIdx >= len(msgs) {
+		return "", false
+	}
+	m := msgs[msgIdx]
+	addr := addressablePartsOf(m)
+	if addrIdx < 0 || addrIdx >= len(addr) {
+		return "", false
+	}
+	partIdx := addr[addrIdx]
+	if partIdx < 0 || partIdx >= len(m.Parts) {
+		return "", false
+	}
+	return conversationPartCopyText(msgs, msgIdx, m.Parts[partIdx])
+}
+
+func conversationPartCopyText(msgs []gact.Message, msgIdx int, p gact.Part) (string, bool) {
+	switch p.Type {
+	case gact.PartTypeText:
+		return strings.TrimSpace(p.Text), strings.TrimSpace(p.Text) != ""
+	case gact.PartTypeThinking:
+		if strings.TrimSpace(p.Thinking) == "" {
+			return "", false
+		}
+		return "<thinking>\n" + p.Thinking + "\n</thinking>", true
+	case gact.PartTypeToolCall:
+		if p.CallID != "" {
+			if result, ok := matchingToolResultForCall(msgs, msgIdx, p.CallID); ok {
+				if text := strings.TrimSpace(flattenToolResult(result)); text != "" {
+					return text, true
+				}
+				return partDetailText(result), true
+			}
+		}
+		return toolCallDetailText(p), true
+	case gact.PartTypeToolResult:
+		if text := strings.TrimSpace(flattenToolResult(p)); text != "" {
+			return text, true
+		}
+		return partDetailText(p), true
+	case gact.PartTypeFileDiff:
+		before, after := "", ""
+		if p.Before != nil {
+			before = *p.Before
+		}
+		if p.After != nil {
+			after = *p.After
+		}
+		return "--- before ---\n" + before + "\n\n+++ after +++\n" + after, true
+	default:
+		text := strings.TrimSpace(partDetailText(p))
+		return text, text != ""
+	}
+}
+
+func matchingToolResultForCall(msgs []gact.Message, msgIdx int, callID string) (gact.Part, bool) {
+	if callID == "" || msgIdx < 0 || msgIdx >= len(msgs) {
+		return gact.Part{}, false
+	}
+	for _, p := range msgs[msgIdx].Parts {
+		if p.Type == gact.PartTypeToolResult && p.CallID == callID {
+			return p, true
+		}
+	}
+	for i := msgIdx + 1; i < len(msgs); i++ {
+		m := msgs[i]
+		if m.Role != gact.RoleTool {
+			break
+		}
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolResult && p.CallID == callID {
+				return p, true
+			}
+		}
+	}
+	return gact.Part{}, false
 }
 
 // fullConversationText concatenates every message's text into a

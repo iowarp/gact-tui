@@ -1,0 +1,1869 @@
+import type {
+  AgentDef,
+  Capabilities,
+  ContextFile,
+  ContextFileContent,
+  TurnAttempt,
+  HealthSnapshot,
+  LmConfigSnapshot,
+  McpServerInfo,
+  MemoryStats,
+  Message,
+  MetricsSnapshot,
+  PermissionRequest,
+  PermissionScope,
+  PromptDef,
+  PromptSource,
+  ProviderDef,
+  Session,
+  SessionTask,
+  UserQuestion,
+  SlashCommandDef,
+  Workspace,
+} from '../wire/types.js';
+
+/**
+ * The six declarative-hook event kinds clio accepts (verified against
+ * live :17803 `x_clio_hook_events`). A bare `string` is also tolerated on
+ * the wire so an unknown future kind doesn't break parsing.
+ */
+export type HookEvent =
+  | 'pre_tool'
+  | 'post_tool'
+  | 'pre_message'
+  | 'post_message'
+  | 'semantic_event'
+  | 'on_error';
+
+/** A declarative hook row as returned by GET/POST /v1/hooks. */
+export interface HookRow {
+  id: string;
+  event: HookEvent | string;
+  /** Local command/script path. Empty string when a `url` hook instead. */
+  command?: string;
+  /** HTTP endpoint clio would POST to. Empty string when a `command` hook. */
+  url?: string;
+  session_id?: string;
+  workspace_id?: string;
+}
+
+export interface ClientOptions {
+  baseUrl: string;
+  bearerToken?: string;
+  fetch?: typeof fetch;
+  /**
+   * Returns a BCP-47 language tag (e.g. "es", "ja", "en-US") to include in
+   * `Accept-Language` on every request. Re-evaluated per call so callers
+   * can flip locale at runtime without reconstructing the client.
+   * Return `null`/`undefined` to send no header.
+   */
+  getLocale?: () => string | null | undefined;
+}
+
+export class HttpError extends Error {
+  override name = 'HttpError';
+  /** SPEC §14 typed error envelope when the body parsed as one. */
+  errorInfo?: {
+    error: string;
+    message: string;
+    recoverable?: boolean;
+    details?: Record<string, unknown>;
+  };
+
+  constructor(
+    public status: number,
+    public statusText: string,
+    public body: string,
+  ) {
+    super(`HTTP ${status} ${statusText}: ${shorten(body)}`);
+    // GACT v0.2 error responses wrap the typed envelope in {"error": …}.
+    // Lift it onto the HttpError so callers can present a user-friendly
+    // message instead of raw JSON.
+    try {
+      const parsed = JSON.parse(body) as {
+        error?: {
+          error?: string;
+          message?: string;
+          recoverable?: boolean;
+          details?: Record<string, unknown>;
+        };
+      };
+      const env = parsed?.error;
+      if (env && typeof env.error === 'string' && typeof env.message === 'string') {
+        this.errorInfo = {
+          error: env.error,
+          message: env.message,
+          recoverable: env.recoverable,
+          details: env.details,
+        };
+        // Surface the human-readable message at .message so default UI
+        // paths show the actionable copy first.
+        this.message = `${env.error}: ${env.message}`;
+      }
+    } catch {
+      // body wasn't JSON; leave the original message intact.
+    }
+  }
+}
+
+function shorten(s: string): string {
+  return s.length <= 200 ? s : s.slice(0, 200) + '…';
+}
+
+/**
+ * Minimal HTTP client for GACT v0.2. The harness build only needs enough surface
+ * for the connect screen, sidebar, and transcript shells; richer endpoints land
+ * as PLAN.md items.
+ */
+export class Client {
+  private readonly fetchImpl: typeof fetch;
+
+  constructor(public readonly options: ClientOptions) {
+    this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+  }
+
+  get baseUrl(): string {
+    return this.options.baseUrl.replace(/\/+$/, '');
+  }
+
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { Accept: 'application/json' };
+    if (this.options.bearerToken) {
+      h.Authorization = `Bearer ${this.options.bearerToken}`;
+    }
+    const locale = this.options.getLocale?.();
+    if (locale) {
+      h['Accept-Language'] = locale;
+    }
+    return h;
+  }
+
+  private async get<T>(path: string): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const res = await this.fetchImpl(url, { headers: this.headers() });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    return (await res.json()) as T;
+  }
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, 'POST', body);
+  }
+
+  private async del<T = void>(path: string): Promise<T> {
+    return this.request<T>(path, 'DELETE', undefined);
+  }
+
+  /**
+   * Shared request helper used by POST/PATCH/PUT — `post()` delegates
+   * here for back-compat with existing call sites.
+   */
+  private async request<T>(
+    path: string,
+    method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+    body: unknown,
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const res = await this.fetchImpl(url, {
+      method,
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    if (res.status === 204) return undefined as unknown as T;
+    return (await res.json()) as T;
+  }
+
+  capabilities(): Promise<Capabilities> {
+    return this.get<Capabilities>('/v1/capabilities');
+  }
+
+  /** GET /v1/sessions/{id} — single-session detail. Used when the
+   * sessions list is paginated and the cached row needs refreshing. */
+  getSession(sessionId: string): Promise<Session> {
+    return this.get<Session>(`/v1/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  sessions(options: { archived?: boolean } = {}): Promise<{ sessions: Session[] }> {
+    const qs = new URLSearchParams();
+    if (options.archived !== undefined) {
+      qs.set('archived', String(options.archived));
+    }
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get<{ sessions: Session[] }>(`/v1/sessions${suffix}`);
+  }
+
+  session(id: string): Promise<Session> {
+    return this.get<Session>(`/v1/sessions/${encodeURIComponent(id)}`);
+  }
+
+  async messages(sessionId: string): Promise<{ messages: Message[] }> {
+    const out = await this.get<{ messages: Message[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+    );
+    // Defensive: always present chronological. Some clio versions
+    // return newest-first which renders the conversation backwards.
+    const sorted = (out.messages ?? [])
+      .slice()
+      .sort((a, b) => {
+        const ta = Date.parse(a.created_at ?? '') || 0;
+        const tb = Date.parse(b.created_at ?? '') || 0;
+        return ta - tb;
+      });
+    return { messages: sorted };
+  }
+
+  /** POST /v1/sessions — creates a new session and returns its id. */
+  createSession(input: { title?: string; workspace_id?: string } = {}): Promise<Session> {
+    return this.post<Session>('/v1/sessions', input);
+  }
+
+  /** DELETE /v1/sessions/{id} — removes a session and returns 204. */
+  deleteSession(sessionId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * DELETE /v1/sessions/{sid}/messages/{id} — drop a single message.
+   * Per-message surgical undo, distinct from `undoSession`'s tail trim.
+   */
+  deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/import — recreate a session from its export
+   * JSON blob. Returns the new Session. Companion to exportSession.
+   */
+  importSession(body: Record<string, unknown>): Promise<Session> {
+    return this.post<Session>('/v1/sessions/import', body);
+  }
+
+  /**
+   * GET /v1/sessions/{sid}/messages/search?q=… — backend-side full
+   * text search. Returns relevance-scored hits. Use over client-side
+   * substring once the transcript has more than a few hundred turns.
+   */
+  searchSessionMessages(
+    sessionId: string,
+    q: string,
+  ): Promise<{ matches: Array<{
+    message_id: string;
+    part_id?: string;
+    snippet: string;
+    score?: number;
+  }> }> {
+    const qs = new URLSearchParams({ q }).toString();
+    return this.get<{ matches: Array<{
+      message_id: string;
+      part_id?: string;
+      snippet: string;
+      score?: number;
+    }> }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/search?${qs}`,
+    );
+  }
+
+  /**
+   * GET /v1/memory/search?q=… — cross-session full-text search across
+   * the whole workspace memory (PR #351). Optional session_id scope.
+   */
+  memorySearch(
+    q: string,
+    options: { session_id?: string; workspace_id?: string; limit?: number } = {},
+  ): Promise<{
+    query: string;
+    hits: Array<{
+      session_id: string;
+      message_id: string;
+      role?: string;
+      text: string;
+      score?: number;
+      match_terms?: string[];
+    }>;
+  }> {
+    const qs = new URLSearchParams({ q });
+    if (options.session_id) qs.set('session_id', options.session_id);
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    if (options.limit) qs.set('limit', String(options.limit));
+    return this.get(`/v1/memory/search?${qs}`);
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/frames — the agent's time-series
+   * memory snapshots for this session. Each frame represents a point
+   * where the orchestrator persisted state. Used by the inspector's
+   * Frames sub-section to give users a peek at the underlying memory
+   * layer.
+   */
+  sessionContextFrames(
+    sessionId: string,
+  ): Promise<{
+    frames: Array<{
+      id: string;
+      created_at?: string;
+      status?: string;
+      summary?: string;
+      token_count?: number;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/frames`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/frames/{frame_id} — single-frame
+   * detail (full payload, not just the summary that the list returns).
+   */
+  sessionContextFrame(
+    sessionId: string,
+    frameId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/frames/${encodeURIComponent(frameId)}`,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/diffs/apply — apply pending diffs. Pass
+   * `paths` to scope to specific files; empty body applies all.
+   * `write_errors` carries per-path failures when the in-memory diff
+   * status flipped to `applied` but the disk write blew up (perm
+   * denied, disk full, …). Callers should surface it. */
+  applySessionDiffs(
+    sessionId: string,
+    body: { paths?: string[] } = {},
+  ): Promise<{ applied: string[]; write_errors?: Record<string, string> }> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/apply`,
+      body,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/diffs/reject — discard pending diffs. */
+  rejectSessionDiffs(
+    sessionId: string,
+    body: { paths?: string[] } = {},
+  ): Promise<{ rejected: string[] }> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/reject`,
+      body,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/diffs — every proposed-but-not-applied diff
+   * across the session. Used as a discovery entry point so the user
+   * can see all pending diffs without scrolling the transcript.
+   */
+  sessionDiffs(
+    sessionId: string,
+  ): Promise<{
+    diffs: Array<{
+      path: string;
+      applied?: boolean;
+      message_id?: string;
+      hunks?: Array<{ old_start?: number; old_lines?: number; new_start?: number; new_lines?: number; lines?: string[] }>;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/diffs`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/messages/{msg_id}/diffs — diffs scoped to a
+   * single message (per-turn drill-down).
+   */
+  messageDiffs(
+    sessionId: string,
+    messageId: string,
+  ): Promise<{
+    diffs: Array<{
+      path: string;
+      applied?: boolean;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/diffs`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/commands/{cmd} — execute a slash command
+   * via the structured route rather than dispatching it as a user
+   * message. Preserves per-command argument schemas (a thing the
+   * "send as user message and let the parser split it" path loses).
+   */
+  runCommand(
+    sessionId: string,
+    commandId: string,
+    args: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    // clio's /v1/commands lists ids with a leading slash (e.g.
+    // "/cache-stats"), but the command endpoint keys on the bare name
+    // ("cache-stats"). Posting the id verbatim yields "%2Fcache-stats"
+    // → 404, so no backend slash command ever dispatched. Strip it.
+    const cmd = commandId.replace(/^\/+/, '');
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/commands/${encodeURIComponent(cmd)}`,
+      args,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/schedules — list cron-style triggers for
+   * this session (PR #353 backend surface; SPEC §6.15 marks the
+   * capability as optional).
+   */
+  sessionSchedules(
+    sessionId: string,
+  ): Promise<{
+    schedules: Array<{
+      id: string;
+      cron?: string;
+      next_run_at?: string;
+      enabled?: boolean;
+      prompt?: string;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/schedules — create a new cron trigger.
+   * Wire wants `question`, callers think in `prompt`; normalize.
+   */
+  createSchedule(
+    sessionId: string,
+    body: { cron: string; prompt: string; enabled?: boolean },
+  ): Promise<{ id: string; [k: string]: unknown }> {
+    const { prompt, ...rest } = body;
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
+      { ...rest, question: prompt },
+    );
+  }
+
+  /**
+   * DELETE /v1/schedules/{id} — remove a cron trigger globally.
+   */
+  deleteSchedule(scheduleId: string): Promise<void> {
+    return this.del(`/v1/schedules/${encodeURIComponent(scheduleId)}`);
+  }
+
+  /**
+   * GET /v1/shared/{token} — load a read-only shared session view by
+   * the share token a sender pasted into chat. Returns the static
+   * transcript snapshot.
+   */
+  loadSharedSession(token: string): Promise<{
+    session: Record<string, unknown>;
+    messages: Array<Record<string, unknown>>;
+  }> {
+    return this.get(`/v1/shared/${encodeURIComponent(token)}`);
+  }
+
+  /**
+   * GET /v1/sessions/{id}/memory/events — session-scoped memory event
+   * audit log (cache hits, frame writes, tool invocations).
+   */
+  sessionMemoryEvents(
+    sessionId: string,
+    limit = 50,
+  ): Promise<{ events: Array<Record<string, unknown>> }> {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/memory/events${qs}`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/questions/{qid}/answer — resolve a pending
+   * orchestrator question (#380). Body carries the user's reply (free
+   * text for `freeform`, value for `choice` / `confirmation`).
+   */
+  answerSessionQuestion(
+    sessionId: string,
+    questionId: string,
+    body: {
+      answer?: string;
+      selected_options?: string[];
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<UserQuestion> {
+    return this.post<UserQuestion>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/answer`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/questions/{qid}/cancel — abort a pending
+   * orchestrator question.
+   */
+  cancelSessionQuestion(
+    sessionId: string,
+    questionId: string,
+  ): Promise<UserQuestion> {
+    return this.post<UserQuestion>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/cancel`,
+      {},
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/questions — pending ask-user questions
+   * from the orchestrator (#380). Defaults to all statuses.
+   */
+  sessionQuestions(
+    sessionId: string,
+    status?: UserQuestion['status'],
+  ): Promise<{ questions: UserQuestion[] }> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.get<{ questions: UserQuestion[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/questions${qs}`,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/files — the file index the agent
+   * has been asked to keep in context for this session. Per
+   * clio-agent develop #362.
+   */
+  sessionContextFiles(sessionId: string): Promise<{ files: ContextFile[] }> {
+    return this.get<{ files: ContextFile[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/context/files — attach a file to the
+   * session's context. Existing rows for the same path are upserted.
+   */
+  addContextFile(
+    sessionId: string,
+    body: { path: string; mode?: string; language?: string },
+  ): Promise<ContextFile> {
+    return this.post<ContextFile>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/attachments — upload a file's BYTES into the
+   * session workspace. clio writes them under `.clio/attachments/{sid}/`
+   * and registers them as a context file the agent reads next turn.
+   *
+   * Encoded as base64-in-JSON, NOT multipart, on purpose: the CLIO
+   * Desktop transports HTTP through a Tauri/ureq bridge that forwards
+   * only UTF-8 string bodies (a `FormData` stringifies to
+   * "[object FormData]"), and over an SSH tunnel the body must survive
+   * that same bridge — so multipart cannot work in the shipped desktop.
+   * base64 rides the JSON path the proxy + tunnel already handle, which
+   * is also what lets a LOCAL file reach a REMOTE (ssh) agent: the bytes
+   * travel the tunnel and land in the remote workspace.
+   *
+   * `file` is structurally a browser `File` (name/type/arrayBuffer) but
+   * typed minimally so it's unit-testable without a DOM.
+   */
+  async uploadAttachment(
+    sessionId: string,
+    file: { name: string; type?: string; arrayBuffer(): Promise<ArrayBuffer> },
+    mode: 'read' | 'pin' = 'read',
+  ): Promise<ContextFile> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+    return this.post<ContextFile>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/attachments`,
+      {
+        file: b64,
+        filename: file.name,
+        mime_type: file.type || 'application/octet-stream',
+        mode,
+      },
+    );
+  }
+
+  /**
+   * Change a context file's mode (read/edit/pin). clio's
+   * POST /v1/sessions/{id}/context/files endpoint upserts by path, so
+   * we POST the new mode (no separate PATCH endpoint exists). The
+   * method name stays patchContextFile for caller-side clarity.
+   */
+  patchContextFile(
+    sessionId: string,
+    body: { path: string; mode: 'read' | 'edit' | 'pin' },
+  ): Promise<unknown> {
+    return this.post<unknown>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+      body,
+    );
+  }
+
+  /**
+   * DELETE /v1/sessions/{id}/context/files — drop a file from the
+   * session's context. clio reads `path` from the JSON BODY only (it
+   * ignores a `?path=` query), so a query-only delete 204s but is a
+   * silent no-op (the file reappears on refetch). Send it in the body.
+   */
+  removeContextFile(sessionId: string, path: string): Promise<void> {
+    return this.request<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files`,
+      'DELETE',
+      { path },
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/files/content?path=… — fetch a registered
+   * context file's (or uploaded attachment's) bytes back as base64-JSON
+   * (clio PR iowarp/clio-agent#533). Gate call sites on
+   * `capabilities.x_clio_files_content` — older backends 404 this route.
+   */
+  async getContextFileContent(
+    sessionId: string,
+    path: string,
+  ): Promise<ContextFileContent> {
+    const raw = await this.get<{ file: ContextFileContent }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files/content?path=${encodeURIComponent(path)}`,
+    );
+    return raw.file;
+  }
+
+  /**
+   * GET /v1/sessions/{id}/tasks — list the lightweight TODO entries
+   * scoped to a session (clio-agent develop).
+   */
+  sessionTasks(sessionId: string): Promise<{ tasks: SessionTask[] }> {
+    return this.get<{ tasks: SessionTask[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/tasks`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/tasks — create a session task.
+   */
+  createSessionTask(
+    sessionId: string,
+    body: { title: string; status?: SessionTask['status'] },
+  ): Promise<SessionTask> {
+    return this.post<SessionTask>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/tasks`,
+      body,
+    );
+  }
+
+  /**
+   * PATCH /v1/tasks/{tid} — update a session task. Pass any subset of
+   * {title, status, metadata}.
+   */
+  patchSessionTask(
+    taskId: string,
+    patch: Partial<Pick<SessionTask, 'title' | 'status' | 'metadata'>>,
+  ): Promise<SessionTask> {
+    return this.request<SessionTask>(
+      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /**
+   * DELETE /v1/tasks/{tid} — remove a session task.
+   */
+  deleteSessionTask(taskId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/undo — drops the last N messages from the
+   * session (default 1). Per clio-agent develop turn-rollback work.
+   * Returns the rollback envelope {kept_messages, deleted_messages}.
+   */
+  undoSession(
+    sessionId: string,
+    body: { count?: number } = {},
+  ): Promise<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }> {
+    return this.post<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/undo`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/rewind — drops every message after the
+   * given target_message_id (and the target itself if include_target).
+   * Useful for "back up two turns and try again" workflows.
+   */
+  rewindSession(
+    sessionId: string,
+    body: { message_id: string; include_target?: boolean },
+  ): Promise<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }> {
+    return this.post<{ kept_messages?: unknown[]; deleted_messages?: unknown[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/rewind`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/compact — collapses earlier conversation
+   * into a compacted summary to free up context window. Per
+   * clio-agent develop. 204 on success — `session.compacted` event
+   * fires asynchronously when done.
+   */
+  compactSession(
+    sessionId: string,
+    body: { reason?: string } = {},
+  ): Promise<void> {
+    return this.post<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/compact`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/summarize — kicks off async summarization; the
+   * result is expected to land on the SSE stream as `session.summarized`.
+   *
+   * NOT YET IMPLEMENTED IN clio-agent: there is no such route (returns 404)
+   * and clio never emits `session.summarized` (verified against source —
+   * the only `summarize` in app.py is internal to `compact`). This is a
+   * distinct planned feature from `compact` (a user-facing TLDR/abstract,
+   * not context-window management); tracked as an iowarp/clio-agent issue.
+   * The desktop gates its summarize actions on `capabilities.session_summary`
+   * so this method is only invoked once a backend advertises support.
+   */
+  summarizeSession(
+    sessionId: string,
+    body: { auto?: boolean; instructions?: string } = {},
+  ): Promise<void> {
+    return this.post<void>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/summarize`,
+      body,
+    );
+  }
+
+  /**
+   * GET /v1/sessions/{id}/export — full session payload as JSON
+   * (messages, metadata, agent + model + workspace IDs). Used for
+   * 'Export as JSON' downloads from the session kebab menu.
+   */
+  exportSession(sessionId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/export`,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/fork — branch the session at its current
+   * tail (or at a specific message). Returns the new Session.
+   */
+  forkSession(
+    sessionId: string,
+    body: { title?: string; from_message_id?: string } = {},
+  ): Promise<Session> {
+    // Wire wants `at_message_id`; callers think in `from_message_id`.
+    const { from_message_id, ...rest } = body;
+    const payload: Record<string, unknown> = { ...rest };
+    if (from_message_id) payload['at_message_id'] = from_message_id;
+    return this.post<Session>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/fork`,
+      payload,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/share — create a read-only share. Returns
+   * the share token + URL the user can hand to anyone.
+   */
+  shareSession(
+    sessionId: string,
+    body: { expires_in_seconds?: number } = {},
+  ): Promise<{ token: string; url?: string; expires_at?: string }> {
+    // Wire wants `ttl_s`; callers think in `expires_in_seconds`.
+    const payload: Record<string, unknown> = {};
+    if (typeof body.expires_in_seconds === 'number') {
+      payload['ttl_s'] = body.expires_in_seconds;
+    }
+    return this.post<{
+      token: string;
+      url?: string;
+      expires_at?: string;
+    }>(`/v1/sessions/${encodeURIComponent(sessionId)}/share`, payload);
+  }
+
+  /**
+   * PATCH /v1/sessions/{id} — update session metadata (title, model,
+   * agent mode, archived). Used by the composer's model picker + perm
+   * mode toggle to push the user's selection to the backend.
+   */
+  patchSession(
+    sessionId: string,
+    patch: {
+      title?: string;
+      archived?: boolean;
+      agent?: { id?: string; mode?: string };
+      model?: { provider_id?: string; model_id?: string };
+      /** Free-form metadata bag. Used for session pinning (key
+       * `pinned: boolean`) so that pin state is coherent across the
+       * TUI and the Desktop. */
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<Session> {
+    return this.request<Session>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /**
+   * POST /v1/sessions/{id}/messages — append a user message. The server
+   * responds with the created message envelope; streaming continuations
+   * arrive on the per-session SSE feed.
+   */
+  sendMessage(
+    sessionId: string,
+    body: { text: string; metadata?: Record<string, unknown> },
+  ): Promise<Message> {
+    return this.post<Message>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      { role: 'user', parts: [{ type: 'text', text: body.text }], metadata: body.metadata },
+    );
+  }
+
+  /**
+   * GET /v1/permissions?session_id=… — list pending permissions for a
+   * session. The frontend uses this for the initial fetch; subsequent
+   * arrivals come over SSE as `permission.requested` events.
+   */
+  permissions(sessionId: string): Promise<{ permissions: PermissionRequest[] }> {
+    const qs = new URLSearchParams({ session_id: sessionId }).toString();
+    return this.get<{ permissions: PermissionRequest[] }>(`/v1/permissions?${qs}`);
+  }
+
+  /**
+   * POST /v1/permissions/{pid} — resolve a pending request. `decision`
+   * is "approve" or "deny"; for approvals the `scope` carries the
+   * inline-card button (once / session / always_tool / always_server).
+   */
+  resolvePermission(
+    permissionId: string,
+    decision: 'approve' | 'deny',
+    scope?: PermissionScope,
+  ): Promise<void> {
+    // Wire: clio reads { action: 'allow' | 'deny' | 'allow_session' |
+    // 'allow_workspace' }. Map the UI's decision+scope to the
+    // backend's single enum so permissions actually unblock the
+    // agent (previously the desktop's POST 422'd silently and the
+    // agent stayed waiting forever).
+    let action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace' = 'deny';
+    if (decision === 'approve') {
+      action = 'allow';
+      if (scope === 'session') action = 'allow_session';
+      // `always_tool` / `always_server` aren't first-class on clio yet;
+      // map both to allow_workspace which is the broadest scope clio
+      // currently honors.
+      else if (scope === 'always_tool' || scope === 'always_server') {
+        action = 'allow_workspace';
+      }
+    }
+    return this.post<void>(`/v1/permissions/${encodeURIComponent(permissionId)}`, {
+      action,
+    });
+  }
+
+  /**
+   * POST /v1/sessions/{id}/cancel — interrupts an in-flight run. The
+   * backend emits a `message.completed { stop_reason: "cancelled" }`
+   * over SSE for any in-progress message. Returns 204.
+   */
+  cancelSession(sessionId: string): Promise<void> {
+    return this.post<void>(`/v1/sessions/${encodeURIComponent(sessionId)}/cancel`, {});
+  }
+
+  /* -------- Discovery endpoints (Wave 0.9.1: LeftRail backing) -------- */
+
+  workspaces(): Promise<{ workspaces: Workspace[] }> {
+    return this.get<{ workspaces: Workspace[] }>('/v1/workspaces');
+  }
+
+  /**
+   * GET /v1/workspaces/{id}/files — list the file tree (paginated by
+   * cursor). Used to back the composer `@`-mention picker.
+   */
+  async workspaceFiles(
+    workspaceId: string,
+    options: { cursor?: string; limit?: number } = {},
+  ): Promise<{
+    files: Array<{
+      path: string;
+      size?: number;
+      language?: string;
+      mime?: string;
+      type?: string;
+    }>;
+    next_cursor?: string;
+  }> {
+    const qs = new URLSearchParams();
+    if (options.cursor) qs.set('cursor', options.cursor);
+    if (options.limit) qs.set('limit', String(options.limit));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    // clio returns `{entries: [{path,type,size,modified}]}`; older/other
+    // backends may return `{files: [...]}`. Normalize to `{files}` so the
+    // @-mention picker (which reads res.files) works either way — reading
+    // res.files against clio's `entries` threw and silently showed zero files.
+    const raw = await this.get<{
+      entries?: Array<{ path: string; type?: string; size?: number }>;
+      files?: Array<{ path: string; size?: number; language?: string; mime?: string }>;
+      next_cursor?: string;
+    }>(`/v1/workspaces/${encodeURIComponent(workspaceId)}/files${suffix}`);
+    const src = raw.files ?? raw.entries ?? [];
+    return {
+      files: src.map((e) => ({
+        path: e.path,
+        ...(typeof e.size === 'number' ? { size: e.size } : {}),
+        ...('language' in e && e.language ? { language: e.language } : {}),
+        ...('type' in e && e.type ? { type: e.type } : {}),
+      })),
+      next_cursor: raw.next_cursor,
+    };
+  }
+
+  /**
+   * GET /v1/workspaces/{id}/files/read?path=… — read a single file's
+   * text content. Used to preview an `@`-mention before sending.
+   */
+  workspaceReadFile(
+    workspaceId: string,
+    path: string,
+  ): Promise<{ path: string; content: string; mime?: string; size?: number }> {
+    const qs = new URLSearchParams({ path }).toString();
+    return this.get(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?${qs}`,
+    );
+  }
+
+  /**
+   * GET /v1/workspaces/{id}/repo_map — indexed tree + per-file token
+   * estimates. Useful for an "overview" panel.
+   */
+  workspaceRepoMap(
+    workspaceId: string,
+  ): Promise<{ tree?: Record<string, unknown>; tokens?: number }> {
+    return this.get(`/v1/workspaces/${encodeURIComponent(workspaceId)}/repo_map`);
+  }
+
+  /**
+   * POST /v1/workspaces — register a new workspace root.
+   * Per SPEC §6.1 only `root_path` is required; the backend chooses
+   * an `id` and creates the on-disk metadata directory.
+   */
+  createWorkspace(body: {
+    root_path: string;
+    name?: string;
+    config?: Record<string, unknown>;
+  }): Promise<Workspace> {
+    // Wire: clio's CreateWorkspaceRequest is { name, root_path,
+    // storage_root, metadata }. Map desktop's `config` → `metadata`,
+    // synth a default name if the caller omitted one (clio's pydantic
+    // model requires `name`).
+    const { name, root_path, config } = body;
+    const fallbackName =
+      name ?? root_path.split(/[\\/]/).filter(Boolean).pop() ?? 'workspace';
+    const payload: Record<string, unknown> = {
+      name: fallbackName,
+      root_path,
+    };
+    if (config) payload['metadata'] = config;
+    return this.post<Workspace>('/v1/workspaces', payload);
+  }
+
+  /** DELETE /v1/workspaces/{id} — unregister a workspace from the
+   * backend. Backend keeps on-disk files; only metadata is dropped. */
+  deleteWorkspace(workspaceId: string): Promise<void> {
+    return this.del(`/v1/workspaces/${encodeURIComponent(workspaceId)}`);
+  }
+
+  /** PATCH /v1/workspaces/{id} — partial update (rename, config). */
+  patchWorkspace(
+    workspaceId: string,
+    patch: Partial<Pick<Workspace, 'name'>> & { config?: Record<string, unknown> },
+  ): Promise<Workspace> {
+    return this.request<Workspace>(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /** GET /v1/lsp/clients — list configured LSP clients (per-language
+   * server status). Useful for the Doctor health view. */
+  lspClients(): Promise<{
+    clients: Array<{
+      name: string;
+      language?: string;
+      status?: string;
+      [k: string]: unknown;
+    }>;
+  }> {
+    return this.get('/v1/lsp/clients');
+  }
+
+  /** GET /v1/lsp/clients/{name}/diagnostics — current diagnostics
+   * surfaced by an LSP client. Shape is opaque (backend-dependent). */
+  lspDiagnostics(
+    name: string,
+  ): Promise<{ diagnostics: Array<Record<string, unknown>>; [k: string]: unknown }> {
+    return this.get(
+      `/v1/lsp/clients/${encodeURIComponent(name)}/diagnostics`,
+    );
+  }
+
+  /** GET /v1/tools/{id} — single-tool detail (richer than the bulk list). */
+  getTool(toolId: string): Promise<Record<string, unknown>> {
+    return this.get(`/v1/tools/${encodeURIComponent(toolId)}`);
+  }
+
+  /** POST /v1/agents/extract — distill a new agent definition from a
+   * session's behavior. Gated by `capabilities.skills_extraction`. */
+  extractAgent(body: {
+    session_id: string;
+    name?: string;
+    description?: string;
+  }): Promise<Record<string, unknown>> {
+    // Wire: clio reads { session_ids: [...], agent_id: "..." }.
+    // Callers pass the singular shape that matches the UI.
+    const payload: Record<string, unknown> = {
+      session_ids: [body.session_id],
+      agent_id: (body.name ?? '').toLowerCase().replace(/\W+/g, '-') || body.session_id,
+    };
+    if (body.description) payload['description'] = body.description;
+    return this.post('/v1/agents/extract', payload);
+  }
+
+  /** DELETE /v1/agents/{id} — remove a registered agent. */
+  deleteAgent(agentId: string): Promise<void> {
+    return this.del(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /** GET /v1/sessions/{id}/messages/{msg_id} — single-message fetch.
+   * Used by permalink loading: paste a clio://session/{sid}#{mid}
+   * URL and the client can verify the message exists before scrolling
+   * the transcript. */
+  getMessage(sessionId: string, messageId: string): Promise<Message> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+    );
+  }
+
+  /** PATCH /v1/sessions/{id}/messages/{msg_id}/parts/{part_id} —
+   * partial patch of a single Part. Used for in-place edits to a
+   * tool_result, text fragment, etc. */
+  patchMessagePart(
+    sessionId: string,
+    messageId: string,
+    partId: string,
+    patch: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.request(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/parts/${encodeURIComponent(partId)}`,
+      'PATCH',
+      patch,
+    );
+  }
+
+  /** PUT /v1/agents/{id} — replace an existing agent definition. */
+  putAgent(
+    agentId: string,
+    def: Omit<AgentDef, 'id'> & { id?: string },
+  ): Promise<AgentDef> {
+    return this.request<AgentDef>(
+      `/v1/agents/${encodeURIComponent(agentId)}`,
+      'PUT',
+      { ...def, id: agentId },
+    );
+  }
+
+  /** POST /v1/agents — register a new agent definition. The backend
+   * assigns an `id` on success. */
+  createAgent(def: Omit<AgentDef, 'id'>): Promise<AgentDef> {
+    return this.post<AgentDef>('/v1/agents', def);
+  }
+
+  agents(): Promise<{ agents: AgentDef[] }> {
+    return this.get<{ agents: AgentDef[] }>('/v1/agents');
+  }
+
+  providers(): Promise<{ providers: ProviderDef[] }> {
+    return this.get<{ providers: ProviderDef[] }>('/v1/providers');
+  }
+
+  /**
+   * GET /v1/providers/{id} — single-provider detail (more fields than
+   * the bulk list — includes vendor metadata, status, auth flow, and
+   * deprecation hints). Used by the ProvidersPage card expansion.
+   */
+  getProvider(
+    providerId: string,
+  ): Promise<{
+    id: string;
+    name?: string;
+    vendor?: string;
+    status?: string;
+    auth?: { kind?: string; required?: boolean; supports?: string[] };
+    default_model?: string;
+    metadata?: Record<string, unknown>;
+    [k: string]: unknown;
+  }> {
+    return this.get(`/v1/providers/${encodeURIComponent(providerId)}`);
+  }
+
+  /**
+   * GET /v1/providers/{id}/models — the detailed model list for a
+   * provider. Source field distinguishes built-in vs. discovered;
+   * Error field surfaces per-model issues (deprecated, throttled, …).
+   */
+  providerModels(
+    providerId: string,
+    apiBase?: string,
+  ): Promise<{
+    models: Array<{
+      id: string;
+      label?: string;
+      source?: 'builtin' | 'discovered' | string;
+      error?: string;
+      context_length?: number;
+      cost_usd_per_M_tokens?: number;
+    }>;
+  }> {
+    const qs = new URLSearchParams();
+    if (apiBase) qs.set('api_base', apiBase);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get(`/v1/providers/${encodeURIComponent(providerId)}/models${suffix}`);
+  }
+
+  mcpServers(): Promise<{ servers: McpServerInfo[] }> {
+    return this.get<{ servers: McpServerInfo[] }>('/v1/mcp/servers');
+  }
+
+  /**
+   * POST /v1/mcp/servers — register a new MCP server. Transport-shaped:
+   * `{name, transport: 'stdio', command, args?, env?}` or
+   * `{name, transport: 'sse' | 'http', url}`. Returns the new server.
+   */
+  installMcpServer(body: {
+    name: string;
+    transport: 'stdio' | 'sse' | 'http';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    url?: string;
+  }): Promise<McpServerInfo> {
+    return this.post<McpServerInfo>('/v1/mcp/servers', body);
+  }
+
+  /** DELETE /v1/mcp/servers/{id} — uninstall an MCP server. */
+  uninstallMcpServer(serverId: string): Promise<void> {
+    return this.request<void>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
+      'DELETE',
+      undefined,
+    );
+  }
+
+  /** POST /v1/mcp/servers/{id}/reconnect — force a reconnect attempt. */
+  reconnectMcpServer(serverId: string): Promise<{ status?: string; error?: string }> {
+    return this.post<{ status?: string; error?: string }>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/reconnect`,
+      {},
+    );
+  }
+
+  /**
+   * GET /v1/mcp/servers/{id}/tools — list the tools exposed by an MCP
+   * server. Used by the per-server detail view.
+   */
+  mcpServerTools(serverId: string): Promise<{ tools: Array<{
+    name: string;
+    description?: string;
+    schema?: Record<string, unknown>;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/tools`);
+  }
+
+  /** GET /v1/mcp/servers/{id}/resources — list MCP resources. */
+  mcpServerResources(serverId: string): Promise<{ resources: Array<{
+    uri: string;
+    name?: string;
+    description?: string;
+    mimeType?: string;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/resources`);
+  }
+
+  /** GET /v1/mcp/servers/{id}/prompts — list MCP prompt templates. */
+  mcpServerPrompts(serverId: string): Promise<{ prompts: Array<{
+    name: string;
+    description?: string;
+  }> }> {
+    return this.get(`/v1/mcp/servers/${encodeURIComponent(serverId)}/prompts`);
+  }
+
+  /**
+   * POST /v1/mcp/servers/{id}/resources/read — fetch an MCP resource
+   * by URI. Used for inspecting what an MCP server exposes.
+   */
+  mcpReadResource(
+    serverId: string,
+    uri: string,
+  ): Promise<{ contents: Array<{ uri: string; mimeType?: string; text?: string }> }> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/read`,
+      { uri },
+    );
+  }
+
+  /** POST /v1/mcp/servers/{id}/resources/subscribe — subscribe to
+   * resource-changed events for `uri`. */
+  mcpSubscribeResource(serverId: string, uri: string): Promise<void> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/subscribe`,
+      { uri },
+    );
+  }
+
+  /** DELETE /v1/mcp/servers/{id}/resources/subscribe — unsubscribe. */
+  mcpUnsubscribeResource(serverId: string, uri: string): Promise<void> {
+    return this.request(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resources/subscribe`,
+      'DELETE',
+      { uri },
+    );
+  }
+
+  /** GET /v1/mcp/servers/{id}/resource_templates — list templated
+   * resources (parameterized URIs). */
+  mcpServerResourceTemplates(serverId: string): Promise<{
+    templates: Array<{
+      uriTemplate: string;
+      name?: string;
+      description?: string;
+    }>;
+  }> {
+    return this.get(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/resource_templates`,
+    );
+  }
+
+  /** POST /v1/mcp/servers/{id}/prompts/get — fetch a prompt template
+   * with arguments substituted. */
+  mcpGetPrompt(
+    serverId: string,
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<{
+    description?: string;
+    messages: Array<{ role: string; content: { type: string; text?: string } }>;
+  }> {
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/prompts/get`,
+      { name, arguments: args },
+    );
+  }
+
+  /**
+   * POST /v1/mcp/servers/{id}/call — invoke a tool on an installed MCP
+   * server. Body: {tool, args, session_id?}. Returns the tool's
+   * structured result (mirrors fastmcp's CallToolResult shape).
+   *
+   * Passing `sessionId` attaches the call to a session context so the
+   * regular tool_observer fires `tool.call.*` SSE events and ledger
+   * entries identical to in-process tool calls.
+   */
+  callMcpTool(
+    serverId: string,
+    body: {
+      tool: string;
+      args?: Record<string, unknown>;
+      sessionId?: string;
+    },
+  ): Promise<{
+    result?: unknown;
+    error?: { message: string; code?: string };
+    is_error?: boolean;
+  }> {
+    const payload: Record<string, unknown> = {
+      tool: body.tool,
+      args: body.args ?? {},
+    };
+    if (body.sessionId) payload.session_id = body.sessionId;
+    return this.post(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/call`,
+      payload,
+    );
+  }
+
+  async health(): Promise<HealthSnapshot> {
+    const url = `${this.baseUrl}/v1/health`;
+    const res = await this.fetchImpl(url, { headers: this.headers() });
+    if (res.ok) return (await res.json()) as HealthSnapshot;
+    if (res.status === 503) {
+      try {
+        const body = (await res.json()) as HealthSnapshot;
+        if (typeof body?.healthy === 'boolean' || Array.isArray(body?.integrations)) {
+          return body;
+        }
+      } catch {
+        // fall through to throw with the original body
+      }
+    }
+    throw new HttpError(res.status, res.statusText, await res.text().catch(() => ''));
+  }
+
+  /**
+   * GET /v1/capability-gaps — backend's self-declared "intentionally
+   * unsupported" or "future" capabilities. Per clio-agent develop
+   * (#353 capability-gap-metadata). Keys are capability names; values
+   * carry status/advertised/category/description metadata.
+   */
+  capabilityGaps(): Promise<{
+    capability_gaps: Record<string, Record<string, unknown>>;
+  }> {
+    return this.get<{
+      capability_gaps: Record<string, Record<string, unknown>>;
+    }>('/v1/capability-gaps');
+  }
+
+  memoryStats(): Promise<MemoryStats> {
+    return this.get<MemoryStats>('/v1/memory/stats');
+  }
+
+  metrics(): Promise<MetricsSnapshot> {
+    return this.get<MetricsSnapshot>('/v1/metrics');
+  }
+
+  commands(): Promise<{ commands: SlashCommandDef[] }> {
+    return this.get<{ commands: SlashCommandDef[] }>('/v1/commands');
+  }
+
+  /**
+   * GET /v1/prompts — list registered prompt definitions across all
+   * scopes (builtin / user / workspace). Per clio-agent develop PRs
+   * #376/#377. Optional session_id/workspace_id scope the listing.
+   */
+  prompts(
+    scope: { session_id?: string; workspace_id?: string } = {},
+  ): Promise<{ prompts: PromptDef[]; sources: PromptSource[] }> {
+    const qs = new URLSearchParams();
+    if (scope.session_id) qs.set('session_id', scope.session_id);
+    if (scope.workspace_id) qs.set('workspace_id', scope.workspace_id);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get<{ prompts: PromptDef[]; sources: PromptSource[] }>(
+      `/v1/prompts${suffix}`,
+    );
+  }
+
+  /**
+   * GET /v1/prompts/{id} — resolve a prompt to its rendered text
+   * (default profile, optionally overridden via profile query param).
+   * Returns `{prompt: {id, profile, text, ...}}`.
+   */
+  getPrompt(
+    promptId: string,
+    options: { profile?: string; session_id?: string; workspace_id?: string } = {},
+  ): Promise<{
+    prompt: {
+      id: string;
+      profile: string;
+      text: string;
+      title?: string;
+      description?: string;
+      scope?: string;
+      source_path?: string;
+      provider?: string;
+      model?: string;
+      checksum?: string;
+    };
+  }> {
+    const qs = new URLSearchParams();
+    if (options.profile) qs.set('profile', options.profile);
+    if (options.session_id) qs.set('session_id', options.session_id);
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return this.get(`/v1/prompts/${encodeURIComponent(promptId)}${suffix}`);
+  }
+
+  /**
+   * POST /v1/prompts/reload — re-scan the prompt sources for new or
+   * changed files. Useful after the user edits a prompt on disk.
+   */
+  reloadPrompts(): Promise<unknown> {
+    return this.post<unknown>('/v1/prompts/reload', {});
+  }
+
+  /**
+   * POST /v1/prompts/{id}/render — render a prompt with a context map
+   * substituted (CLIO-owned dynamic context is merged in server-side).
+   * Used by the prompts editor's "Preview" button.
+   */
+  renderPrompt(
+    promptId: string,
+    body: {
+      profile?: string;
+      session_id?: string;
+      workspace_id?: string;
+      context?: Record<string, string>;
+    } = {},
+  ): Promise<{ prompt: Record<string, unknown> }> {
+    return this.post(
+      `/v1/prompts/${encodeURIComponent(promptId)}/render`,
+      body,
+    );
+  }
+
+  /**
+   * POST /v1/prompts/{id}/validate — validate prompt text against the
+   * registry's parser. If `text` is provided, validates inline; if
+   * omitted, validates the on-disk prompt at the given id. Returns
+   * `{enabled, validation_errors, prompt}`.
+   */
+  validatePrompt(
+    promptId: string,
+    body: {
+      text?: string;
+      profile?: string;
+      session_id?: string;
+      workspace_id?: string;
+    } = {},
+  ): Promise<{
+    enabled: boolean;
+    validation_errors: string[];
+    prompt: Record<string, unknown>;
+  }> {
+    return this.post(
+      `/v1/prompts/${encodeURIComponent(promptId)}/validate`,
+      body,
+    );
+  }
+
+  /**
+   * GET /v1/providers/lm — the currently-active LM config (provider,
+   * api_base, model, temperature, …).
+   */
+  lmConfig(): Promise<LmConfigSnapshot> {
+    return this.get<LmConfigSnapshot>('/v1/providers/lm');
+  }
+
+  /**
+   * PUT /v1/providers/lm — swap the active LM at runtime. Drives the
+   * "Use as LM" button on each provider card in Settings → Providers.
+   */
+  setLm(body: {
+    provider: string;
+    api_base: string;
+    model: string;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<LmConfigSnapshot> {
+    return this.request<LmConfigSnapshot>('/v1/providers/lm', 'PUT', body);
+  }
+
+  /**
+   * POST /v1/providers/{id}/auth — trigger the provider's auth flow
+   * (e.g. opens the ALCF Globus login window). Returns the current
+   * auth state so the UI can refresh the "authenticated" pill.
+   */
+  authProvider(providerId: string): Promise<{
+    is_authenticated: boolean;
+    provider_id: string;
+    instructions?: string;
+  }> {
+    return this.post<{
+      is_authenticated: boolean;
+      provider_id: string;
+      instructions?: string;
+    }>(`/v1/providers/${encodeURIComponent(providerId)}/auth`, {});
+  }
+
+  /**
+   * GET /v1/policies — the global + workspace policy that governs
+   * tool / command / memory autonomy. PR #378 added the
+   * `command.agent_invocable` gate.
+   */
+  policies(): Promise<{ policies: Record<string, unknown> }> {
+    return this.get('/v1/policies');
+  }
+
+  /** PUT /v1/policies — replace the policy document. */
+  putPolicies(body: Record<string, unknown>): Promise<unknown> {
+    return this.request<unknown>('/v1/policies', 'PUT', body);
+  }
+
+  /**
+   * GET /v1/hooks — list registered declarative hooks. clio sends rows
+   * shaped `{id, event, command, url, session_id, workspace_id}` (verified
+   * against live :17803 + app.py:19121-19166). The desktop previously
+   * typed these as `{id, type, handler_uri}`, so every field rendered
+   * `undefined`. The six valid `event` kinds are pre_tool / post_tool /
+   * pre_message / post_message / semantic_event / on_error.
+   *
+   * HONESTY NOTE: on the current clio build these declarative rows are
+   * STORED but NOT dispatched during turns (app.py:8384-8389 is
+   * storage-only). The hooks that actually fire are the file-based
+   * runtime hooks reported via capabilities (x_clio_hook_backend /
+   * x_clio_hook_events).
+   */
+  hooks(): Promise<{ hooks: HookRow[] }> {
+    return this.get('/v1/hooks');
+  }
+
+  /**
+   * POST /v1/hooks — register a new declarative hook. clio REQUIRES a
+   * non-empty `event` (else 400 "hook missing required field: event")
+   * plus `command` OR `url` (else 400 "hook needs command or url"). The
+   * desktop previously POSTed `{type, handler_uri}`, which clio ignored —
+   * every add 400'd. Send the real wire shape and return the created row.
+   */
+  createHook(body: {
+    event: HookEvent | string;
+    command?: string;
+    url?: string;
+    session_id?: string;
+    workspace_id?: string;
+  }): Promise<HookRow> {
+    return this.post('/v1/hooks', body);
+  }
+
+  /** DELETE /v1/hooks/{id} — remove a hook (204). */
+  deleteHook(hookId: string): Promise<void> {
+    return this.del(`/v1/hooks/${encodeURIComponent(hookId)}`);
+  }
+
+  /** GET /v1/agents/{id} — single-agent detail (richer than the bulk
+   * list — includes routing rules, tools, default model). */
+  getAgent(agentId: string): Promise<AgentDef & {
+    [k: string]: unknown;
+  }> {
+    return this.get(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /** POST /v1/sessions/{sid}/messages/{id}/retry — re-run a turn while
+   * PRESERVING attempt lineage (clio records a TurnAttempt + emits
+   * `turn.retry_*` events, returns 202). Pass the assistant message being
+   * regenerated; clio derives the source user message. `execute:true`
+   * actually re-runs it (vs just recording the attempt). This is the
+   * correct path for Regenerate — plain re-send via sendMessage lost the
+   * attempt history. Requires capabilities.x_clio_retry_attempts. */
+  retryTurn(
+    sessionId: string,
+    messageId: string,
+    body: { execute?: boolean; notes?: string; provider_id?: string; model_id?: string } = {},
+  ): Promise<TurnAttempt> {
+    return this.post<TurnAttempt>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/retry`,
+      body,
+    );
+  }
+
+  /** GET /v1/sessions/{sid}/attempts — list recorded retry attempts. */
+  listAttempts(sessionId: string): Promise<{ attempts: TurnAttempt[] }> {
+    return this.get<{ attempts: TurnAttempt[] }>(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/attempts`,
+    );
+  }
+
+  /** POST /v1/agent-blueprints/validate — validate a blueprint on the
+   * clio host BY PATH. clio reads `{path, scope?}` (NOT an inline doc) and
+   * returns `{enabled, validation_errors, ...}`; normalised here to
+   * `{ok, errors}` so call sites stay simple. */
+  async validateAgentBlueprint(body: {
+    path: string;
+    scope?: string;
+  }): Promise<{ ok: boolean; errors: string[]; raw: Record<string, unknown> }> {
+    const raw = await this.post<Record<string, unknown>>(
+      '/v1/agent-blueprints/validate',
+      body,
+    );
+    return {
+      ok: raw['enabled'] === true,
+      errors: (raw['validation_errors'] as string[] | undefined) ?? [],
+      raw,
+    };
+  }
+
+  /** POST /v1/agent-blueprints/install — install from a path or git source.
+   * clio reads `{source|url|path, scope: 'workspace'|'global', workspace_id?}`.
+   * (The bare `/v1/agent-blueprints` collection is GET-only — POSTing there
+   * 405s, which is the bug this replaces.) */
+  installAgentBlueprint(body: {
+    source?: string;
+    path?: string;
+    url?: string;
+    scope?: string;
+    workspace_id?: string;
+  }): Promise<{ id?: string; [k: string]: unknown }> {
+    return this.post('/v1/agent-blueprints/install', body);
+  }
+
+  /**
+   * DELETE /v1/agent-blueprints/{bp} — uninstall a blueprint.
+   *
+   * clio's route takes `scope` ("global" | "workspace", default workspace)
+   * and `workspace_id` query params; omitting them means a global
+   * blueprint can never be matched for deletion (W2 wire fix).
+   */
+  uninstallAgentBlueprint(
+    blueprintId: string,
+    opts?: { scope?: 'global' | 'workspace'; workspace_id?: string },
+  ): Promise<void> {
+    const params = new URLSearchParams();
+    if (opts?.scope) params.set('scope', opts.scope);
+    if (opts?.workspace_id) params.set('workspace_id', opts.workspace_id);
+    const qs = params.toString();
+    return this.del(
+      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  /** POST /v1/agent-blueprints/{bp}/mcp/{descriptor_id}/enable —
+   * activate a specific MCP descriptor bundled inside a blueprint
+   * (PR #386/#387). */
+  enableBlueprintMcp(
+    blueprintId: string,
+    descriptorId: string,
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/mcp/${encodeURIComponent(descriptorId)}/enable`,
+      {},
+    );
+  }
+
+  /** GET /v1/agent-blueprints — list registered agent blueprints (PR #386/#387).
+   *
+   * GACT v0.2 backends shipped the list under either `blueprints` or
+   * `agent_blueprints` depending on which build of the contract they
+   * land on. Normalize to `blueprints` so call sites can rely on a
+   * single shape. */
+  async agentBlueprints(): Promise<{ blueprints: Array<{
+    id: string;
+    name?: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+  }> }> {
+    const raw = await this.get<Record<string, unknown>>('/v1/agent-blueprints');
+    const list =
+      (raw['blueprints'] as unknown[]) ??
+      (raw['agent_blueprints'] as unknown[]) ??
+      [];
+    return {
+      blueprints: list.map((b) => {
+        const o = b as Record<string, unknown>;
+        return {
+          id: String(o['id'] ?? ''),
+          ...(o['name'] || o['title']
+            ? { name: String(o['name'] ?? o['title']) }
+            : {}),
+          ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
+        };
+      }),
+    };
+  }
+
+  /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint
+   * for a session (PR #386/#387).
+   *
+   * clio's workspace-management work (#479/#480/#482, on develop since
+   * 2026-06) renamed the binding field to `active_agent_blueprint_id`
+   * and added read-only provenance: `agent_overlay` (session-level
+   * blueprint field overrides), `activation` (which metadata layer
+   * supplied each active_agent_blueprint_* value), and the owning
+   * `workspace_id`. Older builds sent `blueprint_id` — both are typed
+   * so call sites can fall back. */
+  getSessionBlueprint(sessionId: string): Promise<{
+    blueprint_id?: string | null;
+    active_agent_blueprint_id?: string;
+    active_agent_blueprint_path?: string;
+    workspace_id?: string;
+    agent_overlay?: Record<string, unknown>;
+    activation?: Record<string, unknown>;
+    [k: string]: unknown;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/agent-blueprint`,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/agent-blueprint — bind a blueprint to the
+   * session. Pass `blueprint_id: null` to clear. */
+  setSessionBlueprint(
+    sessionId: string,
+    body: { blueprint_id: string | null },
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/agent-blueprint`,
+      body,
+    );
+  }
+
+  /** GET /v1/sessions/{id}/expert-pack — currently-bound expert pack.
+   *
+   * Same field rename as getSessionBlueprint(): current clio sends
+   * `active_expert_pack_id` (+ path + workspace_id); older builds sent
+   * `pack_id`. */
+  getSessionExpertPack(sessionId: string): Promise<{
+    pack_id?: string | null;
+    active_expert_pack_id?: string;
+    active_expert_pack_path?: string;
+    workspace_id?: string;
+    [k: string]: unknown;
+  }> {
+    return this.get(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/expert-pack`,
+    );
+  }
+
+  /** POST /v1/sessions/{id}/expert-pack — bind a pack. */
+  setSessionExpertPack(
+    sessionId: string,
+    body: { pack_id: string | null },
+  ): Promise<unknown> {
+    return this.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/expert-pack`,
+      body,
+    );
+  }
+
+  /** POST /v1/expert-packs/validate — validate a pack on the clio host BY
+   * PATH (`{path, scope?}`); clio returns `{enabled, validation_errors}`,
+   * normalised here to `{ok, errors}`. */
+  async validateExpertPack(body: {
+    path: string;
+    scope?: string;
+  }): Promise<{ ok: boolean; errors: string[]; raw: Record<string, unknown> }> {
+    const raw = await this.post<Record<string, unknown>>(
+      '/v1/expert-packs/validate',
+      body,
+    );
+    return {
+      ok: raw['enabled'] === true,
+      errors: (raw['validation_errors'] as string[] | undefined) ?? [],
+      raw,
+    };
+  }
+
+  /** GET /v1/expert-packs — list installed expert packs (PR #344/#376).
+   *
+   * Normalize `packs` vs `expert_packs` for the same reason as
+   * agentBlueprints() above. */
+  async expertPacks(): Promise<{ packs: Array<{
+    id: string;
+    name?: string;
+    description?: string;
+    runtime_scope?: string;
+    metadata?: Record<string, unknown>;
+  }> }> {
+    const raw = await this.get<Record<string, unknown>>('/v1/expert-packs');
+    const list =
+      (raw['packs'] as unknown[]) ??
+      (raw['expert_packs'] as unknown[]) ??
+      [];
+    return {
+      packs: list.map((p) => {
+        const o = p as Record<string, unknown>;
+        return {
+          id: String(o['id'] ?? ''),
+          ...(o['name'] || o['title']
+            ? { name: String(o['name'] ?? o['title']) }
+            : {}),
+          ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['runtime_scope'] ? { runtime_scope: String(o['runtime_scope']) } : {}),
+          ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
+        };
+      }),
+    };
+  }
+
+  /**
+   * POST /v1/sessions/{id}/voice/transcribe — multipart upload of an
+   * audio blob; backend returns the transcribed text. Mirrors the
+   * TUI's Ctrl+Y flow, but the desktop surfaces this as a file
+   * picker since we don't ship a mic recorder yet.
+   */
+  async transcribeVoice(
+    sessionId: string,
+    audio: Blob,
+    filename = 'voice.webm',
+  ): Promise<{ text: string; duration_ms?: number }> {
+    const url = `${this.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/voice/transcribe`;
+    const fd = new FormData();
+    fd.append('audio', audio, filename);
+    // Don't set Content-Type — the browser sets the multipart boundary.
+    const headers = { ...this.headers() } as Record<string, string>;
+    delete headers['Content-Type'];
+    const res = await this.fetchImpl(url, { method: 'POST', body: fd, headers });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    return (await res.json()) as { text: string; duration_ms?: number };
+  }
+
+  /**
+   * POST /v1/sessions/{id}/voice/synthesize — requests TTS audio for
+   * a piece of text. Returns the raw `audio/*` bytes as a Blob so the
+   * caller can hand it to an HTMLAudioElement.
+   */
+  async synthesizeVoice(sessionId: string, text: string): Promise<Blob> {
+    const url = `${this.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/voice/synthesize`;
+    const res = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      throw new HttpError(res.status, res.statusText, await res.text());
+    }
+    return await res.blob();
+  }
+
+  /**
+   * Build an SSE URL with the bearer token in the query string. `EventSource`
+   * cannot set custom headers, so we fall back to `?auth_token=` per SPEC §7.
+   */
+  sseUrl(sessionId: string): string {
+    const u = new URL(`${this.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/events`);
+    if (this.options.bearerToken) {
+      u.searchParams.set('auth_token', this.options.bearerToken);
+    }
+    return u.toString();
+  }
+}

@@ -1,0 +1,263 @@
+.splash {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(
+      900px 600px at 20% 18%,
+      color-mix(in srgb, var(--color-accent) 14%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      1100px 700px at 78% 82%,
+      color-mix(in srgb, var(--color-accent-cyan) 12%, transparent) 0%,
+      transparent 65%
+    ),
+    var(--color-bg);
+}
+
+.splash__main {
+  position: relative;
+  z-index: 1;
+  width: min(540px, 92vw);
+  padding: 36px 32px 32px;
+  text-align: center;
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: 1px solid var(--color-border-30);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.6);
+}
+
+.splash__badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    var(--color-accent) 0%,
+    var(--color-accent-cyan) 100%
+  );
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  color: var(--color-bg);
+  box-shadow:
+    0 0 32px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.splash__wordmark {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--color-heading);
+}
+
+.splash__sub {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 0 0 24px;
+}
+
+.splash__intro {
+  margin: -8px 0 20px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-text);
+  max-width: 540px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.splash__spinner {
+  display: inline-flex;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+
+.splash__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-cyan);
+  opacity: 0.35;
+  animation: splash-pulse 1.2s ease-in-out infinite;
+}
+
+.splash__dot:nth-child(2) {
+  animation-delay: 0.18s;
+  background: var(--color-accent);
+}
+
+.splash__dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes splash-pulse {
+  0%,100% { transform: scale(0.85); opacity: 0.35; }
+  40%     { transform: scale(1.15); opacity: 1;   }
+}
+
+.splash__hint {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  margin: 0;
+}
+
+.splash__error {
+  margin-top: 24px;
+  padding: 18px 20px;
+  text-align: left;
+  background: color-mix(in srgb, var(--color-error) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+  border-radius: 14px;
+}
+
+.splash__error-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-error);
+  margin-bottom: 6px;
+}
+
+.splash__error-msg {
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin: 0 0 12px;
+  word-break: break-word;
+}
+
+.splash__error-hint {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+
+.splash__cmd {
+  display: block;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-accent-cyan);
+  word-break: break-all;
+  margin-top: 6px;
+}
+
+.splash__footer {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.splash__error-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.splash__btn {
+  padding: 8px 18px;
+  background: var(--color-accent-cyan);
+  color: var(--color-bg);
+  border: 1px solid var(--color-accent-cyan);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter var(--dur-fast), background var(--dur-fast);
+}
+
+.splash__btn:hover {
+  filter: brightness(1.1);
+}
+
+.splash__btn--ghost {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border-30);
+}
+
+.splash__btn--ghost:hover {
+  background: var(--color-surface-alt);
+  filter: none;
+}
+
+.splash__elapsed {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* First-run one-swoop install view */
+.splash__install {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.splash__install-title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-heading);
+  margin: 8px 0 4px;
+}
+
+.splash__install-note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.splash__install-log {
+  text-align: left;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text);
+  height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.splash__install-log > div {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.splash__install-log:empty::before {
+  content: 'Starting installer…';
+  color: var(--color-muted);
+  opacity: 0.7;
+}

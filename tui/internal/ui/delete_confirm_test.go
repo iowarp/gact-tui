@@ -130,3 +130,93 @@ func TestDeleteConfirm_XOnDifferentSessionRearmsNotCommit(t *testing.T) {
 		t.Errorf("no DELETE should fire, got %d", deletes.Load())
 	}
 }
+
+func TestDeleteRefresh_SelectedDeletedPicksSessionBelow(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "first"},
+		{ID: "s2", Title: "second"},
+		{ID: "s3", Title: "third"},
+	}
+	a.selected = 1
+
+	model, _ := a.Update(sessionsRefreshedMsg{
+		sessions: []gact.Session{
+			{ID: "s1", Title: "first"},
+			{ID: "s3", Title: "third"},
+		},
+	})
+	a = model.(*App)
+
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.selected)
+	}
+	if got := a.sessions[a.selected].ID; got != "s3" {
+		t.Fatalf("selected session = %q, want s3 below deleted row", got)
+	}
+}
+
+func TestDeleteRefresh_SelectedDeletedLastPicksPrevious(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "first"},
+		{ID: "s2", Title: "second"},
+		{ID: "s3", Title: "third"},
+	}
+	a.selected = 2
+
+	model, _ := a.Update(sessionsRefreshedMsg{
+		sessions: []gact.Session{
+			{ID: "s1", Title: "first"},
+			{ID: "s2", Title: "second"},
+		},
+	})
+	a = model.(*App)
+
+	if a.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.selected)
+	}
+	if got := a.sessions[a.selected].ID; got != "s2" {
+		t.Fatalf("selected session = %q, want s2 previous row", got)
+	}
+}
+
+func TestSessionsRefreshUpdatesCurrentStatusForSelectedSession(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "first", Status: gact.StatusRunning},
+		{ID: "s2", Title: "second", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.currentStatus = gact.StatusRunning
+
+	model, _ := a.Update(sessionsRefreshedMsg{
+		sessions: []gact.Session{
+			{ID: "s1", Title: "first", Status: gact.StatusIdle},
+			{ID: "s2", Title: "second", Status: gact.StatusIdle},
+		},
+	})
+	a = model.(*App)
+
+	if a.selected != 0 {
+		t.Fatalf("selected = %d, want 0", a.selected)
+	}
+	if a.currentStatus != gact.StatusIdle {
+		t.Fatalf("currentStatus = %q, want idle after refresh", a.currentStatus)
+	}
+}
+
+func TestSessionsRefreshClearsCurrentStatusWhenListEmpty(t *testing.T) {
+	a, _ := makeDeleteConfirmApp(t)
+	a.currentStatus = gact.StatusRunning
+
+	model, _ := a.Update(sessionsRefreshedMsg{})
+	a = model.(*App)
+
+	if a.selected != -1 {
+		t.Fatalf("selected = %d, want -1", a.selected)
+	}
+	if a.currentStatus != "" {
+		t.Fatalf("currentStatus = %q, want empty", a.currentStatus)
+	}
+}

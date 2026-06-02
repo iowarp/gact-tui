@@ -5,11 +5,14 @@ package server
 // backends would compute these from runtime state.
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,6 +50,143 @@ func (s *Server) handleListProviderModels(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{"models": models})
 }
 
+type lmProviderPreset struct {
+	ID                  string `json:"id"`
+	Label               string `json:"label"`
+	Provider            string `json:"provider"`
+	APIBase             string `json:"api_base"`
+	SuggestedModel      string `json:"suggested_model"`
+	RequiresAPIKey      bool   `json:"requires_api_key"`
+	APIKeyEnv           string `json:"api_key_env,omitempty"`
+	AuthMethod          string `json:"auth_method,omitempty"`
+	IsAuthenticated     bool   `json:"is_authenticated,omitempty"`
+	Description         string `json:"description"`
+	Status              string `json:"status,omitempty"`
+	StatusMessage       string `json:"status_message,omitempty"`
+	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
+}
+
+type lmProviderInfo struct {
+	Configured     bool               `json:"configured"`
+	Provider       string             `json:"provider,omitempty"`
+	APIBase        string             `json:"api_base,omitempty"`
+	Model          string             `json:"model,omitempty"`
+	Temperature    float64            `json:"temperature,omitempty"`
+	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ContextLength  int                `json:"context_length,omitempty"`
+	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	State          string             `json:"state,omitempty"`
+	StatusMessage  string             `json:"status_message,omitempty"`
+	Presets        []lmProviderPreset `json:"presets,omitempty"`
+}
+
+type lmProviderRequest struct {
+	Provider       string  `json:"provider"`
+	APIBase        string  `json:"api_base"`
+	Model          string  `json:"model"`
+	Temperature    float64 `json:"temperature,omitempty"`
+	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ContextLength  int     `json:"context_length,omitempty"`
+	ThinkingBudget int     `json:"thinking_budget,omitempty"`
+}
+
+func (s *Server) handleGetLMProvider(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, staticLMProviderInfo("anthropic", "claude-opus-4-7"))
+}
+
+func (s *Server) handlePutLMProvider(w http.ResponseWriter, r *http.Request) {
+	var req lmProviderRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.Provider = strings.TrimSpace(req.Provider)
+	req.Model = strings.TrimSpace(req.Model)
+	if req.Provider == "" || req.Model == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "provider and model required")
+		return
+	}
+	models, ok := staticModels()[req.Provider]
+	if !ok {
+		writeError(w, http.StatusBadRequest, "provider_not_found", "no provider with id "+req.Provider)
+		return
+	}
+	found := false
+	for _, model := range models {
+		if model.ID == req.Model {
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusBadRequest, "model_not_found", "no model "+req.Model+" for provider "+req.Provider)
+		return
+	}
+	info := staticLMProviderInfo(req.Provider, req.Model)
+	info.APIBase = strings.TrimSpace(req.APIBase)
+	info.Temperature = req.Temperature
+	info.MaxTokens = req.MaxTokens
+	info.ContextLength = req.ContextLength
+	info.ThinkingBudget = req.ThinkingBudget
+	writeJSON(w, http.StatusOK, info)
+}
+
+func staticLMProviderInfo(provider, model string) lmProviderInfo {
+	return lmProviderInfo{
+		Configured:    true,
+		Provider:      provider,
+		Model:         model,
+		Temperature:   1.0,
+		MaxTokens:     32000,
+		ContextLength: 200000,
+		State:         "ready",
+		StatusMessage: "emulator provider catalog ready",
+		Presets: []lmProviderPreset{
+			{
+				ID:                  "anthropic",
+				Label:               "Anthropic",
+				Provider:            "anthropic",
+				APIBase:             "https://api.anthropic.com/v1",
+				SuggestedModel:      "claude-opus-4-7",
+				RequiresAPIKey:      false,
+				AuthMethod:          "oauth",
+				IsAuthenticated:     true,
+				Description:         "Hosted Claude models with tool and thinking support.",
+				Status:              "ready",
+				StatusMessage:       "authenticated",
+				SupportsLiveCatalog: true,
+			},
+			{
+				ID:                  "openai",
+				Label:               "OpenAI",
+				Provider:            "openai",
+				APIBase:             "https://api.openai.com/v1",
+				SuggestedModel:      "gpt-5",
+				RequiresAPIKey:      true,
+				APIKeyEnv:           "OPENAI_API_KEY",
+				AuthMethod:          "api_key",
+				Description:         "OpenAI API models with direct API-key authentication.",
+				Status:              "needs_api_key",
+				StatusMessage:       "paste an API key before saving",
+				SupportsLiveCatalog: true,
+			},
+			{
+				ID:                  "local",
+				Label:               "Local emulator",
+				Provider:            "local",
+				APIBase:             "http://127.0.0.1:11434/v1",
+				SuggestedModel:      "llama3.3",
+				RequiresAPIKey:      false,
+				AuthMethod:          "none",
+				IsAuthenticated:     true,
+				Description:         "Local no-auth model endpoint for visual-loop testing.",
+				Status:              "ready",
+				StatusMessage:       "static emulator catalog",
+				SupportsLiveCatalog: true,
+			},
+		},
+	}
+}
+
 func staticProviders() []gact.Provider {
 	return []gact.Provider{
 		{ID: "anthropic", Name: "Anthropic", AuthMethods: []string{"api_key", "oauth"}, IsAuthenticated: true, DefaultModel: "claude-opus-4-7"},
@@ -82,6 +222,744 @@ func staticModels() map[string][]gact.Model {
 			{ID: "qwen3-coder", Name: "Qwen 3 Coder 32B", ContextWindow: 64_000, MaxOutputTokens: 8192, Supports: support(true, false, false, false, false)},
 		},
 	}
+}
+
+// --- CLIO prompt registry extension ---------------------------------------
+
+func (s *Server) handleListPrompts(w http.ResponseWriter, r *http.Request) {
+	rows := make([]gact.PromptDefinition, 0, len(s.prompts))
+	for _, row := range s.prompts {
+		rows = append(rows, row)
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	writeJSON(w, http.StatusOK, map[string]any{"prompts": rows})
+}
+
+func (s *Server) handleGetPrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	profile := r.URL.Query().Get("profile")
+	resolved, ok := resolvePromptDefinition(row, profile)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt has no profiles: "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": resolved})
+}
+
+func (s *Server) handleSavePrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptSaveRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		writeError(w, http.StatusUnprocessableEntity, "bad_request", "missing required field: text")
+		return
+	}
+	profile := strings.TrimSpace(req.Profile)
+	if profile == "" {
+		profile = "default"
+	}
+	if strings.Contains(profile, "/") || strings.Contains(profile, ".") && strings.Contains(profile, "..") {
+		writeError(w, http.StatusUnprocessableEntity, "bad_request", "invalid profile")
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		row = gact.PromptDefinition{ID: id, Title: id, DefaultProfile: profile, Enabled: true, Profiles: map[string]gact.PromptProfile{}}
+	}
+	if row.Profiles == nil {
+		row.Profiles = map[string]gact.PromptProfile{}
+	}
+	if req.Title != "" {
+		row.Title = req.Title
+	}
+	if req.Description != "" {
+		row.Description = req.Description
+	}
+	row.Scope = "global"
+	row.Enabled = true
+	row.Profiles[profile] = gact.PromptProfile{
+		Name:       profile,
+		Text:       req.Text,
+		Scope:      "global",
+		SourcePath: "~/.config/clio-agent/prompts/" + id + "--" + profile + ".md",
+		Provider:   req.Provider,
+		Model:      req.Model,
+		Checksum:   promptChecksum(req.Text),
+		Metadata:   req.Metadata,
+	}
+	s.prompts[id] = row
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": row})
+}
+
+func (s *Server) handleRenderPrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptRenderRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	resolved, ok := resolvePromptDefinition(row, req.Profile)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt has no profiles: "+id)
+		return
+	}
+	resolved.Text = resolved.Text + "\n\nRuntime context:\n" +
+		"session_id: " + req.SessionID + "\nworkspace_id: " + req.WorkspaceID
+	if resolved.Metadata == nil {
+		resolved.Metadata = map[string]any{}
+	}
+	resolved.Metadata["rendered"] = true
+	resolved.Metadata["session_id"] = req.SessionID
+	resolved.Metadata["workspace_id"] = req.WorkspaceID
+	writeJSON(w, http.StatusOK, map[string]any{"prompt": resolved})
+}
+
+func (s *Server) handleValidatePrompt(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req gact.PromptValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	row, ok := s.prompts[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "prompt not found: "+id)
+		return
+	}
+	errors := append([]string(nil), row.ValidationErrors...)
+	if strings.Contains(req.Text, "{{missing") {
+		errors = append(errors, "unknown placeholder: missing")
+	}
+	row.Enabled = len(errors) == 0
+	row.ValidationErrors = errors
+	writeJSON(w, http.StatusOK, gact.PromptValidationResult{
+		Enabled:          row.Enabled,
+		ValidationErrors: errors,
+		Prompt:           row,
+	})
+}
+
+func (s *Server) handleReloadPrompts(w http.ResponseWriter, r *http.Request) {
+	rows := make([]string, 0, len(s.prompts))
+	for id := range s.prompts {
+		rows = append(rows, id)
+	}
+	sort.Strings(rows)
+	writeJSON(w, http.StatusOK, map[string]any{"reload": gact.PromptReloadResult{
+		PromptCount: len(rows),
+		PromptIDs:   rows,
+		Sources: []gact.PromptSource{{
+			Scope: "builtin",
+			Root:  "emulator://prompts",
+		}},
+	}})
+}
+
+func staticPromptDefinitions() map[string]gact.PromptDefinition {
+	def := func(id, title, desc, text string, profiles ...string) gact.PromptDefinition {
+		if len(profiles) == 0 {
+			profiles = []string{"default"}
+		}
+		ps := make(map[string]gact.PromptProfile, len(profiles))
+		for _, profile := range profiles {
+			body := text
+			if profile != "default" {
+				body += "\n\nProfile: " + profile + " keeps the same grounded CLIO behavior with profile-specific latency and detail tradeoffs."
+			}
+			ps[profile] = gact.PromptProfile{
+				Name:     profile,
+				Text:     body,
+				Scope:    "builtin",
+				Checksum: promptChecksum(body),
+				Metadata: map[string]any{"behavior_profile": profile, "prompt_family": id},
+			}
+		}
+		return gact.PromptDefinition{
+			ID:             id,
+			Title:          title,
+			Description:    desc,
+			DefaultProfile: "default",
+			Profiles:       ps,
+			Scope:          "builtin",
+			Enabled:        true,
+			Metadata: map[string]any{
+				"source":       "emulator",
+				"alignment":    "visual_loop",
+				"profiles":     profiles,
+				"requirements": []string{"declared capabilities only", "visible provenance", "no hidden fallback"},
+			},
+		}
+	}
+	rows := []gact.PromptDefinition{
+		def("clio.chat", "Chat agent", "General CLIO conversation prompt.", "Handle ordinary conversation without inventing file-specific facts. Ask a structured follow-up question when user intent is underspecified.", "default", "light", "debug"),
+		def("clio.main.planner", "Main planner", "Routes work to declared tools and experts.", "Return only the required planner schema. Choose only declared tools and experts. Surface unsupported capability gaps honestly.", "default", "heavy", "small_model"),
+		def("clio.expert.data", "Data expert", "Data-format, storage, NDP catalog, and discovery scope.", "Use data-format tools as source of truth. Preserve exact paths, dataset ids, shapes, compression, and caveats.", "default", "heavy"),
+	}
+	out := make(map[string]gact.PromptDefinition, len(rows))
+	for _, row := range rows {
+		out[row.ID] = row
+	}
+	return out
+}
+
+func (s *Server) handleListExpertPacks(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"expert_packs": staticExpertPacks()})
+}
+
+func (s *Server) handleGetExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, pack := range staticExpertPacks() {
+		if pack.ID == id {
+			writeJSON(w, http.StatusOK, gact.ExpertPackDetail{
+				ExpertPack: pack,
+				Agents:     staticExpertPackAgents(pack.ID),
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "expert pack not found: "+id)
+}
+
+func (s *Server) handleValidateExpertPack(w http.ResponseWriter, r *http.Request) {
+	var req gact.ExpertPackValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "path is required")
+		return
+	}
+	pack := gact.ExpertPackDefinition{
+		ID:             "validated-pack",
+		Version:        "0.1.0",
+		Title:          "Validated Expert Pack",
+		Scope:          firstNonEmptyString(req.Scope, "session"),
+		Root:           req.Path,
+		DefinitionPath: req.Path + "/clio-pack.yaml",
+		Enabled:        true,
+	}
+	writeJSON(w, http.StatusOK, gact.ExpertPackValidationResult{
+		Enabled: true,
+		Pack:    pack,
+		Agents:  staticExpertPackAgents(pack.ID),
+	})
+}
+
+func (s *Server) handleGetSessionExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionExpertPackState(sess)
+	writeJSON(w, http.StatusOK, state)
+}
+
+func (s *Server) handleSetSessionExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req gact.SetSessionExpertPackRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	packID := strings.TrimSpace(req.PackID)
+	if packID == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "pack_id or path is required")
+		return
+	}
+	var pack *gact.ExpertPackDefinition
+	for _, row := range staticExpertPacks() {
+		if row.ID == packID {
+			copy := row
+			pack = &copy
+			break
+		}
+	}
+	if pack == nil {
+		writeError(w, http.StatusNotFound, "not_found", "expert pack not found: "+packID)
+		return
+	}
+	if sess.Metadata == nil {
+		sess.Metadata = map[string]any{}
+	}
+	sess.Metadata["active_expert_pack_id"] = pack.ID
+	sess.Metadata["active_expert_pack_version"] = pack.Version
+	sess.Metadata["active_expert_pack_scope"] = pack.Scope
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		row.Metadata = sess.Metadata
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionExpertPackState(updated)
+	writeJSON(w, http.StatusOK, state)
+}
+
+func sessionExpertPackState(sess *gact.Session) gact.SessionExpertPackState {
+	if sess == nil {
+		return gact.SessionExpertPackState{}
+	}
+	packID, _ := sess.Metadata["active_expert_pack_id"].(string)
+	var pack *gact.ExpertPackDefinition
+	for _, row := range staticExpertPacks() {
+		if row.ID == packID {
+			copy := row
+			pack = &copy
+			break
+		}
+	}
+	return gact.SessionExpertPackState{
+		SessionID:          sess.ID,
+		WorkspaceID:        sess.WorkspaceID,
+		ActiveExpertPackID: packID,
+		ExpertPack:         pack,
+		Session:            sess,
+	}
+}
+
+func staticExpertPacks() []gact.ExpertPackDefinition {
+	return []gact.ExpertPackDefinition{{
+		ID:             "data-semantics",
+		Version:        "0.1.0",
+		Title:          "Data Semantics",
+		Description:    "Data, analysis, visualization, and utility experts for scientific datasets.",
+		Scope:          "workspace",
+		Root:           ".clio/expert-packs/data-semantics",
+		DefinitionPath: ".clio/expert-packs/data-semantics/clio-pack.yaml",
+		Enabled:        true,
+		Defaults:       map[string]any{"prompt_profile": "heavy"},
+		Metadata:       map[string]any{"source": "emulator"},
+	}, {
+		ID:               "broken-pack",
+		Version:          "0.0.1",
+		Title:            "Broken Pack",
+		Description:      "Invalid pack kept visible for validation diagnostics.",
+		Scope:            "workspace",
+		Root:             ".clio/expert-packs/broken-pack",
+		DefinitionPath:   ".clio/expert-packs/broken-pack/clio-pack.yaml",
+		Enabled:          false,
+		ValidationErrors: []string{"parent_id references missing expert"},
+	}}
+}
+
+func staticExpertPackAgents(packID string) []gact.AgentDef {
+	if packID == "broken-pack" {
+		return []gact.AgentDef{{
+			ID: "broken", Source: "expert_pack", Title: "Broken Expert", ParentID: "missing",
+			Enabled: false, ValidationErrors: []string{"missing parent: missing"},
+		}}
+	}
+	return []gact.AgentDef{{
+		ID: "main", Source: "expert_pack", Title: "Main Expert", PromptID: "clio.main.planner",
+		PromptProfile: "heavy", Enabled: true, Commands: []string{"/analyze"},
+	}, {
+		ID: "analysis", Source: "expert_pack", Title: "Analysis Expert", ParentID: "main",
+		PromptID: "clio.expert.analysis", PromptProfile: "heavy", Tools: []string{"memory_search_sessions"},
+		Keywords: []string{"statistics", "quality"}, Enabled: true,
+	}}
+}
+
+func resolvePromptDefinition(row gact.PromptDefinition, requested string) (gact.ResolvedPrompt, bool) {
+	profile := strings.TrimSpace(requested)
+	if profile == "" {
+		profile = firstNonEmptyString(row.DefaultProfile, "default")
+	}
+	selected, ok := row.Profiles[profile]
+	fallback := ""
+	if !ok && profile != row.DefaultProfile {
+		selected, ok = row.Profiles[row.DefaultProfile]
+		fallback = row.DefaultProfile
+	}
+	if !ok {
+		for _, p := range row.Profiles {
+			selected = p
+			ok = true
+			fallback = p.Name
+			break
+		}
+	}
+	if !ok {
+		return gact.ResolvedPrompt{}, false
+	}
+	return gact.ResolvedPrompt{
+		ID:               row.ID,
+		Profile:          selected.Name,
+		Text:             selected.Text,
+		Title:            row.Title,
+		Description:      row.Description,
+		Scope:            firstNonEmptyString(selected.Scope, row.Scope),
+		SourcePath:       firstNonEmptyString(selected.SourcePath, row.SourcePath),
+		Provider:         selected.Provider,
+		Model:            selected.Model,
+		Checksum:         selected.Checksum,
+		FallbackProfile:  fallback,
+		ValidationErrors: row.ValidationErrors,
+		Metadata:         selected.Metadata,
+	}, true
+}
+
+func promptChecksum(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return fmt.Sprintf("%x", sum[:])[:12]
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func (s *Server) handleListAgentBlueprints(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"agent_blueprints": staticAgentBlueprints()})
+}
+
+func (s *Server) handleGetAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, blueprint := range staticAgentBlueprints() {
+		if blueprint.ID == id {
+			writeJSON(w, http.StatusOK, gact.AgentBlueprintDetail{
+				AgentBlueprint: blueprint,
+				Agents:         staticAgentBlueprintAgents(blueprint.ID),
+				MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint not found: "+id)
+}
+
+func (s *Server) handleValidateAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintValidateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "path is required")
+		return
+	}
+	blueprint := gact.AgentBlueprintDefinition{
+		ID:             "validated-blueprint",
+		Version:        "0.1.0",
+		Title:          "Validated Blueprint",
+		Scope:          firstNonEmptyString(req.Scope, "session"),
+		Root:           req.Path,
+		RootPath:       req.Path + "/AGENT.md",
+		DefinitionPath: req.Path + "/AGENT.md",
+		RootExpert:     "main",
+		Enabled:        true,
+	}
+	writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
+		Enabled:        true,
+		AgentBlueprint: blueprint,
+		Agents:         staticAgentBlueprintAgents(blueprint.ID),
+		MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+	})
+}
+
+func (s *Server) handleInstallAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintInstallRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	source := firstNonEmptyString(req.Source, req.URL, req.Path)
+	if strings.TrimSpace(source) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "source, url, or path is required")
+		return
+	}
+	blueprint := staticAgentBlueprints()[0]
+	if req.BlueprintID != "" {
+		blueprint.ID = req.BlueprintID
+		blueprint.Title = req.BlueprintID
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"installed": []map[string]any{{
+			"id":    blueprint.ID,
+			"title": blueprint.Title,
+			"scope": firstNonEmptyString(req.Scope, "workspace"),
+			"install": map[string]any{
+				"source": source,
+				"ref":    req.Ref,
+				"status": "installed",
+			},
+		}},
+	})
+}
+
+func (s *Server) handleUpdateAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"updated": map[string]any{"id": id, "scope": "workspace", "status": "updated"},
+	})
+}
+
+func (s *Server) handleDeleteAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "data-exploration" && r.URL.Query().Get("scope") == "builtin" {
+		writeError(w, http.StatusBadRequest, "bad_request", "built-in agent blueprints cannot be deleted")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"uninstalled": map[string]any{"id": id, "scope": firstNonEmptyString(r.URL.Query().Get("scope"), "workspace")},
+	})
+}
+
+func (s *Server) handleEnableAgentBlueprintMCP(w http.ResponseWriter, r *http.Request) {
+	blueprintID := r.PathValue("id")
+	descriptorID := r.PathValue("descriptor_id")
+	for _, descriptor := range staticAgentBlueprintMCPDescriptors(blueprintID) {
+		if descriptor["id"] == descriptorID {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                 "agent_blueprint_mcp_" + blueprintID + "_" + descriptorID,
+				"name":               firstNonEmptyString(stringFromAny(descriptor["name"]), descriptorID),
+				"status":             "enabled_pending_probe",
+				"transport":          firstNonEmptyString(stringFromAny(descriptor["transport"]), "unknown"),
+				"tools_count":        0,
+				"tools":              []any{},
+				"spec":               map[string]any{"transport": descriptor["transport"], "command": descriptor["command"], "args": descriptor["args"]},
+				"source":             "agent_blueprint",
+				"agent_blueprint_id": blueprintID,
+				"descriptor_id":      descriptorID,
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "MCP descriptor not found: "+descriptorID)
+}
+
+func (s *Server) handleGetSessionAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, sessionAgentBlueprintState(sess))
+}
+
+func (s *Server) handleSetSessionAgentBlueprint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req gact.SetSessionAgentBlueprintRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	blueprintID := firstNonEmptyString(strings.TrimSpace(req.BlueprintID), strings.TrimSpace(req.AgentBlueprintID))
+	if blueprintID == "" && strings.TrimSpace(req.Path) == "" && strings.TrimSpace(req.BlueprintPath) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "blueprint_id or path is required")
+		return
+	}
+	var blueprint *gact.AgentBlueprintDefinition
+	for _, row := range staticAgentBlueprints() {
+		if row.ID == blueprintID {
+			copy := row
+			blueprint = &copy
+			break
+		}
+	}
+	if blueprint == nil && blueprintID != "" {
+		writeError(w, http.StatusNotFound, "not_found", "agent blueprint not found: "+blueprintID)
+		return
+	}
+	if blueprint == nil {
+		row := gact.AgentBlueprintDefinition{
+			ID:             "session-blueprint",
+			Version:        "0.1.0",
+			Title:          "Session Blueprint",
+			Scope:          "session",
+			Root:           firstNonEmptyString(req.Path, req.BlueprintPath),
+			RootPath:       firstNonEmptyString(req.Path, req.BlueprintPath) + "/AGENT.md",
+			DefinitionPath: firstNonEmptyString(req.Path, req.BlueprintPath) + "/AGENT.md",
+			RootExpert:     "main",
+			Enabled:        true,
+		}
+		blueprint = &row
+	}
+	if sess.Metadata == nil {
+		sess.Metadata = map[string]any{}
+	}
+	sess.Metadata["active_agent_blueprint_id"] = blueprint.ID
+	sess.Metadata["active_agent_blueprint_version"] = blueprint.Version
+	sess.Metadata["active_agent_blueprint_scope"] = blueprint.Scope
+	sess.Metadata["active_agent_blueprint_definition_path"] = firstNonEmptyString(blueprint.DefinitionPath, blueprint.RootPath)
+	sess.Metadata["active_agent_blueprint_path"] = ""
+	sess.Metadata["active_expert_pack_id"] = ""
+	sess.Metadata["active_expert_pack_path"] = ""
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		row.Metadata = sess.Metadata
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	state := sessionAgentBlueprintState(updated)
+	state.AgentBlueprint = blueprint
+	writeJSON(w, http.StatusOK, state)
+}
+
+func (s *Server) handleGetSessionAgentOverlay(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.GetSession(id)
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, gact.SessionAgentOverlayResponse{
+		SessionID:    id,
+		AgentOverlay: mapFromAny(sess.Metadata["agent_blueprint_overlay"]),
+	})
+}
+
+func (s *Server) handlePutSessionAgentOverlay(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var overlay map[string]any
+	if !decodeJSON(w, r, &overlay) {
+		return
+	}
+	updated, err := s.store.UpdateSession(id, func(row *gact.Session) {
+		if row.Metadata == nil {
+			row.Metadata = map[string]any{}
+		}
+		row.Metadata["agent_blueprint_overlay"] = overlay
+	})
+	if err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	writeJSON(w, http.StatusOK, gact.SessionAgentOverlayResponse{
+		SessionID:    id,
+		AgentOverlay: overlay,
+		Session:      updated,
+	})
+}
+
+func sessionAgentBlueprintState(sess *gact.Session) gact.SessionAgentBlueprintState {
+	if sess == nil {
+		return gact.SessionAgentBlueprintState{}
+	}
+	blueprintID, _ := sess.Metadata["active_agent_blueprint_id"].(string)
+	var blueprint *gact.AgentBlueprintDefinition
+	for _, row := range staticAgentBlueprints() {
+		if row.ID == blueprintID {
+			copy := row
+			blueprint = &copy
+			break
+		}
+	}
+	return gact.SessionAgentBlueprintState{
+		SessionID:                sess.ID,
+		WorkspaceID:              sess.WorkspaceID,
+		ActiveAgentBlueprintID:   blueprintID,
+		ActiveAgentBlueprintPath: stringFromAny(sess.Metadata["active_agent_blueprint_path"]),
+		AgentBlueprint:           blueprint,
+		AgentOverlay:             mapFromAny(sess.Metadata["agent_blueprint_overlay"]),
+		Session:                  sess,
+	}
+}
+
+func staticAgentBlueprints() []gact.AgentBlueprintDefinition {
+	return []gact.AgentBlueprintDefinition{{
+		ID:             "data-exploration",
+		Version:        "1.0.0",
+		Title:          "Data Exploration",
+		Description:    "Markdown agent blueprint with a root data expert and optional MCP descriptor.",
+		Scope:          "builtin",
+		Root:           "/opt/clio/agent_blueprints/data-exploration",
+		RootPath:       "/opt/clio/agent_blueprints/data-exploration/AGENT.md",
+		DefinitionPath: "/opt/clio/agent_blueprints/data-exploration/AGENT.md",
+		RootExpert:     "data",
+		Enabled:        true,
+		Defaults:       map[string]any{"prompt_profile": "heavy"},
+		Metadata:       map[string]any{"layout": "agent_blueprint"},
+	}, {
+		ID:               "broken-blueprint",
+		Version:          "0.1.0",
+		Title:            "Broken Blueprint",
+		Scope:            "workspace",
+		Root:             "/workspace/.clio/agent-blueprints/broken-blueprint",
+		RootPath:         "/workspace/.clio/agent-blueprints/broken-blueprint/AGENT.md",
+		DefinitionPath:   "/workspace/.clio/agent-blueprints/broken-blueprint/AGENT.md",
+		RootExpert:       "missing",
+		Enabled:          false,
+		ValidationErrors: []string{"root_expert not found: missing"},
+	}}
+}
+
+func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
+	return []gact.AgentDef{{
+		ID:          "data",
+		Title:       "Data Root",
+		Description: "Routes data exploration tasks to blueprint specialists.",
+		Source:      "agent_blueprint",
+		Enabled:     true,
+		Tier:        1,
+		Tools:       []string{"mcp.parquet.read", "mcp.adios.inspect"},
+		Metadata: map[string]any{
+			"agent_blueprint_id":          blueprintID,
+			"agent_blueprint_root_expert": "data",
+		},
+	}, {
+		ID:          "variant",
+		Title:       "Variant Expert",
+		Description: "Specialist child expert from the markdown blueprint.",
+		Source:      "agent_blueprint",
+		Enabled:     true,
+		ParentID:    "data",
+		Tier:        2,
+		Tools:       []string{"mcp.parquet.read"},
+		Metadata:    map[string]any{"agent_blueprint_id": blueprintID},
+	}}
+}
+
+func staticAgentBlueprintMCPDescriptors(blueprintID string) []map[string]any {
+	return []map[string]any{{
+		"id":                 "earthscope",
+		"name":               "EarthScope MCP",
+		"transport":          "stdio",
+		"command":            "earthscope-mcp",
+		"args":               []any{"serve"},
+		"enabled":            false,
+		"status":             "disabled",
+		"source":             "agent_blueprint",
+		"agent_blueprint_id": blueprintID,
+	}}
+}
+
+func stringFromAny(v any) string {
+	if value, ok := v.(string); ok {
+		return value
+	}
+	return ""
+}
+
+func mapFromAny(v any) map[string]any {
+	if value, ok := v.(map[string]any); ok {
+		return value
+	}
+	return nil
 }
 
 // --- §6.6 Tools ------------------------------------------------------------
@@ -182,6 +1060,11 @@ func staticTools() []gact.Tool {
 
 func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	agents := staticAgents()
+	s.agentsMu.Lock()
+	for _, agent := range s.agents {
+		agents = append(agents, agent)
+	}
+	s.agentsMu.Unlock()
 	// v0.2 — SPEC §4.3.1: `?tier=N` filters to a specific tier.
 	// Absent = return all tiers (backwards-compat with v0.1).
 	if tierStr := r.URL.Query().Get("tier"); tierStr != "" {
@@ -212,6 +1095,13 @@ func atoi(s string) int {
 
 func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	s.agentsMu.Lock()
+	if agent, ok := s.agents[id]; ok {
+		s.agentsMu.Unlock()
+		writeJSON(w, http.StatusOK, agent)
+		return
+	}
+	s.agentsMu.Unlock()
 	for _, a := range staticAgents() {
 		if a.ID == id {
 			writeJSON(w, http.StatusOK, a)
@@ -221,10 +1111,106 @@ func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "agent_not_found", "no agent with id "+id)
 }
 
-// agent_write is false — these are 501s.
-func (s *Server) handleAgentNotImplemented(w http.ResponseWriter, r *http.Request) {
-	writeError(w, http.StatusNotImplemented, "not_implemented",
-		"this emulator's capabilities.agent_write is false; agent write API not supported")
+func (s *Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
+	var agent gact.AgentDef
+	if !decodeJSON(w, r, &agent) {
+		return
+	}
+	if strings.TrimSpace(agent.ID) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "agent id is required")
+		return
+	}
+	agent.Source = firstNonEmptyString(agent.Source, "user")
+	if agent.Title == "" {
+		agent.Title = agent.ID
+	}
+	if !agent.Enabled {
+		agent.Enabled = true
+	}
+	if agent.Metadata == nil {
+		agent.Metadata = map[string]any{}
+	}
+	agent.Metadata["storage_scope"] = "workspace"
+	agent.Metadata["source_path"] = "/workspace/.clio/agents/" + agent.ID + ".md"
+	s.agentsMu.Lock()
+	s.agents[agent.ID] = agent
+	s.agentsMu.Unlock()
+	writeJSON(w, http.StatusCreated, agent)
+}
+
+func (s *Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var patch gact.AgentDef
+	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	s.agentsMu.Lock()
+	defer s.agentsMu.Unlock()
+	agent, ok := s.agents[id]
+	if !ok {
+		writeError(w, http.StatusNotFound, "agent_not_found", "user agent not found: "+id)
+		return
+	}
+	if patch.Title != "" {
+		agent.Title = patch.Title
+	}
+	agent.Description = patch.Description
+	agent.SystemPrompt = patch.SystemPrompt
+	agent.Tools = append([]string(nil), patch.Tools...)
+	agent.Keywords = append([]string(nil), patch.Keywords...)
+	if patch.Metadata != nil {
+		agent.Metadata = patch.Metadata
+	}
+	if agent.Metadata == nil {
+		agent.Metadata = map[string]any{}
+	}
+	agent.Metadata["updated_by"] = "gact-emulator"
+	agent.Enabled = patch.Enabled
+	s.agents[id] = agent
+	writeJSON(w, http.StatusOK, agent)
+}
+
+func (s *Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.agentsMu.Lock()
+	defer s.agentsMu.Unlock()
+	if _, ok := s.agents[id]; !ok {
+		writeError(w, http.StatusNotFound, "agent_not_found", "user agent not found: "+id)
+		return
+	}
+	delete(s.agents, id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentExtractRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.AgentID) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "agent_id is required")
+		return
+	}
+	agent := gact.AgentDef{
+		ID:          req.AgentID,
+		Source:      "user",
+		Title:       req.AgentID,
+		Description: "Extracted from " + strings.Join(req.SessionIDs, ", "),
+		SystemPrompt: "Use the observed session goals, tool evidence, and routing decisions as the starting point for this " +
+			"extracted agent.",
+		Tools:    []string{"read_file", "mcp.parquet.read"},
+		Keywords: []string{"extracted", "session"},
+		Enabled:  true,
+		Metadata: map[string]any{
+			"created_by":     "gact-emulator",
+			"extracted_from": req.SessionIDs,
+			"source_path":    "/workspace/.clio/agents/" + req.AgentID + ".md",
+		},
+	}
+	s.agentsMu.Lock()
+	s.agents[agent.ID] = agent
+	s.agentsMu.Unlock()
+	writeJSON(w, http.StatusCreated, agent)
 }
 
 func staticAgents() []gact.AgentDef {
@@ -482,12 +1468,33 @@ func staticMcpPrompts(serverID string) []gact.McpPrompt {
 // --- §6.13 Commands --------------------------------------------------------
 
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"commands": staticCommands()})
+	agentID := strings.TrimSpace(r.URL.Query().Get("agent_id"))
+	plannerOnly := r.URL.Query().Get("planner") == "true"
+	rows := staticCommands()
+	if agentID != "" || plannerOnly {
+		filtered := make([]gact.Command, 0, len(rows))
+		for _, row := range rows {
+			if agentID != "" && row.AgentID != "" && row.AgentID != agentID {
+				continue
+			}
+			if agentID != "" && row.AgentID == "" && row.Source != "builtin" {
+				continue
+			}
+			if plannerOnly && (row.PlannerVisible == nil || !*row.PlannerVisible) {
+				continue
+			}
+			filtered = append(filtered, row)
+		}
+		rows = filtered
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"commands": rows})
 }
 
 func staticCommands() []gact.Command {
+	trueValue := true
+	falseValue := false
 	return []gact.Command{
-		{ID: "/clear", Title: "Clear chat history", Source: "builtin", Shortcut: "ctrl+l"},
+		{ID: "/clear", Title: "Clear chat history", Source: "builtin", Shortcut: "ctrl+l", UserInvocable: &trueValue, AgentInvocable: &falseValue, PlannerVisible: &falseValue},
 		{ID: "/cancel", Title: "Cancel current run", Source: "builtin", Shortcut: "ctrl+c"},
 		{ID: "/model", Title: "Switch model", Source: "builtin",
 			Arguments: []gact.AgentParameter{{Name: "model_id", Type: "string", Required: true}}},
@@ -517,7 +1524,10 @@ func staticCommands() []gact.Command {
 		{ID: "/duplicate", Title: "Copy current session's title/model/agent to a fresh session", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
-			Arguments: []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
+			AgentID: "clio.expert.data", AgentSource: "builtin", CommandSource: "mcp_prompt", Invocation: "mcp_prompt",
+			UserInvocable: &trueValue, AgentInvocable: &trueValue, PlannerVisible: &trueValue,
+			ArgumentHint: "text required",
+			Arguments:    []gact.AgentParameter{{Name: "text", Type: "multiline", Required: true}}},
 	}
 }
 
