@@ -242,6 +242,29 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('slash-palette-fuzzy'), fullPage: false });
   });
 
+  test('retry variant menu offers notes + model options (1.0 item 4)', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    // The per-message action row appears on hover; the regenerate action
+    // opens the variant menu (plain / with notes / with model).
+    await page.getByTestId('msg-m-asst-1').hover();
+    await page.getByTestId('msg-regen-m-asst-1').click();
+    await expect(page.getByTestId('regen-menu-m-asst-1')).toBeVisible();
+    await expect(page.getByTestId('regen-plain-m-asst-1')).toBeVisible();
+    await expect(page.getByTestId('regen-notes-m-asst-1')).toBeVisible();
+    await expect(page.getByTestId('regen-model-m-asst-1')).toBeVisible();
+    await page.screenshot({ path: shot('retry-menu-open'), fullPage: false });
+    // The with-model submenu lists the available models.
+    await page.getByTestId('regen-model-m-asst-1').click();
+    await expect(
+      page.getByTestId('regen-pick-anthropic:claude-opus-4-m-asst-1'),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('regen-pick-argonne_metis:gpt-oss-120b-m-asst-1'),
+    ).toBeVisible();
+    await page.screenshot({ path: shot('retry-model-submenu'), fullPage: false });
+  });
+
   // Real-backend visual proof — only captured when a clio-agent-gact
   // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
   // CI runners without the install don't fail. On the developer's box

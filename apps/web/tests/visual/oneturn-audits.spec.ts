@@ -44,27 +44,53 @@ async function openConnected(browser: Browser): Promise<{
   return { ctx, page };
 }
 
-/** Create a fresh session via the UI, activate it, send one turn,
- * wait for the assistant text to render. Returns the message ids
- * so the caller can target per-message UI. */
+/** Create a fresh session, activate it, send one turn, wait for the
+ * assistant text to render. Returns the message ids + session id so the
+ * caller can target per-message UI and per-session APIs.
+ *
+ * Hardened (1.0 closure run): the session is created via the API and
+ * selected by its EXACT row id. The old "click the first row" heuristic
+ * silently landed in a pre-existing session whenever any older session
+ * was pinned (pinned rows sort first), which broke every fresh-session
+ * assumption downstream. */
+let turnNonce = 0;
+
 async function sendOneTurn(
   page: Page,
-  text = 'What is the capital of France? One word.',
-): Promise<{ userMsgId: string; asstMsgId: string }> {
-  await page.getByTestId('sessions-new').click();
-  await page.waitForTimeout(1_200);
-  const newRow = page.locator('[data-testid^="session-row-"]').first();
-  await newRow.click();
+  text?: string,
+): Promise<{ userMsgId: string; asstMsgId: string; sid: string }> {
+  const created = (await (
+    await fetch(`${BACKEND}/v1/sessions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+  ).json()) as { id: string };
+  const sid = created.id;
+  if (!sid) throw new Error('POST /v1/sessions returned no id');
+
+  // Unique nonce per turn: clio's planner rejects direct answers it
+  // considers stale when the IDENTICAL prompt is replayed across runs
+  // (DSPy LM cache → routing_error "stale_or_invalid_answer_text").
+  // A nonce keeps every test turn a real, fresh LM call.
+  const prompt =
+    text ??
+    `What is the capital of France? One word. (test nonce ${Date.now()}-${turnNonce++})`;
+
+  // Surface the new session in the UI list and select exactly it.
+  await page.getByTestId('sessions-refresh').click();
+  const row = page.getByTestId(`session-row-${sid}`);
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  await row.click();
   await page.waitForTimeout(600);
 
   const composer = page.getByTestId('composer-input');
   await composer.click();
-  await composer.pressSequentially(text, { delay: 8 });
+  await composer.pressSequentially(prompt, { delay: 8 });
   await page.getByTestId('composer-send').click();
 
-  // Wait for assistant text to land — the bug we fixed was that this
-  // never rendered. If it does now, the rest of the per-message
-  // actions also have a target.
+  // Wait for assistant text to land — the session is guaranteed fresh,
+  // so the first assistant bubble is this turn's response.
   await expect(page.getByTestId('transcript-pane')).toContainText(/Paris/i, {
     timeout: 120_000,
   });
@@ -84,7 +110,7 @@ async function sendOneTurn(
   // first user, then assistant (DOM order).
   const userMsgId = (msgIds[0] ?? '').replace(/^msg-/, '');
   const asstMsgId = (msgIds[1] ?? '').replace(/^msg-/, '');
-  return { userMsgId, asstMsgId };
+  return { userMsgId, asstMsgId, sid };
 }
 
 test.setTimeout(240_000);
@@ -762,6 +788,64 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     await expect(chip).toContainText('ttft');
     await expect(chip).toContainText('tok/s');
     await page.screenshot({ path: shot('w3-stream-stats'), fullPage: false });
+    await ctx.close();
+    await browser.close();
+  });
+
+  // -- 1.0 item 4: regenerate variants (notes + model) ------------------
+  test('regenerate-with-notes runs a real retry turn with lineage (1.0 item 4)', async () => {
+    // Two real turns (initial + retry) — give this test its own budget.
+    test.setTimeout(360_000);
+    const browser = await bootBrowser();
+    const { ctx, page } = await openConnected(browser);
+    const { asstMsgId, sid } = await sendOneTurn(page);
+
+    // Open the regenerate variant menu on the assistant message.
+    const msg = page.getByTestId(`msg-${asstMsgId}`);
+    await msg.hover();
+    await page.waitForTimeout(200);
+    await page.getByTestId(`msg-regen-${asstMsgId}`).click();
+    await expect(page.getByTestId(`regen-menu-${asstMsgId}`)).toBeVisible();
+    await expect(page.getByTestId(`regen-notes-${asstMsgId}`)).toBeVisible();
+    // The with-model entry renders when the providers list resolves.
+    await expect(page.getByTestId(`regen-model-${asstMsgId}`)).toBeVisible();
+    await page.screenshot({ path: shot('item4-retry-menu'), fullPage: false });
+
+    // Delta-based assertions: the helper may land in a pre-existing
+    // (pinned) session on a long-lived backend, so absolute message
+    // counts are meaningless — count before, assert the increase.
+    const asstLocator = page.locator(
+      '[data-testid^="msg-msg_"].trx-msg--assistant',
+    );
+    const asstCountBefore = await asstLocator.count();
+
+    // With-notes flow: steering notes ride clio's RetryTurnRequest.notes.
+    const NOTES = 'Answer in exactly three words.';
+    await page.getByTestId(`regen-notes-${asstMsgId}`).click();
+    await page.getByTestId(`regen-notes-input-${asstMsgId}`).fill(NOTES);
+    await page.getByTestId(`regen-notes-submit-${asstMsgId}`).click();
+
+    // clio (execute:true) appends a NEW user message carrying the original
+    // text + the retry notes — that lands quickly (202 + message.created).
+    await expect(page.getByTestId('transcript-pane')).toContainText(NOTES, {
+      timeout: 60_000,
+    });
+    // …then re-runs the turn → one MORE assistant message arrives. Both are
+    // server-side state, not client decoration.
+    await expect
+      .poll(async () => await asstLocator.count(), { timeout: 180_000 })
+      .toBeGreaterThanOrEqual(asstCountBefore + 1);
+
+    // The TurnAttempt is recorded server-side with our notes — lineage
+    // survives reload (honest model; no fake desktop-only state).
+    const attemptsRes = (await (
+      await fetch(`${BACKEND}/v1/sessions/${sid}/attempts`)
+    ).json()) as { attempts: Array<{ notes?: string; status?: string }> };
+    expect(
+      attemptsRes.attempts.some((a) => (a.notes ?? '').includes('three words')),
+    ).toBe(true);
+
+    await page.screenshot({ path: shot('item4-retry-notes-turn'), fullPage: false });
     await ctx.close();
     await browser.close();
   });
