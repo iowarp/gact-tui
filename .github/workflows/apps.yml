@@ -169,6 +169,15 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
             bundle-args: '--bundles deb,appimage,rpm'
+          # AppImage is LITE-ONLY on Linux. A half-gigabyte embedded Python
+          # runtime inside AppImage's compressed read-only squashfs is the
+          # wrong vehicle (and build_appimage.sh fails on it — 0.7.0 release
+          # test, take 2). Offline Linux installs use the bundled deb/rpm.
+          # This include matches variant+target and overrides bundle-args
+          # for that one combination.
+          - target: x86_64-unknown-linux-gnu
+            variant: bundled
+            bundle-args: '--bundles deb,rpm'
 
     defaults:
       run:
