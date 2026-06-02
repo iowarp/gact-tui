@@ -6327,6 +6327,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	if cfg.CostDangerTokens != nil {
 		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
 	}
+	diagWriteClipboardProbe(w)
 	if verbose {
 		themePath, _ := ui.CustomThemeDefaultPath()
 		if themePath != "" {
@@ -6364,6 +6365,45 @@ func writeDiagCore(w io.Writer, verbose bool) {
 			fmt.Fprintf(w, "  detached_count: (unreadable: %v)\n", err)
 		}
 	}
+}
+
+func diagWriteClipboardProbe(w io.Writer) {
+	commands := []string{
+		"wl-copy",
+		"xclip",
+		"xsel",
+		"pbcopy",
+		"clip.exe",
+		"powershell.exe",
+		"termux-clipboard-set",
+	}
+	var present []string
+	var missing []string
+	for _, name := range commands {
+		if path, err := exec.LookPath(name); err == nil && path != "" {
+			present = append(present, name)
+		} else {
+			missing = append(missing, name)
+		}
+	}
+	if len(present) == 0 {
+		fmt.Fprintln(w, "  clipboard_native: none detected")
+	} else {
+		fmt.Fprintf(w, "  clipboard_native: %s\n", strings.Join(present, ", "))
+	}
+	fmt.Fprintf(w, "  clipboard_missing: %s\n", strings.Join(missing, ", "))
+	fmt.Fprintf(w, "  clipboard_osc52: terminal-dependent; TERM=%s TERM_PROGRAM=%s COLORTERM=%s\n",
+		orUnset(os.Getenv("TERM")),
+		orUnset(os.Getenv("TERM_PROGRAM")),
+		orUnset(os.Getenv("COLORTERM")),
+	)
+}
+
+func orUnset(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "(unset)"
+	}
+	return value
 }
 
 // runCatalog browses the catalog endpoints from the shell:

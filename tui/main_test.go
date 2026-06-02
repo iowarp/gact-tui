@@ -53,6 +53,33 @@ func stopTestProcess(p *os.Process) {
 	_ = p.Signal(os.Interrupt)
 }
 
+func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("TERM_PROGRAM", "UnitTerm")
+	t.Setenv("COLORTERM", "truecolor")
+
+	var out bytes.Buffer
+	diagWriteClipboardProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"clipboard_native:",
+		"clipboard_missing:",
+		"clipboard_osc52:",
+		"wl-copy",
+		"xclip",
+		"xsel",
+		"clip.exe",
+		"powershell.exe",
+		"TERM=xterm-256color",
+		"TERM_PROGRAM=UnitTerm",
+		"COLORTERM=truecolor",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("diag clipboard probe missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
