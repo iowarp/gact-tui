@@ -489,6 +489,53 @@ func TestRightSidebarOwnsFullAllocatedColumn(t *testing.T) {
 	}
 }
 
+func TestRightSidebarContextRowDoesNotLeakIntoConversationHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read", Size: 128, Language: "markdown"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:context:file:docs/readme.md")
+	if !ok {
+		t.Fatal("missing right sidebar context file hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(rightRow.rect.x, rightRow.rect.y) {
+		t.Fatalf("right sidebar row %+v is inside conversation focus rect %+v", rightRow.rect, bodyTarget.rect)
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionContext {
+		t.Fatalf("right sidebar click focus = %v section=%v, want right context", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.detailViewOpen || !strings.Contains(a.detailView.fullText, "docs/readme.md") {
+		t.Fatalf("right sidebar context click should open context detail, open=%v detail=%q", a.detailViewOpen, a.detailView.fullText)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
 func thirdRuneIndexForTest(s string, want rune) int {
 	seen := 0
 	for i, r := range []rune(s) {
