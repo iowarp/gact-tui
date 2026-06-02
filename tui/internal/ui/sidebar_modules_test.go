@@ -240,6 +240,63 @@ func TestSidebarLayoutEditorReordersVisibleColumn(t *testing.T) {
 	}
 }
 
+func TestSidebarLayoutEditorArrowKeysMoveModulesWithoutGrab(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 1
+
+	model, _ := a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = model.(*App)
+	left, _ := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" {
+		t.Fatalf("up arrow should reorder selected module without grab, left=%#v", left)
+	}
+	if a.sidebarLayoutSel[sidebarLayoutColumnLeft] != 0 {
+		t.Fatalf("selection should follow moved module, got %d", a.sidebarLayoutSel[sidebarLayoutColumnLeft])
+	}
+
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = model.(*App)
+	left, _ = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions,context" {
+		t.Fatalf("down arrow should reorder selected module without grab, left=%#v", left)
+	}
+}
+
+func TestSidebarLayoutEditorTabChangesColumnsAndArrowsTransferModules(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 0
+
+	model, _ := a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	a = model.(*App)
+	if a.sidebarLayoutCol != sidebarLayoutColumnAvailable {
+		t.Fatalf("Tab should focus available column, got %d", a.sidebarLayoutCol)
+	}
+
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = model.(*App)
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context" || len(right) != 0 {
+		t.Fatalf("right arrow should move sessions to available, left=%#v right=%#v", left, right)
+	}
+	if got := a.SidebarModulePlacement("sessions"); got != "hidden" {
+		t.Fatalf("sessions placement = %q, want hidden", got)
+	}
+
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = model.(*App)
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context" || strings.Join(right, ",") != "sessions" {
+		t.Fatalf("second right arrow should move sessions to right, left=%#v right=%#v", left, right)
+	}
+}
+
 func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 120
@@ -257,6 +314,9 @@ func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
 	}
 	if strings.Contains(out, "Right") {
 		t.Fatalf("empty right column should not render:\n%s", out)
+	}
+	if !strings.Contains(out, "Tab column") || !strings.Contains(out, "arrows move module") {
+		t.Fatalf("layout editor should explain direct arrow/module controls:\n%s", out)
 	}
 }
 

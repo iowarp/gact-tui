@@ -131,32 +131,54 @@ func (a *App) handleSidebarLayoutKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q", "ctrl+s":
 		a.closeSidebarLayoutEditor()
 		return a, nil
+	case "tab", "ctrl+i":
+		a.focusNextSidebarLayoutColumn(1)
+		return a, nil
+	case "shift+tab":
+		a.focusNextSidebarLayoutColumn(-1)
+		return a, nil
 	case "up", "k":
+		if k.String() == "k" && !a.sidebarLayoutGrabbed {
+			a.moveSidebarLayoutSelection(-1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.reorderSidebarLayoutModule(-1)
 			return a, nil
 		}
-		a.moveSidebarLayoutSelection(-1)
+		a.reorderSidebarLayoutModule(-1)
 		return a, nil
 	case "down", "j":
+		if k.String() == "j" && !a.sidebarLayoutGrabbed {
+			a.moveSidebarLayoutSelection(1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.reorderSidebarLayoutModule(1)
 			return a, nil
 		}
-		a.moveSidebarLayoutSelection(1)
+		a.reorderSidebarLayoutModule(1)
 		return a, nil
 	case "left", "h":
+		if k.String() == "h" && !a.sidebarLayoutGrabbed {
+			a.focusNextSidebarLayoutColumn(-1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.transferSidebarLayoutModule(-1)
 		} else {
-			a.focusNextSidebarLayoutColumn(-1)
+			a.transferSidebarLayoutModule(-1)
 		}
 		return a, nil
 	case "right", "l":
+		if k.String() == "l" && !a.sidebarLayoutGrabbed {
+			a.focusNextSidebarLayoutColumn(1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.transferSidebarLayoutModule(1)
 		} else {
-			a.focusNextSidebarLayoutColumn(1)
+			a.transferSidebarLayoutModule(1)
 		}
 		return a, nil
 	case "enter", " ":
@@ -363,7 +385,7 @@ func (a *App) viewSidebarLayoutEditor() string {
 		bodyRows = append(bodyRows, strings.Join(cells, strings.Repeat(" ", gap)))
 	}
 	bodyRows = append(bodyRows, "")
-	bodyRows = append(bodyRows, t.HintLabel.Render("↑/↓ select  ←/→ column  Enter grab/drop  arrows move grabbed  r reset  Esc close"))
+	bodyRows = append(bodyRows, t.HintLabel.Render("j/k select  Tab column  arrows move module  Enter grab/drop  r reset  Esc close"))
 
 	buttons := []menuButton{
 		{id: "sidebar-layout:reset", label: "reset", action: func(app *App) tea.Cmd {
