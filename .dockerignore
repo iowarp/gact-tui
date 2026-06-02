@@ -1,0 +1,82 @@
+# =============================================================================
+# Docker build-context exclusions.
+#
+# The repo root is the build context for docker/Dockerfile.clio-* (the TUI
+# build needs the go.work workspace, so the context cannot be narrowed to a
+# single dir). Without this file the context is multiple GB — research clones,
+# node_modules, Go/Rust/Vite build outputs, screenshots, and GIFs. Keep this
+# list aggressive: only the source the Dockerfiles actually COPY needs to be
+# present.
+# =============================================================================
+
+# --- VCS / CI / editor ---
+.git
+.github
+.gitattributes
+.gitignore
+.mcp.json
+.playwright-mcp
+.claude
+.tools
+
+# --- Read-only research clones (huge) ---
+research
+apps/research
+apps/web/research
+
+# --- Node / pnpm ---
+**/node_modules
+**/.pnpm-store
+**/.vite
+**/.turbo
+
+# --- Python virtualenvs / caches ---
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+.clio_agent
+.clio-agent-artifacts
+
+# --- Rust / Tauri build output (desktop app — not used by Docker) ---
+apps/desktop/src-tauri/target
+**/target
+
+# --- Go build output ---
+tui/gact
+tui/gact.exe
+emulator/emulator-server
+**/*.test
+**/*.exe
+
+# --- Frontend build output (rebuilt inside the image) ---
+apps/web/dist
+apps/core/dist
+**/dist
+**/build
+
+# --- Visual artifacts (never needed in an image) ---
+screenshots
+apps/web/screenshots
+visual_loop
+loop-test
+**/*.png
+**/*.gif
+**/*.tape
+tmp
+
+# --- Docs / planning (not needed at build time) ---
+# NOTE: *.md is matched only at the repo root via the leading slash so that
+# docker/*.conf / *.sh stay in context; docker/README.md is excluded below.
+/*.md
+notes
+docs
+
+# --- Docker scaffolding ---
+# The Dockerfiles themselves are passed via -f and need not be in context, but
+# docker/nginx-*.conf and docker/*-entrypoint.sh ARE COPYed by the web/tui
+# images — so keep docker/ in the context and only drop what's build-irrelevant.
+docker/Dockerfile.*
+docker/README.md
+docker/docker-compose.yml
+.dockerignore

@@ -15,11 +15,18 @@
 //! Failure modes are surfaced as `BackendStatus::Error(message)` so the
 //! frontend Splash screen can render a recoverable error card with the
 //! upstream install hint.
+//!
+//! First-run "one swoop": when the launcher exits code 2 ("clio-agent-gact
+//! not found") the supervisor reports `BackendStatus::NeedsInstall` instead
+//! of a generic error. The frontend reacts by invoking the `install_clio`
+//! Tauri command, which runs the same upstream install script the user
+//! would run manually, streaming progress back as Tauri events.
 
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{
-    env, io,
+    env,
+    io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -27,6 +34,23 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use tauri::{AppHandle, Emitter};
+
+/// Launcher exit code meaning "clio-agent-gact could not be resolved".
+/// Must stay in lockstep with `exitNotFound` in
+/// `apps/desktop/sidecar-launcher/main.go`.
+const LAUNCHER_EXIT_NOT_FOUND: i32 = 2;
+/// Git ref of clio-agent the upstream installer should check out. Matches
+/// the `CLIO_REF=develop` the manual install hint uses.
+const CLIO_INSTALL_REF: &str = "develop";
+/// Tauri event names for the streamed install. The frontend subscribes to
+/// these on the `needs_install` → auto-install transition.
+const EVT_INSTALL_PROGRESS: &str = "clio:install-progress";
+const EVT_INSTALL_DONE: &str = "clio:install-done";
+const EVT_INSTALL_FAILED: &str = "clio:install-failed";
+/// How many trailing log lines to ship in the `clio:install-failed` payload
+/// so the error card can show the tail without the whole transcript.
+const INSTALL_FAILURE_TAIL_LINES: usize = 30;
 
 /// Maximum time to wait for /v1/capabilities to return 200 before
 /// declaring the sidecar broken.
@@ -58,10 +82,15 @@ pub struct BackendHandle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase", tag = "kind", content = "detail")]
+#[serde(rename_all = "snake_case", tag = "kind", content = "detail")]
 pub enum BackendStatus {
     Starting,
     Ready,
+    /// The bundled launcher resolved no `clio-agent-gact` (it exited with
+    /// [`LAUNCHER_EXIT_NOT_FOUND`]). The frontend reacts by auto-running
+    /// `install_clio` — a one-swoop first-run install — rather than showing
+    /// the manual copy-paste error card. Serializes as `{"kind":"needs_install"}`.
+    NeedsInstall,
     Error(String),
 }
 
@@ -131,11 +160,44 @@ impl Supervisor {
                     guard.handle = handle;
                     guard.child = Some(child);
                 }
-                Err(e) => {
+                // The launcher exited 2 ("clio-agent-gact not found"): this is
+                // a fresh install, not a broken one. Surface NeedsInstall so the
+                // frontend auto-runs install_clio (one swoop) instead of the
+                // manual error card.
+                Err(SpawnError::NeedsInstall) => {
+                    guard.handle.status = BackendStatus::NeedsInstall;
+                }
+                Err(SpawnError::Other(e)) => {
                     guard.handle.status = BackendStatus::Error(e);
                 }
             }
         });
+    }
+
+    /// Reset the handle to `Starting` and re-run the spawn pipeline. Used by
+    /// the one-swoop install flow: after the installer exits 0, the
+    /// supervisor restarts so the now-resolvable `clio-agent-gact` is picked
+    /// up and the frontend's `get_backend` re-poll sees Starting → Ready.
+    ///
+    /// Re-locates the launcher (it never moves, but this keeps the missing-
+    /// launcher failure mode identical to first boot) and reaps any prior
+    /// child first.
+    pub fn restart(&self) {
+        // Reap a stale child (e.g. a half-started launcher) before re-spawning.
+        self.shutdown();
+        let launcher = match locate_launcher() {
+            Ok(p) => p,
+            Err(e) => {
+                self.set_error(format!(
+                    "sidecar launcher missing after install: {e}. Run `pnpm fetch-sidecar` and rebuild."
+                ));
+                return;
+            }
+        };
+        if let Ok(mut g) = self.inner.lock() {
+            g.handle.status = BackendStatus::Starting;
+        }
+        self.start(launcher);
     }
 
     /// Best-effort reap of the child process on app shutdown.
@@ -226,12 +288,31 @@ fn try_attach_existing() -> Option<BackendHandle> {
     })
 }
 
-fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), String> {
+/// Reasons `spawn_and_probe` can fail. `NeedsInstall` is carved out from the
+/// generic error so the supervisor can route the launcher's exit-2
+/// ("clio-agent-gact not found") to the first-run auto-install flow instead
+/// of the manual error card.
+#[derive(Debug)]
+enum SpawnError {
+    /// The launcher exited with [`LAUNCHER_EXIT_NOT_FOUND`]: no clio install.
+    NeedsInstall,
+    /// Any other failure (port allocation, spawn failure, probe timeout while
+    /// the launcher is still running, …).
+    Other(String),
+}
+
+impl From<String> for SpawnError {
+    fn from(s: String) -> Self {
+        SpawnError::Other(s)
+    }
+}
+
+fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError> {
     let port = pick_free_port().map_err(|e| format!("port allocation failed: {e}"))?;
     let token = generate_token();
     let url = format!("http://127.0.0.1:{port}");
 
-    let child = Command::new(launcher)
+    let mut child = Command::new(launcher)
         .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")
@@ -244,16 +325,33 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), String> {
         .spawn()
         .map_err(|e| format!("spawn launcher {launcher:?}: {e}"))?;
 
-    probe_capabilities(&url, &token)?;
-
-    Ok((
-        BackendHandle {
-            url,
-            bearer_token: token,
-            status: BackendStatus::Ready,
-        },
-        child,
-    ))
+    match probe_capabilities(&url, &token) {
+        Ok(()) => Ok((
+            BackendHandle {
+                url,
+                bearer_token: token,
+                status: BackendStatus::Ready,
+            },
+            child,
+        )),
+        Err(probe_err) => {
+            // The probe failed. Distinguish "the launcher already exited 2
+            // because clio isn't installed" (→ NeedsInstall, one-swoop) from
+            // any other failure (→ Error). The launcher mirrors clio's exit
+            // code, so a still-running child means clio is up but unhealthy.
+            match child.try_wait() {
+                Ok(Some(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
+                    Err(SpawnError::NeedsInstall)
+                }
+                _ => {
+                    // Best-effort reap so a half-started launcher isn't leaked.
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    Err(SpawnError::Other(probe_err))
+                }
+            }
+        }
+    }
 }
 
 /// Binds 127.0.0.1:0 to discover a free ephemeral port, then drops the
@@ -346,6 +444,181 @@ pub fn locate_launcher() -> Result<PathBuf, String> {
     ))
 }
 
+/// The shell program + argument vector that runs the UPSTREAM clio-agent
+/// installer for the current OS. This is the SAME script the manual error
+/// card tells the user to copy-paste; the one-swoop flow just runs it for
+/// them and streams the output.
+///
+/// Extracted as a pure function (no spawn, no I/O) so the exact command line
+/// is unit-testable per-OS. `install_clio` is the thin spawn wrapper.
+///
+/// - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -Command
+///   "$env:CLIO_REF='develop'; irm <install.ps1 url> | iex"`
+/// - macOS/Linux: `bash -c "CLIO_REF=develop curl -fsSL <install.sh url> | bash"`
+pub fn install_command() -> (String, Vec<String>) {
+    if cfg!(windows) {
+        let script = format!(
+            "$env:CLIO_REF='{CLIO_INSTALL_REF}'; \
+             irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex"
+        );
+        (
+            "powershell".to_string(),
+            vec![
+                "-NoProfile".to_string(),
+                "-ExecutionPolicy".to_string(),
+                "Bypass".to_string(),
+                "-Command".to_string(),
+                script,
+            ],
+        )
+    } else {
+        let script = format!(
+            "CLIO_REF={CLIO_INSTALL_REF} \
+             curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash"
+        );
+        ("bash".to_string(), vec!["-c".to_string(), script])
+    }
+}
+
+/// Run the upstream clio-agent installer, streaming every stdout/stderr line
+/// to the frontend as `clio:install-progress` events. On success runs
+/// `on_success` (the lib.rs command passes a closure that re-kicks the
+/// supervisor's spawn so the freshly-installed clio resolves) and THEN emits
+/// `clio:install-done`; on a non-zero exit emits `clio:install-failed` with
+/// `{code, tail}` (the last ~30 log lines). Blocking — the Tauri command
+/// wrapper runs it on a worker thread.
+///
+/// `on_success` runs before the done event so that by the time the frontend
+/// re-polls `get_backend`, the supervisor is already back in `Starting` and
+/// will flip to `Ready` (not loop back to `NeedsInstall`).
+pub fn install_clio<R, F>(app: AppHandle<R>, on_success: F)
+where
+    R: tauri::Runtime,
+    F: FnOnce(),
+{
+    let (program, args) = install_command();
+
+    let spawn = Command::new(&program)
+        .args(&args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+
+    let mut child = match spawn {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = app.emit(
+                EVT_INSTALL_FAILED,
+                InstallFailed {
+                    code: None,
+                    tail: format!("failed to launch installer ({program}): {e}"),
+                },
+            );
+            return;
+        }
+    };
+
+    // Ring buffer of recent lines so we can ship a tail on failure. Reading
+    // stdout and stderr on separate threads avoids a pipe-deadlock when one
+    // stream fills its buffer while we block on the other.
+    let recent = Arc::new(Mutex::new(Vec::<String>::new()));
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    let stdout_thread = stdout.map(|out| {
+        let app = app.clone();
+        let recent = recent.clone();
+        thread::spawn(move || stream_lines(BufReader::new(out), &app, &recent))
+    });
+    let stderr_thread = stderr.map(|err| {
+        let app = app.clone();
+        let recent = recent.clone();
+        thread::spawn(move || stream_lines(BufReader::new(err), &app, &recent))
+    });
+
+    if let Some(t) = stdout_thread {
+        let _ = t.join();
+    }
+    if let Some(t) = stderr_thread {
+        let _ = t.join();
+    }
+
+    match child.wait() {
+        Ok(status) if status.success() => {
+            // Re-kick the supervisor BEFORE announcing done so the frontend's
+            // re-poll of get_backend sees Starting→Ready, not NeedsInstall.
+            on_success();
+            let _ = app.emit(EVT_INSTALL_DONE, ());
+        }
+        Ok(status) => {
+            let _ = app.emit(
+                EVT_INSTALL_FAILED,
+                InstallFailed {
+                    code: status.code(),
+                    tail: tail_of(&recent),
+                },
+            );
+        }
+        Err(e) => {
+            let _ = app.emit(
+                EVT_INSTALL_FAILED,
+                InstallFailed {
+                    code: None,
+                    tail: format!("installer wait failed: {e}\n{}", tail_of(&recent)),
+                },
+            );
+        }
+    }
+}
+
+/// Read a child stream line-by-line, emitting each as a progress event and
+/// recording it in the shared ring buffer for the failure tail.
+fn stream_lines<R: tauri::Runtime, B: BufRead>(
+    reader: B,
+    app: &AppHandle<R>,
+    recent: &Arc<Mutex<Vec<String>>>,
+) {
+    for line in reader.lines() {
+        let Ok(line) = line else { break };
+        if let Ok(mut buf) = recent.lock() {
+            buf.push(line.clone());
+            // Keep only what a failure tail could need.
+            if buf.len() > INSTALL_FAILURE_TAIL_LINES * 2 {
+                let drop = buf.len() - INSTALL_FAILURE_TAIL_LINES;
+                buf.drain(0..drop);
+            }
+        }
+        let _ = app.emit(EVT_INSTALL_PROGRESS, InstallProgress { line });
+    }
+}
+
+/// Join the last [`INSTALL_FAILURE_TAIL_LINES`] recorded lines into one
+/// string for the `clio:install-failed` payload.
+fn tail_of(recent: &Arc<Mutex<Vec<String>>>) -> String {
+    let buf = match recent.lock() {
+        Ok(b) => b,
+        Err(p) => p.into_inner(),
+    };
+    let start = buf.len().saturating_sub(INSTALL_FAILURE_TAIL_LINES);
+    buf[start..].join("\n")
+}
+
+#[derive(Clone, Serialize)]
+struct InstallProgress {
+    line: String,
+}
+
+#[derive(Clone, Serialize)]
+struct InstallFailed {
+    /// Process exit code, or `None` when the installer couldn't be launched
+    /// / waited on at all.
+    code: Option<i32>,
+    /// The last ~30 lines of combined stdout/stderr.
+    tail: String,
+}
+
 /// Best-effort host target triple in the form Tauri's externalBin uses.
 /// Mirrors the keys in `apps/desktop/scripts/fetch-sidecar.sh`.
 fn host_target_triple() -> &'static str {
@@ -421,6 +694,135 @@ mod tests {
         assert!(matches!(back.status, BackendStatus::Ready));
     }
 
+    /// The frontend discriminates on `status.kind`. These exact tag strings
+    /// are the wire contract `tauri.ts`'s `BackendStatus` union switches on —
+    /// they must not drift.
+    #[test]
+    fn backend_status_kind_tags_are_stable() {
+        let cases = [
+            (BackendStatus::Starting, r#"{"kind":"starting"}"#),
+            (BackendStatus::Ready, r#"{"kind":"ready"}"#),
+            (BackendStatus::NeedsInstall, r#"{"kind":"needs_install"}"#),
+        ];
+        for (status, want) in cases {
+            let got = serde_json::to_string(&status).expect("serialize status");
+            assert_eq!(got, want, "status tag drifted from frontend contract");
+        }
+        // Error carries its detail string under "detail".
+        let err = serde_json::to_string(&BackendStatus::Error("boom".into())).expect("serialize");
+        assert_eq!(err, r#"{"kind":"error","detail":"boom"}"#);
+    }
+
+    /// needs_install must round-trip so a snapshot serialized over the IPC
+    /// boundary deserializes back to the same variant.
+    #[test]
+    fn needs_install_round_trips() {
+        let h = BackendHandle {
+            url: String::new(),
+            bearer_token: String::new(),
+            status: BackendStatus::NeedsInstall,
+        };
+        let j = serde_json::to_string(&h).expect("serialize");
+        assert!(j.contains(r#""kind":"needs_install""#), "got {j}");
+        let back: BackendHandle = serde_json::from_str(&j).expect("deserialize");
+        assert!(matches!(back.status, BackendStatus::NeedsInstall));
+    }
+
+    /// The not-found exit code we route to NeedsInstall must equal the Go
+    /// launcher's `exitNotFound` constant. (Asserted directly in the Rust
+    /// build; a drift here means the launcher's contract changed.)
+    #[test]
+    fn not_found_exit_code_matches_launcher_contract() {
+        assert_eq!(LAUNCHER_EXIT_NOT_FOUND, 2);
+    }
+
+    /// The install command is the upstream installer for the host OS. We
+    /// assert the parts that matter: the right shell, the develop ref, and
+    /// the upstream URL — the SAME one-liner the manual error card shows.
+    #[test]
+    fn install_command_targets_upstream_installer() {
+        let (program, args) = install_command();
+        let joined = args.join(" ");
+
+        assert!(
+            joined.contains("CLIO_REF"),
+            "installer must pin the clio ref env var, got: {joined}"
+        );
+        assert!(
+            joined.contains(CLIO_INSTALL_REF),
+            "installer must check out the `{CLIO_INSTALL_REF}` ref, got: {joined}"
+        );
+        assert!(
+            joined.contains("raw.githubusercontent.com/iowarp/clio-agent"),
+            "installer must fetch from the upstream repo, got: {joined}"
+        );
+
+        if cfg!(windows) {
+            assert_eq!(program, "powershell");
+            assert!(args.contains(&"-NoProfile".to_string()));
+            assert!(args.contains(&"-Command".to_string()));
+            assert!(
+                joined.contains("install.ps1") && joined.contains("iex"),
+                "windows installer must pipe install.ps1 to iex, got: {joined}"
+            );
+        } else {
+            assert_eq!(program, "bash");
+            assert_eq!(args[0], "-c");
+            assert!(
+                joined.contains("install.sh") && joined.contains("curl") && joined.contains("bash"),
+                "unix installer must curl install.sh into bash, got: {joined}"
+            );
+        }
+    }
+
+    /// The progress + failure payloads serialize to the exact JSON shape the
+    /// frontend event handlers destructure (`{line}` and `{code, tail}`).
+    #[test]
+    fn install_event_payloads_match_frontend_shape() {
+        let prog = serde_json::to_string(&InstallProgress {
+            line: "Installing clio-agent…".into(),
+        })
+        .expect("serialize progress");
+        assert_eq!(prog, r#"{"line":"Installing clio-agent…"}"#);
+
+        let failed = serde_json::to_string(&InstallFailed {
+            code: Some(7),
+            tail: "line a\nline b".into(),
+        })
+        .expect("serialize failed");
+        assert_eq!(failed, r#"{"code":7,"tail":"line a\nline b"}"#);
+
+        // A launch failure (no exit code) serializes code as null.
+        let failed_null = serde_json::to_string(&InstallFailed {
+            code: None,
+            tail: "boom".into(),
+        })
+        .expect("serialize failed null");
+        assert_eq!(failed_null, r#"{"code":null,"tail":"boom"}"#);
+    }
+
+    /// `tail_of` returns at most INSTALL_FAILURE_TAIL_LINES lines, taking the
+    /// newest, joined by newlines.
+    #[test]
+    fn tail_of_keeps_only_the_newest_lines() {
+        let recent = Arc::new(Mutex::new(Vec::<String>::new()));
+        {
+            let mut g = recent.lock().unwrap();
+            for i in 0..(INSTALL_FAILURE_TAIL_LINES + 10) {
+                g.push(format!("line {i}"));
+            }
+        }
+        let tail = tail_of(&recent);
+        let lines: Vec<&str> = tail.lines().collect();
+        assert_eq!(lines.len(), INSTALL_FAILURE_TAIL_LINES);
+        // The very last produced line must be present; the very first must not.
+        assert_eq!(
+            *lines.last().unwrap(),
+            format!("line {}", INSTALL_FAILURE_TAIL_LINES + 9)
+        );
+        assert_eq!(*lines.first().unwrap(), "line 10");
+    }
+
     /// W4 hardening: the SPAWN path + shutdown reaping, end-to-end.
     ///
     /// Spawns the real Go launcher (which resolves a real clio-agent-gact —
@@ -444,7 +846,7 @@ mod tests {
         let (handle, child) = match spawn_and_probe(&launcher) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e}");
+                eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e:?}");
                 return;
             }
         };

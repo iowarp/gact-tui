@@ -7,6 +7,40 @@
 > untrusted by default, so the install flow includes a one-time trust
 > prompt per platform. Signing arrives in v1.0.
 
+## Two installer variants: lite vs bundled
+
+Every release ships **two** desktop installer flavors per platform.
+They are the same application (same `productName`, same identifier,
+same UI) — they differ only in how the `clio-agent` runtime is
+provided. Pick one:
+
+| | **Lite** (default) | **Bundled** |
+|---|---|---|
+| Filename | `CLIO-Desktop_<ver>_…` | `…-bundled.<ext>` (e.g. `CLIO-Desktop_<ver>_x64-setup-bundled.exe`) |
+| Installer size | Small (~10s of MB) | Large (~330 MB of embedded Python runtime + clio-agent) |
+| Network at install | Not required | Not required |
+| First-launch behavior | Resolves `clio-agent-gact` from a system install (or your `$PATH`); surfaces an install command if missing | Boots immediately from the **embedded** runtime — no system clio-agent needed |
+| Works fully offline | Only once clio-agent is installed separately | **Yes, out of the box** |
+| Best for | Developers / users who already run clio-agent, or want the smallest download | Air-gapped machines, demos, non-technical users who want one-click |
+
+**How the launcher chooses.** The bundled installer ships a relocatable
+Python environment (`clio-runtime/`) packed next to the app. On launch
+the sidecar launcher resolves `clio-agent-gact` in this priority order:
+
+0. **Bundled runtime** next to the launcher executable (bundled
+   installer only — the lite installer simply doesn't ship one, so this
+   step no-ops).
+1. `$CLIO_AGENT_GACT_BIN` (explicit override).
+2. `clio-agent-gact` on `$PATH`.
+3. The per-OS conventional clio-agent install prefix.
+4. `$CLIO_DEV_REPO/.venv/…` when that env var points at a local
+   clio-agent checkout (developer workflow).
+
+Because the bundled runtime is resolved relative to the launcher's own
+location, the bundled app is install-location independent and needs no
+system clio-agent at all. If you install the **lite** variant and have
+no clio-agent yet, follow the per-OS "Prerequisite" note below.
+
 Pick your OS:
 
 - [Windows 10 / 11](#windows-10--11)
@@ -31,7 +65,8 @@ Pick your OS:
    `%LOCALAPPDATA%\Programs\CLIO Desktop\`.
 6. Launch from the Start menu. The sidecar boots, a chat shell appears.
 
-**Prerequisite:** the launcher resolves `clio-agent-gact` from the
+**Prerequisite (lite variant only):** the launcher resolves
+`clio-agent-gact` from the
 [clio-agent](https://github.com/iowarp/clio-agent) develop install.
 If it's missing on first launch, the Splash screen surfaces an
 error card with the install command:
@@ -41,7 +76,9 @@ $env:CLIO_REF = 'develop'
 irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
 ```
 
-Re-launch CLIO Desktop after that completes.
+Re-launch CLIO Desktop after that completes. The **bundled** variant
+(`…-bundled.exe` / `…-bundled.msi`) skips this entirely — it ships the
+runtime and boots offline.
 
 ### Uninstall
 
@@ -146,8 +183,10 @@ Tauri shell.
 
 ## Verifying downloads
 
-Each artifact bundle ships a `SHA256SUMS.<triple>.txt` /
-`SHA256SUMS.web.txt`. To verify before installing:
+Each artifact bundle ships a `SHA256SUMS.<triple>.<variant>.txt` (one
+per OS triple × {lite, bundled}) / `SHA256SUMS.web.txt`. Bundled
+installers carry a `-bundled` suffix in their filename. To verify
+before installing:
 
 ```sh
 # Linux / macOS
