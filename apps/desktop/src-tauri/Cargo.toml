@@ -1,6 +1,6 @@
 [package]
 name = "clio-desktop"
-version = "0.9.0"
+version = "0.7.0"
 description = "CLIO Desktop — Tauri shell"
 authors = ["IOWarp / gact-tui contributors"]
 edition = "2021"
