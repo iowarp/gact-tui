@@ -332,6 +332,63 @@
   background: color-mix(in srgb, var(--color-error) 18%, transparent);
 }
 
+/* GAP 1: "Turn blocked" pill — a pre_message hook stopped the turn.        */
+/* Warning-toned (not error) so it reads as "policy stopped this", distinct */
+/* from a failure, and never offers Regenerate (no assistant turn exists).  */
+.trx-msg__blocked {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-bg));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  border-radius: 10px;
+  color: var(--color-text);
+}
+
+.trx-msg__blocked-icon {
+  flex: 0 0 auto;
+  color: var(--color-warning);
+  margin-top: 1px;
+}
+
+.trx-msg__blocked-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trx-msg__blocked-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-warning);
+  letter-spacing: 0.01em;
+}
+
+.trx-msg__blocked-kind {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+  letter-spacing: 0.02em;
+}
+
+.trx-msg__blocked-detail {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
 /* Thinking part (collapsed by default in this layout)                   */
 .trx-thinking {
   background: var(--color-surface);

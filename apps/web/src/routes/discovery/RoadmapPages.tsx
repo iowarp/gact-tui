@@ -7,37 +7,82 @@
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';
-import type { Client } from '@clio/core';
+import type { Client, HookEvent } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
+import './hooks-page.css';
 
 export interface ClientPageProps {
   client: Client;
 }
 
-/** Hooks: pre/post-message + pre/post-tool handlers. Read + add + delete. */
+/** The six declarative-hook event kinds clio accepts (live x_clio_hook_events). */
+const HOOK_EVENTS: HookEvent[] = [
+  'pre_tool',
+  'post_tool',
+  'pre_message',
+  'post_message',
+  'semantic_event',
+  'on_error',
+];
+
+/**
+ * Hooks page. Two distinct surfaces, deliberately separated so the user
+ * isn't misled about which hooks actually run on this build:
+ *
+ *  1. Runtime hooks (GAP 4) — the file-based Python handlers clio loaded
+ *     from CLIO_HOOKS_DIR at boot. These are what FIRE during turns, but
+ *     are read-only at runtime. Surfaced from `/v1/capabilities`
+ *     (x_clio_hook_backend + x_clio_hook_events).
+ *
+ *  2. Declarative hooks (GAP 2 / GAP 5) — the editable `/v1/hooks` list.
+ *     clio STORES these rows but does NOT yet dispatch them during turns
+ *     on this build (storage-only). The editor sends the real wire shape
+ *     ({event, command|url}); the previous {type, handler_uri} body 400'd.
+ */
 export function HooksPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.hooks().catch(() => ({ hooks: [] })),
   );
   const items = () => data()?.hooks ?? [];
 
-  const [hType, setHType] = createSignal<'pre_message' | 'post_message' | 'pre_tool' | 'post_tool'>(
-    'pre_message',
-  );
-  const [hUri, setHUri] = createSignal('');
+  // Runtime-hook status (read-only) from backend capabilities.
+  const [caps] = createResource(() => props.client.capabilities().catch(() => null));
+  // The hook fields live inside the nested `capabilities` flag bag. Bracket
+  // access + cast-through-unknown because the wire CapabilityFlags index
+  // signature is `boolean | undefined` (owned by another agent — not ours
+  // to widen). Tolerate both the nested and the envelope-top-level shape.
+  const flags = () => {
+    const c = caps() as unknown as Record<string, unknown> | null;
+    const nested = (c?.['capabilities'] ?? c) as Record<string, unknown> | undefined;
+    return nested;
+  };
+  const runtimeBackend = () =>
+    (flags()?.['x_clio_hook_backend'] as unknown as string | undefined) ?? 'none';
+  const runtimeEvents = () =>
+    (flags()?.['x_clio_hook_events'] as unknown as Record<string, number> | undefined) ?? {};
+
+  const [hEvent, setHEvent] = createSignal<HookEvent>('pre_message');
+  const [handlerKind, setHandlerKind] = createSignal<'command' | 'url'>('command');
+  const [hValue, setHValue] = createSignal('');
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
   async function submitNew(ev: SubmitEvent) {
     ev.preventDefault();
-    const uri = hUri().trim();
-    if (!uri || busy()) return;
+    const value = hValue().trim();
+    if (!value || busy()) return;
     setBusy(true);
     setError(null);
     try {
-      await props.client.createHook({ type: hType(), handler_uri: uri });
-      setHUri('');
+      // Send whichever of command / url the user filled in. clio requires
+      // a non-empty `event` plus exactly one of command|url.
+      const body =
+        handlerKind() === 'url'
+          ? { event: hEvent(), url: value }
+          : { event: hEvent(), command: value };
+      await props.client.createHook(body);
+      setHValue('');
       void refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -59,7 +104,7 @@ export function HooksPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="tool"
       title="Hooks"
-      subtitle="Registered pre / post handlers for messages and tools. Add an HTTP URI and the backend will POST every turn payload to it."
+      subtitle="Two surfaces: the file-based runtime hooks that actually fire during turns (read-only, loaded at backend start), and the declarative hooks below — which this clio build stores but does not yet dispatch."
       actions={
         <button
           type="button"
@@ -72,6 +117,49 @@ export function HooksPage(props: ClientPageProps) {
       }
       loading={data.loading}
     >
+      {/* GAP 4 — read-only runtime hook status from capabilities. */}
+      <section class="rmp__panel" data-testid="hooks-runtime-panel">
+        <header class="rmp__panel-head">
+          <h2 class="rmp__panel-title">Runtime hooks</h2>
+          <span class="rmp__panel-note">
+            file-based, loaded at backend start — read-only
+          </span>
+        </header>
+        <div class="rmp__panel-row">
+          <span class="rmp__panel-label">backend</span>
+          <code
+            class={
+              'rmp__panel-backend' +
+              (runtimeBackend() === 'none' || runtimeBackend() === 'unavailable'
+                ? ' rmp__panel-backend--off'
+                : '')
+            }
+            data-testid="hooks-runtime-backend"
+          >
+            {runtimeBackend()}
+          </code>
+        </div>
+        <Show when={runtimeBackend() !== 'none' && runtimeBackend() !== 'unavailable'}>
+          <div class="rmp__panel-chips">
+            <For each={HOOK_EVENTS}>
+              {(evt) => {
+                const count = () => runtimeEvents()[evt] ?? 0;
+                return (
+                  <span
+                    class={'rmp__chip' + (count() === 0 ? ' rmp__chip--muted' : '')}
+                    data-testid={`hooks-runtime-count-${evt}`}
+                  >
+                    {evt} × {count()}
+                  </span>
+                );
+              }}
+            </For>
+          </div>
+        </Show>
+      </section>
+
+      {/* GAP 2 / GAP 5 — editable declarative hook list. */}
+      <h2 class="dp__section-title">Declarative hooks</h2>
       <Show when={!data.loading && items().length === 0 && !error()}>
         <div
           class="dp__empty"
@@ -81,9 +169,11 @@ export function HooksPage(props: ClientPageProps) {
           <div class="dp__empty-icon">
             <Icon name="tool" size={28} />
           </div>
-          <h2 class="dp__empty-title">No hooks registered</h2>
+          <h2 class="dp__empty-title">No declarative hooks registered</h2>
           <p class="dp__empty-body">
-            Hooks are external HTTP / stdio handlers the backend POSTs to on every turn. Add one below.
+            Declarative hooks bind an event kind to a local command or an HTTP URL.
+            This clio build stores them but does not yet dispatch them during turns —
+            the runtime hooks above are what fire today. Add one below.
           </p>
         </div>
       </Show>
@@ -91,9 +181,9 @@ export function HooksPage(props: ClientPageProps) {
         <For each={items()}>
           {(h) => (
             <li class="rmp__row" data-testid={`hook-${h.id}`}>
-              <span class={'rmp__tag rmp__tag--' + h.type}>{h.type}</span>
+              <span class={'rmp__tag rmp__tag--' + h.event}>{h.event}</span>
               <span class="rmp__name">{h.id}</span>
-              <code class="rmp__uri">{h.handler_uri}</code>
+              <code class="rmp__uri">{h.command || h.url}</code>
               <button
                 type="button"
                 class="rmp__row-x"
@@ -108,38 +198,42 @@ export function HooksPage(props: ClientPageProps) {
           )}
         </For>
       </ul>
-      <form class="rmp__form" onSubmit={submitNew} data-testid="hook-form">
+      <form class="rmp__form rmp__form--hooks" onSubmit={submitNew} data-testid="hook-form">
         <select
           class="rmp__form-select"
-          value={hType()}
-          onChange={(e) =>
-            setHType(
-              e.currentTarget.value as
-                | 'pre_message'
-                | 'post_message'
-                | 'pre_tool'
-                | 'post_tool',
-            )
-          }
-          data-testid="hook-type"
+          value={hEvent()}
+          onChange={(e) => setHEvent(e.currentTarget.value as HookEvent)}
+          data-testid="hook-event"
         >
-          <option value="pre_message">pre_message</option>
-          <option value="post_message">post_message</option>
-          <option value="pre_tool">pre_tool</option>
-          <option value="post_tool">post_tool</option>
+          <For each={HOOK_EVENTS}>
+            {(evt) => <option value={evt}>{evt}</option>}
+          </For>
+        </select>
+        <select
+          class="rmp__form-select"
+          value={handlerKind()}
+          onChange={(e) => setHandlerKind(e.currentTarget.value as 'command' | 'url')}
+          data-testid="hook-handler-kind"
+        >
+          <option value="command">command</option>
+          <option value="url">url</option>
         </select>
         <input
           class="rmp__form-input"
-          type="url"
-          placeholder="http://localhost:9999/hook"
-          value={hUri()}
-          onInput={(e) => setHUri(e.currentTarget.value)}
-          data-testid="hook-uri"
+          type="text"
+          placeholder={
+            handlerKind() === 'url'
+              ? 'http://localhost:9999/hook'
+              : './scripts/on-hook.sh'
+          }
+          value={hValue()}
+          onInput={(e) => setHValue(e.currentTarget.value)}
+          data-testid="hook-value"
         />
         <button
           type="submit"
           class="rmp__form-add"
-          disabled={busy() || !hUri().trim()}
+          disabled={busy() || !hValue().trim()}
           data-testid="hook-add"
         >
           <Icon name="plus" size={12} />

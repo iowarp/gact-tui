@@ -689,7 +689,38 @@ function MessageView(props: {
             />
           )}
         </For>
-        <Show when={isErrored(props.msg)}>
+        {/* GAP 1: a pre_message hook block folds into message.completed
+            with stop_reason "blocked" + error_info, targeting the USER
+            message (no assistant message exists). Render a distinct,
+            warning-toned "Turn blocked" pill — and never offer Regenerate
+            on it (there's no assistant turn to regenerate). */}
+        <Show when={isBlocked(props.msg)}>
+          <div
+            class="trx-msg__blocked"
+            data-testid={`msg-blocked-${props.msg.id}`}
+            role="alert"
+          >
+            <span class="trx-msg__blocked-icon">
+              <Icon name="alert" size={14} />
+            </span>
+            <div class="trx-msg__blocked-body">
+              <div class="trx-msg__blocked-title">
+                Turn blocked
+                <Show when={props.msg.error_info?.error}>
+                  <span class="trx-msg__blocked-kind">
+                    {props.msg.error_info!.error}
+                  </span>
+                </Show>
+              </div>
+              <Show when={props.msg.error_info?.message}>
+                <div class="trx-msg__blocked-detail">
+                  {props.msg.error_info!.message}
+                </div>
+              </Show>
+            </div>
+          </div>
+        </Show>
+        <Show when={isErrored(props.msg) && !isBlocked(props.msg)}>
           <div
             class="trx-msg__error"
             data-testid={`msg-error-${props.msg.id}`}
@@ -727,6 +758,14 @@ function MessageView(props: {
 
 function isErrored(msg: Message): boolean {
   return msg.stop_reason === 'error' || !!msg.error_info;
+}
+
+/** GAP 1: a turn blocked by a pre_message hook arrives as
+ * stop_reason "blocked" + error_info on the USER message. Distinct from a
+ * normal error so the transcript can render the warning-toned "Turn
+ * blocked" pill (no Regenerate). */
+function isBlocked(msg: Message): boolean {
+  return msg.stop_reason === 'blocked' && !!msg.error_info;
 }
 
 function absoluteTime(iso: string): string {
