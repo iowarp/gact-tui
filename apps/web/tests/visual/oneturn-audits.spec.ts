@@ -17,6 +17,20 @@ import { resolve } from 'node:path';
 const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
 
+// Reachability guard (same pattern as audit.spec.ts): every test in this
+// file drives a REAL clio backend. When none is reachable — CI has no
+// live clio — the whole suite must SKIP, not fail. Without this guard CI
+// was permanently red (every openConnected() timed out on chat-screen).
+let realBackendReachable = false;
+try {
+  const r = await fetch(`${BACKEND}/v1/capabilities`, {
+    signal: AbortSignal.timeout(1500),
+  });
+  realBackendReachable = r.ok;
+} catch {
+  realBackendReachable = false;
+}
+
 function shot(slug: string): string {
   return resolve(auditDir, `${slug}.png`);
 }
@@ -116,6 +130,10 @@ async function sendOneTurn(
 test.setTimeout(240_000);
 
 test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
+  test.skip(
+    !realBackendReachable,
+    `no live clio backend reachable at ${BACKEND} — live-turn tests skip (run locally with CLIO_GACT_URL)`,
+  );
   // -- chat-renamed-pill #110 #116 -----------------------------------
   // BLOCKED ON CLIO: this build derives the session title from the id at
   // creation (`session <suffix>`) and never emits a `session.updated`
