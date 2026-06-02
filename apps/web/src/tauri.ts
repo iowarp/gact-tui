@@ -110,7 +110,15 @@ export const tauriFetch: typeof fetch = async (input, init) => {
   });
   const respHeaders = new Headers();
   for (const [k, v] of Object.entries(resp.headers)) respHeaders.set(k, v);
-  return new Response(resp.body, {
+  // 204/205/304 are null-body statuses: the Response constructor THROWS if
+  // given any body (even "") for them. The Rust bridge always returns a
+  // String body, so map it to null here — otherwise every 204 endpoint
+  // (permission resolve, deletes, compact…) throws client-side in the
+  // desktop even though the server applied the change. Found by the
+  // real-WebView e2e (1.0 item H hardening).
+  const nullBody =
+    resp.status === 204 || resp.status === 205 || resp.status === 304;
+  return new Response(nullBody ? null : resp.body, {
     status: resp.status,
     statusText: resp.status_text,
     headers: respHeaders,

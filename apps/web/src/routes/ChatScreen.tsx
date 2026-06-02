@@ -539,6 +539,11 @@ function LiveDriven(props: {
     if (!p) return;
     try {
       await live.client.resolvePermission(p.id, decision, scope);
+      // Optimistic clear: a 200 from the resolve endpoint means the
+      // permission IS settled — don't leave the card up waiting on the
+      // permission.resolved SSE round-trip (the desktop bridge/fallback
+      // stream can miss that window; found by the real-WebView e2e).
+      transcript.clearPendingPermission();
     } catch (e) {
       console.error('resolvePermission failed', e);
     }

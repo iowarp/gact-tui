@@ -79,6 +79,12 @@ export interface LiveTranscriptHandle {
    * wired to the "Reconnect now" action on the disconnect toast. No-op when
    * the stream is already open or no session is active. */
   reconnectNow: () => void;
+  /** Optimistically clear the pending permission card after a successful
+   * resolve POST. The card must not depend on the `permission.resolved`
+   * SSE round-trip alone — on the desktop the bridge/fallback stream can
+   * miss the event window (found by the real-WebView e2e), and a 200 from
+   * the resolve endpoint already proves the permission is settled. */
+  clearPendingPermission: () => void;
 }
 
 export interface RunningTool {
@@ -651,6 +657,7 @@ export function createLiveTranscript(
       if (status() === 'open') return;
       reconnectNowRef?.();
     },
+    clearPendingPermission: () => setPendingPermission(null),
   };
 }
 
