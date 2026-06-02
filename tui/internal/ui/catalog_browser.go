@@ -963,6 +963,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return a, nil
 			}
+			if strings.HasPrefix(it.id, "source/") {
+				a.openCatalogDetail(it.title, it.desc)
+				return a, nil
+			}
 			return a, a.openAgentBlueprintDetail(it.id, it.title)
 		}
 		if cb.kind == catalogKindTools && cb.sel >= 0 && cb.sel < len(cb.items) {
@@ -1538,7 +1542,102 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 			statusTag: status,
 		})
 	}
+	items = append(items, agentBlueprintSourceCatalogItems(blueprints)...)
 	return items
+}
+
+type agentBlueprintSourceSummary struct {
+	source      string
+	kind        string
+	ref         string
+	commit      string
+	checksum    string
+	installedAt string
+	scope       string
+	blueprints  []string
+	errors      []string
+}
+
+func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition) []catalogItem {
+	byKey := map[string]*agentBlueprintSourceSummary{}
+	for _, blueprint := range blueprints {
+		install := agentBlueprintInstallMetadata(blueprint)
+		source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
+		if source == "" {
+			continue
+		}
+		kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
+		ref := stringValue(install["ref"])
+		key := strings.Join([]string{kind, source, ref, firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)}, "\x00")
+		summary := byKey[key]
+		if summary == nil {
+			summary = &agentBlueprintSourceSummary{
+				source:      source,
+				kind:        kind,
+				ref:         ref,
+				commit:      stringValue(install["commit"]),
+				checksum:    stringValue(install["checksum"]),
+				installedAt: stringValue(install["installed_at"]),
+				scope:       firstNonEmpty(stringValue(install["scope"]), blueprint.Scope),
+			}
+			byKey[key] = summary
+		}
+		summary.blueprints = append(summary.blueprints, firstNonEmpty(blueprint.Title, blueprint.ID))
+		if len(blueprint.ValidationErrors) > 0 {
+			summary.errors = append(summary.errors, blueprint.ID+": "+strings.Join(blueprint.ValidationErrors, "; "))
+		}
+	}
+	keys := make([]string, 0, len(byKey))
+	for key := range byKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	items := make([]catalogItem, 0, len(keys))
+	for i, key := range keys {
+		summary := byKey[key]
+		sort.Strings(summary.blueprints)
+		status := firstNonEmpty(summary.kind, "source")
+		if len(summary.errors) > 0 {
+			status = "attention"
+		}
+		items = append(items, catalogItem{
+			id:        fmt.Sprintf("source/%d", i),
+			title:     "Marketplace source · " + sourceTitle(summary),
+			desc:      formatAgentBlueprintSourceSummary(summary),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
+func sourceTitle(summary *agentBlueprintSourceSummary) string {
+	if summary == nil {
+		return "source"
+	}
+	if summary.kind != "" {
+		return summary.kind + " · " + summary.source
+	}
+	return summary.source
+}
+
+func formatAgentBlueprintSourceSummary(summary *agentBlueprintSourceSummary) string {
+	if summary == nil {
+		return ""
+	}
+	rows := appendDetailSection(nil, "Marketplace Source",
+		detailField{"source", summary.source},
+		detailField{"source_kind", summary.kind},
+		detailField{"ref", summary.ref},
+		detailField{"commit", summary.commit},
+		detailField{"checksum", summary.checksum},
+		detailField{"installed_at", summary.installedAt},
+		detailField{"scope", summary.scope},
+		detailField{"blueprints", strings.Join(summary.blueprints, ", ")},
+	)
+	if len(summary.errors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(summary.errors, "\n")})
+	}
+	return strings.Join(rows, "\n")
 }
 
 func expertPackDescription(pack gact.ExpertPackDefinition) string {

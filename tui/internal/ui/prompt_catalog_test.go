@@ -241,8 +241,8 @@ func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 		}},
 	}})
 
-	if len(items) != 1 {
-		t.Fatalf("items len = %d, want 1", len(items))
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 1 blueprint row plus 1 source row", len(items))
 	}
 	for _, want := range []string{
 		"source: git",
@@ -254,6 +254,25 @@ func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 		if !strings.Contains(items[0].desc, want) {
 			t.Fatalf("blueprint provenance desc missing %q: %q", want, items[0].desc)
 		}
+	}
+	if items[1].id != "source/0" || items[1].title != "Marketplace source · git · https://example.org/community/seismic-agents.git" {
+		t.Fatalf("source row missing or wrong: %#v", items[1])
+	}
+	for _, want := range []string{
+		"Marketplace Source",
+		"source: https://example.org/community/seismic-agents.git",
+		"source_kind: git",
+		"ref: main",
+		"commit: 0123456789abcdef",
+		"checksum: abcdef0123456789",
+		"blueprints: Seismic Marketplace",
+	} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("source row desc missing %q:\n%s", want, items[1].desc)
+		}
+	}
+	if strings.Contains(items[1].desc, `"install"`) {
+		t.Fatalf("source row should be structured, not raw JSON:\n%s", items[1].desc)
 	}
 }
 

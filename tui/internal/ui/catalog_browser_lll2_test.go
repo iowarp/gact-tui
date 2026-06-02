@@ -541,6 +541,31 @@ func TestCatalogBrowser_EnterOnAgentBlueprintHookEnablesPackagedHook(t *testing.
 	}
 }
 
+func TestCatalogBrowser_EnterOnAgentBlueprintSourceOpensSourceDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{{
+			id:    "source/0",
+			title: "Marketplace source · git · https://example.org/community/seismic-agents.git",
+			desc:  "Marketplace Source\nsource: https://example.org/community/seismic-agents.git\nblueprints: Seismic Marketplace",
+		}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("source detail should open locally without backend command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("source row should open detail view")
+	}
+	if !strings.Contains(a.detailView.fullText, "blueprints: Seismic Marketplace") {
+		t.Fatalf("source detail missing blueprint list:\n%s", a.detailView.fullText)
+	}
+}
+
 func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
