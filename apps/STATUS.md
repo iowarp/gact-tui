@@ -22,8 +22,8 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | # | Item | State | Proof |
 |---|------|-------|-------|
 | 1 | Light theme (+ Auto/system preset) | **DONE** | LightTheme.test 7/7 (full token coverage + auto-mode matchMedia); fixture `light-theme-chat.png` + `light-theme-diff.png` + live-switch `settings-light-theme.png` (suite 36/36) |
-| 2 | Inline file & image previews (transcript + @-picker) | IN-PROGRESS | Backend half DONE: clio PR **iowarp/clio-agent#533** (closes #532) — `GET /v1/sessions/{sid}/context/files/content?path=…` → base64-JSON + `x_clio_files_content` capability; 14 tests, mypy clean, stacked 5th (#522→#523→#527→#530→#533). Desktop half pending. |
-| 3 | Message edit history / "edited" markers (honest design) | PENDING | — |
+| 2 | Inline file & image previews (transcript + @-picker) | **DONE** | Backend: clio PR **#533** (GET context-file content + `x_clio_files_content`). Desktop: PartImage renderer (base64/url + honest file-ref placeholder), capability-gated Inspector Context-tab preview (image/text). PreviewsAndAttempts.test 9/9 (shared with item 3); fixture `previews-and-retry.png` (38/38); LIVE audit "(1.0 item 2)" vs **:17802 running PR #533** — real PNG uploaded → preview button → real bytes round-tripped + rendered (`audit/item2-context-preview.png`). @-picker hover preview documented as out of scope: the backend only serves REGISTERED context files; arbitrary workspace-file bytes need a future clio endpoint. |
+| 3 | Message edit history / "edited" markers (honest design) | **DONE** | Honest design = clio's retry/attempts lineage (no fake desktop state): ↻ retry chip on `metadata.retry_attempt_id` messages + Inspector **Attempts tab** (status/notes/model/timestamps from GET /attempts). Unit tests in PreviewsAndAttempts.test; fixture `previews-and-retry.png`; LIVE (extended item-4 test) vs :17801 — real retry → chip renders + Attempts tab shows the real notes (`audit/item3-attempts-tab.png`) |
 | 4 | Retry-with-notes + retry-with-model menu | **DONE** | RegenMenu.test 7/7; fixture `retry-menu-open.png` + `retry-model-submenu.png`; LIVE oneturn "(1.0 item 4)" vs :17801 — real ALCF retry turn, TurnAttempt.notes recorded server-side (`audit/item4-retry-notes-turn.png`) |
 | 5 | Inspector execution timeline | **DONE** | assembleTimeline + Timeline tab; Timeline.test 7/7; fixture `inspector-timeline.png` (suite 37/37); LIVE oneturn "(1.0 item 5)" vs :17801 — real ALCF turn timeline with wire timestamps/tokens/elapsed (`audit/item5-timeline-live.png`) |
 | 6 | Large-transcript virtualization (1000+ msg proof) | **DONE** | VirtualTranscript.test 5/5; LIVE oneturn "(1.0 item 6)" vs :17801 — 1000 imported messages → DOM stays <200 nodes, top/bottom scroll mounts the right rows (`audit/item6-virtual-1000.png` + `item6-virtual-top.png`); 120-msg under-threshold test still full-renders |
@@ -40,6 +40,26 @@ session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked cl
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Items 2 + 3 DONE — ALL 9 ITEMS + 3 EXTRAS NOW TERMINAL.**
+  **Item 2 — inline file & image previews:** core client gains
+  `getContextFileContent()` + the `x_clio_files_content` capability type (PR #533 wire
+  contract). Transcript now renders `image` parts (base64/url → real `<img>`; backend
+  file references → honest placeholder; they used to silently DROP — real gap fixed).
+  Inspector Context tab gains a capability-gated "view" button per context file →
+  fetches real bytes through the new endpoint → image or decoded-text preview panel.
+  PROOF: unit 9/9; fixture `previews-and-retry.png`; LIVE vs a third clio instance
+  **:17802 built from the PR #533 worktree** — uploaded a real PNG attachment via the
+  API → preview button → bytes round-tripped + rendered (`audit/item2-context-preview.png`).
+  Scope note (honest): @-picker hover previews are NOT possible with #533 alone (it
+  serves registered context files only, not arbitrary workspace files) — documented as
+  a future clio endpoint, not faked.
+  **Item 3 — edit history (honest design):** clio's model is retry-creates-new-turns,
+  so the desktop surfaces exactly that: a ↻ retry chip on messages carrying
+  `metadata.retry_attempt_id` + a new Inspector **Attempts** tab listing server-recorded
+  TurnAttempts (status, steering notes, model override, timestamps; auto-refreshed when
+  messages change). No fabricated "edited" state. PROOF: unit tests; fixture chip PNG;
+  LIVE — the item-4 retry test now also asserts the chip + the Attempts tab showing the
+  real notes after a real ALCF retry (`audit/item3-attempts-tab.png`).
 - 2026-06-02 **Items 5 + E3 DONE.**
   **Item 5 — Inspector execution timeline:** new Timeline tab assembled by a pure
   `assembleTimeline(message)` (exported, unit-tested): started → routing → thinking →

@@ -902,6 +902,67 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
+  test('context-file content preview round-trips real bytes (1.0 item 2)', async ({ browser }) => {
+    // Needs a backend with clio PR #533 (x_clio_files_content). Skip honestly
+    // on older backends — the capability gate means the desktop never shows
+    // the preview affordance there.
+    const caps = (await (
+      await fetch(`${REAL_BACKEND}/v1/capabilities`)
+    ).json()) as { capabilities?: Record<string, unknown> };
+    test.skip(
+      !caps.capabilities?.['x_clio_files_content'],
+      `backend ${REAL_BACKEND} does not advertise x_clio_files_content`,
+    );
+
+    // Seed: create a session + upload a tiny PNG attachment via the API.
+    const TINY_PNG =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const sid = (
+      (await (
+        await fetch(`${REAL_BACKEND}/v1/sessions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: 'item2-preview-test' }),
+        })
+      ).json()) as { id: string }
+    ).id;
+    const uploadRes = await fetch(`${REAL_BACKEND}/v1/sessions/${sid}/attachments`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        file: TINY_PNG,
+        filename: 'pixel.png',
+        mime_type: 'image/png',
+        mode: 'read',
+      }),
+    });
+    expect(uploadRes.ok).toBe(true);
+
+    // Drive the UI: select the session → Inspector Context tab → preview.
+    const { page, close } = await connect(browser);
+    await page.getByTestId('sessions-refresh').click();
+    await page.getByTestId(`session-row-${sid}`).click();
+    await page.waitForTimeout(1_500);
+    const drawer = page.getByTestId('inspector-drawer');
+    if (!(await drawer.isVisible())) {
+      await page.getByTestId('topbar-inspector').click();
+    }
+    await page.getByTestId('inspector-tab-context').click();
+    // The uploaded attachment is a registered context file with a preview button.
+    const previewBtn = page.locator('[data-testid^="inspector-file-preview-"]').first();
+    await expect(previewBtn).toBeVisible({ timeout: 8_000 });
+    await previewBtn.click();
+    // Real bytes come back through GET context/files/content and render as an image.
+    await expect(page.getByTestId('inspector-preview-image')).toBeVisible({
+      timeout: 8_000,
+    });
+    await page.screenshot({ path: shot('item2-context-preview'), fullPage: false });
+
+    // Clean up the test session.
+    await fetch(`${REAL_BACKEND}/v1/sessions/${sid}`, { method: 'DELETE' });
+    await close();
+  });
+
   test('MCP Reconnect button behaves honestly on the live backend (1.0 item E3)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await page.getByTestId('rail-mcp').click();

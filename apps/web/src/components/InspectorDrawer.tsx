@@ -1,6 +1,14 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { Icon } from './Icon.js';
-import type { ContextFile, Message, Part, FileDiff, SessionTask } from '@clio/core';
+import type {
+  ContextFile,
+  ContextFileContent,
+  Message,
+  Part,
+  FileDiff,
+  SessionTask,
+  TurnAttempt,
+} from '@clio/core';
 import { createPersistedString } from '../persisted.js';
 import './inspector-drawer.css';
 
@@ -27,6 +35,13 @@ export interface InspectorDrawerProps {
   ) => void | Promise<void>;
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
+  /** Fetch a context file's bytes for inline preview (1.0 item 2) — wired
+   * by ChatScreen to `client.getContextFileContent` and only passed when
+   * the backend advertises `x_clio_files_content` (clio PR #533). */
+  onPreviewContextFile?: (path: string) => Promise<ContextFileContent>;
+  /** Recorded retry attempts for this session (1.0 item 3) — from
+   * GET /v1/sessions/{id}/attempts. Surfaces the Attempts tab. */
+  attempts?: TurnAttempt[];
   /** Per-session time-series memory snapshots from
    * /v1/sessions/{id}/context/frames. Surfaces in the Frames tab. */
   frames?: ContextFrameRow[];
@@ -121,6 +136,7 @@ type InspectorTab =
   | 'diffs'
   | 'thinking'
   | 'tasks'
+  | 'attempts'
   | 'context'
   | 'frames'
   | 'schedules'
@@ -316,11 +332,13 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
   // Order matters — the picker walks this list and lands on the
   // first tab whose data is present.
   const hasTimeline = () => !!props.message && props.message.parts.length > 0;
+  const hasAttempts = () => !!props.attempts && props.attempts.length > 0;
 
   const availableTabs = createMemo<InspectorTab[]>(() => {
     const out: InspectorTab[] = [];
     if (hasRunData()) out.push('turn');
     if (hasTimeline()) out.push('timeline');
+    if (hasAttempts()) out.push('attempts');
     if (props.toolCalls.length > 0) out.push('tools');
     if (hasDiffs() || hasSessionDiffs()) out.push('diffs');
     if (hasThinking()) out.push('thinking');
@@ -352,9 +370,41 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
     setActiveTabRaw(t);
   }
 
+  // ---- Context-file content preview state (1.0 item 2) ----
+  const [previewFor, setPreviewFor] = createSignal<string | null>(null);
+  const [previewData, setPreviewData] = createSignal<ContextFileContent | null>(
+    null,
+  );
+  const [previewErr, setPreviewErr] = createSignal('');
+
+  async function openPreview(path: string) {
+    if (!props.onPreviewContextFile) return;
+    setPreviewFor(path);
+    setPreviewData(null);
+    setPreviewErr('');
+    try {
+      setPreviewData(await props.onPreviewContextFile(path));
+    } catch (e) {
+      setPreviewErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Decoded text body for non-image previews (display-capped). */
+  const previewText = createMemo(() => {
+    const d = previewData();
+    if (!d || d.media_type.startsWith('image/')) return '';
+    try {
+      const text = atob(d.data);
+      return text.length > 20_000 ? text.slice(0, 20_000) + '\n…(truncated)' : text;
+    } catch {
+      return '(binary content)';
+    }
+  });
+
   const TAB_LABEL: Record<InspectorTab, string> = {
     turn: 'Turn',
     timeline: 'Timeline',
+    attempts: 'Attempts',
     tools: 'Tools',
     diffs: 'Diffs',
     thinking: 'Thinking',
@@ -669,6 +719,59 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
           </section>
         </Show>
 
+        <Show when={hasAttempts() && activeTab() === 'attempts'}>
+          {/* Retry attempt lineage (1.0 item 3) — server-recorded TurnAttempts:
+              status, steering notes, model override, timestamps. The honest
+              "edit history": clio's model is retry-creates-new-turns, and
+              this is exactly that record. */}
+          <section class="inspector__sect" data-testid="inspector-attempts">
+            <div class="inspector__sect-title">
+              Retry attempts ({props.attempts!.length})
+            </div>
+            <ul class="inspector__attempts">
+              <For each={props.attempts}>
+                {(a) => (
+                  <li
+                    class={'inspector__attempt inspector__attempt--' + a.status}
+                    data-testid={`inspector-attempt-${a.id}`}
+                  >
+                    <div class="inspector__attempt-head">
+                      <span
+                        class={
+                          'inspector__chip ' +
+                          (a.status === 'failed' || a.status === 'cancelled'
+                            ? 'inspector__chip--err'
+                            : 'inspector__chip--ok')
+                        }
+                      >
+                        {a.status}
+                      </span>
+                      <Show when={a.model?.model_id}>
+                        <span class="inspector__attempt-model">
+                          {a.model!.model_id}
+                        </span>
+                      </Show>
+                      <Show when={a.created_at}>
+                        <span class="inspector__attempt-when">
+                          {new Date(a.created_at).toLocaleTimeString()}
+                        </span>
+                      </Show>
+                    </div>
+                    <Show when={a.notes}>
+                      <div class="inspector__attempt-notes" data-testid={`attempt-notes-${a.id}`}>
+                        {a.notes}
+                      </div>
+                    </Show>
+                    <Show when={a.warning}>
+                      <div class="inspector__attempt-warning">{a.warning}</div>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
         <Show when={hasContextFiles() && activeTab() === 'context'}>
           <section class="inspector__sect">
             <div class="inspector__sect-title">
@@ -709,6 +812,17 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                         {f.mode ?? 'read'}
                       </button>
                     </Show>
+                    <Show when={props.onPreviewContextFile}>
+                      <button
+                        type="button"
+                        class="inspector__file-mode"
+                        title="Preview file content"
+                        data-testid={`inspector-file-preview-${f.path}`}
+                        onClick={() => void openPreview(f.path)}
+                      >
+                        view
+                      </button>
+                    </Show>
                     <Show when={props.onRemoveContextFile}>
                       <button
                         type="button"
@@ -724,6 +838,51 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
                 )}
               </For>
             </ul>
+            {/* Inline content preview (1.0 item 2) — fetched through the
+                x_clio_files_content endpoint (clio PR #533). */}
+            <Show when={previewFor()}>
+              <div class="inspector__preview" data-testid="inspector-file-preview-panel">
+                <div class="inspector__preview-head">
+                  <span class="inspector__preview-path" title={previewFor()!}>
+                    {previewFor()}
+                  </span>
+                  <button
+                    type="button"
+                    class="inspector__file-x"
+                    onClick={() => setPreviewFor(null)}
+                    aria-label="Close preview"
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </div>
+                <Show when={previewErr()}>
+                  <div class="inspector__preview-err">{previewErr()}</div>
+                </Show>
+                <Show when={!previewData() && !previewErr()}>
+                  <div class="inspector__preview-loading skeleton" />
+                </Show>
+                <Show when={previewData()}>
+                  <Show
+                    when={previewData()!.media_type.startsWith('image/')}
+                    fallback={
+                      <pre
+                        class="inspector__preview-text"
+                        data-testid="inspector-preview-text"
+                      >
+                        {previewText()}
+                      </pre>
+                    }
+                  >
+                    <img
+                      class="inspector__preview-img"
+                      src={`data:${previewData()!.media_type};base64,${previewData()!.data}`}
+                      alt={previewData()!.display_path ?? previewData()!.path}
+                      data-testid="inspector-preview-image"
+                    />
+                  </Show>
+                </Show>
+              </div>
+            </Show>
           </section>
         </Show>
 

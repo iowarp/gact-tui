@@ -282,7 +282,25 @@ export interface CapabilityFlags {
   structured_errors?: boolean;
   integration_health?: boolean;
   tool_telemetry?: boolean;
+  /** Upload file bytes as session attachments (clio PR #527). */
+  attachments_upload?: boolean;
+  /**
+   * Retrieve registered context-file/attachment bytes back from the
+   * backend as base64-JSON (clio PR iowarp/clio-agent#533). Gates the
+   * desktop's inline file/image previews (1.0 item 2).
+   */
+  x_clio_files_content?: boolean;
   [k: string]: boolean | undefined;
+}
+
+/** Response of GET /v1/sessions/{id}/context/files/content (clio #533). */
+export interface ContextFileContent {
+  path: string;
+  display_path?: string;
+  size: number;
+  media_type: string;
+  encoding: 'base64';
+  data: string;
 }
 
 export interface Transports {

@@ -845,6 +845,25 @@ function LiveDriven(props: {
   const sessionTasks = createMemo(() => sessionTasksData()?.tasks ?? []);
   void refetchTasks;
 
+  // Retry-attempt lineage (1.0 item 3) — feeds the Inspector Attempts tab.
+  // All server-side state (GET /attempts): survives reload, no fake history.
+  const [attemptsData, { refetch: refetchAttempts }] = createResource(
+    () => activeId(),
+    async (sid) => {
+      if (!sid) return [];
+      try {
+        return (await live.client.listAttempts(sid)).attempts;
+      } catch {
+        return [];
+      }
+    },
+  );
+  // A retry appends new messages → refresh the lineage when the count moves.
+  createEffect(() => {
+    void transcript.messages().length;
+    if (activeId()) void refetchAttempts();
+  });
+
   // Live context files — feeds the Inspector Context tab.
   const [contextFilesData, { refetch: refetchContextFiles }] = createResource(
     () => activeId(),
@@ -1230,6 +1249,19 @@ function LiveDriven(props: {
         }
       }}
       contextFiles={contextFiles()}
+      attempts={attemptsData() ?? []}
+      // Context-file preview (1.0 item 2) — only wired when the backend
+      // advertises x_clio_files_content (clio PR #533); older backends
+      // never see a preview button (no 404-able UI).
+      onPreviewContextFile={
+        props.backend.capabilities?.capabilities?.['x_clio_files_content']
+          ? (path) => {
+              const sid = activeId();
+              if (!sid) return Promise.reject(new Error('no active session'));
+              return live.client.getContextFileContent(sid, path);
+            }
+          : undefined
+      }
       contextFrames={contextFrames()}
       onLoadFrameDetail={(fid) => {
         const sid = activeId();
@@ -1501,6 +1533,12 @@ interface ChatLayoutProps {
   onExtractAgent?: () => void | Promise<void>;
   onSummarizeWithInstructions?: () => void | Promise<void>;
   capsFlags?: import('@clio/core').CapabilityFlags;
+  /** Retry-attempt lineage for the Inspector Attempts tab (1.0 item 3). */
+  attempts?: import('@clio/core').TurnAttempt[];
+  /** Capability-gated context-file content preview (1.0 item 2). */
+  onPreviewContextFile?: (
+    path: string,
+  ) => Promise<import('@clio/core').ContextFileContent>;
   schedules?: import('../components/InspectorDrawer.js').ScheduleRow[];
   onCreateSchedule?: (body: { cron: string; prompt: string }) => void | Promise<void>;
   onDeleteSchedule?: (scheduleId: string) => void | Promise<void>;
@@ -3017,6 +3055,8 @@ function ChatLayout(props: ChatLayoutProps) {
           model={inspectorTarget()?.model?.model_id}
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
+          attempts={props.attempts}
+          onPreviewContextFile={props.onPreviewContextFile}
           frames={props.contextFrames ?? []}
           onLoadFrameDetail={props.onLoadFrameDetail}
           onCycleTaskStatus={props.onCycleTaskStatus}

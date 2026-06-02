@@ -795,6 +795,118 @@
   border-color: var(--color-accent-cyan);
 }
 
+/* Retry attempts (1.0 item 3). */
+.inspector__attempts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector__attempt {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.inspector__attempt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector__attempt-model {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent-cyan);
+}
+
+.inspector__attempt-when {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.inspector__attempt-notes {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text);
+  line-height: 1.45;
+  border-left: 2px solid var(--color-warning);
+  padding-left: 8px;
+}
+
+.inspector__attempt-warning {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-warning);
+}
+
+/* Context-file content preview (1.0 item 2). */
+.inspector__preview {
+  margin-top: 10px;
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.inspector__preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border-30);
+}
+
+.inspector__preview-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-heading);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector__preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  margin: 8px auto;
+}
+
+.inspector__preview-text {
+  margin: 0;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text);
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inspector__preview-err {
+  padding: 10px;
+  font-size: 11.5px;
+  color: var(--color-error);
+}
+
+.inspector__preview-loading {
+  height: 80px;
+  margin: 10px;
+  border-radius: 6px;
+}
+
 /* Execution timeline (1.0 item 5) — vertical per-turn event list with a
    connector spine, duration bars, and wire-provided timestamps. */
 .inspector__timeline {
