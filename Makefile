@@ -17,7 +17,7 @@ CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
-        screenshots clean fmt vet install dev-install uninstall
+        screenshots clean fmt vet install dev-install verify-dev-install uninstall
 
 help: ## Print this help message.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -121,6 +121,33 @@ dev-install: build-tui ## Rebuild TUI and link both shell gact + CLIO's gact to 
 	@printf "  shell gact: %s -> %s\n" "$(BINDIR)/gact" "$$(readlink -f $(BINDIR)/gact)"
 	@printf "  CLIO gact:  %s -> %s\n" "$(CLIO_GACT_BIN)" "$$(readlink -f $(CLIO_GACT_BIN))"
 	@stat -c "  binary mtime: %y %n" $(TUI_BIN)
+
+verify-dev-install: ## Fail unless shell gact + CLIO gact resolve to this checkout and current HEAD.
+	@expected="$(CURDIR)/$(TUI_BIN)"; \
+	head="$$(git rev-parse --short=12 HEAD)"; \
+	shell_path="$$(command -v gact || true)"; \
+	if [ -z "$$shell_path" ]; then \
+		echo "verify-dev-install: gact is not on PATH"; exit 1; \
+	fi; \
+	shell_resolved="$$(readlink -f "$$shell_path" 2>/dev/null || true)"; \
+	bindir_resolved="$$(readlink -f "$(BINDIR)/gact" 2>/dev/null || true)"; \
+	clio_resolved="$$(readlink -f "$(CLIO_GACT_BIN)" 2>/dev/null || true)"; \
+	if [ "$$shell_resolved" != "$$expected" ]; then \
+		echo "verify-dev-install: PATH gact resolves to $$shell_resolved, want $$expected"; exit 1; \
+	fi; \
+	if [ "$$bindir_resolved" != "$$expected" ]; then \
+		echo "verify-dev-install: $(BINDIR)/gact resolves to $$bindir_resolved, want $$expected"; exit 1; \
+	fi; \
+	if [ "$$clio_resolved" != "$$expected" ]; then \
+		echo "verify-dev-install: $(CLIO_GACT_BIN) resolves to $$clio_resolved, want $$expected"; exit 1; \
+	fi; \
+	version="$$(gact version)"; \
+	if ! printf '%s\n' "$$version" | grep -q "revision: $$head"; then \
+		printf '%s\n' "$$version"; \
+		echo "verify-dev-install: gact revision does not match HEAD $$head; run make dev-install"; exit 1; \
+	fi; \
+	printf '%s\n' "$$version"; \
+	printf "Verified shell and CLIO gact both resolve to %s at HEAD %s\n" "$$expected" "$$head"
 
 uninstall: ## Remove the installed binaries.
 	rm -f $(BINDIR)/gact $(BINDIR)/emulator-server
