@@ -338,18 +338,22 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('notification-center-filtered'), fullPage: false });
   });
 
-  // Real-backend visual proof — only captured when a clio-agent-gact
-  // server is reachable (default 127.0.0.1:17800). Otherwise skipped so
-  // CI runners without the install don't fail. On the developer's box
-  // this captures the live chat shell hitting the user's actual ALCF-
-  // configured backend, not a fixture.
-  test.skip(
-    !realBackendReachable,
-    `no clio-agent-gact on ${REAL_BACKEND} — skipping real-backend visual proof`,
-  );
+  // ----- Real-backend visual proofs below this line -----
+  //
+  // Each live test self-skips when no clio-agent-gact is reachable
+  // (default 127.0.0.1:17800), so CI runners without a backend skip
+  // them while still RUNNING the fixture tests above. NOTE: a bare
+  // `test.skip(condition, …)` at describe-body level marks the WHOLE
+  // describe — fixture tests included — as conditionally skipped
+  // (that bug made CI verify nothing); the skip must live inside each
+  // live test body.
 
   // ----- Discovery pages backed by the live clio-agent-gact -----
   test('discovery-agents lists the tier-1/2 agent catalog', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -378,6 +382,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('discovery-mcp lists the MCP servers + their tool counts', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -408,6 +416,10 @@ test.describe('CLIO harness — visual proofs', () => {
   test('discovery-doctor renders integration statuses from /v1/health', async ({
     browser,
   }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -437,6 +449,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings-providers shows the active LM + Use as LM buttons', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -466,6 +482,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings-shell-about shows the About section', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -497,6 +517,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings theme buttons switch light/dark live (1.0 item 1)', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.addInitScript(() => {
@@ -536,6 +560,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings-data section exports preferences (1.0 item 7)', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.addInitScript(() => {
@@ -571,6 +599,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('settings-shell-appearance shows theme + density choices', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -600,6 +632,10 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('discovery-metrics shows the metrics dashboard', async ({ browser }) => {
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run onboarding tour (W3) has its
@@ -635,6 +671,10 @@ test.describe('CLIO harness — visual proofs', () => {
     // Desktop sidesteps this entirely via Tauri's privileged origin).
     // Route the requests through Playwright so we can synthesize the
     // missing CORS header on the response and let the chat shell mount.
+    test.skip(
+      !realBackendReachable,
+      `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
+    );
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     // Returning-user profile — the first-run tour must not cover the shell

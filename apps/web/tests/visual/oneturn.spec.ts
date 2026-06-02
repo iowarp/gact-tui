@@ -11,9 +11,25 @@ const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 
 const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
 
+// Reachability guard (same pattern as audit.spec.ts): this is a live-only
+// smoke — skip rather than fail when no real clio is reachable (CI).
+let realBackendReachable = false;
+try {
+  const r = await fetch(`${BACKEND}/v1/capabilities`, {
+    signal: AbortSignal.timeout(1500),
+  });
+  realBackendReachable = r.ok;
+} catch {
+  realBackendReachable = false;
+}
+
 test.setTimeout(180_000);
 
 test('webapp drives one ALCF turn (capital of France)', async () => {
+  test.skip(
+    !realBackendReachable,
+    `no live clio backend reachable at ${BACKEND} — run locally with CLIO_GACT_URL`,
+  );
   // Launch with web security disabled so EventSource can cross origin.
   // The Tauri build doesn't need this — it uses native fetch via the
   // gact_http command — but the pure-web preview is subject to browser
