@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@solidjs/testing-library';
+import { render, screen, cleanup, waitFor } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InlineMarkdown } from '../../src/components/InlineMarkdown.js';
 
@@ -48,10 +48,79 @@ describe('InlineMarkdown', () => {
     const pre = document.querySelector('pre.im__code');
     expect(pre).toBeTruthy();
     // Inner <code> carries the actual code body; the surrounding <pre>
-    // also wraps a language badge and a copy button.
+    // also wraps a language badge and a copy button. Single-line block →
+    // no gutter, so textContent is exactly the source (highlight is async
+    // but never changes the text content).
     const code = pre?.querySelector('code');
     expect(code?.textContent).toBe("print('hi')");
     expect(pre?.className).toContain('im__code--python');
+  });
+
+  it('highlights fenced code once hljs lazily loads', async () => {
+    render(() => <InlineMarkdown text={'```js\nconst x = 1;\nreturn x;\n```'} />);
+    // hljs imports asynchronously; tokens appear after it resolves.
+    await waitFor(() => {
+      const tokens = document.querySelectorAll('.hljs-keyword');
+      expect(tokens.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('renders a line-number gutter for blocks with 3+ lines', async () => {
+    render(() => <InlineMarkdown text={'```js\nconst a = 1;\nconst b = 2;\nconst c = 3;\n```'} />);
+    // The gutter rows render immediately (plain), highlight fills in later.
+    await waitFor(() => {
+      const nos = document.querySelectorAll('.im__code-lineno');
+      expect(nos.length).toBe(3);
+    });
+    const nos = document.querySelectorAll('.im__code-lineno');
+    expect(nos[0]?.textContent).toBe('1');
+    expect(nos[1]?.textContent).toBe('2');
+    expect(nos[2]?.textContent).toBe('3');
+    // The numbered <code> variant is in use.
+    expect(document.querySelector('code.im__code--numbered')).toBeTruthy();
+  });
+
+  it('does NOT render a gutter for a one-line block', async () => {
+    render(() => <InlineMarkdown text={'```js\nconst only = 1;\n```'} />);
+    // Let any async highlight settle so we know the absence is stable.
+    await waitFor(() => {
+      const code = document.querySelector('pre.im__code code');
+      expect(code).toBeTruthy();
+    });
+    expect(document.querySelectorAll('.im__code-lineno').length).toBe(0);
+    expect(document.querySelector('code.im__code--numbered')).toBeNull();
+  });
+
+  it('Copy button copies the raw source without line numbers', async () => {
+    let copied = '';
+    const original = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (t: string) => {
+          copied = t;
+          return Promise.resolve();
+        },
+      },
+    });
+    try {
+      const src = 'const a = 1;\nconst b = 2;\nconst c = 3;';
+      render(() => <InlineMarkdown text={'```js\n' + src + '\n```'} />);
+      await waitFor(() => {
+        expect(document.querySelectorAll('.im__code-lineno').length).toBe(3);
+      });
+      const btn = document.querySelector('.im__code-copy') as HTMLButtonElement;
+      expect(btn).toBeTruthy();
+      btn.click();
+      await waitFor(() => expect(copied).toBe(src));
+      // No digits leaked from the gutter into the copied text.
+      expect(copied).not.toContain('1const');
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: original,
+      });
+    }
   });
 
   it('does not interpret HTML tags from the input', () => {

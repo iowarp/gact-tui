@@ -45,6 +45,42 @@
   display: block;
   white-space: pre;
 }
+
+/* Line-number gutter for multi-line code blocks. The <code> becomes a
+   column of rows; each row pins a fixed, non-selectable line-number cell
+   beside a horizontally-scrolling code cell so the gutter stays put while
+   long lines scroll. Mirrors the DiffPane gutter technique. */
+.im__code code.im__code--numbered {
+  white-space: normal;
+}
+
+.im__code-row {
+  display: flex;
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.im__code-lineno {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  padding-right: 12px;
+  text-align: right;
+  color: var(--color-muted);
+  opacity: 0.55;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Pinned: stays at the left edge as the code cell scrolls under it. */
+  position: sticky;
+  left: 0;
+  background: var(--color-surface-alt);
+  z-index: 1;
+}
+
+.im__code-linecode {
+  flex: 1 1 auto;
+  white-space: pre;
+  min-width: 0;
+}
 .hljs-comment,
 .hljs-quote {
   color: var(--color-muted);

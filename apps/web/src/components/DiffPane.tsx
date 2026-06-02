@@ -1,5 +1,5 @@
-import { For, createSignal, Show } from 'solid-js';
-import hljs from 'highlight.js/lib/common';
+import { For, createSignal, Show, onMount } from 'solid-js';
+import { getHljs, hljsSync } from '../hljs-lazy.js';
 import type { FileDiff } from '@clio/core';
 import './diff-pane.css';
 
@@ -29,6 +29,17 @@ export function DiffPane(props: DiffPaneProps) {
   const hunks = () => parseHunks(props.diff.unified_diff ?? '');
   const lang = () => langForPath(props.diff.path ?? '');
   const [states, setStates] = createSignal<HunkState[]>([]);
+  // highlight.js loads on demand (see hljs-lazy). Lines render plain until
+  // it resolves, then this signal flips and the per-line highlight re-runs.
+  const [hljsReady, setHljsReady] = createSignal(hljsSync() !== null);
+
+  onMount(() => {
+    if (hljsSync()) {
+      setHljsReady(true);
+      return;
+    }
+    void getHljs().then(() => setHljsReady(true));
+  });
 
   // Initialize states array when hunks length changes.
   const ensure = () => {
@@ -112,7 +123,7 @@ export function DiffPane(props: DiffPaneProps) {
                 </header>
                 <pre class="diffpane__hunk-body">
                   <For each={hunk.lines}>
-                    {(ln) => <DiffLine line={ln} lang={lang()} />}
+                    {(ln) => <DiffLine line={ln} lang={lang()} ready={hljsReady()} />}
                   </For>
                 </pre>
               </li>
@@ -124,12 +135,15 @@ export function DiffPane(props: DiffPaneProps) {
   );
 }
 
-function DiffLine(p: { line: DiffLineInfo; lang: string | null }) {
+function DiffLine(p: { line: DiffLineInfo; lang: string | null; ready: boolean }) {
   // Per-line highlighting loses multi-line constructs (block comments) but
   // is the standard approach for diff viewers — each line stands alone.
   const content = () => p.line.text.slice(1); // strip the +/-/space sign
   const highlighted = () => {
-    if (!p.lang || !content()) return null;
+    // `p.ready` gates on hljs having loaded so this re-runs once it lands.
+    if (!p.ready || !p.lang || !content()) return null;
+    const hljs = hljsSync();
+    if (!hljs) return null;
     try {
       return hljs.highlight(content(), { language: p.lang }).value;
     } catch {

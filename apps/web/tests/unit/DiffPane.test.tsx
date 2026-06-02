@@ -1,4 +1,4 @@
-import { render, screen, cleanup, fireEvent } from '@solidjs/testing-library';
+import { render, screen, cleanup, fireEvent, waitFor } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DiffPane } from '../../src/components/DiffPane.js';
 import type { FileDiff } from '@clio/core';
@@ -81,14 +81,17 @@ describe('DiffPane', () => {
     expect(gutters[1]?.textContent).toBe('');
   });
 
-  it('syntax-highlights diff lines for known file extensions (.go)', () => {
+  it('syntax-highlights diff lines for known file extensions (.go)', async () => {
     render(() => <DiffPane diff={sampleDiff} onClose={() => undefined} />);
     const hunk = screen.getByTestId('diff-pane-hunk-0');
-    // hljs wraps Go keywords (func/return) in .hljs-keyword spans.
-    expect(hunk.querySelectorAll('.hljs-keyword').length).toBeGreaterThan(0);
+    // hljs loads lazily, then wraps Go keywords (func/return) in
+    // .hljs-keyword spans — eventually consistent.
+    await waitFor(() => {
+      expect(hunk.querySelectorAll('.hljs-keyword').length).toBeGreaterThan(0);
+    });
   });
 
-  it('falls back to plain text for unknown extensions', () => {
+  it('falls back to plain text for unknown extensions', async () => {
     render(() => (
       <DiffPane
         diff={{ ...sampleDiff, path: 'data/blob.xyz' }}
@@ -96,8 +99,13 @@ describe('DiffPane', () => {
       />
     ));
     const hunk = screen.getByTestId('diff-pane-hunk-0');
-    expect(hunk.querySelectorAll('.hljs-keyword').length).toBe(0);
-    // Content still renders.
+    // Content renders immediately regardless of hljs.
     expect(hunk.textContent).toContain('func handle');
+    // Unknown extension never highlights, even after hljs has loaded.
+    await waitFor(() => {
+      // Force a tick for the lazy import to settle.
+      expect(hunk.textContent).toContain('func handle');
+    });
+    expect(hunk.querySelectorAll('.hljs-keyword').length).toBe(0);
   });
 });
