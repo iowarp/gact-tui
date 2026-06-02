@@ -117,6 +117,34 @@ I found a bounded NDP candidate, staged the selected resource, inspected the dat
 - Handoff, tool call, tool result, and final answer order must be obvious.
 - Evidence provenance must be clear: live event vs metadata-promoted event vs assistant prose.
 
+## Live Observability Temporal Gate
+
+Use `assert_live_observability.py` on captured SSE/visual-loop JSONL timelines
+when validating live CLIO benchmark behavior. The default `benchmark-hierarchy`
+mode requires the visible timeline to prove this ordered sequence before turn
+completion:
+
+```text
+route_or_delegate -> child_expert_active -> tool_started -> tool_completed -> parent_resumed
+```
+
+The gate intentionally requires matched benchmark hierarchy observations to
+precede `message.completed` by at least 0.25s. This prevents a false pass where
+the TUI receives a final burst of posthoc evidence immediately before the final
+answer, which looks correct in a settled screenshot but fails the human
+observability requirement.
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/<capture>.jsonl \
+  --mode benchmark-hierarchy \
+  --report visual_loop/screenshots/<capture>.strict.report.md
+```
+
+For narrower smoke checks that only prove live tool start/complete events,
+`--mode basic-tools` remains available and has no live-lead requirement by
+default.
+
 ## Recreating Real Benchmark Sessions
 
 The backend repo contains the benchmark harness that produced the long sessions

@@ -54,6 +54,27 @@ def _part(row: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _nested_str(*values: Any) -> str:
+    for value in values:
+        text = _str(value)
+        if text:
+            return text
+    return ""
+
+
+def _field(*maps: dict[str, Any], keys: str | tuple[str, ...]) -> str:
+    if isinstance(keys, str):
+        keys = (keys,)
+    for mapping in maps:
+        for key in keys:
+            value = mapping.get(key)
+            if isinstance(value, (str, int, float, bool)):
+                text = _str(value)
+                if text:
+                    return text
+    return ""
+
+
 def _time(row: dict[str, Any], index: int) -> float:
     for key in ("t", "elapsed_s", "monotonic"):
         value = row.get(key)
@@ -68,16 +89,23 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
     event = _str(row.get("event")) or _event_type(row, payload)
     sem_type = _event_type(row, payload)
     part = _part(row, payload)
+    metadata = _map(part.get("metadata"))
+    actor = _map(payload.get("actor"))
+    subject = _map(payload.get("subject"))
+    event_payload = _map(payload.get("payload"))
     part_type = _str(part.get("type")) or _str(row.get("part_type"))
     status = _str(payload.get("status")) or _str(row.get("status"))
-    stage = _str(part.get("metadata", {}).get("stage")) if isinstance(part.get("metadata"), dict) else ""
+    stage = _str(metadata.get("stage"))
     if not stage:
-        stage = _str(row.get("stage")) or _str(payload.get("stage"))
+        stage = _nested_str(row.get("stage"), payload.get("stage"), event_payload.get("stage"))
+    parent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("parent_id", "parent"))
+    agent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("agent_id", "child_id", "agent"))
+    tool_name = _field(row, payload, event_payload, metadata, actor, keys=("tool", "tool_name", "name"))
     detail_bits = [
-        _str(row.get("execution_path")) or _str(part.get("execution_path")) or _str(payload.get("execution_path")),
-        _str(row.get("selected_agent")) or _str(part.get("selected_agent")) or _str(payload.get("selected_agent")),
-        _str(row.get("agent_id")) or _str(payload.get("agent_id")),
-        _str(row.get("tool")) or _str(row.get("tool_name")) or _str(payload.get("tool")) or _str(payload.get("tool_name")),
+        _nested_str(row.get("execution_path"), part.get("execution_path"), payload.get("execution_path"), event_payload.get("execution_path")),
+        _nested_str(row.get("selected_agent"), part.get("selected_agent"), payload.get("selected_agent"), event_payload.get("selected_agent")),
+        " -> ".join(bit for bit in (parent_id, agent_id) if bit) if parent_id else agent_id,
+        tool_name,
         stage,
     ]
     detail = " · ".join(bit for bit in detail_bits if bit)
@@ -145,9 +173,18 @@ def first_completion_time(obs: list[Observation]) -> float | None:
     return min(completions) if completions else None
 
 
-def ordered_sequence_before_completion(obs: list[Observation], required: list[str]) -> tuple[bool, list[Observation], list[str]]:
+def ordered_sequence_before_completion(
+    obs: list[Observation],
+    required: list[str],
+    *,
+    min_live_lead_s: float = 0.0,
+) -> tuple[bool, list[Observation], list[str]]:
     completion_t = first_completion_time(obs)
-    usable = [item for item in obs if completion_t is None or item.t < completion_t]
+    usable = [
+        item
+        for item in obs
+        if completion_t is None or item.t <= completion_t - min_live_lead_s
+    ]
     chosen: list[Observation] = []
     missing: list[str] = []
     cursor = -1
@@ -161,8 +198,12 @@ def ordered_sequence_before_completion(obs: list[Observation], required: list[st
     return not missing, chosen, missing
 
 
-def render_report(path: Path, obs: list[Observation], required: list[str]) -> str:
-    ok, chosen, missing = ordered_sequence_before_completion(obs, required)
+def render_report(path: Path, obs: list[Observation], required: list[str], min_live_lead_s: float) -> str:
+    ok, chosen, missing = ordered_sequence_before_completion(
+        obs,
+        required,
+        min_live_lead_s=min_live_lead_s,
+    )
     completion_t = first_completion_time(obs)
     lines = [
         "# Live Observability Temporal Assertion",
@@ -171,6 +212,7 @@ def render_report(path: Path, obs: list[Observation], required: list[str]) -> st
         f"- verdict: `{'PASS' if ok else 'FAIL'}`",
         f"- completion_t: `{completion_t if completion_t is not None else 'missing'}`",
         f"- required_order: `{', '.join(required)}`",
+        f"- min_live_lead_s: `{min_live_lead_s:g}`",
         "",
     ]
     if chosen:
@@ -200,6 +242,15 @@ def main() -> int:
         default="benchmark-hierarchy",
         help="benchmark-hierarchy requires route/delegate, child, tool lifecycle, and parent resume before completion",
     )
+    parser.add_argument(
+        "--min-live-lead-s",
+        type=float,
+        default=None,
+        help=(
+            "minimum seconds each matched observation must precede completion; "
+            "defaults to 0.25 for benchmark-hierarchy and 0 for basic-tools"
+        ),
+    )
     args = parser.parse_args()
 
     required = ["tool_started", "tool_completed"] if args.mode == "basic-tools" else [
@@ -209,9 +260,12 @@ def main() -> int:
         "tool_completed",
         "parent_resumed",
     ]
+    min_live_lead_s = args.min_live_lead_s
+    if min_live_lead_s is None:
+        min_live_lead_s = 0.0 if args.mode == "basic-tools" else 0.25
     obs = observations(load_jsonl(args.jsonl))
-    ok, _, _ = ordered_sequence_before_completion(obs, required)
-    report = render_report(args.jsonl, obs, required)
+    ok, _, _ = ordered_sequence_before_completion(obs, required, min_live_lead_s=min_live_lead_s)
+    report = render_report(args.jsonl, obs, required, min_live_lead_s)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(report, encoding="utf-8")
