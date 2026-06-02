@@ -61,12 +61,13 @@
 .hljs-attr,
 .hljs-regexp,
 .hljs-addition {
-  color: #6fcf97;
+  /* Overridable by theme presets (light mode darkens this for contrast). */
+  color: var(--color-hljs-string, #6fcf97);
 }
 .hljs-number,
 .hljs-symbol,
 .hljs-bullet {
-  color: #e0a35e;
+  color: var(--color-hljs-number, #e0a35e);
 }
 .hljs-title,
 .hljs-title.function_,

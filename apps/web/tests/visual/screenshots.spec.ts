@@ -265,6 +265,29 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('retry-model-submenu'), fullPage: false });
   });
 
+  test('light theme renders the chat shell on the light palette (1.0 item 1)', async ({ page }) => {
+    // Seeding the mode flag is all it takes — theme.ts initTheme() applies
+    // the full light palette on module load (same path a real user's
+    // persisted choice takes on app start).
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.theme.mode.v1', 'light');
+    });
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    // The page background actually IS the light token, not the dark default.
+    const bg = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+    );
+    expect(bg).toBe('#f4f6fa');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('light-theme-chat'), fullPage: false });
+    // Code blocks + diffs restyle through the override tokens too.
+    await page.goto('/?route=chat&fixture=normal&open=diff');
+    await expect(page.getByTestId('diff-pane')).toBeVisible();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('light-theme-diff'), fullPage: false });
+  });
+
   test('notification center searches + filters history (1.0 item 8)', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal');
     await expect(page.getByTestId('chat-screen')).toBeVisible();
@@ -444,6 +467,45 @@ test.describe('CLIO harness — visual proofs', () => {
     await expect(page.getByTestId('settings-about')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
+    await ctx.close();
+  });
+
+  test('settings theme buttons switch light/dark live (1.0 item 1)', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    });
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-nav-appearance').click();
+    await expect(page.getByTestId('settings-appearance')).toBeVisible();
+    // Click Light → the page flips to the light palette immediately.
+    await page.getByTestId('settings-theme-light').click();
+    const bgLight = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+    );
+    expect(bgLight).toBe('#f4f6fa');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
+    // Back to Dark → overrides clear to the design-system default.
+    await page.getByTestId('settings-theme-dark').click();
+    const bgDark = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+    );
+    expect(bgDark).toBe('#000000');
     await ctx.close();
   });
 
