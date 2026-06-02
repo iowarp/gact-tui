@@ -137,6 +137,27 @@ if (Test-Path $sitePkgs) {
       $rec = Join-Path $_.FullName 'RECORD'
       if (Test-Path $rec) { Remove-Item -LiteralPath $rec -Force -ErrorAction SilentlyContinue }
     }
+
+  # 4. Installer-hostile files. NSIS aborts on file names containing
+  #    parentheses/brackets, and litellm ships benchmark DATA files named
+  #    exactly that way (litellm/proxy/.../guardrail_benchmarks/results/
+  #    "block_..._(....yaml).json" — found by the 0.7.0 release test).
+  #    They are data, never imported at runtime. Remove the known dir,
+  #    sweep any other offender, then HARD-FAIL if any survive — better
+  #    to fail here in seconds than 30 minutes later inside makensis.
+  $benchDir = Join-Path $sitePkgs 'litellm\proxy\guardrails\guardrail_hooks\litellm_content_filter\guardrail_benchmarks'
+  if (Test-Path -LiteralPath $benchDir) {
+    Remove-Item -LiteralPath $benchDir -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  Get-ChildItem -LiteralPath $venv -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '[()\[\]]' } |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+  $offenders = @(Get-ChildItem -LiteralPath $venv -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '[()\[\]]' })
+  if ($offenders.Count -gt 0) {
+    $offenders | ForEach-Object { Write-Host "  installer-hostile: $($_.FullName)" }
+    throw "build-clio-runtime: $($offenders.Count) installer-hostile filenames remain after prune"
+  }
 }
 
 $sizeAfter = Get-DirSizeMB $target
