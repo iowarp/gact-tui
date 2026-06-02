@@ -1,6 +1,6 @@
 {
   "name": "@clio/desktop",
-  "version": "0.9.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "tauri:dev": "pnpm fetch-sidecar && tauri dev",
     "tauri:build": "pnpm fetch-sidecar && tauri build",
     "tauri:build:debug": "pnpm fetch-sidecar && tauri build --debug --no-bundle",
-    "tauri:build:bundled": "pnpm fetch-sidecar && pnpm build-clio-runtime && tauri build --config tauri.bundled.conf.json"
+    "tauri:build:bundled": "pnpm fetch-sidecar && pnpm build-clio-runtime && tauri build --config src-tauri/tauri.bundled.conf.json"
   },
   "dependencies": {
     "@clio/web": "workspace:*",

@@ -89,6 +89,23 @@ if [ -d "$SITE_PKGS" ]; then
   # 3. *.dist-info/RECORD bloat (not needed at runtime)
   find "$SITE_PKGS" -mindepth 2 -maxdepth 2 -type f -path '*.dist-info/RECORD' \
     -delete 2>/dev/null || true
+
+  # 4. Installer-hostile files. NSIS aborts on file names containing
+  #    parentheses/brackets, and litellm ships benchmark DATA files named
+  #    exactly that way (litellm/proxy/.../guardrail_benchmarks/results/
+  #    "block_..._(....yaml).json" — found by the 0.7.0 release test).
+  #    They are data, never imported at runtime. Remove the known dir,
+  #    sweep any other offender, then HARD-FAIL if any survive — better
+  #    to fail here in seconds than 30 minutes later inside the bundler.
+  rm -rf "$SITE_PKGS/litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/guardrail_benchmarks" || true
+  find "$VENV" -type f -name '*[()][]()*' -delete 2>/dev/null || true
+  find "$VENV" -type f \( -name '*(*' -o -name '*)*' -o -name '*\[*' -o -name '*\]*' \) -delete 2>/dev/null || true
+  remaining="$(find "$VENV" -type f \( -name '*(*' -o -name '*)*' -o -name '*\[*' -o -name '*\]*' \) | head -20)"
+  if [ -n "$remaining" ]; then
+    echo "build-clio-runtime: installer-hostile filenames remain after prune:" >&2
+    echo "$remaining" >&2
+    exit 1
+  fi
 fi
 
 SIZE_AFTER="$(dir_size_mb "$TARGET")"
