@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"path/filepath"
 	"testing"
 )
 
@@ -15,11 +14,7 @@ import (
 // Covers the AppendMessage → ErrInvalidArg branch end-to-end at the
 // process level.
 func TestE2E_SeedMessagesFlag_RejectsUnknownSession(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
-	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	cmd := exec.Command(bin,
 		"-port", fmt.Sprintf("%d", pickPort(t)),
 		"-seed-messages", "ses_nonexistent=1",
@@ -39,11 +34,7 @@ func TestE2E_SeedMessagesFlag_RejectsUnknownSession(t *testing.T) {
 // input fails the whole boot rather than silently starting with
 // fewer messages than the operator asked for.
 func TestE2E_SeedMessagesFlag_BadSyntaxFailsBoot(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
-	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	cmd := exec.Command(bin,
 		"-port", fmt.Sprintf("%d", pickPort(t)),
 		"-seed-messages", "ses_a=abc",

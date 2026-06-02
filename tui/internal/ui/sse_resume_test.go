@@ -147,3 +147,31 @@ func TestSSEResume_SelectSessionResetsCounter(t *testing.T) {
 	}
 	_ = cmd
 }
+
+func TestSSEOpenCanceledDoesNotEnterErrorStage(t *testing.T) {
+	a := New("http://127.0.0.1:1")
+	a.stage = StageReady
+
+	cmd := a.startSSECmd("s_canceled")
+	if cmd == nil {
+		t.Fatal("startSSECmd returned nil")
+	}
+	if a.sseCancel == nil {
+		t.Fatal("startSSECmd did not install a cancel func")
+	}
+	a.sseCancel()
+
+	msg := cmd()
+	if _, ok := msg.(sseOpenCanceledMsg); !ok {
+		t.Fatalf("cmd returned %T, want sseOpenCanceledMsg", msg)
+	}
+
+	model, _ := a.Update(msg)
+	a = model.(*App)
+	if a.stage == StageError {
+		t.Fatalf("stage = StageError after benign SSE cancel: %q", a.stageError)
+	}
+	if a.stageError != "" {
+		t.Fatalf("stageError = %q, want empty", a.stageError)
+	}
+}

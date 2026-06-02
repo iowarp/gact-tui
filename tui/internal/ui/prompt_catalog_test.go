@@ -1,0 +1,310 @@
+package ui
+
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+)
+
+func TestPromptCatalogItemsSurfaceProfilesAndValidation(t *testing.T) {
+	items := promptCatalogItems([]gact.PromptDefinition{{
+		ID:               "clio.chat",
+		Title:            "Chat",
+		Description:      "General conversation",
+		DefaultProfile:   "default",
+		Scope:            "builtin",
+		ValidationErrors: []string{"bad override"},
+		Profiles: map[string]gact.PromptProfile{
+			"default": {Name: "default", Text: "base", Scope: "builtin"},
+			"debug":   {Name: "debug", Text: "debug", Scope: "global"},
+		},
+	}})
+
+	if len(items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(items))
+	}
+	for _, want := range []string{"profiles: debug, default", "default: default", "errors: bad override", "General conversation"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("prompt catalog desc missing %q: %q", want, items[0].desc)
+		}
+	}
+}
+
+func TestPromptAndBlueprintCommandsArePaletteDiscoverableWhenSupported(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.XClioPromptRegistry = true
+	a.caps.Capabilities.XClioExpertPacks = true
+	a.caps.Capabilities.XClioAgentBlueprints = true
+
+	for _, tc := range []struct {
+		filter string
+		id     string
+	}{
+		{filter: "prompts", id: "/prompts"},
+		{filter: "expert-packs", id: "/expert-packs"},
+		{filter: "agent-blueprints", id: "/agent-blueprints"},
+		{filter: "blueprints", id: "/blueprints"},
+		{filter: "agent-blueprint-install", id: "/agent-blueprint-install"},
+		{filter: "agent-blueprint-validate", id: "/agent-blueprint-validate"},
+	} {
+		a.paletteFilter = tc.filter
+		found := false
+		for _, cmd := range a.paletteMatches() {
+			if cmd.ID == tc.id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("palette filter %q did not include %s", tc.filter, tc.id)
+		}
+	}
+}
+
+func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
+	a := newReadyApp(nil, nil)
+
+	a.openAgentBlueprintManage(agentBlueprintManageInstall)
+	installView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Install agent blueprint", "install", "current workspace"} {
+		if !strings.Contains(installView, want) {
+			t.Fatalf("install modal missing %q:\n%s", want, installView)
+		}
+	}
+
+	a.openAgentBlueprintManage(agentBlueprintManageValidate)
+	_, _ = a.handleAgentBlueprintManageKey(keyMsg("/"))
+	if a.agentBlueprintManageInput != "/" {
+		t.Fatalf("slash-prefixed paths should be editable, input=%q", a.agentBlueprintManageInput)
+	}
+	a.agentBlueprintManageInput = ""
+	a.agentBlueprintManageCursor = 0
+	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/AGENT.md\n"})
+	if a.agentBlueprintManageInput != "/workspace/AGENT.md" {
+		t.Fatalf("paste should route to blueprint modal, input=%q", a.agentBlueprintManageInput)
+	}
+	a.agentBlueprintManageInput = ""
+	a.agentBlueprintManageCursor = 0
+	validateView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Validate agent blueprint", "validate", "without", "installing"} {
+		if !strings.Contains(validateView, want) {
+			t.Fatalf("validate modal missing %q:\n%s", want, validateView)
+		}
+	}
+
+	_, _ = a.handleAgentBlueprintManageKey(keyMsg("enter"))
+	if !strings.Contains(a.agentBlueprintManageErr, "required") {
+		t.Fatalf("empty validate submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
+	}
+}
+
+func TestFormatResolvedPromptShowsProvenanceAndText(t *testing.T) {
+	out := formatResolvedPrompt(gact.ResolvedPrompt{
+		ID: "clio.chat", Profile: "debug", Scope: "global", SourcePath: "/tmp/prompt.md",
+		Provider: "openai", Model: "gpt-5", Checksum: "abc123", FallbackProfile: "default",
+		Text: "Stay grounded.", Metadata: map[string]any{"saved_by": "test"},
+	})
+
+	for _, want := range []string{
+		"fallback profile: default",
+		"provider: openai",
+		"model: gpt-5",
+		"source: /tmp/prompt.md",
+		"saved_by",
+		"Stay grounded.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("resolved prompt detail missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatRenderedPromptValidationAndReload(t *testing.T) {
+	rendered := formatRenderedPrompt(gact.ResolvedPrompt{
+		ID: "clio.chat", Profile: "heavy", Scope: "workspace", SourcePath: "/tmp/prompt.md",
+		Checksum: "abc", Text: "Rendered body", Metadata: map[string]any{"session_id": "s1"},
+	})
+	for _, want := range []string{"Rendered runtime prompt", "checksum: abc", "Render provenance", "Rendered body"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered prompt missing %q:\n%s", want, rendered)
+		}
+	}
+
+	validation := formatPromptValidation(gact.PromptValidationResult{
+		Enabled: false, ValidationErrors: []string{"unknown placeholder"},
+		Prompt: gact.PromptDefinition{ID: "clio.chat", Scope: "workspace"},
+	})
+	for _, want := range []string{"status: invalid", "unknown placeholder", "prompt_id: clio.chat"} {
+		if !strings.Contains(validation, want) {
+			t.Fatalf("validation missing %q:\n%s", want, validation)
+		}
+	}
+
+	reload := formatPromptReload(gact.PromptReloadResult{
+		PromptCount: 2, PromptIDs: []string{"a", "b"}, Sources: []gact.PromptSource{{Scope: "workspace", Root: "/repo/.clio/prompts"}},
+	})
+	for _, want := range []string{"prompt_count: 2", "prompt_ids: a, b", "workspace: /repo/.clio/prompts"} {
+		if !strings.Contains(reload, want) {
+			t.Fatalf("reload missing %q:\n%s", want, reload)
+		}
+	}
+}
+
+func TestAgentPromptResolutionDescription(t *testing.T) {
+	got := agentPromptResolutionDescription(gact.AgentDef{Metadata: map[string]any{
+		"prompt_resolution": map[string]any{
+			"id": "clio.expert.data", "profile": "heavy", "scope": "global", "status": "resolved",
+			"provider": "openai", "model": "gpt-5",
+		},
+	}})
+	for _, want := range []string{"id: clio.expert.data", "profile: heavy", "scope: global", "status: resolved", "provider: openai", "model: gpt-5"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("prompt resolution missing %q: %q", want, got)
+		}
+	}
+}
+
+func TestPromptEditModalStatesBuiltinOverrideScope(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openPromptEdit("clio.chat", "default", "Chat", "Use grounded answers.")
+	out := a.viewPromptEdit()
+	for _, want := range []string{"Edit prompt override · clio.chat", "profile codex", "Use grounded answers."} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prompt edit modal missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestExpertPackCatalogItemsSurfaceScopeAndValidation(t *testing.T) {
+	items := expertPackCatalogItems([]gact.ExpertPackDefinition{{
+		ID: "data-semantics", Title: "Data Semantics", Version: "1.0.0", Scope: "workspace",
+		DefinitionPath: "/tmp/.clio/expert-packs/data-semantics/clio-pack.yaml",
+		Description:    "Routes data questions to specialist agents.",
+		Enabled:        true,
+	}, {
+		ID: "broken", Title: "Broken", Scope: "session", Enabled: false,
+		ValidationErrors: []string{"missing root agent"},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 2", len(items))
+	}
+	if items[0].id != "broken" || items[0].statusTag != "invalid" {
+		t.Fatalf("invalid expert pack should be first session-scoped invalid row: %#v", items[0])
+	}
+	for _, want := range []string{"version: 1.0.0", "definition: /tmp/.clio/expert-packs/data-semantics/clio-pack.yaml", "Routes data questions"} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("expert-pack catalog desc missing %q: %q", want, items[1].desc)
+		}
+	}
+}
+
+func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
+		RootExpert: "data", DefinitionPath: "/tmp/AGENT.md", Description: "Markdown root agent.",
+		Enabled: true,
+	}, {
+		ID: "broken", Title: "Broken", Scope: "workspace", RootExpert: "missing", Enabled: false,
+		ValidationErrors: []string{"root_expert not found"},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 2", len(items))
+	}
+	if items[1].statusTag != "invalid" {
+		t.Fatalf("broken blueprint status = %q, want invalid", items[1].statusTag)
+	}
+	for _, want := range []string{"version: 1.0.0", "root: data", "definition: /tmp/AGENT.md", "Markdown root agent"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint desc missing %q: %q", want, items[0].desc)
+		}
+	}
+}
+
+func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
+	items := expertPackDetailItems(gact.ExpertPackDetail{
+		ExpertPack: gact.ExpertPackDefinition{
+			ID: "data-semantics", Title: "Data Semantics", Version: "1.0.0", Scope: "workspace", Enabled: true,
+			Defaults: map[string]any{"provider": "openai"},
+		},
+		Agents: []gact.AgentDef{{
+			ID: "data.root", Title: "Data Root", Source: "expert_pack", Enabled: true,
+			Tools: []string{"mcp.parquet.read"},
+		}},
+	})
+
+	if len(items) < 3 {
+		t.Fatalf("detail items len = %d, want activation, pack summary, and agent", len(items))
+	}
+	if items[0].id != "activate" {
+		t.Fatalf("first expert-pack detail row = %q, want activate", items[0].id)
+	}
+	if !strings.Contains(items[1].desc, "provider") {
+		t.Fatalf("pack summary should surface defaults metadata:\n%s", items[1].desc)
+	}
+	if items[2].id != "agent/data.root" || !strings.Contains(items[2].desc, "mcp.parquet.read") {
+		t.Fatalf("agent detail row missing drilldown/tool metadata: %#v", items[2])
+	}
+}
+
+func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
+	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
+		AgentBlueprint: gact.AgentBlueprintDefinition{
+			ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
+			RootExpert: "data", Enabled: true, Defaults: map[string]any{"prompt_profile": "heavy"},
+		},
+		MCPDescriptors: []map[string]any{{
+			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
+			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
+		}},
+		Agents: []gact.AgentDef{{
+			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
+			Tools: []string{"mcp.parquet.read"},
+		}},
+	})
+
+	if len(items) < 6 {
+		t.Fatalf("detail items len = %d, want activation, blueprint, management actions, mcp, and agent", len(items))
+	}
+	if items[0].id != "activate" {
+		t.Fatalf("first detail row = %q, want activate", items[0].id)
+	}
+	if !strings.Contains(items[1].desc, "prompt_profile") {
+		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
+	}
+	if items[2].id != "blueprint-action/update" || !items[2].disabled {
+		t.Fatalf("builtin blueprint update action should be visible but disabled: %#v", items[2])
+	}
+	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
+		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
+	}
+	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
+		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
+	}
+	if items[5].id != "agent/data" || !strings.Contains(items[5].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[5])
+	}
+}
+
+func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t *testing.T) {
+	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
+		AgentBlueprint: gact.AgentBlueprintDefinition{
+			ID: "workspace-blueprint", Title: "Workspace Blueprint", Scope: "workspace", Enabled: true,
+		},
+	})
+
+	if len(items) < 4 {
+		t.Fatalf("detail items len = %d, want activation, blueprint, update, delete", len(items))
+	}
+	if items[2].id != "blueprint-action/update" || items[2].disabled {
+		t.Fatalf("workspace blueprint update action should be enabled: %#v", items[2])
+	}
+	if items[3].id != "blueprint-action/delete" || items[3].disabled {
+		t.Fatalf("workspace blueprint delete action should be enabled: %#v", items[3])
+	}
+}

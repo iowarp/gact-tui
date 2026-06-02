@@ -26,12 +26,38 @@ func pickPort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+func testBinaryPath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
+func stableTestBinaryPath(t *testing.T, repoRoot, name string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	dir := filepath.Join(repoRoot, ".tools", "test-bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create test bin dir: %v", err)
+	}
+	return filepath.Join(dir, name)
+}
+
+func stopTestProcess(p *os.Process) {
+	if runtime.GOOS == "windows" {
+		_ = p.Kill()
+		return
+	}
+	_ = p.Signal(os.Interrupt)
+}
+
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..")
+	bin := stableTestBinaryPath(t, repoRoot, "emulator-server-tui-main")
 	build := exec.Command("go", "build", "-o", bin, "./emulator/cmd/emulator-server")
 	build.Dir = repoRoot
 	if out, err := build.CombinedOutput(); err != nil {
@@ -51,7 +77,7 @@ func startEmulator(t *testing.T) (string, func()) {
 		if err == nil && resp.StatusCode == 200 {
 			resp.Body.Close()
 			return url, func() {
-				_ = cmd.Process.Signal(os.Interrupt)
+				stopTestProcess(cmd.Process)
 				_ = cmd.Wait()
 			}
 		}
@@ -66,7 +92,7 @@ func startEmulator(t *testing.T) (string, func()) {
 func buildGact(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "gact")
+	bin := testBinaryPath(tmp, "gact")
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build gact: %v\n%s", err, out)
@@ -112,7 +138,7 @@ func runGactWithDuration(t *testing.T, bin string, env map[string]string, d time
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("gact start: %v", err)
 	}
-	timer := time.AfterFunc(d, func() { _ = cmd.Process.Signal(os.Interrupt) })
+	timer := time.AfterFunc(d, func() { stopTestProcess(cmd.Process) })
 	err := cmd.Wait()
 	timer.Stop()
 	exit := 0
@@ -1127,18 +1153,43 @@ func TestCLI_Hooks(t *testing.T) {
 	defer stop()
 	bin := buildGact(t)
 
-	// Drop a tiny shell script that captures stdin to a known file.
 	dir := t.TempDir()
 	captured := filepath.Join(dir, "hook-fired.json")
-	script := filepath.Join(dir, "hook.sh")
-	if err := os.WriteFile(script,
-		[]byte("#!/bin/bash\ncat > "+captured+"\n"), 0o755); err != nil {
+	hookCommand := filepath.Join(dir, "hook.sh")
+	if runtime.GOOS == "windows" {
+		src := filepath.Join(dir, "hook.go")
+		if err := os.WriteFile(src, []byte(fmt.Sprintf(`package main
+
+import (
+	"io"
+	"os"
+)
+
+func main() {
+	body, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		os.Exit(1)
+	}
+	if err := os.WriteFile(%q, body, 0o644); err != nil {
+		os.Exit(1)
+	}
+}
+`, captured)), 0o644); err != nil {
+			t.Fatalf("write hook helper source: %v", err)
+		}
+		hookCommand = testBinaryPath(dir, "hook")
+		build := exec.Command("go", "build", "-o", hookCommand, src)
+		if out, err := build.CombinedOutput(); err != nil {
+			t.Fatalf("build hook helper: %v\n%s", err, out)
+		}
+	} else if err := os.WriteFile(hookCommand,
+		[]byte("#!/bin/sh\ncat > "+captured+"\n"), 0o755); err != nil {
 		t.Fatalf("write hook script: %v", err)
 	}
 
 	// Register a hook on the `notification` event firing the script.
 	stdout, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"hooks", "add", "--event", "notification", "--command", script)
+		"hooks", "add", "--event", "notification", "--command", hookCommand)
 	if code != 0 {
 		t.Fatalf("hooks add: exit %d", code)
 	}
@@ -1150,7 +1201,7 @@ func TestCLI_Hooks(t *testing.T) {
 	// Listing must show the hook with our script as the target.
 	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"hooks", "list")
-	if code != 0 || !strings.Contains(stdout, hid) || !strings.Contains(stdout, script) {
+	if code != 0 || !strings.Contains(stdout, hid) || !strings.Contains(stdout, hookCommand) {
 		t.Fatalf("hooks list missing entry: code=%d out=%q", code, stdout)
 	}
 
@@ -4390,7 +4441,7 @@ func TestCLI_AgentDeployLifecycle(t *testing.T) {
 	bin := buildGact(t)
 
 	tmp := t.TempDir()
-	adapterBin := filepath.Join(tmp, "gact-claudecode-adapter")
+	adapterBin := testBinaryPath(tmp, "gact-claudecode-adapter")
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..")
 	build := exec.Command("go", "build", "-o", adapterBin,
@@ -4425,6 +4476,9 @@ func TestCLI_AgentDeployLifecycle(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "testagent\t") {
 		t.Errorf("list should include testagent row: %q", stdout)
+	}
+	if !strings.Contains(stdout, "started_at") {
+		t.Errorf("list should include started_at column: %q", stdout)
 	}
 	if !strings.Contains(stdout, "\tyes\t") {
 		t.Errorf("list should report alive=yes tsv: %q", stdout)
@@ -4489,6 +4543,9 @@ func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
 	if !strings.Contains(stdout, "testclio\tclio\t") {
 		t.Errorf("list should show 'testclio\\tclio\\t...' row: %q", stdout)
 	}
+	if !strings.Contains(stdout, "started_at") {
+		t.Errorf("list should include started_at column: %q", stdout)
+	}
 	if !strings.Contains(stdout, "\tyes\t") {
 		t.Errorf("list should report alive=yes after deploy: %q", stdout)
 	}
@@ -4499,6 +4556,54 @@ func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
 		t.Fatalf("agent stop: exit %d stderr=%q", code, stderr)
 	}
 	time.Sleep(500 * time.Millisecond)
+}
+
+func TestAgentDeployStartupTimeoutDefaults(t *testing.T) {
+	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "")
+	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
+		t.Fatalf("clio deploy startup timeout = %s, want 60s", got)
+	}
+	if got := defaultAgentDeployStartupTimeout("claudecode"); got != 3*time.Second {
+		t.Fatalf("claudecode deploy startup timeout = %s, want 3s", got)
+	}
+
+	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "25s")
+	if got := defaultAgentDeployStartupTimeout("clio"); got != 25*time.Second {
+		t.Fatalf("env deploy startup timeout = %s, want 25s", got)
+	}
+
+	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "not-a-duration")
+	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
+		t.Fatalf("invalid env deploy startup timeout = %s, want clio default 60s", got)
+	}
+}
+
+func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
+	tmp := t.TempDir()
+	scripts := filepath.Join(tmp, "Scripts")
+	if err := os.MkdirAll(scripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	console := filepath.Join(scripts, "clio-agent-gact.exe")
+	python := filepath.Join(scripts, "python.exe")
+	if err := os.WriteFile(console, []byte("stub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(python, []byte("python"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	gotBin, gotArgs, ok := clioPythonEntrypoint(console)
+	if !ok {
+		t.Fatal("expected venv python entrypoint")
+	}
+	if gotBin != python {
+		t.Fatalf("entrypoint bin = %q, want %q", gotBin, python)
+	}
+	if len(gotArgs) != 2 || gotArgs[0] != "-c" ||
+		!strings.Contains(gotArgs[1], "clio_agent.gact.app") {
+		t.Fatalf("entrypoint args = %#v", gotArgs)
+	}
 }
 
 func TestCLI_AttachPrintOnly_NoArgsReadsRegistry(t *testing.T) {

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestReconnectIndicator_HiddenWhenHealthy(t *testing.T) {
@@ -28,6 +30,30 @@ func TestReconnectIndicator_VisibleDuringBackoff(t *testing.T) {
 	got := a.renderFooter()
 	if !strings.Contains(got, "reconnecting") {
 		t.Errorf("mid-backoff past gate should show 'reconnecting' hint: %q", got)
+	}
+}
+
+func TestReconnectIndicator_VisibleBadgeIsClickable(t *testing.T) {
+	a := New("http://unused")
+	a.stage = StageReady
+	a.width, a.height = 120, 30
+	a.sseBackoffAttempts = 3
+	a.sseDownSince = time.Now().Add(-2 * time.Second)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "footer:reconnect")
+	if !ok {
+		t.Fatal("missing semantic reconnect footer target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("clicking reconnect badge should dispatch connect command")
 	}
 }
 

@@ -1,48 +1,150 @@
 package ui
 
-// modalWidth is the shared width (in display cells) for every
-// floating modal overlay. Keeping a single source of truth means the
-// box width DOESN'T shift between tab content changes (user called
-// that out explicitly in feedback L2 — the settings modal gets
-// narrower on the "Agent" tab vs the "Model" tab today).
-//
-// 72 is wide enough for every existing modal's contents without
-// wrapping at standard 80-col terminals, while still leaving ≥4
-// cells of base content visible on each side (so the floating-window
-// illusion is preserved).
-//
-// The a.width-8 clamp keeps small-terminal layouts from overflowing;
-// at a narrow terminal we give up 4 cells of margin and let the modal
-// take what's left.
-func (a *App) modalWidth() int {
-	w := 72
-	if w > a.width-8 {
-		w = a.width - 8
+import "strings"
+
+type modalWidthKind int
+
+const (
+	modalWidthStandard modalWidthKind = iota
+	modalWidthWide
+)
+
+func (a *App) modalWidthFor(kind modalWidthKind) int {
+	w := 96
+	minW := 20
+	gutter := 8
+	if kind == modalWidthWide {
+		w = 128
+		minW = 84
 	}
-	if w < 20 {
-		w = 20
+	if a.width <= 0 {
+		return w
+	}
+	if kind == modalWidthWide {
+		wide := a.width * 88 / 100
+		if wide < w {
+			w = wide
+		}
+	}
+	if w > a.width-gutter {
+		w = a.width - gutter
+	}
+	if w < minW {
+		if kind == modalWidthWide {
+			return a.modalWidthFor(modalWidthStandard)
+		}
+		w = minW
 	}
 	return w
 }
 
-// YYYYYYYYY1: detailModalWidth is a wider variant used by the floating
-// file-content detail view. User feedback: "when opening a file, the
-// window can overflow, and it is not wide enough for most lines".
-// The standard 72-col modal is fine for settings/help/palette (plain
-// text + key tables) but cramps source code where 100+ columns is
-// common.
-//
-// Target: 90% of terminal width, capped between 80 (minimum useful)
-// and 160 (anything wider and the reader's eyes stop tracking).
-// Falls back to modalWidth() on tiny terminals where 80 would exceed
-// the screen.
+// modalWidth is the shared width (in display cells) for floating
+// modal overlays. Keeping a single source of truth prevents the
+// settings/catalog/detail/provider windows from changing size as the
+// selected tab or drill-down content changes.
+func (a *App) modalWidth() int {
+	return a.modalWidthFor(modalWidthStandard)
+}
+
+func modalInnerWidth(width int) int {
+	inner := width - 4
+	if inner < 1 {
+		return 1
+	}
+	return inner
+}
+
+func modalInsetListWidth(width int) int {
+	listW := modalInnerWidth(width) - 4
+	if listW < 1 {
+		return modalInnerWidth(width)
+	}
+	return listW
+}
+
+func modalTextAreaWidth(width int) int {
+	return modalInnerWidth(width)
+}
+
+func modalBodyContentWidth(width int) int {
+	bodyW := width - 6
+	if bodyW < 1 {
+		return 1
+	}
+	return bodyW
+}
+
+func modalScrollableBodyWidth(width int) int {
+	return modalBodyContentWidth(width)
+}
+
+func modalScrollableContentWidth(width int) int {
+	contentW := modalScrollableBodyWidth(width) - 2
+	if contentW < 1 {
+		return 1
+	}
+	return contentW
+}
+
+// detailModalWidth intentionally aliases the shared modal width so
+// drill-down panes do not visually jump to a different chrome size.
 func (a *App) detailModalWidth() int {
-	w := a.width * 9 / 10
-	if w > 160 {
-		w = 160
+	return a.modalWidth()
+}
+
+func (a *App) wideModalWidth() int {
+	return a.modalWidth()
+}
+
+func modalOverlayTop(screenH, modalH int) int {
+	top := 3
+	if screenH <= 0 {
+		return 0
 	}
-	if w < 80 {
-		return a.modalWidth()
+	if modalH >= screenH {
+		return 0
 	}
-	return w
+	if top+modalH > screenH {
+		top = screenH - modalH
+	}
+	if top < 0 {
+		return 0
+	}
+	return top
+}
+
+func (a *App) modalBodyRows(chromeRows int) int {
+	rows := a.height - chromeRows
+	if rows < 4 {
+		return 4
+	}
+	return rows
+}
+
+func compactModalBodyRows(body string, maxRows int, minRows int) int {
+	if maxRows < 1 {
+		maxRows = 1
+	}
+	if minRows < 1 {
+		minRows = 1
+	}
+	if minRows > maxRows {
+		minRows = maxRows
+	}
+	rows := 1
+	if body != "" {
+		rows = strings.Count(body, "\n") + 1
+	}
+	return clampInt(rows, minRows, maxRows)
+}
+
+func padModalBody(body string, rows int) string {
+	if rows <= 0 {
+		return body
+	}
+	lines := strings.Split(body, "\n")
+	for len(lines) < rows {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }

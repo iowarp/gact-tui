@@ -1,5 +1,5 @@
 # CLIO-BBBBBBBBBB-D: TUI driving clio-agent-gact backed by real Claude
-# via Meridian. Haiku so it's cheap + fast — ~10s per turn.
+# (direct Anthropic API). Haiku so it's cheap + fast — ~10s per turn.
 
 Output "/tmp/gact-clio-claude.gif"
 

@@ -52,6 +52,48 @@ func TestProviders(t *testing.T) {
 	}
 }
 
+func TestLMProviderConfig(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/providers/lm", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get lm provider: %d", rec.Code)
+	}
+	var got struct {
+		Configured bool `json:"configured"`
+		Presets    []struct {
+			ID             string `json:"id"`
+			SuggestedModel string `json:"suggested_model"`
+		} `json:"presets"`
+	}
+	mustDecode(t, rec, &got)
+	if !got.Configured || len(got.Presets) < 3 || got.Presets[0].ID != "anthropic" {
+		t.Fatalf("unexpected lm provider info: %+v", got)
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/providers/lm", lmProviderRequest{
+		Provider: "local",
+		Model:    "llama3.3",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put lm provider: %d", rec.Code)
+	}
+	var updated lmProviderInfo
+	mustDecode(t, rec, &updated)
+	if updated.Provider != "local" || updated.Model != "llama3.3" {
+		t.Fatalf("updated provider = %s/%s", updated.Provider, updated.Model)
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/providers/lm", lmProviderRequest{
+		Provider: "local",
+		Model:    "missing",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad model should surface error, got %d", rec.Code)
+	}
+}
+
 // --- §6.6 Tools ------------------------------------------------------------
 
 func TestTools(t *testing.T) {
@@ -86,10 +128,21 @@ func TestAgents(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("get: %d", rec2.Code)
 	}
-	// Write API stubbed to 501.
-	rec3 := do(t, h, http.MethodPost, "/v1/agents", map[string]any{"id": "x"})
-	if rec3.Code != http.StatusNotImplemented {
-		t.Errorf("POST: %d, want 501", rec3.Code)
+	rec3 := do(t, h, http.MethodPost, "/v1/agents", map[string]any{"id": "x", "title": "X"})
+	if rec3.Code != http.StatusCreated {
+		t.Fatalf("POST: %d, want 201", rec3.Code)
+	}
+	rec4 := do(t, h, http.MethodPut, "/v1/agents/x", map[string]any{"title": "X2", "enabled": true})
+	if rec4.Code != http.StatusOK {
+		t.Fatalf("PUT: %d, want 200", rec4.Code)
+	}
+	rec5 := do(t, h, http.MethodPost, "/v1/agents/extract", map[string]any{"agent_id": "from-session", "session_ids": []string{"s1"}})
+	if rec5.Code != http.StatusCreated {
+		t.Fatalf("extract: %d, want 201", rec5.Code)
+	}
+	rec6 := do(t, h, http.MethodDelete, "/v1/agents/x", nil)
+	if rec6.Code != http.StatusNoContent {
+		t.Fatalf("DELETE: %d, want 204", rec6.Code)
 	}
 }
 

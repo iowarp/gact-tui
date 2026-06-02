@@ -84,6 +84,15 @@ func (a *App) cancelCompose() {
 	a.compose = nil
 }
 
+func (a *App) copyComposeToClipboard() tea.Cmd {
+	if a.compose == nil {
+		a.transientHint = "nothing to copy"
+		return nil
+	}
+	a.transientHint = copyTextToClipboard("compose draft", a.compose.ta.Value())
+	return nil
+}
+
 // handleComposeKey routes keypresses while the compose modal is open.
 // Returns a new model + command like every other modal handler.
 func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -108,6 +117,25 @@ func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
+func (a *App) moveComposeCursorByWheel(button tea.MouseButton) tea.Cmd {
+	if a.compose == nil {
+		a.composeOpen = false
+		return nil
+	}
+	a.compose.ta.Focus()
+	for i := 0; i < 3; i++ {
+		switch button {
+		case tea.MouseWheelUp:
+			a.compose.ta.CursorUp()
+		case tea.MouseWheelDown:
+			a.compose.ta.CursorDown()
+		default:
+			return nil
+		}
+	}
+	return nil
+}
+
 // viewCompose renders the compose modal: full-height-ish textarea
 // framed by a bordered box with a one-line hint bar. Sized to ~80% of
 // the app viewport so the surrounding base layout is still visible
@@ -119,15 +147,9 @@ func (a *App) viewCompose() string {
 		return ""
 	}
 
-	// Modal dimensions — keep at least 12 rows tall so the textarea is
-	// useful, and cap at 80% of viewport to leave visible gutters.
-	w := a.width * 4 / 5
-	if w < 60 {
-		w = 60
-	}
-	if w > a.width-6 {
-		w = a.width - 6
-	}
+	// Modal dimensions use the shared chrome width so expanded editor
+	// and provider setup windows do not jump horizontally.
+	w := a.wideModalWidth()
 	h := a.height * 4 / 5
 	if h < 14 {
 		h = 14
@@ -136,36 +158,65 @@ func (a *App) viewCompose() string {
 		h = a.height - 4
 	}
 
-	taH := h - 6 // header + hint + border padding
+	taH := h - 8 // shared frame title/footer + border padding
 	if taH < 6 {
 		taH = 6
 	}
-	a.compose.ta.SetWidth(w - 4)
+	textareaW := modalTextAreaWidth(w)
+	a.compose.ta.SetWidth(textareaW)
 	a.compose.ta.SetHeight(taH)
 
 	lines := strings.Count(a.compose.ta.Value(), "\n") + 1
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Compose") + "  " + t.HintLabel.Italic(true).
-		Render("("+itoa2(lines)+" lines)")
-	subtitle := t.HintLabel.Italic(true).Render(
-		"Long-form editor — pastes render expanded, newlines are literal. " +
-			"Ctrl+S commits to the input box; Esc cancels.")
+	title := "Compose (" + itoa2(lines) + " lines)"
+	footer := t.HintLabel.Render(
+		"Ctrl+S commit  Esc cancel  pastes render expanded; newlines are literal")
+	buttons := []menuButton{
+		{
+			id:    "compose:commit",
+			label: "commit",
+			action: func(app *App) tea.Cmd {
+				app.commitCompose()
+				return nil
+			},
+		},
+		{
+			id:    "compose:copy",
+			label: "copy",
+			action: func(app *App) tea.Cmd {
+				return app.copyComposeToClipboard()
+			},
+		},
+		{
+			id:    "compose:cancel",
+			label: "cancel",
+			action: func(app *App) tea.Cmd {
+				app.cancelCompose()
+				return nil
+			},
+		},
+	}
+	textareaView := a.compose.ta.View()
+	rows := []string{textareaView}
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	hint := t.HintLabel.Render("Ctrl+S  commit    Esc  cancel")
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, subtitle, "",
-		a.compose.ta.View(),
-		"", hint,
-	)
-
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+		width:   w,
+		title:   title,
+		buttons: buttons,
+		body:    body,
+		footer:  footer,
+	})
+	a.registerModalSurfaceWheel(rendered, "compose")
+	a.registerModalTextareaRegion(rendered.modal, rendered.bodyRow, 0, textareaW, taH, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
+		if app.compose == nil {
+			return
+		}
+		app.compose.ta.Focus()
+		setTextareaCursor(&app.compose.ta, line, col)
+	}, func(app *App, button tea.MouseButton) tea.Cmd {
+		return app.moveComposeCursorByWheel(button)
+	})
+	return rendered.modal
 }
 
 // composeSummary returns a short hint like "(compose open — 12 lines)"

@@ -6,20 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestE2E_SeedSessionsFlag(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
-	build := exec.Command("go", "build", "-o", bin, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	port := pickPort(t)
 	cmd := exec.Command(bin,
 		"-port", fmt.Sprintf("%d", port),
@@ -33,7 +26,7 @@ func TestE2E_SeedSessionsFlag(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 	defer func() {
-		_ = cmd.Process.Signal(os.Interrupt)
+		stopTestProcess(cmd.Process)
 		_ = cmd.Wait()
 	}()
 
@@ -89,12 +82,7 @@ func TestE2E_SeedSessionsFlag(t *testing.T) {
 }
 
 func TestE2E_SeedSessionsFlag_UnknownWorkspaceFailsBoot(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
-	build := exec.Command("go", "build", "-o", bin, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	port := pickPort(t)
 	// ws_missing is not seeded by --seed-workspaces, so CreateSession
 	// should fail with ErrInvalidArg and the binary should exit
@@ -115,12 +103,7 @@ func TestE2E_SeedSessionsFlag_UnknownWorkspaceFailsBoot(t *testing.T) {
 }
 
 func TestE2E_SeedSessionsFlag_BadSyntaxFailsBoot(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "emulator-server")
-	build := exec.Command("go", "build", "-o", bin, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	bin := buildStableEmulatorBinary(t)
 	port := pickPort(t)
 	cmd := exec.Command(bin,
 		"-port", fmt.Sprintf("%d", port),

@@ -93,10 +93,15 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	if resp.StatusCode >= 400 {
 		var e gact.Error
 		_ = json.NewDecoder(resp.Body).Decode(&e)
+		code := e.Error.Code
+		if code == "" {
+			code = e.Error.Error
+		}
 		return &Error{
 			Status:  resp.StatusCode,
-			Code:    e.Error.Code,
+			Code:    code,
 			Message: e.Error.Message,
+			Details: e.Error.Details,
 		}
 	}
 	if out != nil && resp.StatusCode != http.StatusNoContent {
@@ -112,10 +117,34 @@ type Error struct {
 	Status  int
 	Code    string
 	Message string
+	Details map[string]any
 }
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("gact: %d %s: %s", e.Status, e.Code, e.Message)
+}
+
+// RuntimeScope carries the currently selected CLIO workspace/session into
+// runtime catalogs. Empty fields are omitted so older backends keep working.
+type RuntimeScope struct {
+	WorkspaceID string
+	SessionID   string
+}
+
+func (s RuntimeScope) appendTo(q url.Values) {
+	if s.WorkspaceID != "" {
+		q.Set("workspace_id", s.WorkspaceID)
+	}
+	if s.SessionID != "" {
+		q.Set("session_id", s.SessionID)
+	}
+}
+
+func queryString(q url.Values) string {
+	if len(q) == 0 {
+		return ""
+	}
+	return "?" + q.Encode()
 }
 
 // --- §3 capabilities + health ----------------------------------------------
@@ -134,16 +163,74 @@ func (c *Client) Capabilities(ctx context.Context) (gact.Capabilities, error) {
 	return out, err
 }
 
+func (c *Client) CapabilityGaps(ctx context.Context) (map[string]gact.CapabilityGap, error) {
+	var out struct {
+		CapabilityGaps map[string]gact.CapabilityGap `json:"capability_gaps"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/capability-gaps", nil, &out)
+	return out.CapabilityGaps, err
+}
+
 // MemoryStats calls GET /v1/memory/stats (v0.2 §6.19 — CLIO-BBBBBBBBBB4).
 // sessionID is optional; pass "" for global-only stats. Backends without
 // capabilities.memory return 501 — the caller should gate on that flag.
 func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.MemoryStats, error) {
+	return c.MemoryStatsScoped(ctx, RuntimeScope{SessionID: sessionID})
+}
+
+func (c *Client) MemoryStatsScoped(ctx context.Context, scope RuntimeScope) (gact.MemoryStats, error) {
 	path := "/v1/memory/stats"
-	if sessionID != "" {
-		path += "?session_id=" + sessionID
-	}
+	q := url.Values{}
+	scope.appendTo(q)
+	path += queryString(q)
 	var out gact.MemoryStats
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
+type MemorySearchRequest struct {
+	Query               string
+	SessionID           string
+	WorkspaceID         string
+	IncludeCrossSession bool
+	Limit               int
+}
+
+func (c *Client) MemorySearch(ctx context.Context, req MemorySearchRequest) (gact.MemorySearchResponse, error) {
+	q := url.Values{}
+	q.Set("query", req.Query)
+	if req.SessionID != "" {
+		q.Set("session_id", req.SessionID)
+	}
+	if req.WorkspaceID != "" {
+		q.Set("workspace_id", req.WorkspaceID)
+	}
+	if req.IncludeCrossSession {
+		q.Set("include_cross_session", "true")
+	}
+	if req.Limit > 0 {
+		q.Set("limit", strconv.Itoa(req.Limit))
+	}
+	var out gact.MemorySearchResponse
+	err := c.do(ctx, http.MethodGet, "/v1/memory/search?"+q.Encode(), nil, &out)
+	return out, err
+}
+
+func (c *Client) MemoryToolSearchSessions(ctx context.Context, sessionID string, req gact.MemoryToolSearchSessionsRequest) (gact.MemoryToolSearchSessionsResponse, error) {
+	var out gact.MemoryToolSearchSessionsResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/search-sessions", req, &out)
+	return out, err
+}
+
+func (c *Client) MemoryToolReadSessionSummary(ctx context.Context, sessionID string, req gact.MemoryToolReadSessionSummaryRequest) (gact.MemoryToolReadSessionSummaryResponse, error) {
+	var out gact.MemoryToolReadSessionSummaryResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-session-summary", req, &out)
+	return out, err
+}
+
+func (c *Client) MemoryToolReadContextFrame(ctx context.Context, sessionID string, req gact.MemoryToolReadContextFrameRequest) (gact.MemoryToolReadContextFrameResponse, error) {
+	var out gact.MemoryToolReadContextFrameResponse
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-context-frame", req, &out)
 	return out, err
 }
 
@@ -230,6 +317,10 @@ func (c *Client) CancelSession(ctx context.Context, id string) error {
 type PostMessageRequest struct {
 	Parts []gact.Part    `json:"parts"`
 	Model *gact.ModelRef `json:"model,omitempty"`
+	// AgentID is CLIO's one-turn agent override. It must not mutate the
+	// session default agent; the backend records requested/effective agent
+	// provenance on the resulting turn.
+	AgentID string `json:"agent_id,omitempty"`
 }
 
 // PostMessageResponse mirrors the server type.
@@ -275,6 +366,46 @@ func (c *Client) PostMessage(ctx context.Context, sessionID string, req PostMess
 	return out, err
 }
 
+type ContextFramesResponse struct {
+	Frames []map[string]any `json:"frames"`
+}
+
+func (c *Client) ListContextFrames(ctx context.Context, sessionID string, limit int) (ContextFramesResponse, error) {
+	return c.ListContextFramesScoped(ctx, RuntimeScope{SessionID: sessionID}, limit)
+}
+
+func (c *Client) ListContextFramesScoped(ctx context.Context, scope RuntimeScope, limit int) (ContextFramesResponse, error) {
+	var out ContextFramesResponse
+	path := "/v1/sessions/" + url.PathEscape(scope.SessionID) + "/context/frames"
+	q := url.Values{}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	path += queryString(q)
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
+func (c *Client) GetContextFrame(ctx context.Context, sessionID, frameID string) (map[string]any, error) {
+	return c.GetContextFrameScoped(ctx, RuntimeScope{SessionID: sessionID}, frameID)
+}
+
+func (c *Client) GetContextFrameScoped(ctx context.Context, scope RuntimeScope, frameID string) (map[string]any, error) {
+	var out struct {
+		Frame map[string]any `json:"frame"`
+	}
+	path := "/v1/sessions/" + url.PathEscape(scope.SessionID) + "/context/frames/" + url.PathEscape(frameID)
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, path+queryString(q), nil, &out)
+	return out.Frame, err
+}
+
 // SearchMatch mirrors SPEC §6.3 — one hit from /messages/search.
 type SearchMatch struct {
 	MessageID string  `json:"message_id"`
@@ -286,12 +417,16 @@ type SearchMatch struct {
 // SearchMessages issues GET /v1/sessions/{id}/messages/search?q=...
 // and returns the matches in score order. Empty query returns no
 // matches — callers should validate that before dispatching.
-// DeleteMessage issues DELETE /v1/messages/{id}. The SSE stream
-// doesn't emit a dedicated message.deleted event in v0.1 so callers
-// that care about UI follow-up should drop the local entry
-// optimistically after a successful call.
-func (c *Client) DeleteMessage(ctx context.Context, messageID string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/messages/"+messageID, nil, nil)
+// DeleteMessage issues DELETE /v1/sessions/{sid}/messages/{id}. If
+// sessionID is empty it falls back to the legacy global route for older
+// backends. Callers that care about immediate UI follow-up can still drop
+// the local entry optimistically after a successful call.
+func (c *Client) DeleteMessage(ctx context.Context, sessionID, messageID string) error {
+	if sessionID == "" {
+		return c.do(ctx, http.MethodDelete, "/v1/messages/"+url.PathEscape(messageID), nil, nil)
+	}
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/messages/" + url.PathEscape(messageID)
+	return c.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([]SearchMatch, error) {
@@ -308,10 +443,16 @@ func (c *Client) SearchMessages(ctx context.Context, sessionID, query string) ([
 // --- §6.5 agents -----------------------------------------------------------
 
 func (c *Client) ListAgents(ctx context.Context) ([]gact.AgentDef, error) {
+	return c.ListAgentsScoped(ctx, RuntimeScope{})
+}
+
+func (c *Client) ListAgentsScoped(ctx context.Context, scope RuntimeScope) ([]gact.AgentDef, error) {
 	var out struct {
 		Agents []gact.AgentDef `json:"agents"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/agents", nil, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/agents"+queryString(q), nil, &out)
 	return out.Agents, err
 }
 
@@ -370,13 +511,19 @@ func (c *Client) ListProviders(ctx context.Context) ([]gact.Provider, error) {
 // LMProviderPreset is a row in CLIO's provider picker. “RequiresAPIKey“
 // tells the TUI's modal whether to render the api_key field.
 type LMProviderPreset struct {
-	ID             string `json:"id"`
-	Label          string `json:"label"`
-	Provider       string `json:"provider"`
-	APIBase        string `json:"api_base"`
-	SuggestedModel string `json:"suggested_model"`
-	RequiresAPIKey bool   `json:"requires_api_key"`
-	Description    string `json:"description"`
+	ID                  string `json:"id"`
+	Label               string `json:"label"`
+	Provider            string `json:"provider"`
+	APIBase             string `json:"api_base"`
+	SuggestedModel      string `json:"suggested_model"`
+	RequiresAPIKey      bool   `json:"requires_api_key"`
+	APIKeyEnv           string `json:"api_key_env,omitempty"`
+	AuthMethod          string `json:"auth_method,omitempty"`
+	IsAuthenticated     bool   `json:"is_authenticated,omitempty"`
+	Description         string `json:"description"`
+	Status              string `json:"status,omitempty"`
+	StatusMessage       string `json:"status_message,omitempty"`
+	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
 }
 
 // LMProviderInfo is the GET /v1/providers/lm body — current LM
@@ -390,7 +537,12 @@ type LMProviderInfo struct {
 	Model          string             `json:"model,omitempty"`
 	Temperature    float64            `json:"temperature,omitempty"`
 	MaxTokens      int                `json:"max_tokens,omitempty"`
+	ContextLength  int                `json:"context_length,omitempty"`
 	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	State          string             `json:"state,omitempty"`
+	StatusMessage  string             `json:"status_message,omitempty"`
+	Error          string             `json:"error,omitempty"`
+	OperationID    string             `json:"operation_id,omitempty"`
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 
@@ -411,6 +563,7 @@ type LMProviderRequest struct {
 	APIKey         string  `json:"api_key"`
 	Temperature    float64 `json:"temperature,omitempty"`
 	MaxTokens      int     `json:"max_tokens,omitempty"`
+	ContextLength  int     `json:"context_length,omitempty"`
 	ThinkingBudget int     `json:"thinking_budget,omitempty"`
 }
 
@@ -450,7 +603,7 @@ func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]g
 }
 
 // ProviderModelsResponse is the full /v1/providers/{id}/models body —
-// includes Source ("live"/"static_fallback") and a human-readable
+// includes Source ("live"/"static_catalog"/"unavailable") and a human-readable
 // Error string when the backend fell back. Lets the TUI render an
 // actionable banner ("token expired, run …") instead of silently
 // pretending a stale catalog is the truth.
@@ -464,9 +617,19 @@ type ProviderModelsResponse struct {
 // can surface fallback warnings. Newer call sites should prefer this
 // over ListProviderModels (which discards the source/error fields
 // for backward compat).
-func (c *Client) ListProviderModelsDetailed(ctx context.Context, providerID string) (ProviderModelsResponse, error) {
+func (c *Client) ListProviderModelsDetailed(
+	ctx context.Context,
+	providerID string,
+	apiBaseOverride string,
+) (ProviderModelsResponse, error) {
 	var out ProviderModelsResponse
-	err := c.do(ctx, http.MethodGet, "/v1/providers/"+providerID+"/models", nil, &out)
+	path := "/v1/providers/" + providerID + "/models"
+	if strings.TrimSpace(apiBaseOverride) != "" {
+		q := url.Values{}
+		q.Set("api_base", apiBaseOverride)
+		path += "?" + q.Encode()
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
 }
 
@@ -505,12 +668,247 @@ func (c *Client) AuthProvider(
 
 // --- §6.13 commands --------------------------------------------------------
 
+type CommandFilter struct {
+	RuntimeScope
+	AgentID string
+	Planner bool
+}
+
 func (c *Client) ListCommands(ctx context.Context) ([]gact.Command, error) {
+	return c.ListCommandsScoped(ctx, CommandFilter{})
+}
+
+func (c *Client) ListCommandsScoped(ctx context.Context, filter CommandFilter) ([]gact.Command, error) {
 	var out struct {
 		Commands []gact.Command `json:"commands"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/commands", nil, &out)
+	q := url.Values{}
+	filter.RuntimeScope.appendTo(q)
+	if filter.AgentID != "" {
+		q.Set("agent_id", filter.AgentID)
+	}
+	if filter.Planner {
+		q.Set("planner", "true")
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/commands"+queryString(q), nil, &out)
 	return out.Commands, err
+}
+
+// ListPrompts fetches CLIO prompt registry definitions. Backends advertise
+// this vendor surface with capabilities.x_clio_prompt_registry.
+func (c *Client) ListPrompts(ctx context.Context) ([]gact.PromptDefinition, error) {
+	return c.ListPromptsScoped(ctx, RuntimeScope{})
+}
+
+func (c *Client) ListPromptsScoped(ctx context.Context, scope RuntimeScope) ([]gact.PromptDefinition, error) {
+	var out struct {
+		Prompts []gact.PromptDefinition `json:"prompts"`
+	}
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/prompts"+queryString(q), nil, &out)
+	return out.Prompts, err
+}
+
+// GetPrompt resolves one prompt/profile to the effective text and provenance.
+func (c *Client) GetPrompt(ctx context.Context, promptID, profile string) (gact.ResolvedPrompt, error) {
+	return c.GetPromptScoped(ctx, promptID, profile, RuntimeScope{})
+}
+
+func (c *Client) GetPromptScoped(ctx context.Context, promptID, profile string, scope RuntimeScope) (gact.ResolvedPrompt, error) {
+	path := "/v1/prompts/" + url.PathEscape(promptID)
+	q := url.Values{}
+	if profile != "" {
+		q.Set("profile", profile)
+	}
+	scope.appendTo(q)
+	path += queryString(q)
+	var out struct {
+		Prompt gact.ResolvedPrompt `json:"prompt"`
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out.Prompt, err
+}
+
+// SavePrompt writes a profile override through the CLIO prompt registry.
+func (c *Client) SavePrompt(ctx context.Context, promptID string, req gact.PromptSaveRequest) (gact.PromptDefinition, error) {
+	return c.SavePromptScoped(ctx, promptID, req, RuntimeScope{})
+}
+
+func (c *Client) SavePromptScoped(ctx context.Context, promptID string, req gact.PromptSaveRequest, scope RuntimeScope) (gact.PromptDefinition, error) {
+	var out struct {
+		Prompt gact.PromptDefinition `json:"prompt"`
+	}
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodPut, "/v1/prompts/"+url.PathEscape(promptID)+queryString(q), req, &out)
+	return out.Prompt, err
+}
+
+func (c *Client) RenderPrompt(ctx context.Context, promptID string, req gact.PromptRenderRequest) (gact.ResolvedPrompt, error) {
+	var out struct {
+		Prompt gact.ResolvedPrompt `json:"prompt"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/"+url.PathEscape(promptID)+"/render", req, &out)
+	return out.Prompt, err
+}
+
+func (c *Client) RenderPromptScoped(ctx context.Context, promptID, profile string, scope RuntimeScope) (gact.ResolvedPrompt, error) {
+	return c.RenderPrompt(ctx, promptID, gact.PromptRenderRequest{
+		Profile:     profile,
+		SessionID:   scope.SessionID,
+		WorkspaceID: scope.WorkspaceID,
+	})
+}
+
+func (c *Client) ValidatePrompt(ctx context.Context, promptID string, req gact.PromptValidateRequest) (gact.PromptValidationResult, error) {
+	var out gact.PromptValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/"+url.PathEscape(promptID)+"/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) ValidatePromptScoped(ctx context.Context, promptID, profile, text string, scope RuntimeScope) (gact.PromptValidationResult, error) {
+	return c.ValidatePrompt(ctx, promptID, gact.PromptValidateRequest{
+		Profile:     profile,
+		Text:        text,
+		SessionID:   scope.SessionID,
+		WorkspaceID: scope.WorkspaceID,
+	})
+}
+
+func (c *Client) ReloadPrompts(ctx context.Context, scope RuntimeScope) (gact.PromptReloadResult, error) {
+	var out struct {
+		Reload gact.PromptReloadResult `json:"reload"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/prompts/reload", map[string]any{
+		"session_id":   scope.SessionID,
+		"workspace_id": scope.WorkspaceID,
+	}, &out)
+	return out.Reload, err
+}
+
+func (c *Client) ListExpertPacks(ctx context.Context, scope RuntimeScope) ([]gact.ExpertPackDefinition, error) {
+	var out struct {
+		ExpertPacks []gact.ExpertPackDefinition `json:"expert_packs"`
+	}
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/expert-packs"+queryString(q), nil, &out)
+	return out.ExpertPacks, err
+}
+
+func (c *Client) GetExpertPack(ctx context.Context, packID string, scope RuntimeScope) (gact.ExpertPackDetail, error) {
+	var out gact.ExpertPackDetail
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/expert-packs/"+url.PathEscape(packID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) ValidateExpertPack(ctx context.Context, req gact.ExpertPackValidateRequest) (gact.ExpertPackValidationResult, error) {
+	var out gact.ExpertPackValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionExpertPack(ctx context.Context, sessionID string) (gact.SessionExpertPackState, error) {
+	var out gact.SessionExpertPackState
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/expert-pack", nil, &out)
+	return out, err
+}
+
+func (c *Client) SetSessionExpertPack(ctx context.Context, sessionID string, req gact.SetSessionExpertPackRequest) (gact.SessionExpertPackState, error) {
+	var out gact.SessionExpertPackState
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/expert-pack", req, &out)
+	return out, err
+}
+
+func (c *Client) ListAgentBlueprints(ctx context.Context, scope RuntimeScope) ([]gact.AgentBlueprintDefinition, error) {
+	var out struct {
+		AgentBlueprints []gact.AgentBlueprintDefinition `json:"agent_blueprints"`
+	}
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agent-blueprints"+queryString(q), nil, &out)
+	return out.AgentBlueprints, err
+}
+
+func (c *Client) GetAgentBlueprint(ctx context.Context, blueprintID string, scope RuntimeScope) (gact.AgentBlueprintDetail, error) {
+	var out gact.AgentBlueprintDetail
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) ValidateAgentBlueprint(ctx context.Context, req gact.AgentBlueprintValidateRequest) (gact.AgentBlueprintValidationResult, error) {
+	var out gact.AgentBlueprintValidationResult
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/validate", req, &out)
+	return out, err
+}
+
+func (c *Client) InstallAgentBlueprint(ctx context.Context, req gact.AgentBlueprintInstallRequest) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/install", req, &out)
+	return out, err
+}
+
+func (c *Client) UpdateAgentBlueprint(ctx context.Context, blueprintID string, req gact.AgentBlueprintUpdateRequest) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+"/update", req, &out)
+	return out, err
+}
+
+func (c *Client) DeleteAgentBlueprint(ctx context.Context, blueprintID, scope, workspaceID string) (map[string]any, error) {
+	var out map[string]any
+	q := url.Values{}
+	if scope != "" {
+		q.Set("scope", scope)
+	}
+	if workspaceID != "" {
+		q.Set("workspace_id", workspaceID)
+	}
+	err := c.do(ctx, http.MethodDelete, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) EnableAgentBlueprintMCP(ctx context.Context, blueprintID, descriptorID string, req gact.AgentBlueprintMCPEnableRequest) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/mcp/" + url.PathEscape(descriptorID) + "/enable"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionAgentBlueprint(ctx context.Context, sessionID string) (gact.SessionAgentBlueprintState, error) {
+	var out gact.SessionAgentBlueprintState
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", nil, &out)
+	return out, err
+}
+
+func (c *Client) SetSessionAgentBlueprint(ctx context.Context, sessionID string, req gact.SetSessionAgentBlueprintRequest) (gact.SessionAgentBlueprintState, error) {
+	var out gact.SessionAgentBlueprintState
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", req, &out)
+	return out, err
+}
+
+func (c *Client) GetSessionAgentOverlay(ctx context.Context, sessionID string) (gact.SessionAgentOverlayResponse, error) {
+	var out gact.SessionAgentOverlayResponse
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-overlay", nil, &out)
+	return out, err
+}
+
+func (c *Client) PutSessionAgentOverlay(ctx context.Context, sessionID string, overlay map[string]any) (gact.SessionAgentOverlayResponse, error) {
+	var out gact.SessionAgentOverlayResponse
+	err := c.do(ctx, http.MethodPut, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-overlay", overlay, &out)
+	return out, err
 }
 
 // RunCommand triggers POST /v1/sessions/{id}/commands/{cmd_id}.
@@ -587,8 +985,36 @@ func (c *Client) ListWorkspaceFiles(ctx context.Context, workspaceID string) ([]
 // system_prompt and parameters) via /v1/agents/{id}. Used by
 // `gact agent show` for shell scripting symmetric to `gact tool show`.
 func (c *Client) GetAgent(ctx context.Context, id string) (gact.AgentDef, error) {
+	return c.GetAgentScoped(ctx, id, RuntimeScope{})
+}
+
+func (c *Client) GetAgentScoped(ctx context.Context, id string, scope RuntimeScope) (gact.AgentDef, error) {
 	var out gact.AgentDef
-	err := c.do(ctx, http.MethodGet, "/v1/agents/"+id, nil, &out)
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/agents/"+url.PathEscape(id)+queryString(q), nil, &out)
+	return out, err
+}
+
+func (c *Client) CreateAgent(ctx context.Context, agent gact.AgentDef) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPost, "/v1/agents", agent, &out)
+	return out, err
+}
+
+func (c *Client) UpdateAgent(ctx context.Context, agentID string, agent gact.AgentDef) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPut, "/v1/agents/"+url.PathEscape(agentID), agent, &out)
+	return out, err
+}
+
+func (c *Client) DeleteAgent(ctx context.Context, agentID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/agents/"+url.PathEscape(agentID), nil, nil)
+}
+
+func (c *Client) ExtractAgent(ctx context.Context, req gact.AgentExtractRequest) (gact.AgentDef, error) {
+	var out gact.AgentDef
+	err := c.do(ctx, http.MethodPost, "/v1/agents/extract", req, &out)
 	return out, err
 }
 
@@ -893,6 +1319,78 @@ func (c *Client) PatchTask(ctx context.Context, taskID string, patch gact.Sessio
 // DeleteTask removes a task by id.
 func (c *Client) DeleteTask(ctx context.Context, taskID string) error {
 	return c.do(ctx, http.MethodDelete, "/v1/tasks/"+taskID, nil, nil)
+}
+
+// --- Agent questions and retries ------------------------------------------
+
+func (c *Client) ListPendingQuestions(ctx context.Context, sessionID string) ([]gact.AgentQuestion, error) {
+	var out struct {
+		Questions []gact.AgentQuestion `json:"questions"`
+	}
+	q := url.Values{}
+	q.Set("status", "pending")
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/questions?"+q.Encode(), nil, &out)
+	return out.Questions, err
+}
+
+func (c *Client) CreateUserQuestion(
+	ctx context.Context,
+	sessionID string,
+	req gact.CreateUserQuestionRequest,
+) (gact.UserQuestion, error) {
+	var out gact.UserQuestion
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) AnswerUserQuestion(
+	ctx context.Context,
+	sessionID string,
+	questionID string,
+	req gact.AnswerUserQuestionRequest,
+) (gact.UserQuestion, error) {
+	var out gact.UserQuestion
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions/" + url.PathEscape(questionID) + "/answer"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) CancelUserQuestion(ctx context.Context, sessionID, questionID string) (gact.UserQuestion, error) {
+	var out gact.UserQuestion
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/questions/" + url.PathEscape(questionID) + "/cancel"
+	err := c.do(ctx, http.MethodPost, path, nil, &out)
+	return out, err
+}
+
+func (c *Client) AnswerQuestion(
+	ctx context.Context,
+	sessionID string,
+	questionID string,
+	req gact.AgentQuestionAnswerRequest,
+) error {
+	_, err := c.AnswerUserQuestion(ctx, sessionID, questionID, req)
+	return err
+}
+
+func (c *Client) ListTurnAttempts(ctx context.Context, sessionID string) ([]gact.TurnAttempt, error) {
+	var out struct {
+		Attempts []gact.TurnAttempt `json:"attempts"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/attempts", nil, &out)
+	return out.Attempts, err
+}
+
+func (c *Client) RetryMessage(
+	ctx context.Context,
+	sessionID string,
+	messageID string,
+	req gact.RetryRequest,
+) (gact.TurnAttempt, error) {
+	var out gact.TurnAttempt
+	path := "/v1/sessions/" + url.PathEscape(sessionID) + "/messages/" + url.PathEscape(messageID) + "/retry"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
 }
 
 // --- §6.11 policies (MMM4) -------------------------------------------------

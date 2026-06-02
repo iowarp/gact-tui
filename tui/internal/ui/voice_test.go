@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -16,7 +17,11 @@ func TestCaptureVoice_EmptyCmdReturnsPlaceholder(t *testing.T) {
 }
 
 func TestCaptureVoice_SuccessfulShellCmd(t *testing.T) {
-	got, err := captureVoice(`printf 'RIFF$\x00\x00\x00WAVEfake'`)
+	cmd := `printf 'RIFF$\x00\x00\x00WAVEfake'`
+	if runtime.GOOS == "windows" {
+		cmd = "echo RIFF-WAVEfake"
+	}
+	got, err := captureVoice(cmd)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -26,7 +31,11 @@ func TestCaptureVoice_SuccessfulShellCmd(t *testing.T) {
 }
 
 func TestCaptureVoice_NonZeroExitSurfaceStderr(t *testing.T) {
-	_, err := captureVoice(`echo "boom" >&2; exit 7`)
+	cmd := `echo "boom" >&2; exit 7`
+	if runtime.GOOS == "windows" {
+		cmd = "echo boom 1>&2 && exit /b 7"
+	}
+	_, err := captureVoice(cmd)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -36,7 +45,11 @@ func TestCaptureVoice_NonZeroExitSurfaceStderr(t *testing.T) {
 }
 
 func TestCaptureVoice_EmptyOutputIsError(t *testing.T) {
-	_, err := captureVoice("true")
+	cmd := "true"
+	if runtime.GOOS == "windows" {
+		cmd = "cd ."
+	}
+	_, err := captureVoice(cmd)
 	if err == nil {
 		t.Fatal("expected error on empty audio")
 	}

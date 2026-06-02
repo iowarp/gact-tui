@@ -16,8 +16,8 @@ func TestRender_RoutingDecision_ShapedCorrectly(t *testing.T) {
 	out := DefaultTheme().renderPart(p, 80)
 	plain := stripANSI(out)
 
-	if !strings.Contains(plain, "▸ data_expert") {
-		t.Errorf("expected `▸ data_expert` badge; got:\n%s", plain)
+	if !strings.Contains(plain, "▸ orchestrator -> data_expert") {
+		t.Errorf("expected route-chain badge; got:\n%s", plain)
 	}
 	if !strings.Contains(plain, "heuristic") {
 		t.Errorf("heuristic=true should render the 'heuristic' tag; got:\n%s", plain)

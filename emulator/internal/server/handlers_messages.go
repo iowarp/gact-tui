@@ -13,8 +13,9 @@ import (
 
 // PostMessageRequest is the body for POST /v1/sessions/{id}/messages (SPEC §6.3).
 type PostMessageRequest struct {
-	Parts []gact.Part    `json:"parts"`
-	Model *gact.ModelRef `json:"model,omitempty"`
+	Parts   []gact.Part    `json:"parts"`
+	Model   *gact.ModelRef `json:"model,omitempty"`
+	AgentID string         `json:"agent_id,omitempty"`
 }
 
 // PostMessageResponse is the body returned from a 202-accepted POST.
@@ -86,11 +87,17 @@ func (s *Server) handlePostMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
+	metadata := map[string]any{}
+	if agentID := strings.TrimSpace(req.AgentID); agentID != "" {
+		metadata["requested_agent_id"] = agentID
+		metadata["effective_agent_id"] = agentID
+	}
 	user, err := s.store.AppendMessage(gact.Message{
 		SessionID: sid,
 		Role:      gact.RoleUser,
 		Parts:     req.Parts,
 		Model:     req.Model,
+		Metadata:  metadata,
 	})
 	if err != nil {
 		writeStoreError(w, err, "session_not_found", "invalid_session")

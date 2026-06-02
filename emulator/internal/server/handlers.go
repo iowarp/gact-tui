@@ -123,15 +123,18 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			EditModes:         false,
 			PlanMode:          false,
 			SearchMessages:    true,
-			AgentWrite:        false,
-			SkillsExtraction:  false,
+			AgentWrite:        true,
+			SkillsExtraction:  true,
 
 			// v0.2 additions — SPEC §3.2.1
-			AgentRouting:      true,
-			Memory:            true,
-			StructuredErrors:  true,
-			IntegrationHealth: true,
-			ToolTelemetry:     true,
+			AgentRouting:         true,
+			Memory:               true,
+			StructuredErrors:     true,
+			IntegrationHealth:    true,
+			ToolTelemetry:        true,
+			XClioPromptRegistry:  true,
+			XClioExpertPacks:     true,
+			XClioAgentBlueprints: true,
 		},
 		Transports: gact.TransportFlags{
 			EventsSSE:       true,
@@ -143,4 +146,24 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		},
 		Extensions: []gact.Extension{},
 	})
+}
+
+func (s *Server) handleCapabilityGaps(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"capability_gaps": map[string]gact.CapabilityGap{
+		"lsp": {
+			Status:           "unsupported",
+			Advertised:       false,
+			ClientBehavior:   "hide_or_disable_lsp_controls",
+			RelatedEndpoints: []string{"/v1/lsp/*"},
+			RecoveryActions:  []string{"use_files_and_diffs", "hide_or_disable_lsp_controls"},
+		},
+		"optimizer_command": {
+			Status:          "unavailable",
+			Advertised:      true,
+			Category:        "deferred_command",
+			ClientBehavior:  "render_disabled",
+			RelatedCommands: []string{"/optimize"},
+			RecoveryActions: []string{"render_optimize_disabled", "retry_after_optimizer_support_lands"},
+		},
+	}})
 }

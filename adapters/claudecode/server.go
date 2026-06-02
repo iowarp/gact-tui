@@ -101,6 +101,23 @@ func New(cwd, bin string) *Server {
 
 func (s *Server) Handler() http.Handler { return s.mux }
 
+// Close releases subprocesses owned by active sessions.
+func (s *Server) Close() {
+	s.mu.Lock()
+	sessions := make([]*sessionState, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		sessions = append(sessions, sess)
+	}
+	s.sessions = make(map[string]*sessionState)
+	s.mu.Unlock()
+
+	for _, sess := range sessions {
+		if sess.proc != nil {
+			sess.proc.close()
+		}
+	}
+}
+
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/capabilities", s.handleCapabilities)

@@ -1,19 +1,16 @@
 // At-sign (@) file picker (M6). Typing `@` as the first character of a
 // new word in the input opens a floating fuzzy-file picker scoped to the
-// current workspace. Selecting a file:
-//
-//  1. Inserts `@path/to/file` into the input at the cursor position.
-//  2. Attaches the file to the session's context via POST
-//     /v1/sessions/{id}/context/files (mode=read) so the backend sees
-//     it as extra context on the next send. Same plumbing as the K14
-//     sidebar `o` key, reached from the input side.
+// current workspace. Selecting a file inserts a visible `@path/to/file`
+// mention and records a structured composer attachment. The attachment
+// is posted before the message is sent so failures can keep the draft
+// editable instead of creating a failed turn with a raw @path.
 //
 // Design:
 //   - Fuzzy matching is simple case-insensitive substring scoring. Good
 //     enough for the sizes we're dealing with (workspace listings are
 //     typically hundreds of entries, not thousands) and debuggable.
-//   - Files only — directories are skipped. The @-syntax refers to
-//     concrete files; directories confuse the context-attach semantics.
+//   - Tree mode shows directories for browsing, but inserting still only
+//     selects concrete files.
 //   - The picker modal sits above the input and uses the same centred
 //     spliceRow overlay as every other modal so the base view stays
 //     visible behind the gutter.
@@ -21,6 +18,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -34,36 +32,43 @@ import (
 
 // filePickerState holds the live state of the @-picker modal.
 type filePickerState struct {
-	entries []gact.FileEntry // all file entries from the workspace (dirs filtered out)
-	filter  string           // user-typed filter; empty = show all
-	sel     int              // index into the filtered slice
-	loaded  bool             // true once entries have been fetched
+	entries      []gact.FileEntry // workspace-rooted file/dir entries
+	filter       string           // user-typed filter; empty = tree/list browse
+	sel          int              // index into active filtered/tree slice
+	loaded       bool             // true once entries have been fetched
+	errText      string           // non-empty when the workspace file fetch failed
+	treeMode     bool             // true = structural tree browse, false = flat list
+	treeExpanded map[string]bool  // expanded directory paths in tree mode
+}
+
+type composerFileMention struct {
+	Path string
+	Mode string
+}
+
+type filePickerTreeRow struct {
+	entry gact.FileEntry
+	depth int
 }
 
 // filePickerLoadedMsg delivers the initial fetch result.
 type filePickerLoadedMsg struct {
 	entries []gact.FileEntry
+	err     error
 }
 
 // loadFilePickerCmd hits /v1/workspaces/{id}/files and converts the
-// response into a filePickerLoadedMsg. Filters out directories so the
-// picker only deals with pickable files.
+// response into a filePickerLoadedMsg. Tree browsing keeps directories
+// visible, while insertion paths still ignore them.
 func loadFilePickerCmd(c *client.Client, workspaceID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		entries, err := c.ListWorkspaceFiles(ctx, workspaceID)
 		if err != nil {
-			return errMsg{err: err, stage: "file-picker"}
+			return filePickerLoadedMsg{err: err}
 		}
-		out := entries[:0:0]
-		for _, e := range entries {
-			if e.Type == "dir" {
-				continue
-			}
-			out = append(out, e)
-		}
-		return filePickerLoadedMsg{entries: out}
+		return filePickerLoadedMsg{entries: entries}
 	}
 }
 
@@ -72,8 +77,10 @@ func loadFilePickerCmd(c *client.Client, workspaceID string) tea.Cmd {
 // filter state is preserved across the load.
 func (a *App) openFilePicker() tea.Cmd {
 	a.filePickerOpen = true
-	a.filePicker = &filePickerState{}
+	a.filePicker = &filePickerState{treeMode: true, treeExpanded: map[string]bool{}}
 	if a.wsID == "" {
+		a.filePicker.loaded = true
+		a.filePicker.errText = "no workspace selected"
 		return nil
 	}
 	return loadFilePickerCmd(a.c, a.wsID)
@@ -84,6 +91,102 @@ func (a *App) openFilePicker() tea.Cmd {
 func (a *App) closeFilePicker() {
 	a.filePickerOpen = false
 	a.filePicker = nil
+}
+
+func cloneComposerFileMentions(in []composerFileMention) []composerFileMention {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]composerFileMention, len(in))
+	copy(out, in)
+	return out
+}
+
+func (a *App) addComposerFileMention(path, mode string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	if mode == "" {
+		mode = "read"
+	}
+	for i := range a.fileMentions {
+		if a.fileMentions[i].Path == path {
+			a.fileMentions[i].Mode = mode
+			return
+		}
+	}
+	a.fileMentions = append(a.fileMentions, composerFileMention{Path: path, Mode: mode})
+}
+
+func sanitizeSelectedFileMentions(text string, mentions []composerFileMention) string {
+	if text == "" || len(mentions) == 0 {
+		return text
+	}
+	ordered := cloneComposerFileMentions(mentions)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return len(ordered[i].Path) > len(ordered[j].Path)
+	})
+	out := text
+	for _, mention := range ordered {
+		path := strings.TrimSpace(mention.Path)
+		if path == "" {
+			continue
+		}
+		out = strings.ReplaceAll(out, "@"+path, path)
+	}
+	return strings.TrimSpace(out)
+}
+
+func activeComposerFileMentions(text string, mentions []composerFileMention) []composerFileMention {
+	if strings.TrimSpace(text) == "" || len(mentions) == 0 {
+		return nil
+	}
+	out := make([]composerFileMention, 0, len(mentions))
+	seen := map[string]bool{}
+	for _, mention := range mentions {
+		path := strings.TrimSpace(mention.Path)
+		if path == "" || seen[path] || !strings.Contains(text, "@"+path) {
+			continue
+		}
+		seen[path] = true
+		out = append(out, mention)
+	}
+	return out
+}
+
+func (a *App) handleFilePickerWheel(button tea.MouseButton) tea.Cmd {
+	if a.filePicker == nil {
+		return nil
+	}
+	a.filePicker.sel = moveSelectionByWheel(a.filePicker.sel, a.filePickerActiveCount(), button)
+	return nil
+}
+
+func (a *App) filePickerActiveCount() int {
+	if a.filePicker == nil || a.filePicker.errText != "" {
+		return 0
+	}
+	if a.filePicker.treeMode && a.filePicker.filter == "" {
+		return len(a.filePickerTreeRows())
+	}
+	return len(a.filePickerMatches())
+}
+
+func (a *App) filePickerFileEntries() []gact.FileEntry {
+	if a.filePicker == nil {
+		return nil
+	}
+	out := make([]gact.FileEntry, 0, len(a.filePicker.entries))
+	seen := map[string]bool{}
+	for _, e := range a.filePicker.entries {
+		if e.Type == "dir" || strings.TrimSpace(e.Path) == "" || seen[e.Path] {
+			continue
+		}
+		seen[e.Path] = true
+		out = append(out, e)
+	}
+	return out
 }
 
 // filePickerMatches returns the entries that pass the current filter,
@@ -104,9 +207,11 @@ func (a *App) filePickerMatches() []gact.FileEntry {
 	if a.filePicker == nil {
 		return nil
 	}
+	if a.filePicker.errText != "" {
+		return nil
+	}
 	if a.filePicker.filter == "" {
-		out := make([]gact.FileEntry, len(a.filePicker.entries))
-		copy(out, a.filePicker.entries)
+		out := a.filePickerFileEntries()
 		sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 		return out
 	}
@@ -116,7 +221,7 @@ func (a *App) filePickerMatches() []gact.FileEntry {
 		score int // lower is better
 	}
 	var hits []scored
-	for _, e := range a.filePicker.entries {
+	for _, e := range a.filePickerFileEntries() {
 		s, ok := fuzzyScore(strings.ToLower(e.Path), needle)
 		if !ok {
 			continue
@@ -134,6 +239,124 @@ func (a *App) filePickerMatches() []gact.FileEntry {
 		out[i] = h.entry
 	}
 	return out
+}
+
+func (a *App) filePickerTreeRows() []filePickerTreeRow {
+	if a.filePicker == nil || a.filePicker.errText != "" {
+		return nil
+	}
+	entries := map[string]gact.FileEntry{}
+	for _, e := range a.filePicker.entries {
+		path := strings.Trim(strings.TrimSpace(e.Path), "/")
+		if path == "" {
+			continue
+		}
+		entry := e
+		entry.Path = path
+		entries[path] = entry
+		parts := strings.Split(path, "/")
+		for i := 1; i < len(parts); i++ {
+			dir := strings.Join(parts[:i], "/")
+			if _, ok := entries[dir]; !ok {
+				entries[dir] = gact.FileEntry{Path: dir, Type: "dir"}
+			}
+		}
+	}
+	paths := make([]string, 0, len(entries))
+	for path := range entries {
+		paths = append(paths, path)
+	}
+	sort.Slice(paths, func(i, j int) bool {
+		di := entries[paths[i]].Type == "dir"
+		dj := entries[paths[j]].Type == "dir"
+		parentI, nameI := filePickerParentName(paths[i])
+		parentJ, nameJ := filePickerParentName(paths[j])
+		if parentI == parentJ && di != dj {
+			return di
+		}
+		if parentI == parentJ {
+			return strings.ToLower(nameI) < strings.ToLower(nameJ)
+		}
+		return strings.ToLower(paths[i]) < strings.ToLower(paths[j])
+	})
+	visible := make([]filePickerTreeRow, 0, len(paths))
+	for _, path := range paths {
+		entry := entries[path]
+		depth := strings.Count(path, "/")
+		if !a.filePickerTreeParentsExpanded(path) {
+			continue
+		}
+		visible = append(visible, filePickerTreeRow{entry: entry, depth: depth})
+	}
+	return visible
+}
+
+func filePickerParentName(path string) (string, string) {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		return path[:i], path[i+1:]
+	}
+	return "", path
+}
+
+func (a *App) filePickerTreeParentsExpanded(path string) bool {
+	if a.filePicker == nil {
+		return false
+	}
+	parent, _ := filePickerParentName(path)
+	for parent != "" {
+		if !a.filePicker.treeExpanded[parent] {
+			return false
+		}
+		parent, _ = filePickerParentName(parent)
+	}
+	return true
+}
+
+func (a *App) toggleFilePickerTreeRow(index int) bool {
+	if a.filePicker == nil {
+		return false
+	}
+	rows := a.filePickerTreeRows()
+	if index < 0 || index >= len(rows) {
+		return false
+	}
+	row := rows[index]
+	if row.entry.Type != "dir" {
+		return false
+	}
+	if a.filePicker.treeExpanded == nil {
+		a.filePicker.treeExpanded = map[string]bool{}
+	}
+	a.filePicker.treeExpanded[row.entry.Path] = !a.filePicker.treeExpanded[row.entry.Path]
+	a.filePicker.sel = clampSelection(a.filePicker.sel, len(a.filePickerTreeRows()))
+	return true
+}
+
+func (a *App) selectFilePickerTreeRow(index int) tea.Cmd {
+	if a.filePicker == nil {
+		return nil
+	}
+	rows := a.filePickerTreeRows()
+	if index < 0 || index >= len(rows) {
+		return nil
+	}
+	row := rows[index]
+	if row.entry.Type == "dir" {
+		a.toggleFilePickerTreeRow(index)
+		return nil
+	}
+	return a.insertFilePickerEntry(row.entry)
+}
+
+func (a *App) insertFilePickerEntry(selected gact.FileEntry) tea.Cmd {
+	a.closeFilePicker()
+	cur := a.input.Value()
+	if cur != "" && !strings.HasSuffix(cur, " ") && !strings.HasSuffix(cur, "\n") {
+		cur += " "
+	}
+	a.input.SetValue(cur + "@" + selected.Path + " ")
+	a.addComposerFileMention(selected.Path, "read")
+	return nil
 }
 
 // fuzzyScore returns (score, ok) where ok is false if needle can't
@@ -214,47 +437,48 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		a.closeFilePicker()
 		return a, nil
+	case "tab", "ctrl+t":
+		a.filePicker.treeMode = !a.filePicker.treeMode
+		a.filePicker.sel = 0
+		return a, nil
+	case "right":
+		if a.filePicker.treeMode && a.filePicker.filter == "" {
+			a.toggleFilePickerTreeRow(a.filePicker.sel)
+		}
+	case "left":
+		if a.filePicker.treeMode && a.filePicker.filter == "" {
+			rows := a.filePickerTreeRows()
+			if a.filePicker.sel >= 0 && a.filePicker.sel < len(rows) && rows[a.filePicker.sel].entry.Type == "dir" && a.filePicker.treeExpanded[rows[a.filePicker.sel].entry.Path] {
+				a.filePicker.treeExpanded[rows[a.filePicker.sel].entry.Path] = false
+			}
+		}
 	case "up":
 		if a.filePicker.sel > 0 {
 			a.filePicker.sel--
 		}
 	case "down":
-		if a.filePicker.sel < len(matches)-1 {
+		if a.filePicker.sel < a.filePickerActiveCount()-1 {
 			a.filePicker.sel++
 		}
 	case "enter":
+		if a.filePicker.treeMode && a.filePicker.filter == "" {
+			return a, a.selectFilePickerTreeRow(a.filePicker.sel)
+		}
 		if a.filePicker.sel < 0 || a.filePicker.sel >= len(matches) {
 			return a, nil
 		}
 		selected := matches[a.filePicker.sel]
-		a.closeFilePicker()
-
-		// Insert `@path ` into the input. We append rather than insert-
-		// at-cursor because bubbles/v2/textarea doesn't expose a
-		// cursor-position insert primitive; in practice the user typed
-		// @ last, so append reaches the right spot.
-		cur := a.input.Value()
-		if cur != "" && !strings.HasSuffix(cur, " ") && !strings.HasSuffix(cur, "\n") {
-			cur += " "
-		}
-		a.input.SetValue(cur + "@" + selected.Path + " ")
-
-		// Attach the file to session context so the backend auto-reads
-		// it on the next send. Failure is non-fatal — the @-reference
-		// still lands in the prompt, which is enough for most backends
-		// that interpret @-refs directly. Reuses K14's
-		// addContextFileCmd so sidebar CONTEXT updates the same way.
-		if sid := a.currentSessionID(); sid != "" {
-			return a, addContextFileCmd(a.c, sid, selected.Path)
-		}
-		return a, nil
+		return a, a.insertFilePickerEntry(selected)
 	case "backspace":
+		if a.filePicker.errText != "" {
+			return a, nil
+		}
 		if len(a.filePicker.filter) > 0 {
 			a.filePicker.filter = a.filePicker.filter[:len(a.filePicker.filter)-1]
 			a.filePicker.sel = 0
 		}
 	default:
-		if k.Text != "" {
+		if k.Text != "" && a.filePicker.errText == "" {
 			a.filePicker.filter += k.Text
 			a.filePicker.sel = 0
 		}
@@ -268,64 +492,149 @@ func (a *App) handleFilePickerKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (a *App) viewFilePicker() string {
 	t := a.Theme
 	w := a.modalWidth()
+	listW := modalInsetListWidth(w)
 	if a.filePicker == nil {
 		return ""
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).
-		Render("Insert file reference")
+	buttons := []menuButton{closeMenuButton("file-picker:close", func(app *App) { app.closeFilePicker() })}
 
+	mode := "tree"
+	if !a.filePicker.treeMode || a.filePicker.filter != "" {
+		mode = "fuzzy"
+	}
 	filterRow := t.HintKey.Render("@") + t.HintLabel.Render(a.filePicker.filter) +
-		lipgloss.NewStyle().Foreground(t.Primary).Blink(true).Render("_")
+		lipgloss.NewStyle().Foreground(t.Primary).Blink(true).Render("_") +
+		t.HintLabel.Render("  "+mode)
 
 	matches := a.filePickerMatches()
+	treeRows := a.filePickerTreeRows()
+	useTree := a.filePicker.treeMode && a.filePicker.filter == ""
 
 	// Always show a fixed rows height so the modal doesn't reflow its
 	// surrounding chrome as the user types.
 	const resultRows = 10
-	rows := make([]string, 0, resultRows)
-	if !a.filePicker.loaded && len(matches) == 0 {
+	rows := []string{filterRow, ""}
+	resultStartRow := len(rows)
+	var list modalListRender
+	if a.filePicker.errText != "" {
+		prefix := "file picker unavailable: "
+		rows = append(rows, t.HintLabel.Italic(true).Render(
+			prefix+truncate(a.filePicker.errText, maxInt(1, listW-lipgloss.Width(prefix)))))
+	} else if !a.filePicker.loaded && len(matches) == 0 && len(treeRows) == 0 {
 		rows = append(rows, t.HintLabel.Italic(true).Render("loading workspace files…"))
-	} else if len(matches) == 0 {
+	} else if (!useTree && len(matches) == 0) || (useTree && len(treeRows) == 0) {
 		rows = append(rows, t.HintLabel.Italic(true).Render("no matches"))
 	}
-	start := 0
-	if a.filePicker.sel >= resultRows {
-		start = a.filePicker.sel - resultRows + 1
+	availableListRows := resultRows - (len(rows) - resultStartRow)
+	if availableListRows < 1 {
+		availableListRows = 1
 	}
-	for i, m := range matches {
-		if i < start {
+	activeCount := len(matches)
+	if useTree {
+		activeCount = len(treeRows)
+	}
+	win := selectedItemWindow(activeCount, a.filePicker.sel, availableListRows)
+	listStartRow := len(rows)
+	listItems := make([]modalListItem, 0, win.end-win.start)
+	for i := win.start; i < win.end; i++ {
+		idx := i
+		if useTree {
+			row := treeRows[i]
+			name := row.entry.Path
+			if _, base := filePickerParentName(name); base != "" {
+				name = base
+			}
+			icon := "• "
+			if row.entry.Type == "dir" {
+				icon = "▸ "
+				if a.filePicker.treeExpanded[row.entry.Path] {
+					icon = "▾ "
+				}
+			}
+			listItems = append(listItems, modalListItem{
+				id:       fmt.Sprintf("file-picker:item:%d", idx),
+				title:    strings.Repeat("  ", row.depth) + icon + name,
+				meta:     filePickerEntryMeta(row.entry),
+				selected: i == a.filePicker.sel,
+				action: func(app *App) tea.Cmd {
+					if app.filePicker == nil {
+						app.closeFilePicker()
+						return nil
+					}
+					app.filePicker.sel = idx
+					return app.selectFilePickerTreeRow(idx)
+				},
+			})
 			continue
 		}
-		if i-start >= resultRows {
-			break
-		}
-		marker := "  "
-		style := lipgloss.NewStyle().Foreground(t.Fg)
-		if i == a.filePicker.sel {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			style = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-		}
-		rows = append(rows, marker+style.Render(truncate(m.Path, w-6)))
+		m := matches[i]
+		listItems = append(listItems, modalListItem{
+			id:       fmt.Sprintf("file-picker:item:%d", idx),
+			title:    m.Path,
+			meta:     filePickerEntryMeta(m),
+			selected: i == a.filePicker.sel,
+			action: func(app *App) tea.Cmd {
+				if app.filePicker == nil {
+					app.closeFilePicker()
+					return nil
+				}
+				matches := app.filePickerMatches()
+				if idx < 0 || idx >= len(matches) {
+					return nil
+				}
+				app.filePicker.sel = idx
+				return app.insertFilePickerEntry(matches[idx])
+			},
+		})
 	}
+	list = a.renderModalList(listItems, modalListOptions{
+		width:     listW,
+		rowBudget: availableListRows,
+	})
+	rows = append(rows, list.rows...)
 	// Pad to fixed height so the hint bar doesn't jump.
-	for len(rows) < resultRows {
+	for len(rows) < resultStartRow+resultRows {
 		rows = append(rows, "")
 	}
 
 	hint := t.HintLabel.Italic(true).Render(
-		"type to filter   ↑/↓ pick   Enter insert   Esc cancel")
+		modalKeyHint("type to filter", "Tab tree/list", "←/→ collapse/expand", "Enter insert", "Esc cancel"))
 
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "", filterRow, "",
-		lipgloss.JoinVertical(lipgloss.Left, rows...),
-		"", hint,
-	)
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.Primary).
-		Background(t.BgSubtle).
-		Padding(1, 2).
-		Width(w).
-		Render(body)
+	rendered := a.renderSelectableListModal(selectableListModalOptions{
+		frame: modalFrameOptions{
+			width:   w,
+			title:   "Insert file reference",
+			buttons: buttons,
+			footer:  hint,
+		},
+		rows:           rows,
+		list:           list,
+		listStart:      listStartRow,
+		listWidth:      listW,
+		bodyRows:       resultStartRow + resultRows,
+		window:         win,
+		wheelID:        "file-picker:list:wheel",
+		surfaceWheelID: "file-picker",
+		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
+			return app.handleFilePickerWheel(button)
+		},
+		railAction: func(app *App, index int) tea.Cmd {
+			if app.filePicker != nil {
+				app.filePicker.sel = clampSelection(index, len(app.filePickerMatches()))
+			}
+			return nil
+		},
+	})
+	return rendered.modal
+}
+
+func filePickerEntryMeta(entry gact.FileEntry) string {
+	if entry.Type == "dir" {
+		return "folder"
+	}
+	if entry.Size > 0 {
+		return humanBytes(entry.Size)
+	}
+	return ""
 }
