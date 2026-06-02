@@ -33,13 +33,31 @@ surfaces. Same rules as before: NEVER kill/restart/rebind :17800.
 | E1 | Transcript code-block line-number gutter | **DONE** | InlineMarkdown.test 12/12 (gutter numbers, no-gutter on 1-line, copy-without-numbers); refreshed `code-syntax-highlight.png` shows the gutter; fixture suite 36/36 |
 | E2 | hljs lazy-load (pure-web bundle size) | **DONE** | HljsLazy.test 4/4; initial chunk **524→366 kB minified (156→104 kB gzip)**, hljs in its own async chunk; highlighting still asserted in fixture tests (eventually-consistent) |
 | E3 | Restore MCP Reconnect button (capability-gated on #523) | **DONE** | McpReconnect.test 4/4; LIVE audit "(1.0 item E3)" run against BOTH backends — :17801 (PR stack, route exists) = success toast + refetch; :17800 (develop, no route) = 404 → button disabled + latched + "not supported" tooltip (`audit/item-e3-mcp-reconnect.png`). No silent failures either way. |
-| H | Final hardening + full test sweep (web + desktop + Rust) | PENDING | — |
+| H | Final hardening + full test sweep (web + desktop + Rust) | **DONE** | Full sweep all green: fixture visual 38/38 · FULL live audit 42 passed (+1 isolation-cleared flake, 2 legit skips) · FULL live oneturn 19 passed (2 legit skips) · cargo --lib 21/21 · **WebView e2e 1/1** · unit 170 (core 42 / web 123 / desktop 5). **TWO REAL BUGS FOUND + FIXED by the sweep:** (1) gact_http bridge threw on ALL 204 responses (null-body Response constructor) — every desktop 204 endpoint (permission resolve, deletes, compact) failed client-side while succeeding server-side; (2) permission card depended solely on the SSE round-trip to clear — now also clears optimistically on a 200 resolve. |
 
 States: PENDING → IN-PROGRESS → **DONE** (named test + PNG + live proof, cited in the
 session log) or **ABSENT→PR-OPENED** (backend gap proven in source, stacked clio PR
 opened, desktop side capability-gated). Nothing else is terminal.
 
 ### Session log — 1.0 closure run (append-only)
+- 2026-06-02 **Item H DONE — 1.0 CLOSURE RUN COMPLETE. All 13 board rows terminal.**
+  Final sweep: fixture 38/38 · full live audit suite 42 passed (1 catalog-browser
+  flake re-passed in isolation; 2 legit voice/mic skips) · full live oneturn suite 19
+  passed (2 legit skips: voice gap + homelab-tunnel-gated) · cargo --lib 21/21 ·
+  **real-WebView2 e2e 1/1** · unit 170/170 · web+desktop builds clean.
+  **The e2e exposed and led to fixing TWO real production bugs:**
+  (1) `tauriFetch` (gact_http bridge) constructed `new Response(body, {status:204})`
+  — a TypeError for null-body statuses (204/205/304) — so EVERY desktop 204 endpoint
+  (permission resolve, session delete, context-file remove, compact) threw client-side
+  while the server applied the change. Web builds never hit this (native fetch).
+  Fixed: null body for null-body statuses.
+  (2) The permission card cleared ONLY via the `permission.resolved` SSE round-trip;
+  now it also clears optimistically when the resolve POST returns 200.
+  Both verified by the now-green WebView e2e (card renders + clears through the real
+  Tauri stack vs :17801). Environmental notes: the user's :17800 went unhealthy
+  (health=503) mid-run and could not be used for the e2e — `CLIO_PORT=17801` attach
+  override used instead (documented supervisor env). :17802 (PR #533 test instance)
+  stopped after item-2 verification, no leaks; :17800/:17801 untouched.
 - 2026-06-02 **Items 2 + 3 DONE — ALL 9 ITEMS + 3 EXTRAS NOW TERMINAL.**
   **Item 2 — inline file & image previews:** core client gains
   `getContextFileContent()` + the `x_clio_files_content` capability type (PR #533 wire
