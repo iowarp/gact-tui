@@ -132,6 +132,13 @@ type agentBlueprintMCPEnabledMsg struct {
 	err          error
 }
 
+type agentBlueprintHookEnabledMsg struct {
+	blueprintID string
+	hookID      string
+	result      map[string]any
+	err         error
+}
+
 type agentBlueprintManagedMsg struct {
 	blueprintID string
 	action      string
@@ -728,6 +735,18 @@ func enableAgentBlueprintMCPCmd(c *client.Client, scope client.RuntimeScope, blu
 	}
 }
 
+func enableAgentBlueprintHookCmd(c *client.Client, scope client.RuntimeScope, blueprintID, hookID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result, err := c.EnableAgentBlueprintHook(ctx, blueprintID, hookID, gact.AgentBlueprintHookEnableRequest{
+			WorkspaceID: scope.WorkspaceID,
+			Trust:       true,
+		})
+		return agentBlueprintHookEnabledMsg{blueprintID: blueprintID, hookID: hookID, result: result, err: err}
+	}
+}
+
 func updateAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, blueprintID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1023,6 +1042,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
 			case strings.HasPrefix(it.id, "mcp/"):
 				return a, enableAgentBlueprintMCPCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "mcp/"))
+			case strings.HasPrefix(it.id, "hook/"):
+				return a, enableAgentBlueprintHookCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "hook/"))
 			case it.id == "blueprint-action/update":
 				return a, updateAgentBlueprintCmd(a.c, a.runtimeScope(), cb.blueprintID)
 			case it.id == "blueprint-action/delete":
@@ -1392,7 +1413,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindAgentBlueprints:
 		hintText = "↑/↓ navigate · Enter details · Esc close"
 	case catalogKindAgentBlueprintDetail:
-		hintText = "↑/↓ navigate · Enter activate/detail/enable MCP · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter activate/detail/enable MCP/hook · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -1638,6 +1659,20 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 			statusTag: status,
 		})
 	}
+	for _, descriptor := range detail.HookDescriptors {
+		id := stringValue(descriptor["id"])
+		title := firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), id)
+		status := firstNonEmpty(stringValue(descriptor["status"]), "hook")
+		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        "hook/" + id,
+			title:     "Hook · " + title,
+			desc:      agentBlueprintHookDescription(descriptor),
+			statusTag: status,
+		})
+	}
 	sortAgentsForCatalog(detail.Agents)
 	for _, agent := range detail.Agents {
 		status := firstNonEmpty(agent.Source, "agent")
@@ -1700,6 +1735,38 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, "enabled: "+enabled)
+	}
+	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(errors, "; "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func agentBlueprintHookDescription(descriptor map[string]any) string {
+	parts := make([]string, 0, 12)
+	for _, key := range []string{"event", "source", "scope", "agent_blueprint_id", "definition_path", "installed_path", "checksum"} {
+		if value := stringValue(descriptor[key]); value != "" {
+			parts = append(parts, key+": "+value)
+		}
+	}
+	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+		if policy := stringValue(trust["policy"]); policy != "" {
+			parts = append(parts, "trust_policy: "+policy)
+		}
+		if trusted := scalarText(trust["trusted"]); trusted != "" {
+			parts = append(parts, "trusted: "+trusted)
+		}
+		if source := stringValue(trust["source"]); source != "" {
+			parts = append(parts, "trust_source: "+source)
+		}
+	} else if trust := stringValue(descriptor["trust"]); trust != "" {
+		parts = append(parts, "trust: "+trust)
+	}
+	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
+		parts = append(parts, "enabled: "+enabled)
+	}
+	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(warnings, "; "))
 	}
 	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(errors, "; "))

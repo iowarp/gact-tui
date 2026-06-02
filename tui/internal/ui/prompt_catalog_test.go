@@ -300,6 +300,13 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
 			"trust": "community", "install": "manual", "runtime": "stdio", "env_policy": "restricted",
 		}},
+		HookDescriptors: []map[string]any{{
+			"id": "pre_message", "title": "Pre Message", "event": "pre_message", "status": "disabled",
+			"source": "agent_blueprint", "scope": "workspace", "definition_path": "/tmp/community-blueprints/hooks/pre_message.py",
+			"checksum": "0123456789abcdef", "enabled": false,
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"Blueprint packaged hooks are disabled until explicitly enabled and trusted"},
+		}},
 		Agents: []gact.AgentDef{{
 			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
 			Tools: []string{"mcp.parquet.read"},
@@ -337,8 +344,36 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
 		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
 	}
-	if items[5].id != "agent/data" || !strings.Contains(items[5].desc, "mcp.parquet.read") {
-		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[5])
+	for _, want := range []string{"pre_message", "trust_policy: explicit", "trusted: false", "definition_path: /tmp/community-blueprints/hooks/pre_message.py", "checksum: 0123456789abcdef"} {
+		if items[5].id != "hook/pre_message" || !strings.Contains(items[5].desc, want) {
+			t.Fatalf("hook descriptor row missing %q: %#v", want, items[5])
+		}
+	}
+	if strings.Contains(items[5].desc, `"trust"`) {
+		t.Fatalf("hook descriptor should be structured, not raw JSON: %#v", items[5])
+	}
+	if items[6].id != "agent/data" || !strings.Contains(items[6].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[6])
+	}
+}
+
+func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
+	out := formatAgentBlueprintValidation(gact.AgentBlueprintValidationResult{
+		Enabled: true,
+		HookDescriptors: []map[string]any{{
+			"id": "pre_message", "title": "Pre Message", "event": "pre_message",
+			"source": "agent_blueprint", "definition_path": "/tmp/bp/hooks/pre_message.py",
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"disabled until trusted"},
+		}},
+	})
+	for _, want := range []string{"Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("validation output missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"trust"`) {
+		t.Fatalf("validation output should not dump hook JSON:\n%s", out)
 	}
 }
 

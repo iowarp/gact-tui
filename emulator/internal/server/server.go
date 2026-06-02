@@ -250,6 +250,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/agent-blueprints/install", s.handleInstallAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/update", s.handleUpdateAgentBlueprint)
 	s.mux.HandleFunc("DELETE /v1/agent-blueprints/{id}", s.handleDeleteAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/hooks/{hook_id}/enable", s.handleEnableAgentBlueprintHook)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/mcp/{descriptor_id}/enable", s.handleEnableAgentBlueprintMCP)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-blueprint", s.handleGetSessionAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/agent-blueprint", s.handleSetSessionAgentBlueprint)

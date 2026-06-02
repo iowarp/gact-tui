@@ -640,9 +640,10 @@ func (s *Server) handleGetAgentBlueprint(w http.ResponseWriter, r *http.Request)
 	for _, blueprint := range staticAgentBlueprints() {
 		if blueprint.ID == id {
 			writeJSON(w, http.StatusOK, gact.AgentBlueprintDetail{
-				AgentBlueprint: blueprint,
-				Agents:         staticAgentBlueprintAgents(blueprint.ID),
-				MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+				AgentBlueprint:  blueprint,
+				Agents:          staticAgentBlueprintAgents(blueprint.ID),
+				MCPDescriptors:  staticAgentBlueprintMCPDescriptors(blueprint.ID),
+				HookDescriptors: staticAgentBlueprintHookDescriptors(blueprint.ID),
 			})
 			return
 		}
@@ -671,10 +672,11 @@ func (s *Server) handleValidateAgentBlueprint(w http.ResponseWriter, r *http.Req
 		Enabled:        true,
 	}
 	writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
-		Enabled:        true,
-		AgentBlueprint: blueprint,
-		Agents:         staticAgentBlueprintAgents(blueprint.ID),
-		MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+		Enabled:         true,
+		AgentBlueprint:  blueprint,
+		Agents:          staticAgentBlueprintAgents(blueprint.ID),
+		MCPDescriptors:  staticAgentBlueprintMCPDescriptors(blueprint.ID),
+		HookDescriptors: staticAgentBlueprintHookDescriptors(blueprint.ID),
 	})
 }
 
@@ -723,6 +725,34 @@ func (s *Server) handleDeleteAgentBlueprint(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{
 		"uninstalled": map[string]any{"id": id, "scope": firstNonEmptyString(r.URL.Query().Get("scope"), "workspace")},
 	})
+}
+
+func (s *Server) handleEnableAgentBlueprintHook(w http.ResponseWriter, r *http.Request) {
+	blueprintID := r.PathValue("id")
+	hookID := r.PathValue("hook_id")
+	for _, descriptor := range staticAgentBlueprintHookDescriptors(blueprintID) {
+		if descriptor["id"] == hookID {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                 "agent_blueprint_hook_" + blueprintID + "_" + hookID,
+				"hook_id":            hookID,
+				"event":              descriptor["event"],
+				"status":             "enabled",
+				"enabled":            true,
+				"source":             "agent_blueprint",
+				"agent_blueprint_id": blueprintID,
+				"definition_path":    descriptor["definition_path"],
+				"installed_path":     "/tmp/gact-hooks/blueprints/" + blueprintID + "/" + hookID + ".py",
+				"checksum":           descriptor["checksum"],
+				"trust": map[string]any{
+					"policy":  "explicit",
+					"trusted": true,
+					"source":  "request",
+				},
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint hook descriptor not found: "+hookID)
 }
 
 func (s *Server) handleEnableAgentBlueprintMCP(w http.ResponseWriter, r *http.Request) {
@@ -947,6 +977,27 @@ func staticAgentBlueprintMCPDescriptors(blueprintID string) []map[string]any {
 		"status":             "disabled",
 		"source":             "agent_blueprint",
 		"agent_blueprint_id": blueprintID,
+	}}
+}
+
+func staticAgentBlueprintHookDescriptors(blueprintID string) []map[string]any {
+	return []map[string]any{{
+		"id":                 "pre_message",
+		"name":               "pre_message",
+		"title":              "Pre Message",
+		"event":              "pre_message",
+		"enabled":            false,
+		"status":             "disabled",
+		"source":             "agent_blueprint",
+		"scope":              "workspace",
+		"agent_blueprint_id": blueprintID,
+		"definition_path":    "/opt/clio/agent_blueprints/data-exploration/hooks/pre_message.py",
+		"checksum":           "0123456789abcdef",
+		"trust": map[string]any{
+			"policy":  "explicit",
+			"trusted": false,
+		},
+		"validation_warnings": []any{"Blueprint packaged hooks are disabled until explicitly enabled and trusted"},
 	}}
 }
 

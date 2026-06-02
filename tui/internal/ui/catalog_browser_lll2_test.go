@@ -498,6 +498,49 @@ func TestCatalogBrowser_EnterOnAgentDetailMcpServerDrills(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowser_EnterOnAgentBlueprintHookEnablesPackagedHook(t *testing.T) {
+	var gotPath string
+	var gotReq gact.AgentBlueprintHookEnableRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.EscapedPath()
+		if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
+			t.Fatalf("decode hook enable request: %v", err)
+		}
+		writeJSONForTest(t, w, map[string]any{"id": "agent_blueprint_hook_bp1_pre_message"})
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "hook/pre_message", title: "Hook · Pre Message"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on blueprint hook row should enable packaged hook")
+	}
+	msg := cmd()
+	got, ok := msg.(agentBlueprintHookEnabledMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want agentBlueprintHookEnabledMsg", msg)
+	}
+	if got.err != nil {
+		t.Fatalf("enable hook command failed: %v", got.err)
+	}
+	if gotPath != "POST /v1/agent-blueprints/bp1/hooks/pre_message/enable" {
+		t.Fatalf("hook enable path = %q", gotPath)
+	}
+	if gotReq.WorkspaceID != "ws1" || !gotReq.Trust {
+		t.Fatalf("hook enable request = %#v, want workspace and explicit trust", gotReq)
+	}
+}
+
 func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

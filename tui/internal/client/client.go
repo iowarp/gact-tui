@@ -901,6 +901,13 @@ func (c *Client) EnableAgentBlueprintMCP(ctx context.Context, blueprintID, descr
 	return out, err
 }
 
+func (c *Client) EnableAgentBlueprintHook(ctx context.Context, blueprintID, hookID string, req gact.AgentBlueprintHookEnableRequest) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/hooks/" + url.PathEscape(hookID) + "/enable"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
 func (c *Client) GetSessionAgentBlueprint(ctx context.Context, sessionID string) (gact.SessionAgentBlueprintState, error) {
 	var out gact.SessionAgentBlueprintState
 	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", nil, &out)

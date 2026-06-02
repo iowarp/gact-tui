@@ -2098,6 +2098,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
+	case agentBlueprintHookEnabledMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint hook enable failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "enabled blueprint hook " + m.hookID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
 	case agentBlueprintManagedMsg:
 		if m.err != nil {
 			a.transientHint = "agent blueprint " + m.action + " failed: " + m.err.Error()

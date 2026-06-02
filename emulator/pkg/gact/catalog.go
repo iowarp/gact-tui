@@ -243,9 +243,10 @@ type AgentBlueprintDefinition struct {
 }
 
 type AgentBlueprintDetail struct {
-	AgentBlueprint AgentBlueprintDefinition `json:"agent_blueprint"`
-	Agents         []AgentDef               `json:"agents,omitempty"`
-	MCPDescriptors []map[string]any         `json:"mcp_descriptors,omitempty"`
+	AgentBlueprint  AgentBlueprintDefinition `json:"agent_blueprint"`
+	Agents          []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors  []map[string]any         `json:"mcp_descriptors,omitempty"`
+	HookDescriptors []map[string]any         `json:"hook_descriptors,omitempty"`
 }
 
 type AgentBlueprintValidateRequest struct {
@@ -259,6 +260,7 @@ type AgentBlueprintValidationResult struct {
 	AgentBlueprint   AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
 	Agents           []AgentDef               `json:"agents,omitempty"`
 	MCPDescriptors   []map[string]any         `json:"mcp_descriptors,omitempty"`
+	HookDescriptors  []map[string]any         `json:"hook_descriptors,omitempty"`
 }
 
 type AgentBlueprintInstallRequest struct {
@@ -301,6 +303,11 @@ type SessionAgentOverlayResponse struct {
 
 type AgentBlueprintMCPEnableRequest struct {
 	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+type AgentBlueprintHookEnableRequest struct {
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	Trust       bool   `json:"trust,omitempty"`
 }
 
 // PromptProfile is one resolved profile body for a CLIO prompt registry

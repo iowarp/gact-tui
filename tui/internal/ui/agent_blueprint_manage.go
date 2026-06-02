@@ -235,6 +235,12 @@ func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) 
 			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintMCPDescription(descriptor))
 		}
 	}
+	if len(result.HookDescriptors) > 0 {
+		rows = append(rows, "", "Packaged hooks")
+		for _, descriptor := range result.HookDescriptors {
+			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintHookDescription(descriptor))
+		}
+	}
 	if len(result.Agents) > 0 {
 		rows = append(rows, "", "Agents")
 		for _, agent := range result.Agents {
