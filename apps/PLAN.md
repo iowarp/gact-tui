@@ -133,9 +133,19 @@ Remaining follow-ups discovered during that run (not 1.0 blockers):
   linux/amd64 toolchain). Workaround documented in STATUS: run
   `tauri build` directly when the launcher binary already exists. Needs a
   proper fix before the next from-scratch release build.
-- **clio PR-stack follow-ups** — the 5 open PRs (#522 #523 #527 #530 #533)
-  await user review/merge; desktop features gate on their capabilities and
-  light up automatically after merge + backend restart.
+- ~~**clio PR-stack follow-ups**~~ — DONE 2026-06-02: all 5 PRs (#530, #535
+  replacing #522, #523, #527, #533) reviewed, fixed, and squash-merged into
+  clio develop (`176518d`). Desktop capability-gated features light up on any
+  backend built from develop ≥ that commit.
+
+## clio #534 surface — CLOSED (2026-06-02)
+
+clio's semantic execution event spine (#534) + hooks + workspace-management
+provenance (#479/#480/#482) are fully supported: blocked-turn rendering,
+semantic timeline in the Inspector, hooks editor wire fix + runtime-hook
+status panel, capability typing, and binding provenance. See `STATUS.md` →
+"CLIO #534 SUPPORT BOARD" (7/7 gaps DONE with live proof) and
+`web/tests/visual/534-events.spec.ts`.
 
 ## Pending for v1.0
 

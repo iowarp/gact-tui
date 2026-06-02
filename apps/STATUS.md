@@ -1,10 +1,53 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-06-02 (1.0 closure run started)
+**Last updated:** 2026-06-02 (clio #534 support run complete)
 **Branch:** `feat/apps-harness`
-**Phase:** v0.9.1 → 1.0 closure on `feat/apps-harness` HEAD
+**Phase:** 1.0-ready + clio #534 surface support
 
-## ACTIVE RUN LEDGER — 1.0 CLOSURE `/goal` (2026-06-02 — READ THIS FIRST)
+## CLIO #534 SUPPORT BOARD (2026-06-02 — newest run, READ THIS FIRST)
+
+The user asked whether the desktop supports clio's newly-merged feature set
+(develop commit `6e064d9`, PR #534: semantic execution event spine + runtime/
+declarative hooks + the #479/#480/#482 workspace-management provenance that
+landed alongside it). A multi-agent gap analysis found **7 gaps**; all 7 are
+now closed with live proof against a self-run clio at **:17803** (develop @
+`176518d`, ALCF Metis wired via runtime PUT, and a `CLIO_HOOKS_DIR` pre_message
+hook that blocks messages containing "BLOCKME").
+
+Ground truth artifact: the captured SSE wire trace (blocked turn + successful
+turn, 15 semantic events) is saved at
+`D:\Libraries\Documents\projects\clio-hooks-test\sse-trace-blocked-and-success.log`.
+
+| Gap | What | State | Proof |
+|-----|------|-------|-------|
+| gap-01 (CRITICAL) | Hook-blocked turns were a **silent failure** — clio sends `message.completed {message_id:<USER msg>, stop_reason:"blocked", error_info}` + `session.status_changed(error)`, no assistant message ever exists; desktop dropped it all | **DONE** | core: `error_info` on MessageCompletedPayload; live.ts copies it + preserves `stop_reason:"blocked"`; Transcript renders a warning-toned "Turn blocked" pill (`msg-blocked-<id>`) on the USER message, no Regenerate. Unit: LiveReducer.test 6/6 + BlockedTurn.test 4/4. **LIVE**: `534-events.spec.ts` gap-01 ×2 — pill renders with the real hook message, and the session recovers (next clean turn completes) (`audit/534-blocked-turn.png`, `audit/534-blocked-then-recovered.png`) |
+| gap-02 (CRITICAL) | Hooks editor sent the WRONG wire shape (`{type, handler_uri}`) — every declarative add 400'd | **DONE** | client createHook now sends `{event, command?\|url?}`, hooks() parses `{id,event,command,url,...}` rows. Unit: client.test +4. **LIVE**: add → row renders → delete round-trip vs :17803 (`audit/534-hooks-page.png`, `534-hooks-deleted.png`) |
+| gap-03 (IMPORTANT) | `semantic.event` SSE stream (26 event types) not subscribed/stored/rendered | **DONE** | live.ts subscribes + capped per-session feed (500, deduped by event_id); Inspector Timeline gains a capability-gated "Semantic trace" section (summary/status/time only — never the redactable dicts). Unit: SemanticTimeline.test 7/7. **LIVE**: real ALCF turn → llm.request/response + turn.completed rows render (`audit/534-semantic-timeline.png`) |
+| gap-04 (IMPORTANT) | Runtime (file-based) hooks invisible — users couldn't see what actually fires | **DONE** | Read-only "Runtime hooks" panel on the hooks page fed from `x_clio_hook_backend` + `x_clio_hook_events` counts. Unit: HooksPage.test 6/6. **LIVE**: shows `local_python` + `pre_message × 1` vs :17803 (same PNG as gap-02) |
+| gap-05 (IMPORTANT) | Editor offered 4 of 6 hook kinds + a false "these fire during turns" subtitle | **DONE** | All 6 kinds (`pre_tool post_tool pre_message post_message semantic_event on_error`); honest subtitle: declarative hooks are stored-not-dispatched on this build, runtime hooks are what fire. Same tests/PNG as gap-02 |
+| gap-06 (POLISH) | CapabilityFlags typing rejected non-boolean flags (`x_clio_hook_backend` is a string, `x_clio_hook_events` a dict) | **DONE** | Index signature loosened to `boolean\|string\|number\|Record<string,unknown>\|undefined` + the 3 new flags typed. Unit: capabilities.test 3/3 (assigns the real :17803 capabilities JSON) |
+| gap-07 (POLISH) | Workspace-management provenance (#479/#480/#482): agent-blueprint binding's `workspace_id`/`agent_overlay`/`activation` not surfaced; **worse — the desktop read `blueprint_id`/`pack_id`, which current clio renamed to `active_agent_blueprint_id`/`active_expert_pack_id`, so bound blueprints/packs NEVER displayed** | **DONE** | client types both field generations; ChatScreen reads new-with-fallback; Inspector Bindings tab gains a read-only "Binding provenance" block (workspace/path/overlay/activation). Unit: BindingsProvenance.test 3/3. **LIVE**: UI dropdown bind → POST → refetch → bound id + provenance render vs :17803 (`audit/534-binding-provenance.png`) |
+
+**Final verification (combined state):** `pnpm -r typecheck` ✓ · `pnpm -r lint` ✓ ·
+`pnpm -r test` ✓ (core 49 / web 149 / desktop 5) · `pnpm --filter @clio/web build` ✓ ·
+fixture visual 38/38 ✓ · live `534-events.spec.ts` **5/5** vs :17803 ✓.
+
+**Desktop (Tauri) note:** the Rust SSE bridge forwards `data:` payloads without
+filtering on SSE event names, so `semantic.event` flows through the desktop path
+with zero Rust changes; only the web `EventSource` path needed the named-event
+subscription. No sse_bridge.rs change required.
+
+### Session log — #534 support run (append-only)
+- 2026-06-02 **All 7 gaps closed.** Two parallel background agents (A: gaps
+  1/3/6 — wire/live/Transcript/Inspector; B: gaps 2/5/4 — client hooks methods +
+  hooks page), then gap-07 (binding provenance + the field-rename fix) done in
+  the main session after both agents landed (it needed files both agents owned).
+  Wire contracts verified against clio source AND live :17803 before
+  implementation; the captured SSE trace is the ground-truth artifact. New spec
+  `web/tests/visual/534-events.spec.ts` (5 tests, all live-proven). Six new
+  audit PNGs. Commits: see below.
+
+## PREVIOUS RUN — 1.0 CLOSURE `/goal` (2026-06-02)
 
 **Goal:** implement, test, review, and close ALL 9 pending vNext items + any emergent
 issues; extensive hardening + testing of web AND desktop; 100% 1.0-ready. **DEFERRED is
