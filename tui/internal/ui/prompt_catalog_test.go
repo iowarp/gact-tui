@@ -366,6 +366,9 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 			"runtime":      map[string]any{"transport": "stdio", "server_id": "mcp_earthscope"},
 			"env_policy":   map[string]any{"mode": "restricted", "allowlist": []any{"EARTHSCOPE_TOKEN"}},
 			"verification": map[string]any{"status": "unsigned", "checksum": "abcdef0123456789"},
+			"validation_warnings": []any{
+				"descriptor requires explicit trust before enabling",
+			},
 		}},
 		HookDescriptors: []map[string]any{{
 			"id": "pre_message", "title": "Pre Message", "event": "pre_message", "status": "disabled",
@@ -416,6 +419,7 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		"env_policy_allowlist: EARTHSCOPE_TOKEN",
 		"verification_checksum: abcdef0123456789",
 		"verification_status: unsigned",
+		"warnings: descriptor requires explicit trust before enabling",
 	} {
 		if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, want) {
 			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[4])
@@ -479,6 +483,11 @@ func TestPaletteCommandSubtitleSurfacesAgentBlueprintCommandProvenance(t *testin
 func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
 	out := formatAgentBlueprintValidation(gact.AgentBlueprintValidationResult{
 		Enabled: true,
+		MCPDescriptors: []map[string]any{{
+			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"descriptor requires explicit trust"},
+		}},
 		HookDescriptors: []map[string]any{{
 			"id": "pre_message", "title": "Pre Message", "event": "pre_message",
 			"source": "agent_blueprint", "definition_path": "/tmp/bp/hooks/pre_message.py",
@@ -486,7 +495,7 @@ func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
 			"validation_warnings": []any{"disabled until trusted"},
 		}},
 	})
-	for _, want := range []string{"Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
+	for _, want := range []string{"MCP descriptors", "EarthScope MCP", "warnings: descriptor requires explicit trust", "Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("validation output missing %q:\n%s", want, out)
 		}

@@ -1884,6 +1884,9 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, "enabled: "+enabled)
 	}
+	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(warnings, "; "))
+	}
 	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(errors, "; "))
 	}
