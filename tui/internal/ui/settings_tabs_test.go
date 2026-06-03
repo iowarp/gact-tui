@@ -192,6 +192,29 @@ func TestSettingsAgentTabShowsSelectedAgentDetails(t *testing.T) {
 	}
 }
 
+func TestSettingsAgentTabLoadErrorDoesNotRenderLoadingPlaceholder(t *testing.T) {
+	a := newReadyApp([]gact.Session{{
+		ID:     "sess_1",
+		Title:  "demo",
+		Status: gact.StatusIdle,
+	}}, nil)
+	a.width = 120
+	a.height = 32
+	a.settingsOpen = true
+	a.settings = &settingsState{
+		tab:     1,
+		loadErr: "agents: backend unavailable",
+	}
+
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "agents: backend unavailable") {
+		t.Fatalf("settings agent tab should surface backend error:\n%s", out)
+	}
+	if strings.Contains(out, "loading") || strings.Contains(out, "Loading") {
+		t.Fatalf("agent tab load error should not be paired with loading placeholder:\n%s", out)
+	}
+}
+
 func TestSettingsAgentListDescriptionOmitsGeneratedCommonToolsTail(t *testing.T) {
 	a := New("http://unused")
 	ag := gact.AgentDef{
