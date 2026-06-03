@@ -5269,6 +5269,41 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 	)
 }
 
+func (a *App) registerSidebarSessionSummaryHit(row int, width int, index int) {
+	if a.hits == nil || index < 0 || index >= len(a.sessions) {
+		return
+	}
+	id := a.sessions[index].ID
+	if id == "" {
+		id = fmt.Sprintf("%d", index)
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	} else {
+		id = "right-" + id
+	}
+	a.registerSidebarContentHitActions(
+		"sidebar:session:"+id+":summary",
+		row,
+		width,
+		1,
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			app.sidebarSectionFocus = sidebarSectionSessions
+			app.sidebarSectionCursor = false
+			if index != app.selected {
+				app.selected = index
+			}
+			return app.openSessionSummaryDetail(index)
+		},
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			return app.openSessionActionsForIndex(index)
+		},
+	)
+}
+
 func (a *App) registerSidebarFilterHit(row int, width int) {
 	if a.hits == nil {
 		return
@@ -5349,6 +5384,41 @@ func (a *App) sidebarContentRect(row int, width int) mouseRect {
 		w = 1
 	}
 	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
+}
+
+func (a *App) openSessionSummaryDetail(index int) tea.Cmd {
+	if index < 0 || index >= len(a.sessions) {
+		return nil
+	}
+	s := a.sessions[index]
+	summary := strings.TrimSpace(s.Summary)
+	if summary == "" {
+		a.transientHint = "no session summary available"
+		return nil
+	}
+	rows := appendDetailSection(nil, "Session Summary",
+		detailField{"session_id", s.ID},
+		detailField{"title", firstNonEmpty(s.Title, a.localizer.t(msgSidebarUntitled, nil))},
+		detailField{"status", s.Status},
+		detailField{"updated_at", formatOptionalTime(s.UpdatedAt)},
+		detailField{"summary", summary},
+	)
+	a.detailView = &bulkyPartRef{
+		messageID: "session-summary",
+		partID:    s.ID,
+		title:     "Session summary · " + firstNonEmpty(s.Title, s.ID),
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+	return nil
+}
+
+func formatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 func (a *App) openContextFileDetail(cf gact.ContextFile) tea.Cmd {
@@ -9496,6 +9566,7 @@ func (a *App) renderSidebar(width, height int) string {
 			rows = append(rows, titleLine, statusLine)
 			if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
 				summaryText := "summary: " + summary
+				a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
 			}
 			if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
@@ -9755,6 +9826,7 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 		}
 		rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(status, width-8)))
 		if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
+			a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
 		}
 		if activation := a.sessionSidebarActivationText(sIdx); activation != "" {

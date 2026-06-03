@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -142,6 +143,76 @@ func TestSelectedSessionSummaryRendersInSidebar(t *testing.T) {
 	}
 	if strings.Contains(out, "This should not render") {
 		t.Fatalf("unselected summary leaked into sidebar:\n%s", out)
+	}
+}
+
+func TestSelectedSessionSummaryRowOpensDetail(t *testing.T) {
+	a := makeSidebarApp(t, 2)
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "demo", Status: gact.StatusIdle, Summary: "Retained NDP and plot evidence for follow-up."},
+		{ID: "s2", Title: "other", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:s1:summary")
+	if !ok {
+		t.Fatal("missing selected session summary hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("summary detail click should not dispatch backend command")
+	}
+	if a.focus != FocusSidebar || a.sidebarSectionFocus != sidebarSectionSessions || a.sidebarSectionCursor {
+		t.Fatalf("summary click focus = %v section=%v cursor=%v, want sidebar session row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("summary click should open detail view")
+	}
+	for _, want := range []string{"Session Summary", "session_id: s1", "title: demo", "summary:", "Retained NDP and plot evidence"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("summary detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestRightSidebarSessionSummaryRowOpensDetail(t *testing.T) {
+	a := makeSidebarApp(t, 2)
+	a.MouseEnabled = true
+	a.width = 150
+	a.height = 36
+	a.sessions = []gact.Session{
+		{ID: "s1", Title: "demo", Status: gact.StatusIdle, Summary: "Retained NDP and plot evidence for follow-up."},
+		{ID: "s2", Title: "other", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.SetSidebarLayout([]string{"context"}, []string{"sessions"})
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:session:right-s1:summary")
+	if !ok {
+		t.Fatal("missing right sidebar selected session summary hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right summary detail click should not dispatch backend command")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionSessions || a.sidebarSectionCursor {
+		t.Fatalf("right summary click focus = %v section=%v cursor=%v, want right sidebar session row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "Retained NDP and plot evidence") {
+		t.Fatalf("right summary click should open detail, open=%v detail=%#v", a.detailViewOpen, a.detailView)
 	}
 }
 
