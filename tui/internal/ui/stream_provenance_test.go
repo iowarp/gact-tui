@@ -300,6 +300,69 @@ func TestApplySemanticEventSummarizesCLIOSemanticToolPayload(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventSummaryFlattensNestedDelegationReferences(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "resume_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "delegation.parent_resumed",
+			"status":       "completed",
+			"summary":      "Parent expert resumed after child work.",
+			"detail_level": "semantic",
+			"actor": map[string]any{
+				"kind": "agent",
+				"agent": map[string]any{
+					"id":   "data",
+					"role": "parent_expert",
+				},
+			},
+			"subject": map[string]any{
+				"agent": map[string]any{
+					"id":   "ndp_catalog",
+					"role": "child_expert",
+				},
+			},
+			"payload": map[string]any{
+				"stage":     "parent.resumed",
+				"parent_id": "data",
+				"agent_id":  "ndp_catalog",
+				"return_to": "data",
+				"delegation": map[string]any{
+					"path": []any{
+						map[string]any{"agent_id": "data"},
+						map[string]any{"agent_id": "ndp_catalog"},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	got := a.messages[0].Parts[0].Thinking
+	for _, want := range []string{
+		"delegation.parent_resumed",
+		"actor: agent=data",
+		"subject: agent=ndp_catalog",
+		"payload: stage=parent.resumed",
+		"parent_id=data",
+		"agent_id=ndp_catalog",
+		"return_to=data",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("nested semantic summary missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

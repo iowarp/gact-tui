@@ -7589,6 +7589,7 @@ func compactSemanticPayload(raw any) string {
 		return ""
 	}
 	preferred := []string{
+		"stage",
 		"tool",
 		"tool_name",
 		"call_id",
@@ -7601,6 +7602,9 @@ func compactSemanticPayload(raw any) string {
 		"selected_agent",
 		"parent_id",
 		"agent_id",
+		"child_id",
+		"return_to",
+		"resumed_from",
 		"model",
 		"provider",
 	}
@@ -7645,7 +7649,7 @@ func compactSemanticMap(raw any) string {
 	sort.Strings(keys)
 	var parts []string
 	for _, key := range keys {
-		if value := semanticScalarText(m[key]); value != "" {
+		if value := compactSemanticValue(key, m[key], 0); value != "" {
 			parts = append(parts, key+"="+value)
 		}
 	}
@@ -7653,6 +7657,13 @@ func compactSemanticMap(raw any) string {
 }
 
 func semanticScalarText(v any) string {
+	return compactSemanticValue("", v, 0)
+}
+
+func compactSemanticValue(_ string, v any, depth int) string {
+	if depth > 4 {
+		return ""
+	}
 	switch value := v.(type) {
 	case nil:
 		return ""
@@ -7665,9 +7676,71 @@ func semanticScalarText(v any) string {
 		return "false"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, json.Number:
 		return strings.TrimSpace(fmt.Sprint(value))
+	case []any:
+		items := make([]string, 0, min(len(value), 3))
+		for _, item := range value {
+			if text := compactSemanticValue("", item, depth+1); text != "" {
+				items = append(items, text)
+			}
+			if len(items) >= 3 {
+				break
+			}
+		}
+		if len(value) > len(items) {
+			items = append(items, fmt.Sprintf("+%d more", len(value)-len(items)))
+		}
+		return strings.Join(items, " -> ")
+	case map[string]any:
+		if direct := compactSemanticNestedIdentity(value); direct != "" {
+			return direct
+		}
+		nested := make([]string, 0, 3)
+		keys := make([]string, 0, len(value))
+		for nestedKey := range value {
+			keys = append(keys, nestedKey)
+		}
+		sort.Strings(keys)
+		for _, nestedKey := range keys {
+			if text := compactSemanticValue(nestedKey, value[nestedKey], depth+1); text != "" {
+				if nestedKey != "" && text != nestedKey {
+					text = nestedKey + ":" + text
+				}
+				nested = append(nested, text)
+			}
+			if len(nested) >= 3 {
+				break
+			}
+		}
+		return strings.Join(nested, ", ")
 	default:
 		return ""
 	}
+}
+
+func compactSemanticNestedIdentity(m map[string]any) string {
+	for _, key := range []string{
+		"agent_id",
+		"active_agent_id",
+		"active_expert_id",
+		"selected_agent_id",
+		"child_id",
+		"parent_id",
+		"resumed_from",
+		"return_to",
+		"dispatch_target",
+		"tool",
+		"tool_name",
+		"call_id",
+		"provider_id",
+		"model_id",
+		"id",
+		"name",
+	} {
+		if value := compactSemanticValue("", m[key], 1); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func optionalBoolValue(v any) (bool, bool) {
