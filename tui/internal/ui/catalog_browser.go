@@ -1562,25 +1562,48 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 		return firstNonEmpty(blueprints[i].Title, blueprints[i].ID) < firstNonEmpty(blueprints[j].Title, blueprints[j].ID)
 	})
 	items := make([]catalogItem, 0, len(blueprints))
-	for _, blueprint := range blueprints {
-		status := firstNonEmpty(blueprint.Scope, "blueprint")
-		if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
-			status = "invalid"
-		} else if len(blueprint.ValidationWarnings) > 0 {
-			status = "warning"
+	sourceSummaries, sourceGroups := agentBlueprintSourceSummaries(blueprints)
+	for i, summary := range sourceSummaries {
+		status := firstNonEmpty(summary.kind, "source")
+		if agentBlueprintSourceNeedsAttention(summary) {
+			status = "attention"
 		}
 		items = append(items, catalogItem{
-			id:        blueprint.ID,
-			title:     firstNonEmpty(blueprint.Title, blueprint.ID),
-			desc:      agentBlueprintDescription(blueprint),
+			id:        fmt.Sprintf("source/%d", i),
+			title:     "Marketplace source · " + sourceTitle(summary),
+			desc:      formatAgentBlueprintSourceSummary(summary),
 			statusTag: status,
 		})
+		for _, blueprint := range sourceGroups[summary.key] {
+			items = append(items, agentBlueprintCatalogItem(blueprint))
+		}
 	}
-	items = append(items, agentBlueprintSourceCatalogItems(blueprints)...)
+	for _, blueprint := range blueprints {
+		if agentBlueprintSourceKey(blueprint) != "" {
+			continue
+		}
+		items = append(items, agentBlueprintCatalogItem(blueprint))
+	}
 	return items
 }
 
+func agentBlueprintCatalogItem(blueprint gact.AgentBlueprintDefinition) catalogItem {
+	status := firstNonEmpty(blueprint.Scope, "blueprint")
+	if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
+		status = "invalid"
+	} else if len(blueprint.ValidationWarnings) > 0 {
+		status = "warning"
+	}
+	return catalogItem{
+		id:        blueprint.ID,
+		title:     firstNonEmpty(blueprint.Title, blueprint.ID),
+		desc:      agentBlueprintDescription(blueprint),
+		statusTag: status,
+	}
+}
+
 type agentBlueprintSourceSummary struct {
+	key         string
 	source      string
 	kind        string
 	ref         string
@@ -1598,19 +1621,39 @@ type agentBlueprintSourceSummary struct {
 }
 
 func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition) []catalogItem {
+	summaries, _ := agentBlueprintSourceSummaries(blueprints)
+	items := make([]catalogItem, 0, len(summaries))
+	for i, summary := range summaries {
+		status := firstNonEmpty(summary.kind, "source")
+		if agentBlueprintSourceNeedsAttention(summary) {
+			status = "attention"
+		}
+		items = append(items, catalogItem{
+			id:        fmt.Sprintf("source/%d", i),
+			title:     "Marketplace source · " + sourceTitle(summary),
+			desc:      formatAgentBlueprintSourceSummary(summary),
+			statusTag: status,
+		})
+	}
+	return items
+}
+
+func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) ([]*agentBlueprintSourceSummary, map[string][]gact.AgentBlueprintDefinition) {
 	byKey := map[string]*agentBlueprintSourceSummary{}
+	groups := map[string][]gact.AgentBlueprintDefinition{}
 	for _, blueprint := range blueprints {
-		install := agentBlueprintInstallMetadata(blueprint)
-		source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
-		if source == "" {
+		key := agentBlueprintSourceKey(blueprint)
+		if key == "" {
 			continue
 		}
+		install := agentBlueprintInstallMetadata(blueprint)
+		source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
 		kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
 		ref := stringValue(install["ref"])
-		key := strings.Join([]string{kind, source, ref, firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)}, "\x00")
 		summary := byKey[key]
 		if summary == nil {
 			summary = &agentBlueprintSourceSummary{
+				key:         key,
 				source:      source,
 				kind:        kind,
 				ref:         ref,
@@ -1625,7 +1668,11 @@ func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition
 			}
 			byKey[key] = summary
 		}
+		groups[key] = append(groups[key], blueprint)
 		summary.blueprints = append(summary.blueprints, firstNonEmpty(blueprint.Title, blueprint.ID))
+		if scope := firstNonEmpty(stringValue(install["scope"]), blueprint.Scope); scope != "" {
+			summary.scope = strings.Join(appendUniqueStrings(splitCommaList(summary.scope), scope), ", ")
+		}
 		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["warnings"])...)
 		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["validation_warnings"])...)
 		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["errors"])...)
@@ -1636,28 +1683,33 @@ func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition
 		if len(blueprint.ValidationErrors) > 0 {
 			summary.errors = appendUniqueStrings(summary.errors, blueprint.ID+": "+strings.Join(blueprint.ValidationErrors, "; "))
 		}
+		if len(blueprint.ValidationWarnings) > 0 {
+			summary.warnings = appendUniqueStrings(summary.warnings, blueprint.ID+": "+strings.Join(blueprint.ValidationWarnings, "; "))
+		}
 	}
 	keys := make([]string, 0, len(byKey))
 	for key := range byKey {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	items := make([]catalogItem, 0, len(keys))
-	for i, key := range keys {
+	summaries := make([]*agentBlueprintSourceSummary, 0, len(keys))
+	for _, key := range keys {
 		summary := byKey[key]
 		sort.Strings(summary.blueprints)
-		status := firstNonEmpty(summary.kind, "source")
-		if agentBlueprintSourceNeedsAttention(summary) {
-			status = "attention"
-		}
-		items = append(items, catalogItem{
-			id:        fmt.Sprintf("source/%d", i),
-			title:     "Marketplace source · " + sourceTitle(summary),
-			desc:      formatAgentBlueprintSourceSummary(summary),
-			statusTag: status,
-		})
+		summaries = append(summaries, summary)
 	}
-	return items
+	return summaries, groups
+}
+
+func agentBlueprintSourceKey(blueprint gact.AgentBlueprintDefinition) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
+	if source == "" {
+		return ""
+	}
+	kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
+	ref := stringValue(install["ref"])
+	return strings.Join([]string{kind, source, ref}, "\x00")
 }
 
 func agentBlueprintSourceRegistryUnavailableDetail() string {
@@ -1746,6 +1798,9 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 	if blueprint.RootExpert != "" {
 		parts = append(parts, "root: "+blueprint.RootExpert)
 	}
+	if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+		parts = append(parts, "state: "+state)
+	}
 	if provenance := agentBlueprintProvenanceLine(blueprint); provenance != "" {
 		parts = append(parts, provenance)
 	}
@@ -1762,6 +1817,22 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 		parts = append(parts, compactCatalogText(blueprint.Description))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func agentBlueprintMarketplaceState(blueprint gact.AgentBlueprintDefinition) string {
+	if agentBlueprintSourceKey(blueprint) == "" {
+		return ""
+	}
+	install := agentBlueprintInstallMetadata(blueprint)
+	if firstNonEmpty(stringValue(install["installed_at"]), stringValue(install["status"]), stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])) != "" {
+		return "installed"
+	}
+	switch strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(install["scope"]), blueprint.Scope))) {
+	case "workspace", "global", "session", "user":
+		return "installed"
+	default:
+		return "available"
+	}
 }
 
 func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {

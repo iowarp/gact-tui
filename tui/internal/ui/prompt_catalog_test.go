@@ -304,19 +304,8 @@ func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("items len = %d, want 1 blueprint row plus 1 source row", len(items))
 	}
-	for _, want := range []string{
-		"source: git",
-		"from: https://example.org/community/seismic-agents.git",
-		"ref: main",
-		"commit: 0123456789ab",
-		"checksum: abcdef012345",
-	} {
-		if !strings.Contains(items[0].desc, want) {
-			t.Fatalf("blueprint provenance desc missing %q: %q", want, items[0].desc)
-		}
-	}
-	if items[1].id != "source/0" || items[1].title != "Marketplace source · git · https://example.org/community/seismic-agents.git" {
-		t.Fatalf("source row missing or wrong: %#v", items[1])
+	if items[0].id != "source/0" || items[0].title != "Marketplace source · git · https://example.org/community/seismic-agents.git" {
+		t.Fatalf("source row missing or wrong: %#v", items[0])
 	}
 	for _, want := range []string{
 		"Marketplace Source",
@@ -327,12 +316,24 @@ func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 		"checksum: abcdef0123456789",
 		"blueprints: Seismic Marketplace",
 	} {
-		if !strings.Contains(items[1].desc, want) {
-			t.Fatalf("source row desc missing %q:\n%s", want, items[1].desc)
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("source row desc missing %q:\n%s", want, items[0].desc)
 		}
 	}
-	if strings.Contains(items[1].desc, `"install"`) {
-		t.Fatalf("source row should be structured, not raw JSON:\n%s", items[1].desc)
+	if strings.Contains(items[0].desc, `"install"`) {
+		t.Fatalf("source row should be structured, not raw JSON:\n%s", items[0].desc)
+	}
+	for _, want := range []string{
+		"state: installed",
+		"source: git",
+		"from: https://example.org/community/seismic-agents.git",
+		"ref: main",
+		"commit: 0123456789ab",
+		"checksum: abcdef012345",
+	} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint provenance desc missing %q: %q", want, items[1].desc)
+		}
 	}
 }
 
@@ -357,7 +358,7 @@ func TestAgentBlueprintSourceRowsSurfaceFailureState(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("items len = %d, want blueprint row plus source row", len(items))
 	}
-	source := items[1]
+	source := items[0]
 	if source.statusTag != "attention" {
 		t.Fatalf("source status = %q, want attention: %#v", source.statusTag, source)
 	}
@@ -380,6 +381,49 @@ func TestAgentBlueprintSourceRowsSurfaceFailureState(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogItemsGroupSourceBackedBlueprints(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "builtin", Title: "Bundled Blueprint", Scope: "builtin", RootExpert: "root", Enabled: true,
+	}, {
+		ID: "available", Title: "Available Marketplace", Scope: "marketplace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":      "https://example.org/community/agents.git",
+			"source_kind": "git",
+			"ref":         "main",
+			"scope":       "marketplace",
+		}},
+	}, {
+		ID: "installed", Title: "Installed Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+			"scope":        "workspace",
+		}},
+	}})
+
+	if len(items) != 4 {
+		t.Fatalf("items len = %d, want one source group, two marketplace rows, and one bundled row: %#v", len(items), items)
+	}
+	for i, wantID := range []string{"source/0", "available", "installed", "builtin"} {
+		if items[i].id != wantID {
+			t.Fatalf("items[%d].id = %q, want %q; items=%#v", i, items[i].id, wantID, items)
+		}
+	}
+	if !strings.Contains(items[1].desc, "state: available") {
+		t.Fatalf("available marketplace row missing state:\n%s", items[1].desc)
+	}
+	if !strings.Contains(items[2].desc, "state: installed") {
+		t.Fatalf("installed marketplace row missing state:\n%s", items[2].desc)
+	}
+	if !strings.Contains(items[0].desc, "blueprints: Available Marketplace") ||
+		!strings.Contains(items[0].desc, "Installed Marketplace") ||
+		!strings.Contains(items[0].desc, "scope: marketplace, workspace") {
+		t.Fatalf("source rows should describe grouped blueprints: %#v", items)
+	}
+}
+
 func TestAgentBlueprintCatalogAndDetailSurfaceValidationWarnings(t *testing.T) {
 	blueprint := gact.AgentBlueprintDefinition{
 		ID: "community-warning", Title: "Community Warning", Version: "0.9.0", Scope: "workspace",
@@ -396,19 +440,25 @@ func TestAgentBlueprintCatalogAndDetailSurfaceValidationWarnings(t *testing.T) {
 	}
 
 	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{blueprint})
-	if len(items) < 1 {
+	if len(items) != 2 {
 		t.Fatalf("items = %#v", items)
 	}
-	if items[0].statusTag != "warning" {
-		t.Fatalf("warning-only blueprint should use warning status: %#v", items[0])
+	if items[0].statusTag != "attention" {
+		t.Fatalf("source row should use attention status for grouped warning-only blueprint: %#v", items[0])
+	}
+	if !strings.Contains(items[0].desc, "community-warning: descriptor requires explicit trust before install") {
+		t.Fatalf("source row should summarize grouped blueprint warnings:\n%s", items[0].desc)
+	}
+	if items[1].id != "community-warning" || items[1].statusTag != "warning" {
+		t.Fatalf("warning-only blueprint should use warning status: %#v", items)
 	}
 	for _, want := range []string{
 		"warnings: descriptor requires explicit trust before install; skill ndp resolved from community source",
 		"source: git",
 		"from: https://example.org/community/warning-agents.git",
 	} {
-		if !strings.Contains(items[0].desc, want) {
-			t.Fatalf("blueprint catalog row missing %q:\n%s", want, items[0].desc)
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint catalog row missing %q:\n%s", want, items[1].desc)
 		}
 	}
 
