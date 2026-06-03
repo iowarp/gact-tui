@@ -140,6 +140,45 @@ func TestCapabilityMatrixDocMatchesDoctorSupportClasses(t *testing.T) {
 	}
 }
 
+func TestCapabilityMatrixDocNonFullRowsCarryDisposition(t *testing.T) {
+	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") || !strings.Contains(line, "`") {
+			continue
+		}
+		cols := strings.Split(line, "|")
+		if len(cols) < 5 {
+			continue
+		}
+		field := strings.Trim(strings.TrimSpace(cols[2]), "`")
+		support := strings.TrimSpace(cols[3])
+		status := strings.ToLower(strings.TrimSpace(cols[4]))
+		if field == "" || field == "Backend field" {
+			continue
+		}
+		switch support {
+		case "partial", "gated", "none":
+			if !hasCapabilityDisposition(status) {
+				t.Fatalf("capability matrix %s row %q needs issue/proof/deferred/non-goal disposition: %q", support, field, strings.TrimSpace(cols[4]))
+			}
+		}
+	}
+}
+
+func hasCapabilityDisposition(status string) bool {
+	for _, marker := range []string{"#", "proof", "non-goal", "defer"} {
+		if strings.Contains(status, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
 		SessionSummary:                 true,
