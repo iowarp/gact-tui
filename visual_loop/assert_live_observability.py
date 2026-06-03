@@ -42,7 +42,7 @@ def _payload(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _event_type(row: dict[str, Any], payload: dict[str, Any]) -> str:
-    return _str(payload.get("event_type")) or _str(row.get("event"))
+    return _str(payload.get("event_type")) or _str(row.get("event_type")) or _str(row.get("event"))
 
 
 def _part(row: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:

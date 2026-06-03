@@ -182,6 +182,58 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
         self.assertTrue(ok, missing)
         self.assertEqual([item.kind for item in chosen], ["tool_started", "tool_completed"])
 
+    def test_flattened_semantic_rows_classify_benchmark_hierarchy(self):
+        rows = [
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "event_type": "agent.invocation.started",
+                "agent_id": "orchestrator",
+            },
+            {
+                "t": 0.2,
+                "event": "semantic.event",
+                "event_type": "delegation.started",
+                "parent_id": "orchestrator",
+                "agent_id": "ndp_catalog",
+            },
+            {
+                "t": 0.3,
+                "event": "semantic.event",
+                "event_type": "tool.call.started",
+                "tool": "ndp_search_datasets",
+            },
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "event_type": "tool.call.completed",
+                "tool": "ndp_search_datasets",
+            },
+            {
+                "t": 0.5,
+                "event": "semantic.event",
+                "event_type": "delegation.parent_resumed",
+                "parent_id": "orchestrator",
+                "agent_id": "ndp_catalog",
+            },
+            {"t": 1.0, "event": "message.completed"},
+        ]
+
+        ok, chosen, missing = ordered_sequence_before_completion(
+            observations(rows),
+            ["route_or_delegate", "child_expert_active", "tool_started", "tool_completed", "parent_resumed"],
+            min_live_lead_s=0.25,
+        )
+
+        self.assertTrue(ok, missing)
+        self.assertEqual([item.kind for item in chosen], [
+            "route_or_delegate",
+            "child_expert_active",
+            "tool_started",
+            "tool_completed",
+            "parent_resumed",
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()

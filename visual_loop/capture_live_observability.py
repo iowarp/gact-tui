@@ -14,6 +14,22 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from assert_live_observability import (
+    observations,
+    ordered_sequence_before_completion,
+    render_report as render_temporal_report,
+)
+
+
+BENCHMARK_HIERARCHY_REQUIRED = [
+    "route_or_delegate",
+    "child_expert_active",
+    "tool_started",
+    "tool_completed",
+    "parent_resumed",
+]
+DEFAULT_MIN_LIVE_LEAD_S = 0.25
+
 
 def request_json(method: str, url: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     data = None
@@ -109,6 +125,36 @@ def summarize(event: dict[str, Any], t0: float) -> dict[str, Any]:
             summary["tool"] = payload.get("tool")
         if "call_id" in payload:
             summary["call_id"] = payload.get("call_id")
+        if summary["event"] == "semantic.event":
+            summary["payload"] = payload
+            actor = payload.get("actor") if isinstance(payload.get("actor"), dict) else {}
+            subject = payload.get("subject") if isinstance(payload.get("subject"), dict) else {}
+            event_payload = payload.get("payload") if isinstance(payload.get("payload"), dict) else {}
+            for key in ("event_type", "trace_id", "turn_id", "session_id", "detail_level", "status"):
+                if key in payload:
+                    summary[key] = payload[key]
+            for key in (
+                "agent_id",
+                "parent_id",
+                "child_id",
+                "tool",
+                "tool_name",
+                "name",
+                "stage",
+                "selected_agent",
+                "execution_path",
+            ):
+                if key in event_payload:
+                    summary[key] = event_payload[key]
+            if "agent_id" not in summary and "agent_id" in subject:
+                summary["agent_id"] = subject["agent_id"]
+            if "parent_id" not in summary and "agent_id" in actor:
+                summary["parent_id"] = actor["agent_id"]
+            if "tool" not in summary:
+                for key in ("tool", "tool_name", "name"):
+                    if key in actor:
+                        summary["tool"] = actor[key]
+                        break
     return summary
 
 
@@ -212,24 +258,25 @@ def main() -> int:
                 break
 
     stop.set()
-    route_events = [
-        s for s in summaries if s.get("event") == "message.part.added" and s.get("part_type") == "routing_decision"
-    ]
-    handoff_events = [
-        s for s in summaries if s.get("event") == "message.part.added" and s.get("part_type") == "expert_handoff"
-    ]
-    tool_part_events = [
-        s for s in summaries if s.get("event") == "message.part.added" and s.get("part_type") in {"tool_call", "tool_result"}
-    ]
-    tool_events = [s for s in summaries if str(s.get("event", "")).startswith("tool.call.")]
-    completed_t = next((s["t"] for s in summaries if s.get("event") == "message.completed"), None)
-    live_before_completion = [
-        s
-        for s in route_events + handoff_events + tool_part_events + tool_events
-        if completed_t is None or s["t"] < completed_t
-    ]
+    obs = observations(summaries)
+    strict_ok, strict_chosen, strict_missing = ordered_sequence_before_completion(
+        obs,
+        BENCHMARK_HIERARCHY_REQUIRED,
+        min_live_lead_s=DEFAULT_MIN_LIVE_LEAD_S,
+    )
+    temporal_report = render_temporal_report(
+        jsonl_path,
+        obs,
+        BENCHMARK_HIERARCHY_REQUIRED,
+        DEFAULT_MIN_LIVE_LEAD_S,
+    )
+    route_events = [item for item in obs if item.kind == "route_or_delegate"]
+    child_events = [item for item in obs if item.kind == "child_expert_active"]
+    tool_started_events = [item for item in obs if item.kind == "tool_started"]
+    tool_completed_events = [item for item in obs if item.kind == "tool_completed"]
+    parent_resumed_events = [item for item in obs if item.kind == "parent_resumed"]
 
-    verdict = "PASS" if completed and live_before_completion else "FAIL"
+    verdict = "PASS" if completed and strict_ok else "FAIL"
     report = [
         f"# Live Observability Capture {stamp}",
         "",
@@ -237,23 +284,48 @@ def main() -> int:
         f"- session: `{sid}`",
         f"- verdict: `{verdict}`",
         f"- completed: `{completed}`",
+        f"- strict_benchmark_hierarchy: `{strict_ok}`",
+        f"- min_live_lead_s: `{DEFAULT_MIN_LIVE_LEAD_S:g}`",
         f"- jsonl: `{jsonl_path}`",
         "",
         "## Counts",
         "",
-        f"- routing_decision parts: {len(route_events)}",
-        f"- expert_handoff parts: {len(handoff_events)}",
-        f"- tool_call/tool_result parts: {len(tool_part_events)}",
-        f"- tool.call lifecycle events: {len(tool_events)}",
-        f"- live observability events before completion: {len(live_before_completion)}",
+        f"- route/delegate observations: {len(route_events)}",
+        f"- child expert active observations: {len(child_events)}",
+        f"- tool started observations: {len(tool_started_events)}",
+        f"- tool completed observations: {len(tool_completed_events)}",
+        f"- parent resumed observations: {len(parent_resumed_events)}",
         "",
-        "## Timeline",
+        "## Required Order",
+        "",
+        f"- required: `{', '.join(BENCHMARK_HIERARCHY_REQUIRED)}`",
+        f"- missing: `{', '.join(strict_missing) if strict_missing else 'none'}`",
+        "",
+        "## Matched Sequence",
         "",
     ]
+    if strict_chosen:
+        for item in strict_chosen:
+            suffix = f" · {item.detail}" if item.detail else ""
+            report.append(f"- {item.t:>7.3f}s · {item.kind} · {item.event}{suffix}")
+    else:
+        report.append("- none")
+    report.extend([
+        "",
+        "## Temporal Assertion Report",
+        "",
+        temporal_report.rstrip(),
+        "",
+        "## Raw Timeline",
+        "",
+    ])
     for item in summaries:
         bits = [f"{item['t']:>7.3f}s", str(item["event"])]
         for key in (
+            "event_type",
             "part_type",
+            "trace_id",
+            "turn_id",
             "selected_agent",
             "execution_path",
             "agent_id",
@@ -261,6 +333,7 @@ def main() -> int:
             "stage",
             "tool_name",
             "tool",
+            "call_id",
             "stop_reason",
             "status",
             "error",
