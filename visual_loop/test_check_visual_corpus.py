@@ -61,6 +61,36 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_agent_blueprint_lifecycle_visual_proof(self) -> None:
+        marketplace = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "marketplace_blueprints"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_agent_blueprint_management.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_catalog.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_install.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_validation_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_builtin_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_workspace_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_updated.png",
+        ):
+            self.assertIn(rel, marketplace.required)
+
+    def test_manifest_requires_agent_blueprint_source_visual_proof(self) -> None:
+        marketplace = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "marketplace_blueprints"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_agent_blueprint_sources.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_sources_catalog.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_sources_detail.png",
+            "visual_loop/tapes/semantic_agent_blueprint_commands.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_commands_palette.png",
+        ):
+            self.assertIn(rel, marketplace.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

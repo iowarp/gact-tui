@@ -108,6 +108,26 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
         ),
     ),
     CorpusGroup(
+        name="marketplace_blueprints",
+        description="Agent Blueprint marketplace, source provenance, validation, and lifecycle proof",
+        required=(
+            "visual_loop/tapes/semantic_agent_blueprint_management.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_catalog.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_install.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_installed.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_validate.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_validation_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_builtin_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_workspace_detail.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_management_updated.png",
+            "visual_loop/tapes/semantic_agent_blueprint_sources.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_sources_catalog.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_sources_detail.png",
+            "visual_loop/tapes/semantic_agent_blueprint_commands.tape",
+            "visual_loop/screenshots/semantic_agent_blueprint_commands_palette.png",
+        ),
+    ),
+    CorpusGroup(
         name="benchmark_live_replay",
         description="persisted CLIO/ALCF benchmark replay screenshots",
         required=(

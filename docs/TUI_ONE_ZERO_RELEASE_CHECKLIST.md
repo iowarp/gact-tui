@@ -87,9 +87,9 @@ python3 visual_loop/assert_live_observability.py \
 
 Acceptance:
 
-- Conversation/tools, MCP reconnect, sidebars, settings/provider,
-  ask-user/retry, semantic live events, and benchmark replay screenshots are
-  present and readable.
+- Conversation/tools, MCP reconnect, marketplace/Agent Blueprint lifecycle,
+  sidebars, settings/provider, ask-user/retry, semantic live events, and
+  benchmark replay screenshots are present and readable.
 - Screenshots show summaries and surfaced errors, not hidden backend failures or
   raw JSON walls where summaries are expected.
 - Temporal assertions prove route/delegation/tool-start/tool-complete/parent
@@ -125,6 +125,9 @@ Required workflows:
   corresponding capabilities.
 - MCP reconnect from `/mcp`, including truthful reconnect success/failure and
   global `session_id=""` notification/semantic event handling.
+- Agent Blueprint marketplace/source workflows: source provenance, install,
+  validate, protected built-in actions, workspace update/delete actions,
+  validation warnings/errors, MCP trust/metadata, and packaged command rows.
 - Permission, user-question, retry, rewind, semantic-event, and runtime
   provenance flows.
 
