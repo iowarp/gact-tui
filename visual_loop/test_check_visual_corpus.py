@@ -91,6 +91,24 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, marketplace.required)
 
+    def test_manifest_requires_sidebar_layout_file_picker_and_runtime_proof(self) -> None:
+        sidebars = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "sidebars_context_files"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_sidebar_layout_settings.tape",
+            "visual_loop/screenshots/semantic_sidebar_layout_settings.png",
+            "visual_loop/tapes/semantic_right_sidebar_layout.tape",
+            "visual_loop/screenshots/semantic_right_sidebar_layout.png",
+            "visual_loop/tapes/semantic_file_picker.tape",
+            "visual_loop/screenshots/semantic_file_picker.png",
+            "visual_loop/screenshots/semantic_file_picker_tree_expanded.png",
+            "visual_loop/tapes/agent_runtime_sidebar.tape",
+            "visual_loop/screenshots/agent_runtime_sidebar.png",
+        ):
+            self.assertIn(rel, sidebars.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

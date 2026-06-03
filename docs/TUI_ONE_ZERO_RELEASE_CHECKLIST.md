@@ -121,6 +121,8 @@ Required workflows:
   MCP install, workspace-create, and agent write modals.
 - Mouse hit targets for header buttons, sidebars, context/files, settings,
   provider, palette/help/doctor, details, and close/back buttons.
+- Sidebar layout, right-sidebar placement, file picker tree expansion, and
+  Agents+Files runtime sidebar visual proof.
 - Context file preview and attachment upload when CLIO advertises the
   corresponding capabilities.
 - MCP reconnect from `/mcp`, including truthful reconnect success/failure and
