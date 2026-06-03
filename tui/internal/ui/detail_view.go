@@ -239,7 +239,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			},
 		},
 	}
-	if a.detailView != nil && a.detailView.messageID == "files" && a.detailView.localPath != "" {
+	if a.fileDetailUploadAvailable() {
 		buttons = append([]menuButton{{
 			id:    "detail:upload",
 			label: "upload",
@@ -253,7 +253,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if hint == "" {
 		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
 	}
-	if a.detailView != nil && a.detailView.messageID == "files" && a.detailView.localPath != "" {
+	if a.fileDetailUploadAvailable() {
 		hint = "u upload  " + hint
 	}
 	hintStyle := t.HintLabel
@@ -279,6 +279,13 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 		},
 	})
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
+}
+
+func (a *App) fileDetailUploadAvailable() bool {
+	return a.detailView != nil &&
+		a.detailView.messageID == "files" &&
+		strings.TrimSpace(a.detailView.localPath) != "" &&
+		a.caps.Capabilities.AttachmentsUpload
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the

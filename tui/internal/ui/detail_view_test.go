@@ -417,6 +417,7 @@ func TestFileDetailShowsUploadAffordance(t *testing.T) {
 	a.width = 120
 	a.height = 36
 	a.stage = StageReady
+	a.caps.Capabilities.AttachmentsUpload = true
 	a.detailViewOpen = true
 	a.detailView = &bulkyPartRef{
 		title:     "File · README.md",

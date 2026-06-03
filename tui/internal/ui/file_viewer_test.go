@@ -166,6 +166,8 @@ func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
 	defer srv.Close()
 
 	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
 	a.stage = StageReady
 	a.caps.Capabilities.AttachmentsUpload = true
 	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
@@ -175,6 +177,10 @@ func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
 	a.activateFileTreeSelection()
 	if !a.detailViewOpen || a.detailView == nil || a.detailView.localPath == "" {
 		t.Fatalf("expected file detail with local path, detail=%#v", a.detailView)
+	}
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:detail:upload"); !ok {
+		t.Fatal("advertised attachment support should render upload button target")
 	}
 
 	model, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
@@ -215,11 +221,18 @@ func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
 
 func TestFileViewerDetailUploadRequiresCapability(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
 	a.detailViewOpen = true
 	a.detailView = &bulkyPartRef{messageID: "files", localPath: "/tmp/report.txt"}
 
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:detail:upload"); ok {
+		t.Fatal("upload button should be hidden when attachments_upload is not advertised")
+	}
 	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
 	if cmd == nil {
 		t.Fatal("unsupported upload should still schedule hint expiry")
