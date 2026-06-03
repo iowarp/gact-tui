@@ -245,6 +245,29 @@ func TestSidebarLayoutEditorMovesModulesBetweenColumns(t *testing.T) {
 	}
 }
 
+func TestSidebarLayoutEditorAvailableModulesUseStableOrder(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions"}, nil)
+	a.openSidebarLayoutEditor()
+
+	var got []sidebarModuleID
+	for _, column := range a.sidebarLayoutColumns() {
+		if column.id == sidebarLayoutColumnAvailable {
+			got = column.modules
+			break
+		}
+	}
+	want := []sidebarModuleID{sidebarModuleContext, sidebarModuleAgents, sidebarModuleFiles}
+	if len(got) != len(want) {
+		t.Fatalf("available modules = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("available modules = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestSidebarLayoutEditorReordersVisibleColumn(t *testing.T) {
 	a := New("http://unused")
 	a.SetSidebarLayout([]string{"sessions", "context"}, nil)

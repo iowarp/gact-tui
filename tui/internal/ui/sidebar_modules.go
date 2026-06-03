@@ -69,6 +69,15 @@ func sidebarModuleRegistry() map[sidebarModuleID]sidebarModuleDefinition {
 	}
 }
 
+func sidebarModuleRegistryOrder() []sidebarModuleID {
+	return []sidebarModuleID{
+		sidebarModuleSessions,
+		sidebarModuleContext,
+		sidebarModuleAgents,
+		sidebarModuleFiles,
+	}
+}
+
 func defaultSidebarModuleIDs() []sidebarModuleID {
 	return []sidebarModuleID{sidebarModuleSessions, sidebarModuleContext}
 }

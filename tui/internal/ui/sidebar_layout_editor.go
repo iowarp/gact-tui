@@ -71,9 +71,8 @@ func (a *App) availableSidebarModuleIDs(left []sidebarModuleID, right []sidebarM
 	for _, id := range right {
 		placed[id] = true
 	}
-	registry := sidebarModuleRegistry()
 	ids := defaultSidebarModuleIDs()
-	for id := range registry {
+	for _, id := range sidebarModuleRegistryOrder() {
 		if !containsSidebarModuleID(ids, id) {
 			ids = append(ids, id)
 		}
