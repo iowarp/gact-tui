@@ -212,6 +212,31 @@ func createSession(t *testing.T, baseURL, title string) string {
 
 // --- tests ----------------------------------------------------------------
 
+func TestCLI_VersionReportsBuildMetadata(t *testing.T) {
+	bin := buildGact(t)
+	headCmd := exec.Command("git", "rev-parse", "--short=12", "HEAD")
+	headOut, err := headCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse: %v\n%s", err, headOut)
+	}
+	head := strings.TrimSpace(string(headOut))
+
+	stdout, stderr, code := runGact(t, bin, nil, "version")
+	if code != 0 {
+		t.Fatalf("version: exit %d, stderr=%q", code, stderr)
+	}
+	for _, want := range []string{
+		"gact " + binaryVersion,
+		"(contract " + contractVersion + ")",
+		"revision: " + head,
+		"go:",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("version output missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
 func TestCLI_ExportToStdout(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
