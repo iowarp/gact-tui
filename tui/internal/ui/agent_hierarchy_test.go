@@ -103,6 +103,32 @@ func TestAgentHierarchySidebarSurfacesRuntimeProvenanceState(t *testing.T) {
 	}
 }
 
+func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 180
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.agentHierarchyAgents = []gact.AgentDef{{
+		ID:               "data",
+		Title:            "Data expert",
+		Source:           "agent_blueprint",
+		Tier:             2,
+		Skills:           []string{"python", "ndp", "adios"},
+		ValidationErrors: []string{"missing skill: adios"},
+	}}
+
+	out := ansi.Strip(a.renderSidebar(96, 20))
+	for _, want := range []string{"Data expert", "t2 · agent_blueprint", "skills: python, ndp, +1 more", "errors: missing"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestAgentHierarchyFinalRuntimeProvenanceDoesNotKeepStartedRowsLive(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 120

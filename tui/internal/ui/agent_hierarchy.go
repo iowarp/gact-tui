@@ -175,22 +175,27 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 	if row.depth > 0 {
 		branch = "└─ "
 	}
-	meta := firstNonEmpty(string(runtimeState), agent.Specialization, agent.Source)
-	if agent.Tier > 0 {
-		metaParts := []string{fmt.Sprintf("t%d", agent.Tier)}
-		if meta != "" {
-			metaParts = append(metaParts, meta)
-		}
-		meta = strings.Join(metaParts, " · ")
-	}
+	meta := agentHierarchyRowMeta(agent, runtimeState)
 	contentW := width - 6
 	if contentW < 8 {
 		contentW = 8
 	}
+	prefixW := lipgloss.Width(marker + indent + branch)
+	if meta != "" {
+		metaBudget := contentW - prefixW - 16
+		if metaBudget < 0 {
+			metaBudget = 0
+		}
+		if metaBudget > 0 {
+			meta = truncate(meta, metaBudget)
+		} else {
+			meta = ""
+		}
+	}
 	metaStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
 	metaW := lipgloss.Width(meta)
 	title := firstNonEmpty(agent.Title, agent.ID)
-	nameBudget := contentW - lipgloss.Width(marker+indent+branch) - metaW - 1
+	nameBudget := contentW - prefixW - metaW - 1
 	if nameBudget < 4 {
 		nameBudget = 4
 	}
@@ -199,6 +204,23 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 		line += " " + metaStyle.Render(meta)
 	}
 	return truncate(line, contentW)
+}
+
+func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRuntimeState) string {
+	parts := make([]string, 0, 4)
+	if agent.Tier > 0 {
+		parts = append(parts, fmt.Sprintf("t%d", agent.Tier))
+	}
+	if state := firstNonEmpty(string(runtimeState), agent.Specialization, agent.Source); state != "" {
+		parts = append(parts, state)
+	}
+	if len(agent.Skills) > 0 {
+		parts = append(parts, "skills: "+strings.Join(limitStrings(agent.Skills, 2), ", "))
+	}
+	if len(agent.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func (a *App) agentHierarchyRuntimeState(agentID string) agentHierarchyRuntimeState {
