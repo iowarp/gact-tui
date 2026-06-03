@@ -148,6 +148,28 @@ def report_verdict(path: Path) -> str | None:
     return None
 
 
+def strict_report_missing_items(path: Path) -> list[str]:
+    if not path.exists() or not path.is_file():
+        return []
+    missing: list[str] = []
+    in_missing_section = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            in_missing_section = stripped in {
+                "## Missing Before Completion",
+                "## Runtime Provenance Agreement",
+            }
+            continue
+        if not in_missing_section or not stripped.startswith("- "):
+            continue
+        text = stripped[2:].strip()
+        if not text or text.startswith("verdict:") or text.startswith("matched:"):
+            continue
+        missing.append(text.strip("`"))
+    return missing
+
+
 def tracked_paths(root: Path) -> set[str]:
     proc = subprocess.run(
         ["git", "ls-files", "--", "visual_loop"],
@@ -181,8 +203,14 @@ def check_strict_live_reports(root: Path) -> dict[str, object]:
         verdict = report_verdict(path)
         if verdict == "PASS":
             ok = True
-        reports.append({"path": rel, "verdict": verdict or "missing"})
-    return {"ok": ok, "reports": reports}
+        reports.append(
+            {
+                "path": rel,
+                "verdict": verdict or "missing",
+                "missing": strict_report_missing_items(path),
+            }
+        )
+    return {"ok": ok, "status": "pass" if ok else "not passing", "reports": reports}
 
 
 def check_corpus(root: Path, *, require_tracked: bool = False, require_strict_live_pass: bool = False) -> dict[str, object]:
@@ -234,12 +262,16 @@ def print_text_report(result: dict[str, object]) -> None:
     if isinstance(strict, dict):
         print("## strict_live_pass")
         print()
-        print(f"- status: {'present' if strict.get('ok') else 'missing'}")
+        print(f"- status: {strict.get('status') or ('pass' if strict.get('ok') else 'not passing')}")
         reports = strict.get("reports", [])
         if isinstance(reports, list):
             for report in reports:
                 if isinstance(report, dict):
                     print(f"- {report.get('path')}: `{report.get('verdict')}`")
+                    missing = report.get("missing", [])
+                    if isinstance(missing, list) and missing:
+                        for item in missing:
+                            print(f"  - missing: {item}")
         print()
 
 

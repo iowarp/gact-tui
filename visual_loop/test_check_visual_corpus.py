@@ -67,6 +67,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
             strict_result = result["strict_live_pass"]
             self.assertFalse(result["ok"])
             self.assertFalse(strict_result["ok"])
+            self.assertEqual(strict_result["status"], "not passing")
             self.assertEqual(strict_result["reports"][0]["verdict"], "FAIL")
 
             strict.write_text("- verdict: `PASS`\n", encoding="utf-8")
@@ -87,7 +88,43 @@ class VisualCorpusCheckTest(unittest.TestCase):
             result = check_visual_corpus.check_corpus(root, require_strict_live_pass=True)
 
         self.assertFalse(result["ok"])
+        self.assertEqual(result["strict_live_pass"]["status"], "not passing")
         self.assertEqual(result["strict_live_pass"]["reports"][0]["verdict"], "missing")
+
+    def test_strict_live_pass_gate_reports_missing_temporal_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for group in check_visual_corpus.CORPUS_GROUPS:
+                for rel in group.required:
+                    path = root / rel
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("artifact\n", encoding="utf-8")
+            strict = root / check_visual_corpus.STRICT_LIVE_REPORTS[0]
+            strict.write_text(
+                "\n".join(
+                    [
+                        "# Live Observability Temporal Assertion",
+                        "",
+                        "- verdict: `FAIL`",
+                        "",
+                        "## Missing Before Completion",
+                        "",
+                        "- parent_resumed",
+                        "",
+                        "## Runtime Provenance Agreement",
+                        "",
+                        "- verdict: `FAIL`",
+                        "- runtime_provenance missing",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = check_visual_corpus.check_corpus(root, require_strict_live_pass=True)
+
+        report = result["strict_live_pass"]["reports"][0]
+        self.assertEqual(report["verdict"], "FAIL")
+        self.assertEqual(report["missing"], ["parent_resumed", "runtime_provenance missing"])
 
     def test_release_checklist_runs_strict_tracked_visual_gate(self) -> None:
         checklist = (
