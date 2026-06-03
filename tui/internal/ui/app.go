@@ -2182,6 +2182,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if idx := a.sessionIndexByID(m.state.Session.ID); idx >= 0 {
 				a.sessions[idx] = *m.state.Session
 			}
+		} else {
+			a.applySessionAgentBlueprintState(m.state)
 		}
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
@@ -4944,6 +4946,9 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 	if a.sessionSidebarSummaryText(sessionIndex) != "" {
 		rows++
 	}
+	if a.sessionSidebarActivationText(sessionIndex) != "" {
+		rows++
+	}
 	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
 		rows++
 	}
@@ -4959,6 +4964,54 @@ func (a *App) sessionSidebarSummaryText(sessionIndex int) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
+}
+
+func (a *App) sessionSidebarActivationText(sessionIndex int) string {
+	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
+		return ""
+	}
+	s := a.sessions[sessionIndex]
+	if isChildSession(s) {
+		return ""
+	}
+	meta := mapValue(s.Metadata)
+	blueprintID := firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_id"]),
+		stringValue(meta["agent_blueprint_id"]),
+	)
+	if blueprintID == "" {
+		return ""
+	}
+	scope := firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_scope"]),
+		stringValue(meta["agent_blueprint_scope"]),
+		"session",
+	)
+	return fmt.Sprintf("active blueprint: %s · scope: %s", blueprintID, scope)
+}
+
+func (a *App) applySessionAgentBlueprintState(state gact.SessionAgentBlueprintState) {
+	sessionID := strings.TrimSpace(state.SessionID)
+	if sessionID == "" && a.selected >= 0 && a.selected < len(a.sessions) {
+		sessionID = a.sessions[a.selected].ID
+	}
+	idx := a.sessionIndexByID(sessionID)
+	if idx < 0 {
+		return
+	}
+	if a.sessions[idx].Metadata == nil {
+		a.sessions[idx].Metadata = map[string]any{}
+	}
+	if state.ActiveAgentBlueprintID != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_id"] = state.ActiveAgentBlueprintID
+	}
+	if state.ActiveAgentBlueprintPath != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_path"] = state.ActiveAgentBlueprintPath
+	}
+	if state.WorkspaceID != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_workspace_id"] = state.WorkspaceID
+	}
+	a.sessions[idx].Metadata["active_agent_blueprint_scope"] = "session"
 }
 
 func (a *App) activateSidebarSession(index int) tea.Cmd {
@@ -9264,6 +9317,9 @@ func (a *App) renderSidebar(width, height int) string {
 				summaryText := "summary: " + summary
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
 			}
+			if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+				rows = append(rows, statusIndent+statusStyle.Render(truncate(activation, statusBudget)))
+			}
 			if !a.showChildSessions {
 				if children := a.childSessionCount(s.ID); children > 0 {
 					childWord := "children"
@@ -9519,6 +9575,9 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 		rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(status, width-8)))
 		if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
+		}
+		if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(activation, width-8)))
 		}
 	}
 	if endIdx < len(visIdx) {

@@ -183,3 +183,70 @@ func TestAgentHierarchySidebarSurfacesLiveSemanticDelegation(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"sessions"}, nil)
+	a.sessions = []gact.Session{{
+		ID:     "s1",
+		Title:  "Blueprint session",
+		Status: gact.StatusIdle,
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "seismic-market",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+
+	out := ansi.Strip(a.renderSidebar(72, 20))
+	if !strings.Contains(out, "active blueprint: seismic-market · scope: session") {
+		t.Fatalf("session sidebar should show active blueprint scope:\n%s", out)
+	}
+	if rows := a.sidebarSessionRowCount(0); rows != 3 {
+		t.Fatalf("session row count = %d, want title/status/active-blueprint rows", rows)
+	}
+}
+
+func TestAgentBlueprintActivatedMsgUpdatesSelectedSessionMetadata(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"sessions"}, nil)
+	a.sessions = []gact.Session{{ID: "s1", WorkspaceID: "ws1", Title: "Blueprint session", Status: gact.StatusIdle}}
+	a.selected = 0
+
+	model, cmd := a.Update(agentBlueprintActivatedMsg{
+		blueprintID: "seismic-market",
+		state: gact.SessionAgentBlueprintState{
+			SessionID:                "s1",
+			WorkspaceID:              "ws1",
+			ActiveAgentBlueprintID:   "seismic-market",
+			ActiveAgentBlueprintPath: "/workspace/.clio/agent-blueprints/seismic-market/AGENT.md",
+		},
+	})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("activation success should schedule transient hint expiry")
+	}
+	if got := stringValue(a.sessions[0].Metadata["active_agent_blueprint_id"]); got != "seismic-market" {
+		t.Fatalf("active blueprint metadata = %q", got)
+	}
+	if got := stringValue(a.sessions[0].Metadata["active_agent_blueprint_scope"]); got != "session" {
+		t.Fatalf("active blueprint scope = %q", got)
+	}
+
+	out := ansi.Strip(a.renderSidebar(72, 20))
+	if !strings.Contains(out, "active blueprint: seismic-market · scope: session") {
+		t.Fatalf("activation state should render in session sidebar:\n%s", out)
+	}
+}
