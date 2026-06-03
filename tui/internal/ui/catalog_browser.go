@@ -1552,9 +1552,14 @@ type agentBlueprintSourceSummary struct {
 	ref         string
 	commit      string
 	checksum    string
+	status      string
+	statusMsg   string
+	trust       string
 	installedAt string
+	syncedAt    string
 	scope       string
 	blueprints  []string
+	warnings    []string
 	errors      []string
 }
 
@@ -1577,14 +1582,25 @@ func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition
 				ref:         ref,
 				commit:      stringValue(install["commit"]),
 				checksum:    stringValue(install["checksum"]),
+				status:      stringValue(install["status"]),
+				statusMsg:   firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])),
+				trust:       firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])),
 				installedAt: stringValue(install["installed_at"]),
+				syncedAt:    firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])),
 				scope:       firstNonEmpty(stringValue(install["scope"]), blueprint.Scope),
 			}
 			byKey[key] = summary
 		}
 		summary.blueprints = append(summary.blueprints, firstNonEmpty(blueprint.Title, blueprint.ID))
+		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["warnings"])...)
+		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["validation_warnings"])...)
+		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["errors"])...)
+		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["validation_errors"])...)
+		if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+			summary.errors = appendUniqueStrings(summary.errors, errText)
+		}
 		if len(blueprint.ValidationErrors) > 0 {
-			summary.errors = append(summary.errors, blueprint.ID+": "+strings.Join(blueprint.ValidationErrors, "; "))
+			summary.errors = appendUniqueStrings(summary.errors, blueprint.ID+": "+strings.Join(blueprint.ValidationErrors, "; "))
 		}
 	}
 	keys := make([]string, 0, len(byKey))
@@ -1597,7 +1613,7 @@ func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition
 		summary := byKey[key]
 		sort.Strings(summary.blueprints)
 		status := firstNonEmpty(summary.kind, "source")
-		if len(summary.errors) > 0 {
+		if agentBlueprintSourceNeedsAttention(summary) {
 			status = "attention"
 		}
 		items = append(items, catalogItem{
@@ -1630,14 +1646,35 @@ func formatAgentBlueprintSourceSummary(summary *agentBlueprintSourceSummary) str
 		detailField{"ref", summary.ref},
 		detailField{"commit", summary.commit},
 		detailField{"checksum", summary.checksum},
+		detailField{"status", summary.status},
+		detailField{"status_message", summary.statusMsg},
+		detailField{"trust", summary.trust},
 		detailField{"installed_at", summary.installedAt},
+		detailField{"synced_at", summary.syncedAt},
 		detailField{"scope", summary.scope},
 		detailField{"blueprints", strings.Join(summary.blueprints, ", ")},
 	)
+	if len(summary.warnings) > 0 {
+		rows = appendDetailSection(rows, "Warnings", detailField{"warnings", strings.Join(summary.warnings, "\n")})
+	}
 	if len(summary.errors) > 0 {
 		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(summary.errors, "\n")})
 	}
 	return strings.Join(rows, "\n")
+}
+
+func agentBlueprintSourceNeedsAttention(summary *agentBlueprintSourceSummary) bool {
+	if summary == nil {
+		return false
+	}
+	if len(summary.errors) > 0 || len(summary.warnings) > 0 {
+		return true
+	}
+	status := strings.ToLower(strings.TrimSpace(summary.status))
+	return strings.Contains(status, "error") ||
+		strings.Contains(status, "fail") ||
+		strings.Contains(status, "stale") ||
+		strings.Contains(status, "warning")
 }
 
 func expertPackDescription(pack gact.ExpertPackDefinition) string {
@@ -1980,6 +2017,22 @@ func shortHash(value string) string {
 		return value[:12]
 	}
 	return value
+}
+
+func appendUniqueStrings(values []string, extra ...string) []string {
+	seen := make(map[string]bool, len(values)+len(extra))
+	for _, value := range values {
+		seen[value] = true
+	}
+	for _, value := range extra {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		values = append(values, value)
+		seen[value] = true
+	}
+	return values
 }
 
 func stringListFromAny(value any) []string {

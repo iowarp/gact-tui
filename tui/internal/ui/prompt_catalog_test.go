@@ -276,6 +276,50 @@ func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintSourceRowsSurfaceFailureState(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "stale-market", Title: "Stale Marketplace", Version: "0.9.0", Scope: "workspace",
+		RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":              "https://example.org/community/stale-agents.git",
+			"source_kind":         "git",
+			"ref":                 "release",
+			"status":              "sync_failed",
+			"status_message":      "last sync failed",
+			"trust":               "community",
+			"last_synced_at":      "2026-06-02T19:00:00Z",
+			"validation_warnings": []any{"source has not been synced in 7 days"},
+			"last_error":          "git fetch exited 128",
+			"scope":               "workspace",
+		}},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want blueprint row plus source row", len(items))
+	}
+	source := items[1]
+	if source.statusTag != "attention" {
+		t.Fatalf("source status = %q, want attention: %#v", source.statusTag, source)
+	}
+	for _, want := range []string{
+		"status: sync_failed",
+		"status_message: last sync failed",
+		"trust: community",
+		"synced_at: 2026-06-02T19:00:00Z",
+		"Warnings",
+		"source has not been synced in 7 days",
+		"Validation",
+		"git fetch exited 128",
+	} {
+		if !strings.Contains(source.desc, want) {
+			t.Fatalf("source failure detail missing %q:\n%s", want, source.desc)
+		}
+	}
+	if strings.Contains(source.desc, `"install"`) || strings.Contains(source.desc, `"last_error"`) {
+		t.Fatalf("source failure row should be structured, not raw JSON:\n%s", source.desc)
+	}
+}
+
 func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	items := expertPackDetailItems(gact.ExpertPackDetail{
 		ExpertPack: gact.ExpertPackDefinition{
