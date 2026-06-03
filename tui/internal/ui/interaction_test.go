@@ -4705,6 +4705,61 @@ func TestConversationPartRightClickOpensSemanticActionMenu(t *testing.T) {
 	}
 }
 
+func TestConversationActionMenuCopiesFullConversation(t *testing.T) {
+	mu, copied, _ := withClipboardSpy(t)
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 160
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first prompt"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second answer"}}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("missing conversation hit target for assistant block")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right-clicking conversation block should not dispatch a command")
+	}
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "conversation-actions:copy-conversation")
+	if !ok {
+		t.Fatal("missing conversation copy-conversation action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-conversation action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	want := "## user:\nfirst prompt\n\n## assistant:\nsecond answer"
+	if gotCopy != want {
+		t.Fatalf("copy-conversation wrote %q, want %q", gotCopy, want)
+	}
+	if a.conversationActionsOpen || !strings.Contains(a.transientHint, "copied full conversation") {
+		t.Fatalf("copy-conversation should close menu and surface hint, open=%v hint=%q", a.conversationActionsOpen, a.transientHint)
+	}
+}
+
 func TestConversationActionMenuRewindDispatchesSelectedMessage(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
