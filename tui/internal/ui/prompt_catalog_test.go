@@ -414,8 +414,14 @@ func TestAgentBlueprintCatalogItemsGroupSourceBackedBlueprints(t *testing.T) {
 	if !strings.Contains(items[1].desc, "state: available") {
 		t.Fatalf("available marketplace row missing state:\n%s", items[1].desc)
 	}
+	if items[1].statusTag != "available" {
+		t.Fatalf("available marketplace row status = %q, want available: %#v", items[1].statusTag, items[1])
+	}
 	if !strings.Contains(items[2].desc, "state: installed") {
 		t.Fatalf("installed marketplace row missing state:\n%s", items[2].desc)
+	}
+	if items[2].statusTag != "installed" {
+		t.Fatalf("installed marketplace row status = %q, want installed: %#v", items[2].statusTag, items[2])
 	}
 	if !strings.Contains(items[0].desc, "blueprints: Available Marketplace") ||
 		!strings.Contains(items[0].desc, "Installed Marketplace") ||
@@ -426,6 +432,55 @@ func TestAgentBlueprintCatalogItemsGroupSourceBackedBlueprints(t *testing.T) {
 		!strings.Contains(items[0].desc, "Available Marketplace (available)") ||
 		!strings.Contains(items[0].desc, "Installed Marketplace (installed)") {
 		t.Fatalf("source rows should describe per-blueprint install state:\n%s", items[0].desc)
+	}
+}
+
+func TestAgentBlueprintCatalogItemsSurfaceLifecycleStatusTags(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "stale", Title: "Stale Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":         "https://example.org/community/agents.git",
+			"source_kind":    "git",
+			"ref":            "main",
+			"status":         "update available",
+			"status_message": "new commit available",
+			"installed_at":   "2026-06-03T07:00:00Z",
+		}},
+	}, {
+		ID: "warning", Title: "Warning Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		ValidationWarnings: []string{"descriptor requires explicit trust"},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+		}},
+	}, {
+		ID: "invalid", Title: "Invalid Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		ValidationErrors: []string{"missing root expert"},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+		}},
+	}})
+
+	if len(items) != 4 {
+		t.Fatalf("items len = %d, want one source group and three blueprint rows: %#v", len(items), items)
+	}
+	want := map[string]string{
+		"stale":   "update_available",
+		"warning": "warning",
+		"invalid": "invalid",
+	}
+	for _, item := range items {
+		if expected, ok := want[item.id]; ok && item.statusTag != expected {
+			t.Fatalf("%s status = %q, want %q: %#v", item.id, item.statusTag, expected, item)
+		}
+	}
+	if !strings.Contains(items[1].desc, "state: installed") {
+		t.Fatalf("lifecycle row should keep install state in description:\n%s", items[1].desc)
 	}
 }
 

@@ -1588,18 +1588,39 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 }
 
 func agentBlueprintCatalogItem(blueprint gact.AgentBlueprintDefinition) catalogItem {
-	status := firstNonEmpty(blueprint.Scope, "blueprint")
-	if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
-		status = "invalid"
-	} else if len(blueprint.ValidationWarnings) > 0 {
-		status = "warning"
-	}
 	return catalogItem{
 		id:        blueprint.ID,
 		title:     firstNonEmpty(blueprint.Title, blueprint.ID),
 		desc:      agentBlueprintDescription(blueprint),
-		statusTag: status,
+		statusTag: agentBlueprintCatalogStatus(blueprint),
 	}
+}
+
+func agentBlueprintCatalogStatus(blueprint gact.AgentBlueprintDefinition) string {
+	if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
+		return "invalid"
+	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		return "warning"
+	}
+	if agentBlueprintSourceKey(blueprint) == "" {
+		return firstNonEmpty(blueprint.Scope, "blueprint")
+	}
+	install := agentBlueprintInstallMetadata(blueprint)
+	if status := compactStatusTag(stringValue(install["status"])); status != "" {
+		return status
+	}
+	if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+		return state
+	}
+	return firstNonEmpty(blueprint.Scope, "blueprint")
+}
+
+func compactStatusTag(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	status = strings.ReplaceAll(status, " ", "_")
+	status = strings.ReplaceAll(status, "-", "_")
+	return status
 }
 
 type agentBlueprintSourceSummary struct {
