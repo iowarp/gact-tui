@@ -83,8 +83,8 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 	}
 	a.agentBlueprintManageInput = ""
 	a.agentBlueprintManageCursor = 0
-	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/AGENT.md\n"})
-	if a.agentBlueprintManageInput != "/workspace/AGENT.md" {
+	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/My Blueprint/\r\nAGENT.md\n"})
+	if a.agentBlueprintManageInput != "/workspace/My Blueprint/AGENT.md" {
 		t.Fatalf("paste should route to blueprint modal, input=%q", a.agentBlueprintManageInput)
 	}
 	a.agentBlueprintManageInput = ""

@@ -1274,7 +1274,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.agentBlueprintManageOpen {
-			a.insertAgentBlueprintManageText(m.Content)
+			a.insertAgentBlueprintManageText(compactPathLikePaste(m.Content))
 			return a, nil
 		}
 		if a.workspaceSwitchOpen && a.workspaceCreateOpen {
@@ -10079,6 +10079,11 @@ func compactSingleLinePaste(content string) string {
 
 func compactTokenPaste(content string) string {
 	return strings.Join(strings.Fields(content), "")
+}
+
+func compactPathLikePaste(content string) string {
+	text := strings.TrimSpace(normalizePasteNewlines(content))
+	return strings.ReplaceAll(text, "\n", "")
 }
 
 func (a *App) recordPasteKey(k tea.KeyPressMsg) {
