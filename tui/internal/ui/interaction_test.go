@@ -6404,6 +6404,53 @@ func TestPermissionBannerActionRectUsesPaneContentGeometry(t *testing.T) {
 	}
 }
 
+func TestPermissionBannerActionsStayInsideBodyWithRightSidebar(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_perm", Title: "approval", Status: gact.StatusWaitingPermission}}
+	a.selected = 0
+	a.currentStatus = gact.StatusWaitingPermission
+	a.messages = []gact.Message{{
+		ID:        "msg_user",
+		SessionID: "sess_perm",
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "remove scratch files"}},
+	}}
+	a.pendingPermissions = []client.PermissionWire{{
+		PermissionRequest: gact.PermissionRequest{
+			ID:        "perm_sidebar",
+			SessionID: "sess_perm",
+			Summary:   "Run shell command: rm -rf /tmp/scratch",
+		},
+		Status: "pending",
+	}}
+	a.rightSidebarModuleIDs = []sidebarModuleID{sidebarModuleFiles}
+	a.fileTreeEntries = []fileTreeEntry{
+		{Path: "src/main.go"},
+		{Path: "visual_loop/report.md"},
+	}
+
+	_ = a.View()
+	right, ok := findHitTargetForTest(a, "right-sidebar:focus")
+	if !ok {
+		t.Fatal("missing right sidebar focus hit target")
+	}
+	for _, id := range []string{"permission:allow", "permission:deny", "permission:session", "permission:workspace"} {
+		target, ok := findHitTargetForTest(a, id)
+		if !ok {
+			t.Fatalf("missing semantic permission hit target %q", id)
+		}
+		if target.rect.x+target.rect.w > right.rect.x {
+			t.Fatalf("%s rect overlaps right sidebar: permission=%+v right=%+v", id, target.rect, right.rect)
+		}
+		if target.rect.y != 3 {
+			t.Fatalf("%s row = %d, want banner row 3", id, target.rect.y)
+		}
+	}
+}
+
 func TestQuitConfirmButtonsUseSemanticHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
