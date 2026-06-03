@@ -232,20 +232,77 @@ func (a *App) agentHierarchyRuntimeState(agentID string) agentHierarchyRuntimeSt
 		return agentHierarchyStateNone
 	}
 	best := agentHierarchyStateNone
+	settledRunKeys := map[string]bool{}
 	if a.selected >= 0 && a.selected < len(a.sessions) && a.sessions[a.selected].Agent.ID == agentID {
 		best = strongerAgentHierarchyState(best, agentHierarchyStateSession)
 	}
 	for i := len(a.messages) - 1; i >= 0; i-- {
 		msg := a.messages[i]
-		best = strongerAgentHierarchyState(best, agentStateFromRuntimeProvenance(agentID, mapValue(msg.Metadata["runtime_provenance"])))
+		if rp := mapValue(msg.Metadata["runtime_provenance"]); len(rp) > 0 {
+			best = strongerAgentHierarchyState(best, agentStateFromRuntimeProvenance(agentID, rp))
+			markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(rp))
+		}
 		for j := len(msg.Parts) - 1; j >= 0; j-- {
-			best = strongerAgentHierarchyState(best, agentStateFromPart(agentID, msg.Parts[j]))
+			part := msg.Parts[j]
+			if part.Type == partTypeRuntimeProvenance {
+				markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(mapValue(part.Metadata["runtime_provenance"])))
+			}
+			state := agentStateFromPart(agentID, part)
+			if state == agentHierarchyStateLive && partRunIsSettled(part, settledRunKeys) {
+				continue
+			}
+			best = strongerAgentHierarchyState(best, state)
 			if best == agentHierarchyStateLive {
 				return best
 			}
 		}
 	}
 	return best
+}
+
+func markAgentHierarchySettledRun(settled map[string]bool, keys []string) {
+	for _, key := range keys {
+		settled[key] = true
+	}
+}
+
+func partRunIsSettled(part gact.Part, settled map[string]bool) bool {
+	if len(settled) == 0 || len(part.Metadata) == 0 {
+		return false
+	}
+	rawEvent := mapValue(part.Metadata["raw_event"])
+	keys := runtimeRunKeys(
+		firstNonEmpty(stringValue(part.Metadata["trace_id"]), stringValue(rawEvent["trace_id"])),
+		firstNonEmpty(stringValue(part.Metadata["turn_id"]), stringValue(rawEvent["turn_id"])),
+	)
+	for _, key := range keys {
+		if settled[key] {
+			return true
+		}
+	}
+	return false
+}
+
+func runtimeProvenanceRunKeys(rp map[string]any) []string {
+	if len(rp) == 0 {
+		return nil
+	}
+	turn := mapValue(rp["turn"])
+	return runtimeRunKeys(
+		firstNonEmpty(stringValue(turn["trace_id"]), stringValue(rp["trace_id"])),
+		firstNonEmpty(stringValue(turn["turn_id"]), stringValue(rp["turn_id"])),
+	)
+}
+
+func runtimeRunKeys(traceID, turnID string) []string {
+	keys := []string{}
+	if traceID = strings.TrimSpace(traceID); traceID != "" {
+		keys = append(keys, "trace:"+traceID)
+	}
+	if turnID = strings.TrimSpace(turnID); turnID != "" {
+		keys = append(keys, "turn:"+turnID)
+	}
+	return keys
 }
 
 func strongerAgentHierarchyState(a, b agentHierarchyRuntimeState) agentHierarchyRuntimeState {

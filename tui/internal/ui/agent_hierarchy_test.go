@@ -260,6 +260,94 @@ func TestAgentHierarchySidebarSurfacesLiveSemanticDelegation(t *testing.T) {
 	}
 }
 
+func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2},
+		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "data", Tier: 3},
+	}
+
+	a.applySSE(client.SSEEvent{
+		ID:   "live-delegation",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"trace_id":   "trace_1",
+			"turn_id":    "turn_1",
+			"event_type": "delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "data", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "data",
+				"agent_id":  "ndp_catalog",
+			},
+		}},
+	})
+
+	liveOut := ansi.Strip(a.renderSidebar(58, 20))
+	for _, want := range []string{"Data expert", "t2 · live", "NDP catalog", "t3 · live"} {
+		if !strings.Contains(liveOut, want) {
+			t.Fatalf("live semantic delegation missing %q:\n%s", want, liveOut)
+		}
+	}
+
+	a.messages = append(a.messages, gact.Message{
+		ID:        "final",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Metadata: map[string]any{"runtime_provenance": map[string]any{
+			"turn": map[string]any{
+				"trace_id": "trace_1",
+				"turn_id":  "turn_1",
+				"status":   "completed",
+			},
+			"agent": map[string]any{
+				"active_expert_id": "ndp_catalog",
+				"parent_id":        "data",
+			},
+			"tools": map[string]any{
+				"observed": []any{map[string]any{
+					"name":   "ndp_search_datasets",
+					"status": "success",
+				}},
+			},
+			"delegation": map[string]any{"events": []any{
+				map[string]any{"stage": "delegate.started", "parent_id": "data", "agent_id": "ndp_catalog"},
+				map[string]any{"stage": "delegate.completed", "parent_id": "data", "agent_id": "ndp_catalog"},
+				map[string]any{"stage": "parent.resumed", "parent_id": "data", "agent_id": "ndp_catalog"},
+			}},
+		}},
+	})
+
+	settledOut := ansi.Strip(a.renderSidebar(58, 20))
+	for _, want := range []string{"Data expert", "t2 · observed", "NDP catalog", "t3 · active"} {
+		if !strings.Contains(settledOut, want) {
+			t.Fatalf("final runtime provenance should settle live semantic state, missing %q:\n%s", want, settledOut)
+		}
+	}
+	if strings.Contains(settledOut, "t2 · live") || strings.Contains(settledOut, "t3 · live") {
+		t.Fatalf("older live semantic state should not outrank newer final provenance:\n%s", settledOut)
+	}
+
+	detail := runtimeProvenanceDetailText(mapValue(a.messages[len(a.messages)-1].Metadata["runtime_provenance"]))
+	for _, want := range []string{"trace_id: trace_1", "observed: ndp_search_datasets", "delegate.completed", "parent.resumed"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("final runtime provenance detail missing agreement evidence %q:\n%s", want, detail)
+		}
+	}
+}
+
 func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 130
