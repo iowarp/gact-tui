@@ -106,8 +106,22 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/screenshots/semantic_file_picker_tree_expanded.png",
             "visual_loop/tapes/agent_runtime_sidebar.tape",
             "visual_loop/screenshots/agent_runtime_sidebar.png",
+            "visual_loop/tapes/semantic_context_detail.tape",
+            "visual_loop/screenshots/semantic_context_row_selected.png",
+            "visual_loop/screenshots/semantic_context_detail.png",
         ):
             self.assertIn(rel, sidebars.required)
+
+    def test_manifest_requires_settings_agent_compact_visual_proof(self) -> None:
+        settings = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "settings_provider"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_settings_agent_compact.tape",
+            "visual_loop/screenshots/semantic_settings_agent_compact.png",
+        ):
+            self.assertIn(rel, settings.required)
 
     def test_manifest_requires_text_entry_and_footer_action_visual_proof(self) -> None:
         modals = next(
@@ -139,6 +153,10 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/screenshots/semantic_menu_tool_detail.png",
             "visual_loop/screenshots/semantic_menu_doctor_health.png",
             "visual_loop/screenshots/semantic_menu_doctor_capabilities.png",
+            "visual_loop/tapes/semantic_header_actions.tape",
+            "visual_loop/screenshots/semantic_header_actions_base.png",
+            "visual_loop/screenshots/semantic_header_actions_help.png",
+            "visual_loop/screenshots/semantic_header_actions_settings.png",
         ):
             self.assertIn(rel, menus.required)
 
@@ -176,12 +194,37 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/tapes/semantic_memory_inspector.tape",
             "visual_loop/screenshots/semantic_memory_palette.png",
             "visual_loop/screenshots/semantic_memory_inspector.png",
+            "visual_loop/tapes/semantic_prompt_catalog.tape",
+            "visual_loop/screenshots/semantic_prompt_catalog.png",
+            "visual_loop/screenshots/semantic_prompt_profiles.png",
+            "visual_loop/screenshots/semantic_prompt_detail.png",
+            "visual_loop/screenshots/semantic_prompt_editor.png",
+            "visual_loop/screenshots/semantic_prompt_saved.png",
             "visual_loop/tapes/semantic_sidebar_filter.tape",
             "visual_loop/screenshots/semantic_sidebar_filter.png",
             "visual_loop/tapes/semantic_quit_confirm.tape",
             "visual_loop/screenshots/semantic_quit_confirm.png",
         ):
             self.assertIn(rel, interactions.required)
+
+    def test_manifest_requires_agent_management_visual_proof(self) -> None:
+        marketplace = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "marketplace_blueprints"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_agent_management.tape",
+            "visual_loop/screenshots/semantic_agent_management_catalog.png",
+            "visual_loop/screenshots/semantic_agent_management_create.png",
+            "visual_loop/screenshots/semantic_agent_management_extract.png",
+            "visual_loop/screenshots/semantic_agent_management_detail.png",
+            "visual_loop/screenshots/semantic_agent_management_clone.png",
+            "visual_loop/screenshots/semantic_agent_management_cloned.png",
+            "visual_loop/screenshots/semantic_agent_management_edit.png",
+            "visual_loop/screenshots/semantic_agent_management_updated.png",
+            "visual_loop/screenshots/semantic_agent_management_deleted.png",
+        ):
+            self.assertIn(rel, marketplace.required)
 
     def test_manifest_requires_live_clio_replay_catalog_memory_and_state_proof(self) -> None:
         replay = next(
