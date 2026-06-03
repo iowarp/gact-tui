@@ -1490,6 +1490,38 @@ func TestLMConfigRefreshButtonUsesCtrlRRefreshSemantics(t *testing.T) {
 	}
 }
 
+func TestLMConfigSurfaceWheelBlocksBackgroundScrolling(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "lm-config:surface:wheel")
+	if !ok {
+		t.Fatal("missing provider modal surface wheel blocker")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + surface.rect.w - 2,
+		Y:      surface.rect.y + 2,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("provider modal blank-surface wheel should not dispatch a command")
+	}
+	if !a.lmConfigOpen || a.lmConfig == nil {
+		t.Fatal("provider modal should remain open after blank-surface wheel")
+	}
+	if a.lmConfig.selected != 0 {
+		t.Fatalf("blank-surface wheel changed provider selection to %d", a.lmConfig.selected)
+	}
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("blank-surface wheel changed field to %v", a.lmConfig.field)
+	}
+}
+
 func TestLMConfigSavingSuppressesCloseButtonHitTarget(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.saving = true

@@ -1281,6 +1281,7 @@ func (a *App) viewLMConfig() string {
 		body:               body,
 		footer:             hint,
 	})
+	a.registerModalSurfaceWheel(rendered, "lm-config")
 	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
 		introRows := maxInt(1, strings.Count(ansi.Strip(intro), "\n")+1)
 		a.registerLMConfigHitTargets(rendered.modal, rendered.bodyRow+introRows+1, contentW, a.lmConfigBodyRows())
