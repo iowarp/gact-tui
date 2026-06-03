@@ -4985,6 +4985,88 @@ func TestConversationDetailHintClickOpensDetail(t *testing.T) {
 	}
 }
 
+func TestConversationDetailCopyIncludesRawResult(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:       "p1",
+			Type:     gact.PartTypeToolResult,
+			ToolName: "inspect_dataset",
+			CallID:   "c1",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "summary line",
+			}},
+			Metadata: map[string]any{
+				"raw_result": map[string]any{
+					"rows": []string{"alpha", "beta"},
+					"ok":   true,
+				},
+			},
+		}},
+	}}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:detail:0:0")
+	if !ok {
+		t.Fatal("missing conversation detail hint hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail hint click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("detail hint click should open detail")
+	}
+	for _, want := range []string{"tool: inspect_dataset", "content: summary line", "raw_result:", "alpha", "beta"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("detail text missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "button:detail:copy")
+	if !ok {
+		t.Fatal("missing detail copy target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail copy click should not dispatch a command")
+	}
+	if !a.detailViewOpen {
+		t.Fatal("detail copy should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	for _, want := range []string{"tool: inspect_dataset", "content: summary line", "raw_result:", "\"rows\": [", "\"alpha\"", "\"beta\""} {
+		if !strings.Contains(gotCopy, want) {
+			t.Fatalf("copied detail missing %q:\n%s", want, gotCopy)
+		}
+	}
+	if !strings.Contains(a.transientHint, "copied detail") {
+		t.Fatalf("hint = %q, want copy confirmation", a.transientHint)
+	}
+}
+
 func TestConversationDiffActionsUseSemanticHitTargets(t *testing.T) {
 	var gotEndpoint string
 	var gotPaths []string
