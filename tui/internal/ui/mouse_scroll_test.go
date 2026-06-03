@@ -536,6 +536,74 @@ func TestRightSidebarContextRowDoesNotLeakIntoConversationHits(t *testing.T) {
 	}
 }
 
+func TestRightSidebarFileRowsUseDynamicHitTargets(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	_ = a.View()
+	folderRow, ok := findHitTargetForTest(a, "right-sidebar:files:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar collapsed file tree row hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      folderRow.rect.x,
+		Y:      folderRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.fileTreeExpanded["docs"] {
+		t.Fatal("clicking right sidebar folder row should expand it")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles {
+		t.Fatalf("folder click focus = %v section=%v, want right files", a.focus, a.sidebarSectionFocus)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar folder click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	fileRow, ok := findHitTargetForTest(a, "right-sidebar:files:item:2")
+	if !ok {
+		t.Fatal("missing right sidebar expanded file tree row hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(fileRow.rect.x, fileRow.rect.y) {
+		t.Fatalf("right sidebar file row %+v is inside conversation focus rect %+v", fileRow.rect, bodyTarget.rect)
+	}
+
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      fileRow.rect.x,
+		Y:      fileRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles {
+		t.Fatalf("file click focus = %v section=%v, want right files", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "guide") {
+		t.Fatalf("right sidebar file click should open file detail, open=%v detail=%#v", a.detailViewOpen, a.detailView)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar file click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
 func TestRightSidebarContextRowRightClickKeepsRightSidebarFocus(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 150
