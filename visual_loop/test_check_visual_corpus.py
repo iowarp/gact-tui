@@ -46,6 +46,17 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_session_summary_visual_proof(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_session_summary.tape",
+            "visual_loop/screenshots/semantic_session_summary.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_manifest_requires_conversation_copy_visual_proof(self) -> None:
         conversation = next(
             group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"

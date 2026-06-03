@@ -53,6 +53,8 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/tapes/semantic_mcp_reconnect.tape",
             "visual_loop/screenshots/semantic_mcp_reconnect_detail.png",
             "visual_loop/screenshots/semantic_mcp_reconnect_done.png",
+            "visual_loop/tapes/semantic_session_summary.tape",
+            "visual_loop/screenshots/semantic_session_summary.png",
         ),
     ),
     CorpusGroup(
