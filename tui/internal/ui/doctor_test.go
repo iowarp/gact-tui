@@ -103,6 +103,43 @@ func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
 	}
 }
 
+func TestCapabilityMatrixDocMatchesDoctorSupportClasses(t *testing.T) {
+	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	docSupport := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") || !strings.Contains(line, "`") {
+			continue
+		}
+		cols := strings.Split(line, "|")
+		if len(cols) < 5 {
+			continue
+		}
+		field := strings.Trim(strings.TrimSpace(cols[2]), "`")
+		support := strings.TrimSpace(cols[3])
+		if field != "" && support != "" && field != "Backend field" {
+			docSupport[field] = support
+		}
+	}
+	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {
+		want := capUISupportPlainLabel(row.ui)
+		if want == "not surfaced" {
+			want = "none"
+		}
+		got, ok := docSupport[row.name]
+		if !ok {
+			t.Fatalf("capability matrix missing support class for %q", row.name)
+		}
+		if got != want {
+			t.Fatalf("capability matrix support for %q = %q, want Doctor support %q", row.name, got, want)
+		}
+	}
+}
+
 func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
 		SessionSummary:                 true,
