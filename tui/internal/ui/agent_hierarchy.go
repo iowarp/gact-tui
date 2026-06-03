@@ -512,11 +512,12 @@ func (a *App) registerSidebarAgentHierarchyHit(row int, width int, visibleIndex 
 	if zone == FocusRightSidebar {
 		id = "right-sidebar:agents:item:" + itoa2(visibleIndex)
 	}
-	a.registerSidebarContentHit(id, row, width, 1, func(app *App) tea.Cmd {
+	openAgentDetail := func(app *App) tea.Cmd {
 		app.focus = zone
 		app.sidebarSectionFocus = sidebarSectionAgents
 		app.sidebarSectionCursor = false
 		app.agentHierarchySel = visibleIndex
 		return app.openSelectedAgentHierarchyDetail()
-	})
+	}
+	a.registerSidebarContentHitActions(id, row, width, 1, openAgentDetail, openAgentDetail)
 }

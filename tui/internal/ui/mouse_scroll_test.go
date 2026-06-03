@@ -604,6 +604,53 @@ func TestRightSidebarFileRowsUseDynamicHitTargets(t *testing.T) {
 	}
 }
 
+func TestRightSidebarAgentRowDoesNotLeakIntoConversationHits(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.agentHierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"agents"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:agents:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar agent row hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(rightRow.rect.x, rightRow.rect.y) {
+		t.Fatalf("right sidebar agent row %+v is inside conversation focus rect %+v", rightRow.rect, bodyTarget.rect)
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionAgents {
+		t.Fatalf("agent click focus = %v section=%v, want right agents", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.agentID != "data" {
+		t.Fatalf("right sidebar agent click should open agent detail, open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar agent click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
 func TestRightSidebarContextRowRightClickKeepsRightSidebarFocus(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 150
@@ -647,6 +694,47 @@ func TestRightSidebarContextRowRightClickKeepsRightSidebarFocus(t *testing.T) {
 	_ = a.View()
 	if _, ok := findHitTargetForTest(a, "context-actions:copy-path"); !ok {
 		t.Fatal("right sidebar context menu should expose semantic action targets")
+	}
+}
+
+func TestRightSidebarAgentRowRightClickOpensDetailWithoutConversationLeak(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.agentHierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"agents"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:agents:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar agent row hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("right sidebar agent right-click should dispatch agent detail load")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionAgents || a.sidebarSectionCursor {
+		t.Fatalf("agent right-click focus = %v section=%v cursor=%v, want right agent row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.agentID != "data" {
+		t.Fatalf("right sidebar agent right-click should open agent detail, open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if a.conversationActionsOpen || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("right sidebar agent right-click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
 	}
 }
 
