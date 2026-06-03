@@ -239,6 +239,37 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	}
 }
 
+func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
+	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		MCP:                  true,
+		SessionSummary:       true,
+		AttachmentsUpload:    true,
+		XClioSemanticEvents:  true,
+		XClioFilesContent:    true,
+	}})
+	byName := map[string]capRow{}
+	for _, row := range rows {
+		byName[row.name] = row
+	}
+	for name, wants := range map[string][]string{
+		"mcp":                    {"POST /v1/mcp/servers/{id}/reconnect"},
+		"session_summary":        {"POST /v1/sessions/{id}/summarize"},
+		"attachments_upload":     {"POST", "/v1/sessions/{id}/attachments"},
+		"x_clio_semantic_events": {"semantic.event", "tool.call.*"},
+		"x_clio_files_content":   {"GET /v1/sessions/{id}/context/files/content"},
+	} {
+		row, ok := byName[name]
+		if !ok {
+			t.Fatalf("missing capability row %q", name)
+		}
+		for _, want := range wants {
+			if !strings.Contains(row.notes, want) {
+				t.Fatalf("%s notes missing %q: %q", name, want, row.notes)
+			}
+		}
+	}
+}
+
 func TestDoctorHealthFooterAdvertisesClickableDetails(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width, a.height = 120, 40

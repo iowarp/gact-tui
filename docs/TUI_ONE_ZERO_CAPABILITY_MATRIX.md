@@ -16,7 +16,7 @@ Support classes:
 | Workspaces | `workspaces` | full | Workspace label and workspace-aware requests are surfaced. |
 | Sessions | `sessions` | full | Session list, attach, create, messages, and SSE updates are surfaced. |
 | Subagents | `subagents` | full | Nanoagent/subsession traces and child-session relationships are surfaced. |
-| MCP | `mcp` | full | MCP catalog, detail, install/remove/call evidence are surfaced. |
+| MCP | `mcp` | full | MCP catalog, detail, install/remove/call evidence, and `POST /v1/mcp/servers/{id}/reconnect` are surfaced. |
 | LSP | `lsp` | none | Non-goal for the CLIO 1.0 TUI workflow. Keep decoded but unsurfaced. |
 | Files | `files` | full | File picker/viewer and context attachment are surfaced; tree/fuzzy polish remains tracked outside the capability gate. |
 | Diffs | `diffs` | full | Diff list, detail, and actions are surfaced. |
@@ -32,7 +32,7 @@ Support classes:
 | Session sharing | `session_sharing` | none | Non-goal for CLIO 1.0 session-sharing UX; decoded only. |
 | Session export | `session_export` | gated | Non-goal for CLIO 1.0 because export UI is not a primary CLIO path. |
 | Session summary | `session_summary` | full | `/compact` uses the current CLIO `POST /v1/sessions/{id}/summarize` route, refreshes backend session truth, renders the returned selected-session summary row, and surfaces backend errors truthfully. |
-| Attachment upload | `attachments_upload` | full | Files sidebar detail can upload bytes when the backend advertises `attachments_upload`, then merge the returned context file and show uploaded provenance. |
+| Attachment upload | `attachments_upload` | full | Files sidebar detail POSTs bytes to `/v1/sessions/{id}/attachments` when the backend advertises `attachments_upload`, then merges the returned context file and shows uploaded provenance. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |
 | Edit modes | `edit_modes` | gated | Non-goal for CLIO 1.0 because there is no separate TUI edit-mode switch. |
@@ -57,12 +57,12 @@ Support classes:
 | CLIO user questions | `x_clio_user_questions` | full | Question SSE lifecycle and answer modal are surfaced. |
 | CLIO retry attempts | `x_clio_retry_attempts` | full | Retry attempts and retry-with-model provenance are surfaced. |
 | CLIO context frames | `x_clio_context_frames` | full | Frame list/detail fetch and memory-tool detail are surfaced. |
-| CLIO semantic events | `x_clio_semantic_events` | full | Semantic execution events are reduced into live transcript evidence. |
+| CLIO semantic events | `x_clio_semantic_events` | full | `semantic.event` and `tool.call.*` SSE frames are reduced into live transcript evidence. |
 | CLIO semantic trace backend | `x_clio_semantic_trace_backend` | full | Trace backend metadata is visible in Doctor. |
 | CLIO semantic trace detail | `x_clio_semantic_trace_detail` | full | Trace detail metadata is visible in Doctor. |
 | CLIO hook backend | `x_clio_hook_backend` | full | Hook backend metadata is visible in Doctor. |
 | CLIO hook events | `x_clio_hook_events` | full | Hook event metadata is visible in Doctor. |
-| CLIO context file content | `x_clio_files_content` | full | Context-file bytes are rendered as text previews or binary-safe metadata when the endpoint is available; real preview errors remain visible. |
+| CLIO context file content | `x_clio_files_content` | full | `GET /v1/sessions/{id}/context/files/content` renders context-file bytes as text previews or binary-safe metadata when available; real preview errors remain visible. |
 | CLIO capability gaps | `x_clio_capability_gaps` | full | Doctor gaps tab and row detail are surfaced. |
 
 Release rules:
