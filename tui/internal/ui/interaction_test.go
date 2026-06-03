@@ -6108,6 +6108,33 @@ func TestContextRowRightClickOpensSemanticActionMenu(t *testing.T) {
 
 	_ = a.openContextActionsForIndex(0)
 	_ = a.View()
+	copyDetailTarget, ok := findHitTargetForTest(a, "context-actions:copy-detail")
+	if !ok {
+		t.Fatal("missing context copy-detail action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyDetailTarget.rect.x,
+		Y:      copyDetailTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-detail action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy = *copied
+	mu.Unlock()
+	for _, want := range []string{"path: docs/ARC_MEMORY_LAYER.md", "mode: read", "size: 2.0 KiB (2048 bytes)", "language: markdown"} {
+		if !strings.Contains(gotCopy, want) {
+			t.Fatalf("copy-detail missing %q:\n%s", want, gotCopy)
+		}
+	}
+	if a.contextActionsOpen || !strings.Contains(a.transientHint, "copied context metadata") {
+		t.Fatalf("copy-detail should close menu and surface hint, open=%v hint=%q", a.contextActionsOpen, a.transientHint)
+	}
+
+	_ = a.openContextActionsForIndex(0)
+	_ = a.View()
 	removeTarget, ok := findHitTargetForTest(a, "context-actions:remove")
 	if !ok {
 		t.Fatal("missing context remove action target")
