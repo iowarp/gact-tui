@@ -5,11 +5,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2310,6 +2312,107 @@ func TestCLI_ContextListJSON(t *testing.T) {
 	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
 		"context", "list", sid, "--format", "yaml"); code != 2 {
 		t.Errorf("--format yaml: want exit 2, got %d", code)
+	}
+}
+
+func TestCLI_ContextShowTextJSONAndBinarySummary(t *testing.T) {
+	requested := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/s1/context/files/content" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		path := r.URL.Query().Get("path")
+		requested[path]++
+		switch path {
+		case "docs/readme.md":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"file": gact.ContextFileContent{
+					Path:        "docs/readme.md",
+					DisplayPath: "docs/readme.md",
+					Size:        22,
+					MediaType:   "text/markdown; charset=utf-8",
+					Encoding:    "base64",
+					Data:        base64.StdEncoding.EncodeToString([]byte("# Readme\n\nCLI preview\n")),
+				},
+			})
+		case "plots/waveform.png":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"file": gact.ContextFileContent{
+					Path:      "plots/waveform.png",
+					Size:      8,
+					MediaType: "image/png",
+					Encoding:  "base64",
+					Data:      base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\n")),
+				},
+			})
+		default:
+			http.Error(w, `{"error":{"code":"not_found","message":"missing"}}`, http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "docs/readme.md")
+	if code != 0 {
+		t.Fatalf("context show text exit %d stderr=%s", code, stderr)
+	}
+	for _, want := range []string{"path: docs/readme.md", "media_type: text/markdown; charset=utf-8", "preview:", "# Readme", "CLI preview"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("context show text missing %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, base64.StdEncoding.EncodeToString([]byte("# Readme\n\nCLI preview\n"))) {
+		t.Fatalf("context show text should not print raw base64:\n%s", stdout)
+	}
+
+	stdout, stderr, code = runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "docs/readme.md", "--format", "json")
+	if code != 0 {
+		t.Fatalf("context show json exit %d stderr=%s", code, stderr)
+	}
+	var content gact.ContextFileContent
+	if err := json.Unmarshal([]byte(stdout), &content); err != nil {
+		t.Fatalf("parse context show json: %v\nraw=%s", err, stdout)
+	}
+	if content.Path != "docs/readme.md" || content.Data == "" {
+		t.Fatalf("unexpected context show json: %+v", content)
+	}
+
+	stdout, stderr, code = runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "plots/waveform.png")
+	if code != 0 {
+		t.Fatalf("context show binary exit %d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(stdout, "preview: binary content not rendered") {
+		t.Fatalf("binary context show should summarize preview:\n%s", stdout)
+	}
+	if strings.Contains(stdout, "iVBOR") {
+		t.Fatalf("binary context show should not dump base64:\n%s", stdout)
+	}
+	if requested["docs/readme.md"] != 2 || requested["plots/waveform.png"] != 1 {
+		t.Fatalf("unexpected request counts: %#v", requested)
+	}
+}
+
+func TestCLI_ContextShowSurfacesBackendError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":{"code":"not_found","message":"context file missing"}}`, http.StatusNotFound)
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "missing.txt")
+	if code != 1 {
+		t.Fatalf("context show missing exit = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "context file missing") {
+		t.Fatalf("context show should surface backend error, stderr=%q", stderr)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "missing.txt", "--format", "yaml"); code != 2 {
+		t.Fatalf("context show bad format exit = %d, want 2", code)
 	}
 }
 

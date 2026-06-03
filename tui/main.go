@@ -398,6 +398,7 @@ All Commands:
   gact quick <q|->           one-shot Q&A (creates+asks+deletes session)
   gact summarize <sid>       trigger backend summary; prints result
   gact context list <sid>    list session context files; --mode read|edit|pin --glob PATTERN to filter
+  gact context show <sid> <p> preview context file content (--format text|json)
   gact context add <sid> <p> attach a file (--mode read|edit|pin)
   gact context rm <sid> <p>  detach a file
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
@@ -6519,9 +6520,10 @@ func runCatalog(args []string) int {
 
 // runContext dispatches the `gact context <verb>` subcommand family
 // for managing per-session context files (the things sidebar K14
-// adds via `o`). Three verbs:
+// adds via `o`). Core verbs:
 //
 //	gact context list <sid>                   — print path + mode per file
+//	gact context show <sid> <path>            — preview content from CLIO
 //	gact context add  <sid> <path> [--mode]   — POST add (default mode=read)
 //	gact context rm   <sid> <path>            — DELETE remove
 //
@@ -6529,7 +6531,7 @@ func runCatalog(args []string) int {
 // 2 on usage errors, 1 on transport / API errors.
 func runContext(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact context list|add|rm <session_id> [path] [--mode read|edit|pin]")
+		fmt.Fprintln(os.Stderr, "usage: gact context list|show|add|rm <session_id> [path] [--mode read|edit|pin]")
 		return 2
 	}
 	verb := args[0]
@@ -6538,12 +6540,14 @@ func runContext(args []string) int {
 	switch verb {
 	case "list":
 		return runContextList(rest)
+	case "show", "cat", "read":
+		return runContextShow(rest)
 	case "add":
 		return runContextAdd(rest)
 	case "rm", "remove", "delete":
 		return runContextRm(rest)
 	default:
-		fmt.Fprintf(os.Stderr, "gact context: unknown verb %q (want list|add|rm)\n", verb)
+		fmt.Fprintf(os.Stderr, "gact context: unknown verb %q (want list|show|add|rm)\n", verb)
 		return 2
 	}
 }
@@ -6636,6 +6640,118 @@ func runContextList(args []string) int {
 		fmt.Printf("%s\t%s\n", mode, f.Path)
 	}
 	return 0
+}
+
+func runContextShow(args []string) int {
+	fs := flag.NewFlagSet("context show", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact context show <session_id> <path> [--format text|json] [--backend URL]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact context show: unknown format %q (want text|json)\n", *format)
+		return 2
+	}
+	sid := fs.Arg(0)
+	filePath := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	content, err := c.ContextFileContent(ctx, sid, filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact context show: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(content); err != nil {
+			fmt.Fprintf(os.Stderr, "gact context show: encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	if err := printContextFileContentText(os.Stdout, content); err != nil {
+		fmt.Fprintf(os.Stderr, "gact context show: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func printContextFileContentText(w io.Writer, content gact.ContextFileContent) error {
+	pathLabel := firstNonEmptyCLI(content.DisplayPath, content.Path, "(unknown)")
+	fmt.Fprintf(w, "path: %s\n", pathLabel)
+	if content.Size > 0 {
+		fmt.Fprintf(w, "size: %d bytes\n", content.Size)
+	}
+	if strings.TrimSpace(content.MediaType) != "" {
+		fmt.Fprintf(w, "media_type: %s\n", content.MediaType)
+	}
+	if strings.TrimSpace(content.Encoding) != "" {
+		fmt.Fprintf(w, "encoding: %s\n", content.Encoding)
+	}
+	if !contextContentIsText(content.MediaType) {
+		fmt.Fprintln(w, "preview: binary content not rendered")
+		return nil
+	}
+	if strings.TrimSpace(content.Data) == "" {
+		fmt.Fprintln(w, "preview: empty")
+		return nil
+	}
+	decoded, err := base64.StdEncoding.DecodeString(content.Data)
+	if err != nil {
+		return fmt.Errorf("bad base64 content for %s: %w", pathLabel, err)
+	}
+	text := strings.ReplaceAll(string(decoded), "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	const maxPreviewRunes = 12000
+	truncated := false
+	if len([]rune(text)) > maxPreviewRunes {
+		runes := []rune(text)
+		text = string(runes[:maxPreviewRunes])
+		truncated = true
+	}
+	fmt.Fprintln(w, "preview:")
+	fmt.Fprint(w, text)
+	if !strings.HasSuffix(text, "\n") {
+		fmt.Fprintln(w)
+	}
+	if truncated {
+		fmt.Fprintf(w, "truncated: shown first %d characters\n", maxPreviewRunes)
+	}
+	return nil
+}
+
+func contextContentIsText(mediaType string) bool {
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "" || strings.HasPrefix(mediaType, "text/") || strings.Contains(mediaType, "charset=utf-8") {
+		return true
+	}
+	for _, prefix := range []string{"application/json", "application/xml", "application/yaml", "application/toml"} {
+		if strings.HasPrefix(mediaType, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func firstNonEmptyCLI(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func runContextAdd(args []string) int {
