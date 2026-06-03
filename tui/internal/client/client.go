@@ -560,7 +560,10 @@ type LMProviderInfo struct {
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 
-// LMProviderRequest is the PUT /v1/providers/lm body.
+// LMProviderRequest is the PUT /v1/providers/lm body. Provider is
+// the selected provider/preset id accepted by CLIO, for example
+// "openai", "lm_studio", or an ALCF profile such as
+// "argonne_metis".
 //
 // Temperature + MaxTokens are forwarded to the upstream LM. Sending
 // 0/0 means "use server defaults" — the JSON omitempty drops the

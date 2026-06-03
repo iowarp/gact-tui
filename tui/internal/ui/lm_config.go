@@ -1041,6 +1041,13 @@ func (a *App) lmConfigCurrentProviderKind() string {
 	return a.lmConfig.info.Presets[a.lmConfig.selected].Provider
 }
 
+func lmConfigProviderID(p client.LMProviderPreset) string {
+	if id := strings.TrimSpace(p.ID); id != "" {
+		return id
+	}
+	return strings.TrimSpace(p.Provider)
+}
+
 func (a *App) lmConfigCurrentPreset() *client.LMProviderPreset {
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return nil
@@ -1147,7 +1154,7 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 			a.lmConfig.saving = false
 			return nil
 		}
-		ref := &gact.ModelRef{ProviderID: p.Provider, ModelID: model}
+		ref := &gact.ModelRef{ProviderID: lmConfigProviderID(p), ModelID: model}
 		return applySettingsCmd(a.c, sid, ref, nil)
 	}
 
@@ -1156,7 +1163,7 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 		apiKey = "x"
 	}
 	req := client.LMProviderRequest{
-		Provider: p.Provider,
+		Provider: lmConfigProviderID(p),
 		APIBase:  a.lmConfig.apiBase,
 		Model:    model,
 		APIKey:   apiKey,
