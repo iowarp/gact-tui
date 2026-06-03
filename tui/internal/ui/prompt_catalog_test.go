@@ -361,7 +361,11 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		MCPDescriptors: []map[string]any{{
 			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
 			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
-			"trust": "community", "install": "manual", "runtime": "stdio", "env_policy": "restricted",
+			"trust":        map[string]any{"policy": "explicit", "trusted": false, "source": "blueprint"},
+			"install":      map[string]any{"method": "manual", "status": "missing"},
+			"runtime":      map[string]any{"transport": "stdio", "server_id": "mcp_earthscope"},
+			"env_policy":   map[string]any{"mode": "restricted", "allowlist": []any{"EARTHSCOPE_TOKEN"}},
+			"verification": map[string]any{"status": "unsigned", "checksum": "abcdef0123456789"},
 		}},
 		HookDescriptors: []map[string]any{{
 			"id": "pre_message", "title": "Pre Message", "event": "pre_message", "status": "disabled",
@@ -399,10 +403,26 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
 		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
 	}
-	for _, want := range []string{"earthscope-mcp", "trust: community", "install: manual", "runtime: stdio", "env_policy: restricted"} {
+	for _, want := range []string{
+		"earthscope-mcp",
+		"trust_policy: explicit",
+		"trusted: false",
+		"trust_source: blueprint",
+		"install_method: manual",
+		"install_status: missing",
+		"runtime_transport: stdio",
+		"runtime_server_id: mcp_earthscope",
+		"env_policy: restricted",
+		"env_policy_allowlist: EARTHSCOPE_TOKEN",
+		"verification_checksum: abcdef0123456789",
+		"verification_status: unsigned",
+	} {
 		if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, want) {
 			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[4])
 		}
+	}
+	if strings.Contains(items[4].desc, `"trust"`) || strings.Contains(items[4].desc, `"install"`) {
+		t.Fatalf("mcp descriptor should be structured, not raw JSON: %#v", items[4])
 	}
 	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
 		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])

@@ -1873,14 +1873,10 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	parts := make([]string, 0, 10)
 	for _, key := range []string{"transport", "command", "url", "source", "trust", "install", "runtime", "verification"} {
-		if value := stringValue(descriptor[key]); value != "" {
-			parts = append(parts, key+": "+value)
-		}
+		parts = appendDescriptorMetadataParts(parts, key, descriptor[key])
 	}
 	for _, key := range []string{"env_policy", "source_blueprint_id", "server_id"} {
-		if value := stringValue(descriptor[key]); value != "" {
-			parts = append(parts, key+": "+value)
-		}
+		parts = appendDescriptorMetadataParts(parts, key, descriptor[key])
 	}
 	if args := stringListFromAny(descriptor["args"]); len(args) > 0 {
 		parts = append(parts, "args: "+strings.Join(args, " "))
@@ -1892,6 +1888,71 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 		parts = append(parts, "errors: "+strings.Join(errors, "; "))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func appendDescriptorMetadataParts(parts []string, key string, value any) []string {
+	if text := descriptorMetadataValueText(value); text != "" {
+		return append(parts, key+": "+text)
+	}
+	m := mapValue(value)
+	if len(m) == 0 {
+		return parts
+	}
+	keys := make([]string, 0, len(m))
+	for subkey := range m {
+		if descriptorMetadataValueText(m[subkey]) != "" {
+			keys = append(keys, subkey)
+		}
+	}
+	sort.Strings(keys)
+	for _, subkey := range keys {
+		label := descriptorMetadataLabel(key, subkey)
+		parts = append(parts, label+": "+descriptorMetadataValueText(m[subkey]))
+	}
+	return parts
+}
+
+func descriptorMetadataLabel(key, subkey string) string {
+	switch key {
+	case "trust":
+		switch subkey {
+		case "policy":
+			return "trust_policy"
+		case "trusted":
+			return "trusted"
+		case "source":
+			return "trust_source"
+		}
+	case "env_policy":
+		switch subkey {
+		case "mode", "policy":
+			return "env_policy"
+		}
+	}
+	return key + "_" + subkey
+}
+
+func descriptorMetadataValueText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []string:
+		return strings.Join(v, ", ")
+	case []any:
+		values := make([]string, 0, len(v))
+		for _, item := range v {
+			if text := descriptorMetadataValueText(item); text != "" {
+				values = append(values, text)
+			}
+		}
+		return strings.Join(values, ", ")
+	case map[string]any:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
 }
 
 func agentBlueprintHookDescription(descriptor map[string]any) string {
