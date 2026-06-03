@@ -3095,12 +3095,6 @@ func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd
 	if zone != FocusRightSidebar {
 		zone = FocusSidebar
 	}
-	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
-		a.focus = zone
-		a.sidebarSectionCursor = true
-		a.sidebarSectionFocus = sidebarSectionSessions
-		return nil
-	}
 	delta := 0
 	switch button {
 	case tea.MouseWheelUp:
@@ -3110,7 +3104,36 @@ func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd
 	default:
 		return nil
 	}
+
 	a.focus = zone
+	switch a.sidebarSectionFocus {
+	case sidebarSectionContext:
+		if !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
+			a.sidebarSectionCursor = false
+			a.contextFileSel = moveSelection(a.contextFileSel, len(a.contextFiles), delta)
+			return nil
+		}
+	case sidebarSectionFiles:
+		visible := a.visibleFileTreeEntries()
+		if !a.sidebarFilesCollapsed && len(visible) > 0 {
+			a.sidebarSectionCursor = false
+			a.fileTreeSel = moveSelection(a.fileTreeSel, len(visible), delta)
+			return nil
+		}
+	case sidebarSectionAgents:
+		visible := a.visibleAgentHierarchyRows()
+		if !a.sidebarAgentsCollapsed && len(visible) > 0 {
+			a.sidebarSectionCursor = false
+			a.agentHierarchySel = moveSelection(a.agentHierarchySel, len(visible), delta)
+			return nil
+		}
+	}
+
+	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
+		a.sidebarSectionCursor = true
+		a.sidebarSectionFocus = sidebarSectionSessions
+		return nil
+	}
 	a.sidebarSectionFocus = sidebarSectionSessions
 	a.sidebarSectionCursor = false
 	if a.stepSelectionVisible(delta) {

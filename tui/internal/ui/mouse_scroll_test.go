@@ -604,6 +604,75 @@ func TestRightSidebarFileRowsUseDynamicHitTargets(t *testing.T) {
 	}
 }
 
+func TestRightSidebarFileWheelMovesFileSelectionWithoutSessionLeak(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "first", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "second", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+	a.focus = FocusRightSidebar
+	a.sidebarSectionFocus = sidebarSectionFiles
+	a.sidebarSectionCursor = false
+	a.fileTreeSel = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "right-sidebar:focus:wheel")
+	if !ok {
+		t.Fatal("missing right sidebar wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar file wheel should not dispatch session selection")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles || a.sidebarSectionCursor {
+		t.Fatalf("wheel focus = %v section=%v cursor=%v, want right files row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if a.fileTreeSel != 1 {
+		t.Fatalf("fileTreeSel = %d, want next file row", a.fileTreeSel)
+	}
+	if a.selected != 0 {
+		t.Fatalf("selected session = %d, want unchanged", a.selected)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar file wheel leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	model, cmd = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar file wheel up should not dispatch session selection")
+	}
+	if a.fileTreeSel != 0 {
+		t.Fatalf("fileTreeSel after wheel up = %d, want first file row", a.fileTreeSel)
+	}
+	if a.selected != 0 {
+		t.Fatalf("selected session after wheel up = %d, want unchanged", a.selected)
+	}
+}
+
 func TestRightSidebarAgentRowDoesNotLeakIntoConversationHits(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 150
