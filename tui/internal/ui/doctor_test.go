@@ -91,7 +91,9 @@ func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
 	if !strings.Contains(doc, "# GACT TUI 1.0 Capability Matrix") {
 		t.Fatal("capability matrix should be labeled as the active 1.0 release gate")
 	}
-	if strings.Contains(doc, "0.9 status") || strings.Contains(doc, "CLIO 0.9") {
+	if strings.Contains(doc, "0.9 status") ||
+		strings.Contains(doc, "CLIO 0.9") ||
+		strings.Contains(doc, "standalone 0.9") {
 		t.Fatal("capability matrix still contains stale 0.9 release-gate wording")
 	}
 	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {

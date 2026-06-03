@@ -49,7 +49,7 @@ Support classes:
 | Structured errors | `structured_errors` | full | Typed error parts and detail surfaces are surfaced. |
 | Integration health | `integration_health` | full | Doctor health tab and integration rows are surfaced. |
 | Tool telemetry | `tool_telemetry` | full | Tool cache/duration evidence and detail rows are surfaced. |
-| CLIO cancellation | `x_clio_cancellation` | gated | Capability is visible in Doctor. TUI uses existing session/request cancel surfaces when a request is active; no standalone 0.9 management workflow is required. |
+| CLIO cancellation | `x_clio_cancellation` | gated | Capability is visible in Doctor. TUI uses existing session/request cancel surfaces when a request is active; no standalone 1.0 management workflow is required. |
 | CLIO executor cancellation | `x_clio_executor_cancellation` | gated | Capability is visible in Doctor. Executor cancellation is backend/runtime behavior surfaced through truthful request state and errors, not a separate catalog workflow. |
 | CLIO text streaming | `x_clio_text_streaming` | full | Streaming state and fallback rendering are surfaced. |
 | CLIO synthetic posthoc streaming | `x_clio_synthetic_posthoc_streaming` | full | Posthoc stream provenance/fallback is surfaced. |
