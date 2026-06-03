@@ -82,7 +82,7 @@ func TestDoctorCapabilityRowsCoverDecodedCapabilityFlags(t *testing.T) {
 }
 
 func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
-	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	matrixPath := capabilityMatrixPath()
 	raw, err := os.ReadFile(matrixPath)
 	if err != nil {
 		t.Fatalf("read capability matrix: %v", err)
@@ -104,7 +104,7 @@ func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
 }
 
 func TestCapabilityMatrixDocMatchesDoctorSupportClasses(t *testing.T) {
-	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	matrixPath := capabilityMatrixPath()
 	raw, err := os.ReadFile(matrixPath)
 	if err != nil {
 		t.Fatalf("read capability matrix: %v", err)
@@ -141,7 +141,7 @@ func TestCapabilityMatrixDocMatchesDoctorSupportClasses(t *testing.T) {
 }
 
 func TestCapabilityMatrixDocNonFullRowsCarryDisposition(t *testing.T) {
-	matrixPath := filepath.Join("..", "..", "..", "docs", "ZERO_NINE_CAPABILITY_MATRIX.md")
+	matrixPath := capabilityMatrixPath()
 	raw, err := os.ReadFile(matrixPath)
 	if err != nil {
 		t.Fatalf("read capability matrix: %v", err)
@@ -177,6 +177,10 @@ func hasCapabilityDisposition(status string) bool {
 		}
 	}
 	return false
+}
+
+func capabilityMatrixPath() string {
+	return filepath.Join("..", "..", "..", "docs", "TUI_ONE_ZERO_CAPABILITY_MATRIX.md")
 }
 
 func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {

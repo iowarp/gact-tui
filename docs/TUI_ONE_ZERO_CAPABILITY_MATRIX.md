@@ -1,12 +1,8 @@
 # GACT TUI 1.0 Capability Matrix
 
-Date: 2026-06-02
+Date: 2026-06-03
 
 This matrix maps every decoded `CapabilityFlags` field to the intended TUI behavior. The Doctor capability tab renders the same support classes so users can distinguish backend support from TUI coverage.
-
-File-name note: this document started during the 0.9 hardening pass, but it is
-the maintained 1.0 Doctor/capability matrix until the file is renamed in a
-larger documentation cleanup.
 
 Support classes:
 

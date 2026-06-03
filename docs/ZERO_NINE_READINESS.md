@@ -98,7 +98,8 @@ Blocked or failing:
 
 ## Capability Gaps
 
-The maintained matrix is in [ZERO_NINE_CAPABILITY_MATRIX.md](ZERO_NINE_CAPABILITY_MATRIX.md).
+The maintained 1.0 matrix is in
+[TUI_ONE_ZERO_CAPABILITY_MATRIX.md](TUI_ONE_ZERO_CAPABILITY_MATRIX.md).
 
 CLIO `develop` currently advertises these relevant standard and `x_clio_*` surfaces:
 

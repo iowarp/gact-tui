@@ -33,7 +33,7 @@ curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -d '{"path":"visual_loop/README.md","mode":"read"}' >/dev/null
 curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
-  -d '{"path":"docs/ZERO_NINE_CAPABILITY_MATRIX.md","mode":"edit"}' >/dev/null
+  -d '{"path":"docs/TUI_ONE_ZERO_CAPABILITY_MATRIX.md","mode":"edit"}' >/dev/null
 curl -fsS -X POST "${backend}/v1/sessions/${session_id}/context/files" \
   -H 'Content-Type: application/json' \
   -d '{"path":"tui/internal/ui/app.go","mode":"pin"}' >/dev/null

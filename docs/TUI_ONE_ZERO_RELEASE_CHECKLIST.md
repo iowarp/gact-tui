@@ -69,7 +69,7 @@ Acceptance:
 - The visual corpus strict gate passes in a clean checkout, not only on a local
   machine with untracked screenshots.
 - The maintained 1.0
-  [capability matrix](ZERO_NINE_CAPABILITY_MATRIX.md) and Doctor rows agree
+  [capability matrix](TUI_ONE_ZERO_CAPABILITY_MATRIX.md) and Doctor rows agree
   with every decoded capability field.
 
 ## Visual Loop
