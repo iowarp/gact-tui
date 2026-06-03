@@ -5342,6 +5342,7 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 		{"mode", contextModeDescription(cf.Mode)},
 		{"status", contextFileStatusDescription(cf)},
 		{"source", contextFileSourceDescription(cf)},
+		{"session_use", contextFileSessionUseDescription(cf)},
 	}
 	if cf.Size > 0 {
 		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
@@ -5383,6 +5384,7 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 		rows = appendDetailSection(rows, "Session", sessionFields...)
 	}
 	rows = appendDetailSection(rows, "Actions",
+		detailField{"Enter / click", "open this context detail and load a content preview when CLIO exposes it"},
 		detailField{"o", "add another context file"},
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
@@ -5517,6 +5519,14 @@ func contextFileSourceDescription(cf gact.ContextFile) string {
 		return "uploaded attachment (created through attachments_upload, not workspace browsing)"
 	}
 	return "workspace context file (path resolved by CLIO workspace context)"
+}
+
+func contextFileSessionUseDescription(cf gact.ContextFile) string {
+	mode := contextModeDescription(cf.Mode)
+	if cf.Uploaded {
+		return "copied into selected CLIO session context as " + mode
+	}
+	return "referenced by selected CLIO session context as " + mode
 }
 
 func shortContextPath(path string) string {

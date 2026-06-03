@@ -6012,6 +6012,7 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"mode: read",
 		"status: workspace file attached to selected session as read",
 		"source: workspace context file",
+		"session_use: referenced by selected CLIO session context as read",
 		"size: 2.0 KiB",
 		"language: markdown",
 		"added_at: 2026-05-25T10:00:00Z",
@@ -6024,6 +6025,7 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"latest_activity: 2026-05-25T12:00:00Z",
 		"messages: 7",
 		"Actions",
+		"Enter / click: open this context detail and load a content preview when CLIO exposes it",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("context detail missing %q:\n%s", want, a.detailView.fullText)
@@ -6072,6 +6074,7 @@ func TestContextRowsDistinguishUploadedAttachments(t *testing.T) {
 	for _, want := range []string{
 		"status: CLIO uploaded attachment attached to selected session as read",
 		"source: uploaded attachment (created through attachments_upload, not workspace browsing)",
+		"session_use: copied into selected CLIO session context as read",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("uploaded context detail missing %q:\n%s", want, a.detailView.fullText)
