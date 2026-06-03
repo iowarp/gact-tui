@@ -246,17 +246,22 @@ func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
 		AttachmentsUpload:   true,
 		XClioSemanticEvents: true,
 		XClioFilesContent:   true,
+		XClioCancellation:   "request",
 	}})
 	byName := map[string]capRow{}
 	for _, row := range rows {
 		byName[row.name] = row
 	}
 	for name, wants := range map[string][]string{
-		"mcp":                    {"POST /v1/mcp/servers/{id}/reconnect"},
-		"session_summary":        {"POST /v1/sessions/{id}/summarize"},
-		"attachments_upload":     {"POST", "/v1/sessions/{id}/attachments"},
-		"x_clio_semantic_events": {"semantic.event", "tool.call.*"},
-		"x_clio_files_content":   {"GET /v1/sessions/{id}/context/files/content"},
+		"mcp":                 {"POST /v1/mcp/servers/{id}/reconnect"},
+		"session_summary":     {"POST /v1/sessions/{id}/summarize"},
+		"attachments_upload":  {"POST", "/v1/sessions/{id}/attachments"},
+		"x_clio_cancellation": {"Ctrl+X", "/cancel", "POST /v1/sessions/{id}/cancel", "#104"},
+		"x_clio_semantic_events": {
+			"semantic.event",
+			"tool.call.*",
+		},
+		"x_clio_files_content": {"GET /v1/sessions/{id}/context/files/content"},
 	} {
 		row, ok := byName[name]
 		if !ok {
