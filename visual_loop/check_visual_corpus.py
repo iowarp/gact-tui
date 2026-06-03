@@ -75,6 +75,7 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/screenshots/semantic_file_viewer_module_initial.png",
             "visual_loop/screenshots/semantic_file_viewer_module_expanded.png",
             "visual_loop/screenshots/semantic_file_viewer_module_detail.png",
+            "visual_loop/screenshots/semantic_file_viewer_module_upload.png",
             "visual_loop/tapes/semantic_context_detail.tape",
             "visual_loop/screenshots/semantic_context_row_selected.png",
             "visual_loop/screenshots/semantic_context_detail.png",

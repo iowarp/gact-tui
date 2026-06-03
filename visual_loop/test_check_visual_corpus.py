@@ -115,6 +115,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/tapes/semantic_file_picker.tape",
             "visual_loop/screenshots/semantic_file_picker.png",
             "visual_loop/screenshots/semantic_file_picker_tree_expanded.png",
+            "visual_loop/screenshots/semantic_file_viewer_module_upload.png",
             "visual_loop/tapes/agent_runtime_sidebar.tape",
             "visual_loop/screenshots/agent_runtime_sidebar.png",
             "visual_loop/tapes/semantic_context_detail.tape",
