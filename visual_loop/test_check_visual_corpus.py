@@ -183,6 +183,43 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, interactions.required)
 
+    def test_manifest_requires_live_clio_replay_catalog_memory_and_state_proof(self) -> None:
+        replay = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "benchmark_live_replay"
+        )
+
+        for rel in (
+            "visual_loop/tapes/live_clio_ndp_top.tape",
+            "visual_loop/screenshots/live_clio_ndp_top.png",
+            "visual_loop/screenshots/live_clio_ndp_tool_selection.png",
+            "visual_loop/tapes/live_clio_catalogs.tape",
+            "visual_loop/screenshots/live_clio_agents_catalog.png",
+            "visual_loop/screenshots/live_clio_agent_detail.png",
+            "visual_loop/screenshots/live_clio_tools_catalog.png",
+            "visual_loop/screenshots/live_clio_tool_catalog_detail.png",
+            "visual_loop/screenshots/live_clio_mcp_catalog.png",
+            "visual_loop/screenshots/live_clio_mcp_detail.png",
+            "visual_loop/tapes/live_clio_catalogs_narrow.tape",
+            "visual_loop/screenshots/live_clio_tools_catalog_narrow.png",
+            "visual_loop/screenshots/live_clio_tool_detail_narrow.png",
+            "visual_loop/tapes/live_clio_memory.tape",
+            "visual_loop/screenshots/live_clio_memory_palette.png",
+            "visual_loop/screenshots/live_clio_memory_inspector.png",
+            "visual_loop/tapes/live_clio_memory_pressure.tape",
+            "visual_loop/screenshots/live_clio_memory_pressure.png",
+            "visual_loop/tapes/live_clio_artifacts.tape",
+            "visual_loop/screenshots/live_clio_artifact_transcript.png",
+            "visual_loop/screenshots/live_clio_artifact_detail.png",
+            "visual_loop/tapes/live_clio_compaction.tape",
+            "visual_loop/screenshots/live_clio_compaction_top.png",
+            "visual_loop/screenshots/live_clio_compaction_detail.png",
+            "visual_loop/screenshots/live_clio_compaction_bottom.png",
+            "visual_loop/tapes/live_clio_state_markers.tape",
+            "visual_loop/screenshots/live_clio_provider_swap_top.png",
+            "visual_loop/screenshots/live_clio_provider_swap_bottom.png",
+        ):
+            self.assertIn(rel, replay.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
