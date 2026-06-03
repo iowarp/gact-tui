@@ -88,6 +88,12 @@ func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
 		t.Fatalf("read capability matrix: %v", err)
 	}
 	doc := string(raw)
+	if !strings.Contains(doc, "# GACT TUI 1.0 Capability Matrix") {
+		t.Fatal("capability matrix should be labeled as the active 1.0 release gate")
+	}
+	if strings.Contains(doc, "0.9 status") || strings.Contains(doc, "CLIO 0.9") {
+		t.Fatal("capability matrix still contains stale 0.9 release-gate wording")
+	}
 	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {
 		if !strings.Contains(doc, "`"+row.name+"`") {
 			t.Fatalf("capability matrix missing backend field %q", row.name)

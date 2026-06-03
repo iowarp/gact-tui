@@ -68,7 +68,9 @@ Acceptance:
 - CI is green on the release PR or the failed job has a linked fix/deferral.
 - The visual corpus strict gate passes in a clean checkout, not only on a local
   machine with untracked screenshots.
-- Capability matrix and Doctor rows agree with every decoded capability field.
+- The maintained 1.0
+  [capability matrix](ZERO_NINE_CAPABILITY_MATRIX.md) and Doctor rows agree
+  with every decoded capability field.
 
 ## Visual Loop
 

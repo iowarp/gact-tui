@@ -1,8 +1,12 @@
-# GACT TUI 0.9 Capability Matrix
+# GACT TUI 1.0 Capability Matrix
 
 Date: 2026-06-02
 
 This matrix maps every decoded `CapabilityFlags` field to the intended TUI behavior. The Doctor capability tab renders the same support classes so users can distinguish backend support from TUI coverage.
+
+File-name note: this document started during the 0.9 hardening pass, but it is
+the maintained 1.0 Doctor/capability matrix until the file is renamed in a
+larger documentation cleanup.
 
 Support classes:
 
@@ -11,21 +15,21 @@ Support classes:
 - `gated`: decoded and intentionally disabled or hidden unless a backend/workflow makes it actionable.
 - `none`: decoded but not user-surfaced in the current TUI.
 
-| Capability | Backend field | TUI support | 0.9 status |
+| Capability | Backend field | TUI support | 1.0 status |
 | --- | --- | --- | --- |
 | Workspaces | `workspaces` | full | Workspace label and workspace-aware requests are surfaced. |
 | Sessions | `sessions` | full | Session list, attach, create, messages, and SSE updates are surfaced. |
 | Subagents | `subagents` | full | Nanoagent/subsession traces and child-session relationships are surfaced. |
 | MCP | `mcp` | full | MCP catalog, detail, install/remove/call evidence are surfaced. |
-| LSP | `lsp` | none | Not a CLIO 0.9 TUI workflow. Keep decoded but unsurfaced. |
+| LSP | `lsp` | none | Not a CLIO 1.0 TUI workflow. Keep decoded but unsurfaced. |
 | Files | `files` | full | File picker/viewer and context attachment are surfaced; tree/fuzzy polish remains tracked outside the capability gate. |
 | Diffs | `diffs` | full | Diff list, detail, and actions are surfaced. |
 | Permissions | `permissions` | full | Permission banners, actions, audit, and policy detail are surfaced. |
 | Providers | `providers` | full | Provider/model/configuration flows are surfaced. |
 | Commands | `commands` | full | Slash command palette and command details are surfaced. |
-| Voice | `voice` | gated | Decoded, but CLIO has no 0.9 voice workflow. |
+| Voice | `voice` | gated | Decoded, but CLIO has no 1.0 voice workflow. |
 | Scheduled sessions | `scheduled_sessions` | none | Decoded only. |
-| Hooks | `hooks` | gated | CLI support exists, but TUI management is not a 0.9 CLIO path. |
+| Hooks | `hooks` | gated | CLI support exists, but TUI management is not a 1.0 CLIO path. |
 | Session tasks | `session_tasks` | full | Task badges and task detail are surfaced. |
 | Metrics | `metrics` | full | Metrics command/detail and related chips are surfaced. |
 | Session branching | `session_branching` | gated | Decoded, no primary CLIO workflow. |
