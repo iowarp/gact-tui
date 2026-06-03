@@ -300,6 +300,83 @@ func TestApplySemanticEventSummarizesCLIOSemanticToolPayload(t *testing.T) {
 	}
 }
 
+func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "sem_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_1",
+			"session_id":     "s1",
+			"workspace_id":   "ws_1",
+			"trace_id":       "trace_1",
+			"turn_id":        "turn_1",
+			"span_id":        "span_tool",
+			"parent_span_id": "span_delegate",
+			"event_type":     "tool.call.completed",
+			"status":         "completed",
+			"summary":        "NDP catalog search completed.",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"occurred_at":    "2026-06-03T06:00:00Z",
+			"actor":          map[string]any{"agent_id": "ndp_catalog", "role": "child_expert", "tool": "ndp_search_datasets"},
+			"subject":        map[string]any{"call_id": "call_1", "agent_id": "ndp_catalog"},
+			"blueprint":      map[string]any{"pack_id": "seismic", "pack_version": "1.0.0"},
+			"provider":       map[string]any{"provider_id": "alcf", "model_id": "sophia"},
+			"payload": map[string]any{
+				"tool":             "ndp_search_datasets",
+				"call_id":          "call_1",
+				"ok":               true,
+				"duration_ms":      42.0,
+				"cached":           false,
+				"telemetry_source": "live_observer",
+				"args_preview":     "search_terms=seismic",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic event message = %#v", a.messages)
+	}
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"Semantic event",
+		"schema_version: clio.semantic_event.v1",
+		"event_type: tool.call.completed",
+		"trace_id: trace_1",
+		"turn_id: turn_1",
+		"span_id: span_tool",
+		"parent_span_id: span_delegate",
+		"live_observed: true",
+		"Actor",
+		"agent_id: ndp_catalog",
+		"tool: ndp_search_datasets",
+		"Subject",
+		"call_id: call_1",
+		"Blueprint",
+		"pack_id: seismic",
+		"Provider",
+		"provider_id: alcf",
+		"Payload",
+		"duration_ms: 42",
+		"telemetry_source: live_observer",
+		"args_preview: search_terms=seismic",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic event detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"raw_event", "stream_source", "semantic_event:"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("semantic event detail should not repeat transport metadata %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+}
+
 func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

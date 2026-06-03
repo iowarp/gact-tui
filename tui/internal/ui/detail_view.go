@@ -619,6 +619,9 @@ func partDetailText(p gact.Part) string {
 		if p.Signature != "" {
 			rows = append(rows, detailFieldRows("signature", p.Signature)...)
 		}
+		if isSemanticEventPart(p) {
+			rows = appendSemanticEventDetail(rows, mapValue(p.Metadata["raw_event"]))
+		}
 	case gact.PartTypeSubagentCall:
 		rows = append(rows, detailFieldRows("agent_id", orPlaceholder(p.AgentID, "unknown"))...)
 		rows = append(rows, detailFieldRows("subsession_id", orPlaceholder(p.SubsessionID, "none"))...)
@@ -692,6 +695,21 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	switch p.Type {
 	case gact.PartTypeToolResult:
 		used["raw_result"] = true
+	case gact.PartTypeThinking:
+		if isSemanticEventPart(p) {
+			for _, key := range []string{
+				"semantic_event",
+				"event_type",
+				"trace_id",
+				"turn_id",
+				"status",
+				"detail_level",
+				"stream_source",
+				"raw_event",
+			} {
+				used[key] = true
+			}
+		}
 	case gact.PartTypeExpertHandoff:
 		for _, key := range []string{
 			"agent_id",
@@ -726,6 +744,85 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 		return nil
 	}
 	return remaining
+}
+
+func isSemanticEventPart(p gact.Part) bool {
+	return p.Metadata != nil && p.Metadata["semantic_event"] == true && len(mapValue(p.Metadata["raw_event"])) > 0
+}
+
+func appendSemanticEventDetail(rows []string, event map[string]any) []string {
+	if len(event) == 0 {
+		return rows
+	}
+	rows = appendSemanticEventMapSection(rows, "Semantic event", semanticEventTopFields(event),
+		"schema_version",
+		"event_id",
+		"event_type",
+		"status",
+		"summary",
+		"session_id",
+		"workspace_id",
+		"trace_id",
+		"turn_id",
+		"span_id",
+		"parent_span_id",
+		"detail_level",
+		"live_observed",
+		"occurred_at",
+	)
+	rows = appendSemanticEventMapSection(rows, "Actor", mapValue(event["actor"]),
+		"agent_id", "agent", "role", "tool", "tool_name", "provider_id", "model_id", "kind", "source", "execution_mode")
+	rows = appendSemanticEventMapSection(rows, "Subject", mapValue(event["subject"]),
+		"agent_id", "parent_id", "child_id", "role", "tool", "tool_name", "call_id", "message_id", "path", "artifact_type")
+	rows = appendSemanticEventMapSection(rows, "Blueprint", mapValue(event["blueprint"]),
+		"id", "agent_blueprint_id", "pack_id", "version", "pack_version", "scope", "definition_path")
+	rows = appendSemanticEventMapSection(rows, "Provider", mapValue(event["provider"]),
+		"provider_id", "model_id", "model", "source")
+	rows = appendSemanticEventMapSection(rows, "Payload", mapValue(event["payload"]),
+		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "error", "message", "path", "artifact_type")
+	return rows
+}
+
+func semanticEventTopFields(event map[string]any) map[string]any {
+	if len(event) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(event))
+	for key, value := range event {
+		switch key {
+		case "actor", "subject", "blueprint", "provider", "payload":
+			continue
+		default:
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func appendSemanticEventMapSection(rows []string, title string, m map[string]any, preferred ...string) []string {
+	if len(m) == 0 {
+		return rows
+	}
+	fields := make([]detailField, 0, len(m))
+	seen := map[string]bool{}
+	for _, key := range preferred {
+		if value := runtimeScalar(m[key]); value != "" {
+			fields = append(fields, detailField{key, value})
+			seen[key] = true
+		}
+	}
+	for _, key := range sortedAnyMapKeys(m) {
+		if seen[key] {
+			continue
+		}
+		if value := runtimeScalar(m[key]); value != "" {
+			fields = append(fields, detailField{key, value})
+		}
+	}
+	if len(fields) == 0 {
+		return rows
+	}
+	return appendDetailSection(rows, title, fields...)
 }
 
 func routeSourceLabel(p gact.Part) string {
