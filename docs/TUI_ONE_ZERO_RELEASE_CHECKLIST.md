@@ -111,7 +111,8 @@ Required workflows:
 - `gact agent connect visual-benchmark` against current CLIO `develop`.
 - At least one fresh non-benchmark session.
 - Settings/model/provider configuration, including provider errors.
-- Copy from conversation, detail/raw views, and clipboard failure messaging.
+- Copy from conversation footer actions, selected conversation blocks,
+  detail/raw views, and clipboard failure messaging.
 - Capture `gact diag` clipboard and terminal-selection rows:
   `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
   `terminal_selection`, `TERM`, and `TERM_PROGRAM`; use `/mouse` while

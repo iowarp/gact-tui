@@ -46,6 +46,21 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_conversation_copy_visual_proof(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_detail_copy.tape",
+            "visual_loop/screenshots/semantic_detail_copy.png",
+            "visual_loop/tapes/semantic_conversation_block_copy.tape",
+            "visual_loop/screenshots/semantic_conversation_block_copy.png",
+            "visual_loop/tapes/semantic_conversation_footer_actions.tape",
+            "visual_loop/screenshots/semantic_conversation_footer_actions.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
