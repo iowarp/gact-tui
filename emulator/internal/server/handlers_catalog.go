@@ -6,6 +6,7 @@ package server
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
@@ -638,9 +640,10 @@ func (s *Server) handleGetAgentBlueprint(w http.ResponseWriter, r *http.Request)
 	for _, blueprint := range staticAgentBlueprints() {
 		if blueprint.ID == id {
 			writeJSON(w, http.StatusOK, gact.AgentBlueprintDetail{
-				AgentBlueprint: blueprint,
-				Agents:         staticAgentBlueprintAgents(blueprint.ID),
-				MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+				AgentBlueprint:  blueprint,
+				Agents:          staticAgentBlueprintAgents(blueprint.ID),
+				MCPDescriptors:  staticAgentBlueprintMCPDescriptors(blueprint.ID),
+				HookDescriptors: staticAgentBlueprintHookDescriptors(blueprint.ID),
 			})
 			return
 		}
@@ -669,10 +672,11 @@ func (s *Server) handleValidateAgentBlueprint(w http.ResponseWriter, r *http.Req
 		Enabled:        true,
 	}
 	writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
-		Enabled:        true,
-		AgentBlueprint: blueprint,
-		Agents:         staticAgentBlueprintAgents(blueprint.ID),
-		MCPDescriptors: staticAgentBlueprintMCPDescriptors(blueprint.ID),
+		Enabled:         true,
+		AgentBlueprint:  blueprint,
+		Agents:          staticAgentBlueprintAgents(blueprint.ID),
+		MCPDescriptors:  staticAgentBlueprintMCPDescriptors(blueprint.ID),
+		HookDescriptors: staticAgentBlueprintHookDescriptors(blueprint.ID),
 	})
 }
 
@@ -721,6 +725,34 @@ func (s *Server) handleDeleteAgentBlueprint(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{
 		"uninstalled": map[string]any{"id": id, "scope": firstNonEmptyString(r.URL.Query().Get("scope"), "workspace")},
 	})
+}
+
+func (s *Server) handleEnableAgentBlueprintHook(w http.ResponseWriter, r *http.Request) {
+	blueprintID := r.PathValue("id")
+	hookID := r.PathValue("hook_id")
+	for _, descriptor := range staticAgentBlueprintHookDescriptors(blueprintID) {
+		if descriptor["id"] == hookID {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                 "agent_blueprint_hook_" + blueprintID + "_" + hookID,
+				"hook_id":            hookID,
+				"event":              descriptor["event"],
+				"status":             "enabled",
+				"enabled":            true,
+				"source":             "agent_blueprint",
+				"agent_blueprint_id": blueprintID,
+				"definition_path":    descriptor["definition_path"],
+				"installed_path":     "/tmp/gact-hooks/blueprints/" + blueprintID + "/" + hookID + ".py",
+				"checksum":           descriptor["checksum"],
+				"trust": map[string]any{
+					"policy":  "explicit",
+					"trusted": true,
+					"source":  "request",
+				},
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint hook descriptor not found: "+hookID)
 }
 
 func (s *Server) handleEnableAgentBlueprintMCP(w http.ResponseWriter, r *http.Request) {
@@ -895,6 +927,26 @@ func staticAgentBlueprints() []gact.AgentBlueprintDefinition {
 		Defaults:       map[string]any{"prompt_profile": "heavy"},
 		Metadata:       map[string]any{"layout": "agent_blueprint"},
 	}, {
+		ID:             "seismic-market",
+		Version:        "1.2.0",
+		Title:          "Seismic Marketplace",
+		Description:    "Community marketplace Agent Blueprint for seismic waveform review.",
+		Scope:          "workspace",
+		Root:           "/workspace/.clio/agent-blueprints/seismic-market",
+		RootPath:       "/workspace/.clio/agent-blueprints/seismic-market/AGENT.md",
+		DefinitionPath: "/workspace/.clio/agent-blueprints/seismic-market/AGENT.md",
+		RootExpert:     "orchestrator",
+		Enabled:        true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/seismic-agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"commit":       "0123456789abcdef",
+			"checksum":     "abcdef0123456789",
+			"installed_at": "2026-06-02T20:00:00Z",
+			"scope":        "workspace",
+		}},
+	}, {
 		ID:               "broken-blueprint",
 		Version:          "0.1.0",
 		Title:            "Broken Blueprint",
@@ -917,6 +969,7 @@ func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
 		Enabled:     true,
 		Tier:        1,
 		Tools:       []string{"mcp.parquet.read", "mcp.adios.inspect"},
+		Commands:    []string{"/validate-dataset"},
 		Metadata: map[string]any{
 			"agent_blueprint_id":          blueprintID,
 			"agent_blueprint_root_expert": "data",
@@ -945,6 +998,27 @@ func staticAgentBlueprintMCPDescriptors(blueprintID string) []map[string]any {
 		"status":             "disabled",
 		"source":             "agent_blueprint",
 		"agent_blueprint_id": blueprintID,
+	}}
+}
+
+func staticAgentBlueprintHookDescriptors(blueprintID string) []map[string]any {
+	return []map[string]any{{
+		"id":                 "pre_message",
+		"name":               "pre_message",
+		"title":              "Pre Message",
+		"event":              "pre_message",
+		"enabled":            false,
+		"status":             "disabled",
+		"source":             "agent_blueprint",
+		"scope":              "workspace",
+		"agent_blueprint_id": blueprintID,
+		"definition_path":    "/opt/clio/agent_blueprints/data-exploration/hooks/pre_message.py",
+		"checksum":           "0123456789abcdef",
+		"trust": map[string]any{
+			"policy":  "explicit",
+			"trusted": false,
+		},
+		"validation_warnings": []any{"Blueprint packaged hooks are disabled until explicitly enabled and trusted"},
 	}}
 }
 
@@ -1470,7 +1544,15 @@ func staticMcpPrompts(serverID string) []gact.McpPrompt {
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 	agentID := strings.TrimSpace(r.URL.Query().Get("agent_id"))
 	plannerOnly := r.URL.Query().Get("planner") == "true"
+	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
 	rows := staticCommands()
+	if sessionID != "" {
+		if sess, err := s.store.GetSession(sessionID); err == nil {
+			if blueprintID := stringFromAny(sess.Metadata["active_agent_blueprint_id"]); blueprintID != "" {
+				rows = append(rows, staticAgentBlueprintPackagedCommands(blueprintID)...)
+			}
+		}
+	}
 	if agentID != "" || plannerOnly {
 		filtered := make([]gact.Command, 0, len(rows))
 		for _, row := range rows {
@@ -1488,6 +1570,29 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 		rows = filtered
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"commands": rows})
+}
+
+func staticAgentBlueprintPackagedCommands(blueprintID string) []gact.Command {
+	trueValue := true
+	return []gact.Command{{
+		ID:                 "/validate-dataset",
+		Title:              "Validate Dataset",
+		Description:        "Validate a dataset before analysis",
+		Source:             "agent_blueprint",
+		AgentID:            "data",
+		AgentSource:        "agent_blueprint",
+		CommandSource:      "agent_blueprint",
+		CommandScope:       "agent_blueprint",
+		CommandPath:        "/workspace/.clio/agent-blueprints/" + blueprintID + "/commands/validate-dataset.md",
+		AgentBlueprintID:   blueprintID,
+		AgentBlueprintRoot: "/workspace/.clio/agent-blueprints/" + blueprintID,
+		Invocation:         "agent",
+		UserInvocable:      &trueValue,
+		AgentInvocable:     &trueValue,
+		PlannerVisible:     &trueValue,
+		ArgumentHint:       "<path>",
+		Arguments:          []gact.AgentParameter{{Name: "path", Type: "string", Required: true}},
+	}}
 }
 
 func staticCommands() []gact.Command {
@@ -1794,6 +1899,13 @@ type contextFileRequest struct {
 	Mode string `json:"mode"`
 }
 
+type attachmentUploadRequest struct {
+	File     string `json:"file"`
+	Filename string `json:"filename"`
+	MimeType string `json:"mime_type"`
+	Mode     string `json:"mode"`
+}
+
 func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.store.GetSession(id); err != nil {
@@ -1812,8 +1924,113 @@ func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 		req.Mode = "read"
 	}
 	cf := gact.ContextFile{Path: req.Path, Mode: req.Mode, AddedAt: time.Now().UTC().Format(time.RFC3339)}
+	if info, err := os.Stat(req.Path); err == nil && info.Mode().IsRegular() {
+		cf.Size = info.Size()
+		cf.LastModified = info.ModTime().UTC().Format(time.RFC3339)
+		cf.Language = contextFileLanguage(req.Path)
+	}
 	s.contextFiles.add(id, cf)
 	writeJSON(w, http.StatusCreated, cf)
+}
+
+func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	var req attachmentUploadRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.File) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "file required")
+		return
+	}
+	data, err := base64.StdEncoding.DecodeString(req.File)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "file must be valid base64")
+		return
+	}
+	name := path.Base(strings.ReplaceAll(strings.TrimSpace(req.Filename), "\\", "/"))
+	if name == "." || name == "/" || name == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "filename required")
+		return
+	}
+	mode := req.Mode
+	if mode == "" {
+		mode = "read"
+	}
+	if mode != "read" && mode != "pin" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "mode must be read or pin")
+		return
+	}
+	dir, err := os.MkdirTemp("", "gact-attachment-"+id+"-")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "attachment_error", err.Error())
+		return
+	}
+	dest := filepath.Join(dir, name)
+	if err := os.WriteFile(dest, data, 0o600); err != nil {
+		writeError(w, http.StatusInternalServerError, "attachment_error", err.Error())
+		return
+	}
+	cf := gact.ContextFile{
+		Path:     dest,
+		Mode:     mode,
+		AddedAt:  time.Now().UTC().Format(time.RFC3339),
+		Size:     int64(len(data)),
+		Language: contextFileLanguage(name),
+		Uploaded: true,
+	}
+	s.contextFiles.add(id, cf)
+	s.bus.Publish(events.Event{
+		Type:      "context.file.added",
+		SessionID: id,
+		Payload:   map[string]any{"session_id": id, "file": cf},
+	})
+	writeJSON(w, http.StatusOK, cf)
+}
+
+func (s *Server) handleContextFileContent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.store.GetSession(id); err != nil {
+		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	rawPath := strings.TrimSpace(r.URL.Query().Get("path"))
+	if rawPath == "" {
+		writeError(w, http.StatusBadRequest, "invalid_query", "path required")
+		return
+	}
+	var cf gact.ContextFile
+	found := false
+	for _, candidate := range s.contextFiles.get(id) {
+		if candidate.Path == rawPath {
+			cf = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+		return
+	}
+	data, err := os.ReadFile(cf.Path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "file_not_found", "context file not found on disk")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"file": gact.ContextFileContent{
+			Path:        cf.Path,
+			DisplayPath: cf.Path,
+			Size:        int64(len(data)),
+			MediaType:   contextFileMediaType(cf.Path, data),
+			Encoding:    "base64",
+			Data:        base64.StdEncoding.EncodeToString(data),
+		},
+	})
 }
 
 func (s *Server) handleDeleteContextFile(w http.ResponseWriter, r *http.Request) {
@@ -1840,6 +2057,50 @@ func (s *Server) handlePatchContextFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeError(w, http.StatusNotFound, "file_not_in_context", "no such file in context")
+}
+
+func contextFileLanguage(filePath string) string {
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".md", ".markdown":
+		return "markdown"
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".txt", ".log":
+		return "text"
+	default:
+		return ""
+	}
+}
+
+func contextFileMediaType(filePath string, data []byte) string {
+	if len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n" {
+		return "image/png"
+	}
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".md", ".markdown":
+		return "text/markdown; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".yaml", ".yml":
+		return "application/yaml; charset=utf-8"
+	case ".go":
+		return "text/x-go; charset=utf-8"
+	case ".py":
+		return "text/x-python; charset=utf-8"
+	case ".txt", ".log":
+		return "text/plain; charset=utf-8"
+	default:
+		if utf8.Valid(data) {
+			return "text/plain; charset=utf-8"
+		}
+		return "application/octet-stream"
+	}
 }
 
 // Workspace files: minimal listing of a tree on disk. Returns 200 with empty

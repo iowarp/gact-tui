@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -268,6 +269,23 @@ func TestAgentWriteSanitizesIDs(t *testing.T) {
 	}
 }
 
+func TestAgentWritePasteCompactsMultilineID(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openAgentWrite(agentWriteModeCreate, "", "")
+
+	_, _ = a.Update(tea.PasteMsg{Content: " Data\r\nExpert \nCopy! "})
+
+	if a.agentWriteDraft != "Data Expert Copy!" {
+		t.Fatalf("agent write draft = %q, want compact single-line paste", a.agentWriteDraft)
+	}
+	if a.agentWriteCursor != len([]rune(a.agentWriteDraft)) {
+		t.Fatalf("agent write cursor = %d, want end of draft %d", a.agentWriteCursor, len([]rune(a.agentWriteDraft)))
+	}
+	if strings.ContainsAny(a.agentWriteDraft, "\r\n") {
+		t.Fatalf("agent write paste kept raw newlines: %q", a.agentWriteDraft)
+	}
+}
+
 func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	parent := &catalogBrowserState{
@@ -497,6 +515,193 @@ func TestCatalogBrowser_EnterOnAgentDetailMcpServerDrills(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowser_EnterOnAgentBlueprintHookEnablesPackagedHook(t *testing.T) {
+	var gotPath string
+	var gotReq gact.AgentBlueprintHookEnableRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.EscapedPath()
+		if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
+			t.Fatalf("decode hook enable request: %v", err)
+		}
+		writeJSONForTest(t, w, map[string]any{"id": "agent_blueprint_hook_bp1_pre_message"})
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "hook/pre_message", title: "Hook · Pre Message"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on blueprint hook row should enable packaged hook")
+	}
+	msg := cmd()
+	got, ok := msg.(agentBlueprintHookEnabledMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want agentBlueprintHookEnabledMsg", msg)
+	}
+	if got.err != nil {
+		t.Fatalf("enable hook command failed: %v", got.err)
+	}
+	if gotPath != "POST /v1/agent-blueprints/bp1/hooks/pre_message/enable" {
+		t.Fatalf("hook enable path = %q", gotPath)
+	}
+	if gotReq.WorkspaceID != "ws1" || !gotReq.Trust {
+		t.Fatalf("hook enable request = %#v, want workspace and explicit trust", gotReq)
+	}
+}
+
+func TestAgentBlueprintManagedMsgSurfacesFailuresTruthfully(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "blueprint-action/update", title: "Update"}},
+	}
+
+	model, cmd := a.Update(agentBlueprintManagedMsg{
+		blueprintID: "bp1",
+		action:      "updated",
+		err:         errors.New("git fetch exited 128"),
+	})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("failed blueprint management should schedule transient hint expiry")
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.blueprintID != "bp1" {
+		t.Fatalf("failed update should leave detail browser open for inspection: open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if got := a.transientHint; got != "agent blueprint updated failed: git fetch exited 128" {
+		t.Fatalf("failure hint = %q", got)
+	}
+}
+
+func TestAgentBlueprintManagedMsgReloadsCurrentDetailOnSuccess(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.EscapedPath()
+		writeJSONForTest(t, w, gact.AgentBlueprintDetail{
+			AgentBlueprint: gact.AgentBlueprintDefinition{ID: "bp1", Title: "Blueprint One", Scope: "workspace"},
+		})
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "blueprint-action/update", title: "Update"}},
+	}
+
+	model, cmd := a.Update(agentBlueprintManagedMsg{
+		blueprintID: "bp1",
+		action:      "updated",
+		result:      map[string]any{"status": "updated"},
+	})
+	a = model.(*App)
+	if got := a.transientHint; got != "agent blueprint updated: bp1" {
+		t.Fatalf("success hint = %q", got)
+	}
+	if cmd == nil {
+		t.Fatal("successful detail update should reload the current blueprint detail")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if c == nil {
+				continue
+			}
+			if loaded, ok := c().(catalogBrowserLoadedMsg); ok {
+				msg = loaded
+				break
+			}
+		}
+	}
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("reload cmd returned %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" || loaded.blueprintID != "bp1" || len(loaded.items) == 0 {
+		t.Fatalf("loaded detail = %#v", loaded)
+	}
+	if gotPath != "GET /v1/agent-blueprints/bp1" {
+		t.Fatalf("reload path = %q", gotPath)
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentBlueprintSourceOpensSourceDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{{
+			id:    "source/0",
+			title: "Marketplace source · git · https://example.org/community/seismic-agents.git",
+			desc:  "Marketplace Source\nsource: https://example.org/community/seismic-agents.git\nblueprints: Seismic Marketplace",
+		}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("source detail should open locally without backend command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("source row should open detail view")
+	}
+	if !strings.Contains(a.detailView.fullText, "blueprints: Seismic Marketplace") {
+		t.Fatalf("source detail missing blueprint list:\n%s", a.detailView.fullText)
+	}
+}
+
+func TestCatalogBrowser_EnterOnAgentBlueprintSourceRegistryOpensBackendGapDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{{
+			id:        "action/source-registry",
+			title:     "Marketplace sources",
+			desc:      agentBlueprintSourceRegistryUnavailableDetail(),
+			statusTag: "backend gap",
+		}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("source registry detail should open locally without backend command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("source registry row should open detail view")
+	}
+	for _, want := range []string{
+		"Marketplace Source Registry",
+		"status: unavailable",
+		"CLIO does not expose a durable marketplace-source registry API yet",
+		"add named source",
+		"remove source without deleting installed blueprints",
+		"derived per-blueprint source provenance",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("source registry detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
 func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -534,13 +739,117 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	if loaded.errText != "" {
 		t.Fatalf("unexpected MCP detail error: %s", loaded.errText)
 	}
-	if len(loaded.items) != 1 {
-		t.Fatalf("items = %#v, want one tool row", loaded.items)
+	if len(loaded.items) != 2 {
+		t.Fatalf("items = %#v, want reconnect action plus one tool row", loaded.items)
+	}
+	if loaded.items[0].id != "mcp-action/reconnect" {
+		t.Fatalf("first MCP detail row = %#v, want reconnect action", loaded.items[0])
 	}
 	for _, want := range []string{"server: mcp_adios", "agents: Data expert · data_analysis"} {
-		if !strings.Contains(loaded.items[0].desc, want) {
-			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[0])
+		if !strings.Contains(loaded.items[1].desc, want) {
+			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[1])
 		}
+	}
+}
+
+func TestMcpDetailReconnectActionDispatchesBackendCall(t *testing.T) {
+	var reconnects int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/mcp/servers/mcp_docs/reconnect" {
+			reconnects++
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+
+	a := NewWithTheme(server.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+		items:       []catalogItem{{id: "mcp-action/reconnect", title: "Reconnect server"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on reconnect action should dispatch command")
+	}
+	msg := cmd()
+	done, ok := msg.(mcpReconnectDoneMsg)
+	if !ok {
+		t.Fatalf("message = %#v, want mcpReconnectDoneMsg", msg)
+	}
+	if done.err != nil || done.serverID != "mcp_docs" || reconnects != 1 {
+		t.Fatalf("done=%#v reconnects=%d", done, reconnects)
+	}
+}
+
+func TestMcpDetailReconnectShortcutDispatchesBackendCall(t *testing.T) {
+	var reconnects int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/mcp/servers/mcp_docs/reconnect" {
+			reconnects++
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+
+	a := NewWithTheme(server.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+		items:       []catalogItem{{id: "tool/read_file", title: "[tool] read_file"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(keyMsg("r"))
+	if cmd == nil {
+		t.Fatal("r in MCP detail should dispatch reconnect command")
+	}
+	msg := cmd()
+	done, ok := msg.(mcpReconnectDoneMsg)
+	if !ok {
+		t.Fatalf("message = %#v, want mcpReconnectDoneMsg", msg)
+	}
+	if done.err != nil || done.serverID != "mcp_docs" || reconnects != 1 {
+		t.Fatalf("done=%#v reconnects=%d", done, reconnects)
+	}
+}
+
+func TestMcpReconnectDoneSurfacesSuccessAndFailure(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindMcpDetail,
+		title:       "MCP · docs",
+		mcpServerID: "mcp_docs",
+	}
+
+	model, cmd := a.Update(mcpReconnectDoneMsg{serverID: "mcp_docs"})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "reconnected MCP mcp_docs") {
+		t.Fatalf("success hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("success should schedule hint expiry and refresh MCP state")
+	}
+
+	model, cmd = a.Update(mcpReconnectDoneMsg{serverID: "mcp_docs", err: errors.New("probe failed")})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "mcp reconnect failed: probe failed") {
+		t.Fatalf("failure hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("failure should schedule hint expiry")
 	}
 }
 
@@ -610,6 +919,103 @@ func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
 	}
 	if !hasTool || !hasServer || !hasChild || !hasModel {
 		t.Fatalf("agent detail missing tool/server/child mapping: %#v", loaded.items)
+	}
+}
+
+func TestAgentCatalogDescriptionSurfacesSkillsAndValidation(t *testing.T) {
+	items := agentCatalogItems([]gact.AgentDef{{
+		ID:                 "data",
+		Source:             "agent_blueprint",
+		Title:              "Data",
+		Enabled:            true,
+		Skills:             []string{"python", "ndp", "adios", "plots"},
+		ValidationWarnings: []string{"skill path unresolved until install"},
+		ValidationErrors:   []string{"missing skill: adios"},
+	}}, catalogKindAgents)
+
+	if len(items) != 1 {
+		t.Fatalf("items = %#v", items)
+	}
+	if items[0].statusTag != "invalid" {
+		t.Fatalf("agent with errors should remain invalid, got %#v", items[0])
+	}
+	for _, want := range []string{"skills: python, ndp, adios, +1", "warnings: skill path unresolved until install", "errors: missing skill: adios"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("agent desc missing %q: %#v", want, items[0])
+		}
+	}
+}
+
+func TestAgentCatalogWarningsUseAttentionState(t *testing.T) {
+	items := agentCatalogItems([]gact.AgentDef{{
+		ID:                 "data",
+		Source:             "agent_blueprint",
+		Title:              "Data",
+		Enabled:            true,
+		ValidationWarnings: []string{"skill path unresolved until install"},
+	}}, catalogKindAgents)
+
+	if len(items) != 1 {
+		t.Fatalf("items = %#v", items)
+	}
+	if items[0].statusTag != "warning" || !strings.Contains(items[0].desc, "warnings: skill path unresolved until install") {
+		t.Fatalf("warning-only agent should be visually distinct: %#v", items[0])
+	}
+}
+
+func TestLoadAgentDetailSurfacesDeclaredSkillsAndValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/agents/data":
+			_, _ = w.Write([]byte(`{
+				"id":"data",
+				"source":"agent_blueprint",
+				"title":"Data expert",
+				"description":"Dataset inspection",
+				"skills":["python","ndp"],
+				"validation_warnings":["skill ndp resolved from community source"],
+				"validation_errors":["skill not resolved: ndp"]
+			}`))
+		case "/v1/agents":
+			_, _ = w.Write([]byte(`{"agents":[{"id":"data","source":"agent_blueprint","title":"Data expert"}]}`))
+		case "/v1/tools":
+			_, _ = w.Write([]byte(`{"tools":[]}`))
+		case "/v1/commands":
+			_, _ = w.Write([]byte(`{"commands":[]}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	msg := loadAgentDetailCmd(client.New(server.URL), "data", client.RuntimeScope{})()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" {
+		t.Fatalf("unexpected agent detail load error: %s", loaded.errText)
+	}
+
+	var hasSkills, hasWarnings, hasValidation bool
+	for _, item := range loaded.items {
+		switch item.id {
+		case "skills":
+			hasSkills = item.title == "Declared skills" &&
+				item.statusTag == "skills" &&
+				strings.Contains(item.desc, "python, ndp")
+		case "validation-warnings":
+			hasWarnings = item.title == "Validation warnings" &&
+				item.statusTag == "warning" &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
+		case "validation":
+			hasValidation = item.statusTag == "error" &&
+				strings.Contains(item.desc, "skill not resolved: ndp")
+		}
+	}
+	if !hasSkills || !hasWarnings || !hasValidation {
+		t.Fatalf("agent detail missing skills/validation rows: %#v", loaded.items)
 	}
 }
 

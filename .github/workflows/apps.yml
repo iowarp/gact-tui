@@ -209,7 +209,8 @@ jobs:
       - name: Install Go (sidecar launcher build)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          # Match the toolchain pinned in go.work and the TUI release workflow.
+          go-version: '1.26.x'
 
       - name: Install uv (bundled runtime build)
         if: matrix.variant == 'bundled'

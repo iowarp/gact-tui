@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
@@ -110,5 +112,440 @@ func TestRenderPartDoesNotBadgeLiveStream(t *testing.T) {
 	got := DefaultTheme().renderPart(part, 80)
 	if strings.Contains(got, "post-hoc text") {
 		t.Fatalf("live stream should not render post-hoc badge: %q", got)
+	}
+}
+
+func TestRenderBodySuppressesEmptyAssistantShells(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{
+			ID:        "m_empty",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+		},
+		{
+			ID:        "m_answer",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+			Parts:     []gact.Part{{ID: "p_answer", Type: gact.PartTypeText, Text: "real answer"}},
+		},
+	}
+
+	out := ansi.Strip(a.View().Content)
+	if strings.Contains(out, "(no parts)") {
+		t.Fatalf("empty assistant shell should be hidden:\n%s", out)
+	}
+	if !strings.Contains(out, "real answer") {
+		t.Fatalf("non-empty answer should still render:\n%s", out)
+	}
+}
+
+func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "7",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "agent.invocation.started",
+			"status":       "running",
+			"summary":      "Agent data started.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent": "data"},
+		}},
+	})
+
+	if len(a.messages) != 1 {
+		t.Fatalf("messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeThinking || !strings.Contains(part.Thinking, "agent.invocation.started") || !strings.Contains(part.Thinking, "agent=data") {
+		t.Fatalf("semantic part = %#v", part)
+	}
+	if part.Metadata["semantic_event"] != true || part.Metadata["trace_id"] != "trace_1" {
+		t.Fatalf("semantic metadata = %#v", part.Metadata)
+	}
+}
+
+func TestApplyNotificationSSESurfacesGlobalEventsWithoutSessionID(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:        "existing",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "keep me"}},
+	}}
+
+	a.applySSE(client.SSEEvent{
+		Type: "notification",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "",
+			"level":      "info",
+			"title":      "MCP server reconnected",
+			"body":       "mcp_docs",
+		}},
+	})
+
+	if got := a.transientHint; !strings.Contains(got, "info: MCP server reconnected") || !strings.Contains(got, "mcp_docs") {
+		t.Fatalf("global notification hint = %q", got)
+	}
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "keep me" {
+		t.Fatalf("notification should not mutate transcript messages: %#v", a.messages)
+	}
+
+	a.applySSE(client.SSEEvent{
+		Type: "notification",
+		Payload: map[string]any{"payload": map[string]any{
+			"level": "warning",
+			"title": "Provider degraded",
+		}},
+	})
+
+	if got := a.transientHint; got != "warning: Provider degraded" {
+		t.Fatalf("missing-session notification hint = %q", got)
+	}
+}
+
+func TestApplySemanticEventSurfacesGlobalEventsWithoutSessionID(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "global-provider",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":   "",
+			"turn_id":      "turn_global",
+			"trace_id":     "trace_global",
+			"event_type":   "provider.degraded",
+			"status":       "warning",
+			"summary":      "Provider degraded.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"provider": "openai"},
+			"payload": map[string]any{
+				"reason": "rate limited",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("global semantic event should surface on current session: %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeThinking || !strings.Contains(part.Thinking, "provider.degraded") || !strings.Contains(part.Thinking, "provider=openai") {
+		t.Fatalf("global semantic summary = %#v", part)
+	}
+	if part.Metadata["trace_id"] != "trace_global" || part.Metadata["status"] != "warning" {
+		t.Fatalf("global semantic metadata = %#v", part.Metadata)
+	}
+}
+
+func TestApplySemanticEventSummarizesCLIOSemanticToolPayload(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "sem_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "tool.call.completed",
+			"status":       "completed",
+			"summary":      "Tool NdpSearchDatasets completed.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"tool": "NdpSearchDatasets"},
+			"subject":      map[string]any{"call_id": "call_1"},
+			"payload": map[string]any{
+				"tool":             "NdpSearchDatasets",
+				"call_id":          "call_1",
+				"ok":               true,
+				"duration_ms":      42.5,
+				"cached":           false,
+				"telemetry_source": "live_observer",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	got := a.messages[0].Parts[0].Thinking
+	for _, want := range []string{
+		"tool.call.completed",
+		"actor: tool=NdpSearchDatasets",
+		"subject: call_id=call_1",
+		"payload: tool=NdpSearchDatasets",
+		"call_id=call_1",
+		"telemetry_source=live_observer",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("semantic summary missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestApplySemanticEventSummaryFlattensNestedDelegationReferences(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "resume_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"trace_id":     "trace_1",
+			"event_type":   "delegation.parent_resumed",
+			"status":       "completed",
+			"summary":      "Parent expert resumed after child work.",
+			"detail_level": "semantic",
+			"actor": map[string]any{
+				"kind": "agent",
+				"agent": map[string]any{
+					"id":   "data",
+					"role": "parent_expert",
+				},
+			},
+			"subject": map[string]any{
+				"agent": map[string]any{
+					"id":   "ndp_catalog",
+					"role": "child_expert",
+				},
+			},
+			"payload": map[string]any{
+				"stage":     "parent.resumed",
+				"parent_id": "data",
+				"agent_id":  "ndp_catalog",
+				"return_to": "data",
+				"delegation": map[string]any{
+					"path": []any{
+						map[string]any{"agent_id": "data"},
+						map[string]any{"agent_id": "ndp_catalog"},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	got := a.messages[0].Parts[0].Thinking
+	for _, want := range []string{
+		"delegation.parent_resumed",
+		"actor: agent=data",
+		"subject: agent=ndp_catalog",
+		"payload: stage=parent.resumed",
+		"parent_id=data",
+		"agent_id=ndp_catalog",
+		"return_to=data",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("nested semantic summary missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "sem_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_1",
+			"session_id":     "s1",
+			"workspace_id":   "ws_1",
+			"trace_id":       "trace_1",
+			"turn_id":        "turn_1",
+			"span_id":        "span_tool",
+			"parent_span_id": "span_delegate",
+			"event_type":     "tool.call.completed",
+			"status":         "completed",
+			"summary":        "NDP catalog search completed.",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"occurred_at":    "2026-06-03T06:00:00Z",
+			"actor":          map[string]any{"agent_id": "ndp_catalog", "role": "child_expert", "tool": "ndp_search_datasets"},
+			"subject":        map[string]any{"call_id": "call_1", "agent_id": "ndp_catalog"},
+			"blueprint":      map[string]any{"pack_id": "seismic", "pack_version": "1.0.0"},
+			"provider":       map[string]any{"provider_id": "alcf", "model_id": "sophia"},
+			"payload": map[string]any{
+				"tool":             "ndp_search_datasets",
+				"call_id":          "call_1",
+				"ok":               true,
+				"duration_ms":      42.0,
+				"cached":           false,
+				"telemetry_source": "live_observer",
+				"args_preview":     "search_terms=seismic",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic event message = %#v", a.messages)
+	}
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"Semantic event",
+		"schema_version: clio.semantic_event.v1",
+		"event_type: tool.call.completed",
+		"trace_id: trace_1",
+		"turn_id: turn_1",
+		"span_id: span_tool",
+		"parent_span_id: span_delegate",
+		"live_observed: true",
+		"Actor",
+		"agent_id: ndp_catalog",
+		"tool: ndp_search_datasets",
+		"Subject",
+		"call_id: call_1",
+		"Blueprint",
+		"pack_id: seismic",
+		"Provider",
+		"provider_id: alcf",
+		"Payload",
+		"duration_ms: 42",
+		"telemetry_source: live_observer",
+		"args_preview: search_terms=seismic",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic event detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"raw_event", "stream_source", "semantic_event:"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("semantic event detail should not repeat transport metadata %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+}
+
+func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{
+			"event_id":   "sem_direct",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"trace_id":   "trace_1",
+			"event_type": "turn.started",
+			"status":     "running",
+			"summary":    "Turn started.",
+		},
+	})
+
+	if len(a.messages) != 1 || !strings.Contains(a.messages[0].Parts[0].Thinking, "turn.started") {
+		t.Fatalf("direct semantic payload not reduced: %#v", a.messages)
+	}
+}
+
+func TestApplyToolCallEventsAddLiveToolPartsAndDeduplicateMirroredParts(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.started",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"call_id":    "call_1",
+			"tool":       "ndp_search_datasets",
+			"args":       map[string]any{"search_terms": "seismic"},
+		}},
+	})
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.completed",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":       "s1",
+			"turn_id":          "turn_1",
+			"call_id":          "call_1",
+			"tool":             "ndp_search_datasets",
+			"ok":               true,
+			"duration_ms":      42.0,
+			"summary":          "completed",
+			"telemetry_source": "live_observer",
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 2 {
+		t.Fatalf("live tool parts = %#v", a.messages)
+	}
+	if a.messages[0].Parts[0].Type != gact.PartTypeToolCall || a.messages[0].Parts[1].Type != gact.PartTypeToolResult {
+		t.Fatalf("unexpected live parts = %#v", a.messages[0].Parts)
+	}
+	if a.messages[0].Parts[1].IsError {
+		t.Fatalf("explicit ok=true should not render as an error: %#v", a.messages[0].Parts[1])
+	}
+
+	a.messages = append(a.messages, gact.Message{ID: "msg_1", SessionID: "s1", Role: gact.RoleAssistant})
+	a.applySSE(client.SSEEvent{
+		Type: "message.part.added",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"message_id": "msg_1",
+			"part": map[string]any{
+				"id":        "real_call",
+				"type":      "tool_call",
+				"call_id":   "call_1",
+				"tool_name": "ndp_search_datasets",
+				"input":     map[string]any{"search_terms": "seismic"},
+			},
+		}},
+	})
+
+	if a.hasToolPart("call_1", gact.PartTypeToolResult) {
+		t.Fatalf("synthetic semantic result should be removed after mirrored tool part: %#v", a.messages)
+	}
+	if !a.hasToolPart("call_1", gact.PartTypeToolCall) {
+		t.Fatalf("mirrored tool call should remain: %#v", a.messages)
+	}
+}
+
+func TestApplyToolCallCompletedWithoutOkDoesNotAssumeError(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "tool.call.completed",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"call_id":    "call_1",
+			"tool":       "read_file",
+			"summary":    "completed",
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("live result = %#v", a.messages)
+	}
+	if part := a.messages[0].Parts[0]; part.IsError {
+		t.Fatalf("missing ok should not imply error unless an error field is present: %#v", part)
 	}
 }

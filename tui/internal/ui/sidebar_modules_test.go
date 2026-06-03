@@ -52,6 +52,25 @@ func TestSetSidebarModuleIDsNormalizesConfigIDs(t *testing.T) {
 	}
 }
 
+func TestSetSidebarModuleIDsClearsStaleRightPlacement(t *testing.T) {
+	a := New("http://unused")
+	a.width = 140
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	a.SetSidebarModuleIDs([]string{"context", "sessions"})
+
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" || len(right) != 0 {
+		t.Fatalf("layout left=%#v right=%#v, want context,sessions/no right", left, right)
+	}
+	if got := a.SidebarModulePlacement("context"); got != "left" {
+		t.Fatalf("context placement = %q, want left", got)
+	}
+	if got := a.rightSidebarWidth(30); got != 0 {
+		t.Fatalf("right sidebar width = %d, want disabled after single-list layout", got)
+	}
+}
+
 func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
 	a := New("http://unused")
 	a.SetSidebarLayout([]string{"sessions"}, []string{"context", "future-tools"})
@@ -226,6 +245,29 @@ func TestSidebarLayoutEditorMovesModulesBetweenColumns(t *testing.T) {
 	}
 }
 
+func TestSidebarLayoutEditorAvailableModulesUseStableOrder(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions"}, nil)
+	a.openSidebarLayoutEditor()
+
+	var got []sidebarModuleID
+	for _, column := range a.sidebarLayoutColumns() {
+		if column.id == sidebarLayoutColumnAvailable {
+			got = column.modules
+			break
+		}
+	}
+	want := []sidebarModuleID{sidebarModuleContext, sidebarModuleAgents, sidebarModuleFiles}
+	if len(got) != len(want) {
+		t.Fatalf("available modules = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("available modules = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestSidebarLayoutEditorReordersVisibleColumn(t *testing.T) {
 	a := New("http://unused")
 	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
@@ -237,6 +279,63 @@ func TestSidebarLayoutEditorReordersVisibleColumn(t *testing.T) {
 	left, _ := a.SidebarLayoutIDs()
 	if strings.Join(left, ",") != "context,sessions" {
 		t.Fatalf("left order = %#v, want context,sessions", left)
+	}
+}
+
+func TestSidebarLayoutEditorArrowKeysMoveModulesWithoutGrab(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 1
+
+	model, _ := a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	a = model.(*App)
+	left, _ := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" {
+		t.Fatalf("up arrow should reorder selected module without grab, left=%#v", left)
+	}
+	if a.sidebarLayoutSel[sidebarLayoutColumnLeft] != 0 {
+		t.Fatalf("selection should follow moved module, got %d", a.sidebarLayoutSel[sidebarLayoutColumnLeft])
+	}
+
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	a = model.(*App)
+	left, _ = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions,context" {
+		t.Fatalf("down arrow should reorder selected module without grab, left=%#v", left)
+	}
+}
+
+func TestSidebarLayoutEditorTabChangesColumnsAndArrowsTransferModules(t *testing.T) {
+	a := New("http://unused")
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 0
+
+	model, _ := a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	a = model.(*App)
+	if a.sidebarLayoutCol != sidebarLayoutColumnAvailable {
+		t.Fatalf("Tab should focus available column, got %d", a.sidebarLayoutCol)
+	}
+
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = model.(*App)
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context" || len(right) != 0 {
+		t.Fatalf("right arrow should move sessions to available, left=%#v right=%#v", left, right)
+	}
+	if got := a.SidebarModulePlacement("sessions"); got != "hidden" {
+		t.Fatalf("sessions placement = %q, want hidden", got)
+	}
+
+	model, _ = a.handleSidebarLayoutKey(tea.KeyPressMsg{Code: tea.KeyRight})
+	a = model.(*App)
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context" || strings.Join(right, ",") != "sessions" {
+		t.Fatalf("second right arrow should move sessions to right, left=%#v right=%#v", left, right)
 	}
 }
 
@@ -255,8 +354,37 @@ func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
 	if !strings.Contains(out, "Available") {
 		t.Fatalf("hidden files module should render as available:\n%s", out)
 	}
+	if !strings.Contains(out, "shown on left") {
+		t.Fatalf("placed modules should explain sidebar placement:\n%s", out)
+	}
+	if !strings.Contains(out, "hidden; not shown") {
+		t.Fatalf("available modules should explain they are hidden:\n%s", out)
+	}
 	if strings.Contains(out, "Right") {
 		t.Fatalf("empty right column should not render:\n%s", out)
+	}
+	if !strings.Contains(out, "Tab column") || !strings.Contains(out, "arrows/buttons move module") {
+		t.Fatalf("layout editor should explain direct arrow/module controls:\n%s", out)
+	}
+}
+
+func TestSidebarLayoutEditorExplainsUnknownConfiguredModules(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.SetSidebarLayout([]string{"sessions", "future-module"}, []string{"context"})
+	a.openSidebarLayoutEditor()
+
+	out := ansi.Strip(a.viewSidebarLayoutEditor())
+	if !strings.Contains(out, "future-module") {
+		t.Fatalf("unknown configured module should remain visible:\n%s", out)
+	}
+	if !strings.Contains(out, "unknown id") {
+		t.Fatalf("unknown configured module should explain why it is inactive:\n%s", out)
+	}
+	if !strings.Contains(out, "shown on right") {
+		t.Fatalf("right column modules should explain sidebar placement:\n%s", out)
 	}
 }
 
@@ -281,5 +409,64 @@ func TestSidebarLayoutEditorMouseSelectsModuleRows(t *testing.T) {
 
 	if a.sidebarLayoutCol != sidebarLayoutColumnLeft || a.sidebarLayoutSel[sidebarLayoutColumnLeft] != 1 {
 		t.Fatalf("layout editor mouse selection col=%d sel=%d, want left row 1", a.sidebarLayoutCol, a.sidebarLayoutSel[sidebarLayoutColumnLeft])
+	}
+}
+
+func TestSidebarLayoutEditorMouseButtonsMoveSelectedModule(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.SetSidebarLayout([]string{"sessions", "context"}, nil)
+	a.openSidebarLayoutEditor()
+	a.sidebarLayoutCol = sidebarLayoutColumnLeft
+	a.sidebarLayoutSel[sidebarLayoutColumnLeft] = 1
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:sidebar-layout:down"); ok {
+		t.Fatal("down button should be disabled for the last left module")
+	}
+	up, ok := findHitTargetForTest(a, "button:sidebar-layout:up")
+	if !ok {
+		t.Fatal("missing sidebar layout up button")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: up.rect.x, Y: up.rect.y, Button: tea.MouseLeft}))
+	a = model.(*App)
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" || len(right) != 0 {
+		t.Fatalf("up button should reorder left modules, left=%#v right=%#v", left, right)
+	}
+	if a.sidebarLayoutSel[sidebarLayoutColumnLeft] != 0 {
+		t.Fatalf("selection should follow reordered module, got %d", a.sidebarLayoutSel[sidebarLayoutColumnLeft])
+	}
+
+	_ = a.View()
+	moveRight, ok := findHitTargetForTest(a, "button:sidebar-layout:right")
+	if !ok {
+		t.Fatal("missing sidebar layout right button")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: moveRight.rect.x, Y: moveRight.rect.y, Button: tea.MouseLeft}))
+	a = model.(*App)
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || len(right) != 0 {
+		t.Fatalf("first right button should move context to available, left=%#v right=%#v", left, right)
+	}
+	if got := a.sidebarLayoutCol; got != sidebarLayoutColumnAvailable {
+		t.Fatalf("after first right click column = %d, want available", got)
+	}
+
+	_ = a.View()
+	moveRight, ok = findHitTargetForTest(a, "button:sidebar-layout:right")
+	if !ok {
+		t.Fatal("missing second sidebar layout right button")
+	}
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{X: moveRight.rect.x, Y: moveRight.rect.y, Button: tea.MouseLeft}))
+	a = model.(*App)
+	left, right = a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "sessions" || strings.Join(right, ",") != "context" {
+		t.Fatalf("second right button should move context to right, left=%#v right=%#v", left, right)
+	}
+	if got := a.sidebarLayoutCol; got != sidebarLayoutColumnRight {
+		t.Fatalf("after second right click column = %d, want right", got)
 	}
 }

@@ -163,6 +163,13 @@ func (a *App) handleFilePickerWheel(button tea.MouseButton) tea.Cmd {
 	return nil
 }
 
+func (a *App) clampFilePickerSelection() {
+	if a.filePicker == nil {
+		return
+	}
+	a.filePicker.sel = clampSelection(a.filePicker.sel, a.filePickerActiveCount())
+}
+
 func (a *App) filePickerActiveCount() int {
 	if a.filePicker == nil || a.filePicker.errText != "" {
 		return 0
@@ -511,9 +518,9 @@ func (a *App) viewFilePicker() string {
 	treeRows := a.filePickerTreeRows()
 	useTree := a.filePicker.treeMode && a.filePicker.filter == ""
 
-	// Always show a fixed rows height so the modal doesn't reflow its
-	// surrounding chrome as the user types.
-	const resultRows = 10
+	// Keep a stable result height while the user types, but let taller
+	// terminals show more files instead of forcing a cramped 10-row picker.
+	resultRows := a.filePickerResultRows()
 	rows := []string{filterRow, ""}
 	resultStartRow := len(rows)
 	var list modalListRender
@@ -621,12 +628,19 @@ func (a *App) viewFilePicker() string {
 		},
 		railAction: func(app *App, index int) tea.Cmd {
 			if app.filePicker != nil {
-				app.filePicker.sel = clampSelection(index, len(app.filePickerMatches()))
+				app.filePicker.sel = clampSelection(index, app.filePickerActiveCount())
 			}
 			return nil
 		},
 	})
 	return rendered.modal
+}
+
+func (a *App) filePickerResultRows() int {
+	if a.height <= 0 {
+		return 10
+	}
+	return clampInt(a.height-20, 10, 18)
 }
 
 func filePickerEntryMeta(entry gact.FileEntry) string {

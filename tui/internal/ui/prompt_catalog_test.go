@@ -83,8 +83,8 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 	}
 	a.agentBlueprintManageInput = ""
 	a.agentBlueprintManageCursor = 0
-	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/AGENT.md\n"})
-	if a.agentBlueprintManageInput != "/workspace/AGENT.md" {
+	_, _ = a.Update(tea.PasteMsg{Content: "/workspace/My Blueprint/\r\nAGENT.md\n"})
+	if a.agentBlueprintManageInput != "/workspace/My Blueprint/AGENT.md" {
 		t.Fatalf("paste should route to blueprint modal, input=%q", a.agentBlueprintManageInput)
 	}
 	a.agentBlueprintManageInput = ""
@@ -99,6 +99,66 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 	_, _ = a.handleAgentBlueprintManageKey(keyMsg("enter"))
 	if !strings.Contains(a.agentBlueprintManageErr, "required") {
 		t.Fatalf("empty validate submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
+	}
+}
+
+func TestAgentBlueprintManageButtonsUseSemanticHitTargets(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openAgentBlueprintManage(agentBlueprintManageValidate)
+
+	a.beginHitFrame()
+	modal := a.viewAgentBlueprintManage()
+	validateTarget, ok := findHitTargetForTest(a, "button:agent-blueprint-manage:validate")
+	if !ok {
+		t.Fatal("missing validate button hit target")
+	}
+	cancelTarget, ok := findHitTargetForTest(a, "button:agent-blueprint-manage:cancel")
+	if !ok {
+		t.Fatal("missing cancel button hit target")
+	}
+	rect := overlayMouseRect(modal, a.width, a.height)
+	for id, target := range map[string]uiHitTarget{
+		"validate": validateTarget,
+		"cancel":   cancelTarget,
+	} {
+		if wantY := rect.y + 2; target.rect.y != wantY {
+			t.Fatalf("%s button y = %d, want shared header row %d", id, target.rect.y, wantY)
+		}
+	}
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      validateTarget.rect.x,
+		Y:      validateTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("empty validate click should not dispatch a backend command")
+	}
+	if !a.agentBlueprintManageOpen {
+		t.Fatal("empty validate click should keep modal open")
+	}
+	if !strings.Contains(a.agentBlueprintManageErr, "required") {
+		t.Fatalf("empty validate click should surface required error, got %q", a.agentBlueprintManageErr)
+	}
+
+	a.beginHitFrame()
+	_ = a.viewAgentBlueprintManage()
+	cancelTarget, ok = findHitTargetForTest(a, "button:agent-blueprint-manage:cancel")
+	if !ok {
+		t.Fatal("missing cancel button hit target after validation error")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      cancelTarget.rect.x,
+		Y:      cancelTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("cancel click should not dispatch a backend command")
+	}
+	if a.agentBlueprintManageOpen {
+		t.Fatal("cancel click should close blueprint manage modal")
 	}
 }
 
@@ -226,6 +286,261 @@ func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "seismic-market", Title: "Seismic Marketplace", Version: "1.2.0", Scope: "workspace",
+		RootExpert: "orchestrator", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/seismic-agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"commit":       "0123456789abcdef",
+			"checksum":     "abcdef0123456789",
+			"installed_at": "2026-06-02T20:00:00Z",
+			"scope":        "workspace",
+		}},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want 1 blueprint row plus 1 source row", len(items))
+	}
+	if items[0].id != "source/0" || items[0].title != "Marketplace source · git · https://example.org/community/seismic-agents.git" {
+		t.Fatalf("source row missing or wrong: %#v", items[0])
+	}
+	for _, want := range []string{
+		"Marketplace Source",
+		"source: https://example.org/community/seismic-agents.git",
+		"source_kind: git",
+		"ref: main",
+		"commit: 0123456789abcdef",
+		"checksum: abcdef0123456789",
+		"blueprints: Seismic Marketplace",
+	} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("source row desc missing %q:\n%s", want, items[0].desc)
+		}
+	}
+	if strings.Contains(items[0].desc, `"install"`) {
+		t.Fatalf("source row should be structured, not raw JSON:\n%s", items[0].desc)
+	}
+	for _, want := range []string{
+		"state: installed",
+		"source: git",
+		"from: https://example.org/community/seismic-agents.git",
+		"ref: main",
+		"commit: 0123456789ab",
+		"checksum: abcdef012345",
+	} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint provenance desc missing %q: %q", want, items[1].desc)
+		}
+	}
+}
+
+func TestAgentBlueprintSourceRowsSurfaceFailureState(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "stale-market", Title: "Stale Marketplace", Version: "0.9.0", Scope: "workspace",
+		RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":              "https://example.org/community/stale-agents.git",
+			"source_kind":         "git",
+			"ref":                 "release",
+			"status":              "sync_failed",
+			"status_message":      "last sync failed",
+			"trust":               "community",
+			"last_synced_at":      "2026-06-02T19:00:00Z",
+			"validation_warnings": []any{"source has not been synced in 7 days"},
+			"last_error":          "git fetch exited 128",
+			"scope":               "workspace",
+		}},
+	}})
+
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want blueprint row plus source row", len(items))
+	}
+	source := items[0]
+	if source.statusTag != "attention" {
+		t.Fatalf("source status = %q, want attention: %#v", source.statusTag, source)
+	}
+	for _, want := range []string{
+		"status: sync_failed",
+		"status_message: last sync failed",
+		"trust: community",
+		"synced_at: 2026-06-02T19:00:00Z",
+		"Warnings",
+		"source has not been synced in 7 days",
+		"Validation",
+		"git fetch exited 128",
+	} {
+		if !strings.Contains(source.desc, want) {
+			t.Fatalf("source failure detail missing %q:\n%s", want, source.desc)
+		}
+	}
+	if strings.Contains(source.desc, `"install"`) || strings.Contains(source.desc, `"last_error"`) {
+		t.Fatalf("source failure row should be structured, not raw JSON:\n%s", source.desc)
+	}
+}
+
+func TestAgentBlueprintCatalogItemsGroupSourceBackedBlueprints(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "builtin", Title: "Bundled Blueprint", Scope: "builtin", RootExpert: "root", Enabled: true,
+	}, {
+		ID: "available", Title: "Available Marketplace", Scope: "marketplace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":      "https://example.org/community/agents.git",
+			"source_kind": "git",
+			"ref":         "main",
+			"scope":       "marketplace",
+		}},
+	}, {
+		ID: "installed", Title: "Installed Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+			"scope":        "workspace",
+		}},
+	}})
+
+	if len(items) != 4 {
+		t.Fatalf("items len = %d, want one source group, two marketplace rows, and one bundled row: %#v", len(items), items)
+	}
+	for i, wantID := range []string{"source/0", "available", "installed", "builtin"} {
+		if items[i].id != wantID {
+			t.Fatalf("items[%d].id = %q, want %q; items=%#v", i, items[i].id, wantID, items)
+		}
+	}
+	if !strings.Contains(items[1].desc, "state: available") {
+		t.Fatalf("available marketplace row missing state:\n%s", items[1].desc)
+	}
+	if items[1].statusTag != "available" {
+		t.Fatalf("available marketplace row status = %q, want available: %#v", items[1].statusTag, items[1])
+	}
+	if !strings.Contains(items[2].desc, "state: installed") {
+		t.Fatalf("installed marketplace row missing state:\n%s", items[2].desc)
+	}
+	if items[2].statusTag != "installed" {
+		t.Fatalf("installed marketplace row status = %q, want installed: %#v", items[2].statusTag, items[2])
+	}
+	if !strings.Contains(items[0].desc, "blueprints: Available Marketplace") ||
+		!strings.Contains(items[0].desc, "Installed Marketplace") ||
+		!strings.Contains(items[0].desc, "scope: marketplace, workspace") {
+		t.Fatalf("source rows should describe grouped blueprints: %#v", items)
+	}
+	if !strings.Contains(items[0].desc, "blueprint_states:") ||
+		!strings.Contains(items[0].desc, "Available Marketplace (available)") ||
+		!strings.Contains(items[0].desc, "Installed Marketplace (installed)") {
+		t.Fatalf("source rows should describe per-blueprint install state:\n%s", items[0].desc)
+	}
+}
+
+func TestAgentBlueprintCatalogItemsSurfaceLifecycleStatusTags(t *testing.T) {
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
+		ID: "stale", Title: "Stale Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		Metadata: map[string]any{"install": map[string]any{
+			"source":         "https://example.org/community/agents.git",
+			"source_kind":    "git",
+			"ref":            "main",
+			"status":         "update available",
+			"status_message": "new commit available",
+			"installed_at":   "2026-06-03T07:00:00Z",
+		}},
+	}, {
+		ID: "warning", Title: "Warning Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		ValidationWarnings: []string{"descriptor requires explicit trust"},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+		}},
+	}, {
+		ID: "invalid", Title: "Invalid Marketplace", Scope: "workspace", RootExpert: "root", Enabled: true,
+		ValidationErrors: []string{"missing root expert"},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":       "https://example.org/community/agents.git",
+			"source_kind":  "git",
+			"ref":          "main",
+			"installed_at": "2026-06-03T07:00:00Z",
+		}},
+	}})
+
+	if len(items) != 4 {
+		t.Fatalf("items len = %d, want one source group and three blueprint rows: %#v", len(items), items)
+	}
+	want := map[string]string{
+		"stale":   "update_available",
+		"warning": "warning",
+		"invalid": "invalid",
+	}
+	for _, item := range items {
+		if expected, ok := want[item.id]; ok && item.statusTag != expected {
+			t.Fatalf("%s status = %q, want %q: %#v", item.id, item.statusTag, expected, item)
+		}
+	}
+	if !strings.Contains(items[1].desc, "state: installed") {
+		t.Fatalf("lifecycle row should keep install state in description:\n%s", items[1].desc)
+	}
+}
+
+func TestAgentBlueprintCatalogAndDetailSurfaceValidationWarnings(t *testing.T) {
+	blueprint := gact.AgentBlueprintDefinition{
+		ID: "community-warning", Title: "Community Warning", Version: "0.9.0", Scope: "workspace",
+		RootExpert: "root", Enabled: true,
+		ValidationWarnings: []string{
+			"descriptor requires explicit trust before install",
+			"skill ndp resolved from community source",
+		},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":      "https://example.org/community/warning-agents.git",
+			"source_kind": "git",
+			"ref":         "main",
+		}},
+	}
+
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{blueprint})
+	if len(items) != 2 {
+		t.Fatalf("items = %#v", items)
+	}
+	if items[0].statusTag != "attention" {
+		t.Fatalf("source row should use attention status for grouped warning-only blueprint: %#v", items[0])
+	}
+	if !strings.Contains(items[0].desc, "community-warning: descriptor requires explicit trust before install") {
+		t.Fatalf("source row should summarize grouped blueprint warnings:\n%s", items[0].desc)
+	}
+	if items[1].id != "community-warning" || items[1].statusTag != "warning" {
+		t.Fatalf("warning-only blueprint should use warning status: %#v", items)
+	}
+	for _, want := range []string{
+		"warnings: descriptor requires explicit trust before install; skill ndp resolved from community source",
+		"source: git",
+		"from: https://example.org/community/warning-agents.git",
+	} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint catalog row missing %q:\n%s", want, items[1].desc)
+		}
+	}
+
+	detailItems := agentBlueprintDetailItems(gact.AgentBlueprintDetail{AgentBlueprint: blueprint})
+	var hasSummaryWarnings, hasWarningRow bool
+	for _, item := range detailItems {
+		switch item.id {
+		case "blueprint/community-warning":
+			hasSummaryWarnings = strings.Contains(item.desc, "Validation warnings") &&
+				strings.Contains(item.desc, "descriptor requires explicit trust before install") &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
+		case "validation-warnings":
+			hasWarningRow = item.statusTag == "warning" &&
+				strings.Contains(item.desc, "descriptor requires explicit trust before install") &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
+		}
+	}
+	if !hasSummaryWarnings || !hasWarningRow {
+		t.Fatalf("blueprint detail missing validation warnings: %#v", detailItems)
+	}
+}
+
 func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	items := expertPackDetailItems(gact.ExpertPackDetail{
 		ExpertPack: gact.ExpertPackDefinition{
@@ -244,6 +559,11 @@ func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	if items[0].id != "activate" {
 		t.Fatalf("first expert-pack detail row = %q, want activate", items[0].id)
 	}
+	for _, want := range []string{"only for the current selected session", "new sessions keep the backend/workspace default"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("expert-pack activation row missing scope/default text %q: %#v", want, items[0])
+		}
+	}
 	if !strings.Contains(items[1].desc, "provider") {
 		t.Fatalf("pack summary should surface defaults metadata:\n%s", items[1].desc)
 	}
@@ -257,14 +577,41 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		AgentBlueprint: gact.AgentBlueprintDefinition{
 			ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
 			RootExpert: "data", Enabled: true, Defaults: map[string]any{"prompt_profile": "heavy"},
+			Metadata: map[string]any{"install": map[string]any{
+				"source":              "/tmp/community-blueprints",
+				"source_kind":         "path",
+				"checksum":            "abcdef0123456789",
+				"installed_at":        "2026-06-02T20:00:00Z",
+				"status":              "sync_failed",
+				"status_message":      "last sync failed",
+				"trust":               "community",
+				"last_synced_at":      "2026-06-02T19:00:00Z",
+				"validation_warnings": []any{"source has not been synced in 7 days"},
+				"last_error":          "git fetch exited 128",
+			}},
 		},
 		MCPDescriptors: []map[string]any{{
 			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
 			"command": "earthscope-mcp", "args": []any{"serve"}, "enabled": false, "status": "disabled",
+			"trust":        map[string]any{"policy": "explicit", "trusted": false, "source": "blueprint"},
+			"install":      map[string]any{"method": "manual", "status": "missing"},
+			"runtime":      map[string]any{"transport": "stdio", "server_id": "mcp_earthscope"},
+			"env_policy":   map[string]any{"mode": "restricted", "allowlist": []any{"EARTHSCOPE_TOKEN"}},
+			"verification": map[string]any{"status": "unsigned", "checksum": "abcdef0123456789"},
+			"validation_warnings": []any{
+				"descriptor requires explicit trust before enabling",
+			},
+		}},
+		HookDescriptors: []map[string]any{{
+			"id": "pre_message", "title": "Pre Message", "event": "pre_message", "status": "disabled",
+			"source": "agent_blueprint", "scope": "workspace", "definition_path": "/tmp/community-blueprints/hooks/pre_message.py",
+			"checksum": "0123456789abcdef", "enabled": false,
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"Blueprint packaged hooks are disabled until explicitly enabled and trusted"},
 		}},
 		Agents: []gact.AgentDef{{
 			ID: "data", Title: "Data Root", Source: "agent_blueprint", Enabled: true,
-			Tools: []string{"mcp.parquet.read"},
+			Tools: []string{"mcp.parquet.read"}, Commands: []string{"/validate-dataset"},
 		}},
 	})
 
@@ -274,20 +621,143 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[0].id != "activate" {
 		t.Fatalf("first detail row = %q, want activate", items[0].id)
 	}
+	for _, want := range []string{"only for the current selected session", "new sessions keep the backend/workspace default"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint activation row missing scope/default text %q: %#v", want, items[0])
+		}
+	}
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
+	}
+	for _, want := range []string{
+		"Source provenance",
+		"source: /tmp/community-blueprints",
+		"source_kind: path",
+		"checksum: abcdef0123456789",
+		"status: sync_failed",
+		"status_message: last sync failed",
+		"trust: community",
+		"synced_at: 2026-06-02T19:00:00Z",
+		"Source warnings",
+		"source has not been synced in 7 days",
+		"Source errors",
+		"git fetch exited 128",
+	} {
+		if !strings.Contains(items[1].desc, want) {
+			t.Fatalf("blueprint summary missing provenance %q:\n%s", want, items[1].desc)
+		}
+	}
+	if strings.Contains(items[1].desc, `"install"`) {
+		t.Fatalf("blueprint install provenance should be structured, not raw metadata JSON:\n%s", items[1].desc)
 	}
 	if items[2].id != "blueprint-action/update" || !items[2].disabled {
 		t.Fatalf("builtin blueprint update action should be visible but disabled: %#v", items[2])
 	}
+	for _, want := range []string{"protected scope: builtin", "source: /tmp/community-blueprints", "status: sync_failed", "status_message: last sync failed", "synced_at: 2026-06-02T19:00:00Z", "trust: community"} {
+		if !strings.Contains(items[2].desc, want) {
+			t.Fatalf("builtin update action missing lifecycle state %q: %#v", want, items[2])
+		}
+	}
 	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
 		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
+	}
+	for _, want := range []string{
+		"earthscope-mcp",
+		"trust_policy: explicit",
+		"trusted: false",
+		"trust_source: blueprint",
+		"install_method: manual",
+		"install_status: missing",
+		"runtime_transport: stdio",
+		"runtime_server_id: mcp_earthscope",
+		"env_policy: restricted",
+		"env_policy_allowlist: EARTHSCOPE_TOKEN",
+		"verification_checksum: abcdef0123456789",
+		"verification_status: unsigned",
+		"warnings: descriptor requires explicit trust before enabling",
+	} {
+		if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, want) {
+			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[4])
+		}
+	}
+	if strings.Contains(items[4].desc, `"trust"`) || strings.Contains(items[4].desc, `"install"`) {
+		t.Fatalf("mcp descriptor should be structured, not raw JSON: %#v", items[4])
 	}
 	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
 		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
 	}
-	if items[5].id != "agent/data" || !strings.Contains(items[5].desc, "mcp.parquet.read") {
-		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[5])
+	for _, want := range []string{"pre_message", "trust_policy: explicit", "trusted: false", "definition_path: /tmp/community-blueprints/hooks/pre_message.py", "checksum: 0123456789abcdef"} {
+		if items[5].id != "hook/pre_message" || !strings.Contains(items[5].desc, want) {
+			t.Fatalf("hook descriptor row missing %q: %#v", want, items[5])
+		}
+	}
+	if strings.Contains(items[5].desc, `"trust"`) {
+		t.Fatalf("hook descriptor should be structured, not raw JSON: %#v", items[5])
+	}
+	if items[6].id != "agent/data" || !strings.Contains(items[6].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[6])
+	}
+	if !strings.Contains(items[6].desc, "commands: /validate-dataset") {
+		t.Fatalf("agent row should show declared packaged commands: %#v", items[6])
+	}
+}
+
+func TestPaletteCommandSubtitleSurfacesAgentBlueprintCommandProvenance(t *testing.T) {
+	trueValue := true
+	command := gact.Command{
+		ID:                 "/validate-dataset",
+		Title:              "Validate Dataset",
+		CommandSource:      "agent_blueprint",
+		CommandScope:       "agent_blueprint",
+		CommandPath:        "/tmp/work/.clio/agent-blueprints/qc/commands/validate-dataset.md",
+		AgentBlueprintID:   "qc-agent",
+		AgentBlueprintRoot: "/tmp/work/.clio/agent-blueprints/qc",
+		AgentID:            "root",
+		UserInvocable:      &trueValue,
+		AgentInvocable:     &trueValue,
+		PlannerVisible:     &trueValue,
+		ArgumentHint:       "<path>",
+	}
+
+	got := paletteCommandSubtitle(command)
+	for _, want := range []string{
+		"agent blueprint: qc-agent",
+		"user",
+		"agent",
+		"planner",
+		"owner: root",
+		"args: <path>",
+		"path: commands/validate-dataset.md",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("subtitle missing %q: %q", want, got)
+		}
+	}
+}
+
+func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
+	out := formatAgentBlueprintValidation(gact.AgentBlueprintValidationResult{
+		Enabled:            true,
+		ValidationWarnings: []string{"descriptor requires explicit trust before install"},
+		MCPDescriptors: []map[string]any{{
+			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"descriptor requires explicit trust"},
+		}},
+		HookDescriptors: []map[string]any{{
+			"id": "pre_message", "title": "Pre Message", "event": "pre_message",
+			"source": "agent_blueprint", "definition_path": "/tmp/bp/hooks/pre_message.py",
+			"trust":               map[string]any{"policy": "explicit", "trusted": false},
+			"validation_warnings": []any{"disabled until trusted"},
+		}},
+	})
+	for _, want := range []string{"status: warning", "warnings: descriptor requires explicit trust before install", "MCP descriptors", "EarthScope MCP", "warnings: descriptor requires explicit trust", "Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("validation output missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"trust"`) {
+		t.Fatalf("validation output should not dump hook JSON:\n%s", out)
 	}
 }
 
@@ -295,6 +765,14 @@ func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t
 	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
 		AgentBlueprint: gact.AgentBlueprintDefinition{
 			ID: "workspace-blueprint", Title: "Workspace Blueprint", Scope: "workspace", Enabled: true,
+			Metadata: map[string]any{"install": map[string]any{
+				"source":         "https://example.org/community/workspace-blueprint.git",
+				"source_kind":    "git",
+				"status":         "update_available",
+				"status_message": "new commit available",
+				"last_sync":      "2026-06-03T01:00:00Z",
+				"trust_policy":   "explicit",
+			}},
 		},
 	})
 
@@ -304,7 +782,17 @@ func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t
 	if items[2].id != "blueprint-action/update" || items[2].disabled {
 		t.Fatalf("workspace blueprint update action should be enabled: %#v", items[2])
 	}
+	for _, want := range []string{"refresh this installed blueprint through CLIO", "source: https://example.org/community/workspace-blueprint.git", "status: update_available", "status_message: new commit available", "synced_at: 2026-06-03T01:00:00Z", "trust: explicit"} {
+		if !strings.Contains(items[2].desc, want) {
+			t.Fatalf("workspace update action missing lifecycle state %q: %#v", want, items[2])
+		}
+	}
 	if items[3].id != "blueprint-action/delete" || items[3].disabled {
 		t.Fatalf("workspace blueprint delete action should be enabled: %#v", items[3])
+	}
+	for _, want := range []string{"remove this installed blueprint through CLIO", "source: https://example.org/community/workspace-blueprint.git", "status: update_available"} {
+		if !strings.Contains(items[3].desc, want) {
+			t.Fatalf("workspace delete action missing lifecycle state %q: %#v", want, items[3])
+		}
 	}
 }

@@ -19,6 +19,7 @@ type bulkyPartRef struct {
 	partID    string
 	title     string // rendered header ("ReadFile(main.go) → output")
 	fullText  string
+	localPath string
 }
 
 type detailField struct {
@@ -143,6 +144,8 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "y":
 		return a, a.copyDetailViewToClipboard()
+	case "u":
+		return a, a.uploadCurrentFileDetail()
 	case "up", "k":
 		if a.detailScroll > 0 {
 			a.detailScroll--
@@ -217,7 +220,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	}
 	closeLabel := strings.TrimSpace(opts.closeLabel)
 	if closeLabel == "" {
-		closeLabel = "×"
+		closeLabel = "x"
 	}
 	buttons := []menuButton{
 		{
@@ -236,10 +239,22 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			},
 		},
 	}
+	if a.fileDetailUploadAvailable() {
+		buttons = append([]menuButton{{
+			id:    "detail:upload",
+			label: "upload",
+			action: func(app *App) tea.Cmd {
+				return app.uploadCurrentFileDetail()
+			},
+		}}, buttons...)
+	}
 
 	hint := opts.hint
 	if hint == "" {
 		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
+	}
+	if a.fileDetailUploadAvailable() {
+		hint = "u upload  " + hint
 	}
 	hintStyle := t.HintLabel
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
@@ -264,6 +279,13 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 		},
 	})
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
+}
+
+func (a *App) fileDetailUploadAvailable() bool {
+	return a.detailView != nil &&
+		a.detailView.messageID == "files" &&
+		strings.TrimSpace(a.detailView.localPath) != "" &&
+		a.caps.Capabilities.AttachmentsUpload
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
@@ -439,6 +461,8 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 		title = "agent question"
 	case gact.PartTypeRetryAttempt:
 		title = "retry attempt"
+	case partTypeRuntimeProvenance:
+		title = "runtime provenance"
 	case gact.PartTypeToolResult:
 		title = "tool result"
 		if p.ToolName != "" {
@@ -560,6 +584,14 @@ func partDetailText(p gact.Part) string {
 		} else if p.Text != "" {
 			rows = append(rows, detailFieldRows("notes", p.Text)...)
 		}
+	case partTypeRuntimeProvenance:
+		rp := mapValue(p.Metadata["runtime_provenance"])
+		if len(rp) > 0 {
+			return runtimeProvenanceDetailText(rp)
+		}
+		if p.Text != "" {
+			rows = append(rows, detailFieldRows("summary", p.Text)...)
+		}
 	case gact.PartTypeToolResult:
 		if p.ToolName != "" {
 			rows = append(rows, detailFieldRows("tool", p.ToolName)...)
@@ -586,6 +618,9 @@ func partDetailText(p gact.Part) string {
 		}
 		if p.Signature != "" {
 			rows = append(rows, detailFieldRows("signature", p.Signature)...)
+		}
+		if isSemanticEventPart(p) {
+			rows = appendSemanticEventDetail(rows, mapValue(p.Metadata["raw_event"]))
 		}
 	case gact.PartTypeSubagentCall:
 		rows = append(rows, detailFieldRows("agent_id", orPlaceholder(p.AgentID, "unknown"))...)
@@ -660,6 +695,21 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	switch p.Type {
 	case gact.PartTypeToolResult:
 		used["raw_result"] = true
+	case gact.PartTypeThinking:
+		if isSemanticEventPart(p) {
+			for _, key := range []string{
+				"semantic_event",
+				"event_type",
+				"trace_id",
+				"turn_id",
+				"status",
+				"detail_level",
+				"stream_source",
+				"raw_event",
+			} {
+				used[key] = true
+			}
+		}
 	case gact.PartTypeExpertHandoff:
 		for _, key := range []string{
 			"agent_id",
@@ -679,6 +729,9 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	case gact.PartTypeCompaction:
 		used["synthetic_from"] = true
 		used["synthetic"] = true
+	case partTypeRuntimeProvenance:
+		used["synthetic_from"] = true
+		used["runtime_provenance"] = true
 	}
 	remaining := map[string]any{}
 	for key, value := range p.Metadata {
@@ -691,6 +744,85 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 		return nil
 	}
 	return remaining
+}
+
+func isSemanticEventPart(p gact.Part) bool {
+	return p.Metadata != nil && p.Metadata["semantic_event"] == true && len(mapValue(p.Metadata["raw_event"])) > 0
+}
+
+func appendSemanticEventDetail(rows []string, event map[string]any) []string {
+	if len(event) == 0 {
+		return rows
+	}
+	rows = appendSemanticEventMapSection(rows, "Semantic event", semanticEventTopFields(event),
+		"schema_version",
+		"event_id",
+		"event_type",
+		"status",
+		"summary",
+		"session_id",
+		"workspace_id",
+		"trace_id",
+		"turn_id",
+		"span_id",
+		"parent_span_id",
+		"detail_level",
+		"live_observed",
+		"occurred_at",
+	)
+	rows = appendSemanticEventMapSection(rows, "Actor", mapValue(event["actor"]),
+		"agent_id", "agent", "role", "tool", "tool_name", "provider_id", "model_id", "kind", "source", "execution_mode")
+	rows = appendSemanticEventMapSection(rows, "Subject", mapValue(event["subject"]),
+		"agent_id", "parent_id", "child_id", "role", "tool", "tool_name", "call_id", "message_id", "path", "artifact_type")
+	rows = appendSemanticEventMapSection(rows, "Blueprint", mapValue(event["blueprint"]),
+		"id", "agent_blueprint_id", "pack_id", "version", "pack_version", "scope", "definition_path")
+	rows = appendSemanticEventMapSection(rows, "Provider", mapValue(event["provider"]),
+		"provider_id", "model_id", "model", "source")
+	rows = appendSemanticEventMapSection(rows, "Payload", mapValue(event["payload"]),
+		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "error", "message", "path", "artifact_type")
+	return rows
+}
+
+func semanticEventTopFields(event map[string]any) map[string]any {
+	if len(event) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(event))
+	for key, value := range event {
+		switch key {
+		case "actor", "subject", "blueprint", "provider", "payload":
+			continue
+		default:
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func appendSemanticEventMapSection(rows []string, title string, m map[string]any, preferred ...string) []string {
+	if len(m) == 0 {
+		return rows
+	}
+	fields := make([]detailField, 0, len(m))
+	seen := map[string]bool{}
+	for _, key := range preferred {
+		if value := runtimeScalar(m[key]); value != "" {
+			fields = append(fields, detailField{key, value})
+			seen[key] = true
+		}
+	}
+	for _, key := range sortedAnyMapKeys(m) {
+		if seen[key] {
+			continue
+		}
+		if value := runtimeScalar(m[key]); value != "" {
+			fields = append(fields, detailField{key, value})
+		}
+	}
+	if len(fields) == 0 {
+		return rows
+	}
+	return appendDetailSection(rows, title, fields...)
 }
 
 func routeSourceLabel(p gact.Part) string {
@@ -826,7 +958,7 @@ func (a *App) viewDetailView() string {
 	// YYYYYYYYY1: use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
 	ref := a.detailView
-	closeLabel := "×"
+	closeLabel := "x"
 	hint := ""
 	if a.catalogBrowserOpen && a.catalogBrowser != nil {
 		closeLabel = "back"

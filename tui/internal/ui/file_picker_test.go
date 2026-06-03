@@ -90,3 +90,107 @@ func TestFilePickerTypingUsesFuzzyFileResultsNotFolderRows(t *testing.T) {
 		t.Fatalf("filtered picker should show flat fuzzy file result, not folder rows:\n%s", out)
 	}
 }
+
+func TestFilePickerResultRowsScaleWithTerminalHeight(t *testing.T) {
+	a := newFilePickerTreeTestApp()
+
+	a.height = 30
+	if got := a.filePickerResultRows(); got != 10 {
+		t.Fatalf("short terminal result rows = %d, want 10", got)
+	}
+
+	a.height = 40
+	if got := a.filePickerResultRows(); got != 18 {
+		t.Fatalf("tall terminal result rows = %d, want capped 18", got)
+	}
+}
+
+func TestFilePickerTallTerminalShowsMoreRows(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 42
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{loaded: true, sel: 16}
+	for i := 0; i < 24; i++ {
+		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "file_" + itoa2(i) + ".txt"})
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "file-picker:item:16"); !ok {
+		t.Fatal("selected row should be visible in tall file picker")
+	}
+	if _, ok := findHitTargetForTest(a, "file-picker:item:8"); !ok {
+		t.Fatal("tall file picker should retain more surrounding rows")
+	}
+}
+
+func TestFilePickerLoadClampsStaleSelection(t *testing.T) {
+	a := newFilePickerTreeTestApp()
+	a.filePicker.treeMode = false
+	a.filePicker.sel = 12
+
+	model, cmd := a.Update(filePickerLoadedMsg{entries: []gact.FileEntry{{Path: "README.md", Type: "file"}}})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("file picker load should not dispatch a command")
+	}
+	if a.filePicker.sel != 0 {
+		t.Fatalf("file picker selection = %d, want clamped to 0", a.filePicker.sel)
+	}
+
+	model, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("file picker insert should not dispatch a command")
+	}
+	if a.filePickerOpen {
+		t.Fatal("enter after clamped load should insert and close picker")
+	}
+	if got := a.input.Value(); !strings.Contains(got, "@README.md") {
+		t.Fatalf("clamped selection did not insert loaded file, input=%q", got)
+	}
+}
+
+func TestFilePickerTreeRailUsesTreeRowCount(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 30
+	a.stage = StageReady
+	a.filePickerOpen = true
+	a.filePicker = &filePickerState{loaded: true, treeMode: true, treeExpanded: map[string]bool{}}
+	for i := 0; i < 20; i++ {
+		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "dir_" + itoa2(i), Type: "dir"})
+	}
+	a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "z.txt", Type: "file"})
+
+	rows := a.filePickerTreeRows()
+	if len(rows) <= len(a.filePickerMatches()) {
+		t.Fatalf("test setup should have more tree rows than file matches, rows=%d matches=%d", len(rows), len(a.filePickerMatches()))
+	}
+
+	_ = a.View()
+	var rail uiHitTarget
+	found := false
+	for _, target := range a.hits.targets {
+		if strings.HasPrefix(target.id, "file-picker:list:wheel:rail:") && (!found || target.rect.y > rail.rect.y) {
+			rail = target
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("missing file picker rail hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rail.rect.x,
+		Y:      rail.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("rail click should not dispatch a command")
+	}
+	if want := len(rows) - 1; a.filePicker.sel != want {
+		t.Fatalf("tree rail selection = %d, want %d from tree row count", a.filePicker.sel, want)
+	}
+}

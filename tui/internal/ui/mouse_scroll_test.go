@@ -444,6 +444,383 @@ func TestRightSidebarHasIndependentFocusAndMouseGeometry(t *testing.T) {
 	}
 }
 
+func TestRightSidebarOwnsFullAllocatedColumn(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	_, bodyH, _ := a.mainPaneGeometry()
+	view := a.View()
+	rightTarget, ok := findHitTargetForTest(a, "right-sidebar:focus")
+	if !ok {
+		t.Fatal("missing right sidebar focus target")
+	}
+	if rightTarget.rect.h != bodyH {
+		t.Fatalf("right sidebar focus height = %d, want full body height %d", rightTarget.rect.h, bodyH)
+	}
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("rendered view is missing main row: %q", view.Content)
+	}
+	rightBorderX := thirdRuneIndexForTest(lines[1], '╭')
+	if rightBorderX < 0 {
+		t.Fatalf("could not find rendered right sidebar top border in row: %q", lines[1])
+	}
+	if rightTarget.rect.x != rightBorderX {
+		t.Fatalf("right sidebar focus x = %d, want rendered border x %d from row %q", rightTarget.rect.x, rightBorderX, lines[1])
+	}
+	for _, x := range []int{rightTarget.rect.x, rightTarget.rect.x + 1, rightTarget.rect.x + rightTarget.rect.w/2} {
+		a.focus = FocusBody
+		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+			X:      x,
+			Y:      rightTarget.rect.y + rightTarget.rect.h - 1,
+			Button: tea.MouseLeft,
+		}))
+		a = model.(*App)
+		if a.focus != FocusRightSidebar {
+			t.Fatalf("click at x=%d in right column focused %v, want right sidebar", x, a.focus)
+		}
+		_ = a.View()
+	}
+}
+
+func TestRightSidebarContextRowDoesNotLeakIntoConversationHits(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read", Size: 128, Language: "markdown"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:context:file:docs/readme.md")
+	if !ok {
+		t.Fatal("missing right sidebar context file hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(rightRow.rect.x, rightRow.rect.y) {
+		t.Fatalf("right sidebar row %+v is inside conversation focus rect %+v", rightRow.rect, bodyTarget.rect)
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionContext {
+		t.Fatalf("right sidebar click focus = %v section=%v, want right context", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.detailViewOpen || !strings.Contains(a.detailView.fullText, "docs/readme.md") {
+		t.Fatalf("right sidebar context click should open context detail, open=%v detail=%q", a.detailViewOpen, a.detailView.fullText)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
+func TestRightSidebarFileRowsUseDynamicHitTargets(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	_ = a.View()
+	folderRow, ok := findHitTargetForTest(a, "right-sidebar:files:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar collapsed file tree row hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      folderRow.rect.x,
+		Y:      folderRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if !a.fileTreeExpanded["docs"] {
+		t.Fatal("clicking right sidebar folder row should expand it")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles {
+		t.Fatalf("folder click focus = %v section=%v, want right files", a.focus, a.sidebarSectionFocus)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar folder click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	fileRow, ok := findHitTargetForTest(a, "right-sidebar:files:item:2")
+	if !ok {
+		t.Fatal("missing right sidebar expanded file tree row hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(fileRow.rect.x, fileRow.rect.y) {
+		t.Fatalf("right sidebar file row %+v is inside conversation focus rect %+v", fileRow.rect, bodyTarget.rect)
+	}
+
+	model, _ = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      fileRow.rect.x,
+		Y:      fileRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles {
+		t.Fatalf("file click focus = %v section=%v, want right files", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "guide") {
+		t.Fatalf("right sidebar file click should open file detail, open=%v detail=%#v", a.detailViewOpen, a.detailView)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar file click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
+func TestRightSidebarFileWheelMovesFileSelectionWithoutSessionLeak(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{
+		{ID: "sess_1", Title: "first", Status: gact.StatusIdle},
+		{ID: "sess_2", Title: "second", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+	a.focus = FocusRightSidebar
+	a.sidebarSectionFocus = sidebarSectionFiles
+	a.sidebarSectionCursor = false
+	a.fileTreeSel = 0
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "right-sidebar:focus:wheel")
+	if !ok {
+		t.Fatal("missing right sidebar wheel target")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar file wheel should not dispatch session selection")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionFiles || a.sidebarSectionCursor {
+		t.Fatalf("wheel focus = %v section=%v cursor=%v, want right files row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if a.fileTreeSel != 1 {
+		t.Fatalf("fileTreeSel = %d, want next file row", a.fileTreeSel)
+	}
+	if a.selected != 0 {
+		t.Fatalf("selected session = %d, want unchanged", a.selected)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar file wheel leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	model, cmd = a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseWheelUp,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar file wheel up should not dispatch session selection")
+	}
+	if a.fileTreeSel != 0 {
+		t.Fatalf("fileTreeSel after wheel up = %d, want first file row", a.fileTreeSel)
+	}
+	if a.selected != 0 {
+		t.Fatalf("selected session after wheel up = %d, want unchanged", a.selected)
+	}
+}
+
+func TestRightSidebarAgentRowDoesNotLeakIntoConversationHits(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.agentHierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"agents"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:agents:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar agent row hit target")
+	}
+	bodyTarget, ok := findHitTargetForTest(a, "conversation:body:focus")
+	if !ok {
+		t.Fatal("missing conversation focus target")
+	}
+	if bodyTarget.rect.contains(rightRow.rect.x, rightRow.rect.y) {
+		t.Fatalf("right sidebar agent row %+v is inside conversation focus rect %+v", rightRow.rect, bodyTarget.rect)
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionAgents {
+		t.Fatalf("agent click focus = %v section=%v, want right agents", a.focus, a.sidebarSectionFocus)
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.agentID != "data" {
+		t.Fatalf("right sidebar agent click should open agent detail, open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 || a.conversationActionsOpen {
+		t.Fatalf("right sidebar agent click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
+func TestRightSidebarContextRowRightClickKeepsRightSidebarFocus(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read", Size: 128, Language: "markdown"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:context:file:docs/readme.md")
+	if !ok {
+		t.Fatal("missing right sidebar context file hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar context action menu open should not dispatch a command")
+	}
+	if !a.contextActionsOpen || a.contextFileSel != 0 {
+		t.Fatalf("right-click should select context row and open actions, open=%v sel=%d", a.contextActionsOpen, a.contextFileSel)
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionContext || a.sidebarSectionCursor {
+		t.Fatalf("right-click focus = %v section=%v cursor=%v, want right context row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if a.conversationActionsOpen || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("right sidebar right-click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "context-actions:copy-path"); !ok {
+		t.Fatal("right sidebar context menu should expose semantic action targets")
+	}
+}
+
+func TestRightSidebarAgentRowRightClickOpensDetailWithoutConversationLeak(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.agentHierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"agents"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:agents:item:0")
+	if !ok {
+		t.Fatal("missing right sidebar agent row hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("right sidebar agent right-click should dispatch agent detail load")
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionAgents || a.sidebarSectionCursor {
+		t.Fatalf("agent right-click focus = %v section=%v cursor=%v, want right agent row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.agentID != "data" {
+		t.Fatalf("right sidebar agent right-click should open agent detail, open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if a.conversationActionsOpen || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("right sidebar agent right-click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+}
+
+func thirdRuneIndexForTest(s string, want rune) int {
+	seen := 0
+	for i, r := range []rune(s) {
+		if r != want {
+			continue
+		}
+		seen++
+		if seen == 3 {
+			return i
+		}
+	}
+	return -1
+}
+
 func TestMouseClickTogglesSidebarSections(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100

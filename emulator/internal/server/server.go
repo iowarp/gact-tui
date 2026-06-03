@@ -198,6 +198,8 @@ func (s *Server) routes() {
 
 	// §6.9 — Files & context
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files", s.handleListContextFiles)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files/content", s.handleContextFileContent)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/attachments", s.handleUploadAttachment)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/context/files", s.handleAddContextFile)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/context/files", s.handleDeleteContextFile)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
@@ -248,6 +250,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/agent-blueprints/install", s.handleInstallAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/update", s.handleUpdateAgentBlueprint)
 	s.mux.HandleFunc("DELETE /v1/agent-blueprints/{id}", s.handleDeleteAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/hooks/{hook_id}/enable", s.handleEnableAgentBlueprintHook)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/mcp/{descriptor_id}/enable", s.handleEnableAgentBlueprintMCP)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-blueprint", s.handleGetSessionAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/agent-blueprint", s.handleSetSessionAgentBlueprint)

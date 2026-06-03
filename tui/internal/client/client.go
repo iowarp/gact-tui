@@ -8,6 +8,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -246,6 +247,19 @@ func (c *Client) ListWorkspaces(ctx context.Context) ([]gact.Workspace, error) {
 	var out ListWorkspacesResponse
 	err := c.do(ctx, http.MethodGet, "/v1/workspaces", nil, &out)
 	return out.Workspaces, err
+}
+
+type CreateWorkspaceRequest struct {
+	Name     string         `json:"name,omitempty"`
+	RootPath string         `json:"root_path"`
+	Config   map[string]any `json:"config,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+func (c *Client) CreateWorkspace(ctx context.Context, req CreateWorkspaceRequest) (gact.Workspace, error) {
+	var out gact.Workspace
+	err := c.do(ctx, http.MethodPost, "/v1/workspaces", req, &out)
+	return out, err
 }
 
 // --- §6.2 sessions ---------------------------------------------------------
@@ -546,7 +560,10 @@ type LMProviderInfo struct {
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 
-// LMProviderRequest is the PUT /v1/providers/lm body.
+// LMProviderRequest is the PUT /v1/providers/lm body. Provider is
+// the selected provider/preset id accepted by CLIO, for example
+// "openai", "lm_studio", or an ALCF profile such as
+// "argonne_metis".
 //
 // Temperature + MaxTokens are forwarded to the upstream LM. Sending
 // 0/0 means "use server defaults" — the JSON omitempty drops the
@@ -887,6 +904,13 @@ func (c *Client) EnableAgentBlueprintMCP(ctx context.Context, blueprintID, descr
 	return out, err
 }
 
+func (c *Client) EnableAgentBlueprintHook(ctx context.Context, blueprintID, hookID string, req gact.AgentBlueprintHookEnableRequest) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/hooks/" + url.PathEscape(hookID) + "/enable"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
 func (c *Client) GetSessionAgentBlueprint(ctx context.Context, sessionID string) (gact.SessionAgentBlueprintState, error) {
 	var out gact.SessionAgentBlueprintState
 	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent-blueprint", nil, &out)
@@ -958,6 +982,32 @@ func (c *Client) AddContextFile(ctx context.Context, sessionID, path, mode strin
 func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) error {
 	body := map[string]any{"path": path}
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
+}
+
+func (c *Client) ContextFileContent(ctx context.Context, sessionID, path string) (gact.ContextFileContent, error) {
+	var out struct {
+		File gact.ContextFileContent `json:"file"`
+	}
+	q := url.Values{}
+	q.Set("path", path)
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/context/files/content?"+q.Encode(), nil, &out)
+	return out.File, err
+}
+
+func (c *Client) UploadAttachment(ctx context.Context, sessionID, filename, mimeType, mode string, data []byte) (gact.ContextFile, error) {
+	var out gact.ContextFile
+	body := map[string]any{
+		"file":     base64.StdEncoding.EncodeToString(data),
+		"filename": filename,
+	}
+	if mimeType != "" {
+		body["mime_type"] = mimeType
+	}
+	if mode != "" {
+		body["mode"] = mode
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/attachments", body, &out)
+	return out, err
 }
 
 // ListMcpServers returns all MCP servers known to the backend. Powers

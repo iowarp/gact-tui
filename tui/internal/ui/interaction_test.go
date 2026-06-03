@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -28,6 +30,31 @@ func TestHitRegistryReturnsTopmostTarget(t *testing.T) {
 	}
 	if got.id != "modal" {
 		t.Fatalf("hit id = %q, want topmost modal", got.id)
+	}
+}
+
+func TestCtrlIPaneCycleMatchesTab(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusSidebar {
+		t.Fatalf("focus after ctrl+i = %v, want sidebar", a.focus)
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusBody {
+		t.Fatalf("focus after second ctrl+i = %v, want body", a.focus)
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+	a = model.(*App)
+	if a.focus != FocusRightSidebar {
+		t.Fatalf("focus after third ctrl+i = %v, want right sidebar", a.focus)
 	}
 }
 
@@ -313,6 +340,24 @@ func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
 			buttonID:  "button:mcp-install:install",
 			wantTitle: "Install MCP server",
 		},
+		{
+			name: "agent write",
+			view: func() string {
+				a.openAgentWrite(agentWriteModeCreate, "", "data-agent")
+				return a.viewAgentWrite()
+			},
+			buttonID:  "button:agent-write:save",
+			wantTitle: "Create user agent",
+		},
+		{
+			name: "agent blueprint manage",
+			view: func() string {
+				a.openAgentBlueprintManage(agentBlueprintManageValidate)
+				return a.viewAgentBlueprintManage()
+			},
+			buttonID:  "button:agent-blueprint-manage:validate",
+			wantTitle: "Validate agent blueprint",
+		},
 	}
 
 	for _, tc := range cases {
@@ -366,6 +411,111 @@ func TestTextEntryModalRegistersCursorHitTargets(t *testing.T) {
 	rect := overlayMouseRect(rendered.modal, a.width, a.height)
 	if target.rect.y <= rect.y {
 		t.Fatalf("cursor target y=%d should be inside modal body below top=%d", target.rect.y, rect.y)
+	}
+}
+
+func TestSingleLineTextEntryModalsAcceptPaste(t *testing.T) {
+	cases := []struct {
+		name    string
+		setup   func(*App)
+		assert  func(*testing.T, *App)
+		content string
+	}{
+		{
+			name: "rename",
+			setup: func(a *App) {
+				a.renameOpen = true
+				a.renameDraft = "old "
+				a.renameCursor = len([]rune(a.renameDraft))
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.renameDraft != "old new title" || a.renameCursor != len([]rune(a.renameDraft)) {
+					t.Fatalf("rename paste draft=%q cursor=%d", a.renameDraft, a.renameCursor)
+				}
+			},
+			content: "new\r\ntitle",
+		},
+		{
+			name: "context add",
+			setup: func(a *App) {
+				a.contextAddOpen = true
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.contextAddDraft != "docs/readme.md" || a.contextAddCursor != len([]rune(a.contextAddDraft)) {
+					t.Fatalf("context paste draft=%q cursor=%d", a.contextAddDraft, a.contextAddCursor)
+				}
+			},
+			content: "docs/\r\nreadme.md",
+		},
+		{
+			name: "prompt edit",
+			setup: func(a *App) {
+				a.openPromptEdit("planner", "builtin", "Planner", "")
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.promptEditDraft != "use concise evidence" || a.promptEditCursor != len([]rune(a.promptEditDraft)) {
+					t.Fatalf("prompt paste draft=%q cursor=%d", a.promptEditDraft, a.promptEditCursor)
+				}
+			},
+			content: "use concise\r\nevidence",
+		},
+		{
+			name: "mcp install",
+			setup: func(a *App) {
+				a.openMcpInstallModal()
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.mcpInstallInput != "files stdio mcp-files /tmp" || a.mcpInstallCursor != len([]rune(a.mcpInstallInput)) {
+					t.Fatalf("mcp install paste input=%q cursor=%d", a.mcpInstallInput, a.mcpInstallCursor)
+				}
+			},
+			content: "files stdio\r\nmcp-files /tmp",
+		},
+		{
+			name: "workspace create name",
+			setup: func(a *App) {
+				a.workspaceSwitchOpen = true
+				a.workspaceCreateOpen = true
+				a.workspaceCreateField = 0
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.workspaceCreateName != "benchmark workspace" || a.workspaceCreateNameCur != len([]rune(a.workspaceCreateName)) {
+					t.Fatalf("workspace name paste=%q cursor=%d", a.workspaceCreateName, a.workspaceCreateNameCur)
+				}
+			},
+			content: "benchmark\r\nworkspace",
+		},
+		{
+			name: "workspace create root",
+			setup: func(a *App) {
+				a.workspaceSwitchOpen = true
+				a.workspaceCreateOpen = true
+				a.workspaceCreateField = 1
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.workspaceCreateRoot != "/tmp/benchmark root" || a.workspaceCreateRootCur != len([]rune(a.workspaceCreateRoot)) {
+					t.Fatalf("workspace root paste=%q cursor=%d", a.workspaceCreateRoot, a.workspaceCreateRootCur)
+				}
+			},
+			content: "/tmp/benchmark\r\nroot",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newReadyApp(nil, nil)
+			tc.setup(a)
+
+			_, _ = a.Update(tea.PasteMsg{Content: tc.content})
+
+			tc.assert(t, a)
+		})
 	}
 }
 
@@ -1412,6 +1562,30 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	if !strings.Contains(a.transientHint, "command staged: /tools") {
 		t.Fatalf("hint = %q, want staged command confirmation", a.transientHint)
 	}
+
+	a.helpOpen = true
+	a.helpTab = helpTabIndex("Commands")
+	a.focus = FocusBody
+	_ = a.View()
+	mouseTarget, ok := findHitTargetForTest(a, "help:command:mouse")
+	if !ok {
+		t.Fatal("missing Help Commands row hit target for /mouse")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      mouseTarget.rect.x,
+		Y:      mouseTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking /mouse Help row should stage text, not execute")
+	}
+	if a.helpOpen {
+		t.Fatal("clicking /mouse Help row should close Help")
+	}
+	if got := a.input.Value(); got != "/mouse" {
+		t.Fatalf("input value after /mouse help click = %q, want /mouse", got)
+	}
 }
 
 func TestModalListColumnsPreserveColumnHitGeometry(t *testing.T) {
@@ -1763,13 +1937,13 @@ func TestBasePaneFocusSurfaceRectsUseSharedGeometry(t *testing.T) {
 	a.width = 120
 	a.height = 36
 
-	if got, want := a.sidebarFocusSurfaceRect(30, 32), (mouseRect{x: 0, y: 1, w: 30, h: 32}); got != want {
+	if got, want := a.sidebarFocusSurfaceRect(30, 32), (mouseRect{x: 0, y: 1, w: 28, h: 32}); got != want {
 		t.Fatalf("sidebar focus rect = %+v, want %+v", got, want)
 	}
-	if got, want := a.conversationFocusSurfaceRect(28, 88), (mouseRect{x: 30, y: 1, w: 88, h: 28}); got != want {
+	if got, want := a.conversationFocusSurfaceRect(28, 88), (mouseRect{x: 30, y: 1, w: 86, h: 28}); got != want {
 		t.Fatalf("conversation focus rect = %+v, want %+v", got, want)
 	}
-	if got, want := a.inputFocusSurfaceRect(28, 1, 3, 88), (mouseRect{x: 30, y: 29, w: 88, h: 4}); got != want {
+	if got, want := a.inputFocusSurfaceRect(28, 1, 3, 88), (mouseRect{x: 30, y: 29, w: 86, h: 4}); got != want {
 		t.Fatalf("input focus rect = %+v, want %+v", got, want)
 	}
 }
@@ -2239,7 +2413,7 @@ func TestHeaderSettingsAndHelpUseVisibleSemanticHitTargets(t *testing.T) {
 	a.settingsOpen = false
 	a.settings = nil
 	_ = a.View()
-	quitTarget, ok := findHitTargetForTest(a, "header:quit")
+	quitTarget, ok := findLastHitTargetWithPrefixForTest(a, "header:quit")
 	if !ok {
 		t.Fatal("missing visible header quit hit target")
 	}
@@ -2264,10 +2438,38 @@ func TestHeaderActionsUseDiscoverableLabels(t *testing.T) {
 
 	header := ansi.Strip(a.renderHeader())
 
-	for _, want := range []string{"×", "help", "settings"} {
+	for _, want := range []string{"x", "help", "settings"} {
 		if !strings.Contains(header, want) {
 			t.Fatalf("header action %q should be visible in top chrome: %q", want, header)
 		}
+	}
+}
+
+func TestHeaderActionsAlignToTerminalRightEdge(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 150
+	a.height = 36
+	a.MouseEnabled = true
+	a.SetSidebarLayout([]string{"sessions"}, []string{"files"})
+
+	view := a.View()
+	quitTarget, ok := findLastHitTargetWithPrefixForTest(a, "header:quit")
+	if !ok {
+		t.Fatal("missing visible header quit hit target")
+	}
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("rendered view is missing main row: %q", view.Content)
+	}
+	headerW := lipgloss.Width(lines[0])
+	if headerW != a.width {
+		t.Fatalf("header width = %d, want terminal width %d\nheader=%q", headerW, a.width, lines[0])
+	}
+	visibleRowEdge := lipgloss.Width(strings.TrimRight(lines[1], " "))
+	if got := quitTarget.rect.x + quitTarget.rect.w; got != a.width {
+		t.Fatalf("quit action right edge = %d, want terminal edge %d", got, a.width)
+	} else if got < visibleRowEdge {
+		t.Fatalf("quit action right edge = %d should not sit left of pane edge %d", got, visibleRowEdge)
 	}
 }
 
@@ -3577,6 +3779,42 @@ func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogMouseWheelWorksAcrossBody(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	items := make([]catalogItem, 0, 18)
+	for i := 0; i < 18; i++ {
+		items = append(items, catalogItem{
+			id:    "blueprint-" + itoa2(i),
+			title: "Blueprint " + itoa2(i),
+			desc:  "workspace markdown agent blueprint",
+		})
+	}
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: items,
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:list:wheel:body:wheel")
+	if !ok {
+		t.Fatal("missing full-body blueprint catalog wheel target")
+	}
+	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      target.rect.x + target.rect.w - 2,
+		Y:      target.rect.y + target.rect.h - 1,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel over blueprint catalog body should move selection, got %d", a.catalogBrowser.sel)
+	}
+}
+
 func TestCatalogCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -3895,6 +4133,56 @@ func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/mouse"
+	a.MouseEnabled = true
+	saves := 0
+	a.SaveConfig = func() error {
+		saves++
+		return nil
+	}
+
+	out := ansi.Strip(a.viewPalette())
+	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[on]") || !strings.Contains(out, "Toggle mouse capture") {
+		t.Fatalf("/mouse palette row should show command and current state:\n%s", out)
+	}
+
+	model, cmd := a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("/mouse should return a hint-expiry command")
+	}
+	if a.MouseEnabled {
+		t.Fatal("/mouse should disable mouse capture when it is on")
+	}
+	if a.paletteOpen {
+		t.Fatal("/mouse should close palette after dispatch")
+	}
+	if saves != 1 {
+		t.Fatalf("SaveConfig calls = %d, want 1", saves)
+	}
+	if a.transientHint != "mouse controls off" {
+		t.Fatalf("hint = %q, want mouse controls off", a.transientHint)
+	}
+
+	a.paletteOpen = true
+	a.paletteFilter = "/mouse"
+	a.paletteSel = 0
+	model, _ = a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if !a.MouseEnabled {
+		t.Fatal("second /mouse should re-enable mouse capture")
+	}
+	if saves != 2 {
+		t.Fatalf("SaveConfig calls after second toggle = %d, want 2", saves)
+	}
+}
+
 func TestPaletteCommandTargetsAlignWithSharedFrameBody(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -3977,6 +4265,64 @@ func TestPaletteCommandSubtitleSkipsDuplicateCommandNames(t *testing.T) {
 	c = gact.Command{ID: "/optimize", Title: "Optimize", Status: "unavailable", DisabledReason: "optimizer not installed"}
 	if got := paletteCommandSubtitle(c); got != "unavailable · optimizer not installed" {
 		t.Fatalf("subtitle = %q, want unavailable reason", got)
+	}
+}
+
+func TestLoadCommandsCmdUsesActiveSessionScope(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/commands" {
+			http.NotFound(w, r)
+			return
+		}
+		gotQuery = r.URL.RawQuery
+		writeJSONForTest(t, w, map[string]any{"commands": []gact.Command{{
+			ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint", AgentBlueprintID: "qc-agent",
+		}}})
+	}))
+	defer srv.Close()
+
+	msg := loadCommandsCmd(client.New(srv.URL), client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"})()
+	loaded, ok := msg.(commandsLoadedMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want commandsLoadedMsg", msg)
+	}
+	if loaded.err != nil {
+		t.Fatalf("load commands err = %v", loaded.err)
+	}
+	if loaded.sessionID != "s1" || loaded.workspaceID != "ws1" {
+		t.Fatalf("scope = %q/%q, want s1/ws1", loaded.sessionID, loaded.workspaceID)
+	}
+	if len(loaded.commands) != 1 || loaded.commands[0].AgentBlueprintID != "qc-agent" {
+		t.Fatalf("commands = %#v", loaded.commands)
+	}
+	for _, want := range []string{"workspace_id=ws1", "session_id=s1"} {
+		if !strings.Contains(gotQuery, want) {
+			t.Fatalf("command query missing %q: %s", want, gotQuery)
+		}
+	}
+}
+
+func TestCommandsLoadedMsgIgnoresStaleSessionAndAppliesCurrent(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "s1", Title: "one"}, {ID: "s2", Title: "two"}}, nil)
+	a.selected = 0
+	a.wsID = "ws1"
+	a.commands = []gact.Command{{ID: "/old", Title: "Old"}}
+
+	_, _ = a.Update(commandsLoadedMsg{
+		sessionID: "s2", workspaceID: "ws1",
+		commands: []gact.Command{{ID: "/wrong", Title: "Wrong"}},
+	})
+	if len(a.commands) != 1 || a.commands[0].ID != "/old" {
+		t.Fatalf("stale command response should not replace palette: %#v", a.commands)
+	}
+
+	_, _ = a.Update(commandsLoadedMsg{
+		sessionID: "s1", workspaceID: "ws1",
+		commands: []gact.Command{{ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint"}},
+	})
+	if len(a.commands) != 1 || a.commands[0].ID != "/validate-dataset" {
+		t.Fatalf("current command response not applied: %#v", a.commands)
 	}
 }
 
@@ -4442,6 +4788,193 @@ func TestConversationPartRightClickOpensSemanticActionMenu(t *testing.T) {
 	}
 }
 
+func TestConversationActionMenuCopiesFullConversation(t *testing.T) {
+	mu, copied, _ := withClipboardSpy(t)
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 160
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first prompt"}}},
+		{ID: "m2", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "second answer"}}},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("missing conversation hit target for assistant block")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right-clicking conversation block should not dispatch a command")
+	}
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "conversation-actions:copy-conversation")
+	if !ok {
+		t.Fatal("missing conversation copy-conversation action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-conversation action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	want := "## user:\nfirst prompt\n\n## assistant:\nsecond answer"
+	if gotCopy != want {
+		t.Fatalf("copy-conversation wrote %q, want %q", gotCopy, want)
+	}
+	if a.conversationActionsOpen || !strings.Contains(a.transientHint, "copied full conversation") {
+		t.Fatalf("copy-conversation should close menu and surface hint, open=%v hint=%q", a.conversationActionsOpen, a.transientHint)
+	}
+}
+
+func TestConversationActionMenuRewindDispatchesSelectedMessage(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/rewind" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode rewind request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"deleted_messages": []string{"m2"}})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.c = client.New(srv.URL)
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.focus = FocusBody
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "question"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "answer"}}},
+	}
+
+	_ = a.openConversationActionsForPart(0, 0)
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation-actions:rewind-to-message")
+	if !ok {
+		t.Fatal("missing semantic rewind action target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("rewind action should dispatch backend command")
+	}
+	msg := cmd()
+	done, ok := msg.(sessionRewindDoneMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want sessionRewindDoneMsg", msg)
+	}
+	if done.err != nil || len(done.deleted) != 1 || done.deleted[0] != "m2" {
+		t.Fatalf("rewind done = %#v", done)
+	}
+	if got["to_message_id"] != "m1" || got["include_target"] != false {
+		t.Fatalf("rewind request = %#v", got)
+	}
+	if a.conversationActionsOpen {
+		t.Fatal("rewind action should close the action menu")
+	}
+}
+
+func TestSessionRewindDoneSuccessReloadsMessages(t *testing.T) {
+	reloadedNewestFirst := []gact.Message{{
+		ID:        "m1",
+		SessionID: "s1",
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "checkpoint"}},
+	}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/s1/messages" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(client.ListMessagesResponse{Messages: reloadedNewestFirst})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.c = client.New(srv.URL)
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "checkpoint"}}},
+		{ID: "m2", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{{ID: "p2", Type: gact.PartTypeText, Text: "deleted"}}},
+	}
+
+	model, cmd := a.Update(sessionRewindDoneMsg{sessionID: "s1", deleted: []string{"m2"}})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "rewound 1 message(s)") {
+		t.Fatalf("hint = %q, want rewind count", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("successful rewind should dispatch a reload batch")
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd msg = %T, want tea.BatchMsg", msg)
+	}
+	var loaded messagesLoadedMsg
+	for i := len(batch) - 1; i >= 0; i-- {
+		c := batch[i]
+		if c == nil {
+			continue
+		}
+		if m, ok := c().(messagesLoadedMsg); ok {
+			loaded = m
+			break
+		}
+	}
+	if loaded.sessionID != "s1" || len(loaded.messages) != 1 || loaded.messages[0].ID != "m1" {
+		t.Fatalf("reload msg = %#v", loaded)
+	}
+	model, _ = a.Update(loaded)
+	a = model.(*App)
+	if len(a.messages) != 1 || a.messages[0].ID != "m1" {
+		t.Fatalf("messages after reload = %#v", a.messages)
+	}
+}
+
+func TestSessionRewindDoneFailureSurfacesErrorWithoutReload(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.stage = StageReady
+
+	model, cmd := a.Update(sessionRewindDoneMsg{sessionID: "s1", err: errors.New("message not found")})
+	a = model.(*App)
+	if !strings.Contains(a.transientHint, "rewind failed: message not found") {
+		t.Fatalf("hint = %q, want underlying rewind error", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("failure should still schedule hint expiry")
+	}
+}
+
 func TestConversationSelectedPartSecondClickOpensDetail(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -4523,6 +5056,88 @@ func TestConversationDetailHintClickOpensDetail(t *testing.T) {
 	}
 	if a.detailView.partID != "p1" {
 		t.Fatalf("detail partID = %q, want p1", a.detailView.partID)
+	}
+}
+
+func TestConversationDetailCopyIncludesRawResult(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:       "p1",
+			Type:     gact.PartTypeToolResult,
+			ToolName: "inspect_dataset",
+			CallID:   "c1",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "summary line",
+			}},
+			Metadata: map[string]any{
+				"raw_result": map[string]any{
+					"rows": []string{"alpha", "beta"},
+					"ok":   true,
+				},
+			},
+		}},
+	}}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "conversation:detail:0:0")
+	if !ok {
+		t.Fatal("missing conversation detail hint hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail hint click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("detail hint click should open detail")
+	}
+	for _, want := range []string{"tool: inspect_dataset", "content: summary line", "raw_result:", "alpha", "beta"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("detail text missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+
+	_ = a.View()
+	copyTarget, ok := findHitTargetForTest(a, "button:detail:copy")
+	if !ok {
+		t.Fatal("missing detail copy target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyTarget.rect.x,
+		Y:      copyTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("detail copy click should not dispatch a command")
+	}
+	if !a.detailViewOpen {
+		t.Fatal("detail copy should leave detail open")
+	}
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	for _, want := range []string{"tool: inspect_dataset", "content: summary line", "raw_result:", "\"rows\": [", "\"alpha\"", "\"beta\""} {
+		if !strings.Contains(gotCopy, want) {
+			t.Fatalf("copied detail missing %q:\n%s", want, gotCopy)
+		}
+	}
+	if !strings.Contains(a.transientHint, "copied detail") {
+		t.Fatalf("hint = %q, want copy confirmation", a.transientHint)
 	}
 }
 
@@ -5272,21 +5887,17 @@ func TestInputCommandChipHitUsesRenderedTextGeometry(t *testing.T) {
 	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
 	a.selected = 0
 
-	_ = a.View()
+	view := a.View()
 	target, ok := findHitTargetForTest(a, "input:command")
 	if !ok {
 		t.Fatal("missing semantic input command hit target")
 	}
-	sidebarW, bodyH, _ := a.mainPaneGeometry()
-	conversationHeight := a.conversationPaneHeight(bodyH)
-	want := mouseRect{
-		x: sidebarW + 1,
-		y: 1 + conversationHeight + 1,
-		w: lipgloss.Width(a.inputCommandChipPlain()),
-		h: 1,
+	lines := strings.Split(ansi.Strip(view.Content), "\n")
+	if target.rect.y < 0 || target.rect.y >= len(lines) {
+		t.Fatalf("input command y=%d outside rendered screen with %d rows", target.rect.y, len(lines))
 	}
-	if target.rect != want {
-		t.Fatalf("input command rect = %+v, want %+v", target.rect, want)
+	if got := renderedCellsForTest(lines[target.rect.y], target.rect.x, target.rect.w); got != a.inputCommandChipPlain() {
+		t.Fatalf("input command hit covers %q, want rendered chip %q on line %q", got, a.inputCommandChipPlain(), lines[target.rect.y])
 	}
 }
 
@@ -5296,7 +5907,7 @@ func TestInputFocusSurfaceRectUsesMainPaneGeometry(t *testing.T) {
 	a.height = 36
 
 	rect := a.inputFocusSurfaceRect(28, 1, 3, 88)
-	want := mouseRect{x: 30, y: 29, w: 88, h: 4}
+	want := mouseRect{x: 30, y: 29, w: 86, h: 4}
 	if rect != want {
 		t.Fatalf("input focus rect = %+v, want %+v", rect, want)
 	}
@@ -5473,8 +6084,13 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"File",
 		"path: docs/ARC_MEMORY_LAYER.md",
 		"mode: read",
+		"status: workspace file attached to selected session as read",
+		"source: workspace context file",
+		"session_use: referenced by selected CLIO session context as read",
 		"size: 2.0 KiB",
 		"language: markdown",
+		"added_at: 2026-05-25T10:00:00Z",
+		"last_modified: 2026-05-24T18:30:00Z",
 		"Session",
 		"id: sess_1",
 		"workspace: ws_default",
@@ -5483,10 +6099,264 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"latest_activity: 2026-05-25T12:00:00Z",
 		"messages: 7",
 		"Actions",
+		"Enter / click: open this context detail and load a content preview when CLIO exposes it",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("context detail missing %q:\n%s", want, a.detailView.fullText)
 		}
+	}
+}
+
+func TestContextRowsDistinguishUploadedAttachments(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{
+		ID:          "sess_1",
+		WorkspaceID: "ws_default",
+		Title:       "demo",
+		Status:      gact.StatusIdle,
+	}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{
+		Path:     ".clio/attachments/sess_1/report.txt",
+		Mode:     "read",
+		Size:     32,
+		Language: "text",
+		Uploaded: true,
+	}}
+
+	_ = a.View()
+	sidebar := ansi.Strip(a.renderSidebar(54, 24))
+	for _, want := range []string{"source: attachment", "demo"} {
+		if !strings.Contains(sidebar, want) {
+			t.Fatalf("uploaded context row should expose %q:\n%s", want, sidebar)
+		}
+	}
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:.clio/attachments/sess_1/report.txt")
+	if !ok {
+		t.Fatal("missing uploaded context file hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	for _, want := range []string{
+		"status: CLIO uploaded attachment attached to selected session as read",
+		"source: uploaded attachment (created through attachments_upload, not workspace browsing)",
+		"session_use: copied into selected CLIO session context as read",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("uploaded context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestContextFileDetailLoadsCLIOContentPreview(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/sess_1/context/files/content" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("path"); got != "docs/readme.md" {
+			t.Fatalf("query path = %q", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"file": gact.ContextFileContent{
+				Path:        "docs/readme.md",
+				DisplayPath: "docs/readme.md",
+				Size:        26,
+				MediaType:   "text/markdown; charset=utf-8",
+				Encoding:    "base64",
+				Data:        base64.StdEncoding.EncodeToString([]byte("# Readme\n\nPreview body.\n")),
+			},
+		})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.caps.Capabilities.XClioFilesContent = true
+	a.sessions = []gact.Session{{ID: "sess_1", WorkspaceID: "ws_default", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read", Size: 26, Language: "markdown"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:docs/readme.md")
+	if !ok {
+		t.Fatal("missing context file hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("context detail should dispatch content preview load")
+	}
+	if !strings.Contains(a.detailView.fullText, "preview: loading") {
+		t.Fatalf("initial detail should show loading preview:\n%s", a.detailView.fullText)
+	}
+
+	model, _ = a.Update(cmd())
+	a = model.(*App)
+	for _, want := range []string{
+		"Content",
+		"media_type: text/markdown; charset=utf-8",
+		"encoding: base64",
+		"preview:",
+		"# Readme",
+		"Preview body.",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("enriched context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestContextFileDetailProbesContentWhenCapabilityMissing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/sess_1/context/files/content" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"file": gact.ContextFileContent{
+				Path:      "notes/result.txt",
+				Size:      19,
+				MediaType: "text/plain; charset=utf-8",
+				Encoding:  "base64",
+				Data:      base64.StdEncoding.EncodeToString([]byte("preview from CLIO\n")),
+			},
+		})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "sess_1", WorkspaceID: "ws_default", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{Path: "notes/result.txt", Mode: "read", Size: 19, Language: "text"}}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:notes/result.txt")
+	if !ok {
+		t.Fatal("missing context file hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("context detail should probe content endpoint even when capability flag is absent")
+	}
+	if !strings.Contains(a.detailView.fullText, "x_clio_files_content not advertised; probing endpoint") {
+		t.Fatalf("initial detail should explain endpoint probe:\n%s", a.detailView.fullText)
+	}
+
+	model, _ = a.Update(cmd())
+	a = model.(*App)
+	if strings.Contains(a.detailView.fullText, "unavailable") {
+		t.Fatalf("successful probe should not leave unavailable text:\n%s", a.detailView.fullText)
+	}
+	for _, want := range []string{"media_type: text/plain; charset=utf-8", "preview from CLIO"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("probed context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestContextFileDetailProbeSurfacesBackendError(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.sessions = []gact.Session{{ID: "sess_1"}}
+	a.selected = 0
+	rows := a.contextFileDetailRowsWithContent(
+		gact.ContextFile{Path: "missing.txt", Mode: "read"},
+		gact.ContextFileContent{},
+		errors.New("context file not found"),
+	)
+	out := strings.Join(rows, "\n")
+	if !strings.Contains(out, "preview_error: context file not found") {
+		t.Fatalf("context detail should surface backend error:\n%s", out)
+	}
+	if strings.Contains(out, "unavailable") {
+		t.Fatalf("backend error should not be hidden behind unavailable text:\n%s", out)
+	}
+}
+
+func TestContextFileDetailSummarizesBinaryContent(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.caps.Capabilities.XClioFilesContent = true
+	rows := a.contextFileDetailRowsWithContent(
+		gact.ContextFile{Path: "plots/waveform.png", Mode: "read"},
+		gact.ContextFileContent{
+			Path:      "plots/waveform.png",
+			Size:      8,
+			MediaType: "image/png",
+			Encoding:  "base64",
+			Data:      base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\n")),
+		},
+		nil,
+	)
+	out := strings.Join(rows, "\n")
+	if !strings.Contains(out, "binary content not rendered in terminal detail") {
+		t.Fatalf("binary context detail should summarize content:\n%s", out)
+	}
+	if strings.Contains(out, "iVBOR") {
+		t.Fatalf("binary context detail should not dump base64:\n%s", out)
+	}
+}
+
+func TestContextFileDetailPreviewsCommonApplicationTextTypes(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.caps.Capabilities.XClioFilesContent = true
+	for _, tc := range []struct {
+		name      string
+		mediaType string
+		path      string
+		body      string
+	}{
+		{name: "javascript", mediaType: "application/javascript", path: "scripts/run.js", body: "console.log('ok')\n"},
+		{name: "shell", mediaType: "application/x-sh", path: "scripts/run.sh", body: "#!/bin/sh\necho ok\n"},
+		{name: "python", mediaType: "application/x-python", path: "tools/run.py", body: "print('ok')\n"},
+		{name: "vendor json", mediaType: "application/vnd.clio.context+json", path: "trace.json", body: "{\"ok\":true}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rows := a.contextFileDetailRowsWithContent(
+				gact.ContextFile{Path: tc.path, Mode: "read"},
+				gact.ContextFileContent{
+					Path:      tc.path,
+					Size:      int64(len(tc.body)),
+					MediaType: tc.mediaType,
+					Encoding:  "base64",
+					Data:      base64.StdEncoding.EncodeToString([]byte(tc.body)),
+				},
+				nil,
+			)
+			out := strings.Join(rows, "\n")
+			if !strings.Contains(out, "preview:") {
+				t.Fatalf("text application media type should render preview:\n%s", out)
+			}
+			for _, line := range strings.Split(strings.TrimSpace(tc.body), "\n") {
+				if strings.TrimSpace(line) != "" && !strings.Contains(out, line) {
+					t.Fatalf("text application media type preview missing %q:\n%s", line, out)
+				}
+			}
+			if strings.Contains(out, "binary content not rendered") {
+				t.Fatalf("text application media type should not be summarized as binary:\n%s", out)
+			}
+		})
 	}
 }
 
@@ -5547,6 +6417,33 @@ func TestContextRowRightClickOpensSemanticActionMenu(t *testing.T) {
 	}
 	if a.contextActionsOpen || !strings.Contains(a.transientHint, "copied docs/ARC_MEMORY_LAYER.md") {
 		t.Fatalf("copy-path should close menu and surface hint, open=%v hint=%q", a.contextActionsOpen, a.transientHint)
+	}
+
+	_ = a.openContextActionsForIndex(0)
+	_ = a.View()
+	copyDetailTarget, ok := findHitTargetForTest(a, "context-actions:copy-detail")
+	if !ok {
+		t.Fatal("missing context copy-detail action target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      copyDetailTarget.rect.x,
+		Y:      copyDetailTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("copy-detail action should not dispatch a backend command")
+	}
+	mu.Lock()
+	gotCopy = *copied
+	mu.Unlock()
+	for _, want := range []string{"path: docs/ARC_MEMORY_LAYER.md", "mode: read", "size: 2.0 KiB (2048 bytes)", "language: markdown"} {
+		if !strings.Contains(gotCopy, want) {
+			t.Fatalf("copy-detail missing %q:\n%s", want, gotCopy)
+		}
+	}
+	if a.contextActionsOpen || !strings.Contains(a.transientHint, "copied context metadata") {
+		t.Fatalf("copy-detail should close menu and surface hint, open=%v hint=%q", a.contextActionsOpen, a.transientHint)
 	}
 
 	_ = a.openContextActionsForIndex(0)
@@ -5734,6 +6631,21 @@ func findHitTargetForTest(a *App, id string) (uiHitTarget, bool) {
 	return uiHitTarget{}, false
 }
 
+func renderedCellsForTest(line string, x int, width int) string {
+	if x < 0 || width < 1 {
+		return ""
+	}
+	cells := []rune(line)
+	if x >= len(cells) {
+		return ""
+	}
+	end := x + width
+	if end > len(cells) {
+		end = len(cells)
+	}
+	return string(cells[x:end])
+}
+
 func findLastHitTargetWithPrefixForTest(a *App, prefix string) (uiHitTarget, bool) {
 	if a.hits == nil {
 		return uiHitTarget{}, false
@@ -5829,6 +6741,53 @@ func TestPermissionBannerActionRectUsesPaneContentGeometry(t *testing.T) {
 		width: 5,
 	}, 90); ok {
 		t.Fatalf("expected hidden permission action outside content width")
+	}
+}
+
+func TestPermissionBannerActionsStayInsideBodyWithRightSidebar(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "sess_perm", Title: "approval", Status: gact.StatusWaitingPermission}}
+	a.selected = 0
+	a.currentStatus = gact.StatusWaitingPermission
+	a.messages = []gact.Message{{
+		ID:        "msg_user",
+		SessionID: "sess_perm",
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "remove scratch files"}},
+	}}
+	a.pendingPermissions = []client.PermissionWire{{
+		PermissionRequest: gact.PermissionRequest{
+			ID:        "perm_sidebar",
+			SessionID: "sess_perm",
+			Summary:   "Run shell command: rm -rf /tmp/scratch",
+		},
+		Status: "pending",
+	}}
+	a.rightSidebarModuleIDs = []sidebarModuleID{sidebarModuleFiles}
+	a.fileTreeEntries = []fileTreeEntry{
+		{Path: "src/main.go"},
+		{Path: "visual_loop/report.md"},
+	}
+
+	_ = a.View()
+	right, ok := findHitTargetForTest(a, "right-sidebar:focus")
+	if !ok {
+		t.Fatal("missing right sidebar focus hit target")
+	}
+	for _, id := range []string{"permission:allow", "permission:deny", "permission:session", "permission:workspace"} {
+		target, ok := findHitTargetForTest(a, id)
+		if !ok {
+			t.Fatalf("missing semantic permission hit target %q", id)
+		}
+		if target.rect.x+target.rect.w > right.rect.x {
+			t.Fatalf("%s rect overlaps right sidebar: permission=%+v right=%+v", id, target.rect, right.rect)
+		}
+		if target.rect.y != 3 {
+			t.Fatalf("%s row = %d, want banner row 3", id, target.rect.y)
+		}
 	}
 }
 

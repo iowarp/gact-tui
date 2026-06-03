@@ -132,6 +132,13 @@ type agentBlueprintMCPEnabledMsg struct {
 	err          error
 }
 
+type agentBlueprintHookEnabledMsg struct {
+	blueprintID string
+	hookID      string
+	result      map[string]any
+	err         error
+}
+
 type agentBlueprintManagedMsg struct {
 	blueprintID string
 	action      string
@@ -311,6 +318,11 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				title:     "Validate agent blueprint",
 				desc:      "preview parsed agents, MCP descriptors, and validation errors before installing",
 				statusTag: "check",
+			}, {
+				id:        "action/source-registry",
+				title:     "Marketplace sources",
+				desc:      agentBlueprintSourceRegistryUnavailableDetail(),
+				statusTag: "backend gap",
 			}}
 			items := append(actions, agentBlueprintCatalogItems(blueprints)...)
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -414,6 +426,12 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 		var errs []string
 		agents, _ := c.ListAgentsScoped(ctx, scope)
 
+		items = append(items, catalogItem{
+			id:        "mcp-action/reconnect",
+			title:     "Reconnect server",
+			desc:      "re-probe this MCP server and surface backend reconnect errors truthfully",
+			statusTag: "action",
+		})
 		if tools, err := c.McpServerTools(ctx, serverID); err != nil {
 			errs = append(errs, "tools: "+err.Error())
 		} else {
@@ -543,9 +561,33 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 				id: "delegates", title: "Delegates to", desc: strings.Join(delegates, ", "),
 			})
 		}
+		if len(agent.Skills) > 0 {
+			items = append(items, catalogItem{
+				id:        "skills",
+				title:     "Declared skills",
+				desc:      strings.Join(agent.Skills, ", "),
+				statusTag: "skills",
+			})
+		}
+		if len(agent.ValidationWarnings) > 0 {
+			items = append(items, catalogItem{
+				id:        "validation-warnings",
+				title:     "Validation warnings",
+				desc:      strings.Join(agent.ValidationWarnings, "; "),
+				statusTag: "warning",
+			})
+		}
 		if len(agent.Keywords) > 0 {
 			items = append(items, catalogItem{
 				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
+			})
+		}
+		if len(agent.ValidationErrors) > 0 {
+			items = append(items, catalogItem{
+				id:        "validation",
+				title:     "Validation errors",
+				desc:      strings.Join(agent.ValidationErrors, "; "),
+				statusTag: "error",
 			})
 		}
 		if desc := agentPromptResolutionDescription(agent); desc != "" {
@@ -719,6 +761,18 @@ func enableAgentBlueprintMCPCmd(c *client.Client, scope client.RuntimeScope, blu
 		defer cancel()
 		result, err := c.EnableAgentBlueprintMCP(ctx, blueprintID, descriptorID, gact.AgentBlueprintMCPEnableRequest{WorkspaceID: scope.WorkspaceID})
 		return agentBlueprintMCPEnabledMsg{blueprintID: blueprintID, descriptorID: descriptorID, result: result, err: err}
+	}
+}
+
+func enableAgentBlueprintHookCmd(c *client.Client, scope client.RuntimeScope, blueprintID, hookID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result, err := c.EnableAgentBlueprintHook(ctx, blueprintID, hookID, gact.AgentBlueprintHookEnableRequest{
+			WorkspaceID: scope.WorkspaceID,
+			Trust:       true,
+		})
+		return agentBlueprintHookEnabledMsg{blueprintID: blueprintID, hookID: hookID, result: result, err: err}
 	}
 }
 
@@ -937,6 +991,13 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case "action/validate-blueprint":
 				a.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return a, nil
+			case "action/source-registry":
+				a.openCatalogDetail(it.title, it.desc)
+				return a, nil
+			}
+			if strings.HasPrefix(it.id, "source/") {
+				a.openCatalogDetail(it.title, it.desc)
+				return a, nil
 			}
 			return a, a.openAgentBlueprintDetail(it.id, it.title)
 		}
@@ -947,6 +1008,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindMcpDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			switch {
+			case it.id == "mcp-action/reconnect":
+				return a, mcpReconnectCmd(a.c, cb.mcpServerID)
 			case strings.HasPrefix(it.id, "tool/"):
 				return a, loadToolDetailCmd(a.c, a.runtimeScope(), strings.TrimPrefix(it.id, "tool/"))
 			case strings.HasPrefix(it.id, "res/"):
@@ -1015,6 +1078,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
 			case strings.HasPrefix(it.id, "mcp/"):
 				return a, enableAgentBlueprintMCPCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "mcp/"))
+			case strings.HasPrefix(it.id, "hook/"):
+				return a, enableAgentBlueprintHookCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "hook/"))
 			case it.id == "blueprint-action/update":
 				return a, updateAgentBlueprintCmd(a.c, a.runtimeScope(), cb.blueprintID)
 			case it.id == "blueprint-action/delete":
@@ -1138,6 +1203,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindMcp {
 			a.closeCatalogBrowser()
 			return a, a.openMcpRemoveModal()
+		}
+	case "r":
+		if cb.kind == catalogKindMcpDetail && cb.mcpServerID != "" {
+			return a, mcpReconnectCmd(a.c, cb.mcpServerID)
 		}
 	}
 	return a, nil
@@ -1366,7 +1435,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindAgents:
 		hintText = "↑/↓ navigate · Enter details/create/extract · o use next turn · Esc close"
 	case catalogKindMcpDetail:
-		hintText = "↑/↓ navigate · Enter details · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter details/action · r reconnect · Esc/Backspace back"
 	case catalogKindAgentDetail:
 		hintText = "↑/↓ navigate · Enter details/clone/delete · o use next turn · Esc/Backspace back"
 	case catalogKindPrompts:
@@ -1380,7 +1449,7 @@ func (a *App) viewCatalogBrowser() string {
 	case catalogKindAgentBlueprints:
 		hintText = "↑/↓ navigate · Enter details · Esc close"
 	case catalogKindAgentBlueprintDetail:
-		hintText = "↑/↓ navigate · Enter activate/detail/enable MCP · Esc/Backspace back"
+		hintText = "↑/↓ navigate · Enter activate/detail/enable MCP/hook · Esc/Backspace back"
 	default:
 		hintText = "↑/↓ navigate · Esc close"
 	}
@@ -1493,19 +1562,243 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 		return firstNonEmpty(blueprints[i].Title, blueprints[i].ID) < firstNonEmpty(blueprints[j].Title, blueprints[j].ID)
 	})
 	items := make([]catalogItem, 0, len(blueprints))
-	for _, blueprint := range blueprints {
-		status := firstNonEmpty(blueprint.Scope, "blueprint")
-		if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
-			status = "invalid"
+	sourceSummaries, sourceGroups := agentBlueprintSourceSummaries(blueprints)
+	for i, summary := range sourceSummaries {
+		status := firstNonEmpty(summary.kind, "source")
+		if agentBlueprintSourceNeedsAttention(summary) {
+			status = "attention"
 		}
 		items = append(items, catalogItem{
-			id:        blueprint.ID,
-			title:     firstNonEmpty(blueprint.Title, blueprint.ID),
-			desc:      agentBlueprintDescription(blueprint),
+			id:        fmt.Sprintf("source/%d", i),
+			title:     "Marketplace source · " + sourceTitle(summary),
+			desc:      formatAgentBlueprintSourceSummary(summary),
+			statusTag: status,
+		})
+		for _, blueprint := range sourceGroups[summary.key] {
+			items = append(items, agentBlueprintCatalogItem(blueprint))
+		}
+	}
+	for _, blueprint := range blueprints {
+		if agentBlueprintSourceKey(blueprint) != "" {
+			continue
+		}
+		items = append(items, agentBlueprintCatalogItem(blueprint))
+	}
+	return items
+}
+
+func agentBlueprintCatalogItem(blueprint gact.AgentBlueprintDefinition) catalogItem {
+	return catalogItem{
+		id:        blueprint.ID,
+		title:     firstNonEmpty(blueprint.Title, blueprint.ID),
+		desc:      agentBlueprintDescription(blueprint),
+		statusTag: agentBlueprintCatalogStatus(blueprint),
+	}
+}
+
+func agentBlueprintCatalogStatus(blueprint gact.AgentBlueprintDefinition) string {
+	if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
+		return "invalid"
+	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		return "warning"
+	}
+	if agentBlueprintSourceKey(blueprint) == "" {
+		return firstNonEmpty(blueprint.Scope, "blueprint")
+	}
+	install := agentBlueprintInstallMetadata(blueprint)
+	if status := compactStatusTag(stringValue(install["status"])); status != "" {
+		return status
+	}
+	if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+		return state
+	}
+	return firstNonEmpty(blueprint.Scope, "blueprint")
+}
+
+func compactStatusTag(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	status = strings.ReplaceAll(status, " ", "_")
+	status = strings.ReplaceAll(status, "-", "_")
+	return status
+}
+
+type agentBlueprintSourceSummary struct {
+	key         string
+	source      string
+	kind        string
+	ref         string
+	commit      string
+	checksum    string
+	status      string
+	statusMsg   string
+	trust       string
+	installedAt string
+	syncedAt    string
+	scope       string
+	blueprints  []string
+	states      []string
+	warnings    []string
+	errors      []string
+}
+
+func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition) []catalogItem {
+	summaries, _ := agentBlueprintSourceSummaries(blueprints)
+	items := make([]catalogItem, 0, len(summaries))
+	for i, summary := range summaries {
+		status := firstNonEmpty(summary.kind, "source")
+		if agentBlueprintSourceNeedsAttention(summary) {
+			status = "attention"
+		}
+		items = append(items, catalogItem{
+			id:        fmt.Sprintf("source/%d", i),
+			title:     "Marketplace source · " + sourceTitle(summary),
+			desc:      formatAgentBlueprintSourceSummary(summary),
 			statusTag: status,
 		})
 	}
 	return items
+}
+
+func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) ([]*agentBlueprintSourceSummary, map[string][]gact.AgentBlueprintDefinition) {
+	byKey := map[string]*agentBlueprintSourceSummary{}
+	groups := map[string][]gact.AgentBlueprintDefinition{}
+	for _, blueprint := range blueprints {
+		key := agentBlueprintSourceKey(blueprint)
+		if key == "" {
+			continue
+		}
+		install := agentBlueprintInstallMetadata(blueprint)
+		source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
+		kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
+		ref := stringValue(install["ref"])
+		summary := byKey[key]
+		if summary == nil {
+			summary = &agentBlueprintSourceSummary{
+				key:         key,
+				source:      source,
+				kind:        kind,
+				ref:         ref,
+				commit:      stringValue(install["commit"]),
+				checksum:    stringValue(install["checksum"]),
+				status:      stringValue(install["status"]),
+				statusMsg:   firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])),
+				trust:       firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])),
+				installedAt: stringValue(install["installed_at"]),
+				syncedAt:    firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])),
+				scope:       firstNonEmpty(stringValue(install["scope"]), blueprint.Scope),
+			}
+			byKey[key] = summary
+		}
+		groups[key] = append(groups[key], blueprint)
+		blueprintName := firstNonEmpty(blueprint.Title, blueprint.ID)
+		summary.blueprints = append(summary.blueprints, blueprintName)
+		if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+			summary.states = appendUniqueStrings(summary.states, blueprintName+" ("+state+")")
+		}
+		if scope := firstNonEmpty(stringValue(install["scope"]), blueprint.Scope); scope != "" {
+			summary.scope = strings.Join(appendUniqueStrings(splitCommaList(summary.scope), scope), ", ")
+		}
+		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["warnings"])...)
+		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["validation_warnings"])...)
+		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["errors"])...)
+		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["validation_errors"])...)
+		if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+			summary.errors = appendUniqueStrings(summary.errors, errText)
+		}
+		if len(blueprint.ValidationErrors) > 0 {
+			summary.errors = appendUniqueStrings(summary.errors, blueprint.ID+": "+strings.Join(blueprint.ValidationErrors, "; "))
+		}
+		if len(blueprint.ValidationWarnings) > 0 {
+			summary.warnings = appendUniqueStrings(summary.warnings, blueprint.ID+": "+strings.Join(blueprint.ValidationWarnings, "; "))
+		}
+	}
+	keys := make([]string, 0, len(byKey))
+	for key := range byKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	summaries := make([]*agentBlueprintSourceSummary, 0, len(keys))
+	for _, key := range keys {
+		summary := byKey[key]
+		sort.Strings(summary.blueprints)
+		sort.Strings(summary.states)
+		summaries = append(summaries, summary)
+	}
+	return summaries, groups
+}
+
+func agentBlueprintSourceKey(blueprint gact.AgentBlueprintDefinition) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
+	if source == "" {
+		return ""
+	}
+	kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
+	ref := stringValue(install["ref"])
+	return strings.Join([]string{kind, source, ref}, "\x00")
+}
+
+func agentBlueprintSourceRegistryUnavailableDetail() string {
+	return strings.Join(appendDetailSection(nil, "Marketplace Source Registry",
+		detailField{"status", "unavailable"},
+		detailField{"reason", "CLIO does not expose a durable marketplace-source registry API yet"},
+		detailField{"available_now", "install, validate, update, delete installed blueprints"},
+		detailField{"shown_now", "derived per-blueprint source provenance from metadata.install"},
+		detailField{"blocked_operations", "add named source\nlist configured sources\nsync source\nremove source without deleting installed blueprints\ninspect resolved commit/checksum for uninstalled sources"},
+	), "\n")
+}
+
+func sourceTitle(summary *agentBlueprintSourceSummary) string {
+	if summary == nil {
+		return "source"
+	}
+	if summary.kind != "" {
+		return summary.kind + " · " + summary.source
+	}
+	return summary.source
+}
+
+func formatAgentBlueprintSourceSummary(summary *agentBlueprintSourceSummary) string {
+	if summary == nil {
+		return ""
+	}
+	rows := appendDetailSection(nil, "Marketplace Source",
+		detailField{"source", summary.source},
+		detailField{"source_kind", summary.kind},
+		detailField{"ref", summary.ref},
+		detailField{"commit", summary.commit},
+		detailField{"checksum", summary.checksum},
+		detailField{"status", summary.status},
+		detailField{"status_message", summary.statusMsg},
+		detailField{"trust", summary.trust},
+		detailField{"installed_at", summary.installedAt},
+		detailField{"synced_at", summary.syncedAt},
+		detailField{"scope", summary.scope},
+		detailField{"blueprints", strings.Join(summary.blueprints, ", ")},
+		detailField{"blueprint_states", strings.Join(summary.states, "\n")},
+	)
+	if len(summary.warnings) > 0 {
+		rows = appendDetailSection(rows, "Warnings", detailField{"warnings", strings.Join(summary.warnings, "\n")})
+	}
+	if len(summary.errors) > 0 {
+		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(summary.errors, "\n")})
+	}
+	return strings.Join(rows, "\n")
+}
+
+func agentBlueprintSourceNeedsAttention(summary *agentBlueprintSourceSummary) bool {
+	if summary == nil {
+		return false
+	}
+	if len(summary.errors) > 0 || len(summary.warnings) > 0 {
+		return true
+	}
+	status := strings.ToLower(strings.TrimSpace(summary.status))
+	return strings.Contains(status, "error") ||
+		strings.Contains(status, "fail") ||
+		strings.Contains(status, "stale") ||
+		strings.Contains(status, "warning")
 }
 
 func expertPackDescription(pack gact.ExpertPackDefinition) string {
@@ -1526,12 +1819,18 @@ func expertPackDescription(pack gact.ExpertPackDefinition) string {
 }
 
 func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
-	parts := make([]string, 0, 7)
+	parts := make([]string, 0, 10)
 	if blueprint.Version != "" {
 		parts = append(parts, "version: "+blueprint.Version)
 	}
 	if blueprint.RootExpert != "" {
 		parts = append(parts, "root: "+blueprint.RootExpert)
+	}
+	if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+		parts = append(parts, "state: "+state)
+	}
+	if provenance := agentBlueprintProvenanceLine(blueprint); provenance != "" {
+		parts = append(parts, provenance)
 	}
 	if blueprint.DefinitionPath != "" {
 		parts = append(parts, "definition: "+blueprint.DefinitionPath)
@@ -1539,10 +1838,29 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 	if len(blueprint.ValidationErrors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(blueprint.ValidationErrors, "; "))
 	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(blueprint.ValidationWarnings, "; "))
+	}
 	if blueprint.Description != "" {
 		parts = append(parts, compactCatalogText(blueprint.Description))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func agentBlueprintMarketplaceState(blueprint gact.AgentBlueprintDefinition) string {
+	if agentBlueprintSourceKey(blueprint) == "" {
+		return ""
+	}
+	install := agentBlueprintInstallMetadata(blueprint)
+	if firstNonEmpty(stringValue(install["installed_at"]), stringValue(install["status"]), stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])) != "" {
+		return "installed"
+	}
+	switch strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(install["scope"]), blueprint.Scope))) {
+	case "workspace", "global", "session", "user":
+		return "installed"
+	default:
+		return "available"
+	}
 }
 
 func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
@@ -1550,7 +1868,7 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 	items := []catalogItem{{
 		id:        "activate",
 		title:     "Activate for current session",
-		desc:      "sets this expert pack as the active session runtime",
+		desc:      sessionActivationDescription("expert pack"),
 		statusTag: "session",
 	}, {
 		id:        "pack/" + pack.ID,
@@ -1568,6 +1886,8 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 		status := firstNonEmpty(agent.Source, "expert")
 		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 			status = "invalid"
+		} else if len(agent.ValidationWarnings) > 0 {
+			status = "warning"
 		}
 		items = append(items, catalogItem{
 			id:        "agent/" + agent.ID,
@@ -1584,7 +1904,7 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	items := []catalogItem{{
 		id:        "activate",
 		title:     "Activate for current session",
-		desc:      "sets this markdown agent blueprint as the active session runtime",
+		desc:      sessionActivationDescription("markdown agent blueprint"),
 		statusTag: "session",
 	}, {
 		id:        "blueprint/" + blueprint.ID,
@@ -1596,18 +1916,21 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	items = append(items, catalogItem{
 		id:        "blueprint-action/update",
 		title:     "Update installed blueprint",
-		desc:      "pull or refresh this installed blueprint through CLIO",
+		desc:      agentBlueprintLifecycleActionDescription(blueprint, "update", manageable),
 		statusTag: "manage",
 		disabled:  !manageable,
 	}, catalogItem{
 		id:        "blueprint-action/delete",
 		title:     "Delete installed blueprint",
-		desc:      "remove this installed blueprint; built-in/session definitions are protected",
+		desc:      agentBlueprintLifecycleActionDescription(blueprint, "delete", manageable),
 		statusTag: "delete",
 		disabled:  !manageable,
 	})
 	if len(blueprint.ValidationErrors) > 0 {
 		items = append(items, catalogItem{id: "validation", title: "Validation errors", desc: strings.Join(blueprint.ValidationErrors, "; "), statusTag: "error"})
+	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		items = append(items, catalogItem{id: "validation-warnings", title: "Validation warnings", desc: strings.Join(blueprint.ValidationWarnings, "; "), statusTag: "warning"})
 	}
 	for _, descriptor := range detail.MCPDescriptors {
 		id := stringValue(descriptor["id"])
@@ -1623,11 +1946,27 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 			statusTag: status,
 		})
 	}
+	for _, descriptor := range detail.HookDescriptors {
+		id := stringValue(descriptor["id"])
+		title := firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), id)
+		status := firstNonEmpty(stringValue(descriptor["status"]), "hook")
+		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+			status = "invalid"
+		}
+		items = append(items, catalogItem{
+			id:        "hook/" + id,
+			title:     "Hook · " + title,
+			desc:      agentBlueprintHookDescription(descriptor),
+			statusTag: status,
+		})
+	}
 	sortAgentsForCatalog(detail.Agents)
 	for _, agent := range detail.Agents {
 		status := firstNonEmpty(agent.Source, "agent")
 		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 			status = "invalid"
+		} else if len(agent.ValidationWarnings) > 0 {
+			status = "warning"
 		}
 		items = append(items, catalogItem{
 			id:        "agent/" + agent.ID,
@@ -1668,18 +2007,123 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
 	return strings.Join(rows, "\n")
 }
 
+func sessionActivationDescription(runtime string) string {
+	return "sets this " + runtime + " only for the current selected session; new sessions keep the backend/workspace default"
+}
+
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
-	parts := make([]string, 0, 5)
-	for _, key := range []string{"transport", "command", "url", "source"} {
-		if value := stringValue(descriptor[key]); value != "" {
-			parts = append(parts, key+": "+value)
-		}
+	parts := make([]string, 0, 10)
+	for _, key := range []string{"transport", "command", "url", "source", "trust", "install", "runtime", "verification"} {
+		parts = appendDescriptorMetadataParts(parts, key, descriptor[key])
+	}
+	for _, key := range []string{"env_policy", "source_blueprint_id", "server_id"} {
+		parts = appendDescriptorMetadataParts(parts, key, descriptor[key])
 	}
 	if args := stringListFromAny(descriptor["args"]); len(args) > 0 {
 		parts = append(parts, "args: "+strings.Join(args, " "))
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, "enabled: "+enabled)
+	}
+	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(warnings, "; "))
+	}
+	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(errors, "; "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func appendDescriptorMetadataParts(parts []string, key string, value any) []string {
+	if text := descriptorMetadataValueText(value); text != "" {
+		return append(parts, key+": "+text)
+	}
+	m := mapValue(value)
+	if len(m) == 0 {
+		return parts
+	}
+	keys := make([]string, 0, len(m))
+	for subkey := range m {
+		if descriptorMetadataValueText(m[subkey]) != "" {
+			keys = append(keys, subkey)
+		}
+	}
+	sort.Strings(keys)
+	for _, subkey := range keys {
+		label := descriptorMetadataLabel(key, subkey)
+		parts = append(parts, label+": "+descriptorMetadataValueText(m[subkey]))
+	}
+	return parts
+}
+
+func descriptorMetadataLabel(key, subkey string) string {
+	switch key {
+	case "trust":
+		switch subkey {
+		case "policy":
+			return "trust_policy"
+		case "trusted":
+			return "trusted"
+		case "source":
+			return "trust_source"
+		}
+	case "env_policy":
+		switch subkey {
+		case "mode", "policy":
+			return "env_policy"
+		}
+	}
+	return key + "_" + subkey
+}
+
+func descriptorMetadataValueText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []string:
+		return strings.Join(v, ", ")
+	case []any:
+		values := make([]string, 0, len(v))
+		for _, item := range v {
+			if text := descriptorMetadataValueText(item); text != "" {
+				values = append(values, text)
+			}
+		}
+		return strings.Join(values, ", ")
+	case map[string]any:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+}
+
+func agentBlueprintHookDescription(descriptor map[string]any) string {
+	parts := make([]string, 0, 12)
+	for _, key := range []string{"event", "source", "scope", "agent_blueprint_id", "definition_path", "installed_path", "checksum"} {
+		if value := stringValue(descriptor[key]); value != "" {
+			parts = append(parts, key+": "+value)
+		}
+	}
+	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+		if policy := stringValue(trust["policy"]); policy != "" {
+			parts = append(parts, "trust_policy: "+policy)
+		}
+		if trusted := scalarText(trust["trusted"]); trusted != "" {
+			parts = append(parts, "trusted: "+trusted)
+		}
+		if source := stringValue(trust["source"]); source != "" {
+			parts = append(parts, "trust_source: "+source)
+		}
+	} else if trust := stringValue(descriptor["trust"]); trust != "" {
+		parts = append(parts, "trust: "+trust)
+	}
+	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
+		parts = append(parts, "enabled: "+enabled)
+	}
+	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(warnings, "; "))
 	}
 	if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(errors, "; "))
@@ -1698,16 +2142,20 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 		detailField{"root", blueprint.Root},
 		detailField{"definition", firstNonEmpty(blueprint.DefinitionPath, blueprint.RootPath)},
 	)
+	rows = appendAgentBlueprintProvenanceSection(rows, blueprint)
 	if len(blueprint.ValidationErrors) > 0 {
 		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(blueprint.ValidationErrors, "\n")})
+	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		rows = appendDetailSection(rows, "Validation warnings", detailField{"warnings", strings.Join(blueprint.ValidationWarnings, "\n")})
 	}
 	if len(blueprint.Defaults) > 0 {
 		if payload, err := json.MarshalIndent(blueprint.Defaults, "", "  "); err == nil {
 			rows = appendDetailSection(rows, "Defaults", detailField{"", string(payload)})
 		}
 	}
-	if len(blueprint.Metadata) > 0 {
-		if payload, err := json.MarshalIndent(blueprint.Metadata, "", "  "); err == nil {
+	if metadata := agentBlueprintDisplayMetadata(blueprint); len(metadata) > 0 {
+		if payload, err := json.MarshalIndent(metadata, "", "  "); err == nil {
 			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
 		}
 	}
@@ -1715,6 +2163,149 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 		rows = appendDetailSection(rows, "Description", detailField{"", blueprint.Description})
 	}
 	return strings.Join(rows, "\n")
+}
+
+func agentBlueprintInstallMetadata(blueprint gact.AgentBlueprintDefinition) map[string]any {
+	install := mapValue(blueprint.Metadata["install"])
+	if len(install) > 0 {
+		return install
+	}
+	return blueprint.Metadata
+}
+
+func agentBlueprintDisplayMetadata(blueprint gact.AgentBlueprintDefinition) map[string]any {
+	if len(blueprint.Metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(blueprint.Metadata))
+	for key, value := range blueprint.Metadata {
+		if key == "install" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func agentBlueprintProvenanceLine(blueprint gact.AgentBlueprintDefinition) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	parts := make([]string, 0, 5)
+	if kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"])); kind != "" {
+		parts = append(parts, "source: "+kind)
+	}
+	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+		parts = append(parts, "from: "+source)
+	}
+	if ref := stringValue(install["ref"]); ref != "" {
+		parts = append(parts, "ref: "+ref)
+	}
+	if commit := shortHash(stringValue(install["commit"])); commit != "" {
+		parts = append(parts, "commit: "+commit)
+	}
+	if checksum := shortHash(stringValue(install["checksum"])); checksum != "" {
+		parts = append(parts, "checksum: "+checksum)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBlueprintDefinition) []string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	if len(install) == 0 {
+		return rows
+	}
+	fields := []detailField{
+		{"source", firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))},
+		{"source_kind", firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]))},
+		{"ref", stringValue(install["ref"])},
+		{"commit", stringValue(install["commit"])},
+		{"checksum", stringValue(install["checksum"])},
+		{"status", stringValue(install["status"])},
+		{"status_message", firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"]))},
+		{"trust", firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"]))},
+		{"installed_at", stringValue(install["installed_at"])},
+		{"synced_at", firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"]))},
+		{"scope", firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)},
+	}
+	hasValue := false
+	for _, field := range fields {
+		if strings.TrimSpace(field.value) != "" {
+			hasValue = true
+			break
+		}
+	}
+	if !hasValue {
+		return rows
+	}
+	rows = appendDetailSection(rows, "Source provenance", fields...)
+	warnings := appendUniqueStrings(nil, stringListFromAny(install["warnings"])...)
+	warnings = appendUniqueStrings(warnings, stringListFromAny(install["validation_warnings"])...)
+	if len(warnings) > 0 {
+		rows = appendDetailSection(rows, "Source warnings", detailField{"warnings", strings.Join(warnings, "\n")})
+	}
+	errors := appendUniqueStrings(nil, stringListFromAny(install["errors"])...)
+	errors = appendUniqueStrings(errors, stringListFromAny(install["validation_errors"])...)
+	if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+		errors = appendUniqueStrings(errors, errText)
+	}
+	if len(errors) > 0 {
+		rows = appendDetailSection(rows, "Source errors", detailField{"errors", strings.Join(errors, "\n")})
+	}
+	return rows
+}
+
+func agentBlueprintLifecycleActionDescription(blueprint gact.AgentBlueprintDefinition, action string, manageable bool) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	fields := make([]string, 0, 6)
+	if !manageable {
+		fields = append(fields, "protected scope: "+firstNonEmpty(blueprint.Scope, "unknown"))
+	} else if action == "update" {
+		fields = append(fields, "refresh this installed blueprint through CLIO")
+	} else {
+		fields = append(fields, "remove this installed blueprint through CLIO")
+	}
+	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+		fields = append(fields, "source: "+source)
+	}
+	if status := stringValue(install["status"]); status != "" {
+		fields = append(fields, "status: "+status)
+	}
+	if message := firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])); message != "" {
+		fields = append(fields, "status_message: "+message)
+	}
+	if syncedAt := firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])); syncedAt != "" {
+		fields = append(fields, "synced_at: "+syncedAt)
+	}
+	if trust := firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])); trust != "" {
+		fields = append(fields, "trust: "+trust)
+	}
+	if len(fields) == 0 {
+		return "lifecycle action"
+	}
+	return strings.Join(fields, " · ")
+}
+
+func shortHash(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
+}
+
+func appendUniqueStrings(values []string, extra ...string) []string {
+	seen := make(map[string]bool, len(values)+len(extra))
+	for _, value := range values {
+		seen[value] = true
+	}
+	for _, value := range extra {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		values = append(values, value)
+		seen[value] = true
+	}
+	return values
 }
 
 func stringListFromAny(value any) []string {
@@ -1995,11 +2586,17 @@ func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int)
 	if depth > 0 {
 		title = strings.Repeat("  ", min(depth, 3)) + "└─ " + title
 	}
+	status := firstNonEmpty(agent.Source, "agent")
+	if !agent.Enabled || len(agent.ValidationErrors) > 0 {
+		status = "invalid"
+	} else if len(agent.ValidationWarnings) > 0 {
+		status = "warning"
+	}
 	return catalogItem{
 		id:        agent.ID,
 		title:     title,
 		desc:      agentCatalogDescription(agent, allAgents),
-		statusTag: firstNonEmpty(agent.Source, "agent"),
+		statusTag: status,
 	}
 }
 
@@ -2027,8 +2624,25 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		}
 		parts = append(parts, "tools: "+toolSummary)
 	}
+	if len(agent.Skills) > 0 {
+		skillSummary := strings.Join(agent.Skills, ", ")
+		if len(agent.Skills) > 3 {
+			skillSummary = strings.Join(agent.Skills[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Skills)-3)
+		}
+		parts = append(parts, "skills: "+skillSummary)
+	}
 	if len(agent.Commands) > 0 {
-		parts = append(parts, fmt.Sprintf("%d commands", len(agent.Commands)))
+		commandSummary := strings.Join(agent.Commands, ", ")
+		if len(agent.Commands) > 3 {
+			commandSummary = strings.Join(agent.Commands[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Commands)-3)
+		}
+		parts = append(parts, "commands: "+commandSummary)
+	}
+	if len(agent.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
+	}
+	if len(agent.ValidationWarnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(agent.ValidationWarnings, "; "))
 	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)

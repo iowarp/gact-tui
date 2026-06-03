@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -173,6 +174,23 @@ func TestUserQuestionCreatedSSEOpensModalAndAddsTranscriptPart(t *testing.T) {
 	}
 }
 
+func TestAskUserPasteRoutesToModalDraft(t *testing.T) {
+	a := New("http://unused")
+	a.askUserOpen = true
+	a.askUserQuestion = gact.AgentQuestion{ID: "q1", Prompt: "Which dataset?"}
+	a.askUserDraft = "Use "
+	a.askUserCursor = len([]rune(a.askUserDraft))
+
+	_, _ = a.Update(tea.PasteMsg{Content: "CSV\r\nfor the benchmark"})
+
+	if got := a.askUserDraft; got != "Use CSV for the benchmark" {
+		t.Fatalf("ask user draft = %q", got)
+	}
+	if a.askUserCursor != len([]rune(a.askUserDraft)) {
+		t.Fatalf("ask user cursor = %d, want end %d", a.askUserCursor, len([]rune(a.askUserDraft)))
+	}
+}
+
 func TestRetryModelModalWarnsBeforeCommit(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 120
@@ -193,6 +211,40 @@ func TestRetryModelModalWarnsBeforeCommit(t *testing.T) {
 			t.Fatalf("retry model modal missing %q:\n%s", want, out)
 		}
 	}
+}
+
+func TestRetryPasteRoutesToOpenModalDraft(t *testing.T) {
+	t.Run("notes", func(t *testing.T) {
+		a := New("http://unused")
+		a.retryNotesOpen = true
+		a.retryMessageID = "m1"
+		a.retryNotesDraft = "Try "
+		a.retryNotesCursor = len([]rune(a.retryNotesDraft))
+
+		_, _ = a.Update(tea.PasteMsg{Content: "CSV\r\ninstead"})
+
+		if got := a.retryNotesDraft; got != "Try CSV instead" {
+			t.Fatalf("retry notes draft = %q", got)
+		}
+		if a.retryNotesCursor != len([]rune(a.retryNotesDraft)) {
+			t.Fatalf("retry notes cursor = %d, want end %d", a.retryNotesCursor, len([]rune(a.retryNotesDraft)))
+		}
+	})
+
+	t.Run("model", func(t *testing.T) {
+		a := New("http://unused")
+		a.retryModelOpen = true
+		a.retryModelMsgID = "m1"
+
+		_, _ = a.Update(tea.PasteMsg{Content: " anthropic /\r\nclaude-sonnet "})
+
+		if got := a.retryModelDraft; got != "anthropic/claude-sonnet" {
+			t.Fatalf("retry model draft = %q", got)
+		}
+		if a.retryModelCursor != len([]rune(a.retryModelDraft)) {
+			t.Fatalf("retry model cursor = %d, want end %d", a.retryModelCursor, len([]rune(a.retryModelDraft)))
+		}
+	})
 }
 
 func TestCommitRetryModelSendsExplicitOverrideAndWarningAck(t *testing.T) {

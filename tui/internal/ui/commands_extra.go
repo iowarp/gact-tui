@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -122,32 +122,26 @@ func patchRoutingModeCmd(c *client.Client, sessionID, mode string) tea.Cmd {
 	}
 }
 
-// requestCompactCmd POSTs to a (provisional) backend endpoint that asks the
-// server to summarise the conversation and reclaim context. CLIO doesn't
-// expose this endpoint yet — call returns 501/404 — but plumbing the
-// command + dispatch path now means turning it on later is a one-line
-// backend swap, not another TUI release.
+// requestCompactCmd asks the backend to summarize the current session.
+// CLIO's current GACT surface is /summarize; older /compact wiring was
+// provisional and would truthfully fail on current CLIO.
 func requestCompactCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		req, _ := http.NewRequestWithContext(
-			ctx,
-			http.MethodPost,
-			c.BaseURL()+"/v1/sessions/"+sessionID+"/compact",
-			nil,
-		)
-		resp, err := http.DefaultClient.Do(req)
+		if err := c.SummarizeSession(ctx, sessionID, true, ""); err != nil {
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
+		}
+		session, err := c.GetSession(ctx, sessionID)
 		if err != nil {
-			return errMsg{err: err, stage: "compact"}
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode >= 400 {
-			return errMsg{
-				err:   fmt.Errorf("backend %d (compact endpoint not yet wired on this backend)", resp.StatusCode),
-				stage: "compact",
-			}
-		}
-		return nil
+		return sessionSummarizedMsg{sessionID: sessionID, session: session}
 	}
+}
+
+type sessionSummarizedMsg struct {
+	sessionID string
+	session   gact.Session
+	err       error
 }
