@@ -536,6 +536,52 @@ func TestRightSidebarContextRowDoesNotLeakIntoConversationHits(t *testing.T) {
 	}
 }
 
+func TestRightSidebarContextRowRightClickKeepsRightSidebarFocus(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 150
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "first", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.messages = []gact.Message{
+		{ID: "m1", Role: gact.RoleUser, Parts: []gact.Part{{ID: "p1", Type: gact.PartTypeText, Text: "first"}}},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read", Size: 128, Language: "markdown"}}
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	_ = a.View()
+	rightRow, ok := findHitTargetForTest(a, "right-sidebar:context:file:docs/readme.md")
+	if !ok {
+		t.Fatal("missing right sidebar context file hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rightRow.rect.x,
+		Y:      rightRow.rect.y,
+		Button: tea.MouseRight,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("right sidebar context action menu open should not dispatch a command")
+	}
+	if !a.contextActionsOpen || a.contextFileSel != 0 {
+		t.Fatalf("right-click should select context row and open actions, open=%v sel=%d", a.contextActionsOpen, a.contextFileSel)
+	}
+	if a.focus != FocusRightSidebar || a.sidebarSectionFocus != sidebarSectionContext || a.sidebarSectionCursor {
+		t.Fatalf("right-click focus = %v section=%v cursor=%v, want right context row", a.focus, a.sidebarSectionFocus, a.sidebarSectionCursor)
+	}
+	if a.conversationActionsOpen || a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		t.Fatalf("right sidebar right-click leaked into conversation: msg=%d part=%d actions=%v", a.bodySelMsgIdx, a.bodySelPartIdx, a.conversationActionsOpen)
+	}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "context-actions:copy-path"); !ok {
+		t.Fatal("right sidebar context menu should expose semantic action targets")
+	}
+}
+
 func thirdRuneIndexForTest(s string, want rune) int {
 	seen := 0
 	for i, r := range []rune(s) {

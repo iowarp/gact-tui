@@ -5182,7 +5182,7 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 			return app.openContextFileDetail(cf)
 		},
 		func(app *App) tea.Cmd {
-			return app.openContextActionsForIndex(index)
+			return app.openContextActionsForIndexInZone(index, zone)
 		},
 	)
 }
