@@ -259,6 +259,17 @@ visual-loop changes cannot be hidden behind a stale CLIO launcher. Then run the
 VHS tapes under `visual_loop/tapes/` and inspect the resulting PNGs under
 `visual_loop/screenshots/`.
 
+Before a release pass, run the corpus manifest check:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root .
+```
+
+This fast check verifies that the maintained tapes, screenshots, live benchmark
+replay artifacts, and temporal-observability reports are present and non-empty.
+It does not replace screenshot inspection or strict live benchmark assertions;
+it catches missing acceptance artifacts before the visual review starts.
+
 ### Temporal live-observability gate
 
 Screenshots alone can miss the worst streaming regression: the TUI appears
