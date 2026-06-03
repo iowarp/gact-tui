@@ -168,24 +168,32 @@ func (a *App) renderModalHeaderWithColor(title string, innerW int, buttons []men
 	if innerW < 1 {
 		innerW = 1
 	}
+	headerBg := a.Theme.BgSubtle
+	headerStyle := lipgloss.NewStyle().Background(headerBg)
 	buttonRow := a.renderModalButtons(buttons, selectedButton)
 	buttonW := lipgloss.Width(buttonRow)
-	buttonCol := innerW - buttonW
+	trailingPad := 0
+	if buttonW > 0 && innerW > buttonW {
+		trailingPad = 1
+	}
+	buttonCol := innerW - buttonW - trailingPad
 	titleBudget := buttonCol - 2
 	if titleBudget < 1 {
 		titleBudget = innerW
 		buttonCol = innerW
+		trailingPad = 0
 	}
 	titleText := truncate(title, titleBudget)
-	renderedTitle := lipgloss.NewStyle().Bold(true).Foreground(titleColor).Render(titleText)
+	renderedTitle := lipgloss.NewStyle().Bold(true).Foreground(titleColor).Background(headerBg).Render(titleText)
 	gap := buttonCol - lipgloss.Width(renderedTitle)
 	if gap < 1 {
 		gap = 1
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top,
 		renderedTitle,
-		strings.Repeat(" ", gap),
+		headerStyle.Render(strings.Repeat(" ", gap)),
 		buttonRow,
+		headerStyle.Render(strings.Repeat(" ", trailingPad)),
 	)
 	return row, buttonCol
 }
@@ -227,7 +235,7 @@ type menuButton struct {
 func closeMenuButton(id string, close func(*App)) menuButton {
 	return menuButton{
 		id:    id,
-		label: "×",
+		label: "x",
 		action: func(app *App) tea.Cmd {
 			close(app)
 			return nil
@@ -389,7 +397,7 @@ func (a *App) renderModalFrameWithLayout(opts modalFrameOptions) modalFrameRende
 	if w < 12 {
 		w = 12
 	}
-	innerW := modalInnerWidth(w)
+	innerW := modalBodyContentWidth(w)
 	titleColor := a.Theme.Primary
 	if opts.titleColor != nil {
 		titleColor = opts.titleColor
@@ -861,6 +869,10 @@ func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFr
 	if opts.surfaceWheelID != "" {
 		a.registerModalSurfaceWheel(rendered, opts.surfaceWheelID)
 	}
+	if opts.wheelID != "" && opts.wheelAction != nil && rendered.bodyRow >= 0 && opts.bodyRows > 0 {
+		bodyWidth := modalScrollableBodyWidth(lipgloss.Width(rendered.modal))
+		a.registerModalContentWheelHit(rendered.modal, opts.wheelID+":body:wheel", rendered.bodyRow, 0, bodyWidth, opts.bodyRows, opts.wheelAction)
+	}
 	if len(opts.list.rows) > 0 || len(opts.list.hits) > 0 {
 		a.registerModalListRegion(rendered.modal, rendered.bodyRow+opts.listStart, 0, opts.listWidth, opts.list, opts.wheelID, opts.wheelAction)
 	}
@@ -1031,11 +1043,13 @@ func (a *App) renderModalTabsWithHits(tabs []menuTab, horizontalPadding, spacing
 	cells := make([]string, 0, len(tabs))
 	hits := make([]modalCellHit, 0, len(tabs))
 	col := 0
+	tabBg := a.Theme.BgSubtle
 	for _, tab := range tabs {
 		width := lipgloss.Width(tab.label) + horizontalPadding*2
 		style := lipgloss.NewStyle().
 			Padding(0, horizontalPadding).
-			Foreground(a.Theme.FgMuted)
+			Foreground(a.Theme.FgMuted).
+			Background(tabBg)
 		if tab.active {
 			style = lipgloss.NewStyle().
 				Padding(0, horizontalPadding).
@@ -1055,7 +1069,8 @@ func (a *App) renderModalTabsWithHits(tabs []menuTab, horizontalPadding, spacing
 		}
 		col += width + spacing
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", spacing))), hits
+	spacer := lipgloss.NewStyle().Background(tabBg).Render(strings.Repeat(" ", spacing))
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, spacer)), hits
 }
 
 func (a *App) registerModalButtons(modal string, row int, startCol int, buttons []menuButton) {
@@ -1091,10 +1106,13 @@ func (a *App) renderCenteredModalButtons(width int, buttons []menuButton, select
 	if rowW >= width {
 		startCol = 0
 	}
+	prefix := lipgloss.NewStyle().
+		Background(a.Theme.BgSubtle).
+		Render(strings.Repeat(" ", startCol))
 	rendered := lipgloss.NewStyle().
-		Background(a.Theme.Bg).
+		Background(a.Theme.BgSubtle).
 		Width(width).
-		Render(strings.Repeat(" ", startCol) + row)
+		Render(prefix + row)
 	return rendered, startCol
 }
 
@@ -1102,24 +1120,32 @@ func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (st
 	cells := make([]string, 0, len(buttons))
 	hits := make([]modalCellHit, 0, len(buttons))
 	col := 0
+	spacer := lipgloss.NewStyle().
+		Background(a.Theme.BgSubtle).
+		Render(strings.Repeat(" ", modalButtonSpacing))
 	for i, button := range buttons {
-		width := lipgloss.Width(button.label) + 4
+		labelW := lipgloss.Width(button.label)
+		width := labelW + 4
+		leftPad, rightPad := centeredPadding(labelW, width)
 		style := lipgloss.NewStyle().
 			Foreground(a.Theme.Bg).
 			Background(a.Theme.Primary).
 			Bold(true).
-			Padding(0, 2)
+			PaddingLeft(leftPad).
+			PaddingRight(rightPad)
 		if button.disabled {
 			style = lipgloss.NewStyle().
 				Foreground(a.Theme.FgFaint).
 				Background(a.Theme.BgSubtle).
-				Padding(0, 2)
+				PaddingLeft(leftPad).
+				PaddingRight(rightPad)
 		} else if i == selected {
 			style = lipgloss.NewStyle().
 				Foreground(a.Theme.Bg).
 				Background(a.Theme.Secondary).
 				Bold(true).
-				Padding(0, 2)
+				PaddingLeft(leftPad).
+				PaddingRight(rightPad)
 		}
 		cells = append(cells, style.Render(button.label))
 		if button.id != "" && button.action != nil && !button.disabled {
@@ -1133,7 +1159,25 @@ func (a *App) renderModalButtonsWithHits(buttons []menuButton, selected int) (st
 		}
 		col += width + modalButtonSpacing
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, strings.Repeat(" ", modalButtonSpacing))), hits
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, spacer)), hits
+}
+
+func centerPlainText(label string, width int) string {
+	labelW := lipgloss.Width(label)
+	if width <= labelW {
+		return label
+	}
+	left, right := centeredPadding(labelW, width)
+	return strings.Repeat(" ", left) + label + strings.Repeat(" ", right)
+}
+
+func centeredPadding(labelW int, width int) (int, int) {
+	if width <= labelW {
+		return 0, 0
+	}
+	left := (width - labelW) / 2
+	right := width - labelW - left
+	return left, right
 }
 
 func (a *App) renderModalList(items []modalListItem, opts modalListOptions) modalListRender {
@@ -1233,8 +1277,8 @@ func (a *App) renderModalListColumns(items []modalListItem, opts modalListOption
 	rowsToRender := minInt(rowBudget, rowsNeeded)
 	rows := make([]string, 0, rowsToRender)
 	hits := make([]modalListHit, 0, minInt(len(items), rowsToRender*columns))
-	gapText := strings.Repeat(" ", gap)
-	cellStyle := lipgloss.NewStyle().Width(columnWidth)
+	gapText := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Render(strings.Repeat(" ", gap))
+	cellStyle := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Width(columnWidth)
 	for row := 0; row < rowsToRender; row++ {
 		cells := make([]string, 0, columns)
 		for column := 0; column < columns; column++ {

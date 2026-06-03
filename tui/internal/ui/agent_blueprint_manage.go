@@ -217,6 +217,8 @@ func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) 
 	status := "valid"
 	if !result.Enabled || len(result.ValidationErrors) > 0 {
 		status = "invalid"
+	} else if len(result.ValidationWarnings) > 0 {
+		status = "warning"
 	}
 	rows := appendDetailSection(nil, "Validation",
 		detailField{"status", status},
@@ -224,6 +226,9 @@ func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) 
 	)
 	if len(result.ValidationErrors) > 0 {
 		rows = append(rows, "errors: "+strings.Join(result.ValidationErrors, "; "))
+	}
+	if len(result.ValidationWarnings) > 0 {
+		rows = append(rows, "warnings: "+strings.Join(result.ValidationWarnings, "; "))
 	}
 	if result.AgentBlueprint.ID != "" {
 		rows = append(rows, "")
@@ -233,6 +238,12 @@ func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) 
 		rows = append(rows, "", "MCP descriptors")
 		for _, descriptor := range result.MCPDescriptors {
 			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintMCPDescription(descriptor))
+		}
+	}
+	if len(result.HookDescriptors) > 0 {
+		rows = append(rows, "", "Packaged hooks")
+		for _, descriptor := range result.HookDescriptors {
+			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintHookDescription(descriptor))
 		}
 	}
 	if len(result.Agents) > 0 {

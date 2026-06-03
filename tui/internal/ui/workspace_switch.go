@@ -2,6 +2,8 @@ package ui
 
 import (
 	"context"
+	"os"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -16,9 +18,15 @@ import (
 // switches and closes. Any other key is swallowed so the textarea
 // below the modal doesn't accidentally capture typing.
 func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if a.workspaceCreateOpen {
+		return a.handleWorkspaceCreateKey(k)
+	}
 	switch k.String() {
 	case "esc", "ctrl+c":
 		a.closeWorkspaceSwitchModal()
+		return a, nil
+	case "n":
+		a.openWorkspaceCreate()
 		return a, nil
 	case "up", "k":
 		if a.workspaceSwitchSel > 0 {
@@ -86,8 +94,168 @@ type workspaceSwitchedMsg struct {
 	sessions []gact.Session
 }
 
+type workspaceCreatedMsg struct {
+	workspace gact.Workspace
+	err       error
+}
+
 func (a *App) closeWorkspaceSwitchModal() {
 	a.workspaceSwitchOpen = false
+	a.closeWorkspaceCreate()
+}
+
+func (a *App) closeWorkspaceCreate() {
+	a.workspaceCreateOpen = false
+	a.workspaceCreateName = ""
+	a.workspaceCreateNameCur = 0
+	a.workspaceCreateRoot = ""
+	a.workspaceCreateRootCur = 0
+	a.workspaceCreateField = 0
+	a.workspaceCreateSaving = false
+	a.workspaceCreateError = ""
+}
+
+func (a *App) openWorkspaceCreate() {
+	a.workspaceSwitchOpen = true
+	a.workspaceCreateOpen = true
+	a.workspaceCreateSaving = false
+	a.workspaceCreateError = ""
+	a.workspaceCreateField = 0
+	if a.workspaceCreateRoot == "" {
+		a.workspaceCreateRoot = a.defaultWorkspaceCreateRoot()
+		a.workspaceCreateRootCur = len([]rune(a.workspaceCreateRoot))
+	}
+	if a.workspaceCreateNameCur > len([]rune(a.workspaceCreateName)) {
+		a.workspaceCreateNameCur = len([]rune(a.workspaceCreateName))
+	}
+}
+
+func (a *App) defaultWorkspaceCreateRoot() string {
+	if root := strings.TrimSpace(a.currentWorkspaceRootPath()); root != "" {
+		return root
+	}
+	if wd, err := os.Getwd(); err == nil && wd != "" {
+		return wd
+	}
+	return ""
+}
+
+func (a *App) handleWorkspaceCreateKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch k.String() {
+	case "esc":
+		a.closeWorkspaceCreate()
+		return a, nil
+	case "ctrl+c":
+		a.closeWorkspaceSwitchModal()
+		return a, nil
+	case "tab", "shift+tab":
+		if a.workspaceCreateField == 0 {
+			a.workspaceCreateField = 1
+		} else {
+			a.workspaceCreateField = 0
+		}
+		return a, nil
+	case "enter":
+		return a.commitWorkspaceCreate()
+	case "backspace":
+		a.editWorkspaceCreateField(func(value string, cursor int) (string, int) {
+			if cursor == 0 {
+				return value, cursor
+			}
+			runes := []rune(value)
+			runes = append(runes[:cursor-1], runes[cursor:]...)
+			return string(runes), cursor - 1
+		})
+		return a, nil
+	case "delete":
+		a.editWorkspaceCreateField(func(value string, cursor int) (string, int) {
+			runes := []rune(value)
+			if cursor >= len(runes) {
+				return value, cursor
+			}
+			runes = append(runes[:cursor], runes[cursor+1:]...)
+			return string(runes), cursor
+		})
+		return a, nil
+	case "left":
+		a.moveWorkspaceCreateCursor(-1)
+		return a, nil
+	case "right":
+		a.moveWorkspaceCreateCursor(1)
+		return a, nil
+	case "home", "ctrl+a":
+		a.setWorkspaceCreateCursor(0)
+		return a, nil
+	case "end", "ctrl+e":
+		if a.workspaceCreateField == 0 {
+			a.workspaceCreateNameCur = len([]rune(a.workspaceCreateName))
+		} else {
+			a.workspaceCreateRootCur = len([]rune(a.workspaceCreateRoot))
+		}
+		return a, nil
+	}
+	if k.Text != "" {
+		a.insertWorkspaceCreateText(k.Text)
+	}
+	return a, nil
+}
+
+func (a *App) insertWorkspaceCreateText(text string) {
+	a.editWorkspaceCreateField(func(value string, cursor int) (string, int) {
+		return insertTextAtCursor(value, cursor, text)
+	})
+}
+
+func (a *App) editWorkspaceCreateField(edit func(value string, cursor int) (string, int)) {
+	if a.workspaceCreateField == 0 {
+		value, cursor := edit(a.workspaceCreateName, a.workspaceCreateNameCur)
+		a.workspaceCreateName = value
+		a.workspaceCreateNameCur = clampInt(cursor, 0, len([]rune(value)))
+		return
+	}
+	value, cursor := edit(a.workspaceCreateRoot, a.workspaceCreateRootCur)
+	a.workspaceCreateRoot = value
+	a.workspaceCreateRootCur = clampInt(cursor, 0, len([]rune(value)))
+}
+
+func (a *App) moveWorkspaceCreateCursor(delta int) {
+	if a.workspaceCreateField == 0 {
+		a.workspaceCreateNameCur = clampInt(a.workspaceCreateNameCur+delta, 0, len([]rune(a.workspaceCreateName)))
+		return
+	}
+	a.workspaceCreateRootCur = clampInt(a.workspaceCreateRootCur+delta, 0, len([]rune(a.workspaceCreateRoot)))
+}
+
+func (a *App) setWorkspaceCreateCursor(cursor int) {
+	if a.workspaceCreateField == 0 {
+		a.workspaceCreateNameCur = clampInt(cursor, 0, len([]rune(a.workspaceCreateName)))
+		return
+	}
+	a.workspaceCreateRootCur = clampInt(cursor, 0, len([]rune(a.workspaceCreateRoot)))
+}
+
+func (a *App) commitWorkspaceCreate() (tea.Model, tea.Cmd) {
+	if a.workspaceCreateSaving {
+		return a, nil
+	}
+	root := strings.TrimSpace(a.workspaceCreateRoot)
+	if root == "" {
+		a.workspaceCreateError = "root path is required"
+		a.workspaceCreateField = 1
+		return a, nil
+	}
+	a.workspaceCreateSaving = true
+	a.workspaceCreateError = ""
+	return a, createWorkspaceCmd(a.c, strings.TrimSpace(a.workspaceCreateName), root)
+}
+
+func createWorkspaceCmd(c *client.Client, name, rootPath string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ws, err := c.CreateWorkspace(ctx, client.CreateWorkspaceRequest{Name: name, RootPath: rootPath})
+		return workspaceCreatedMsg{workspace: ws, err: err}
+	}
 }
 
 const workspaceSwitchMaxItems = 8
@@ -95,15 +263,29 @@ const workspaceSwitchMaxItems = 8
 // viewWorkspaceSwitch renders the modal. Matches the settings/metrics
 // overlay style so the user's muscle memory carries over.
 func (a *App) viewWorkspaceSwitch() string {
+	if a.workspaceCreateOpen {
+		return a.viewWorkspaceCreate()
+	}
 	t := a.Theme
 	w := a.modalWidth()
-	buttons := []menuButton{closeMenuButton("workspace-switch:close", func(app *App) { app.closeWorkspaceSwitchModal() })}
+	buttons := []menuButton{
+		{
+			id:    "workspace-switch:new",
+			label: "new",
+			action: func(app *App) tea.Cmd {
+				app.openWorkspaceCreate()
+				return nil
+			},
+		},
+		closeMenuButton("workspace-switch:close", func(app *App) { app.closeWorkspaceSwitchModal() }),
+	}
 	rows := []string{}
 	if len(a.workspaces) == 0 {
-		rows = append(rows, t.HintLabel.Render("(no workspaces — backend returned an empty list)"))
+		rows = append(rows, t.HintLabel.Render("(no workspaces yet — create one with n/new)"))
 	}
 	listW := modalInsetListWidth(w)
-	itemBudget := a.modalListItemBudget(4, 1, workspaceSwitchMaxItems)
+	itemBudget := a.modalListItemBudget(4, 2, workspaceSwitchMaxItems)
+	rowBudget := itemBudget * 2
 	win := selectedItemWindow(len(a.workspaces), a.workspaceSwitchSel, itemBudget)
 	listStartRow := len(rows)
 	items := make([]modalListItem, 0, win.end-win.start)
@@ -115,10 +297,11 @@ func (a *App) viewWorkspaceSwitch() string {
 		}
 		idx := i
 		items = append(items, modalListItem{
-			id:       "workspace-switch:item:" + ws.ID,
-			title:    workspaceLabelPlain(ws),
-			status:   status,
-			selected: i == a.workspaceSwitchSel,
+			id:          "workspace-switch:item:" + ws.ID,
+			title:       workspaceLabelPlain(ws),
+			description: workspaceRootPlain(ws),
+			status:      status,
+			selected:    i == a.workspaceSwitchSel,
 			action: func(app *App) tea.Cmd {
 				app.workspaceSwitchSel = idx
 				_, cmd := app.handleWorkspaceSwitchKey(keyMsg("enter"))
@@ -126,7 +309,7 @@ func (a *App) viewWorkspaceSwitch() string {
 			},
 		})
 	}
-	list := a.renderModalList(items, modalListOptions{width: listW, rowBudget: itemBudget})
+	list := a.renderModalList(items, modalListOptions{width: listW, rowBudget: rowBudget, descriptionLines: 1})
 	rows = append(rows, list.rows...)
 
 	rendered := a.renderSelectableListModal(selectableListModalOptions{
@@ -134,13 +317,13 @@ func (a *App) viewWorkspaceSwitch() string {
 			width:   w,
 			title:   "Switch workspace",
 			buttons: buttons,
-			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter switch", "Esc cancel")),
+			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter switch", "n new", "Esc cancel")),
 		},
 		rows:           rows,
 		list:           list,
 		listStart:      listStartRow,
 		listWidth:      listW,
-		bodyRows:       itemBudget,
+		bodyRows:       rowBudget,
 		window:         win,
 		wheelID:        "workspace-switch:list:wheel",
 		surfaceWheelID: "workspace-switch",
@@ -155,6 +338,106 @@ func (a *App) viewWorkspaceSwitch() string {
 			app.workspaceSwitchSel = clampSelection(index, len(app.workspaces))
 			return nil
 		},
+	})
+	return rendered.modal
+}
+
+func (a *App) viewWorkspaceCreate() string {
+	t := a.Theme
+	w := a.modalWidth()
+	buttons := []menuButton{
+		{
+			id:       "workspace-create:save",
+			label:    "create",
+			disabled: a.workspaceCreateSaving,
+			action: func(app *App) tea.Cmd {
+				_, cmd := app.commitWorkspaceCreate()
+				return cmd
+			},
+		},
+		{
+			id:    "workspace-create:back",
+			label: "back",
+			action: func(app *App) tea.Cmd {
+				app.closeWorkspaceCreate()
+				return nil
+			},
+		},
+		closeMenuButton("workspace-create:close", func(app *App) { app.closeWorkspaceSwitchModal() }),
+	}
+
+	activeLabel := "Name"
+	editorValue := a.workspaceCreateName
+	editorCursor := a.workspaceCreateNameCur
+	editorID := "workspace-create-name"
+	if a.workspaceCreateField == 1 {
+		activeLabel = "Root path"
+		editorValue = a.workspaceCreateRoot
+		editorCursor = a.workspaceCreateRootCur
+		editorID = "workspace-create-root"
+	}
+
+	nameMarker := "  "
+	rootMarker := "  "
+	if a.workspaceCreateField == 0 {
+		nameMarker = "▌ "
+	} else {
+		rootMarker = "▌ "
+	}
+	status := []string{
+		nameMarker + "name: " + emptyPlaceholder(a.workspaceCreateName, "(optional, backend derives from root)"),
+		rootMarker + "root: " + emptyPlaceholder(a.workspaceCreateRoot, "(required)"),
+	}
+	if a.workspaceCreateError != "" {
+		status = append(status, lipgloss.NewStyle().Foreground(t.Danger).Render("error: "+a.workspaceCreateError))
+	}
+	if a.workspaceCreateSaving {
+		status = append(status, t.HintLabel.Render("creating workspace..."))
+	}
+	statusHits := []modalCellHit{
+		{
+			id:     "workspace-create:field:name",
+			row:    0,
+			col:    0,
+			width:  modalInnerWidth(w),
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.workspaceCreateField = 0
+				return nil
+			},
+		},
+		{
+			id:     "workspace-create:field:root",
+			row:    1,
+			col:    0,
+			width:  modalInnerWidth(w),
+			height: 1,
+			action: func(app *App) tea.Cmd {
+				app.workspaceCreateField = 1
+				return nil
+			},
+		},
+	}
+
+	rendered := a.renderTextEntryModal(textEntryModalOptions{
+		width:       w,
+		title:       "Create workspace · " + activeLabel,
+		buttons:     buttons,
+		surfaceID:   "workspace-create",
+		intro:       []string{"Create a workspace with an explicit root folder."},
+		editor:      activeLabel + ": " + a.renderCursorEditor(editorValue, editorCursor),
+		editorID:    editorID,
+		editorValue: editorValue,
+		cursorAction: func(app *App, cursor int) {
+			if app.workspaceCreateField == 0 {
+				app.workspaceCreateNameCur = cursor
+			} else {
+				app.workspaceCreateRootCur = cursor
+			}
+		},
+		status:     status,
+		statusHits: statusHits,
+		footer:     t.HintLabel.Render(modalKeyHint("Tab field", "Enter create", "Esc back", "Ctrl+C close")),
 	})
 	return rendered.modal
 }
@@ -178,4 +461,54 @@ func workspaceLabelPlain(ws gact.Workspace) string {
 		return ws.ID
 	}
 	return ws.Name + "  " + ws.ID
+}
+
+func workspaceHeaderLabelPlain(ws gact.Workspace) string {
+	label := strings.TrimSpace(ws.Name)
+	if label == "" {
+		label = strings.TrimSpace(ws.ID)
+	}
+	if label == "" {
+		return ""
+	}
+	root := workspaceHeaderRootPlain(ws.RootPath)
+	if root == "" {
+		return label
+	}
+	return label + " @ " + root
+}
+
+func workspaceHeaderRootPlain(root string) string {
+	root = strings.TrimSpace(strings.ReplaceAll(root, "\\", "/"))
+	if root == "" {
+		return ""
+	}
+	if strings.HasPrefix(root, "~") {
+		return root
+	}
+	trimmed := strings.Trim(root, "/")
+	parts := strings.Split(trimmed, "/")
+	if trimmed == "" || len(parts) <= 3 {
+		return root
+	}
+	prefix := ""
+	if strings.HasPrefix(root, "/") {
+		prefix = "/"
+	}
+	return prefix + ".../" + strings.Join(parts[len(parts)-2:], "/")
+}
+
+func workspaceRootPlain(ws gact.Workspace) string {
+	root := strings.TrimSpace(ws.RootPath)
+	if root == "" {
+		return "root: (not provided)"
+	}
+	return "root: " + root
+}
+
+func emptyPlaceholder(value, placeholder string) string {
+	if strings.TrimSpace(value) == "" {
+		return placeholder
+	}
+	return value
 }

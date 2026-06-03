@@ -70,6 +70,17 @@ go test -p 1 ./tui/internal/ui ./tui/internal/client ./emulator/pkg/gact -count=
 go build -p 1 -o tui\gact.exe .\tui
 ```
 
+On Linux/WSL, use the repo install target after every TUI rebuild:
+
+```bash
+cd ~/gact-tui
+make dev-install
+```
+
+`make dev-install` rebuilds `tui/gact` and relinks both `~/.local/bin/gact`
+and `~/.local/share/clio/gact` to the current checkout. Use it instead of a
+bare `go build` when validating CLIO-launched TUI behavior.
+
 ## Establish A Real Visual Loop
 
 Prefer Linux or WSL for screenshots if Windows VHS hangs. Check:

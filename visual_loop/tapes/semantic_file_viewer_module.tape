@@ -31,6 +31,10 @@ Sleep 150ms
 Enter
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_file_viewer_module_detail.png"
+Type "u"
+Wait+Screen /uploaded/
+Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_file_viewer_module_upload.png"
 Escape
 Sleep 150ms
 

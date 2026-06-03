@@ -136,23 +136,14 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	default:
 		if k.Text != "" {
-			runes := []rune(a.mcpInstallInput)
-			if a.mcpInstallCursor < 0 {
-				a.mcpInstallCursor = 0
-			}
-			if a.mcpInstallCursor > len(runes) {
-				a.mcpInstallCursor = len(runes)
-			}
-			insert := []rune(k.Text)
-			out := make([]rune, 0, len(runes)+len(insert))
-			out = append(out, runes[:a.mcpInstallCursor]...)
-			out = append(out, insert...)
-			out = append(out, runes[a.mcpInstallCursor:]...)
-			a.mcpInstallInput = string(out)
-			a.mcpInstallCursor += len(insert)
+			a.insertMcpInstallText(k.Text)
 		}
 	}
 	return a, nil
+}
+
+func (a *App) insertMcpInstallText(text string) {
+	a.mcpInstallInput, a.mcpInstallCursor = insertTextAtCursor(a.mcpInstallInput, a.mcpInstallCursor, text)
 }
 
 // handleMcpRemoveKey routes keystrokes while the remove modal is open.
@@ -241,12 +232,26 @@ func mcpUninstallCmd(c *client.Client, serverID string) tea.Cmd {
 	}
 }
 
+func mcpReconnectCmd(c *client.Client, serverID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := c.McpReconnect(ctx, serverID)
+		return mcpReconnectDoneMsg{serverID: serverID, err: err}
+	}
+}
+
 type mcpInstallDoneMsg struct {
 	result map[string]any
 	err    error
 }
 
 type mcpUninstallDoneMsg struct {
+	serverID string
+	err      error
+}
+
+type mcpReconnectDoneMsg struct {
 	serverID string
 	err      error
 }

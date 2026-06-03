@@ -5,18 +5,23 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func pickPort(t *testing.T) int {
@@ -51,6 +56,36 @@ func stopTestProcess(p *os.Process) {
 		return
 	}
 	_ = p.Signal(os.Interrupt)
+}
+
+func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("TERM_PROGRAM", "UnitTerm")
+	t.Setenv("COLORTERM", "truecolor")
+
+	var out bytes.Buffer
+	diagWriteClipboardProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"clipboard_native:",
+		"clipboard_missing:",
+		"clipboard_osc52:",
+		"terminal_selection:",
+		"wl-copy",
+		"xclip",
+		"xsel",
+		"clip.exe",
+		"powershell.exe",
+		"TERM=xterm-256color",
+		"TERM_PROGRAM=UnitTerm",
+		"COLORTERM=truecolor",
+		"/mouse",
+		"terminal text selection",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("diag clipboard probe missing %q:\n%s", want, got)
+		}
+	}
 }
 
 func startEmulator(t *testing.T) (string, func()) {
@@ -179,6 +214,31 @@ func createSession(t *testing.T, baseURL, title string) string {
 }
 
 // --- tests ----------------------------------------------------------------
+
+func TestCLI_VersionReportsBuildMetadata(t *testing.T) {
+	bin := buildGact(t)
+	headCmd := exec.Command("git", "rev-parse", "--short=12", "HEAD")
+	headOut, err := headCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse: %v\n%s", err, headOut)
+	}
+	head := strings.TrimSpace(string(headOut))
+
+	stdout, stderr, code := runGact(t, bin, nil, "version")
+	if code != 0 {
+		t.Fatalf("version: exit %d, stderr=%q", code, stderr)
+	}
+	for _, want := range []string{
+		"gact " + binaryVersion,
+		"(contract " + contractVersion + ")",
+		"revision: " + head,
+		"go:",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("version output missing %q:\n%s", want, stdout)
+		}
+	}
+}
 
 func TestCLI_ExportToStdout(t *testing.T) {
 	url, stop := startEmulator(t)
@@ -2283,6 +2343,199 @@ func TestCLI_ContextListJSON(t *testing.T) {
 	}
 }
 
+func TestCLI_ContextShowTextJSONAndBinarySummary(t *testing.T) {
+	requested := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/s1/context/files/content" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		path := r.URL.Query().Get("path")
+		requested[path]++
+		switch path {
+		case "docs/readme.md":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"file": gact.ContextFileContent{
+					Path:        "docs/readme.md",
+					DisplayPath: "docs/readme.md",
+					Size:        22,
+					MediaType:   "text/markdown; charset=utf-8",
+					Encoding:    "base64",
+					Data:        base64.StdEncoding.EncodeToString([]byte("# Readme\n\nCLI preview\n")),
+				},
+			})
+		case "plots/waveform.png":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"file": gact.ContextFileContent{
+					Path:      "plots/waveform.png",
+					Size:      8,
+					MediaType: "image/png",
+					Encoding:  "base64",
+					Data:      base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\n")),
+				},
+			})
+		default:
+			http.Error(w, `{"error":{"code":"not_found","message":"missing"}}`, http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "docs/readme.md")
+	if code != 0 {
+		t.Fatalf("context show text exit %d stderr=%s", code, stderr)
+	}
+	for _, want := range []string{"path: docs/readme.md", "media_type: text/markdown; charset=utf-8", "preview:", "# Readme", "CLI preview"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("context show text missing %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, base64.StdEncoding.EncodeToString([]byte("# Readme\n\nCLI preview\n"))) {
+		t.Fatalf("context show text should not print raw base64:\n%s", stdout)
+	}
+
+	stdout, stderr, code = runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "docs/readme.md", "--format", "json")
+	if code != 0 {
+		t.Fatalf("context show json exit %d stderr=%s", code, stderr)
+	}
+	var content gact.ContextFileContent
+	if err := json.Unmarshal([]byte(stdout), &content); err != nil {
+		t.Fatalf("parse context show json: %v\nraw=%s", err, stdout)
+	}
+	if content.Path != "docs/readme.md" || content.Data == "" {
+		t.Fatalf("unexpected context show json: %+v", content)
+	}
+
+	stdout, stderr, code = runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "plots/waveform.png")
+	if code != 0 {
+		t.Fatalf("context show binary exit %d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(stdout, "preview: binary content not rendered") {
+		t.Fatalf("binary context show should summarize preview:\n%s", stdout)
+	}
+	if strings.Contains(stdout, "iVBOR") {
+		t.Fatalf("binary context show should not dump base64:\n%s", stdout)
+	}
+	if requested["docs/readme.md"] != 2 || requested["plots/waveform.png"] != 1 {
+		t.Fatalf("unexpected request counts: %#v", requested)
+	}
+}
+
+func TestCLI_ContextShowSurfacesBackendError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":{"code":"not_found","message":"context file missing"}}`, http.StatusNotFound)
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	_, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "missing.txt")
+	if code != 1 {
+		t.Fatalf("context show missing exit = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "context file missing") {
+		t.Fatalf("context show should surface backend error, stderr=%q", stderr)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "show", "s1", "missing.txt", "--format", "yaml"); code != 2 {
+		t.Fatalf("context show bad format exit = %d, want 2", code)
+	}
+}
+
+func TestCLI_ContextUploadPostsLocalFileAndPrintsContextRow(t *testing.T) {
+	tmp := t.TempDir()
+	localPath := filepath.Join(tmp, "report.txt")
+	if err := os.WriteFile(localPath, []byte("hello attachment\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/attachments" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode upload body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/report.txt",
+			Mode:     "pin",
+			Size:     17,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--mode", "pin")
+	if code != 0 {
+		t.Fatalf("context upload exit %d stderr=%s", code, stderr)
+	}
+	if got["filename"] != "report.txt" || got["mode"] != "pin" || got["mime_type"] != "text/plain; charset=utf-8" {
+		t.Fatalf("upload metadata = %#v", got)
+	}
+	if got["file"] != base64.StdEncoding.EncodeToString([]byte("hello attachment\n")) {
+		t.Fatalf("upload file = %#v", got["file"])
+	}
+	if strings.TrimSpace(stdout) != "pin\t.clio/attachments/s1/report.txt" {
+		t.Fatalf("context upload stdout = %q", stdout)
+	}
+}
+
+func TestCLI_ContextUploadJSONAndFailures(t *testing.T) {
+	tmp := t.TempDir()
+	localPath := filepath.Join(tmp, "plot.bin")
+	if err := os.WriteFile(localPath, []byte{0x00, 0x01, 0x02}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/plot.bin",
+			Mode:     "read",
+			Size:     3,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--format", "json")
+	if code != 0 {
+		t.Fatalf("context upload json exit %d stderr=%s", code, stderr)
+	}
+	var cf gact.ContextFile
+	if err := json.Unmarshal([]byte(stdout), &cf); err != nil {
+		t.Fatalf("parse upload json: %v\nraw=%s", err, stdout)
+	}
+	if !cf.Uploaded || cf.Path != ".clio/attachments/s1/plot.bin" {
+		t.Fatalf("upload json = %+v", cf)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--mode", "bad"); code != 2 {
+		t.Fatalf("bad mode exit = %d, want 2", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--format", "yaml"); code != 2 {
+		t.Fatalf("bad format exit = %d, want 2", code)
+	}
+	if _, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", filepath.Join(tmp, "missing.txt")); code != 1 || !strings.Contains(stderr, "no such file") {
+		t.Fatalf("missing file code=%d stderr=%q", code, stderr)
+	}
+
+	rejectSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":{"code":"upload_failed","message":"attachment rejected"}}`, http.StatusBadRequest)
+	}))
+	defer rejectSrv.Close()
+	if _, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": rejectSrv.URL},
+		"context", "upload", "s1", localPath); code != 1 || !strings.Contains(stderr, "attachment rejected") {
+		t.Fatalf("backend reject code=%d stderr=%q", code, stderr)
+	}
+}
+
 // TestCLI_InfoIncludePerms covers NNNNN1: `gact info --include perms`
 // fetches all permission requests for the session (pending +
 // resolved). Triggers the emulator's `delete` permission scenario,
@@ -2707,7 +2960,18 @@ func TestCLI_Capabilities(t *testing.T) {
 	if !strings.Contains(stdout, "contract_version:") {
 		t.Errorf("expected contract_version line: %q", stdout)
 	}
-	for _, want := range []string{"✓ workspaces", "✓ sessions", "✓ mcp"} {
+	for _, want := range []string{
+		"✓ workspaces",
+		"✓ sessions",
+		"✓ mcp",
+		"✓ session_tasks",
+		"✓ agent_routing",
+		"✓ integration_health",
+		"✓ tool_telemetry",
+		"✓ x_clio_agent_blueprints",
+		"✓ x_clio_files_content",
+		"· x_clio_semantic_events",
+	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected %q in capabilities text: %q", want, stdout)
 		}
@@ -2720,6 +2984,48 @@ func TestCLI_Capabilities(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"contract_version"`) || !strings.Contains(stdout, `"workspaces"`) {
 		t.Errorf("expected JSON with contract_version + capabilities: %q", stdout)
+	}
+}
+
+func TestCapabilitiesTextRowsCoverDecodedCapabilityFlags(t *testing.T) {
+	rows := capabilityFlagTextRows(gact.CapabilityFlags{
+		Workspaces:                     true,
+		XClioTextStreaming:             "sse",
+		XClioStreamFallbackReasons:     map[string]any{"provider": map[string]any{"reason": "batch"}},
+		XClioSyntheticPosthocStreaming: true,
+	})
+	seen := map[string]bool{}
+	enabled := map[string]bool{}
+	for _, row := range rows {
+		if row.name == "" {
+			t.Fatal("capability text row has empty name")
+		}
+		if seen[row.name] {
+			t.Fatalf("duplicate capability text row %q", row.name)
+		}
+		seen[row.name] = true
+		enabled[row.name] = row.on
+	}
+
+	typ := reflect.TypeOf(gact.CapabilityFlags{})
+	for i := 0; i < typ.NumField(); i++ {
+		name := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		if !seen[name] {
+			t.Fatalf("decoded capability flag %q is missing from CLI capability text rows", name)
+		}
+	}
+	for _, name := range []string{
+		"workspaces",
+		"x_clio_text_streaming",
+		"x_clio_stream_fallback_reasons",
+		"x_clio_synthetic_posthoc_streaming",
+	} {
+		if !enabled[name] {
+			t.Fatalf("%s should be marked enabled in text rows", name)
+		}
 	}
 }
 
@@ -3587,6 +3893,24 @@ func TestCLI_DumpBundle(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, want)); err != nil {
 			t.Errorf("missing %s: %v", want, err)
 		}
+	}
+	versionText, err := os.ReadFile(filepath.Join(dir, "version.txt"))
+	if err != nil {
+		t.Fatalf("read version.txt: %v", err)
+	}
+	for _, want := range []string{
+		"gact " + binaryVersion,
+		"(contract " + contractVersion + ")",
+		"revision:",
+		"go:",
+		"platform:",
+	} {
+		if !strings.Contains(string(versionText), want) {
+			t.Fatalf("version.txt missing %q:\n%s", want, versionText)
+		}
+	}
+	if strings.Contains(string(versionText), "runtime:") {
+		t.Fatalf("version.txt should use the same Go metadata label as gact version, got:\n%s", versionText)
 	}
 	entries, err := os.ReadDir(filepath.Join(dir, "sessions"))
 	if err != nil {

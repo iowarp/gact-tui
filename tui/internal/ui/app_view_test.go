@@ -289,6 +289,23 @@ func TestRenderHeader_GlobalLMWinsOverStaleSessionModel(t *testing.T) {
 	}
 }
 
+func TestRenderHeader_WorkspaceRootPathVisible(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_1", Title: "demo", Status: gact.StatusIdle},
+	}, nil)
+	a.workspaces = []gact.Workspace{
+		{ID: "ws_a", Name: "alpha", RootPath: "/tmp/alpha"},
+		{ID: "ws_b", Name: "bravo", RootPath: "/tmp/bravo"},
+	}
+	a.wsID = "ws_b"
+	a.width = 200
+
+	got := a.renderHeader()
+	if !strings.Contains(got, "workspace: bravo @ /tmp/bravo") {
+		t.Fatalf("workspace header should include active root path, got: %q", got)
+	}
+}
+
 func TestRenderHeader_HistoricalSessionWithoutModelDoesNotBorrowCurrentLM(t *testing.T) {
 	a := newReadyApp([]gact.Session{
 		{

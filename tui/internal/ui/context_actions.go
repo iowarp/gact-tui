@@ -10,10 +10,21 @@ import (
 )
 
 func (a *App) openContextActionsForIndex(index int) tea.Cmd {
+	zone := FocusSidebar
+	if a.focus == FocusRightSidebar {
+		zone = FocusRightSidebar
+	}
+	return a.openContextActionsForIndexInZone(index, zone)
+}
+
+func (a *App) openContextActionsForIndexInZone(index int, zone FocusZone) tea.Cmd {
 	if index < 0 || index >= len(a.contextFiles) {
 		return nil
 	}
-	a.focus = FocusSidebar
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	a.focus = zone
 	a.sidebarSectionFocus = sidebarSectionContext
 	a.sidebarSectionCursor = false
 	a.contextFileSel = index
@@ -47,8 +58,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 			key:         "Enter",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
-				app.openContextFileDetail(cf)
-				return nil
+				return app.openContextFileDetail(cf)
 			},
 		},
 		{

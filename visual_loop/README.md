@@ -117,6 +117,34 @@ I found a bounded NDP candidate, staged the selected resource, inspected the dat
 - Handoff, tool call, tool result, and final answer order must be obvious.
 - Evidence provenance must be clear: live event vs metadata-promoted event vs assistant prose.
 
+## Live Observability Temporal Gate
+
+Use `assert_live_observability.py` on captured SSE/visual-loop JSONL timelines
+when validating live CLIO benchmark behavior. The default `benchmark-hierarchy`
+mode requires the visible timeline to prove this ordered sequence before turn
+completion:
+
+```text
+route_or_delegate -> child_expert_active -> tool_started -> tool_completed -> parent_resumed
+```
+
+The gate intentionally requires matched benchmark hierarchy observations to
+precede `message.completed` by at least 0.25s. This prevents a false pass where
+the TUI receives a final burst of posthoc evidence immediately before the final
+answer, which looks correct in a settled screenshot but fails the human
+observability requirement.
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/<capture>.jsonl \
+  --mode benchmark-hierarchy \
+  --report visual_loop/screenshots/<capture>.strict.report.md
+```
+
+For narrower smoke checks that only prove live tool start/complete events,
+`--mode basic-tools` remains available and has no live-lead requirement by
+default.
+
 ## Recreating Real Benchmark Sessions
 
 The backend repo contains the benchmark harness that produced the long sessions
@@ -224,8 +252,60 @@ Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
 
 The current Linux/WSL visual loop reuses the persisted CLIO benchmark sessions;
 do not rerun the ALCF benchmark unless the CLIO trace-capture semantics change.
-Rebuild `tui/gact`, run the VHS tapes under `visual_loop/tapes/`, and inspect
-the resulting PNGs under `visual_loop/screenshots/`.
+On Linux/WSL, rebuild and relink with `make dev-install` before launching
+`gact` through either the shell or CLIO. That target points both
+`~/.local/bin/gact` and `~/.local/share/clio/gact` at the current checkout so
+visual-loop changes cannot be hidden behind a stale CLIO launcher. Then run the
+VHS tapes under `visual_loop/tapes/` and inspect the resulting PNGs under
+`visual_loop/screenshots/`.
+
+Before a release pass, run the corpus manifest check:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root .
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked
+python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_assert_live_observability.py
+```
+
+This fast check verifies that the maintained tapes, screenshots, live benchmark
+replay artifacts, and temporal-observability reports are present and non-empty.
+The tracked-artifact mode also fails required artifacts that only exist as local
+untracked files, so a clean checkout cannot accidentally lose release evidence.
+It does not replace screenshot inspection or strict live benchmark assertions;
+it catches missing acceptance artifacts before the visual review starts.
+
+When a fresh live benchmark capture is intended to close the temporal
+observability work, run the stricter corpus gate too:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root . \
+  --require-git-tracked \
+  --require-strict-live-pass
+```
+
+This fails unless at least one maintained strict live-observability report has
+`verdict: PASS`. Historical reports that only prove basic tool streaming should
+remain useful artifacts, but they must not be mistaken for closure-grade
+benchmark hierarchy proof.
+
+### Temporal live-observability gate
+
+Screenshots alone can miss the worst streaming regression: the TUI appears
+frozen during a long CLIO turn, then the final settled transcript looks fine.
+Pair live or benchmark captures with the JSONL temporal assertion:
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.jsonl \
+  --report visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.temporal.md
+```
+
+Default `benchmark-hierarchy` mode requires this order before final completion:
+route/delegate, child expert active, tool started, tool completed, parent
+resumed. Use `--mode basic-tools` only for synthetic smoke cases that do not
+exercise hierarchy. A strict failure with a basic-tools pass means live tool
+visibility exists, but the benchmark hierarchy/parent-resume semantics are not
+yet proven.
 
 Fresh ALCF corpus from 2026-05-25:
 

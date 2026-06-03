@@ -8,6 +8,8 @@ package ui
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -242,6 +244,53 @@ func TestPaste_MultiLineCompresses(t *testing.T) {
 	}
 }
 
+func TestPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\r\nline 2\rline 3"})
+	a = out.(*App)
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "line 1\nline 2\nline 3" {
+		t.Fatalf("normalized paste content = %q", got)
+	}
+	if expanded := a.expandPasteText(a.input.Value()); strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded paste retained carriage returns: %q", expanded)
+	}
+}
+
+func TestBufferedPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+	a.input.SetValue("before alpha\r\nbeta\rgamma")
+	a.pasteBuffer = "alpha\r\nbeta\rgamma"
+
+	a.compactBufferedPaste()
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "alpha\nbeta\ngamma" {
+		t.Fatalf("normalized buffered paste = %q", got)
+	}
+	if raw := a.input.Value(); strings.Contains(raw, "\r") {
+		t.Fatalf("input retained raw carriage returns after compression: %q", raw)
+	}
+	expanded := a.expandPasteText(a.input.Value())
+	if strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded buffered paste retained carriage returns: %q", expanded)
+	}
+	if !strings.Contains(expanded, "before alpha\nbeta\ngamma") {
+		t.Fatalf("expanded buffered paste missing normalized body: %q", expanded)
+	}
+}
+
 // TestPaste_ShortPassesThrough ensures 2-line pastes don't trigger the
 // compression path — overhead isn't worth it at small sizes and the
 // user experience of "pasted content: 2 lines" would feel silly.
@@ -289,6 +338,94 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 	}
 	if len(a.pastes) != 0 {
 		t.Fatalf("paste record should be dropped after expand, got %d", len(a.pastes))
+	}
+}
+
+func TestPaste_CtrlPExpansionGrowsInputPane(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3\nline 4\nline 5"})
+	a = out.(*App)
+	if !strings.Contains(a.input.Value(), "[pasted content") {
+		t.Fatalf("setup: paste did not compress: %q", a.input.Value())
+	}
+
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	a = out.(*App)
+
+	rendered := renderAtSize(a, 110, 30)
+	if got := lipgloss.Height(rendered); got > 30 {
+		t.Fatalf("expanded paste pushed view over viewport: %d > 30", got)
+	}
+	plain := ansi.Strip(rendered)
+	if strings.Contains(plain, "[pasted content") {
+		t.Fatalf("expanded paste still shows placeholder:\n%s", plain)
+	}
+	if !strings.Contains(plain, "line 5") {
+		t.Fatalf("expanded paste last line missing; input pane did not grow:\n%s", plain)
+	}
+}
+
+func TestPaste_PostFailureRestoresExpandedContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/sess_1/messages" {
+			http.Error(w, `{"error":"temporarily unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.Theme.PasteCompressThreshold = 3
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3"})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("compressed paste should not dispatch a command")
+	}
+	if !strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 1 {
+		t.Fatalf("setup: paste did not compress, input=%q pastes=%d", a.input.Value(), len(a.pastes))
+	}
+
+	model, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("Enter should dispatch post command for expanded paste")
+	}
+	if got := a.input.Value(); got != "" {
+		t.Fatalf("input should clear while post is in flight, got %q", got)
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("pastes should clear after dispatch, got %d", len(a.pastes))
+	}
+
+	msg := cmd()
+	failed, ok := msg.(postFailedMsg)
+	if !ok {
+		t.Fatalf("post cmd returned %T, want postFailedMsg", msg)
+	}
+	if strings.Contains(failed.text, "[pasted content") {
+		t.Fatalf("failed draft should not restore inert placeholder: %q", failed.text)
+	}
+	if failed.text != "line 1\nline 2\nline 3" {
+		t.Fatalf("failed draft = %q, want expanded paste body", failed.text)
+	}
+
+	model, _ = a.Update(failed)
+	a = model.(*App)
+	if got := a.input.Value(); got != "line 1\nline 2\nline 3" {
+		t.Fatalf("restored input = %q, want expanded paste body", got)
+	}
+	if strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 0 {
+		t.Fatalf("retry draft should be expanded and have no stale paste records, input=%q pastes=%d", a.input.Value(), len(a.pastes))
 	}
 }
 
@@ -1439,6 +1576,23 @@ func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
 	}
 	if len(a.pastes) != 0 {
 		t.Fatalf("pastes weren't cleared after compose open")
+	}
+}
+
+func TestCompose_PasteNormalizesCRLF(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.openCompose()
+
+	out, _ := a.Update(tea.PasteMsg{Content: "alpha\r\nbeta\rgamma"})
+	a = out.(*App)
+
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose should remain open after paste")
+	}
+	if got := a.compose.ta.Value(); got != "alpha\nbeta\ngamma" {
+		t.Fatalf("compose paste = %q, want normalized LF newlines", got)
 	}
 }
 

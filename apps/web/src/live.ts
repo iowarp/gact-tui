@@ -301,9 +301,6 @@ export function createLiveTranscript(
   // minutes after a few attempts; the user can still force-recover by
   // navigating away and back.
   const BACKOFF_LADDER = [1, 2, 5, 10, 10, 10];
-  // Desktop only: if the Rust SSE bridge hasn't opened within this window,
-  // fall back to a raw EventSource so live streaming never stalls.
-  const BRIDGE_FALLBACK_MS = 4000;
   // Cap the semantic feed so a long-running session can't grow it without
   // bound — it's an observability timeline, not the source of truth.
   const SEMANTIC_FEED_CAP = 500;
@@ -495,8 +492,9 @@ export function createLiveTranscript(
       }, delay * 1000);
     }
 
-    // Raw browser EventSource path — used by the pure-web build, and as the
-    // desktop fallback when the Rust SSE bridge doesn't open (see openEs).
+    // Raw browser EventSource path — used only by the pure-web build.
+    // Desktop/Tauri must stay on the Rust bridge so the WebView never
+    // depends on CLIO CORS for live streaming.
     function openEventSource() {
       const next = new EventSource(client.sseUrl(id));
       es = next;
@@ -521,76 +519,45 @@ export function createLiveTranscript(
       teardownEs();
       setStatus('connecting');
 
-      // Desktop: prefer the Rust SSE bridge (CORS-independent, carries the
-      // bearer token an EventSource can't — see issue #111). But the bridge
-      // must never be a single point of failure for live streaming: if it
-      // doesn't reach `onOpen` within BRIDGE_FALLBACK_MS, or it errors/closes
-      // before opening, or the invoke rejects, fall back to a raw EventSource
-      // (which works whenever clio sends permissive CORS, as it does today).
+      // Desktop: always use the Rust SSE bridge (CORS-independent, carries
+      // the bearer token an EventSource can't — see issue #111). If the
+      // bridge fails to open or drops, retry the bridge through the normal
+      // reconnect ladder instead of falling back to a raw EventSource.
       // teardownEs() bumped bridgeGen, so capture it and ignore any callback
       // from a stream that's since been torn down (open resolves async).
       if (inTauri()) {
         const gen = bridgeGen;
         const stale = () => gen !== bridgeGen || disposed;
-        let opened = false;
-        let fellBack = false;
-        let fbTimer: ReturnType<typeof setTimeout> | null = null;
-        const clearFb = () => {
-          if (fbTimer) {
-            clearTimeout(fbTimer);
-            fbTimer = null;
-          }
+        let failed = false;
+        const bridgeFailed = () => {
+          if (stale() || failed) return;
+          failed = true;
+          bridge = null;
+          setStatus('error');
+          scheduleReconnect();
         };
-        const fallBack = () => {
-          if (stale() || opened || fellBack) return;
-          fellBack = true;
-          clearFb();
-          if (bridge) {
-            bridge.close();
-            bridge = null;
-          }
-          openEventSource();
-        };
-        fbTimer = setTimeout(fallBack, BRIDGE_FALLBACK_MS);
         void openTauriSse(client.sseUrl(id), {
           onOpen: () => {
-            if (stale() || fellBack) return;
-            opened = true;
-            clearFb();
+            if (stale()) return;
             attempt = 0;
             setStatus('open');
           },
           onData: (data) => {
-            if (stale() || fellBack) return;
+            if (stale()) return;
             handleData(data);
           },
           onError: () => {
             if (stale()) return;
-            clearFb();
-            bridge = null;
-            if (!opened) {
-              fallBack();
-            } else {
-              setStatus('error');
-              scheduleReconnect();
-            }
+            bridgeFailed();
           },
           onClosed: () => {
             if (stale()) return;
-            clearFb();
-            bridge = null;
-            if (!opened) {
-              // Closed before it ever opened — bridge unusable; fall back.
-              fallBack();
-            } else {
-              setStatus('error');
-              scheduleReconnect();
-            }
+            bridgeFailed();
           },
         })
           .then((h) => {
-            if (gen !== bridgeGen || fellBack) {
-              // Torn down / already fell back while opening — drop it.
+            if (stale() || failed) {
+              // Torn down or failed while opening — drop it.
               h.close();
               return;
             }
@@ -598,7 +565,7 @@ export function createLiveTranscript(
           })
           .catch(() => {
             if (stale()) return;
-            fallBack();
+            bridgeFailed();
           });
         return;
       }

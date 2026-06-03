@@ -1,19 +1,20 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-)
 
-const (
-	fileViewerMaxDepth   = 5
-	fileViewerMaxEntries = 600
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 type fileTreeEntry struct {
@@ -28,11 +29,13 @@ func (a *App) initFileViewerFromCwd() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		a.fileViewerRoot = "."
+		a.fileTreeRootMode = "cwd"
 		a.fileTreeErr = err.Error()
 		a.fileTreeExpanded = map[string]bool{}
 		return
 	}
 	a.SetFileViewerRoot(cwd)
+	a.fileTreeRootMode = "cwd"
 }
 
 func (a *App) SetFileViewerRoot(root string) {
@@ -44,14 +47,39 @@ func (a *App) SetFileViewerRoot(root string) {
 	if err != nil {
 		abs = root
 	}
+	if a.fileViewerRoot == abs && len(a.fileTreeEntries) > 0 {
+		return
+	}
 	a.fileViewerRoot = abs
 	a.fileTreeExpanded = map[string]bool{}
 	a.fileTreeSel = 0
 	a.reloadFileViewer()
 }
 
+func (a *App) syncFileViewerRootToWorkspace() {
+	root := strings.TrimSpace(a.currentWorkspaceRootPath())
+	if root == "" {
+		if a.fileViewerRoot == "" {
+			a.initFileViewerFromCwd()
+		}
+		a.fileTreeRootMode = "cwd"
+		return
+	}
+	a.SetFileViewerRoot(root)
+	a.fileTreeRootMode = "workspace"
+}
+
+func (a *App) currentWorkspaceRootPath() string {
+	for _, ws := range a.workspaces {
+		if ws.ID == a.wsID {
+			return ws.RootPath
+		}
+	}
+	return ""
+}
+
 func (a *App) reloadFileViewer() {
-	entries, err := scanFileTree(a.fileViewerRoot)
+	entries, err := scanFileTreeDir(a.fileViewerRoot, "", 0)
 	a.fileTreeEntries = entries
 	a.fileTreeErr = ""
 	if err != nil {
@@ -60,7 +88,7 @@ func (a *App) reloadFileViewer() {
 	a.clampFileTreeSelection()
 }
 
-func scanFileTree(root string) ([]fileTreeEntry, error) {
+func scanFileTreeDir(root string, rel string, depth int) ([]fileTreeEntry, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, err
@@ -68,63 +96,39 @@ func scanFileTree(root string) ([]fileTreeEntry, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", root)
 	}
-	entries := make([]fileTreeEntry, 0, 128)
-	var walk func(abs string, rel string, depth int)
-	walk = func(abs string, rel string, depth int) {
-		if depth > fileViewerMaxDepth || len(entries) >= fileViewerMaxEntries {
-			return
-		}
-		children, err := os.ReadDir(abs)
-		if err != nil {
-			return
-		}
-		sort.Slice(children, func(i, j int) bool {
-			if children[i].IsDir() != children[j].IsDir() {
-				return children[i].IsDir()
-			}
-			return strings.ToLower(children[i].Name()) < strings.ToLower(children[j].Name())
-		})
-		for _, child := range children {
-			if len(entries) >= fileViewerMaxEntries {
-				return
-			}
-			name := child.Name()
-			if shouldSkipFileViewerEntry(name, child.IsDir()) {
-				continue
-			}
-			childRel := name
-			if rel != "" {
-				childRel = filepath.ToSlash(filepath.Join(rel, name))
-			}
-			entry := fileTreeEntry{
-				Path:  childRel,
-				Name:  name,
-				Dir:   child.IsDir(),
-				Depth: depth,
-			}
-			if info, err := child.Info(); err == nil {
-				entry.Size = info.Size()
-			}
-			entries = append(entries, entry)
-			if child.IsDir() {
-				walk(filepath.Join(abs, name), childRel, depth+1)
-			}
-		}
+	abs := root
+	if rel != "" {
+		abs = filepath.Join(root, filepath.FromSlash(rel))
 	}
-	walk(root, "", 0)
+	children, err := os.ReadDir(abs)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(children, func(i, j int) bool {
+		if children[i].IsDir() != children[j].IsDir() {
+			return children[i].IsDir()
+		}
+		return strings.ToLower(children[i].Name()) < strings.ToLower(children[j].Name())
+	})
+	entries := make([]fileTreeEntry, 0, len(children))
+	for _, child := range children {
+		name := child.Name()
+		childRel := name
+		if rel != "" {
+			childRel = filepath.ToSlash(filepath.Join(rel, name))
+		}
+		entry := fileTreeEntry{
+			Path:  childRel,
+			Name:  name,
+			Dir:   child.IsDir(),
+			Depth: depth,
+		}
+		if info, err := child.Info(); err == nil {
+			entry.Size = info.Size()
+		}
+		entries = append(entries, entry)
+	}
 	return entries, nil
-}
-
-func shouldSkipFileViewerEntry(name string, isDir bool) bool {
-	if isDir && strings.HasPrefix(name, ".") {
-		return true
-	}
-	switch name {
-	case ".git", ".hg", ".svn", "node_modules", ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache", ".tools":
-		return true
-	default:
-		return false
-	}
 }
 
 func (a *App) visibleFileTreeEntries() []fileTreeEntry {
@@ -161,10 +165,51 @@ func (a *App) activateFileTreeSelection() {
 	a.fileTreeSel = clampSelection(a.fileTreeSel, len(visible))
 	entry := visible[a.fileTreeSel]
 	if entry.Dir {
+		if !a.fileTreeExpanded[entry.Path] {
+			a.loadFileTreeChildren(entry)
+		}
 		a.fileTreeExpanded[entry.Path] = !a.fileTreeExpanded[entry.Path]
 		return
 	}
 	a.openFileViewerDetail(entry)
+}
+
+func (a *App) loadFileTreeChildren(entry fileTreeEntry) {
+	if !entry.Dir || a.fileTreeChildrenLoaded(entry.Path) {
+		return
+	}
+	children, err := scanFileTreeDir(a.fileViewerRoot, entry.Path, entry.Depth+1)
+	if err != nil {
+		a.fileTreeErr = err.Error()
+		return
+	}
+	insertAt := -1
+	for i, existing := range a.fileTreeEntries {
+		if existing.Path == entry.Path {
+			insertAt = i + 1
+			break
+		}
+	}
+	if insertAt < 0 {
+		return
+	}
+	next := make([]fileTreeEntry, 0, len(a.fileTreeEntries)+len(children))
+	next = append(next, a.fileTreeEntries[:insertAt]...)
+	next = append(next, children...)
+	next = append(next, a.fileTreeEntries[insertAt:]...)
+	a.fileTreeEntries = next
+}
+
+func (a *App) fileTreeChildrenLoaded(path string) bool {
+	for _, entry := range a.fileTreeEntries {
+		if entry.Path == path {
+			continue
+		}
+		if filepath.ToSlash(filepath.Dir(entry.Path)) == path {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) openFileViewerDetail(entry fileTreeEntry) {
@@ -191,9 +236,46 @@ func (a *App) openFileViewerDetail(entry fileTreeEntry) {
 		partID:    entry.Path,
 		title:     "File · " + entry.Path,
 		fullText:  strings.Join(rows, "\n"),
+		localPath: fullPath,
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+}
+
+func (a *App) uploadCurrentFileDetail() tea.Cmd {
+	if a.detailView == nil || a.detailView.messageID != "files" || strings.TrimSpace(a.detailView.localPath) == "" {
+		a.transientHint = "upload unavailable for this detail"
+		return scheduleHintExpire(a.transientHint)
+	}
+	sid := a.currentSessionID()
+	if sid == "" {
+		a.transientHint = "no active session to upload into"
+		return scheduleHintExpire(a.transientHint)
+	}
+	if !a.caps.Capabilities.AttachmentsUpload {
+		a.transientHint = "attachment upload unsupported by this backend"
+		return scheduleHintExpire(a.transientHint)
+	}
+	path := a.detailView.localPath
+	a.transientHint = "uploading " + filepath.Base(path) + "..."
+	return tea.Batch(scheduleHintExpire(a.transientHint), uploadAttachmentFileCmd(a.c, sid, path, "read"))
+}
+
+func uploadAttachmentFileCmd(c *client.Client, sessionID, path, mode string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return contextFileUploadedMsg{sessionID: sessionID, localPath: path, err: err}
+		}
+		mimeType := mime.TypeByExtension(filepath.Ext(path))
+		if mimeType == "" && len(data) > 0 {
+			mimeType = http.DetectContentType(data[:minInt(len(data), 512)])
+		}
+		cf, err := c.UploadAttachment(ctx, sessionID, filepath.Base(path), mimeType, mode, data)
+		return contextFileUploadedMsg{sessionID: sessionID, localPath: path, file: cf, err: err}
+	}
 }
 
 func (a *App) fileViewerRootLabel() string {
@@ -226,7 +308,11 @@ func (a *App) renderFileViewerModuleRows(width int, startRow int, rowBudget int)
 	}
 	rootLabel := a.fileViewerRootLabel()
 	if rootLabel != "" {
-		rows = append(rows, t.HintLabel.Italic(true).Render(truncate("root: "+rootLabel, width-6)))
+		label := "root: " + rootLabel
+		if a.fileTreeRootMode == "workspace" {
+			label = "workspace: " + rootLabel
+		}
+		rows = append(rows, t.HintLabel.Italic(true).Render(truncate(label, width-6)))
 	}
 	if a.fileTreeErr != "" {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(truncate("error: "+a.fileTreeErr, width-6)))

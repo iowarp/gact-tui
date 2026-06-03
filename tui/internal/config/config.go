@@ -24,6 +24,7 @@ import (
 // layering with env vars and flags.
 type Config struct {
 	BackendURL        *string `json:"backend_url,omitempty"`
+	Workspace         *string `json:"workspace,omitempty"`     // startup workspace id, name, or root path
 	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
 	Locale            *string `json:"locale,omitempty"`        // "en" | "es" | "ja"
 	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav

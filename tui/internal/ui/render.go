@@ -1500,8 +1500,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			glyphStyle = glyphStyle.Foreground(t.Danger)
 			barStyle = barStyle.Foreground(t.Danger)
 		}
+		content := p.Content
+		rawText := flattenToolResult(p)
+		hasRawDetail := p.Metadata != nil && p.Metadata["raw_result"] != nil
+		if !p.IsError {
+			if summary := summarizeToolResultText(p.ToolName, rawText); summary != "" {
+				if strings.TrimSpace(summary) != strings.TrimSpace(rawText) {
+					hasRawDetail = true
+				}
+				content = []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: summary,
+				}}
+			}
+		}
 		var text strings.Builder
-		for i, c := range p.Content {
+		for i, c := range content {
 			if i > 0 {
 				text.WriteString("\n")
 			}
@@ -1542,7 +1556,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 				Render(" to expand]")
 			hint := prefix + keyStyle.Render("Ctrl+E") + suffix
 			body = body + "\n" + hint
-		} else if p.Metadata != nil && p.Metadata["raw_result"] != nil {
+		} else if hasRawDetail {
 			label := "raw detail"
 			if provenance := promotedEvidenceLabel(p); provenance != "" {
 				label = provenance + " · raw detail"
@@ -1643,6 +1657,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			body += "\n" + prefix + keyStyle.Render("Ctrl+E") + suffix
 		}
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+
+	case partTypeRuntimeProvenance:
+		head := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
+			Render("◇ runtime provenance")
+		body := strings.TrimSpace(p.Text)
+		if body == "" {
+			body = "structured execution evidence"
+		}
+		rendered := lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(indent(wrap(body, wrapW-2), "  "))
+		prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("  [trace, tools, skills, delegation · ")
+		keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("]")
+		return lipgloss.JoinVertical(lipgloss.Left, head, rendered, prefix+keyStyle.Render("Ctrl+E")+suffix)
 
 	default:
 		// Unknown part type — preserve presence (per SPEC §8.3) so the user

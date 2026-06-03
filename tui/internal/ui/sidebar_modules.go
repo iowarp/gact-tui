@@ -10,6 +10,7 @@ type sidebarModuleID string
 
 const (
 	sidebarModuleSessions sidebarModuleID = "sessions"
+	sidebarModuleAgents   sidebarModuleID = "agents"
 	sidebarModuleFiles    sidebarModuleID = "files"
 	sidebarModuleContext  sidebarModuleID = "context"
 )
@@ -44,6 +45,13 @@ func sidebarModuleRegistry() map[sidebarModuleID]sidebarModuleDefinition {
 			DefaultPlacement: sidebarPlacementLeft,
 			PersistenceKey:   "sidebar.sessions",
 		},
+		sidebarModuleAgents: {
+			ID:               sidebarModuleAgents,
+			Section:          sidebarSectionAgents,
+			Title:            msgSidebarAgents,
+			DefaultPlacement: sidebarPlacementLeft,
+			PersistenceKey:   "sidebar.agents",
+		},
 		sidebarModuleFiles: {
 			ID:               sidebarModuleFiles,
 			Section:          sidebarSectionFiles,
@@ -58,6 +66,15 @@ func sidebarModuleRegistry() map[sidebarModuleID]sidebarModuleDefinition {
 			DefaultPlacement: sidebarPlacementLeft,
 			PersistenceKey:   "sidebar.context",
 		},
+	}
+}
+
+func sidebarModuleRegistryOrder() []sidebarModuleID {
+	return []sidebarModuleID{
+		sidebarModuleSessions,
+		sidebarModuleContext,
+		sidebarModuleAgents,
+		sidebarModuleFiles,
 	}
 }
 
@@ -96,6 +113,7 @@ func sidebarModuleIDStrings(ids []sidebarModuleID) []string {
 // ordering. Unknown module ids remain in the layout and render disabled.
 func (a *App) SetSidebarModuleIDs(ids []string) {
 	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(ids)
+	a.rightSidebarModuleIDs = nil
 	a.sidebarLayoutConfigured = len(ids) > 0
 }
 

@@ -591,7 +591,7 @@ func (a *App) viewSettings() string {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsCurrent,
 			map[string]string{"value": orPlaceholder(currentAgent, a.localizer.t(msgSettingsUnset, nil))})))
 		rows = append(rows, "")
-		if len(s.agentList) == 0 {
+		if len(s.agentList) == 0 && strings.TrimSpace(s.loadErr) == "" {
 			rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsLoading, nil)))
 		}
 		if s.agentSel >= len(s.agentList) {

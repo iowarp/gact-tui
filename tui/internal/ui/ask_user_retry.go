@@ -261,16 +261,13 @@ func (a *App) handleAskUserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.askUserDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.askUserCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.askUserCursor:]...)
-		a.askUserDraft = string(out)
-		a.askUserCursor += len(insert)
+		a.insertAskUserText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertAskUserText(text string) {
+	a.askUserDraft, a.askUserCursor = insertTextAtCursor(a.askUserDraft, a.askUserCursor, text)
 }
 
 func (a *App) commitAskUserAnswer() (tea.Model, tea.Cmd) {
@@ -422,16 +419,13 @@ func (a *App) handleRetryNotesKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.retryNotesDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.retryNotesCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.retryNotesCursor:]...)
-		a.retryNotesDraft = string(out)
-		a.retryNotesCursor += len(insert)
+		a.insertRetryNotesText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertRetryNotesText(text string) {
+	a.retryNotesDraft, a.retryNotesCursor = insertTextAtCursor(a.retryNotesDraft, a.retryNotesCursor, text)
 }
 
 func (a *App) commitRetryNotes() (tea.Model, tea.Cmd) {
@@ -537,16 +531,13 @@ func (a *App) handleRetryModelKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.retryModelDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.retryModelCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.retryModelCursor:]...)
-		a.retryModelDraft = string(out)
-		a.retryModelCursor += len(insert)
+		a.insertRetryModelText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertRetryModelText(text string) {
+	a.retryModelDraft, a.retryModelCursor = insertTextAtCursor(a.retryModelDraft, a.retryModelCursor, text)
 }
 
 func (a *App) commitRetryModel() (tea.Model, tea.Cmd) {
@@ -619,6 +610,20 @@ func parseRetryModelRef(raw string) (gact.ModelRef, bool) {
 		return gact.ModelRef{}, false
 	}
 	return gact.ModelRef{ProviderID: provider, ModelID: model}, true
+}
+
+func insertTextAtCursor(value string, cursor int, text string) (string, int) {
+	if text == "" {
+		return value, clampInt(cursor, 0, len([]rune(value)))
+	}
+	runes := []rune(value)
+	cursor = clampInt(cursor, 0, len(runes))
+	insert := []rune(text)
+	out := make([]rune, 0, len(runes)+len(insert))
+	out = append(out, runes[:cursor]...)
+	out = append(out, insert...)
+	out = append(out, runes[cursor:]...)
+	return string(out), cursor + len(insert)
 }
 
 func questionOptions(q gact.AgentQuestion) []gact.AgentQuestionChoice {

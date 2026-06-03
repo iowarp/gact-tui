@@ -24,6 +24,7 @@ Screenshot "visual_loop/screenshots/semantic_context_row_selected.png"
 
 Enter
 Wait+Screen /Context file/
+Wait+Screen /media_type: text/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_context_detail.png"
 

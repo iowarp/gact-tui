@@ -110,6 +110,90 @@ func TestMessageCompletedMergesToolEvidenceMetadata(t *testing.T) {
 	}
 }
 
+func TestPartAddedReplacesExistingLivePartByID(t *testing.T) {
+	a := &App{
+		messages: []gact.Message{
+			{
+				ID:   "asst_1",
+				Role: gact.RoleAssistant,
+				Parts: []gact.Part{{
+					ID:       "part_1",
+					Type:     gact.PartTypeToolResult,
+					CallID:   "call_1",
+					ToolName: "ndp_search",
+					Content:  []gact.Part{{Type: gact.PartTypeText, Text: "completed"}},
+				}},
+			},
+		},
+	}
+
+	a.applySSE(client.SSEEvent{
+		Type: "message.part.added",
+		Payload: map[string]any{
+			"payload": map[string]any{
+				"message_id": "asst_1",
+				"part": map[string]any{
+					"id":        "part_1",
+					"type":      gact.PartTypeToolResult,
+					"call_id":   "call_1",
+					"tool_name": "ndp_search",
+					"content": []any{map[string]any{
+						"type": "text",
+						"text": "dataset result",
+					}},
+				},
+			},
+		},
+	})
+
+	if len(a.messages[0].Parts) != 1 {
+		t.Fatalf("parts len = %d, want replacement not append", len(a.messages[0].Parts))
+	}
+	if got := a.messages[0].Parts[0].Content[0].Text; got != "dataset result" {
+		t.Fatalf("replacement text = %q", got)
+	}
+}
+
+func TestLiveStructuredToolResultUsesSemanticPreview(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				Type:     gact.PartTypeToolCall,
+				CallID:   "call_1",
+				ToolName: "ndp_search_datasets",
+				Input:    map[string]any{"search_terms": "seismic", "limit": 5},
+			},
+			{
+				Type:     gact.PartTypeToolResult,
+				CallID:   "call_1",
+				ToolName: "ndp_search_datasets",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: `{"_meta":{"status":"success","tool":"search_datasets"},"count":5,"datasets":{"count":4,"items":[{"id":"salton-sea","name":"Salton Sea Seismic Data","notes":"MiniSEED waveform data recorded by CI network stations in the Salton Sea region.","resources":[{"url":"osdf:///ndp/public/ucr_seis/Data_Salton"}]}]}}`,
+				}},
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
+	for _, want := range []string{
+		"NdpSearchDatasets(search_terms: seismic",
+		"status: success",
+		"count: 5",
+		"Salton Sea Seismic Data",
+		"raw detail",
+		"Ctrl+E",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("live structured result missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"_meta"`) || strings.Contains(out, `"datasets":`) {
+		t.Fatalf("live structured result should not render raw JSON inline:\n%s", out)
+	}
+}
+
 func TestNormalizeMessageToolEvidenceInsertsBeforeFinalText(t *testing.T) {
 	msg := gact.Message{
 		Role: gact.RoleAssistant,

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -11,9 +12,16 @@ import (
 )
 
 // clipboardWrite is a package-level indirection so tests can swap the
-// backend without touching the OS clipboard. Production calls through
-// to atotto/clipboard; test files override the variable.
-var clipboardWrite = clipboard.WriteAll
+// backend without touching the OS clipboard. Production tries concrete
+// terminal clipboard utilities first, then falls back to atotto/clipboard.
+var clipboardWrite = writeNativeClipboard
+var clipboardLookPath = exec.LookPath
+var clipboardAtottoWrite = clipboard.WriteAll
+var clipboardRunCommand = func(name string, args []string, input string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = strings.NewReader(input)
+	return cmd.Run()
+}
 var osc52Write = func(text string) error {
 	encoded := base64.StdEncoding.EncodeToString([]byte(text))
 	_, err := fmt.Fprintf(os.Stdout, "\x1b]52;c;%s\a", encoded)
@@ -38,7 +46,7 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 	}
 	if err := clipboardWrite(text); err != nil {
 		if oscErr := osc52Write(text); oscErr != nil {
-			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error()
+			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error() + "; run `gact diag` and check clipboard_native/clipboard_missing/clipboard_osc52"
 		}
 		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
 	}
@@ -46,6 +54,53 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		return "copied content to clipboard"
 	}
 	return copiedHint(len(text))
+}
+
+type clipboardCommand struct {
+	name string
+	args []string
+}
+
+func nativeClipboardCommands() []clipboardCommand {
+	return []clipboardCommand{
+		{name: "wl-copy"},
+		{name: "xclip", args: []string{"-selection", "clipboard"}},
+		{name: "xsel", args: []string{"--clipboard", "--input"}},
+		{name: "pbcopy"},
+		{name: "clip.exe"},
+		{name: "powershell.exe", args: []string{"-NoProfile", "-Command", "$input | Set-Clipboard"}},
+		{name: "termux-clipboard-set"},
+	}
+}
+
+func writeNativeClipboard(text string) error {
+	var tried []string
+	var failures []string
+	fallbackNames := "wl-copy, xclip, xsel, pbcopy, clip.exe, powershell.exe, termux-clipboard-set, atotto/clipboard"
+	for _, cmd := range nativeClipboardCommands() {
+		path, err := clipboardLookPath(cmd.name)
+		if err != nil {
+			continue
+		}
+		tried = append(tried, cmd.name)
+		if err := clipboardRunCommand(path, cmd.args, text); err != nil {
+			failures = append(failures, cmd.name+": "+err.Error())
+			continue
+		}
+		return nil
+	}
+	if err := clipboardAtottoWrite(text); err != nil {
+		if len(tried) == 0 {
+			return fmt.Errorf("no native clipboard utilities found; fallback order %s; atotto/clipboard: %w", fallbackNames, err)
+		}
+		return fmt.Errorf("no native clipboard utility succeeded; fallback order %s; installed attempts: %s; failures: %s; atotto/clipboard: %w",
+			fallbackNames,
+			strings.Join(tried, ", "),
+			strings.Join(failures, "; "),
+			err,
+		)
+	}
+	return nil
 }
 
 // messageText returns the concatenated text/thinking content of a
