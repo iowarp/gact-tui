@@ -5319,12 +5319,11 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 	fileFields := []detailField{
 		{"path", cf.Path},
 		{"mode", contextModeDescription(cf.Mode)},
+		{"status", contextFileStatusDescription(cf)},
+		{"source", contextFileSourceDescription(cf)},
 	}
 	if cf.Size > 0 {
 		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
-	}
-	if cf.Uploaded {
-		fileFields = append(fileFields, detailField{"source", "uploaded attachment"})
 	}
 	if strings.TrimSpace(cf.Language) != "" {
 		fileFields = append(fileFields, detailField{"language", cf.Language})
@@ -5471,6 +5470,21 @@ func contextModeDescription(mode string) string {
 	default:
 		return mode
 	}
+}
+
+func contextFileStatusDescription(cf gact.ContextFile) string {
+	mode := contextModeDescription(cf.Mode)
+	if cf.Uploaded {
+		return "uploaded attachment attached to selected session as " + mode
+	}
+	return "workspace file attached to selected session as " + mode
+}
+
+func contextFileSourceDescription(cf gact.ContextFile) string {
+	if cf.Uploaded {
+		return "uploaded attachment"
+	}
+	return "workspace context file"
 }
 
 func shortContextPath(path string) string {
