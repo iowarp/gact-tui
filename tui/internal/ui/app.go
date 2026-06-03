@@ -1249,6 +1249,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.pasteBuffer = ""
 		return a, nil
 	case tea.PasteMsg:
+		m.Content = normalizePasteNewlines(m.Content)
 		if a.lmConfigOpen && a.lmConfig != nil {
 			a.handleLMConfigPaste(m.Content)
 			return a, nil
@@ -10020,6 +10021,11 @@ func (a *App) insertPastePlaceholder(content string, lineCount int) {
 		cur += " "
 	}
 	a.input.SetValue(cur + placeholder + " ")
+}
+
+func normalizePasteNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	return strings.ReplaceAll(content, "\r", "\n")
 }
 
 func (a *App) recordPasteKey(k tea.KeyPressMsg) {

@@ -242,6 +242,25 @@ func TestPaste_MultiLineCompresses(t *testing.T) {
 	}
 }
 
+func TestPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\r\nline 2\rline 3"})
+	a = out.(*App)
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "line 1\nline 2\nline 3" {
+		t.Fatalf("normalized paste content = %q", got)
+	}
+	if expanded := a.expandPasteText(a.input.Value()); strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded paste retained carriage returns: %q", expanded)
+	}
+}
+
 // TestPaste_ShortPassesThrough ensures 2-line pastes don't trigger the
 // compression path — overhead isn't worth it at small sizes and the
 // user experience of "pasted content: 2 lines" would feel silly.
@@ -1467,6 +1486,23 @@ func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
 	}
 	if len(a.pastes) != 0 {
 		t.Fatalf("pastes weren't cleared after compose open")
+	}
+}
+
+func TestCompose_PasteNormalizesCRLF(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.openCompose()
+
+	out, _ := a.Update(tea.PasteMsg{Content: "alpha\r\nbeta\rgamma"})
+	a = out.(*App)
+
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose should remain open after paste")
+	}
+	if got := a.compose.ta.Value(); got != "alpha\nbeta\ngamma" {
+		t.Fatalf("compose paste = %q, want normalized LF newlines", got)
 	}
 }
 
