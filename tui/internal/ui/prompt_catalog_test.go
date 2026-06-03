@@ -102,6 +102,66 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintManageButtonsUseSemanticHitTargets(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openAgentBlueprintManage(agentBlueprintManageValidate)
+
+	a.beginHitFrame()
+	modal := a.viewAgentBlueprintManage()
+	validateTarget, ok := findHitTargetForTest(a, "button:agent-blueprint-manage:validate")
+	if !ok {
+		t.Fatal("missing validate button hit target")
+	}
+	cancelTarget, ok := findHitTargetForTest(a, "button:agent-blueprint-manage:cancel")
+	if !ok {
+		t.Fatal("missing cancel button hit target")
+	}
+	rect := overlayMouseRect(modal, a.width, a.height)
+	for id, target := range map[string]uiHitTarget{
+		"validate": validateTarget,
+		"cancel":   cancelTarget,
+	} {
+		if wantY := rect.y + 2; target.rect.y != wantY {
+			t.Fatalf("%s button y = %d, want shared header row %d", id, target.rect.y, wantY)
+		}
+	}
+
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      validateTarget.rect.x,
+		Y:      validateTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("empty validate click should not dispatch a backend command")
+	}
+	if !a.agentBlueprintManageOpen {
+		t.Fatal("empty validate click should keep modal open")
+	}
+	if !strings.Contains(a.agentBlueprintManageErr, "required") {
+		t.Fatalf("empty validate click should surface required error, got %q", a.agentBlueprintManageErr)
+	}
+
+	a.beginHitFrame()
+	_ = a.viewAgentBlueprintManage()
+	cancelTarget, ok = findHitTargetForTest(a, "button:agent-blueprint-manage:cancel")
+	if !ok {
+		t.Fatal("missing cancel button hit target after validation error")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      cancelTarget.rect.x,
+		Y:      cancelTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("cancel click should not dispatch a backend command")
+	}
+	if a.agentBlueprintManageOpen {
+		t.Fatal("cancel click should close blueprint manage modal")
+	}
+}
+
 func TestFormatResolvedPromptShowsProvenanceAndText(t *testing.T) {
 	out := formatResolvedPrompt(gact.ResolvedPrompt{
 		ID: "clio.chat", Profile: "debug", Scope: "global", SourcePath: "/tmp/prompt.md",

@@ -349,6 +349,15 @@ func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
 			buttonID:  "button:agent-write:save",
 			wantTitle: "Create user agent",
 		},
+		{
+			name: "agent blueprint manage",
+			view: func() string {
+				a.openAgentBlueprintManage(agentBlueprintManageValidate)
+				return a.viewAgentBlueprintManage()
+			},
+			buttonID:  "button:agent-blueprint-manage:validate",
+			wantTitle: "Validate agent blueprint",
+		},
 	}
 
 	for _, tc := range cases {
