@@ -2416,6 +2416,98 @@ func TestCLI_ContextShowSurfacesBackendError(t *testing.T) {
 	}
 }
 
+func TestCLI_ContextUploadPostsLocalFileAndPrintsContextRow(t *testing.T) {
+	tmp := t.TempDir()
+	localPath := filepath.Join(tmp, "report.txt")
+	if err := os.WriteFile(localPath, []byte("hello attachment\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/attachments" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode upload body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/report.txt",
+			Mode:     "pin",
+			Size:     17,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--mode", "pin")
+	if code != 0 {
+		t.Fatalf("context upload exit %d stderr=%s", code, stderr)
+	}
+	if got["filename"] != "report.txt" || got["mode"] != "pin" || got["mime_type"] != "text/plain; charset=utf-8" {
+		t.Fatalf("upload metadata = %#v", got)
+	}
+	if got["file"] != base64.StdEncoding.EncodeToString([]byte("hello attachment\n")) {
+		t.Fatalf("upload file = %#v", got["file"])
+	}
+	if strings.TrimSpace(stdout) != "pin\t.clio/attachments/s1/report.txt" {
+		t.Fatalf("context upload stdout = %q", stdout)
+	}
+}
+
+func TestCLI_ContextUploadJSONAndFailures(t *testing.T) {
+	tmp := t.TempDir()
+	localPath := filepath.Join(tmp, "plot.bin")
+	if err := os.WriteFile(localPath, []byte{0x00, 0x01, 0x02}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/plot.bin",
+			Mode:     "read",
+			Size:     3,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+	bin := buildGact(t)
+
+	stdout, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--format", "json")
+	if code != 0 {
+		t.Fatalf("context upload json exit %d stderr=%s", code, stderr)
+	}
+	var cf gact.ContextFile
+	if err := json.Unmarshal([]byte(stdout), &cf); err != nil {
+		t.Fatalf("parse upload json: %v\nraw=%s", err, stdout)
+	}
+	if !cf.Uploaded || cf.Path != ".clio/attachments/s1/plot.bin" {
+		t.Fatalf("upload json = %+v", cf)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--mode", "bad"); code != 2 {
+		t.Fatalf("bad mode exit = %d, want 2", code)
+	}
+	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", localPath, "--format", "yaml"); code != 2 {
+		t.Fatalf("bad format exit = %d, want 2", code)
+	}
+	if _, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
+		"context", "upload", "s1", filepath.Join(tmp, "missing.txt")); code != 1 || !strings.Contains(stderr, "no such file") {
+		t.Fatalf("missing file code=%d stderr=%q", code, stderr)
+	}
+
+	rejectSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":{"code":"upload_failed","message":"attachment rejected"}}`, http.StatusBadRequest)
+	}))
+	defer rejectSrv.Close()
+	if _, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": rejectSrv.URL},
+		"context", "upload", "s1", localPath); code != 1 || !strings.Contains(stderr, "attachment rejected") {
+		t.Fatalf("backend reject code=%d stderr=%q", code, stderr)
+	}
+}
+
 // TestCLI_InfoIncludePerms covers NNNNN1: `gact info --include perms`
 // fetches all permission requests for the session (pending +
 // resolved). Triggers the emulator's `delete` permission scenario,
