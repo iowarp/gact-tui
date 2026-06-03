@@ -52,6 +52,25 @@ func TestSetSidebarModuleIDsNormalizesConfigIDs(t *testing.T) {
 	}
 }
 
+func TestSetSidebarModuleIDsClearsStaleRightPlacement(t *testing.T) {
+	a := New("http://unused")
+	a.width = 140
+	a.SetSidebarLayout([]string{"sessions"}, []string{"context"})
+
+	a.SetSidebarModuleIDs([]string{"context", "sessions"})
+
+	left, right := a.SidebarLayoutIDs()
+	if strings.Join(left, ",") != "context,sessions" || len(right) != 0 {
+		t.Fatalf("layout left=%#v right=%#v, want context,sessions/no right", left, right)
+	}
+	if got := a.SidebarModulePlacement("context"); got != "left" {
+		t.Fatalf("context placement = %q, want left", got)
+	}
+	if got := a.rightSidebarWidth(30); got != 0 {
+		t.Fatalf("right sidebar width = %d, want disabled after single-list layout", got)
+	}
+}
+
 func TestSetSidebarLayoutStoresRightModulesWithoutDefaults(t *testing.T) {
 	a := New("http://unused")
 	a.SetSidebarLayout([]string{"sessions"}, []string{"context", "future-tools"})

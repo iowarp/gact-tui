@@ -104,6 +104,7 @@ func sidebarModuleIDStrings(ids []sidebarModuleID) []string {
 // ordering. Unknown module ids remain in the layout and render disabled.
 func (a *App) SetSidebarModuleIDs(ids []string) {
 	a.sidebarModuleIDs = sidebarModuleIDsFromStrings(ids)
+	a.rightSidebarModuleIDs = nil
 	a.sidebarLayoutConfigured = len(ids) > 0
 }
 
