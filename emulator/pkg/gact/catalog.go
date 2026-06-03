@@ -138,25 +138,26 @@ type Tool struct {
 // tier-2 specialists so the TUI can render a routing badge and
 // colour it by specialization.
 type AgentDef struct {
-	ID               string               `json:"id"`
-	Source           string               `json:"source"` // builtin|user|recipe|skill
-	Title            string               `json:"title"`
-	Description      string               `json:"description,omitempty"`
-	ParentID         string               `json:"parent_id,omitempty"`
-	SystemPrompt     string               `json:"system_prompt,omitempty"`
-	PromptID         string               `json:"prompt_id,omitempty"`
-	PromptProfile    string               `json:"prompt_profile,omitempty"`
-	DefaultProvider  string               `json:"default_provider,omitempty"`
-	Parameters       []AgentParameter     `json:"parameters,omitempty"`
-	DefaultModel     *ModelRef            `json:"default_model,omitempty"`
-	DefaultModelName string               `json:"-"`
-	Tools            []string             `json:"tools,omitempty"`
-	Skills           []string             `json:"skills,omitempty"`
-	Commands         []string             `json:"commands,omitempty"`
-	CapabilityRefs   []AgentCapabilityRef `json:"capability_refs,omitempty"`
-	Metadata         map[string]any       `json:"metadata,omitempty"`
-	Enabled          bool                 `json:"enabled,omitempty"`
-	ValidationErrors []string             `json:"validation_errors,omitempty"`
+	ID                 string               `json:"id"`
+	Source             string               `json:"source"` // builtin|user|recipe|skill
+	Title              string               `json:"title"`
+	Description        string               `json:"description,omitempty"`
+	ParentID           string               `json:"parent_id,omitempty"`
+	SystemPrompt       string               `json:"system_prompt,omitempty"`
+	PromptID           string               `json:"prompt_id,omitempty"`
+	PromptProfile      string               `json:"prompt_profile,omitempty"`
+	DefaultProvider    string               `json:"default_provider,omitempty"`
+	Parameters         []AgentParameter     `json:"parameters,omitempty"`
+	DefaultModel       *ModelRef            `json:"default_model,omitempty"`
+	DefaultModelName   string               `json:"-"`
+	Tools              []string             `json:"tools,omitempty"`
+	Skills             []string             `json:"skills,omitempty"`
+	Commands           []string             `json:"commands,omitempty"`
+	CapabilityRefs     []AgentCapabilityRef `json:"capability_refs,omitempty"`
+	Metadata           map[string]any       `json:"metadata,omitempty"`
+	Enabled            bool                 `json:"enabled,omitempty"`
+	ValidationWarnings []string             `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string             `json:"validation_errors,omitempty"`
 
 	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
@@ -227,19 +228,20 @@ type SetSessionExpertPackRequest struct {
 }
 
 type AgentBlueprintDefinition struct {
-	ID               string         `json:"id"`
-	Version          string         `json:"version,omitempty"`
-	Title            string         `json:"title,omitempty"`
-	Description      string         `json:"description,omitempty"`
-	Scope            string         `json:"scope,omitempty"`
-	Root             string         `json:"root,omitempty"`
-	RootPath         string         `json:"root_path,omitempty"`
-	DefinitionPath   string         `json:"definition_path,omitempty"`
-	RootExpert       string         `json:"root_expert,omitempty"`
-	Enabled          bool           `json:"enabled"`
-	ValidationErrors []string       `json:"validation_errors,omitempty"`
-	Defaults         map[string]any `json:"defaults,omitempty"`
-	Metadata         map[string]any `json:"metadata,omitempty"`
+	ID                 string         `json:"id"`
+	Version            string         `json:"version,omitempty"`
+	Title              string         `json:"title,omitempty"`
+	Description        string         `json:"description,omitempty"`
+	Scope              string         `json:"scope,omitempty"`
+	Root               string         `json:"root,omitempty"`
+	RootPath           string         `json:"root_path,omitempty"`
+	DefinitionPath     string         `json:"definition_path,omitempty"`
+	RootExpert         string         `json:"root_expert,omitempty"`
+	Enabled            bool           `json:"enabled"`
+	ValidationWarnings []string       `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string       `json:"validation_errors,omitempty"`
+	Defaults           map[string]any `json:"defaults,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
 }
 
 type AgentBlueprintDetail struct {
@@ -255,12 +257,13 @@ type AgentBlueprintValidateRequest struct {
 }
 
 type AgentBlueprintValidationResult struct {
-	Enabled          bool                     `json:"enabled"`
-	ValidationErrors []string                 `json:"validation_errors,omitempty"`
-	AgentBlueprint   AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
-	Agents           []AgentDef               `json:"agents,omitempty"`
-	MCPDescriptors   []map[string]any         `json:"mcp_descriptors,omitempty"`
-	HookDescriptors  []map[string]any         `json:"hook_descriptors,omitempty"`
+	Enabled            bool                     `json:"enabled"`
+	ValidationWarnings []string                 `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string                 `json:"validation_errors,omitempty"`
+	AgentBlueprint     AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
+	Agents             []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors     []map[string]any         `json:"mcp_descriptors,omitempty"`
+	HookDescriptors    []map[string]any         `json:"hook_descriptors,omitempty"`
 }
 
 type AgentBlueprintInstallRequest struct {

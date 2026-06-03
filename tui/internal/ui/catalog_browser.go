@@ -569,6 +569,14 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 				statusTag: "skills",
 			})
 		}
+		if len(agent.ValidationWarnings) > 0 {
+			items = append(items, catalogItem{
+				id:        "validation-warnings",
+				title:     "Validation warnings",
+				desc:      strings.Join(agent.ValidationWarnings, "; "),
+				statusTag: "warning",
+			})
+		}
 		if len(agent.Keywords) > 0 {
 			items = append(items, catalogItem{
 				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
@@ -1558,6 +1566,8 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 		status := firstNonEmpty(blueprint.Scope, "blueprint")
 		if !blueprint.Enabled || len(blueprint.ValidationErrors) > 0 {
 			status = "invalid"
+		} else if len(blueprint.ValidationWarnings) > 0 {
+			status = "warning"
 		}
 		items = append(items, catalogItem{
 			id:        blueprint.ID,
@@ -1745,6 +1755,9 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 	if len(blueprint.ValidationErrors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(blueprint.ValidationErrors, "; "))
 	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(blueprint.ValidationWarnings, "; "))
+	}
 	if blueprint.Description != "" {
 		parts = append(parts, compactCatalogText(blueprint.Description))
 	}
@@ -1774,6 +1787,8 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 		status := firstNonEmpty(agent.Source, "expert")
 		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 			status = "invalid"
+		} else if len(agent.ValidationWarnings) > 0 {
+			status = "warning"
 		}
 		items = append(items, catalogItem{
 			id:        "agent/" + agent.ID,
@@ -1815,6 +1830,9 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	if len(blueprint.ValidationErrors) > 0 {
 		items = append(items, catalogItem{id: "validation", title: "Validation errors", desc: strings.Join(blueprint.ValidationErrors, "; "), statusTag: "error"})
 	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		items = append(items, catalogItem{id: "validation-warnings", title: "Validation warnings", desc: strings.Join(blueprint.ValidationWarnings, "; "), statusTag: "warning"})
+	}
 	for _, descriptor := range detail.MCPDescriptors {
 		id := stringValue(descriptor["id"])
 		title := firstNonEmpty(stringValue(descriptor["name"]), id)
@@ -1848,6 +1866,8 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		status := firstNonEmpty(agent.Source, "agent")
 		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 			status = "invalid"
+		} else if len(agent.ValidationWarnings) > 0 {
+			status = "warning"
 		}
 		items = append(items, catalogItem{
 			id:        "agent/" + agent.ID,
@@ -2022,6 +2042,9 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 	rows = appendAgentBlueprintProvenanceSection(rows, blueprint)
 	if len(blueprint.ValidationErrors) > 0 {
 		rows = appendDetailSection(rows, "Validation", detailField{"errors", strings.Join(blueprint.ValidationErrors, "\n")})
+	}
+	if len(blueprint.ValidationWarnings) > 0 {
+		rows = appendDetailSection(rows, "Validation warnings", detailField{"warnings", strings.Join(blueprint.ValidationWarnings, "\n")})
 	}
 	if len(blueprint.Defaults) > 0 {
 		if payload, err := json.MarshalIndent(blueprint.Defaults, "", "  "); err == nil {
@@ -2460,11 +2483,17 @@ func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int)
 	if depth > 0 {
 		title = strings.Repeat("  ", min(depth, 3)) + "└─ " + title
 	}
+	status := firstNonEmpty(agent.Source, "agent")
+	if !agent.Enabled || len(agent.ValidationErrors) > 0 {
+		status = "invalid"
+	} else if len(agent.ValidationWarnings) > 0 {
+		status = "warning"
+	}
 	return catalogItem{
 		id:        agent.ID,
 		title:     title,
 		desc:      agentCatalogDescription(agent, allAgents),
-		statusTag: firstNonEmpty(agent.Source, "agent"),
+		statusTag: status,
 	}
 }
 
@@ -2508,6 +2537,9 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 	}
 	if len(agent.ValidationErrors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
+	}
+	if len(agent.ValidationWarnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(agent.ValidationWarnings, "; "))
 	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)

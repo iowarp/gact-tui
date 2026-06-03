@@ -924,20 +924,42 @@ func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
 
 func TestAgentCatalogDescriptionSurfacesSkillsAndValidation(t *testing.T) {
 	items := agentCatalogItems([]gact.AgentDef{{
-		ID:               "data",
-		Source:           "agent_blueprint",
-		Title:            "Data",
-		Skills:           []string{"python", "ndp", "adios", "plots"},
-		ValidationErrors: []string{"missing skill: adios"},
+		ID:                 "data",
+		Source:             "agent_blueprint",
+		Title:              "Data",
+		Enabled:            true,
+		Skills:             []string{"python", "ndp", "adios", "plots"},
+		ValidationWarnings: []string{"skill path unresolved until install"},
+		ValidationErrors:   []string{"missing skill: adios"},
 	}}, catalogKindAgents)
 
 	if len(items) != 1 {
 		t.Fatalf("items = %#v", items)
 	}
-	for _, want := range []string{"skills: python, ndp, adios, +1", "errors: missing skill: adios"} {
+	if items[0].statusTag != "invalid" {
+		t.Fatalf("agent with errors should remain invalid, got %#v", items[0])
+	}
+	for _, want := range []string{"skills: python, ndp, adios, +1", "warnings: skill path unresolved until install", "errors: missing skill: adios"} {
 		if !strings.Contains(items[0].desc, want) {
 			t.Fatalf("agent desc missing %q: %#v", want, items[0])
 		}
+	}
+}
+
+func TestAgentCatalogWarningsUseAttentionState(t *testing.T) {
+	items := agentCatalogItems([]gact.AgentDef{{
+		ID:                 "data",
+		Source:             "agent_blueprint",
+		Title:              "Data",
+		Enabled:            true,
+		ValidationWarnings: []string{"skill path unresolved until install"},
+	}}, catalogKindAgents)
+
+	if len(items) != 1 {
+		t.Fatalf("items = %#v", items)
+	}
+	if items[0].statusTag != "warning" || !strings.Contains(items[0].desc, "warnings: skill path unresolved until install") {
+		t.Fatalf("warning-only agent should be visually distinct: %#v", items[0])
 	}
 }
 
@@ -952,6 +974,7 @@ func TestLoadAgentDetailSurfacesDeclaredSkillsAndValidation(t *testing.T) {
 				"title":"Data expert",
 				"description":"Dataset inspection",
 				"skills":["python","ndp"],
+				"validation_warnings":["skill ndp resolved from community source"],
 				"validation_errors":["skill not resolved: ndp"]
 			}`))
 		case "/v1/agents":
@@ -975,19 +998,23 @@ func TestLoadAgentDetailSurfacesDeclaredSkillsAndValidation(t *testing.T) {
 		t.Fatalf("unexpected agent detail load error: %s", loaded.errText)
 	}
 
-	var hasSkills, hasValidation bool
+	var hasSkills, hasWarnings, hasValidation bool
 	for _, item := range loaded.items {
 		switch item.id {
 		case "skills":
 			hasSkills = item.title == "Declared skills" &&
 				item.statusTag == "skills" &&
 				strings.Contains(item.desc, "python, ndp")
+		case "validation-warnings":
+			hasWarnings = item.title == "Validation warnings" &&
+				item.statusTag == "warning" &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
 		case "validation":
 			hasValidation = item.statusTag == "error" &&
 				strings.Contains(item.desc, "skill not resolved: ndp")
 		}
 	}
-	if !hasSkills || !hasValidation {
+	if !hasSkills || !hasWarnings || !hasValidation {
 		t.Fatalf("agent detail missing skills/validation rows: %#v", loaded.items)
 	}
 }

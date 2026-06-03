@@ -320,6 +320,57 @@ func TestAgentBlueprintSourceRowsSurfaceFailureState(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogAndDetailSurfaceValidationWarnings(t *testing.T) {
+	blueprint := gact.AgentBlueprintDefinition{
+		ID: "community-warning", Title: "Community Warning", Version: "0.9.0", Scope: "workspace",
+		RootExpert: "root", Enabled: true,
+		ValidationWarnings: []string{
+			"descriptor requires explicit trust before install",
+			"skill ndp resolved from community source",
+		},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":      "https://example.org/community/warning-agents.git",
+			"source_kind": "git",
+			"ref":         "main",
+		}},
+	}
+
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{blueprint})
+	if len(items) < 1 {
+		t.Fatalf("items = %#v", items)
+	}
+	if items[0].statusTag != "warning" {
+		t.Fatalf("warning-only blueprint should use warning status: %#v", items[0])
+	}
+	for _, want := range []string{
+		"warnings: descriptor requires explicit trust before install; skill ndp resolved from community source",
+		"source: git",
+		"from: https://example.org/community/warning-agents.git",
+	} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint catalog row missing %q:\n%s", want, items[0].desc)
+		}
+	}
+
+	detailItems := agentBlueprintDetailItems(gact.AgentBlueprintDetail{AgentBlueprint: blueprint})
+	var hasSummaryWarnings, hasWarningRow bool
+	for _, item := range detailItems {
+		switch item.id {
+		case "blueprint/community-warning":
+			hasSummaryWarnings = strings.Contains(item.desc, "Validation warnings") &&
+				strings.Contains(item.desc, "descriptor requires explicit trust before install") &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
+		case "validation-warnings":
+			hasWarningRow = item.statusTag == "warning" &&
+				strings.Contains(item.desc, "descriptor requires explicit trust before install") &&
+				strings.Contains(item.desc, "skill ndp resolved from community source")
+		}
+	}
+	if !hasSummaryWarnings || !hasWarningRow {
+		t.Fatalf("blueprint detail missing validation warnings: %#v", detailItems)
+	}
+}
+
 func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	items := expertPackDetailItems(gact.ExpertPackDetail{
 		ExpertPack: gact.ExpertPackDefinition{
@@ -506,7 +557,8 @@ func TestPaletteCommandSubtitleSurfacesAgentBlueprintCommandProvenance(t *testin
 
 func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
 	out := formatAgentBlueprintValidation(gact.AgentBlueprintValidationResult{
-		Enabled: true,
+		Enabled:            true,
+		ValidationWarnings: []string{"descriptor requires explicit trust before install"},
 		MCPDescriptors: []map[string]any{{
 			"id": "earthscope", "name": "EarthScope MCP", "transport": "stdio",
 			"trust":               map[string]any{"policy": "explicit", "trusted": false},
@@ -519,7 +571,7 @@ func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
 			"validation_warnings": []any{"disabled until trusted"},
 		}},
 	})
-	for _, want := range []string{"MCP descriptors", "EarthScope MCP", "warnings: descriptor requires explicit trust", "Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
+	for _, want := range []string{"status: warning", "warnings: descriptor requires explicit trust before install", "MCP descriptors", "EarthScope MCP", "warnings: descriptor requires explicit trust", "Packaged hooks", "Pre Message", "event: pre_message", "trust_policy: explicit", "trusted: false", "warnings: disabled until trusted"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("validation output missing %q:\n%s", want, out)
 		}
