@@ -89,6 +89,19 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["strict_live_pass"]["reports"][0]["verdict"], "missing")
 
+    def test_release_checklist_runs_strict_tracked_visual_gate(self) -> None:
+        checklist = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "TUI_ONE_ZERO_RELEASE_CHECKLIST.md"
+        ).read_text(encoding="utf-8")
+
+        expected = (
+            "python3 visual_loop/check_visual_corpus.py --root . "
+            "--require-git-tracked --require-strict-live-pass"
+        )
+        self.assertGreaterEqual(checklist.count(expected), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

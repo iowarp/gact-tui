@@ -52,7 +52,7 @@ Run the focused TUI gates first:
 go test -p 1 ./tui/internal/ui ./tui/internal/client ./emulator/pkg/gact ./emulator/internal/server -count=1
 go test -p 1 ./tui -run 'TestCLI_(VersionReportsBuildMetadata|DumpBundle|Env|Capabilities)' -count=1
 python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_assert_live_observability.py
-python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-strict-live-pass
 ```
 
 Run broader workspace gates before marking the release PR ready:
@@ -78,7 +78,7 @@ Before release, inspect the maintained corpus rather than relying only on unit
 tests:
 
 ```bash
-python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-strict-live-pass
 python3 visual_loop/assert_live_observability.py \
   visual_loop/screenshots/<capture>.jsonl \
   --mode benchmark-hierarchy \
