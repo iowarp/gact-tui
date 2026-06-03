@@ -10102,7 +10102,8 @@ func (a *App) recordPasteKey(k tea.KeyPressMsg) {
 }
 
 func (a *App) compactBufferedPaste() {
-	content := a.pasteBuffer
+	rawContent := a.pasteBuffer
+	content := normalizePasteNewlines(rawContent)
 	if strings.TrimSpace(content) == "" {
 		return
 	}
@@ -10115,10 +10116,24 @@ func (a *App) compactBufferedPaste() {
 		return
 	}
 	raw := a.input.Value()
-	if strings.HasSuffix(raw, content) {
-		a.input.SetValue(strings.TrimSuffix(raw, content))
-	} else if idx := strings.LastIndex(raw, content); idx >= 0 {
-		a.input.SetValue(raw[:idx] + raw[idx+len(content):])
+	for _, candidate := range []string{
+		rawContent,
+		content,
+		strings.ReplaceAll(rawContent, "\r", "\n"),
+	} {
+		if candidate == "" {
+			continue
+		}
+		if strings.HasSuffix(raw, candidate) {
+			a.input.SetValue(strings.TrimSuffix(raw, candidate))
+			a.insertPastePlaceholder(content, lineCount)
+			return
+		}
+		if idx := strings.LastIndex(raw, candidate); idx >= 0 {
+			a.input.SetValue(raw[:idx] + raw[idx+len(candidate):])
+			a.insertPastePlaceholder(content, lineCount)
+			return
+		}
 	}
 	a.insertPastePlaceholder(content, lineCount)
 }

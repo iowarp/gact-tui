@@ -261,6 +261,34 @@ func TestPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
 	}
 }
 
+func TestBufferedPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+	a.input.SetValue("before alpha\r\nbeta\rgamma")
+	a.pasteBuffer = "alpha\r\nbeta\rgamma"
+
+	a.compactBufferedPaste()
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "alpha\nbeta\ngamma" {
+		t.Fatalf("normalized buffered paste = %q", got)
+	}
+	if raw := a.input.Value(); strings.Contains(raw, "\r") {
+		t.Fatalf("input retained raw carriage returns after compression: %q", raw)
+	}
+	expanded := a.expandPasteText(a.input.Value())
+	if strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded buffered paste retained carriage returns: %q", expanded)
+	}
+	if !strings.Contains(expanded, "before alpha\nbeta\ngamma") {
+		t.Fatalf("expanded buffered paste missing normalized body: %q", expanded)
+	}
+}
+
 // TestPaste_ShortPassesThrough ensures 2-line pastes don't trigger the
 // compression path — overhead isn't worth it at small sizes and the
 // user experience of "pasted content: 2 lines" would feel silly.
