@@ -163,6 +163,13 @@ func (a *App) handleFilePickerWheel(button tea.MouseButton) tea.Cmd {
 	return nil
 }
 
+func (a *App) clampFilePickerSelection() {
+	if a.filePicker == nil {
+		return
+	}
+	a.filePicker.sel = clampSelection(a.filePicker.sel, a.filePickerActiveCount())
+}
+
 func (a *App) filePickerActiveCount() int {
 	if a.filePicker == nil || a.filePicker.errText != "" {
 		return 0
@@ -621,7 +628,7 @@ func (a *App) viewFilePicker() string {
 		},
 		railAction: func(app *App, index int) tea.Cmd {
 			if app.filePicker != nil {
-				app.filePicker.sel = clampSelection(index, len(app.filePickerMatches()))
+				app.filePicker.sel = clampSelection(index, app.filePickerActiveCount())
 			}
 			return nil
 		},
