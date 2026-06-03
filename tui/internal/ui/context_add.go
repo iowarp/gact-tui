@@ -108,16 +108,13 @@ func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.contextAddDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.contextAddCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.contextAddCursor:]...)
-		a.contextAddDraft = string(out)
-		a.contextAddCursor += len(insert)
+		a.insertContextAddText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertContextAddText(text string) {
+	a.contextAddDraft, a.contextAddCursor = insertTextAtCursor(a.contextAddDraft, a.contextAddCursor, text)
 }
 
 // commitContextAdd closes the modal and dispatches the add Cmd.

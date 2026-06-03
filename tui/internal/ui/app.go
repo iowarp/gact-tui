@@ -1254,6 +1254,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.handleLMConfigPaste(m.Content)
 			return a, nil
 		}
+		if a.renameOpen {
+			a.insertRenameText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.contextAddOpen {
+			a.insertContextAddText(compactTokenPaste(m.Content))
+			return a, nil
+		}
+		if a.promptEditOpen {
+			a.insertPromptEditText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
 		if a.agentWriteOpen {
 			a.insertAgentWriteText(compactSingleLinePaste(m.Content))
 			return a, nil
@@ -1264,6 +1276,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.agentBlueprintManageOpen {
 			a.insertAgentBlueprintManageText(m.Content)
+			return a, nil
+		}
+		if a.workspaceSwitchOpen && a.workspaceCreateOpen {
+			a.insertWorkspaceCreateText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.mcpInstallOpen {
+			a.insertMcpInstallText(compactSingleLinePaste(m.Content))
 			return a, nil
 		}
 		if a.askUserOpen {

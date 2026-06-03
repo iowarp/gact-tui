@@ -195,18 +195,15 @@ func (a *App) handleWorkspaceCreateKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		text := k.Text
-		a.editWorkspaceCreateField(func(value string, cursor int) (string, int) {
-			runes := []rune(value)
-			insert := []rune(text)
-			out := make([]rune, 0, len(runes)+len(insert))
-			out = append(out, runes[:cursor]...)
-			out = append(out, insert...)
-			out = append(out, runes[cursor:]...)
-			return string(out), cursor + len(insert)
-		})
+		a.insertWorkspaceCreateText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertWorkspaceCreateText(text string) {
+	a.editWorkspaceCreateField(func(value string, cursor int) (string, int) {
+		return insertTextAtCursor(value, cursor, text)
+	})
 }
 
 func (a *App) editWorkspaceCreateField(edit func(value string, cursor int) (string, int)) {

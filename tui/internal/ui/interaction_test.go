@@ -405,6 +405,111 @@ func TestTextEntryModalRegistersCursorHitTargets(t *testing.T) {
 	}
 }
 
+func TestSingleLineTextEntryModalsAcceptPaste(t *testing.T) {
+	cases := []struct {
+		name    string
+		setup   func(*App)
+		assert  func(*testing.T, *App)
+		content string
+	}{
+		{
+			name: "rename",
+			setup: func(a *App) {
+				a.renameOpen = true
+				a.renameDraft = "old "
+				a.renameCursor = len([]rune(a.renameDraft))
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.renameDraft != "old new title" || a.renameCursor != len([]rune(a.renameDraft)) {
+					t.Fatalf("rename paste draft=%q cursor=%d", a.renameDraft, a.renameCursor)
+				}
+			},
+			content: "new\r\ntitle",
+		},
+		{
+			name: "context add",
+			setup: func(a *App) {
+				a.contextAddOpen = true
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.contextAddDraft != "docs/readme.md" || a.contextAddCursor != len([]rune(a.contextAddDraft)) {
+					t.Fatalf("context paste draft=%q cursor=%d", a.contextAddDraft, a.contextAddCursor)
+				}
+			},
+			content: "docs/\r\nreadme.md",
+		},
+		{
+			name: "prompt edit",
+			setup: func(a *App) {
+				a.openPromptEdit("planner", "builtin", "Planner", "")
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.promptEditDraft != "use concise evidence" || a.promptEditCursor != len([]rune(a.promptEditDraft)) {
+					t.Fatalf("prompt paste draft=%q cursor=%d", a.promptEditDraft, a.promptEditCursor)
+				}
+			},
+			content: "use concise\r\nevidence",
+		},
+		{
+			name: "mcp install",
+			setup: func(a *App) {
+				a.openMcpInstallModal()
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.mcpInstallInput != "files stdio mcp-files /tmp" || a.mcpInstallCursor != len([]rune(a.mcpInstallInput)) {
+					t.Fatalf("mcp install paste input=%q cursor=%d", a.mcpInstallInput, a.mcpInstallCursor)
+				}
+			},
+			content: "files stdio\r\nmcp-files /tmp",
+		},
+		{
+			name: "workspace create name",
+			setup: func(a *App) {
+				a.workspaceSwitchOpen = true
+				a.workspaceCreateOpen = true
+				a.workspaceCreateField = 0
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.workspaceCreateName != "benchmark workspace" || a.workspaceCreateNameCur != len([]rune(a.workspaceCreateName)) {
+					t.Fatalf("workspace name paste=%q cursor=%d", a.workspaceCreateName, a.workspaceCreateNameCur)
+				}
+			},
+			content: "benchmark\r\nworkspace",
+		},
+		{
+			name: "workspace create root",
+			setup: func(a *App) {
+				a.workspaceSwitchOpen = true
+				a.workspaceCreateOpen = true
+				a.workspaceCreateField = 1
+			},
+			assert: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.workspaceCreateRoot != "/tmp/benchmark root" || a.workspaceCreateRootCur != len([]rune(a.workspaceCreateRoot)) {
+					t.Fatalf("workspace root paste=%q cursor=%d", a.workspaceCreateRoot, a.workspaceCreateRootCur)
+				}
+			},
+			content: "/tmp/benchmark\r\nroot",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newReadyApp(nil, nil)
+			tc.setup(a)
+
+			_, _ = a.Update(tea.PasteMsg{Content: tc.content})
+
+			tc.assert(t, a)
+		})
+	}
+}
+
 func TestTextEntryModalRegistersStatusHitTargets(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120

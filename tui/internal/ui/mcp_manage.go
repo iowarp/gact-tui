@@ -136,23 +136,14 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	default:
 		if k.Text != "" {
-			runes := []rune(a.mcpInstallInput)
-			if a.mcpInstallCursor < 0 {
-				a.mcpInstallCursor = 0
-			}
-			if a.mcpInstallCursor > len(runes) {
-				a.mcpInstallCursor = len(runes)
-			}
-			insert := []rune(k.Text)
-			out := make([]rune, 0, len(runes)+len(insert))
-			out = append(out, runes[:a.mcpInstallCursor]...)
-			out = append(out, insert...)
-			out = append(out, runes[a.mcpInstallCursor:]...)
-			a.mcpInstallInput = string(out)
-			a.mcpInstallCursor += len(insert)
+			a.insertMcpInstallText(k.Text)
 		}
 	}
 	return a, nil
+}
+
+func (a *App) insertMcpInstallText(text string) {
+	a.mcpInstallInput, a.mcpInstallCursor = insertTextAtCursor(a.mcpInstallInput, a.mcpInstallCursor, text)
 }
 
 // handleMcpRemoveKey routes keystrokes while the remove modal is open.
