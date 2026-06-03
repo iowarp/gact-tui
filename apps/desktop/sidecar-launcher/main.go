@@ -12,25 +12,25 @@
 // with a clear message that the Tauri shell surfaces to the user.
 //
 // Resolution order:
-//   0. BUNDLED runtime shipped alongside this launcher (the "bundled"
-//      installer variant). Resolved relative to the launcher's own
-//      executable directory so it is install-location independent —
-//      see bundledCandidates(). This makes the bundled build work
-//      fully offline; the "lite" build simply has no clio-runtime/
-//      next to the launcher, so this priority no-ops and resolution
-//      falls through to the runtime-resolution paths below.
-//   1. $CLIO_AGENT_GACT_BIN env var (explicit override; used by CI +
-//      `pnpm tauri:dev` against the gact emulator)
-//   2. `clio-agent-gact` on PATH
-//   3. Per-OS install-prefix conventions matching iowarp/clio-agent's
-//      install.{sh,ps1}:
-//        - Windows: %LOCALAPPDATA%\clio\clio-agent\.venv\Scripts\clio-agent-gact.exe
-//        - Linux:   $HOME/.local/share/clio/clio-agent/.venv/bin/clio-agent-gact
-//        - macOS:   $HOME/Library/Application Support/clio/clio-agent/.venv/bin/clio-agent-gact
-//   4. Dev repo checkout, when $CLIO_DEV_REPO points at a local
-//      clio-agent clone with a built .venv. This replaces a previously
-//      hardcoded developer filesystem path (a release-hygiene bug — it
-//      shipped one machine's layout in release binaries). Opt-in only.
+//  0. BUNDLED runtime shipped alongside this launcher (the "bundled"
+//     installer variant). Resolved relative to the launcher's own
+//     executable directory so it is install-location independent —
+//     see bundledCandidates(). This makes the bundled build work
+//     fully offline; the "lite" build simply has no clio-runtime/
+//     next to the launcher, so this priority no-ops and resolution
+//     falls through to the runtime-resolution paths below.
+//  1. $CLIO_AGENT_GACT_BIN env var (explicit override; used by CI +
+//     `pnpm tauri:dev` against the gact emulator)
+//  2. `clio-agent-gact` on PATH
+//  3. Per-OS install-prefix conventions matching iowarp/clio-agent's
+//     install.{sh,ps1}:
+//     - Windows: %LOCALAPPDATA%\clio\clio-agent\.venv\Scripts\clio-agent-gact.exe
+//     - Linux:   $HOME/.local/share/clio/clio-agent/.venv/bin/clio-agent-gact
+//     - macOS:   $HOME/Library/Application Support/clio/clio-agent/.venv/bin/clio-agent-gact
+//  4. Dev repo checkout, when $CLIO_DEV_REPO points at a local
+//     clio-agent clone with a built .venv. This replaces a previously
+//     hardcoded developer filesystem path (a release-hygiene bug — it
+//     shipped one machine's layout in release binaries). Opt-in only.
 //
 // If none resolve, the launcher emits a structured error on stderr and
 // exits 2. The supervisor turns that into a Splash-screen error card.

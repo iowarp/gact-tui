@@ -972,7 +972,7 @@ func TestLMConfigArgonneAuthSuccessMarksReadyAndRefreshesModels(t *testing.T) {
 	model, cmd := a.Update(lmConfigAuthedMsg{
 		providerID: "argonne_sophia",
 		resp: client.ProviderAuthResponse{
-			ProviderID:       "argonne_sophia",
+			ProviderID:      "argonne_sophia",
 			IsAuthenticated: true,
 		},
 	})

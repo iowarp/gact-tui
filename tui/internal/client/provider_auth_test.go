@@ -16,7 +16,7 @@ func TestAuthProviderUsesCLIOProviderAuthEndpoint(t *testing.T) {
 			t.Fatalf("decode auth request: %v", err)
 		}
 		_ = json.NewEncoder(w).Encode(ProviderAuthResponse{
-			ProviderID:       "argonne_sophia",
+			ProviderID:      "argonne_sophia",
 			IsAuthenticated: true,
 		})
 	}))
