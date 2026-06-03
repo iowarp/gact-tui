@@ -263,10 +263,14 @@ Before a release pass, run the corpus manifest check:
 
 ```bash
 python3 visual_loop/check_visual_corpus.py --root .
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked
+python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_assert_live_observability.py
 ```
 
 This fast check verifies that the maintained tapes, screenshots, live benchmark
 replay artifacts, and temporal-observability reports are present and non-empty.
+The tracked-artifact mode also fails required artifacts that only exist as local
+untracked files, so a clean checkout cannot accidentally lose release evidence.
 It does not replace screenshot inspection or strict live benchmark assertions;
 it catches missing acceptance artifacts before the visual review starts.
 

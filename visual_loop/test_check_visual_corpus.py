@@ -37,6 +37,20 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertIn(first.required[0] + " (empty)", first_group["missing"])
         self.assertIn(first.required[1] + " (missing)", first_group["missing"])
 
+    def test_untracked_required_artifacts_fail_when_tracked_set_is_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = check_visual_corpus.CORPUS_GROUPS[0]
+            for rel in first.required:
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("artifact\n", encoding="utf-8")
+
+            missing = check_visual_corpus.check_group(root, first, tracked={first.required[0]})
+
+        self.assertNotIn(first.required[0] + " (untracked)", missing)
+        self.assertIn(first.required[1] + " (untracked)", missing)
+
 
 if __name__ == "__main__":
     unittest.main()

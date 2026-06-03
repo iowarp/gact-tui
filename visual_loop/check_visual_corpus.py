@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,7 +125,19 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
 )
 
 
-def check_group(root: Path, group: CorpusGroup) -> list[str]:
+def tracked_paths(root: Path) -> set[str]:
+    proc = subprocess.run(
+        ["git", "ls-files", "--", "visual_loop"],
+        cwd=root,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+
+
+def check_group(root: Path, group: CorpusGroup, *, tracked: set[str] | None = None) -> list[str]:
     missing: list[str] = []
     for rel in group.required:
         path = root / rel
@@ -132,14 +145,17 @@ def check_group(root: Path, group: CorpusGroup) -> list[str]:
             missing.append(rel + " (missing)")
         elif path.is_file() and path.stat().st_size == 0:
             missing.append(rel + " (empty)")
+        elif tracked is not None and rel not in tracked:
+            missing.append(rel + " (untracked)")
     return missing
 
 
-def check_corpus(root: Path) -> dict[str, object]:
+def check_corpus(root: Path, *, require_tracked: bool = False) -> dict[str, object]:
+    tracked = tracked_paths(root) if require_tracked else None
     groups = []
     ok = True
     for group in CORPUS_GROUPS:
-        missing = check_group(root, group)
+        missing = check_group(root, group, tracked=tracked)
         if missing:
             ok = False
         groups.append(
@@ -179,9 +195,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=".", help="repository root to inspect")
     parser.add_argument("--json", action="store_true", help="print JSON instead of Markdown")
+    parser.add_argument(
+        "--require-git-tracked",
+        action="store_true",
+        help="fail required artifacts that exist locally but are not tracked by git",
+    )
     args = parser.parse_args(argv)
 
-    result = check_corpus(Path(args.root))
+    result = check_corpus(Path(args.root), require_tracked=args.require_git_tracked)
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
