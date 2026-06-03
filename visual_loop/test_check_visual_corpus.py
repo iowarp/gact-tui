@@ -22,6 +22,18 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(all(not group["missing"] for group in result["groups"]))
 
+    def test_manifest_requires_clio_semantic_live_fixture(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/clio_semantic_live_events.tape",
+            "visual_loop/screenshots/clio_semantic_live_events_running.png",
+            "visual_loop/screenshots/clio_semantic_live_events_final.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

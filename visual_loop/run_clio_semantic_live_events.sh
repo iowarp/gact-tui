@@ -26,7 +26,12 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from clio_agent.gact.app import build_app
+from clio_agent.gact.app import (
+    _active_semantic_trace_id,
+    _active_semantic_turn_id,
+    _emit_semantic_event,
+    build_app,
+)
 
 
 @dataclass
@@ -44,11 +49,94 @@ class LiveSemanticAgent:
         from clio_agent.tools.execution import _GLOBAL_TOOL_OBSERVER
 
         assert _GLOBAL_TOOL_OBSERVER is not None
+        turn_id = _active_semantic_turn_id()
+        trace_id = _active_semantic_trace_id()
+        _emit_semantic_event(
+            app,
+            session_id,
+            "delegation.started",
+            turn_id=turn_id,
+            trace_id=trace_id,
+            status="running",
+            summary="data delegated NDP catalog work to ndp_catalog.",
+            actor={"agent_id": "data", "role": "parent_expert"},
+            subject={"agent_id": "ndp_catalog", "role": "child_expert"},
+            payload={
+                "stage": "delegate.started",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "execution_mode": "visual_fixture",
+            },
+        )
         args = {"search_terms": "seismic", "limit": 5}
         _GLOBAL_TOOL_OBSERVER("NdpSearchDatasets", args, "started", None)
         time.sleep(4.0)
         _GLOBAL_TOOL_OBSERVER("NdpSearchDatasets", args, "completed", None)
-        return Pred()
+        _emit_semantic_event(
+            app,
+            session_id,
+            "delegation.completed",
+            turn_id=turn_id,
+            trace_id=trace_id,
+            summary="ndp_catalog returned NDP search evidence to data.",
+            actor={"agent_id": "ndp_catalog", "role": "child_expert"},
+            subject={"agent_id": "data", "role": "parent_expert"},
+            payload={
+                "stage": "delegate.completed",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "return_to": "data",
+                "duration_ms": 4000,
+                "execution_mode": "visual_fixture",
+                "output_summary": "NDP catalog search completed.",
+            },
+        )
+        _emit_semantic_event(
+            app,
+            session_id,
+            "delegation.parent_resumed",
+            turn_id=turn_id,
+            trace_id=trace_id,
+            summary="data resumed after ndp_catalog.",
+            actor={"agent_id": "data", "role": "parent_expert"},
+            subject={"agent_id": "ndp_catalog", "role": "child_expert"},
+            payload={
+                "stage": "parent.resumed",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "resumed_from": "ndp_catalog",
+                "return_payload": "compact_result",
+                "execution_mode": "visual_fixture",
+            },
+        )
+        pred = Pred()
+        pred.expert_handoffs = [
+            {
+                "stage": "delegate.started",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "status": "running",
+                "execution_mode": "visual_fixture",
+            },
+            {
+                "stage": "delegate.completed",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "status": "completed",
+                "return_to": "data",
+                "execution_mode": "visual_fixture",
+                "output_summary": "NDP catalog search completed.",
+            },
+            {
+                "stage": "parent.resumed",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+                "status": "completed",
+                "resumed_from": "ndp_catalog",
+                "execution_mode": "visual_fixture",
+            },
+        ]
+        return pred
 
 
 app = build_app(sessions_path=Path(r"${sessions_path}"), agent=LiveSemanticAgent())
