@@ -6241,6 +6241,48 @@ func TestContextFileDetailSummarizesBinaryContent(t *testing.T) {
 	}
 }
 
+func TestContextFileDetailPreviewsCommonApplicationTextTypes(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.caps.Capabilities.XClioFilesContent = true
+	for _, tc := range []struct {
+		name      string
+		mediaType string
+		path      string
+		body      string
+	}{
+		{name: "javascript", mediaType: "application/javascript", path: "scripts/run.js", body: "console.log('ok')\n"},
+		{name: "shell", mediaType: "application/x-sh", path: "scripts/run.sh", body: "#!/bin/sh\necho ok\n"},
+		{name: "python", mediaType: "application/x-python", path: "tools/run.py", body: "print('ok')\n"},
+		{name: "vendor json", mediaType: "application/vnd.clio.context+json", path: "trace.json", body: "{\"ok\":true}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rows := a.contextFileDetailRowsWithContent(
+				gact.ContextFile{Path: tc.path, Mode: "read"},
+				gact.ContextFileContent{
+					Path:      tc.path,
+					Size:      int64(len(tc.body)),
+					MediaType: tc.mediaType,
+					Encoding:  "base64",
+					Data:      base64.StdEncoding.EncodeToString([]byte(tc.body)),
+				},
+				nil,
+			)
+			out := strings.Join(rows, "\n")
+			if !strings.Contains(out, "preview:") {
+				t.Fatalf("text application media type should render preview:\n%s", out)
+			}
+			for _, line := range strings.Split(strings.TrimSpace(tc.body), "\n") {
+				if strings.TrimSpace(line) != "" && !strings.Contains(out, line) {
+					t.Fatalf("text application media type preview missing %q:\n%s", line, out)
+				}
+			}
+			if strings.Contains(out, "binary content not rendered") {
+				t.Fatalf("text application media type should not be summarized as binary:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestContextRowRightClickOpensSemanticActionMenu(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 140

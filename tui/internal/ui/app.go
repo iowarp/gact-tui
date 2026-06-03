@@ -5458,13 +5458,24 @@ func contextFileContentIsText(mediaType string) bool {
 	}
 	for _, prefix := range []string{
 		"application/json",
+		"application/javascript",
+		"application/ecmascript",
 		"application/xml",
 		"application/yaml",
 		"application/toml",
+		"application/sql",
+		"application/x-sh",
+		"application/x-shellscript",
+		"application/x-python",
+		"application/x-ruby",
+		"application/x-perl",
 	} {
 		if strings.HasPrefix(mediaType, prefix) {
 			return true
 		}
+	}
+	if strings.HasSuffix(mediaType, "+json") || strings.HasSuffix(mediaType, "+xml") {
+		return true
 	}
 	return mediaType == ""
 }
