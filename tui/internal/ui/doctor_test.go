@@ -241,11 +241,11 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 
 func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
-		MCP:                  true,
-		SessionSummary:       true,
-		AttachmentsUpload:    true,
-		XClioSemanticEvents:  true,
-		XClioFilesContent:    true,
+		MCP:                 true,
+		SessionSummary:      true,
+		AttachmentsUpload:   true,
+		XClioSemanticEvents: true,
+		XClioFilesContent:   true,
 	}})
 	byName := map[string]capRow{}
 	for _, row := range rows {
