@@ -87,8 +87,9 @@ python3 visual_loop/assert_live_observability.py \
 
 Acceptance:
 
-- Conversation/tools, sidebars, settings/provider, ask-user/retry, semantic
-  live events, and benchmark replay screenshots are present and readable.
+- Conversation/tools, MCP reconnect, sidebars, settings/provider,
+  ask-user/retry, semantic live events, and benchmark replay screenshots are
+  present and readable.
 - Screenshots show summaries and surfaced errors, not hidden backend failures or
   raw JSON walls where summaries are expected.
 - Temporal assertions prove route/delegation/tool-start/tool-complete/parent
@@ -121,6 +122,8 @@ Required workflows:
   provider, palette/help/doctor, details, and close/back buttons.
 - Context file preview and attachment upload when CLIO advertises the
   corresponding capabilities.
+- MCP reconnect from `/mcp`, including truthful reconnect success/failure and
+  global `session_id=""` notification/semantic event handling.
 - Permission, user-question, retry, rewind, semantic-event, and runtime
   provenance flows.
 

@@ -46,6 +46,9 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/screenshots/clio_semantic_live_events_final.png",
             "visual_loop/tapes/semantic_detail_copy.tape",
             "visual_loop/screenshots/semantic_detail_copy.png",
+            "visual_loop/tapes/semantic_mcp_reconnect.tape",
+            "visual_loop/screenshots/semantic_mcp_reconnect_detail.png",
+            "visual_loop/screenshots/semantic_mcp_reconnect_done.png",
         ),
     ),
     CorpusGroup(

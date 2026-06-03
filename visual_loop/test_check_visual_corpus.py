@@ -34,6 +34,18 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_mcp_reconnect_visual_proof(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_mcp_reconnect.tape",
+            "visual_loop/screenshots/semantic_mcp_reconnect_detail.png",
+            "visual_loop/screenshots/semantic_mcp_reconnect_done.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
