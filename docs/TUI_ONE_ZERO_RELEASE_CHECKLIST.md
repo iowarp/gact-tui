@@ -111,6 +111,10 @@ Required workflows:
 - At least one fresh non-benchmark session.
 - Settings/model/provider configuration, including provider errors.
 - Copy from conversation, detail/raw views, and clipboard failure messaging.
+- Capture `gact diag` clipboard and terminal-selection rows:
+  `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
+  `terminal_selection`, `TERM`, and `TERM_PROGRAM`; use `/mouse` while
+  comparing mouse-capture and native terminal text selection behavior.
 - Paste into main input, compose, ask/retry, rename, context-add, prompt edit,
   MCP install, workspace-create, and agent write modals.
 - Mouse hit targets for header buttons, sidebars, context/files, settings,

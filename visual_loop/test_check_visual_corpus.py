@@ -151,6 +151,26 @@ class VisualCorpusCheckTest(unittest.TestCase):
         )
         self.assertGreaterEqual(checklist.count(expected), 2)
 
+    def test_release_checklist_requires_terminal_selection_diag_evidence(self) -> None:
+        checklist = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "TUI_ONE_ZERO_RELEASE_CHECKLIST.md"
+        ).read_text(encoding="utf-8")
+
+        for expected in (
+            "gact diag",
+            "clipboard_native",
+            "clipboard_missing",
+            "clipboard_osc52",
+            "terminal_selection",
+            "TERM",
+            "TERM_PROGRAM",
+            "/mouse",
+            "native terminal text selection",
+        ):
+            self.assertIn(expected, checklist)
+
 
 if __name__ == "__main__":
     unittest.main()
