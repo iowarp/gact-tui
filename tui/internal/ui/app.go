@@ -5494,16 +5494,16 @@ func contextModeDescription(mode string) string {
 func contextFileStatusDescription(cf gact.ContextFile) string {
 	mode := contextModeDescription(cf.Mode)
 	if cf.Uploaded {
-		return "uploaded attachment attached to selected session as " + mode
+		return "CLIO uploaded attachment attached to selected session as " + mode
 	}
 	return "workspace file attached to selected session as " + mode
 }
 
 func contextFileSourceDescription(cf gact.ContextFile) string {
 	if cf.Uploaded {
-		return "uploaded attachment"
+		return "uploaded attachment (created through attachments_upload, not workspace browsing)"
 	}
-	return "workspace context file"
+	return "workspace context file (path resolved by CLIO workspace context)"
 }
 
 func shortContextPath(path string) string {
@@ -9697,7 +9697,7 @@ func (a *App) sidebarContextFileMeta(cf gact.ContextFile) string {
 		parts = append(parts, lang)
 	}
 	if cf.Uploaded {
-		parts = append(parts, "uploaded")
+		parts = append(parts, "source: attachment")
 	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		title := strings.TrimSpace(a.sessions[a.selected].Title)

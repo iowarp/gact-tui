@@ -5940,6 +5940,54 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 	}
 }
 
+func TestContextRowsDistinguishUploadedAttachments(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{
+		ID:          "sess_1",
+		WorkspaceID: "ws_default",
+		Title:       "demo",
+		Status:      gact.StatusIdle,
+	}}
+	a.selected = 0
+	a.contextFiles = []gact.ContextFile{{
+		Path:     ".clio/attachments/sess_1/report.txt",
+		Mode:     "read",
+		Size:     32,
+		Language: "text",
+		Uploaded: true,
+	}}
+
+	_ = a.View()
+	sidebar := ansi.Strip(a.renderSidebar(54, 24))
+	for _, want := range []string{"source: attachment", "demo"} {
+		if !strings.Contains(sidebar, want) {
+			t.Fatalf("uploaded context row should expose %q:\n%s", want, sidebar)
+		}
+	}
+	target, ok := findHitTargetForTest(a, "sidebar:context:file:.clio/attachments/sess_1/report.txt")
+	if !ok {
+		t.Fatal("missing uploaded context file hit target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	for _, want := range []string{
+		"status: CLIO uploaded attachment attached to selected session as read",
+		"source: uploaded attachment (created through attachments_upload, not workspace browsing)",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("uploaded context detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
 func TestContextFileDetailLoadsCLIOContentPreview(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/v1/sessions/sess_1/context/files/content" {
