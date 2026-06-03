@@ -1784,13 +1784,13 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	items = append(items, catalogItem{
 		id:        "blueprint-action/update",
 		title:     "Update installed blueprint",
-		desc:      "pull or refresh this installed blueprint through CLIO",
+		desc:      agentBlueprintLifecycleActionDescription(blueprint, "update", manageable),
 		statusTag: "manage",
 		disabled:  !manageable,
 	}, catalogItem{
 		id:        "blueprint-action/delete",
 		title:     "Delete installed blueprint",
-		desc:      "remove this installed blueprint; built-in/session definitions are protected",
+		desc:      agentBlueprintLifecycleActionDescription(blueprint, "delete", manageable),
 		statusTag: "delete",
 		disabled:  !manageable,
 	})
@@ -2075,7 +2075,11 @@ func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBl
 		{"ref", stringValue(install["ref"])},
 		{"commit", stringValue(install["commit"])},
 		{"checksum", stringValue(install["checksum"])},
+		{"status", stringValue(install["status"])},
+		{"status_message", firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"]))},
+		{"trust", firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"]))},
 		{"installed_at", stringValue(install["installed_at"])},
+		{"synced_at", firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"]))},
 		{"scope", firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)},
 	}
 	hasValue := false
@@ -2088,7 +2092,52 @@ func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBl
 	if !hasValue {
 		return rows
 	}
-	return appendDetailSection(rows, "Source provenance", fields...)
+	rows = appendDetailSection(rows, "Source provenance", fields...)
+	warnings := appendUniqueStrings(nil, stringListFromAny(install["warnings"])...)
+	warnings = appendUniqueStrings(warnings, stringListFromAny(install["validation_warnings"])...)
+	if len(warnings) > 0 {
+		rows = appendDetailSection(rows, "Source warnings", detailField{"warnings", strings.Join(warnings, "\n")})
+	}
+	errors := appendUniqueStrings(nil, stringListFromAny(install["errors"])...)
+	errors = appendUniqueStrings(errors, stringListFromAny(install["validation_errors"])...)
+	if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+		errors = appendUniqueStrings(errors, errText)
+	}
+	if len(errors) > 0 {
+		rows = appendDetailSection(rows, "Source errors", detailField{"errors", strings.Join(errors, "\n")})
+	}
+	return rows
+}
+
+func agentBlueprintLifecycleActionDescription(blueprint gact.AgentBlueprintDefinition, action string, manageable bool) string {
+	install := agentBlueprintInstallMetadata(blueprint)
+	fields := make([]string, 0, 6)
+	if !manageable {
+		fields = append(fields, "protected scope: "+firstNonEmpty(blueprint.Scope, "unknown"))
+	} else if action == "update" {
+		fields = append(fields, "refresh this installed blueprint through CLIO")
+	} else {
+		fields = append(fields, "remove this installed blueprint through CLIO")
+	}
+	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+		fields = append(fields, "source: "+source)
+	}
+	if status := stringValue(install["status"]); status != "" {
+		fields = append(fields, "status: "+status)
+	}
+	if message := firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])); message != "" {
+		fields = append(fields, "status_message: "+message)
+	}
+	if syncedAt := firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])); syncedAt != "" {
+		fields = append(fields, "synced_at: "+syncedAt)
+	}
+	if trust := firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])); trust != "" {
+		fields = append(fields, "trust: "+trust)
+	}
+	if len(fields) == 0 {
+		return "lifecycle action"
+	}
+	return strings.Join(fields, " · ")
 }
 
 func shortHash(value string) string {

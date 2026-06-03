@@ -352,10 +352,16 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 			ID: "data-exploration", Title: "Data Exploration", Version: "1.0.0", Scope: "builtin",
 			RootExpert: "data", Enabled: true, Defaults: map[string]any{"prompt_profile": "heavy"},
 			Metadata: map[string]any{"install": map[string]any{
-				"source":       "/tmp/community-blueprints",
-				"source_kind":  "path",
-				"checksum":     "abcdef0123456789",
-				"installed_at": "2026-06-02T20:00:00Z",
+				"source":              "/tmp/community-blueprints",
+				"source_kind":         "path",
+				"checksum":            "abcdef0123456789",
+				"installed_at":        "2026-06-02T20:00:00Z",
+				"status":              "sync_failed",
+				"status_message":      "last sync failed",
+				"trust":               "community",
+				"last_synced_at":      "2026-06-02T19:00:00Z",
+				"validation_warnings": []any{"source has not been synced in 7 days"},
+				"last_error":          "git fetch exited 128",
 			}},
 		},
 		MCPDescriptors: []map[string]any{{
@@ -392,7 +398,20 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
 	}
-	for _, want := range []string{"Source provenance", "source: /tmp/community-blueprints", "source_kind: path", "checksum: abcdef0123456789"} {
+	for _, want := range []string{
+		"Source provenance",
+		"source: /tmp/community-blueprints",
+		"source_kind: path",
+		"checksum: abcdef0123456789",
+		"status: sync_failed",
+		"status_message: last sync failed",
+		"trust: community",
+		"synced_at: 2026-06-02T19:00:00Z",
+		"Source warnings",
+		"source has not been synced in 7 days",
+		"Source errors",
+		"git fetch exited 128",
+	} {
 		if !strings.Contains(items[1].desc, want) {
 			t.Fatalf("blueprint summary missing provenance %q:\n%s", want, items[1].desc)
 		}
@@ -402,6 +421,11 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	}
 	if items[2].id != "blueprint-action/update" || !items[2].disabled {
 		t.Fatalf("builtin blueprint update action should be visible but disabled: %#v", items[2])
+	}
+	for _, want := range []string{"protected scope: builtin", "source: /tmp/community-blueprints", "status: sync_failed", "status_message: last sync failed", "synced_at: 2026-06-02T19:00:00Z", "trust: community"} {
+		if !strings.Contains(items[2].desc, want) {
+			t.Fatalf("builtin update action missing lifecycle state %q: %#v", want, items[2])
+		}
 	}
 	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
 		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
@@ -509,6 +533,14 @@ func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t
 	items := agentBlueprintDetailItems(gact.AgentBlueprintDetail{
 		AgentBlueprint: gact.AgentBlueprintDefinition{
 			ID: "workspace-blueprint", Title: "Workspace Blueprint", Scope: "workspace", Enabled: true,
+			Metadata: map[string]any{"install": map[string]any{
+				"source":         "https://example.org/community/workspace-blueprint.git",
+				"source_kind":    "git",
+				"status":         "update_available",
+				"status_message": "new commit available",
+				"last_sync":      "2026-06-03T01:00:00Z",
+				"trust_policy":   "explicit",
+			}},
 		},
 	})
 
@@ -518,7 +550,17 @@ func TestAgentBlueprintDetailItemsExposeManagementActionsForInstalledBlueprint(t
 	if items[2].id != "blueprint-action/update" || items[2].disabled {
 		t.Fatalf("workspace blueprint update action should be enabled: %#v", items[2])
 	}
+	for _, want := range []string{"refresh this installed blueprint through CLIO", "source: https://example.org/community/workspace-blueprint.git", "status: update_available", "status_message: new commit available", "synced_at: 2026-06-03T01:00:00Z", "trust: explicit"} {
+		if !strings.Contains(items[2].desc, want) {
+			t.Fatalf("workspace update action missing lifecycle state %q: %#v", want, items[2])
+		}
+	}
 	if items[3].id != "blueprint-action/delete" || items[3].disabled {
 		t.Fatalf("workspace blueprint delete action should be enabled: %#v", items[3])
+	}
+	for _, want := range []string{"remove this installed blueprint through CLIO", "source: https://example.org/community/workspace-blueprint.git", "status: update_available"} {
+		if !strings.Contains(items[3].desc, want) {
+			t.Fatalf("workspace delete action missing lifecycle state %q: %#v", want, items[3])
+		}
 	}
 }
