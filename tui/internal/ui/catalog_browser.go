@@ -1616,6 +1616,7 @@ type agentBlueprintSourceSummary struct {
 	syncedAt    string
 	scope       string
 	blueprints  []string
+	states      []string
 	warnings    []string
 	errors      []string
 }
@@ -1669,7 +1670,11 @@ func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) (
 			byKey[key] = summary
 		}
 		groups[key] = append(groups[key], blueprint)
-		summary.blueprints = append(summary.blueprints, firstNonEmpty(blueprint.Title, blueprint.ID))
+		blueprintName := firstNonEmpty(blueprint.Title, blueprint.ID)
+		summary.blueprints = append(summary.blueprints, blueprintName)
+		if state := agentBlueprintMarketplaceState(blueprint); state != "" {
+			summary.states = appendUniqueStrings(summary.states, blueprintName+" ("+state+")")
+		}
 		if scope := firstNonEmpty(stringValue(install["scope"]), blueprint.Scope); scope != "" {
 			summary.scope = strings.Join(appendUniqueStrings(splitCommaList(summary.scope), scope), ", ")
 		}
@@ -1696,6 +1701,7 @@ func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) (
 	for _, key := range keys {
 		summary := byKey[key]
 		sort.Strings(summary.blueprints)
+		sort.Strings(summary.states)
 		summaries = append(summaries, summary)
 	}
 	return summaries, groups
@@ -1749,6 +1755,7 @@ func formatAgentBlueprintSourceSummary(summary *agentBlueprintSourceSummary) str
 		detailField{"synced_at", summary.syncedAt},
 		detailField{"scope", summary.scope},
 		detailField{"blueprints", strings.Join(summary.blueprints, ", ")},
+		detailField{"blueprint_states", strings.Join(summary.states, "\n")},
 	)
 	if len(summary.warnings) > 0 {
 		rows = appendDetailSection(rows, "Warnings", detailField{"warnings", strings.Join(summary.warnings, "\n")})

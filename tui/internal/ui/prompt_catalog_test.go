@@ -422,6 +422,11 @@ func TestAgentBlueprintCatalogItemsGroupSourceBackedBlueprints(t *testing.T) {
 		!strings.Contains(items[0].desc, "scope: marketplace, workspace") {
 		t.Fatalf("source rows should describe grouped blueprints: %#v", items)
 	}
+	if !strings.Contains(items[0].desc, "blueprint_states:") ||
+		!strings.Contains(items[0].desc, "Available Marketplace (available)") ||
+		!strings.Contains(items[0].desc, "Installed Marketplace (installed)") {
+		t.Fatalf("source rows should describe per-blueprint install state:\n%s", items[0].desc)
+	}
 }
 
 func TestAgentBlueprintCatalogAndDetailSurfaceValidationWarnings(t *testing.T) {
