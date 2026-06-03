@@ -218,6 +218,41 @@ func TestApplyNotificationSSESurfacesGlobalEventsWithoutSessionID(t *testing.T) 
 	}
 }
 
+func TestApplySemanticEventSurfacesGlobalEventsWithoutSessionID(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "global-provider",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":   "",
+			"turn_id":      "turn_global",
+			"trace_id":     "trace_global",
+			"event_type":   "provider.degraded",
+			"status":       "warning",
+			"summary":      "Provider degraded.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"provider": "openai"},
+			"payload": map[string]any{
+				"reason": "rate limited",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("global semantic event should surface on current session: %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeThinking || !strings.Contains(part.Thinking, "provider.degraded") || !strings.Contains(part.Thinking, "provider=openai") {
+		t.Fatalf("global semantic summary = %#v", part)
+	}
+	if part.Metadata["trace_id"] != "trace_global" || part.Metadata["status"] != "warning" {
+		t.Fatalf("global semantic metadata = %#v", part.Metadata)
+	}
+}
+
 func TestApplySemanticEventSummarizesCLIOSemanticToolPayload(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
