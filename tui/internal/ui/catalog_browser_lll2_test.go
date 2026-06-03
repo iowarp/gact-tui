@@ -558,6 +558,90 @@ func TestCatalogBrowser_EnterOnAgentBlueprintHookEnablesPackagedHook(t *testing.
 	}
 }
 
+func TestAgentBlueprintManagedMsgSurfacesFailuresTruthfully(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "blueprint-action/update", title: "Update"}},
+	}
+
+	model, cmd := a.Update(agentBlueprintManagedMsg{
+		blueprintID: "bp1",
+		action:      "updated",
+		err:         errors.New("git fetch exited 128"),
+	})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("failed blueprint management should schedule transient hint expiry")
+	}
+	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.blueprintID != "bp1" {
+		t.Fatalf("failed update should leave detail browser open for inspection: open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
+	}
+	if got := a.transientHint; got != "agent blueprint updated failed: git fetch exited 128" {
+		t.Fatalf("failure hint = %q", got)
+	}
+}
+
+func TestAgentBlueprintManagedMsgReloadsCurrentDetailOnSuccess(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.EscapedPath()
+		writeJSONForTest(t, w, gact.AgentBlueprintDetail{
+			AgentBlueprint: gact.AgentBlueprintDefinition{ID: "bp1", Title: "Blueprint One", Scope: "workspace"},
+		})
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Data",
+		blueprintID: "bp1",
+		items:       []catalogItem{{id: "blueprint-action/update", title: "Update"}},
+	}
+
+	model, cmd := a.Update(agentBlueprintManagedMsg{
+		blueprintID: "bp1",
+		action:      "updated",
+		result:      map[string]any{"status": "updated"},
+	})
+	a = model.(*App)
+	if got := a.transientHint; got != "agent blueprint updated: bp1" {
+		t.Fatalf("success hint = %q", got)
+	}
+	if cmd == nil {
+		t.Fatal("successful detail update should reload the current blueprint detail")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if c == nil {
+				continue
+			}
+			if loaded, ok := c().(catalogBrowserLoadedMsg); ok {
+				msg = loaded
+				break
+			}
+		}
+	}
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("reload cmd returned %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" || loaded.blueprintID != "bp1" || len(loaded.items) == 0 {
+		t.Fatalf("loaded detail = %#v", loaded)
+	}
+	if gotPath != "GET /v1/agent-blueprints/bp1" {
+		t.Fatalf("reload path = %q", gotPath)
+	}
+}
+
 func TestCatalogBrowser_EnterOnAgentBlueprintSourceOpensSourceDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.catalogBrowserOpen = true
