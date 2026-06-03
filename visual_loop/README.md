@@ -274,6 +274,20 @@ untracked files, so a clean checkout cannot accidentally lose release evidence.
 It does not replace screenshot inspection or strict live benchmark assertions;
 it catches missing acceptance artifacts before the visual review starts.
 
+When a fresh live benchmark capture is intended to close the temporal
+observability work, run the stricter corpus gate too:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root . \
+  --require-git-tracked \
+  --require-strict-live-pass
+```
+
+This fails unless at least one maintained strict live-observability report has
+`verdict: PASS`. Historical reports that only prove basic tool streaming should
+remain useful artifacts, but they must not be mistaken for closure-grade
+benchmark hierarchy proof.
+
 ### Temporal live-observability gate
 
 Screenshots alone can miss the worst streaming regression: the TUI appears

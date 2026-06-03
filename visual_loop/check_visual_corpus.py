@@ -23,6 +23,11 @@ class CorpusGroup:
     required: tuple[str, ...]
 
 
+STRICT_LIVE_REPORTS: tuple[str, ...] = (
+    "visual_loop/screenshots/live_observability_20260601_131300.strict.report.md",
+)
+
+
 CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
     CorpusGroup(
         name="conversation_tools",
@@ -128,6 +133,21 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
 )
 
 
+def report_verdict(path: Path) -> str | None:
+    if not path.exists() or not path.is_file():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("- verdict:"):
+            continue
+        if "`PASS`" in line:
+            return "PASS"
+        if "`FAIL`" in line:
+            return "FAIL"
+        return line.removeprefix("- verdict:").strip().strip("`")
+    return None
+
+
 def tracked_paths(root: Path) -> set[str]:
     proc = subprocess.run(
         ["git", "ls-files", "--", "visual_loop"],
@@ -153,7 +173,19 @@ def check_group(root: Path, group: CorpusGroup, *, tracked: set[str] | None = No
     return missing
 
 
-def check_corpus(root: Path, *, require_tracked: bool = False) -> dict[str, object]:
+def check_strict_live_reports(root: Path) -> dict[str, object]:
+    reports = []
+    ok = False
+    for rel in STRICT_LIVE_REPORTS:
+        path = root / rel
+        verdict = report_verdict(path)
+        if verdict == "PASS":
+            ok = True
+        reports.append({"path": rel, "verdict": verdict or "missing"})
+    return {"ok": ok, "reports": reports}
+
+
+def check_corpus(root: Path, *, require_tracked: bool = False, require_strict_live_pass: bool = False) -> dict[str, object]:
     tracked = tracked_paths(root) if require_tracked else None
     groups = []
     ok = True
@@ -169,7 +201,13 @@ def check_corpus(root: Path, *, require_tracked: bool = False) -> dict[str, obje
                 "missing": missing,
             }
         )
-    return {"ok": ok, "groups": groups}
+    result: dict[str, object] = {"ok": ok, "groups": groups}
+    if require_strict_live_pass:
+        strict = check_strict_live_reports(root)
+        result["strict_live_pass"] = strict
+        if not strict["ok"]:
+            result["ok"] = False
+    return result
 
 
 def print_text_report(result: dict[str, object]) -> None:
@@ -192,6 +230,17 @@ def print_text_report(result: dict[str, object]) -> None:
         else:
             print("- status: present")
         print()
+    strict = result.get("strict_live_pass")
+    if isinstance(strict, dict):
+        print("## strict_live_pass")
+        print()
+        print(f"- status: {'present' if strict.get('ok') else 'missing'}")
+        reports = strict.get("reports", [])
+        if isinstance(reports, list):
+            for report in reports:
+                if isinstance(report, dict):
+                    print(f"- {report.get('path')}: `{report.get('verdict')}`")
+        print()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -203,9 +252,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="fail required artifacts that exist locally but are not tracked by git",
     )
+    parser.add_argument(
+        "--require-strict-live-pass",
+        action="store_true",
+        help="fail unless at least one maintained strict live-observability report has verdict PASS",
+    )
     args = parser.parse_args(argv)
 
-    result = check_corpus(Path(args.root), require_tracked=args.require_git_tracked)
+    result = check_corpus(
+        Path(args.root),
+        require_tracked=args.require_git_tracked,
+        require_strict_live_pass=args.require_strict_live_pass,
+    )
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
