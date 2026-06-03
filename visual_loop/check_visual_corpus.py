@@ -245,6 +245,21 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
         ),
     ),
     CorpusGroup(
+        name="remote_alcf_replay",
+        description="persisted ALCF provider-swap and sidebar-section replay proof",
+        required=(
+            "visual_loop/tapes/live_alcf_20260525_provider_swap.tape",
+            "visual_loop/screenshots/live_alcf_20260525_provider_swap_top.png",
+            "visual_loop/screenshots/live_alcf_20260525_provider_swap_bottom.png",
+            "visual_loop/tapes/live_alcf_20260525_sidebar_sections.tape",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sessions_header_focused.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sessions_collapsed.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_context_focused.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sections_collapsed.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sections_expanded.png",
+        ),
+    ),
+    CorpusGroup(
         name="temporal_observability",
         description="JSONL/report gates for live semantic streaming",
         required=(

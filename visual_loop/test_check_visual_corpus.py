@@ -220,6 +220,24 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, replay.required)
 
+    def test_manifest_requires_remote_alcf_provider_and_sidebar_replay_proof(self) -> None:
+        remote = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "remote_alcf_replay"
+        )
+
+        for rel in (
+            "visual_loop/tapes/live_alcf_20260525_provider_swap.tape",
+            "visual_loop/screenshots/live_alcf_20260525_provider_swap_top.png",
+            "visual_loop/screenshots/live_alcf_20260525_provider_swap_bottom.png",
+            "visual_loop/tapes/live_alcf_20260525_sidebar_sections.tape",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sessions_header_focused.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sessions_collapsed.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_context_focused.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sections_collapsed.png",
+            "visual_loop/screenshots/live_alcf_20260525_sidebar_sections_expanded.png",
+        ):
+            self.assertIn(rel, remote.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
