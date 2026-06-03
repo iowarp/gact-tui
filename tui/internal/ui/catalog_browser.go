@@ -318,6 +318,11 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				title:     "Validate agent blueprint",
 				desc:      "preview parsed agents, MCP descriptors, and validation errors before installing",
 				statusTag: "check",
+			}, {
+				id:        "action/source-registry",
+				title:     "Marketplace sources",
+				desc:      agentBlueprintSourceRegistryUnavailableDetail(),
+				statusTag: "backend gap",
 			}}
 			items := append(actions, agentBlueprintCatalogItems(blueprints)...)
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -977,6 +982,9 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			case "action/validate-blueprint":
 				a.openAgentBlueprintManage(agentBlueprintManageValidate)
+				return a, nil
+			case "action/source-registry":
+				a.openCatalogDetail(it.title, it.desc)
 				return a, nil
 			}
 			if strings.HasPrefix(it.id, "source/") {
@@ -1640,6 +1648,16 @@ func agentBlueprintSourceCatalogItems(blueprints []gact.AgentBlueprintDefinition
 		})
 	}
 	return items
+}
+
+func agentBlueprintSourceRegistryUnavailableDetail() string {
+	return strings.Join(appendDetailSection(nil, "Marketplace Source Registry",
+		detailField{"status", "unavailable"},
+		detailField{"reason", "CLIO does not expose a durable marketplace-source registry API yet"},
+		detailField{"available_now", "install, validate, update, delete installed blueprints"},
+		detailField{"shown_now", "derived per-blueprint source provenance from metadata.install"},
+		detailField{"blocked_operations", "add named source\nlist configured sources\nsync source\nremove source without deleting installed blueprints\ninspect resolved commit/checksum for uninstalled sources"},
+	), "\n")
 }
 
 func sourceTitle(summary *agentBlueprintSourceSummary) string {

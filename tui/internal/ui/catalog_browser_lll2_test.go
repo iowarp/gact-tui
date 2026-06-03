@@ -667,6 +667,41 @@ func TestCatalogBrowser_EnterOnAgentBlueprintSourceOpensSourceDetail(t *testing.
 	}
 }
 
+func TestCatalogBrowser_EnterOnAgentBlueprintSourceRegistryOpensBackendGapDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{{
+			id:        "action/source-registry",
+			title:     "Marketplace sources",
+			desc:      agentBlueprintSourceRegistryUnavailableDetail(),
+			statusTag: "backend gap",
+		}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("source registry detail should open locally without backend command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("source registry row should open detail view")
+	}
+	for _, want := range []string{
+		"Marketplace Source Registry",
+		"status: unavailable",
+		"CLIO does not expose a durable marketplace-source registry API yet",
+		"add named source",
+		"remove source without deleting installed blueprints",
+		"derived per-blueprint source provenance",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("source registry detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
 func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
