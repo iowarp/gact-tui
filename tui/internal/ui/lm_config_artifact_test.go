@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -911,6 +912,93 @@ func TestLMConfigArgonneReadyTokenRendersAsUsable(t *testing.T) {
 	}
 	if strings.Contains(out, "Globus login required") || strings.Contains(out, "Authenticate") {
 		t.Fatalf("ready argonne provider still looks unauthenticated\n%s", out)
+	}
+}
+
+func TestLMConfigArgonneAuthFailureStaysVisible(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:         "argonne_sophia",
+		Label:      "ALCF Sophia (Globus Auth)",
+		Provider:   "argonne",
+		AuthMethod: "oauth",
+		Status:     "auth_required",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.field = lmFieldAuth
+	a.lmConfig.authenticating = true
+	a.lmConfig.authMessage = "launching ALCF Globus login terminal..."
+
+	model, cmd := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		err:        errors.New("Globus token expired"),
+	})
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("auth failure should not dispatch follow-up commands")
+	}
+	if !a.lmConfigOpen || a.lmConfig == nil {
+		t.Fatal("auth failure should keep the provider modal open")
+	}
+	if a.lmConfig.authenticating {
+		t.Fatal("authenticating should be cleared after failure")
+	}
+	if a.lmConfig.authMessage != "auth failed: Globus token expired" {
+		t.Fatalf("auth failure message = %q", a.lmConfig.authMessage)
+	}
+	if a.lmConfig.info.Presets[a.lmConfig.selected].Status != "auth_required" {
+		t.Fatalf("auth failure should not mark provider ready: %#v", a.lmConfig.info.Presets[a.lmConfig.selected])
+	}
+}
+
+func TestLMConfigArgonneAuthSuccessMarksReadyAndRefreshesModels(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:         "argonne_sophia",
+		Label:      "ALCF Sophia (Globus Auth)",
+		Provider:   "argonne",
+		AuthMethod: "oauth",
+		APIBase:    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		Status:     "auth_required",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.field = lmFieldAuth
+	a.lmConfig.authenticating = true
+	a.lmConfig.modelCatalogs["argonne_sophia"] = []gact.Model{{ID: "stale"}}
+	a.lmConfig.modelCatalogWarnings["argonne_sophia"] = "token expired"
+	a.lmConfig.modelCatalogSources["argonne_sophia"] = "unavailable"
+
+	model, cmd := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		resp: client.ProviderAuthResponse{
+			ProviderID:       "argonne_sophia",
+			IsAuthenticated: true,
+		},
+	})
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("auth success should queue a fresh model catalog fetch")
+	}
+	if a.lmConfig.authenticating {
+		t.Fatal("authenticating should be cleared after success")
+	}
+	if a.lmConfig.authMessage != "ALCF Globus token ready" {
+		t.Fatalf("auth success message = %q", a.lmConfig.authMessage)
+	}
+	preset := a.lmConfig.info.Presets[a.lmConfig.selected]
+	if preset.Status != "ready" || preset.StatusMessage != "Globus token ready" || !preset.IsAuthenticated {
+		t.Fatalf("auth success should mark provider ready: %#v", preset)
+	}
+	if _, ok := a.lmConfig.modelCatalogs["argonne_sophia"]; ok {
+		t.Fatal("auth success should clear stale model catalog cache")
+	}
+	if _, ok := a.lmConfig.modelCatalogWarnings["argonne_sophia"]; ok {
+		t.Fatal("auth success should clear stale model catalog warnings")
+	}
+	if !a.lmConfig.modelCatalogPending["argonne_sophia"] {
+		t.Fatal("auth success should mark a model fetch pending")
 	}
 }
 
