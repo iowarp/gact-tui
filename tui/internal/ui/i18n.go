@@ -102,6 +102,8 @@ const (
 	msgLMConfigNoProvidersMatch      messageID = "lm_config.provider.no_match"
 	msgLMConfigSelectedTitle         messageID = "lm_config.selected.title"
 	msgLMConfigNoProviderSelected    messageID = "lm_config.selected.none"
+	msgLMConfigApplied               messageID = "lm_config.selected.applied"
+	msgLMConfigPending               messageID = "lm_config.selected.pending"
 	msgLMConfigAPIKey                messageID = "lm_config.api_key"
 	msgLMConfigAPIBase               messageID = "lm_config.api_base"
 	msgLMConfigAuthRequired          messageID = "lm_config.auth.required"

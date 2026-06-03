@@ -101,6 +101,8 @@
   "lm_config.provider_desc.argonne_metis": "Argonne Metis inference endpoint using Globus authentication.",
   "lm_config.selected.title": "Configuration",
   "lm_config.selected.none": "No provider selected",
+  "lm_config.selected.applied": "applied: {{value}}",
+  "lm_config.selected.pending": "pending: {{value}}",
   "lm_config.api_key": "API key",
   "lm_config.api_base": "API base",
   "lm_config.auth.required": "auth: Globus login required",

@@ -101,6 +101,8 @@
   "lm_config.provider_desc.argonne_metis": "Globus 認証を使う Argonne Metis 推論エンドポイント。",
   "lm_config.selected.title": "設定",
   "lm_config.selected.none": "プロバイダー未選択",
+  "lm_config.selected.applied": "適用済み: {{value}}",
+  "lm_config.selected.pending": "保留中: {{value}}",
   "lm_config.api_key": "API キー",
   "lm_config.api_base": "API ベース",
   "lm_config.auth.required": "認証: Globus ログインが必要",

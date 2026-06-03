@@ -101,6 +101,8 @@
   "lm_config.provider_desc.argonne_metis": "Endpoint inference Argonne Metis με πιστοποίηση Globus.",
   "lm_config.selected.title": "Ρυθμίσεις",
   "lm_config.selected.none": "Δεν έχει επιλεγεί πάροχος",
+  "lm_config.selected.applied": "εφαρμοσμένο: {{value}}",
+  "lm_config.selected.pending": "εκκρεμές: {{value}}",
   "lm_config.api_key": "Κλειδί API",
   "lm_config.api_base": "API base",
   "lm_config.auth.required": "auth: απαιτείται σύνδεση Globus",

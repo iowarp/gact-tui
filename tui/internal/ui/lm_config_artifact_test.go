@@ -1454,6 +1454,37 @@ func TestLMConfigProviderDetailsRowsAndHitsShareVisibility(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderDetailsShowsAppliedAndPendingSelection(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Configured = true
+	a.lmConfig.info.Provider = "ollama"
+	a.lmConfig.info.Model = "granite3.1-dense:8b"
+	a.lmConfig.info.APIBase = "http://127.0.0.1:11434/v1"
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.model = "qwopus3.5-9b-v3"
+	a.lmConfig.apiBase = "http://127.0.0.1:1234/v1"
+
+	out := ansi.Strip(a.renderLMConfigProviderDetails(70, 10))
+	if !strings.Contains(out, "applied: ollama/granite3.1-dense:8b") {
+		t.Fatalf("provider details did not show applied config:\n%s", out)
+	}
+	if !strings.Contains(out, "pending: lm_studio/qwopus3.5-9b-v3") {
+		t.Fatalf("provider details did not show pending config:\n%s", out)
+	}
+
+	a.lmConfig.selected = 1
+	a.lmConfig.model = "granite3.1-dense:8b"
+	a.lmConfig.apiBase = "http://127.0.0.1:11434/v1"
+	out = ansi.Strip(a.renderLMConfigProviderDetails(70, 10))
+	if !strings.Contains(out, "applied: ollama/granite3.1-dense:8b") {
+		t.Fatalf("provider details should keep applied config visible:\n%s", out)
+	}
+	if strings.Contains(out, "pending:") {
+		t.Fatalf("provider details should not show pending config when selection matches applied:\n%s", out)
+	}
+}
+
 func modalCellHitByIDForTest(hits []modalCellHit, id string) (modalCellHit, bool) {
 	for _, hit := range hits {
 		if hit.id == id {
