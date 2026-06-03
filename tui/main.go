@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -4538,35 +4539,7 @@ func runCapabilities(args []string) int {
 		fmt.Printf("auth:             %s (current: %s)\n", strings.Join(caps.Auth.Schemes, ","), caps.Auth.Current)
 	}
 	fmt.Println("capabilities:")
-	flags := []struct {
-		name string
-		on   bool
-	}{
-		{"workspaces", caps.Capabilities.Workspaces},
-		{"sessions", caps.Capabilities.Sessions},
-		{"subagents", caps.Capabilities.Subagents},
-		{"mcp", caps.Capabilities.MCP},
-		{"lsp", caps.Capabilities.LSP},
-		{"files", caps.Capabilities.Files},
-		{"diffs", caps.Capabilities.Diffs},
-		{"permissions", caps.Capabilities.Permissions},
-		{"providers", caps.Capabilities.Providers},
-		{"commands", caps.Capabilities.Commands},
-		{"voice", caps.Capabilities.Voice},
-		{"scheduled_sessions", caps.Capabilities.ScheduledSessions},
-		{"metrics", caps.Capabilities.Metrics},
-		{"session_branching", caps.Capabilities.SessionBranching},
-		{"session_sharing", caps.Capabilities.SessionSharing},
-		{"session_export", caps.Capabilities.SessionExport},
-		{"cost_tracking", caps.Capabilities.CostTracking},
-		{"thinking_blocks", caps.Capabilities.ThinkingBlocks},
-		{"edit_modes", caps.Capabilities.EditModes},
-		{"plan_mode", caps.Capabilities.PlanMode},
-		{"search_messages", caps.Capabilities.SearchMessages},
-		{"agent_write", caps.Capabilities.AgentWrite},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction},
-	}
-	for _, f := range flags {
+	for _, f := range capabilityFlagTextRows(caps.Capabilities) {
 		mark := "·"
 		if f.on {
 			mark = "✓"
@@ -4577,6 +4550,42 @@ func runCapabilities(args []string) int {
 		fmt.Printf("extension:        %s %s %s\n", e.ID, e.Version, e.Docs)
 	}
 	return 0
+}
+
+type capabilityFlagTextRow struct {
+	name string
+	on   bool
+}
+
+func capabilityFlagTextRows(flags gact.CapabilityFlags) []capabilityFlagTextRow {
+	value := reflect.ValueOf(flags)
+	typ := value.Type()
+	rows := make([]capabilityFlagTextRow, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		name := strings.Split(field.Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		rows = append(rows, capabilityFlagTextRow{
+			name: name,
+			on:   capabilityFlagValueEnabled(value.Field(i)),
+		})
+	}
+	return rows
+}
+
+func capabilityFlagValueEnabled(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Bool:
+		return value.Bool()
+	case reflect.String:
+		return strings.TrimSpace(value.String()) != "" && value.String() != "none"
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return value.Len() > 0
+	default:
+		return false
+	}
 }
 
 // runAgentShow is the SPEC §6.5 "agent metadata lookup" command that
