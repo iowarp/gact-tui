@@ -109,6 +109,22 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, sidebars.required)
 
+    def test_manifest_requires_text_entry_and_footer_action_visual_proof(self) -> None:
+        modals = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "questions_retry_permissions"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_text_entry_modals.tape",
+            "visual_loop/screenshots/semantic_rename_modal.png",
+            "visual_loop/screenshots/semantic_context_add_modal.png",
+            "visual_loop/tapes/semantic_compose_modal.tape",
+            "visual_loop/screenshots/semantic_compose_modal.png",
+            "visual_loop/tapes/semantic_sidebar_footer_actions.tape",
+            "visual_loop/screenshots/semantic_sidebar_footer_actions.png",
+        ):
+            self.assertIn(rel, modals.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
