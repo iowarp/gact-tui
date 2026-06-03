@@ -142,6 +142,47 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, menus.required)
 
+    def test_manifest_requires_semantic_interaction_visual_proof(self) -> None:
+        interactions = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "semantic_interactions"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_palette.tape",
+            "visual_loop/screenshots/semantic_palette_commands.png",
+            "visual_loop/screenshots/semantic_palette_search.png",
+            "visual_loop/tapes/semantic_permission_banner.tape",
+            "visual_loop/screenshots/semantic_permission_banner.png",
+            "visual_loop/tapes/semantic_startup_intro.tape",
+            "visual_loop/screenshots/semantic_startup_intro.png",
+            "visual_loop/tapes/semantic_startup_connecting.tape",
+            "visual_loop/screenshots/semantic_startup_connecting.png",
+            "visual_loop/tapes/semantic_startup_error.tape",
+            "visual_loop/screenshots/semantic_startup_error.png",
+            "visual_loop/tapes/semantic_workspace_switch.tape",
+            "visual_loop/screenshots/semantic_workspace_header_root.png",
+            "visual_loop/screenshots/semantic_workspace_switch.png",
+            "visual_loop/screenshots/semantic_workspace_create_form.png",
+            "visual_loop/tapes/semantic_mcp_install.tape",
+            "visual_loop/screenshots/semantic_mcp_install.png",
+            "visual_loop/tapes/semantic_mcp_remove.tape",
+            "visual_loop/screenshots/semantic_mcp_remove.png",
+            "visual_loop/tapes/semantic_context_actions.tape",
+            "visual_loop/screenshots/semantic_context_actions.png",
+            "visual_loop/tapes/semantic_diff_actions.tape",
+            "visual_loop/screenshots/semantic_diff_actions.png",
+            "visual_loop/tapes/semantic_session_actions.tape",
+            "visual_loop/screenshots/semantic_session_actions.png",
+            "visual_loop/tapes/semantic_memory_inspector.tape",
+            "visual_loop/screenshots/semantic_memory_palette.png",
+            "visual_loop/screenshots/semantic_memory_inspector.png",
+            "visual_loop/tapes/semantic_sidebar_filter.tape",
+            "visual_loop/screenshots/semantic_sidebar_filter.png",
+            "visual_loop/tapes/semantic_quit_confirm.tape",
+            "visual_loop/screenshots/semantic_quit_confirm.png",
+        ):
+            self.assertIn(rel, interactions.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
