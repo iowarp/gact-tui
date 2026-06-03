@@ -333,15 +333,16 @@ func TestE2E_CancelInflight(t *testing.T) {
 	})
 	sid := sess["id"].(string)
 
-	// Trigger a scenario then cancel quickly.
+	// Trigger a dangerous scenario. The default script holds in
+	// waiting_permission until a permission is answered or the run is
+	// cancelled, which gives this E2E a stable in-flight state instead of
+	// racing the zero-duration fast happy path.
 	postJSON(t, url+"/v1/sessions/"+sid+"/messages", map[string]any{
-		"parts": []map[string]any{{"type": "text", "text": "do work"}},
+		"parts": []map[string]any{{"type": "text", "text": "delete scratch"}},
 	})
 
-	// Wait until the scenario is genuinely in-flight before cancelling. The
-	// user-message handler returns before the scenario goroutine necessarily
-	// publishes its first status update.
-	deadline := time.Now().Add(2 * time.Second)
+	// Wait until the scenario is genuinely in-flight before cancelling.
+	deadline := time.Now().Add(5 * time.Second)
 	inflight := false
 	for time.Now().Before(deadline) {
 		r, _ := http.Get(url + "/v1/sessions/" + sid)
@@ -349,7 +350,7 @@ func TestE2E_CancelInflight(t *testing.T) {
 			var got map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&got)
 			r.Body.Close()
-			if got["status"] != "idle" {
+			if got["status"] == "waiting_permission" {
 				inflight = true
 				break
 			}
@@ -357,7 +358,7 @@ func TestE2E_CancelInflight(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	if !inflight {
-		t.Fatal("session never became in-flight before cancel")
+		t.Fatal("session never reached waiting_permission before cancel")
 	}
 
 	cancelReq, _ := http.NewRequest(http.MethodPost, url+"/v1/sessions/"+sid+"/cancel", nil)
