@@ -499,6 +499,11 @@ func TestExpertPackDetailItemsExposeActivationAndAgents(t *testing.T) {
 	if items[0].id != "activate" {
 		t.Fatalf("first expert-pack detail row = %q, want activate", items[0].id)
 	}
+	for _, want := range []string{"only for the current selected session", "new sessions keep the backend/workspace default"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("expert-pack activation row missing scope/default text %q: %#v", want, items[0])
+		}
+	}
 	if !strings.Contains(items[1].desc, "provider") {
 		t.Fatalf("pack summary should surface defaults metadata:\n%s", items[1].desc)
 	}
@@ -555,6 +560,11 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	}
 	if items[0].id != "activate" {
 		t.Fatalf("first detail row = %q, want activate", items[0].id)
+	}
+	for _, want := range []string{"only for the current selected session", "new sessions keep the backend/workspace default"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("blueprint activation row missing scope/default text %q: %#v", want, items[0])
+		}
 	}
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)

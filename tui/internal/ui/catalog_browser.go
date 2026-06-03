@@ -1840,7 +1840,7 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 	items := []catalogItem{{
 		id:        "activate",
 		title:     "Activate for current session",
-		desc:      "sets this expert pack as the active session runtime",
+		desc:      sessionActivationDescription("expert pack"),
 		statusTag: "session",
 	}, {
 		id:        "pack/" + pack.ID,
@@ -1876,7 +1876,7 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	items := []catalogItem{{
 		id:        "activate",
 		title:     "Activate for current session",
-		desc:      "sets this markdown agent blueprint as the active session runtime",
+		desc:      sessionActivationDescription("markdown agent blueprint"),
 		statusTag: "session",
 	}, {
 		id:        "blueprint/" + blueprint.ID,
@@ -1977,6 +1977,10 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition) string {
 		rows = appendDetailSection(rows, "Description", detailField{"", pack.Description})
 	}
 	return strings.Join(rows, "\n")
+}
+
+func sessionActivationDescription(runtime string) string {
+	return "sets this " + runtime + " only for the current selected session; new sessions keep the backend/workspace default"
 }
 
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
