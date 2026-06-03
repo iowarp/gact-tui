@@ -8,6 +8,8 @@ package ui
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -364,6 +366,66 @@ func TestPaste_CtrlPExpansionGrowsInputPane(t *testing.T) {
 	}
 	if !strings.Contains(plain, "line 5") {
 		t.Fatalf("expanded paste last line missing; input pane did not grow:\n%s", plain)
+	}
+}
+
+func TestPaste_PostFailureRestoresExpandedContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/sess_1/messages" {
+			http.Error(w, `{"error":"temporarily unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.Theme.PasteCompressThreshold = 3
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3"})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("compressed paste should not dispatch a command")
+	}
+	if !strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 1 {
+		t.Fatalf("setup: paste did not compress, input=%q pastes=%d", a.input.Value(), len(a.pastes))
+	}
+
+	model, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("Enter should dispatch post command for expanded paste")
+	}
+	if got := a.input.Value(); got != "" {
+		t.Fatalf("input should clear while post is in flight, got %q", got)
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("pastes should clear after dispatch, got %d", len(a.pastes))
+	}
+
+	msg := cmd()
+	failed, ok := msg.(postFailedMsg)
+	if !ok {
+		t.Fatalf("post cmd returned %T, want postFailedMsg", msg)
+	}
+	if strings.Contains(failed.text, "[pasted content") {
+		t.Fatalf("failed draft should not restore inert placeholder: %q", failed.text)
+	}
+	if failed.text != "line 1\nline 2\nline 3" {
+		t.Fatalf("failed draft = %q, want expanded paste body", failed.text)
+	}
+
+	model, _ = a.Update(failed)
+	a = model.(*App)
+	if got := a.input.Value(); got != "line 1\nline 2\nline 3" {
+		t.Fatalf("restored input = %q, want expanded paste body", got)
+	}
+	if strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 0 {
+		t.Fatalf("retry draft should be expanded and have no stale paste records, input=%q pastes=%d", a.input.Value(), len(a.pastes))
 	}
 }
 

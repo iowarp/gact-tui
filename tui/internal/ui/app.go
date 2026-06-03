@@ -5865,8 +5865,8 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// buffer so the backend sees the real body, not the compressed
 		// sigil. Send-time expansion keeps the input readable right up
 		// until the moment the message is dispatched.
-		draftText := strings.TrimSpace(raw)
 		text := strings.TrimSpace(a.expandPasteText(raw))
+		draftText := text
 		mentions := activeComposerFileMentions(raw, a.fileMentions)
 		a.input.Reset()
 		a.fileMentions = nil
