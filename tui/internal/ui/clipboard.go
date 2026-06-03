@@ -46,7 +46,7 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 	}
 	if err := clipboardWrite(text); err != nil {
 		if oscErr := osc52Write(text); oscErr != nil {
-			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error()
+			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error() + "; run `gact diag` and check clipboard_native/clipboard_missing/clipboard_osc52"
 		}
 		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
 	}

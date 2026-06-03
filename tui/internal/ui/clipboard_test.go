@@ -99,6 +99,31 @@ func TestCopyTextToClipboardFallsBackToOSC52(t *testing.T) {
 	}
 }
 
+func TestCopyTextToClipboardFinalFailureMentionsDiagRows(t *testing.T) {
+	mu, _, errSlot := withClipboardSpy(t)
+	mu.Lock()
+	*errSlot = errors.New("no native clipboard utilities available")
+	mu.Unlock()
+	osc52Write = func(string) error {
+		return errors.New("terminal rejected OSC52")
+	}
+
+	hint := copyTextToClipboard("detail", "payload")
+	for _, want := range []string{
+		"copy failed",
+		"no native clipboard utilities available",
+		"terminal rejected OSC52",
+		"gact diag",
+		"clipboard_native",
+		"clipboard_missing",
+		"clipboard_osc52",
+	} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("failure hint missing %q:\n%s", want, hint)
+		}
+	}
+}
+
 func TestWriteNativeClipboardUsesFirstInstalledUtility(t *testing.T) {
 	attempts := withNativeClipboardSpy(t, map[string]bool{
 		"wl-copy": true,
