@@ -229,6 +229,9 @@ workflow is documented.
 - [`docs/FEATURES.md`](docs/FEATURES.md) — exhaustive reference:
   every keybinding, CLI command, capability matrix, theme, voice
   plumbing
+- [`docs/TUI_ONE_ZERO_RELEASE_CHECKLIST.md`](docs/TUI_ONE_ZERO_RELEASE_CHECKLIST.md)
+  — current TUI 1.0 release gate: installed-binary identity, CI,
+  visual-loop, and manual terminal checks
 
 ## Contributing
 
