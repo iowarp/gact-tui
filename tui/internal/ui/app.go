@@ -1266,6 +1266,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.insertAgentBlueprintManageText(m.Content)
 			return a, nil
 		}
+		if a.askUserOpen {
+			a.insertAskUserText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.retryNotesOpen {
+			a.insertRetryNotesText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.retryModelOpen {
+			a.insertRetryModelText(compactTokenPaste(m.Content))
+			return a, nil
+		}
 		// Compose modal takes paste routing whenever it's open — that's
 		// the whole point of "pastes render expanded" there.
 		if a.composeOpen && a.compose != nil {
@@ -10026,6 +10038,14 @@ func (a *App) insertPastePlaceholder(content string, lineCount int) {
 func normalizePasteNewlines(content string) string {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 	return strings.ReplaceAll(content, "\r", "\n")
+}
+
+func compactSingleLinePaste(content string) string {
+	return strings.Join(strings.Fields(content), " ")
+}
+
+func compactTokenPaste(content string) string {
+	return strings.Join(strings.Fields(content), "")
 }
 
 func (a *App) recordPasteKey(k tea.KeyPressMsg) {
