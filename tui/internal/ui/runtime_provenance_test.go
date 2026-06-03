@@ -131,6 +131,93 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 	}
 }
 
+func TestRuntimeProvenanceDetailRendersContextArtifactsAndErrors(t *testing.T) {
+	rp := sampleRuntimeProvenance()
+	rp["memory"] = map[string]any{
+		"policy":              "workspace",
+		"policy_summary":      "session plus workspace search",
+		"search_count":        2.0,
+		"context_frame_count": 1.0,
+	}
+	rp["context"] = map[string]any{
+		"status":           "prepared",
+		"count":            1.0,
+		"max_inline_bytes": 32768.0,
+		"files": []any{map[string]any{
+			"path":          "/workspace/demo/docs/plan.md",
+			"mode":          "read",
+			"status":        "prepared",
+			"inline_policy": "inline_or_inspect",
+			"language":      "markdown",
+		}},
+	}
+	rp["artifacts"] = []any{map[string]any{
+		"path":       "/workspace/demo/result.png",
+		"kind":       "png",
+		"status":     "verified",
+		"size_bytes": 2048.0,
+	}}
+	rp["errors"] = []any{map[string]any{
+		"code":    "provider_timeout",
+		"message": "retry succeeded",
+		"stage":   "child_expert",
+	}}
+
+	detail := runtimeProvenanceDetailText(rp)
+	for _, want := range []string{
+		"Memory",
+		"policy_summary: session plus workspace search",
+		"Context",
+		"status: prepared",
+		"files:",
+		"path=/workspace/demo/docs/plan.md",
+		"inline_policy=inline_or_inspect",
+		"Artifacts",
+		"path=/workspace/demo/result.png",
+		"size_bytes=2048",
+		"Errors",
+		"code=provider_timeout",
+		"message=retry succeeded",
+	} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("runtime provenance detail missing %q:\n%s", want, detail)
+		}
+	}
+	if strings.Contains(detail, `\"path\"`) {
+		t.Fatalf("detail should render rows, not escaped JSON blobs:\n%s", detail)
+	}
+}
+
+func TestRuntimeProvenanceDetailRendersNamedArtifactAndErrorRows(t *testing.T) {
+	rp := sampleRuntimeProvenance()
+	rp["artifacts"] = map[string]any{
+		"items": []any{map[string]any{
+			"path":   "plots/waveform.png",
+			"status": "proposed",
+		}},
+	}
+	rp["errors"] = map[string]any{
+		"rows": []any{map[string]any{
+			"type":        "tool",
+			"tool_name":   "ndp_search_datasets",
+			"recoverable": true,
+		}},
+	}
+
+	detail := runtimeProvenanceDetailText(rp)
+	for _, want := range []string{
+		"Artifacts",
+		"path=plots/waveform.png",
+		"Errors",
+		"tool_name=ndp_search_datasets",
+		"recoverable=true",
+	} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("runtime provenance detail missing %q:\n%s", want, detail)
+		}
+	}
+}
+
 func TestRuntimeProvenanceMakesMetadataOnlyAssistantRenderable(t *testing.T) {
 	msg := gact.Message{
 		ID:       "m1",

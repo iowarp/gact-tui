@@ -176,9 +176,9 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 	rows = appendRuntimeSkillsSection(rows, mapValue(rp["skills"]))
 	rows = appendRuntimeDelegationSection(rows, mapValue(rp["delegation"]))
 	rows = appendRuntimeMapSection(rows, "Memory", mapValue(rp["memory"]), "policy", "policy_summary", "search_count", "context_frame_count")
-	rows = appendRuntimeMapSection(rows, "Context", mapValue(rp["context"]), "files_count", "context_files_count", "policy")
-	rows = appendRuntimeRowsSection(rows, "Artifacts", mapValue(rp["artifacts"]))
-	rows = appendRuntimeRowsSection(rows, "Errors", mapValue(rp["errors"]))
+	rows = appendRuntimeContextSection(rows, mapValue(rp["context"]))
+	rows = appendRuntimeAnyRowsSection(rows, "Artifacts", rp["artifacts"], "path", "output_path", "artifact", "kind", "type", "status", "size_bytes", "exists", "sha256")
+	rows = appendRuntimeAnyRowsSection(rows, "Errors", rp["errors"], "code", "type", "message", "stage", "recoverable", "agent_id", "tool_name")
 	return strings.Join(rows, "\n")
 }
 
@@ -247,6 +247,49 @@ func appendRuntimeDelegationSection(rows []string, delegation map[string]any) []
 	}
 	if text := runtimeRowsText(delegation["events"], "stage", "parent_id", "agent_id", "return_to", "depth", "execution_mode", "duration_ms"); text != "" {
 		return appendDetailSection(rows, "Delegation", detailField{"events", text})
+	}
+	return rows
+}
+
+func appendRuntimeContextSection(rows []string, context map[string]any) []string {
+	if len(context) == 0 {
+		return rows
+	}
+	fields := []detailField{}
+	for _, key := range []string{"files_count", "context_files_count", "count", "status", "policy", "max_inline_bytes"} {
+		if value := runtimeScalar(context[key]); value != "" {
+			fields = append(fields, detailField{key, value})
+		}
+	}
+	if files := runtimeRowsText(firstNonEmptyAny(context["files"], context["context_files"]), "path", "mode", "status", "inline_policy", "language", "size", "bytes", "tokens"); files != "" {
+		fields = append(fields, detailField{"files", files})
+	}
+	if len(fields) == 0 {
+		return rows
+	}
+	return appendDetailSection(rows, "Context", fields...)
+}
+
+func appendRuntimeAnyRowsSection(rows []string, title string, raw any, preferred ...string) []string {
+	switch v := raw.(type) {
+	case nil:
+		return rows
+	case map[string]any:
+		if len(v) == 0 {
+			return rows
+		}
+		if text := runtimeRowsText(firstNonEmptyAny(v["rows"], v["items"], v[strings.ToLower(title)]), preferred...); text != "" {
+			return appendDetailSection(rows, title, detailField{strings.ToLower(title), text})
+		}
+		return appendRuntimeRowsSection(rows, title, v)
+	case []any, []string, string:
+		if text := runtimeRowsText(raw, preferred...); text != "" {
+			return appendDetailSection(rows, title, detailField{strings.ToLower(title), text})
+		}
+	default:
+		if text := runtimeScalar(raw); text != "" {
+			return appendDetailSection(rows, title, detailField{strings.ToLower(title), text})
+		}
 	}
 	return rows
 }
