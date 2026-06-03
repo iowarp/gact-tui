@@ -3384,6 +3384,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				}
 				return a, loadMemoryInspectorCmd(a.c, a.runtimeScope(), a.messages)
 			}
+			if cmd.ID == "/mouse" {
+				a.MouseEnabled = !a.MouseEnabled
+				state := "on"
+				if !a.MouseEnabled {
+					state = "off"
+				}
+				a.transientHint = "mouse controls " + state
+				a.persistPrefs()
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			if cmd.ID == "/permissions" {
 				if !a.caps.Capabilities.Permissions {
 					a.transientHint = "permission audit unsupported by this backend"
@@ -4067,6 +4077,11 @@ func (a *App) paletteCurrentValue(id string) string {
 			return "unsupported"
 		}
 		return "ARC context"
+	case "/mouse":
+		if a.MouseEnabled {
+			return "on"
+		}
+		return "off"
 	case "/cancel":
 		if a.currentStatus == gact.StatusRunning ||
 			a.currentStatus == gact.StatusWaitingPermission {
@@ -4122,6 +4137,7 @@ func (a *App) paletteMatches() []gact.Command {
 	localCmds := []gact.Command{
 		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
 		localCmd("/memory", "command.memory.title", "command.memory.desc"),
+		localCmd("/mouse", "command.mouse.title", "command.mouse.desc"),
 		{ID: "/permissions", Title: "Permissions", Description: "Inspect permission audit and policy rows", Source: "builtin"},
 		localCmd("/theme", "command.theme.title", "command.theme.desc"),
 		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
@@ -11235,6 +11251,7 @@ var helpTabs = []struct {
 			{"/theme-export", "help.commands.theme_export"},
 			{"/metrics", "help.commands.metrics"},
 			{"/memory", "help.commands.memory"},
+			{"/mouse", "help.commands.mouse"},
 			{"/theme-next", "help.commands.theme_next"},
 			{"/theme-prev", "help.commands.theme_prev"},
 			{"/duplicate", "help.commands.duplicate"},

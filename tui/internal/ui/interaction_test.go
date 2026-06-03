@@ -1562,6 +1562,30 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	if !strings.Contains(a.transientHint, "command staged: /tools") {
 		t.Fatalf("hint = %q, want staged command confirmation", a.transientHint)
 	}
+
+	a.helpOpen = true
+	a.helpTab = helpTabIndex("Commands")
+	a.focus = FocusBody
+	_ = a.View()
+	mouseTarget, ok := findHitTargetForTest(a, "help:command:mouse")
+	if !ok {
+		t.Fatal("missing Help Commands row hit target for /mouse")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      mouseTarget.rect.x,
+		Y:      mouseTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("clicking /mouse Help row should stage text, not execute")
+	}
+	if a.helpOpen {
+		t.Fatal("clicking /mouse Help row should close Help")
+	}
+	if got := a.input.Value(); got != "/mouse" {
+		t.Fatalf("input value after /mouse help click = %q, want /mouse", got)
+	}
 }
 
 func TestModalListColumnsPreserveColumnHitGeometry(t *testing.T) {
@@ -4106,6 +4130,56 @@ func TestPaletteCommandRowsUseSemanticHitTargets(t *testing.T) {
 	}
 	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
 		t.Fatalf("palette command click should open theme settings, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+}
+
+func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.paletteOpen = true
+	a.paletteFilter = "/mouse"
+	a.MouseEnabled = true
+	saves := 0
+	a.SaveConfig = func() error {
+		saves++
+		return nil
+	}
+
+	out := ansi.Strip(a.viewPalette())
+	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[on]") || !strings.Contains(out, "Toggle mouse capture") {
+		t.Fatalf("/mouse palette row should show command and current state:\n%s", out)
+	}
+
+	model, cmd := a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("/mouse should return a hint-expiry command")
+	}
+	if a.MouseEnabled {
+		t.Fatal("/mouse should disable mouse capture when it is on")
+	}
+	if a.paletteOpen {
+		t.Fatal("/mouse should close palette after dispatch")
+	}
+	if saves != 1 {
+		t.Fatalf("SaveConfig calls = %d, want 1", saves)
+	}
+	if a.transientHint != "mouse controls off" {
+		t.Fatalf("hint = %q, want mouse controls off", a.transientHint)
+	}
+
+	a.paletteOpen = true
+	a.paletteFilter = "/mouse"
+	a.paletteSel = 0
+	model, _ = a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if !a.MouseEnabled {
+		t.Fatal("second /mouse should re-enable mouse capture")
+	}
+	if saves != 2 {
+		t.Fatalf("SaveConfig calls after second toggle = %d, want 2", saves)
 	}
 }
 
