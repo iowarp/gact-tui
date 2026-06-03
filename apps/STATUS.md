@@ -31,6 +31,33 @@ Versioning decision (user): delete the stale GitHub release `clio-desktop-v0.9.0
 - 2026-06-02 Three parallel background agents built D1-D8 (Docker / auto-install /
   bundled variant); all gates green on the combined tree (pnpm 3×, cargo 27, go 8,
   fixture visual 39/39). TUI test + release steps run in the main session.
+- 2026-06-03 **D10 DONE — clio-desktop-v0.7.0 RELEASED. The release-semantics test
+  found and fixed FOUR real pipeline bugs across three tag runs:**
+
+  | # | Bug | Failure mode | Fix (commit) |
+  |---|-----|--------------|--------------|
+  | 1 | tauri CLI resolves `--config` relative to apps/desktop (its CWD under pnpm --filter), not src-tauri/ | All 4 bundled jobs fail instantly: "configuration path does not exist" | `--config src-tauri/tauri.bundled.conf.json` (PR #117) |
+  | 2 | Tauri strictly validates config schemas — the `"//"` comment key in the overlay is rejected | All 4 bundled jobs (next failure after #1) | Comment key removed (PR #117); caught by LOCAL validation before burning a CI cycle |
+  | 3 | litellm ships benchmark data files with parentheses in their names → makensis aborts | Windows bundled jobs, ~30 min in | Prune `litellm/.../guardrail_benchmarks` + hard-fail assertion on any ()[] filename (PR #117); caught by local deep validation (full NSIS build) |
+  | 4 | build_appimage.sh fails with the 477 MB embedded runtime in resources | Linux bundled job | AppImage is lite-only; bundled Linux ships deb+rpm (PR #119) — the architecturally right call regardless |
+
+  Plus version alignment (0.9.0→0.7.0 in tauri.conf.json/Cargo.toml/package.json) so
+  artifact filenames match the tag.
+
+  **Final release state** (tag `clio-desktop-v0.7.0` on main @ `feec237`, take 3):
+  19 artifacts attached — 12 installers (lite: NSIS+MSI+arm-DMG+deb+AppImage+rpm;
+  bundled: NSIS(74MB)+MSI(116MB)+arm-DMG(105MB)+deb(308MB)+rpm(309MB)) + web zip +
+  7 SHA256 files, all correctly named 0.7.0 with `-bundled` suffixes. The 2 macos-13
+  x64 DMGs were still in GitHub's congested Intel-runner queue at audit time and
+  attach automatically when built. ghcr.io/iowarp/clio-{api,web,tui} pushed at tags
+  0.7.0/latest/sha-feec237 — **PRIVATE by default; org admin must flip visibility to
+  public** (GitHub UI: org → Packages → package → settings → Change visibility).
+
+  **Follow-ups for the 0.9 lab release:** (1) flip ghcr package visibility (user,
+  one-time); (2) consider dropping macos-13 x64 from the matrix (GitHub is
+  deprecating those runners; queue times exceed 1-2 hours); (3) the release job's
+  per-job `softprops/action-gh-release` pattern worked but is racy in principle —
+  consider a final collect-and-attach job for 0.9.
 
 ## PREVIOUS RUN — CLIO #534 SUPPORT BOARD (2026-06-02)
 
