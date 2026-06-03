@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from assert_live_observability import observations, ordered_sequence_before_completion
+from assert_live_observability import observations, ordered_sequence_before_completion, runtime_provenance_agreement
 
 
 class LiveObservabilityAssertionTests(unittest.TestCase):
@@ -233,6 +233,92 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
             "tool_completed",
             "parent_resumed",
         ])
+
+    def test_runtime_provenance_agreement_matches_live_timeline(self):
+        rows = [
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "event_type": "delegation.started",
+                "trace_id": "trace_1",
+                "parent_id": "orchestrator",
+                "agent_id": "data",
+            },
+            {
+                "t": 0.2,
+                "event": "semantic.event",
+                "event_type": "tool.call.started",
+                "trace_id": "trace_1",
+                "tool": "ndp_search_datasets",
+            },
+            {
+                "t": 0.3,
+                "event": "semantic.event",
+                "event_type": "tool.call.completed",
+                "trace_id": "trace_1",
+                "tool": "ndp_search_datasets",
+            },
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "event_type": "delegation.parent_resumed",
+                "trace_id": "trace_1",
+                "parent_id": "orchestrator",
+                "agent_id": "data",
+            },
+            {
+                "t": 0.9,
+                "event": "message.completed",
+                "runtime_provenance": {
+                    "turn": {"trace_id": "trace_1"},
+                    "agent": {"selected_agent_id": "data", "active_expert_id": "data", "parent_id": "orchestrator"},
+                    "tools": {"observed": [{"name": "ndp_search_datasets"}]},
+                    "delegation": {
+                        "events": [
+                            {"stage": "delegate.started", "parent_id": "orchestrator", "agent_id": "data"},
+                            {"stage": "parent.resumed", "parent_id": "orchestrator", "agent_id": "data"},
+                        ]
+                    },
+                },
+            },
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertTrue(agreement.ok, agreement.missing)
+        self.assertTrue(any(item.startswith("trace_id: trace_1") for item in agreement.matched))
+        self.assertTrue(any("observed tools: ndp_search_datasets" == item for item in agreement.matched))
+        self.assertTrue(any("parent resume: orchestrator->data" == item for item in agreement.matched))
+
+    def test_runtime_provenance_agreement_requires_final_provenance(self):
+        rows = [
+            {"t": 0.1, "event": "semantic.event", "event_type": "tool.call.started", "tool": "read_file"},
+            {"t": 0.2, "event": "semantic.event", "event_type": "tool.call.completed", "tool": "read_file"},
+            {"t": 0.3, "event": "message.completed"},
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertFalse(agreement.ok)
+        self.assertEqual(agreement.missing, ["runtime_provenance missing"])
+
+    def test_runtime_provenance_agreement_fails_mismatched_tools(self):
+        rows = [
+            {"t": 0.1, "event": "semantic.event", "event_type": "tool.call.started", "tool": "ndp_search_datasets"},
+            {"t": 0.2, "event": "semantic.event", "event_type": "tool.call.completed", "tool": "ndp_search_datasets"},
+            {
+                "t": 0.3,
+                "event": "message.completed",
+                "runtime_provenance": {
+                    "tools": {"observed": [{"name": "read_file"}]},
+                },
+            },
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertFalse(agreement.ok)
+        self.assertTrue(any(item.startswith("observed tools agreement") for item in agreement.missing))
 
 
 if __name__ == "__main__":

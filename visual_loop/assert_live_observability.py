@@ -27,6 +27,13 @@ class Observation:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class RuntimeAgreement:
+    ok: bool
+    missing: list[str]
+    matched: list[str]
+
+
 def _str(value: Any) -> str:
     return str(value).strip() if value is not None else ""
 
@@ -73,6 +80,27 @@ def _field(*maps: dict[str, Any], keys: str | tuple[str, ...]) -> str:
                 if text:
                     return text
     return ""
+
+
+def _add(values: set[str], *raw: Any) -> None:
+    for value in raw:
+        text = _str(value)
+        if text:
+            values.add(text)
+
+
+def _runtime_name_rows(raw: Any, *keys: str) -> set[str]:
+    out: set[str] = set()
+    if isinstance(raw, str):
+        _add(out, raw)
+    elif isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str):
+                _add(out, item)
+            elif isinstance(item, dict):
+                for key in keys:
+                    _add(out, item.get(key))
+    return out
 
 
 def _time(row: dict[str, Any], index: int) -> float:
@@ -168,6 +196,167 @@ def observations(rows: Iterable[dict[str, Any]]) -> list[Observation]:
     return out
 
 
+def _row_maps(row: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    payload = _payload(row)
+    event_payload = _map(payload.get("payload"))
+    part = _part(row, payload)
+    metadata = _map(part.get("metadata"))
+    actor = _map(payload.get("actor"))
+    subject = _map(payload.get("subject"))
+    return payload, event_payload, part, metadata, actor, subject
+
+
+def runtime_provenance_from_rows(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    found: dict[str, Any] = {}
+    for row in rows:
+        payload = _payload(row)
+        candidates = [
+            row.get("runtime_provenance"),
+            _map(row.get("metadata")).get("runtime_provenance"),
+            payload.get("runtime_provenance"),
+            _map(payload.get("metadata")).get("runtime_provenance"),
+        ]
+        for candidate in candidates:
+            if isinstance(candidate, dict) and candidate:
+                found = candidate
+    return found
+
+
+def live_observability_sets(rows: Iterable[dict[str, Any]]) -> dict[str, set[str]]:
+    values = {
+        "trace_ids": set(),
+        "agents": set(),
+        "tools": set(),
+        "delegations": set(),
+        "parent_resumes": set(),
+    }
+    for row in rows:
+        payload, event_payload, part, metadata, actor, subject = _row_maps(row)
+        sem_type = _event_type(row, payload)
+        stage = _nested_str(row.get("stage"), payload.get("stage"), event_payload.get("stage"), metadata.get("stage"))
+        _add(values["trace_ids"], row.get("trace_id"), payload.get("trace_id"))
+        _add(
+            values["agents"],
+            row.get("selected_agent"),
+            row.get("agent_id"),
+            payload.get("selected_agent"),
+            payload.get("agent_id"),
+            event_payload.get("selected_agent"),
+            event_payload.get("agent_id"),
+            event_payload.get("child_id"),
+            part.get("selected_agent"),
+            metadata.get("agent_id"),
+            subject.get("agent_id"),
+        )
+        _add(
+            values["tools"],
+            row.get("tool"),
+            row.get("tool_name"),
+            payload.get("tool"),
+            payload.get("tool_name"),
+            event_payload.get("tool"),
+            event_payload.get("tool_name"),
+            event_payload.get("name"),
+            actor.get("tool"),
+            actor.get("tool_name"),
+            actor.get("name"),
+            part.get("tool_name"),
+        )
+        parent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("parent_id", "parent"))
+        agent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("agent_id", "child_id", "agent"))
+        if parent_id and agent_id and sem_type.startswith("delegation."):
+            values["delegations"].add(f"{parent_id}->{agent_id}")
+        if sem_type in {"delegation.parent_resumed", "delegation.completed"} or stage in {"parent.resumed", "parent_resumed"}:
+            if parent_id and agent_id:
+                values["parent_resumes"].add(f"{parent_id}->{agent_id}")
+            else:
+                values["parent_resumes"].add("observed")
+    return values
+
+
+def runtime_provenance_sets(rp: dict[str, Any]) -> dict[str, set[str]]:
+    turn = _map(rp.get("turn"))
+    agent = _map(rp.get("agent"))
+    tools = _map(rp.get("tools"))
+    delegation = _map(rp.get("delegation"))
+    values = {
+        "trace_ids": set(),
+        "agents": set(),
+        "tools": set(),
+        "delegations": set(),
+        "parent_resumes": set(),
+    }
+    _add(values["trace_ids"], turn.get("trace_id"), rp.get("trace_id"))
+    _add(
+        values["agents"],
+        agent.get("selected_agent_id"),
+        agent.get("active_agent_id"),
+        agent.get("active_expert_id"),
+        agent.get("parent_id"),
+    )
+    values["tools"].update(_runtime_name_rows(tools.get("observed"), "name", "tool_name", "id"))
+    values["tools"].update(_runtime_name_rows(tools.get("calls"), "name", "tool_name", "id"))
+    if not values["tools"]:
+        values["tools"].update(_runtime_name_rows(tools.get("declared"), "name", "tool_name", "id"))
+    for item in delegation.get("events", []):
+        if not isinstance(item, dict):
+            continue
+        parent_id = _nested_str(item.get("parent_id"), item.get("parent"))
+        agent_id = _nested_str(item.get("agent_id"), item.get("child_id"), item.get("agent"))
+        stage = _str(item.get("stage"))
+        if parent_id and agent_id:
+            values["delegations"].add(f"{parent_id}->{agent_id}")
+            if stage in {"parent.resumed", "parent_resumed", "delegation.parent_resumed"}:
+                values["parent_resumes"].add(f"{parent_id}->{agent_id}")
+    return values
+
+
+def runtime_provenance_agreement(rows: Iterable[dict[str, Any]]) -> RuntimeAgreement:
+    row_list = list(rows)
+    rp = runtime_provenance_from_rows(row_list)
+    if not rp:
+        return RuntimeAgreement(False, ["runtime_provenance missing"], [])
+    live = live_observability_sets(row_list)
+    final = runtime_provenance_sets(rp)
+    missing: list[str] = []
+    matched: list[str] = []
+
+    if live["trace_ids"] and final["trace_ids"]:
+        shared = live["trace_ids"] & final["trace_ids"]
+        if shared:
+            matched.append("trace_id: " + ", ".join(sorted(shared)))
+        else:
+            missing.append(
+                "trace_id agreement "
+                f"(live={','.join(sorted(live['trace_ids']))}; final={','.join(sorted(final['trace_ids']))})"
+            )
+    elif live["trace_ids"]:
+        missing.append("final trace_id")
+
+    for key, label in (
+        ("agents", "agent/expert"),
+        ("tools", "observed tools"),
+        ("delegations", "delegation rows"),
+        ("parent_resumes", "parent resume"),
+    ):
+        if not live[key]:
+            continue
+        if not final[key]:
+            missing.append("final " + label)
+            continue
+        shared = live[key] & final[key]
+        if shared:
+            matched.append(label + ": " + ", ".join(sorted(shared)))
+        else:
+            missing.append(
+                label
+                + " agreement "
+                + f"(live={','.join(sorted(live[key]))}; final={','.join(sorted(final[key]))})"
+            )
+
+    return RuntimeAgreement(not missing, missing, matched)
+
+
 def first_completion_time(obs: list[Observation]) -> float | None:
     completions = [item.t for item in obs if item.kind == "completion"]
     return min(completions) if completions else None
@@ -198,7 +387,13 @@ def ordered_sequence_before_completion(
     return not missing, chosen, missing
 
 
-def render_report(path: Path, obs: list[Observation], required: list[str], min_live_lead_s: float) -> str:
+def render_report(
+    path: Path,
+    obs: list[Observation],
+    required: list[str],
+    min_live_lead_s: float,
+    runtime_agreement: RuntimeAgreement | None = None,
+) -> str:
     ok, chosen, missing = ordered_sequence_before_completion(
         obs,
         required,
@@ -224,6 +419,18 @@ def render_report(path: Path, obs: list[Observation], required: list[str], min_l
         lines.extend(["## Missing Before Completion", ""])
         for kind in missing:
             lines.append(f"- {kind}")
+        lines.append("")
+    if runtime_agreement is not None:
+        lines.extend(["## Runtime Provenance Agreement", ""])
+        lines.append(f"- verdict: `{'PASS' if runtime_agreement.ok else 'FAIL'}`")
+        if runtime_agreement.matched:
+            lines.append("- matched:")
+            for item in runtime_agreement.matched:
+                lines.append(f"  - {item}")
+        if runtime_agreement.missing:
+            lines.append("- missing_or_mismatched:")
+            for item in runtime_agreement.missing:
+                lines.append(f"  - {item}")
         lines.append("")
     lines.extend(["## Classified Timeline", ""])
     for item in obs:
@@ -263,9 +470,13 @@ def main() -> int:
     min_live_lead_s = args.min_live_lead_s
     if min_live_lead_s is None:
         min_live_lead_s = 0.0 if args.mode == "basic-tools" else 0.25
-    obs = observations(load_jsonl(args.jsonl))
+    rows = load_jsonl(args.jsonl)
+    obs = observations(rows)
     ok, _, _ = ordered_sequence_before_completion(obs, required, min_live_lead_s=min_live_lead_s)
-    report = render_report(args.jsonl, obs, required, min_live_lead_s)
+    runtime_agreement = runtime_provenance_agreement(rows) if args.mode == "benchmark-hierarchy" else None
+    if runtime_agreement is not None:
+        ok = ok and runtime_agreement.ok
+    report = render_report(args.jsonl, obs, required, min_live_lead_s, runtime_agreement)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(report, encoding="utf-8")

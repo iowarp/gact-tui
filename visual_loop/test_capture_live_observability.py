@@ -45,6 +45,33 @@ class LiveObservabilityCaptureTests(unittest.TestCase):
         self.assertIn("route_or_delegate", kinds)
         self.assertIn("child_expert_active", kinds)
 
+    def test_summarize_preserves_final_runtime_provenance(self):
+        event = {
+            "monotonic": 15.0,
+            "event": "message.completed",
+            "payload": {
+                "message_id": "msg_1",
+                "stop_reason": "end_turn",
+                "metadata": {
+                    "runtime_provenance": {
+                        "turn": {"trace_id": "trace-1"},
+                        "agent": {"active_expert_id": "ndp_catalog"},
+                        "tools": {"observed": [{"name": "ndp_search_datasets"}]},
+                    }
+                },
+            },
+        }
+
+        summary = summarize(event, 10.0)
+
+        self.assertEqual(summary["event"], "message.completed")
+        self.assertEqual(summary["message_id"], "msg_1")
+        self.assertEqual(summary["runtime_provenance"]["turn"]["trace_id"], "trace-1")
+        self.assertEqual(
+            summary["runtime_provenance"]["tools"]["observed"][0]["name"],
+            "ndp_search_datasets",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -17,6 +17,7 @@ from typing import Any
 from assert_live_observability import (
     observations,
     ordered_sequence_before_completion,
+    runtime_provenance_agreement,
     render_report as render_temporal_report,
 )
 
@@ -121,6 +122,12 @@ def summarize(event: dict[str, Any], t0: float) -> dict[str, Any]:
         for key in ("message_id", "stop_reason", "status", "prev_status", "reason"):
             if key in payload:
                 summary[key] = payload[key]
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        runtime_provenance = payload.get("runtime_provenance")
+        if not isinstance(runtime_provenance, dict):
+            runtime_provenance = metadata.get("runtime_provenance")
+        if isinstance(runtime_provenance, dict) and runtime_provenance:
+            summary["runtime_provenance"] = runtime_provenance
         if "tool" in payload:
             summary["tool"] = payload.get("tool")
         if "call_id" in payload:
@@ -264,11 +271,13 @@ def main() -> int:
         BENCHMARK_HIERARCHY_REQUIRED,
         min_live_lead_s=DEFAULT_MIN_LIVE_LEAD_S,
     )
+    runtime_agreement = runtime_provenance_agreement(summaries)
     temporal_report = render_temporal_report(
         jsonl_path,
         obs,
         BENCHMARK_HIERARCHY_REQUIRED,
         DEFAULT_MIN_LIVE_LEAD_S,
+        runtime_agreement,
     )
     route_events = [item for item in obs if item.kind == "route_or_delegate"]
     child_events = [item for item in obs if item.kind == "child_expert_active"]
@@ -276,7 +285,7 @@ def main() -> int:
     tool_completed_events = [item for item in obs if item.kind == "tool_completed"]
     parent_resumed_events = [item for item in obs if item.kind == "parent_resumed"]
 
-    verdict = "PASS" if completed and strict_ok else "FAIL"
+    verdict = "PASS" if completed and strict_ok and runtime_agreement.ok else "FAIL"
     report = [
         f"# Live Observability Capture {stamp}",
         "",
@@ -285,6 +294,7 @@ def main() -> int:
         f"- verdict: `{verdict}`",
         f"- completed: `{completed}`",
         f"- strict_benchmark_hierarchy: `{strict_ok}`",
+        f"- runtime_provenance_agreement: `{runtime_agreement.ok}`",
         f"- min_live_lead_s: `{DEFAULT_MIN_LIVE_LEAD_S:g}`",
         f"- jsonl: `{jsonl_path}`",
         "",
@@ -300,6 +310,11 @@ def main() -> int:
         "",
         f"- required: `{', '.join(BENCHMARK_HIERARCHY_REQUIRED)}`",
         f"- missing: `{', '.join(strict_missing) if strict_missing else 'none'}`",
+        "",
+        "## Runtime Provenance Agreement",
+        "",
+        f"- missing_or_mismatched: `{', '.join(runtime_agreement.missing) if runtime_agreement.missing else 'none'}`",
+        f"- matched: `{', '.join(runtime_agreement.matched) if runtime_agreement.matched else 'none'}`",
         "",
         "## Matched Sequence",
         "",
