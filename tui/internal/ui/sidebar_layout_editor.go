@@ -485,14 +485,14 @@ func (a *App) sidebarLayoutModuleLabel(id sidebarModuleID) string {
 
 func (a *App) sidebarLayoutModuleMeta(id sidebarModuleID, column int) string {
 	if _, ok := sidebarModuleRegistry()[id]; !ok {
-		return "unknown module"
+		return "unknown id"
 	}
 	switch column {
 	case sidebarLayoutColumnLeft:
-		return "left"
+		return "shown on left"
 	case sidebarLayoutColumnRight:
-		return "right"
+		return "shown on right"
 	default:
-		return "hidden"
+		return "hidden; not shown"
 	}
 }

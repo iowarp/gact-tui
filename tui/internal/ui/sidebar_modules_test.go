@@ -331,11 +331,37 @@ func TestSidebarLayoutEditorHidesEmptyColumns(t *testing.T) {
 	if !strings.Contains(out, "Available") {
 		t.Fatalf("hidden files module should render as available:\n%s", out)
 	}
+	if !strings.Contains(out, "shown on left") {
+		t.Fatalf("placed modules should explain sidebar placement:\n%s", out)
+	}
+	if !strings.Contains(out, "hidden; not shown") {
+		t.Fatalf("available modules should explain they are hidden:\n%s", out)
+	}
 	if strings.Contains(out, "Right") {
 		t.Fatalf("empty right column should not render:\n%s", out)
 	}
 	if !strings.Contains(out, "Tab column") || !strings.Contains(out, "arrows/buttons move module") {
 		t.Fatalf("layout editor should explain direct arrow/module controls:\n%s", out)
+	}
+}
+
+func TestSidebarLayoutEditorExplainsUnknownConfiguredModules(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 32
+	a.stage = StageReady
+	a.SetSidebarLayout([]string{"sessions", "future-module"}, []string{"context"})
+	a.openSidebarLayoutEditor()
+
+	out := ansi.Strip(a.viewSidebarLayoutEditor())
+	if !strings.Contains(out, "future-module") {
+		t.Fatalf("unknown configured module should remain visible:\n%s", out)
+	}
+	if !strings.Contains(out, "unknown id") {
+		t.Fatalf("unknown configured module should explain why it is inactive:\n%s", out)
+	}
+	if !strings.Contains(out, "shown on right") {
+		t.Fatalf("right column modules should explain sidebar placement:\n%s", out)
 	}
 }
 
