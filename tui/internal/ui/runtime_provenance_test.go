@@ -131,6 +131,34 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 	}
 }
 
+func TestRuntimeProvenanceUsesTopLevelTurnIdentifiers(t *testing.T) {
+	rp := sampleRuntimeProvenance()
+	delete(rp, "turn")
+	rp["trace_id"] = "trace_top"
+	rp["turn_id"] = "turn_top"
+
+	msg := gact.Message{
+		ID:       "m1",
+		Role:     gact.RoleAssistant,
+		Metadata: map[string]any{"runtime_provenance": rp},
+	}
+	normalizeMessagePresentation(&msg)
+
+	if len(msg.Parts) != 1 || !strings.Contains(msg.Parts[0].Text, "trace trace_top") {
+		t.Fatalf("runtime provenance summary should include top-level trace id: %#v", msg.Parts)
+	}
+	ref := partDetailRef(msg.ID, msg.Parts[0])
+	for _, want := range []string{
+		"Turn",
+		"trace_id: trace_top",
+		"turn_id: turn_top",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("runtime provenance detail missing top-level turn evidence %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
 func TestRuntimeProvenanceDetailRendersContextArtifactsAndErrors(t *testing.T) {
 	rp := sampleRuntimeProvenance()
 	rp["memory"] = map[string]any{

@@ -36,10 +36,8 @@ func hasRuntimeProvenance(m gact.Message) bool {
 
 func runtimeProvenanceInlineSummary(rp map[string]any) string {
 	parts := []string{"runtime provenance"}
-	if turn := mapValue(rp["turn"]); len(turn) > 0 {
-		if trace := firstNonEmpty(stringValue(turn["trace_id"]), stringValue(rp["trace_id"])); trace != "" {
-			parts = append(parts, "trace "+trace)
-		}
+	if trace := stringValue(runtimeProvenanceTurnMap(rp)["trace_id"]); trace != "" {
+		parts = append(parts, "trace "+trace)
 	}
 	if route := runtimeProvenanceRouteSummary(rp); route != "" {
 		parts = append(parts, route)
@@ -166,7 +164,7 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 		detailField{"schema", firstNonEmpty(stringValue(rp["schema_version"]), "clio.runtime_provenance.v1")},
 		detailField{"summary", runtimeProvenanceInlineSummary(rp)},
 	)
-	rows = appendRuntimeMapSection(rows, "Turn", mapValue(rp["turn"]), "trace_id", "turn_id", "user_message_id", "assistant_message_id", "status")
+	rows = appendRuntimeMapSection(rows, "Turn", runtimeProvenanceTurnMap(rp), "trace_id", "turn_id", "user_message_id", "assistant_message_id", "status")
 	rows = appendRuntimeMapSection(rows, "Workspace", mapValue(rp["workspace"]), "workspace_id", "root_path", "storage_root", "scope")
 	rows = appendRuntimeMapSection(rows, "Agent", mapValue(rp["agent"]), "selected_agent_id", "active_agent_id", "active_expert_id", "route_source", "route_reason", "source", "tier", "parent_id")
 	rows = appendRuntimeMapSection(rows, "Blueprint", mapValue(rp["blueprint"]), "id", "version", "scope", "definition_path")
@@ -180,6 +178,26 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 	rows = appendRuntimeAnyRowsSection(rows, "Artifacts", rp["artifacts"], "path", "output_path", "artifact", "kind", "type", "status", "size_bytes", "exists", "sha256")
 	rows = appendRuntimeAnyRowsSection(rows, "Errors", rp["errors"], "code", "type", "message", "stage", "recoverable", "agent_id", "tool_name")
 	return strings.Join(rows, "\n")
+}
+
+func runtimeProvenanceTurnMap(rp map[string]any) map[string]any {
+	if len(rp) == 0 {
+		return nil
+	}
+	turn := mapValue(rp["turn"])
+	out := make(map[string]any, len(turn)+2)
+	for key, value := range turn {
+		out[key] = value
+	}
+	for _, key := range []string{"trace_id", "turn_id"} {
+		if runtimeScalar(out[key]) == "" && runtimeScalar(rp[key]) != "" {
+			out[key] = rp[key]
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func appendRuntimeMapSection(rows []string, title string, m map[string]any, keys ...string) []string {
