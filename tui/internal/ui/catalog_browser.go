@@ -556,9 +556,25 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 				id: "delegates", title: "Delegates to", desc: strings.Join(delegates, ", "),
 			})
 		}
+		if len(agent.Skills) > 0 {
+			items = append(items, catalogItem{
+				id:        "skills",
+				title:     "Declared skills",
+				desc:      strings.Join(agent.Skills, ", "),
+				statusTag: "skills",
+			})
+		}
 		if len(agent.Keywords) > 0 {
 			items = append(items, catalogItem{
 				id: "keywords", title: "Routing keywords", desc: strings.Join(agent.Keywords, ", "),
+			})
+		}
+		if len(agent.ValidationErrors) > 0 {
+			items = append(items, catalogItem{
+				id:        "validation",
+				title:     "Validation errors",
+				desc:      strings.Join(agent.ValidationErrors, "; "),
+				statusTag: "error",
 			})
 		}
 		if desc := agentPromptResolutionDescription(agent); desc != "" {
@@ -2345,12 +2361,22 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		}
 		parts = append(parts, "tools: "+toolSummary)
 	}
+	if len(agent.Skills) > 0 {
+		skillSummary := strings.Join(agent.Skills, ", ")
+		if len(agent.Skills) > 3 {
+			skillSummary = strings.Join(agent.Skills[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Skills)-3)
+		}
+		parts = append(parts, "skills: "+skillSummary)
+	}
 	if len(agent.Commands) > 0 {
 		commandSummary := strings.Join(agent.Commands, ", ")
 		if len(agent.Commands) > 3 {
 			commandSummary = strings.Join(agent.Commands[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Commands)-3)
 		}
 		parts = append(parts, "commands: "+commandSummary)
+	}
+	if len(agent.ValidationErrors) > 0 {
+		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
 	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)

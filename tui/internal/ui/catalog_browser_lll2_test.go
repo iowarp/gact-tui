@@ -786,6 +786,76 @@ func TestLoadAgentDetailIncludesToolAndMcpServerMapping(t *testing.T) {
 	}
 }
 
+func TestAgentCatalogDescriptionSurfacesSkillsAndValidation(t *testing.T) {
+	items := agentCatalogItems([]gact.AgentDef{{
+		ID:               "data",
+		Source:           "agent_blueprint",
+		Title:            "Data",
+		Skills:           []string{"python", "ndp", "adios", "plots"},
+		ValidationErrors: []string{"missing skill: adios"},
+	}}, catalogKindAgents)
+
+	if len(items) != 1 {
+		t.Fatalf("items = %#v", items)
+	}
+	for _, want := range []string{"skills: python, ndp, adios, +1", "errors: missing skill: adios"} {
+		if !strings.Contains(items[0].desc, want) {
+			t.Fatalf("agent desc missing %q: %#v", want, items[0])
+		}
+	}
+}
+
+func TestLoadAgentDetailSurfacesDeclaredSkillsAndValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/agents/data":
+			_, _ = w.Write([]byte(`{
+				"id":"data",
+				"source":"agent_blueprint",
+				"title":"Data expert",
+				"description":"Dataset inspection",
+				"skills":["python","ndp"],
+				"validation_errors":["skill not resolved: ndp"]
+			}`))
+		case "/v1/agents":
+			_, _ = w.Write([]byte(`{"agents":[{"id":"data","source":"agent_blueprint","title":"Data expert"}]}`))
+		case "/v1/tools":
+			_, _ = w.Write([]byte(`{"tools":[]}`))
+		case "/v1/commands":
+			_, _ = w.Write([]byte(`{"commands":[]}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	msg := loadAgentDetailCmd(client.New(server.URL), "data", client.RuntimeScope{})()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("message type = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	if loaded.errText != "" {
+		t.Fatalf("unexpected agent detail load error: %s", loaded.errText)
+	}
+
+	var hasSkills, hasValidation bool
+	for _, item := range loaded.items {
+		switch item.id {
+		case "skills":
+			hasSkills = item.title == "Declared skills" &&
+				item.statusTag == "skills" &&
+				strings.Contains(item.desc, "python, ndp")
+		case "validation":
+			hasValidation = item.statusTag == "error" &&
+				strings.Contains(item.desc, "skill not resolved: ndp")
+		}
+	}
+	if !hasSkills || !hasValidation {
+		t.Fatalf("agent detail missing skills/validation rows: %#v", loaded.items)
+	}
+}
+
 func TestCatalogBrowser_EnterOnMcpResourceLoadsResourceDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.catalogBrowserOpen = true
