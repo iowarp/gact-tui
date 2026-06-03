@@ -338,6 +338,28 @@ func TestE2E_CancelInflight(t *testing.T) {
 		"parts": []map[string]any{{"type": "text", "text": "do work"}},
 	})
 
+	// Wait until the scenario is genuinely in-flight before cancelling. The
+	// user-message handler returns before the scenario goroutine necessarily
+	// publishes its first status update.
+	deadline := time.Now().Add(2 * time.Second)
+	inflight := false
+	for time.Now().Before(deadline) {
+		r, _ := http.Get(url + "/v1/sessions/" + sid)
+		if r != nil {
+			var got map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			r.Body.Close()
+			if got["status"] != "idle" {
+				inflight = true
+				break
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !inflight {
+		t.Fatal("session never became in-flight before cancel")
+	}
+
 	cancelReq, _ := http.NewRequest(http.MethodPost, url+"/v1/sessions/"+sid+"/cancel", nil)
 	resp, err := http.DefaultClient.Do(cancelReq)
 	if err != nil {
@@ -349,7 +371,7 @@ func TestE2E_CancelInflight(t *testing.T) {
 	}
 
 	// Eventually session should be idle.
-	deadline := time.Now().Add(2 * time.Second)
+	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		r, _ := http.Get(url + "/v1/sessions/" + sid)
 		if r != nil {
