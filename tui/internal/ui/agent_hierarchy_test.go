@@ -103,6 +103,55 @@ func TestAgentHierarchySidebarSurfacesRuntimeProvenanceState(t *testing.T) {
 	}
 }
 
+func TestAgentHierarchySidebarMatchesNestedSemanticAgentReferences(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 140
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "orchestrator", Title: "Orchestrator", Source: "builtin", Tier: 1},
+		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "orchestrator", Tier: 3},
+	}
+	a.messages = []gact.Message{{
+		ID:        "m1",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "p1",
+			Type: gact.PartTypeText,
+			Metadata: map[string]any{"raw_event": map[string]any{
+				"event_type": "tool.call.started",
+				"status":     "running",
+				"actor": map[string]any{
+					"kind": "agent",
+					"agent": map[string]any{
+						"id": "ndp_catalog",
+					},
+				},
+				"payload": map[string]any{
+					"delegation": map[string]any{
+						"path": []any{
+							map[string]any{"agent_id": "orchestrator"},
+							map[string]any{"agent_id": "ndp_catalog"},
+						},
+					},
+				},
+			}},
+		}},
+	}}
+
+	out := ansi.Strip(a.renderSidebar(58, 20))
+	if !strings.Contains(out, "NDP catalog") || !strings.Contains(out, "t3 · live") {
+		t.Fatalf("nested semantic event should mark child agent live:\n%s", out)
+	}
+}
+
 func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 180
@@ -113,16 +162,17 @@ func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 	a.sidebarSectionCursor = false
 	a.SetSidebarLayout([]string{"agents"}, nil)
 	a.agentHierarchyAgents = []gact.AgentDef{{
-		ID:               "data",
-		Title:            "Data expert",
-		Source:           "agent_blueprint",
-		Tier:             2,
-		Skills:           []string{"python", "ndp", "adios"},
-		ValidationErrors: []string{"missing skill: adios"},
+		ID:                 "data",
+		Title:              "Data expert",
+		Source:             "agent_blueprint",
+		Tier:               2,
+		Skills:             []string{"python", "ndp", "adios"},
+		ValidationWarnings: []string{"skill ndp resolved from community source"},
+		ValidationErrors:   []string{"missing skill: adios"},
 	}}
 
-	out := ansi.Strip(a.renderSidebar(96, 20))
-	for _, want := range []string{"Data expert", "t2 · agent_blueprint", "skills: python, ndp, +1 more", "errors: missing"} {
+	out := ansi.Strip(a.renderSidebar(150, 20))
+	for _, want := range []string{"Data expert", "t2 · agent_blueprint", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
 		}

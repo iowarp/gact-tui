@@ -217,6 +217,9 @@ func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRunti
 	if len(agent.Skills) > 0 {
 		parts = append(parts, "skills: "+strings.Join(limitStrings(agent.Skills, 2), ", "))
 	}
+	if len(agent.ValidationWarnings) > 0 {
+		parts = append(parts, "warnings: "+strings.Join(agent.ValidationWarnings, "; "))
+	}
 	if len(agent.ValidationErrors) > 0 {
 		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
 	}
@@ -363,6 +366,10 @@ func agentStateFromRuntimeRow(agentID string, row map[string]any) agentHierarchy
 }
 
 func mapReferencesAgent(m map[string]any, agentID string) bool {
+	return mapReferencesAgentDepth(m, agentID, 0)
+}
+
+func mapReferencesAgentDepth(m map[string]any, agentID string, depth int) bool {
 	if len(m) == 0 || agentID == "" {
 		return false
 	}
@@ -378,8 +385,34 @@ func mapReferencesAgent(m map[string]any, agentID string) bool {
 		"agent",
 		"id",
 	} {
-		if stringValue(m[key]) == agentID {
+		if valueReferencesAgent(m[key], agentID, depth+1) {
 			return true
+		}
+	}
+	return false
+}
+
+func valueReferencesAgent(value any, agentID string, depth int) bool {
+	if agentID == "" || depth > 6 {
+		return false
+	}
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v) == agentID
+	case map[string]any:
+		if mapReferencesAgentDepth(v, agentID, depth+1) {
+			return true
+		}
+		for _, nested := range v {
+			if valueReferencesAgent(nested, agentID, depth+1) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range v {
+			if valueReferencesAgent(nested, agentID, depth+1) {
+				return true
+			}
 		}
 	}
 	return false
