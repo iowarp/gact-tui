@@ -169,6 +169,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", default="http://127.0.0.1:17800")
     parser.add_argument("--out-dir", default="visual_loop/screenshots")
+    parser.add_argument(
+        "--stamp",
+        default=None,
+        help="override the output filename stamp for deterministic corpus captures",
+    )
+    parser.add_argument(
+        "--strict-report",
+        default=None,
+        help="optional path for the strict temporal assertion report",
+    )
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument(
         "--prompt",
@@ -182,9 +192,10 @@ def main() -> int:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d_%H%M%S")
+    stamp = args.stamp or time.strftime("%Y%m%d_%H%M%S")
     jsonl_path = out_dir / f"live_observability_{stamp}.jsonl"
     report_path = out_dir / f"live_observability_{stamp}.report.md"
+    strict_report_path = Path(args.strict_report) if args.strict_report else None
 
     session = request_json(
         "POST",
@@ -279,6 +290,9 @@ def main() -> int:
         DEFAULT_MIN_LIVE_LEAD_S,
         runtime_agreement,
     )
+    if strict_report_path is not None:
+        strict_report_path.parent.mkdir(parents=True, exist_ok=True)
+        strict_report_path.write_text(temporal_report, encoding="utf-8")
     route_events = [item for item in obs if item.kind == "route_or_delegate"]
     child_events = [item for item in obs if item.kind == "child_expert_active"]
     tool_started_events = [item for item in obs if item.kind == "tool_started"]
@@ -358,7 +372,10 @@ def main() -> int:
         report.append("- " + " · ".join(bits))
     report_path.write_text("\n".join(report) + "\n", encoding="utf-8")
 
-    print(json.dumps({"verdict": verdict, "session_id": sid, "jsonl": str(jsonl_path), "report": str(report_path)}))
+    result = {"verdict": verdict, "session_id": sid, "jsonl": str(jsonl_path), "report": str(report_path)}
+    if strict_report_path is not None:
+        result["strict_report"] = str(strict_report_path)
+    print(json.dumps(result))
     return 0 if verdict == "PASS" else 1
 
 

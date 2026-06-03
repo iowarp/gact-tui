@@ -24,7 +24,7 @@ class CorpusGroup:
 
 
 STRICT_LIVE_REPORTS: tuple[str, ...] = (
-    "visual_loop/screenshots/live_observability_20260601_131300.strict.report.md",
+    "visual_loop/screenshots/live_observability_clio_semantic_live_events.strict.report.md",
 )
 
 
@@ -131,6 +131,9 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/screenshots/live_observability_20260601_131300.jsonl",
             "visual_loop/screenshots/live_observability_20260601_131300.report.md",
             "visual_loop/screenshots/live_observability_20260601_131300.strict.report.md",
+            "visual_loop/screenshots/live_observability_clio_semantic_live_events.jsonl",
+            "visual_loop/screenshots/live_observability_clio_semantic_live_events.report.md",
+            "visual_loop/screenshots/live_observability_clio_semantic_live_events.strict.report.md",
         ),
     ),
 )
@@ -164,7 +167,7 @@ def strict_report_missing_items(path: Path) -> list[str]:
                 "## Runtime Provenance Agreement",
             }
             continue
-        if not in_missing_section or not stripped.startswith("- "):
+        if not in_missing_section or not stripped.startswith("- ") or line.startswith("  - "):
             continue
         text = stripped[2:].strip()
         if not text or text.startswith("verdict:") or text.startswith("matched:"):

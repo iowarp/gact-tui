@@ -109,6 +109,7 @@ class LiveSemanticAgent:
                 "execution_mode": "visual_fixture",
             },
         )
+        time.sleep(0.5)
         pred = Pred()
         pred.expert_handoffs = [
             {
@@ -178,6 +179,18 @@ if [ -z "$healthy" ]; then
   echo "CLIO fixture did not become healthy on ${backend}" >&2
   tail -n 120 "$log" >&2 || true
   exit 1
+fi
+
+if [ "${CLIO_SEMANTIC_LIVE_CAPTURE_ONLY:-0}" = "1" ]; then
+  out_dir="${CLIO_SEMANTIC_LIVE_OUT_DIR:-visual_loop/screenshots}"
+  stamp="${CLIO_SEMANTIC_LIVE_STAMP:-clio_semantic_live_events}"
+  python3 visual_loop/capture_live_observability.py \
+    --backend "$backend" \
+    --out-dir "$out_dir" \
+    --stamp "$stamp" \
+    --strict-report "${out_dir}/live_observability_${stamp}.strict.report.md" \
+    --timeout "${CLIO_SEMANTIC_LIVE_TIMEOUT:-30}"
+  exit 0
 fi
 
 session_id="$(

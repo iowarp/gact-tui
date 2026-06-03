@@ -290,6 +290,72 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
         self.assertTrue(any("observed tools: ndp_search_datasets" == item for item in agreement.matched))
         self.assertTrue(any("parent resume: orchestrator->data" == item for item in agreement.matched))
 
+    def test_runtime_provenance_agreement_accepts_turn_completed_metadata(self):
+        rows = [
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "event_type": "delegation.started",
+                "trace_id": "trace_1",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+            },
+            {
+                "t": 0.2,
+                "event": "semantic.event",
+                "event_type": "tool.call.started",
+                "trace_id": "trace_1",
+                "tool": "NdpSearchDatasets",
+            },
+            {
+                "t": 0.3,
+                "event": "semantic.event",
+                "event_type": "tool.call.completed",
+                "trace_id": "trace_1",
+                "tool": "NdpSearchDatasets",
+            },
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "event_type": "delegation.parent_resumed",
+                "trace_id": "trace_1",
+                "parent_id": "data",
+                "agent_id": "ndp_catalog",
+            },
+            {
+                "t": 0.9,
+                "event": "semantic.event",
+                "event_type": "turn.completed",
+                "trace_id": "trace_1",
+                "payload": {
+                    "payload": {
+                        "metadata": {
+                            "tools_called": [{"name": "NdpSearchDatasets"}],
+                            "expert_handoffs": [
+                                {
+                                    "stage": "delegate.started",
+                                    "parent_id": "data",
+                                    "agent_id": "ndp_catalog",
+                                },
+                                {
+                                    "stage": "parent.resumed",
+                                    "parent_id": "data",
+                                    "agent_id": "ndp_catalog",
+                                },
+                            ],
+                        }
+                    }
+                },
+            },
+            {"t": 1.0, "event": "message.completed"},
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertTrue(agreement.ok, agreement.missing)
+        self.assertIn("observed tools: NdpSearchDatasets", agreement.matched)
+        self.assertIn("parent resume: data->ndp_catalog", agreement.matched)
+
     def test_runtime_provenance_agreement_requires_final_provenance(self):
         rows = [
             {"t": 0.1, "event": "semantic.event", "event_type": "tool.call.started", "tool": "read_file"},

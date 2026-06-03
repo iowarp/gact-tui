@@ -209,16 +209,61 @@ def _row_maps(row: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict
 def runtime_provenance_from_rows(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
     found: dict[str, Any] = {}
     for row in rows:
+        raw_payload = _map(row.get("payload"))
         payload = _payload(row)
+        nested_payload = _map(raw_payload.get("payload"))
+        event_payload = _map(payload.get("payload")) or nested_payload
+        event_metadata = (
+            _map(event_payload.get("metadata"))
+            or _map(payload.get("metadata"))
+            or _map(nested_payload.get("metadata"))
+        )
         candidates = [
             row.get("runtime_provenance"),
             _map(row.get("metadata")).get("runtime_provenance"),
             payload.get("runtime_provenance"),
             _map(payload.get("metadata")).get("runtime_provenance"),
+            event_metadata.get("runtime_provenance"),
         ]
         for candidate in candidates:
             if isinstance(candidate, dict) and candidate:
                 found = candidate
+        if found:
+            continue
+        tools_called = event_metadata.get("tools_called")
+        expert_handoffs = event_metadata.get("expert_handoffs")
+        if isinstance(tools_called, list) or isinstance(expert_handoffs, list):
+            handoff_agent = ""
+            handoff_parent = ""
+            if isinstance(expert_handoffs, list):
+                for item in expert_handoffs:
+                    if not isinstance(item, dict):
+                        continue
+                    handoff_agent = _nested_str(handoff_agent, item.get("agent_id"), item.get("child_id"), item.get("agent"))
+                    handoff_parent = _nested_str(handoff_parent, item.get("parent_id"), item.get("parent"))
+            found = {
+                "schema_version": "gact.synthetic_runtime_provenance.v1",
+                "synthetic_from": "turn_completed_metadata",
+                "turn": {
+                    "trace_id": _nested_str(row.get("trace_id"), payload.get("trace_id")),
+                    "turn_id": _nested_str(row.get("turn_id"), payload.get("turn_id")),
+                },
+                "agent": {
+                    "selected_agent_id": _nested_str(
+                        event_payload.get("selected_expert"),
+                        event_metadata.get("selected_expert"),
+                        payload.get("agent_id"),
+                        row.get("agent_id"),
+                        handoff_agent,
+                    )
+                    or handoff_parent,
+                    "parent_id": handoff_parent,
+                },
+                "tools": {"observed": tools_called if isinstance(tools_called, list) else []},
+                "delegation": {
+                    "events": expert_handoffs if isinstance(expert_handoffs, list) else []
+                },
+            }
     return found
 
 
