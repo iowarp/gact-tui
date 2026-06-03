@@ -102,6 +102,20 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
         ),
     ),
     CorpusGroup(
+        name="shared_menu_surfaces",
+        description="help, settings, metrics, tools, and doctor shared modal/menu proof",
+        required=(
+            "visual_loop/tapes/semantic_menu_smoke.tape",
+            "visual_loop/screenshots/semantic_menu_help_commands.png",
+            "visual_loop/screenshots/semantic_menu_settings_tui.png",
+            "visual_loop/screenshots/semantic_menu_metrics.png",
+            "visual_loop/screenshots/semantic_menu_tools_catalog.png",
+            "visual_loop/screenshots/semantic_menu_tool_detail.png",
+            "visual_loop/screenshots/semantic_menu_doctor_health.png",
+            "visual_loop/screenshots/semantic_menu_doctor_capabilities.png",
+        ),
+    ),
+    CorpusGroup(
         name="questions_retry_permissions",
         description="ask-user, retry, permissions, text-entry, and action modals",
         required=(

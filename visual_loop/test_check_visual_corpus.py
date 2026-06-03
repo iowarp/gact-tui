@@ -125,6 +125,23 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, modals.required)
 
+    def test_manifest_requires_shared_menu_surface_visual_proof(self) -> None:
+        menus = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "shared_menu_surfaces"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_menu_smoke.tape",
+            "visual_loop/screenshots/semantic_menu_help_commands.png",
+            "visual_loop/screenshots/semantic_menu_settings_tui.png",
+            "visual_loop/screenshots/semantic_menu_metrics.png",
+            "visual_loop/screenshots/semantic_menu_tools_catalog.png",
+            "visual_loop/screenshots/semantic_menu_tool_detail.png",
+            "visual_loop/screenshots/semantic_menu_doctor_health.png",
+            "visual_loop/screenshots/semantic_menu_doctor_capabilities.png",
+        ):
+            self.assertIn(rel, menus.required)
+
     def test_missing_or_empty_artifacts_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
