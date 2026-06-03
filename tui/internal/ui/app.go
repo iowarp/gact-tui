@@ -1255,7 +1255,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.agentWriteOpen {
-			a.insertAgentWriteText(m.Content)
+			a.insertAgentWriteText(compactSingleLinePaste(m.Content))
 			return a, nil
 		}
 		if a.agentEditOpen {

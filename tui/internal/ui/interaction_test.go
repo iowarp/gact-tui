@@ -340,6 +340,15 @@ func TestTextEntryModalsShareEditorGeometry(t *testing.T) {
 			buttonID:  "button:mcp-install:install",
 			wantTitle: "Install MCP server",
 		},
+		{
+			name: "agent write",
+			view: func() string {
+				a.openAgentWrite(agentWriteModeCreate, "", "data-agent")
+				return a.viewAgentWrite()
+			},
+			buttonID:  "button:agent-write:save",
+			wantTitle: "Create user agent",
+		},
 	}
 
 	for _, tc := range cases {

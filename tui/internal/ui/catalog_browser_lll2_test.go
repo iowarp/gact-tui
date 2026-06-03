@@ -269,6 +269,23 @@ func TestAgentWriteSanitizesIDs(t *testing.T) {
 	}
 }
 
+func TestAgentWritePasteCompactsMultilineID(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.openAgentWrite(agentWriteModeCreate, "", "")
+
+	_, _ = a.Update(tea.PasteMsg{Content: " Data\r\nExpert \nCopy! "})
+
+	if a.agentWriteDraft != "Data Expert Copy!" {
+		t.Fatalf("agent write draft = %q, want compact single-line paste", a.agentWriteDraft)
+	}
+	if a.agentWriteCursor != len([]rune(a.agentWriteDraft)) {
+		t.Fatalf("agent write cursor = %d, want end of draft %d", a.agentWriteCursor, len([]rune(a.agentWriteDraft)))
+	}
+	if strings.ContainsAny(a.agentWriteDraft, "\r\n") {
+		t.Fatalf("agent write paste kept raw newlines: %q", a.agentWriteDraft)
+	}
+}
+
 func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	parent := &catalogBrowserState{
