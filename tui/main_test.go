@@ -3891,6 +3891,24 @@ func TestCLI_DumpBundle(t *testing.T) {
 			t.Errorf("missing %s: %v", want, err)
 		}
 	}
+	versionText, err := os.ReadFile(filepath.Join(dir, "version.txt"))
+	if err != nil {
+		t.Fatalf("read version.txt: %v", err)
+	}
+	for _, want := range []string{
+		"gact " + binaryVersion,
+		"(contract " + contractVersion + ")",
+		"revision:",
+		"go:",
+		"platform:",
+	} {
+		if !strings.Contains(string(versionText), want) {
+			t.Fatalf("version.txt missing %q:\n%s", want, versionText)
+		}
+	}
+	if strings.Contains(string(versionText), "runtime:") {
+		t.Fatalf("version.txt should use the same Go metadata label as gact version, got:\n%s", versionText)
+	}
 	entries, err := os.ReadDir(filepath.Join(dir, "sessions"))
 	if err != nil {
 		t.Fatalf("sessions/ dir missing: %v", err)

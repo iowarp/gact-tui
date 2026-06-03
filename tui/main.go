@@ -249,20 +249,27 @@ func main() {
 // Falls back to the manual binaryVersion when ReadBuildInfo is empty
 // (e.g. tests without a module context).
 func runVersion() {
-	fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
+	writeVersionReport(os.Stdout, false)
+}
+
+func writeVersionReport(w io.Writer, includePlatform bool) {
+	fmt.Fprintf(w, "gact %s (contract %s)\n", binaryVersion, contractVersion)
 	rev, when, dirty := readVCSInfo()
 	if rev != "" {
 		suffix := ""
 		if dirty {
 			suffix = " (dirty)"
 		}
-		fmt.Printf("  revision: %s%s\n", rev, suffix)
+		fmt.Fprintf(w, "  revision: %s%s\n", rev, suffix)
 	}
 	if when != "" {
-		fmt.Printf("  built:    %s\n", when)
+		fmt.Fprintf(w, "  built:    %s\n", when)
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
-		fmt.Printf("  go:       %s\n", info.GoVersion)
+		fmt.Fprintf(w, "  go:       %s\n", info.GoVersion)
+	}
+	if includePlatform {
+		fmt.Fprintf(w, "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	}
 }
 
@@ -6131,19 +6138,7 @@ func runDumpBundle(args []string) int {
 	// bundle is self-contained without shelling out.
 	{
 		var b strings.Builder
-		fmt.Fprintf(&b, "gact %s (contract %s)\n", binaryVersion, contractVersion)
-		if rev, when, dirty := readVCSInfo(); rev != "" {
-			suffix := ""
-			if dirty {
-				suffix = " (dirty)"
-			}
-			fmt.Fprintf(&b, "  revision: %s%s\n", rev, suffix)
-			if when != "" {
-				fmt.Fprintf(&b, "  built:    %s\n", when)
-			}
-		}
-		fmt.Fprintf(&b, "  runtime:  %s\n", runtime.Version())
-		fmt.Fprintf(&b, "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		writeVersionReport(&b, true)
 		if err := os.WriteFile(filepath.Join(*out, "version.txt"), []byte(b.String()), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "gact dump-bundle: write version.txt: %v\n", err)
 			return 1
