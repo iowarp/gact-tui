@@ -70,6 +70,7 @@ func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
 		"clipboard_native:",
 		"clipboard_missing:",
 		"clipboard_osc52:",
+		"terminal_selection:",
 		"wl-copy",
 		"xclip",
 		"xsel",
@@ -78,6 +79,8 @@ func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
 		"TERM=xterm-256color",
 		"TERM_PROGRAM=UnitTerm",
 		"COLORTERM=truecolor",
+		"/mouse",
+		"terminal text selection",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("diag clipboard probe missing %q:\n%s", want, got)

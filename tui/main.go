@@ -6404,6 +6404,10 @@ func diagWriteClipboardProbe(w io.Writer) {
 		orUnset(os.Getenv("TERM_PROGRAM")),
 		orUnset(os.Getenv("COLORTERM")),
 	)
+	fmt.Fprintf(w, "  terminal_selection: use /mouse to toggle TUI mouse capture when verifying terminal text selection; TERM=%s TERM_PROGRAM=%s\n",
+		orUnset(os.Getenv("TERM")),
+		orUnset(os.Getenv("TERM_PROGRAM")),
+	)
 }
 
 func orUnset(value string) string {
