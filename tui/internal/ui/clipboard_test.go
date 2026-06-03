@@ -172,6 +172,23 @@ func TestWriteNativeClipboardReportsAllFallbacksWhenUnavailable(t *testing.T) {
 	}
 }
 
+func TestWriteNativeClipboardReportsNoInstalledUtilities(t *testing.T) {
+	attempts := withNativeClipboardSpy(t, map[string]bool{}, nil)
+
+	err := writeNativeClipboard("payload")
+	if err == nil {
+		t.Fatal("writeNativeClipboard succeeded unexpectedly")
+	}
+	for _, want := range []string{"no native clipboard utilities found", "wl-copy", "xclip", "xsel", "pbcopy", "clip.exe", "powershell.exe", "termux-clipboard-set", "atotto/clipboard", "atotto unavailable"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error missing %q:\n%v", want, err)
+		}
+	}
+	if got := fmt.Sprint(*attempts); got != "[atotto]" {
+		t.Fatalf("attempts = %v, want only atotto fallback", *attempts)
+	}
+}
+
 func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
 	mu, got, errSlot := withClipboardSpy(t)
 

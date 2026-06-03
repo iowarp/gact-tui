@@ -91,7 +91,7 @@ func writeNativeClipboard(text string) error {
 	}
 	if err := clipboardAtottoWrite(text); err != nil {
 		if len(tried) == 0 {
-			return fmt.Errorf("no native clipboard utility succeeded; tried %s: %w", fallbackNames, err)
+			return fmt.Errorf("no native clipboard utilities found; fallback order %s; atotto/clipboard: %w", fallbackNames, err)
 		}
 		return fmt.Errorf("no native clipboard utility succeeded; fallback order %s; installed attempts: %s; failures: %s; atotto/clipboard: %w",
 			fallbackNames,
