@@ -543,18 +543,19 @@ func (a *App) refreshLMConfig() tea.Cmd {
 	return lmConfigFetchCmd(a.c)
 }
 
-func (a *App) handleLMConfigPaste(content string) {
+func (a *App) handleLMConfigPaste(content string) tea.Cmd {
 	if a.lmConfig == nil || content == "" {
-		return
+		return nil
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(content, "\r\n", "\n"))
 	if text == "" {
-		return
+		return nil
 	}
 	switch a.lmConfig.field {
 	case lmFieldPreset:
 		a.lmConfig.providerFilter += strings.ReplaceAll(text, "\n", " ")
 		a.lmConfigSelectFirstFiltered()
+		return a.lmConfigSyncFromPreset()
 	case lmFieldAPIBase:
 		a.lmConfig.apiBase += strings.ReplaceAll(text, "\n", "")
 		a.lmConfigInvalidateCurrentCatalog()
@@ -564,6 +565,7 @@ func (a *App) handleLMConfigPaste(content string) {
 	case lmFieldAPIKey:
 		a.lmConfig.apiKey += strings.ReplaceAll(text, "\n", "")
 	}
+	return nil
 }
 
 func (a *App) handleLMConfigVertical(delta int) (tea.Model, tea.Cmd) {

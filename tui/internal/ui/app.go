@@ -1251,8 +1251,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		m.Content = normalizePasteNewlines(m.Content)
 		if a.lmConfigOpen && a.lmConfig != nil {
-			a.handleLMConfigPaste(m.Content)
-			return a, nil
+			return a, a.handleLMConfigPaste(m.Content)
 		}
 		if a.renameOpen {
 			a.insertRenameText(compactSingleLinePaste(m.Content))
