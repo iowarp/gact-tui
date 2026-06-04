@@ -188,6 +188,21 @@ def main() -> int:
             "and do not invent missing data."
         ),
     )
+    parser.add_argument(
+        "--agent-blueprint",
+        default="",
+        help="optional Agent Blueprint id to activate on the captured session",
+    )
+    parser.add_argument(
+        "--agent-overlay-json",
+        default="",
+        help="optional JSON object to apply to /agent-overlay before sending the prompt",
+    )
+    parser.add_argument(
+        "--agent-id",
+        default="",
+        help="optional per-turn agent_id override for the prompt",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -203,6 +218,18 @@ def main() -> int:
         {"title": f"codex live observability {stamp}"},
     )
     sid = str(session["id"])
+    if args.agent_blueprint:
+        request_json(
+            "POST",
+            f"{args.backend}/v1/sessions/{sid}/agent-blueprint",
+            {"blueprint_id": args.agent_blueprint},
+        )
+    if args.agent_overlay_json:
+        request_json(
+            "PUT",
+            f"{args.backend}/v1/sessions/{sid}/agent-overlay",
+            json.loads(args.agent_overlay_json),
+        )
 
     q: "queue.Queue[dict[str, Any]]" = queue.Queue()
     stop = threading.Event()
@@ -216,7 +243,10 @@ def main() -> int:
 
     t0 = time.monotonic()
     try:
-        request_json("POST", f"{args.backend}/v1/sessions/{sid}/messages", {"text": args.prompt})
+        message_body = {"text": args.prompt}
+        if args.agent_id:
+            message_body["agent_id"] = args.agent_id
+        request_json("POST", f"{args.backend}/v1/sessions/{sid}/messages", message_body)
     except urllib.error.HTTPError as exc:
         stop.set()
         error_body = http_error_body(exc)
