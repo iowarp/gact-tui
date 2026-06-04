@@ -551,6 +551,35 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 		items = append(items, catalogItem{
 			id: "model", title: "Default model", desc: agentModelText(agent),
 		})
+		if text := compactJSONDescription(agent.Module); text != "" {
+			items = append(items, catalogItem{
+				id: "dspy-module", title: "DSPy module", desc: text, statusTag: "dspy",
+			})
+		}
+		if text := compactJSONDescription(agent.Signature); text != "" {
+			items = append(items, catalogItem{
+				id: "dspy-signature", title: "DSPy signature", desc: text, statusTag: "dspy",
+			})
+		}
+		if text := compactJSONDescription(agent.StructuredOutputs); text != "" {
+			items = append(items, catalogItem{
+				id: "structured-outputs", title: "Structured outputs", desc: text, statusTag: "dspy",
+			})
+		}
+		if text := compactJSONDescription(agent.Fanout); text != "" {
+			items = append(items, catalogItem{
+				id: "fanout", title: "Fanout", desc: text, statusTag: "dspy",
+			})
+		}
+		for _, ref := range agent.CapabilityRefs {
+			title := firstNonEmpty(ref.Title, ref.ID)
+			items = append(items, catalogItem{
+				id:        "capability/" + ref.Kind + "/" + ref.ID,
+				title:     "Capability · " + title,
+				desc:      agentCapabilityRefDescription(ref),
+				statusTag: firstNonEmpty(ref.Status, ref.Kind),
+			})
+		}
 		if routes := stringListFromMetadata(agent.Metadata, "routes_to"); len(routes) > 0 {
 			items = append(items, catalogItem{
 				id: "routes", title: "Routes to", desc: strings.Join(routes, ", "),
@@ -2097,6 +2126,37 @@ func descriptorMetadataValueText(value any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(v))
 	}
+}
+
+func compactJSONDescription(value map[string]any) string {
+	if len(value) == 0 {
+		return ""
+	}
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return string(payload)
+}
+
+func agentCapabilityRefDescription(ref gact.AgentCapabilityRef) string {
+	parts := make([]string, 0, 5)
+	if ref.Kind != "" {
+		parts = append(parts, "kind: "+ref.Kind)
+	}
+	if ref.Status != "" {
+		parts = append(parts, "status: "+ref.Status)
+	}
+	if ref.Source != "" {
+		parts = append(parts, "source: "+ref.Source)
+	}
+	if ref.Description != "" {
+		parts = append(parts, ref.Description)
+	}
+	if text := compactJSONDescription(ref.Metadata); text != "" {
+		parts = append(parts, "metadata: "+text)
+	}
+	return strings.Join(parts, " · ")
 }
 
 func agentBlueprintHookDescription(descriptor map[string]any) string {

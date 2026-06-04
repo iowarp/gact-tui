@@ -33,6 +33,7 @@ Support classes:
 | Session export | `session_export` | gated | Non-goal for CLIO 1.0 because export UI is not a primary CLIO path. |
 | Session summary | `session_summary` | full | `/compact` uses the current CLIO `POST /v1/sessions/{id}/summarize` route, refreshes backend session truth, renders the returned selected-session summary row, and surfaces backend errors truthfully. |
 | Attachment upload | `attachments_upload` | full | Files sidebar detail POSTs bytes to `/v1/sessions/{id}/attachments` when the backend advertises `attachments_upload`, then merges the returned context file and shows uploaded provenance. |
+| Multimodal image parts | `multimodal_image_parts` | gated | Decoded and preserved by the message contract; terminal image attachment UX is deferred until provider/file-upload proof makes it actionable. |
 | Cost tracking | `cost_tracking` | full | Header/footer cost chips and detail rows are surfaced. |
 | Thinking blocks | `thinking_blocks` | full | Thinking parts and detail views are surfaced. |
 | Edit modes | `edit_modes` | gated | Non-goal for CLIO 1.0 because there is no separate TUI edit-mode switch. |

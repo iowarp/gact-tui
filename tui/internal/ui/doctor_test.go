@@ -187,6 +187,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
 		SessionSummary:                 true,
 		AttachmentsUpload:              true,
+		MultimodalImageParts:           true,
 		AgentWrite:                     true,
 		SkillsExtraction:               true,
 		XClioPromptRegistry:            true,
@@ -212,6 +213,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	for name, want := range map[string]capUISupport{
 		"session_summary":                    capUIFull,
 		"attachments_upload":                 capUIFull,
+		"multimodal_image_parts":             capUIGated,
 		"agent_write":                        capUIFull,
 		"skills_extraction":                  capUIFull,
 		"x_clio_prompt_registry":             capUIFull,
@@ -241,22 +243,24 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 
 func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
-		MCP:                 true,
-		SessionSummary:      true,
-		AttachmentsUpload:   true,
-		XClioSemanticEvents: true,
-		XClioFilesContent:   true,
-		XClioCancellation:   "request",
+		MCP:                  true,
+		SessionSummary:       true,
+		AttachmentsUpload:    true,
+		MultimodalImageParts: true,
+		XClioSemanticEvents:  true,
+		XClioFilesContent:    true,
+		XClioCancellation:    "request",
 	}})
 	byName := map[string]capRow{}
 	for _, row := range rows {
 		byName[row.name] = row
 	}
 	for name, wants := range map[string][]string{
-		"mcp":                 {"POST /v1/mcp/servers/{id}/reconnect"},
-		"session_summary":     {"POST /v1/sessions/{id}/summarize"},
-		"attachments_upload":  {"POST", "/v1/sessions/{id}/attachments"},
-		"x_clio_cancellation": {"Ctrl+X", "/cancel", "POST /v1/sessions/{id}/cancel", "#104"},
+		"mcp":                    {"POST /v1/mcp/servers/{id}/reconnect"},
+		"session_summary":        {"POST /v1/sessions/{id}/summarize"},
+		"attachments_upload":     {"POST", "/v1/sessions/{id}/attachments"},
+		"multimodal_image_parts": {"image", "provider"},
+		"x_clio_cancellation":    {"Ctrl+X", "/cancel", "POST /v1/sessions/{id}/cancel", "#104"},
 		"x_clio_semantic_events": {
 			"semantic.event",
 			"tool.call.*",
