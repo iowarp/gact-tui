@@ -153,33 +153,34 @@ type BackendInfo struct {
 }
 
 type CapabilityFlags struct {
-	Workspaces        bool `json:"workspaces"`
-	Sessions          bool `json:"sessions"`
-	Subagents         bool `json:"subagents"`
-	MCP               bool `json:"mcp"`
-	LSP               bool `json:"lsp"`
-	Files             bool `json:"files"`
-	Diffs             bool `json:"diffs"`
-	Permissions       bool `json:"permissions"`
-	Providers         bool `json:"providers"`
-	Commands          bool `json:"commands"`
-	Voice             bool `json:"voice"`
-	ScheduledSessions bool `json:"scheduled_sessions"`
-	Hooks             bool `json:"hooks"`         // §6.17 — MMM3
-	SessionTasks      bool `json:"session_tasks"` // §6.18 — MMM5
-	Metrics           bool `json:"metrics"`
-	SessionBranching  bool `json:"session_branching"`
-	SessionSharing    bool `json:"session_sharing"`
-	SessionExport     bool `json:"session_export"`
-	SessionSummary    bool `json:"session_summary"`
-	AttachmentsUpload bool `json:"attachments_upload"`
-	CostTracking      bool `json:"cost_tracking"`
-	ThinkingBlocks    bool `json:"thinking_blocks"`
-	EditModes         bool `json:"edit_modes"`
-	PlanMode          bool `json:"plan_mode"`
-	SearchMessages    bool `json:"search_messages"`
-	AgentWrite        bool `json:"agent_write"`
-	SkillsExtraction  bool `json:"skills_extraction"`
+	Workspaces           bool `json:"workspaces"`
+	Sessions             bool `json:"sessions"`
+	Subagents            bool `json:"subagents"`
+	MCP                  bool `json:"mcp"`
+	LSP                  bool `json:"lsp"`
+	Files                bool `json:"files"`
+	Diffs                bool `json:"diffs"`
+	Permissions          bool `json:"permissions"`
+	Providers            bool `json:"providers"`
+	Commands             bool `json:"commands"`
+	Voice                bool `json:"voice"`
+	ScheduledSessions    bool `json:"scheduled_sessions"`
+	Hooks                bool `json:"hooks"`         // §6.17 — MMM3
+	SessionTasks         bool `json:"session_tasks"` // §6.18 — MMM5
+	Metrics              bool `json:"metrics"`
+	SessionBranching     bool `json:"session_branching"`
+	SessionSharing       bool `json:"session_sharing"`
+	SessionExport        bool `json:"session_export"`
+	SessionSummary       bool `json:"session_summary"`
+	AttachmentsUpload    bool `json:"attachments_upload"`
+	MultimodalImageParts bool `json:"multimodal_image_parts"`
+	CostTracking         bool `json:"cost_tracking"`
+	ThinkingBlocks       bool `json:"thinking_blocks"`
+	EditModes            bool `json:"edit_modes"`
+	PlanMode             bool `json:"plan_mode"`
+	SearchMessages       bool `json:"search_messages"`
+	AgentWrite           bool `json:"agent_write"`
+	SkillsExtraction     bool `json:"skills_extraction"`
 
 	// v0.2 additions — SPEC §3.2.1
 	AgentRouting      bool `json:"agent_routing"`      // multi-tier agents + routing_decision part + session.agent_routed event

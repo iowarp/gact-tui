@@ -240,7 +240,7 @@ func TestAgentHierarchySidebarSurfacesLiveSemanticDelegation(t *testing.T) {
 		Payload: map[string]any{"payload": map[string]any{
 			"session_id": "s1",
 			"turn_id":    "turn_1",
-			"event_type": "delegation.started",
+			"event_type": "blueprint.delegation.started",
 			"status":     "running",
 			"actor":      map[string]any{"agent_id": "data", "role": "parent_expert"},
 			"subject":    map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},
@@ -283,7 +283,7 @@ func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(
 			"session_id": "s1",
 			"trace_id":   "trace_1",
 			"turn_id":    "turn_1",
-			"event_type": "delegation.started",
+			"event_type": "blueprint.delegation.started",
 			"status":     "running",
 			"actor":      map[string]any{"agent_id": "data", "role": "parent_expert"},
 			"subject":    map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},

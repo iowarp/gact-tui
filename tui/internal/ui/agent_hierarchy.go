@@ -365,7 +365,8 @@ func agentStateFromSemanticEvent(agentID string, event map[string]any) agentHier
 			return agentHierarchyStateActive
 		}
 	}
-	if eventType == "delegation.parent_resumed" || eventType == "delegation.completed" || strings.HasSuffix(eventType, ".completed") {
+	if eventType == "delegation.parent_resumed" || eventType == "delegation.completed" ||
+		strings.HasSuffix(eventType, ".parent_resumed") || strings.HasSuffix(eventType, ".completed") {
 		return agentHierarchyStateObserved
 	}
 	return agentHierarchyStateObserved

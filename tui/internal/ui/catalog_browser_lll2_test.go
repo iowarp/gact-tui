@@ -515,6 +515,51 @@ func TestCatalogBrowser_EnterOnAgentDetailMcpServerDrills(t *testing.T) {
 	}
 }
 
+func TestLoadAgentDetailSurfacesCapabilityRefs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/agents/data":
+			writeJSONForTest(t, w, gact.AgentDef{
+				ID:     "data",
+				Title:  "Data",
+				Source: "expert_pack",
+				CapabilityRefs: []gact.AgentCapabilityRef{
+					{Kind: "tool", ID: "hdf5_analyze_dataset", Status: "available", Source: "builtin"},
+					{Kind: "command", ID: "/optimize", Status: "unavailable", Metadata: map[string]any{"error": "not_implemented"}},
+				},
+			})
+		case "/v1/agents":
+			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{}})
+		case "/v1/tools":
+			writeJSONForTest(t, w, map[string]any{"tools": []gact.Tool{}})
+		case "/v1/commands":
+			writeJSONForTest(t, w, map[string]any{"commands": []gact.Command{}})
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	msg := loadAgentDetailCmd(client.New(server.URL), "data", client.RuntimeScope{})()
+	loaded, ok := msg.(catalogBrowserLoadedMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want catalogBrowserLoadedMsg", msg)
+	}
+	var joined strings.Builder
+	for _, item := range loaded.items {
+		joined.WriteString(item.title)
+		joined.WriteString(" ")
+		joined.WriteString(item.desc)
+		joined.WriteString("\n")
+	}
+	out := joined.String()
+	for _, want := range []string{"hdf5_analyze_dataset", "available", "/optimize", "unavailable", "not_implemented"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("agent capability refs missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestCatalogBrowser_EnterOnAgentBlueprintHookEnablesPackagedHook(t *testing.T) {
 	var gotPath string
 	var gotReq gact.AgentBlueprintHookEnableRequest
