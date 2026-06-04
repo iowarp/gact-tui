@@ -395,11 +395,16 @@ def runtime_provenance_sets(rp: dict[str, Any]) -> dict[str, set[str]]:
             continue
         parent_id = _nested_str(item.get("parent_id"), item.get("parent"))
         agent_id = _nested_str(item.get("agent_id"), item.get("child_id"), item.get("agent"))
+        resumed_from = _nested_str(item.get("resumed_from"), item.get("return_from"))
         stage = _str(item.get("stage"))
+        if stage in {"parent.resumed", "parent_resumed", "delegation.parent_resumed", "blueprint.delegation.parent_resumed"}:
+            if agent_id and resumed_from:
+                values["parent_resumes"].add(f"{agent_id}->{resumed_from}")
+            elif parent_id and agent_id:
+                values["parent_resumes"].add(f"{parent_id}->{agent_id}")
+            continue
         if parent_id and agent_id:
             values["delegations"].add(f"{parent_id}->{agent_id}")
-            if stage in {"parent.resumed", "parent_resumed", "delegation.parent_resumed", "blueprint.delegation.parent_resumed"}:
-                values["parent_resumes"].add(f"{parent_id}->{agent_id}")
     return values
 
 

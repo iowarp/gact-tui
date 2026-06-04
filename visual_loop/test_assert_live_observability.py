@@ -533,6 +533,72 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
         self.assertIn("observed tools: NdpSearchDatasets", agreement.matched)
         self.assertIn("parent resume: data->ndp_catalog", agreement.matched)
 
+    def test_runtime_provenance_agreement_accepts_resumed_from_metadata(self):
+        rows = [
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "event_type": "blueprint.delegation.completed",
+                "trace_id": "trace_1",
+                "parent_id": "main",
+                "agent_id": "data",
+                "stage": "delegate.completed",
+            },
+            {
+                "t": 0.2,
+                "event": "semantic.event",
+                "event_type": "tool.call.started",
+                "trace_id": "trace_1",
+                "tool": "hdf5_list_datasets",
+            },
+            {
+                "t": 0.3,
+                "event": "semantic.event",
+                "event_type": "tool.call.completed",
+                "trace_id": "trace_1",
+                "tool": "hdf5_list_datasets",
+            },
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "event_type": "blueprint.delegation.parent_resumed",
+                "trace_id": "trace_1",
+                "agent_id": "main",
+                "stage": "parent.resumed",
+            },
+            {
+                "t": 0.9,
+                "event": "semantic.event",
+                "event_type": "turn.completed",
+                "trace_id": "trace_1",
+                "payload": {
+                    "payload": {
+                        "metadata": {
+                            "tools_called": [{"name": "hdf5_list_datasets"}],
+                            "expert_handoffs": [
+                                {
+                                    "stage": "delegate.completed",
+                                    "parent_id": "main",
+                                    "agent_id": "data",
+                                },
+                                {
+                                    "stage": "parent.resumed",
+                                    "agent_id": "main",
+                                    "resumed_from": "data",
+                                },
+                            ],
+                        }
+                    }
+                },
+            },
+            {"t": 1.0, "event": "message.completed"},
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertTrue(agreement.ok, agreement.missing)
+        self.assertIn("parent resume: main->data", agreement.matched)
+
     def test_runtime_provenance_agreement_requires_final_provenance(self):
         rows = [
             {"t": 0.1, "event": "semantic.event", "event_type": "tool.call.started", "tool": "read_file"},
