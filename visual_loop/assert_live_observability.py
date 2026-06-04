@@ -111,8 +111,27 @@ def _semantic_delegation_started(event_type: str) -> bool:
     return _semantic_suffix(event_type, "delegation.started") or event_type == "agent.invocation.started"
 
 
+def _semantic_fanout_started(event_type: str) -> bool:
+    return _semantic_suffix(event_type, "fanout.started")
+
+
 def _semantic_parent_resumed(event_type: str) -> bool:
     return _semantic_suffix(event_type, "delegation.parent_resumed") or _semantic_suffix(event_type, "delegation.completed")
+
+
+def _list_values(*values: Any) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        if isinstance(value, list):
+            for item in value:
+                text = _str(item)
+                if text:
+                    out.append(text)
+        else:
+            text = _str(value)
+            if text:
+                out.append(text)
+    return out
 
 
 def _time(row: dict[str, Any], index: int) -> float:
@@ -155,6 +174,7 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
     route_like = (
         part_type == "routing_decision"
         or _semantic_delegation_started(sem_type)
+        or _semantic_fanout_started(sem_type)
         or " -> " in detail
     )
     if route_like:
@@ -163,6 +183,7 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
     child_like = (
         part_type == "expert_handoff"
         or _semantic_delegation_started(sem_type)
+        or _semantic_fanout_started(sem_type)
         or sem_type == "subagent.started"
         or stage in {"tool.started", "started", "running"}
     )
@@ -322,6 +343,17 @@ def live_observability_sets(rows: Iterable[dict[str, Any]]) -> dict[str, set[str
         )
         parent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("parent_id", "parent"))
         agent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("agent_id", "child_id", "agent"))
+        if _semantic_suffix(sem_type, "fanout.started") or _semantic_suffix(sem_type, "fanout.completed"):
+            parent_id = parent_id or _field(actor, payload, event_payload, metadata, keys=("agent_id", "parent_expert"))
+            child_ids = _list_values(
+                subject.get("child_agent_ids"),
+                event_payload.get("requested_child_agent_ids"),
+                event_payload.get("executed_child_agent_ids"),
+                payload.get("child_agent_ids"),
+            )
+            for child_id in child_ids:
+                if parent_id:
+                    values["delegations"].add(f"{parent_id}->{child_id}")
         if parent_id and agent_id and (
             sem_type.startswith("delegation.") or ".delegation." in sem_type
         ):
