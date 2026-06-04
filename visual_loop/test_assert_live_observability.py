@@ -234,6 +234,85 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
             "parent_resumed",
         ])
 
+    def test_blueprint_fanout_payload_classifies_hierarchy_activity(self):
+        rows = [
+            {
+                "t": 0.05,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "agent.invocation.started",
+                        "status": "running",
+                        "actor": {"agent_id": "data"},
+                        "payload": {"selected_agent": "data"},
+                    }
+                },
+            },
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "blueprint.fanout.started",
+                        "status": "running",
+                        "actor": {"agent_id": "data", "role": "fanout_parent"},
+                        "subject": {"child_agent_ids": ["analysis", "visualization"]},
+                        "payload": {
+                            "requested_child_agent_ids": ["analysis", "visualization"],
+                            "skipped_child_agent_ids": [],
+                        },
+                    }
+                },
+            },
+            {"t": 0.2, "event": "semantic.event", "payload": {"payload": {"event_type": "tool.call.started", "payload": {"tool": "fanout_to_children"}}}},
+            {"t": 0.3, "event": "semantic.event", "payload": {"payload": {"event_type": "tool.call.completed", "payload": {"tool": "fanout_to_children"}}}},
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "blueprint.fanout.completed",
+                        "status": "completed",
+                        "actor": {"agent_id": "data", "role": "fanout_parent"},
+                        "subject": {"child_agent_ids": ["analysis", "visualization"]},
+                        "payload": {
+                            "stage": "fanout.completed",
+                            "executed_child_agent_ids": ["analysis", "visualization"],
+                            "result_count": 2,
+                        },
+                    }
+                },
+            },
+            {
+                "t": 0.5,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "blueprint.delegation.parent_resumed",
+                        "actor": {"agent_id": "main", "role": "parent_expert"},
+                        "subject": {"agent_id": "data", "role": "child_expert"},
+                        "payload": {"stage": "parent.resumed", "parent_id": "main", "agent_id": "data"},
+                    }
+                },
+            },
+            {"t": 1.0, "event": "message.completed"},
+        ]
+
+        ok, chosen, missing = ordered_sequence_before_completion(
+            observations(rows),
+            ["route_or_delegate", "child_expert_active", "tool_started", "tool_completed", "parent_resumed"],
+            min_live_lead_s=0.25,
+        )
+
+        self.assertTrue(ok, missing)
+        self.assertEqual([item.kind for item in chosen], [
+            "route_or_delegate",
+            "child_expert_active",
+            "tool_started",
+            "tool_completed",
+            "parent_resumed",
+        ])
+
     def test_basic_tools_mode_does_not_require_hierarchy(self):
         rows = [
             {"t": 0.3, "event": "tool.call.started", "tool": "read_file"},
@@ -356,6 +435,37 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
         self.assertTrue(any(item.startswith("trace_id: trace_1") for item in agreement.matched))
         self.assertTrue(any("observed tools: ndp_search_datasets" == item for item in agreement.matched))
         self.assertTrue(any("parent resume: orchestrator->data" == item for item in agreement.matched))
+
+    def test_runtime_provenance_agreement_accepts_live_fanout_child_sets(self):
+        rows = [
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "event_type": "blueprint.fanout.started",
+                "trace_id": "trace_1",
+                "actor": {"agent_id": "data"},
+                "subject": {"child_agent_ids": ["analysis"]},
+            },
+            {
+                "t": 0.9,
+                "event": "message.completed",
+                "runtime_provenance": {
+                    "turn": {"trace_id": "trace_1"},
+                    "agent": {"selected_agent_id": "analysis", "parent_id": "data"},
+                    "tools": {"observed": []},
+                    "delegation": {
+                        "events": [
+                            {"stage": "fanout.started", "parent_id": "data", "agent_id": "analysis"},
+                        ]
+                    },
+                },
+            },
+        ]
+
+        agreement = runtime_provenance_agreement(rows)
+
+        self.assertTrue(agreement.ok, agreement.missing)
+        self.assertIn("delegation rows: data->analysis", agreement.matched)
 
     def test_runtime_provenance_agreement_accepts_turn_completed_metadata(self):
         rows = [
