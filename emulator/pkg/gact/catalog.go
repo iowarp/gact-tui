@@ -150,6 +150,10 @@ type AgentDef struct {
 	Parameters         []AgentParameter     `json:"parameters,omitempty"`
 	DefaultModel       *ModelRef            `json:"default_model,omitempty"`
 	DefaultModelName   string               `json:"-"`
+	Module             map[string]any       `json:"module,omitempty"`
+	Signature          map[string]any       `json:"signature,omitempty"`
+	StructuredOutputs  map[string]any       `json:"structured_outputs,omitempty"`
+	Fanout             map[string]any       `json:"fanout,omitempty"`
 	Tools              []string             `json:"tools,omitempty"`
 	Skills             []string             `json:"skills,omitempty"`
 	Commands           []string             `json:"commands,omitempty"`

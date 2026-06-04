@@ -11,6 +11,7 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 		"capabilities": {
 			"session_summary": true,
 			"attachments_upload": true,
+			"multimodal_image_parts": true,
 			"x_clio_cancellation": "best_effort",
 			"x_clio_executor_cancellation": true,
 			"x_clio_text_streaming": "best_effort_live",
@@ -36,6 +37,7 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 	if caps.Capabilities.XClioCancellation != "best_effort" ||
 		!caps.Capabilities.SessionSummary ||
 		!caps.Capabilities.AttachmentsUpload ||
+		!caps.Capabilities.MultimodalImageParts ||
 		!caps.Capabilities.XClioAgentBlueprints ||
 		!caps.Capabilities.XClioSemanticEvents ||
 		!caps.Capabilities.XClioFilesContent ||
@@ -63,13 +65,19 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"skills": ["stats"],
 		"commands": ["/analyze"],
 		"capability_refs": [{"kind": "tool", "id": "memory_search_sessions"}],
+		"module": {"kind": "react", "max_iters": 6},
+		"signature": {"inputs": {"question": "str"}, "outputs": {"answer": "str"}},
+		"structured_outputs": {"answer": {"type": "str"}},
+		"fanout": {"enabled": true, "max_children": 3},
 		"enabled": false,
 		"validation_errors": ["missing parent"]
 	}`), &agent); err != nil {
 		t.Fatalf("decode agent: %v", err)
 	}
 	if agent.ParentID != "main" || agent.PromptID == "" || agent.DefaultModel == nil || agent.DefaultModel.ModelID != "gpt-5" ||
-		len(agent.Commands) != 1 || len(agent.CapabilityRefs) != 1 || len(agent.ValidationErrors) != 1 {
+		len(agent.Commands) != 1 || len(agent.CapabilityRefs) != 1 || len(agent.ValidationErrors) != 1 ||
+		agent.Module["kind"] != "react" || len(agent.Signature) == 0 ||
+		len(agent.StructuredOutputs) == 0 || agent.Fanout["enabled"] != true {
 		t.Fatalf("agent = %+v", agent)
 	}
 

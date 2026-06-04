@@ -318,6 +318,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
 		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "/compact uses POST /v1/sessions/{id}/summarize, refreshes backend truth, renders selected-session summary, and surfaces errors"},
 		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action POSTs /v1/sessions/{id}/attachments and merges returned context provenance"},
+		{"multimodal_image_parts", caps.Capabilities.MultimodalImageParts, capExtra, capUIGated, "decoded and preserved by the message contract; terminal image attachment workflow remains gated behind file upload/provider support"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
 		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
 		{"edit_modes", caps.Capabilities.EditModes, capExtra, capUIGated, "decoded; no separate edit-mode switch"},

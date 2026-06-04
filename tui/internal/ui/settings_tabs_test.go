@@ -222,6 +222,10 @@ func TestSettingsAgentListDescriptionOmitsGeneratedCommonToolsTail(t *testing.T)
 		Title:       "Extracted from 2 session(s)",
 		Description: "Auto-extracted agent from 2 session log(s). Common tools: analysis, data, shell",
 		Tools:       []string{"analysis", "data", "shell"},
+		CapabilityRefs: []gact.AgentCapabilityRef{
+			{Kind: "tool", ID: "hdf5_analyze_dataset", Status: "available", Source: "builtin"},
+			{Kind: "command", ID: "/optimize", Status: "unavailable", Metadata: map[string]any{"error": "not_implemented"}},
+		},
 	}
 
 	got := a.settingsAgentListDescription(ag)
@@ -231,6 +235,10 @@ func TestSettingsAgentListDescriptionOmitsGeneratedCommonToolsTail(t *testing.T)
 	}
 	if detail := a.agentDetailText(ag); !strings.Contains(detail, "analysis") {
 		t.Fatalf("detail text should retain tool evidence:\n%s", detail)
+	} else if !strings.Contains(detail, "hdf5_analyze_dataset") ||
+		!strings.Contains(detail, "/optimize") ||
+		!strings.Contains(detail, "not_implemented") {
+		t.Fatalf("detail text should surface capability refs:\n%s", detail)
 	}
 }
 

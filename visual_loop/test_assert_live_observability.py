@@ -167,6 +167,73 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
         self.assertIn("data -> ndp_catalog", chosen[1].detail)
         self.assertIn("ndp_search_datasets", chosen[2].detail)
 
+    def test_blueprint_semantic_delegation_payload_classifies_hierarchy(self):
+        rows = [
+            {
+                "t": 0.05,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "agent.invocation.started",
+                        "status": "running",
+                        "actor": {"agent_id": "data"},
+                        "payload": {"selected_agent": "data"},
+                    }
+                },
+            },
+            {
+                "t": 0.1,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "blueprint.delegation.started",
+                        "status": "running",
+                        "actor": {"agent_id": "data", "role": "parent_expert"},
+                        "subject": {"agent_id": "ndp_catalog", "role": "child_expert"},
+                        "payload": {"stage": "delegate.started", "parent_id": "data", "agent_id": "ndp_catalog"},
+                    }
+                },
+            },
+            {
+                "t": 0.2,
+                "event": "semantic.event",
+                "payload": {"payload": {"event_type": "tool.call.started", "payload": {"tool": "ndp_search_datasets"}}},
+            },
+            {
+                "t": 0.3,
+                "event": "semantic.event",
+                "payload": {"payload": {"event_type": "tool.call.completed", "payload": {"tool": "ndp_search_datasets"}}},
+            },
+            {
+                "t": 0.4,
+                "event": "semantic.event",
+                "payload": {
+                    "payload": {
+                        "event_type": "blueprint.delegation.parent_resumed",
+                        "actor": {"agent_id": "data", "role": "parent_expert"},
+                        "subject": {"agent_id": "ndp_catalog", "role": "child_expert"},
+                        "payload": {"stage": "parent.resumed", "parent_id": "data", "agent_id": "ndp_catalog"},
+                    }
+                },
+            },
+            {"t": 1.0, "event": "message.completed"},
+        ]
+
+        ok, chosen, missing = ordered_sequence_before_completion(
+            observations(rows),
+            ["route_or_delegate", "child_expert_active", "tool_started", "tool_completed", "parent_resumed"],
+            min_live_lead_s=0.25,
+        )
+
+        self.assertTrue(ok, missing)
+        self.assertEqual([item.kind for item in chosen], [
+            "route_or_delegate",
+            "child_expert_active",
+            "tool_started",
+            "tool_completed",
+            "parent_resumed",
+        ])
+
     def test_basic_tools_mode_does_not_require_hierarchy(self):
         rows = [
             {"t": 0.3, "event": "tool.call.started", "tool": "read_file"},
@@ -193,7 +260,7 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
             {
                 "t": 0.2,
                 "event": "semantic.event",
-                "event_type": "delegation.started",
+                "event_type": "blueprint.delegation.started",
                 "parent_id": "orchestrator",
                 "agent_id": "ndp_catalog",
             },
@@ -212,7 +279,7 @@ class LiveObservabilityAssertionTests(unittest.TestCase):
             {
                 "t": 0.5,
                 "event": "semantic.event",
-                "event_type": "delegation.parent_resumed",
+                "event_type": "blueprint.delegation.parent_resumed",
                 "parent_id": "orchestrator",
                 "agent_id": "ndp_catalog",
             },

@@ -1133,6 +1133,21 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 	if len(ag.Commands) > 0 {
 		add("Commands", strings.Join(ag.Commands, ", "))
 	}
+	if refs := agentCapabilityRefLines(ag.CapabilityRefs); len(refs) > 0 {
+		add("Capabilities", strings.Join(refs, "; "))
+	}
+	if text := compactJSONDescription(ag.Module); text != "" {
+		add("DSPy module", text)
+	}
+	if text := compactJSONDescription(ag.Signature); text != "" {
+		add("DSPy signature", text)
+	}
+	if text := compactJSONDescription(ag.StructuredOutputs); text != "" {
+		add("Structured outputs", text)
+	}
+	if text := compactJSONDescription(ag.Fanout); text != "" {
+		add("Fanout", text)
+	}
 	if len(ag.ValidationErrors) > 0 {
 		add("Validation", strings.Join(ag.ValidationErrors, "; "))
 	}
@@ -1169,6 +1184,22 @@ func (a *App) agentDetailText(ag gact.AgentDef) string {
 		lines = append(lines, "", "Routing keywords:")
 		lines = append(lines, bulletLines(ag.Keywords)...)
 	}
+	if refs := agentCapabilityRefLines(ag.CapabilityRefs); len(refs) > 0 {
+		lines = append(lines, "", "Capabilities:")
+		lines = append(lines, bulletLines(refs)...)
+	}
+	if text := compactJSONDescription(ag.Module); text != "" {
+		lines = append(lines, "", "DSPy module:", text)
+	}
+	if text := compactJSONDescription(ag.Signature); text != "" {
+		lines = append(lines, "", "DSPy signature:", text)
+	}
+	if text := compactJSONDescription(ag.StructuredOutputs); text != "" {
+		lines = append(lines, "", "Structured outputs:", text)
+	}
+	if text := compactJSONDescription(ag.Fanout); text != "" {
+		lines = append(lines, "", "Fanout:", text)
+	}
 	if provenance := agentPromptResolutionDescription(ag); provenance != "" {
 		lines = append(lines, "", "Prompt provenance:", provenance)
 	}
@@ -1185,6 +1216,35 @@ func bulletLines(items []string) []string {
 		if item != "" {
 			out = append(out, "  - "+item)
 		}
+	}
+	return out
+}
+
+func agentCapabilityRefLines(refs []gact.AgentCapabilityRef) []string {
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		label := firstNonEmpty(ref.Title, ref.ID)
+		if label == "" {
+			continue
+		}
+		parts := make([]string, 0, 3)
+		if ref.Kind != "" {
+			parts = append(parts, ref.Kind)
+		}
+		if ref.Status != "" {
+			parts = append(parts, ref.Status)
+		}
+		if ref.Source != "" {
+			parts = append(parts, ref.Source)
+		}
+		line := label
+		if len(parts) > 0 {
+			line += " (" + strings.Join(parts, ", ") + ")"
+		}
+		if text := compactJSONDescription(ref.Metadata); text != "" {
+			line += " " + text
+		}
+		out = append(out, line)
 	}
 	return out
 }

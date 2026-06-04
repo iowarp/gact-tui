@@ -103,6 +103,18 @@ def _runtime_name_rows(raw: Any, *keys: str) -> set[str]:
     return out
 
 
+def _semantic_suffix(event_type: str, suffix: str) -> bool:
+    return event_type == suffix or event_type.endswith("." + suffix)
+
+
+def _semantic_delegation_started(event_type: str) -> bool:
+    return _semantic_suffix(event_type, "delegation.started") or event_type == "agent.invocation.started"
+
+
+def _semantic_parent_resumed(event_type: str) -> bool:
+    return _semantic_suffix(event_type, "delegation.parent_resumed") or _semantic_suffix(event_type, "delegation.completed")
+
+
 def _time(row: dict[str, Any], index: int) -> float:
     for key in ("t", "elapsed_s", "monotonic"):
         value = row.get(key)
@@ -142,7 +154,7 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
     out: list[Observation] = []
     route_like = (
         part_type == "routing_decision"
-        or sem_type in {"delegation.started", "agent.invocation.started"}
+        or _semantic_delegation_started(sem_type)
         or " -> " in detail
     )
     if route_like:
@@ -150,7 +162,8 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
 
     child_like = (
         part_type == "expert_handoff"
-        or sem_type in {"delegation.started", "agent.invocation.started", "subagent.started"}
+        or _semantic_delegation_started(sem_type)
+        or sem_type == "subagent.started"
         or stage in {"tool.started", "started", "running"}
     )
     if child_like:
@@ -162,7 +175,7 @@ def classify(row: dict[str, Any], index: int) -> list[Observation]:
         out.append(Observation(index, t, event, "tool_completed", status, detail))
 
     parent_resume_like = (
-        sem_type in {"delegation.parent_resumed", "delegation.completed"}
+        _semantic_parent_resumed(sem_type)
         or stage in {"parent.resumed", "parent_resumed", "completed"}
         or _str(row.get("stage")) in {"parent.resumed", "parent_resumed"}
     )
@@ -309,9 +322,11 @@ def live_observability_sets(rows: Iterable[dict[str, Any]]) -> dict[str, set[str
         )
         parent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("parent_id", "parent"))
         agent_id = _field(row, payload, event_payload, metadata, subject, actor, keys=("agent_id", "child_id", "agent"))
-        if parent_id and agent_id and sem_type.startswith("delegation."):
+        if parent_id and agent_id and (
+            sem_type.startswith("delegation.") or ".delegation." in sem_type
+        ):
             values["delegations"].add(f"{parent_id}->{agent_id}")
-        if sem_type in {"delegation.parent_resumed", "delegation.completed"} or stage in {"parent.resumed", "parent_resumed"}:
+        if _semantic_parent_resumed(sem_type) or stage in {"parent.resumed", "parent_resumed"}:
             if parent_id and agent_id:
                 values["parent_resumes"].add(f"{parent_id}->{agent_id}")
             else:
@@ -351,7 +366,7 @@ def runtime_provenance_sets(rp: dict[str, Any]) -> dict[str, set[str]]:
         stage = _str(item.get("stage"))
         if parent_id and agent_id:
             values["delegations"].add(f"{parent_id}->{agent_id}")
-            if stage in {"parent.resumed", "parent_resumed", "delegation.parent_resumed"}:
+            if stage in {"parent.resumed", "parent_resumed", "delegation.parent_resumed", "blueprint.delegation.parent_resumed"}:
                 values["parent_resumes"].add(f"{parent_id}->{agent_id}")
     return values
 
