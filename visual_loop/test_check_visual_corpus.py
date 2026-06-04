@@ -34,6 +34,20 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_staged_streaming_semantic_proof(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_live_events.tape",
+            "visual_loop/screenshots/semantic_live_events_thinking.png",
+            "visual_loop/screenshots/semantic_live_events_tool_started.png",
+            "visual_loop/screenshots/semantic_live_events_tool_result.png",
+            "visual_loop/screenshots/semantic_live_events_final.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_manifest_requires_mcp_reconnect_visual_proof(self) -> None:
         conversation = next(
             group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"

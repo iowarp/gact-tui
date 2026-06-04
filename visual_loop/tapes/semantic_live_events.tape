@@ -10,8 +10,12 @@ Type "visual_loop/run_semantic_live_events.sh"
 Enter
 Show
 
-Wait+Screen /ReadFile/
-Screenshot "visual_loop/screenshots/semantic_live_events_running.png"
+Wait+Screen /thinking/
+Screenshot "visual_loop/screenshots/semantic_live_events_thinking.png"
+Wait+Screen /ReadFile\(\)/
+Screenshot "visual_loop/screenshots/semantic_live_events_tool_started.png"
+Wait+Screen /package main/
+Screenshot "visual_loop/screenshots/semantic_live_events_tool_result.png"
 Wait+Screen /idle/
 Screenshot "visual_loop/screenshots/semantic_live_events_final.png"
 Sleep 300ms
