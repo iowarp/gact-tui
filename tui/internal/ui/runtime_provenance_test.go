@@ -105,15 +105,20 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 
 	ref := partDetailRef(msg.ID, msg.Parts[0])
 	for _, want := range []string{
-		"Runtime provenance",
-		"schema: clio.runtime_provenance.v1",
+		"Operator view",
+		"active path: data -> ndp_catalog",
+		"workflow: marketplace-seismic",
+		"tools used: ndp_search_datasets",
+		"handoffs: orchestrator -> data delegating",
+		"Execution summary",
+		"workflow: runtime provenance",
 		"Turn",
-		"trace_id: trace_1",
+		"trace: trace_1",
 		"Workspace",
-		"root_path: /workspace/demo",
+		"workspace root: /workspace/demo",
 		"Agent",
-		"active_expert_id: ndp_catalog",
-		"Blueprint",
+		"active expert: ndp_catalog",
+		"Workflow",
 		"marketplace-seismic",
 		"Tools",
 		"observed: ndp_search_datasets",
@@ -126,8 +131,24 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 			t.Fatalf("runtime provenance detail missing %q:\n%s", want, ref.fullText)
 		}
 	}
-	if strings.Contains(ref.fullText, `\"runtime_provenance\"`) {
-		t.Fatalf("detail should not be a raw escaped JSON wall:\n%s", ref.fullText)
+	if strings.Index(ref.fullText, "Operator view") > strings.Index(ref.fullText, "Execution summary") {
+		t.Fatalf("runtime provenance detail should lead with operator view:\n%s", ref.fullText)
+	}
+	for _, unwanted := range []string{
+		`\"runtime_provenance\"`,
+		"trace_id:",
+		"root_path:",
+		"active_expert_id:",
+		"definition_path:",
+		"user message:",
+		"assistant message:",
+		"format:",
+		"provider_id:",
+		"model_id:",
+	} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("runtime provenance detail should avoid raw label %q:\n%s", unwanted, ref.fullText)
+		}
 	}
 }
 
@@ -150,8 +171,8 @@ func TestRuntimeProvenanceUsesTopLevelTurnIdentifiers(t *testing.T) {
 	ref := partDetailRef(msg.ID, msg.Parts[0])
 	for _, want := range []string{
 		"Turn",
-		"trace_id: trace_top",
-		"turn_id: turn_top",
+		"trace: trace_top",
+		"turn: turn_top",
 	} {
 		if !strings.Contains(ref.fullText, want) {
 			t.Fatalf("runtime provenance detail missing top-level turn evidence %q:\n%s", want, ref.fullText)
@@ -193,16 +214,19 @@ func TestRuntimeProvenanceDetailRendersContextArtifactsAndErrors(t *testing.T) {
 
 	detail := runtimeProvenanceDetailText(rp)
 	for _, want := range []string{
+		"Operator view",
+		"artifacts: /workspace/demo/result.png",
+		"errors: retry succeeded",
 		"Memory",
-		"policy_summary: session plus workspace search",
+		"policy summary: session plus workspace search",
 		"Context",
 		"status: prepared",
 		"files:",
 		"path=/workspace/demo/docs/plan.md",
-		"inline_policy=inline_or_inspect",
+		"inline policy=inline_or_inspect",
 		"Artifacts",
 		"path=/workspace/demo/result.png",
-		"size_bytes=2048",
+		"size=2048",
 		"Errors",
 		"code=provider_timeout",
 		"message=retry succeeded",
@@ -213,6 +237,11 @@ func TestRuntimeProvenanceDetailRendersContextArtifactsAndErrors(t *testing.T) {
 	}
 	if strings.Contains(detail, `\"path\"`) {
 		t.Fatalf("detail should render rows, not escaped JSON blobs:\n%s", detail)
+	}
+	for _, unwanted := range []string{"policy_summary:", "inline_policy=", "size_bytes="} {
+		if strings.Contains(detail, unwanted) {
+			t.Fatalf("runtime provenance detail should avoid raw label %q:\n%s", unwanted, detail)
+		}
 	}
 }
 
@@ -237,12 +266,15 @@ func TestRuntimeProvenanceDetailRendersNamedArtifactAndErrorRows(t *testing.T) {
 		"Artifacts",
 		"path=plots/waveform.png",
 		"Errors",
-		"tool_name=ndp_search_datasets",
+		"tool=ndp_search_datasets",
 		"recoverable=true",
 	} {
 		if !strings.Contains(detail, want) {
 			t.Fatalf("runtime provenance detail missing %q:\n%s", want, detail)
 		}
+	}
+	if strings.Contains(detail, "tool_name=") {
+		t.Fatalf("runtime provenance detail should avoid raw tool label:\n%s", detail)
 	}
 }
 

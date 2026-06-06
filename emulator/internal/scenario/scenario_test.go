@@ -201,6 +201,179 @@ loop:
 	}
 }
 
+func TestEarthScopeSACScriptProducesStructuredToolResult(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("earthscope sac demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
+	mustContain(t, got, "tool.call.started")
+	mustContain(t, got, "tool.call.completed")
+
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: false,
+	})
+	var sawCall, sawResult bool
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall && p.ToolName == "sac_discover_earthscope_region_waveform" {
+				sawCall = true
+			}
+			if p.Type != gact.PartTypeToolResult {
+				continue
+			}
+			for _, c := range p.Content {
+				if strings.Contains(c.Text, "earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac") &&
+					strings.Contains(c.Text, `"trace_count":1`) {
+					sawResult = true
+				}
+			}
+		}
+	}
+	if !sawCall {
+		t.Fatal("expected EarthScope SAC tool call in transcript")
+	}
+	if !sawResult {
+		t.Fatal("expected structured EarthScope SAC tool result in transcript")
+	}
+}
+
+func TestNDPWarningsScriptProducesStructuredToolResult(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("nws warning demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
+	mustContain(t, got, "tool.call.started")
+	mustContain(t, got, "tool.call.completed")
+
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: false,
+	})
+	var sawCall, sawResult bool
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall && p.ToolName == "ndp_query_arcgis_features" {
+				sawCall = true
+			}
+			if p.Type != gact.PartTypeToolResult {
+				continue
+			}
+			for _, c := range p.Content {
+				if strings.Contains(c.Text, "california_nws_warnings.json") &&
+					strings.Contains(c.Text, "Flood Warning issued June 5") {
+					sawResult = true
+				}
+			}
+		}
+	}
+	if !sawCall {
+		t.Fatal("expected NWS feature tool call in transcript")
+	}
+	if !sawResult {
+		t.Fatal("expected structured NWS warning result in transcript")
+	}
+}
+
+func TestCIMISWeatherScriptProducesProfileAndPlotResults(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("cimis weather demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
+	mustContain(t, got, "tool.call.started")
+	mustContain(t, got, "tool.call.completed")
+
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: false,
+	})
+	var sawProfileCall, sawPlotCall, sawProfileResult, sawPlotResult bool
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall && p.ToolName == "profile_csv_weather" {
+				sawProfileCall = true
+			}
+			if p.Type == gact.PartTypeToolCall && p.ToolName == "plot_weather_timeseries" {
+				sawPlotCall = true
+			}
+			if p.Type != gact.PartTypeToolResult {
+				continue
+			}
+			for _, c := range p.Content {
+				if strings.Contains(c.Text, "CIMIS Station 80 Fresno State hourly weather") &&
+					strings.Contains(c.Text, "relative_humidity_pct") {
+					sawProfileResult = true
+				}
+				if strings.Contains(c.Text, "cimis_fresno_weather.png") &&
+					strings.Contains(c.Text, "time series") {
+					sawPlotResult = true
+				}
+			}
+		}
+	}
+	if !sawProfileCall {
+		t.Fatal("expected CIMIS profile tool call in transcript")
+	}
+	if !sawPlotCall {
+		t.Fatal("expected CIMIS plot tool call in transcript")
+	}
+	if !sawProfileResult {
+		t.Fatal("expected structured CIMIS profile result in transcript")
+	}
+	if !sawPlotResult {
+		t.Fatal("expected structured CIMIS plot result in transcript")
+	}
+}
+
+func TestRedactedSemanticToolScriptProducesLifecycleOnlyToolEvents(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("redacted semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	got := collectStatusEvents(sub, 500, 30*time.Second, gact.StatusIdle)
+	mustContain(t, got, "tool.call.started")
+	mustContain(t, got, "tool.call.completed")
+
+	msgs, _, _ := st.ListMessages(store.MessageFilter{
+		SessionID: sid, Limit: 100, IncludeSystem: false,
+	})
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if p.Type == gact.PartTypeToolCall || p.Type == gact.PartTypeToolResult {
+				t.Fatalf("redacted semantic fixture should not mirror lifecycle events into stored tool parts: %#v", p)
+			}
+		}
+	}
+}
+
 func TestCancelStopsScript(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	// Use a slow timing so we can interrupt.

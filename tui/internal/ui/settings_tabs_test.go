@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,7 +19,7 @@ func TestSettings_TabCycleWrapsAround(t *testing.T) {
 	a.settingsOpen = true
 	a.settings = &settingsState{}
 
-	// Five tabs: Model, Agent, Theme, TUI, Language.
+	// Five tabs: Model, Expert, Theme, TUI, Language.
 	for _, want := range []int{1, 2, 3, 4, 0} {
 		a.handleSettingsKey(tea.KeyPressMsg{Code: tea.KeyTab})
 		if a.settings.tab != want {
@@ -83,6 +85,178 @@ func TestSettings_ThemeEnterSwapsThemeLive(t *testing.T) {
 	}
 }
 
+func TestSettingsThemeTabExportsCurrentTheme(t *testing.T) {
+	configRoot := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("GACT_THEME_FILE", "")
+
+	a := New("http://unused")
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 2, themeSel: 0}
+
+	_, cmd := a.handleSettingsKey(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	if cmd == nil {
+		t.Fatal("theme export should return hint expiration command")
+	}
+	path := filepath.Join(configRoot, "gact", "theme.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("theme export did not write %s: %v", path, err)
+	}
+	if !strings.Contains(string(data), `"name"`) {
+		t.Fatalf("exported theme missing JSON payload: %s", data)
+	}
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
+		t.Fatalf("theme export should keep Settings open on Theme tab, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if !strings.Contains(a.transientHint, "exported") || !strings.Contains(a.transientHint, "theme.json") {
+		t.Fatalf("hint = %q, want exported theme path", a.transientHint)
+	}
+}
+
+func TestSettingsThemeTabImportsCustomTheme(t *testing.T) {
+	resetCustomThemeForTest(t)
+	configRoot := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("GACT_THEME_FILE", "")
+	path := filepath.Join(configRoot, "gact", "theme.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	doc := `{
+		"name": "demo operator",
+		"bg": "#101820",
+		"fg": "#F2F7FF",
+		"primary": "#5DD39E",
+		"secondary": "#F4D35E"
+	}`
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a := New("http://unused")
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 2, themeSel: 0}
+	a.Theme.CollapseThreshold = 11
+	a.Theme.CostWarnTokens = 75_000
+	a.Theme.CostDangerTokens = 175_000
+	a.Theme.PasteCompressThreshold = 8
+	called := 0
+	a.SaveConfig = func() error {
+		called++
+		return nil
+	}
+
+	_, cmd := a.handleSettingsKey(tea.KeyPressMsg{Code: 'i', Text: "i"})
+	if cmd == nil {
+		t.Fatal("theme import should return hint expiration command")
+	}
+	if got := ThemeModeFor(a.Theme); got != ModeCustom {
+		t.Fatalf("theme after import = %s, want custom", ThemeModeName(got))
+	}
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
+		t.Fatalf("theme import should keep Settings open on Theme tab, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+	if AllThemeModes[a.settings.themeSel] != ModeCustom {
+		t.Fatalf("theme selection = %s, want custom", ThemeModeName(AllThemeModes[a.settings.themeSel]))
+	}
+	if a.Theme.CollapseThreshold != 11 || a.Theme.CostWarnTokens != 75_000 ||
+		a.Theme.CostDangerTokens != 175_000 || a.Theme.PasteCompressThreshold != 8 {
+		t.Fatalf("theme import reset operator prefs: %#v", a.Theme)
+	}
+	if called != 1 {
+		t.Fatalf("SaveConfig calls = %d, want 1", called)
+	}
+	if !strings.Contains(a.transientHint, "loaded custom theme") || !strings.Contains(a.transientHint, "demo operator") {
+		t.Fatalf("hint = %q, want loaded custom theme name", a.transientHint)
+	}
+}
+
+func TestSettingsThemeTabShowsExportAction(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 2, themeSel: 0}
+
+	out := ansi.Strip(a.viewSettings())
+	for _, want := range []string{"Export custom theme", "Reload custom theme", "e exports", "i reloads", "~/.config/gact/theme.json"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("theme settings missing visible export action %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestSettingsThemeExportActionUsesSemanticHitTarget(t *testing.T) {
+	configRoot := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("GACT_THEME_FILE", "")
+
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 2, themeSel: 0}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:theme:export")
+	if !ok {
+		t.Fatal("theme export action should register a semantic hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
+	if cmd == nil {
+		t.Fatal("theme export click should dispatch export command")
+	}
+	a = model.(*App)
+	path := filepath.Join(configRoot, "gact", "theme.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("theme export click did not write %s: %v", path, err)
+	}
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
+		t.Fatalf("theme export click should keep Settings open on Theme tab, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+}
+
+func TestSettingsThemeImportActionUsesSemanticHitTarget(t *testing.T) {
+	resetCustomThemeForTest(t)
+	configRoot := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("GACT_THEME_FILE", "")
+	path := filepath.Join(configRoot, "gact", "theme.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"name":"clicked","bg":"#120F24","fg":"#F8F8F2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 2, themeSel: 0}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "settings:theme:import")
+	if !ok {
+		t.Fatal("theme import action should register a semantic hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
+	if cmd == nil {
+		t.Fatal("theme import click should dispatch import command")
+	}
+	a = model.(*App)
+	if got := ThemeModeFor(a.Theme); got != ModeCustom {
+		t.Fatalf("theme after import click = %s, want custom", ThemeModeName(got))
+	}
+	if !a.settingsOpen || a.settings == nil || a.settings.tab != 2 {
+		t.Fatalf("theme import click should keep Settings open on Theme tab, open=%v settings=%+v", a.settingsOpen, a.settings)
+	}
+}
+
 func TestSettings_TUITabEnterClosesWithoutSideEffects(t *testing.T) {
 	a := New("http://unused")
 	a.settingsOpen = true
@@ -94,6 +268,50 @@ func TestSettings_TUITabEnterClosesWithoutSideEffects(t *testing.T) {
 	}
 	if themeName(a.Theme) != themeName(before) {
 		t.Errorf("TUI tab Enter shouldn't change theme")
+	}
+}
+
+func TestSettingsTUITabUsesOperatorPreferenceLabels(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	out := ansi.Strip(a.viewSettings())
+	for _, want := range []string{"transcript preview", "token warning", "token danger", "paste preview"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("TUI settings missing operator label %q:\n%s", want, out)
+		}
+	}
+	for _, want := range []string{"Current connection", "connected to", "voice input", "screen mode"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("TUI settings missing runtime context label %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{"collapse threshold", "cost warn tokens", "cost danger tokens", "paste compress", "Current runtime context", "Runtime state", "edit config.json", "server", "backend URL", "voice cmd", "terminal screen", "AltScreen"} {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("TUI settings leaked old backend-style label %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestSettingsTUITabUsesDeploymentLabelInsteadOfRawURL(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:41982", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.BackendLabel = "demo-clio (clio)"
+	a.settingsOpen = true
+	a.settings = &settingsState{tab: 3}
+
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "connected to") || !strings.Contains(out, "demo-clio (clio)") {
+		t.Fatalf("TUI settings missing friendly connection label:\n%s", out)
+	}
+	if strings.Contains(out, "http://127.0.0.1:41982") {
+		t.Fatalf("TUI settings leaked raw backend URL despite deployment label:\n%s", out)
 	}
 }
 
@@ -177,17 +395,35 @@ func TestSettingsAgentTabShowsSelectedAgentDetails(t *testing.T) {
 	out := ansi.Strip(a.viewSettings())
 
 	for _, want := range []string{
-		"Details",
+		"Capability snapshot",
+		"Expert: analysis",
+		"Comes from: built in",
+		"Routing depth: 2",
+		"Role: data_analysis",
+		"Can use: parquet_analyze_schema, csv_read_table",
+		"Good for: statistics, parquet",
+		"Instruction: You are the CLIO Analysis Expert.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("settings agent details missing %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{
 		"ID: analysis",
 		"Source: builtin",
 		"Tier: 2",
 		"Specialization: data_analysis",
 		"Tools: parquet_analyze_schema, csv_read_table",
 		"Keywords: statistics, parquet",
+		"Default model:",
+		"DSPy module:",
+		"DSPy signature:",
+		"Structured outputs:",
+		"Fanout:",
 		"Prompt: You are the CLIO Analysis Expert.",
 	} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("settings agent details missing %q:\n%s", want, out)
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("settings agent details leaked backend-style label %q:\n%s", unwanted, out)
 		}
 	}
 }
@@ -272,6 +508,76 @@ func TestSettingsAgentTabScrollsSelectionIntoView(t *testing.T) {
 	out := ansi.Strip(a.viewSettings())
 	if !strings.Contains(out, "Agent 14") || strings.Contains(out, "Agent 0  desc") {
 		t.Fatalf("agent tab did not render a scrolled viewport:\n%s", out)
+	}
+}
+
+func TestSettingsAgentTabLongDescriptionsShowEllipsisBeforeRail(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 42
+	a.settingsOpen = true
+	a.settings = &settingsState{
+		tab: 1,
+		agentList: []gact.AgentDef{
+			{
+				ID:          "default",
+				Source:      "builtin",
+				Title:       "Default expert",
+				Description: "CLIO default behavior",
+			},
+			{
+				ID:          "long-routing",
+				Source:      "recipe",
+				Title:       "CLIO Live Benchmark Orchestrator With Long Routing Title",
+				Description: "Routes NDP, EarthScope, weather, visualization, validation, and artifact publication workflows for live benchmark demonstrations.",
+			},
+			{
+				ID:          "fragile",
+				Source:      "user",
+				Title:       "Fragile User Expert",
+				Description: "User-owned fixture for edit/delete failure handling in the TUI.",
+			},
+			{
+				ID:          "invalid",
+				Source:      "recipe",
+				Title:       "Invalid Disabled Demo Expert",
+				Description: "Disabled recipe with validation errors so the agent catalog can prove visible invalid states.",
+			},
+			{
+				ID:          "geo",
+				Source:      "recipe",
+				Title:       "Geographic Region Resolver",
+				Description: "Normalizes place names, bounding boxes, and nearby seismic station search windows.",
+			},
+		},
+	}
+
+	out := ansi.Strip(a.viewSettings())
+	if !strings.Contains(out, "Routes NDP, EarthScope") {
+		t.Fatalf("long agent description not rendered:\n%s", out)
+	}
+	if !strings.Contains(out, "…") {
+		t.Fatalf("long agent rows should show visible ellipsis before the scroll rail clips them:\n%s", out)
+	}
+}
+
+func TestSettingsAgentDetailTextIncludesValidationErrors(t *testing.T) {
+	a := New("http://unused")
+	detail := a.agentDetailText(gact.AgentDef{
+		ID:               "invalid-disabled-demo-expert",
+		Source:           "recipe",
+		Title:            "Invalid Disabled Demo Expert",
+		ValidationErrors: []string{"missing required tool: ndp_stage_resource", "parent agent not installed: main"},
+	})
+
+	for _, want := range []string{
+		"Validation errors:",
+		"- missing required tool: ndp_stage_resource",
+		"- parent agent not installed: main",
+	} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("agent detail missing validation evidence %q:\n%s", want, detail)
+		}
 	}
 }
 
@@ -430,8 +736,11 @@ func TestSettings_TUIPrefsMouseToggle(t *testing.T) {
 	}
 
 	out := ansi.Strip(a.viewSettings())
-	if !strings.Contains(out, "mouse") || !strings.Contains(out, "controls") || !strings.Contains(out, "off") {
+	if !strings.Contains(out, "mouse") || !strings.Contains(out, "selection") || !strings.Contains(out, "terminal select") {
 		t.Fatalf("settings output missing mouse controls row: %q", out)
+	}
+	if !strings.Contains(out, "CLIO copy") || !strings.Contains(out, "drag-copy") || !strings.Contains(out, "Terminal select") || !strings.Contains(out, "normal drag") {
+		t.Fatalf("settings output should explain CLIO copy versus terminal selection: %q", out)
 	}
 }
 

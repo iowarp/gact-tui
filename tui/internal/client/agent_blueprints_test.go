@@ -16,6 +16,12 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/agent-blueprints":
 			_ = json.NewEncoder(w).Encode(map[string]any{"agent_blueprints": []gact.AgentBlueprintDefinition{{ID: "bp1", Enabled: true}}})
+		case "/v1/agent-blueprints/sources":
+			_ = json.NewEncoder(w).Encode(map[string]any{"sources": []gact.AgentBlueprintSource{{ID: "src1", Name: "Data Semantics Agents"}}})
+		case "/v1/agent-blueprints/sources/src1/refresh":
+			_ = json.NewEncoder(w).Encode(map[string]any{"source": gact.AgentBlueprintSource{ID: "src1", Name: "Data Semantics Agents", Status: "ready"}})
+		case "/v1/agent-blueprints/sources/src1":
+			w.WriteHeader(http.StatusNoContent)
 		case "/v1/agent-blueprints/bp1":
 			_ = json.NewEncoder(w).Encode(gact.AgentBlueprintDetail{AgentBlueprint: gact.AgentBlueprintDefinition{ID: "bp1", Enabled: true}})
 		case "/v1/agent-blueprints/validate":
@@ -55,6 +61,15 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 	if _, err := c.ListAgentBlueprints(t.Context(), scope); err != nil {
 		t.Fatalf("ListAgentBlueprints: %v", err)
 	}
+	if _, err := c.ListAgentBlueprintSources(t.Context()); err != nil {
+		t.Fatalf("ListAgentBlueprintSources: %v", err)
+	}
+	if _, err := c.RefreshAgentBlueprintSource(t.Context(), "src1"); err != nil {
+		t.Fatalf("RefreshAgentBlueprintSource: %v", err)
+	}
+	if err := c.DeleteAgentBlueprintSource(t.Context(), "src1"); err != nil {
+		t.Fatalf("DeleteAgentBlueprintSource: %v", err)
+	}
 	if _, err := c.GetAgentBlueprint(t.Context(), "bp1", scope); err != nil {
 		t.Fatalf("GetAgentBlueprint: %v", err)
 	}
@@ -88,6 +103,9 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 
 	want := []string{
 		"GET /v1/agent-blueprints",
+		"GET /v1/agent-blueprints/sources",
+		"POST /v1/agent-blueprints/sources/src1/refresh",
+		"DELETE /v1/agent-blueprints/sources/src1",
 		"GET /v1/agent-blueprints/bp1",
 		"POST /v1/agent-blueprints/validate",
 		"POST /v1/agent-blueprints/install",

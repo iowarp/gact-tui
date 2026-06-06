@@ -19,21 +19,19 @@ Wait+Screen /Prompts/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_prompt_catalog.png"
 
+Down
 Enter
 Wait+Screen /Prompt ·/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_prompt_profiles.png"
 
-Down
-Enter
+Type "r"
 Wait+Screen /Rendered prompt/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_prompt_detail.png"
 Escape
 Sleep 300ms
 
-Down
-Down
 Down
 Down
 Type "e"

@@ -113,35 +113,26 @@ func (a *App) viewMetrics() string {
 		rows = append(rows, t.HintLabel.Render("loading…"))
 	default:
 		m := a.metrics.data
-		rows = appendDetailSection(rows, "Overview",
-			detailField{"uptime", fmt.Sprintf("%ds", m.UptimeS)},
+		rows = appendDetailSection(rows, "Operator snapshot",
+			detailField{"sessions", fmt.Sprintf("%d total · %d active", m.Sessions.Total, m.Sessions.Active)},
+			detailField{"messages", fmt.Sprintf("%d total", m.Messages.Total)},
+			detailField{"tokens", fmt.Sprintf("%d input · %d output", m.Tokens.InputTotal, m.Tokens.OutputTotal)},
+			detailField{"cost", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
+			detailField{"slowest operation", metricsSlowestRouteText(m.Latencies)},
 		)
-		sessionFields := []detailField{
-			{"total", fmt.Sprintf("%d", m.Sessions.Total)},
-			{"active", fmt.Sprintf("%d", m.Sessions.Active)},
-		}
-		for _, name := range sortedKeys(m.Sessions.ByStatus) {
-			sessionFields = append(sessionFields, detailField{name, fmt.Sprintf("%d", m.Sessions.ByStatus[name])})
-		}
-		rows = appendDetailSection(rows, "Sessions", sessionFields...)
+		rows = appendDetailSection(rows, "Activity",
+			detailField{"uptime", fmt.Sprintf("%ds", m.UptimeS)},
+			detailField{"sessions", metricsSessionActivityText(m.Sessions)},
+			detailField{"messages", metricsMessageActivityText(m.Messages)},
+		)
 
-		messageFields := []detailField{
-			{"total", fmt.Sprintf("%d", m.Messages.Total)},
-		}
-		for _, name := range sortedKeys(m.Messages.ByRole) {
-			messageFields = append(messageFields, detailField{name, fmt.Sprintf("%d", m.Messages.ByRole[name])})
-		}
-		rows = appendDetailSection(rows, "Messages", messageFields...)
-
-		rows = appendDetailSection(rows, "Tokens",
-			detailField{"input", fmt.Sprintf("%d", m.Tokens.InputTotal)},
-			detailField{"output", fmt.Sprintf("%d", m.Tokens.OutputTotal)},
-			detailField{"cache_read", fmt.Sprintf("%d", m.Tokens.CacheReadTotal)},
-			detailField{"cache_write", fmt.Sprintf("%d", m.Tokens.CacheWriteTotal)},
+		rows = appendDetailSection(rows, "Token use",
+			detailField{"input/output", fmt.Sprintf("%d input · %d output", m.Tokens.InputTotal, m.Tokens.OutputTotal)},
+			detailField{"cache", fmt.Sprintf("%d read · %d write", m.Tokens.CacheReadTotal, m.Tokens.CacheWriteTotal)},
 		)
 
 		costFields := []detailField{
-			{"total", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
+			{"all providers", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
 		}
 		costSectionStart := len(rows)
 		for _, name := range sortedFloatKeys(m.Cost.ByProvider) {
@@ -158,7 +149,7 @@ func (a *App) viewMetrics() string {
 			})
 			costFields = append(costFields, detailField{name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])})
 		}
-		rows = appendDetailSection(rows, "Cost", costFields...)
+		rows = appendDetailSection(rows, "Spend by provider", costFields...)
 
 		// Latencies — show top 6 routes by p95 so the modal stays compact.
 		// Backends running an older contract might omit this field; render
@@ -179,12 +170,11 @@ func (a *App) viewMetrics() string {
 					},
 				})
 				latencyFields = append(latencyFields, detailField{
-					truncate(pat, 32),
-					fmt.Sprintf("p50 %.1f / p95 %.1f / max %.1f (n=%d)",
-						st.P50Ms, st.P95Ms, st.MaxMs, st.Count),
+					truncate(metricsOperationLabel(pat), 32),
+					metricsLatencyOperatorText(st),
 				})
 			}
-			rows = appendDetailSection(rows, "Latencies (top 6 by p95, ms)", latencyFields...)
+			rows = appendDetailSection(rows, "Latency watchlist", latencyFields...)
 		}
 	}
 
@@ -195,7 +185,7 @@ func (a *App) viewMetrics() string {
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
 			width:   w,
-			title:   "Backend Metrics",
+			title:   "Operations Metrics",
 			buttons: buttons,
 		},
 		content:     content,
@@ -249,15 +239,15 @@ func metricsFieldRowStart(sectionStart int) int {
 func (a *App) openMetricsCostDetail(provider string, amount float64) {
 	rows := appendDetailSection(nil, "Provider cost",
 		detailField{"provider", provider},
-		detailField{"cost_usd", fmt.Sprintf("$%.4f", amount)},
+		detailField{"cost", fmt.Sprintf("$%.4f", amount)},
 	)
 	if a.metrics != nil {
 		total := a.metrics.data.Cost.TotalUSD
 		if total > 0 {
 			rows = append(rows, detailFieldRows("share", fmt.Sprintf("%.1f%%", amount/total*100))...)
 		}
-		rows = appendDetailSection(rows, "Backend totals",
-			detailField{"total_cost_usd", fmt.Sprintf("$%.4f", total)},
+		rows = appendDetailSection(rows, "CLIO totals",
+			detailField{"total cost", fmt.Sprintf("$%.4f", total)},
 		)
 	}
 	a.detailView = &bulkyPartRef{
@@ -271,17 +261,18 @@ func (a *App) openMetricsCostDetail(provider string, amount float64) {
 }
 
 func (a *App) openMetricsLatencyDetail(route string, stat gact.MetricsLatencyStat) {
-	rows := appendDetailSection(nil, "Route latency",
-		detailField{"route", route},
+	rows := appendDetailSection(nil, "CLIO latency",
+		detailField{"operation", metricsOperationLabel(route)},
+		detailField{"api route", route},
 		detailField{"count", fmt.Sprintf("%d", stat.Count)},
-		detailField{"p50_ms", fmt.Sprintf("%.1f", stat.P50Ms)},
-		detailField{"p95_ms", fmt.Sprintf("%.1f", stat.P95Ms)},
-		detailField{"max_ms", fmt.Sprintf("%.1f", stat.MaxMs)},
+		detailField{"p50 latency", fmt.Sprintf("%.1f ms", stat.P50Ms)},
+		detailField{"p95 latency", fmt.Sprintf("%.1f ms", stat.P95Ms)},
+		detailField{"max latency", fmt.Sprintf("%.1f ms", stat.MaxMs)},
 	)
 	a.detailView = &bulkyPartRef{
 		messageID: "metrics",
 		partID:    "latency:" + route,
-		title:     "Latency · " + route,
+		title:     "API latency · " + route,
 		fullText:  strings.Join(rows, "\n"),
 	}
 	a.detailViewOpen = true
@@ -295,6 +286,22 @@ func sortedKeys(m map[string]int) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func metricsSessionActivityText(s gact.MetricsSessions) string {
+	parts := []string{fmt.Sprintf("%d total", s.Total), fmt.Sprintf("%d active", s.Active)}
+	for _, status := range sortedKeys(s.ByStatus) {
+		parts = append(parts, fmt.Sprintf("%s %d", status, s.ByStatus[status]))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func metricsMessageActivityText(m gact.MetricsMessages) string {
+	parts := []string{fmt.Sprintf("%d total", m.Total)}
+	for _, role := range sortedKeys(m.ByRole) {
+		parts = append(parts, fmt.Sprintf("%s %d", role, m.ByRole[role]))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func sortedFloatKeys(m map[string]float64) []string {
@@ -321,4 +328,73 @@ func topLatencyRoutes(m map[string]gact.MetricsLatencyStat, n int) []string {
 		keys = keys[:n]
 	}
 	return keys
+}
+
+func metricsSlowestRouteText(m map[string]gact.MetricsLatencyStat) string {
+	routes := topLatencyRoutes(m, 1)
+	if len(routes) == 0 {
+		return "no latency samples"
+	}
+	route := routes[0]
+	st := m[route]
+	return metricsOperationLabel(route) + " · " + metricsLatencyOperatorText(st)
+}
+
+func metricsLatencyOperatorText(st gact.MetricsLatencyStat) string {
+	samples := "no samples"
+	if st.Count == 1 {
+		samples = "1 sample"
+	} else if st.Count > 1 {
+		samples = fmt.Sprintf("%d samples", st.Count)
+	}
+	return fmt.Sprintf("usually %.1fms · worst %.1fms · %s", st.P95Ms, st.MaxMs, samples)
+}
+
+func metricsOperationLabel(route string) string {
+	route = strings.TrimSpace(route)
+	if route == "" {
+		return "operation"
+	}
+	parts := strings.Fields(route)
+	if len(parts) >= 2 {
+		method := strings.ToUpper(parts[0])
+		path := strings.TrimPrefix(parts[1], "/v1/")
+		path = strings.TrimPrefix(path, "v1/")
+		path = strings.TrimPrefix(path, "/")
+		if label := knownMetricsOperationLabel(method, path); label != "" {
+			return label
+		}
+		if path != "" {
+			return strings.ReplaceAll(path, "/", " ")
+		}
+	}
+	return route
+}
+
+func knownMetricsOperationLabel(method, path string) string {
+	switch method + " " + path {
+	case "GET sessions":
+		return "session list"
+	case "GET sessions/{id}":
+		return "session load"
+	case "GET sessions/{id}/messages":
+		return "message history load"
+	case "GET sessions/{id}/context/files":
+		return "workspace context load"
+	case "GET sessions/{id}/tasks":
+		return "session task load"
+	case "GET capabilities":
+		return "capability catalog load"
+	case "GET providers/lm":
+		return "model provider load"
+	case "GET commands":
+		return "command catalog load"
+	case "GET memory/stats":
+		return "memory status load"
+	case "GET agents":
+		return "agent catalog load"
+	case "GET agents/{id}":
+		return "agent detail load"
+	}
+	return ""
 }

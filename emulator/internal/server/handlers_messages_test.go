@@ -132,6 +132,35 @@ func TestDeleteMessage(t *testing.T) {
 	}
 }
 
+func TestExpireUserQuestionMarksQuestionExpired(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/questions", gact.CreateUserQuestionRequest{
+		Prompt: "Still need operator input?",
+		Kind:   "confirmation",
+		Source: "orchestrator",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create question: %d %s", rec.Code, rec.Body.String())
+	}
+	var created gact.UserQuestion
+	mustDecode(t, rec, &created)
+
+	rec = do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/questions/"+created.ID+"/expire", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expire question: %d %s", rec.Code, rec.Body.String())
+	}
+	var expired gact.UserQuestion
+	mustDecode(t, rec, &expired)
+	if expired.Status != "expired" {
+		t.Fatalf("expired status = %q", expired.Status)
+	}
+	if expired.ExpiresAt == nil {
+		t.Fatal("expired question should include expires_at")
+	}
+}
+
 func TestPatchPart(t *testing.T) {
 	srv, _, sid := newServerWithSession(t)
 	h := srv.Handler()

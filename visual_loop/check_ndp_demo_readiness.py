@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""Audit four-case NDP demo evidence without starting CLIO.
+
+The demo has two different proof levels:
+
+- CLIO evidence: the benchmark report says the real agent produced the named
+  artifact.
+- TUI evidence: the visual-loop corpus has recordings of a human operating the
+  TUI while the case runs.
+
+This checker keeps those separate so deterministic fixtures cannot be mistaken
+for real end-to-end demo recordings.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+DEFAULT_REPORT = Path("/home/jcernuda/clio-agent/tmp/ndp-meeting-live-agent/ndp_demo_four_cases.md")
+
+
+@dataclass(frozen=True)
+class DemoCase:
+    case_id: str
+    title: str
+    artifact_name: str
+    report_markers: tuple[str, ...]
+    real_capture_stem: str
+    deterministic_artifacts: tuple[str, ...]
+
+
+CASES: tuple[DemoCase, ...] = (
+    DemoCase(
+        case_id="san_diego_earthscope",
+        title="San Diego / EarthScope seismic waveform review",
+        artifact_name="sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+        report_markers=("San Diego", "EarthScope", "BHZ"),
+        real_capture_stem="ndp_tui_real_san_diego_earthscope",
+        deterministic_artifacts=(
+            "visual_loop/tapes/semantic_earthscope_tool_summary.tape",
+            "visual_loop/screenshots/semantic_earthscope_tool_summary.png",
+        ),
+    ),
+    DemoCase(
+        case_id="california_wildfire",
+        title="California current wildfire features",
+        artifact_name="current_wildfires_ca.json",
+        report_markers=("current wildfire", "California", "ArcGIS"),
+        real_capture_stem="ndp_tui_real_wildfire",
+        deterministic_artifacts=(
+            "visual_loop/tapes/semantic_ndp_feature_tool_summary.tape",
+            "visual_loop/screenshots/semantic_ndp_feature_tool_summary.png",
+        ),
+    ),
+    DemoCase(
+        case_id="california_nws_warnings",
+        title="California NWS warnings",
+        artifact_name="california_nws_warnings.json",
+        report_markers=("California NWS", "warning", "ISO"),
+        real_capture_stem="ndp_tui_real_california_nws_warnings",
+        deterministic_artifacts=(
+            "visual_loop/tapes/semantic_nws_warnings_tool_summary.tape",
+            "visual_loop/screenshots/semantic_nws_warnings_tool_summary.png",
+        ),
+    ),
+    DemoCase(
+        case_id="fresno_cimis_weather",
+        title="Fresno CIMIS weather profile and visualization",
+        artifact_name="cimis_fresno_weather.png",
+        report_markers=("CIMIS", "Fresno", "weather"),
+        real_capture_stem="ndp_tui_real_fresno_cimis",
+        deterministic_artifacts=(
+            "visual_loop/tapes/semantic_cimis_weather_tool_summary.tape",
+            "visual_loop/screenshots/semantic_cimis_weather_tool_plot_summary.png",
+        ),
+    ),
+)
+
+
+REAL_CAPTURE_SUFFIXES: tuple[str, ...] = ("prompt.png", "early.png", "live.png", "short.gif")
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
+
+
+def artifact_ok_pattern(artifact_name: str) -> re.Pattern[str]:
+    return re.compile(re.escape(artifact_name) + r"[^\n]*\(ok,", re.IGNORECASE)
+
+
+def report_case_evidence(case: DemoCase, report_text: str) -> dict[str, object]:
+    markers = {marker: marker.lower() in report_text.lower() for marker in case.report_markers}
+    artifact_mentioned = case.artifact_name.lower() in report_text.lower()
+    artifact_ok = bool(artifact_ok_pattern(case.artifact_name).search(report_text))
+    return {
+        "report_markers": markers,
+        "report_mentions_artifact": artifact_mentioned,
+        "report_artifact_ok": artifact_ok,
+        "ok": all(markers.values()) and artifact_mentioned and artifact_ok,
+    }
+
+
+def existing_paths(root: Path, rels: tuple[str, ...]) -> dict[str, bool]:
+    return {rel: (root / rel).exists() for rel in rels}
+
+
+def real_capture_artifact_status(root: Path, rel: str) -> dict[str, object]:
+    path = root / rel
+    if not path.exists():
+        return {"ok": False, "state": "missing"}
+    if not path.is_file():
+        return {"ok": False, "state": "not a file"}
+    size = path.stat().st_size
+    if size == 0:
+        return {"ok": False, "state": "empty"}
+    suffix = path.suffix.lower()
+    with path.open("rb") as fh:
+        header = fh.read(8)
+    if suffix == ".png" and not header.startswith(PNG_SIGNATURE):
+        return {"ok": False, "state": "invalid png"}
+    if suffix == ".gif" and not any(header.startswith(sig) for sig in GIF_SIGNATURES):
+        return {"ok": False, "state": "invalid gif"}
+    return {"ok": True, "state": "present", "bytes": size}
+
+
+def real_capture_artifact_statuses(root: Path, rels: tuple[str, ...]) -> dict[str, dict[str, object]]:
+    return {rel: real_capture_artifact_status(root, rel) for rel in rels}
+
+
+def real_capture_paths(case: DemoCase) -> tuple[str, ...]:
+    return tuple(f"visual_loop/screenshots/{case.real_capture_stem}_{suffix}" for suffix in REAL_CAPTURE_SUFFIXES)
+
+
+def real_capture_manifest_path(case: DemoCase) -> str:
+    return f"visual_loop/screenshots/{case.real_capture_stem}_manifest.json"
+
+
+def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object]:
+    rel = real_capture_manifest_path(case)
+    path = root / rel
+    if not path.exists():
+        return {
+            "ok": False,
+            "state": "manifest missing; streaming proof not verified",
+            "path": rel,
+            "required": True,
+        }
+    if not path.is_file():
+        return {"ok": False, "state": "not a file", "path": rel, "required": True}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "state": f"invalid json: {exc}", "path": rel, "required": True}
+    verified_artifact = bool(data.get("verified_artifact"))
+    requested_user_input = bool(data.get("requested_user_input"))
+    provider_streaming_limitation = bool(data.get("provider_streaming_limitation"))
+    turn_cancelled = bool(data.get("turn_cancelled"))
+    completion_timeout = bool(data.get("completion_timeout"))
+    ok = (
+        verified_artifact
+        and not requested_user_input
+        and not provider_streaming_limitation
+        and not turn_cancelled
+        and not completion_timeout
+    )
+    problems: list[str] = []
+    if not verified_artifact:
+        problems.append("expected artifact not observed in assistant output")
+    if requested_user_input:
+        problems.append("assistant requested user input instead of completing the case")
+    if provider_streaming_limitation:
+        problems.append("provider did not expose live streaming")
+    if turn_cancelled:
+        problems.append("turn was cancelled before completing the case")
+    if completion_timeout:
+        problems.append("turn did not complete before manifest timeout")
+    return {
+        "ok": ok,
+        "state": "verified" if ok else "; ".join(problems),
+        "path": rel,
+        "required": True,
+        "data": data,
+    }
+
+
+def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, object]:
+    report = report_case_evidence(case, report_text)
+    deterministic = existing_paths(root, case.deterministic_artifacts)
+    real_captures = real_capture_artifact_statuses(root, real_capture_paths(case))
+    manifest = real_capture_manifest_status(root, case)
+    visual_ok = all(artifact["ok"] for artifact in real_captures.values())
+    streaming_ok = visual_ok and bool(manifest["ok"])
+    return {
+        "id": case.case_id,
+        "title": case.title,
+        "artifact": case.artifact_name,
+        "clio_report": report,
+        "deterministic_tui": {
+            "artifacts": deterministic,
+            "ok": all(deterministic.values()),
+        },
+        "real_tui_recording": {
+            "artifacts": real_captures,
+            "manifest": manifest,
+            "visual_ok": visual_ok,
+            "streaming_ok": streaming_ok,
+            "ok": streaming_ok,
+        },
+        "ready_for_real_demo": bool(report["ok"]) and streaming_ok,
+    }
+
+
+def check_readiness(root: Path, report_path: Path = DEFAULT_REPORT) -> dict[str, object]:
+    report_exists = report_path.exists()
+    report_text = report_path.read_text(encoding="utf-8") if report_exists else ""
+    cases = [case_status(root, report_text, case) for case in CASES]
+    return {
+        "ok": all(case["ready_for_real_demo"] for case in cases),
+        "report": {
+            "path": str(report_path),
+            "exists": report_exists,
+        },
+        "cases": cases,
+        "summary": {
+            "case_count": len(cases),
+            "clio_report_ready": sum(1 for case in cases if case["clio_report"]["ok"]),
+            "deterministic_tui_ready": sum(1 for case in cases if case["deterministic_tui"]["ok"]),
+            "real_tui_recordings": sum(1 for case in cases if case["real_tui_recording"]["visual_ok"]),
+            "streaming_proof_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
+            "real_tui_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
+            "ready_for_real_demo": sum(1 for case in cases if case["ready_for_real_demo"]),
+        },
+    }
+
+
+def render_markdown(result: dict[str, object]) -> str:
+    lines = ["# NDP Demo Readiness", ""]
+    report = result["report"]
+    lines.append(f"- report: `{report['path']}`")
+    lines.append(f"- report exists: `{str(report['exists']).lower()}`")
+    lines.append(f"- ready for real demo: `{str(result['ok']).lower()}`")
+    lines.append("")
+    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI visuals | Streaming proof | Ready |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for case in result["cases"]:
+        lines.append(
+            "| {title} | {clio} | {det} | {visual} | {streaming} | {ready} |".format(
+                title=case["title"],
+                clio="yes" if case["clio_report"]["ok"] else "no",
+                det="yes" if case["deterministic_tui"]["ok"] else "no",
+                visual="yes" if case["real_tui_recording"]["visual_ok"] else "no",
+                streaming="yes" if case["real_tui_recording"]["streaming_ok"] else "no",
+                ready="yes" if case["ready_for_real_demo"] else "no",
+            )
+        )
+    lines.append("")
+    lines.append("## Real Capture Inventory")
+    lines.append("")
+    lines.append("| Case | Visual artifacts | Manifest | Artifact observed | Streaming proof | Session status |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for case in result["cases"]:
+        artifacts = case["real_tui_recording"]["artifacts"]
+        manifest = case["real_tui_recording"].get("manifest", {})
+        data = manifest.get("data", {}) if isinstance(manifest, dict) else {}
+        visual_ok = all(artifact["ok"] for artifact in artifacts.values())
+        manifest_exists = bool(manifest) and manifest.get("state") != "manifest missing; streaming proof not verified"
+        artifact_observed = bool(data.get("verified_artifact")) if data else "legacy"
+        streaming_proof = (
+            "yes"
+            if data and not data.get("provider_streaming_limitation") and not data.get("live_streaming_false")
+            else "no"
+            if data or manifest_exists
+            else "no"
+        )
+        session_status = str(data.get("session_status", "legacy")) if data else "legacy"
+        lines.append(
+            "| {title} | {visual} | {manifest} | {artifact} | {streaming} | {status} |".format(
+                title=case["title"],
+                visual="yes" if visual_ok else "no",
+                manifest="yes" if manifest_exists else "no",
+                artifact=artifact_observed if isinstance(artifact_observed, str) else "yes" if artifact_observed else "no",
+                streaming=streaming_proof,
+                status=session_status,
+            )
+        )
+    lines.append("")
+    for case in result["cases"]:
+        if case["ready_for_real_demo"]:
+            continue
+        lines.append(f"## Missing: {case['title']}")
+        missing = [
+            (rel, artifact["state"])
+            for rel, artifact in case["real_tui_recording"]["artifacts"].items()
+            if not artifact["ok"]
+        ]
+        if not case["clio_report"]["ok"]:
+            lines.append("- CLIO report/artifact proof is incomplete.")
+        if missing:
+            lines.append("- Real TUI recording artifacts missing or invalid:")
+            lines.extend(f"  - `{rel}` ({state})" for rel, state in missing)
+        manifest = case["real_tui_recording"].get("manifest", {})
+        if manifest and not manifest["ok"]:
+            lines.append("- Real TUI recording manifest does not prove streaming-ready live demo:")
+            lines.append(f"  - `{manifest['path']}` ({manifest['state']})")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_markdown_report(result: dict[str, object], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(render_markdown(result), encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", default=".", help="gact-tui repository root")
+    parser.add_argument("--report", default=str(DEFAULT_REPORT), help="four-case CLIO evidence report")
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of Markdown")
+    parser.add_argument(
+        "--write-report",
+        help="also write the Markdown readiness report to this path",
+    )
+    parser.add_argument("--strict", action="store_true", help="exit non-zero unless every case has real TUI proof")
+    args = parser.parse_args()
+
+    result = check_readiness(Path(args.root), Path(args.report))
+    if args.write_report:
+        write_markdown_report(result, Path(args.write_report))
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(render_markdown(result), end="")
+    if args.strict and not result["ok"]:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

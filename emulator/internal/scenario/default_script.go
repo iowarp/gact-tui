@@ -52,6 +52,11 @@ var defaultFinalVariants = []string{
 //   - "long" / "explain" / "writeup"          → long assistant message (~60 lines)
 //   - "log" / "dump" / "traceback" / "logs"   → large tool output (~80 lines)
 //   - "many tools" / "multi tool"             → sequence of 3 tool calls
+//   - "earthscope sac demo" / "san diego sac"  → EarthScope/SAC tool summary fixture
+//   - "ndp feature demo" / "wildfire feature"  → NDP feature-record summary fixture
+//   - "nws warning demo" / "california warnings" → NWS warning feature summary fixture
+//   - "cimis weather demo" / "fresno cimis" → CIMIS weather profile and plot fixture
+//   - "redacted semantic demo"                 → semantic-only tool lifecycle with redacted args
 func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) {
 	userMsg, err := e.store.GetMessage(userMsgID)
 	if err != nil {
@@ -64,6 +69,11 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	wantsLong := containsAny(userText, "long", "explain", "writeup")
 	wantsBigTool := containsAny(userText, "log", "dump", "traceback", "logs")
 	wantsMultiTool := containsAny(userText, "many tools", "multi tool")
+	wantsEarthScopeSAC := containsAny(userText, "earthscope sac demo", "san diego sac", "seismic waveform demo")
+	wantsNDPFeature := containsAny(userText, "ndp feature demo", "wildfire feature", "current wildfire")
+	wantsNWSWarnings := containsAny(userText, "nws warning demo", "california warnings", "weather warning")
+	wantsCIMISWeather := containsAny(userText, "cimis weather demo", "fresno cimis", "station 80")
+	wantsRedactedSemantic := containsAny(userText, "redacted semantic demo")
 	// CLIO-BBBBBBBBBB3: v0.2 routing demo — triggers the script that
 	// emits a routing_decision part + session.agent_routed event.
 	wantsRouting := containsAny(userText,
@@ -91,6 +101,26 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 	if wantsMultiTool {
 		runMultiToolScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsEarthScopeSAC {
+		runEarthScopeSACScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsNDPFeature {
+		runNDPFeatureScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsNWSWarnings {
+		runNDPWarningsScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsCIMISWeather {
+		runCIMISWeatherScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsRedactedSemantic {
+		runRedactedSemanticToolScript(ctx, e, sessionID, userMsg)
 		return
 	}
 	if wantsRouting {

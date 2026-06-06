@@ -117,6 +117,43 @@ func TestWorkspaceLifecycle(t *testing.T) {
 			t.Errorf("create missing root_path: status = %d", rec.Code)
 		}
 	}
+	// Create with relative root_path
+	{
+		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: "relative/path"})
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("create relative root_path: status = %d", rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "absolute local path") {
+			t.Errorf("create relative root_path body = %s", rec.Body.String())
+		}
+	}
+	// Create with a root already registered to another workspace
+	{
+		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: "/tmp/foo"})
+		if rec.Code != http.StatusConflict {
+			t.Errorf("create duplicate root_path: status = %d", rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "already registered") {
+			t.Errorf("create duplicate root_path body = %s", rec.Body.String())
+		}
+	}
+	// Visual-loop fixture: benchmark analysis workspaces produce an
+	// operator-readable remove failure instead of disappearing silently.
+	var protected gact.Workspace
+	{
+		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: "/tmp/gact-analysis"})
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create protected fixture: status %d body %s", rec.Code, rec.Body.String())
+		}
+		mustDecode(t, rec, &protected)
+		rec = do(t, h, http.MethodDelete, "/v1/workspaces/"+protected.ID, nil)
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("delete protected fixture: status %d body %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "active benchmark profile") {
+			t.Fatalf("delete protected fixture body = %s", rec.Body.String())
+		}
+	}
 
 	// Get
 	{

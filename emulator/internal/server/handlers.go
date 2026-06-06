@@ -130,7 +130,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 
 			// v0.2 additions — SPEC §3.2.1
 			AgentRouting:         true,
-			Memory:               true,
+			Memory:               !s.cfg.MemoryUnavailable,
 			StructuredErrors:     true,
 			IntegrationHealth:    true,
 			ToolTelemetry:        true,

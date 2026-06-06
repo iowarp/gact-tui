@@ -95,3 +95,102 @@ func (s *Server) handlePutPolicies(w http.ResponseWriter, r *http.Request) {
 	s.perms.SetPolicies(req.Policies)
 	writeJSON(w, http.StatusOK, policiesBody{Policies: s.perms.Policies()})
 }
+
+func seedPermissionStress(perms *store.Permissions) {
+	if perms == nil {
+		return
+	}
+	sessionID := "ses_seed_ws_default_1"
+	perms.SetPolicies([]gact.Policy{{
+		Scope:           "workspace",
+		ToolNamePattern: "shell",
+		PathPattern:     "/tmp/**",
+		Action:          "ask",
+	}, {
+		Scope:           "workspace",
+		ToolNamePattern: "shell",
+		PathPattern:     "/tmp/**",
+		Action:          "deny",
+	}, {
+		Scope:           "session",
+		ScopeID:         sessionID,
+		ToolNamePattern: "web_fetch",
+		Action:          "ask",
+	}, {
+		Scope:           "workspace",
+		ToolNamePattern: "read_file",
+		PathPattern:     "/workspace/**",
+		Action:          "allow",
+	}})
+	perms.Create(gact.PermissionRequest{
+		ID:        "perm_stress_shell_delete",
+		SessionID: sessionID,
+		Summary:   "Delete the temporary SAC staging directory",
+		ToolCall: gact.PermissionToolCall{
+			CallID:   "call_stress_shell_delete",
+			ToolName: "shell",
+			ServerID: "local",
+			Input:    map[string]any{"command": "rm -rf /tmp/clio-seismic-staging", "path": "/tmp/clio-seismic-staging"},
+			Annotations: gact.ToolAnnotations{
+				DestructiveHint: true,
+			},
+		},
+	})
+	perms.Create(gact.PermissionRequest{
+		ID:        "perm_stress_web_fetch",
+		SessionID: sessionID,
+		Summary:   "Fetch live NWS warning features from a public endpoint",
+		ToolCall: gact.PermissionToolCall{
+			CallID:   "call_stress_web_fetch",
+			ToolName: "web_fetch",
+			ServerID: "mcp_docs",
+			Input:    map[string]any{"url": "https://api.weather.gov/alerts/active?area=CA"},
+			Annotations: gact.ToolAnnotations{
+				ReadOnlyHint:  true,
+				OpenWorldHint: true,
+			},
+		},
+	})
+	allowed := perms.Create(gact.PermissionRequest{
+		ID:        "perm_stress_allow_session",
+		SessionID: sessionID,
+		Summary:   "Read staged CIMIS CSV",
+		ToolCall: gact.PermissionToolCall{
+			CallID:   "call_stress_allow_session",
+			ToolName: "read_file",
+			Input:    map[string]any{"path": "/workspace/tmp/cimis_fresno.csv"},
+			Annotations: gact.ToolAnnotations{
+				ReadOnlyHint: true,
+			},
+		},
+	})
+	perms.Resolve(allowed.ID, gact.PermAllowSession)
+	denied := perms.Create(gact.PermissionRequest{
+		ID:        "perm_stress_denied",
+		SessionID: sessionID,
+		Summary:   "Delete benchmark artifact manifest",
+		ToolCall: gact.PermissionToolCall{
+			CallID:   "call_stress_denied",
+			ToolName: "shell",
+			Input:    map[string]any{"command": "rm /workspace/artifacts/manifest.json", "path": "/workspace/artifacts/manifest.json"},
+			Annotations: gact.ToolAnnotations{
+				DestructiveHint: true,
+			},
+		},
+	})
+	perms.Resolve(denied.ID, gact.PermDeny)
+	allowedWorkspace := perms.Create(gact.PermissionRequest{
+		ID:        "perm_stress_allow_workspace",
+		SessionID: sessionID,
+		Summary:   "Read workspace report",
+		ToolCall: gact.PermissionToolCall{
+			CallID:   "call_stress_allow_workspace",
+			ToolName: "read_file",
+			Input:    map[string]any{"path": "/workspace/README.md"},
+			Annotations: gact.ToolAnnotations{
+				ReadOnlyHint: true,
+			},
+		},
+	})
+	perms.Resolve(allowedWorkspace.ID, gact.PermAllowWorkspace)
+}

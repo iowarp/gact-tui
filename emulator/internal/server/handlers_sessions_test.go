@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/store"
@@ -175,6 +176,59 @@ func TestSessionLifecycle(t *testing.T) {
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("delete missing: %d", rec.Code)
 		}
+	}
+}
+
+func TestCancelFailureFixtureKeepsSessionRunning(t *testing.T) {
+	st := store.New()
+	ws, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"})
+	if err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	sess, err := st.CreateSession(gact.Session{
+		WorkspaceID: ws.ID,
+		Title:       "running demo",
+		Status:      gact.StatusRunning,
+	})
+	if err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	srv := NewWithStore(Config{CancelFailures: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sess.ID+"/cancel", nil)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("cancel failure status = %d body %s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "cancel_failed") ||
+		!strings.Contains(body, "runtime supervisor did not acknowledge") {
+		t.Fatalf("cancel failure body = %s", body)
+	}
+
+	got, err := st.GetSession(sess.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got.Status != gact.StatusRunning {
+		t.Fatalf("cancel failure should leave status running, got %q", got.Status)
+	}
+}
+
+func TestSessionCreateFailureFixtureUsesStructuredError(t *testing.T) {
+	srv, wsID := newServerWithSeededWorkspace(t)
+	srv.cfg.SessionCreateFailures = true
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/sessions", CreateSessionRequest{
+		WorkspaceID: wsID,
+		Title:       "new demo",
+	})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("create failure status = %d body %s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "session_create_failed") ||
+		!strings.Contains(body, "workspace registry is temporarily unavailable") {
+		t.Fatalf("create failure body = %s", body)
 	}
 }
 

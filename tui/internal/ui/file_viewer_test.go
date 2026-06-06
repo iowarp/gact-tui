@@ -84,6 +84,41 @@ func TestFileViewerFollowsActiveWorkspaceRoot(t *testing.T) {
 	}
 }
 
+func TestFileViewerUnavailableWorkspaceUsesOperatorSummary(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	missing := filepath.Join(t.TempDir(), "missing-workspace")
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: missing}}
+	a.wsID = "ws_demo"
+
+	a.syncFileViewerRootToWorkspace()
+
+	rows := a.renderFileViewerModuleRows(44, 0, 8)
+	out := ansi.Strip(strings.Join(rows, "\n"))
+	if !strings.Contains(out, "folder unavailable") {
+		t.Fatalf("sidebar should summarize unavailable workspace:\n%s", out)
+	}
+	if strings.Contains(out, "stat "+missing) || strings.Contains(out, "no such file or directory") {
+		t.Fatalf("sidebar should not expose raw stat error:\n%s", out)
+	}
+
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionFiles
+	a.sidebarSectionCursor = false
+	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("Enter on unavailable file viewer should open detail")
+	}
+	detail := a.detailView.fullText
+	for _, want := range []string{"root: " + missing, "mode: workspace", "status: unavailable", "details:"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("detail missing %q:\n%s", want, detail)
+		}
+	}
+	if !strings.Contains(detail, missing) || !strings.Contains(detail, "no such file") {
+		t.Fatalf("detail should preserve raw path/error evidence:\n%s", detail)
+	}
+}
+
 func TestFileViewerRendersCollapsibleSidebarModule(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 100

@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+import check_ndp_demo_readiness
+import check_slash_command_coverage
 
 
 @dataclass(frozen=True)
@@ -23,9 +27,218 @@ class CorpusGroup:
     required: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class MissingCapture:
+    area: str
+    missing_capture: str
+    why_it_matters: str
+    priority: str
+
+
 STRICT_LIVE_REPORTS: tuple[str, ...] = (
     "visual_loop/screenshots/live_observability_clio_semantic_live_events.strict.report.md",
 )
+
+
+ARTIFACT_INDEX_FILES: tuple[str, ...] = (
+    "visual_loop/COVERAGE.md",
+    "visual_loop/PRESERVED_CAPTURES.md",
+    "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md",
+)
+
+
+ARTIFACT_EXTENSIONS: tuple[str, ...] = (
+    ".tape",
+    ".png",
+    ".gif",
+    ".jsonl",
+    ".report.md",
+    ".strict.report.md",
+)
+
+
+def looks_like_visual_artifact(text: str) -> bool:
+    return any(text.endswith(ext) for ext in ARTIFACT_EXTENSIONS)
+
+
+def normalize_coverage_artifact(text: str) -> str | None:
+    text = text.strip()
+    if not looks_like_visual_artifact(text):
+        return None
+    if text.startswith("visual_loop/"):
+        return text
+    if "/" in text:
+        return None
+    if text.endswith(".tape"):
+        return f"visual_loop/tapes/{text}"
+    return f"visual_loop/screenshots/{text}"
+
+
+def coverage_index_artifacts(path: Path) -> tuple[str, ...]:
+    if not path.exists() or not path.is_file():
+        return ()
+    text = path.read_text(encoding="utf-8")
+    artifacts: set[str] = set()
+    for match in re.finditer(r"`([^`]+)`", text):
+        for token in match.group(1).split(","):
+            artifact = normalize_coverage_artifact(token)
+            if artifact:
+                artifacts.add(artifact)
+    return tuple(sorted(artifacts))
+
+
+def indexed_artifacts(root: Path) -> tuple[str, ...]:
+    artifacts: set[str] = set()
+    for rel in ARTIFACT_INDEX_FILES:
+        artifacts.update(coverage_index_artifacts(root / rel))
+    return tuple(sorted(artifacts))
+
+
+def missing_capture_ledger(path: Path) -> tuple[MissingCapture, ...]:
+    if not path.exists() or not path.is_file():
+        return ()
+    rows: list[MissingCapture] = []
+    in_ledger = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "### Capture Ledger":
+            in_ledger = True
+            continue
+        if in_ledger and stripped.startswith("### "):
+            break
+        if not in_ledger or not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) != 4:
+            continue
+        if cells[0] in {"Area", "---"} or set(cells[0]) == {"-"}:
+            continue
+        rows.append(
+            MissingCapture(
+                area=cells[0],
+                missing_capture=cells[1],
+                why_it_matters=cells[2],
+                priority=cells[3],
+            )
+        )
+    return tuple(rows)
+
+
+def check_missing_capture_ledger(root: Path) -> dict[str, object]:
+    rows = missing_capture_ledger(root / "visual_loop/COVERAGE.md")
+    priorities: dict[str, int] = {}
+    for row in rows:
+        priorities[row.priority] = priorities.get(row.priority, 0) + 1
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    return {
+        "path": "visual_loop/COVERAGE.md",
+        "count": len(rows),
+        "priorities": dict(
+            sorted(
+                priorities.items(),
+                key=lambda item: (priority_order.get(item[0], 99), item[0]),
+            )
+        ),
+        "rows": [
+            {
+                "area": row.area,
+                "missing_capture": row.missing_capture,
+                "why_it_matters": row.why_it_matters,
+                "priority": row.priority,
+            }
+            for row in rows
+        ],
+    }
+
+
+def render_missing_capture_report(result: dict[str, object]) -> str:
+    ledger = result.get("missing_capture_ledger", {})
+    if not isinstance(ledger, dict):
+        ledger = {}
+    rows = ledger.get("rows", [])
+    if not isinstance(rows, list):
+        rows = []
+    priorities = ledger.get("priorities", {})
+    if not isinstance(priorities, dict):
+        priorities = {}
+
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    priority_items = sorted(
+        priorities.items(),
+        key=lambda item: (priority_order.get(str(item[0]), 99), str(item[0])),
+    )
+    lines = [
+        "# Missing Visual Captures",
+        "",
+        "This is a generated operator backlog derived from `visual_loop/COVERAGE.md`.",
+        "Keep the source ledger there authoritative, and regenerate this file after",
+        "changing capture priorities or missing-state rows.",
+        "",
+        "## Summary",
+        "",
+        f"- source: `{ledger.get('path', 'visual_loop/COVERAGE.md')}`",
+        f"- deferred captures: `{ledger.get('count', len(rows))}`",
+        "- priorities: "
+        + (
+            ", ".join(f"{priority}={count}" for priority, count in priority_items)
+            if priority_items
+            else "none"
+        ),
+        "",
+        "## Backlog",
+        "",
+    ]
+    if not rows:
+        lines.append("No deferred visual captures are currently listed.")
+        return "\n".join(lines).rstrip() + "\n"
+
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: (
+            priority_order.get(str(row.get("priority")), 99),
+            str(row.get("area", "")),
+            str(row.get("missing_capture", "")),
+        ),
+    )
+    for row in sorted_rows:
+        lines.extend(
+            [
+                f"### {row.get('priority')} - {row.get('area')}",
+                "",
+                f"- Missing capture: {row.get('missing_capture')}",
+                f"- Why it matters: {row.get('why_it_matters')}",
+                "",
+            ]
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_missing_capture_report(result: dict[str, object], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(render_missing_capture_report(result), encoding="utf-8")
+
+
+def manifest_artifacts() -> tuple[str, ...]:
+    artifacts: set[str] = set()
+    for group in CORPUS_GROUPS:
+        artifacts.update(group.required)
+    artifacts.update(STRICT_LIVE_REPORTS)
+    return tuple(sorted(artifact for artifact in artifacts if looks_like_visual_artifact(artifact)))
+
+
+def existing_visual_artifacts(root: Path) -> tuple[str, ...]:
+    artifacts: set[str] = set()
+    for rel_dir in ("visual_loop/tapes", "visual_loop/screenshots"):
+        base = root / rel_dir
+        if not base.exists():
+            continue
+        for path in base.iterdir():
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root).as_posix()
+            if looks_like_visual_artifact(rel):
+                artifacts.add(rel)
+    return tuple(sorted(artifacts))
 
 
 CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
@@ -291,11 +504,13 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
     ),
     CorpusGroup(
         name="temporal_observability",
-        description="JSONL/report gates for live semantic streaming",
+        description="JSONL/report gates for live semantic streaming and operator diagnostics",
         required=(
             "visual_loop/assert_live_observability.py",
             "visual_loop/test_assert_live_observability.py",
             "visual_loop/capture_live_observability.py",
+            "visual_loop/screenshots/gact_diag_clipboard_terminal.report.md",
+            "visual_loop/screenshots/diagnostics_readiness.report.md",
             "visual_loop/screenshots/live_observability_20260601_131300.jsonl",
             "visual_loop/screenshots/live_observability_20260601_131300.report.md",
             "visual_loop/screenshots/live_observability_20260601_131300.strict.report.md",
@@ -387,7 +602,65 @@ def check_strict_live_reports(root: Path) -> dict[str, object]:
     return {"ok": ok, "status": "pass" if ok else "not passing", "reports": reports}
 
 
-def check_corpus(root: Path, *, require_tracked: bool = False, require_strict_live_pass: bool = False) -> dict[str, object]:
+def check_artifact_index(root: Path, rel: str, *, tracked: set[str] | None = None) -> dict[str, object]:
+    path = root / rel
+    if not path.exists():
+        return {
+            "ok": False,
+            "path": rel,
+            "referenced_count": 0,
+            "missing": [rel + " (missing)"],
+        }
+    artifacts = coverage_index_artifacts(path)
+    missing: list[str] = []
+    for artifact in artifacts:
+        artifact_path = root / artifact
+        if not artifact_path.exists():
+            missing.append(artifact + " (missing)")
+        elif artifact_path.is_file() and artifact_path.stat().st_size == 0:
+            missing.append(artifact + " (empty)")
+        elif tracked is not None and artifact not in tracked:
+            missing.append(artifact + " (untracked)")
+    return {
+        "ok": not missing,
+        "path": rel,
+        "referenced_count": len(artifacts),
+        "missing": missing,
+    }
+
+
+def check_artifact_indices(root: Path, *, tracked: set[str] | None = None) -> list[dict[str, object]]:
+    return [check_artifact_index(root, rel, tracked=tracked) for rel in ARTIFACT_INDEX_FILES]
+
+
+def check_coverage_index(root: Path, *, tracked: set[str] | None = None) -> dict[str, object]:
+    return check_artifact_index(root, "visual_loop/COVERAGE.md", tracked=tracked)
+
+
+def check_unindexed_artifacts(root: Path) -> dict[str, object]:
+    coverage = set(indexed_artifacts(root))
+    manifest = set(manifest_artifacts())
+    indexed = coverage | manifest
+    existing = set(existing_visual_artifacts(root))
+    unindexed = sorted(existing - indexed)
+    return {
+        "ok": not unindexed,
+        "existing_count": len(existing),
+        "indexed_count": len(existing & indexed),
+        "unindexed_count": len(unindexed),
+        "unindexed": unindexed,
+    }
+
+
+def check_corpus(
+    root: Path,
+    *,
+    require_tracked: bool = False,
+    require_strict_live_pass: bool = False,
+    require_indexed: bool = False,
+    require_ndp_demo_ready: bool = False,
+    ndp_report_path: Path | None = None,
+) -> dict[str, object]:
     tracked = tracked_paths(root) if require_tracked else None
     groups = []
     ok = True
@@ -403,7 +676,31 @@ def check_corpus(root: Path, *, require_tracked: bool = False, require_strict_li
                 "missing": missing,
             }
         )
-    result: dict[str, object] = {"ok": ok, "groups": groups}
+    artifact_indices = check_artifact_indices(root, tracked=tracked)
+    if any(not index["ok"] for index in artifact_indices):
+        ok = False
+    unindexed = check_unindexed_artifacts(root)
+    if require_indexed and not unindexed["ok"]:
+        ok = False
+    slash_commands = check_slash_command_coverage.audit(root)
+    if not slash_commands["ok"]:
+        ok = False
+    ndp_demo = check_ndp_demo_readiness.check_readiness(
+        root,
+        ndp_report_path or check_ndp_demo_readiness.DEFAULT_REPORT,
+    )
+    if require_ndp_demo_ready and not ndp_demo["ok"]:
+        ok = False
+    result: dict[str, object] = {
+        "ok": ok,
+        "groups": groups,
+        "artifact_indices": artifact_indices,
+        "coverage_index": artifact_indices[0],
+        "unindexed_artifacts": unindexed,
+        "slash_command_coverage": slash_commands,
+        "ndp_demo_readiness": ndp_demo,
+        "missing_capture_ledger": check_missing_capture_ledger(root),
+    }
     if require_strict_live_pass:
         strict = check_strict_live_reports(root)
         result["strict_live_pass"] = strict
@@ -412,7 +709,7 @@ def check_corpus(root: Path, *, require_tracked: bool = False, require_strict_li
     return result
 
 
-def print_text_report(result: dict[str, object]) -> None:
+def print_text_report(result: dict[str, object], *, include_deferred: bool = False) -> None:
     print("# Visual Loop Corpus Check")
     print()
     print(f"- verdict: `{'PASS' if result['ok'] else 'FAIL'}`")
@@ -432,6 +729,109 @@ def print_text_report(result: dict[str, object]) -> None:
         else:
             print("- status: present")
         print()
+    coverage = result.get("coverage_index")
+    if isinstance(coverage, dict):
+        print("## coverage_index")
+        print()
+        print(f"- path: {coverage.get('path')}")
+        print(f"- referenced artifacts: {coverage.get('referenced_count')}")
+        missing = coverage.get("missing", [])
+        if isinstance(missing, list) and missing:
+            print("- missing/empty:")
+            for item in missing:
+                print(f"  - {item}")
+        else:
+            print("- status: present")
+        print()
+    indices = result.get("artifact_indices")
+    if isinstance(indices, list) and len(indices) > 1:
+        print("## artifact_indices")
+        print()
+        for index in indices:
+            if not isinstance(index, dict):
+                continue
+            print(f"### {index.get('path')}")
+            print()
+            print(f"- referenced artifacts: {index.get('referenced_count')}")
+            missing = index.get("missing", [])
+            if isinstance(missing, list) and missing:
+                print("- missing/empty:")
+                for item in missing:
+                    print(f"  - {item}")
+            else:
+                print("- status: present")
+            print()
+    unindexed = result.get("unindexed_artifacts")
+    if isinstance(unindexed, dict):
+        print("## unindexed_artifacts")
+        print()
+        print(f"- existing artifacts: {unindexed.get('existing_count')}")
+        print(f"- indexed artifacts: {unindexed.get('indexed_count')}")
+        print(f"- unindexed artifacts: {unindexed.get('unindexed_count')}")
+        items = unindexed.get("unindexed", [])
+        if isinstance(items, list) and items:
+            print("- examples:")
+            for item in items[:25]:
+                print(f"  - {item}")
+            if len(items) > 25:
+                print(f"  - ... {len(items) - 25} more")
+        else:
+            print("- status: all artifacts indexed")
+        print()
+    slash = result.get("slash_command_coverage")
+    if isinstance(slash, dict):
+        print("## slash_command_coverage")
+        print()
+        print(f"- status: {'present' if slash.get('ok') else 'drift detected'}")
+        print(f"- canonical commands: {len(slash.get('canonical', []))}")
+        print(f"- folded commands: {len(slash.get('folded', []))}")
+        print(f"- help commands: {len(slash.get('help_commands', []))}")
+        print(f"- built-in palette commands: {len(slash.get('builtin_palette', []))}")
+        for key, label in (
+            ("missing_from_ledger", "missing from slash ledger"),
+            ("missing_from_help", "missing from Help Commands"),
+            ("folded_in_help", "folded but still in Help Commands"),
+            ("canonical_not_builtin_or_help", "canonical without source/help evidence"),
+        ):
+            values = slash.get(key, [])
+            if isinstance(values, list) and values:
+                print(f"- {label}:")
+                for value in values:
+                    print(f"  - {value}")
+        print()
+    ndp = result.get("ndp_demo_readiness")
+    if isinstance(ndp, dict):
+        print("## ndp_demo_readiness")
+        print()
+        report = ndp.get("report", {})
+        summary = ndp.get("summary", {})
+        print(f"- status: {'ready' if ndp.get('ok') else 'not ready'}")
+        if isinstance(report, dict):
+            print(f"- report: {report.get('path')}")
+            print(f"- report exists: {str(bool(report.get('exists'))).lower()}")
+        if isinstance(summary, dict):
+            print(f"- CLIO artifact proof: {summary.get('clio_report_ready')}/{summary.get('case_count')}")
+            print(f"- deterministic TUI proof: {summary.get('deterministic_tui_ready')}/{summary.get('case_count')}")
+            print(f"- real TUI visuals: {summary.get('real_tui_recordings')}/{summary.get('case_count')}")
+            print(f"- streaming proof: {summary.get('streaming_proof_ready')}/{summary.get('case_count')}")
+            print(f"- ready cases: {summary.get('ready_for_real_demo')}/{summary.get('case_count')}")
+        cases = ndp.get("cases", [])
+        if isinstance(cases, list):
+            for case in cases:
+                if not isinstance(case, dict) or case.get("ready_for_real_demo"):
+                    continue
+                print(
+                    "- missing: {title} (visuals={visual}, streaming={streaming})".format(
+                        title=case.get("title"),
+                        visual="yes"
+                        if case.get("real_tui_recording", {}).get("visual_ok")
+                        else "no",
+                        streaming="yes"
+                        if case.get("real_tui_recording", {}).get("streaming_ok")
+                        else "no",
+                    )
+                )
+        print()
     strict = result.get("strict_live_pass")
     if isinstance(strict, dict):
         print("## strict_live_pass")
@@ -446,6 +846,31 @@ def print_text_report(result: dict[str, object]) -> None:
                     if isinstance(missing, list) and missing:
                         for item in missing:
                             print(f"  - missing: {item}")
+        print()
+    ledger = result.get("missing_capture_ledger")
+    if isinstance(ledger, dict):
+        print("## missing_capture_ledger")
+        print()
+        print(f"- path: {ledger.get('path')}")
+        print(f"- deferred captures: {ledger.get('count')}")
+        priorities = ledger.get("priorities", {})
+        if isinstance(priorities, dict) and priorities:
+            print("- priorities:")
+            for priority, count in priorities.items():
+                print(f"  - {priority}: {count}")
+        else:
+            print("- priorities: none")
+        if include_deferred:
+            rows = ledger.get("rows", [])
+            if isinstance(rows, list) and rows:
+                print("- rows:")
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    print(
+                        f"  - {row.get('priority')} · {row.get('area')}: "
+                        f"{row.get('missing_capture')}"
+                    )
         print()
 
 
@@ -463,17 +888,46 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="fail unless at least one maintained strict live-observability report has verdict PASS",
     )
+    parser.add_argument(
+        "--require-indexed",
+        action="store_true",
+        help="fail when tapes/screenshots exist but are not referenced by visual-loop index files or the required manifest",
+    )
+    parser.add_argument(
+        "--ndp-demo-report",
+        default=str(check_ndp_demo_readiness.DEFAULT_REPORT),
+        help="four-case NDP evidence report to summarize in the corpus output",
+    )
+    parser.add_argument(
+        "--require-ndp-demo-ready",
+        action="store_true",
+        help="fail unless every NDP demo case has artifact proof, real TUI visuals, and streaming proof",
+    )
+    parser.add_argument(
+        "--include-deferred",
+        action="store_true",
+        help="include the Missing Or Deferred capture ledger rows in the Markdown report",
+    )
+    parser.add_argument(
+        "--write-deferred-report",
+        help="write a generated Markdown backlog from the Missing Or Deferred capture ledger",
+    )
     args = parser.parse_args(argv)
 
     result = check_corpus(
         Path(args.root),
         require_tracked=args.require_git_tracked,
         require_strict_live_pass=args.require_strict_live_pass,
+        require_indexed=args.require_indexed,
+        require_ndp_demo_ready=args.require_ndp_demo_ready,
+        ndp_report_path=Path(args.ndp_demo_report),
     )
+    if args.write_deferred_report:
+        write_missing_capture_report(result, Path(args.write_deferred_report))
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
-        print_text_report(result)
+        print_text_report(result, include_deferred=args.include_deferred)
     return 0 if result["ok"] else 1
 
 

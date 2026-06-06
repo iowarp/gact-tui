@@ -85,7 +85,7 @@ func TestLMConfigIntroUsesSharedModalInnerWidth(t *testing.T) {
 	if strings.Contains(out, "shown on the\nright") {
 		t.Fatalf("intro wrapped before final word despite shared modal width:\n%s", out)
 	}
-	if !strings.Contains(out, "Status and editable model settings appear on the right.") {
+	if !strings.Contains(out, "Status and settings appear on the right.") {
 		t.Fatalf("intro did not render on the expected line:\n%s", out)
 	}
 }
@@ -1075,6 +1075,28 @@ func TestLMConfigArgonneAuthFailureStaysVisible(t *testing.T) {
 	}
 }
 
+func TestLMConfigArgonneAuthFailureUsesOperatorError(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.authenticating = true
+
+	model, _ := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		err: &client.Error{
+			Status:  401,
+			Code:    "auth_failed",
+			Message: "auth failed: Globus token expired; run clio auth login for ALCF and retry",
+		},
+	})
+	a = model.(*App)
+
+	if got := a.lmConfig.authMessage; got != "auth failed: Globus token expired; run clio auth login for ALCF and retry" {
+		t.Fatalf("auth failure message = %q", got)
+	}
+	if strings.Contains(a.lmConfig.authMessage, "gact:") || strings.Contains(a.lmConfig.authMessage, "401") || strings.Contains(a.lmConfig.authMessage, "auth_failed") {
+		t.Fatalf("auth failure leaked backend wrapper: %q", a.lmConfig.authMessage)
+	}
+}
+
 func TestLMConfigArgonneAuthSuccessMarksReadyAndRefreshesModels(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
@@ -1752,7 +1774,7 @@ func TestLMConfigCloseGlyphIsCenteredInHeaderButton(t *testing.T) {
 	plain := ansi.Strip(a.viewLMConfig())
 	closeLine := ""
 	for _, line := range strings.Split(plain, "\n") {
-		if strings.Contains(line, "Configure CLIO") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			closeLine = line
 			break
 		}
@@ -1774,7 +1796,7 @@ func TestLMConfigHeaderGapsOwnModalBackground(t *testing.T) {
 
 	styledLine := ""
 	for _, line := range strings.Split(a.viewLMConfig(), "\n") {
-		if strings.Contains(line, "Configure CLIO") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			styledLine = line
 			break
 		}
@@ -2009,7 +2031,7 @@ func TestRenderLMConfigPolishArtifact(t *testing.T) {
 			APIBase:        "https://api.anthropic.com/v1",
 			SuggestedModel: "claude-sonnet-4-6",
 			RequiresAPIKey: true,
-			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY on the backend host.",
+			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY where CLIO is running.",
 			Status:         "missing_key",
 			StatusMessage:  "missing ANTHROPIC_API_KEY",
 		},

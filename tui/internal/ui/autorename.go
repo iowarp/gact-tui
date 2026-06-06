@@ -88,8 +88,17 @@ func derivedTitle(text string) string {
 // patchSessionTitleCmd dispatches PATCH /v1/sessions/{id} with the
 // new title. Returns sessionTitleRenamedMsg so the Update handler can
 // mirror the change into a.sessions without a full list refetch.
-// Silent on failure — the rename is a nicety, not load-bearing.
+// Silent on failure because this path is used for auto-rename, which
+// is a nicety rather than an explicit user action.
 func patchSessionTitleCmd(c *client.Client, sessionID, title string) tea.Cmd {
+	return patchSessionTitleCmdWithOptions(c, sessionID, title, false, "")
+}
+
+func patchManualSessionTitleCmd(c *client.Client, sessionID, title, previousTitle string) tea.Cmd {
+	return patchSessionTitleCmdWithOptions(c, sessionID, title, true, previousTitle)
+}
+
+func patchSessionTitleCmdWithOptions(c *client.Client, sessionID, title string, manual bool, previousTitle string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -97,17 +106,22 @@ func patchSessionTitleCmd(c *client.Client, sessionID, title string) tea.Cmd {
 			Title: &title,
 		})
 		if err != nil {
-			// Intentionally swallow — we don't want rename failures
-			// interrupting the user's real work. A later /summarize
-			// or manual rename (J7, if we add it) can retry.
-			return sessionTitleRenamedMsg{sessionID: sessionID, title: "", err: err}
+			return sessionTitleRenamedMsg{
+				sessionID:     sessionID,
+				title:         "",
+				err:           err,
+				manual:        manual,
+				previousTitle: previousTitle,
+			}
 		}
-		return sessionTitleRenamedMsg{sessionID: sessionID, title: title}
+		return sessionTitleRenamedMsg{sessionID: sessionID, title: title, manual: manual}
 	}
 }
 
 type sessionTitleRenamedMsg struct {
-	sessionID string
-	title     string
-	err       error
+	sessionID     string
+	title         string
+	err           error
+	manual        bool
+	previousTitle string
 }

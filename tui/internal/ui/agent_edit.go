@@ -255,7 +255,7 @@ func (a *App) viewAgentEdit() string {
 	body := lipgloss.NewStyle().Width(innerW).Render(strings.Join(rows, "\n"))
 	return a.renderModalFrame(modalFrameOptions{
 		width:   w,
-		title:   "Edit user agent",
+		title:   "Edit expert",
 		buttons: buttons,
 		body:    body,
 		footer:  t.HintLabel.Render(modalKeyHint("Ctrl+S/Enter save", "Esc cancel", "Tab field", "Left/Right cursor/toggle")),
