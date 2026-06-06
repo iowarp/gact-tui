@@ -117,20 +117,30 @@ func TestAdjustScrollForSelectedPart_NoMarkerIsNoOp(t *testing.T) {
 }
 
 func TestBodyEndKeepsLongTranscriptAtTrueBottom(t *testing.T) {
-	a := newLongToolTranscriptApp()
-	a.scrollOffset = 30
-	a.stickyToBottom = false
-	a.bodySelMsgIdx = 1
-	a.bodySelPartIdx = 3
+	for _, tc := range []struct {
+		name string
+		key  tea.KeyPressMsg
+	}{
+		{name: "G", key: tea.KeyPressMsg{Code: 'G', Text: "G", Mod: tea.ModShift}},
+		{name: "End", key: tea.KeyPressMsg{Code: tea.KeyEnd}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newLongToolTranscriptApp()
+			a.scrollOffset = 30
+			a.stickyToBottom = false
+			a.bodySelMsgIdx = 1
+			a.bodySelPartIdx = 3
 
-	a.handleBodyKey(tea.KeyPressMsg{Code: 'G', Text: "G", Mod: tea.ModShift})
-	rendered := ansi.Strip(a.renderBody(100, 34))
+			a.handleBodyKey(tc.key)
+			rendered := ansi.Strip(a.renderBody(100, 34))
 
-	if a.scrollOffset != 0 || !a.stickyToBottom {
-		t.Fatalf("G should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
-	}
-	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
-		t.Fatalf("true bottom sentinel not visible after G:\n%s", rendered)
+			if a.scrollOffset != 0 || !a.stickyToBottom {
+				t.Fatalf("%s should reattach to bottom, got offset=%d sticky=%v", tc.name, a.scrollOffset, a.stickyToBottom)
+			}
+			if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+				t.Fatalf("true bottom sentinel not visible after %s:\n%s", tc.name, rendered)
+			}
+		})
 	}
 }
 
@@ -156,20 +166,30 @@ func TestBodyDownRepeatedlyReachesTrueBottomOnLongToolTranscript(t *testing.T) {
 }
 
 func TestBodyPageDownReattachesLongTranscriptToTrueBottom(t *testing.T) {
-	a := newLongToolTranscriptApp()
-	a.scrollOffset = 30
-	a.stickyToBottom = false
-	a.bodySelMsgIdx = 1
-	a.bodySelPartIdx = 0
+	for _, tc := range []struct {
+		name string
+		key  tea.KeyPressMsg
+	}{
+		{name: "KeyPgDown", key: tea.KeyPressMsg{Code: tea.KeyPgDown}},
+		{name: "pagedown alias", key: keyMsg("pagedown")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newLongToolTranscriptApp()
+			a.scrollOffset = 30
+			a.stickyToBottom = false
+			a.bodySelMsgIdx = 1
+			a.bodySelPartIdx = 0
 
-	a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyPgDown})
-	rendered := ansi.Strip(a.renderBody(100, 34))
+			a.handleBodyKey(tc.key)
+			rendered := ansi.Strip(a.renderBody(100, 34))
 
-	if a.scrollOffset != 0 || !a.stickyToBottom {
-		t.Fatalf("PageDown should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
-	}
-	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
-		t.Fatalf("true bottom sentinel not visible after PageDown:\n%s", rendered)
+			if a.scrollOffset != 0 || !a.stickyToBottom {
+				t.Fatalf("PageDown should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+			}
+			if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
+				t.Fatalf("true bottom sentinel not visible after PageDown:\n%s", rendered)
+			}
+		})
 	}
 }
 

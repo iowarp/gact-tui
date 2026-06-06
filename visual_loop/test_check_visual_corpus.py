@@ -7,20 +7,348 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_visual_corpus
 
 
+def seed_complete_corpus(root: Path) -> None:
+    for group in check_visual_corpus.CORPUS_GROUPS:
+        for rel in group.required:
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("artifact\n", encoding="utf-8")
+    coverage = root / "visual_loop/COVERAGE.md"
+    coverage.parent.mkdir(parents=True, exist_ok=True)
+    coverage.write_text("# Coverage\n", encoding="utf-8")
+    preserved = root / "visual_loop/PRESERVED_CAPTURES.md"
+    preserved.write_text("# Preserved\n", encoding="utf-8")
+    slash_commands = root / "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md"
+    slash_commands.write_text(
+        "# Slash Command Visual Coverage\n\n"
+        "## Canonical Commands\n\n"
+        "| Command | Area | Representative visual proof | Deferred command-specific captures |\n"
+        "| --- | --- | --- | --- |\n"
+        "| `/clear` | Session | shared proof | None |\n"
+        "| `/permissions` | Diagnostics | shared proof | None |\n"
+        "\n"
+        "## Hidden Or Folded Commands\n\n"
+        "| Command | Operator treatment | Visual proof |\n"
+        "| --- | --- | --- |\n"
+        "| `/catalog` | Folded into `/tools` | palette proof |\n",
+        encoding="utf-8",
+    )
+    app_go = root / "tui/internal/ui/app.go"
+    app_go.parent.mkdir(parents=True, exist_ok=True)
+    app_go.write_text(
+        '''
+func (a *App) paletteMatches() []gact.Command {
+	localCmds := []gact.Command{
+		localCmd("/clear", "command.clear.title", "command.clear.desc"),
+		{ID: "/permissions", Title: "Permissions", Source: "builtin"},
+	}
+	if a.caps.Capabilities.IntegrationHealth {
+	}
+}
+var helpTabs = []struct { title string; keys []helpKey }{
+	{
+		title: "Commands",
+		keys: []helpKey{
+			{"/clear", "help.commands.clear"},
+			{"/permissions", "help.commands.permissions"},
+		},
+	},
+}
+''',
+        encoding="utf-8",
+    )
+
+
 class VisualCorpusCheckTest(unittest.TestCase):
     def test_complete_manifest_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for group in check_visual_corpus.CORPUS_GROUPS:
-                for rel in group.required:
-                    path = root / rel
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text("artifact\n", encoding="utf-8")
+            seed_complete_corpus(root)
 
             result = check_visual_corpus.check_corpus(root)
 
         self.assertTrue(result["ok"])
         self.assertTrue(all(not group["missing"] for group in result["groups"]))
+        self.assertTrue(result["coverage_index"]["ok"])
+        self.assertTrue(all(index["ok"] for index in result["artifact_indices"]))
+        self.assertTrue(result["slash_command_coverage"]["ok"])
+
+    def test_coverage_index_normalizes_tapes_and_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            coverage = root / "visual_loop/COVERAGE.md"
+            coverage.parent.mkdir(parents=True, exist_ok=True)
+            coverage.write_text(
+                "| Tape | Evidence |\n"
+                "| --- | --- |\n"
+                "| `semantic_palette.tape`, `visual_loop/tapes/live_clio_ndp.tape` | "
+                "`semantic_palette_commands.png`, `visual_loop/screenshots/live.gif` |\n",
+                encoding="utf-8",
+            )
+
+            artifacts = check_visual_corpus.coverage_index_artifacts(coverage)
+
+        self.assertEqual(
+            artifacts,
+            (
+                "visual_loop/screenshots/live.gif",
+                "visual_loop/screenshots/semantic_palette_commands.png",
+                "visual_loop/tapes/live_clio_ndp.tape",
+                "visual_loop/tapes/semantic_palette.tape",
+            ),
+        )
+
+    def test_coverage_index_missing_artifacts_fail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            coverage = root / "visual_loop/COVERAGE.md"
+            coverage.parent.mkdir(parents=True, exist_ok=True)
+            coverage.write_text("`semantic_palette.tape` `semantic_palette_commands.png`\n", encoding="utf-8")
+            tape = root / "visual_loop/tapes/semantic_palette.tape"
+            tape.parent.mkdir(parents=True, exist_ok=True)
+            tape.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_coverage_index(root)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["referenced_count"], 2)
+        self.assertIn(
+            "visual_loop/screenshots/semantic_palette_commands.png (missing)",
+            result["missing"],
+        )
+
+    def test_slash_command_drift_fails_corpus_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            app_go = root / "tui/internal/ui/app.go"
+            app_go.write_text(
+                app_go.read_text(encoding="utf-8").replace(
+                    'localCmd("/clear", "command.clear.title", "command.clear.desc"),',
+                    'localCmd("/clear", "command.clear.title", "command.clear.desc"),\n\t\tlocalCmd("/mode", "command.mode.title", "command.mode.desc"),',
+                ),
+                encoding="utf-8",
+            )
+
+            result = check_visual_corpus.check_corpus(root)
+
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["slash_command_coverage"]["ok"])
+        self.assertEqual(result["slash_command_coverage"]["missing_from_ledger"], ["/mode"])
+
+    def test_visual_report_includes_slash_command_coverage_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+
+            result = check_visual_corpus.check_corpus(root)
+
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            check_visual_corpus.print_text_report(result)
+        report = buf.getvalue()
+        self.assertIn("## slash_command_coverage", report)
+        self.assertIn("- status: present", report)
+        self.assertIn("- canonical commands: 2", report)
+
+    def test_ndp_demo_readiness_is_reported_without_defaulting_corpus_to_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            ndp_report = root / "ndp_demo_four_cases.md"
+
+            result = check_visual_corpus.check_corpus(root, ndp_report_path=ndp_report)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["ndp_demo_readiness"]["ok"])
+        self.assertEqual(result["ndp_demo_readiness"]["summary"]["ready_for_real_demo"], 0)
+
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            check_visual_corpus.print_text_report(result)
+        report = buf.getvalue()
+        self.assertIn("## ndp_demo_readiness", report)
+        self.assertIn("- status: not ready", report)
+        self.assertIn("- streaming proof: 0/4", report)
+
+    def test_ndp_demo_readiness_can_be_required_for_demo_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            ndp_report = root / "ndp_demo_four_cases.md"
+
+            result = check_visual_corpus.check_corpus(
+                root,
+                require_ndp_demo_ready=True,
+                ndp_report_path=ndp_report,
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["ndp_demo_readiness"]["ok"])
+
+    def test_missing_capture_ledger_is_reported_as_deferred_backlog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            coverage = root / "visual_loop/COVERAGE.md"
+            coverage.write_text(
+                "# Coverage\n\n"
+                "### Capture Ledger\n\n"
+                "| Area | Missing capture | Why it matters | Priority |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Copy and selection | Native mouse selection over conversation content | "
+                "Highest-friction daily UX path | High |\n"
+                "| Scientific demos | Four real NDP demo cases under live TUI execution | "
+                "Real runs prove demo operability | High |\n",
+                encoding="utf-8",
+            )
+
+            result = check_visual_corpus.check_corpus(root, require_indexed=True)
+
+        self.assertTrue(result["ok"])
+        ledger = result["missing_capture_ledger"]
+        self.assertEqual(ledger["count"], 2)
+        self.assertEqual(ledger["priorities"], {"High": 2})
+        self.assertEqual(ledger["rows"][0]["area"], "Copy and selection")
+        self.assertIn("Native mouse selection", ledger["rows"][0]["missing_capture"])
+
+    def test_missing_capture_report_renders_ordered_operator_backlog(self) -> None:
+        result = {
+            "missing_capture_ledger": {
+                "path": "visual_loop/COVERAGE.md",
+                "count": 2,
+                "priorities": {"Low": 1, "High": 1},
+                "rows": [
+                    {
+                        "area": "Narrow modals",
+                        "missing_capture": "Compact metrics modal",
+                        "why_it_matters": "Prevents clipped text in narrow demos",
+                        "priority": "Low",
+                    },
+                    {
+                        "area": "Scientific demos",
+                        "missing_capture": "Fresno CIMIS real TUI capture",
+                        "why_it_matters": "Completes four-case NDP demo proof",
+                        "priority": "High",
+                    },
+                ],
+            }
+        }
+
+        report = check_visual_corpus.render_missing_capture_report(result)
+
+        self.assertIn("# Missing Visual Captures", report)
+        self.assertIn("source: `visual_loop/COVERAGE.md`", report)
+        self.assertLess(report.index("### High - Scientific demos"), report.index("### Low - Narrow modals"))
+        self.assertIn("Fresno CIMIS real TUI capture", report)
+
+    def test_unindexed_artifacts_report_existing_files_outside_manifest_and_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            extra = root / "visual_loop/screenshots/operator_gap.png"
+            extra.parent.mkdir(parents=True, exist_ok=True)
+            extra.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_unindexed_artifacts(root)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("visual_loop/screenshots/operator_gap.png", result["unindexed"])
+
+    def test_unindexed_artifacts_ignore_files_referenced_by_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            coverage = root / "visual_loop/COVERAGE.md"
+            coverage.write_text("`operator_gap.tape` `operator_gap.png`\n", encoding="utf-8")
+            for rel in (
+                "visual_loop/tapes/operator_gap.tape",
+                "visual_loop/screenshots/operator_gap.png",
+            ):
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_unindexed_artifacts(root)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["unindexed"], [])
+
+    def test_unindexed_artifacts_ignore_files_referenced_by_preserved_captures(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            preserved = root / "visual_loop/PRESERVED_CAPTURES.md"
+            preserved.write_text("`operator_gap.tape` `operator_gap.png`\n", encoding="utf-8")
+            for rel in (
+                "visual_loop/tapes/operator_gap.tape",
+                "visual_loop/screenshots/operator_gap.png",
+            ):
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_unindexed_artifacts(root)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["unindexed"], [])
+
+    def test_unindexed_artifacts_ignore_files_referenced_by_slash_command_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            slash_commands = root / "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md"
+            slash_commands.write_text("`operator_gap.tape` `operator_gap.png`\n", encoding="utf-8")
+            for rel in (
+                "visual_loop/tapes/operator_gap.tape",
+                "visual_loop/screenshots/operator_gap.png",
+            ):
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_unindexed_artifacts(root)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["unindexed"], [])
+
+    def test_preserved_capture_index_missing_artifacts_fail_corpus(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            preserved = root / "visual_loop/PRESERVED_CAPTURES.md"
+            preserved.write_text("`operator_gap.png`\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_corpus(root)
+
+        self.assertFalse(result["ok"])
+        preserved_index = next(
+            index for index in result["artifact_indices"] if index["path"] == "visual_loop/PRESERVED_CAPTURES.md"
+        )
+        self.assertFalse(preserved_index["ok"])
+        self.assertIn("visual_loop/screenshots/operator_gap.png (missing)", preserved_index["missing"])
+
+    def test_require_indexed_turns_unindexed_report_into_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            extra = root / "visual_loop/tapes/operator_gap.tape"
+            extra.parent.mkdir(parents=True, exist_ok=True)
+            extra.write_text("artifact\n", encoding="utf-8")
+
+            soft = check_visual_corpus.check_corpus(root)
+            strict = check_visual_corpus.check_corpus(root, require_indexed=True)
+
+        self.assertTrue(soft["ok"])
+        self.assertFalse(soft["unindexed_artifacts"]["ok"])
+        self.assertFalse(strict["ok"])
+        self.assertIn("visual_loop/tapes/operator_gap.tape", strict["unindexed_artifacts"]["unindexed"])
 
     def test_manifest_requires_clio_semantic_live_fixture(self) -> None:
         conversation = next(
@@ -339,11 +667,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
     def test_strict_live_pass_gate_requires_pass_verdict(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for group in check_visual_corpus.CORPUS_GROUPS:
-                for rel in group.required:
-                    path = root / rel
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text("artifact\n", encoding="utf-8")
+            seed_complete_corpus(root)
             strict = root / check_visual_corpus.STRICT_LIVE_REPORTS[0]
             strict.write_text("- verdict: `FAIL`\n", encoding="utf-8")
 
@@ -361,14 +685,15 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(result["strict_live_pass"]["ok"])
 
+    def test_temporal_observability_requires_diag_clipboard_report(self) -> None:
+        temporal = next(group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "temporal_observability")
+
+        self.assertIn("visual_loop/screenshots/gact_diag_clipboard_terminal.report.md", temporal.required)
+
     def test_strict_live_pass_gate_reports_missing_verdict(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for group in check_visual_corpus.CORPUS_GROUPS:
-                for rel in group.required:
-                    path = root / rel
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text("artifact\n", encoding="utf-8")
+            seed_complete_corpus(root)
 
             result = check_visual_corpus.check_corpus(root, require_strict_live_pass=True)
 
@@ -379,11 +704,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
     def test_strict_live_pass_gate_reports_missing_temporal_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for group in check_visual_corpus.CORPUS_GROUPS:
-                for rel in group.required:
-                    path = root / rel
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text("artifact\n", encoding="utf-8")
+            seed_complete_corpus(root)
             strict = root / check_visual_corpus.STRICT_LIVE_REPORTS[0]
             strict.write_text(
                 "\n".join(
@@ -414,11 +735,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
     def test_strict_live_pass_gate_ignores_matched_runtime_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for group in check_visual_corpus.CORPUS_GROUPS:
-                for rel in group.required:
-                    path = root / rel
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text("artifact\n", encoding="utf-8")
+            seed_complete_corpus(root)
             strict = root / check_visual_corpus.STRICT_LIVE_REPORTS[0]
             strict.write_text(
                 "\n".join(
@@ -453,9 +770,31 @@ class VisualCorpusCheckTest(unittest.TestCase):
 
         expected = (
             "python3 visual_loop/check_visual_corpus.py --root . "
-            "--require-git-tracked --require-strict-live-pass"
+            "--require-git-tracked --require-indexed --require-strict-live-pass"
         )
         self.assertGreaterEqual(checklist.count(expected), 2)
+
+    def test_release_checklist_runs_slash_command_coverage_tests(self) -> None:
+        checklist = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "TUI_ONE_ZERO_RELEASE_CHECKLIST.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("visual_loop/test_check_slash_command_coverage.py", checklist)
+        self.assertIn("slash-command", checklist)
+        self.assertIn("SLASH_COMMAND_VISUAL_COVERAGE.md", checklist)
+
+    def test_release_checklist_documents_ndp_demo_ready_gate(self) -> None:
+        checklist = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "TUI_ONE_ZERO_RELEASE_CHECKLIST.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(checklist.count("--require-ndp-demo-ready"), 2)
+        self.assertIn("ndp_demo_readiness", checklist)
+        self.assertIn("streaming proof", checklist)
 
     def test_release_checklist_requires_terminal_selection_diag_evidence(self) -> None:
         checklist = (

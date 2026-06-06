@@ -53,7 +53,7 @@ func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, message
 			toolEvidence = loadMemoryToolEvidence(ctx, c, scope, sessionMessages, frames)
 		}
 		return catalogDetailLoadedMsg{
-			title:      "Memory · ARC context",
+			title:      "Memory · context",
 			text:       formatMemoryInspectorWithTools(stats, sessionMessages, search, frames, toolEvidence),
 			standalone: true,
 		}
@@ -136,54 +136,68 @@ func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Me
 func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) string {
 	totalLookups := stats.Cache.Hits + stats.Cache.Misses
 	hitRate := fmt.Sprintf("%.1f%%", stats.Cache.HitRate*100)
-	note := "backend cache telemetry"
+	note := "recall cache telemetry only"
 	if len(messages) == 0 && (stats.Session == nil || stats.Session.MessagesRetained == 0) {
 		hitRate = "not session-specific yet"
 		note = "no loaded transcript activity yet"
 	} else if totalLookups == 0 {
 		hitRate = "no lookups yet"
 	}
-	rows := appendDetailSection(nil, "ARC cache",
-		detailField{"role", "recent-context retrieval cache"},
+	evidence := transcriptMemoryEvidence(messages)
+	rows := appendMemoryOperatorSummary(nil, stats, evidence, totalLookups, hitRate, note, search, frames, toolEvidence)
+	rows = appendDetailSection(rows, "Context state",
+		detailField{"scope", memoryContextStateScope(stats, evidence, frames)},
+		detailField{"cache hit rate", hitRate},
+		detailField{"loaded messages", fmt.Sprintf("%d", evidence.messages)},
+		detailField{"addressable details", fmt.Sprintf("%d", evidence.addressableParts)},
+		detailField{"tool evidence", fmt.Sprintf("%d calls · %d results · %d errors", evidence.toolCalls, evidence.toolResults, evidence.toolErrors)},
+		detailField{"compaction", memoryCompactionText(stats.Metadata)},
+	)
+	if stats.Session != nil {
+		rows = append(rows, detailFieldRows("pressure", memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget))...)
+		rows = append(rows, detailFieldRows("remaining budget", memoryRemainingText(stats.Session.TokensRetained, stats.Session.TokensBudget))...)
+	}
+	rows = appendDetailSection(rows, "Context cache",
+		detailField{"purpose", "recent-context recall"},
 		detailField{"scope", note},
 		detailField{"hits", fmt.Sprintf("%d", stats.Cache.Hits)},
 		detailField{"misses", fmt.Sprintf("%d", stats.Cache.Misses)},
-		detailField{"hit_rate", hitRate},
+		detailField{"hit rate", hitRate},
 		detailField{"capacity", fmt.Sprintf("%d", stats.Cache.Capacity)},
 		detailField{"lookups", fmt.Sprintf("%d", totalLookups)},
 	)
 	rows = appendDetailSection(rows, "Global memory",
-		detailField{"conversations_total", fmt.Sprintf("%d", stats.Global.ConversationsTotal)},
-		detailField{"invocations_total", fmt.Sprintf("%d", stats.Global.InvocationsTotal)},
+		detailField{"conversations", fmt.Sprintf("%d", stats.Global.ConversationsTotal)},
+		detailField{"invocations", fmt.Sprintf("%d", stats.Global.InvocationsTotal)},
 	)
 	if stats.Session != nil {
 		usage := memoryUsageText(stats.Session.TokensRetained, stats.Session.TokensBudget)
 		rows = appendDetailSection(rows, "Current session context",
-			detailField{"session_id", stats.Session.SessionID},
-			detailField{"messages_retained", fmt.Sprintf("%d", stats.Session.MessagesRetained)},
-			detailField{"tokens_retained", fmt.Sprintf("%d", stats.Session.TokensRetained)},
-			detailField{"tokens_budget", memoryBudgetText(stats.Session.TokensBudget)},
-			detailField{"context_usage", usage},
-			detailField{"remaining_budget", memoryRemainingText(stats.Session.TokensRetained, stats.Session.TokensBudget)},
+			detailField{"session", stats.Session.SessionID},
+			detailField{"messages retained", fmt.Sprintf("%d", stats.Session.MessagesRetained)},
+			detailField{"tokens retained", fmt.Sprintf("%d", stats.Session.TokensRetained)},
+			detailField{"token budget", memoryBudgetText(stats.Session.TokensBudget)},
+			detailField{"context usage", usage},
+			detailField{"remaining budget", memoryRemainingText(stats.Session.TokensRetained, stats.Session.TokensBudget)},
 			detailField{"pressure", memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget)},
-			detailField{"profiles_attached", fmt.Sprintf("%d", stats.Session.ProfilesAttached)},
+			detailField{"profiles attached", fmt.Sprintf("%d", stats.Session.ProfilesAttached)},
 		)
 	}
-	if evidence := transcriptMemoryEvidence(messages); evidence.messages > 0 {
+	if evidence.messages > 0 {
 		rows = appendDetailSection(rows, "Transcript evidence",
-			detailField{"messages_loaded", fmt.Sprintf("%d", evidence.messages)},
-			detailField{"addressable_detail_parts", fmt.Sprintf("%d", evidence.addressableParts)},
-			detailField{"tool_calls", fmt.Sprintf("%d", evidence.toolCalls)},
-			detailField{"tool_results", fmt.Sprintf("%d", evidence.toolResults)},
-			detailField{"tool_errors", fmt.Sprintf("%d", evidence.toolErrors)},
-			detailField{"compaction_markers", fmt.Sprintf("%d", evidence.compactions)},
+			detailField{"messages loaded", fmt.Sprintf("%d", evidence.messages)},
+			detailField{"addressable detail parts", fmt.Sprintf("%d", evidence.addressableParts)},
+			detailField{"tool calls", fmt.Sprintf("%d", evidence.toolCalls)},
+			detailField{"tool results", fmt.Sprintf("%d", evidence.toolResults)},
+			detailField{"tool errors", fmt.Sprintf("%d", evidence.toolErrors)},
+			detailField{"compaction markers", fmt.Sprintf("%d", evidence.compactions)},
 		)
 	}
 	if search != nil {
 		rows = appendDetailSection(rows, "Memory search",
 			detailField{"query", search.Query},
 			detailField{"scope", memorySearchScopeText(*search)},
-			detailField{"searched_sessions", strings.Join(search.SearchedSessions, ", ")},
+			detailField{"searched sessions", strings.Join(search.SearchedSessions, ", ")},
 			detailField{"hits", fmt.Sprintf("%d", len(search.Hits))},
 		)
 		for i, hit := range search.Hits {
@@ -207,9 +221,9 @@ func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Mess
 		detailField{"state", memoryCompactionText(stats.Metadata)},
 	)
 	if evidence := compactionEvidenceFromMessages(messages); evidence.count > 0 {
-		rows = append(rows, detailFieldRows("summary_retained", "yes")...)
-		rows = append(rows, detailFieldRows("summary_parts", fmt.Sprintf("%d", evidence.count))...)
-		rows = append(rows, detailFieldRows("summary_lines", fmt.Sprintf("%d", evidence.lines))...)
+		rows = append(rows, detailFieldRows("summary retained", "yes")...)
+		rows = append(rows, detailFieldRows("summary parts", fmt.Sprintf("%d", evidence.count))...)
+		rows = append(rows, detailFieldRows("summary lines", fmt.Sprintf("%d", evidence.lines))...)
 		rows = append(rows, detailFieldRows("detail", "compact summary is retained in the transcript")...)
 		rows = append(rows, detailFieldRows("open", "focus conversation; press Ctrl+E on the compaction marker")...)
 	}
@@ -219,32 +233,176 @@ func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Mess
 	return strings.Join(rows, "\n")
 }
 
+func appendMemoryOperatorSummary(rows []string, stats gact.MemoryStats, evidence transcriptEvidenceSummary, totalLookups int, hitRate string, note string, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) []string {
+	sessionActivity := "no loaded transcript activity yet"
+	if evidence.messages > 0 {
+		sessionActivity = fmt.Sprintf("%d loaded messages · %d addressable detail parts", evidence.messages, evidence.addressableParts)
+	}
+	retrieval := "not exercised yet"
+	if totalLookups > 0 {
+		retrieval = fmt.Sprintf("%s hit rate · %d hits · %d misses", hitRate, stats.Cache.Hits, stats.Cache.Misses)
+	} else if strings.TrimSpace(note) != "" {
+		retrieval = note
+	}
+	pressure := "not session-specific yet"
+	if stats.Session != nil {
+		pressure = memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget)
+	}
+	transcriptToolEvidence := "none loaded"
+	if evidence.toolCalls+evidence.toolResults+evidence.toolErrors > 0 {
+		transcriptToolEvidence = fmt.Sprintf("%d calls · %d results · %d errors", evidence.toolCalls, evidence.toolResults, evidence.toolErrors)
+	}
+	return appendDetailSection(rows, "Operator summary",
+		detailField{"current context", memoryCurrentContextText(stats, evidence, frames)},
+		detailField{"retrieval status", memoryRetrievalStatusText(totalLookups, hitRate, search, note)},
+		detailField{"agent memory access", memoryAgentMemoryAccessText(toolEvidence)},
+		detailField{"operator action", memoryOperatorActionText(stats, evidence, frames, toolEvidence)},
+		detailField{"session activity", sessionActivity},
+		detailField{"retrieval cache", retrieval},
+		detailField{"context pressure", pressure},
+		detailField{"tool evidence", transcriptToolEvidence},
+		detailField{"compaction", memoryCompactionText(stats.Metadata)},
+	)
+}
+
+func memoryCurrentContextText(stats gact.MemoryStats, evidence transcriptEvidenceSummary, frames []map[string]any) string {
+	if len(frames) > 0 {
+		latest := frames[len(frames)-1]
+		items := contextFrameItems(latest)
+		messageItems, fileItems, excludedItems := 0, 0, 0
+		for _, item := range items {
+			switch stringValue(item["kind"]) {
+			case "message":
+				messageItems++
+			case "context_file":
+				fileItems++
+			}
+			if included, ok := item["included"].(bool); ok && !included {
+				excludedItems++
+			}
+		}
+		status := firstNonEmpty(stringValue(latest["status"]), "observed")
+		return fmt.Sprintf("latest %s frame · %d messages · %d files · %d excluded", status, messageItems, fileItems, excludedItems)
+	}
+	if stats.Session != nil && stats.Session.MessagesRetained > 0 {
+		return fmt.Sprintf("%d retained session messages · no context frame reported", stats.Session.MessagesRetained)
+	}
+	if evidence.messages > 0 {
+		return fmt.Sprintf("%d visible transcript messages · no context frame reported", evidence.messages)
+	}
+	return "no session context loaded yet"
+}
+
+func memoryRetrievalStatusText(totalLookups int, hitRate string, search *gact.MemorySearchResponse, note string) string {
+	if search != nil {
+		return fmt.Sprintf("searched %s · %d hits · query %q", memorySearchScopeText(*search), len(search.Hits), search.Query)
+	}
+	if totalLookups > 0 {
+		return fmt.Sprintf("ARC cache exercised · %s · %d lookups", hitRate, totalLookups)
+	}
+	if strings.TrimSpace(note) != "" {
+		return note
+	}
+	return "not exercised yet"
+}
+
+func memoryAgentMemoryAccessText(evidence *memoryToolEvidence) string {
+	if evidence == nil {
+		return "not checked for this session"
+	}
+	parts := []string{}
+	if evidence.search != nil {
+		parts = append(parts, "search "+memoryPolicyDecisionText(metadataString(evidence.search.Metadata, "policy_decision")))
+	}
+	if evidence.summary != nil {
+		parts = append(parts, "summary "+memoryPolicyDecisionText(metadataString(evidence.summary.Metadata, "policy_decision")))
+	}
+	if evidence.frame != nil {
+		parts = append(parts, "frame "+memoryPolicyDecisionText(metadataString(evidence.frame.Metadata, "policy_decision")))
+	}
+	if len(evidence.errors) > 0 {
+		parts = append(parts, fmt.Sprintf("%d errors", len(evidence.errors)))
+	}
+	if len(parts) == 0 {
+		return "checked · no callable memory evidence returned"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func memoryPolicyDecisionText(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "allow_same_session":
+		return "session access allowed"
+	case "allow_workspace":
+		return "workspace access allowed"
+	case "allow":
+		return "access allowed"
+	case "deny", "denied":
+		return "access denied"
+	case "ask", "pending":
+		return "approval required"
+	case "":
+		return "observed"
+	default:
+		return strings.ReplaceAll(value, "_", " ")
+	}
+}
+
+func memoryContextStateScope(stats gact.MemoryStats, evidence transcriptEvidenceSummary, frames []map[string]any) string {
+	switch {
+	case len(frames) > 0:
+		return "latest context frame"
+	case stats.Session != nil:
+		return "current session"
+	case evidence.messages > 0:
+		return "visible transcript"
+	default:
+		return "no session context yet"
+	}
+}
+
+func memoryOperatorActionText(stats gact.MemoryStats, evidence transcriptEvidenceSummary, frames []map[string]any, toolEvidence *memoryToolEvidence) string {
+	if toolEvidence != nil && len(toolEvidence.errors) > 0 {
+		return "inspect memory tool errors below before relying on recall"
+	}
+	if stats.Session == nil && evidence.messages == 0 && len(frames) == 0 {
+		return "start or attach a session to inspect retained context"
+	}
+	if stats.Session != nil && strings.HasPrefix(memoryPressureText(stats.Session.TokensRetained, stats.Session.TokensBudget), "over budget") {
+		return "review compaction before continuing a long run"
+	}
+	if len(frames) == 0 {
+		return "send a turn to capture the next context frame"
+	}
+	return "scroll for frame items, search hits, and agent memory access"
+}
+
 func appendMemoryToolEvidenceRows(rows []string, evidence *memoryToolEvidence) []string {
 	fields := []detailField{}
 	if evidence.search != nil {
 		fields = append(fields,
-			detailField{"search_policy", metadataString(evidence.search.Metadata, "policy_decision")},
-			detailField{"search_scope", metadataString(evidence.search.Metadata, "policy_scope")},
-			detailField{"search_hits", fmt.Sprintf("%d", len(evidence.search.Hits))},
-			detailField{"search_audit", metadataString(evidence.search.Metadata, "audit_id")},
+			detailField{"search access", memoryPolicyDecisionText(metadataString(evidence.search.Metadata, "policy_decision"))},
+			detailField{"search scope", metadataString(evidence.search.Metadata, "policy_scope")},
+			detailField{"search hits", fmt.Sprintf("%d", len(evidence.search.Hits))},
+			detailField{"search audit", metadataString(evidence.search.Metadata, "audit_id")},
 		)
 	}
 	if evidence.summary != nil {
 		fields = append(fields,
-			detailField{"summary_policy", metadataString(evidence.summary.Metadata, "policy_decision")},
-			detailField{"summary_messages", scalarText(evidence.summary.Summary["message_count"])},
-			detailField{"summary_source", metadataString(mapValue(evidence.summary.Summary["metadata"]), "source")},
+			detailField{"summary access", memoryPolicyDecisionText(metadataString(evidence.summary.Metadata, "policy_decision"))},
+			detailField{"summary messages", scalarText(evidence.summary.Summary["message_count"])},
+			detailField{"summary source", memorySourceText(metadataString(mapValue(evidence.summary.Summary["metadata"]), "source"))},
 		)
 	}
 	if evidence.frame != nil {
 		fields = append(fields,
-			detailField{"frame_policy", metadataString(evidence.frame.Metadata, "policy_decision")},
-			detailField{"frame_id", stringValue(evidence.frame.Frame["id"])},
-			detailField{"frame_source", metadataString(mapValue(evidence.frame.Frame["metadata"]), "source")},
+			detailField{"frame access", memoryPolicyDecisionText(metadataString(evidence.frame.Metadata, "policy_decision"))},
+			detailField{"frame id", stringValue(evidence.frame.Frame["id"])},
+			detailField{"frame source", memorySourceText(metadataString(mapValue(evidence.frame.Frame["metadata"]), "source"))},
 		)
 	}
 	if len(fields) > 0 {
-		rows = appendDetailSection(rows, "Agent-callable memory tools", fields...)
+		rows = appendDetailSection(rows, "Agent memory access proof", fields...)
 	}
 	if len(evidence.errors) > 0 {
 		rows = appendDetailSection(rows, "Memory tool errors", detailField{"errors", strings.Join(evidence.errors, "\n")})
@@ -275,11 +433,11 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 		}
 	}
 	rows = appendDetailSection(rows, "Context frame",
-		detailField{"frame_id", stringValue(latest["id"])},
+		detailField{"frame id", stringValue(latest["id"])},
 		detailField{"status", stringValue(latest["status"])},
 		detailField{"turn", firstNonEmpty(stringValue(latest["turn_id"]), stringValue(latest["user_message_id"]))},
-		detailField{"assistant_message", stringValue(latest["assistant_message_id"])},
-		detailField{"tokens_estimated", scalarText(latest["tokens_estimated"])},
+		detailField{"assistant message", stringValue(latest["assistant_message_id"])},
+		detailField{"estimated tokens", scalarText(latest["tokens_estimated"])},
 		detailField{"items", fmt.Sprintf("%d messages · %d files · %d excluded", messageItems, fileItems, errorItems)},
 	)
 	if agent := mapValue(latest["agent"]); len(agent) > 0 {
@@ -297,9 +455,10 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 			rows = append(rows, detailFieldRows("model", summary)...)
 		}
 	}
-	for i, item := range items {
+	displayItems := contextFrameDisplayItems(items)
+	for i, item := range displayItems {
 		if i >= 6 {
-			rows = append(rows, detailFieldRows("more_items", fmt.Sprintf("%d hidden", len(items)-i))...)
+			rows = append(rows, detailFieldRows("more items", fmt.Sprintf("%d hidden", len(displayItems)-i))...)
 			break
 		}
 		label := firstNonEmpty(stringValue(item["kind"]), "item")
@@ -317,12 +476,36 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 		rows = append(rows, detailFieldRows(label, strings.Join(body, "\n"))...)
 	}
 	if metadata := mapValue(latest["metadata"]); len(metadata) > 0 {
-		rows = append(rows, detailFieldRows("frame_metadata", contextMapSummary(metadata, "retained_context_source", "token_estimate", "context_file_injected_chars"))...)
+		rows = append(rows, detailFieldRows("frame metadata", contextMapSummary(metadata, "retained_context_source", "token_estimate", "context_file_injected_chars"))...)
 		if detailErr := stringValue(metadata["detail_error"]); detailErr != "" {
-			rows = append(rows, detailFieldRows("detail_error", detailErr)...)
+			rows = append(rows, detailFieldRows("detail error", detailErr)...)
 		}
 	}
 	return rows
+}
+
+func contextFrameDisplayItems(items []map[string]any) []map[string]any {
+	out := make([]map[string]any, 0, len(items))
+	appendMatching := func(match func(map[string]any) bool) {
+		for _, item := range items {
+			if match(item) {
+				out = append(out, item)
+			}
+		}
+	}
+	appendMatching(func(item map[string]any) bool {
+		included, ok := item["included"].(bool)
+		return ok && !included
+	})
+	appendMatching(func(item map[string]any) bool {
+		included, ok := item["included"].(bool)
+		return stringValue(item["kind"]) == "context_file" && (!ok || included)
+	})
+	appendMatching(func(item map[string]any) bool {
+		included, ok := item["included"].(bool)
+		return !((ok && !included) || stringValue(item["kind"]) == "context_file")
+	})
+	return out
 }
 
 func contextFrameItems(frame map[string]any) []map[string]any {
@@ -357,13 +540,44 @@ func contextMapSummary(m map[string]any, keys ...string) string {
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		if value := scalarText(m[key]); strings.TrimSpace(value) != "" {
-			parts = append(parts, key+": "+value)
+			if key == "source" || key == "retained_context_source" {
+				value = memorySourceText(value)
+			}
+			parts = append(parts, memoryContextLabel(key)+": "+value)
 		}
 	}
 	if len(parts) > 0 {
 		return strings.Join(parts, "\n")
 	}
 	return ""
+}
+
+func memoryContextLabel(key string) string {
+	switch key {
+	case "id":
+		return "id"
+	case "provider_id":
+		return "provider"
+	case "model_id":
+		return "model"
+	default:
+		return strings.ReplaceAll(key, "_", " ")
+	}
+}
+
+func memorySourceText(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "gact_visible_transcript_summary":
+		return "visible transcript summary"
+	case "gact_context_frame":
+		return "captured context frame"
+	case "visible_gact_transcript":
+		return "visible transcript"
+	case "":
+		return ""
+	default:
+		return strings.ReplaceAll(source, "_", " ")
+	}
 }
 
 func memoryInspectorSearchQuery(messages []gact.Message) string {
@@ -531,7 +745,7 @@ func memoryPressureText(tokens int, budget *int) string {
 
 func memoryCompactionText(metadata map[string]any) string {
 	if len(metadata) == 0 {
-		return "not reported by backend"
+		return "not reported for this session"
 	}
 	for _, key := range []string{"compaction_state", "compaction", "compact_state", "context_compaction"} {
 		if value, ok := metadata[key]; ok && value != nil {
@@ -541,5 +755,5 @@ func memoryCompactionText(metadata map[string]any) string {
 			}
 		}
 	}
-	return "not reported by backend"
+	return "not reported for this session"
 }

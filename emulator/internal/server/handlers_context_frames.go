@@ -67,19 +67,7 @@ func (s *Server) contextFrameForSession(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 	for _, file := range files {
-		items = append(items, map[string]any{
-			"kind":             "context_file",
-			"source_id":        file.Path,
-			"path":             file.Path,
-			"display_path":     file.Path,
-			"included":         true,
-			"reason":           "attached_context_file",
-			"tokens_estimated": max(1, int(file.Size)/4),
-			"metadata": map[string]any{
-				"mode":     file.Mode,
-				"language": file.Language,
-			},
-		})
+		items = append(items, contextFileFrameItem(file))
 	}
 	frame := map[string]any{
 		"id":                   "ctx_emulator_latest",

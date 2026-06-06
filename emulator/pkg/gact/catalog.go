@@ -209,6 +209,16 @@ type ExpertPackValidateRequest struct {
 	Scope string `json:"scope,omitempty"`
 }
 
+type ExpertPackInstallRequest struct {
+	Source      string `json:"source,omitempty"`
+	SourceID    string `json:"source_id,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	Ref         string `json:"ref,omitempty"`
+}
+
 type ExpertPackValidationResult struct {
 	Enabled          bool                 `json:"enabled"`
 	ValidationErrors []string             `json:"validation_errors,omitempty"`
@@ -271,13 +281,30 @@ type AgentBlueprintValidationResult struct {
 }
 
 type AgentBlueprintInstallRequest struct {
-	Source      string `json:"source,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Path        string `json:"path,omitempty"`
-	Scope       string `json:"scope,omitempty"`
-	WorkspaceID string `json:"workspace_id,omitempty"`
-	Ref         string `json:"ref,omitempty"`
-	BlueprintID string `json:"blueprint_id,omitempty"`
+	Source       string `json:"source,omitempty"`
+	SourceID     string `json:"source_id,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Path         string `json:"path,omitempty"`
+	Scope        string `json:"scope,omitempty"`
+	WorkspaceID  string `json:"workspace_id,omitempty"`
+	Ref          string `json:"ref,omitempty"`
+	BlueprintID  string `json:"blueprint_id,omitempty"`
+	PinnedCommit string `json:"pinned_commit,omitempty"`
+}
+
+type AgentBlueprintSource struct {
+	ID                  string                     `json:"id"`
+	Name                string                     `json:"name,omitempty"`
+	Source              string                     `json:"source,omitempty"`
+	Ref                 string                     `json:"ref,omitempty"`
+	PinnedCommit        string                     `json:"pinned_commit,omitempty"`
+	SourceKind          string                     `json:"source_kind,omitempty"`
+	Status              string                     `json:"status,omitempty"`
+	Error               string                     `json:"error,omitempty"`
+	Commit              string                     `json:"commit,omitempty"`
+	AddedAt             string                     `json:"added_at,omitempty"`
+	UpdatedAt           string                     `json:"updated_at,omitempty"`
+	AvailableBlueprints []AgentBlueprintDefinition `json:"available_blueprints,omitempty"`
 }
 
 type AgentBlueprintUpdateRequest struct {

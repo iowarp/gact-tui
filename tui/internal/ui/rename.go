@@ -89,13 +89,15 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 	// server's authoritative value (or silently fail, leaving our
 	// optimistic value). This mirrors J6's msg-based update path —
 	// both terminate with sessionTitleRenamedMsg.
+	previousTitle := ""
 	for i := range a.sessions {
 		if a.sessions[i].ID == sid {
+			previousTitle = a.sessions[i].Title
 			a.sessions[i].Title = title
 			break
 		}
 	}
-	return a, patchSessionTitleCmd(a.c, sid, title)
+	return a, patchManualSessionTitleCmd(a.c, sid, title, previousTitle)
 }
 
 // viewRename renders the inline rename prompt. Matches the workspace-

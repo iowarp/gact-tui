@@ -107,7 +107,7 @@ func TestViewIntro_CompactHeightDoesNotOverflow(t *testing.T) {
 
 // EEEEEEEE1: empty-state callout (no session selected) surfaces
 // the detached count + resume hint when the user has detached
-// sessions on this backend.
+// sessions on this server.
 func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	a := newReadyApp([]gact.Session{}, nil)
 	a.BackendURL = "http://localhost:7777"
@@ -117,7 +117,7 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	if strings.Contains(out, "gact attach") || strings.Contains(out, "detached session(s)") {
 		// note: the existing crib already mentions Ctrl+Z and `gact
 		// attach <sid>`, so check for the EEEEEEEE1 phrase explicitly.
-		if strings.Contains(out, "detached session(s) on this backend") {
+		if strings.Contains(out, "detached session(s) on this server") {
 			t.Errorf("empty resume hint should not appear when none detached: %q", out)
 		}
 	}
@@ -127,7 +127,7 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 		{SessionID: "sess_b", Backend: "http://localhost:7777"},
 	})
 	out = a.renderBody(a.width-40, a.height-3)
-	if !strings.Contains(out, "↩ 2 detached session(s) on this backend") {
+	if !strings.Contains(out, "↩ 2 detached session(s) on this server") {
 		t.Errorf("resume hint missing or wrong count: %q", out)
 	}
 	if !strings.Contains(out, "gact attach") {

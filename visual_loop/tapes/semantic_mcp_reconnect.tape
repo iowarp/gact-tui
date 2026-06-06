@@ -15,11 +15,17 @@ Sleep 1200ms
 
 Type "/mcp"
 Enter
-Wait+Screen /MCP/
+Wait+Screen /MCP Connections/
 Sleep 500ms
 
+Down
+Down
+Down
+Down
+Down
 Enter
-Wait+Screen /Reconnect server/
+Wait+Screen /Connection capabilities/
+Wait+Screen /r reconnect/
 Screenshot "visual_loop/screenshots/semantic_mcp_reconnect_detail.png"
 
 Type "r"

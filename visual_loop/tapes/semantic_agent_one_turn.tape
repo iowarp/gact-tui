@@ -13,7 +13,7 @@ Show
 Wait+Screen /CONVERSATION/
 Sleep 1000ms
 
-Type "/agents-list"
+Type "/experts"
 Enter
 Wait+Screen /Agents/
 Sleep 500ms

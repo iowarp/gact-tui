@@ -10,7 +10,7 @@ Type "bash visual_loop/run_startup_intro.sh"
 Enter
 Show
 
-Wait+Screen /press any key to continue/
+Wait+Screen /pick model or expert/
 Sleep 400ms
 Screenshot "visual_loop/screenshots/semantic_startup_intro.png"
 

@@ -10,7 +10,7 @@ Type "visual_loop/run_semantic_live_events.sh"
 Enter
 Show
 
-Wait+Screen /thinking/
+Wait+Screen /planning/
 Screenshot "visual_loop/screenshots/semantic_live_events_thinking.png"
 Wait+Screen /ReadFile\(\)/
 Screenshot "visual_loop/screenshots/semantic_live_events_tool_started.png"

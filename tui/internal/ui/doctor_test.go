@@ -241,6 +241,43 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	}
 }
 
+func TestDoctorCapabilitiesRenderOperatorSurfaceNames(t *testing.T) {
+	out := stripANSI(renderDoctorCapabilities(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		Workspaces:                   true,
+		XClioSemanticEvents:          true,
+		XClioAgentBlueprints:         true,
+		XClioTextStreaming:           "live",
+		XClioCapabilityGaps:          map[string]any{"agent_write": map[string]any{"status": "partial"}},
+		XClioDirectDeletePermissions: true,
+	}}, ThemeForMode(ModeDark), 96))
+	for _, want := range []string{
+		"Release readiness",
+		"SURFACE",
+		"SCOPE",
+		"Workspace switching",
+		"Live semantic events",
+		"Agent blueprints",
+		"Live text streaming",
+		"Capability gaps",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("doctor capabilities missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{
+		"CAPABILITY",
+		"BUCKET",
+		"x_clio_semantic_events",
+		"x_clio_agent_blueprints",
+		"x_clio_text_streaming",
+		"x_clio_capability_gaps",
+	} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("doctor capabilities should not expose raw list label %q:\n%s", notWant, out)
+		}
+	}
+}
+
 func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
 		MCP:                  true,
@@ -296,8 +333,8 @@ func TestDoctorHealthFooterAdvertisesClickableDetails(t *testing.T) {
 	}
 
 	out := stripANSI(a.viewDoctor())
-	if !strings.Contains(out, "click row details") {
-		t.Fatalf("doctor footer should advertise mouse row details when rows are actionable:\n%s", out)
+	if !strings.Contains(out, "Enter/click details") {
+		t.Fatalf("doctor footer should advertise keyboard and mouse row details when rows are actionable:\n%s", out)
 	}
 }
 
@@ -386,8 +423,11 @@ func TestDoctorCapabilitiesUseBoundedScrollWindow(t *testing.T) {
 
 	a.doctor.scroll = 1 << 30
 	out = stripANSI(a.viewDoctor())
-	if !strings.Contains(out, "x_clio_capability_gaps") {
+	if !strings.Contains(out, "Capability gaps") {
 		t.Fatalf("bottom-scrolled doctor modal should show final capability:\n%s", out)
+	}
+	if strings.Contains(out, "x_clio_capability_gaps") {
+		t.Fatalf("bottom-scrolled doctor modal should keep raw capability fields in details only:\n%s", out)
 	}
 	if a.doctor.scroll <= 0 {
 		t.Fatalf("render should clamp and persist positive doctor scroll, got %d", a.doctor.scroll)

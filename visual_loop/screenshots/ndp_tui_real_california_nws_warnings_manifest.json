@@ -1,0 +1,14 @@
+{
+  "artifact_name": "california_nws_warnings.json",
+  "assistant_message_count": 1,
+  "backend": "http://127.0.0.1:17973",
+  "case_id": "california_nws_warnings",
+  "completion_timeout": false,
+  "live_streaming_false": true,
+  "provider_streaming_limitation": true,
+  "requested_user_input": false,
+  "session_id": "sess_0f308823a82a",
+  "session_status": "idle",
+  "turn_cancelled": false,
+  "verified_artifact": true
+}
