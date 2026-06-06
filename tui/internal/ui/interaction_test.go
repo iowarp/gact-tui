@@ -3237,7 +3237,7 @@ func TestSettingsTUIVisibleArrowGlyphsAreClickableForEveryRow(t *testing.T) {
 				t.Fatal("intro visible right arrow should toggle IntroDisabled on")
 			}
 		}},
-		{label: "mouse controls", assert: func(t *testing.T, app *App) {
+		{label: "mouse selection", assert: func(t *testing.T, app *App) {
 			t.Helper()
 			if app.MouseEnabled {
 				t.Fatal("mouse visible right arrow should toggle MouseEnabled off")
