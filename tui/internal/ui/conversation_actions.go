@@ -102,7 +102,7 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 		{
 			id:          "copy-conversation",
 			title:       "Copy conversation",
-			description: "Copy the full transcript as role-prefixed text.",
+			description: "Copy the full transcript with tool evidence.",
 			key:         "Y",
 			action: func(app *App) tea.Cmd {
 				app.closeConversationActions()
@@ -115,7 +115,7 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 		items = append(items, actionMenuItem{
 			id:          "answer-question",
 			title:       "Answer question",
-			description: "Reply to this backend-emitted user question.",
+			description: "Respond to the question and continue the run.",
 			key:         "a",
 			action: func(app *App) tea.Cmd {
 				app.closeConversationActions()
@@ -150,7 +150,7 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 		items = append(items, actionMenuItem{
 			id:          "rewind-to-message",
 			title:       "Rewind to here",
-			description: "Ask backend to remove messages after this one.",
+			description: "Remove later messages and resume from this point.",
 			key:         "W",
 			action: func(app *App) tea.Cmd {
 				app.closeConversationActions()
@@ -179,7 +179,7 @@ func (a *App) selectedConversationActionItems() []actionMenuItem {
 		items = append(items, actionMenuItem{
 			id:          "undo-last",
 			title:       "Undo last message",
-			description: "Ask backend to undo the most recent message mutation.",
+			description: "Undo the most recent conversation change.",
 			key:         "u",
 			action: func(app *App) tea.Cmd {
 				app.closeConversationActions()

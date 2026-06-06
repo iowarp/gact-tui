@@ -28,6 +28,7 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	prevLookPath := clipboardLookPath
 	prevRunCommand := clipboardRunCommand
 	prevAtotto := clipboardAtottoWrite
+	prevForcedFailure := clipboardForcedFailure
 	clipboardWrite = func(s string) error {
 		mu.Lock()
 		defer mu.Unlock()
@@ -43,6 +44,7 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 		clipboardLookPath = prevLookPath
 		clipboardRunCommand = prevRunCommand
 		clipboardAtottoWrite = prevAtotto
+		clipboardForcedFailure = prevForcedFailure
 	})
 	return &mu, &got, &err
 }
@@ -111,8 +113,6 @@ func TestCopyTextToClipboardFinalFailureMentionsDiagRows(t *testing.T) {
 	hint := copyTextToClipboard("detail", "payload")
 	for _, want := range []string{
 		"copy failed",
-		"no native clipboard utilities available",
-		"terminal rejected OSC52",
 		"gact diag",
 		"clipboard_native",
 		"clipboard_missing",
@@ -121,6 +121,39 @@ func TestCopyTextToClipboardFinalFailureMentionsDiagRows(t *testing.T) {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("failure hint missing %q:\n%s", want, hint)
 		}
+	}
+	for _, unwanted := range []string{"no native clipboard utilities available", "terminal rejected OSC52"} {
+		if strings.Contains(hint, unwanted) {
+			t.Fatalf("failure hint should stay footer-readable and omit raw backend error %q:\n%s", unwanted, hint)
+		}
+	}
+}
+
+func TestCopyTextToClipboardForcedFailureIsDiagnosticOnly(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+	clipboardForcedFailure = func() bool { return true }
+
+	hint := copyTextToClipboard("detail", "payload")
+
+	mu.Lock()
+	wrote := *got
+	mu.Unlock()
+	if wrote != "" {
+		t.Fatalf("forced failure should not touch clipboard backend, wrote %q", wrote)
+	}
+	for _, want := range []string{
+		"copy failed",
+		"gact diag",
+		"clipboard_native",
+		"clipboard_missing",
+		"clipboard_osc52",
+	} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("forced failure hint missing %q:\n%s", want, hint)
+		}
+	}
+	if strings.Contains(hint, "GACT_CLIPBOARD_FORCE_FAILURE") {
+		t.Fatalf("forced failure hint should not leak test-only env details:\n%s", hint)
 	}
 }
 
@@ -227,7 +260,7 @@ func TestCopyTextToClipboardPreservesTextAndSurfacesFailures(t *testing.T) {
 	*errSlot = errors.New("clipboard daemon unavailable")
 	mu.Unlock()
 
-	if hint := copyTextToClipboard("compose draft", "draft body"); !strings.Contains(hint, "copy failed") || !strings.Contains(hint, "clipboard daemon unavailable") {
+	if hint := copyTextToClipboard("compose draft", "draft body"); !strings.Contains(hint, "copy failed") || !strings.Contains(hint, "gact diag") {
 		t.Fatalf("failure hint = %q, want surfaced clipboard error", hint)
 	}
 
@@ -495,8 +528,13 @@ func TestHandleBodyKey_YClipboardFailureSurfacesHint(t *testing.T) {
 	if !strings.Contains(a.transientHint, "copy failed") {
 		t.Errorf("hint = %q, want 'copy failed'", a.transientHint)
 	}
-	if !strings.Contains(a.transientHint, "no xclip installed") {
-		t.Errorf("hint should include underlying err: %q", a.transientHint)
+	for _, want := range []string{"gact diag", "clipboard_native", "clipboard_missing", "clipboard_osc52"} {
+		if !strings.Contains(a.transientHint, want) {
+			t.Errorf("hint missing %q: %q", want, a.transientHint)
+		}
+	}
+	if strings.Contains(a.transientHint, "no xclip installed") {
+		t.Errorf("hint should omit raw backend error so it fits the footer: %q", a.transientHint)
 	}
 }
 
@@ -523,6 +561,163 @@ func TestCopyCommandUsesSharedClipboardAdapter(t *testing.T) {
 	}
 }
 
+func TestCopyCommandPrefersSelectedConversationBlock(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = []gact.Message{
+		{
+			Role: gact.RoleAssistant,
+			Parts: []gact.Part{{
+				Type:     gact.PartTypeToolCall,
+				CallID:   "call_read",
+				ToolName: "ReadFile",
+				Input:    map[string]any{"path": "main.go"},
+			}},
+		},
+		{
+			Role: gact.RoleTool,
+			Parts: []gact.Part{{
+				Type:   gact.PartTypeToolResult,
+				CallID: "call_read",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: "package main\n\nfunc main() {}",
+				}},
+			}},
+		},
+		{
+			Role:  gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "latest assistant"}},
+		},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 0
+
+	toast := a.copySelectedConversationOrLastAssistantToClipboard()
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "package main\n\nfunc main() {}" {
+		t.Fatalf("/copy selected block clipboard = %q", *got)
+	}
+	if !strings.Contains(toast, "selected block") {
+		t.Fatalf("/copy selected block toast = %q, want selected block", toast)
+	}
+}
+
+func TestCopyCommandFallsBackToSelectedMessageThenLatestAssistant(t *testing.T) {
+	mu, got, _ := withClipboardSpy(t)
+
+	a := New("http://unused")
+	a.messages = []gact.Message{
+		{
+			Role: gact.RoleUser,
+			Parts: []gact.Part{
+				{Type: gact.PartTypeText, Text: "selected message"},
+				{Type: gact.PartTypeText, Text: "second paragraph"},
+			},
+		},
+		{
+			Role:  gact.RoleAssistant,
+			Parts: []gact.Part{{Type: gact.PartTypeText, Text: "latest assistant"}},
+		},
+	}
+	a.bodySelMsgIdx = 0
+	a.bodySelPartIdx = 99
+
+	toast := a.copySelectedConversationOrLastAssistantToClipboard()
+	mu.Lock()
+	if *got != "selected message\n\nsecond paragraph" {
+		t.Fatalf("/copy selected message clipboard = %q", *got)
+	}
+	mu.Unlock()
+	if !strings.Contains(toast, "selected message") {
+		t.Fatalf("/copy selected message toast = %q, want selected message", toast)
+	}
+
+	a.bodySelMsgIdx = -1
+	a.bodySelPartIdx = -1
+	toast = a.copySelectedConversationOrLastAssistantToClipboard()
+	mu.Lock()
+	defer mu.Unlock()
+	if *got != "latest assistant" {
+		t.Fatalf("/copy latest fallback clipboard = %q", *got)
+	}
+	if !strings.Contains(toast, "copied") || strings.Contains(toast, "selected") {
+		t.Fatalf("/copy latest fallback toast = %q, want generic copied", toast)
+	}
+}
+
+func TestFullConversationCopyIncludesToolEvidence(t *testing.T) {
+	msgs := []gact.Message{
+		{
+			Role: gact.RoleUser,
+			Parts: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "Inspect San Diego waveforms.",
+			}},
+		},
+		{
+			Role: gact.RoleAssistant,
+			Parts: []gact.Part{
+				{
+					Type:     gact.PartTypeToolCall,
+					CallID:   "call_sac",
+					ToolName: "sac_discover_earthscope_region_waveform",
+					Input: map[string]any{
+						"location":  "San Diego, CA",
+						"days_back": 7.0,
+					},
+				},
+				{
+					Type: gact.PartTypeText,
+					Text: "I am querying EarthScope.",
+				},
+			},
+		},
+		{
+			Role: gact.RoleTool,
+			Parts: []gact.Part{{
+				Type:     gact.PartTypeToolResult,
+				CallID:   "call_sac",
+				ToolName: "sac_discover_earthscope_region_waveform",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: `{"archive_path":"earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac","trace_count":1}`,
+				}},
+			}},
+		},
+		{
+			Role: gact.RoleAssistant,
+			Parts: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "SAC trace staged.",
+			}},
+		},
+	}
+
+	got, ok := fullConversationText(msgs)
+	if !ok {
+		t.Fatal("full conversation should be copyable")
+	}
+	for _, want := range []string{
+		"## user:",
+		"Inspect San Diego waveforms.",
+		"## assistant:",
+		"Tool call",
+		"tool: sac_discover_earthscope_region_waveform",
+		`"location": "San Diego, CA"`,
+		"I am querying EarthScope.",
+		"## tool:",
+		"earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac",
+		"SAC trace staged.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("full conversation copy missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestCopyCommandClipboardFailureSurfacesHint(t *testing.T) {
 	mu, _, errSlot := withClipboardSpy(t)
 	mu.Lock()
@@ -536,7 +731,12 @@ func TestCopyCommandClipboardFailureSurfacesHint(t *testing.T) {
 	}}
 
 	toast := a.copyLastAssistantReplyToClipboard()
-	if !strings.Contains(toast, "copy failed") || !strings.Contains(toast, "clipboard daemon unavailable") {
-		t.Fatalf("/copy failure toast = %q, want surfaced clipboard error", toast)
+	for _, want := range []string{"copy failed", "gact diag", "clipboard_native", "clipboard_missing", "clipboard_osc52"} {
+		if !strings.Contains(toast, want) {
+			t.Fatalf("/copy failure toast missing %q:\n%s", want, toast)
+		}
+	}
+	if strings.Contains(toast, "clipboard daemon unavailable") {
+		t.Fatalf("/copy failure toast should stay footer-readable and omit raw backend error:\n%s", toast)
 	}
 }

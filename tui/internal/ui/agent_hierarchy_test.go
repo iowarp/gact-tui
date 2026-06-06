@@ -172,10 +172,105 @@ func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 	}}
 
 	out := ansi.Strip(a.renderSidebar(150, 20))
-	for _, want := range []string{"Data expert", "t2 · agent_blueprint", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
+	for _, want := range []string{"Data expert", "workflow · t2", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "agent_blueprint") {
+		t.Fatalf("agent hierarchy should not expose backend source label:\n%s", out)
+	}
+}
+
+func TestAgentHierarchySidebarPrioritizesNamesInNarrowWorkflowPane(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
+		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2, Specialization: "seismic waveform"},
+	}
+
+	out := ansi.Strip(a.renderSidebar(30, 20))
+	for _, want := range []string{"WORKFLOW", "Workflow Root", "Waveform Review"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("narrow agent hierarchy should preserve agent name %q before metadata:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Workflow Root work") {
+		t.Fatalf("narrow agent hierarchy should not append metadata by truncating the workflow name:\n%s", out)
+	}
+}
+
+func TestAgentHierarchySidebarScopesToWorkflowWhenBlueprintAgentsExist(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
+		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
+		{ID: "default", Title: "Default Agent", Source: "builtin", Tier: 1},
+		{ID: "code", Title: "Code Expert", Source: "builtin", ParentID: "default", Tier: 2},
+	}
+
+	out := ansi.Strip(a.renderSidebar(40, 20))
+	for _, want := range []string{"WORKFLOW", "Workflow Root", "Waveform Review"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workflow sidebar missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{"Default Agent", "Code Expert"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("workflow sidebar should not mix unrelated built-in agents %q:\n%s", notWant, out)
+		}
+	}
+}
+
+func TestAgentHierarchySidebarShowsActiveBlueprintOwner(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarHitFocus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.sessions = []gact.Session{{
+		ID:     "s1",
+		Title:  "Blueprint session",
+		Status: gact.StatusIdle,
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "seismic-market",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
+		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
+	}
+
+	out := ansi.Strip(a.renderSidebar(40, 20))
+	for _, want := range []string{"WORKFLOW", "◆ seismic-market · session", "Workflow Root", "Waveform Review"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workflow sidebar missing active blueprint owner %q:\n%s", want, out)
+		}
+	}
+	narrowOut := ansi.Strip(a.renderSidebar(24, 20))
+	if !strings.Contains(narrowOut, "◆ seismic-market") {
+		t.Fatalf("narrow workflow sidebar should preserve active blueprint identity:\n%s", narrowOut)
+	}
+	if strings.Contains(narrowOut, "active blueprint") || strings.Contains(narrowOut, "agent_blueprint") {
+		t.Fatalf("workflow sidebar active owner should avoid verbose/backend wording:\n%s", narrowOut)
 	}
 }
 
@@ -341,7 +436,7 @@ func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(
 	}
 
 	detail := runtimeProvenanceDetailText(mapValue(a.messages[len(a.messages)-1].Metadata["runtime_provenance"]))
-	for _, want := range []string{"trace_id: trace_1", "observed: ndp_search_datasets", "delegate.completed", "parent.resumed"} {
+	for _, want := range []string{"trace: trace_1", "observed: ndp_search_datasets", "delegate.completed", "parent.resumed"} {
 		if !strings.Contains(detail, want) {
 			t.Fatalf("final runtime provenance detail missing agreement evidence %q:\n%s", want, detail)
 		}
@@ -369,11 +464,19 @@ func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
 	a.selected = 0
 
 	out := ansi.Strip(a.renderSidebar(72, 20))
-	if !strings.Contains(out, "active blueprint: seismic-market · scope: session") {
-		t.Fatalf("session sidebar should show active blueprint scope:\n%s", out)
+	if !strings.Contains(out, "◆ seismic-market") {
+		t.Fatalf("session sidebar should show active blueprint:\n%s", out)
 	}
 	if rows := a.sidebarSessionRowCount(0); rows != 3 {
 		t.Fatalf("session row count = %d, want title/status/active-blueprint rows", rows)
+	}
+
+	narrowOut := ansi.Strip(a.renderSidebar(28, 20))
+	if strings.Contains(narrowOut, "active blueprint") || strings.Contains(narrowOut, "bp:") {
+		t.Fatalf("narrow active blueprint marker should avoid verbose or backend shorthand labels:\n%s", narrowOut)
+	}
+	if !strings.Contains(narrowOut, "◆ seismic") {
+		t.Fatalf("narrow active blueprint marker should preserve useful blueprint identity:\n%s", narrowOut)
 	}
 }
 
@@ -410,7 +513,7 @@ func TestAgentBlueprintActivatedMsgUpdatesSelectedSessionMetadata(t *testing.T) 
 	}
 
 	out := ansi.Strip(a.renderSidebar(72, 20))
-	if !strings.Contains(out, "active blueprint: seismic-market · scope: session") {
+	if !strings.Contains(out, "◆ seismic-market") {
 		t.Fatalf("activation state should render in session sidebar:\n%s", out)
 	}
 }

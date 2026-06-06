@@ -172,6 +172,13 @@ func TestView_PermissionBanner(t *testing.T) {
 			ID:        "perm_1",
 			SessionID: "sess_1",
 			Summary:   "Run shell command: rm -rf /tmp/scratch",
+			ToolCall: gact.PermissionToolCall{
+				ToolName: "shell",
+				Input: map[string]any{
+					"command": "rm -rf /tmp/scratch",
+				},
+				Annotations: gact.ToolAnnotations{DestructiveHint: true},
+			},
 		},
 		Status: "pending",
 	}}

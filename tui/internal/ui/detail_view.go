@@ -138,6 +138,9 @@ func (a *App) openDetailForSelection() {
 // close; ↑/↓ · j/k · PgUp/PgDn scroll through long content; g/G
 // jump to top/bottom.
 func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if cmd, ok := a.handlePermissionInspectorKey(k); ok {
+		return a, cmd
+	}
 	switch k.String() {
 	case "esc", "ctrl+c", "ctrl+e":
 		a.closeDetailView()
@@ -165,6 +168,26 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.detailScroll += a.detailPageSize()
 	}
 	return a, nil
+}
+
+func (a *App) handlePermissionInspectorKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
+	if a.detailView == nil || !strings.HasPrefix(a.detailView.title, "Permissions") {
+		return nil, false
+	}
+	var action gact.PermissionAction
+	switch k.String() {
+	case "a":
+		action = gact.PermAllow
+	case "d":
+		action = gact.PermDeny
+	case "s":
+		action = gact.PermAllowSession
+	case "w":
+		action = gact.PermAllowWorkspace
+	default:
+		return nil, false
+	}
+	return respondPermissionInspectorCmd(a.c, a.currentSessionID(), action), true
 }
 
 // detailPageSize estimates how many lines fit in the detail pane at
@@ -239,6 +262,9 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			},
 		},
 	}
+	if permissionButtons := a.permissionInspectorDecisionButtons(title); len(permissionButtons) > 0 {
+		buttons = append(permissionButtons, buttons...)
+	}
 	if a.fileDetailUploadAvailable() {
 		buttons = append([]menuButton{{
 			id:    "detail:upload",
@@ -251,19 +277,24 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 
 	hint := opts.hint
 	if hint == "" {
-		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E close"
+		hint = "Up/Down scroll  Pg page  g/G top/bottom  y copy  Esc close"
+	}
+	if a.MouseEnabled {
+		hint = strings.Replace(hint, "Up/Down scroll  ", "scroll  ", 1)
+		hint = "drag CLIO copy  Alt+drag terminal select  " + hint
 	}
 	if a.fileDetailUploadAvailable() {
 		hint = "u upload  " + hint
 	}
 	hintStyle := t.HintLabel
+	bodyContent := strings.Join(lines, "\n")
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
 			width:   w,
 			title:   title,
 			buttons: buttons,
 		},
-		content:     strings.Join(lines, "\n"),
+		content:     bodyContent,
 		pageSize:    page,
 		scroll:      opts.scroll,
 		wheelID:     "detail",
@@ -278,7 +309,35 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			return nil
 		},
 	})
+	visibleBody := windowModalBody(bodyContent, page, rendered.window.scroll)
+	visibleLines := strings.Split(visibleBody.body, "\n")
+	a.setDetailCopySnapshot(visibleLines, rendered.modal, rendered.bodyRow)
+	rendered.modal = a.renderDetailCopyDragHighlight(rendered.modal)
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
+}
+
+func (a *App) permissionInspectorDecisionButtons(title string) []menuButton {
+	if !strings.HasPrefix(title, "Permissions") {
+		return nil
+	}
+	if a.detailView == nil || strings.Contains(strings.ToLower(a.detailView.fullText), "no pending requests") {
+		return nil
+	}
+	button := func(id string, label string, action gact.PermissionAction) menuButton {
+		return menuButton{
+			id:    id,
+			label: label,
+			action: func(app *App) tea.Cmd {
+				return respondPermissionInspectorCmd(app.c, app.currentSessionID(), action)
+			},
+		}
+	}
+	return []menuButton{
+		button("permissions:allow", "allow", gact.PermAllow),
+		button("permissions:deny", "deny", gact.PermDeny),
+		button("permissions:session", "session", gact.PermAllowSession),
+		button("permissions:workspace", "workspace", gact.PermAllowWorkspace),
+	}
 }
 
 func (a *App) fileDetailUploadAvailable() bool {
@@ -433,7 +492,7 @@ func toolCallDetailRef(messageID string, p gact.Part) bulkyPartRef {
 
 func toolCallDetailText(p gact.Part) string {
 	fields := []detailField{{"tool", p.ToolName}}
-	fields = append(fields, detailField{"call_id", p.CallID})
+	fields = append(fields, detailField{"call", p.CallID})
 	rows := appendDetailSection(nil, "Tool call", fields...)
 	if len(p.Input) > 0 {
 		if payload, err := json.MarshalIndent(p.Input, "", "  "); err == nil {
@@ -466,7 +525,7 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 	case gact.PartTypeToolResult:
 		title = "tool result"
 		if p.ToolName != "" {
-			title = p.ToolName + " result"
+			title = toolDisplayName(p.ToolName) + " result"
 		}
 	case gact.PartTypeText:
 		title = "message text"
@@ -490,16 +549,22 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 }
 
 func partDetailText(p gact.Part) string {
-	fields := []detailField{{"type", orPlaceholder(p.Type, "unknown")}}
-	fields = append(fields, detailField{"part_id", p.ID})
-	fields = append(fields, detailField{"call_id", p.CallID})
+	fields := []detailField{{"kind", humanizePartKind(p.Type)}}
+	fields = append(fields, detailField{"part", p.ID})
+	fields = append(fields, detailField{"call", p.CallID})
 	fields = append(fields, detailField{"provenance", promotedEvidenceLabel(p)})
-	rows := appendDetailSection(nil, "Part", fields...)
+	var rows []string
+	semanticEvent := map[string]any(nil)
+	if isSemanticEventPart(p) {
+		semanticEvent = mapValue(p.Metadata["raw_event"])
+		rows = appendSemanticEventDetail(rows, semanticEvent)
+	}
+	rows = appendDetailSection(rows, "Part", fields...)
 
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
-		rows = append(rows, detailFieldRows("selected_agent", orPlaceholder(p.SelectedAgent, "unknown"))...)
-		rows = append(rows, detailFieldRows("route_source", routeSourceLabel(p))...)
+		rows = append(rows, detailFieldRows("selected expert", orPlaceholder(p.SelectedAgent, "unknown"))...)
+		rows = append(rows, detailFieldRows("routing source", routeSourceLabel(p))...)
 		if p.Confidence > 0 {
 			rows = append(rows, detailFieldRows("confidence", fmt.Sprintf("%.2f", p.Confidence))...)
 		}
@@ -521,7 +586,7 @@ func partDetailText(p gact.Part) string {
 			rows = append(rows, detailFieldRows("stage", stage)...)
 		}
 		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
-			rows = append(rows, detailFieldRows("duration_ms", fmt.Sprintf("%.0f", duration))...)
+			rows = append(rows, detailFieldRows("duration", fmt.Sprintf("%.0f ms", duration))...)
 		}
 		if input := strings.TrimSpace(stringValue(p.Metadata["input_summary"])); input != "" {
 			rows = append(rows, detailFieldRows("input", input)...)
@@ -534,7 +599,7 @@ func partDetailText(p gact.Part) string {
 		if output != "" {
 			rows = append(rows, detailFieldRows("output", output)...)
 		}
-		rows = append(rows, detailFieldRows("inline_preview", orPlaceholder(summarizeExpertHandoffOutput(output), "none"))...)
+		rows = append(rows, detailFieldRows("inline preview", orPlaceholder(summarizeExpertHandoffOutput(output), "none"))...)
 		for _, key := range []string{
 			"agent_id",
 			"parent_id",
@@ -546,7 +611,7 @@ func partDetailText(p gact.Part) string {
 		}
 	case gact.PartTypeAgentQuestion:
 		if p.Question != nil {
-			rows = append(rows, detailFieldRows("question_id", p.Question.ID)...)
+			rows = append(rows, detailFieldRows("question", p.Question.ID)...)
 			rows = append(rows, detailFieldRows("source", firstNonEmpty(p.Question.Source, p.Question.AgentID))...)
 			rows = append(rows, detailFieldRows("category", p.Question.Category)...)
 			rows = append(rows, detailFieldRows("kind", firstNonEmpty(p.Question.Kind, p.Question.ExpectedAnswerType))...)
@@ -572,9 +637,9 @@ func partDetailText(p gact.Part) string {
 		}
 	case gact.PartTypeRetryAttempt:
 		if p.RetryAttempt != nil {
-			rows = append(rows, detailFieldRows("attempt_id", p.RetryAttempt.ID)...)
-			rows = append(rows, detailFieldRows("source_message_id", firstNonEmpty(p.RetryAttempt.SourceMessageID, p.RetryAttempt.OriginalMessageID))...)
-			rows = append(rows, detailFieldRows("attempt_message_id", p.RetryAttempt.AttemptMessageID)...)
+			rows = append(rows, detailFieldRows("attempt", p.RetryAttempt.ID)...)
+			rows = append(rows, detailFieldRows("source message", firstNonEmpty(p.RetryAttempt.SourceMessageID, p.RetryAttempt.OriginalMessageID))...)
+			rows = append(rows, detailFieldRows("attempt message", p.RetryAttempt.AttemptMessageID)...)
 			rows = append(rows, detailFieldRows("status", p.RetryAttempt.Status)...)
 			rows = append(rows, detailFieldRows("notes", p.RetryAttempt.Notes)...)
 			rows = append(rows, detailFieldRows("warning", p.RetryAttempt.Warning)...)
@@ -596,17 +661,17 @@ func partDetailText(p gact.Part) string {
 		if p.ToolName != "" {
 			rows = append(rows, detailFieldRows("tool", p.ToolName)...)
 		}
-		rows = append(rows, detailFieldRows("is_error", fmt.Sprintf("%v", p.IsError))...)
+		rows = append(rows, detailFieldRows("error", fmt.Sprintf("%v", p.IsError))...)
 		rows = append(rows, detailFieldRows("cached", fmt.Sprintf("%v", p.Cached))...)
 		if p.DurationMS > 0 {
-			rows = append(rows, detailFieldRows("duration_ms", fmt.Sprintf("%.0f", p.DurationMS))...)
+			rows = append(rows, detailFieldRows("duration", fmt.Sprintf("%.0f ms", p.DurationMS))...)
 		}
 		text := flattenToolResult(p)
 		if text != "" {
 			rows = append(rows, detailFieldRows("content", text)...)
 		}
 		if raw := p.Metadata["raw_result"]; raw != nil {
-			rows = appendAnyJSONSection(rows, "raw_result", raw)
+			rows = appendAnyJSONSection(rows, "raw result", raw)
 		}
 	case gact.PartTypeText:
 		if p.Text != "" {
@@ -619,19 +684,16 @@ func partDetailText(p gact.Part) string {
 		if p.Signature != "" {
 			rows = append(rows, detailFieldRows("signature", p.Signature)...)
 		}
-		if isSemanticEventPart(p) {
-			rows = appendSemanticEventDetail(rows, mapValue(p.Metadata["raw_event"]))
-		}
 	case gact.PartTypeSubagentCall:
-		rows = append(rows, detailFieldRows("agent_id", orPlaceholder(p.AgentID, "unknown"))...)
-		rows = append(rows, detailFieldRows("subsession_id", orPlaceholder(p.SubsessionID, "none"))...)
+		rows = append(rows, detailFieldRows("agent", orPlaceholder(p.AgentID, "unknown"))...)
+		rows = append(rows, detailFieldRows("child session", orPlaceholder(p.SubsessionID, "none"))...)
 		if p.Prompt != "" {
 			rows = append(rows, detailFieldRows("prompt", p.Prompt)...)
 		}
 		rows = appendJSONSection(rows, "params", p.Params)
 	case gact.PartTypeSubagentResult:
-		rows = append(rows, detailFieldRows("subsession_id", orPlaceholder(p.SubsessionID, "none"))...)
-		rows = append(rows, detailFieldRows("final_message_id", orPlaceholder(p.FinalMessageID, "none"))...)
+		rows = append(rows, detailFieldRows("child session", orPlaceholder(p.SubsessionID, "none"))...)
+		rows = append(rows, detailFieldRows("final message", orPlaceholder(p.FinalMessageID, "none"))...)
 		if p.Summary != "" {
 			rows = append(rows, detailFieldRows("summary", p.Summary)...)
 		}
@@ -647,11 +709,11 @@ func partDetailText(p gact.Part) string {
 			rows = append(rows, detailFieldRows("summary", p.Summary)...)
 		}
 		if len(p.CompactedMessageIDs) > 0 {
-			rows = append(rows, detailFieldRows("compacted_message_ids", strings.Join(p.CompactedMessageIDs, "\n"))...)
+			rows = append(rows, detailFieldRows("compacted messages", strings.Join(p.CompactedMessageIDs, "\n"))...)
 		}
 	case gact.PartTypeResourceLink, gact.PartTypeResource:
 		rows = append(rows, detailFieldRows("uri", orPlaceholder(p.URI, "none"))...)
-		rows = append(rows, detailFieldRows("mime_type", orPlaceholder(p.MimeType, "unknown"))...)
+		rows = append(rows, detailFieldRows("media type", orPlaceholder(p.MimeType, "unknown"))...)
 		if p.Name != "" {
 			rows = append(rows, detailFieldRows("name", p.Name)...)
 		}
@@ -683,6 +745,14 @@ func partDetailText(p gact.Part) string {
 	return strings.Join(rows, "\n")
 }
 
+func humanizePartKind(kind string) string {
+	kind = humanizeAgentLabel(kind)
+	if kind == "" {
+		return "unknown"
+	}
+	return kind
+}
+
 func detailMetadataRemainder(p gact.Part) map[string]any {
 	if len(p.Metadata) == 0 {
 		return nil
@@ -692,24 +762,31 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	if promotedEvidenceLabel(p) != "" {
 		used["synthetic_from"] = true
 	}
+	if isSemanticEventPart(p) {
+		for _, key := range []string{
+			"semantic_event",
+			"event_type",
+			"trace_id",
+			"turn_id",
+			"status",
+			"detail_level",
+			"stream_source",
+			"raw_event",
+		} {
+			used[key] = true
+		}
+	}
 	switch p.Type {
+	case gact.PartTypeRoutingDecision:
+		for _, key := range []string{
+			"route_source",
+			"selected_agent",
+		} {
+			used[key] = true
+		}
 	case gact.PartTypeToolResult:
 		used["raw_result"] = true
 	case gact.PartTypeThinking:
-		if isSemanticEventPart(p) {
-			for _, key := range []string{
-				"semantic_event",
-				"event_type",
-				"trace_id",
-				"turn_id",
-				"status",
-				"detail_level",
-				"stream_source",
-				"raw_event",
-			} {
-				used[key] = true
-			}
-		}
 	case gact.PartTypeExpertHandoff:
 		for _, key := range []string{
 			"agent_id",
@@ -754,21 +831,26 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 	if len(event) == 0 {
 		return rows
 	}
-	rows = appendSemanticEventMapSection(rows, "Semantic event", semanticEventTopFields(event),
-		"schema_version",
-		"event_id",
-		"event_type",
-		"status",
-		"summary",
-		"session_id",
-		"workspace_id",
-		"trace_id",
-		"turn_id",
-		"span_id",
-		"parent_span_id",
-		"detail_level",
-		"live_observed",
-		"occurred_at",
+	rows = appendSemanticEventOperatorView(rows, event)
+	rows = appendDetailSection(rows, "Event summary",
+		detailField{"what happened", runtimeScalar(event["summary"])},
+		detailField{"status", runtimeScalar(event["status"])},
+		detailField{"event", runtimeScalar(event["event_type"])},
+		detailField{"stream", semanticEventStreamLabel(event["live_observed"])},
+		detailField{"time", runtimeScalar(event["occurred_at"])},
+	)
+	rows = appendDetailSection(rows, "Workflow trace",
+		detailField{"session", runtimeScalar(event["session_id"])},
+		detailField{"workspace", runtimeScalar(event["workspace_id"])},
+		detailField{"trace", runtimeScalar(event["trace_id"])},
+		detailField{"turn", runtimeScalar(event["turn_id"])},
+		detailField{"span", runtimeScalar(event["span_id"])},
+		detailField{"parent span", runtimeScalar(event["parent_span_id"])},
+	)
+	rows = appendDetailSection(rows, "Technical trace",
+		detailField{"format", runtimeScalar(event["schema_version"])},
+		detailField{"event", runtimeScalar(event["event_id"])},
+		detailField{"detail", runtimeScalar(event["detail_level"])},
 	)
 	rows = appendSemanticEventMapSection(rows, "Actor", mapValue(event["actor"]),
 		"agent_id", "agent", "role", "tool", "tool_name", "provider_id", "model_id", "kind", "source", "execution_mode")
@@ -778,9 +860,97 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 		"id", "agent_blueprint_id", "pack_id", "version", "pack_version", "scope", "definition_path")
 	rows = appendSemanticEventMapSection(rows, "Provider", mapValue(event["provider"]),
 		"provider_id", "model_id", "model", "source")
-	rows = appendSemanticEventMapSection(rows, "Payload", mapValue(event["payload"]),
-		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "error", "message", "path", "artifact_type")
+	rows = appendSemanticEventMapSection(rows, "Tool evidence", mapValue(event["payload"]),
+		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "args_preview", "args", "input_preview", "input", "error", "message", "path", "artifact_type")
 	return rows
+}
+
+func appendSemanticEventOperatorView(rows []string, event map[string]any) []string {
+	payload := mapValue(event["payload"])
+	actor := mapValue(event["actor"])
+	subject := mapValue(event["subject"])
+	blueprint := mapValue(event["blueprint"])
+	provider := mapValue(event["provider"])
+
+	tool := firstNonEmpty(
+		runtimeScalar(payload["tool"]),
+		runtimeScalar(payload["tool_name"]),
+		runtimeScalar(actor["tool"]),
+		runtimeScalar(actor["tool_name"]),
+		runtimeScalar(subject["tool"]),
+		runtimeScalar(subject["tool_name"]),
+	)
+	agent := firstNonEmpty(
+		runtimeScalar(actor["agent_id"]),
+		runtimeScalar(actor["agent"]),
+		runtimeScalar(subject["agent_id"]),
+		runtimeScalar(subject["agent"]),
+		runtimeScalar(payload["agent_id"]),
+	)
+	workflow := firstNonEmpty(
+		runtimeScalar(blueprint["id"]),
+		runtimeScalar(blueprint["agent_blueprint_id"]),
+		runtimeScalar(blueprint["pack_id"]),
+	)
+	model := firstNonEmpty(
+		runtimeScalar(provider["model_id"]),
+		runtimeScalar(provider["model"]),
+	)
+	status := runtimeScalar(event["status"])
+	if status == "" {
+		status = runtimeScalar(payload["status"])
+	}
+	if ok, known := optionalBoolValue(firstNonNil(payload["ok"], event["ok"])); known {
+		if ok {
+			status = firstNonEmpty(status, "completed")
+		} else {
+			status = firstNonEmpty(status, "failed")
+		}
+	}
+	duration := ""
+	if ms, ok := floatValue(firstNonNil(payload["duration_ms"], event["duration_ms"])); ok && ms > 0 {
+		duration = fmt.Sprintf("%.0fms", ms)
+	}
+	argsPreview := semanticArgsPreview(payload, event)
+	return appendDetailSection(rows, "Operator view",
+		detailField{"result", runtimeScalar(event["summary"])},
+		detailField{"status", status},
+		detailField{"agent", humanizeSemanticOperatorValue(agent)},
+		detailField{"tool", toolDisplayName(tool)},
+		detailField{"workflow", workflow},
+		detailField{"duration", duration},
+		detailField{"input", argsPreview},
+		detailField{"model", model},
+	)
+}
+
+func humanizeSemanticOperatorValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	return humanizeAgentLabel(value)
+}
+
+func semanticEventStreamLabel(v any) string {
+	switch value := v.(type) {
+	case bool:
+		if value {
+			return "live"
+		}
+		return "batch"
+	case string:
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "true", "live", "yes":
+			return "live"
+		case "false", "batch", "recorded", "no":
+			return "batch"
+		default:
+			return strings.TrimSpace(value)
+		}
+	default:
+		return runtimeScalar(v)
+	}
 }
 
 func semanticEventTopFields(event map[string]any) map[string]any {
@@ -806,8 +976,8 @@ func appendSemanticEventMapSection(rows []string, title string, m map[string]any
 	fields := make([]detailField, 0, len(m))
 	seen := map[string]bool{}
 	for _, key := range preferred {
-		if value := runtimeScalar(m[key]); value != "" {
-			fields = append(fields, detailField{key, value})
+		if value := semanticEventDetailValue(key, m[key]); value != "" {
+			fields = append(fields, detailField{semanticEventDetailLabel(key), value})
 			seen[key] = true
 		}
 	}
@@ -815,14 +985,62 @@ func appendSemanticEventMapSection(rows []string, title string, m map[string]any
 		if seen[key] {
 			continue
 		}
-		if value := runtimeScalar(m[key]); value != "" {
-			fields = append(fields, detailField{key, value})
+		if value := semanticEventDetailValue(key, m[key]); value != "" {
+			fields = append(fields, detailField{semanticEventDetailLabel(key), value})
 		}
 	}
 	if len(fields) == 0 {
 		return rows
 	}
 	return appendDetailSection(rows, title, fields...)
+}
+
+func semanticEventDetailValue(key string, value any) string {
+	text := runtimeScalar(value)
+	switch key {
+	case "args", "args_preview", "input", "input_preview":
+		if semanticPreviewIsRedacted(text) {
+			return "input redacted by runtime"
+		}
+	}
+	return text
+}
+
+func semanticEventDetailLabel(key string) string {
+	switch key {
+	case "artifact_type":
+		return "artifact type"
+	case "args", "args_preview", "input", "input_preview":
+		return "input"
+	case "call_id":
+		return "call"
+	case "child_id":
+		return "child"
+	case "detail_level":
+		return "detail"
+	case "event_id":
+		return "event"
+	case "event_type":
+		return "type"
+	case "live_observed":
+		return "live"
+	case "occurred_at":
+		return "time"
+	case "pack_id":
+		return "pack"
+	case "pack_version":
+		return "pack version"
+	case "parent_span_id":
+		return "parent span"
+	case "resumed_from":
+		return "resumed from"
+	case "span_id":
+		return "span"
+	case "telemetry_source":
+		return "telemetry"
+	default:
+		return runtimeProvenanceLabel(key)
+	}
 }
 
 func routeSourceLabel(p gact.Part) string {
@@ -962,7 +1180,7 @@ func (a *App) viewDetailView() string {
 	hint := ""
 	if a.catalogBrowserOpen && a.catalogBrowser != nil {
 		closeLabel = "back"
-		hint = "Up/Down scroll  PgUp/PgDn page  g/G top/bottom  y copy  Esc / Ctrl+E back"
+		hint = "Up/Down scroll  Pg page  g/G top/bottom  y copy  Esc back"
 	}
 	rendered := a.renderScrollableDetailModal(scrollableDetailOptions{
 		width:      a.detailModalWidth(),

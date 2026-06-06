@@ -148,6 +148,32 @@ func TestInputPlaceholderUsesActiveLocale(t *testing.T) {
 	}
 }
 
+func TestInputPlaceholderCompactsForComposerWidth(t *testing.T) {
+	a := New("http://unused")
+
+	wide := a.localizedInputPlaceholderForWidth(120)
+	if !strings.Contains(wide, "supporting terminals") {
+		t.Fatalf("wide placeholder = %q, want full help copy", wide)
+	}
+
+	narrow := a.localizedInputPlaceholderForWidth(48)
+	if !strings.Contains(narrow, "type a message") {
+		t.Fatalf("narrow placeholder = %q, want primary instruction", narrow)
+	}
+	if strings.Contains(narrow, "supporting terminals") || strings.Contains(narrow, "Shift+Enter") {
+		t.Fatalf("narrow placeholder should drop optional terminal note: %q", narrow)
+	}
+
+	a.SetLocale("es")
+	spanish := a.localizedInputPlaceholderForWidth(48)
+	if !strings.Contains(spanish, "escribe un mensaje") {
+		t.Fatalf("Spanish compact placeholder = %q, want localized primary instruction", spanish)
+	}
+	if strings.Contains(spanish, "terminales compatibles") {
+		t.Fatalf("Spanish compact placeholder should drop optional terminal note: %q", spanish)
+	}
+}
+
 func TestPostFailedJapaneseHintRendersUnicodeText(t *testing.T) {
 	a := New("http://unused")
 	a.SetLocale("ja")

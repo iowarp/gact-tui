@@ -44,6 +44,37 @@ func (s *Server) handleGetProvider(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListProviderModels(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cfg.ProviderEdgeStates {
+		switch id {
+		case "local":
+			writeJSON(w, http.StatusOK, map[string]any{
+				"models": []gact.Model{},
+				"source": "unavailable",
+				"error":  "local model catalog unavailable: connection refused on 127.0.0.1:11434",
+			})
+			return
+		case "argonne_sophia":
+			if s.providerAuthed[id] {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"models": []gact.Model{{
+						ID:              "openai/gpt-oss-120b",
+						Name:            "GPT OSS 120B",
+						ContextWindow:   131072,
+						MaxOutputTokens: 32768,
+						Supports:        gact.ModelSupports{Tools: true, Thinking: true},
+					}},
+					"source": "live",
+				})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{
+				"models": []gact.Model{},
+				"source": "unavailable",
+				"error":  "ALCF token expired; authenticate before loading Sophia models",
+			})
+			return
+		}
+	}
 	models, ok := staticModels()[id]
 	if !ok {
 		writeError(w, http.StatusNotFound, "provider_not_found", "no provider with id "+id)
@@ -93,6 +124,10 @@ type lmProviderRequest struct {
 }
 
 func (s *Server) handleGetLMProvider(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ProviderEdgeStates {
+		writeJSON(w, http.StatusOK, edgeLMProviderInfo())
+		return
+	}
 	writeJSON(w, http.StatusOK, staticLMProviderInfo("anthropic", "claude-opus-4-7"))
 }
 
@@ -130,6 +165,63 @@ func (s *Server) handlePutLMProvider(w http.ResponseWriter, r *http.Request) {
 	info.ContextLength = req.ContextLength
 	info.ThinkingBudget = req.ThinkingBudget
 	writeJSON(w, http.StatusOK, info)
+}
+
+func (s *Server) handleProviderAuth(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if s.cfg.ProviderEdgeStates && id == "argonne_sophia" {
+		if s.cfg.ProviderAuthSucceeds {
+			s.providerAuthed[id] = true
+			writeJSON(w, http.StatusOK, map[string]any{
+				"is_authenticated": true,
+				"provider_id":      id,
+				"instructions":     "ALCF Globus token ready",
+			})
+			return
+		}
+		writeError(w, http.StatusUnauthorized, "auth_failed", "Globus token expired; run clio auth login for ALCF and retry")
+		return
+	}
+	for _, p := range staticProviders() {
+		if p.ID == id {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"is_authenticated": true,
+				"provider_id":      id,
+				"instructions":     "provider authenticated in emulator",
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "provider_not_found", "no provider with id "+id)
+}
+
+func edgeLMProviderInfo() lmProviderInfo {
+	info := staticLMProviderInfo("anthropic", "claude-opus-4-7")
+	info.StatusMessage = "provider edge-state fixture"
+	info.Presets = append(info.Presets, lmProviderPreset{
+		ID:                  "argonne_sophia",
+		Label:               "ALCF Sophia (Globus Auth)",
+		Provider:            "argonne",
+		APIBase:             "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		SuggestedModel:      "openai/gpt-oss-120b",
+		AuthMethod:          "oauth",
+		IsAuthenticated:     false,
+		Description:         "Argonne Sophia inference endpoint using Globus authentication.",
+		Status:              "auth_required",
+		StatusMessage:       "ALCF token expired; authenticate before loading Sophia models",
+		SupportsLiveCatalog: true,
+	})
+	for i := range info.Presets {
+		switch info.Presets[i].ID {
+		case "local":
+			info.Presets[i].Status = "unavailable"
+			info.Presets[i].StatusMessage = "local model catalog unavailable: connection refused on 127.0.0.1:11434"
+		case "openai":
+			info.Presets[i].Status = "missing_key"
+			info.Presets[i].StatusMessage = "OPENAI_API_KEY is not configured on the backend host"
+		}
+	}
+	return info
 }
 
 func staticLMProviderInfo(provider, model string) lmProviderInfo {
@@ -229,12 +321,52 @@ func staticModels() map[string][]gact.Model {
 // --- CLIO prompt registry extension ---------------------------------------
 
 func (s *Server) handleListPrompts(w http.ResponseWriter, r *http.Request) {
+	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
 	rows := make([]gact.PromptDefinition, 0, len(s.prompts))
 	for _, row := range s.prompts {
+		if !promptDefinitionMatchesScope(row, sessionID) {
+			continue
+		}
 		rows = append(rows, row)
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
 	writeJSON(w, http.StatusOK, map[string]any{"prompts": rows})
+}
+
+func promptDefinitionMatchesScope(row gact.PromptDefinition, sessionID string) bool {
+	if !strings.EqualFold(strings.TrimSpace(row.Scope), "session") {
+		return true
+	}
+	if sessionID == "" {
+		return false
+	}
+	if scopedID := promptDefinitionSessionID(row); scopedID != "" {
+		return scopedID == sessionID
+	}
+	return true
+}
+
+func promptDefinitionSessionID(row gact.PromptDefinition) string {
+	if id := stringFromAnyMap(row.Metadata, "session_id"); id != "" {
+		return id
+	}
+	for _, profile := range row.Profiles {
+		if id := stringFromAnyMap(profile.Metadata, "session_id"); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+func stringFromAnyMap(values map[string]any, key string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	value, ok := values[key]
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func (s *Server) handleGetPrompt(w http.ResponseWriter, r *http.Request) {
@@ -257,6 +389,10 @@ func (s *Server) handleSavePrompt(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req gact.PromptSaveRequest
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if s.cfg.PromptSaveFailures {
+		writeError(w, http.StatusConflict, "save_failed", "workspace prompt registry is read-only in this demo")
 		return
 	}
 	text := strings.TrimSpace(req.Text)
@@ -415,13 +551,90 @@ func staticPromptDefinitions() map[string]gact.PromptDefinition {
 	return out
 }
 
+func staticPromptStressDefinitions() map[string]gact.PromptDefinition {
+	profile := func(name, scope, provider, model, text, source string, metadata map[string]any) gact.PromptProfile {
+		return gact.PromptProfile{
+			Name:       name,
+			Text:       text,
+			Scope:      scope,
+			Provider:   provider,
+			Model:      model,
+			SourcePath: source,
+			Checksum:   promptChecksum(text),
+			Metadata:   metadata,
+		}
+	}
+	return map[string]gact.PromptDefinition{
+		"workspace.seismic.main": {
+			ID:             "workspace.seismic.main",
+			Title:          "Seismic blueprint orchestrator",
+			Description:    "Packaged prompt from the active seismic waveform blueprint.",
+			DefaultProfile: "heavy",
+			Scope:          "workspace",
+			SourcePath:     "/workspace/.clio/agent-blueprints/seismic-waveform-review/experts/main.md",
+			Enabled:        true,
+			Profiles: map[string]gact.PromptProfile{
+				"heavy": profile("heavy", "workspace", "argonne_sophia", "openai/gpt-oss-120b",
+					"Resolve San Diego geography, delegate NDP and EarthScope discovery, and require SAC visualization before final answer.",
+					"/workspace/.clio/agent-blueprints/seismic-waveform-review/experts/main.md",
+					map[string]any{"blueprint_id": "seismic-waveform-review", "agent_id": "main", "prompt_family": "benchmark"}),
+				"small": profile("small", "workspace", "argonne_sophia", "openai/gpt-oss-20b",
+					"Use the compact seismic routing profile and preserve artifact paths.",
+					"/workspace/.clio/agent-blueprints/seismic-waveform-review/experts/main.small.md",
+					map[string]any{"blueprint_id": "seismic-waveform-review", "agent_id": "main", "prompt_family": "benchmark"}),
+			},
+			Metadata: map[string]any{
+				"blueprint_id": "seismic-waveform-review",
+				"agent_id":     "main",
+				"provider":     "argonne_sophia",
+			},
+		},
+		"session.nws.warning": {
+			ID:             "session.nws.warning",
+			Title:          "NWS warning session override",
+			Description:    "Session prompt override for the California NWS warning benchmark case.",
+			DefaultProfile: "codex",
+			Scope:          "session",
+			SourcePath:     "session://prompt-overrides/session.nws.warning/codex.md",
+			Enabled:        true,
+			Profiles: map[string]gact.PromptProfile{
+				"codex": profile("codex", "session", "argonne_sophia", "openai/gpt-oss-120b",
+					"Normalize warning timestamps to ISO strings and keep source URLs in the compact JSON artifact.",
+					"session://prompt-overrides/session.nws.warning/codex.md",
+					map[string]any{"prompt_profile": "codex", "session_id": "ses_seed_ws_default_1"}),
+			},
+			Metadata: map[string]any{"session_id": "ses_seed_ws_default_1", "artifact": "california_nws_warnings.json"},
+		},
+		"workspace.invalid.placeholder": {
+			ID:             "workspace.invalid.placeholder",
+			Title:          "Invalid placeholder diagnostic",
+			Description:    "Invalid prompt kept visible so operators can inspect validation errors before demo.",
+			DefaultProfile: "default",
+			Scope:          "workspace",
+			SourcePath:     "/workspace/.clio/prompts/invalid-placeholder.md",
+			Enabled:        false,
+			ValidationErrors: []string{
+				"unknown placeholder: {{missing_dataset_id}}",
+				"requires active blueprint variable: agent.root_id",
+			},
+			Profiles: map[string]gact.PromptProfile{
+				"default": profile("default", "workspace", "argonne_metis", "gpt-oss-120b",
+					"Use {{missing_dataset_id}} before it is defined.",
+					"/workspace/.clio/prompts/invalid-placeholder.md",
+					map[string]any{"validation_state": "invalid"}),
+			},
+			Metadata: map[string]any{"validation_state": "invalid", "source": "workspace"},
+		},
+	}
+}
+
 func (s *Server) handleListExpertPacks(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"expert_packs": staticExpertPacks()})
+	writeJSON(w, http.StatusOK, map[string]any{"expert_packs": s.expertPacks()})
 }
 
 func (s *Server) handleGetExpertPack(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	for _, pack := range staticExpertPacks() {
+	for _, pack := range s.expertPacks() {
 		if pack.ID == id {
 			writeJSON(w, http.StatusOK, gact.ExpertPackDetail{
 				ExpertPack: pack,
@@ -458,6 +671,57 @@ func (s *Server) handleValidateExpertPack(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (s *Server) handleInstallExpertPack(w http.ResponseWriter, r *http.Request) {
+	var req gact.ExpertPackInstallRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	source := firstNonEmptyString(req.Source, req.SourceID, req.URL, req.Path)
+	if strings.TrimSpace(source) == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "source, url, or path is required")
+		return
+	}
+	if s.cfg.ExpertPackFailures && strings.Contains(strings.ToLower(source), "install-fail") {
+		writeError(w, http.StatusBadGateway, "install_failed", "expert pack install failed: manifest clio-pack.yaml was not found")
+		return
+	}
+	pack := s.expertPacks()[0]
+	writeJSON(w, http.StatusOK, map[string]any{
+		"installed": map[string]any{
+			"id":     pack.ID,
+			"scope":  firstNonEmptyString(req.Scope, pack.Scope, "workspace"),
+			"source": source,
+			"status": "installed",
+		},
+	})
+}
+
+func (s *Server) handleUpdateExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if s.cfg.ExpertPackFailures && id == "data-semantics" {
+		writeError(w, http.StatusConflict, "update_failed", "expert pack update failed: marketplace source has validation errors")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"updated": map[string]any{"id": id, "scope": "workspace", "status": "updated"},
+	})
+}
+
+func (s *Server) handleDeleteExpertPack(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if s.cfg.ExpertPackFailures && id == "data-semantics" {
+		writeError(w, http.StatusConflict, "delete_failed", "expert pack delete failed: pack is active in the selected session")
+		return
+	}
+	for _, pack := range s.expertPacks() {
+		if pack.ID == id {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "expert pack not found: "+id)
+}
+
 func (s *Server) handleGetSessionExpertPack(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	sess, err := s.store.GetSession(id)
@@ -465,7 +729,7 @@ func (s *Server) handleGetSessionExpertPack(w http.ResponseWriter, r *http.Reque
 		writeStoreError(w, err, "session_not_found", "invalid_session")
 		return
 	}
-	state := sessionExpertPackState(sess)
+	state := s.sessionExpertPackState(sess)
 	writeJSON(w, http.StatusOK, state)
 }
 
@@ -486,7 +750,7 @@ func (s *Server) handleSetSessionExpertPack(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var pack *gact.ExpertPackDefinition
-	for _, row := range staticExpertPacks() {
+	for _, row := range s.expertPacks() {
 		if row.ID == packID {
 			copy := row
 			pack = &copy
@@ -510,17 +774,17 @@ func (s *Server) handleSetSessionExpertPack(w http.ResponseWriter, r *http.Reque
 		writeStoreError(w, err, "session_not_found", "invalid_session")
 		return
 	}
-	state := sessionExpertPackState(updated)
+	state := s.sessionExpertPackState(updated)
 	writeJSON(w, http.StatusOK, state)
 }
 
-func sessionExpertPackState(sess *gact.Session) gact.SessionExpertPackState {
+func (s *Server) sessionExpertPackState(sess *gact.Session) gact.SessionExpertPackState {
 	if sess == nil {
 		return gact.SessionExpertPackState{}
 	}
 	packID, _ := sess.Metadata["active_expert_pack_id"].(string)
 	var pack *gact.ExpertPackDefinition
-	for _, row := range staticExpertPacks() {
+	for _, row := range s.expertPacks() {
 		if row.ID == packID {
 			copy := row
 			pack = &copy
@@ -536,6 +800,13 @@ func sessionExpertPackState(sess *gact.Session) gact.SessionExpertPackState {
 	}
 }
 
+func (s *Server) expertPacks() []gact.ExpertPackDefinition {
+	if s != nil && s.cfg.EmptyExpertPacks {
+		return nil
+	}
+	return staticExpertPacks()
+}
+
 func staticExpertPacks() []gact.ExpertPackDefinition {
 	return []gact.ExpertPackDefinition{{
 		ID:             "data-semantics",
@@ -547,7 +818,16 @@ func staticExpertPacks() []gact.ExpertPackDefinition {
 		DefinitionPath: ".clio/expert-packs/data-semantics/clio-pack.yaml",
 		Enabled:        true,
 		Defaults:       map[string]any{"prompt_profile": "heavy"},
-		Metadata:       map[string]any{"source": "emulator"},
+		Metadata: map[string]any{"install": map[string]any{
+			"source":         "git@github.com:example/data-semantics-agents.git",
+			"source_kind":    "git",
+			"ref":            "main",
+			"commit":         "fedcba98765432100123456789abcdef",
+			"installed_at":   "2026-06-05T14:00:00Z",
+			"last_synced_at": "2026-06-06T08:30:00Z",
+			"status":         "installed",
+			"trust":          "explicit",
+		}},
 	}, {
 		ID:               "broken-pack",
 		Version:          "0.0.1",
@@ -632,16 +912,52 @@ func firstNonEmptyString(values ...string) string {
 }
 
 func (s *Server) handleListAgentBlueprints(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"agent_blueprints": staticAgentBlueprints()})
+	writeJSON(w, http.StatusOK, map[string]any{"agent_blueprints": s.agentBlueprints()})
+}
+
+func (s *Server) handleListAgentBlueprintSources(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"sources": s.agentBlueprintSources()})
+}
+
+func (s *Server) handleRefreshAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if s.cfg.AgentBlueprintFailures && id == "data-semantics-agents" {
+		writeError(w, http.StatusServiceUnavailable, "source_refresh_failed", "marketplace source refresh failed: unable to fetch remote refs")
+		return
+	}
+	for _, source := range s.agentBlueprintSources() {
+		if source.ID == id {
+			source.Status = "ready"
+			source.UpdatedAt = "2026-06-04T12:30:00Z"
+			writeJSON(w, http.StatusOK, map[string]any{"source": source})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint source not found: "+id)
+}
+
+func (s *Server) handleDeleteAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	for _, source := range s.agentBlueprintSources() {
+		if source.ID == id {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "not_found", "agent blueprint source not found: "+id)
 }
 
 func (s *Server) handleGetAgentBlueprint(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	for _, blueprint := range staticAgentBlueprints() {
+	for _, blueprint := range s.agentBlueprints() {
 		if blueprint.ID == id {
+			agents := staticAgentBlueprintAgents(blueprint.ID)
+			if s.cfg.LongAgentBlueprints && blueprint.ID == longAgentBlueprintID {
+				agents = staticLongAgentBlueprintAgents(blueprint.ID)
+			}
 			writeJSON(w, http.StatusOK, gact.AgentBlueprintDetail{
 				AgentBlueprint:  blueprint,
-				Agents:          staticAgentBlueprintAgents(blueprint.ID),
+				Agents:          agents,
 				MCPDescriptors:  staticAgentBlueprintMCPDescriptors(blueprint.ID),
 				HookDescriptors: staticAgentBlueprintHookDescriptors(blueprint.ID),
 			})
@@ -671,6 +987,31 @@ func (s *Server) handleValidateAgentBlueprint(w http.ResponseWriter, r *http.Req
 		RootExpert:     "main",
 		Enabled:        true,
 	}
+	if s.cfg.AgentBlueprintFailures && strings.Contains(strings.ToLower(req.Path), "warning") {
+		blueprint.ID = "validated-warning-blueprint"
+		blueprint.Title = "Validated Warning Blueprint"
+		writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
+			Enabled:            true,
+			AgentBlueprint:     blueprint,
+			Agents:             staticAgentBlueprintAgents(blueprint.ID),
+			MCPDescriptors:     staticAgentBlueprintMCPDescriptors(blueprint.ID),
+			HookDescriptors:    staticAgentBlueprintHookDescriptors(blueprint.ID),
+			ValidationWarnings: []string{"descriptor references optional MCP server not installed"},
+		})
+		return
+	}
+	if s.cfg.AgentBlueprintFailures && strings.Contains(strings.ToLower(req.Path), "invalid") {
+		blueprint.ID = "validated-invalid-blueprint"
+		blueprint.Title = "Validated Invalid Blueprint"
+		blueprint.Enabled = false
+		blueprint.ValidationErrors = []string{"root_expert not found: missing"}
+		writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
+			Enabled:          false,
+			AgentBlueprint:   blueprint,
+			ValidationErrors: []string{"root_expert not found: missing"},
+		})
+		return
+	}
 	writeJSON(w, http.StatusOK, gact.AgentBlueprintValidationResult{
 		Enabled:         true,
 		AgentBlueprint:  blueprint,
@@ -685,12 +1026,17 @@ func (s *Server) handleInstallAgentBlueprint(w http.ResponseWriter, r *http.Requ
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	source := firstNonEmptyString(req.Source, req.URL, req.Path)
+	source := firstNonEmptyString(req.Source, req.SourceID, req.URL, req.Path)
 	if strings.TrimSpace(source) == "" {
 		writeError(w, http.StatusBadRequest, "validation_error", "source, url, or path is required")
 		return
 	}
-	blueprint := staticAgentBlueprints()[0]
+	if s.cfg.AgentBlueprintFailures && strings.Contains(strings.ToLower(source), "install-fail") {
+		writeError(w, http.StatusBadGateway, "install_failed", "agent blueprint install failed: source archive is missing AGENT.md")
+		return
+	}
+	blueprints := s.agentBlueprints()
+	blueprint := blueprints[0]
 	if req.BlueprintID != "" {
 		blueprint.ID = req.BlueprintID
 		blueprint.Title = req.BlueprintID
@@ -711,6 +1057,10 @@ func (s *Server) handleInstallAgentBlueprint(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) handleUpdateAgentBlueprint(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cfg.AgentBlueprintFailures && id == "broken-blueprint" {
+		writeError(w, http.StatusConflict, "update_failed", "agent blueprint update failed: validation errors must be fixed first")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"updated": map[string]any{"id": id, "scope": "workspace", "status": "updated"},
 	})
@@ -718,6 +1068,10 @@ func (s *Server) handleUpdateAgentBlueprint(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) handleDeleteAgentBlueprint(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cfg.AgentBlueprintFailures && id == "broken-blueprint" {
+		writeError(w, http.StatusConflict, "delete_failed", "agent blueprint delete failed: workspace policy is locking this blueprint")
+		return
+	}
 	if id == "data-exploration" && r.URL.Query().Get("scope") == "builtin" {
 		writeError(w, http.StatusBadRequest, "bad_request", "built-in agent blueprints cannot be deleted")
 		return
@@ -785,7 +1139,7 @@ func (s *Server) handleGetSessionAgentBlueprint(w http.ResponseWriter, r *http.R
 		writeStoreError(w, err, "session_not_found", "invalid_session")
 		return
 	}
-	writeJSON(w, http.StatusOK, sessionAgentBlueprintState(sess))
+	writeJSON(w, http.StatusOK, s.sessionAgentBlueprintState(sess))
 }
 
 func (s *Server) handleSetSessionAgentBlueprint(w http.ResponseWriter, r *http.Request) {
@@ -805,7 +1159,7 @@ func (s *Server) handleSetSessionAgentBlueprint(w http.ResponseWriter, r *http.R
 		return
 	}
 	var blueprint *gact.AgentBlueprintDefinition
-	for _, row := range staticAgentBlueprints() {
+	for _, row := range s.agentBlueprints() {
 		if row.ID == blueprintID {
 			copy := row
 			blueprint = &copy
@@ -847,7 +1201,7 @@ func (s *Server) handleSetSessionAgentBlueprint(w http.ResponseWriter, r *http.R
 		writeStoreError(w, err, "session_not_found", "invalid_session")
 		return
 	}
-	state := sessionAgentBlueprintState(updated)
+	state := s.sessionAgentBlueprintState(updated)
 	state.AgentBlueprint = blueprint
 	writeJSON(w, http.StatusOK, state)
 }
@@ -888,13 +1242,13 @@ func (s *Server) handlePutSessionAgentOverlay(w http.ResponseWriter, r *http.Req
 	})
 }
 
-func sessionAgentBlueprintState(sess *gact.Session) gact.SessionAgentBlueprintState {
+func (s *Server) sessionAgentBlueprintState(sess *gact.Session) gact.SessionAgentBlueprintState {
 	if sess == nil {
 		return gact.SessionAgentBlueprintState{}
 	}
 	blueprintID, _ := sess.Metadata["active_agent_blueprint_id"].(string)
 	var blueprint *gact.AgentBlueprintDefinition
-	for _, row := range staticAgentBlueprints() {
+	for _, row := range s.agentBlueprints() {
 		if row.ID == blueprintID {
 			copy := row
 			blueprint = &copy
@@ -960,6 +1314,189 @@ func staticAgentBlueprints() []gact.AgentBlueprintDefinition {
 	}}
 }
 
+const longAgentBlueprintID = "san-diego-earthscope-and-ndp-live-benchmark-review-with-very-long-name"
+
+func (s *Server) agentBlueprints() []gact.AgentBlueprintDefinition {
+	rows := staticAgentBlueprints()
+	if s != nil && s.cfg.LongAgentBlueprints {
+		rows = append(rows, staticLongAgentBlueprints()...)
+	}
+	return rows
+}
+
+func staticLongAgentBlueprints() []gact.AgentBlueprintDefinition {
+	install := func(source, status string) map[string]any {
+		return map[string]any{"install": map[string]any{
+			"source":         source,
+			"source_kind":    "git",
+			"ref":            "main",
+			"commit":         "fedcba98765432100123456789abcdef",
+			"checksum":       "abcdef9876543210",
+			"installed_at":   "2026-06-05T14:00:00Z",
+			"last_synced_at": "2026-06-06T08:30:00Z",
+			"scope":          "workspace",
+			"status":         status,
+			"trust":          "explicit",
+		}}
+	}
+	return []gact.AgentBlueprintDefinition{{
+		ID:             longAgentBlueprintID,
+		Version:        "0.9.0",
+		Title:          "San Diego EarthScope and NDP Live Benchmark Review With Very Long Name",
+		Description:    "Stress fixture for long marketplace titles, active markers, and nested seismic workflow experts.",
+		Scope:          "workspace",
+		Root:           "/workspace/.clio/agent-blueprints/san-diego-earthscope-long",
+		RootPath:       "/workspace/.clio/agent-blueprints/san-diego-earthscope-long/AGENT.md",
+		DefinitionPath: "/workspace/.clio/agent-blueprints/san-diego-earthscope-long/AGENT.md",
+		RootExpert:     "orchestrator",
+		Enabled:        true,
+		Metadata:       install("https://aaa.example.org/clio-marketplace/earthscope-and-ndp-demo-blueprints-with-a-very-long-source-name.git", "installed"),
+	}, {
+		ID:          "california-wildfire-current-features-review-and-map-ready-summary",
+		Version:     "0.9.0",
+		Title:       "California Wildfire Current Features Review And Map Ready Summary",
+		Description: "Long source group sibling used to prove source grouping and tree prefix rendering.",
+		Scope:       "workspace",
+		RootExpert:  "orchestrator",
+		Enabled:     true,
+		Metadata:    install("https://aaa.example.org/clio-marketplace/earthscope-and-ndp-demo-blueprints-with-a-very-long-source-name.git", "update_available"),
+	}, {
+		ID:                 "disabled-benchmark-blueprint-with-long-title",
+		Version:            "0.8.0",
+		Title:              "Disabled Benchmark Blueprint With Long Title And Missing Optional Tools",
+		Description:        "Disabled fixture used to prove activation blocked and narrow truncation behavior.",
+		Scope:              "workspace",
+		RootExpert:         "orchestrator",
+		Enabled:            false,
+		ValidationWarnings: []string{"optional visualization package is not installed"},
+		Metadata:           install("https://example.org/clio-marketplace/disabled-blueprints-with-long-names.git", "disabled"),
+	}, {
+		ID:          "california-nws-warning-normalization-and-advisory-review",
+		Version:     "0.9.0",
+		Title:       "California NWS Warning Normalization And Advisory Review",
+		Description: "Second source fixture for source grouping pressure.",
+		Scope:       "workspace",
+		RootExpert:  "orchestrator",
+		Enabled:     true,
+		Metadata:    install("https://example.org/clio-marketplace/weather-and-nws-review-blueprints.git", "installed"),
+	}, {
+		ID:          "fresno-cimis-hourly-weather-profile-and-visualization",
+		Version:     "0.9.0",
+		Title:       "Fresno CIMIS Hourly Weather Profile And Visualization",
+		Description: "Third source fixture for source grouping pressure.",
+		Scope:       "workspace",
+		RootExpert:  "orchestrator",
+		Enabled:     true,
+		Metadata:    install("https://example.org/clio-marketplace/weather-and-nws-review-blueprints.git", "installed"),
+	}, {
+		ID:          "local-lab-blueprint-with-extremely-specific-scratch-analysis-name",
+		Version:     "0.1.0",
+		Title:       "Local Lab Blueprint With Extremely Specific Scratch Analysis Name",
+		Description: "Local path source fixture for long source names.",
+		Scope:       "workspace",
+		RootExpert:  "main",
+		Enabled:     true,
+		Metadata:    map[string]any{"install": map[string]any{"source": "/workspace/.clio/agent-blueprints/local-lab-blueprint-with-extremely-specific-scratch-analysis-name", "source_kind": "path", "status": "installed", "scope": "workspace", "trust": "explicit"}},
+	}}
+}
+
+func staticAgentBlueprintSources() []gact.AgentBlueprintSource {
+	return []gact.AgentBlueprintSource{{
+		ID:           "data-semantics-agents",
+		Name:         "Data Semantics Agents",
+		Source:       "git@github.com:example/data-semantics-agents.git",
+		Ref:          "main",
+		PinnedCommit: "0123456789abcdef",
+		SourceKind:   "git",
+		Status:       "ready",
+		Commit:       "0123456789abcdef",
+		AddedAt:      "2026-06-02T20:00:00Z",
+		UpdatedAt:    "2026-06-04T12:00:00Z",
+		AvailableBlueprints: []gact.AgentBlueprintDefinition{{
+			ID:          "seismic-waveform-review",
+			Version:     "0.1.0",
+			Title:       "Seismic Waveform Review",
+			Description: "Geospatial and EarthScope waveform review graph for the San Diego NDP demo.",
+			Scope:       "marketplace",
+			RootExpert:  "orchestrator",
+			Enabled:     true,
+		}, {
+			ID:          "wildfire-feature-review",
+			Version:     "0.1.0",
+			Title:       "Wildfire Feature Review",
+			Description: "NDP and ArcGIS feature workflow for current California wildfire records.",
+			Scope:       "marketplace",
+			RootExpert:  "orchestrator",
+			Enabled:     true,
+		}},
+	}}
+}
+
+func (s *Server) agentBlueprintSources() []gact.AgentBlueprintSource {
+	rows := staticAgentBlueprintSources()
+	if s != nil && s.cfg.LongAgentBlueprints {
+		rows = append(rows, staticLongAgentBlueprintSources()...)
+	}
+	return rows
+}
+
+func staticLongAgentBlueprintSources() []gact.AgentBlueprintSource {
+	return []gact.AgentBlueprintSource{{
+		ID:           "earthscope-ndp-long-source",
+		Name:         "EarthScope NDP Demo Marketplace Source With A Very Long Human Name",
+		Source:       "https://aaa.example.org/clio-marketplace/earthscope-and-ndp-demo-blueprints-with-a-very-long-source-name.git",
+		Ref:          "main",
+		PinnedCommit: "fedcba98765432100123456789abcdef",
+		SourceKind:   "git",
+		Status:       "ready",
+		Commit:       "fedcba98765432100123456789abcdef",
+		AddedAt:      "2026-06-05T14:00:00Z",
+		UpdatedAt:    "2026-06-06T08:30:00Z",
+		AvailableBlueprints: []gact.AgentBlueprintDefinition{{
+			ID:          longAgentBlueprintID,
+			Version:     "0.9.0",
+			Title:       "San Diego EarthScope and NDP Live Benchmark Review With Very Long Name",
+			Description: "Geospatial, EarthScope, SAC, and visualization workflow for the San Diego live demo.",
+			Scope:       "marketplace",
+			RootExpert:  "orchestrator",
+			Enabled:     true,
+		}, {
+			ID:          "california-wildfire-current-features-review-and-map-ready-summary",
+			Version:     "0.9.0",
+			Title:       "California Wildfire Current Features Review And Map Ready Summary",
+			Description: "Current wildfire feature workflow.",
+			Scope:       "marketplace",
+			RootExpert:  "orchestrator",
+			Enabled:     true,
+		}},
+	}, {
+		ID:         "weather-long-source",
+		Name:       "Weather And NWS Advisory Marketplace Source With Long Branch Metadata",
+		Source:     "https://example.org/clio-marketplace/weather-and-nws-review-blueprints.git",
+		Ref:        "release/demo-2026-06-06",
+		SourceKind: "git",
+		Status:     "needs_refresh",
+		Error:      "last refresh missed optional CIMIS station metadata",
+		AddedAt:    "2026-06-05T16:00:00Z",
+		UpdatedAt:  "2026-06-05T18:00:00Z",
+		AvailableBlueprints: []gact.AgentBlueprintDefinition{{
+			ID:         "california-nws-warning-normalization-and-advisory-review",
+			Version:    "0.9.0",
+			Title:      "California NWS Warning Normalization And Advisory Review",
+			Scope:      "marketplace",
+			RootExpert: "orchestrator",
+			Enabled:    true,
+		}, {
+			ID:         "fresno-cimis-hourly-weather-profile-and-visualization",
+			Version:    "0.9.0",
+			Title:      "Fresno CIMIS Hourly Weather Profile And Visualization",
+			Scope:      "marketplace",
+			RootExpert: "orchestrator",
+			Enabled:    true,
+		}},
+	}}
+}
+
 func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
 	return []gact.AgentDef{{
 		ID:          "data",
@@ -984,6 +1521,69 @@ func staticAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
 		Tier:        2,
 		Tools:       []string{"mcp.parquet.read"},
 		Metadata:    map[string]any{"agent_blueprint_id": blueprintID},
+	}}
+}
+
+func staticLongAgentBlueprintAgents(blueprintID string) []gact.AgentDef {
+	meta := func() map[string]any {
+		return map[string]any{"agent_blueprint_id": blueprintID}
+	}
+	return []gact.AgentDef{{
+		ID:             "orchestrator",
+		Title:          "San Diego Demo Orchestrator With Long Routing Context",
+		Description:    "Routes benchmark work across geospatial, catalog, waveform analysis, and visualization experts.",
+		Source:         "agent_blueprint",
+		Enabled:        true,
+		Tier:           1,
+		Specialization: "workflow_orchestration",
+		Tools:          []string{"ndp_search_datasets"},
+		Commands:       []string{"/run-san-diego-demo"},
+		Metadata:       meta(),
+	}, {
+		ID:             "geospatial",
+		Title:          "Geospatial Region Resolver For Southern California",
+		ParentID:       "orchestrator",
+		Description:    "Resolves the San Diego geography and bounding query context.",
+		Source:         "agent_blueprint",
+		Enabled:        true,
+		Tier:           2,
+		Specialization: "geospatial",
+		Tools:          []string{"ndp_search_datasets", "arcgis_query_features"},
+		Metadata:       meta(),
+	}, {
+		ID:             "earthscope_catalog",
+		Title:          "EarthScope Catalog Discovery Specialist",
+		ParentID:       "geospatial",
+		Description:    "Finds public EarthScope station and waveform evidence.",
+		Source:         "agent_blueprint",
+		Enabled:        true,
+		Tier:           3,
+		Specialization: "waveform_catalog",
+		Tools:          []string{"sac_discover_earthscope_region_waveform", "sac_inspect_archive"},
+		Metadata:       meta(),
+	}, {
+		ID:             "seismic_analysis",
+		Title:          "SAC Trace Analysis Specialist With Long Name",
+		ParentID:       "earthscope_catalog",
+		Description:    "Computes SAC statistics and station trace inspection output.",
+		Source:         "agent_blueprint",
+		Enabled:        true,
+		Tier:           4,
+		Specialization: "seismic_analysis",
+		Tools:          []string{"sac_compute_trace_statistics", "sac_inspect_archive"},
+		Metadata:       meta(),
+	}, {
+		ID:                 "visualization",
+		Title:              "Waveform Visualization And Artifact Publisher",
+		ParentID:           "seismic_analysis",
+		Description:        "Publishes waveform plots for the live benchmark discussion.",
+		Source:             "agent_blueprint",
+		Enabled:            true,
+		Tier:               5,
+		Specialization:     "visualization",
+		Tools:              []string{"sac_plot_traces"},
+		ValidationWarnings: []string{"falls back to static plot style when display backend is unavailable"},
+		Metadata:           meta(),
 	}}
 }
 
@@ -1039,11 +1639,19 @@ func mapFromAny(v any) map[string]any {
 // --- §6.6 Tools ------------------------------------------------------------
 
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.EmptyTools {
+		writeJSON(w, http.StatusOK, map[string]any{"tools": []gact.Tool{}})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"tools": staticTools()})
 }
 
 func (s *Server) handleGetTool(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if id == "legacy_waveform_fetch" {
+		writeError(w, http.StatusServiceUnavailable, "tool_unavailable", "tool unavailable: the EarthScope connector is not loaded in this workspace")
+		return
+	}
 	for _, t := range staticTools() {
 		if t.ID == id {
 			writeJSON(w, http.StatusOK, t)
@@ -1108,6 +1716,17 @@ func staticTools() []gact.Tool {
 			PermissionDefault: "allow",
 		},
 		{
+			ID: "legacy_waveform_fetch", Source: "extension", Name: "legacy_waveform_fetch", Title: "Legacy waveform fetch",
+			Description: "Stale extension entry used to exercise unavailable tool handling.",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"station": stringSchema()},
+				"required":   []string{"station"},
+			},
+			PermissionDefault: "ask",
+			Tags:              []string{"seismic", "unavailable"},
+		},
+		{
 			ID: "fake-mcp.fetch", Source: "mcp", ServerID: "mcp_fake", Name: "fetch", Title: "Fetch URL",
 			Description: "(MCP) Download a URL and return its contents.",
 			InputSchema: map[string]any{
@@ -1133,12 +1752,7 @@ func staticTools() []gact.Tool {
 // --- §6.5 Agents -----------------------------------------------------------
 
 func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
-	agents := staticAgents()
-	s.agentsMu.Lock()
-	for _, agent := range s.agents {
-		agents = append(agents, agent)
-	}
-	s.agentsMu.Unlock()
+	agents := s.allAgents()
 	// v0.2 — SPEC §4.3.1: `?tier=N` filters to a specific tier.
 	// Absent = return all tiers (backwards-compat with v0.1).
 	if tierStr := r.URL.Query().Get("tier"); tierStr != "" {
@@ -1176,7 +1790,7 @@ func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.agentsMu.Unlock()
-	for _, a := range staticAgents() {
+	for _, a := range s.allAgents() {
 		if a.ID == id {
 			writeJSON(w, http.StatusOK, a)
 			return
@@ -1192,6 +1806,10 @@ func (s *Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(agent.ID) == "" {
 		writeError(w, http.StatusBadRequest, "validation_error", "agent id is required")
+		return
+	}
+	if s.cfg.AgentFailures && strings.HasPrefix(agent.ID, "agent-write-fail") {
+		writeError(w, http.StatusConflict, "agent_create_failed", "agent create failed: workspace registry rejected this id")
 		return
 	}
 	agent.Source = firstNonEmptyString(agent.Source, "user")
@@ -1216,6 +1834,10 @@ func (s *Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var patch gact.AgentDef
 	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	if s.cfg.AgentFailures && id == "fragile-user-expert" {
+		writeError(w, http.StatusConflict, "agent_update_failed", "agent update failed: source file changed on disk")
 		return
 	}
 	s.agentsMu.Lock()
@@ -1246,6 +1868,10 @@ func (s *Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cfg.AgentFailures && id == "fragile-user-expert" {
+		writeError(w, http.StatusConflict, "agent_delete_failed", "agent delete failed: expert is referenced by active session routing")
+		return
+	}
 	s.agentsMu.Lock()
 	defer s.agentsMu.Unlock()
 	if _, ok := s.agents[id]; !ok {
@@ -1263,6 +1889,10 @@ func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(req.AgentID) == "" {
 		writeError(w, http.StatusBadRequest, "validation_error", "agent_id is required")
+		return
+	}
+	if s.cfg.AgentFailures && req.AgentID == "extract-fail" {
+		writeError(w, http.StatusBadGateway, "agent_extract_failed", "agent extraction failed: session transcript is unavailable")
 		return
 	}
 	agent := gact.AgentDef{
@@ -1287,6 +1917,16 @@ func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, agent)
 }
 
+func (s *Server) allAgents() []gact.AgentDef {
+	agents := staticAgents()
+	s.agentsMu.Lock()
+	for _, agent := range s.agents {
+		agents = append(agents, agent)
+	}
+	s.agentsMu.Unlock()
+	return agents
+}
+
 func staticAgents() []gact.AgentDef {
 	return []gact.AgentDef{
 		{
@@ -1294,12 +1934,15 @@ func staticAgents() []gact.AgentDef {
 			Description:  "General-purpose coding agent with full tool access.",
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
 			Tools:        []string{"bash", "read_file", "edit_file", "web_search"},
+			Enabled:      true,
 		},
 		{
 			ID: "code_reviewer", Source: "builtin", Title: "Code Reviewer",
 			Description:  "Reviews diffs without modifying files. Read-only.",
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:        []string{"read_file"},
+			ParentID:     "code_expert",
+			Enabled:      true,
 		},
 		// Two skill-source agents so the /skills catalog browser has
 		// real data to render (LLL3). Per SPEC §6.5 line 807, skills
@@ -1309,12 +1952,14 @@ func staticAgents() []gact.AgentDef {
 			Description:  "Writes table-driven Go tests for a target package.",
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:        []string{"read_file", "edit_file"},
+			Enabled:      true,
 		},
 		{
 			ID: "release_notes", Source: "skill", Title: "Release Notes",
 			Description:  "Summarizes git diffs since a tag into changelog entries.",
 			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
 			Tools:        []string{"bash", "read_file"},
+			Enabled:      true,
 		},
 
 		// v0.2 — SPEC §4.3.1: three tier-2 specialists wired with
@@ -1327,27 +1972,179 @@ func staticAgents() []gact.AgentDef {
 			Description:    "Source-level editing, review, refactoring.",
 			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:          []string{"read_file", "edit_file", "grep"},
+			ParentID:       "default",
 			Tier:           2,
 			Specialization: "code_editing",
 			Keywords:       []string{"edit", "refactor", "fix", "review", "patch"},
+			Enabled:        true,
 		},
 		{
 			ID: "research_expert", Source: "builtin", Title: "Research Expert",
 			Description:    "Web search + document retrieval + synthesis.",
 			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:          []string{"web_search", "read_file"},
+			ParentID:       "default",
 			Tier:           2,
 			Specialization: "knowledge_retrieval",
 			Keywords:       []string{"search", "find", "look up", "research", "citations"},
+			Enabled:        true,
 		},
 		{
 			ID: "data_expert", Source: "builtin", Title: "Data Expert",
 			Description:    "Profile and analyse structured data files.",
 			DefaultModel:   &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
 			Tools:          []string{"read_file", "bash"},
+			ParentID:       "default",
 			Tier:           2,
 			Specialization: "data_analysis",
 			Keywords:       []string{"analyze", "profile", "inspect", "data", "csv", "parquet"},
+			Enabled:        true,
+		},
+	}
+}
+
+func staticAgentStressDefinitions() []gact.AgentDef {
+	model := func(name string) *gact.ModelRef {
+		return &gact.ModelRef{ProviderID: "argonne_sophia", ModelID: name}
+	}
+	routeMeta := func(routes ...string) map[string]any {
+		return map[string]any{
+			"routes_to":      routes,
+			"source_path":    "/workspace/.clio/agents/stress/AGENT.md",
+			"storage_scope":  "workspace",
+			"visual_fixture": "agent-stress",
+		}
+	}
+	return []gact.AgentDef{
+		{
+			ID: "clio-live-benchmark-orchestrator-with-long-routing-title", Source: "recipe",
+			Title:          "CLIO Live Benchmark Orchestrator With Long Routing Title",
+			Description:    "Routes NDP, EarthScope, weather, warning, and visualization demo workflows while keeping operators aware of expert responsibility.",
+			DefaultModel:   model("openai/gpt-oss-120b"),
+			Tier:           1,
+			Specialization: "workflow_orchestration",
+			Tools:          []string{"ndp_search_datasets", "delegate_expert", "artifact_manifest"},
+			Keywords:       []string{"benchmark", "ndp", "earthscope", "demo"},
+			Commands:       []string{"/benchmark-san-diego", "/benchmark-wildfire", "/benchmark-cimis"},
+			Enabled:        true,
+			Metadata:       routeMeta("geo_region_resolver", "earthscope_catalog_expert", "california_warning_normalizer", "cimis_weather_profiler"),
+		},
+		{
+			ID: "geo_region_resolver", Source: "recipe", Title: "Geographic Region Resolver",
+			Description:    "Normalizes place names, bounding boxes, and nearby seismic station context before catalog discovery.",
+			ParentID:       "clio-live-benchmark-orchestrator-with-long-routing-title",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           2,
+			Specialization: "geospatial_resolution",
+			Tools:          []string{"geocode_location", "ndp_search_datasets"},
+			Keywords:       []string{"region", "bbox", "station"},
+			Enabled:        true,
+			Metadata:       routeMeta("earthscope_catalog_expert", "california_warning_normalizer"),
+		},
+		{
+			ID: "earthscope_catalog_expert", Source: "recipe", Title: "EarthScope Catalog Expert",
+			Description:    "Discovers waveform candidates, station channels, and SAC trace staging options.",
+			ParentID:       "geo_region_resolver",
+			DefaultModel:   model("openai/gpt-oss-120b"),
+			Tier:           3,
+			Specialization: "earthscope_catalog",
+			Tools:          []string{"sac_discover_earthscope_region_waveform", "sac_inspect_archive", "sac_compute_trace_statistics"},
+			Skills:         []string{"seismic-waveform-review"},
+			Enabled:        true,
+			Metadata:       routeMeta("sac_trace_quality_reviewer", "waveform_visualization_publisher"),
+		},
+		{
+			ID: "sac_trace_quality_reviewer", Source: "recipe", Title: "SAC Trace Quality Reviewer",
+			Description:    "Checks SAC headers, sample counts, basic statistics, and operator-readable trace evidence.",
+			ParentID:       "earthscope_catalog_expert",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           4,
+			Specialization: "seismic_analysis",
+			Tools:          []string{"sac_inspect_archive", "sac_compute_trace_statistics"},
+			Keywords:       []string{"sac", "trace", "statistics"},
+			Enabled:        true,
+			Metadata:       routeMeta("waveform_visualization_publisher"),
+		},
+		{
+			ID: "waveform_visualization_publisher", Source: "recipe", Title: "Waveform Visualization Publisher",
+			Description:    "Publishes discussion-ready SAC waveform plots and verifies the artifact path is visible to the operator.",
+			ParentID:       "sac_trace_quality_reviewer",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           5,
+			Specialization: "visualization",
+			Tools:          []string{"sac_plot_traces", "artifact_manifest"},
+			Enabled:        true,
+			Metadata:       routeMeta(),
+		},
+		{
+			ID: "california_warning_normalizer", Source: "recipe", Title: "California Warning Normalizer",
+			Description:    "Converts live National Weather Service warning epochs to ISO timestamps and compact JSON evidence.",
+			ParentID:       "clio-live-benchmark-orchestrator-with-long-routing-title",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           2,
+			Specialization: "weather_warnings",
+			Tools:          []string{"ndp_search_datasets", "arcgis_query_features", "json_normalize_timestamps"},
+			Enabled:        true,
+			Metadata:       routeMeta("warning_artifact_reviewer"),
+		},
+		{
+			ID: "warning_artifact_reviewer", Source: "recipe", Title: "Warning Artifact Reviewer",
+			Description:    "Validates warning count, affected areas, ISO timestamps, and JSON artifact readability.",
+			ParentID:       "california_warning_normalizer",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           3,
+			Specialization: "artifact_review",
+			Tools:          []string{"read_file", "json_schema_validate"},
+			Enabled:        true,
+			Metadata:       routeMeta(),
+		},
+		{
+			ID: "cimis_weather_profiler", Source: "recipe", Title: "Fresno CIMIS Weather Profiler",
+			Description:    "Profiles temperature, humidity, wind fields, and plot-ready weather timeseries from staged CIMIS data.",
+			ParentID:       "clio-live-benchmark-orchestrator-with-long-routing-title",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           2,
+			Specialization: "weather_profile",
+			Tools:          []string{"ndp_stage_resource", "csv_profile_columns", "plot_weather_timeseries"},
+			ValidationWarnings: []string{
+				"station feed freshness must be checked before demo",
+			},
+			Enabled:  true,
+			Metadata: routeMeta("weather_plot_publisher"),
+		},
+		{
+			ID: "weather_plot_publisher", Source: "recipe", Title: "Weather Plot Publisher",
+			Description:    "Produces the final Fresno CIMIS visualization and stores artifact provenance.",
+			ParentID:       "cimis_weather_profiler",
+			DefaultModel:   model("openai/gpt-oss-20b"),
+			Tier:           3,
+			Specialization: "visualization",
+			Tools:          []string{"plot_weather_timeseries", "artifact_manifest"},
+			Enabled:        true,
+			Metadata:       routeMeta(),
+		},
+		{
+			ID: "fragile-user-expert", Source: "user", Title: "Fragile User Expert",
+			Description:  "User-owned fixture for edit/delete failure handling in the TUI.",
+			SystemPrompt: "Keep this expert visible so write failures can be inspected without modifying real CLIO state.",
+			Tools:        []string{"read_file", "ndp_search_datasets"},
+			Keywords:     []string{"failure", "write", "demo"},
+			Enabled:      true,
+			Metadata: map[string]any{
+				"storage_scope":  "workspace",
+				"source_path":    "/workspace/.clio/agents/fragile-user-expert.md",
+				"visual_fixture": "agent-failures",
+			},
+		},
+		{
+			ID: "invalid-disabled-demo-expert", Source: "recipe", Title: "Invalid Disabled Demo Expert",
+			Description: "Disabled recipe with validation errors so the agent catalog can prove visible invalid states.",
+			ValidationErrors: []string{
+				"missing required tool: ndp_stage_resource",
+				"parent agent not installed: missing_parent",
+			},
+			Enabled:  false,
+			Metadata: map[string]any{"visual_fixture": "agent-stress"},
 		},
 	}
 }
@@ -1355,6 +2152,10 @@ func staticAgents() []gact.AgentDef {
 // --- §6.7 MCP --------------------------------------------------------------
 
 func (s *Server) handleListMcpServers(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.EmptyMcpConnections {
+		writeJSON(w, http.StatusOK, map[string]any{"servers": []gact.McpServer{}})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"servers": staticMcpServers()})
 }
 
@@ -1369,10 +2170,27 @@ func (s *Server) handleGetMcpServer(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
 }
 
+func (s *Server) handleDeleteMcpServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !mcpExists(id) {
+		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	if id == "mcp_docs" {
+		writeError(w, http.StatusConflict, "mcp_remove_failed", "remove failed: connection is still referenced by a workspace profile")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleMcpReconnect(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !mcpExists(id) {
 		writeError(w, http.StatusNotFound, "mcp_not_found", "no MCP server with id "+id)
+		return
+	}
+	if id == "mcp_docs" {
+		writeError(w, http.StatusBadGateway, "mcp_reconnect_failed", "probe failed: connection refused")
 		return
 	}
 	// MMM1: surface a notification SSE event so connected clients see
@@ -1508,6 +2326,16 @@ func mcpExists(id string) bool {
 func staticMcpServers() []gact.McpServer {
 	return []gact.McpServer{
 		{
+			ID: "mcp_docs", Name: "docs-mcp", Version: "0.1.0",
+			Transport: "http", ProtocolVersion: "2025-06-18", Status: "error",
+			LastError:    "connection refused",
+			ServerInfo:   map[string]any{"name": "docs-mcp", "version": "0.1.0"},
+			Instructions: "Demo disconnected MCP server used to exercise repair flows.",
+			DeclaredCapabilities: gact.McpCapabilities{
+				Tools: true,
+			},
+		},
+		{
 			ID: "mcp_fake", Name: "fake-mcp", Version: "0.1.0",
 			Transport: "stdio", ProtocolVersion: "2025-06-18", Status: "ready",
 			ServerInfo:   map[string]any{"name": "fake-mcp", "version": "0.1.0"},
@@ -1546,6 +2374,9 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 	plannerOnly := r.URL.Query().Get("planner") == "true"
 	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
 	rows := staticCommands()
+	if s.cfg.LongCommands {
+		rows = append(rows, staticLongPaletteCommands()...)
+	}
 	if sessionID != "" {
 		if sess, err := s.store.GetSession(sessionID); err == nil {
 			if blueprintID := stringFromAny(sess.Metadata["active_agent_blueprint_id"]); blueprintID != "" {
@@ -1570,6 +2401,19 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 		rows = filtered
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"commands": rows})
+}
+
+func staticLongPaletteCommands() []gact.Command {
+	out := make([]gact.Command, 0, 24)
+	for i := 1; i <= 24; i++ {
+		out = append(out, gact.Command{
+			ID:          fmt.Sprintf("/runtime-demo-%02d", i),
+			Title:       fmt.Sprintf("Runtime demo action %02d", i),
+			Description: "Synthetic runtime command used to exercise palette overflow and scrolling.",
+			Source:      "builtin",
+		})
+	}
+	return out
 }
 
 func staticAgentBlueprintPackagedCommands(blueprintID string) []gact.Command {
@@ -1603,7 +2447,7 @@ func staticCommands() []gact.Command {
 		{ID: "/cancel", Title: "Cancel current run", Source: "builtin", Shortcut: "ctrl+c"},
 		{ID: "/model", Title: "Switch model", Source: "builtin",
 			Arguments: []gact.AgentParameter{{Name: "model_id", Type: "string", Required: true}}},
-		{ID: "/agent", Title: "Switch agent", Source: "builtin",
+		{ID: "/agent", Title: "Expert settings", Description: "Pick the session expert", Source: "builtin",
 			Arguments: []gact.AgentParameter{{Name: "agent_id", Type: "string", Required: true}}},
 		{ID: "/add", Title: "Add file to context", Source: "builtin",
 			Arguments: []gact.AgentParameter{{Name: "path", Type: "string", Required: true}}},
@@ -1612,10 +2456,10 @@ func staticCommands() []gact.Command {
 		{ID: "/diff", Title: "Show pending diffs", Source: "builtin"},
 		{ID: "/undo", Title: "Undo last assistant change", Source: "builtin"},
 		{ID: "/help", Title: "Show help", Source: "builtin", Shortcut: "?"},
-		{ID: "/mcp", Title: "List connected MCP servers", Source: "builtin"},
-		{ID: "/tools", Title: "List available tools", Source: "builtin"},
+		{ID: "/mcp", Title: "MCP connections", Description: "Inspect MCP source health, resources, prompts, and management actions", Source: "builtin"},
+		{ID: "/tools", Title: "Capabilities", Description: "Unified catalog of built-in, recipe, extension, and MCP-provided tools", Source: "builtin"},
 		{ID: "/skills", Title: "List available skills", Source: "builtin"},
-		{ID: "/agents", Title: "Pick an agent for this session", Source: "builtin"},
+		{ID: "/agents", Title: "Expert settings", Description: "Pick the session expert", Source: "builtin"},
 		{ID: "/scenarios", Title: "Show scenario trigger keywords", Source: "builtin"},
 		{ID: "/new", Title: "Create a new session", Source: "builtin"},
 		{ID: "/rename", Title: "Rename the current session", Source: "builtin"},
@@ -1626,7 +2470,7 @@ func staticCommands() []gact.Command {
 		{ID: "/doctor", Title: "Open backend health + integrations modal", Source: "builtin"},
 		{ID: "/theme-next", Title: "Cycle to the next colour theme", Source: "builtin"},
 		{ID: "/theme-prev", Title: "Cycle to the previous colour theme", Source: "builtin"},
-		{ID: "/duplicate", Title: "Copy current session's title/model/agent to a fresh session", Source: "builtin"},
+		{ID: "/duplicate", Title: "Duplicate session", Description: "Copy title and expert", Source: "builtin"},
 		{ID: "/summarize", Title: "Summarize fake-mcp text",
 			Source: "mcp_prompt", ServerID: "mcp_fake",
 			AgentID: "clio.expert.data", AgentSource: "builtin", CommandSource: "mcp_prompt", Invocation: "mcp_prompt",
@@ -1710,6 +2554,10 @@ func (s *Server) handleSessionCommand(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case "/cancel":
+		if s.cfg.CancelFailures {
+			writeError(w, http.StatusBadGateway, "cancel_failed", "cancel failed: runtime supervisor did not acknowledge the request")
+			return
+		}
 		if s.onCancel != nil {
 			s.onCancel(sessionID)
 		}
@@ -1910,6 +2758,10 @@ func (s *Server) handleAddContextFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.store.GetSession(id); err != nil {
 		writeStoreError(w, err, "session_not_found", "invalid_session")
+		return
+	}
+	if s.cfg.ContextAddFailures {
+		writeError(w, http.StatusBadGateway, "context_add_failed", "context add failed: workspace file index is temporarily unavailable")
 		return
 	}
 	var req contextFileRequest

@@ -96,6 +96,79 @@ func TestLMProviderConfig(t *testing.T) {
 	}
 }
 
+func TestLMProviderEdgeStates(t *testing.T) {
+	srv := New(Config{ProviderEdgeStates: true})
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/providers/lm", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get lm provider: %d", rec.Code)
+	}
+	var got struct {
+		Presets []struct {
+			ID            string `json:"id"`
+			Status        string `json:"status"`
+			StatusMessage string `json:"status_message"`
+		} `json:"presets"`
+	}
+	mustDecode(t, rec, &got)
+	foundSophia := false
+	foundLocal := false
+	for _, p := range got.Presets {
+		if p.ID == "argonne_sophia" {
+			foundSophia = p.Status == "auth_required" && strings.Contains(p.StatusMessage, "token expired")
+		}
+		if p.ID == "local" {
+			foundLocal = p.Status == "unavailable" && strings.Contains(p.StatusMessage, "connection refused")
+		}
+	}
+	if !foundSophia || !foundLocal {
+		t.Fatalf("edge presets missing sophia/local states: %#v", got.Presets)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/providers/local/models", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("local models: %d", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"source":"unavailable"`) || !strings.Contains(body, "connection refused") {
+		t.Fatalf("local model warning body = %s", body)
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/providers/argonne_sophia/auth", map[string]any{"force": true})
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("sophia auth status = %d body %s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "Globus token expired") {
+		t.Fatalf("sophia auth body = %s", body)
+	}
+}
+
+func TestLMProviderEdgeAuthSuccessClearsSophiaModelWarning(t *testing.T) {
+	srv := New(Config{ProviderEdgeStates: true, ProviderAuthSucceeds: true})
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/providers/argonne_sophia/models", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pre-auth sophia models: %d", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"source":"unavailable"`) || !strings.Contains(body, "token expired") {
+		t.Fatalf("pre-auth sophia body = %s", body)
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/providers/argonne_sophia/auth", map[string]any{"force": true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sophia auth status = %d body %s", rec.Code, rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/providers/argonne_sophia/models", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("post-auth sophia models: %d", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"source":"live"`) || !strings.Contains(body, "openai/gpt-oss-120b") || strings.Contains(body, "token expired") {
+		t.Fatalf("post-auth sophia body = %s", body)
+	}
+}
+
 // --- §6.6 Tools ------------------------------------------------------------
 
 func TestTools(t *testing.T) {
@@ -110,9 +183,322 @@ func TestTools(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("get: %d", rec2.Code)
 	}
+	recUnavailable := do(t, h, http.MethodGet, "/v1/tools/legacy_waveform_fetch", nil)
+	if recUnavailable.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unavailable: %d, want 503", recUnavailable.Code)
+	}
 	rec3 := do(t, h, http.MethodGet, "/v1/tools/nope", nil)
 	if rec3.Code != http.StatusNotFound {
 		t.Errorf("missing: %d", rec3.Code)
+	}
+}
+
+func TestEmptyMcpConnectionsFixture(t *testing.T) {
+	srv := New(Config{EmptyMcpConnections: true})
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/mcp/servers", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list MCP connections: %d", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"servers":[]`) {
+		t.Fatalf("empty MCP connection fixture body = %s", body)
+	}
+}
+
+func TestCommandsCanExposeLongPaletteFixture(t *testing.T) {
+	st := store.New()
+	if _, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"}); err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	srv := NewWithStore(Config{LongCommands: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/commands", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("commands: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"/runtime-demo-01", "/runtime-demo-24", "Synthetic runtime command"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("long command fixture missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestAgentBlueprintFailureFixture(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	srv.cfg.AgentBlueprintFailures = true
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/agent-blueprints/validate", gact.AgentBlueprintValidateRequest{Path: "/tmp/warning/AGENT.md"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("validate warning: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "optional MCP server") {
+		t.Fatalf("validate warning body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agent-blueprints/validate", gact.AgentBlueprintValidateRequest{Path: "/tmp/invalid/AGENT.md"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("validate invalid: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "root_expert not found") {
+		t.Fatalf("validate invalid body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agent-blueprints/install", gact.AgentBlueprintInstallRequest{Source: "install-fail://missing-agent-md"})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("install failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "source archive is missing AGENT.md") {
+		t.Fatalf("install failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agent-blueprints/broken-blueprint/update", gact.AgentBlueprintUpdateRequest{Scope: "workspace"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("update failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "validation errors must be fixed first") {
+		t.Fatalf("update failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodDelete, "/v1/agent-blueprints/broken-blueprint?scope=workspace", nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "workspace policy is locking this blueprint") {
+		t.Fatalf("delete failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agent-blueprints/sources/data-semantics-agents/refresh", nil)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("source refresh failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "unable to fetch remote refs") {
+		t.Fatalf("source refresh failure body = %s", rec.Body.String())
+	}
+}
+
+func TestPromptStressAndSaveFailureFixtures(t *testing.T) {
+	st := store.New()
+	if _, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"}); err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	srv := NewWithStore(Config{PromptStress: true, PromptSaveFailures: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/prompts", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list prompts: %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"workspace.seismic.main",
+		"workspace.invalid.placeholder",
+		"unknown placeholder",
+		"argonne_sophia",
+		"openai/gpt-oss-120b",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("prompt stress fixture missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "session.nws.warning") {
+		t.Fatalf("unscoped prompt fixture should hide session prompts:\n%s", body)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/prompts?session_id=ses_seed_ws_default_1", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list scoped prompts: %d body %s", rec.Code, rec.Body.String())
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, "session.nws.warning") {
+		t.Fatalf("scoped prompt fixture should include matching session prompt:\n%s", body)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/prompts?session_id=other_session", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list nonmatching scoped prompts: %d body %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "session.nws.warning") {
+		t.Fatalf("nonmatching session scope should hide session prompt:\n%s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/prompts/workspace.seismic.main", gact.PromptSaveRequest{
+		Profile: "codex",
+		Text:    "override",
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("save failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "read-only") {
+		t.Fatalf("save failure body = %s", rec.Body.String())
+	}
+}
+
+func TestAgentStressAndFailureFixtures(t *testing.T) {
+	st := store.New()
+	if _, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"}); err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	srv := NewWithStore(Config{LongAgents: true, AgentFailures: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/agents", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list agents: %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"clio-live-benchmark-orchestrator-with-long-routing-title",
+		"earthscope_catalog_expert",
+		"sac_trace_quality_reviewer",
+		"waveform_visualization_publisher",
+		"fragile-user-expert",
+		"invalid-disabled-demo-expert",
+		"station feed freshness must be checked before demo",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("agent stress fixture missing %q:\n%s", want, body)
+		}
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agents", gact.AgentDef{
+		ID:          "agent-write-fail",
+		Title:       "Agent Write Fail",
+		Description: "should fail",
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("create failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "workspace registry rejected this id") {
+		t.Fatalf("create failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPut, "/v1/agents/fragile-user-expert", gact.AgentDef{
+		ID:          "fragile-user-expert",
+		Title:       "Edited",
+		Description: "edited",
+		Enabled:     true,
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("update failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "source file changed on disk") {
+		t.Fatalf("update failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodDelete, "/v1/agents/fragile-user-expert", nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "referenced by active session routing") {
+		t.Fatalf("delete failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/agents/extract", gact.AgentExtractRequest{
+		SessionIDs: []string{"ses_missing"},
+		AgentID:    "extract-fail",
+	})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("extract failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "session transcript is unavailable") {
+		t.Fatalf("extract failure body = %s", rec.Body.String())
+	}
+}
+
+func TestExpertPackLifecycleFailureFixture(t *testing.T) {
+	st := store.New()
+	if _, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"}); err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	srv := NewWithStore(Config{ExpertPackFailures: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/expert-packs", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list packs: %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"data-semantics",
+		"git@github.com:example/data-semantics-agents.git",
+		"last_synced_at",
+		"fedcba98765432100123456789abcdef",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expert-pack provenance missing %q:\n%s", want, body)
+		}
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/expert-packs/install", gact.ExpertPackInstallRequest{Source: "install-fail://missing-manifest"})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("install failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "manifest clio-pack.yaml was not found") {
+		t.Fatalf("install failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodPost, "/v1/expert-packs/data-semantics/update", nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("update failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "marketplace source has validation errors") {
+		t.Fatalf("update failure body = %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodDelete, "/v1/expert-packs/data-semantics", nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete failure: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "pack is active in the selected session") {
+		t.Fatalf("delete failure body = %s", rec.Body.String())
+	}
+}
+
+func TestLongAgentBlueprintFixture(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	srv.cfg.LongAgentBlueprints = true
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/agent-blueprints", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list blueprints: %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		longAgentBlueprintID,
+		"San Diego EarthScope and NDP Live Benchmark Review With Very Long Name",
+		"disabled-benchmark-blueprint-with-long-title",
+		"local-lab-blueprint-with-extremely-specific-scratch-analysis-name",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("long blueprint list missing %q:\n%s", want, body)
+		}
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/"+longAgentBlueprintID, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get long blueprint: %d body %s", rec.Code, rec.Body.String())
+	}
+	body = rec.Body.String()
+	for _, want := range []string{"earthscope_catalog", "seismic_analysis", "visualization"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("long blueprint detail missing %q:\n%s", want, body)
+		}
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/sources", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list sources: %d body %s", rec.Code, rec.Body.String())
+	}
+	body = rec.Body.String()
+	for _, want := range []string{"earthscope-ndp-long-source", "Weather And NWS Advisory Marketplace Source With Long Branch Metadata"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("long source list missing %q:\n%s", want, body)
+		}
 	}
 }
 
@@ -176,6 +562,24 @@ func TestMcpEndpoints(t *testing.T) {
 		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_fake/reconnect", nil)
 		if rec.Code != http.StatusNoContent {
 			t.Errorf("reconnect: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodPost, "/v1/mcp/servers/mcp_docs/reconnect", nil)
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("failed reconnect: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodDelete, "/v1/mcp/servers/mcp_fake", nil)
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("delete: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodDelete, "/v1/mcp/servers/mcp_docs", nil)
+		if rec.Code != http.StatusConflict {
+			t.Errorf("failed delete: %d", rec.Code)
 		}
 	}
 	for _, p := range []string{
@@ -294,6 +698,40 @@ func TestCommandsIncludeActiveAgentBlueprintPackagedCommands(t *testing.T) {
 	plannerCommands := do(t, h, http.MethodGet, "/v1/commands?session_id="+sid+"&planner=true&agent_id=data", nil)
 	if plannerCommands.Code != http.StatusOK || !strings.Contains(plannerCommands.Body.String(), "/validate-dataset") {
 		t.Fatalf("planner commands missing packaged command: %d %s", plannerCommands.Code, plannerCommands.Body.String())
+	}
+}
+
+func TestSessionCommandCancelFailureFixtureKeepsSessionRunning(t *testing.T) {
+	st := store.New()
+	ws, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"})
+	if err != nil {
+		t.Fatalf("seed workspace: %v", err)
+	}
+	sess, err := st.CreateSession(gact.Session{
+		WorkspaceID: ws.ID,
+		Title:       "running demo",
+		Status:      gact.StatusRunning,
+	})
+	if err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	srv := NewWithStore(Config{CancelFailures: true}, st)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sess.ID+"/commands/%2Fcancel", nil)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("/cancel failure status = %d body %s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "cancel_failed") ||
+		!strings.Contains(body, "runtime supervisor did not acknowledge") {
+		t.Fatalf("/cancel failure body = %s", body)
+	}
+	got, err := st.GetSession(sess.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got.Status != gact.StatusRunning {
+		t.Fatalf("/cancel failure should leave status running, got %q", got.Status)
 	}
 }
 
@@ -417,6 +855,33 @@ func TestContextFiles(t *testing.T) {
 	rec5 := do(t, h, http.MethodDelete, "/v1/sessions/"+sid+"/context/files", contextFileRequest{Path: "nope.go"})
 	if rec5.Code != http.StatusNotFound {
 		t.Errorf("delete missing: %d", rec5.Code)
+	}
+}
+
+func TestContextAddFailureFixtureUsesStructuredError(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	srv.cfg.ContextAddFailures = true
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/context/files", contextFileRequest{
+		Path: "docs/readme.md",
+		Mode: "read",
+	})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("context add failure status = %d body %s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "context_add_failed") ||
+		!strings.Contains(body, "workspace file index is temporarily unavailable") {
+		t.Fatalf("context add failure body = %s", body)
+	}
+
+	recList := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/context/files", nil)
+	var listBody struct {
+		Files []gact.ContextFile `json:"files"`
+	}
+	mustDecode(t, recList, &listBody)
+	if len(listBody.Files) != 0 {
+		t.Fatalf("failed add should not mutate context files: %+v", listBody.Files)
 	}
 }
 

@@ -33,7 +33,7 @@ func TestRenderAssistantToolEvidenceFromMetadata(t *testing.T) {
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
 	for _, want := range []string{
-		"Hdf5ListDatasets(path: run.h5)",
+		"HDF5 data analysis(path: run.h5)",
 		"trace metadata",
 		`["/entry/current","/entry/voltage"]`,
 		"raw detail",
@@ -68,7 +68,7 @@ func TestStructuredToolCallsDoNotRenderDuplicateToolEvidence(t *testing.T) {
 	if strings.Contains(out, "Tool evidence") {
 		t.Fatalf("structured tool call should not duplicate metadata evidence:\n%s", out)
 	}
-	if !strings.Contains(out, "Hdf5ListDatasets") {
+	if !strings.Contains(out, "HDF5 data analysis") {
 		t.Fatalf("structured tool call itself should still render:\n%s", out)
 	}
 }
@@ -105,7 +105,7 @@ func TestMessageCompletedMergesToolEvidenceMetadata(t *testing.T) {
 	if strings.Contains(out, "Tool evidence") {
 		t.Fatalf("metadata tool evidence should be promoted to structured parts, not rendered as a footer:\n%s", out)
 	}
-	if !strings.Contains(out, "ParquetComputeStatistics") {
+	if !strings.Contains(out, "Parquet data analysis") {
 		t.Fatalf("message.completed metadata was not promoted to a tool call:\n%s", out)
 	}
 }
@@ -178,7 +178,7 @@ func TestLiveStructuredToolResultUsesSemanticPreview(t *testing.T) {
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
 	for _, want := range []string{
-		"NdpSearchDatasets(search_terms: seismic",
+		"NDP catalog search(search: seismic",
 		"status: success",
 		"count: 5",
 		"Salton Sea Seismic Data",
@@ -283,7 +283,7 @@ func TestNormalizeMessagePresentationPromotesExpertHandoffsBeforeToolsAndText(t 
 		"handoff metadata",
 		"found NDP waveform archive",
 		"data -> ndp_catalog",
-		"NdpSearchDatasets",
+		"NDP catalog search",
 		"trace metadata",
 		"Plot written.",
 	} {
@@ -362,7 +362,7 @@ func TestNormalizeMessagePresentationSkipsRedundantDirectToolSuccessHandoffs(t *
 		"failure",
 		"direct_tool",
 		"computed parquet statistics",
-		"ParquetComputeStatistics",
+		"Parquet data analysis",
 		"Stats are ready.",
 	} {
 		if !strings.Contains(out, want) {
@@ -428,7 +428,7 @@ func TestNormalizeMessagePresentationFiltersExistingRedundantDirectToolHandoffs(
 	for _, want := range []string{
 		"planner_dispatch",
 		"inspected parquet",
-		"ParquetComputeStatistics",
+		"Parquet data analysis",
 		"Done.",
 	} {
 		if !strings.Contains(out, want) {
@@ -478,7 +478,7 @@ func TestNormalizeMessagePresentationCompactsDuplicateToolEvidenceRows(t *testin
 	normalizeMessagePresentation(&msg)
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 150, nil))
-	if got := strings.Count(out, "ParquetComputeStatistics("); got != 2 {
+	if got := strings.Count(out, "Parquet data analysis("); got != 2 {
 		t.Fatalf("expected duplicate tool evidence rows to compact to two calls, got %d:\n%s", got, out)
 	}
 	if !strings.Contains(out, "trace repeated 1 more time with the same call/result") {
@@ -583,9 +583,9 @@ func TestToolEvidenceVisualizationArtifactRendersReadableSummary(t *testing.T) {
 	normalizeMessagePresentation(&msg)
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 180, nil))
 	for _, want := range []string{
-		"PlotScatter(output_path: .../clio-benchmark-data/facility_measurements_scatter.png",
-		"x_column: vibration_mm_s",
-		"y_column: anomaly_score",
+		"PlotScatter(artifact: .../clio-benchmark-data/facility_measurements_scatter.png",
+		"x column: vibration_mm_s",
+		"y column: anomaly_score",
 		"artifact result:",
 		"artifact: .../clio-benchmark-data/facility_measurements_scatter.png",
 		"raw detail",
@@ -597,6 +597,88 @@ func TestToolEvidenceVisualizationArtifactRendersReadableSummary(t *testing.T) {
 	}
 	if strings.Contains(out, `{"ok":true`) || strings.Contains(out, `"value":`) {
 		t.Fatalf("inline visualization summary should not be raw JSON:\n%s", out)
+	}
+}
+
+func TestToolEvidenceNDPFeatureCollectionRendersReadableRecords(t *testing.T) {
+	msg := gact.Message{
+		Role:  gact.RoleAssistant,
+		Parts: []gact.Part{{ID: "answer", Type: gact.PartTypeText, Text: "Current wildfire records are ready."}},
+		Metadata: map[string]any{
+			"tools_called": []any{
+				map[string]any{
+					"name": "ndp_query_arcgis_features",
+					"args": map[string]any{
+						"dataset_identifier": "current-wildfires-ca",
+						"where":              "STATE = 'CA'",
+					},
+					"result": map[string]any{
+						"_meta":       map[string]any{"status": "success"},
+						"source":      "California current wildfire features",
+						"count":       2.0,
+						"output_path": "/home/jcernuda/clio-agent/tmp/ndp-meeting-live-agent/current_wildfires_ca.json",
+						"features": []any{
+							map[string]any{
+								"attributes": map[string]any{
+									"IncidentName":     "Laguna Fire",
+									"IncidentStatus":   "Active",
+									"GISAcres":         1420.5,
+									"PercentContained": 35.0,
+									"County":           "San Diego",
+									"LastUpdate":       "2026-06-05T16:10:00Z",
+								},
+								"geometry": map[string]any{"x": -117.02, "y": 32.71},
+							},
+							map[string]any{
+								"attributes": map[string]any{
+									"IncidentName":   "Sierra Fire",
+									"IncidentStatus": "Active",
+									"County":         "Fresno",
+									"GISAcres":       88.0,
+								},
+							},
+						},
+					},
+					"ok": true,
+				},
+			},
+		},
+	}
+
+	normalizeMessagePresentation(&msg)
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 180, nil))
+	for _, want := range []string{
+		"NDP feature query(",
+		"status: success",
+		"source: California current wildfire features",
+		"records: 2",
+		"artifact: .../ndp-meeting-live-agent/current_wildfires_ca.json",
+		"sample: Laguna Fire",
+		"Laguna Fire",
+		"status: Active",
+		"area: San Diego",
+		"acres: 1420",
+		"containment: 35",
+		"Current wildfire records are ready.",
+		"Ctrl+E to expand",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("NDP feature summary missing %q:\n%s", want, out)
+		}
+	}
+	foundRaw := false
+	for _, part := range msg.Parts {
+		if part.Type == gact.PartTypeToolResult && part.Metadata["raw_result"] != nil {
+			foundRaw = true
+		}
+	}
+	if !foundRaw {
+		t.Fatal("raw NDP feature result should remain available in tool detail metadata")
+	}
+	for _, notWant := range []string{`"features"`, `"attributes"`, `"geometry"`, `"IncidentName"`} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("inline NDP feature summary should not be raw JSON %q:\n%s", notWant, out)
+		}
 	}
 }
 
@@ -672,6 +754,38 @@ func TestExpertHandoffInlinePreviewStaysConcise(t *testing.T) {
 	}
 }
 
+func TestExpertHandoffInlineHumanizesWorkflowLifecycleStage(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: "analysis returned a compact result to main.",
+		Metadata: map[string]any{
+			"agent_id":       "analysis",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"duration_ms":    20353.0,
+			"output_summary": "analysis returned a compact result to main.",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalized := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{
+		"main -> analysis",
+		"completed",
+		"returned",
+		"20353ms",
+		"analysis returned a compact result",
+	} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("handoff lifecycle render missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "delegate.completed") {
+		t.Fatalf("inline handoff should humanize backend lifecycle tokens:\n%s", out)
+	}
+}
+
 func TestScientificToolCallSummaryUsesPrimaryArgs(t *testing.T) {
 	part := gact.Part{
 		Type:     gact.PartTypeToolCall,
@@ -684,11 +798,46 @@ func TestScientificToolCallSummaryUsesPrimaryArgs(t *testing.T) {
 
 	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
 	if !strings.Contains(out, "filepath: .../clio-ndp-staging/Pachhai_etal_2023_ScP_data.tar") ||
-		!strings.Contains(out, "max_traces: 6") {
+		!strings.Contains(out, "max traces: 6") {
 		t.Fatalf("scientific tool call summary should use named primary args:\n%s", out)
 	}
 	if strings.Contains(out, `{"filepath"`) {
 		t.Fatalf("scientific tool call summary should not fall back to raw JSON:\n%s", out)
+	}
+}
+
+func TestSacDiscoveryToolCallSummaryUsesWorkflowFields(t *testing.T) {
+	part := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "sac_discover_earthscope_region_waveform",
+		Input: map[string]any{
+			"days_back":     7.0,
+			"duration":      120.0,
+			"location":      "San Diego, CA",
+			"min_magnitude": 1.0,
+			"output_dir":    "/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	if !strings.HasPrefix(out, "EarthScope waveform discovery(") {
+		t.Fatalf("SAC discovery call should use an operator-facing transcript label:\n%s", out)
+	}
+	if strings.Contains(out, "SacDiscoverEarthscopeRegionWaveform") {
+		t.Fatalf("SAC discovery call should not lead with raw backend function names:\n%s", out)
+	}
+	for _, want := range []string{"location: San Diego, CA", "window: last 7 days", "duration: 120s", "min magnitude: 1"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("SAC discovery call should summarize workflow fields %q:\n%s", want, out)
+		}
+	}
+	for _, raw := range []string{"days_back", "min_magnitude", "output_dir", "clio-seismic-staging"} {
+		if strings.Contains(out, raw) {
+			t.Fatalf("SAC discovery call should not lead with backend-style field %q:\n%s", raw, out)
+		}
+	}
+	if strings.Contains(out, "output_dir") || strings.Contains(out, "clio-seismic-staging") {
+		t.Fatalf("SAC discovery call should not lead with staging implementation paths:\n%s", out)
 	}
 }
 
@@ -885,7 +1034,7 @@ func TestMessageErrorInfoPromotesToExpandableErrorPart(t *testing.T) {
 	}
 	ref := partDetailRef("msg", msg.Parts[0])
 	for _, want := range []string{
-		"type: error",
+		"kind: error",
 		"code: tool_error",
 		"recoverable: true",
 		"Column 'event_status' not found",
@@ -1109,6 +1258,78 @@ func TestLiveParquetToolResultRendersSemanticPreview(t *testing.T) {
 	}
 }
 
+func TestLiveNWSFeatureToolResultRendersSemanticPreview(t *testing.T) {
+	assistant := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:       "call",
+			Type:     gact.PartTypeToolCall,
+			CallID:   "nws1",
+			ToolName: "ndp_query_arcgis_features",
+			Input:    map[string]any{"dataset_identifier": "california-nws-warnings", "where": "state = 'CA'"},
+		}},
+	}
+	toolMsg := gact.Message{
+		Role: gact.RoleTool,
+		Parts: []gact.Part{{
+			ID:       "result",
+			Type:     gact.PartTypeToolResult,
+			CallID:   "nws1",
+			ToolName: "ndp_query_arcgis_features",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: strings.Join([]string{
+					`{`,
+					`  "status": "success",`,
+					`  "source": "California NWS warnings",`,
+					`  "records": [`,
+					`    {`,
+					`      "properties": {`,
+					`        "headline": "Flood Warning issued June 5",`,
+					`        "event": "Flood Warning",`,
+					`        "severity": "Severe",`,
+					`        "areaDesc": "Los Angeles County",`,
+					`        "effective": "2026-06-05T11:00:00Z",`,
+					`        "expires": "2026-06-05T20:00:00Z"`,
+					`      }`,
+					`    }`,
+					`  ],`,
+					`  "output_path": "/home/jcernuda/clio-agent/tmp/ndp-meeting-live-agent/california_nws_warnings.json"`,
+					`}`,
+				}, "\n"),
+			}},
+		}},
+	}
+	messages := []gact.Message{assistant, toolMsg}
+	inline, _ := pairToolResults(messages)
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(assistant, nil, 160, inline[0]))
+	for _, want := range []string{
+		"source: California NWS warnings",
+		"records: 1",
+		"sample: Flood Warning issued June 5",
+		"Flood Warning issued June 5",
+		"event: Flood Warning",
+		"severity: Severe",
+		"area: Los Angeles County",
+		"artifact: .../ndp-meeting-live-agent/california_nws_warnings.json",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("live NWS feature preview missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"records"`) || strings.Contains(out, `"properties"`) {
+		t.Fatalf("live NWS feature preview should not render raw JSON inline:\n%s", out)
+	}
+	ref, ok := findBulkyPartForSelected(assistant, 0, messages, 0)
+	if !ok {
+		t.Fatal("selected live feature tool result should still open detail")
+	}
+	if !strings.Contains(ref.fullText, `"records"`) {
+		t.Fatalf("detail should preserve raw feature result, got:\n%s", ref.fullText)
+	}
+}
+
 func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 	cases := []struct {
 		name string
@@ -1177,6 +1398,37 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 				".../SCP/01-02-2013_10:39:48.540.AS01.ScP.aligned.SAC",
 			},
 		},
+		{
+			name: "earthscope waveform discovery",
+			tool: "sac_discover_earthscope_region_waveform",
+			raw: map[string]any{
+				"archive_path": "/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac",
+				"network":      "CI",
+				"station":      "BAR",
+				"location":     "--",
+				"channel":      "BHZ",
+				"event_count":  4.0,
+				"trace_count":  1.0,
+				"start_time":   "2026-05-29T02:12:01Z",
+				"end_time":     "2026-05-29T02:14:01Z",
+				"magnitude":    2.7,
+				"_meta":        map[string]any{"status": "success"},
+			},
+			want: []string{
+				"sac result:",
+				"status: success",
+				"trace_count: 1",
+				"event_count: 4",
+				"magnitude: 2.7",
+				"file: .../clio-seismic-staging/earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac",
+				"network: CI",
+				"station: BAR",
+				"location: --",
+				"channel: BHZ",
+				"start: 2026-05-29T02:12:01Z",
+				"end: 2026-05-29T02:14:01Z",
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -1188,5 +1440,24 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSummarizeDetachedSACResultWithoutToolName(t *testing.T) {
+	raw := `{"_meta":{"status":"success"},"archive_path":"/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac","network":"CI","station":"BAR","location":"--","channel":"BHZ","trace_count":1,"event_count":4,"start_time":"2026-05-29T02:12:01Z"}`
+	got := summarizeToolResultText("", raw)
+	for _, want := range []string{
+		"sac result:",
+		"status: success",
+		"trace_count: 1",
+		"event_count: 4",
+		"file: .../clio-seismic-staging/earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac",
+		"network: CI",
+		"station: BAR",
+		"channel: BHZ",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("summary missing %q\nsummary:\n%s", want, got)
+		}
 	}
 }

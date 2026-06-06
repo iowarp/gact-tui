@@ -158,6 +158,10 @@ func (a *App) clampFileTreeSelection() {
 }
 
 func (a *App) activateFileTreeSelection() {
+	if strings.TrimSpace(a.fileTreeErr) != "" {
+		a.openFileViewerRootDetail()
+		return
+	}
 	visible := a.visibleFileTreeEntries()
 	if len(visible) == 0 {
 		return
@@ -242,6 +246,39 @@ func (a *App) openFileViewerDetail(entry fileTreeEntry) {
 	a.detailScroll = 0
 }
 
+func (a *App) openFileViewerRootDetail() {
+	mode := strings.TrimSpace(a.fileTreeRootMode)
+	if mode == "" {
+		mode = "folder"
+	}
+	status := "available"
+	if strings.TrimSpace(a.fileTreeErr) != "" {
+		status = "unavailable"
+	}
+	rows := []string{
+		"root: " + a.fileViewerRoot,
+		"mode: " + mode,
+		"status: " + status,
+	}
+	if strings.TrimSpace(a.fileTreeErr) != "" {
+		rows = append(rows,
+			"",
+			"The file browser cannot read this folder right now.",
+			"",
+			"details: "+a.fileTreeErr,
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "files",
+		partID:    "root",
+		title:     "Files · " + fileViewerUnavailableTitle(mode),
+		fullText:  strings.Join(rows, "\n"),
+		localPath: a.fileViewerRoot,
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
 func (a *App) uploadCurrentFileDetail() tea.Cmd {
 	if a.detailView == nil || a.detailView.messageID != "files" || strings.TrimSpace(a.detailView.localPath) == "" {
 		a.transientHint = "upload unavailable for this detail"
@@ -315,7 +352,12 @@ func (a *App) renderFileViewerModuleRows(width int, startRow int, rowBudget int)
 		rows = append(rows, t.HintLabel.Italic(true).Render(truncate(label, width-6)))
 	}
 	if a.fileTreeErr != "" {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(truncate("error: "+a.fileTreeErr, width-6)))
+		errorRow := startRow + len(rows)
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(truncate("folder unavailable", width-6)))
+		if rowBudget > 2 {
+			rows = append(rows, t.HintLabel.Render(truncate("Enter for details", width-6)))
+		}
+		a.registerSidebarFileViewerErrorHit(errorRow, width)
 		return rows
 	}
 	if len(visible) == 0 {
@@ -340,6 +382,13 @@ func (a *App) renderFileViewerModuleRows(width int, startRow int, rowBudget int)
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(fmt.Sprintf(" … %d below", len(visible)-win.end)))
 	}
 	return rows
+}
+
+func fileViewerUnavailableTitle(mode string) string {
+	if strings.TrimSpace(mode) == "workspace" {
+		return "workspace folder unavailable"
+	}
+	return "folder unavailable"
 }
 
 func (a *App) sidebarFileViewerRowCount(rowBudget int) int {
@@ -427,6 +476,27 @@ func (a *App) registerSidebarFileTreeHit(row int, width int, visibleIndex int) {
 		app.sidebarSectionCursor = false
 		app.fileTreeSel = visibleIndex
 		app.activateFileTreeSelection()
+		return nil
+	})
+}
+
+func (a *App) registerSidebarFileViewerErrorHit(row int, width int) {
+	if a.hits == nil {
+		return
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	id := "sidebar:files:error"
+	if zone == FocusRightSidebar {
+		id = "right-sidebar:files:error"
+	}
+	a.registerSidebarContentHit(id, row, width, 1, func(app *App) tea.Cmd {
+		app.focus = zone
+		app.sidebarSectionFocus = sidebarSectionFiles
+		app.sidebarSectionCursor = false
+		app.openFileViewerRootDetail()
 		return nil
 	})
 }

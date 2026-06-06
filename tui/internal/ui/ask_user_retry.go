@@ -17,6 +17,12 @@ type agentQuestionAnsweredMsg struct {
 	err        error
 }
 
+type agentQuestionCancelledMsg struct {
+	sessionID  string
+	questionID string
+	err        error
+}
+
 type retryTurnStartedMsg struct {
 	sessionID string
 	attempt   gact.TurnAttempt
@@ -29,6 +35,15 @@ func answerUserQuestionCmd(c *client.Client, sessionID, questionID string, req g
 		defer cancel()
 		_, err := c.AnswerUserQuestion(ctx, sessionID, questionID, req)
 		return agentQuestionAnsweredMsg{sessionID: sessionID, questionID: questionID, err: err}
+	}
+}
+
+func cancelUserQuestionCmd(c *client.Client, sessionID, questionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, err := c.CancelUserQuestion(ctx, sessionID, questionID)
+		return agentQuestionCancelledMsg{sessionID: sessionID, questionID: questionID, err: err}
 	}
 }
 
@@ -218,6 +233,8 @@ func (a *App) handleAskUserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		a.closeAskUserModal()
 		return a, nil
+	case "ctrl+x":
+		return a, a.cancelAskUserQuestion()
 	case "enter":
 		return a.commitAskUserAnswer()
 	case "tab", "down":
@@ -307,7 +324,7 @@ func (a *App) viewAskUser() string {
 	source := firstNonEmpty(q.Source, q.AgentID, q.Category)
 	intro := []string{a.Theme.HintLabel.Render(wrap(prompt, modalBodyContentWidth(w)))}
 	if source != "" {
-		intro = append(intro, a.Theme.HintLabel.Render("source: "+source))
+		intro = append(intro, a.Theme.HintLabel.Render("Asked by "+source))
 	}
 	choiceRow, choiceHits := a.renderAskUserChoiceRow()
 	status := []string{}
@@ -320,8 +337,7 @@ func (a *App) viewAskUser() string {
 			return cmd
 		}},
 		{id: "ask-user:cancel", label: "cancel", action: func(app *App) tea.Cmd {
-			app.closeAskUserModal()
-			return nil
+			return app.cancelAskUserQuestion()
 		}},
 	}
 	return a.renderTextEntryModal(textEntryModalOptions{
@@ -336,8 +352,18 @@ func (a *App) viewAskUser() string {
 		cursorAction: func(app *App, cursor int) { app.askUserCursor = cursor },
 		status:       status,
 		statusHits:   choiceHits,
-		footer:       a.Theme.HintLabel.Render(modalKeyHint("Enter answer", "Tab option", "Esc cancel")),
+		footer:       a.Theme.HintLabel.Render(modalKeyHint("Enter answer", "Tab option", "Ctrl+X cancel", "Esc close")),
 	}).modal
+}
+
+func (a *App) cancelAskUserQuestion() tea.Cmd {
+	sid := a.currentSessionID()
+	qid := strings.TrimSpace(a.askUserQuestion.ID)
+	a.closeAskUserModal()
+	if sid == "" || qid == "" {
+		return nil
+	}
+	return cancelUserQuestionCmd(a.c, sid, qid)
 }
 
 func (a *App) renderAskUserChoiceRow() (string, []modalCellHit) {

@@ -47,11 +47,24 @@ func loadAgentHierarchyCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd 
 
 func (a *App) visibleAgentHierarchyRows() []agentHierarchyRow {
 	agents := make([]gact.AgentDef, 0, len(a.agentHierarchyAgents))
+	hasWorkflowAgents := false
 	for _, agent := range a.agentHierarchyAgents {
 		if agent.Source == "skill" {
 			continue
 		}
+		if isWorkflowAgent(agent) {
+			hasWorkflowAgents = true
+		}
 		agents = append(agents, agent)
+	}
+	if hasWorkflowAgents {
+		filtered := agents[:0]
+		for _, agent := range agents {
+			if isWorkflowAgent(agent) {
+				filtered = append(filtered, agent)
+			}
+		}
+		agents = filtered
 	}
 	byParent := map[string][]gact.AgentDef{}
 	topLevel := make([]gact.AgentDef, 0)
@@ -112,7 +125,7 @@ func (a *App) openSelectedAgentHierarchyDetail() tea.Cmd {
 func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget int) []string {
 	t := a.Theme
 	rowsData := a.visibleAgentHierarchyRows()
-	title := a.sidebarModuleTitle(sidebarModuleAgents)
+	title := agentHierarchyModuleTitle(rowsData, a.sidebarModuleTitle(sidebarModuleAgents))
 	disclosure := "▾ "
 	if a.sidebarAgentsCollapsed {
 		disclosure = "▸ "
@@ -128,6 +141,12 @@ func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget 
 	a.registerSidebarSectionHeaderHit(startRow, width, sidebarSectionAgents)
 	if a.sidebarAgentsCollapsed {
 		return rows
+	}
+	if owner := a.agentHierarchyActiveBlueprintSummary(rowsData, width); owner != "" {
+		rows = append(rows, owner)
+		if rowBudget > 1 {
+			rowBudget--
+		}
 	}
 	if a.agentHierarchyErr != "" {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(truncate("error: "+a.agentHierarchyErr, width-6)))
@@ -156,6 +175,45 @@ func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget 
 	return rows
 }
 
+func (a *App) agentHierarchyActiveBlueprintSummary(rows []agentHierarchyRow, width int) string {
+	if width < 8 || a.activeAgentBlueprintID() == "" {
+		return ""
+	}
+	workflow := false
+	for _, row := range rows {
+		if isWorkflowAgent(row.agent) {
+			workflow = true
+			break
+		}
+	}
+	if !workflow {
+		return ""
+	}
+	budget := maxInt(1, width-8)
+	summary := "◆ " + a.activeAgentBlueprintID()
+	if scope := a.activeAgentBlueprintScope(); scope != "" {
+		withScope := summary + " · " + scope
+		if lipgloss.Width(withScope) <= budget {
+			summary = withScope
+		}
+	}
+	return lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Italic(true).Render(truncate(summary, budget))
+}
+
+func agentHierarchyModuleTitle(rows []agentHierarchyRow, fallback string) string {
+	for _, row := range rows {
+		if isWorkflowAgent(row.agent) {
+			return "WORKFLOW"
+		}
+	}
+	return fallback
+}
+
+func isWorkflowAgent(agent gact.AgentDef) bool {
+	return strings.TrimSpace(agent.Source) == "agent_blueprint" ||
+		strings.EqualFold(strings.TrimSpace(agent.Specialization), "workflow")
+}
+
 func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected bool) string {
 	t := a.Theme
 	agent := row.agent
@@ -182,14 +240,12 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 	}
 	prefixW := lipgloss.Width(marker + indent + branch)
 	if meta != "" {
-		metaBudget := contentW - prefixW - 16
-		if metaBudget < 0 {
-			metaBudget = 0
-		}
-		if metaBudget > 0 {
-			meta = truncate(meta, metaBudget)
-		} else {
+		titleW := lipgloss.Width(firstNonEmpty(agent.Title, agent.ID))
+		metaBudget := contentW - prefixW - titleW - 1
+		if metaBudget < 8 {
 			meta = ""
+		} else {
+			meta = truncate(meta, metaBudget)
 		}
 	}
 	metaStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
@@ -208,10 +264,14 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 
 func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRuntimeState) string {
 	parts := make([]string, 0, 4)
+	state := firstNonEmpty(string(runtimeState), humanizeAgentLabel(agent.Specialization), agentHierarchySourceLabel(agent.Source))
+	if runtimeState == agentHierarchyStateNone && state != "" {
+		parts = append(parts, state)
+	}
 	if agent.Tier > 0 {
 		parts = append(parts, fmt.Sprintf("t%d", agent.Tier))
 	}
-	if state := firstNonEmpty(string(runtimeState), agent.Specialization, agent.Source); state != "" {
+	if runtimeState != agentHierarchyStateNone && state != "" {
 		parts = append(parts, state)
 	}
 	if len(agent.Skills) > 0 {
@@ -224,6 +284,20 @@ func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRunti
 		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func agentHierarchySourceLabel(source string) string {
+	source = strings.TrimSpace(source)
+	switch source {
+	case "agent_blueprint":
+		return "workflow"
+	case "builtin":
+		return "built-in"
+	case "":
+		return ""
+	default:
+		return humanizeAgentLabel(source)
+	}
 }
 
 func (a *App) agentHierarchyRuntimeState(agentID string) agentHierarchyRuntimeState {

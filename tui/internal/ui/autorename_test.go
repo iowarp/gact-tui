@@ -164,4 +164,7 @@ func TestPatchSessionTitleCmd_SwallowsErrorSilently(t *testing.T) {
 	if a.sessions[0].Title != "new session x" {
 		t.Errorf("title mutated on rename failure: %q", a.sessions[0].Title)
 	}
+	if a.transientHint != "" {
+		t.Errorf("auto-rename failure should stay silent, hint=%q", a.transientHint)
+	}
 }

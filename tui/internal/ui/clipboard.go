@@ -22,6 +22,9 @@ var clipboardRunCommand = func(name string, args []string, input string) error {
 	cmd.Stdin = strings.NewReader(input)
 	return cmd.Run()
 }
+var clipboardForcedFailure = func() bool {
+	return os.Getenv("GACT_CLIPBOARD_FORCE_FAILURE") == "1"
+}
 var osc52Write = func(text string) error {
 	encoded := base64.StdEncoding.EncodeToString([]byte(text))
 	_, err := fmt.Fprintf(os.Stdout, "\x1b]52;c;%s\a", encoded)
@@ -44,9 +47,12 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		}
 		return emptyHint
 	}
+	if clipboardForcedFailure() {
+		return clipboardFailureHint()
+	}
 	if err := clipboardWrite(text); err != nil {
 		if oscErr := osc52Write(text); oscErr != nil {
-			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error() + "; run `gact diag` and check clipboard_native/clipboard_missing/clipboard_osc52"
+			return clipboardFailureHint()
 		}
 		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
 	}
@@ -54,6 +60,10 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		return "copied content to clipboard"
 	}
 	return copiedHint(len(text))
+}
+
+func clipboardFailureHint() string {
+	return "copy failed - run `gact diag`; check clipboard_native/clipboard_missing/clipboard_osc52"
 }
 
 type clipboardCommand struct {
@@ -119,6 +129,45 @@ func messageText(m gact.Message) (string, bool) {
 			}
 			chunk = "<thinking>\n" + p.Thinking + "\n</thinking>"
 		default:
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(chunk)
+	}
+	if b.Len() == 0 {
+		return "", false
+	}
+	return b.String(), true
+}
+
+func messageTranscriptText(msgs []gact.Message, msgIdx int) (string, bool) {
+	if msgIdx < 0 || msgIdx >= len(msgs) {
+		return "", false
+	}
+	m := msgs[msgIdx]
+	var b strings.Builder
+	for _, p := range m.Parts {
+		var chunk string
+		switch p.Type {
+		case gact.PartTypeText:
+			chunk = strings.TrimSpace(p.Text)
+		case gact.PartTypeThinking:
+			if strings.TrimSpace(p.Thinking) != "" {
+				chunk = "<thinking>\n" + p.Thinking + "\n</thinking>"
+			}
+		case gact.PartTypeToolCall:
+			chunk = strings.TrimSpace(toolCallDetailText(p))
+		case gact.PartTypeToolResult:
+			chunk = strings.TrimSpace(flattenToolResult(p))
+			if chunk == "" {
+				chunk = strings.TrimSpace(partDetailText(p))
+			}
+		default:
+			chunk = strings.TrimSpace(partDetailText(p))
+		}
+		if chunk == "" {
 			continue
 		}
 		if b.Len() > 0 {
@@ -219,8 +268,8 @@ func matchingToolResultForCall(msgs []gact.Message, msgIdx int, callID string) (
 // Returns ("", false) when nothing is copyable. (PPPPPPPP1)
 func fullConversationText(msgs []gact.Message) (string, bool) {
 	var b strings.Builder
-	for _, m := range msgs {
-		txt, ok := messageText(m)
+	for i, m := range msgs {
+		txt, ok := messageTranscriptText(msgs, i)
 		if !ok {
 			continue
 		}

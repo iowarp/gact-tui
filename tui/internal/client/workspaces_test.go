@@ -44,3 +44,20 @@ func TestCreateWorkspaceRequestShape(t *testing.T) {
 		t.Fatalf("workspace = %+v", ws)
 	}
 }
+
+func TestDeleteWorkspaceRequestShape(t *testing.T) {
+	var gotMethod, gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	if err := New(srv.URL).DeleteWorkspace(t.Context(), "ws/demo"); err != nil {
+		t.Fatalf("DeleteWorkspace: %v", err)
+	}
+	if gotMethod != http.MethodDelete || gotPath != "/v1/workspaces/ws%2Fdemo" {
+		t.Fatalf("request = %s %s", gotMethod, gotPath)
+	}
+}

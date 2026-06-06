@@ -200,15 +200,15 @@ func deleteAgentCmd(c *client.Client, agentID string) tea.Cmd {
 
 func (a *App) viewAgentWrite() string {
 	w := a.detailModalWidth()
-	title := "Create user agent"
-	intro := []string{"Creates a minimal enabled user agent. You can refine prompt, tools, and routing from the agent registry files."}
+	title := "Create expert"
+	intro := []string{"Creates a minimal enabled expert. You can refine prompt, tools, and routing from the agent registry files."}
 	switch a.agentWriteMode {
 	case agentWriteModeClone:
-		title = "Clone agent"
-		intro = []string{"Creates a user-owned copy of " + a.agentWriteSourceID + " so the built-in/source definition is not overwritten."}
+		title = "Clone expert"
+		intro = []string{"Creates an editable copy of " + a.agentWriteSourceID + " so the built-in/source definition is not overwritten."}
 	case agentWriteModeExtract:
-		title = "Extract agent from session"
-		intro = []string{"Creates a user-owned agent from the current session's observed prompts and tool usage."}
+		title = "Extract expert from session"
+		intro = []string{"Creates an editable expert from the current session's observed prompts and tool usage."}
 	}
 	buttons := []menuButton{
 		{id: "agent-write:save", label: "save", action: func(app *App) tea.Cmd {
@@ -281,5 +281,5 @@ func agentWriteHint(mode string, agent gact.AgentDef) string {
 	if action == "" {
 		action = "saved"
 	}
-	return fmt.Sprintf("%s agent %s", action, firstNonEmpty(agent.ID, "unknown"))
+	return fmt.Sprintf("%s expert %s", action, firstNonEmpty(agent.ID, "unknown"))
 }
