@@ -526,9 +526,9 @@ func TestSettingsAgentTabLongDescriptionsShowEllipsisBeforeRail(t *testing.T) {
 				Description: "CLIO default behavior",
 			},
 			{
-				ID:     "long-routing",
-				Source: "recipe",
-				Title:  "CLIO Live Benchmark Orchestrator With Long Routing Title",
+				ID:          "long-routing",
+				Source:      "recipe",
+				Title:       "CLIO Live Benchmark Orchestrator With Long Routing Title",
 				Description: "Routes NDP, EarthScope, weather, visualization, validation, and artifact publication workflows for live benchmark demonstrations.",
 			},
 			{
