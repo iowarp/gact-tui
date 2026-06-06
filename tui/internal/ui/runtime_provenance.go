@@ -93,6 +93,7 @@ func runtimeProvenanceDelegationSummary(rp map[string]any) string {
 	out := make([]string, 0, minInt(len(rows), 3))
 	for _, row := range rows {
 		stage := firstNonEmpty(stringValue(row["stage"]), stringValue(row["event_type"]))
+		stage = expertHandoffStageLabel(stage)
 		parent := stringValue(row["parent_id"])
 		agent := firstNonEmpty(stringValue(row["agent_id"]), stringValue(row["child_id"]))
 		if parent != "" && agent != "" {
@@ -160,14 +161,14 @@ func runtimeRowMaps(raw any) []map[string]any {
 }
 
 func runtimeProvenanceDetailText(rp map[string]any) string {
-	rows := appendDetailSection(nil, "Runtime provenance",
-		detailField{"schema", firstNonEmpty(stringValue(rp["schema_version"]), "clio.runtime_provenance.v1")},
-		detailField{"summary", runtimeProvenanceInlineSummary(rp)},
+	rows := appendRuntimeOperatorView(nil, rp)
+	rows = appendDetailSection(rows, "Execution summary",
+		detailField{"workflow", runtimeProvenanceInlineSummary(rp)},
 	)
-	rows = appendRuntimeMapSection(rows, "Turn", runtimeProvenanceTurnMap(rp), "trace_id", "turn_id", "user_message_id", "assistant_message_id", "status")
-	rows = appendRuntimeMapSection(rows, "Workspace", mapValue(rp["workspace"]), "workspace_id", "root_path", "storage_root", "scope")
+	rows = appendRuntimeMapSection(rows, "Turn", runtimeProvenanceTurnMap(rp), "trace_id", "turn_id", "status")
+	rows = appendRuntimeMapSection(rows, "Workspace", mapValue(rp["workspace"]), "workspace_id", "root_path", "scope")
 	rows = appendRuntimeMapSection(rows, "Agent", mapValue(rp["agent"]), "selected_agent_id", "active_agent_id", "active_expert_id", "route_source", "route_reason", "source", "tier", "parent_id")
-	rows = appendRuntimeMapSection(rows, "Blueprint", mapValue(rp["blueprint"]), "id", "version", "scope", "definition_path")
+	rows = appendRuntimeMapSection(rows, "Workflow", mapValue(rp["blueprint"]), "id", "version", "scope")
 	rows = appendRuntimeMapSection(rows, "Provider", mapValue(rp["provider"]), "provider_id", "model_id", "model", "source")
 	rows = appendRuntimeMapSection(rows, "Prompt", mapValue(rp["prompt"]), "prompt_id", "profile", "source", "source_path", "checksum")
 	rows = appendRuntimeToolsSection(rows, mapValue(rp["tools"]))
@@ -178,6 +179,77 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 	rows = appendRuntimeAnyRowsSection(rows, "Artifacts", rp["artifacts"], "path", "output_path", "artifact", "kind", "type", "status", "size_bytes", "exists", "sha256")
 	rows = appendRuntimeAnyRowsSection(rows, "Errors", rp["errors"], "code", "type", "message", "stage", "recoverable", "agent_id", "tool_name")
 	return strings.Join(rows, "\n")
+}
+
+func appendRuntimeOperatorView(rows []string, rp map[string]any) []string {
+	fields := []detailField{}
+	if route := runtimeProvenanceRouteSummary(rp); route != "" {
+		fields = append(fields, detailField{"active path", route})
+	}
+	if workflow := runtimeScalar(mapValue(rp["blueprint"])["id"]); workflow != "" {
+		fields = append(fields, detailField{"workflow", workflow})
+	}
+	if tools := runtimeProvenanceToolSummary(rp); tools != "" {
+		fields = append(fields, detailField{"tools used", tools})
+	}
+	if delegation := runtimeProvenanceDelegationSummary(rp); delegation != "" {
+		fields = append(fields, detailField{"handoffs", delegation})
+	}
+	if artifacts := runtimeProvenanceOperatorRows(rp["artifacts"], "path", "output_path", "artifact"); artifacts != "" {
+		fields = append(fields, detailField{"artifacts", artifacts})
+	}
+	if errors := runtimeProvenanceOperatorRows(rp["errors"], "message", "code", "type"); errors != "" {
+		fields = append(fields, detailField{"errors", errors})
+	}
+	if len(fields) == 0 {
+		fields = append(fields, detailField{"status", "runtime provenance captured"})
+	}
+	return appendDetailSection(rows, "Operator view", fields...)
+}
+
+func runtimeProvenanceOperatorRows(raw any, preferred ...string) string {
+	rows := runtimeRowMaps(raw)
+	if len(rows) == 0 {
+		if m := mapValue(raw); len(m) > 0 {
+			rows = runtimeRowMaps(firstNonEmptyAny(m["rows"], m["items"], m["artifacts"], m["errors"]))
+		}
+	}
+	if len(rows) == 0 {
+		if names := orderedRuntimeNames(raw); len(names) > 0 {
+			return strings.Join(limitRuntimeOperatorStrings(names, 3), ", ")
+		}
+		return runtimeScalar(raw)
+	}
+	out := make([]string, 0, minInt(len(rows), 3))
+	for _, row := range rows {
+		value := ""
+		for _, key := range preferred {
+			if candidate := runtimeScalar(row[key]); candidate != "" {
+				value = candidate
+				break
+			}
+		}
+		if value == "" {
+			value = compactRuntimeObject(row)
+		}
+		out = append(out, value)
+		if len(out) == 3 {
+			break
+		}
+	}
+	if hidden := len(rows) - len(out); hidden > 0 {
+		out = append(out, fmt.Sprintf("+%d more", hidden))
+	}
+	return strings.Join(out, ", ")
+}
+
+func limitRuntimeOperatorStrings(values []string, limit int) []string {
+	if limit <= 0 || len(values) <= limit {
+		return values
+	}
+	out := append([]string(nil), values[:limit]...)
+	out = append(out, fmt.Sprintf("+%d more", len(values)-limit))
+	return out
 }
 
 func runtimeProvenanceTurnMap(rp map[string]any) map[string]any {
@@ -207,7 +279,7 @@ func appendRuntimeMapSection(rows []string, title string, m map[string]any, keys
 	fields := make([]detailField, 0, len(keys))
 	for _, key := range keys {
 		if value := runtimeScalar(m[key]); value != "" {
-			fields = append(fields, detailField{key, value})
+			fields = append(fields, detailField{runtimeProvenanceLabel(key), value})
 		}
 	}
 	if len(fields) == 0 {
@@ -276,7 +348,7 @@ func appendRuntimeContextSection(rows []string, context map[string]any) []string
 	fields := []detailField{}
 	for _, key := range []string{"files_count", "context_files_count", "count", "status", "policy", "max_inline_bytes"} {
 		if value := runtimeScalar(context[key]); value != "" {
-			fields = append(fields, detailField{key, value})
+			fields = append(fields, detailField{runtimeProvenanceLabel(key), value})
 		}
 	}
 	if files := runtimeRowsText(firstNonEmptyAny(context["files"], context["context_files"]), "path", "mode", "status", "inline_policy", "language", "size", "bytes", "tokens"); files != "" {
@@ -319,7 +391,7 @@ func appendRuntimeRowsSection(rows []string, title string, m map[string]any) []s
 	fields := []detailField{}
 	for _, key := range sortedAnyMapKeys(m) {
 		if text := runtimeScalar(m[key]); text != "" {
-			fields = append(fields, detailField{key, text})
+			fields = append(fields, detailField{runtimeProvenanceLabel(key), text})
 		}
 	}
 	if len(fields) == 0 {
@@ -341,7 +413,7 @@ func runtimeRowsText(raw any, preferred ...string) string {
 		parts := make([]string, 0, len(preferred))
 		for _, key := range preferred {
 			if value := runtimeScalar(row[key]); value != "" {
-				parts = append(parts, key+"="+value)
+				parts = append(parts, runtimeProvenanceLabel(key)+"="+value)
 			}
 		}
 		if len(parts) == 0 {
@@ -350,6 +422,89 @@ func runtimeRowsText(raw any, preferred ...string) string {
 		lines = append(lines, "- "+strings.Join(parts, " · "))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func runtimeProvenanceLabel(key string) string {
+	switch key {
+	case "agent_blueprint_id":
+		return "workflow"
+	case "agent_id":
+		return "agent"
+	case "assistant_message_id":
+		return "assistant message"
+	case "active_agent_id":
+		return "active agent"
+	case "active_expert_id":
+		return "active expert"
+	case "context_files_count":
+		return "context files"
+	case "context_frame_count":
+		return "context frames"
+	case "definition_path":
+		return "definition file"
+	case "descriptor_id":
+		return "descriptor"
+	case "duration_ms":
+		return "duration"
+	case "execution_mode":
+		return "execution mode"
+	case "files_count":
+		return "files"
+	case "inline_policy":
+		return "inline policy"
+	case "max_inline_bytes":
+		return "inline limit"
+	case "model_id":
+		return "model"
+	case "output_path":
+		return "output path"
+	case "parent_id":
+		return "parent"
+	case "policy_summary":
+		return "policy summary"
+	case "prompt_id":
+		return "prompt"
+	case "provider_id":
+		return "provider"
+	case "recoverable":
+		return "recoverable"
+	case "return_to":
+		return "return to"
+	case "route_reason":
+		return "routing reason"
+	case "route_source":
+		return "routing source"
+	case "root_path":
+		return "workspace root"
+	case "schema_version":
+		return "format"
+	case "search_count":
+		return "searches"
+	case "selected_agent_id":
+		return "selected agent"
+	case "server_id":
+		return "connection"
+	case "sha256":
+		return "checksum"
+	case "size_bytes":
+		return "size"
+	case "source_path":
+		return "source file"
+	case "storage_root":
+		return "storage root"
+	case "tool_name":
+		return "tool"
+	case "trace_id":
+		return "trace"
+	case "turn_id":
+		return "turn"
+	case "user_message_id":
+		return "user message"
+	case "workspace_id":
+		return "workspace"
+	default:
+		return strings.ReplaceAll(key, "_", " ")
+	}
 }
 
 func runtimeScalar(v any) string {

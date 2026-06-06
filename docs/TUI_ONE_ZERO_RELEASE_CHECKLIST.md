@@ -51,8 +51,9 @@ Run the focused TUI gates first:
 ```bash
 go test -p 1 ./tui/internal/ui ./tui/internal/client ./emulator/pkg/gact ./emulator/internal/server -count=1
 go test -p 1 ./tui -run 'TestCLI_(VersionReportsBuildMetadata|DumpBundle|Env|Capabilities)' -count=1
-python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_assert_live_observability.py
-python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-strict-live-pass
+python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_check_slash_command_coverage.py visual_loop/test_assert_live_observability.py
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-indexed --require-strict-live-pass
+python3 visual_loop/check_visual_corpus.py --root . --require-indexed --require-ndp-demo-ready
 ```
 
 Run broader workspace gates before marking the release PR ready:
@@ -67,7 +68,12 @@ Acceptance:
 
 - CI is green on the release PR or the failed job has a linked fix/deferral.
 - The visual corpus strict gate passes in a clean checkout, not only on a local
-  machine with untracked screenshots.
+  machine with untracked screenshots; the same gate also fails slash-command
+  drift between the palette, Help Commands, and
+  `SLASH_COMMAND_VISUAL_COVERAGE.md`.
+- The NDP demo gate is run separately when validating the four-case demo. It is
+  expected to fail until all four cases have real TUI visuals and streaming
+  proof, not merely deterministic screenshots or artifact-producing manifests.
 - The maintained 1.0
   [capability matrix](TUI_ONE_ZERO_CAPABILITY_MATRIX.md) and Doctor rows agree
   with every decoded capability field.
@@ -78,7 +84,8 @@ Before release, inspect the maintained corpus rather than relying only on unit
 tests:
 
 ```bash
-python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-strict-live-pass
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-indexed --require-strict-live-pass
+python3 visual_loop/check_visual_corpus.py --root . --require-indexed --require-ndp-demo-ready
 python3 visual_loop/assert_live_observability.py \
   visual_loop/screenshots/<capture>.jsonl \
   --mode benchmark-hierarchy \
@@ -92,6 +99,11 @@ Acceptance:
   benchmark replay screenshots are present and readable.
 - Screenshots show summaries and surfaced errors, not hidden backend failures or
   raw JSON walls where summaries are expected.
+- The `slash_command_coverage` section reports every canonical operator command
+  documented and visible in Help Commands, with folded aliases absent from Help.
+- The `ndp_demo_readiness` section reports CLIO artifact proof, deterministic
+  TUI proof, real TUI visuals, streaming proof, and ready case counts; use
+  `--require-ndp-demo-ready` only for the final four-case NDP demo gate.
 - Temporal assertions prove route/delegation/tool-start/tool-complete/parent
   resume evidence appears before final completion for the benchmark hierarchy
   path tracked in #113.

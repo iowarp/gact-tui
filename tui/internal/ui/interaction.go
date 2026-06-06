@@ -549,7 +549,7 @@ func scrollableModalRowDetailFooter(base string, hits []modalRowHit) string {
 	if len(hits) == 0 {
 		return base
 	}
-	const detailHint = "click row details"
+	const detailHint = "Enter/click details"
 	if strings.Contains(base, detailHint) {
 		return base
 	}

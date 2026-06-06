@@ -67,7 +67,8 @@ func TestRenderMessageInContext_HidesToolHeaderAfterAnotherTool(t *testing.T) {
 func TestRenderMessageInContext_ShowsToolHeaderWhenStandaloneTool(t *testing.T) {
 	// A TOOL message not preceded by an assistant-with-tool-call
 	// keeps its header (the "standalone" case; rare in practice
-	// but possible).
+	// but possible). The header names the producing tool so the
+	// transcript is useful even before opening details.
 	theme := DefaultTheme()
 	prev := &gact.Message{
 		Role:  gact.RoleUser,
@@ -76,13 +77,13 @@ func TestRenderMessageInContext_ShowsToolHeaderWhenStandaloneTool(t *testing.T) 
 	m := gact.Message{
 		Role: gact.RoleTool,
 		Parts: []gact.Part{
-			{Type: gact.PartTypeToolResult, CallID: "c1",
+			{Type: gact.PartTypeToolResult, CallID: "c1", ToolName: "read_file",
 				Content: []gact.Part{{Type: gact.PartTypeText, Text: "x"}}},
 		},
 	}
 	got := theme.renderMessageInContext(m, prev, 80)
-	if !strings.Contains(ansi.Strip(got), "TOOL") {
-		t.Errorf("TOOL header should remain when prev isn't an assistant-with-tool-call")
+	if !strings.Contains(ansi.Strip(got), "TOOL · ReadFile RESULT") {
+		t.Errorf("standalone tool header should name the tool result; got:\n%s", ansi.Strip(got))
 	}
 }
 
@@ -104,8 +105,8 @@ func TestRenderMessageInContext_AssistantWithoutToolCallDoesntSuppress(t *testin
 		},
 	}
 	got := theme.renderMessageInContext(m, prev, 80)
-	if !strings.Contains(ansi.Strip(got), "TOOL") {
-		t.Errorf("TOOL header should remain when prev-assistant had no tool_call part")
+	if !strings.Contains(ansi.Strip(got), "TOOL RESULT") {
+		t.Errorf("standalone unnamed tool header should remain; got:\n%s", ansi.Strip(got))
 	}
 }
 

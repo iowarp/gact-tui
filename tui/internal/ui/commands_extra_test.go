@@ -5,6 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,6 +17,117 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
+
+func TestOpenWorkspaceDiffShowsCleanRepoDetail(t *testing.T) {
+	repo := initTempGitRepo(t)
+	restore := chdirForTest(t, repo)
+	defer restore()
+
+	a := newReadyApp(nil, nil)
+	toast := a.openWorkspaceDiff()
+	if toast != "workspace clean" {
+		t.Fatalf("toast = %q", toast)
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("clean diff should open detail view")
+	}
+	if a.detailView.title != "Workspace diff · clean" {
+		t.Fatalf("detail title = %q", a.detailView.title)
+	}
+	if !strings.Contains(a.detailView.fullText, "No unstaged workspace changes.") {
+		t.Fatalf("detail body missing clean state:\n%s", a.detailView.fullText)
+	}
+}
+
+func TestOpenWorkspaceDiffShowsPatchInDetail(t *testing.T) {
+	repo := initTempGitRepo(t)
+	writeFile(t, filepath.Join(repo, "notes.txt"), "before\n")
+	runGit(t, repo, "add", "notes.txt")
+	writeFile(t, filepath.Join(repo, "notes.txt"), "after\n")
+	restore := chdirForTest(t, repo)
+	defer restore()
+
+	a := newReadyApp(nil, nil)
+	toast := a.openWorkspaceDiff()
+	if !strings.Contains(toast, "workspace diff:") {
+		t.Fatalf("toast = %q", toast)
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("dirty diff should open detail view")
+	}
+	for _, want := range []string{"Summary", "notes.txt", "Patch", "-before", "+after"} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("detail body missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestDiffSlashCmdOpensWorkspaceDiffDetail(t *testing.T) {
+	repo := initTempGitRepo(t)
+	restore := chdirForTest(t, repo)
+	defer restore()
+
+	a := newReadyApp(nil, nil)
+	a.commands = []gact.Command{
+		{ID: "/diff", Title: "Show workspace changes", Source: "builtin"},
+	}
+	a.paletteOpen = true
+	a.paletteGroup = "Workspace"
+	a.paletteSel = paletteIndexForTest(a, "/diff")
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("/diff should schedule hint expiry")
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /diff")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("/diff should open workspace diff detail")
+	}
+}
+
+func initTempGitRepo(t *testing.T) string {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	repo := t.TempDir()
+	runGit(t, repo, "init", "-q")
+	return repo
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, string(out))
+	}
+}
+
+func writeFile(t *testing.T, path string, text string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func chdirForTest(t *testing.T, dir string) func() {
+	t.Helper()
+	old, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get cwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir %s: %v", dir, err)
+	}
+	return func() {
+		if err := os.Chdir(old); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	}
+}
 
 func TestRequestCompactCmdUsesSessionSummarizeEndpoint(t *testing.T) {
 	var sawSummarize bool
@@ -175,9 +289,14 @@ func TestSelectedSessionSummaryRowOpensDetail(t *testing.T) {
 	if !a.detailViewOpen || a.detailView == nil {
 		t.Fatal("summary click should open detail view")
 	}
-	for _, want := range []string{"Session Summary", "session_id: s1", "title: demo", "summary:", "Retained NDP and plot evidence"} {
+	for _, want := range []string{"Session Summary", "session: s1", "title: demo", "summary:", "Retained NDP and plot evidence"} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("summary detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+	for _, raw := range []string{"session_id:", "updated_at:"} {
+		if strings.Contains(a.detailView.fullText, raw) {
+			t.Fatalf("summary detail should avoid raw label %q:\n%s", raw, a.detailView.fullText)
 		}
 	}
 }
@@ -213,6 +332,9 @@ func TestRightSidebarSessionSummaryRowOpensDetail(t *testing.T) {
 	}
 	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "Retained NDP and plot evidence") {
 		t.Fatalf("right summary click should open detail, open=%v detail=%#v", a.detailViewOpen, a.detailView)
+	}
+	if strings.Contains(a.detailView.fullText, "session_id:") {
+		t.Fatalf("right summary detail should avoid raw session id label:\n%s", a.detailView.fullText)
 	}
 }
 

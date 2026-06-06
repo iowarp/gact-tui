@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
@@ -216,6 +217,53 @@ func (a *App) closeSettingsModal() {
 	a.settingsOpen = false
 }
 
+func (a *App) exportCurrentTheme() tea.Cmd {
+	path, pathErr := CustomThemeDefaultPath()
+	if pathErr != nil {
+		a.transientHint = "theme export: " + pathErr.Error()
+		return scheduleHintExpire(a.transientHint)
+	}
+	if err := SaveCustomTheme(a.Theme, path); err != nil {
+		a.transientHint = "theme export failed: " + err.Error()
+	} else {
+		a.transientHint = "exported " + ThemeModeName(ThemeModeFor(a.Theme)) + " -> " + path
+	}
+	return scheduleHintExpire(a.transientHint)
+}
+
+func (a *App) importCustomTheme() tea.Cmd {
+	path, pathErr := CustomThemeDefaultPath()
+	if pathErr != nil {
+		a.transientHint = "theme import: " + pathErr.Error()
+		return scheduleHintExpire(a.transientHint)
+	}
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			a.transientHint = "theme import: no theme.json at " + path
+		} else {
+			a.transientHint = "theme import: " + err.Error()
+		}
+		return scheduleHintExpire(a.transientHint)
+	}
+	name, err := LoadCustomTheme(path)
+	if err != nil {
+		a.transientHint = "theme import failed: " + err.Error()
+		return scheduleHintExpire(a.transientHint)
+	}
+	a.applyThemePalette(ThemeForMode(ModeCustom))
+	if a.settings == nil {
+		a.settings = &settingsState{tab: 2}
+	}
+	a.settings.tab = 2
+	a.seedSettingsSelections()
+	if name == "" {
+		name = "custom"
+	}
+	a.transientHint = "loaded custom theme: " + name + " <- " + path
+	a.persistPrefs()
+	return scheduleHintExpire(a.transientHint)
+}
+
 func selectableSessionAgents(agents []gact.AgentDef) []gact.AgentDef {
 	out := make([]gact.AgentDef, 0, len(agents))
 	for _, ag := range agents {
@@ -293,6 +341,16 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				s.languageSel++
 			}
 			a.previewLanguage(s.languageSel)
+		}
+		return a, nil
+	case "e":
+		if s.tab == 2 {
+			return a, a.exportCurrentTheme()
+		}
+		return a, nil
+	case "i":
+		if s.tab == 2 {
+			return a, a.importCustomTheme()
 		}
 		return a, nil
 	case "left", "h":
@@ -400,10 +458,7 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if s.themeSel >= 0 && s.themeSel < len(AllThemeModes) {
 				mode = AllThemeModes[s.themeSel]
 			}
-			prev := a.Theme.CollapseThreshold
-			a.Theme = ThemeForMode(mode)
-			a.Theme.CollapseThreshold = prev // preserve the user's pref across swap
-			a.Theme.applyStyles()            // re-run so HintKey/etc. see the new palette
+			a.applyThemePalette(ThemeForMode(mode))
 			a.settingsOpen = false
 			a.transientHint = "theme: " + ThemeModeName(mode)
 			a.persistPrefs()
@@ -533,6 +588,9 @@ func (a *App) viewSettings() string {
 			"",
 		)
 	}
+	if purpose := a.settingsTabPurpose(s.tab); purpose != "" {
+		rows = append(rows, t.HintLabel.Render(purpose), "")
+	}
 	// LLL4: shared row renderer — selected row gets a Bg background
 	// strip + Secondary-bold text; non-selected just plain Fg. The
 	// `▌` marker stays for keyboard-only users who want to verify
@@ -545,14 +603,18 @@ func (a *App) viewSettings() string {
 			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
 			titleStyle = titleStyle.Foreground(t.Secondary).Bold(true)
 		}
+		rowBudget := w - 2
+		if s.tab == 1 {
+			rowBudget = modalScrollableContentWidth(w)
+		}
 		line := marker + titleStyle.Render(primaryText)
 		if secondaryText != "" {
-			secondaryBudget := innerW - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
+			secondaryBudget := rowBudget - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(primaryText) - 2
 			if secondaryBudget > 0 {
 				line += "  " + descStyle.Render(truncate(secondaryText, secondaryBudget))
 			}
 		}
-		out := truncate(line, w-2)
+		out := truncate(line, rowBudget)
 		if selected {
 			// Bg strip behind the entire row to make the selection
 			// pop. Width(innerW) matches modal interior; the row bg
@@ -631,7 +693,7 @@ func (a *App) viewSettings() string {
 		}
 		if len(s.agentList) > 0 {
 			rows = append(rows, "")
-			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Details"))
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("Capability snapshot"))
 			detailLines := a.agentDetailLines(s.agentList[s.agentSel], innerW)
 			maxDetails := max(3, (a.height-4)/4)
 			if len(detailLines) > maxDetails {
@@ -673,6 +735,25 @@ func (a *App) viewSettings() string {
 		})
 		rows = append(rows, list.rows...)
 		addListHits(list, listStart)
+		rows = append(rows, "")
+		exportRow := len(rows)
+		rows = append(rows, rowLine(false, "Export custom theme", "~/.config/gact/theme.json"))
+		addRowHit("settings:theme:export", exportRow, func(app *App) tea.Cmd {
+			if app.settings == nil {
+				app.settings = &settingsState{tab: 2}
+			}
+			app.settings.tab = 2
+			return app.exportCurrentTheme()
+		})
+		importRow := len(rows)
+		rows = append(rows, rowLine(false, "Reload custom theme", "~/.config/gact/theme.json"))
+		addRowHit("settings:theme:import", importRow, func(app *App) tea.Cmd {
+			if app.settings == nil {
+				app.settings = &settingsState{tab: 2}
+			}
+			app.settings.tab = 2
+			return app.importCustomTheme()
+		})
 		rows = append(rows, "")
 		rows = append(rows, t.HintLabel.Italic(true).Render(
 			a.localizer.t(messageID("settings.theme.hint"), nil)))
@@ -786,12 +867,8 @@ func (a *App) viewSettings() string {
 		addTUIRowHit("intro", 4, row, block.height())
 		addTUIControlHits("intro", 4, row, block)
 
-		mouseState := a.localizer.t(msgSettingsOn, nil)
-		if !a.MouseEnabled {
-			mouseState = a.localizer.t(msgSettingsOff, nil)
-		}
 		label = a.localizer.t(messageID("settings.tui.mouse_controls"), nil)
-		value = mouseState
+		value = a.mouseSelectionModeLabel()
 		row = len(rows)
 		block = editableRow(5,
 			label,
@@ -821,7 +898,7 @@ func (a *App) viewSettings() string {
 
 		// Read-only runtime state for confirmation.
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgSettingsTUIRuntimeState, nil)))
-		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIBackendURL, nil)+"  ")+a.BackendURL)
+		rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIBackendURL, nil)+"  ")+a.headerBackendLabel())
 		if a.VoiceCommand == "" {
 			rows = append(rows, "  "+t.HintKey.Render(a.localizer.t(msgSettingsTUIVoiceCmd, nil)+"    ")+t.HintLabel.Render(a.localizer.t(msgSettingsTUIVoiceUnset, nil)))
 		} else {
@@ -922,6 +999,23 @@ func (a *App) viewSettings() string {
 
 func (a *App) settingsBodyPageSize() int {
 	return minInt(24, a.modalBodyRows(14))
+}
+
+func (a *App) settingsTabPurpose(tab int) string {
+	switch tab {
+	case 0:
+		return "Provider/model runtime is managed through the shared CLIO provider modal."
+	case 1:
+		return "Choose the default session expert, or open details for capabilities and tools."
+	case 2:
+		return "Preview terminal palettes before applying them."
+	case 3:
+		return "Tune transcript density, paste behavior, mouse capture, and sidebar layout."
+	case 4:
+		return "Switch TUI language labels without changing backend session data."
+	default:
+		return ""
+	}
 }
 
 func orPlaceholder(s, placeholder string) string {
@@ -1073,7 +1167,7 @@ func (a *App) openSettingsAgentDetail() {
 	ref := bulkyPartRef{
 		messageID: "settings",
 		partID:    "agent-" + ag.ID,
-		title:     "Agent · " + a.localizedAgentTitle(ag),
+		title:     "Expert · " + a.localizedAgentTitle(ag),
 		fullText:  a.agentDetailText(ag),
 	}
 	a.detailView = &ref
@@ -1093,15 +1187,14 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 			lipgloss.NewStyle().Foreground(t.Fg).Render(value)
 		lines = append(lines, truncate(line, width))
 	}
-	add("ID", ag.ID)
-	add("Source", ag.Source)
+	add("Expert", ag.ID)
+	add("Comes from", agentSourceLabel(ag.Source))
 	if ag.Tier > 0 {
-		add("Tier", itoa2(ag.Tier))
+		add("Routing depth", itoa2(ag.Tier))
 	}
-	add("Specialization", ag.Specialization)
-	add("Parent", ag.ParentID)
-	add("Prompt ID", ag.PromptID)
-	add("Prompt profile", ag.PromptProfile)
+	add("Role", ag.Specialization)
+	add("Reports to", ag.ParentID)
+	add("Prompt", agentPromptSummary(ag))
 	if routes := stringListFromMetadata(ag.Metadata, "routes_to"); len(routes) > 0 {
 		add("Routes to", strings.Join(routes, ", "))
 	}
@@ -1113,19 +1206,19 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 		if ag.DefaultModel.ProviderID != "" {
 			model = ag.DefaultModel.ProviderID + "/" + model
 		}
-		add("Default model", model)
+		add("Uses model", model)
 	} else if ag.DefaultModelName != "" {
-		add("Default model", ag.DefaultModelName)
+		add("Uses model", ag.DefaultModelName)
 	} else if ag.DefaultProvider != "" {
-		add("Default provider", ag.DefaultProvider)
+		add("Uses provider", ag.DefaultProvider)
 	}
 	if len(ag.Tools) > 0 {
-		add("Tools", strings.Join(ag.Tools, ", "))
+		add("Can use", strings.Join(ag.Tools, ", "))
 	} else {
-		add("Tools", "none declared")
+		add("Can use", "no tools declared")
 	}
 	if len(ag.Keywords) > 0 {
-		add("Keywords", strings.Join(ag.Keywords, ", "))
+		add("Good for", strings.Join(ag.Keywords, ", "))
 	}
 	if len(ag.Skills) > 0 {
 		add("Skills", strings.Join(ag.Skills, ", "))
@@ -1136,24 +1229,42 @@ func (a *App) agentDetailLines(ag gact.AgentDef, width int) []string {
 	if refs := agentCapabilityRefLines(ag.CapabilityRefs); len(refs) > 0 {
 		add("Capabilities", strings.Join(refs, "; "))
 	}
-	if text := compactJSONDescription(ag.Module); text != "" {
-		add("DSPy module", text)
-	}
-	if text := compactJSONDescription(ag.Signature); text != "" {
-		add("DSPy signature", text)
-	}
-	if text := compactJSONDescription(ag.StructuredOutputs); text != "" {
-		add("Structured outputs", text)
-	}
-	if text := compactJSONDescription(ag.Fanout); text != "" {
-		add("Fanout", text)
-	}
 	if len(ag.ValidationErrors) > 0 {
-		add("Validation", strings.Join(ag.ValidationErrors, "; "))
+		add("Needs attention", strings.Join(ag.ValidationErrors, "; "))
 	}
-	add("Prompt provenance", agentPromptResolutionDescription(ag))
-	add("Prompt", ag.SystemPrompt)
+	add("Prompt source", agentPromptResolutionDescription(ag))
+	add("Instruction", ag.SystemPrompt)
 	return lines
+}
+
+func agentSourceLabel(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "builtin":
+		return "built in"
+	case "user":
+		return "user defined"
+	case "skill":
+		return "installed skill"
+	case "agent_blueprint", "blueprint":
+		return "active blueprint"
+	case "":
+		return ""
+	default:
+		return source
+	}
+}
+
+func agentPromptSummary(ag gact.AgentDef) string {
+	switch {
+	case ag.PromptID != "" && ag.PromptProfile != "":
+		return ag.PromptID + " · " + ag.PromptProfile
+	case ag.PromptID != "":
+		return ag.PromptID
+	case ag.PromptProfile != "":
+		return ag.PromptProfile
+	default:
+		return ""
+	}
 }
 
 func (a *App) agentDetailText(ag gact.AgentDef) string {
@@ -1187,6 +1298,10 @@ func (a *App) agentDetailText(ag gact.AgentDef) string {
 	if refs := agentCapabilityRefLines(ag.CapabilityRefs); len(refs) > 0 {
 		lines = append(lines, "", "Capabilities:")
 		lines = append(lines, bulletLines(refs)...)
+	}
+	if len(ag.ValidationErrors) > 0 {
+		lines = append(lines, "", "Validation errors:")
+		lines = append(lines, bulletLines(ag.ValidationErrors)...)
 	}
 	if text := compactJSONDescription(ag.Module); text != "" {
 		lines = append(lines, "", "DSPy module:", text)
@@ -1358,9 +1473,19 @@ func (a *App) previewTheme(idx int) {
 	if idx < 0 || idx >= len(AllThemeModes) {
 		return
 	}
-	prev := a.Theme.CollapseThreshold
-	a.Theme = ThemeForMode(AllThemeModes[idx])
-	a.Theme.CollapseThreshold = prev
+	a.applyThemePalette(ThemeForMode(AllThemeModes[idx]))
+}
+
+func (a *App) applyThemePalette(next Theme) {
+	prevCT := a.Theme.CollapseThreshold
+	prevW := a.Theme.CostWarnTokens
+	prevD := a.Theme.CostDangerTokens
+	prevPaste := a.Theme.PasteCompressThreshold
+	a.Theme = next
+	a.Theme.CollapseThreshold = prevCT
+	a.Theme.CostWarnTokens = prevW
+	a.Theme.CostDangerTokens = prevD
+	a.Theme.PasteCompressThreshold = prevPaste
 	a.Theme.applyStyles()
 }
 

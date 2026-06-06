@@ -12,6 +12,8 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
+const contextFrameInlineFileBudgetBytes int64 = 64 * 1024
+
 // handleMemoryStats serves GET /v1/memory/stats (SPEC §6.19, v0.2 —
 // CLIO-BBBBBBBBBB3). Used by the TUI to render a cache-hit-rate
 // footer, per-session context-budget pressure, and global counters.
@@ -21,6 +23,10 @@ import (
 // nudge the counters, and session/invocation totals come from the
 // store. A real backend would plug in ARC-style stats instead.
 func (s *Server) handleMemoryStats(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MemoryUnavailable {
+		writeError(w, http.StatusNotImplemented, "memory_unavailable", "memory backend is unavailable in this emulator scenario")
+		return
+	}
 	sessionID := r.URL.Query().Get("session_id")
 
 	hits := int(atomic.LoadInt64(&s.memHits))
@@ -76,6 +82,10 @@ func (s *Server) handleMemoryStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MemoryUnavailable {
+		writeError(w, http.StatusNotImplemented, "memory_unavailable", "memory backend is unavailable in this emulator scenario")
+		return
+	}
 	q := r.URL.Query()
 	query := strings.TrimSpace(q.Get("query"))
 	sessionID := q.Get("session_id")
@@ -175,6 +185,10 @@ func (s *Server) memorySearchResponse(query, sessionID, workspaceID string, incl
 }
 
 func (s *Server) handleMemoryToolSearchSessions(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MemoryUnavailable {
+		writeError(w, http.StatusNotImplemented, "memory_unavailable", "memory backend is unavailable in this emulator scenario")
+		return
+	}
 	sessionID := r.PathValue("id")
 	sess, err := s.store.GetSession(sessionID)
 	if err != nil {
@@ -248,6 +262,10 @@ func (s *Server) handleMemoryToolSearchSessions(w http.ResponseWriter, r *http.R
 }
 
 func (s *Server) handleMemoryToolReadSessionSummary(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MemoryUnavailable {
+		writeError(w, http.StatusNotImplemented, "memory_unavailable", "memory backend is unavailable in this emulator scenario")
+		return
+	}
 	sessionID := r.PathValue("id")
 	var req gact.MemoryToolReadSessionSummaryRequest
 	if !decodeJSON(w, r, &req) {
@@ -272,6 +290,10 @@ func (s *Server) handleMemoryToolReadSessionSummary(w http.ResponseWriter, r *ht
 }
 
 func (s *Server) handleMemoryToolReadContextFrame(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MemoryUnavailable {
+		writeError(w, http.StatusNotImplemented, "memory_unavailable", "memory backend is unavailable in this emulator scenario")
+		return
+	}
 	sessionID := r.PathValue("id")
 	var req gact.MemoryToolReadContextFrameRequest
 	if !decodeJSON(w, r, &req) {
@@ -516,19 +538,7 @@ func (s *Server) latestContextFrame(sessionID string, limit int) (map[string]any
 		})
 	}
 	for _, file := range files {
-		items = append(items, map[string]any{
-			"kind":             "context_file",
-			"source_id":        file.Path,
-			"path":             file.Path,
-			"display_path":     file.Path,
-			"included":         true,
-			"reason":           "attached_context_file",
-			"tokens_estimated": max(1, int(file.Size)/4),
-			"metadata": map[string]any{
-				"mode":     file.Mode,
-				"language": file.Language,
-			},
-		})
+		items = append(items, contextFileFrameItem(file))
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	return map[string]any{
@@ -547,6 +557,32 @@ func (s *Server) latestContextFrame(sessionID string, limit int) (map[string]any
 		"metadata":             map[string]any{"retained_context_source": "visible_gact_transcript"},
 		"assistant_message_id": latestAssistantMessageID(msgs),
 	}, nil
+}
+
+func contextFileFrameItem(file gact.ContextFile) map[string]any {
+	included := true
+	reason := "attached_context_file"
+	tokens := max(1, int(file.Size)/4)
+	if file.Size > contextFrameInlineFileBudgetBytes {
+		included = false
+		reason = "context_file_excluded_too_large"
+		tokens = 0
+	}
+	return map[string]any{
+		"kind":             "context_file",
+		"source_id":        file.Path,
+		"path":             file.Path,
+		"display_path":     file.Path,
+		"included":         included,
+		"reason":           reason,
+		"tokens_estimated": tokens,
+		"metadata": map[string]any{
+			"mode":                file.Mode,
+			"language":            file.Language,
+			"size_bytes":          file.Size,
+			"inline_budget_bytes": contextFrameInlineFileBudgetBytes,
+		},
+	}
 }
 
 func contextFrameItemsFromMap(frame map[string]any) []map[string]any {

@@ -264,13 +264,18 @@ func TestFindBulkyPartForSelectedRoutingDecisionShowsDetails(t *testing.T) {
 	}
 	for _, want := range []string{
 		"routing decision",
-		"selected_agent: utility",
-		"route_source: planner",
+		"selected expert: utility",
+		"routing source: planner",
 		"confidence: 0.92",
 		"The user asked for current system time.",
 	} {
 		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
 			t.Fatalf("routing detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
+		}
+	}
+	for _, raw := range []string{"selected_agent:", "route_source:"} {
+		if strings.Contains(ref.fullText, raw) {
+			t.Fatalf("routing detail should avoid raw label %q:\n%s", raw, ref.fullText)
 		}
 	}
 }
@@ -297,14 +302,19 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		t.Fatal("selected short tool_result should open detail view")
 	}
 	for _, want := range []string{
-		"shell_bash result",
+		"ShellBash result",
 		"tool: shell_bash",
-		"call_id: c1",
-		"duration_ms: 123",
+		"call: c1",
+		"duration: 123 ms",
 		"Saturday, May 23, 2026 3:49:03 PM",
 	} {
 		if !strings.Contains(ref.title+"\n"+ref.fullText, want) {
 			t.Fatalf("tool result detail missing %q:\n%s\n%s", want, ref.title, ref.fullText)
+		}
+	}
+	for _, raw := range []string{"call_id:", "duration_ms:"} {
+		if strings.Contains(ref.fullText, raw) {
+			t.Fatalf("tool result detail should avoid raw label %q:\n%s", raw, ref.fullText)
 		}
 	}
 }
@@ -323,8 +333,14 @@ func TestPartDetailShowsPromotedEvidenceProvenance(t *testing.T) {
 	if !strings.Contains(out, "provenance: trace metadata") {
 		t.Fatalf("tool detail should surface promoted evidence provenance:\n%s", out)
 	}
-	if strings.Count(out, "raw_result:") != 1 {
-		t.Fatalf("tool detail should show raw_result once, not repeat it inside metadata:\n%s", out)
+	if !strings.Contains(out, "kind: tool result") {
+		t.Fatalf("tool detail should humanize the part kind:\n%s", out)
+	}
+	if strings.Contains(out, "type: tool_result") {
+		t.Fatalf("tool detail should not expose backend part type labels:\n%s", out)
+	}
+	if strings.Count(out, "raw result:") != 1 {
+		t.Fatalf("tool detail should show raw result once, not repeat it inside metadata:\n%s", out)
 	}
 	if strings.Contains(out, "synthetic_from") {
 		t.Fatalf("tool detail should not repeat provenance transport metadata:\n%s", out)
@@ -715,6 +731,100 @@ func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {
 	}
 	if !strings.Contains(a.transientHint, "copied detail") {
 		t.Fatalf("hint = %q, want copy confirmation", a.transientHint)
+	}
+}
+
+func TestDetailViewMouseDragCopiesVisibleSelection(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{
+		title:    "Evidence",
+		fullText: "alpha detail line\nbravo detail line\ncharlie detail line",
+	}
+	mu, copied, _ := withClipboardSpy(t)
+
+	_ = a.View()
+	if a.detailCopy.rect.w <= 0 || a.detailCopy.rect.h <= 0 {
+		t.Fatalf("detail copy snapshot not registered: %+v", a.detailCopy.rect)
+	}
+	x := a.detailCopy.rect.x
+	y := a.detailCopy.rect.y
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	model, _ = a.Update(tea.MouseMotionMsg(tea.Mouse{
+		X:      x + 4,
+		Y:      y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	model, _ = a.Update(tea.MouseReleaseMsg(tea.Mouse{
+		X:      x + 4,
+		Y:      y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	mu.Lock()
+	gotCopy := *copied
+	mu.Unlock()
+	if gotCopy != "alpha" {
+		t.Fatalf("copied detail selection = %q, want alpha", gotCopy)
+	}
+	if !a.detailViewOpen {
+		t.Fatal("detail drag copy should leave detail open")
+	}
+	if !strings.Contains(a.transientHint, "copied detail selection") {
+		t.Fatalf("hint = %q, want detail selection confirmation", a.transientHint)
+	}
+	if !strings.Contains(a.transientHint, `"alpha"`) {
+		t.Fatalf("hint = %q, want copied detail preview", a.transientHint)
+	}
+}
+
+func TestDetailViewFooterAdvertisesDragSelectionWhenMouseEnabled(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = true
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Evidence", fullText: "line one\nline two"}
+
+	out := ansi.Strip(a.View().Content)
+	if !strings.Contains(out, "drag CLIO copy") {
+		t.Fatalf("detail footer should advertise drag selection when mouse is enabled:\n%s", out)
+	}
+	if !strings.Contains(out, "Alt+drag terminal select") {
+		t.Fatalf("detail footer should keep native terminal selection discoverable:\n%s", out)
+	}
+}
+
+func TestDetailViewFooterRestoresNativeSelectionWhenMouseDisabled(t *testing.T) {
+	a := New("http://unused")
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.MouseEnabled = false
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Evidence", fullText: "line one\nline two"}
+
+	out := ansi.Strip(a.View().Content)
+	if strings.Contains(out, "drag CLIO copy") {
+		t.Fatalf("detail footer should not advertise in-app drag copy when mouse is disabled:\n%s", out)
+	}
+	if strings.Contains(out, "Alt+drag terminal select") {
+		t.Fatalf("detail footer should not require Alt+drag when terminal selection is restored:\n%s", out)
+	}
+	if !strings.Contains(out, "y copy") || !strings.Contains(out, "Esc close") {
+		t.Fatalf("detail footer should keep keyboard copy and close affordances:\n%s", out)
 	}
 }
 

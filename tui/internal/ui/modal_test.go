@@ -319,6 +319,10 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 		}
 		rect := overlayMouseRect(view, a.width, a.height)
 		want := wantRect(a)
+		if tc.name == "help" {
+			helpW := a.helpModalWidthForTab(helpTabs[a.helpTab].title)
+			want = mouseRect{x: (screenW - helpW) / 2, y: 3, w: helpW}
+		}
 		if rect.x != want.x || rect.y != want.y || rect.w != want.w {
 			t.Fatalf("%s overlay rect = %+v, want x=%d y=%d w=%d", tc.name, rect, want.x, want.y, want.w)
 		}

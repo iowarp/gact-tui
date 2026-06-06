@@ -122,11 +122,10 @@ func TestSSEResume_PassesLastEventIDOnReconnect(t *testing.T) {
 	}
 }
 
-// TestSSEResume_SelectSessionResetsCounter ensures switching sessions
-// clears the counter — the next session has its own event ring and
-// resuming with a stale ID could mean either "skip everything" or
-// "no-op", neither of which is what the user wants.
-func TestSSEResume_SelectSessionResetsCounter(t *testing.T) {
+// TestSSEResume_SelectSessionRestoresSessionCounter ensures switching
+// sessions uses that session's own high-water mark. Revisiting a
+// session must not reset to 0 and replay/re-render the whole ring.
+func TestSSEResume_SelectSessionRestoresSessionCounter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -137,15 +136,42 @@ func TestSSEResume_SelectSessionResetsCounter(t *testing.T) {
 	a.sessions = []gact.Session{{ID: "s_a"}, {ID: "s_b"}}
 	a.selected = 0
 	a.lastSeenSeqID = 100
+	a.lastSeenSeqIDBySession["s_b"] = 42
 
 	cmd := a.selectSession(1) // switch to s_b
-	if a.lastSeenSeqID != 0 {
-		t.Errorf("selectSession should reset lastSeenSeqID, got %d", a.lastSeenSeqID)
+	if a.lastSeenSeqID != 42 {
+		t.Errorf("selectSession should restore s_b lastSeenSeqID, got %d", a.lastSeenSeqID)
 	}
 	if a.sseCancel != nil {
 		a.sseCancel()
 	}
 	_ = cmd
+}
+
+func TestSSEResume_TracksHighestSeqIDPerSession(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}, {ID: "s2"}}
+	a.selected = 0
+
+	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{
+		ID:   "11",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+		}},
+	}})
+	a.selected = 1
+	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{
+		ID:   "5",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s2",
+		}},
+	}})
+
+	if a.lastSeenSeqIDBySession["s1"] != 11 || a.lastSeenSeqIDBySession["s2"] != 5 {
+		t.Fatalf("per-session seq ids = %#v", a.lastSeenSeqIDBySession)
+	}
 }
 
 func TestSSEOpenCanceledDoesNotEnterErrorStage(t *testing.T) {

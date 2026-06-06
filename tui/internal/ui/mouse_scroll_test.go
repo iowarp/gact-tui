@@ -10,14 +10,14 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-func TestViewEnablesMouseWheelEvents(t *testing.T) {
+func TestViewEnablesMouseDragCopyEvents(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
 	a.height = 30
 	a.stage = StageReady
 
-	if got := a.View().MouseMode; got != tea.MouseModeCellMotion {
-		t.Fatalf("MouseMode = %v, want MouseModeCellMotion", got)
+	if got := a.View().MouseMode; got != tea.MouseModeAllMotion {
+		t.Fatalf("MouseMode = %v, want MouseModeAllMotion", got)
 	}
 }
 
