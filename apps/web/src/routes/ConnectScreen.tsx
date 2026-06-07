@@ -89,13 +89,14 @@ export function ConnectScreen(props: ConnectScreenProps) {
   return (
     <div class="connect" data-testid="connect-screen-bg">
       <main class="connect__main" data-testid="connect-screen">
-        <div class="connect__badge">
-          <Icon name="sparkle" size={32} />
+        <div class="connect__brand">
+          <div class="connect__mark">C</div>
+          <span class="connect__wordmark">CLIO</span>
         </div>
-        <h1 class="connect__title">Connect to a CLIO backend</h1>
+        <h1 class="connect__title">Welcome to CLIO</h1>
         <p class="connect__lede">
-          Point this client at any GACT v0.2 endpoint. Defaults to the local{' '}
-          <code>clio start</code> server on port 17800.
+          Your local AI coding &amp; data agent. Connect to get started — it
+          defaults to the <code>clio</code> backend running on this machine.
         </p>
 
         <div class="connect__card">

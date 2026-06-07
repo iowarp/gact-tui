@@ -1777,22 +1777,37 @@ function ChatLayout(props: ChatLayoutProps) {
   const [overflowOpen, setOverflowOpen] = createSignal(false);
   let topbarRef: HTMLElement | undefined;
   let metaRef: HTMLDivElement | undefined;
-  // Topbar width the chips needed when we last collapsed — only try
-  // expanding again once the topbar grows past it (prevents flapping).
-  let expandAtWidth = 0;
+  let crumbsRef: HTMLDivElement | undefined;
+  let actionsRef: HTMLDivElement | undefined;
+  // The inline secondary-chip strip stays mounted in both modes (when narrow
+  // it is visually hidden via CSS but kept in the flow for measurement), so
+  // its intrinsic width is always readable. We compare that intrinsic width
+  // against the space the topbar can actually give it, which makes the
+  // collapse/expand decision stateless and immune to transient layouts.
+  let secondaryRef: HTMLDivElement | undefined;
   const evaluateOverflow = () => {
-    if (!topbarRef) return;
+    if (!topbarRef || !secondaryRef) return;
     const topbarW = topbarRef.clientWidth;
-    if (!topbarNarrow()) {
-      const meta = metaRef;
-      if (meta && meta.scrollWidth > meta.clientWidth + 2) {
-        expandAtWidth = topbarW + (meta.scrollWidth - meta.clientWidth) + 48;
-        setTopbarNarrow(true);
-      }
-    } else if (topbarW >= expandAtWidth) {
-      // Wide enough again — try inline; re-collapses if still too tight.
-      setTopbarNarrow(false);
-      setOverflowOpen(false);
+    const crumbsW = crumbsRef?.getBoundingClientRect().width ?? 0;
+    const actionsW = actionsRef?.getBoundingClientRect().width ?? 0;
+    // Status chips (sse/session-status/running) live in the meta row beside
+    // the secondary strip. When collapsed the strip is position:absolute (zero
+    // flow width) so metaW is status + the ⋯ button; when inline metaW is
+    // status + the strip. Either way, subtract the strip's measured width to
+    // isolate the status chips. Then reserve a fixed slot for the ⋯ button so
+    // the decision is symmetric across both modes (no flapping).
+    const metaW = metaRef?.getBoundingClientRect().width ?? 0;
+    const secondaryW = secondaryRef.scrollWidth;
+    const stripFlowW = secondaryRef.getBoundingClientRect().width;
+    const statusW = Math.max(0, metaW - (topbarNarrow() ? 0 : stripFlowW));
+    const OVERFLOW_BTN_RESERVE = 36;
+    // 24px slack covers the meta border/padding and inter-section gaps.
+    const available =
+      topbarW - crumbsW - actionsW - statusW - OVERFLOW_BTN_RESERVE - 24;
+    const shouldCollapse = secondaryW > available;
+    if (shouldCollapse !== topbarNarrow()) {
+      setTopbarNarrow(shouldCollapse);
+      if (!shouldCollapse) setOverflowOpen(false);
     }
   };
   onMount(() => {
@@ -2855,7 +2870,7 @@ function ChatLayout(props: ChatLayoutProps) {
           }
         >
         <header class="chat__topbar" ref={topbarRef}>
-          <div class="chat__crumbs">
+          <div class="chat__crumbs" ref={crumbsRef}>
             <span
               class="chat__crumb chat__crumb-head"
               title={
@@ -2942,10 +2957,20 @@ function ChatLayout(props: ChatLayoutProps) {
               })()}
             </Show>
             {/* Wide topbar: secondary chips render inline. Narrow: they
-                collapse into the ⋯ overflow menu (W3 Tier-1). */}
-            <Show when={!topbarNarrow()}>
+                collapse into the ⋯ overflow menu (W3 Tier-1). The inline
+                strip stays mounted in both modes so its intrinsic width is
+                always measurable; when narrow it is visually hidden via the
+                --collapsed modifier (kept in the flow, not display:none). */}
+            <div
+              ref={secondaryRef}
+              class={
+                'chat__secondary' +
+                (topbarNarrow() ? ' chat__secondary--collapsed' : '')
+              }
+              aria-hidden={topbarNarrow()}
+            >
               <SecondaryChips />
-            </Show>
+            </div>
             <Show when={topbarNarrow()}>
               <div class="chat__overflow-anchor">
                 <button
@@ -2973,7 +2998,7 @@ function ChatLayout(props: ChatLayoutProps) {
               </div>
             </Show>
           </div>
-          <div class="chat__topbar-actions">
+          <div class="chat__topbar-actions" ref={actionsRef}>
             <NotificationCenter />
             <button
               type="button"

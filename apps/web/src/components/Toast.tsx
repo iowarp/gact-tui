@@ -78,10 +78,40 @@ export const ToastProvider: ParentComponent = (props) => {
   const [unseenCount, setUnseenCount] = createSignal(0);
   const HISTORY_LIMIT = 50;
   let nextId = 1;
+  // Per-visible-toast auto-dismiss timers, so a coalesced duplicate can
+  // restart the existing toast's countdown instead of stacking a copy.
+  const timers = new Map<number, number>();
+  // When each visible toast was last shown/refreshed, to bound coalescing.
+  const lastShownAt = new Map<number, number>();
+  // Identical toasts (same tone+title+body) fired inside this window
+  // coalesce onto the existing visible toast — keeps an SSE flap or a
+  // retry loop from snowballing the same message N times.
+  const COALESCE_MS = 4000;
+
+  function clearTimer(id: number) {
+    const t = timers.get(id);
+    if (t !== undefined) {
+      window.clearTimeout(t);
+      timers.delete(id);
+    }
+  }
 
   function dismiss(id: number) {
+    clearTimer(id);
+    lastShownAt.delete(id);
     setToasts((cur) => cur.filter((t) => t.id !== id));
   }
+
+  function scheduleDismiss(id: number, duration: number) {
+    if (duration <= 0) return;
+    clearTimer(id);
+    const t = window.setTimeout(() => dismiss(id), duration);
+    timers.set(id, t);
+  }
+  onCleanup(() => {
+    for (const t of timers.values()) window.clearTimeout(t);
+    timers.clear();
+  });
 
   // Cap simultaneously-visible toasts to keep the bottom-right stack
   // from snowballing during a burst of SSE notifications. Oldest
@@ -103,17 +133,28 @@ export const ToastProvider: ParentComponent = (props) => {
     // Silent entries skip the visible toast stack entirely — they exist
     // only in the bell history (1.0 item 8).
     if (!input.silent) {
-      setToasts((cur) => {
-        const next = [...cur, rec];
-        if (next.length <= MAX_VISIBLE) return next;
-        // Evict the oldest non-pinned entry to make room.
-        const evictIdx = next.findIndex((t) => t.duration > 0);
-        if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
-        return [...next.slice(0, evictIdx), ...next.slice(evictIdx + 1)];
-      });
-      if (rec.duration > 0) {
-        const t = window.setTimeout(() => dismiss(id), rec.duration);
-        onCleanup(() => window.clearTimeout(t));
+      // Coalesce an identical toast that's already on screen: restart its
+      // countdown rather than stacking a visual duplicate. The history list
+      // below still records every occurrence.
+      const dupe = toasts().find(
+        (t) => t.tone === rec.tone && t.title === rec.title && t.body === rec.body,
+      );
+      if (dupe && Date.now() - (lastShownAt.get(dupe.id) ?? 0) <= COALESCE_MS) {
+        lastShownAt.set(dupe.id, Date.now());
+        scheduleDismiss(dupe.id, dupe.duration);
+      } else {
+        setToasts((cur) => {
+          const next = [...cur, rec];
+          if (next.length <= MAX_VISIBLE) return next;
+          // Evict the oldest non-pinned entry to make room.
+          const evictIdx = next.findIndex((t) => t.duration > 0);
+          if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
+          const [evicted] = next.splice(evictIdx, 1);
+          if (evicted) clearTimer(evicted.id);
+          return next;
+        });
+        lastShownAt.set(id, Date.now());
+        scheduleDismiss(id, rec.duration);
       }
     }
     // Mirror into the persistent history list (newest first, capped).

@@ -27,22 +27,37 @@
   text-align: center;
 }
 
-.connect__badge {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: linear-gradient(
-    135deg,
-    var(--color-accent) 0%,
-    var(--color-accent-cyan) 100%
-  );
+/* Brand lockup — the same CLIO mark + wordmark the app chrome uses, so the
+   first screen reads as the same product (not a generic connect form). */
+.connect__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto 22px;
+}
+
+.connect__mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
   display: grid;
   place-items: center;
-  margin: 0 auto 18px;
-  color: var(--color-bg);
-  box-shadow:
-    0 0 32px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent),
-    inset 0 -8px 18px rgba(0, 0, 0, 0.18);
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.connect__wordmark {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-heading);
 }
 
 .connect__title {

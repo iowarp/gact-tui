@@ -71,10 +71,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* Keep the session title visible even when meta items are wide.
-     Without this, 5 meta items + actions squeeze the title to 0px on
-     a 1440px viewport with both side panels open. */
-  flex: 1 0 140px;
+  /* Take only the breadcrumb's content width: never grow into the space
+     the secondary-chip strip vacates when it collapses (that grow created a
+     feedback loop that kept the strip stuck in the ⋯ menu), and never shrink
+     the title to 0 — when the topbar is tight the secondary strip collapses
+     into the overflow menu first, which is the real overflow defense. Long
+     titles still ellipsize via min-width:0 + the crumb's text-overflow. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -172,6 +175,26 @@
 
 .chat__meta-item {
   flex: 0 0 auto;
+}
+
+/* The inline secondary-chip strip. Stays mounted in both modes so its
+   intrinsic width is always measurable for the overflow decision. When the
+   topbar is too tight it collapses into the ⋯ menu: we keep it in the DOM
+   but pull it out of the visible flow (not display:none) so scrollWidth is
+   still readable. */
+.chat__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.chat__secondary--collapsed {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  width: max-content;
 }
 
 .chat__meta-item {
