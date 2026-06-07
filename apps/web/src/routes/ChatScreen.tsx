@@ -1964,7 +1964,10 @@ function ChatLayout(props: ChatLayoutProps) {
   createEffect(() => {
     void props.activeId; // dependency
     queueMicrotask(() => {
-      if (paneEl) {
+      // A pending permission card lives at the top of the pane and is the
+      // priority surface — don't bury it by jumping to the bottom. The
+      // dedicated permission effect scrolls it into view instead.
+      if (paneEl && !props.pendingPermission) {
         paneEl.scrollTop = paneEl.scrollHeight;
         setScrolledUp(false);
         setNewSinceScroll(0);
@@ -1980,6 +1983,21 @@ function ChatLayout(props: ChatLayoutProps) {
         ae === document.body ||
         (ae as HTMLElement).dataset?.testid === 'composer-input';
       if (ta && focusable) ta.focus();
+    });
+  });
+
+  // A pending permission is a blocking decision the user MUST see. The card
+  // renders at the top of the pane (above the transcript), so the
+  // scroll-to-bottom-on-load/new-message logic would push it off-screen,
+  // leaving only the sticky action bar with no context. When a permission
+  // becomes pending, scroll its card into view so the request is readable.
+  createEffect(() => {
+    if (!props.pendingPermission) return;
+    queueMicrotask(() => {
+      const card = paneEl?.querySelector(
+        '[data-testid="permission-card"]',
+      ) as HTMLElement | null;
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
 

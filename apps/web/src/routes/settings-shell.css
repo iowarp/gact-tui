@@ -97,6 +97,22 @@
   color: var(--color-heading);
 }
 
+/* A clicked-but-no-longer-hovered nav item used to keep the gray hover fill
+   via the retained :focus state, reading like a second active item. Drop the
+   fill on keyboard focus and show only a focus ring; pointer focus shows
+   nothing (the active cyan state is the single source of "selected"). */
+.settings-shell__nav-btn:focus {
+  outline: none;
+}
+.settings-shell__nav-btn:focus:not(:hover):not(.is-active) {
+  background: transparent;
+  color: var(--color-text);
+}
+.settings-shell__nav-btn:focus-visible {
+  outline: 2px solid var(--color-accent-cyan-30);
+  outline-offset: -1px;
+}
+
 .settings-shell__nav-btn.is-active {
   background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
   color: var(--color-accent-cyan);

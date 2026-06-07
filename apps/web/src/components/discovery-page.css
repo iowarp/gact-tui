@@ -233,15 +233,28 @@
   flex-shrink: 0;
 }
 
+/* If a card has no glyph (Icon degrades to nothing for an unknown/absent
+   name) the slot collapses instead of showing an empty bordered square. */
+.dp__card-icon:empty {
+  display: none;
+}
+
 .dp__card-title {
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 700;
   color: var(--color-heading);
   margin: 0;
-  white-space: nowrap;
+  /* Wrap to two lines before truncating — card titles (commands, providers,
+     prompts, blueprints) are often longer than one line's worth and there is
+     vertical room. Single-line ellipsis was hiding readable titles. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dp__card-sub {
@@ -706,12 +719,23 @@
 .prompts__edit-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+  /* Keep the trailing Save button off the card's right edge — without this
+     the primary button was flush against (and clipped by) the card border
+     when the editor was expanded. */
+  padding-right: 2px;
 }
 
 .prompts__edit-actions .rmp__form-select {
   margin-right: auto;
+}
+
+/* The Save/Validate buttons must never be clipped by the editor card; let
+   the row keep them inside the padded content box. */
+.prompts__edit-actions .ws-form__btn {
+  flex: 0 0 auto;
 }
 
 .dp__search-row {

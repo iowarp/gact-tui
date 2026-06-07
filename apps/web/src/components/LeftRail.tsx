@@ -140,7 +140,7 @@ export function LeftRail(props: LeftRailProps) {
           aria-label="Browse the catalog"
           onClick={() => props.onOpenCatalog?.()}
         >
-          <Icon name="search" />
+          <Icon name="catalog" />
           <Show when={expanded()}>
             <span class="rail__label">Browse catalog</span>
           </Show>

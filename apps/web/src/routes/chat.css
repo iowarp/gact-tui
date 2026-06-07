@@ -6,7 +6,14 @@
    rows then intercepted clicks on the rail buttons (real clickability bug). */
 .chat {
   display: grid;
-  grid-template-columns: auto 320px 1fr auto;
+  /* Base layout: rail · sessions · main. Each open right-hand panel
+     (inspector and/or preview rail) appends its own trailing `auto`
+     track via the `.chat--inspector-open` / `.chat--preview-open`
+     modifiers below — so the track count always matches the number of
+     rendered children. A standalone trailing `auto` here would steal a
+     track from whichever panel is open and starve the other (the
+     "both panels open collapses the preview to a sliver" bug). */
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr;
   height: 100vh;
   background: var(--color-bg);
   min-height: 0;
@@ -28,12 +35,37 @@
    grid column sized by its own content width. The preview rail's element
    carries the clamp width (see .preview-rail in preview-rail.css), so it
    doesn't matter which order inspector/rail land in. We only reserve the
-   inspector's width in the clamp when it is actually open. */
+   inspector's width in the clamp when it is actually open.
+
+   Each modifier appends ONE trailing `auto` track. Combined, "both open"
+   resolves to `auto <sessions> 1fr auto auto` — five tracks for the five
+   children (rail · sessions · main · inspector · preview). */
 .chat--inspector-open {
   --inspector-w: 340px;
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
 }
+.chat--preview-open {
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
+}
+.chat--inspector-open.chat--preview-open {
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto auto;
+}
+
+/* Cmd+B focus mode removes the SessionsColumn from the DOM entirely, so its
+   grid track must be dropped (not just zeroed) — otherwise main-col would
+   land in an empty leftover track. We re-declare the column sets WITHOUT the
+   sessions track, preserving the per-panel trailing `auto` tracks so the
+   both-panels-open layout still resolves correctly. */
 .chat--no-sessions {
   --sessions-w: 0px;
+  grid-template-columns: auto 1fr;
+}
+.chat--no-sessions.chat--inspector-open,
+.chat--no-sessions.chat--preview-open {
+  grid-template-columns: auto 1fr auto;
+}
+.chat--no-sessions.chat--inspector-open.chat--preview-open {
+  grid-template-columns: auto 1fr auto auto;
 }
 
 /* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
@@ -42,10 +74,11 @@
   grid-template-columns: auto 1fr;
 }
 
-/* Cmd+B focus mode: collapse the sessions column.                       */
-.chat--no-sessions {
-  grid-template-columns: auto 1fr auto;
-}
+/* Cmd+B focus mode: collapse the sessions column. The sessions track is
+   driven to 0 via --sessions-w (above); the SessionsColumn is also removed
+   from the DOM, so its 0px track is empty and harmless. We deliberately do
+   NOT override grid-template-columns here — that would drop a trailing track
+   and re-break the both-panels-open layout. */
 
 .chat__main-col {
   display: flex;
@@ -315,15 +348,21 @@
   width: 64px;
   height: 64px;
   border-radius: 18px;
+  /* Stronger fill + a hairline ring so the icon reads against the page bg.
+     The previous 0.22-alpha gradient was too faint and the cyan stroke
+     vanished into it. */
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-accent) 22%, transparent) 0%,
-    color-mix(in srgb, var(--color-accent-cyan) 22%, transparent) 100%
+    color-mix(in srgb, var(--color-accent) 42%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent-cyan) 42%, transparent) 100%
   );
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-cyan-30),
+    var(--glow-cyan-sm);
   display: grid;
   place-items: center;
   margin: 0 auto 16px;
-  color: var(--color-accent-cyan);
+  color: var(--color-heading);
 }
 
 .chat__empty-title {
