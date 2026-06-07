@@ -3,6 +3,7 @@ import { Icon } from './Icon.js';
 import type { Client } from '@clio/core';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
+import { Spinner } from './ui/Spinner.js';
 import './composer.css';
 
 export type PermissionMode = 'ask' | 'auto-edits' | 'plan' | 'auto' | 'bypass';
@@ -618,7 +619,7 @@ export function Composer(props: ComposerProps = {}) {
                     when={a.pending}
                     fallback={<Icon name={a.error ? 'close' : 'attach'} size={11} />}
                   >
-                    <span class="composer__chip-spin" aria-label="uploading" />
+                    <Spinner class="composer__chip-spin" label="uploading" />
                   </Show>
                   <span class="composer__chip-name">{a.name}</span>
                   <Show
