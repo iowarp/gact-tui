@@ -11,6 +11,7 @@
  */
 import { Show, type JSX } from 'solid-js';
 import { Icon, type IconName } from './Icon.js';
+import { Spinner } from './ui/Spinner.js';
 import './settings-primitives.css';
 
 /** A labelled divider that opens a group of rows. */
@@ -116,7 +117,7 @@ export function EmptyState(props: {
 export function LoadingState(props: { label?: string; testid?: string }): JSX.Element {
   return (
     <div class="sx-loading" data-testid={props.testid ?? 'sx-loading'}>
-      <span class="sx-loading__spinner" aria-hidden="true" />
+      <Spinner class="sx-loading__spinner" />
       <span>{props.label ?? 'Loading…'}</span>
     </div>
   );

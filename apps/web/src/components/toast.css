@@ -19,7 +19,7 @@
   border-radius: 12px;
   padding: 10px 12px;
   color: var(--color-heading);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   animation: toast-in 180ms ease-out both;
   pointer-events: auto;
 }

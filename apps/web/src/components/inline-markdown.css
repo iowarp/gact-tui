@@ -91,7 +91,7 @@
 .hljs-literal,
 .hljs-type,
 .hljs-name {
-  color: var(--color-accent, #6e9bff);
+  color: var(--color-accent-cyan);
 }
 .hljs-string,
 .hljs-attr,

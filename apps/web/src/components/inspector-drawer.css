@@ -808,7 +808,7 @@
   margin: 4px 0 0;
   padding-left: 16px;
   text-align: left;
-  color: var(--color-accent-red, #e5484d);
+  color: var(--color-error);
   font-size: 11px;
   line-height: 1.4;
 }

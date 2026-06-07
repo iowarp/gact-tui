@@ -51,7 +51,7 @@
   border: 1px solid var(--color-border-60);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   max-height: 260px;
   overflow-y: auto;
 }
@@ -300,7 +300,7 @@
   border: 1px solid var(--color-border-60);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   min-width: 140px;
 }
 

@@ -49,6 +49,10 @@ export const LIGHT_THEME_TOKENS: Record<string, string> = {
   '--color-hljs-number': '#a16207',
   '--color-diff-add-bg': 'rgba(6, 118, 71, 0.10)',
   '--color-diff-del-bg': 'rgba(187, 37, 37, 0.10)',
+  // Elevation: the dark default's pure-black drop is far too heavy on a
+  // white canvas. One overlay-shadow token (DESIGN.md) travels with the
+  // theme rather than being re-specified per component.
+  '--shadow-overlay': '0 18px 48px -20px rgba(20, 36, 64, 0.35)',
 };
 
 /**
@@ -98,6 +102,7 @@ export const THEME_PRESETS: Record<
       '--color-muted': '#6b7280',
       '--color-accent': '#c4682a',
       '--color-accent-cyan': '#0aa6ad',
+      '--shadow-overlay': '0 24px 64px -18px rgba(0, 0, 0, 0.6)',
     },
   },
 };

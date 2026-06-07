@@ -153,16 +153,10 @@
   color: var(--color-muted);
   font-size: var(--text-sm);
 }
+/* Shared Spinner primitive, tinted for the settings loading row. */
 .sx-loading__spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border-60);
-  border-top-color: var(--color-accent-cyan);
-  animation: sx-spin 0.7s linear infinite;
-}
-@keyframes sx-spin {
-  to { transform: rotate(360deg); }
+  color: var(--color-accent-cyan);
+  font-size: 14px;
 }
 
 /* A validated <select> control sized for the row control slot. */
