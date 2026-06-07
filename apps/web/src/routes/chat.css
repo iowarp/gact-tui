@@ -1,9 +1,12 @@
 /* Modern three-pane desktop layout.
-   rail (56) · sessions (320) · main (1fr) · inspector (0|340)
-*/
+   rail (auto: 56 collapsed / 208 expanded) · sessions (320) · main (1fr) · inspector (0|340)
+   The rail track is `auto` (not a fixed 56px) so it always fits the rail's
+   actual rendered width — the rail is expanded-by-default at 208px, and a
+   fixed 56px track let it overflow 152px UNDER the sessions column, whose
+   rows then intercepted clicks on the rail buttons (real clickability bug). */
 .chat {
   display: grid;
-  grid-template-columns: 56px 320px 1fr auto;
+  grid-template-columns: auto 320px 1fr auto;
   height: 100vh;
   background: var(--color-bg);
   min-height: 0;
@@ -13,7 +16,7 @@
      reserve accounts for the left rail + sessions column + inspector (when
      open) + a chat minimum. */
   --preview-rail-reserve: calc(
-    56px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
+    208px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
   );
   --preview-rail-w: min(
     clamp(18rem, 32vw, 30rem),
@@ -36,12 +39,12 @@
 /* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
    and the inspector — they're chat-specific affordances. */
 .chat--discovery {
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: auto 1fr;
 }
 
 /* Cmd+B focus mode: collapse the sessions column.                       */
 .chat--no-sessions {
-  grid-template-columns: 56px 1fr auto;
+  grid-template-columns: auto 1fr auto;
 }
 
 .chat__main-col {
