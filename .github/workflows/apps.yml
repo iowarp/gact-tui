@@ -322,7 +322,11 @@ jobs:
         with:
           files: |
             ${{ runner.temp }}/clio-stage/*
-          generate_release_notes: true
+          # Notes are generated exactly once by the finalize-notes job.
+          # Generating them in every matrix job stacked duplicate
+          # "What's Changed" blocks (7x on the 0.7.0 release).
+          generate_release_notes: false
+          append_body: false
           prerelease: false
           draft: false
         env:
@@ -377,7 +381,31 @@ jobs:
           files: |
             ${{ runner.temp }}/clio-web-stage/clio-web-*.zip
             ${{ runner.temp }}/clio-web-stage/SHA256SUMS.web.txt
+          # See finalize-notes — do not generate notes per job.
+          generate_release_notes: false
+          append_body: false
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Generate the release notes ONCE, after all installer + web jobs have
+  # attached their assets. Doing this per matrix job (8 desktop + 1 web)
+  # is what produced the duplicated "What's Changed" blocks on 0.7.0.
+  finalize-notes:
+    name: finalize · release notes (once)
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/clio-desktop-v') }}
+    needs: [release, release-web]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Set release notes once
+        uses: softprops/action-gh-release@v2
+        with:
           generate_release_notes: true
+          append_body: false
           prerelease: false
           draft: false
         env:
