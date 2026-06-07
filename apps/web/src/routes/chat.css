@@ -7,6 +7,30 @@
   height: 100vh;
   background: var(--color-bg);
   min-height: 0;
+  /* Preview-rail width that YIELDS to chat: the clamp gives a comfortable
+     preferred width, but `max(0, …)` collapses it before the conversation is
+     crushed below its minimum. Mirrors the hermes rule (§4). The subtracted
+     reserve accounts for the left rail + sessions column + inspector (when
+     open) + a chat minimum. */
+  --preview-rail-reserve: calc(
+    56px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
+  );
+  --preview-rail-w: min(
+    clamp(18rem, 32vw, 30rem),
+    max(0px, calc(100vw - var(--preview-rail-reserve)))
+  );
+}
+
+/* Both side panels can be open at once — each is its own trailing `auto`
+   grid column sized by its own content width. The preview rail's element
+   carries the clamp width (see .preview-rail in preview-rail.css), so it
+   doesn't matter which order inspector/rail land in. We only reserve the
+   inspector's width in the clamp when it is actually open. */
+.chat--inspector-open {
+  --inspector-w: 340px;
+}
+.chat--no-sessions {
+  --sessions-w: 0px;
 }
 
 /* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
