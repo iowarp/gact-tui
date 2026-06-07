@@ -123,6 +123,11 @@ type App struct {
 	// When false, terminal native text selection is restored.
 	MouseEnabled bool
 
+	// BrandName white-labels the product name in the OS window title and the
+	// generated splash wordmark (config `name` / GACT_BRAND_NAME). Empty falls
+	// back to the built-in brand, so default behaviour is unchanged.
+	BrandName string
+
 	c *client.Client
 
 	width, height int
@@ -8912,15 +8917,19 @@ func (a *App) sseHealthDot() string {
 // this backend so an unfocused terminal tab still reminds them
 // resumable work exists.
 func (a *App) windowTitle() string {
+	brand := a.BrandName
+	if brand == "" {
+		brand = "GACT"
+	}
 	var title string
 	if a.selected < 0 || a.selected >= len(a.sessions) {
-		title = "GACT"
+		title = brand
 	} else {
 		s := a.sessions[a.selected]
 		if s.Title == "" {
-			title = "GACT"
+			title = brand
 		} else {
-			title = "GACT — " + s.Title
+			title = brand + " — " + s.Title
 		}
 		switch s.Status {
 		case gact.StatusRunning:
@@ -8975,6 +8984,20 @@ var defaultIntroName = func() []string {
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
 	return lines
 }()
+
+// SetBrandName white-labels the product name: it sets the OS window-title
+// brand and regenerates the splash wordmark from the name (go-figure "slant",
+// the same generator as the default). A no-op for the empty string so default
+// behaviour is preserved. Call BEFORE SetIntroFromFile so a custom intro_file
+// still wins for the splash art.
+func (a *App) SetBrandName(name string) {
+	if name == "" {
+		return
+	}
+	a.BrandName = name
+	out := figure.NewFigure(name, "slant", true).String()
+	a.IntroName = strings.Split(strings.TrimRight(out, "\n"), "\n")
+}
 
 // SetIntroFromFile loads a custom splash from disk. Format is two
 // blocks separated by a blank line: logo block, then name block.

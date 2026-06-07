@@ -1029,6 +1029,13 @@ func runTUI() {
 	app.SetInitialWorkspace(finalWorkspace)
 	finalLocale := config.Resolve(cfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
 	app.SetLocale(finalLocale)
+	// White-label brand name (config `name` / GACT_BRAND_NAME). Drives the OS
+	// window title + the generated splash wordmark. Set BEFORE the intro_file
+	// load below so a custom splash file still overrides the wordmark. Empty =
+	// built-in default, so unbranded behaviour is unchanged.
+	if finalBrand := config.Resolve(cfg.Name, os.Getenv("GACT_BRAND_NAME"), "", ""); finalBrand != "" {
+		app.SetBrandName(finalBrand)
+	}
 	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")
 	app.VoiceCommand = finalVoice
 	// BBBBBBBB1: seed the previously-detached set so the sidebar can
