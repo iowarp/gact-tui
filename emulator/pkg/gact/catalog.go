@@ -138,25 +138,30 @@ type Tool struct {
 // tier-2 specialists so the TUI can render a routing badge and
 // colour it by specialization.
 type AgentDef struct {
-	ID               string               `json:"id"`
-	Source           string               `json:"source"` // builtin|user|recipe|skill
-	Title            string               `json:"title"`
-	Description      string               `json:"description,omitempty"`
-	ParentID         string               `json:"parent_id,omitempty"`
-	SystemPrompt     string               `json:"system_prompt,omitempty"`
-	PromptID         string               `json:"prompt_id,omitempty"`
-	PromptProfile    string               `json:"prompt_profile,omitempty"`
-	DefaultProvider  string               `json:"default_provider,omitempty"`
-	Parameters       []AgentParameter     `json:"parameters,omitempty"`
-	DefaultModel     *ModelRef            `json:"default_model,omitempty"`
-	DefaultModelName string               `json:"-"`
-	Tools            []string             `json:"tools,omitempty"`
-	Skills           []string             `json:"skills,omitempty"`
-	Commands         []string             `json:"commands,omitempty"`
-	CapabilityRefs   []AgentCapabilityRef `json:"capability_refs,omitempty"`
-	Metadata         map[string]any       `json:"metadata,omitempty"`
-	Enabled          bool                 `json:"enabled,omitempty"`
-	ValidationErrors []string             `json:"validation_errors,omitempty"`
+	ID                 string               `json:"id"`
+	Source             string               `json:"source"` // builtin|user|recipe|skill
+	Title              string               `json:"title"`
+	Description        string               `json:"description,omitempty"`
+	ParentID           string               `json:"parent_id,omitempty"`
+	SystemPrompt       string               `json:"system_prompt,omitempty"`
+	PromptID           string               `json:"prompt_id,omitempty"`
+	PromptProfile      string               `json:"prompt_profile,omitempty"`
+	DefaultProvider    string               `json:"default_provider,omitempty"`
+	Parameters         []AgentParameter     `json:"parameters,omitempty"`
+	DefaultModel       *ModelRef            `json:"default_model,omitempty"`
+	DefaultModelName   string               `json:"-"`
+	Module             map[string]any       `json:"module,omitempty"`
+	Signature          map[string]any       `json:"signature,omitempty"`
+	StructuredOutputs  map[string]any       `json:"structured_outputs,omitempty"`
+	Fanout             map[string]any       `json:"fanout,omitempty"`
+	Tools              []string             `json:"tools,omitempty"`
+	Skills             []string             `json:"skills,omitempty"`
+	Commands           []string             `json:"commands,omitempty"`
+	CapabilityRefs     []AgentCapabilityRef `json:"capability_refs,omitempty"`
+	Metadata           map[string]any       `json:"metadata,omitempty"`
+	Enabled            bool                 `json:"enabled,omitempty"`
+	ValidationWarnings []string             `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string             `json:"validation_errors,omitempty"`
 
 	// v0.2 — multi-tier routing (optional; absent = tier-1 or untagged)
 	Tier           int      `json:"tier,omitempty"`           // 1 = orchestrator, 2 = specialist, 3 = nanoagent
@@ -204,6 +209,16 @@ type ExpertPackValidateRequest struct {
 	Scope string `json:"scope,omitempty"`
 }
 
+type ExpertPackInstallRequest struct {
+	Source      string `json:"source,omitempty"`
+	SourceID    string `json:"source_id,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	Ref         string `json:"ref,omitempty"`
+}
+
 type ExpertPackValidationResult struct {
 	Enabled          bool                 `json:"enabled"`
 	ValidationErrors []string             `json:"validation_errors,omitempty"`
@@ -227,25 +242,27 @@ type SetSessionExpertPackRequest struct {
 }
 
 type AgentBlueprintDefinition struct {
-	ID               string         `json:"id"`
-	Version          string         `json:"version,omitempty"`
-	Title            string         `json:"title,omitempty"`
-	Description      string         `json:"description,omitempty"`
-	Scope            string         `json:"scope,omitempty"`
-	Root             string         `json:"root,omitempty"`
-	RootPath         string         `json:"root_path,omitempty"`
-	DefinitionPath   string         `json:"definition_path,omitempty"`
-	RootExpert       string         `json:"root_expert,omitempty"`
-	Enabled          bool           `json:"enabled"`
-	ValidationErrors []string       `json:"validation_errors,omitempty"`
-	Defaults         map[string]any `json:"defaults,omitempty"`
-	Metadata         map[string]any `json:"metadata,omitempty"`
+	ID                 string         `json:"id"`
+	Version            string         `json:"version,omitempty"`
+	Title              string         `json:"title,omitempty"`
+	Description        string         `json:"description,omitempty"`
+	Scope              string         `json:"scope,omitempty"`
+	Root               string         `json:"root,omitempty"`
+	RootPath           string         `json:"root_path,omitempty"`
+	DefinitionPath     string         `json:"definition_path,omitempty"`
+	RootExpert         string         `json:"root_expert,omitempty"`
+	Enabled            bool           `json:"enabled"`
+	ValidationWarnings []string       `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string       `json:"validation_errors,omitempty"`
+	Defaults           map[string]any `json:"defaults,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
 }
 
 type AgentBlueprintDetail struct {
-	AgentBlueprint AgentBlueprintDefinition `json:"agent_blueprint"`
-	Agents         []AgentDef               `json:"agents,omitempty"`
-	MCPDescriptors []map[string]any         `json:"mcp_descriptors,omitempty"`
+	AgentBlueprint  AgentBlueprintDefinition `json:"agent_blueprint"`
+	Agents          []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors  []map[string]any         `json:"mcp_descriptors,omitempty"`
+	HookDescriptors []map[string]any         `json:"hook_descriptors,omitempty"`
 }
 
 type AgentBlueprintValidateRequest struct {
@@ -254,21 +271,40 @@ type AgentBlueprintValidateRequest struct {
 }
 
 type AgentBlueprintValidationResult struct {
-	Enabled          bool                     `json:"enabled"`
-	ValidationErrors []string                 `json:"validation_errors,omitempty"`
-	AgentBlueprint   AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
-	Agents           []AgentDef               `json:"agents,omitempty"`
-	MCPDescriptors   []map[string]any         `json:"mcp_descriptors,omitempty"`
+	Enabled            bool                     `json:"enabled"`
+	ValidationWarnings []string                 `json:"validation_warnings,omitempty"`
+	ValidationErrors   []string                 `json:"validation_errors,omitempty"`
+	AgentBlueprint     AgentBlueprintDefinition `json:"agent_blueprint,omitempty"`
+	Agents             []AgentDef               `json:"agents,omitempty"`
+	MCPDescriptors     []map[string]any         `json:"mcp_descriptors,omitempty"`
+	HookDescriptors    []map[string]any         `json:"hook_descriptors,omitempty"`
 }
 
 type AgentBlueprintInstallRequest struct {
-	Source      string `json:"source,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Path        string `json:"path,omitempty"`
-	Scope       string `json:"scope,omitempty"`
-	WorkspaceID string `json:"workspace_id,omitempty"`
-	Ref         string `json:"ref,omitempty"`
-	BlueprintID string `json:"blueprint_id,omitempty"`
+	Source       string `json:"source,omitempty"`
+	SourceID     string `json:"source_id,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Path         string `json:"path,omitempty"`
+	Scope        string `json:"scope,omitempty"`
+	WorkspaceID  string `json:"workspace_id,omitempty"`
+	Ref          string `json:"ref,omitempty"`
+	BlueprintID  string `json:"blueprint_id,omitempty"`
+	PinnedCommit string `json:"pinned_commit,omitempty"`
+}
+
+type AgentBlueprintSource struct {
+	ID                  string                     `json:"id"`
+	Name                string                     `json:"name,omitempty"`
+	Source              string                     `json:"source,omitempty"`
+	Ref                 string                     `json:"ref,omitempty"`
+	PinnedCommit        string                     `json:"pinned_commit,omitempty"`
+	SourceKind          string                     `json:"source_kind,omitempty"`
+	Status              string                     `json:"status,omitempty"`
+	Error               string                     `json:"error,omitempty"`
+	Commit              string                     `json:"commit,omitempty"`
+	AddedAt             string                     `json:"added_at,omitempty"`
+	UpdatedAt           string                     `json:"updated_at,omitempty"`
+	AvailableBlueprints []AgentBlueprintDefinition `json:"available_blueprints,omitempty"`
 }
 
 type AgentBlueprintUpdateRequest struct {
@@ -301,6 +337,11 @@ type SessionAgentOverlayResponse struct {
 
 type AgentBlueprintMCPEnableRequest struct {
 	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+type AgentBlueprintHookEnableRequest struct {
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	Trust       bool   `json:"trust,omitempty"`
 }
 
 // PromptProfile is one resolved profile body for a CLIO prompt registry
@@ -566,6 +607,16 @@ type ContextFile struct {
 	LastModified string `json:"last_modified,omitempty"`
 	Size         int64  `json:"size,omitempty"`
 	Language     string `json:"language,omitempty"`
+	Uploaded     bool   `json:"uploaded,omitempty"`
+}
+
+type ContextFileContent struct {
+	Path        string `json:"path"`
+	DisplayPath string `json:"display_path,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	MediaType   string `json:"media_type,omitempty"`
+	Encoding    string `json:"encoding,omitempty"`
+	Data        string `json:"data,omitempty"`
 }
 
 // FileEntry is one entry from a directory listing.
@@ -596,26 +647,30 @@ type FileDiff struct {
 
 // Command is one slash command available in the catalog (SPEC §6.13).
 type Command struct {
-	ID             string           `json:"id"`
-	Title          string           `json:"title"`
-	Description    string           `json:"description,omitempty"`
-	Source         string           `json:"source"` // builtin|mcp_prompt|recipe|user
-	ServerID       string           `json:"server_id,omitempty"`
-	Arguments      []AgentParameter `json:"arguments,omitempty"`
-	Shortcut       string           `json:"shortcut,omitempty"`
-	Status         string           `json:"status,omitempty"`
-	Enabled        bool             `json:"enabled,omitempty"`
-	Error          string           `json:"error,omitempty"`
-	DisabledReason string           `json:"disabled_reason,omitempty"`
-	AgentID        string           `json:"agent_id,omitempty"`
-	AgentSource    string           `json:"agent_source,omitempty"`
-	CommandSource  string           `json:"command_source,omitempty"`
-	Invocation     string           `json:"invocation,omitempty"`
-	UserInvocable  *bool            `json:"user_invocable,omitempty"`
-	AgentInvocable *bool            `json:"agent_invocable,omitempty"`
-	PlannerVisible *bool            `json:"planner_visible,omitempty"`
-	ArgumentHint   string           `json:"argument_hint,omitempty"`
-	PromptTemplate string           `json:"prompt_template,omitempty"`
+	ID                 string           `json:"id"`
+	Title              string           `json:"title"`
+	Description        string           `json:"description,omitempty"`
+	Source             string           `json:"source"` // builtin|mcp_prompt|recipe|user
+	ServerID           string           `json:"server_id,omitempty"`
+	Arguments          []AgentParameter `json:"arguments,omitempty"`
+	Shortcut           string           `json:"shortcut,omitempty"`
+	Status             string           `json:"status,omitempty"`
+	Enabled            bool             `json:"enabled,omitempty"`
+	Error              string           `json:"error,omitempty"`
+	DisabledReason     string           `json:"disabled_reason,omitempty"`
+	AgentID            string           `json:"agent_id,omitempty"`
+	AgentSource        string           `json:"agent_source,omitempty"`
+	CommandSource      string           `json:"command_source,omitempty"`
+	CommandPath        string           `json:"command_path,omitempty"`
+	CommandScope       string           `json:"command_scope,omitempty"`
+	AgentBlueprintID   string           `json:"agent_blueprint_id,omitempty"`
+	AgentBlueprintRoot string           `json:"agent_blueprint_root,omitempty"`
+	Invocation         string           `json:"invocation,omitempty"`
+	UserInvocable      *bool            `json:"user_invocable,omitempty"`
+	AgentInvocable     *bool            `json:"agent_invocable,omitempty"`
+	PlannerVisible     *bool            `json:"planner_visible,omitempty"`
+	ArgumentHint       string           `json:"argument_hint,omitempty"`
+	PromptTemplate     string           `json:"prompt_template,omitempty"`
 }
 
 // Metrics is the body of GET /v1/metrics (SPEC §6.16).

@@ -10,10 +10,21 @@ import (
 )
 
 func (a *App) openContextActionsForIndex(index int) tea.Cmd {
+	zone := FocusSidebar
+	if a.focus == FocusRightSidebar {
+		zone = FocusRightSidebar
+	}
+	return a.openContextActionsForIndexInZone(index, zone)
+}
+
+func (a *App) openContextActionsForIndexInZone(index int, zone FocusZone) tea.Cmd {
 	if index < 0 || index >= len(a.contextFiles) {
 		return nil
 	}
-	a.focus = FocusSidebar
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	}
+	a.focus = zone
 	a.sidebarSectionFocus = sidebarSectionContext
 	a.sidebarSectionCursor = false
 	a.contextFileSel = index
@@ -43,18 +54,17 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 		{
 			id:          "detail",
 			title:       "Open detail",
-			description: "Show path, mode, size, session, and provenance metadata.",
+			description: "Review file details and how it is attached.",
 			key:         "Enter",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
-				app.openContextFileDetail(cf)
-				return nil
+				return app.openContextFileDetail(cf)
 			},
 		},
 		{
 			id:          "copy-path",
 			title:       "Copy path",
-			description: "Copy the workspace-relative file path.",
+			description: "Copy the path as shown in this workspace.",
 			key:         "y",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
@@ -65,7 +75,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 		{
 			id:          "copy-detail",
 			title:       "Copy metadata",
-			description: "Copy the structured context detail text.",
+			description: "Copy file details for notes or support.",
 			key:         "Y",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()
@@ -91,7 +101,7 @@ func (a *App) selectedContextActionItems() []actionMenuItem {
 		{
 			id:          "remove",
 			title:       "Remove from context",
-			description: "Detach this file from the selected session.",
+			description: "Stop including this file in the selected session.",
 			key:         "x",
 			action: func(app *App) tea.Cmd {
 				app.closeContextActions()

@@ -50,3 +50,33 @@ func TestCommandErrMsgSurfacesHintWithoutStageError(t *testing.T) {
 		t.Fatal("command failure should schedule hint expiry")
 	}
 }
+
+func TestRunCommandCancelFailureShowsCancelHint(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"error":{"code":"cancel_failed","message":"cancel failed: runtime supervisor did not acknowledge the request"}}`))
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.stage = StageReady
+	msg := runCommandCmd(client.New(srv.URL), "sess_1", "/cancel")()
+
+	model, cmd := a.Update(msg)
+	a = model.(*App)
+	if a.stage == StageError {
+		t.Fatalf("cancel command failure should not replace the TUI with StageError: %q", a.stageError)
+	}
+	if !strings.Contains(a.transientHint, "cancel failed") ||
+		!strings.Contains(a.transientHint, "runtime supervisor did not acknowledge") {
+		t.Fatalf("cancel failure hint = %q", a.transientHint)
+	}
+	if cmd == nil {
+		t.Fatal("cancel failure should schedule hint expiry")
+	}
+}

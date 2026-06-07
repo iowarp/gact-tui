@@ -2,6 +2,8 @@ package ui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -79,8 +81,113 @@ func TestDoctorCapabilityRowsCoverDecodedCapabilityFlags(t *testing.T) {
 	}
 }
 
+func TestCapabilityMatrixDocCoversDoctorRows(t *testing.T) {
+	matrixPath := capabilityMatrixPath()
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	doc := string(raw)
+	if !strings.Contains(doc, "# GACT TUI 1.0 Capability Matrix") {
+		t.Fatal("capability matrix should be labeled as the active 1.0 release gate")
+	}
+	if strings.Contains(doc, "0.9 status") ||
+		strings.Contains(doc, "CLIO 0.9") ||
+		strings.Contains(doc, "standalone 0.9") {
+		t.Fatal("capability matrix still contains stale 0.9 release-gate wording")
+	}
+	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {
+		if !strings.Contains(doc, "`"+row.name+"`") {
+			t.Fatalf("capability matrix missing backend field %q", row.name)
+		}
+	}
+}
+
+func TestCapabilityMatrixDocMatchesDoctorSupportClasses(t *testing.T) {
+	matrixPath := capabilityMatrixPath()
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	docSupport := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") || !strings.Contains(line, "`") {
+			continue
+		}
+		cols := strings.Split(line, "|")
+		if len(cols) < 5 {
+			continue
+		}
+		field := strings.Trim(strings.TrimSpace(cols[2]), "`")
+		support := strings.TrimSpace(cols[3])
+		if field != "" && support != "" && field != "Backend field" {
+			docSupport[field] = support
+		}
+	}
+	for _, row := range doctorCapabilityRows(gact.Capabilities{}) {
+		want := capUISupportPlainLabel(row.ui)
+		if want == "not surfaced" {
+			want = "none"
+		}
+		got, ok := docSupport[row.name]
+		if !ok {
+			t.Fatalf("capability matrix missing support class for %q", row.name)
+		}
+		if got != want {
+			t.Fatalf("capability matrix support for %q = %q, want Doctor support %q", row.name, got, want)
+		}
+	}
+}
+
+func TestCapabilityMatrixDocNonFullRowsCarryDisposition(t *testing.T) {
+	matrixPath := capabilityMatrixPath()
+	raw, err := os.ReadFile(matrixPath)
+	if err != nil {
+		t.Fatalf("read capability matrix: %v", err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") || !strings.Contains(line, "`") {
+			continue
+		}
+		cols := strings.Split(line, "|")
+		if len(cols) < 5 {
+			continue
+		}
+		field := strings.Trim(strings.TrimSpace(cols[2]), "`")
+		support := strings.TrimSpace(cols[3])
+		status := strings.ToLower(strings.TrimSpace(cols[4]))
+		if field == "" || field == "Backend field" {
+			continue
+		}
+		switch support {
+		case "partial", "gated", "none":
+			if !hasCapabilityDisposition(status) {
+				t.Fatalf("capability matrix %s row %q needs issue/proof/deferred/non-goal disposition: %q", support, field, strings.TrimSpace(cols[4]))
+			}
+		}
+	}
+}
+
+func hasCapabilityDisposition(status string) bool {
+	for _, marker := range []string{"#", "proof", "non-goal", "defer"} {
+		if strings.Contains(status, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func capabilityMatrixPath() string {
+	return filepath.Join("..", "..", "..", "docs", "TUI_ONE_ZERO_CAPABILITY_MATRIX.md")
+}
+
 func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		SessionSummary:                 true,
+		AttachmentsUpload:              true,
+		MultimodalImageParts:           true,
 		AgentWrite:                     true,
 		SkillsExtraction:               true,
 		XClioPromptRegistry:            true,
@@ -89,6 +196,12 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		XClioUserQuestions:             true,
 		XClioRetryAttempts:             true,
 		XClioContextFrames:             true,
+		XClioSemanticEvents:            true,
+		XClioSemanticTraceBackend:      "file",
+		XClioSemanticTraceDetail:       "semantic",
+		XClioHookBackend:               "python",
+		XClioHookEvents:                map[string]any{"semantic.event": map[string]any{"status": "enabled"}},
+		XClioFilesContent:              true,
 		XClioCapabilityGaps:            map[string]any{"agent_write": map[string]any{"status": "full"}},
 		XClioSyntheticPosthocStreaming: true,
 		XClioStreamFallbackReasons:     map[string]any{"provider": map[string]any{"reason": "batch"}},
@@ -98,6 +211,9 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		byName[row.name] = row
 	}
 	for name, want := range map[string]capUISupport{
+		"session_summary":                    capUIFull,
+		"attachments_upload":                 capUIFull,
+		"multimodal_image_parts":             capUIGated,
 		"agent_write":                        capUIFull,
 		"skills_extraction":                  capUIFull,
 		"x_clio_prompt_registry":             capUIFull,
@@ -106,6 +222,12 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		"x_clio_user_questions":              capUIFull,
 		"x_clio_retry_attempts":              capUIFull,
 		"x_clio_context_frames":              capUIFull,
+		"x_clio_semantic_events":             capUIFull,
+		"x_clio_semantic_trace_backend":      capUIFull,
+		"x_clio_semantic_trace_detail":       capUIFull,
+		"x_clio_hook_backend":                capUIFull,
+		"x_clio_hook_events":                 capUIFull,
+		"x_clio_files_content":               capUIFull,
 		"x_clio_capability_gaps":             capUIFull,
 		"x_clio_synthetic_posthoc_streaming": capUIFull,
 		"x_clio_stream_fallback_reasons":     capUIFull,
@@ -115,6 +237,81 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		}
 		if strings.TrimSpace(byName[name].notes) == "" {
 			t.Fatalf("%s missing TUI support notes", name)
+		}
+	}
+}
+
+func TestDoctorCapabilitiesRenderOperatorSurfaceNames(t *testing.T) {
+	out := stripANSI(renderDoctorCapabilities(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		Workspaces:                   true,
+		XClioSemanticEvents:          true,
+		XClioAgentBlueprints:         true,
+		XClioTextStreaming:           "live",
+		XClioCapabilityGaps:          map[string]any{"agent_write": map[string]any{"status": "partial"}},
+		XClioDirectDeletePermissions: true,
+	}}, ThemeForMode(ModeDark), 96))
+	for _, want := range []string{
+		"Release readiness",
+		"SURFACE",
+		"SCOPE",
+		"Workspace switching",
+		"Live semantic events",
+		"Agent blueprints",
+		"Live text streaming",
+		"Capability gaps",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("doctor capabilities missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{
+		"CAPABILITY",
+		"BUCKET",
+		"x_clio_semantic_events",
+		"x_clio_agent_blueprints",
+		"x_clio_text_streaming",
+		"x_clio_capability_gaps",
+	} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("doctor capabilities should not expose raw list label %q:\n%s", notWant, out)
+		}
+	}
+}
+
+func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
+	rows := doctorCapabilityRows(gact.Capabilities{Capabilities: gact.CapabilityFlags{
+		MCP:                  true,
+		SessionSummary:       true,
+		AttachmentsUpload:    true,
+		MultimodalImageParts: true,
+		XClioSemanticEvents:  true,
+		XClioFilesContent:    true,
+		XClioCancellation:    "request",
+	}})
+	byName := map[string]capRow{}
+	for _, row := range rows {
+		byName[row.name] = row
+	}
+	for name, wants := range map[string][]string{
+		"mcp":                    {"POST /v1/mcp/servers/{id}/reconnect"},
+		"session_summary":        {"POST /v1/sessions/{id}/summarize"},
+		"attachments_upload":     {"POST", "/v1/sessions/{id}/attachments"},
+		"multimodal_image_parts": {"image", "provider"},
+		"x_clio_cancellation":    {"Ctrl+X", "/cancel", "POST /v1/sessions/{id}/cancel", "#104"},
+		"x_clio_semantic_events": {
+			"semantic.event",
+			"tool.call.*",
+		},
+		"x_clio_files_content": {"GET /v1/sessions/{id}/context/files/content"},
+	} {
+		row, ok := byName[name]
+		if !ok {
+			t.Fatalf("missing capability row %q", name)
+		}
+		for _, want := range wants {
+			if !strings.Contains(row.notes, want) {
+				t.Fatalf("%s notes missing %q: %q", name, want, row.notes)
+			}
 		}
 	}
 }
@@ -136,8 +333,8 @@ func TestDoctorHealthFooterAdvertisesClickableDetails(t *testing.T) {
 	}
 
 	out := stripANSI(a.viewDoctor())
-	if !strings.Contains(out, "click row details") {
-		t.Fatalf("doctor footer should advertise mouse row details when rows are actionable:\n%s", out)
+	if !strings.Contains(out, "Enter/click details") {
+		t.Fatalf("doctor footer should advertise keyboard and mouse row details when rows are actionable:\n%s", out)
 	}
 }
 
@@ -226,8 +423,11 @@ func TestDoctorCapabilitiesUseBoundedScrollWindow(t *testing.T) {
 
 	a.doctor.scroll = 1 << 30
 	out = stripANSI(a.viewDoctor())
-	if !strings.Contains(out, "x_clio_capability_gaps") {
+	if !strings.Contains(out, "Capability gaps") {
 		t.Fatalf("bottom-scrolled doctor modal should show final capability:\n%s", out)
+	}
+	if strings.Contains(out, "x_clio_capability_gaps") {
+		t.Fatalf("bottom-scrolled doctor modal should keep raw capability fields in details only:\n%s", out)
 	}
 	if a.doctor.scroll <= 0 {
 		t.Fatalf("render should clamp and persist positive doctor scroll, got %d", a.doctor.scroll)

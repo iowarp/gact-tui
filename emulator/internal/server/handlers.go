@@ -118,6 +118,8 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			SessionBranching:  true,
 			SessionSharing:    false,
 			SessionExport:     true,
+			SessionSummary:    true,
+			AttachmentsUpload: true,
 			CostTracking:      true,
 			ThinkingBlocks:    true,
 			EditModes:         false,
@@ -128,13 +130,14 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 
 			// v0.2 additions — SPEC §3.2.1
 			AgentRouting:         true,
-			Memory:               true,
+			Memory:               !s.cfg.MemoryUnavailable,
 			StructuredErrors:     true,
 			IntegrationHealth:    true,
 			ToolTelemetry:        true,
 			XClioPromptRegistry:  true,
 			XClioExpertPacks:     true,
 			XClioAgentBlueprints: true,
+			XClioFilesContent:    true,
 		},
 		Transports: gact.TransportFlags{
 			EventsSSE:       true,

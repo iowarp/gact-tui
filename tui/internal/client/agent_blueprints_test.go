@@ -16,6 +16,12 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/agent-blueprints":
 			_ = json.NewEncoder(w).Encode(map[string]any{"agent_blueprints": []gact.AgentBlueprintDefinition{{ID: "bp1", Enabled: true}}})
+		case "/v1/agent-blueprints/sources":
+			_ = json.NewEncoder(w).Encode(map[string]any{"sources": []gact.AgentBlueprintSource{{ID: "src1", Name: "Data Semantics Agents"}}})
+		case "/v1/agent-blueprints/sources/src1/refresh":
+			_ = json.NewEncoder(w).Encode(map[string]any{"source": gact.AgentBlueprintSource{ID: "src1", Name: "Data Semantics Agents", Status: "ready"}})
+		case "/v1/agent-blueprints/sources/src1":
+			w.WriteHeader(http.StatusNoContent)
 		case "/v1/agent-blueprints/bp1":
 			_ = json.NewEncoder(w).Encode(gact.AgentBlueprintDetail{AgentBlueprint: gact.AgentBlueprintDefinition{ID: "bp1", Enabled: true}})
 		case "/v1/agent-blueprints/validate":
@@ -27,6 +33,15 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"updated": map[string]any{"id": "bp1"}})
 		case "/v1/agent-blueprints/bp1/mcp/earthscope/enable":
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "agent_blueprint_mcp_bp1_earthscope"})
+		case "/v1/agent-blueprints/bp1/hooks/pre_message/enable":
+			var req gact.AgentBlueprintHookEnableRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode hook enable request: %v", err)
+			}
+			if !req.Trust {
+				t.Fatalf("hook enable request should send explicit trust: %#v", req)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "agent_blueprint_hook_bp1_pre_message"})
 		case "/v1/sessions/s1/agent-blueprint":
 			if r.Method == http.MethodPost {
 				_ = json.NewEncoder(w).Encode(gact.SessionAgentBlueprintState{SessionID: "s1", ActiveAgentBlueprintID: "bp1"})
@@ -46,6 +61,15 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 	if _, err := c.ListAgentBlueprints(t.Context(), scope); err != nil {
 		t.Fatalf("ListAgentBlueprints: %v", err)
 	}
+	if _, err := c.ListAgentBlueprintSources(t.Context()); err != nil {
+		t.Fatalf("ListAgentBlueprintSources: %v", err)
+	}
+	if _, err := c.RefreshAgentBlueprintSource(t.Context(), "src1"); err != nil {
+		t.Fatalf("RefreshAgentBlueprintSource: %v", err)
+	}
+	if err := c.DeleteAgentBlueprintSource(t.Context(), "src1"); err != nil {
+		t.Fatalf("DeleteAgentBlueprintSource: %v", err)
+	}
 	if _, err := c.GetAgentBlueprint(t.Context(), "bp1", scope); err != nil {
 		t.Fatalf("GetAgentBlueprint: %v", err)
 	}
@@ -60,6 +84,9 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 	}
 	if _, err := c.EnableAgentBlueprintMCP(t.Context(), "bp1", "earthscope", gact.AgentBlueprintMCPEnableRequest{}); err != nil {
 		t.Fatalf("EnableAgentBlueprintMCP: %v", err)
+	}
+	if _, err := c.EnableAgentBlueprintHook(t.Context(), "bp1", "pre_message", gact.AgentBlueprintHookEnableRequest{Trust: true}); err != nil {
+		t.Fatalf("EnableAgentBlueprintHook: %v", err)
 	}
 	if _, err := c.GetSessionAgentBlueprint(t.Context(), "s1"); err != nil {
 		t.Fatalf("GetSessionAgentBlueprint: %v", err)
@@ -76,11 +103,15 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 
 	want := []string{
 		"GET /v1/agent-blueprints",
+		"GET /v1/agent-blueprints/sources",
+		"POST /v1/agent-blueprints/sources/src1/refresh",
+		"DELETE /v1/agent-blueprints/sources/src1",
 		"GET /v1/agent-blueprints/bp1",
 		"POST /v1/agent-blueprints/validate",
 		"POST /v1/agent-blueprints/install",
 		"POST /v1/agent-blueprints/bp1/update",
 		"POST /v1/agent-blueprints/bp1/mcp/earthscope/enable",
+		"POST /v1/agent-blueprints/bp1/hooks/pre_message/enable",
 		"GET /v1/sessions/s1/agent-blueprint",
 		"POST /v1/sessions/s1/agent-blueprint",
 		"GET /v1/sessions/s1/agent-overlay",

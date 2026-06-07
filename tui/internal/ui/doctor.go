@@ -204,7 +204,7 @@ func (a *App) viewDoctor() string {
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
 			width:      w,
-			title:      "Doctor — Backend Health",
+			title:      "Doctor - System Readiness",
 			buttons:    buttons,
 			tabs:       tabs,
 			tabPadding: 2,
@@ -274,12 +274,13 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 			Render(fmt.Sprintf("%d/%d", supported, measured))
 	}
 	header := lipgloss.NewStyle().Foreground(t.FgMuted).
-		Render("Core + v0.2 capability scorecard: ") + score
+		Render("Release readiness: core + v0.2 surfaces ") + score
 
 	out := []string{header, ""}
 
-	// Two-column table.
-	nameW := 34
+	// Operator-facing table. Raw /v1/capabilities field names remain
+	// available from row details; the list itself should describe surfaces.
+	nameW := 36
 	statusW := 14
 	uiW := 14
 	bucketW := innerW - nameW - statusW - uiW - 3
@@ -288,10 +289,10 @@ func renderDoctorCapabilities(caps gact.Capabilities, t Theme, innerW int) strin
 	}
 	out = append(out,
 		lipgloss.NewStyle().Foreground(t.FgFaint).Bold(true).
-			Render(padRight("CAPABILITY", nameW)+padRight("BACKEND", statusW)+padRight("TUI", uiW)+"BUCKET"),
+			Render(padRight("SURFACE", nameW)+padRight("BACKEND", statusW)+padRight("TUI", uiW)+"SCOPE"),
 	)
 	for _, r := range rows {
-		out = append(out, padRight(r.name, nameW)+
+		out = append(out, padRight(truncate(capabilityDisplayName(r.name), nameW-1), nameW)+
 			padRight(capStatusCell(r.on, t), statusW)+
 			padRight(capUISupportCell(r.ui, t), uiW)+
 			capBucketLabel(r.bucket, t),
@@ -306,7 +307,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"workspaces", caps.Capabilities.Workspaces, capCore, capUIFull, "workspace switch and current workspace label"},
 		{"sessions", caps.Capabilities.Sessions, capCore, capUIFull, "session list, create, attach, messages, SSE"},
 		{"subagents", caps.Capabilities.Subagents, capCore, capUIFull, "subsessions/nanoagent traces and child sessions"},
-		{"mcp", caps.Capabilities.MCP, capCore, capUIFull, "MCP catalog, detail, install/remove/call evidence"},
+		{"mcp", caps.Capabilities.MCP, capCore, capUIFull, "MCP catalog, detail, install/remove/call evidence, and POST /v1/mcp/servers/{id}/reconnect"},
 		{"files", caps.Capabilities.Files, capCore, capUIFull, "file picker/viewer and context attachment"},
 		{"diffs", caps.Capabilities.Diffs, capCore, capUIFull, "diff list/detail/actions"},
 		{"permissions", caps.Capabilities.Permissions, capCore, capUIFull, "permission banner, actions, audit/policies"},
@@ -316,6 +317,9 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		// Useful but optional.
 		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary CLIO workflow"},
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 CLIO path"},
+		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "/compact uses POST /v1/sessions/{id}/summarize, refreshes backend truth, renders selected-session summary, and surfaces errors"},
+		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action POSTs /v1/sessions/{id}/attachments and merges returned context provenance"},
+		{"multimodal_image_parts", caps.Capabilities.MultimodalImageParts, capExtra, capUIGated, "decoded and preserved by the message contract; terminal image attachment workflow remains gated behind file upload/provider support"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},
 		{"thinking_blocks", caps.Capabilities.ThinkingBlocks, capExtra, capUIFull, "thinking part rendering and detail view"},
 		{"edit_modes", caps.Capabilities.EditModes, capExtra, capUIGated, "decoded; no separate edit-mode switch"},
@@ -336,8 +340,8 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"session_sharing", caps.Capabilities.SessionSharing, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
 		{"agent_write", caps.Capabilities.AgentWrite, capVendor, capUIFull, "create/clone/edit/delete surfaced with protected built-ins"},
 		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor, capUIFull, "current-session extraction surfaced from agents catalog"},
-		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor, capUIPartial, "capability visible; cancellation UX needs release proof"},
-		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor, capUIPartial, "capability visible; executor cancel UX needs release proof"},
+		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor, capUIPartial, "capability visible; Ctrl+X and /cancel post POST /v1/sessions/{id}/cancel when a session is active; #104 release proof remains required"},
+		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor, capUIPartial, "capability visible; executor cancel is backend/runtime behavior surfaced through Ctrl+X, /cancel, truthful request state, and errors; #104 release proof remains required"},
 		{"x_clio_text_streaming", caps.Capabilities.XClioTextStreaming != "" && caps.Capabilities.XClioTextStreaming != "none", capVendor, capUIFull, "streaming state and fallback rendering"},
 		{"x_clio_synthetic_posthoc_streaming", caps.Capabilities.XClioSyntheticPosthocStreaming, capVendor, capUIFull, "posthoc stream provenance/fallback shown"},
 		{"x_clio_stream_fallback_reasons", len(caps.Capabilities.XClioStreamFallbackReasons) > 0, capVendor, capUIFull, "fallback reasons decoded and shown in details"},
@@ -348,6 +352,12 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor, capUIFull, "question SSE lifecycle and answer modal"},
 		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor, capUIFull, "retry attempts and retry-with-model provenance"},
 		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor, capUIFull, "frame list/detail fetch and memory tool detail"},
+		{"x_clio_semantic_events", caps.Capabilities.XClioSemanticEvents, capVendor, capUIFull, "semantic.event and tool.call.* SSE frames reduce into live transcript evidence"},
+		{"x_clio_semantic_trace_backend", caps.Capabilities.XClioSemanticTraceBackend != "", capVendor, capUIFull, "trace backend metadata visible"},
+		{"x_clio_semantic_trace_detail", caps.Capabilities.XClioSemanticTraceDetail != "", capVendor, capUIFull, "trace detail metadata visible"},
+		{"x_clio_hook_backend", caps.Capabilities.XClioHookBackend != "", capVendor, capUIFull, "hook backend metadata visible"},
+		{"x_clio_hook_events", len(caps.Capabilities.XClioHookEvents) > 0, capVendor, capUIFull, "hook event metadata visible"},
+		{"x_clio_files_content", caps.Capabilities.XClioFilesContent, capVendor, capUIFull, "GET /v1/sessions/{id}/context/files/content previews text, binary summaries, and truthful preview errors"},
 		{"x_clio_capability_gaps", len(caps.Capabilities.XClioCapabilityGaps) > 0, capVendor, capUIFull, "doctor gaps tab and detail rows"},
 	}
 }
@@ -592,10 +602,11 @@ func (a *App) openDoctorIntegrationDetail(integ gact.Integration) {
 
 func (a *App) openDoctorCapabilityDetail(row capRow) {
 	rows := appendDetailSection(nil, "Capability",
-		detailField{"name", row.name},
+		detailField{"surface", capabilityDisplayName(row.name)},
+		detailField{"backend_field", row.name},
 		detailField{"status", capabilityStatusText(row.on)},
 		detailField{"tui_support", capUISupportPlainLabel(row.ui)},
-		detailField{"bucket", capBucketPlainLabel(row.bucket)},
+		detailField{"scope", capBucketPlainLabel(row.bucket)},
 		detailField{"meaning", capabilityMeaning(row.name, row.bucket)},
 		detailField{"tui_notes", orPlaceholder(row.notes, "none")},
 	)
@@ -610,11 +621,124 @@ func (a *App) openDoctorCapabilityDetail(row capRow) {
 	a.detailView = &bulkyPartRef{
 		messageID: "doctor",
 		partID:    "capability:" + row.name,
-		title:     "Capability · " + row.name,
+		title:     "Capability · " + capabilityDisplayName(row.name),
 		fullText:  strings.Join(rows, "\n"),
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+}
+
+func capabilityDisplayName(name string) string {
+	switch name {
+	case "workspaces":
+		return "Workspace switching"
+	case "sessions":
+		return "Session operations"
+	case "subagents":
+		return "Child agent sessions"
+	case "mcp":
+		return "MCP connections"
+	case "files":
+		return "Workspace files"
+	case "diffs":
+		return "Diff review"
+	case "permissions":
+		return "Permission review"
+	case "providers":
+		return "Model providers"
+	case "commands":
+		return "Slash commands"
+	case "metrics":
+		return "Metrics"
+	case "session_branching":
+		return "Session branching"
+	case "session_export":
+		return "Session export"
+	case "session_summary":
+		return "Session summaries"
+	case "attachments_upload":
+		return "Attachment upload"
+	case "multimodal_image_parts":
+		return "Image attachments"
+	case "cost_tracking":
+		return "Cost tracking"
+	case "thinking_blocks":
+		return "Thinking blocks"
+	case "edit_modes":
+		return "Edit modes"
+	case "plan_mode":
+		return "Plan mode"
+	case "search_messages":
+		return "Message search"
+	case "session_tasks":
+		return "Session tasks"
+	case "agent_routing":
+		return "Agent routing"
+	case "memory":
+		return "Memory and context"
+	case "structured_errors":
+		return "Structured errors"
+	case "integration_health":
+		return "Integration health"
+	case "tool_telemetry":
+		return "Tool telemetry"
+	case "lsp":
+		return "Language server support"
+	case "voice":
+		return "Voice workflows"
+	case "scheduled_sessions":
+		return "Scheduled sessions"
+	case "hooks":
+		return "Hooks"
+	case "session_sharing":
+		return "Session sharing"
+	case "agent_write":
+		return "User agent editing"
+	case "skills_extraction":
+		return "Skill extraction"
+	case "x_clio_cancellation":
+		return "CLIO turn cancellation"
+	case "x_clio_executor_cancellation":
+		return "Executor cancellation"
+	case "x_clio_text_streaming":
+		return "Live text streaming"
+	case "x_clio_synthetic_posthoc_streaming":
+		return "Posthoc stream replay"
+	case "x_clio_stream_fallback_reasons":
+		return "Stream fallback reasons"
+	case "x_clio_direct_delete_permissions":
+		return "Direct permission delete"
+	case "x_clio_prompt_registry":
+		return "Prompt registry"
+	case "x_clio_expert_packs":
+		return "Expert packs"
+	case "x_clio_agent_blueprints":
+		return "Agent blueprints"
+	case "x_clio_user_questions":
+		return "User questions"
+	case "x_clio_retry_attempts":
+		return "Retry attempts"
+	case "x_clio_context_frames":
+		return "Context frames"
+	case "x_clio_semantic_events":
+		return "Live semantic events"
+	case "x_clio_semantic_trace_backend":
+		return "Semantic trace backend"
+	case "x_clio_semantic_trace_detail":
+		return "Semantic trace detail"
+	case "x_clio_hook_backend":
+		return "Hook backend"
+	case "x_clio_hook_events":
+		return "Hook events"
+	case "x_clio_files_content":
+		return "File content preview"
+	case "x_clio_capability_gaps":
+		return "Capability gaps"
+	default:
+		trimmed := strings.TrimPrefix(name, "x_clio_")
+		trimmed = strings.ReplaceAll(trimmed, "_", " ")
+		return strings.Title(trimmed)
+	}
 }
 
 func capabilityStatusText(on bool) string {

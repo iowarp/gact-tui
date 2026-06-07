@@ -17,6 +17,12 @@ type agentQuestionAnsweredMsg struct {
 	err        error
 }
 
+type agentQuestionCancelledMsg struct {
+	sessionID  string
+	questionID string
+	err        error
+}
+
 type retryTurnStartedMsg struct {
 	sessionID string
 	attempt   gact.TurnAttempt
@@ -29,6 +35,15 @@ func answerUserQuestionCmd(c *client.Client, sessionID, questionID string, req g
 		defer cancel()
 		_, err := c.AnswerUserQuestion(ctx, sessionID, questionID, req)
 		return agentQuestionAnsweredMsg{sessionID: sessionID, questionID: questionID, err: err}
+	}
+}
+
+func cancelUserQuestionCmd(c *client.Client, sessionID, questionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, err := c.CancelUserQuestion(ctx, sessionID, questionID)
+		return agentQuestionCancelledMsg{sessionID: sessionID, questionID: questionID, err: err}
 	}
 }
 
@@ -218,6 +233,8 @@ func (a *App) handleAskUserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		a.closeAskUserModal()
 		return a, nil
+	case "ctrl+x":
+		return a, a.cancelAskUserQuestion()
 	case "enter":
 		return a.commitAskUserAnswer()
 	case "tab", "down":
@@ -261,16 +278,13 @@ func (a *App) handleAskUserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.askUserDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.askUserCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.askUserCursor:]...)
-		a.askUserDraft = string(out)
-		a.askUserCursor += len(insert)
+		a.insertAskUserText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertAskUserText(text string) {
+	a.askUserDraft, a.askUserCursor = insertTextAtCursor(a.askUserDraft, a.askUserCursor, text)
 }
 
 func (a *App) commitAskUserAnswer() (tea.Model, tea.Cmd) {
@@ -310,7 +324,7 @@ func (a *App) viewAskUser() string {
 	source := firstNonEmpty(q.Source, q.AgentID, q.Category)
 	intro := []string{a.Theme.HintLabel.Render(wrap(prompt, modalBodyContentWidth(w)))}
 	if source != "" {
-		intro = append(intro, a.Theme.HintLabel.Render("source: "+source))
+		intro = append(intro, a.Theme.HintLabel.Render("Asked by "+source))
 	}
 	choiceRow, choiceHits := a.renderAskUserChoiceRow()
 	status := []string{}
@@ -323,8 +337,7 @@ func (a *App) viewAskUser() string {
 			return cmd
 		}},
 		{id: "ask-user:cancel", label: "cancel", action: func(app *App) tea.Cmd {
-			app.closeAskUserModal()
-			return nil
+			return app.cancelAskUserQuestion()
 		}},
 	}
 	return a.renderTextEntryModal(textEntryModalOptions{
@@ -339,8 +352,18 @@ func (a *App) viewAskUser() string {
 		cursorAction: func(app *App, cursor int) { app.askUserCursor = cursor },
 		status:       status,
 		statusHits:   choiceHits,
-		footer:       a.Theme.HintLabel.Render(modalKeyHint("Enter answer", "Tab option", "Esc cancel")),
+		footer:       a.Theme.HintLabel.Render(modalKeyHint("Enter answer", "Tab option", "Ctrl+X cancel", "Esc close")),
 	}).modal
+}
+
+func (a *App) cancelAskUserQuestion() tea.Cmd {
+	sid := a.currentSessionID()
+	qid := strings.TrimSpace(a.askUserQuestion.ID)
+	a.closeAskUserModal()
+	if sid == "" || qid == "" {
+		return nil
+	}
+	return cancelUserQuestionCmd(a.c, sid, qid)
 }
 
 func (a *App) renderAskUserChoiceRow() (string, []modalCellHit) {
@@ -422,16 +445,13 @@ func (a *App) handleRetryNotesKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.retryNotesDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.retryNotesCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.retryNotesCursor:]...)
-		a.retryNotesDraft = string(out)
-		a.retryNotesCursor += len(insert)
+		a.insertRetryNotesText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertRetryNotesText(text string) {
+	a.retryNotesDraft, a.retryNotesCursor = insertTextAtCursor(a.retryNotesDraft, a.retryNotesCursor, text)
 }
 
 func (a *App) commitRetryNotes() (tea.Model, tea.Cmd) {
@@ -537,16 +557,13 @@ func (a *App) handleRetryModelKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.retryModelDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.retryModelCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.retryModelCursor:]...)
-		a.retryModelDraft = string(out)
-		a.retryModelCursor += len(insert)
+		a.insertRetryModelText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertRetryModelText(text string) {
+	a.retryModelDraft, a.retryModelCursor = insertTextAtCursor(a.retryModelDraft, a.retryModelCursor, text)
 }
 
 func (a *App) commitRetryModel() (tea.Model, tea.Cmd) {
@@ -619,6 +636,20 @@ func parseRetryModelRef(raw string) (gact.ModelRef, bool) {
 		return gact.ModelRef{}, false
 	}
 	return gact.ModelRef{ProviderID: provider, ModelID: model}, true
+}
+
+func insertTextAtCursor(value string, cursor int, text string) (string, int) {
+	if text == "" {
+		return value, clampInt(cursor, 0, len([]rune(value)))
+	}
+	runes := []rune(value)
+	cursor = clampInt(cursor, 0, len(runes))
+	insert := []rune(text)
+	out := make([]rune, 0, len(runes)+len(insert))
+	out = append(out, runes[:cursor]...)
+	out = append(out, insert...)
+	out = append(out, runes[cursor:]...)
+	return string(out), cursor + len(insert)
 }
 
 func questionOptions(q gact.AgentQuestion) []gact.AgentQuestionChoice {

@@ -21,12 +21,14 @@ import (
 	"image/color"
 	"io"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -247,20 +249,27 @@ func main() {
 // Falls back to the manual binaryVersion when ReadBuildInfo is empty
 // (e.g. tests without a module context).
 func runVersion() {
-	fmt.Printf("gact %s (contract %s)\n", binaryVersion, contractVersion)
+	writeVersionReport(os.Stdout, false)
+}
+
+func writeVersionReport(w io.Writer, includePlatform bool) {
+	fmt.Fprintf(w, "gact %s (contract %s)\n", binaryVersion, contractVersion)
 	rev, when, dirty := readVCSInfo()
 	if rev != "" {
 		suffix := ""
 		if dirty {
 			suffix = " (dirty)"
 		}
-		fmt.Printf("  revision: %s%s\n", rev, suffix)
+		fmt.Fprintf(w, "  revision: %s%s\n", rev, suffix)
 	}
 	if when != "" {
-		fmt.Printf("  built:    %s\n", when)
+		fmt.Fprintf(w, "  built:    %s\n", when)
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
-		fmt.Printf("  go:       %s\n", info.GoVersion)
+		fmt.Fprintf(w, "  go:       %s\n", info.GoVersion)
+	}
+	if includePlatform {
+		fmt.Fprintf(w, "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	}
 }
 
@@ -397,6 +406,8 @@ All Commands:
   gact quick <q|->           one-shot Q&A (creates+asks+deletes session)
   gact summarize <sid>       trigger backend summary; prints result
   gact context list <sid>    list session context files; --mode read|edit|pin --glob PATTERN to filter
+  gact context show <sid> <p> preview context file content (--format text|json)
+  gact context upload <sid> <p> upload a local file into session context
   gact context add <sid> <p> attach a file (--mode read|edit|pin)
   gact context rm <sid> <p>  detach a file
   gact catalog <kind>        list tools|agents|mcp|commands (TSV or JSON)
@@ -481,6 +492,8 @@ Common flags (all subcommands):
   --theme STR      dark | light      (env: GACT_THEME)
 
 TUI-only flags:
+  --workspace STR  startup workspace id, exact name, or root path
+                   (env: GACT_WORKSPACE; config: workspace).
   --voice-cmd STR  shell command that records audio to stdout, run on
                    Ctrl+Y. See scripts/voice-record.sh for an example.
                    (env: GACT_VOICE_CMD, config: voice_command)`)
@@ -974,6 +987,8 @@ func runTUI() {
 
 	backend := flag.String("backend", defaultBackend,
 		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
+	workspace := flag.String("workspace", "",
+		"startup workspace id, exact name, or root path (env: GACT_WORKSPACE, config: workspace)")
 	theme := flag.String("theme", defaultTheme,
 		"colour theme (env: GACT_THEME, config: theme) — use --list-themes to see options")
 	voiceCmd := flag.String("voice-cmd", "",
@@ -995,6 +1010,7 @@ func runTUI() {
 	}
 
 	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalWorkspace := config.Resolve(cfg.Workspace, os.Getenv("GACT_WORKSPACE"), *workspace, "")
 	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
 
 	// P2: load a user-supplied custom theme if present at
@@ -1010,6 +1026,7 @@ func runTUI() {
 	finalVoice := config.Resolve(cfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmd, "")
 
 	app := ui.NewWithTheme(finalBackend, ui.ThemeForMode(ui.ParseThemeMode(finalTheme)))
+	app.SetInitialWorkspace(finalWorkspace)
 	finalLocale := config.Resolve(cfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
 	app.SetLocale(finalLocale)
 	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")
@@ -4532,35 +4549,7 @@ func runCapabilities(args []string) int {
 		fmt.Printf("auth:             %s (current: %s)\n", strings.Join(caps.Auth.Schemes, ","), caps.Auth.Current)
 	}
 	fmt.Println("capabilities:")
-	flags := []struct {
-		name string
-		on   bool
-	}{
-		{"workspaces", caps.Capabilities.Workspaces},
-		{"sessions", caps.Capabilities.Sessions},
-		{"subagents", caps.Capabilities.Subagents},
-		{"mcp", caps.Capabilities.MCP},
-		{"lsp", caps.Capabilities.LSP},
-		{"files", caps.Capabilities.Files},
-		{"diffs", caps.Capabilities.Diffs},
-		{"permissions", caps.Capabilities.Permissions},
-		{"providers", caps.Capabilities.Providers},
-		{"commands", caps.Capabilities.Commands},
-		{"voice", caps.Capabilities.Voice},
-		{"scheduled_sessions", caps.Capabilities.ScheduledSessions},
-		{"metrics", caps.Capabilities.Metrics},
-		{"session_branching", caps.Capabilities.SessionBranching},
-		{"session_sharing", caps.Capabilities.SessionSharing},
-		{"session_export", caps.Capabilities.SessionExport},
-		{"cost_tracking", caps.Capabilities.CostTracking},
-		{"thinking_blocks", caps.Capabilities.ThinkingBlocks},
-		{"edit_modes", caps.Capabilities.EditModes},
-		{"plan_mode", caps.Capabilities.PlanMode},
-		{"search_messages", caps.Capabilities.SearchMessages},
-		{"agent_write", caps.Capabilities.AgentWrite},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction},
-	}
-	for _, f := range flags {
+	for _, f := range capabilityFlagTextRows(caps.Capabilities) {
 		mark := "·"
 		if f.on {
 			mark = "✓"
@@ -4571,6 +4560,42 @@ func runCapabilities(args []string) int {
 		fmt.Printf("extension:        %s %s %s\n", e.ID, e.Version, e.Docs)
 	}
 	return 0
+}
+
+type capabilityFlagTextRow struct {
+	name string
+	on   bool
+}
+
+func capabilityFlagTextRows(flags gact.CapabilityFlags) []capabilityFlagTextRow {
+	value := reflect.ValueOf(flags)
+	typ := value.Type()
+	rows := make([]capabilityFlagTextRow, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		name := strings.Split(field.Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		rows = append(rows, capabilityFlagTextRow{
+			name: name,
+			on:   capabilityFlagValueEnabled(value.Field(i)),
+		})
+	}
+	return rows
+}
+
+func capabilityFlagValueEnabled(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Bool:
+		return value.Bool()
+	case reflect.String:
+		return strings.TrimSpace(value.String()) != "" && value.String() != "none"
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return value.Len() > 0
+	default:
+		return false
+	}
 }
 
 // runAgentShow is the SPEC §6.5 "agent metadata lookup" command that
@@ -6113,19 +6138,7 @@ func runDumpBundle(args []string) int {
 	// bundle is self-contained without shelling out.
 	{
 		var b strings.Builder
-		fmt.Fprintf(&b, "gact %s (contract %s)\n", binaryVersion, contractVersion)
-		if rev, when, dirty := readVCSInfo(); rev != "" {
-			suffix := ""
-			if dirty {
-				suffix = " (dirty)"
-			}
-			fmt.Fprintf(&b, "  revision: %s%s\n", rev, suffix)
-			if when != "" {
-				fmt.Fprintf(&b, "  built:    %s\n", when)
-			}
-		}
-		fmt.Fprintf(&b, "  runtime:  %s\n", runtime.Version())
-		fmt.Fprintf(&b, "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		writeVersionReport(&b, true)
 		if err := os.WriteFile(filepath.Join(*out, "version.txt"), []byte(b.String()), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "gact dump-bundle: write version.txt: %v\n", err)
 			return 1
@@ -6321,6 +6334,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	if cfg.CostDangerTokens != nil {
 		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
 	}
+	diagWriteClipboardProbe(w)
 	if verbose {
 		themePath, _ := ui.CustomThemeDefaultPath()
 		if themePath != "" {
@@ -6358,6 +6372,49 @@ func writeDiagCore(w io.Writer, verbose bool) {
 			fmt.Fprintf(w, "  detached_count: (unreadable: %v)\n", err)
 		}
 	}
+}
+
+func diagWriteClipboardProbe(w io.Writer) {
+	commands := []string{
+		"wl-copy",
+		"xclip",
+		"xsel",
+		"pbcopy",
+		"clip.exe",
+		"powershell.exe",
+		"termux-clipboard-set",
+	}
+	var present []string
+	var missing []string
+	for _, name := range commands {
+		if path, err := exec.LookPath(name); err == nil && path != "" {
+			present = append(present, name)
+		} else {
+			missing = append(missing, name)
+		}
+	}
+	if len(present) == 0 {
+		fmt.Fprintln(w, "  clipboard_native: none detected")
+	} else {
+		fmt.Fprintf(w, "  clipboard_native: %s\n", strings.Join(present, ", "))
+	}
+	fmt.Fprintf(w, "  clipboard_missing: %s\n", strings.Join(missing, ", "))
+	fmt.Fprintf(w, "  clipboard_osc52: terminal-dependent; TERM=%s TERM_PROGRAM=%s COLORTERM=%s\n",
+		orUnset(os.Getenv("TERM")),
+		orUnset(os.Getenv("TERM_PROGRAM")),
+		orUnset(os.Getenv("COLORTERM")),
+	)
+	fmt.Fprintf(w, "  terminal_selection: use /mouse to toggle TUI mouse capture when verifying terminal text selection; TERM=%s TERM_PROGRAM=%s\n",
+		orUnset(os.Getenv("TERM")),
+		orUnset(os.Getenv("TERM_PROGRAM")),
+	)
+}
+
+func orUnset(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "(unset)"
+	}
+	return value
 }
 
 // runCatalog browses the catalog endpoints from the shell:
@@ -6464,9 +6521,11 @@ func runCatalog(args []string) int {
 
 // runContext dispatches the `gact context <verb>` subcommand family
 // for managing per-session context files (the things sidebar K14
-// adds via `o`). Three verbs:
+// adds via `o`). Core verbs:
 //
 //	gact context list <sid>                   — print path + mode per file
+//	gact context show <sid> <path>            — preview content from CLIO
+//	gact context upload <sid> <path>          — POST local bytes as attachment
 //	gact context add  <sid> <path> [--mode]   — POST add (default mode=read)
 //	gact context rm   <sid> <path>            — DELETE remove
 //
@@ -6474,7 +6533,7 @@ func runCatalog(args []string) int {
 // 2 on usage errors, 1 on transport / API errors.
 func runContext(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact context list|add|rm <session_id> [path] [--mode read|edit|pin]")
+		fmt.Fprintln(os.Stderr, "usage: gact context list|show|upload|add|rm <session_id> [path] [--mode read|edit|pin]")
 		return 2
 	}
 	verb := args[0]
@@ -6483,12 +6542,16 @@ func runContext(args []string) int {
 	switch verb {
 	case "list":
 		return runContextList(rest)
+	case "show", "cat", "read":
+		return runContextShow(rest)
+	case "upload", "attach":
+		return runContextUpload(rest)
 	case "add":
 		return runContextAdd(rest)
 	case "rm", "remove", "delete":
 		return runContextRm(rest)
 	default:
-		fmt.Fprintf(os.Stderr, "gact context: unknown verb %q (want list|add|rm)\n", verb)
+		fmt.Fprintf(os.Stderr, "gact context: unknown verb %q (want list|show|upload|add|rm)\n", verb)
 		return 2
 	}
 }
@@ -6580,6 +6643,183 @@ func runContextList(args []string) int {
 		}
 		fmt.Printf("%s\t%s\n", mode, f.Path)
 	}
+	return 0
+}
+
+func runContextShow(args []string) int {
+	fs := flag.NewFlagSet("context show", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	format := fs.String("format", "text", "text | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact context show <session_id> <path> [--format text|json] [--backend URL]")
+		return 2
+	}
+	if *format != "text" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact context show: unknown format %q (want text|json)\n", *format)
+		return 2
+	}
+	sid := fs.Arg(0)
+	filePath := fs.Arg(1)
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	content, err := c.ContextFileContent(ctx, sid, filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact context show: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(content); err != nil {
+			fmt.Fprintf(os.Stderr, "gact context show: encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	if err := printContextFileContentText(os.Stdout, content); err != nil {
+		fmt.Fprintf(os.Stderr, "gact context show: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func printContextFileContentText(w io.Writer, content gact.ContextFileContent) error {
+	pathLabel := firstNonEmptyCLI(content.DisplayPath, content.Path, "(unknown)")
+	fmt.Fprintf(w, "path: %s\n", pathLabel)
+	if content.Size > 0 {
+		fmt.Fprintf(w, "size: %d bytes\n", content.Size)
+	}
+	if strings.TrimSpace(content.MediaType) != "" {
+		fmt.Fprintf(w, "media_type: %s\n", content.MediaType)
+	}
+	if strings.TrimSpace(content.Encoding) != "" {
+		fmt.Fprintf(w, "encoding: %s\n", content.Encoding)
+	}
+	if !contextContentIsText(content.MediaType) {
+		fmt.Fprintln(w, "preview: binary content not rendered")
+		return nil
+	}
+	if strings.TrimSpace(content.Data) == "" {
+		fmt.Fprintln(w, "preview: empty")
+		return nil
+	}
+	decoded, err := base64.StdEncoding.DecodeString(content.Data)
+	if err != nil {
+		return fmt.Errorf("bad base64 content for %s: %w", pathLabel, err)
+	}
+	text := strings.ReplaceAll(string(decoded), "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	const maxPreviewRunes = 12000
+	truncated := false
+	if len([]rune(text)) > maxPreviewRunes {
+		runes := []rune(text)
+		text = string(runes[:maxPreviewRunes])
+		truncated = true
+	}
+	fmt.Fprintln(w, "preview:")
+	fmt.Fprint(w, text)
+	if !strings.HasSuffix(text, "\n") {
+		fmt.Fprintln(w)
+	}
+	if truncated {
+		fmt.Fprintf(w, "truncated: shown first %d characters\n", maxPreviewRunes)
+	}
+	return nil
+}
+
+func contextContentIsText(mediaType string) bool {
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "" || strings.HasPrefix(mediaType, "text/") || strings.Contains(mediaType, "charset=utf-8") {
+		return true
+	}
+	for _, prefix := range []string{"application/json", "application/xml", "application/yaml", "application/toml"} {
+		if strings.HasPrefix(mediaType, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func firstNonEmptyCLI(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func runContextUpload(args []string) int {
+	fs := flag.NewFlagSet("context upload", flag.ContinueOnError)
+	backend := fs.String("backend", defaultBackend, "GACT backend URL")
+	mode := fs.String("mode", "read", "context mode: read | edit | pin")
+	format := fs.String("format", "tsv", "tsv | json")
+	known := map[string]bool{
+		"--backend": true, "-backend": true,
+		"--mode": true, "-mode": true,
+		"--format": true, "-format": true,
+	}
+	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
+		return 2
+	}
+	if fs.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: gact context upload <session_id> <local_path> [--mode read|edit|pin] [--format tsv|json] [--backend URL]")
+		return 2
+	}
+	switch *mode {
+	case "read", "edit", "pin":
+	default:
+		fmt.Fprintf(os.Stderr, "gact context upload: unknown --mode %q (want read|edit|pin)\n", *mode)
+		return 2
+	}
+	if *format != "tsv" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "gact context upload: unknown format %q (want tsv|json)\n", *format)
+		return 2
+	}
+	sid := fs.Arg(0)
+	localPath := fs.Arg(1)
+	data, err := os.ReadFile(localPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact context upload: read %s: %v\n", localPath, err)
+		return 1
+	}
+	mimeType := mime.TypeByExtension(filepath.Ext(localPath))
+	if mimeType == "" && len(data) > 0 {
+		sniffLen := len(data)
+		if sniffLen > 512 {
+			sniffLen = 512
+		}
+		mimeType = http.DetectContentType(data[:sniffLen])
+	}
+	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	c := client.New(finalBackend)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cf, err := c.UploadAttachment(ctx, sid, filepath.Base(localPath), mimeType, *mode, data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gact context upload: %v\n", err)
+		return 1
+	}
+	if *format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(cf); err != nil {
+			fmt.Fprintf(os.Stderr, "gact context upload: encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	modeLabel := firstNonEmptyCLI(cf.Mode, *mode, "?")
+	fmt.Printf("%s\t%s\n", modeLabel, cf.Path)
 	return 0
 }
 

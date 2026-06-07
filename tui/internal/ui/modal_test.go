@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
@@ -66,6 +69,32 @@ func TestModalScrollableWidthsMatchSharedFramePadding(t *testing.T) {
 	}
 	if got := modalScrollableContentWidth(5); got != 1 {
 		t.Fatalf("tiny modal scrollable content width = %d, want clamped 1", got)
+	}
+}
+
+func TestModalCloseButtonGlyphIsCenteredInBox(t *testing.T) {
+	a := New("http://unused")
+	row, hits := a.renderModalButtonsWithHits([]menuButton{closeMenuButton("test:close", func(app *App) {})}, -1)
+	plain := strings.TrimRight(row, " ")
+	if len(hits) != 1 {
+		t.Fatalf("button hits = %d, want 1", len(hits))
+	}
+	if hits[0].width != 5 {
+		t.Fatalf("close button width = %d, want 5", hits[0].width)
+	}
+	if got, want := strings.Index(ansi.Strip(plain), "x"), hits[0].width/2; got != want {
+		t.Fatalf("close glyph column = %d, want centered at %d in %q", got, want, plain)
+	}
+}
+
+func TestHeaderQuitGlyphIsCenteredInBox(t *testing.T) {
+	a := New("http://unused")
+	row := ansi.Strip(a.renderHeaderActionCell("x"))
+	if got, want := lipgloss.Width(row), 5; got != want {
+		t.Fatalf("header quit width = %d, want %d in %q", got, want, row)
+	}
+	if got, want := strings.Index(row, "x"), lipgloss.Width(row)/2; got != want {
+		t.Fatalf("header quit glyph column = %d, want centered at %d in %q", got, want, row)
 	}
 }
 
@@ -290,6 +319,10 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 		}
 		rect := overlayMouseRect(view, a.width, a.height)
 		want := wantRect(a)
+		if tc.name == "help" {
+			helpW := a.helpModalWidthForTab(helpTabs[a.helpTab].title)
+			want = mouseRect{x: (screenW - helpW) / 2, y: 3, w: helpW}
+		}
 		if rect.x != want.x || rect.y != want.y || rect.w != want.w {
 			t.Fatalf("%s overlay rect = %+v, want x=%d y=%d w=%d", tc.name, rect, want.x, want.y, want.w)
 		}

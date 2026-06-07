@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // makeContextAddApp builds an App focused on the sidebar with one
@@ -72,6 +73,88 @@ func TestContextAdd_OKeyNoSessionIsNoop(t *testing.T) {
 	a.handleSidebarKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
 	if a.contextAddOpen {
 		t.Error("o without a selected session should not open the modal")
+	}
+}
+
+func TestContextAddSlashCommandOpensAddContextModal(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteGroup = "Workspace"
+	a.paletteSel = paletteIndexForTest(a, "/add")
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("/add should open the local context modal without backend command dispatch")
+	}
+	if !a.contextAddOpen || a.contextAddDraft != "" || a.contextAddCursor != 0 || a.contextAddMode != "read" {
+		t.Fatalf("/add did not initialize context modal, open=%v draft=%q cursor=%d mode=%q", a.contextAddOpen, a.contextAddDraft, a.contextAddCursor, a.contextAddMode)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /add")
+	}
+}
+
+func TestContextAddSlashCommandNoOpsWithoutActiveSession(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteGroup = "Workspace"
+	a.paletteSel = paletteIndexForTest(a, "/add")
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("/add no-session should schedule hint expiry")
+	}
+	if a.contextAddOpen {
+		t.Fatal("/add without active session should not open context modal")
+	}
+	if a.transientHint != "no active session to add context" {
+		t.Fatalf("/add no-session hint = %q", a.transientHint)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /add no-op")
+	}
+}
+
+func TestContextDropSlashCommandNoOpsWithoutSelectedContextFile(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteGroup = "Workspace"
+	a.paletteSel = paletteIndexForTest(a, "/drop")
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("/drop no-op should still schedule hint expiry")
+	}
+	if a.transientHint != "no context file selected to drop" {
+		t.Fatalf("/drop no-op hint = %q", a.transientHint)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /drop no-op")
+	}
+}
+
+func TestContextDropSlashCommandDispatchesSelectedContextFileRemoval(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+	a.contextFileSel = 0
+	a.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteGroup = "Workspace"
+	a.paletteSel = paletteIndexForTest(a, "/drop")
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("/drop should dispatch selected context file removal")
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /drop")
 	}
 }
 
@@ -347,6 +430,21 @@ func TestContextAdd_FailureShowsHintAndNoMirror(t *testing.T) {
 	}
 	if !strings.Contains(a.transientHint, "add failed") {
 		t.Errorf("hint = %q, want 'add failed'", a.transientHint)
+	}
+}
+
+func TestContextAdd_FailureUsesStructuredOperatorError(t *testing.T) {
+	a, _, _ := makeContextAddApp(t)
+	a.contextFiles = []gact.ContextFile{{Path: "already.txt", Mode: "read"}}
+	err := &client.Error{Status: 502, Code: "context_add_failed", Message: "context add failed: workspace file index is temporarily unavailable"}
+
+	model, _ := a.Update(contextFileAddedMsg{sessionID: "s1", err: err})
+	a = model.(*App)
+	if len(a.contextFiles) != 1 || a.contextFiles[0].Path != "already.txt" {
+		t.Fatalf("failed add should preserve existing context files: %+v", a.contextFiles)
+	}
+	if a.transientHint != "add failed: workspace file index is temporarily unavailable" {
+		t.Fatalf("hint = %q", a.transientHint)
 	}
 }
 

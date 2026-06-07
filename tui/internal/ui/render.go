@@ -339,7 +339,7 @@ func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *g
 	if hideHeader {
 		return lipgloss.JoinVertical(lipgloss.Left, body, "")
 	}
-	header := t.renderRoleHeader(m.Role)
+	header := t.renderMessageHeader(m)
 	parts := []string{header}
 	if ts != "" {
 		parts = append(parts, ts)
@@ -388,7 +388,7 @@ func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Mess
 	if hideHeader {
 		return lipgloss.JoinVertical(lipgloss.Left, body, "")
 	}
-	header := t.renderRoleHeader(m.Role)
+	header := t.renderMessageHeader(m)
 	parts := []string{header}
 	if ts != "" {
 		parts = append(parts, ts)
@@ -650,9 +650,9 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 			// Always render the call header (matches CC style where
 			// you see the tool name + path even when the body IS the
 			// diff).
-			rendered = t.renderPart(p, width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
 		default:
-			rendered = t.renderPart(p, width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
 		}
 		if rendered != "" {
 			if selectedPartID != "" && p.ID == selectedPartID {
@@ -765,9 +765,9 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		case m.Role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
 			rendered = t.renderAssistantTextPart(p, width)
 		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
-			rendered = t.renderPart(p, width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
 		default:
-			rendered = t.renderPart(p, width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
 		}
 		if rendered != "" {
 			h := renderedStringLineCount(rendered)
@@ -1312,6 +1312,64 @@ func (t Theme) renderRoleHeader(role string) string {
 		Render("● " + label)
 }
 
+func (t Theme) renderMessageHeader(m gact.Message) string {
+	if m.Metadata != nil && m.Metadata["semantic_live_message"] == true {
+		label := semanticLiveHeaderLabel(m.Parts)
+		return lipgloss.NewStyle().
+			Foreground(t.Secondary).
+			Bold(true).
+			Render("◆ " + label)
+	}
+	if m.Role == gact.RoleTool {
+		if label := standaloneToolHeaderLabel(m.Parts); label != "" {
+			return lipgloss.NewStyle().
+				Foreground(t.RoleTool).
+				Bold(true).
+				Render("● " + label)
+		}
+	}
+	return t.renderRoleHeader(m.Role)
+}
+
+func standaloneToolHeaderLabel(parts []gact.Part) string {
+	for _, part := range parts {
+		if part.Type != gact.PartTypeToolResult {
+			continue
+		}
+		name := strings.TrimSpace(part.ToolName)
+		if name == "" {
+			return "TOOL RESULT"
+		}
+		status := "RESULT"
+		if part.IsError {
+			status = "ERROR"
+		}
+		return "TOOL · " + capitalizeToolName(name) + " " + status
+	}
+	return ""
+}
+
+func semanticLiveHeaderLabel(parts []gact.Part) string {
+	hasTool := false
+	hasWorkflow := false
+	for _, part := range parts {
+		switch part.Type {
+		case gact.PartTypeToolCall, gact.PartTypeToolResult:
+			hasTool = true
+		case gact.PartTypeExpertHandoff, gact.PartTypeRoutingDecision:
+			hasWorkflow = true
+		}
+	}
+	switch {
+	case hasTool && hasWorkflow:
+		return "TOOL ACTIVITY + WORKFLOW"
+	case hasTool:
+		return "TOOL ACTIVITY"
+	default:
+		return "WORKFLOW ACTIVITY"
+	}
+}
+
 func (t Theme) renderParts(parts []gact.Part, width int) string {
 	var rows []string
 	for _, p := range parts {
@@ -1336,7 +1394,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// Thinking stays muted + italic; "⎿" turns it into a continuation
 		// of the assistant header above (Claude-Code-style demarcation).
 		head := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-			Render("⎿ thinking")
+			Render("⎿ planning")
 		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 			Render(indent(wrap(p.Thinking, wrapW-2), "  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
@@ -1411,7 +1469,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		head := glyph + lipgloss.NewStyle().Foreground(routeColor).Bold(true).Render(route)
 		meta := []string{status}
 		if stage != "" {
-			meta = append(meta, stage)
+			meta = append(meta, expertHandoffStageLabel(stage))
 		}
 		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
 			meta = append(meta, fmt.Sprintf("%.0fms", duration))
@@ -1448,7 +1506,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// are structured args to highlight (we don't split those out
 		// yet; tool_result carries the output and gets its own ⎿).
 		summary := toolCallSummary(p)
-		toolName := capitalizeToolName(p.ToolName)
+		toolName := toolDisplayName(p.ToolName)
 		headText := toolName + "(" + summary + ")"
 		if lipgloss.Width(headText) > wrapW {
 			// Truncate the summary to fit. -3 for "…)" suffix.
@@ -1460,6 +1518,10 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 		head := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
 			Render(headText)
+		if status := toolCallStatusLabel(p); status != "" {
+			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(status)
+		}
 		if label := promotedEvidenceLabel(p); label != "" {
 			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
 				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(label)
@@ -1500,8 +1562,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			glyphStyle = glyphStyle.Foreground(t.Danger)
 			barStyle = barStyle.Foreground(t.Danger)
 		}
+		content := p.Content
+		rawText := flattenToolResult(p)
+		hasRawDetail := p.Metadata != nil && p.Metadata["raw_result"] != nil
+		if !p.IsError {
+			if summary := summarizeToolResultText(p.ToolName, rawText); summary != "" {
+				if strings.TrimSpace(summary) != strings.TrimSpace(rawText) {
+					hasRawDetail = true
+				}
+				content = []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: summary,
+				}}
+			}
+		}
 		var text strings.Builder
-		for i, c := range p.Content {
+		for i, c := range content {
 			if i > 0 {
 				text.WriteString("\n")
 			}
@@ -1542,7 +1618,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 				Render(" to expand]")
 			hint := prefix + keyStyle.Render("Ctrl+E") + suffix
 			body = body + "\n" + hint
-		} else if p.Metadata != nil && p.Metadata["raw_result"] != nil {
+		} else if hasRawDetail {
 			label := "raw detail"
 			if provenance := promotedEvidenceLabel(p); provenance != "" {
 				label = provenance + " · raw detail"
@@ -1644,6 +1720,22 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
 
+	case partTypeRuntimeProvenance:
+		head := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).
+			Render("◇ runtime provenance")
+		body := strings.TrimSpace(p.Text)
+		if body == "" {
+			body = "structured execution evidence"
+		}
+		rendered := lipgloss.NewStyle().Foreground(t.FgMuted).
+			Render(indent(wrap(body, wrapW-2), "  "))
+		prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("  [trace, tools, skills, delegation · ")
+		keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+		suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			Render("]")
+		return lipgloss.JoinVertical(lipgloss.Left, head, rendered, prefix+keyStyle.Render("Ctrl+E")+suffix)
+
 	default:
 		// Unknown part type — preserve presence (per SPEC §8.3) so the user
 		// sees something instead of silently swallowing it.
@@ -1686,6 +1778,9 @@ func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
 	}
 	if expected != "" {
 		meta = append(meta, expected)
+	}
+	if q != nil && strings.TrimSpace(q.Status) != "" && q.Status != "pending" {
+		meta = append(meta, q.Status)
 	}
 	if len(meta) > 0 {
 		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
@@ -1784,6 +1879,41 @@ func promotedEvidenceLabel(p gact.Part) string {
 		return "handoff metadata"
 	case "compact_summary_text":
 		return "compact summary"
+	default:
+		return ""
+	}
+}
+
+func toolCallWithResultStatusSuppressed(p gact.Part, inlineResults map[string]gact.Part) gact.Part {
+	if p.Type != gact.PartTypeToolCall || p.CallID == "" || inlineResults == nil {
+		return p
+	}
+	if _, ok := inlineResults[p.CallID]; !ok || p.Metadata == nil {
+		return p
+	}
+	clone := p
+	metadata := make(map[string]any, len(p.Metadata))
+	for key, value := range p.Metadata {
+		if key == "status" {
+			continue
+		}
+		metadata[key] = value
+	}
+	clone.Metadata = metadata
+	if len(clone.Metadata) == 0 {
+		clone.Metadata = nil
+	}
+	return clone
+}
+
+func toolCallStatusLabel(p gact.Part) string {
+	if p.Metadata == nil {
+		return ""
+	}
+	status := strings.ToLower(strings.TrimSpace(stringValue(p.Metadata["status"])))
+	switch status {
+	case "running", "started", "pending":
+		return "running now"
 	default:
 		return ""
 	}
@@ -1943,7 +2073,10 @@ func jsonOneLine(m map[string]any) string {
 // Read: `path`, Grep: `pattern`) so the header reads naturally.
 // Anything else falls back to a compact JSON-oneline.
 func toolCallSummary(p gact.Part) string {
-	if p.Input == nil {
+	if len(p.Input) == 0 {
+		if p.Metadata != nil {
+			return strings.TrimSpace(stringValue(p.Metadata["args_preview"]))
+		}
 		return ""
 	}
 	tool := strings.ToLower(p.ToolName)
@@ -1992,8 +2125,10 @@ func scientificToolCallSummary(tool string, input map[string]any) string {
 		keys = []string{"dataset_identifier", "identifier_type", "server"}
 	case strings.HasPrefix(tool, "ndp_stage"):
 		keys = []string{"dataset_identifier", "resource_index", "server"}
+	case strings.HasPrefix(tool, "ndp_query") || strings.Contains(tool, "arcgis"):
+		keys = []string{"dataset_identifier", "query", "where", "server", "limit"}
 	case strings.Contains(tool, "sac"):
-		keys = []string{"filepath", "path", "max_traces", "max_members"}
+		keys = []string{"location", "days_back", "start_time", "duration", "min_magnitude", "filepath", "path", "max_traces", "max_members"}
 	case strings.Contains(tool, "parquet"):
 		keys = []string{"filepath", "path", "file", "column", "columns"}
 	case strings.Contains(tool, "csv"):
@@ -2022,12 +2157,42 @@ func scientificToolCallSummary(tool string, input map[string]any) string {
 			key == "output_path" || key == "artifact_path" {
 			text = shortenPathForInline(text)
 		}
-		bits = append(bits, key+": "+text)
+		label, formatted := scientificToolCallArgLabelAndValue(key, text)
+		bits = append(bits, label+": "+formatted)
 		if len(bits) >= 4 {
 			break
 		}
 	}
 	return strings.Join(bits, " · ")
+}
+
+func scientificToolCallArgLabelAndValue(key, text string) (string, string) {
+	switch key {
+	case "days_back":
+		return "window", "last " + text + " days"
+	case "duration":
+		return "duration", text + "s"
+	case "min_magnitude":
+		return "min magnitude", text
+	case "max_traces":
+		return "max traces", text
+	case "max_members":
+		return "max members", text
+	case "output_path":
+		return "artifact", text
+	case "artifact_path":
+		return "artifact", text
+	case "start_time":
+		return "start", text
+	case "search_terms":
+		return "search", text
+	case "dataset_identifier":
+		return "dataset", text
+	case "resource_index":
+		return "resource", text
+	default:
+		return strings.ReplaceAll(key, "_", " "), text
+	}
 }
 
 func summarizeAssistantInlineText(text string) string {
@@ -2067,6 +2232,20 @@ func summarizeInputValue(value any) string {
 		return strings.Join(items, ", ")
 	default:
 		return strings.TrimSpace(fmt.Sprint(value))
+	}
+}
+
+func expertHandoffStageLabel(stage string) string {
+	stage = strings.TrimSpace(stage)
+	switch strings.ToLower(stage) {
+	case "delegate.started", "delegation.started":
+		return "delegating"
+	case "delegate.completed", "delegation.completed":
+		return "returned"
+	case "parent.resumed", "parent_resumed":
+		return "parent resumed"
+	default:
+		return stage
 	}
 }
 
@@ -2242,6 +2421,37 @@ func capitalizeToolName(name string) string {
 		parts[i] = strings.ToUpper(w[:1]) + w[1:]
 	}
 	return strings.Join(parts, "")
+}
+
+func toolDisplayName(name string) string {
+	tool := strings.ToLower(strings.TrimSpace(name))
+	switch {
+	case strings.HasPrefix(tool, "sac_discover_earthscope"):
+		return "EarthScope waveform discovery"
+	case strings.Contains(tool, "sac_compute") && strings.Contains(tool, "stat"):
+		return "SAC trace statistics"
+	case strings.Contains(tool, "sac_plot") || strings.Contains(tool, "plot_sac"):
+		return "SAC waveform visualization"
+	case strings.Contains(tool, "sac_inspect"):
+		return "SAC trace inspection"
+	case strings.HasPrefix(tool, "ndp_search"):
+		return "NDP catalog search"
+	case strings.HasPrefix(tool, "ndp_stage"):
+		return "NDP resource staging"
+	case strings.HasPrefix(tool, "ndp_get"):
+		return "NDP dataset lookup"
+	case strings.HasPrefix(tool, "ndp_query") || strings.Contains(tool, "arcgis"):
+		return "NDP feature query"
+	case strings.Contains(tool, "parquet"):
+		return "Parquet data analysis"
+	case strings.Contains(tool, "hdf5") || strings.Contains(tool, "h5"):
+		return "HDF5 data analysis"
+	case strings.Contains(tool, "adios") || strings.Contains(tool, "bp5") || strings.Contains(tool, "bp4"):
+		return "ADIOS data analysis"
+	case strings.Contains(tool, "csv"):
+		return "CSV data analysis"
+	}
+	return capitalizeToolName(name)
 }
 
 // toolResultPreviewLines is the inline preview budget for tool_result

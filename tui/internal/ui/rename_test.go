@@ -109,6 +109,49 @@ func TestRename_EnterCommitsAndPatches(t *testing.T) {
 	}
 }
 
+func TestRename_ManualFailureRestoresTitleAndShowsHint(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, "/v1/sessions/") {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"code":"validation_error","message":"session title failed validation: reserved demo failure"}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.width, a.height = 100, 30
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "s1", Title: "original"}}
+	a.selected = 0
+	a.renameOpen = true
+	a.renameDraft = "reserved demo failure"
+	a.renameCursor = len(a.renameDraft)
+
+	_, cmd := a.handleRenameKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should dispatch a PATCH cmd")
+	}
+	if a.sessions[0].Title != "reserved demo failure" {
+		t.Fatalf("optimistic title = %q", a.sessions[0].Title)
+	}
+	msg := cmd()
+	model, followup := a.Update(msg)
+	a = model.(*App)
+	if followup == nil {
+		t.Fatal("manual rename failure should schedule hint expiry")
+	}
+	if a.sessions[0].Title != "original" {
+		t.Fatalf("manual rename failure should restore previous title, got %q", a.sessions[0].Title)
+	}
+	if !strings.Contains(a.transientHint, "rename failed:") ||
+		!strings.Contains(a.transientHint, "reserved demo failure") {
+		t.Fatalf("manual rename failure hint not useful: %q", a.transientHint)
+	}
+}
+
 func TestRenameButtonsUseSemanticHitTargets(t *testing.T) {
 	a, _, _ := makeRenameApp(t)
 	a.renameOpen = true

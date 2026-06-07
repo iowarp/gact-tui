@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +12,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
 func seedFileViewerTree(t *testing.T) string {
@@ -28,7 +34,7 @@ func seedFileViewerTree(t *testing.T) string {
 	return root
 }
 
-func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
+func TestFileViewerLazilyLoadsCurrentDirectoryTree(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.SetFileViewerRoot(seedFileViewerTree(t))
 
@@ -40,7 +46,11 @@ func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
 		t.Fatalf("visible entries = %#v, want sorted dirs first", visible)
 	}
 
-	a.fileTreeExpanded["docs"] = true
+	if len(a.fileTreeEntries) != 2 {
+		t.Fatalf("root load should only include immediate children, got %#v", a.fileTreeEntries)
+	}
+	a.fileTreeSel = 0
+	a.activateFileTreeSelection()
 	visible = a.visibleFileTreeEntries()
 	paths := make([]string, 0, len(visible))
 	for _, entry := range visible {
@@ -48,6 +58,64 @@ func TestFileViewerScansCurrentDirectoryTree(t *testing.T) {
 	}
 	if strings.Join(paths, ",") != "docs,docs/api,docs/guide.md,README.md" {
 		t.Fatalf("expanded paths = %#v", paths)
+	}
+	if len(a.fileTreeEntries) != 4 {
+		t.Fatalf("expanding docs should load only docs' immediate children, got %#v", a.fileTreeEntries)
+	}
+}
+
+func TestFileViewerFollowsActiveWorkspaceRoot(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := seedFileViewerTree(t)
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+
+	a.syncFileViewerRootToWorkspace()
+
+	if a.fileViewerRoot != root {
+		t.Fatalf("file viewer root = %q, want workspace root %q", a.fileViewerRoot, root)
+	}
+	if a.fileTreeRootMode != "workspace" {
+		t.Fatalf("file viewer root mode = %q, want workspace", a.fileTreeRootMode)
+	}
+	out := ansi.Strip(a.renderFileViewerModuleRows(42, 0, 8)[1])
+	if !strings.Contains(out, "workspace:") {
+		t.Fatalf("root label should indicate workspace mode, got %q", out)
+	}
+}
+
+func TestFileViewerUnavailableWorkspaceUsesOperatorSummary(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	missing := filepath.Join(t.TempDir(), "missing-workspace")
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: missing}}
+	a.wsID = "ws_demo"
+
+	a.syncFileViewerRootToWorkspace()
+
+	rows := a.renderFileViewerModuleRows(44, 0, 8)
+	out := ansi.Strip(strings.Join(rows, "\n"))
+	if !strings.Contains(out, "folder unavailable") {
+		t.Fatalf("sidebar should summarize unavailable workspace:\n%s", out)
+	}
+	if strings.Contains(out, "stat "+missing) || strings.Contains(out, "no such file or directory") {
+		t.Fatalf("sidebar should not expose raw stat error:\n%s", out)
+	}
+
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionFiles
+	a.sidebarSectionCursor = false
+	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("Enter on unavailable file viewer should open detail")
+	}
+	detail := a.detailView.fullText
+	for _, want := range []string{"root: " + missing, "mode: workspace", "status: unavailable", "details:"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("detail missing %q:\n%s", want, detail)
+		}
+	}
+	if !strings.Contains(detail, missing) || !strings.Contains(detail, "no such file") {
+		t.Fatalf("detail should preserve raw path/error evidence:\n%s", detail)
 	}
 }
 
@@ -110,5 +178,101 @@ func TestFileViewerMouseClickUsesSemanticHitTarget(t *testing.T) {
 	a = model.(*App)
 	if !a.fileTreeExpanded["docs"] {
 		t.Fatal("clicking folder row should expand it")
+	}
+}
+
+func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
+	root := seedFileViewerTree(t)
+	var uploadBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/attachments" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&uploadBody); err != nil {
+			t.Fatalf("decode upload body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.ContextFile{
+			Path:     ".clio/attachments/s1/README.md",
+			Mode:     "read",
+			Size:     7,
+			Uploaded: true,
+		})
+	}))
+	defer srv.Close()
+
+	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.caps.Capabilities.AttachmentsUpload = true
+	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
+	a.selected = 0
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 1 // README.md
+	a.activateFileTreeSelection()
+	if !a.detailViewOpen || a.detailView == nil || a.detailView.localPath == "" {
+		t.Fatalf("expected file detail with local path, detail=%#v", a.detailView)
+	}
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:detail:upload"); !ok {
+		t.Fatal("advertised attachment support should render upload button target")
+	}
+
+	model, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("upload action should dispatch a command")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		if len(batch) != 2 {
+			t.Fatalf("upload action batch length = %d, want hint + upload", len(batch))
+		}
+		msg = batch[1]()
+	}
+	uploaded, ok := msg.(contextFileUploadedMsg)
+	if !ok {
+		t.Fatalf("upload command returned %T, want contextFileUploadedMsg", msg)
+	}
+	if uploaded.err != nil {
+		t.Fatalf("upload failed: %v", uploaded.err)
+	}
+	if uploadBody["filename"] != "README.md" || uploadBody["mode"] != "read" {
+		t.Fatalf("upload body = %#v", uploadBody)
+	}
+	if uploadBody["file"] != base64.StdEncoding.EncodeToString([]byte("# demo\n")) {
+		t.Fatalf("upload file = %#v", uploadBody["file"])
+	}
+
+	model, _ = a.Update(uploaded)
+	a = model.(*App)
+	if len(a.contextFiles) != 1 || !a.contextFiles[0].Uploaded {
+		t.Fatalf("context files after upload = %#v", a.contextFiles)
+	}
+	if !strings.Contains(a.transientHint, "uploaded .clio/attachments/s1/README.md to context") {
+		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
+func TestFileViewerDetailUploadRequiresCapability(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{messageID: "files", localPath: "/tmp/report.txt"}
+
+	_ = a.View()
+	if _, ok := findHitTargetForTest(a, "button:detail:upload"); ok {
+		t.Fatal("upload button should be hidden when attachments_upload is not advertised")
+	}
+	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
+	if cmd == nil {
+		t.Fatal("unsupported upload should still schedule hint expiry")
+	}
+	if a.transientHint != "attachment upload unsupported by this backend" {
+		t.Fatalf("hint = %q", a.transientHint)
 	}
 }

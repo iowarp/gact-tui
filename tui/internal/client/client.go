@@ -8,6 +8,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -246,6 +247,23 @@ func (c *Client) ListWorkspaces(ctx context.Context) ([]gact.Workspace, error) {
 	var out ListWorkspacesResponse
 	err := c.do(ctx, http.MethodGet, "/v1/workspaces", nil, &out)
 	return out.Workspaces, err
+}
+
+type CreateWorkspaceRequest struct {
+	Name     string         `json:"name,omitempty"`
+	RootPath string         `json:"root_path"`
+	Config   map[string]any `json:"config,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+func (c *Client) CreateWorkspace(ctx context.Context, req CreateWorkspaceRequest) (gact.Workspace, error) {
+	var out gact.Workspace
+	err := c.do(ctx, http.MethodPost, "/v1/workspaces", req, &out)
+	return out, err
+}
+
+func (c *Client) DeleteWorkspace(ctx context.Context, workspaceID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/workspaces/"+url.PathEscape(workspaceID), nil, nil)
 }
 
 // --- §6.2 sessions ---------------------------------------------------------
@@ -546,7 +564,10 @@ type LMProviderInfo struct {
 	Presets        []LMProviderPreset `json:"presets,omitempty"`
 }
 
-// LMProviderRequest is the PUT /v1/providers/lm body.
+// LMProviderRequest is the PUT /v1/providers/lm body. Provider is
+// the selected provider/preset id accepted by CLIO, for example
+// "openai", "lm_studio", or an ALCF profile such as
+// "argonne_metis".
 //
 // Temperature + MaxTokens are forwarded to the upstream LM. Sending
 // 0/0 means "use server defaults" — the JSON omitempty drops the
@@ -815,6 +836,22 @@ func (c *Client) ValidateExpertPack(ctx context.Context, req gact.ExpertPackVali
 	return out, err
 }
 
+func (c *Client) InstallExpertPack(ctx context.Context, req gact.ExpertPackInstallRequest) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/install", req, &out)
+	return out, err
+}
+
+func (c *Client) UpdateExpertPack(ctx context.Context, packID string) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/"+url.PathEscape(packID)+"/update", map[string]any{}, &out)
+	return out, err
+}
+
+func (c *Client) DeleteExpertPack(ctx context.Context, packID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/expert-packs/"+url.PathEscape(packID), nil, nil)
+}
+
 func (c *Client) GetSessionExpertPack(ctx context.Context, sessionID string) (gact.SessionExpertPackState, error) {
 	var out gact.SessionExpertPackState
 	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/expert-pack", nil, &out)
@@ -861,6 +898,26 @@ func (c *Client) InstallAgentBlueprint(ctx context.Context, req gact.AgentBluepr
 	return out, err
 }
 
+func (c *Client) ListAgentBlueprintSources(ctx context.Context) ([]gact.AgentBlueprintSource, error) {
+	var out struct {
+		Sources []gact.AgentBlueprintSource `json:"sources"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agent-blueprints/sources", nil, &out)
+	return out.Sources, err
+}
+
+func (c *Client) RefreshAgentBlueprintSource(ctx context.Context, sourceID string) (gact.AgentBlueprintSource, error) {
+	var out struct {
+		Source gact.AgentBlueprintSource `json:"source"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/sources/"+url.PathEscape(sourceID)+"/refresh", nil, &out)
+	return out.Source, err
+}
+
+func (c *Client) DeleteAgentBlueprintSource(ctx context.Context, sourceID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/agent-blueprints/sources/"+url.PathEscape(sourceID), nil, nil)
+}
+
 func (c *Client) UpdateAgentBlueprint(ctx context.Context, blueprintID string, req gact.AgentBlueprintUpdateRequest) (map[string]any, error) {
 	var out map[string]any
 	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/"+url.PathEscape(blueprintID)+"/update", req, &out)
@@ -883,6 +940,13 @@ func (c *Client) DeleteAgentBlueprint(ctx context.Context, blueprintID, scope, w
 func (c *Client) EnableAgentBlueprintMCP(ctx context.Context, blueprintID, descriptorID string, req gact.AgentBlueprintMCPEnableRequest) (map[string]any, error) {
 	var out map[string]any
 	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/mcp/" + url.PathEscape(descriptorID) + "/enable"
+	err := c.do(ctx, http.MethodPost, path, req, &out)
+	return out, err
+}
+
+func (c *Client) EnableAgentBlueprintHook(ctx context.Context, blueprintID, hookID string, req gact.AgentBlueprintHookEnableRequest) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/agent-blueprints/" + url.PathEscape(blueprintID) + "/hooks/" + url.PathEscape(hookID) + "/enable"
 	err := c.do(ctx, http.MethodPost, path, req, &out)
 	return out, err
 }
@@ -958,6 +1022,32 @@ func (c *Client) AddContextFile(ctx context.Context, sessionID, path, mode strin
 func (c *Client) RemoveContextFile(ctx context.Context, sessionID, path string) error {
 	body := map[string]any{"path": path}
 	return c.do(ctx, http.MethodDelete, "/v1/sessions/"+sessionID+"/context/files", body, nil)
+}
+
+func (c *Client) ContextFileContent(ctx context.Context, sessionID, path string) (gact.ContextFileContent, error) {
+	var out struct {
+		File gact.ContextFileContent `json:"file"`
+	}
+	q := url.Values{}
+	q.Set("path", path)
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+sessionID+"/context/files/content?"+q.Encode(), nil, &out)
+	return out.File, err
+}
+
+func (c *Client) UploadAttachment(ctx context.Context, sessionID, filename, mimeType, mode string, data []byte) (gact.ContextFile, error) {
+	var out gact.ContextFile
+	body := map[string]any{
+		"file":     base64.StdEncoding.EncodeToString(data),
+		"filename": filename,
+	}
+	if mimeType != "" {
+		body["mime_type"] = mimeType
+	}
+	if mode != "" {
+		body["mode"] = mode
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+sessionID+"/attachments", body, &out)
+	return out, err
 }
 
 // ListMcpServers returns all MCP servers known to the backend. Powers

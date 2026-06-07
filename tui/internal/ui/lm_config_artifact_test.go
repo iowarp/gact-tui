@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -81,7 +85,7 @@ func TestLMConfigIntroUsesSharedModalInnerWidth(t *testing.T) {
 	if strings.Contains(out, "shown on the\nright") {
 		t.Fatalf("intro wrapped before final word despite shared modal width:\n%s", out)
 	}
-	if !strings.Contains(out, "Status and editable model settings appear on the right.") {
+	if !strings.Contains(out, "Status and settings appear on the right.") {
 		t.Fatalf("intro did not render on the expected line:\n%s", out)
 	}
 }
@@ -637,6 +641,85 @@ func TestLMConfigPasteRoutesToAPIKeyField(t *testing.T) {
 	}
 }
 
+func TestLMConfigPasteProviderFilterSyncsSelectedPreset(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "openai\r\n"})
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("pasted provider filter should queue selected-provider model fetch")
+	}
+	if got := a.lmConfig.info.Presets[a.lmConfig.selected].ID; got != "openai" {
+		t.Fatalf("selected provider = %q, want openai", got)
+	}
+	if a.lmConfig.apiBase != "https://api.openai.com/v1" {
+		t.Fatalf("API base was not synced from pasted provider: %q", a.lmConfig.apiBase)
+	}
+	if a.lmConfig.model != "gpt-4o-mini" {
+		t.Fatalf("model was not synced from pasted provider: %q", a.lmConfig.model)
+	}
+}
+
+func TestLMConfigPasteRoutesToModelFilter(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldModel
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{
+		{ID: "alpha-model"},
+		{ID: "zeta-model"},
+	}
+	a.lmConfig.modelIndex = 0
+	a.lmConfig.model = "alpha-model"
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "zeta\r\n"})
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("pasted model filter should not dispatch a command")
+	}
+	if a.lmConfig.modelFilter != "zeta" {
+		t.Fatalf("model filter = %q, want zeta", a.lmConfig.modelFilter)
+	}
+	if a.lmConfig.model != "zeta-model" || a.lmConfig.modelIndex != 1 {
+		t.Fatalf("selected model = %q/%d, want zeta-model/1", a.lmConfig.model, a.lmConfig.modelIndex)
+	}
+}
+
+func TestLMConfigPasteAPIBaseInvalidatesCatalog(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldAPIBase
+	a.lmConfig.apiBase = ""
+	a.lmConfig.modelCatalogWarnings = map[string]string{"lm_studio": ""}
+	a.lmConfig.modelCatalogSources = map[string]string{"lm_studio": "live"}
+	a.lmConfig.modelCatalogPending = map[string]bool{"lm_studio": true}
+	a.lmConfig.modelCatalogs["lm_studio"] = []gact.Model{{ID: "alpha-model"}}
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "http://127.0.0.1:8000/v1\r\n"})
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("pasted API base should not dispatch a command")
+	}
+	if a.lmConfig.apiBase != "http://127.0.0.1:8000/v1" {
+		t.Fatalf("API base = %q, want pasted endpoint", a.lmConfig.apiBase)
+	}
+	if _, ok := a.lmConfig.modelCatalogs["lm_studio"]; ok {
+		t.Fatal("pasted API base should clear cached model catalog")
+	}
+	if _, ok := a.lmConfig.modelCatalogSources["lm_studio"]; ok {
+		t.Fatal("pasted API base should clear cached catalog source")
+	}
+	if _, ok := a.lmConfig.modelCatalogPending["lm_studio"]; ok {
+		t.Fatal("pasted API base should clear pending catalog flag")
+	}
+}
+
 func TestLMConfigFallbackCatalogDoesNotOverwriteModel(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.selected = 0 // LM Studio
@@ -753,6 +836,126 @@ func TestLMConfigPresetSwitchUsesPresetAPIBaseForSameProviderKind(t *testing.T) 
 	}
 }
 
+func TestLMConfigDispatchUsesSelectedPresetID(t *testing.T) {
+	var got client.LMProviderRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.EscapedPath() != "/v1/providers/lm" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(client.LMProviderInfo{
+			Configured: true,
+			Provider:   got.Provider,
+			APIBase:    got.APIBase,
+			Model:      got.Model,
+		})
+	}))
+	defer srv.Close()
+
+	a := newLMConfigTestApp()
+	a.c = client.New(srv.URL)
+	a.lmConfig.info.Presets = []client.LMProviderPreset{
+		{
+			ID:             "argonne_metis",
+			Label:          "ALCF Metis (Globus Auth)",
+			Provider:       "argonne",
+			APIBase:        "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+			SuggestedModel: "gpt-oss-120b",
+			AuthMethod:     "oauth",
+			Status:         "ready",
+		},
+	}
+	a.lmConfig.selected = 0
+	a.lmConfig.model = "gpt-oss-120b"
+	a.lmConfig.apiBase = a.lmConfig.info.Presets[0].APIBase
+	a.lmConfig.field = lmFieldSave
+	a.lmConfig.modelCatalogs = map[string][]gact.Model{
+		"argonne_metis": {{ID: "gpt-oss-120b"}},
+	}
+	a.lmConfig.modelCatalogSources = map[string]string{"argonne_metis": "live"}
+	a.lmConfig.modelCatalogWarnings = map[string]string{"argonne_metis": ""}
+	a.lmConfig.modelCatalogPending = map[string]bool{}
+
+	cmd := a.lmConfigDispatch()
+	if cmd == nil {
+		t.Fatal("expected save command")
+	}
+	if msg := cmd(); msg == nil {
+		t.Fatal("save command returned nil message")
+	}
+
+	if got.Provider != "argonne_metis" {
+		t.Fatalf("provider = %q, want selected preset id argonne_metis", got.Provider)
+	}
+	if got.Model != "gpt-oss-120b" {
+		t.Fatalf("model = %q", got.Model)
+	}
+	if !strings.Contains(got.APIBase, "/metis/") {
+		t.Fatalf("api_base = %q, want Metis endpoint", got.APIBase)
+	}
+}
+
+func TestLMConfigSessionPatchUsesSelectedPresetID(t *testing.T) {
+	var got client.PatchSessionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.EscapedPath() != "/v1/sessions/s1" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if got.Model == nil {
+			t.Fatalf("missing model request: %#v", got)
+		}
+		_ = json.NewEncoder(w).Encode(gact.Session{
+			ID:    "s1",
+			Model: gact.ModelRef{ProviderID: got.Model.ProviderID, ModelID: got.Model.ModelID},
+		})
+	}))
+	defer srv.Close()
+
+	a := newLMConfigTestApp()
+	a.c = client.New(srv.URL)
+	a.lmConfig.info.Presets = []client.LMProviderPreset{
+		{
+			ID:             "argonne_sophia",
+			Label:          "ALCF Sophia (Globus Auth)",
+			Provider:       "argonne",
+			APIBase:        "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			SuggestedModel: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+			AuthMethod:     "oauth",
+			Status:         "ready",
+		},
+	}
+	a.lmConfig.selected = 0
+	a.lmConfig.model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+	a.lmConfig.sessionPatchMode = true
+	a.lmConfig.targetSessionID = "s1"
+	a.lmConfig.modelCatalogs = map[string][]gact.Model{
+		"argonne_sophia": {{ID: "meta-llama/Meta-Llama-3.1-8B-Instruct"}},
+	}
+	a.lmConfig.modelCatalogSources = map[string]string{"argonne_sophia": "live"}
+	a.lmConfig.modelCatalogWarnings = map[string]string{"argonne_sophia": ""}
+	a.lmConfig.modelCatalogPending = map[string]bool{}
+
+	cmd := a.lmConfigDispatch()
+	if cmd == nil {
+		t.Fatal("expected session patch command")
+	}
+	if msg := cmd(); msg == nil {
+		t.Fatal("session patch command returned nil message")
+	}
+
+	if got.Model.ProviderID != "argonne_sophia" {
+		t.Fatalf("provider_id = %q, want selected preset id argonne_sophia", got.Model.ProviderID)
+	}
+	if got.Model.ModelID != "meta-llama/Meta-Llama-3.1-8B-Instruct" {
+		t.Fatalf("model_id = %q", got.Model.ModelID)
+	}
+}
+
 func TestLMConfigArgonneShowsAuthActionAndBlocksUntilAuthenticated(t *testing.T) {
 	a := newLMConfigTestApp()
 	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
@@ -832,6 +1035,115 @@ func TestLMConfigArgonneReadyTokenRendersAsUsable(t *testing.T) {
 	}
 	if strings.Contains(out, "Globus login required") || strings.Contains(out, "Authenticate") {
 		t.Fatalf("ready argonne provider still looks unauthenticated\n%s", out)
+	}
+}
+
+func TestLMConfigArgonneAuthFailureStaysVisible(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:         "argonne_sophia",
+		Label:      "ALCF Sophia (Globus Auth)",
+		Provider:   "argonne",
+		AuthMethod: "oauth",
+		Status:     "auth_required",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.field = lmFieldAuth
+	a.lmConfig.authenticating = true
+	a.lmConfig.authMessage = "launching ALCF Globus login terminal..."
+
+	model, cmd := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		err:        errors.New("Globus token expired"),
+	})
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("auth failure should not dispatch follow-up commands")
+	}
+	if !a.lmConfigOpen || a.lmConfig == nil {
+		t.Fatal("auth failure should keep the provider modal open")
+	}
+	if a.lmConfig.authenticating {
+		t.Fatal("authenticating should be cleared after failure")
+	}
+	if a.lmConfig.authMessage != "auth failed: Globus token expired" {
+		t.Fatalf("auth failure message = %q", a.lmConfig.authMessage)
+	}
+	if a.lmConfig.info.Presets[a.lmConfig.selected].Status != "auth_required" {
+		t.Fatalf("auth failure should not mark provider ready: %#v", a.lmConfig.info.Presets[a.lmConfig.selected])
+	}
+}
+
+func TestLMConfigArgonneAuthFailureUsesOperatorError(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.authenticating = true
+
+	model, _ := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		err: &client.Error{
+			Status:  401,
+			Code:    "auth_failed",
+			Message: "auth failed: Globus token expired; run clio auth login for ALCF and retry",
+		},
+	})
+	a = model.(*App)
+
+	if got := a.lmConfig.authMessage; got != "auth failed: Globus token expired; run clio auth login for ALCF and retry" {
+		t.Fatalf("auth failure message = %q", got)
+	}
+	if strings.Contains(a.lmConfig.authMessage, "gact:") || strings.Contains(a.lmConfig.authMessage, "401") || strings.Contains(a.lmConfig.authMessage, "auth_failed") {
+		t.Fatalf("auth failure leaked backend wrapper: %q", a.lmConfig.authMessage)
+	}
+}
+
+func TestLMConfigArgonneAuthSuccessMarksReadyAndRefreshesModels(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Presets = append(a.lmConfig.info.Presets, client.LMProviderPreset{
+		ID:         "argonne_sophia",
+		Label:      "ALCF Sophia (Globus Auth)",
+		Provider:   "argonne",
+		AuthMethod: "oauth",
+		APIBase:    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		Status:     "auth_required",
+	})
+	a.lmConfig.selected = len(a.lmConfig.info.Presets) - 1
+	a.lmConfig.field = lmFieldAuth
+	a.lmConfig.authenticating = true
+	a.lmConfig.modelCatalogs["argonne_sophia"] = []gact.Model{{ID: "stale"}}
+	a.lmConfig.modelCatalogWarnings["argonne_sophia"] = "token expired"
+	a.lmConfig.modelCatalogSources["argonne_sophia"] = "unavailable"
+
+	model, cmd := a.Update(lmConfigAuthedMsg{
+		providerID: "argonne_sophia",
+		resp: client.ProviderAuthResponse{
+			ProviderID:      "argonne_sophia",
+			IsAuthenticated: true,
+		},
+	})
+	a = model.(*App)
+
+	if cmd == nil {
+		t.Fatal("auth success should queue a fresh model catalog fetch")
+	}
+	if a.lmConfig.authenticating {
+		t.Fatal("authenticating should be cleared after success")
+	}
+	if a.lmConfig.authMessage != "ALCF Globus token ready" {
+		t.Fatalf("auth success message = %q", a.lmConfig.authMessage)
+	}
+	preset := a.lmConfig.info.Presets[a.lmConfig.selected]
+	if preset.Status != "ready" || preset.StatusMessage != "Globus token ready" || !preset.IsAuthenticated {
+		t.Fatalf("auth success should mark provider ready: %#v", preset)
+	}
+	if _, ok := a.lmConfig.modelCatalogs["argonne_sophia"]; ok {
+		t.Fatal("auth success should clear stale model catalog cache")
+	}
+	if _, ok := a.lmConfig.modelCatalogWarnings["argonne_sophia"]; ok {
+		t.Fatal("auth success should clear stale model catalog warnings")
+	}
+	if !a.lmConfig.modelCatalogPending["argonne_sophia"] {
+		t.Fatal("auth success should mark a model fetch pending")
 	}
 }
 
@@ -1164,6 +1476,37 @@ func TestLMConfigProviderDetailsRowsAndHitsShareVisibility(t *testing.T) {
 	}
 }
 
+func TestLMConfigProviderDetailsShowsAppliedAndPendingSelection(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.lmConfig.info.Configured = true
+	a.lmConfig.info.Provider = "ollama"
+	a.lmConfig.info.Model = "granite3.1-dense:8b"
+	a.lmConfig.info.APIBase = "http://127.0.0.1:11434/v1"
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+	a.lmConfig.model = "qwopus3.5-9b-v3"
+	a.lmConfig.apiBase = "http://127.0.0.1:1234/v1"
+
+	out := ansi.Strip(a.renderLMConfigProviderDetails(70, 10))
+	if !strings.Contains(out, "applied: ollama/granite3.1-dense:8b") {
+		t.Fatalf("provider details did not show applied config:\n%s", out)
+	}
+	if !strings.Contains(out, "pending: lm_studio/qwopus3.5-9b-v3") {
+		t.Fatalf("provider details did not show pending config:\n%s", out)
+	}
+
+	a.lmConfig.selected = 1
+	a.lmConfig.model = "granite3.1-dense:8b"
+	a.lmConfig.apiBase = "http://127.0.0.1:11434/v1"
+	out = ansi.Strip(a.renderLMConfigProviderDetails(70, 10))
+	if !strings.Contains(out, "applied: ollama/granite3.1-dense:8b") {
+		t.Fatalf("provider details should keep applied config visible:\n%s", out)
+	}
+	if strings.Contains(out, "pending:") {
+		t.Fatalf("provider details should not show pending config when selection matches applied:\n%s", out)
+	}
+}
+
 func modalCellHitByIDForTest(hits []modalCellHit, id string) (modalCellHit, bool) {
 	for _, hit := range hits {
 		if hit.id == id {
@@ -1425,6 +1768,48 @@ func TestLMConfigCloseButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
+func TestLMConfigCloseGlyphIsCenteredInHeaderButton(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	plain := ansi.Strip(a.viewLMConfig())
+	closeLine := ""
+	for _, line := range strings.Split(plain, "\n") {
+		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+			closeLine = line
+			break
+		}
+	}
+	if closeLine == "" {
+		t.Fatalf("provider header with close button not found:\n%s", plain)
+	}
+	xCol := strings.LastIndex(closeLine, "x")
+	if xCol < 2 || xCol+2 >= len(closeLine) {
+		t.Fatalf("provider close x has no visible box padding in line: %q", closeLine)
+	}
+	if closeLine[xCol-2:xCol] != "  " || closeLine[xCol+1:xCol+3] != "  " {
+		t.Fatalf("provider close x should be centered with two cells on each side: %q", closeLine)
+	}
+}
+
+func TestLMConfigHeaderGapsOwnModalBackground(t *testing.T) {
+	a := newLMConfigTestApp()
+
+	styledLine := ""
+	for _, line := range strings.Split(a.viewLMConfig(), "\n") {
+		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+			styledLine = line
+			break
+		}
+	}
+	if styledLine == "" {
+		t.Fatalf("provider header with close button not found")
+	}
+	bg := "48;2;25;25;35"
+	if strings.Count(styledLine, bg) < 3 {
+		t.Fatalf("provider header gaps should carry modal background escapes, got %d in %q", strings.Count(styledLine, bg), styledLine)
+	}
+}
+
 func TestLMConfigRefreshButtonUsesCtrlRRefreshSemantics(t *testing.T) {
 	a := newLMConfigTestApp()
 
@@ -1445,6 +1830,38 @@ func TestLMConfigRefreshButtonUsesCtrlRRefreshSemantics(t *testing.T) {
 	}
 	if a.lmConfig == nil || a.lmConfig.err != nil {
 		t.Fatalf("refresh should keep config open and clear errors, config=%+v", a.lmConfig)
+	}
+}
+
+func TestLMConfigSurfaceWheelBlocksBackgroundScrolling(t *testing.T) {
+	a := newLMConfigTestApp()
+	a.MouseEnabled = true
+	a.lmConfig.selected = 0
+	a.lmConfig.field = lmFieldPreset
+
+	_ = a.View()
+	surface, ok := findHitTargetForTest(a, "lm-config:surface:wheel")
+	if !ok {
+		t.Fatal("missing provider modal surface wheel blocker")
+	}
+	model, cmd := a.Update(tea.MouseWheelMsg(tea.Mouse{
+		X:      surface.rect.x + surface.rect.w - 2,
+		Y:      surface.rect.y + 2,
+		Button: tea.MouseWheelDown,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("provider modal blank-surface wheel should not dispatch a command")
+	}
+	if !a.lmConfigOpen || a.lmConfig == nil {
+		t.Fatal("provider modal should remain open after blank-surface wheel")
+	}
+	if a.lmConfig.selected != 0 {
+		t.Fatalf("blank-surface wheel changed provider selection to %d", a.lmConfig.selected)
+	}
+	if a.lmConfig.field != lmFieldPreset {
+		t.Fatalf("blank-surface wheel changed field to %v", a.lmConfig.field)
 	}
 }
 
@@ -1614,7 +2031,7 @@ func TestRenderLMConfigPolishArtifact(t *testing.T) {
 			APIBase:        "https://api.anthropic.com/v1",
 			SuggestedModel: "claude-sonnet-4-6",
 			RequiresAPIKey: true,
-			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY on the backend host.",
+			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY where CLIO is running.",
 			Status:         "missing_key",
 			StatusMessage:  "missing ANTHROPIC_API_KEY",
 		},

@@ -2,12 +2,15 @@ package ui
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"image/color"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +42,7 @@ type sidebarSection int
 
 const (
 	sidebarSectionSessions sidebarSection = iota
+	sidebarSectionAgents
 	sidebarSectionFiles
 	sidebarSectionContext
 )
@@ -90,6 +94,12 @@ type App struct {
 	// delete is otherwise a no-op for the registry. (BBBBBBBB1)
 	PruneDetachedRegistry func(sessionID string)
 
+	// InitialWorkspaceSelector is applied on the first backend
+	// connection. It accepts a workspace id, exact name, or exact root
+	// path. Once the user switches workspaces, reconnects stay pinned to
+	// the current workspace id instead of falling back to this value.
+	InitialWorkspaceSelector string
+
 	// LLLLLLLL1: transientHintAt stamps when transientHint was last
 	// set to a non-empty value. handleKey's blanket-clear on any
 	// keypress honours a minimum-display floor so hints that arrive
@@ -109,8 +119,8 @@ type App struct {
 	// while in alt-screen mode. NEVER set this in production.
 	DisableAltScreen bool
 	// MouseEnabled controls terminal mouse reporting and mouse handlers.
-	// It defaults to true, but is persisted as Settings > TUI because
-	// some terminals or remote shells make mouse capture intrusive.
+	// When true, CLIO owns drag gestures for wheel/click/visible-text copy.
+	// When false, terminal native text selection is restored.
 	MouseEnabled bool
 
 	c *client.Client
@@ -142,6 +152,11 @@ type App struct {
 	contextFiles   []gact.ContextFile
 	contextFileSel int
 
+	agentHierarchyAgents   []gact.AgentDef
+	agentHierarchyErr      string
+	agentHierarchySel      int
+	sidebarAgentsCollapsed bool
+
 	// Local file viewer module. This is process-cwd-backed and does not require
 	// backend filesystem support.
 	fileViewerRoot   string
@@ -149,6 +164,7 @@ type App struct {
 	fileTreeExpanded map[string]bool
 	fileTreeSel      int
 	fileTreeErr      string
+	fileTreeRootMode string
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -170,12 +186,19 @@ type App struct {
 	sseDownSince time.Time
 
 	// lastSeenSeqID is the highest SSE event SeqID we've processed for
-	// the current session. Passed as `Last-Event-ID` on reconnect so
+	// the current SSE stream. Passed as `Last-Event-ID` on reconnect so
 	// the emulator's ring buffer replays events published during the
 	// outage instead of the client silently losing them (visible in
 	// the conversation as "skipped from thinking straight to done").
-	// Reset to 0 whenever the active session changes.
+	// Session switches restore this from lastSeenSeqIDBySession so a
+	// revisit does not replay and re-reduce the same semantic history.
 	lastSeenSeqID uint64
+
+	// lastSeenSeqIDBySession keeps independent SSE high-water marks per
+	// session. CLIO event streams are session-scoped; a single global
+	// counter made session revisits unstable because selecting an old
+	// session reset to 0 and asked the server to replay the whole ring.
+	lastSeenSeqIDBySession map[string]uint64
 
 	// connectRetryAttempts is the count of consecutive failed
 	// connectCmd dispatches. Same backoff schedule as the SSE
@@ -219,6 +242,14 @@ type App struct {
 	// for the unset case). 0-based; addressablePartsOf() defines
 	// what counts as a block.
 	bodySelPartIdx int
+
+	// conversationCopy stores the currently visible plain transcript
+	// rows so a mouse drag can copy exactly what the operator selected
+	// without disabling terminal mouse controls.
+	conversationCopy conversationCopySnapshot
+	copyDrag         conversationCopyDrag
+	detailCopy       conversationCopySnapshot
+	detailCopyDrag   conversationCopyDrag
 
 	// VVVVVVVVV1: set true by every cursor-moving handler
 	// (stepPartCursor, g/G, maybeInitBodyCursor
@@ -365,6 +396,7 @@ type App struct {
 	paletteCursor    int
 	paletteCursorSet bool
 	paletteSel       int
+	paletteGroup     string
 	searchMatches    []client.SearchMatch
 	searching        bool // true while the SearchMessages cmd is in flight
 
@@ -416,25 +448,35 @@ type App struct {
 	// /mcp-remove slash commands. State is intentionally tiny — install
 	// is a one-line input, remove is a picker over the current
 	// a.mcpServers slice (filtered to third-party).
-	mcpInstallOpen   bool
-	mcpInstallInput  string
-	mcpInstallCursor int
-	mcpInstallErr    string
-	mcpInstallSaving bool
-	mcpRemoveOpen    bool
-	mcpRemoveOptions []gact.McpServer
-	mcpRemoveSel     int
-	mcpRemoveSaving  bool
+	mcpInstallOpen     bool
+	mcpInstallInput    string
+	mcpInstallCursor   int
+	mcpInstallErr      string
+	mcpInstallSaving   bool
+	mcpRemoveOpen      bool
+	mcpRemoveOptions   []gact.McpServer
+	mcpRemoveSel       int
+	mcpRemoveSaving    bool
+	mcpRemoveConfirmID string
 
 	// Agent blueprint install / validate overlay. Opened from the
 	// /agent-blueprints catalog action rows and shared by both workflows:
 	// install accepts a path/URL/source, validate accepts a path.
-	agentBlueprintManageOpen   bool
-	agentBlueprintManageMode   string
-	agentBlueprintManageInput  string
-	agentBlueprintManageCursor int
-	agentBlueprintManageErr    string
-	agentBlueprintManageSaving bool
+	agentBlueprintManageOpen          bool
+	agentBlueprintManageMode          string
+	agentBlueprintManageInput         string
+	agentBlueprintManageCursor        int
+	agentBlueprintManageErr           string
+	agentBlueprintManageSaving        bool
+	agentBlueprintLastValidatedSource string
+
+	// Expert-pack install overlay. Opened from /expert-packs with i so
+	// install/update/delete live in the same operator surface.
+	expertPackInstallOpen   bool
+	expertPackInstallInput  string
+	expertPackInstallCursor int
+	expertPackInstallErr    string
+	expertPackInstallSaving bool
 
 	// Cached MCP server list, populated each time /mcp opens. The remove
 	// modal reads from this so it doesn't need an extra round-trip.
@@ -444,8 +486,22 @@ type App struct {
 	// a.workspaces slice, Enter to switch, Esc to cancel. Reuses the
 	// already-loaded workspace list (connectCmd populates it) so the
 	// modal opens without re-hitting the backend.
-	workspaceSwitchOpen bool
-	workspaceSwitchSel  int
+	workspaceSwitchOpen    bool
+	workspaceSwitchSel     int
+	workspaceCreateOpen    bool
+	workspaceCreateMode    string
+	workspaceCreateName    string
+	workspaceCreateNameCur int
+	workspaceCreateRoot    string
+	workspaceCreateRootCur int
+	workspaceCreateGitURL  string
+	workspaceCreateGitCur  int
+	workspaceCreateField   int
+	workspaceCreateSaving  bool
+	workspaceCreateError   string
+	workspaceDeleteID      string
+	workspaceDeleteSaving  bool
+	workspaceDeleteError   string
 
 	// Rename modal — inline prompt to change a session's title.
 	// Opened by `e` on a selected session in the sidebar. We roll
@@ -583,6 +639,7 @@ type App struct {
 	sidebarLayoutGrabbed     bool
 	sidebarHitOffsetX        int
 	sidebarHitFocus          FocusZone
+	bodyHitOffsetX           int
 
 	// sessionFilter narrows the sidebar to sessions whose title
 	// contains this substring (case-insensitive). Empty = show all.
@@ -656,21 +713,22 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	)
 	ta.Focus()
 	app := &App{
-		BackendURL:            backendURL,
-		Theme:                 theme,
-		localizer:             newLocalizer(os.Getenv("GACT_LOCALE")),
-		c:                     client.New(backendURL),
-		stage:                 StageConnecting,
-		focus:                 FocusInput,
-		MouseEnabled:          true,
-		selected:              -1,
-		stickyToBottom:        true,
-		input:                 ta,
-		inputHistoryBySession: map[string][]string{},
-		historyCursor:         -1,
-		bodySelMsgIdx:         -1,
-		bodySelPartIdx:        -1,
-		previouslyDetached:    map[string]bool{},
+		BackendURL:             backendURL,
+		Theme:                  theme,
+		localizer:              newLocalizer(os.Getenv("GACT_LOCALE")),
+		c:                      client.New(backendURL),
+		stage:                  StageConnecting,
+		focus:                  FocusInput,
+		MouseEnabled:           true,
+		selected:               -1,
+		stickyToBottom:         true,
+		input:                  ta,
+		inputHistoryBySession:  map[string][]string{},
+		historyCursor:          -1,
+		bodySelMsgIdx:          -1,
+		bodySelPartIdx:         -1,
+		previouslyDetached:     map[string]bool{},
+		lastSeenSeqIDBySession: map[string]uint64{},
 	}
 	app.initFileViewerFromCwd()
 	app.refreshLocalizedPlaceholders()
@@ -707,6 +765,13 @@ type DetachedRegistryEntry struct {
 // renders before the connect flow starts. Call from main before the
 // program is run when intro_skip is not set. (JJJ1)
 func (a *App) EnableIntro() { a.stage = StageIntro }
+
+// SetInitialWorkspace selects the workspace to use on startup. The selector is
+// resolved after /v1/workspaces is loaded and may be a workspace id, exact
+// workspace name, or exact root path.
+func (a *App) SetInitialWorkspace(selector string) {
+	a.InitialWorkspaceSelector = strings.TrimSpace(selector)
+}
 
 // MMMMMMMMM1: introTickMsg advances the animated splash by one
 // frame. introTick returns a cmd that re-fires itself on the
@@ -751,10 +816,22 @@ func (a *App) Init() tea.Cmd {
 		// reads "press any key to continue".
 		return a.introTickCmd()
 	}
-	return connectCmd(a.c)
+	return a.connectCmd()
 }
 
-func connectCmd(c *client.Client) tea.Cmd {
+func (a *App) connectCmd() tea.Cmd {
+	return connectCmd(a.c, a.connectWorkspaceSelector())
+}
+
+func (a *App) connectWorkspaceSelector() string {
+	selector := strings.TrimSpace(a.wsID)
+	if selector == "" {
+		selector = a.InitialWorkspaceSelector
+	}
+	return strings.TrimSpace(selector)
+}
+
+func connectCmd(c *client.Client, workspaceSelector string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -777,7 +854,10 @@ func connectCmd(c *client.Client) tea.Cmd {
 		var sessions []gact.Session
 		var wsID string
 		if len(wss) > 0 {
-			wsID = wss[0].ID
+			wsID, err = selectStartupWorkspaceID(wss, workspaceSelector)
+			if err != nil {
+				return errMsg{err: err, stage: "workspaces"}
+			}
 			sessions, err = c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
 			if err != nil {
 				return errMsg{err: err, stage: "sessions"}
@@ -795,6 +875,59 @@ func connectCmd(c *client.Client) tea.Cmd {
 			RuntimeScope: client.RuntimeScope{WorkspaceID: wsID},
 		})
 		return connectedMsg{caps: caps, wss: wss, wsID: wsID, sessions: sessions, commands: commands}
+	}
+}
+
+func selectStartupWorkspaceID(workspaces []gact.Workspace, selector string) (string, error) {
+	if len(workspaces) == 0 {
+		return "", nil
+	}
+	selector = strings.TrimSpace(selector)
+	if selector == "" {
+		return workspaces[0].ID, nil
+	}
+	for _, ws := range workspaces {
+		if ws.ID == selector {
+			return ws.ID, nil
+		}
+	}
+	if id, err := selectWorkspaceByField(workspaces, selector, func(ws gact.Workspace) string {
+		return ws.Name
+	}, "name"); id != "" || err != nil {
+		return id, err
+	}
+	if id, err := selectWorkspaceByField(workspaces, selector, func(ws gact.Workspace) string {
+		return filepath.Clean(ws.RootPath)
+	}, "root"); id != "" || err != nil {
+		return id, err
+	}
+	return "", fmt.Errorf("workspace %q not found", selector)
+}
+
+func selectWorkspaceByField(
+	workspaces []gact.Workspace,
+	selector string,
+	field func(gact.Workspace) string,
+	fieldName string,
+) (string, error) {
+	selector = filepath.Clean(strings.TrimSpace(selector))
+	var matches []gact.Workspace
+	for _, ws := range workspaces {
+		value := strings.TrimSpace(field(ws))
+		if value == "" {
+			continue
+		}
+		if value == selector {
+			matches = append(matches, ws)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return "", nil
+	case 1:
+		return matches[0].ID, nil
+	default:
+		return "", fmt.Errorf("workspace %s %q is ambiguous; use workspace id", fieldName, selector)
 	}
 }
 
@@ -854,6 +987,15 @@ func loadContextFilesCmd(c *client.Client, sessionID string) tea.Cmd {
 	}
 }
 
+func loadContextFileContentCmd(c *client.Client, sessionID, path string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		content, err := c.ContextFileContent(ctx, sessionID, path)
+		return contextFileContentLoadedMsg{sessionID: sessionID, path: path, content: content, err: err}
+	}
+}
+
 // loadSessionTasksCmd fetches §6.18 tasks for a session. Used by
 // UUU1 to render a `(N tasks)` badge on the sidebar row. Failures
 // are silent — tasks are optional capability and we don't want to
@@ -906,6 +1048,15 @@ func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 			return errMsg{err: err, stage: "list-sessions"}
 		}
 		return sessionsRefreshedMsg{sessions: sessions}
+	}
+}
+
+func loadCommandsCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		commands, err := c.ListCommandsScoped(ctx, client.CommandFilter{RuntimeScope: scope})
+		return commandsLoadedMsg{sessionID: scope.SessionID, workspaceID: scope.WorkspaceID, commands: commands, err: err}
 	}
 }
 
@@ -1104,6 +1255,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleMouseWheel(m)
 	case tea.MouseClickMsg:
 		return a.handleMouseClick(m)
+	case tea.MouseMotionMsg:
+		return a.handleMouseMotion(m)
+	case tea.MouseReleaseMsg:
+		return a.handleMouseRelease(m)
 
 	case introTickMsg:
 		// MMMMMMMMM1: while the splash is up, advance the logo
@@ -1131,12 +1286,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.pasteBuffer = ""
 		return a, nil
 	case tea.PasteMsg:
+		m.Content = normalizePasteNewlines(m.Content)
 		if a.lmConfigOpen && a.lmConfig != nil {
-			a.handleLMConfigPaste(m.Content)
+			return a, a.handleLMConfigPaste(m.Content)
+		}
+		if a.renameOpen {
+			a.insertRenameText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.contextAddOpen {
+			a.insertContextAddText(compactTokenPaste(m.Content))
+			return a, nil
+		}
+		if a.promptEditOpen {
+			a.insertPromptEditText(compactSingleLinePaste(m.Content))
 			return a, nil
 		}
 		if a.agentWriteOpen {
-			a.insertAgentWriteText(m.Content)
+			a.insertAgentWriteText(compactSingleLinePaste(m.Content))
 			return a, nil
 		}
 		if a.agentEditOpen {
@@ -1144,7 +1311,31 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if a.agentBlueprintManageOpen {
-			a.insertAgentBlueprintManageText(m.Content)
+			a.insertAgentBlueprintManageText(compactPathLikePaste(m.Content))
+			return a, nil
+		}
+		if a.expertPackInstallOpen {
+			a.insertExpertPackInstallText(compactPathLikePaste(m.Content))
+			return a, nil
+		}
+		if a.workspaceSwitchOpen && a.workspaceCreateOpen {
+			a.insertWorkspaceCreateText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.mcpInstallOpen {
+			a.insertMcpInstallText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.askUserOpen {
+			a.insertAskUserText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.retryNotesOpen {
+			a.insertRetryNotesText(compactSingleLinePaste(m.Content))
+			return a, nil
+		}
+		if a.retryModelOpen {
+			a.insertRetryModelText(compactTokenPaste(m.Content))
 			return a, nil
 		}
 		// Compose modal takes paste routing whenever it's open — that's
@@ -1166,7 +1357,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if threshold <= 0 {
 				threshold = 3
 			}
-			if n := strings.Count(m.Content, "\n") + 1; n >= threshold {
+			if n := visualLineCount(m.Content, a.estimatedComposerTextWidth()); n >= threshold {
 				a.insertPastePlaceholder(m.Content, n)
 				return a, nil
 			}
@@ -1185,6 +1376,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.caps = m.caps
 		a.workspaces = m.wss
 		a.wsID = m.wsID
+		a.syncFileViewerRootToWorkspace()
 		a.sessions = m.sessions
 		a.sortSessionsByActivity()
 		a.commands = m.commands
@@ -1198,6 +1390,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.caps.Capabilities.Memory {
 			cmds = append(cmds, memoryStatsScopedCmd(a.c, client.RuntimeScope{WorkspaceID: a.wsID}))
 		}
+		cmds = append(cmds, loadAgentHierarchyCmd(a.c, a.runtimeScope()))
 		// CLIO-BBBBBBBBBB-D: probe /v1/providers/lm so we know
 		// whether the backend exposes runtime LM config + whether
 		// it needs the user to configure one. Failures (404 from
@@ -1213,6 +1406,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, a.selectSession(pick))
 		}
 		return a, tea.Batch(cmds...)
+
+	case commandsLoadedMsg:
+		if m.err != nil {
+			return a, nil
+		}
+		if m.sessionID != "" && m.sessionID != a.currentSessionID() {
+			return a, nil
+		}
+		if m.workspaceID != "" && m.workspaceID != a.wsID {
+			return a, nil
+		}
+		a.commands = m.commands
+		return a, nil
 
 	case memoryStatsMsg:
 		// CLIO-BBBBBBBBBB4: cache the latest snapshot; the footer's
@@ -1420,7 +1626,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.lmConfig.authenticating = false
 		if m.err != nil {
-			a.lmConfig.authMessage = "auth failed: " + m.err.Error()
+			a.lmConfig.authMessage = "auth failed: " + operatorErrorMessage(m.err)
 			return a, nil
 		}
 		if m.resp.IsAuthenticated {
@@ -1514,6 +1720,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case sessionSummarizedMsg:
+		if m.err != nil {
+			a.transientHint = "summary failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if idx := a.sessionIndexByID(m.sessionID); idx >= 0 {
+			a.sessions[idx] = m.session
+			a.sortSessionsByActivity()
+			if selected := a.sessionIndexByID(m.sessionID); selected >= 0 {
+				a.selected = selected
+			}
+		}
+		summary := strings.TrimSpace(m.session.Summary)
+		if summary == "" {
+			a.transientHint = "summary completed"
+		} else {
+			a.transientHint = "summary: " + truncate(strings.Join(strings.Fields(summary), " "), 120)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), reloadSessionsCmd(a.c, a.wsID))
+
 	case errMsg:
 		// Search failures shouldn't blow away the whole UI — clear the
 		// in-flight flag and surface a single empty result so the user
@@ -1529,7 +1755,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		if m.stage == "command" {
-			a.transientHint = fmt.Sprintf("command failed: %v", m.err)
+			a.transientHint = "command failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.stage == "duplicate-session" {
+			a.transientHint = "duplicate failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.stage == "create-session" {
+			a.transientHint = "session create failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.stage == "cancel-session" {
+			a.transientHint = "cancel failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.stage = StageError
@@ -1566,7 +1804,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.stage = StageConnecting
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 
 	case spinnerTickMsg:
 		a.spinnerFrame++
@@ -1632,6 +1870,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case contextFileContentLoadedMsg:
+		if a.currentSessionID() != m.sessionID {
+			return a, nil
+		}
+		if !a.detailViewOpen || a.detailView == nil || a.detailView.messageID != "context" || a.detailView.partID != m.path {
+			return a, nil
+		}
+		cf, ok := a.contextFileByPath(m.path)
+		if !ok {
+			return a, nil
+		}
+		a.detailView.fullText = strings.Join(a.contextFileDetailRowsWithContent(cf, m.content, m.err), "\n")
+		a.detailScroll = 0
+		return a, nil
+
 	case postFailedMsg:
 		// Transient failure (dial error, backend restart, upstream 5xx).
 		// Don't blow away the UI; restore the text so the user can
@@ -1648,6 +1901,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.transientHint = "answer submitted"
+		if m.sessionID != "" {
+			return a, loadMessagesCmd(a.c, m.sessionID)
+		}
+		return a, nil
+
+	case agentQuestionCancelledMsg:
+		if m.err != nil {
+			a.transientHint = "question cancel failed: " + m.err.Error()
+			return a, nil
+		}
+		a.transientHint = "question cancelled"
 		if m.sessionID != "" {
 			return a, loadMessagesCmd(a.c, m.sessionID)
 		}
@@ -1686,9 +1950,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case sessionTitleRenamedMsg:
-		// Rename failed — swallow silently. Title stays at the default.
 		if m.err != nil {
-			return a, nil
+			if !m.manual {
+				// Auto-rename failed — swallow silently. Title stays at
+				// the default because this is background polish, not the
+				// user's explicit action.
+				return a, nil
+			}
+			if m.previousTitle != "" {
+				for i, s := range a.sessions {
+					if s.ID == m.sessionID {
+						a.sessions[i].Title = m.previousTitle
+						break
+					}
+				}
+			}
+			a.transientHint = "rename failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
 		}
 		// Mirror the new title into a.sessions so the sidebar updates
 		// without a full list refetch.
@@ -1702,7 +1980,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case contextFileAddedMsg:
 		if m.err != nil {
-			a.transientHint = "add failed: " + m.err.Error()
+			a.transientHint = "add failed: " + operatorErrorMessage(m.err)
 			return a, nil
 		}
 		// Mirror the new file into the sidebar only if it's for the
@@ -1712,6 +1990,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.mergeContextFiles([]gact.ContextFile{m.file})
 		}
 		a.transientHint = "added " + m.file.Path + " to context"
+		return a, nil
+
+	case contextFileUploadedMsg:
+		if m.err != nil {
+			a.transientHint = "upload failed: " + m.err.Error()
+			return a, nil
+		}
+		if a.currentSessionID() == m.sessionID {
+			a.mergeContextFiles([]gact.ContextFile{m.file})
+		}
+		label := firstNonEmpty(m.file.Path, filepath.Base(m.localPath))
+		a.transientHint = "uploaded " + label + " to context"
 		return a, nil
 
 	case contextFileRemovedMsg:
@@ -1824,6 +2114,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if seq := m.Event.SeqID(); seq > a.lastSeenSeqID {
 			a.lastSeenSeqID = seq
 		}
+		if seq := m.Event.SeqID(); seq > 0 {
+			if sid := a.eventSessionID(m.Event); sid != "" {
+				if a.lastSeenSeqIDBySession == nil {
+					a.lastSeenSeqIDBySession = map[string]uint64{}
+				}
+				if seq > a.lastSeenSeqIDBySession[sid] {
+					a.lastSeenSeqIDBySession[sid] = seq
+				}
+			}
+		}
 		prevRunning := a.anySessionRunning()
 		prevStatus := a.currentStatus
 		a.applySSE(m.Event)
@@ -1903,10 +2203,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.err != nil {
 			a.filePicker.entries = nil
 			a.filePicker.errText = m.err.Error()
+			a.clampFilePickerSelection()
 			return a, nil
 		}
 		a.filePicker.entries = m.entries
 		a.filePicker.errText = ""
+		a.clampFilePickerSelection()
 		return a, nil
 
 	case catalogBrowserLoadedMsg:
@@ -1931,9 +2233,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.kind == catalogKindAgentBlueprintDetail && m.blueprintID != a.catalogBrowser.blueprintID {
 			return a, nil
 		}
+		items := a.applyCapabilityGatesToCatalogItems(m.kind, m.items)
+		switch m.kind {
+		case catalogKindAgentBlueprints:
+			items = markActiveAgentBlueprintCatalogItems(items, a.activeAgentBlueprintID(), a.activeAgentBlueprintScope())
+		case catalogKindAgentBlueprintDetail:
+			items = markActiveAgentBlueprintDetailItems(items, a.catalogBrowser.blueprintID, a.activeAgentBlueprintID(), a.activeAgentBlueprintScope())
+		}
 		a.catalogBrowser.loading = false
-		a.catalogBrowser.items = a.applyCapabilityGatesToCatalogItems(m.kind, m.items)
+		a.catalogBrowser.items = items
 		a.catalogBrowser.errText = m.errText
+		if m.kind == catalogKindPromptDetail && m.promptProfile != "" {
+			a.catalogBrowser.promptProfile = m.promptProfile
+		}
 		if a.catalogBrowser.sel >= len(a.catalogBrowser.items) {
 			a.catalogBrowser.sel = 0
 		}
@@ -1951,13 +2263,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		text := m.text
 		if m.err != nil {
-			text = "error: " + m.err.Error()
+			text = "Unable to load this detail.\n\nReason: " + operatorErrorMessage(m.err)
 		}
 		if strings.TrimSpace(text) == "" {
 			text = "(no detail returned)"
 		}
 		a.openCatalogDetail(m.title, text)
 		return a, nil
+
+	case permissionInspectorRespondedMsg:
+		if m.err != nil {
+			a.transientHint = "permission " + permissionActionLabel(m.action) + " failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.permissionID != "" {
+			a.removePendingPermission(m.permissionID)
+		}
+		text := m.text
+		if strings.TrimSpace(text) == "" {
+			text = "(permissions refreshed)"
+		}
+		a.openCatalogDetail("Permissions", text)
+		a.transientHint = "permission " + permissionActionLabel(m.action) + " applied"
+		return a, scheduleHintExpire(a.transientHint)
 
 	case expertPackActivatedMsg:
 		if m.err != nil {
@@ -1980,6 +2308,32 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(cmds...)
 
+	case expertPackManagedMsg:
+		if m.err != nil {
+			if m.action == "install" && a.expertPackInstallOpen {
+				a.expertPackInstallSaving = false
+				a.expertPackInstallErr = operatorFailureHint("expert pack", m.action, m.err)
+				return a, nil
+			}
+			a.transientHint = operatorFailureHint("expert pack", m.action, m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		if m.action == "install" && a.expertPackInstallOpen {
+			a.closeExpertPackInstall()
+		}
+		label := firstNonEmpty(m.packID, "source")
+		a.transientHint = "expert pack " + operatorActionVerb(m.action) + ": " + label
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil {
+			switch a.catalogBrowser.kind {
+			case catalogKindExpertPacks:
+				cmd = loadCatalogBrowserCmd(a.c, catalogKindExpertPacks, a.runtimeScope())
+			case catalogKindExpertPackDetail:
+				cmd = loadExpertPackDetailCmd(a.c, a.runtimeScope(), m.packID)
+			}
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
 	case promptSavedMsg:
 		if m.err != nil {
 			a.transientHint = "prompt save failed: " + m.err.Error()
@@ -1994,7 +2348,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentBlueprintActivatedMsg:
 		if m.err != nil {
-			a.transientHint = "agent blueprint activation failed: " + m.err.Error()
+			a.transientHint = "agent blueprint activation failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.transientHint = "activated agent blueprint " + m.blueprintID
@@ -2002,6 +2356,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if idx := a.sessionIndexByID(m.state.Session.ID); idx >= 0 {
 				a.sessions[idx] = *m.state.Session
 			}
+		} else {
+			a.applySessionAgentBlueprintState(m.state)
 		}
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
@@ -2011,7 +2367,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentBlueprintMCPEnabledMsg:
 		if m.err != nil {
-			a.transientHint = "agent blueprint MCP enable failed: " + m.err.Error()
+			a.transientHint = "agent blueprint MCP enable failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.transientHint = "enabled blueprint MCP " + m.descriptorID
@@ -2021,20 +2377,50 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
+	case agentBlueprintHookEnabledMsg:
+		if m.err != nil {
+			a.transientHint = "agent blueprint hook enable failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "enabled blueprint hook " + m.hookID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+			cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
 	case agentBlueprintManagedMsg:
 		if m.err != nil {
-			a.transientHint = "agent blueprint " + m.action + " failed: " + m.err.Error()
+			a.transientHint = operatorFailureHint("agent blueprint", m.action, m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.transientHint = "agent blueprint " + m.action + ": " + m.blueprintID
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil {
+			if m.action == "deleted" && a.catalogBrowser.kind == catalogKindAgentBlueprintDetail && a.catalogBrowser.blueprintID == m.blueprintID {
+				a.closeCatalogBrowser()
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			switch a.catalogBrowser.kind {
 			case catalogKindAgentBlueprints:
 				cmd = loadCatalogBrowserCmd(a.c, catalogKindAgentBlueprints, a.runtimeScope())
 			case catalogKindAgentBlueprintDetail:
 				cmd = loadAgentBlueprintDetailCmd(a.c, a.runtimeScope(), m.blueprintID)
+			case catalogKindAgentBlueprintSources:
+				cmd = loadCatalogBrowserCmd(a.c, catalogKindAgentBlueprintSources, a.runtimeScope())
 			}
+		}
+		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
+
+	case agentBlueprintSourceManagedMsg:
+		if m.err != nil {
+			a.transientHint = operatorFailureHint("marketplace source", m.action, m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "marketplace source " + m.action + ": " + m.sourceID
+		var cmd tea.Cmd
+		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgentBlueprintSources {
+			cmd = loadCatalogBrowserCmd(a.c, catalogKindAgentBlueprintSources, a.runtimeScope())
 		}
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
@@ -2048,7 +2434,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentWriteDoneMsg:
 		if m.err != nil {
-			a.transientHint = "agent write failed: " + m.err.Error()
+			a.transientHint = "agent write failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.transientHint = agentWriteHint(m.mode, m.agent)
@@ -2065,7 +2451,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentLoadedForEditMsg:
 		if m.err != nil {
-			a.transientHint = "agent edit failed: " + m.err.Error()
+			a.transientHint = "agent edit failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		if m.agent.Source != "user" {
@@ -2078,12 +2464,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentEditedMsg:
 		a.agentEditSaving = false
 		if m.err != nil {
-			a.agentEditErr = m.err.Error()
+			a.agentEditErr = operatorErrorMessage(m.err)
 			return a, nil
 		}
 		agentID := firstNonEmpty(m.agent.ID, a.agentEditOriginal)
 		a.closeAgentEdit()
-		a.transientHint = "updated agent " + agentID
+		a.transientHint = "updated expert " + agentID
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil {
 			switch a.catalogBrowser.kind {
@@ -2097,10 +2483,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentDeletedMsg:
 		if m.err != nil {
-			a.transientHint = "agent delete failed: " + m.err.Error()
+			a.transientHint = "agent delete failed: " + operatorErrorMessage(m.err)
 			return a, scheduleHintExpire(a.transientHint)
 		}
-		a.transientHint = "deleted agent " + m.agentID
+		a.transientHint = "deleted expert " + m.agentID
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil && a.catalogBrowser.kind == catalogKindAgents {
 			cmd = loadCatalogBrowserCmd(a.c, catalogKindAgents, a.runtimeScope())
@@ -2110,13 +2496,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentBlueprintManageDoneMsg:
 		a.agentBlueprintManageSaving = false
 		if m.err != nil {
-			a.agentBlueprintManageErr = m.err.Error()
+			a.agentBlueprintManageErr = operatorErrorMessage(m.err)
 			return a, nil
 		}
 		a.closeAgentBlueprintManage()
 		if m.action == agentBlueprintManageValidate {
+			a.agentBlueprintLastValidatedSource = strings.TrimSpace(m.source)
 			a.transientHint = "agent blueprint validated: " + m.source
-			a.openCatalogDetail("Agent blueprint validation", formatAgentBlueprintValidation(m.check))
+			a.openCatalogDetail("Agent blueprint validation", formatAgentBlueprintValidationWithSource(m.check, m.source))
 			return a, scheduleHintExpire(a.transientHint)
 		}
 		a.transientHint = "agent blueprint installed: " + m.source
@@ -2146,6 +2533,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.mcpServers = m.servers
 		if a.mcpRemoveOpen {
 			a.mcpRemoveSaving = false
+			a.mcpRemoveConfirmID = ""
 			if m.err != nil {
 				a.transientHint = "mcp list failed: " + m.err.Error()
 				a.mcpRemoveOpen = false
@@ -2185,13 +2573,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case mcpUninstallDoneMsg:
 		a.mcpRemoveSaving = false
 		if m.err != nil {
-			a.transientHint = "uninstall failed: " + m.err.Error()
-		} else {
-			a.transientHint = "removed " + m.serverID
+			a.transientHint = "MCP remove failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
 		}
+		a.transientHint = "removed " + m.serverID
 		a.mcpRemoveOpen = false
 		a.mcpRemoveOptions = nil
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c))
+
+	case mcpReconnectDoneMsg:
+		if m.err != nil {
+			a.transientHint = "MCP reconnect failed: " + operatorErrorMessage(m.err)
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "MCP connection reconnected: " + m.serverID
+		cmds := []tea.Cmd{scheduleHintExpire(a.transientHint), mcpListServersCmd(a.c)}
+		if a.catalogBrowserOpen && a.catalogBrowser != nil &&
+			a.catalogBrowser.kind == catalogKindMcpDetail &&
+			a.catalogBrowser.mcpServerID == m.serverID {
+			cmds = append(cmds, loadMcpDetailCmd(a.c, a.runtimeScope(), m.serverID))
+		}
+		return a, tea.Batch(cmds...)
 
 	case settingsLoadedMsg:
 		if a.settings == nil {
@@ -2355,14 +2757,79 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.sessions = m.sessions
+		a.syncFileViewerRootToWorkspace()
 		a.sortSessionsByActivity()
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
-			return a, nil
+			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 		a.selected = 0
-		return a, a.selectSession(0)
+		return a, tea.Batch(a.selectSession(0), loadAgentHierarchyCmd(a.c, a.runtimeScope()))
+
+	case workspaceCreatedMsg:
+		a.workspaceCreateSaving = false
+		if m.err != nil {
+			a.workspaceCreateError = operatorErrorMessage(m.err)
+			a.workspaceCreateOpen = true
+			a.workspaceSwitchOpen = true
+			return a, nil
+		}
+		created := m.workspace
+		found := false
+		for i := range a.workspaces {
+			if a.workspaces[i].ID == created.ID {
+				a.workspaces[i] = created
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.workspaces = append(a.workspaces, created)
+		}
+		a.closeWorkspaceSwitchModal()
+		if a.sseCancel != nil {
+			a.sseCancel()
+			a.sseCancel = nil
+		}
+		a.wsID = created.ID
+		a.sessions = nil
+		a.selected = -1
+		a.messages = nil
+		a.contextFiles = nil
+		a.pendingPermissions = nil
+		a.syncFileViewerRootToWorkspace()
+		a.transientHint = "created workspace " + workspaceLabel(created)
+		return a, listSessionsCmd(a.c, created.ID)
+
+	case workspaceDeletedMsg:
+		a.workspaceDeleteSaving = false
+		if m.err != nil {
+			a.workspaceDeleteError = operatorErrorMessage(m.err)
+			a.workspaceSwitchOpen = true
+			return a, nil
+		}
+		removedLabel := m.workspaceID
+		next := a.workspaces[:0]
+		for _, ws := range a.workspaces {
+			if ws.ID == m.workspaceID {
+				removedLabel = workspaceLabelPlain(ws)
+				continue
+			}
+			next = append(next, ws)
+		}
+		a.workspaces = next
+		a.workspaceDeleteID = ""
+		a.workspaceDeleteError = ""
+		a.workspaceSwitchSel = clampSelection(a.workspaceSwitchSel, len(a.workspaces))
+		a.transientHint = "removed workspace " + removedLabel
+		return a, scheduleHintExpire(a.transientHint)
+
+	case agentHierarchyLoadedMsg:
+		a.agentHierarchyAgents = m.agents
+		a.agentHierarchyErr = m.err
+		a.clampAgentHierarchySelection()
+		return a, nil
 	}
 	return a, nil
 }
@@ -2516,7 +2983,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 		a.stage = StageConnecting
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 	}
 
 	// StageError is a special case: Ctrl+R retries immediately (skips
@@ -2530,7 +2997,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+r":
 			a.stage = StageConnecting
 			a.connectRetryAttempts = 0
-			return a, connectCmd(a.c)
+			return a, a.connectCmd()
 		}
 		return a, nil
 	}
@@ -2573,6 +3040,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if a.agentBlueprintManageOpen {
 		return a.handleAgentBlueprintManageKey(k)
+	}
+	if a.expertPackInstallOpen {
+		return a.handleExpertPackInstallKey(k)
 	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
@@ -2622,9 +3092,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			a.helpScroll++
 		case "pgup", "ctrl+u":
-			a.helpScroll -= a.helpBodyPageSize()
+			a.helpScroll -= a.currentHelpBodyPageSize()
 		case "pgdown", "ctrl+d":
-			a.helpScroll += a.helpBodyPageSize()
+			a.helpScroll += a.currentHelpBodyPageSize()
 		case "g", "home":
 			a.helpScroll = 0
 		case "G", "end":
@@ -2682,7 +3152,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		// Fall through to focus dispatch so the textarea consumes it.
-	case "tab":
+	case "tab", "ctrl+i":
 		a.focusNextPane()
 		return a, nil
 	case "shift+tab":
@@ -2702,7 +3172,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, createSessionCmd(a.c, a.wsID)
 	case "ctrl+r":
 		// Manual reconnect / refresh.
-		return a, connectCmd(a.c)
+		return a, a.connectCmd()
 	case "ctrl+e":
 		// Z1: when the body cursor is set and the selected message
 		// has a bulky tool_result or text part, expand THAT one.
@@ -2811,12 +3281,6 @@ func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd
 	if zone != FocusRightSidebar {
 		zone = FocusSidebar
 	}
-	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
-		a.focus = zone
-		a.sidebarSectionCursor = true
-		a.sidebarSectionFocus = sidebarSectionSessions
-		return nil
-	}
 	delta := 0
 	switch button {
 	case tea.MouseWheelUp:
@@ -2826,7 +3290,36 @@ func (a *App) handleSidebarWheel(zone FocusZone, button tea.MouseButton) tea.Cmd
 	default:
 		return nil
 	}
+
 	a.focus = zone
+	switch a.sidebarSectionFocus {
+	case sidebarSectionContext:
+		if !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
+			a.sidebarSectionCursor = false
+			a.contextFileSel = moveSelection(a.contextFileSel, len(a.contextFiles), delta)
+			return nil
+		}
+	case sidebarSectionFiles:
+		visible := a.visibleFileTreeEntries()
+		if !a.sidebarFilesCollapsed && len(visible) > 0 {
+			a.sidebarSectionCursor = false
+			a.fileTreeSel = moveSelection(a.fileTreeSel, len(visible), delta)
+			return nil
+		}
+	case sidebarSectionAgents:
+		visible := a.visibleAgentHierarchyRows()
+		if !a.sidebarAgentsCollapsed && len(visible) > 0 {
+			a.sidebarSectionCursor = false
+			a.agentHierarchySel = moveSelection(a.agentHierarchySel, len(visible), delta)
+			return nil
+		}
+	}
+
+	if len(a.sessions) == 0 || a.sidebarSessionsCollapsed {
+		a.sidebarSectionCursor = true
+		a.sidebarSectionFocus = sidebarSectionSessions
+		return nil
+	}
 	a.sidebarSectionFocus = sidebarSectionSessions
 	a.sidebarSectionCursor = false
 	if a.stepSelectionVisible(delta) {
@@ -2859,7 +3352,13 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	mouse := m.Mouse()
+	if mouse.Mod&tea.ModAlt != 0 {
+		return a, nil
+	}
 	if a.mouseOverlayOpen() {
+		if mouse.Button == tea.MouseLeft && a.beginDetailCopyDrag(mouse.X, mouse.Y) {
+			return a, nil
+		}
 		if mouse.Button == tea.MouseLeft && a.mouseClickInsideTopOverlay(mouse) {
 			if cmd, handled := a.activateOverlayHitAt(mouse.X, mouse.Y, mouse.Button); handled {
 				return a, cmd
@@ -2870,8 +3369,57 @@ func (a *App) handleMouseClick(m tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	}
+	if mouse.Button == tea.MouseLeft {
+		if a.beginConversationCopyDrag(mouse.X, mouse.Y) {
+			return a, nil
+		}
+	}
 	if cmd, handled := a.activateHitAt(mouse.X, mouse.Y, mouse.Button); handled {
 		return a, cmd
+	}
+	return a, nil
+}
+
+func (a *App) handleMouseMotion(m tea.MouseMotionMsg) (tea.Model, tea.Cmd) {
+	if !a.MouseEnabled {
+		return a, nil
+	}
+	mouse := m.Mouse()
+	if mouse.Mod&tea.ModAlt != 0 {
+		return a, nil
+	}
+	if a.detailCopyDrag.active {
+		a.updateDetailCopyDrag(mouse.X, mouse.Y)
+		return a, nil
+	}
+	if a.copyDrag.active {
+		a.updateConversationCopyDrag(mouse.X, mouse.Y)
+	}
+	return a, nil
+}
+
+func (a *App) handleMouseRelease(m tea.MouseReleaseMsg) (tea.Model, tea.Cmd) {
+	if !a.MouseEnabled {
+		return a, nil
+	}
+	mouse := m.Mouse()
+	if mouse.Mod&tea.ModAlt != 0 {
+		a.detailCopyDrag = conversationCopyDrag{}
+		a.copyDrag = conversationCopyDrag{}
+		return a, nil
+	}
+	if a.finishDetailCopyDrag(mouse.X, mouse.Y) {
+		return a, scheduleHintExpire(a.transientHint)
+	}
+	if a.copyDrag.active && !a.copyDrag.moved {
+		a.copyDrag = conversationCopyDrag{}
+		if cmd, handled := a.activateHitAt(mouse.X, mouse.Y, tea.MouseLeft); handled {
+			return a, cmd
+		}
+		return a, nil
+	}
+	if a.finishConversationCopyDrag(mouse.X, mouse.Y) {
+		return a, scheduleHintExpire(a.transientHint)
 	}
 	return a, nil
 }
@@ -2907,12 +3455,44 @@ func permissionBannerActions() []permissionBannerAction {
 	return []permissionBannerAction{
 		{id: "allow", label: "A:allow", action: gact.PermAllow},
 		{id: "deny", label: "D:deny", action: gact.PermDeny},
-		{id: "session", label: "S:session", action: gact.PermAllowSession},
-		{id: "workspace", label: "W:workspace", action: gact.PermAllowWorkspace},
+		{id: "session", label: "S:sess", action: gact.PermAllowSession},
+		{id: "workspace", label: "W:work", action: gact.PermAllowWorkspace},
 	}
 }
 
-func (a *App) renderPermissionBanner(summary string, contentWidth int) (string, []permissionBannerAction) {
+func permissionBannerSummaryFallback(summary string) string {
+	summary = strings.TrimSpace(summary)
+	lower := strings.ToLower(summary)
+	for _, prefix := range []string{"run shell command:", "shell command:"} {
+		if strings.HasPrefix(lower, prefix) {
+			cmd := strings.TrimSpace(summary[len(prefix):])
+			if cmd != "" {
+				return "Shell(" + cmd + ")"
+			}
+		}
+	}
+	return summary
+}
+
+func permissionBannerMessage(p client.PermissionWire) string {
+	toolName := strings.TrimSpace(p.ToolCall.ToolName)
+	if toolName != "" || len(p.ToolCall.Input) > 0 {
+		summary := strings.TrimSpace(permissionToolCallSummary(p.ToolCall))
+		if summary != "" {
+			if risk := permissionSafetyHints(p.ToolCall.Annotations); risk != "" && risk != "none supplied" {
+				return "⚠ Approval needed: " + summary + " · " + risk
+			}
+			return "⚠ Approval needed: " + summary
+		}
+	}
+	summary := permissionBannerSummaryFallback(p.Summary)
+	if summary == "" {
+		summary = "operator decision"
+	}
+	return "⚠ Approval needed: " + summary
+}
+
+func (a *App) renderPermissionBanner(p client.PermissionWire, contentWidth int) (string, []permissionBannerAction) {
 	t := a.Theme
 	if contentWidth < 1 {
 		contentWidth = 1
@@ -2924,10 +3504,7 @@ func (a *App) renderPermissionBanner(summary string, contentWidth int) (string, 
 	}
 	actionText := strings.Join(actionLabels, " ")
 	separator := "  "
-	message := a.localizer.t(msgConversationPermissionNeeded, map[string]string{"summary": summary})
-	if before, _, ok := strings.Cut(message, " — "); ok {
-		message = before
-	}
+	message := permissionBannerMessage(p)
 	// Keep a small gutter because the conversation pane's outer fitting can
 	// wrap styled banner text a few cells before the raw content width.
 	messageWidth := contentWidth - 10 - lipgloss.Width(separator) - lipgloss.Width(actionText)
@@ -2974,18 +3551,18 @@ func (a *App) permissionBannerActionRect(action permissionBannerAction, bodyWidt
 	if action.width <= 0 || action.col >= contentW {
 		return mouseRect{}, false
 	}
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	label := action.label
 	if label == "" {
 		label = strings.Repeat("x", action.width)
 	}
 	line := strings.Repeat(" ", action.col) + label
-	rect, ok := screenTextSpanRect(sidebarW+3, 3, line, action.col, label)
+	rect, ok := screenTextSpanRect(bodyX+3, 3, line, action.col, label)
 	if !ok {
 		return mouseRect{}, false
 	}
-	if rect.x+rect.w > sidebarW+3+contentW {
-		rect.w = sidebarW + 3 + contentW - rect.x
+	if rect.x+rect.w > bodyX+3+contentW {
+		rect.w = bodyX + 3 + contentW - rect.x
 	}
 	if rect.w < 1 {
 		return mouseRect{}, false
@@ -3002,9 +3579,9 @@ func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, b
 		return
 	}
 	actionCopy := action
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	line := strings.Repeat(" ", action.col) + action.label
-	a.registerClippedScreenTextSpanHit("permission:"+action.id, sidebarW+3, 3, line, action.col, action.label, sidebarW+3+contentW, func(app *App) tea.Cmd {
+	a.registerClippedScreenTextSpanHit("permission:"+action.id, bodyX+3, 3, line, action.col, action.label, bodyX+3+contentW, func(app *App) tea.Cmd {
 		return respondPermissionCmd(app.c, permissionID, actionCopy.action)
 	})
 }
@@ -3012,10 +3589,13 @@ func (a *App) registerPermissionBannerActionHit(action permissionBannerAction, b
 // handlePaletteKey is the slash-command palette key router.
 func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	searchMode := a.isSearchMode()
-	cmdMatches := a.paletteMatches()
+	groupOverview := a.paletteShowingGroupOverview()
+	cmdMatches := a.paletteVisibleMatches()
 	rowCount := len(cmdMatches)
 	if searchMode {
 		rowCount = len(a.searchMatches)
+	} else if groupOverview {
+		rowCount = len(a.paletteAvailableGroups())
 	}
 	a.clampPaletteCursor()
 
@@ -3030,6 +3610,14 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "down":
 		if a.paletteSel < rowCount-1 {
 			a.paletteSel++
+		}
+	case "tab":
+		if !searchMode {
+			a.selectNextPaletteGroup(+1)
+		}
+	case "shift+tab":
+		if !searchMode {
+			a.selectNextPaletteGroup(-1)
 		}
 	case "enter":
 		if searchMode {
@@ -3048,6 +3636,14 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.closePalette()
 				a.jumpToMessage(match.MessageID)
 				return a, nil
+			}
+			return a, nil
+		}
+		if groupOverview {
+			groups := a.paletteAvailableGroups()
+			if a.paletteSel >= 0 && a.paletteSel < len(groups) {
+				a.paletteGroup = groups[a.paletteSel]
+				a.paletteSel = 0
 			}
 			return a, nil
 		}
@@ -3100,6 +3696,12 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				}
 				return a, loadMemoryInspectorCmd(a.c, a.runtimeScope(), a.messages)
 			}
+			if cmd.ID == "/mouse" {
+				a.MouseEnabled = !a.MouseEnabled
+				a.transientHint = a.mouseSelectionModeHint()
+				a.persistPrefs()
+				return a, scheduleHintExpire(a.transientHint)
+			}
 			if cmd.ID == "/permissions" {
 				if !a.caps.Capabilities.Permissions {
 					a.transientHint = "permission audit unsupported by this backend"
@@ -3130,17 +3732,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// + a couple of tweaks have a starting point to edit. No
 			// backend round-trip; pure local file write.
 			if cmd.ID == "/theme-export" {
-				path, pathErr := CustomThemeDefaultPath()
-				if pathErr != nil {
-					a.transientHint = "theme export: " + pathErr.Error()
-					return a, scheduleHintExpire(a.transientHint)
-				}
-				if err := SaveCustomTheme(a.Theme, path); err != nil {
-					a.transientHint = "theme export failed: " + err.Error()
-				} else {
-					a.transientHint = "exported " + ThemeModeName(ThemeModeFor(a.Theme)) + " → " + path
-				}
-				return a, scheduleHintExpire(a.transientHint)
+				return a, a.exportCurrentTheme()
 			}
 
 			// /theme opens Settings on the Theme tab with the current
@@ -3165,12 +3757,16 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, createSessionCmd(a.c, a.wsID)
 			}
 
-			// /duplicate clones the current session's title + model
-			// + agent but starts with zero messages. "Same kind of
+			// /duplicate clones the current session's title + expert,
+			// but starts with zero messages. "Same kind of
 			// work, fresh context" — common enough that users were
 			// reaching for Ctrl+N then manually re-applying settings
 			// every time.
-			if cmd.ID == "/duplicate" && a.selected >= 0 && a.selected < len(a.sessions) {
+			if cmd.ID == "/duplicate" {
+				if a.selected < 0 || a.selected >= len(a.sessions) {
+					a.transientHint = "no selected session to duplicate"
+					return a, scheduleHintExpire(a.transientHint)
+				}
 				src := a.sessions[a.selected]
 				return a, duplicateSessionCmd(a.c, a.wsID, src)
 			}
@@ -3215,6 +3811,11 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			sid := a.currentSessionID()
 			switch cmd.ID {
 			case "/clear":
+				if sid == "" {
+					a.transientHint = "no active session to clear"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
 				// Two-step confirmation — /clear is destructive and
 				// irreversible (backend wipes messages). First
 				// invocation arms a pending state + a toast; second
@@ -3238,10 +3839,21 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				}
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
 			case "/cancel":
+				if sid == "" {
+					a.transientHint = "no active session to cancel"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				if a.currentStatus != gact.StatusRunning &&
+					a.currentStatus != gact.StatusWaitingPermission {
+					a.transientHint = "nothing running in selected session"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
 				a.transientHint = "cancelling run…"
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
 			case "/copy":
-				toast := a.copyLastAssistantReplyToClipboard()
+				toast := a.copySelectedConversationOrLastAssistantToClipboard()
 				a.transientHint = toast
 				extraCmds = append(extraCmds, scheduleHintExpire(toast))
 				return a, tea.Batch(extraCmds...)
@@ -3263,11 +3875,35 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.transientHint = toast
 				extraCmds = append(extraCmds, scheduleHintExpire(toast))
 				return a, tea.Batch(extraCmds...)
+			case "/add":
+				if sid == "" {
+					a.transientHint = "no active session to add context"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				a.contextAddOpen = true
+				a.contextAddDraft = ""
+				a.contextAddCursor = 0
+				a.contextAddMode = "read"
+				return a, tea.Batch(extraCmds...)
+			case "/drop":
+				if sid == "" {
+					a.transientHint = "no active session to drop context"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				cf, ok := a.selectedContextFile()
+				if !ok {
+					a.transientHint = "no context file selected to drop"
+					extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
+					return a, tea.Batch(extraCmds...)
+				}
+				return a, removeContextFileCmd(a.c, sid, cf.Path)
 			case "/compact":
 				if sid == "" {
 					a.transientHint = "no active session to compact"
 				} else {
-					a.transientHint = "compact requested — backend support is provisional"
+					a.transientHint = "session summary requested"
 					extraCmds = append(extraCmds, requestCompactCmd(a.c, sid))
 				}
 				extraCmds = append(extraCmds, scheduleHintExpire(a.transientHint))
@@ -3277,12 +3913,6 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, tea.Batch(extraCmds...)
 			case "/mcp-remove":
 				extraCmds = append(extraCmds, a.openMcpRemoveModal())
-				return a, tea.Batch(extraCmds...)
-			case "/agent-blueprint-install":
-				a.openAgentBlueprintManage(agentBlueprintManageInstall)
-				return a, tea.Batch(extraCmds...)
-			case "/agent-blueprint-validate":
-				a.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return a, tea.Batch(extraCmds...)
 			}
 			// Any non-/clear action cancels a pending clear — same
@@ -3310,6 +3940,9 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.paletteFilter = string(runes)
 			a.paletteCursor--
 			a.resetPaletteAfterFilterEdit()
+		} else if strings.TrimSpace(a.paletteFilter) == "" && a.paletteGroup != "" {
+			a.paletteGroup = ""
+			a.paletteSel = 0
 		}
 	case "delete":
 		runes := []rune(a.paletteFilter)
@@ -3394,6 +4027,7 @@ func (a *App) closePalette() {
 	a.paletteCursor = 0
 	a.paletteCursorSet = false
 	a.paletteSel = 0
+	a.paletteGroup = ""
 	a.searchMatches = nil
 	a.searching = false
 }
@@ -3750,14 +4384,7 @@ func (a *App) cycleThemeCmd(step int) tea.Cmd {
 	idx = (idx + step + len(AllThemeModes)) % len(AllThemeModes)
 	next := AllThemeModes[idx]
 
-	prevCT := a.Theme.CollapseThreshold
-	prevW := a.Theme.CostWarnTokens
-	prevD := a.Theme.CostDangerTokens
-	a.Theme = ThemeForMode(next)
-	a.Theme.CollapseThreshold = prevCT
-	a.Theme.CostWarnTokens = prevW
-	a.Theme.CostDangerTokens = prevD
-	a.Theme.applyStyles()
+	a.applyThemePalette(ThemeForMode(next))
 	a.transientHint = "theme: " + ThemeModeName(next)
 	a.persistPrefs()
 	return scheduleHintExpire(a.transientHint)
@@ -3782,7 +4409,9 @@ func (a *App) paletteCurrentValue(id string) string {
 		if !a.caps.Capabilities.Memory {
 			return "unsupported"
 		}
-		return "ARC context"
+		return "retained context"
+	case "/mouse":
+		return a.mouseSelectionModeLabel()
 	case "/cancel":
 		if a.currentStatus == gact.StatusRunning ||
 			a.currentStatus == gact.StatusWaitingPermission {
@@ -3838,14 +4467,13 @@ func (a *App) paletteMatches() []gact.Command {
 	localCmds := []gact.Command{
 		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
 		localCmd("/memory", "command.memory.title", "command.memory.desc"),
-		{ID: "/permissions", Title: "Permissions", Description: "Inspect permission audit and policy rows", Source: "builtin"},
+		localCmd("/mouse", "command.mouse.title", "command.mouse.desc"),
+		{ID: "/permissions", Title: "Permissions", Description: "Review permission requests", Source: "builtin"},
 		localCmd("/theme", "command.theme.title", "command.theme.desc"),
-		localCmd("/theme-export", "command.theme_export.title", "command.theme_export.desc"),
 		localCmd("/mcp", "command.mcp.title", "command.mcp.desc"),
 		localCmd("/tools", "command.tools.title", "command.tools.desc"),
-		localCmd("/catalog", "command.catalog.title", "command.catalog.desc"),
 		localCmd("/skills", "command.skills.title", "command.skills.desc"),
-		localCmd("/agents-list", "command.agents.title", "command.agents.desc"),
+		localCmd("/experts", "command.agents.title", "command.agents.desc"),
 		localCmd("/mode", "command.mode.title", "command.mode.desc"),
 		localCmd("/clear", "command.clear.title", "command.clear.desc"),
 		localCmd("/copy", "command.copy.title", "command.copy.desc"),
@@ -3854,27 +4482,18 @@ func (a *App) paletteMatches() []gact.Command {
 	}
 	if a.caps.Capabilities.XClioPromptRegistry {
 		localCmds = append(localCmds, gact.Command{
-			ID: "/prompts", Title: "Prompts", Description: "Browse CLIO prompt catalog and profiles", Source: "builtin",
+			ID: "/prompts", Title: "Prompts", Description: "Browse prompt profiles", Source: "builtin",
 		})
 	}
 	if a.caps.Capabilities.XClioExpertPacks {
 		localCmds = append(localCmds, gact.Command{
-			ID: "/expert-packs", Title: "Expert Packs", Description: "Browse and activate CLIO expert-pack runtimes", Source: "builtin",
+			ID: "/expert-packs", Title: "Expert Packs", Description: "Browse expert packs", Source: "builtin",
 		})
 	}
 	if a.caps.Capabilities.XClioAgentBlueprints {
 		localCmds = append(localCmds,
 			gact.Command{
-				ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Browse and manage CLIO markdown agent blueprints", Source: "builtin",
-			},
-			gact.Command{
-				ID: "/blueprints", Title: "Blueprints", Description: "Open CLIO markdown agent blueprints", Source: "builtin",
-			},
-			gact.Command{
-				ID: "/agent-blueprint-install", Title: "Install Agent Blueprint", Description: "Install a CLIO markdown agent blueprint into the workspace", Source: "builtin",
-			},
-			gact.Command{
-				ID: "/agent-blueprint-validate", Title: "Validate Agent Blueprint", Description: "Validate a CLIO markdown agent blueprint path before installing", Source: "builtin",
+				ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Manage agent blueprints", Source: "builtin",
 			},
 		)
 	}
@@ -3887,20 +4506,109 @@ func (a *App) paletteMatches() []gact.Command {
 			seen[c.ID] = true
 		}
 	}
+	all = a.normalizePaletteBuiltinCommandCopy(all)
 	if a.paletteFilter == "" {
 		return all
 	}
 	needle := strings.ToLower(a.paletteFilter)
 	out := make([]gact.Command, 0, len(all))
+	byID := make(map[string]gact.Command, len(all))
+	added := make(map[string]bool, len(all))
+	for _, c := range all {
+		byID[strings.ToLower(strings.TrimSpace(c.ID))] = c
+	}
 	for _, c := range all {
 		hay := strings.ToLower(c.ID + " " + c.Title + " " + c.Description)
 		if strings.Contains(hay, needle) {
+			if paletteCommandSecondaryTarget(c.ID) != "" {
+				continue
+			}
+			key := strings.ToLower(strings.TrimSpace(c.ID))
+			if added[key] {
+				continue
+			}
 			out = append(out, c)
+			added[key] = true
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		return paletteExactCommandMatch(out[i].ID, needle) && !paletteExactCommandMatch(out[j].ID, needle)
 	})
+	return out
+}
+
+func (a *App) normalizePaletteBuiltinCommandCopy(commands []gact.Command) []gact.Command {
+	out := append([]gact.Command(nil), commands...)
+	local := func(key string) string {
+		return a.localizer.t(messageID(key), nil)
+	}
+	for i := range out {
+		switch strings.ToLower(strings.TrimSpace(out[i].ID)) {
+		case "/metrics":
+			out[i].Title = local("command.metrics.title")
+			out[i].Description = local("command.metrics.desc")
+		case "/memory":
+			out[i].Title = local("command.memory.title")
+			out[i].Description = local("command.memory.desc")
+		case "/mouse":
+			out[i].Title = local("command.mouse.title")
+			out[i].Description = local("command.mouse.desc")
+		case "/theme":
+			out[i].Title = local("command.theme.title")
+			out[i].Description = local("command.theme.desc")
+		case "/theme-export":
+			out[i].Title = local("command.theme_export.title")
+			out[i].Description = local("command.theme_export.desc")
+		case "/mcp":
+			out[i].Title = local("command.mcp.title")
+			out[i].Description = local("command.mcp.desc")
+		case "/tools":
+			out[i].Title = local("command.tools.title")
+			out[i].Description = local("command.tools.desc")
+		case "/skills":
+			out[i].Title = local("command.skills.title")
+			out[i].Description = local("command.skills.desc")
+		case "/experts":
+			out[i].Title = local("command.agents.title")
+			out[i].Description = local("command.agents.desc")
+		case "/agent", "/agents":
+			out[i].Title = local("command.agent.title")
+			out[i].Description = local("command.agent.desc")
+		case "/agents-list":
+			out[i].Title = "Agents list"
+			out[i].Description = "Alias for /experts"
+		case "/mode":
+			out[i].Title = local("command.mode.title")
+			out[i].Description = local("command.mode.desc")
+		case "/clear":
+			out[i].Title = local("command.clear.title")
+			out[i].Description = local("command.clear.desc")
+		case "/copy":
+			out[i].Title = local("command.copy.title")
+			out[i].Description = local("command.copy.desc")
+		case "/diff":
+			out[i].Title = local("command.diff.title")
+			out[i].Description = local("command.diff.desc")
+		case "/duplicate":
+			out[i].Title = "Duplicate session"
+			out[i].Description = "Copy title and expert"
+		case "/doctor":
+			out[i].Title = local("command.doctor.title")
+			out[i].Description = local("command.doctor.desc")
+		case "/permissions":
+			out[i].Title = "Permissions"
+			out[i].Description = "Review permission requests"
+		case "/prompts":
+			out[i].Title = "Prompts"
+			out[i].Description = "Browse prompt profiles"
+		case "/expert-packs":
+			out[i].Title = "Expert Packs"
+			out[i].Description = "Browse expert packs"
+		case "/agent-blueprints":
+			out[i].Title = "Agent Blueprints"
+			out[i].Description = "Manage agent blueprints"
+		}
+	}
 	return out
 }
 
@@ -3911,6 +4619,105 @@ func paletteExactCommandMatch(id, filter string) bool {
 		return false
 	}
 	return id == filter || strings.TrimPrefix(id, "/") == strings.TrimPrefix(filter, "/")
+}
+
+func (a *App) paletteVisibleMatches() []gact.Command {
+	matches := a.paletteMatches()
+	if strings.TrimSpace(a.paletteFilter) != "" {
+		return matches
+	}
+	seen := map[string]bool{}
+	for _, c := range matches {
+		seen[c.ID] = true
+	}
+	out := make([]gact.Command, 0, len(matches))
+	for _, c := range matches {
+		if paletteCommandIsDefaultHiddenAlias(c.ID, seen) {
+			continue
+		}
+		if a.paletteGroup != "" && paletteCommandGroup(c) != a.paletteGroup {
+			continue
+		}
+		out = append(out, c)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		leftGroup := paletteCommandGroup(out[i])
+		rightGroup := paletteCommandGroup(out[j])
+		left := paletteCommandGroupRank(leftGroup)
+		right := paletteCommandGroupRank(rightGroup)
+		if left != right {
+			return left < right
+		}
+		leftExample := paletteCommandGroupExampleRank(leftGroup, out[i].ID)
+		rightExample := paletteCommandGroupExampleRank(rightGroup, out[j].ID)
+		if leftExample != rightExample {
+			return leftExample < rightExample
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
+}
+
+func (a *App) paletteAvailableGroups() []string {
+	matches := a.paletteMatches()
+	seenIDs := map[string]bool{}
+	for _, c := range matches {
+		seenIDs[c.ID] = true
+	}
+	seenGroups := map[string]bool{}
+	groups := make([]string, 0, 8)
+	for _, c := range matches {
+		if paletteCommandIsDefaultHiddenAlias(c.ID, seenIDs) {
+			continue
+		}
+		group := paletteCommandGroup(c)
+		if seenGroups[group] {
+			continue
+		}
+		seenGroups[group] = true
+		groups = append(groups, group)
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		left := paletteCommandGroupRank(groups[i])
+		right := paletteCommandGroupRank(groups[j])
+		if left != right {
+			return left < right
+		}
+		return groups[i] < groups[j]
+	})
+	return groups
+}
+
+func (a *App) selectNextPaletteGroup(delta int) {
+	groups := append([]string{""}, a.paletteAvailableGroups()...)
+	if len(groups) == 0 {
+		a.paletteGroup = ""
+		a.paletteSel = 0
+		return
+	}
+	cur := 0
+	for i, group := range groups {
+		if group == a.paletteGroup {
+			cur = i
+			break
+		}
+	}
+	next := (cur + delta) % len(groups)
+	if next < 0 {
+		next += len(groups)
+	}
+	a.paletteGroup = groups[next]
+	a.paletteSel = 0
+}
+
+func paletteCommandIsDefaultHiddenAlias(id string, seen map[string]bool) bool {
+	if target := paletteCommandSecondaryTarget(id); target != "" {
+		if paletteCommandAliasTarget(id) != "" {
+			return true
+		}
+		return seen[target]
+	}
+	return false
 }
 
 // searchMessagesCmd POSTs to /v1/sessions/{id}/messages/search and
@@ -4006,7 +4813,9 @@ func cancelCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = c.CancelSession(ctx, sessionID)
+		if err := c.CancelSession(ctx, sessionID); err != nil {
+			return errMsg{err: err, stage: "cancel-session"}
+		}
 		return nil
 	}
 }
@@ -4028,6 +4837,9 @@ func runCommandCmd(c *client.Client, sessionID, cmdID string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := c.RunCommand(ctx, sessionID, cmdID); err != nil {
+			if cmdID == "/cancel" {
+				return errMsg{err: err, stage: "cancel-session"}
+			}
 			return errMsg{err: err, stage: "command"}
 		}
 		return nil
@@ -4129,6 +4941,15 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.fileTreeSel--
 			return a, nil
 		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			if a.agentHierarchySel <= 0 {
+				a.agentHierarchySel = 0
+				a.sidebarSectionCursor = true
+				return a, nil
+			}
+			a.agentHierarchySel--
+			return a, nil
+		}
 		if a.selected == a.firstVisibleSessionIndex() {
 			a.sidebarSectionCursor = true
 			a.sidebarSectionFocus = sidebarSectionSessions
@@ -4145,6 +4966,9 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			} else if a.sidebarSectionFocus == sidebarSectionFiles && !a.sidebarFilesCollapsed && len(a.visibleFileTreeEntries()) > 0 {
 				a.sidebarSectionCursor = false
 				a.clampFileTreeSelection()
+			} else if a.sidebarSectionFocus == sidebarSectionAgents && !a.sidebarAgentsCollapsed && len(a.visibleAgentHierarchyRows()) > 0 {
+				a.sidebarSectionCursor = false
+				a.clampAgentHierarchySelection()
 			} else if a.sidebarSectionFocus == sidebarSectionContext && !a.sidebarContextCollapsed && len(a.contextFiles) > 0 {
 				a.sidebarSectionCursor = false
 				a.clampContextFileSelection()
@@ -4163,6 +4987,13 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			visible := a.visibleFileTreeEntries()
 			if a.fileTreeSel < len(visible)-1 {
 				a.fileTreeSel++
+			}
+			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			visible := a.visibleAgentHierarchyRows()
+			if a.agentHierarchySel < len(visible)-1 {
+				a.agentHierarchySel++
 			}
 			return a, nil
 		}
@@ -4193,12 +5024,12 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.selected = vis[len(vis)-1]
 			return a, a.selectSession(a.selected)
 		}
-	case "pgup", "ctrl+u":
+	case "pgup", "pageup", "ctrl+u":
 		if a.stepSelectionVisible(-a.sidebarPageSize()) {
 			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
 		}
-	case "pgdown", "ctrl+d":
+	case "pgdown", "pagedown", "ctrl+d":
 		if a.stepSelectionVisible(+a.sidebarPageSize()) {
 			a.sidebarSectionCursor = false
 			return a, a.selectSession(a.selected)
@@ -4211,13 +5042,16 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionContext {
 			a.clampContextFileSelection()
 			if a.contextFileSel >= 0 && a.contextFileSel < len(a.contextFiles) {
-				a.openContextFileDetail(a.contextFiles[a.contextFileSel])
+				return a, a.openContextFileDetail(a.contextFiles[a.contextFileSel])
 			}
 			return a, nil
 		}
 		if a.sidebarSectionFocus == sidebarSectionFiles {
 			a.activateFileTreeSelection()
 			return a, nil
+		}
+		if a.sidebarSectionFocus == sidebarSectionAgents {
+			return a, a.openSelectedAgentHierarchyDetail()
 		}
 		a.focus = FocusInput
 		return a, nil
@@ -4317,7 +5151,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if n := len(a.previouslyDetached); n > 0 {
 				a.transientHint = fmt.Sprintf("showing %d detached session(s) (d to go back)", n)
 			} else {
-				a.transientHint = "no detached sessions on this backend (d to go back)"
+				a.transientHint = "no detached sessions on this server (d to go back)"
 			}
 		} else {
 			a.transientHint = "showing all sessions"
@@ -4351,7 +5185,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if busyCount > 0 {
 				a.transientHint = fmt.Sprintf("showing %d busy session(s) (b to go back)", busyCount)
 			} else {
-				a.transientHint = "no busy sessions on this backend (b to go back)"
+				a.transientHint = "no busy sessions on this server (b to go back)"
 			}
 		} else {
 			a.transientHint = "showing all sessions"
@@ -4400,6 +5234,8 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if a.sidebarSectionFocus == sidebarSectionFiles {
 			a.reloadFileViewer()
 			a.transientHint = "files refreshed"
+		} else if a.sidebarSectionFocus == sidebarSectionAgents {
+			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 	}
 	return a, nil
@@ -4428,13 +5264,14 @@ func (a *App) sidebarPageSize() int {
 		footerLines = 2
 	}
 	fileLines := a.sidebarFileViewerRowCount(8)
+	agentLines := a.sidebarAgentHierarchyRowCount(8)
 	// a.height includes the header row (1) + footer hints row (1) +
 	// optional hint banner row. The pane itself gets a.height-4 outer
 	// rows (header + footer + 2 spacer rows per the layout math in
 	// renderBody). Same inner-row budget as renderSidebar.
 	inner := (a.height - 4) - 2
-	avail := inner - contextLines - fileLines - footerLines
-	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) {
+	avail := inner - contextLines - fileLines - agentLines - footerLines
+	if (contextLines > 0 && !a.sidebarContextCollapsed) || (fileLines > 0 && !a.sidebarFilesCollapsed) || (agentLines > 0 && !a.sidebarAgentsCollapsed) {
 		avail--
 	}
 	page := avail / rowsPerSession
@@ -4668,10 +5505,93 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 		return 1
 	}
 	rows := 2
+	if a.sessionSidebarSummaryText(sessionIndex) != "" {
+		rows++
+	}
+	if a.sessionSidebarActivationText(sessionIndex) != "" {
+		rows++
+	}
 	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
 		rows++
 	}
 	return rows
+}
+
+func (a *App) sessionSidebarSummaryText(sessionIndex int) string {
+	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
+		return ""
+	}
+	s := a.sessions[sessionIndex]
+	if isChildSession(s) {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
+}
+
+func (a *App) sessionSidebarActivationText(sessionIndex int) string {
+	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
+		return ""
+	}
+	s := a.sessions[sessionIndex]
+	if isChildSession(s) {
+		return ""
+	}
+	meta := mapValue(s.Metadata)
+	blueprintID := firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_id"]),
+		stringValue(meta["agent_blueprint_id"]),
+	)
+	if blueprintID == "" {
+		return ""
+	}
+	return "◆ " + blueprintID
+}
+
+func (a *App) activeAgentBlueprintID() string {
+	if a.selected < 0 || a.selected >= len(a.sessions) {
+		return ""
+	}
+	meta := mapValue(a.sessions[a.selected].Metadata)
+	return firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_id"]),
+		stringValue(meta["agent_blueprint_id"]),
+	)
+}
+
+func (a *App) activeAgentBlueprintScope() string {
+	if a.activeAgentBlueprintID() == "" || a.selected < 0 || a.selected >= len(a.sessions) {
+		return ""
+	}
+	meta := mapValue(a.sessions[a.selected].Metadata)
+	return firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_scope"]),
+		stringValue(meta["agent_blueprint_scope"]),
+		"session",
+	)
+}
+
+func (a *App) applySessionAgentBlueprintState(state gact.SessionAgentBlueprintState) {
+	sessionID := strings.TrimSpace(state.SessionID)
+	if sessionID == "" && a.selected >= 0 && a.selected < len(a.sessions) {
+		sessionID = a.sessions[a.selected].ID
+	}
+	idx := a.sessionIndexByID(sessionID)
+	if idx < 0 {
+		return
+	}
+	if a.sessions[idx].Metadata == nil {
+		a.sessions[idx].Metadata = map[string]any{}
+	}
+	if state.ActiveAgentBlueprintID != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_id"] = state.ActiveAgentBlueprintID
+	}
+	if state.ActiveAgentBlueprintPath != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_path"] = state.ActiveAgentBlueprintPath
+	}
+	if state.WorkspaceID != "" {
+		a.sessions[idx].Metadata["active_agent_blueprint_workspace_id"] = state.WorkspaceID
+	}
+	a.sessions[idx].Metadata["active_agent_blueprint_scope"] = "session"
 }
 
 func (a *App) activateSidebarSession(index int) tea.Cmd {
@@ -4705,6 +5625,13 @@ func (a *App) activateSidebarSection(section sidebarSection) {
 	a.sidebarSectionFocus = section
 	a.sidebarSectionCursor = true
 	switch section {
+	case sidebarSectionAgents:
+		a.sidebarAgentsCollapsed = !a.sidebarAgentsCollapsed
+		if a.sidebarAgentsCollapsed {
+			a.transientHint = "agents section collapsed"
+		} else {
+			a.transientHint = "agents section expanded"
+		}
 	case sidebarSectionFiles:
 		a.sidebarFilesCollapsed = !a.sidebarFilesCollapsed
 		if a.sidebarFilesCollapsed {
@@ -4760,6 +5687,7 @@ func (a *App) openCommandPalette() {
 	a.paletteCursor = 0
 	a.paletteCursorSet = true
 	a.paletteSel = 0
+	a.paletteGroup = ""
 }
 
 func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sidebarSection) {
@@ -4778,6 +5706,11 @@ func (a *App) registerSidebarSectionHeaderHit(row int, width int, section sideba
 		id = "sidebar:context:header"
 		if zone == FocusRightSidebar {
 			id = "right-sidebar:context:header"
+		}
+	} else if section == sidebarSectionAgents {
+		id = "sidebar:agents:header"
+		if zone == FocusRightSidebar {
+			id = "right-sidebar:agents:header"
 		}
 	} else if section == sidebarSectionFiles {
 		id = "sidebar:files:header"
@@ -4811,7 +5744,7 @@ func (a *App) registerSidebarFocusSurface(width, height int) {
 }
 
 func (a *App) sidebarFocusSurfaceRect(width, height int) mouseRect {
-	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: width, h: height}
+	return mouseRect{x: a.sidebarHitOffsetX, y: 1, w: renderedPaneOuterWidth(width), h: height}
 }
 
 func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount int) {
@@ -4836,6 +5769,41 @@ func (a *App) registerSidebarSessionHit(row int, width int, index int, rowCount 
 		func(app *App) tea.Cmd {
 			app.focus = zone
 			return app.activateSidebarSession(index)
+		},
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			return app.openSessionActionsForIndex(index)
+		},
+	)
+}
+
+func (a *App) registerSidebarSessionSummaryHit(row int, width int, index int) {
+	if a.hits == nil || index < 0 || index >= len(a.sessions) {
+		return
+	}
+	id := a.sessions[index].ID
+	if id == "" {
+		id = fmt.Sprintf("%d", index)
+	}
+	zone := a.sidebarHitFocus
+	if zone != FocusRightSidebar {
+		zone = FocusSidebar
+	} else {
+		id = "right-" + id
+	}
+	a.registerSidebarContentHitActions(
+		"sidebar:session:"+id+":summary",
+		row,
+		width,
+		1,
+		func(app *App) tea.Cmd {
+			app.focus = zone
+			app.sidebarSectionFocus = sidebarSectionSessions
+			app.sidebarSectionCursor = false
+			if index != app.selected {
+				app.selected = index
+			}
+			return app.openSessionSummaryDetail(index)
 		},
 		func(app *App) tea.Cmd {
 			app.focus = zone
@@ -4880,11 +5848,10 @@ func (a *App) registerSidebarContextFileHit(row int, width int, index int, cf ga
 			app.sidebarSectionFocus = sidebarSectionContext
 			app.sidebarSectionCursor = true
 			app.contextFileSel = index
-			app.openContextFileDetail(cf)
-			return nil
+			return app.openContextFileDetail(cf)
 		},
 		func(app *App) tea.Cmd {
-			return app.openContextActionsForIndex(index)
+			return app.openContextActionsForIndexInZone(index, zone)
 		},
 	)
 }
@@ -4927,7 +5894,42 @@ func (a *App) sidebarContentRect(row int, width int) mouseRect {
 	return mouseRect{x: a.sidebarHitOffsetX + 2, y: row + 2, w: w, h: 1}
 }
 
-func (a *App) openContextFileDetail(cf gact.ContextFile) {
+func (a *App) openSessionSummaryDetail(index int) tea.Cmd {
+	if index < 0 || index >= len(a.sessions) {
+		return nil
+	}
+	s := a.sessions[index]
+	summary := strings.TrimSpace(s.Summary)
+	if summary == "" {
+		a.transientHint = "no session summary available"
+		return nil
+	}
+	rows := appendDetailSection(nil, "Session Summary",
+		detailField{"session", s.ID},
+		detailField{"title", firstNonEmpty(s.Title, a.localizer.t(msgSidebarUntitled, nil))},
+		detailField{"status", s.Status},
+		detailField{"updated", formatOptionalTime(s.UpdatedAt)},
+		detailField{"summary", summary},
+	)
+	a.detailView = &bulkyPartRef{
+		messageID: "session-summary",
+		partID:    s.ID,
+		title:     "Session summary · " + firstNonEmpty(s.Title, s.ID),
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+	return nil
+}
+
+func formatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+func (a *App) openContextFileDetail(cf gact.ContextFile) tea.Cmd {
 	rows := a.contextFileDetailRows(cf)
 	a.detailView = &bulkyPartRef{
 		messageID: "context",
@@ -4937,12 +5939,27 @@ func (a *App) openContextFileDetail(cf gact.ContextFile) {
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+	if a.shouldLoadContextFileContent() {
+		return loadContextFileContentCmd(a.c, a.currentSessionID(), cf.Path)
+	}
+	return nil
+}
+
+func (a *App) shouldLoadContextFileContent() bool {
+	return a.currentSessionID() != ""
 }
 
 func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
+	return a.contextFileDetailRowsWithContent(cf, gact.ContextFileContent{}, nil)
+}
+
+func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
 	fileFields := []detailField{
 		{"path", cf.Path},
 		{"mode", contextModeDescription(cf.Mode)},
+		{"status", contextFileStatusDescription(cf)},
+		{"source", contextFileSourceDescription(cf)},
+		{"session use", contextFileSessionUseDescription(cf)},
 	}
 	if cf.Size > 0 {
 		fileFields = append(fileFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(cf.Size), cf.Size)})
@@ -4951,12 +5968,13 @@ func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 		fileFields = append(fileFields, detailField{"language", cf.Language})
 	}
 	if strings.TrimSpace(cf.AddedAt) != "" {
-		fileFields = append(fileFields, detailField{"added_at", cf.AddedAt})
+		fileFields = append(fileFields, detailField{"added", cf.AddedAt})
 	}
 	if strings.TrimSpace(cf.LastModified) != "" {
-		fileFields = append(fileFields, detailField{"last_modified", cf.LastModified})
+		fileFields = append(fileFields, detailField{"last modified", cf.LastModified})
 	}
 	rows := appendDetailSection(nil, "File", fileFields...)
+	rows = a.appendContextFilePreviewRows(rows, cf, content, contentErr)
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		s := a.sessions[a.selected]
 		sessionFields := []detailField{
@@ -4968,14 +5986,14 @@ func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 			sessionFields = append(sessionFields, detailField{"workspace", s.WorkspaceID})
 		}
 		if s.ParentSessionID != "" {
-			sessionFields = append(sessionFields, detailField{"parent_session_id", s.ParentSessionID})
+			sessionFields = append(sessionFields, detailField{"parent session", s.ParentSessionID})
 		}
 		if s.Agent.ID != "" {
 			sessionFields = append(sessionFields, detailField{"agent", s.Agent.ID})
 		}
 		if !s.UpdatedAt.IsZero() || !s.CreatedAt.IsZero() {
 			activity := sessionActivityTime(s)
-			sessionFields = append(sessionFields, detailField{"latest_activity", activity.UTC().Format(time.RFC3339)})
+			sessionFields = append(sessionFields, detailField{"latest activity", activity.UTC().Format(time.RFC3339)})
 		}
 		if s.MessageCount > 0 {
 			sessionFields = append(sessionFields, detailField{"messages", fmt.Sprintf("%d", s.MessageCount)})
@@ -4983,10 +6001,111 @@ func (a *App) contextFileDetailRows(cf gact.ContextFile) []string {
 		rows = appendDetailSection(rows, "Session", sessionFields...)
 	}
 	rows = appendDetailSection(rows, "Actions",
+		detailField{"Enter / click", "open this context detail and load a content preview when CLIO exposes it"},
 		detailField{"o", "add another context file"},
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
 	return rows
+}
+
+func (a *App) appendContextFilePreviewRows(rows []string, cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
+	if contentErr != nil {
+		return appendDetailSection(rows, "Content",
+			detailField{"preview_error", contentErr.Error()},
+		)
+	}
+	if strings.TrimSpace(content.Data) == "" {
+		if !a.shouldLoadContextFileContent() {
+			return appendDetailSection(rows, "Content",
+				detailField{"preview", "unavailable (no active session)"},
+			)
+		}
+		if !a.caps.Capabilities.XClioFilesContent {
+			return appendDetailSection(rows, "Content",
+				detailField{"preview", "loading..."},
+				detailField{"capability", "x_clio_files_content not advertised; probing endpoint"},
+			)
+		}
+		return appendDetailSection(rows, "Content",
+			detailField{"preview", "loading..."},
+		)
+	}
+	path := firstNonEmpty(content.Path, cf.Path)
+	displayPath := firstNonEmpty(content.DisplayPath, path)
+	contentFields := []detailField{
+		{"path", path},
+		{"display path", displayPath},
+	}
+	if content.Size > 0 {
+		contentFields = append(contentFields, detailField{"size", fmt.Sprintf("%s (%d bytes)", humanBytes(content.Size), content.Size)})
+	}
+	if strings.TrimSpace(content.MediaType) != "" {
+		contentFields = append(contentFields, detailField{"media type", content.MediaType})
+	}
+	if strings.TrimSpace(content.Encoding) != "" {
+		contentFields = append(contentFields, detailField{"encoding", content.Encoding})
+	}
+	if !contextFileContentIsText(content.MediaType) {
+		contentFields = append(contentFields, detailField{"preview", "binary content not rendered in terminal detail"})
+		return appendDetailSection(rows, "Content", contentFields...)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(content.Data)
+	if err != nil {
+		contentFields = append(contentFields, detailField{"preview_error", "could not decode base64 content: " + err.Error()})
+		return appendDetailSection(rows, "Content", contentFields...)
+	}
+	text := strings.ReplaceAll(string(decoded), "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	const maxPreviewRunes = 12000
+	truncated := false
+	if len([]rune(text)) > maxPreviewRunes {
+		runes := []rune(text)
+		text = string(runes[:maxPreviewRunes])
+		truncated = true
+	}
+	contentFields = append(contentFields, detailField{"preview", text})
+	if truncated {
+		contentFields = append(contentFields, detailField{"truncated", fmt.Sprintf("shown first %d characters", maxPreviewRunes)})
+	}
+	return appendDetailSection(rows, "Content", contentFields...)
+}
+
+func contextFileContentIsText(mediaType string) bool {
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if strings.HasPrefix(mediaType, "text/") || strings.Contains(mediaType, "charset=utf-8") {
+		return true
+	}
+	for _, prefix := range []string{
+		"application/json",
+		"application/javascript",
+		"application/ecmascript",
+		"application/xml",
+		"application/yaml",
+		"application/toml",
+		"application/sql",
+		"application/x-sh",
+		"application/x-shellscript",
+		"application/x-python",
+		"application/x-ruby",
+		"application/x-perl",
+	} {
+		if strings.HasPrefix(mediaType, prefix) {
+			return true
+		}
+	}
+	if strings.HasSuffix(mediaType, "+json") || strings.HasSuffix(mediaType, "+xml") {
+		return true
+	}
+	return mediaType == ""
+}
+
+func (a *App) contextFileByPath(path string) (gact.ContextFile, bool) {
+	for _, cf := range a.contextFiles {
+		if cf.Path == path {
+			return cf, true
+		}
+	}
+	return gact.ContextFile{}, false
 }
 
 func contextModeDescription(mode string) string {
@@ -5002,6 +6121,29 @@ func contextModeDescription(mode string) string {
 	default:
 		return mode
 	}
+}
+
+func contextFileStatusDescription(cf gact.ContextFile) string {
+	mode := contextModeDescription(cf.Mode)
+	if cf.Uploaded {
+		return "CLIO uploaded attachment attached to selected session as " + mode
+	}
+	return "workspace file attached to selected session as " + mode
+}
+
+func contextFileSourceDescription(cf gact.ContextFile) string {
+	if cf.Uploaded {
+		return "uploaded attachment (created through attachments_upload, not workspace browsing)"
+	}
+	return "workspace context file (path resolved by CLIO workspace context)"
+}
+
+func contextFileSessionUseDescription(cf gact.ContextFile) string {
+	mode := contextModeDescription(cf.Mode)
+	if cf.Uploaded {
+		return "copied into selected CLIO session context as " + mode
+	}
+	return "referenced by selected CLIO session context as " + mode
 }
 
 func shortContextPath(path string) string {
@@ -5032,7 +6174,11 @@ func humanBytes(size int64) string {
 }
 
 func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch k.String() {
+	key := k.String()
+	if text := strings.ToLower(strings.TrimSpace(k.Text)); text == "pageup" || text == "pagedown" || text == "end" {
+		key = text
+	}
+	switch key {
 	case "enter":
 		// ZZZZZZZZ1: Enter on body focus opens the floating detail
 		// view for the selected message — same code path as Ctrl+E,
@@ -5058,13 +6204,13 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.stepPartCursor(+1)
-	case "pgup", "ctrl+u":
+	case "pgup", "pageup", "ctrl+u":
 		// Page-scroll for the within-message use case. Doesn't move
 		// the cursor — when the user wants to read a long single
 		// message, the cursor stays on it.
 		a.scrollOffset += 10
 		a.stickyToBottom = false
-	case "pgdown", "ctrl+d":
+	case "pgdown", "pagedown", "ctrl+d":
 		a.reattachConversationBottom()
 	case "g":
 		// g jumps the cursor to the first addressable block. TTTTTTTTT1:
@@ -5075,7 +6221,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.bodySelPartIdx = firstAddressablePartIdx(a.messages[a.bodySelMsgIdx])
 			a.scrollToSelectedMessage()
 		}
-	case "G":
+	case "G", "end":
 		if len(a.messages) > 0 {
 			a.bodySelMsgIdx = a.snapToVisibleMsg(len(a.messages)-1, -1)
 			a.bodySelPartIdx = lastAddressablePartIdx(a.messages[a.bodySelMsgIdx])
@@ -5340,8 +6486,8 @@ func (a *App) handleInputKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// buffer so the backend sees the real body, not the compressed
 		// sigil. Send-time expansion keeps the input readable right up
 		// until the moment the message is dispatched.
-		draftText := strings.TrimSpace(raw)
 		text := strings.TrimSpace(a.expandPasteText(raw))
+		draftText := text
 		mentions := activeComposerFileMentions(raw, a.fileMentions)
 		a.input.Reset()
 		a.fileMentions = nil
@@ -5545,14 +6691,16 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.searchHitMessageID = ""     // V3 marker doesn't travel across sessions
 	a.bodySelMsgIdx = -1          // Y1 cursor resets to off on session switch
 	a.bodySelPartIdx = -1         // TTTTTTTTT1: part cursor resets too
-	// New session ⇒ new event stream, no replay. Starting at 0 makes
-	// the adapter/emulator send the full current event history from
-	// the ring buffer (per SPEC §7.3 replay semantics).
-	a.lastSeenSeqID = 0
+	// New session ⇒ its own event stream. Restore the session-specific
+	// high-water mark so revisiting a session does not replay and
+	// re-render the same live semantic trace.
+	a.lastSeenSeqID = a.lastSeenSeqIDBySession[sid]
 	return tea.Batch(
 		loadMessagesCmd(a.c, sid),
 		loadContextFilesCmd(a.c, sid),
 		loadSessionTasksCmd(a.c, sid), // UUU1: refresh task badge
+		loadAgentHierarchyCmd(a.c, a.runtimeScope()),
+		loadCommandsCmd(a.c, a.runtimeScope()),
 		a.startSSECmd(sid),
 	)
 }
@@ -5660,6 +6808,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 		// catches up live without waiting for a session reload.
 		a.applyMessageCompleted(e)
 		a.applyCostUpdated(e)
+		a.settleTerminalMessageCompletion(e)
 	case "session.status_changed":
 		if pl != nil {
 			v, _ := pl["status"].(string)
@@ -5688,12 +6837,18 @@ func (a *App) applySSE(e client.SSEEvent) {
 		}
 	case "user_question.created":
 		a.applyUserQuestionCreated(e)
-	case "user_question.answered", "user_question.cancelled":
+	case "user_question.answered", "user_question.cancelled", "user_question.expired":
 		a.applyUserQuestionResolved(e)
 	case "permission.requested":
 		a.applyPermissionRequested(e)
 	case "permission.resolved":
 		a.applyPermissionResolved(e)
+	case "semantic.event":
+		a.applySemanticEvent(e)
+	case "tool.call.started":
+		a.applyToolCallStarted(e)
+	case "tool.call.completed":
+		a.applyToolCallCompleted(e)
 	case "subagent.started", "subagent.completed":
 		// Refresh sidebar so the new subsession appears (or its status updates).
 		a.pendingSidebarRefresh = true
@@ -5702,7 +6857,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 	case "notification":
 		// MMM1: backend-pushed banner-worthy message. Surface as a
 		// transient hint with the level prefixed, so the user sees
-		// "info: MCP server reconnected" / "warning: ..." in the
+		// "info: MCP connection reconnected" / "warning: ..." in the
 		// reserved hint row above the input. Best-effort — payload
 		// is structured but optional fields can be missing.
 		if pl != nil {
@@ -5712,6 +6867,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 			if level == "" {
 				level = "info"
 			}
+			title = operatorNotificationTitle(title)
 			text := level + ": " + title
 			if body != "" {
 				text += " — " + body
@@ -5735,6 +6891,10 @@ func (a *App) applySSE(e client.SSEEvent) {
 			}
 		}
 	}
+}
+
+func operatorNotificationTitle(title string) string {
+	return strings.ReplaceAll(title, "MCP server", "MCP connection")
 }
 
 func (a *App) shouldIgnoreStatusReplay(sessionID, incoming string, e client.SSEEvent) bool {
@@ -5784,6 +6944,14 @@ func (a *App) replaySessionID(sessionID string) string {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID != "" {
 		return sessionID
+	}
+	return a.currentSessionID()
+}
+
+func (a *App) eventSessionID(e client.SSEEvent) string {
+	pl := eventPayload(e)
+	if sid := strings.TrimSpace(stringValue(pl["session_id"])); sid != "" {
+		return sid
 	}
 	return a.currentSessionID()
 }
@@ -5840,12 +7008,59 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 	}
 }
 
+func (a *App) settleTerminalMessageCompletion(e client.SSEEvent) {
+	pl, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	stopReason := strings.TrimSpace(stringValue(pl["stop_reason"]))
+	if !messageCompletedStopReasonSettlesSession(stopReason) {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if sid == "" || a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	settledStatus := statusForTerminalStopReason(stopReason)
+	for i := range a.sessions {
+		if a.sessions[i].ID == sid {
+			a.sessions[i].Status = settledStatus
+			break
+		}
+	}
+	if sid == a.currentSessionID() {
+		a.currentStatus = settledStatus
+	}
+}
+
+func messageCompletedStopReasonSettlesSession(stopReason string) bool {
+	switch stopReason {
+	case gact.StopReasonEndTurn, gact.StopReasonMaxTokens, gact.StopReasonCancelled, gact.StopReasonError, gact.StopReasonPermissionDenied:
+		return true
+	default:
+		return false
+	}
+}
+
+func statusForTerminalStopReason(stopReason string) string {
+	switch stopReason {
+	case gact.StopReasonCancelled, gact.StopReasonError, gact.StopReasonPermissionDenied:
+		return stopReason
+	default:
+		return gact.StatusIdle
+	}
+}
+
 func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageCompactionSummaries(m)
 	normalizeMessageExpertHandoffs(m)
 	normalizeMessageErrorInfo(m)
 	normalizeMessagePartialAnswerLabels(m)
 	normalizeMessageToolEvidence(m)
+	normalizeMessageRuntimeProvenance(m)
 }
 
 func normalizeMessageCompactionSummaries(m *gact.Message) {
@@ -5937,6 +7152,22 @@ func messageHasPartType(m *gact.Message, partType string) bool {
 		if part.Type == partType {
 			return true
 		}
+	}
+	return false
+}
+
+func shouldRenderConversationMessage(m gact.Message) bool {
+	if len(m.Parts) > 0 || isModelSwapMarker(m) || m.ErrorInfo != nil {
+		return true
+	}
+	if len(normalizeToolEvidenceRows(m.Metadata["tools_called"])) > 0 {
+		return true
+	}
+	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
+		return true
+	}
+	if hasRuntimeProvenance(m) {
+		return true
 	}
 	return false
 }
@@ -6223,6 +7454,9 @@ func summarizeToolResult(toolName string, raw any) string {
 			return text
 		}
 	}
+	if text := summarizeFeatureCollectionResult(result); text != "" {
+		return text
+	}
 	if strings.Contains(lowerTool, "parquet") {
 		if text := summarizeTableLikeResult("parquet", result); text != "" {
 			return text
@@ -6248,6 +7482,11 @@ func summarizeToolResult(toolName string, raw any) string {
 			return text
 		}
 	}
+	if lowerTool == "" && looksLikeSACResult(result) {
+		if text := summarizeSACResult(result); text != "" {
+			return text
+		}
+	}
 	if strings.Contains(lowerTool, "shell") || strings.Contains(lowerTool, "bash") || strings.Contains(lowerTool, "command") {
 		if text := summarizeShellResult(result); text != "" {
 			return text
@@ -6260,6 +7499,22 @@ func summarizeToolResult(toolName string, raw any) string {
 		}
 	}
 	return ""
+}
+
+func looksLikeSACResult(result map[string]any) bool {
+	if firstStringValue(result, "archive_path", "sac_path", "sac_file", "kstnm", "kcmpnm") != "" {
+		return true
+	}
+	if firstStringValue(result, "network", "network_code", "station", "channel") != "" &&
+		firstStringValue(result, "start_time", "event_time", "origin_time") != "" {
+		return true
+	}
+	for _, key := range []string{"trace_count", "sac_trace_count", "traces_analyzed", "traces_plotted"} {
+		if _, ok := result[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func summarizeErrorResult(result map[string]any) string {
@@ -6358,12 +7613,15 @@ func summarizeSACResult(result map[string]any) string {
 		rows = append(rows, "artifact: "+shortenPathForInline(artifact))
 	}
 	if stats := summarizeNumericFields(result, []string{
-		"sac_trace_count", "traces_plotted", "traces_analyzed", "traces", "npts", "sample_rate_hz", "sampling_rate", "delta", "duration_s", "duration", "min", "max", "mean",
+		"sac_trace_count", "trace_count", "traces_plotted", "traces_analyzed", "traces", "events", "event_count", "station_count", "npts", "sample_rate_hz", "sampling_rate", "delta", "duration_s", "duration", "magnitude", "min_magnitude", "min", "max", "mean",
 	}); stats != "" {
 		rows = append(rows, stats)
 	}
-	if path := firstStringValue(result, "path", "file", "file_path", "filepath"); path != "" {
+	if path := firstStringValue(result, "path", "file", "file_path", "filepath", "archive_path", "sac_path", "sac_file"); path != "" {
 		rows = append(rows, "file: "+shortenPathForInline(path))
+	}
+	if network := firstStringValue(result, "network", "network_code"); network != "" {
+		rows = append(rows, "network: "+network)
 	}
 	if station := firstStringValue(result, "station", "kstnm"); station != "" {
 		rows = append(rows, "station: "+station)
@@ -6371,7 +7629,19 @@ func summarizeSACResult(result map[string]any) string {
 	if channel := firstStringValue(result, "channel", "kcmpnm", "component"); channel != "" {
 		rows = append(rows, "channel: "+channel)
 	}
-	if members := summarizeNamedItems(result, "members", "sample_members"); members != "" {
+	if location := firstStringValue(result, "location", "location_code"); location != "" {
+		rows = append(rows, "location: "+location)
+	}
+	if start := firstStringValue(result, "start_time", "start", "time_start"); start != "" {
+		rows = append(rows, "start: "+start)
+	}
+	if end := firstStringValue(result, "end_time", "end", "time_end"); end != "" {
+		rows = append(rows, "end: "+end)
+	}
+	if eventTime := firstStringValue(result, "event_time", "origin_time", "time"); eventTime != "" {
+		rows = append(rows, "event_time: "+eventTime)
+	}
+	if members := summarizeNamedItems(result, "members", "sample_members", "files", "trace_files", "selected_traces", "traces_sampled"); members != "" {
 		rows = append(rows, "members: "+shortenKnownPaths(members))
 	}
 	if len(rows) == 0 {
@@ -6559,6 +7829,7 @@ func appendSummaryItem(items []string, item any) []string {
 
 func summarizeNDPResult(result map[string]any) string {
 	var rows []string
+	featureRows := summarizeFeatureCollectionRows(result)
 	if status := stringValue(result["status"]); status != "" {
 		rows = append(rows, "status: "+status)
 	} else if meta, ok := result["_meta"].(map[string]any); ok {
@@ -6566,7 +7837,7 @@ func summarizeNDPResult(result map[string]any) string {
 			rows = append(rows, "status: "+status)
 		}
 	}
-	if count, ok := floatValue(result["count"]); ok {
+	if count, ok := floatValue(result["count"]); ok && len(featureRows) == 0 {
 		rows = append(rows, fmt.Sprintf("count: %.0f", count))
 	}
 	if ds, ok := result["datasets"].(map[string]any); ok {
@@ -6579,10 +7850,156 @@ func summarizeNDPResult(result map[string]any) string {
 			rows = append(rows, summarizeNDPItems("organizations", items)...)
 		}
 	}
+	if len(featureRows) > 0 {
+		rows = append(rows, featureRows...)
+	}
 	if len(rows) == 0 {
 		return ""
 	}
 	return strings.Join(rows, "\n")
+}
+
+func summarizeFeatureCollectionResult(result map[string]any) string {
+	featureRows := summarizeFeatureCollectionRows(result)
+	if len(featureRows) == 0 {
+		return ""
+	}
+	rows := summarizeStatusRows(result)
+	rows = append(rows, featureRows...)
+	rows = append([]string{"feature result:"}, rows...)
+	return strings.Join(rows, "\n")
+}
+
+func summarizeFeatureCollectionRows(result map[string]any) []string {
+	items := featureItemsFromResult(result)
+	if len(items) == 0 {
+		return nil
+	}
+	var rows []string
+	if source := firstStringValue(result, "source", "layer", "dataset", "service", "name", "title"); source != "" {
+		rows = append(rows, "source: "+source)
+	}
+	count := len(items)
+	for _, key := range []string{"count", "record_count", "feature_count", "total", "total_count"} {
+		if value, ok := floatValue(result[key]); ok {
+			count = int(value)
+			break
+		}
+	}
+	rows = append(rows, fmt.Sprintf("records: %d", count))
+	limit := min(len(items), 4)
+	for i := 0; i < limit; i++ {
+		if line := summarizeFeatureRecord(items[i]); line != "" {
+			rows = append(rows, "sample: "+line)
+		}
+		if i == 0 {
+			if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path"); artifact != "" {
+				rows = append(rows, "artifact: "+shortenPathForInline(artifact))
+			}
+		}
+	}
+	if hidden := len(items) - limit; hidden > 0 {
+		rows = append(rows, fmt.Sprintf("... %d more", hidden))
+	}
+	return rows
+}
+
+func featureItemsFromResult(result map[string]any) []any {
+	for _, key := range []string{"features", "records", "items", "warnings", "events"} {
+		if items := featureItemsFromAny(result[key]); len(items) > 0 {
+			return items
+		}
+	}
+	if collection, ok := result["featureCollection"].(map[string]any); ok {
+		if items := featureItemsFromAny(collection["features"]); len(items) > 0 {
+			return items
+		}
+	}
+	return nil
+}
+
+func featureItemsFromAny(raw any) []any {
+	switch typed := raw.(type) {
+	case []any:
+		return typed
+	case map[string]any:
+		for _, key := range []string{"items", "features", "records"} {
+			if items, ok := typed[key].([]any); ok {
+				return items
+			}
+		}
+	}
+	return nil
+}
+
+func summarizeFeatureRecord(raw any) string {
+	record, ok := raw.(map[string]any)
+	if !ok {
+		return truncateString(strings.Join(strings.Fields(fmt.Sprint(raw)), " "), 180)
+	}
+	fields := featureRecordFields(record)
+	title := firstNonEmpty(
+		firstStringValue(fields, "IncidentName", "incident_name", "name", "Name", "title", "Title", "headline", "Headline", "event", "Event", "areaDesc", "AreaDesc"),
+		firstStringValue(fields, "id", "ID", "OBJECTID", "objectid"),
+		"(unnamed)",
+	)
+	var bits []string
+	for _, pair := range []struct {
+		label string
+		keys  []string
+	}{
+		{"status", []string{"status", "Status", "incident_status", "IncidentStatus", "IncidentStatusCategory"}},
+		{"event", []string{"event", "Event", "event_type", "EventType", "phenomena", "Phenomena"}},
+		{"severity", []string{"severity", "Severity", "significance", "Significance"}},
+		{"area", []string{"area", "Area", "areaDesc", "AreaDesc", "county", "County", "zone", "Zone"}},
+		{"acres", []string{"acres", "Acres", "GISAcres", "DailyAcres"}},
+		{"containment", []string{"containment", "Containment", "PercentContained", "percent_contained"}},
+		{"start", []string{"start", "Start", "start_time", "StartTime", "effective", "Effective", "CreateDate", "created"}},
+		{"expires", []string{"expires", "Expires", "expiration", "Expiration"}},
+		{"updated", []string{"updated", "Updated", "modified", "Modified", "UpdateDate", "LastUpdate"}},
+	} {
+		if text := firstScalarValue(fields, pair.keys...); text != "" {
+			bits = append(bits, pair.label+": "+truncateString(strings.Join(strings.Fields(text), " "), 80))
+		}
+		if len(bits) >= 4 {
+			break
+		}
+	}
+	if len(bits) == 0 {
+		return truncateString(strings.Join(strings.Fields(title), " "), 180)
+	}
+	return truncateString(strings.Join(strings.Fields(title), " "), 90) + " · " + strings.Join(bits, " · ")
+}
+
+func featureRecordFields(record map[string]any) map[string]any {
+	fields := map[string]any{}
+	for key, value := range record {
+		if key == "geometry" {
+			continue
+		}
+		fields[key] = value
+	}
+	for _, key := range []string{"attributes", "properties"} {
+		if nested, ok := record[key].(map[string]any); ok {
+			for nestedKey, value := range nested {
+				fields[nestedKey] = value
+			}
+		}
+	}
+	return fields
+}
+
+func firstScalarValue(result map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value := result[key]
+		if text := strings.TrimSpace(stringValue(value)); text != "" {
+			return text
+		}
+		if number, ok := floatValue(value); ok {
+			return formatCompactFloat(number)
+		}
+	}
+	return ""
 }
 
 func summarizeNDPItems(label string, items []any) []string {
@@ -6760,13 +8177,527 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 		return
 	}
 	part := decodePart(partRaw)
+	if part.Type == gact.PartTypeToolCall {
+		if part.Metadata == nil {
+			part.Metadata = map[string]any{}
+		}
+		if strings.TrimSpace(stringValue(part.Metadata["status"])) == "" {
+			part.Metadata["status"] = "running"
+		}
+	}
+	if part.CallID != "" && (part.Type == gact.PartTypeToolCall || part.Type == gact.PartTypeToolResult) {
+		a.removeSyntheticSemanticToolParts(part.CallID)
+	}
 	for i := range a.messages {
 		if a.messages[i].ID == msgID {
+			for j := range a.messages[i].Parts {
+				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
+					a.messages[i].Parts[j] = part
+					normalizeMessagePresentation(&a.messages[i])
+					return
+				}
+			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
 			return
 		}
 	}
+}
+
+func (a *App) applySemanticEvent(e client.SSEEvent) {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
+	if eventType == "" {
+		return
+	}
+	switch eventType {
+	case "tool.call.started":
+		a.applyToolCallStarted(e)
+		return
+	case "tool.call.completed":
+		a.applyToolCallCompleted(e)
+		return
+	}
+	part, ok := semanticEventPart(e, pl, eventType)
+	if !ok {
+		return
+	}
+	partID := semanticEventPartID(e, eventType, stringValue(pl["turn_id"]))
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil || messageHasPartID(*msg, partID) {
+		return
+	}
+	part.ID = partID
+	if part.Metadata == nil {
+		part.Metadata = map[string]any{}
+	}
+	part.Metadata["semantic_event"] = true
+	part.Metadata["event_type"] = eventType
+	part.Metadata["trace_id"] = stringValue(pl["trace_id"])
+	part.Metadata["turn_id"] = stringValue(pl["turn_id"])
+	part.Metadata["status"] = stringValue(pl["status"])
+	part.Metadata["detail_level"] = stringValue(pl["detail_level"])
+	part.Metadata["stream_source"] = "semantic_event"
+	part.Metadata["raw_event"] = pl
+	msg.Parts = append(msg.Parts, part)
+}
+
+func (a *App) applyToolCallStarted(e client.SSEEvent) {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	toolPayload := semanticToolPayload(pl)
+	callID := firstNonEmpty(stringValue(toolPayload["call_id"]), stringValue(pl["call_id"]), stringValue(pl["id"]))
+	toolName := firstNonEmpty(stringValue(toolPayload["tool"]), stringValue(toolPayload["tool_name"]), stringValue(pl["tool"]), stringValue(pl["tool_name"]), "tool")
+	if callID == "" {
+		callID = "semantic_" + stableIDFragment(toolName+"_"+stringValue(pl["turn_id"])+"_"+e.ID)
+	}
+	if a.hasToolPart(callID, gact.PartTypeToolCall) {
+		return
+	}
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil {
+		return
+	}
+	argsRaw := firstNonNil(toolPayload["args"], pl["args"])
+	argsPreview := semanticArgsPreview(toolPayload, pl)
+	msg.Parts = append(msg.Parts, gact.Part{
+		ID:       "semantic_" + callID + "_call",
+		Type:     gact.PartTypeToolCall,
+		CallID:   callID,
+		ToolName: toolName,
+		Input:    mapValue(argsRaw),
+		Metadata: map[string]any{
+			"semantic_event":   true,
+			"stream_source":    "semantic_event",
+			"telemetry_source": firstNonEmpty(stringValue(toolPayload["telemetry_source"]), stringValue(pl["telemetry_source"]), "semantic_event"),
+			"status":           "running",
+			"args_preview":     argsPreview,
+			"raw_event":        pl,
+		},
+	})
+}
+
+func (a *App) applyToolCallCompleted(e client.SSEEvent) {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	toolPayload := semanticToolPayload(pl)
+	callID := firstNonEmpty(stringValue(toolPayload["call_id"]), stringValue(pl["call_id"]), stringValue(pl["id"]))
+	toolName := firstNonEmpty(stringValue(toolPayload["tool"]), stringValue(toolPayload["tool_name"]), stringValue(pl["tool"]), stringValue(pl["tool_name"]), "tool")
+	if callID == "" {
+		callID = "semantic_" + stableIDFragment(toolName+"_"+stringValue(pl["turn_id"])+"_"+e.ID)
+	}
+	if a.hasToolPart(callID, gact.PartTypeToolResult) {
+		return
+	}
+	errText := firstNonEmpty(stringValue(toolPayload["error"]), stringValue(pl["error"]), stringValue(pl["message"]))
+	okResult, okKnown := optionalBoolValue(firstNonNil(toolPayload["ok"], pl["ok"]))
+	summaryText := stringValue(pl["summary"])
+	if e.Type == "tool.call.completed" && errText == "" && summaryText == "" && a.hasToolPart(callID, gact.PartTypeToolCall) {
+		return
+	}
+	msg := a.ensureSemanticLiveMessage(sid, stringValue(pl["turn_id"]))
+	if msg == nil {
+		return
+	}
+	duration, hasDuration := floatValue(firstNonNil(toolPayload["duration_ms"], pl["duration_ms"]))
+	cached, hasCached := firstNonNil(toolPayload["cached"], pl["cached"]).(bool)
+	resultText := firstNonEmpty(errText, semanticToolCompletionSummary(toolName, summaryText, toolPayload, pl, duration, hasDuration, cached, hasCached))
+	result := gact.Part{
+		ID:       "semantic_" + callID + "_result",
+		Type:     gact.PartTypeToolResult,
+		CallID:   callID,
+		ToolName: toolName,
+		IsError:  errText != "" || (okKnown && !okResult),
+		Content: []gact.Part{{
+			ID:   "semantic_" + callID + "_result_text",
+			Type: gact.PartTypeText,
+			Text: resultText,
+		}},
+		Metadata: map[string]any{
+			"semantic_event":   true,
+			"stream_source":    "semantic_event",
+			"telemetry_source": firstNonEmpty(stringValue(toolPayload["telemetry_source"]), stringValue(pl["telemetry_source"]), "semantic_event"),
+			"raw_event":        pl,
+		},
+	}
+	if hasDuration {
+		result.DurationMS = duration
+	}
+	if hasCached {
+		result.Cached = cached
+	}
+	msg.Parts = append(msg.Parts, result)
+}
+
+func semanticToolCompletionSummary(toolName string, summaryText string, toolPayload map[string]any, eventPayload map[string]any, duration float64, hasDuration bool, cached bool, hasCached bool) string {
+	summary := stripSemanticControlContracts(summaryText)
+	if !isGenericToolCompletionSummary(summary) {
+		return summary
+	}
+	resultPayload := firstNonNil(
+		toolPayload["result"],
+		toolPayload["output"],
+		toolPayload["stdout"],
+		toolPayload["artifact"],
+		eventPayload["result"],
+		eventPayload["output"],
+		eventPayload["stdout"],
+		eventPayload["artifact"],
+	)
+	if text := toolEvidenceResultText(toolName, resultPayload); text != "" {
+		return text
+	}
+	name := strings.TrimSpace(toolName)
+	if name == "" {
+		name = "tool"
+	}
+	parts := []string{name + " completed"}
+	if hasDuration && duration > 0 {
+		parts = append(parts, fmt.Sprintf("%.0fms", duration))
+	}
+	if hasCached && cached {
+		parts = append(parts, "cached")
+	}
+	if args := semanticArgsPreview(toolPayload, eventPayload); args != "" {
+		parts = append(parts, truncateString("args: "+args, 120))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func semanticArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
+	text := firstNonEmpty(
+		stringValue(toolPayload["args_preview"]),
+		stringValue(eventPayload["args_preview"]),
+		stringValue(toolPayload["args"]),
+		stringValue(eventPayload["args"]),
+	)
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if semanticPreviewIsRedacted(text) {
+		return "input redacted by runtime"
+	}
+	return text
+}
+
+func semanticPreviewIsRedacted(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	normalized = strings.Trim(normalized, ". ")
+	switch normalized {
+	case "[redacted]", "redacted", "<redacted>", "(redacted)":
+		return true
+	default:
+		return strings.Contains(normalized, "[redacted]")
+	}
+}
+
+func isGenericToolCompletionSummary(summary string) bool {
+	summary = strings.ToLower(strings.TrimSpace(summary))
+	switch summary {
+	case "", "completed", "complete", "done", "success", "ok", "tool completed", "tool call completed":
+		return true
+	default:
+		return false
+	}
+}
+
+func semanticToolPayload(payload map[string]any) map[string]any {
+	if nested := mapValue(payload["payload"]); len(nested) > 0 {
+		return nested
+	}
+	return payload
+}
+
+func firstNonNil(values ...any) any {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		sessionID = a.currentSessionID()
+	}
+	if sessionID == "" {
+		return nil
+	}
+	msgID := "semantic_live"
+	if turnID != "" {
+		msgID += "_" + stableIDFragment(turnID)
+	} else {
+		msgID += "_" + stableIDFragment(sessionID)
+	}
+	for i := range a.messages {
+		if a.messages[i].ID == msgID {
+			return &a.messages[i]
+		}
+	}
+	now := time.Now()
+	a.messages = append(a.messages, gact.Message{
+		ID:        msgID,
+		SessionID: sessionID,
+		Role:      gact.RoleAssistant,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Metadata: map[string]any{
+			"semantic_live_message": true,
+			"turn_id":               turnID,
+		},
+	})
+	return &a.messages[len(a.messages)-1]
+}
+
+func (a *App) hasToolPart(callID, partType string) bool {
+	callID = strings.TrimSpace(callID)
+	if callID == "" {
+		return false
+	}
+	for _, msg := range a.messages {
+		for _, part := range msg.Parts {
+			if part.CallID == callID && part.Type == partType {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *App) removeSyntheticSemanticToolParts(callID string) {
+	callID = strings.TrimSpace(callID)
+	if callID == "" {
+		return
+	}
+	for mi := range a.messages {
+		parts := a.messages[mi].Parts[:0]
+		for _, part := range a.messages[mi].Parts {
+			if part.CallID == callID && part.Metadata != nil && part.Metadata["semantic_event"] == true {
+				continue
+			}
+			parts = append(parts, part)
+		}
+		a.messages[mi].Parts = parts
+	}
+}
+
+func messageHasPartID(msg gact.Message, partID string) bool {
+	partID = strings.TrimSpace(partID)
+	if partID == "" {
+		return false
+	}
+	for _, part := range msg.Parts {
+		if part.ID == partID {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType string) (gact.Part, bool) {
+	status := firstNonEmpty(stringValue(payload["status"]), "observed")
+	summary := semanticUserSummary(payload, eventType)
+	metadata := semanticWorkflowMetadata(payload, eventType)
+	if strings.HasPrefix(eventType, "tool.call.") {
+		return gact.Part{}, false
+	}
+	switch {
+	case strings.HasPrefix(eventType, "hook.invocation."):
+		return gact.Part{}, false
+	case strings.HasPrefix(eventType, "llm.request."):
+		return gact.Part{}, false
+	case strings.HasPrefix(eventType, "turn.") && status != "failed":
+		return gact.Part{}, false
+	case eventType == "blueprint.delegation.parent_resumed":
+		return gact.Part{}, false
+	case strings.HasPrefix(eventType, "blueprint.delegation."):
+		return gact.Part{
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     summary,
+			Metadata: metadata,
+		}, true
+	case strings.HasPrefix(eventType, "agent.invocation."):
+		return gact.Part{
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     summary,
+			Metadata: metadata,
+		}, true
+	case status == "failed" || status == "error" || strings.Contains(eventType, ".failed") || strings.Contains(eventType, ".degraded"):
+		return gact.Part{
+			Type:        gact.PartTypeError,
+			Code:        eventType,
+			Message:     summary,
+			Recoverable: true,
+			Metadata:    metadata,
+		}, true
+	default:
+		return gact.Part{}, false
+	}
+}
+
+func semanticWorkflowMetadata(payload map[string]any, eventType string) map[string]any {
+	nested := mapValue(payload["payload"])
+	actor := mapValue(payload["actor"])
+	subject := mapValue(payload["subject"])
+	blueprint := mapValue(payload["blueprint"])
+	status := firstNonEmpty(stringValue(payload["status"]), "observed")
+	agent := firstNonEmpty(
+		stringValue(nested["agent_id"]),
+		stringValue(nested["child_expert"]),
+		stringValue(actor["agent_id"]),
+		stringValue(actor["agent"]),
+		stringValue(actor["tool"]),
+		stringValue(blueprint["child_expert"]),
+		stringValue(subject["agent_id"]),
+		stringValue(subject["agent"]),
+	)
+	parent := firstNonEmpty(
+		stringValue(nested["parent_id"]),
+		stringValue(nested["parent_expert"]),
+		stringValue(blueprint["parent_expert"]),
+		stringValue(subject["parent_id"]),
+	)
+	if parent == agent {
+		parent = ""
+	}
+	md := map[string]any{
+		"agent_id":  agent,
+		"parent_id": parent,
+		"status":    status,
+		"stage": firstNonEmpty(
+			stringValue(nested["stage"]),
+			strings.TrimPrefix(eventType, "blueprint.delegation."),
+			eventType,
+		),
+		"summary":        semanticUserSummary(payload, eventType),
+		"output_summary": semanticUserSummary(payload, eventType),
+	}
+	if duration, ok := floatValue(nested["duration_ms"]); ok {
+		md["duration_ms"] = duration
+	} else if duration, ok := floatValue(payload["duration_ms"]); ok {
+		md["duration_ms"] = duration
+	}
+	if agent == "" {
+		md["agent_id"] = firstNonEmpty(eventType, "workflow")
+	}
+	return md
+}
+
+func semanticUserSummary(payload map[string]any, eventType string) string {
+	summary := strings.TrimSpace(stringValue(payload["summary"]))
+	nested := mapValue(payload["payload"])
+	if summary == "" {
+		summary = strings.TrimSpace(stringValue(nested["summary"]))
+	}
+	if summary == "" {
+		summary = humanizeSemanticEventType(eventType)
+	}
+	summary = stripSemanticControlContracts(summary)
+	if summary == "" {
+		summary = humanizeSemanticEventType(eventType)
+	}
+	return summary
+}
+
+func humanizeSemanticEventType(eventType string) string {
+	text := strings.TrimSpace(eventType)
+	text = strings.TrimPrefix(text, "blueprint.")
+	text = strings.TrimPrefix(text, "agent.")
+	text = strings.ReplaceAll(text, ".", " ")
+	text = strings.ReplaceAll(text, "_", " ")
+	return strings.TrimSpace(text)
+}
+
+func stripSemanticControlContracts(text string) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	contractMarkers := []string{
+		"NEXT_EXPERT:",
+		"NEXT_ACTION:",
+		"DO_NOT_DELEGATE",
+		"DO_NOT_FINALIZE",
+		"continuation_contract=",
+	}
+	for _, marker := range contractMarkers {
+		if idx := strings.Index(text, marker); idx >= 0 {
+			text = strings.TrimSpace(text[:idx])
+		}
+	}
+	return truncateString(text, 320)
+}
+
+func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
+	if e.ID != "" {
+		return "semantic_event_" + stableIDFragment(e.ID)
+	}
+	if pl := eventPayload(e); stringValue(pl["event_id"]) != "" {
+		return "semantic_event_" + stableIDFragment(stringValue(pl["event_id"]))
+	}
+	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+stringValue(e.Payload["occurred_at"]))
+}
+
+func eventPayload(e client.SSEEvent) map[string]any {
+	if pl, ok := e.Payload["payload"].(map[string]any); ok && len(pl) > 0 {
+		return pl
+	}
+	return e.Payload
+}
+
+func optionalBoolValue(v any) (bool, bool) {
+	switch b := v.(type) {
+	case bool:
+		return b, true
+	case string:
+		b = strings.TrimSpace(strings.ToLower(b))
+		switch b {
+		case "true", "ok", "success", "completed", "complete", "done":
+			return true, true
+		case "false", "error", "failed", "failure":
+			return false, true
+		}
+		return false, false
+	default:
+		return false, false
+	}
+}
+
+func stableIDFragment(s string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(s))
+	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 func (a *App) applyPartDelta(e client.SSEEvent) {
@@ -6890,11 +8821,33 @@ func (a *App) applyPermissionResolved(e client.SSEEvent) {
 		return
 	}
 	id, _ := pl["permission_id"].(string)
+	a.removePendingPermission(id)
+}
+
+func (a *App) removePendingPermission(id string) {
+	if id == "" {
+		return
+	}
 	for i, p := range a.pendingPermissions {
 		if p.ID == id {
 			a.pendingPermissions = append(a.pendingPermissions[:i], a.pendingPermissions[i+1:]...)
 			return
 		}
+	}
+}
+
+func permissionActionLabel(action gact.PermissionAction) string {
+	switch action {
+	case gact.PermAllow:
+		return "allow once"
+	case gact.PermDeny:
+		return "deny"
+	case gact.PermAllowSession:
+		return "allow session"
+	case gact.PermAllowWorkspace:
+		return "allow workspace"
+	default:
+		return string(action)
 	}
 }
 
@@ -6923,7 +8876,7 @@ func (a *App) View() tea.View {
 	v.BackgroundColor = a.Theme.Bg
 	v.ForegroundColor = a.Theme.Fg
 	if a.MouseEnabled {
-		v.MouseMode = tea.MouseModeCellMotion
+		v.MouseMode = tea.MouseModeAllMotion
 	}
 	// T1: reflect the active session's title in the terminal window
 	// title so tmux / alacritty / kitty / iterm tabs show what the
@@ -6987,7 +8940,7 @@ func (a *App) viewConnecting() string {
 	a.registerScreenSurfaceHit("connecting:retry", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
 		app.connectRetryAttempts = 0
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
@@ -7060,7 +9013,7 @@ func (a *App) viewIntro() string {
 	t := a.Theme
 	a.registerScreenSurfaceHit("intro:continue", func(app *App) tea.Cmd {
 		app.stage = StageConnecting
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
 	// terminal has room, render the embedded grc.iit.edu logo. If
@@ -7137,7 +9090,7 @@ func (a *App) viewError() string {
 		Height(a.height).
 		Foreground(t.Fg).
 		Background(t.Bg).
-		Render(overlay(blankScreen(a.width, a.height), modal, a.width, a.height))
+		Render(overlay(blankScreen(a.width, a.height, t.Bg), modal, a.width, a.height))
 }
 
 func (a *App) viewErrorModal() string {
@@ -7167,7 +9120,7 @@ func (a *App) viewErrorModal() string {
 			action: func(app *App) tea.Cmd {
 				app.stage = StageConnecting
 				app.connectRetryAttempts = 0
-				return connectCmd(app.c)
+				return app.connectCmd()
 			},
 		},
 		{
@@ -7191,11 +9144,11 @@ func (a *App) viewErrorModal() string {
 	return modal
 }
 
-func blankScreen(width int, height int) string {
+func blankScreen(width int, height int, bg color.Color) string {
 	if width < 1 || height < 1 {
 		return ""
 	}
-	line := strings.Repeat(" ", width)
+	line := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
 	lines := make([]string, height)
 	for i := range lines {
 		lines[i] = line
@@ -7272,6 +9225,9 @@ func (a *App) viewMain() string {
 	if a.agentBlueprintManageOpen {
 		base = overlay(base, a.viewAgentBlueprintManage(), a.width, a.height)
 	}
+	if a.expertPackInstallOpen {
+		base = overlay(base, a.viewExpertPackInstall(), a.width, a.height)
+	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
 	}
@@ -7301,7 +9257,11 @@ func (a *App) viewMain() string {
 // so other layout code (e.g. sidebar sizing for LLL5) can pick the
 // same convH renderBody uses internally. Always returns ≥1.
 func (a *App) conversationPaneHeight(bodyH int) int {
-	lineCount := strings.Count(a.input.Value(), "\n") + 1
+	return a.conversationPaneHeightForWidth(bodyH, a.estimatedComposerTextWidth())
+}
+
+func (a *App) conversationPaneHeightForWidth(bodyH, textWidth int) int {
+	lineCount := visualLineCount(a.input.Value(), textWidth)
 	inputH := 3
 	if lineCount > 1 {
 		inputH = lineCount + 2
@@ -7324,6 +9284,55 @@ func (a *App) conversationPaneHeight(bodyH int) int {
 	return convH
 }
 
+func (a *App) estimatedComposerTextWidth() int {
+	if a.width <= 0 {
+		return 80
+	}
+	sidebarW := 30
+	if sidebarW > a.width/3 {
+		sidebarW = a.width / 3
+	}
+	rightSidebarW := a.rightSidebarWidth(sidebarW)
+	bodyW := a.width - sidebarW - rightSidebarW
+	if bodyW < 20 {
+		bodyW = 20
+	}
+	return a.composerTextWidthForBody(bodyW)
+}
+
+func (a *App) composerTextWidthForBody(bodyWidth int) int {
+	textW := bodyWidth - 4
+	if a.MouseEnabled {
+		textW -= a.inputCommandChipWidth()
+	}
+	if textW < 8 {
+		textW = 8
+	}
+	return textW
+}
+
+func visualLineCount(text string, width int) int {
+	if width < 1 {
+		width = 80
+	}
+	if text == "" {
+		return 1
+	}
+	total := 0
+	for _, line := range strings.Split(text, "\n") {
+		w := lipgloss.Width(line)
+		if w <= 0 {
+			total++
+			continue
+		}
+		total += (w + width - 1) / width
+	}
+	if total < 1 {
+		return 1
+	}
+	return total
+}
+
 func (a *App) viewMainBase() string {
 	sidebarW, bodyH, convH := a.mainPaneGeometry()
 	rightSidebarW := a.rightSidebarWidth(sidebarW)
@@ -7332,21 +9341,28 @@ func (a *App) viewMainBase() string {
 		bodyW = 20
 	}
 
-	header := a.renderHeader()
-	footer := a.renderFooter()
-
 	// LLL5: align the sidebar's bottom border with the conversation
 	// pane's bottom border. Previously the sidebar took the full bodyH
 	// (which includes the input box + transient hint row), so its
 	// bottom corner sat 3+ rows below the conversation pane's corner —
 	// the seam between sidebar `╯` and input `╭` looked broken.
-	// Compute the same convH that renderBody uses, give the sidebar
-	// exactly that, and let JoinHorizontal pad blank rows below it.
+	// Compute the same convH that renderBody uses for the left sidebar.
+	// The optional right sidebar spans bodyH so its hit target owns the
+	// full column beside both the transcript and composer.
 	sidebar := a.renderSidebar(sidebarW, convH)
+	sidebar = fitLinesWithBackground(sidebar, convH, a.Theme.Bg)
+
+	prevBodyOffset := a.bodyHitOffsetX
+	a.bodyHitOffsetX = renderedBlockWidth(sidebar)
 	body := a.renderBody(bodyW, bodyH)
+	body = fitLinesWithBackground(body, bodyH, a.Theme.Bg)
+	a.bodyHitOffsetX = prevBodyOffset
+
 	rightSidebar := ""
 	if rightSidebarW > 0 {
-		rightSidebar = a.renderRightSidebar(rightSidebarW, convH, sidebarW+bodyW)
+		rightOffsetX := renderedBlockWidth(sidebar) + renderedBlockWidth(body)
+		rightSidebar = a.renderRightSidebar(rightSidebarW, bodyH, rightOffsetX)
+		rightSidebar = fitLinesWithBackground(rightSidebar, bodyH, a.Theme.Bg)
 	}
 
 	// CCCCC1: force exact row counts on both stacks. lipgloss's
@@ -7354,17 +9370,13 @@ func (a *App) viewMainBase() string {
 	// content is shorter the pane stays short and the border `╰╯`
 	// floats up. fitLines guarantees both stacks span the rows the
 	// horizontal layout expects.
-	sidebar = fitLines(sidebar, convH)
-	body = fitLines(body, bodyH)
-	if rightSidebarW > 0 {
-		rightSidebar = fitLines(rightSidebar, convH)
-	}
-
 	rowParts := []string{sidebar, body}
 	if rightSidebarW > 0 {
 		rowParts = append(rowParts, rightSidebar)
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, rowParts...)
+	header := a.renderHeaderForWidth(a.width)
+	footer := a.renderFooter()
 	full := lipgloss.JoinVertical(lipgloss.Left, header, row, footer)
 	// Final belt-and-braces clip — if any subpane still overflows
 	// (e.g. a stray soft-wrap from an ultra-wide paste) we'd rather
@@ -7383,7 +9395,12 @@ func (a *App) mainPaneGeometry() (sidebarW int, bodyH int, convH int) {
 	if sidebarW > a.width/3 {
 		sidebarW = a.width / 3
 	}
-	convH = a.conversationPaneHeight(bodyH)
+	rightSidebarW := a.rightSidebarWidth(sidebarW)
+	bodyW := a.width - sidebarW - rightSidebarW
+	if bodyW < 20 {
+		bodyW = 20
+	}
+	convH = a.conversationPaneHeightForWidth(bodyH, a.composerTextWidthForBody(bodyW))
 	return sidebarW, bodyH, convH
 }
 
@@ -7405,19 +9422,26 @@ func (a *App) rightSidebarWidth(leftSidebarW int) int {
 }
 
 func (a *App) renderHeader() string {
+	return a.renderHeaderForWidth(a.width)
+}
+
+func (a *App) renderHeaderForWidth(width int) string {
 	t := a.Theme
 	// Required parts (badge + connection label + SSE health dot) always render.
 	// Optional parts (workspace + session + status) are dropped when
 	// there's no room.
 	actions := a.headerActions()
 	actionBar := a.renderHeaderActionBar(actions)
-	actionW := lipgloss.Width(actionBar)
+	actionW := lipgloss.Width(ansi.Strip(actionBar))
 	badge := t.HeaderTitle.Render(" GACT ")
 	dot := t.Header.Render(" " + a.sseHealthDot() + " ")
 	backendLabel := a.headerBackendLabel()
 	backend := t.Header.Render(backendLabel)
 	required := lipgloss.JoinHorizontal(lipgloss.Top, badge, dot, backend)
-	avail := a.width - lipgloss.Width(required) - actionW
+	if width < 1 {
+		width = a.width
+	}
+	avail := width - lipgloss.Width(required) - actionW
 
 	optional := []headerChip{}
 	if workspaceName := a.headerWorkspaceLabel(); workspaceName != "" {
@@ -7537,14 +9561,14 @@ func (a *App) renderHeader() string {
 	}
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-	pad := a.width - lipgloss.Width(line) - actionW
+	pad := width - lipgloss.Width(line) - actionW
 	if pad < 0 {
 		pad = 0
 	}
 	bg := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", pad))
 	header := line + bg + actionBar
 	a.registerHeaderChipHits(rendered, hits)
-	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions)
+	a.registerHeaderActionHits(lipgloss.Width(line)+pad, actions, actionW)
 	return header
 }
 
@@ -7582,7 +9606,7 @@ func (a *App) headerActions() []headerAction {
 		},
 		{
 			id:    "quit",
-			label: "×",
+			label: "x",
 			action: func(app *App) tea.Cmd {
 				app.openQuitConfirm()
 				return nil
@@ -7599,23 +9623,27 @@ func (a *App) renderHeaderActionBar(actions []headerAction) string {
 	for _, action := range actions {
 		cells = append(cells, a.renderHeaderActionCell(action.label))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, " "))
+	spacer := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Render(" ")
+	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(cells, spacer))
 }
 
 func (a *App) renderHeaderActionCell(label string) string {
-	pad := 1
-	if label == "×" {
-		pad = 2
+	labelW := lipgloss.Width(label)
+	width := lipgloss.Width(label) + 2
+	if label == "x" {
+		width = 5
 	}
+	leftPad, rightPad := centeredPadding(labelW, width)
 	return lipgloss.NewStyle().
 		Foreground(a.Theme.Bg).
 		Background(a.Theme.Primary).
 		Bold(true).
-		Padding(0, pad).
+		PaddingLeft(leftPad).
+		PaddingRight(rightPad).
 		Render(label)
 }
 
-func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
+func (a *App) registerHeaderActionHits(startCol int, actions []headerAction, actionBarWidth int) {
 	if a.height <= 0 || len(actions) == 0 {
 		return
 	}
@@ -7623,7 +9651,10 @@ func (a *App) registerHeaderActionHits(startCol int, actions []headerAction) {
 	for i, action := range actions {
 		cell := ansi.Strip(a.renderHeaderActionCell(action.label))
 		w := lipgloss.Width(cell)
-		a.registerScreenTextSpanHit("header:"+action.id, col, 0, cell, 0, cell, action.action)
+		if i == len(actions)-1 && actionBarWidth > col-startCol {
+			w = actionBarWidth - (col - startCol)
+		}
+		a.registerScreenHit("header:"+action.id, mouseRect{x: col, y: 0, w: w, h: 1}, action.action)
 		col += w
 		if i < len(actions)-1 {
 			col++
@@ -7649,10 +9680,6 @@ func (a *App) registerHeaderChipHits(rendered []string, hits []headerChip) {
 }
 
 func (a *App) openWorkspaceSwitch() {
-	if len(a.workspaces) == 0 {
-		a.transientHint = "no workspaces available"
-		return
-	}
 	a.workspaceSwitchOpen = true
 	a.workspaceSwitchSel = 0
 	for i, w := range a.workspaces {
@@ -7708,16 +9735,10 @@ func (a *App) headerWorkspaceLabel() string {
 	}
 	for _, w := range a.workspaces {
 		if w.ID == a.wsID {
-			if name := strings.TrimSpace(w.Name); name != "" {
-				return name
-			}
-			return w.ID
+			return workspaceHeaderLabelPlain(w)
 		}
 	}
-	if name := strings.TrimSpace(a.workspaces[0].Name); name != "" {
-		return name
-	}
-	return a.workspaces[0].ID
+	return workspaceHeaderLabelPlain(a.workspaces[0])
 }
 
 func (a *App) headerModelLabel(s gact.Session) string {
@@ -7876,15 +9897,20 @@ func (a *App) renderFooter() string {
 	if hintBudget < 1 {
 		hintBudget = 1
 	}
-	clusters := a.footerHintClusters(mk, hintBudget)
-	parts := make([]string, 0, len(clusters))
-	for _, c := range clusters {
-		if len(c) == 0 {
-			continue
+	hintLine := ""
+	if dragStatus := a.activeCopyDragStatus(); dragStatus != "" {
+		hintLine = t.HintKey.Render("drag") + t.HintLabel.Render(" "+truncate(dragStatus, hintBudget))
+	} else {
+		clusters := a.footerHintClusters(mk, hintBudget)
+		parts := make([]string, 0, len(clusters))
+		for _, c := range clusters {
+			if len(c) == 0 {
+				continue
+			}
+			parts = append(parts, strings.Join(c, dot))
 		}
-		parts = append(parts, strings.Join(c, dot))
+		hintLine = strings.Join(parts, pipe)
 	}
-	hintLine := strings.Join(parts, pipe)
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(hintLine) - lipgloss.Width(right) - 8
 	if gap < 1 {
 		gap = 1
@@ -7914,7 +9940,7 @@ func (a *App) registerFooterActionHits(rendered string) {
 		return nil
 	})
 	a.registerFooterPlainHit(plain, y, "footer:reconnect", "(reconnecting…)", func(app *App) tea.Cmd {
-		return connectCmd(app.c)
+		return app.connectCmd()
 	})
 	a.registerFooterPlainHit(plain, y, "footer:memory", a.localizer.t(msgFooterMemoryHit, nil), func(app *App) tea.Cmd {
 		if !app.caps.Capabilities.Memory {
@@ -8103,7 +10129,7 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 			},
 		}
 	case FocusBody:
-		return [][]string{
+		variants := [][]string{
 			{
 				mk("↑/↓", a.localizer.t(msgFooterConversationSelect, nil)),
 				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
@@ -8119,14 +10145,14 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
 				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
 				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
-				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+				mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
 			},
 			{
 				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
 				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
 				mk("Y", a.localizer.t(msgFooterConversationCopyFull, nil)),
 				mk("R", a.localizer.t(msgFooterConversationRetry, nil)),
-				mk("d", a.localizer.t(msgFooterConversationDelete, nil)),
+				mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
 			},
 			{
 				mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
@@ -8143,8 +10169,39 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
 			},
 		}
+		if a.MouseEnabled {
+			nativeSelectLabel := a.localizer.t(msgFooterConversationNativeSelect, nil)
+			dragCopy := mk("drag", a.localizer.t(msgFooterConversationDragCopy, nil))
+			nativeSelect := mk("Alt+drag", nativeSelectLabel)
+			insertPositions := []int{4, 4, 3, 2, 1, 2}
+			for i := range variants {
+				insertAt := len(variants[i])
+				if i < len(insertPositions) && insertPositions[i] < insertAt {
+					insertAt = insertPositions[i]
+				}
+				variants[i] = append(variants[i], "")
+				copy(variants[i][insertAt+1:], variants[i][insertAt:])
+				variants[i][insertAt] = dragCopy
+			}
+			variants = append([][]string{
+				append([]string{nativeSelect}, variants[0]...),
+				{
+					nativeSelect,
+					mk("Enter/Ctrl+E", a.localizer.t(msgFooterConversationDetails, nil)),
+					mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+					dragCopy,
+					mk("G", a.localizer.t(msgFooterConversationBottom, nil)),
+				},
+				{
+					nativeSelect,
+					mk("y", a.localizer.t(msgFooterConversationCopy, nil)),
+					dragCopy,
+				},
+			}, variants...)
+		}
+		return variants
 	case FocusInput:
-		return [][]string{
+		variants := [][]string{
 			{
 				mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
 				mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
@@ -8155,6 +10212,43 @@ func (a *App) footerContextHintVariants(mk func(string, string) string) [][]stri
 				mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
 			},
 		}
+		if a.MouseEnabled {
+			nativeSelectLabel := a.localizer.t(msgFooterConversationNativeSelect, nil)
+			dragCopy := mk("drag", a.localizer.t(msgFooterConversationDragCopy, nil))
+			nativeSelect := mk("Alt+drag", nativeSelectLabel)
+			variants = [][]string{
+				{
+					dragCopy,
+					nativeSelect,
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+					mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+				},
+				{
+					dragCopy,
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+					mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+				},
+				{
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+					mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+				},
+				{
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+					mk("\\+Enter", a.localizer.t(msgFooterInputNewline, nil)),
+					mk("Ctrl+G", a.localizer.t(msgFooterInputCompose, nil)),
+				},
+				{
+					dragCopy,
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+					mk("Ctrl+G", a.localizer.t(msgFooterInputCompose, nil)),
+				},
+				{
+					dragCopy,
+					mk("Enter", a.localizer.t(msgFooterInputSend, nil)),
+				},
+			}
+		}
+		return variants
 	default:
 		return [][]string{{}}
 	}
@@ -8194,6 +10288,12 @@ func (a *App) footerHintClusters(mk func(string, string) string, available int) 
 				}
 			}
 		}
+		for _, context := range contexts {
+			clusters := [][]string{context, exit}
+			if footerClustersWidth(clusters) <= available {
+				return clusters
+			}
+		}
 		for _, global := range globals {
 			clusters := [][]string{global, exit}
 			if footerClustersWidth(clusters) <= available {
@@ -8208,16 +10308,57 @@ func (a *App) footerHintClusters(mk func(string, string) string, available int) 
 			exit,
 		}
 	}
-	for _, global := range globals {
-		for _, context := range contexts {
-			clusters := [][]string{context, global, exit}
+	if available < 130 {
+		if a.MouseEnabled {
+			for _, context := range contexts {
+				clusters := [][]string{context, exit}
+				if footerClustersWidth(clusters) <= available {
+					return clusters
+				}
+			}
+		}
+		for _, global := range globals {
+			clusters := [][]string{global, exit}
 			if footerClustersWidth(clusters) <= available {
 				return clusters
 			}
 		}
-		clusters := [][]string{global, exit}
+	} else {
+		if a.MouseEnabled {
+			for _, global := range globals {
+				for _, context := range contexts {
+					joined := ansi.Strip(strings.Join(context, " "))
+					if !strings.Contains(joined, "Ctrl+G") {
+						continue
+					}
+					clusters := [][]string{context, global, exit}
+					if footerClustersWidth(clusters) <= available {
+						return clusters
+					}
+				}
+			}
+		}
+		for _, global := range globals {
+			for _, context := range contexts {
+				clusters := [][]string{context, global, exit}
+				if footerClustersWidth(clusters) <= available {
+					return clusters
+				}
+			}
+		}
+	}
+	for _, context := range contexts {
+		clusters := [][]string{context, exit}
 		if footerClustersWidth(clusters) <= available {
 			return clusters
+		}
+	}
+	if available >= 130 {
+		for _, global := range globals {
+			clusters := [][]string{global, exit}
+			if footerClustersWidth(clusters) <= available {
+				return clusters
+			}
 		}
 	}
 	return [][]string{
@@ -8450,6 +10591,14 @@ func (a *App) renderSidebar(width, height int) string {
 			}
 			statusLine := statusIndent + statusStyle.Render(truncate(statusText, statusBudget))
 			rows = append(rows, titleLine, statusLine)
+			if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
+				summaryText := "summary: " + summary
+				a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
+				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
+			}
+			if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+				rows = append(rows, statusIndent+statusStyle.Render(truncate(activation, statusBudget)))
+			}
 			if !a.showChildSessions {
 				if children := a.childSessionCount(s.ID); children > 0 {
 					childWord := "children"
@@ -8470,6 +10619,13 @@ func (a *App) renderSidebar(width, height int) string {
 	for _, module := range a.sidebarDisabledModules() {
 		rows = append(rows, "")
 		rows = append(rows, a.renderDisabledSidebarModule(module, width)...)
+	}
+
+	if a.sidebarHasEnabledModule(sidebarModuleAgents) {
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		rows = append(rows, a.renderAgentHierarchyModuleRows(width, len(rows), 8)...)
 	}
 
 	if a.sidebarHasEnabledModule(sidebarModuleFiles) {
@@ -8596,8 +10752,10 @@ func (a *App) renderRightSidebar(width, height int, offsetX int) string {
 		switch module.Definition.ID {
 		case sidebarModuleContext:
 			rows = append(rows, a.renderRightContextModuleRows(width)...)
+		case sidebarModuleAgents:
+			rows = append(rows, a.renderAgentHierarchyModuleRows(width, len(rows), max(8, height-len(rows)-3))...)
 		case sidebarModuleFiles:
-			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), 8)...)
+			rows = append(rows, a.renderFileViewerModuleRows(width, len(rows), max(8, height-len(rows)-3))...)
 		case sidebarModuleSessions:
 			rows = append(rows, a.renderRightSessionsModuleRows(width)...)
 		default:
@@ -8694,6 +10852,13 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 			status += " · " + humanAgeShort(time.Since(s.UpdatedAt.UTC()))
 		}
 		rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(status, width-8)))
+		if summary := a.sessionSidebarSummaryText(sIdx); summary != "" {
+			a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
+			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
+		}
+		if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(activation, width-8)))
+		}
 	}
 	if endIdx < len(visIdx) {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).
@@ -8765,6 +10930,9 @@ func (a *App) sidebarContextFileMeta(cf gact.ContextFile) string {
 	if lang := strings.TrimSpace(cf.Language); lang != "" {
 		parts = append(parts, lang)
 	}
+	if cf.Uploaded {
+		parts = append(parts, "source: attachment")
+	}
 	if a.selected >= 0 && a.selected < len(a.sessions) {
 		title := strings.TrimSpace(a.sessions[a.selected].Title)
 		if title == "" {
@@ -8822,7 +10990,8 @@ func (a *App) renderBody(width, height int) string {
 	// so renderSidebar can match. Re-derive inputH/hintH from the same
 	// formula here (kept inline so renderBody keeps its single-pass
 	// shape and doesn't traverse the helper twice).
-	msgH := a.conversationPaneHeight(height)
+	inputTextW := a.composerTextWidthForBody(width)
+	msgH := a.conversationPaneHeightForWidth(height, inputTextW)
 	hintH := 0
 	if a.transientHint != "" {
 		hintH = 1
@@ -8865,11 +11034,18 @@ func (a *App) renderBody(width, height int) string {
 	var permActions []permissionBannerAction
 	if len(a.pendingPermissions) > 0 {
 		p := a.pendingPermissions[0]
-		permBanner, permActions = a.renderPermissionBanner(p.Summary, width-4)
+		permBanner, permActions = a.renderPermissionBanner(p, width-4)
 		a.registerPermissionBannerHits(permActions, width)
 	}
 
 	var body string
+	conversationH := msgH - 2 - 1 - 1
+	if permBanner != "" {
+		conversationH--
+	}
+	if conversationH < 1 {
+		conversationH = 1
+	}
 	if a.selected < 0 || a.selected >= len(a.sessions) {
 		// Big, friendly empty state. Same pattern as a real onboarding.
 		callout := lipgloss.NewStyle().
@@ -8940,8 +11116,12 @@ func (a *App) renderBody(width, height int) string {
 		// (the role header would otherwise be empty noise).
 		inlineResults, absorbed := pairToolResults(a.messages)
 		lastModelLabel := ""
+		var prevRendered *gact.Message
 		for i, m := range a.messages {
 			if absorbed[i] {
+				continue
+			}
+			if !shouldRenderConversationMessage(m) {
 				continue
 			}
 			if isModelSwapMarker(m) {
@@ -8960,10 +11140,6 @@ func (a *App) renderBody(width, height int) string {
 				}
 				lastModelLabel = label
 			}
-			var prev *gact.Message
-			if i > 0 {
-				prev = &a.messages[i-1]
-			}
 			// TTTTTTTTT1: pass the selected part ID so the per-block
 			// `▸ ` marker paints on the currently focused part. Only
 			// honoured on the selected message; empty string on every
@@ -8975,8 +11151,8 @@ func (a *App) renderBody(width, height int) string {
 			if len(rows) > 0 {
 				fullLine++
 			}
-			row := t.renderMessageInContextWithResultsSelected(m, prev, width-4, inlineResults[i], selPartID)
-			for _, block := range t.conversationPartHitBlocks(m, prev, width-4, inlineResults[i]) {
+			row := t.renderMessageInContextWithResultsSelected(m, prevRendered, width-4, inlineResults[i], selPartID)
+			for _, block := range t.conversationPartHitBlocks(m, prevRendered, width-4, inlineResults[i]) {
 				block.msgIdx = i
 				block.fullStart += fullLine
 				hitBlocks = append(hitBlocks, block)
@@ -8994,6 +11170,7 @@ func (a *App) renderBody(width, height int) string {
 			}
 			rows = append(rows, row)
 			fullLine += renderedStringLineCount(row)
+			prevRendered = &a.messages[i]
 		}
 		// Pending-turn indicator: when the session is running but the latest
 		// message hasn't produced any visible parts yet (e.g. user just
@@ -9007,19 +11184,6 @@ func (a *App) renderBody(width, height int) string {
 			rows = append(rows, "", thinkLine)
 		}
 		body = strings.Join(rows, "\n")
-		// The pane's inner content height is msgH-2 (two border rows).
-		// We burn 1 row on headerRow, 1 on the blank separator, and
-		// optionally 1 more if the permission banner is present. The
-		// remaining rows are all the conversation body can occupy —
-		// anything beyond that overflows the pane and bleeds into the
-		// footer row below.
-		conversationH := msgH - 2 - 1 - 1
-		if permBanner != "" {
-			conversationH--
-		}
-		if conversationH < 1 {
-			conversationH = 1
-		}
 		// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
 		// flagged pendingPartScroll, find the ▸ marker in the full
 		// body and bump scrollOffset so it falls within the viewport
@@ -9034,6 +11198,8 @@ func (a *App) renderBody(width, height int) string {
 		a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
 		body = a.scrollClip(body, conversationH, t)
 	}
+	a.setConversationCopySnapshot(body, conversationH, width, permBanner != "")
+	body = a.renderConversationCopyDragHighlight(body)
 
 	pieces := []string{headerRow}
 	if permBanner != "" {
@@ -9047,17 +11213,15 @@ func (a *App) renderBody(width, height int) string {
 	// the input box stayed pinned to bodyH-inputH, making the bottom
 	// of the layout look broken whenever the conversation grew past
 	// the original short content.
-	msgPane = fitLines(msgPane, msgH)
+	msgPane = fitLinesWithBackground(msgPane, msgH, t.Bg)
 
 	// Input — bubbles/textarea handles cursor + multi-line + paste itself.
-	inputTextW := width - 4
-	if a.MouseEnabled {
-		inputTextW -= mouseCommandButtonWidth
-	}
-	if inputTextW < 8 {
-		inputTextW = 8
-	}
 	a.input.SetWidth(inputTextW)
+	placeholderWidth := inputTextW - 2
+	if a.MouseEnabled {
+		placeholderWidth = minInt(placeholderWidth, 56)
+	}
+	a.input.Placeholder = a.localizedInputPlaceholderForWidth(placeholderWidth)
 	inputInnerH := inputH - 2
 	if a.nextTurnAgentID != "" && inputInnerH > 1 {
 		inputInnerH--
@@ -9084,7 +11248,7 @@ func (a *App) renderBody(width, height int) string {
 		a.registerInputCommandHit(msgH, hintH)
 		a.registerInputTextareaCursorHits(msgH, hintH)
 	}
-	inputPane := fitLines(inputStyle.Render(inputView), inputH)
+	inputPane := fitBorderedLinesWithBackground(inputStyle.Render(inputView), inputH, t.Bg)
 
 	// Surface a transient hint (e.g. config-reload result) above the
 	// input so the user sees the outcome without losing their place.
@@ -9133,6 +11297,24 @@ func (a *App) insertPastePlaceholder(content string, lineCount int) {
 	a.input.SetValue(cur + placeholder + " ")
 }
 
+func normalizePasteNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	return strings.ReplaceAll(content, "\r", "\n")
+}
+
+func compactSingleLinePaste(content string) string {
+	return strings.Join(strings.Fields(content), " ")
+}
+
+func compactTokenPaste(content string) string {
+	return strings.Join(strings.Fields(content), "")
+}
+
+func compactPathLikePaste(content string) string {
+	text := strings.TrimSpace(normalizePasteNewlines(content))
+	return strings.ReplaceAll(text, "\n", "")
+}
+
 func (a *App) recordPasteKey(k tea.KeyPressMsg) {
 	switch k.String() {
 	case "enter":
@@ -9147,11 +11329,12 @@ func (a *App) recordPasteKey(k tea.KeyPressMsg) {
 }
 
 func (a *App) compactBufferedPaste() {
-	content := a.pasteBuffer
+	rawContent := a.pasteBuffer
+	content := normalizePasteNewlines(rawContent)
 	if strings.TrimSpace(content) == "" {
 		return
 	}
-	lineCount := strings.Count(content, "\n") + 1
+	lineCount := visualLineCount(content, a.estimatedComposerTextWidth())
 	threshold := a.Theme.PasteCompressThreshold
 	if threshold <= 0 {
 		threshold = 3
@@ -9160,10 +11343,24 @@ func (a *App) compactBufferedPaste() {
 		return
 	}
 	raw := a.input.Value()
-	if strings.HasSuffix(raw, content) {
-		a.input.SetValue(strings.TrimSuffix(raw, content))
-	} else if idx := strings.LastIndex(raw, content); idx >= 0 {
-		a.input.SetValue(raw[:idx] + raw[idx+len(content):])
+	for _, candidate := range []string{
+		rawContent,
+		content,
+		strings.ReplaceAll(rawContent, "\r", "\n"),
+	} {
+		if candidate == "" {
+			continue
+		}
+		if strings.HasSuffix(raw, candidate) {
+			a.input.SetValue(strings.TrimSuffix(raw, candidate))
+			a.insertPastePlaceholder(content, lineCount)
+			return
+		}
+		if idx := strings.LastIndex(raw, candidate); idx >= 0 {
+			a.input.SetValue(raw[:idx] + raw[idx+len(candidate):])
+			a.insertPastePlaceholder(content, lineCount)
+			return
+		}
 	}
 	a.insertPastePlaceholder(content, lineCount)
 }
@@ -9353,6 +11550,10 @@ func clampLines(s string, max int) string {
 // JoinHorizontal to fill the gap with neighbour content. Forcing the
 // row count keeps borders from drifting between sidebar and body.
 func fitLines(s string, n int) string {
+	return fitLinesWithBackground(s, n, nil)
+}
+
+func fitLinesWithBackground(s string, n int, bg color.Color) string {
 	if n < 1 {
 		return ""
 	}
@@ -9360,10 +11561,43 @@ func fitLines(s string, n int) string {
 	if len(lines) > n {
 		lines = lines[:n]
 	}
+	padLine := ""
+	if bg != nil {
+		width := 0
+		for _, line := range lines {
+			if w := lipgloss.Width(line); w > width {
+				width = w
+			}
+		}
+		if width > 0 {
+			padLine = lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
+		}
+	}
 	for len(lines) < n {
-		lines = append(lines, "")
+		lines = append(lines, padLine)
 	}
 	return strings.Join(lines, "\n")
+}
+
+func fitBorderedLinesWithBackground(s string, n int, bg color.Color) string {
+	if n < 1 {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) > n && n >= 2 {
+		lines = append(append([]string{}, lines[:n-1]...), lines[len(lines)-1])
+	}
+	return fitLinesWithBackground(strings.Join(lines, "\n"), n, bg)
+}
+
+func renderedBlockWidth(s string) int {
+	width := 0
+	for _, line := range strings.Split(s, "\n") {
+		if w := lipgloss.Width(line); w > width {
+			width = w
+		}
+	}
+	return width
 }
 
 // VVVVVVVVV1: adjustScrollForSelectedPart finds the ▸ marker in the
@@ -9651,7 +11885,7 @@ func (a *App) registerConversationContentWheelHit(id string, row int, col int, w
 }
 
 func (a *App) conversationContentRect(row int, col int, width int, height int, bodyWidth int, hasPermissionBanner bool) mouseRect {
-	sidebarW, _, _ := a.mainPaneGeometry()
+	bodyX := a.bodyPaneOffsetX()
 	contentW := bodyWidth - 4
 	if contentW < 1 {
 		contentW = 1
@@ -9679,7 +11913,7 @@ func (a *App) conversationContentRect(row int, col int, width int, height int, b
 		bodyTop++
 	}
 	return mouseRect{
-		x: sidebarW + 2 + col,
+		x: bodyX + 2 + col,
 		y: bodyTop + row,
 		w: width,
 		h: height,
@@ -9696,13 +11930,30 @@ func (a *App) registerConversationFocusSurface(conversationHeight int, bodyWidth
 }
 
 func (a *App) conversationFocusSurfaceRect(conversationHeight int, bodyWidth int) mouseRect {
-	sidebarW, _, _ := a.mainPaneGeometry()
 	return mouseRect{
-		x: sidebarW,
+		x: a.bodyPaneOffsetX(),
 		y: 1,
-		w: bodyWidth,
+		w: renderedPaneOuterWidth(bodyWidth),
 		h: conversationHeight,
 	}
+}
+
+func (a *App) bodyPaneOffsetX() int {
+	if a.bodyHitOffsetX > 0 {
+		return a.bodyHitOffsetX
+	}
+	sidebarW, _, _ := a.mainPaneGeometry()
+	return sidebarW
+}
+
+func renderedPaneOuterWidth(requested int) int {
+	if requested > 2 {
+		return requested - 2
+	}
+	if requested < 1 {
+		return 1
+	}
+	return requested
 }
 
 func (a *App) registerConversationWheelHit(viewportRows int, bodyWidth int, hasPermissionBanner bool) {
@@ -9741,7 +11992,7 @@ func (a *App) viewPalette() string {
 		return a.viewPaletteSearch(w)
 	}
 
-	matches := a.paletteMatches()
+	matches := a.paletteVisibleMatches()
 	buttons := a.paletteCloseButtons()
 	filterPrefix := a.localizer.t(msgPaletteFilter, nil) + " "
 	filterCursor := a.paletteCursorValue()
@@ -9750,44 +12001,60 @@ func (a *App) viewPalette() string {
 		lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgPaletteSearchHint, nil)),
 		"",
 	}
+	groupOverview := a.paletteShowingGroupOverview()
+	categoryRow := -1
+	categoryTabs := []menuTab(nil)
+	if strings.TrimSpace(a.paletteFilter) == "" && !groupOverview {
+		categoryTabs = a.paletteGroupTabs()
+		if len(categoryTabs) > 1 {
+			categoryRow = len(rows)
+			rows = append(rows, a.renderModalTabsWithLayout(categoryTabs, 1, 1), "")
+		}
+		if strings.TrimSpace(a.paletteGroup) != "" {
+			title := a.paletteGroup + " area"
+			desc := paletteCommandGroupDescription(a.paletteGroup)
+			if desc != "" {
+				title += " - " + desc
+			}
+			rows = append(rows, t.HintLabel.Render(title), "")
+		}
+	}
+	if groupOverview {
+		rows = append(rows, t.HintLabel.Render("Choose a command area, or type to search every command."))
+	}
 	if len(matches) == 0 {
 		rows = append(rows, t.HintLabel.Render(a.localizer.t(msgPaletteNoMatches, nil)))
 	}
 	listStartRow := len(rows)
 	itemBudget := a.modalListItemBudget(6, 1, 16)
-	win := selectedItemWindow(len(matches), a.paletteSel, itemBudget)
-	listItems := make([]modalListItem, 0, win.end-win.start)
-	var list modalListRender
-	for i := win.start; i < win.end; i++ {
-		c := matches[i]
-		idx := i
-		listItems = append(listItems, modalListItem{
-			id:       fmt.Sprintf("palette:command:%d", idx),
-			title:    c.ID,
-			meta:     paletteCommandSubtitle(c),
-			status:   a.paletteCurrentValue(c.ID),
-			selected: i == a.paletteSel,
-			action: func(app *App) tea.Cmd {
-				matches := app.paletteMatches()
-				if idx < 0 || idx >= len(matches) {
-					return nil
-				}
-				app.paletteSel = idx
-				_, cmd := app.handlePaletteKey(keyMsg("enter"))
-				return cmd
-			},
-		})
+	if a.paletteUseCommandGrid() {
+		itemBudget = minInt(itemBudget, 8)
 	}
-	if len(listItems) > 0 {
-		list = a.renderModalList(listItems, modalListOptions{
-			width:            listW,
-			rowBudget:        16,
-			descriptionLines: 0,
-		})
+	itemCount := len(matches)
+	if groupOverview {
+		groups := a.paletteAvailableGroups()
+		itemCount = len(groups)
+		itemBudget *= paletteOverviewColumnCount(listW, len(groups))
+	}
+	win := selectedItemWindow(itemCount, a.paletteSel, itemBudget)
+	list := modalListRender{}
+	if groupOverview {
+		list = a.renderPaletteGroupOverview(win, listW)
+	} else if a.paletteUseCommandGrid() {
+		list = a.renderPaletteCommandGrid(matches, win, listW)
+	} else {
+		list = a.renderPaletteCommandList(matches, win, listW)
+	}
+	if len(list.rows) > 0 {
 		rows = append(rows, list.rows...)
 	}
-	rows = append(rows, "", t.HintLabel.Render(a.localizer.t(msgPaletteRunHint, nil)))
+	footerText := a.paletteFooterHint(matches, groupOverview)
+	if groupOverview {
+		footerText = a.localizer.t(msgPaletteBrowseHint, nil)
+	}
+	rows = append(rows, "", t.HintLabel.Render(footerText))
 
+	bodyRows := a.paletteBodyPageSizeForRows(rows)
 	rendered := a.renderSelectableListModal(selectableListModalOptions{
 		frame: modalFrameOptions{
 			width:   w,
@@ -9798,16 +12065,24 @@ func (a *App) viewPalette() string {
 		list:           list,
 		listStart:      listStartRow,
 		listWidth:      listW,
-		bodyRows:       a.paletteBodyPageSize(),
+		bodyRows:       bodyRows,
 		window:         win,
 		wheelID:        "palette:list:wheel",
 		surfaceWheelID: "palette",
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
-			app.paletteSel = moveSelectionByWheel(app.paletteSel, len(app.paletteMatches()), button)
+			count := len(app.paletteVisibleMatches())
+			if app.paletteShowingGroupOverview() {
+				count = len(app.paletteAvailableGroups())
+			}
+			app.paletteSel = moveSelectionByWheel(app.paletteSel, count, button)
 			return nil
 		},
 		railAction: func(app *App, index int) tea.Cmd {
-			app.paletteSel = clampSelection(index, len(app.paletteMatches()))
+			count := len(app.paletteVisibleMatches())
+			if app.paletteShowingGroupOverview() {
+				count = len(app.paletteAvailableGroups())
+			}
+			app.paletteSel = clampSelection(index, count)
 			return nil
 		},
 	})
@@ -9816,14 +12091,756 @@ func (a *App) viewPalette() string {
 			app.paletteCursor = cursor
 			app.paletteCursorSet = true
 		})
+		if categoryRow >= 0 {
+			a.registerModalTabsWithLayout(rendered.modal, rendered.bodyRow+categoryRow, categoryTabs, 1, 1)
+		}
 	}
 	return rendered.modal
+}
+
+func (a *App) paletteGroupTabs() []menuTab {
+	groups := append([]string{""}, a.paletteAvailableGroups()...)
+	tabs := make([]menuTab, 0, len(groups))
+	for _, group := range groups {
+		group := group
+		label := "All"
+		if group != "" {
+			label = paletteCommandGroupTabLabel(group)
+		}
+		tabs = append(tabs, menuTab{
+			id:     "palette-group-" + paletteGroupID(group),
+			label:  label,
+			active: group == a.paletteGroup,
+			action: func(app *App) tea.Cmd {
+				app.paletteGroup = group
+				app.paletteSel = 0
+				return nil
+			},
+		})
+	}
+	return tabs
+}
+
+func paletteCommandGroupTabLabel(group string) string {
+	switch group {
+	case "Runtime":
+		return "Runtime"
+	case "Prompt Templates":
+		return "Prompts"
+	case "Workflow Commands":
+		return "Workflows"
+	case "Extension Commands":
+		return "Extensions"
+	default:
+		return group
+	}
+}
+
+func (a *App) paletteShowingGroupOverview() bool {
+	return strings.TrimSpace(a.paletteFilter) == "" && a.paletteGroup == "" && len(a.paletteAvailableGroups()) > 1
+}
+
+func (a *App) paletteUseCommandGrid() bool {
+	return strings.TrimSpace(a.paletteFilter) == "" && a.paletteGroup != ""
+}
+
+func paletteGroupID(group string) string {
+	group = strings.ToLower(strings.TrimSpace(group))
+	if group == "" {
+		return "all"
+	}
+	group = strings.NewReplacer(" ", "-", "/", "", "_", "-").Replace(group)
+	return group
+}
+
+func (a *App) renderPaletteGroupOverview(win scrollWindow, width int) modalListRender {
+	groups := a.paletteAvailableGroups()
+	if len(groups) == 0 || win.end <= win.start {
+		return modalListRender{}
+	}
+	matches := a.paletteVisibleMatches()
+	counts := paletteCommandGroupCounts(matches)
+	examples := paletteCommandGroupExamples(matches, 3)
+	t := a.Theme
+	columns := paletteOverviewColumnCount(width, len(groups))
+	gap := 2
+	if columns == 1 {
+		gap = 0
+	}
+	tileW := width
+	if columns > 1 {
+		tileW = (width - gap*(columns-1)) / columns
+	}
+	rows := make([]string, 0, ((win.end-win.start)+columns-1)/columns*(paletteGroupTileHeight+1))
+	hits := make([]modalListHit, 0, win.end-win.start)
+	gapText := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", gap))
+	cellStyle := lipgloss.NewStyle().Background(t.BgSubtle).Width(tileW)
+	emptyCell := make([]string, paletteGroupTileHeight)
+	for i := range emptyCell {
+		emptyCell[i] = ""
+	}
+	for i := win.start; i < win.end; i += columns {
+		rowStart := len(rows)
+		cells := make([][]string, 0, columns)
+		for column := 0; column < columns; column++ {
+			idx := i + column
+			if idx >= win.end {
+				cells = append(cells, emptyCell)
+				continue
+			}
+			group := groups[idx]
+			selected := idx == a.paletteSel
+			cells = append(cells, a.renderPaletteGroupTile(group, counts[group], examples[group], tileW, selected))
+			hits = append(hits, modalListHit{
+				id:     "palette:group:" + paletteGroupID(group),
+				row:    rowStart,
+				col:    column * (tileW + gap),
+				width:  tileW,
+				height: paletteGroupTileHeight,
+				action: func(idx int) uiHitAction {
+					return func(app *App) tea.Cmd {
+						groups := app.paletteAvailableGroups()
+						if idx < 0 || idx >= len(groups) {
+							return nil
+						}
+						app.paletteGroup = groups[idx]
+						app.paletteSel = 0
+						return nil
+					}
+				}(idx),
+			})
+		}
+		for line := 0; line < paletteGroupTileHeight; line++ {
+			renderedCells := make([]string, 0, columns)
+			for column := 0; column < columns; column++ {
+				renderedCells = append(renderedCells, cellStyle.Render(cells[column][line]))
+			}
+			rows = append(rows, strings.Join(renderedCells, gapText))
+		}
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+const paletteGroupTileHeight = 4
+
+func paletteOverviewColumnCount(width int, groupCount int) int {
+	if groupCount <= 0 {
+		return 1
+	}
+	columns := 2
+	if width >= 76 && groupCount >= 5 {
+		columns = 3
+	}
+	if width < 72 {
+		columns = 1
+	}
+	if columns > groupCount {
+		columns = groupCount
+	}
+	gap := 2
+	if columns == 1 {
+		gap = 0
+	}
+	for columns > 1 {
+		tileW := (width - gap*(columns-1)) / columns
+		if tileW >= 24 {
+			break
+		}
+		columns--
+		if columns == 1 {
+			gap = 0
+		}
+	}
+	if columns < 1 {
+		return 1
+	}
+	return columns
+}
+
+func (a *App) renderPaletteGroupTile(group string, count int, examples []string, width int, selected bool) []string {
+	t := a.Theme
+	titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	bodyStyle := t.HintLabel
+	if selected {
+		titleStyle = titleStyle.Foreground(t.Secondary)
+		borderStyle = borderStyle.Foreground(t.Secondary).Bold(true)
+	}
+	titleText := titleStyle.Render(group)
+	if count > 0 {
+		titleText += " " + lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(fmt.Sprintf("[%d]", count))
+	}
+	if selected {
+		titleText = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ") + titleText
+	}
+	descText := bodyStyle.Italic(true).Render(paletteCommandGroupDescription(group))
+	exampleText := paletteGroupExampleLine(examples, maxInt(0, width-2))
+	if exampleText == "" {
+		exampleText = "Enter to browse"
+	}
+	exampleText = lipgloss.NewStyle().Foreground(t.FgMuted).Render(exampleText)
+	innerW := width - 4
+	if innerW < 1 {
+		innerW = 1
+	}
+	borderW := width - 2
+	if borderW < 1 {
+		borderW = 1
+	}
+	lines := []string{
+		paletteTitledBorderLine(borderStyle, titleText, borderW),
+		borderStyle.Render("│ ") + paletteTileFit(descText, innerW) + borderStyle.Render(" │"),
+		borderStyle.Render("│ ") + paletteTileFit(exampleText, innerW) + borderStyle.Render(" │"),
+		borderStyle.Render("└" + strings.Repeat("─", borderW) + "┘"),
+	}
+	if selected {
+		selectedStyle := lipgloss.NewStyle().Background(t.Bg).Width(width)
+		for i, line := range lines {
+			lines[i] = selectedStyle.Render(line)
+		}
+	}
+	return lines
+}
+
+func paletteTitledBorderLine(borderStyle lipgloss.Style, title string, width int) string {
+	if width < 1 {
+		width = 1
+	}
+	title = truncate(title, maxInt(0, width-2))
+	if lipgloss.Width(title) > 0 {
+		title = " " + title + " "
+	}
+	remaining := width - lipgloss.Width(title) - 1
+	if remaining < 0 {
+		remaining = 0
+	}
+	return borderStyle.Render("┌─") + title + borderStyle.Render(strings.Repeat("─", remaining)+"┐")
+}
+
+func paletteTileFit(s string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	s = truncate(s, width)
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-w)
+}
+
+func paletteGroupExampleLine(examples []string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	out := append([]string(nil), examples...)
+	for len(out) > 0 {
+		line := strings.Join(out, "  ")
+		if lipgloss.Width(line) <= maxWidth {
+			return line
+		}
+		out = out[:len(out)-1]
+	}
+	return ""
+}
+
+func (a *App) renderPaletteCommandGrid(matches []gact.Command, win scrollWindow, width int) modalListRender {
+	if len(matches) == 0 || win.end <= win.start {
+		return modalListRender{}
+	}
+	t := a.Theme
+	columns := 2
+	gap := 2
+	if width < 72 {
+		columns = 1
+		gap = 0
+	}
+	tileW := width
+	if columns > 1 {
+		tileW = (width - gap) / columns
+	}
+	if tileW < 30 {
+		tileW = width
+		columns = 1
+		gap = 0
+	}
+	rows := make([]string, 0, ((win.end-win.start)+columns-1)/columns*(paletteCommandTileHeight+1))
+	hits := make([]modalListHit, 0, win.end-win.start)
+	gapText := lipgloss.NewStyle().Background(t.BgSubtle).Render(strings.Repeat(" ", gap))
+	cellStyle := lipgloss.NewStyle().Background(t.BgSubtle).Width(tileW)
+	emptyCell := make([]string, paletteCommandTileHeight)
+	for i := win.start; i < win.end; i += columns {
+		rowStart := len(rows)
+		cells := make([][]string, 0, columns)
+		for column := 0; column < columns; column++ {
+			idx := i + column
+			if idx >= win.end {
+				cells = append(cells, emptyCell)
+				continue
+			}
+			c := matches[idx]
+			selected := idx == a.paletteSel
+			cells = append(cells, a.renderPaletteCommandTile(c, tileW, selected))
+			hits = append(hits, modalListHit{
+				id:     fmt.Sprintf("palette:command:%d", idx),
+				row:    rowStart,
+				col:    column * (tileW + gap),
+				width:  tileW,
+				height: paletteCommandTileHeight,
+				action: func(idx int) uiHitAction {
+					return func(app *App) tea.Cmd {
+						matches := app.paletteVisibleMatches()
+						if idx < 0 || idx >= len(matches) {
+							return nil
+						}
+						app.paletteSel = idx
+						_, cmd := app.handlePaletteKey(keyMsg("enter"))
+						return cmd
+					}
+				}(idx),
+			})
+		}
+		for line := 0; line < paletteCommandTileHeight; line++ {
+			renderedCells := make([]string, 0, columns)
+			for column := 0; column < columns; column++ {
+				renderedCells = append(renderedCells, cellStyle.Render(cells[column][line]))
+			}
+			rows = append(rows, strings.Join(renderedCells, gapText))
+		}
+		if i+columns < win.end {
+			rows = append(rows, "")
+		}
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+const paletteCommandTileHeight = 4
+
+func (a *App) renderPaletteCommandTile(c gact.Command, width int, selected bool) []string {
+	t := a.Theme
+	titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	bodyStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	if selected {
+		titleStyle = titleStyle.Foreground(t.Secondary)
+		borderStyle = borderStyle.Foreground(t.Secondary).Bold(true)
+	}
+	title := titleStyle.Render(c.ID)
+	if state := strings.TrimSpace(a.paletteCurrentValue(c.ID)); state != "" {
+		title += " " + lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(state)
+	}
+	if selected {
+		title = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ") + title
+	}
+	innerW := width - 4
+	if innerW < 1 {
+		innerW = 1
+	}
+	subtitle := bodyStyle.Render(paletteCommandTileSubtitle(c, innerW))
+	action := "Enter " + paletteCommandEnterAction(c)
+	action = bodyStyle.Italic(true).Render(paletteCommandLineFit(action, innerW))
+	borderW := width - 2
+	if borderW < 1 {
+		borderW = 1
+	}
+	lines := []string{
+		paletteTitledBorderLine(borderStyle, title, borderW),
+		borderStyle.Render("│ ") + paletteTileFitPlain(subtitle, innerW) + borderStyle.Render(" │"),
+		borderStyle.Render("│ ") + paletteTileFitPlain(action, innerW) + borderStyle.Render(" │"),
+		borderStyle.Render("└" + strings.Repeat("─", borderW) + "┘"),
+	}
+	if selected {
+		selectedStyle := lipgloss.NewStyle().Background(t.Bg).Width(width)
+		for i, line := range lines {
+			lines[i] = selectedStyle.Render(line)
+		}
+	}
+	return lines
+}
+
+func paletteCommandTileSubtitle(c gact.Command, width int) string {
+	if width < 1 {
+		return ""
+	}
+	if c.CommandSource == "mcp_prompt" || c.Source == "mcp_prompt" || c.Invocation == "mcp_prompt" {
+		candidates := []string{"MCP prompt action"}
+		if hint := strings.TrimSpace(c.ArgumentHint); hint != "" {
+			candidates = append([]string{"MCP prompt action · input " + hint}, candidates...)
+		}
+		return firstPaletteLineThatFits(candidates, width)
+	}
+	return paletteCommandLineFit(paletteCommandSubtitle(c), width)
+}
+
+func paletteCommandLineFit(text string, width int) string {
+	text = strings.TrimSpace(text)
+	if width < 1 || text == "" {
+		return ""
+	}
+	if lipgloss.Width(text) <= width {
+		return text
+	}
+	parts := strings.Split(text, " · ")
+	for len(parts) > 1 {
+		parts = parts[:len(parts)-1]
+		candidate := strings.TrimSpace(strings.Join(parts, " · "))
+		if candidate != "" && lipgloss.Width(candidate) <= width {
+			return candidate
+		}
+	}
+	words := strings.Fields(text)
+	for len(words) > 1 {
+		words = words[:len(words)-1]
+		candidate := strings.Join(words, " ")
+		if lipgloss.Width(candidate) <= width {
+			return candidate
+		}
+	}
+	return ansi.Truncate(text, width, "")
+}
+
+func firstPaletteLineThatFits(candidates []string, width int) string {
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate != "" && lipgloss.Width(candidate) <= width {
+			return candidate
+		}
+	}
+	if len(candidates) == 0 {
+		return ""
+	}
+	return paletteCommandLineFit(candidates[len(candidates)-1], width)
+}
+
+func paletteTileFitPlain(s string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-w)
+}
+
+func (a *App) renderPaletteCommandList(matches []gact.Command, win scrollWindow, width int) modalListRender {
+	if len(matches) == 0 || win.end <= win.start {
+		return modalListRender{}
+	}
+	t := a.Theme
+	rows := make([]string, 0, (win.end-win.start)*2)
+	hits := make([]modalListHit, 0, win.end-win.start)
+	groupCounts := paletteCommandGroupCounts(matches)
+	lastGroup := ""
+	for i := win.start; i < win.end; i++ {
+		c := matches[i]
+		group := paletteCommandGroup(c)
+		if group != lastGroup {
+			rows = append(rows, t.HintLabel.Render(paletteCommandGroupHeader(group, groupCounts[group])))
+			lastGroup = group
+		}
+		startRow := len(rows)
+		if c.CommandSource == "agent_blueprint" || c.AgentBlueprintID != "" {
+			rows = append(rows, a.renderPaletteCommandTile(c, width, i == a.paletteSel)...)
+		} else {
+			item := modalListItem{
+				title:    "  " + c.ID,
+				meta:     paletteCommandSubtitle(c),
+				status:   a.paletteCurrentValue(c.ID),
+				selected: i == a.paletteSel,
+			}
+			rows = append(rows, a.renderModalListItemLine(item, width))
+		}
+		hits = append(hits, modalListHit{
+			id:     fmt.Sprintf("palette:command:%d", i),
+			row:    startRow,
+			width:  width,
+			height: len(rows) - startRow,
+			action: func(idx int) uiHitAction {
+				return func(app *App) tea.Cmd {
+					matches := app.paletteVisibleMatches()
+					if idx < 0 || idx >= len(matches) {
+						return nil
+					}
+					app.paletteSel = idx
+					_, cmd := app.handlePaletteKey(keyMsg("enter"))
+					return cmd
+				}
+			}(i),
+		})
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+func (a *App) paletteFooterHint(matches []gact.Command, groupOverview bool) string {
+	if groupOverview {
+		return a.localizer.t(msgPaletteBrowseHint, nil)
+	}
+	if len(matches) == 0 {
+		return a.localizer.t(msgPaletteCloseHint, nil)
+	}
+	idx := clampSelection(a.paletteSel, len(matches))
+	hint := "↑/↓ select  Enter " + paletteCommandEnterAction(matches[idx])
+	if strings.TrimSpace(a.paletteFilter) == "" && a.paletteGroup != "" {
+		hint += "  Backspace areas"
+	}
+	return hint + "  Esc close"
+}
+
+func paletteCommandEnterAction(c gact.Command) string {
+	id := strings.ToLower(strings.TrimSpace(c.ID))
+	if kind, ok := catalogCommandForID(id); ok {
+		return "open " + catalogBrowserTitle(kind)
+	}
+	switch id {
+	case "/agent", "/agents":
+		return "open Expert settings"
+	case "/theme", "/themes":
+		return "open Theme settings"
+	case "/theme-next":
+		return "apply next theme"
+	case "/theme-prev":
+		return "apply previous theme"
+	case "/theme-export":
+		return "export current theme"
+	case "/mouse":
+		return "toggle mouse controls"
+	case "/copy":
+		return "copy selected block"
+	case "/clear":
+		return "confirm clear"
+	case "/mode":
+		return "cycle routing mode"
+	case "/diff":
+		return "open workspace diff"
+	case "/add":
+		return "open add context"
+	case "/drop":
+		return "drop selected context"
+	case "/permissions":
+		return "open permission audit"
+	case "/metrics":
+		return "open metrics"
+	case "/memory":
+		return "open memory"
+	case "/doctor":
+		return "open doctor"
+	}
+	if c.CommandSource == "mcp_prompt" || c.Source == "mcp_prompt" || c.Invocation == "mcp_prompt" {
+		return "run prompt"
+	}
+	if strings.TrimSpace(c.CommandSource) == "agent_blueprint" || strings.TrimSpace(c.AgentBlueprintID) != "" {
+		return "run workflow command"
+	}
+	if target := paletteCommandSecondaryTarget(id); target != "" {
+		return "open " + target
+	}
+	return "run"
+}
+
+func paletteCommandGroupCounts(commands []gact.Command) map[string]int {
+	counts := make(map[string]int, 8)
+	for _, c := range commands {
+		counts[paletteCommandGroup(c)]++
+	}
+	return counts
+}
+
+func paletteCommandGroupExamples(commands []gact.Command, maxPerGroup int) map[string][]string {
+	examples := make(map[string][]string, 8)
+	if maxPerGroup <= 0 {
+		return examples
+	}
+	seenIDs := map[string]bool{}
+	for _, c := range commands {
+		id := strings.TrimSpace(c.ID)
+		if id != "" {
+			seenIDs[id] = true
+		}
+	}
+	byGroup := make(map[string][]gact.Command, 8)
+	for _, c := range commands {
+		if paletteCommandIsExampleHiddenAlias(c.ID, seenIDs) {
+			continue
+		}
+		group := paletteCommandGroup(c)
+		byGroup[group] = append(byGroup[group], c)
+	}
+	for group, groupCommands := range byGroup {
+		sort.SliceStable(groupCommands, func(i, j int) bool {
+			left := paletteCommandGroupExampleRank(group, groupCommands[i].ID)
+			right := paletteCommandGroupExampleRank(group, groupCommands[j].ID)
+			if left != right {
+				return left < right
+			}
+			return groupCommands[i].ID < groupCommands[j].ID
+		})
+		for _, c := range groupCommands {
+			if len(examples[group]) >= maxPerGroup {
+				break
+			}
+			id := strings.TrimSpace(c.ID)
+			if id == "" {
+				continue
+			}
+			examples[group] = append(examples[group], id)
+		}
+	}
+	return examples
+}
+
+func paletteCommandIsExampleHiddenAlias(id string, seen map[string]bool) bool {
+	if paletteCommandAliasTarget(id) != "" {
+		return true
+	}
+	return paletteCommandIsDefaultHiddenAlias(id, seen)
+}
+
+func paletteCommandGroupExampleRank(group string, id string) int {
+	id = strings.ToLower(strings.TrimSpace(id))
+	preferred := map[string][]string{
+		"Session":            {"/clear", "/copy", "/new"},
+		"Workspace":          {"/diff", "/add", "/drop"},
+		"Runtime":            {"/tools", "/mcp", "/prompts"},
+		"Experts":            {"/agent-blueprints", "/experts", "/expert-packs"},
+		"Settings":           {"/theme", "/agent", "/model"},
+		"Diagnostics":        {"/doctor", "/permissions", "/metrics"},
+		"Workflow Commands":  {"/validate-dataset"},
+		"Extension Commands": {"/custom"},
+	}
+	for rank, candidate := range preferred[group] {
+		if id == candidate {
+			return rank
+		}
+	}
+	return 1000
+}
+
+func paletteCommandGroupHeader(group string, count int) string {
+	meta := paletteCommandGroupDescription(group)
+	if count > 0 {
+		group = fmt.Sprintf("%s (%d)", group, count)
+	}
+	if meta == "" {
+		return group
+	}
+	return group + " - " + meta
+}
+
+func paletteCommandGroupDescription(group string) string {
+	switch group {
+	case "Session":
+		return "conversation and input"
+	case "Workspace":
+		return "files and diffs"
+	case "Runtime":
+		return "tools, MCP, prompts"
+	case "Experts":
+		return "expert workflows"
+	case "Settings":
+		return "runtime preferences"
+	case "Diagnostics":
+		return "health and telemetry"
+	case "Management":
+		return "install and remove"
+	case "Workflow Commands":
+		return "commands from the active workflow"
+	case "Extension Commands":
+		return "custom backend commands"
+	case "Prompt Templates":
+		return "MCP-provided commands"
+	case "Plugins":
+		return "installed plugin commands"
+	case "Shortcuts":
+		return "typed shortcuts"
+	default:
+		return ""
+	}
+}
+
+func paletteCommandGroup(c gact.Command) string {
+	id := strings.ToLower(strings.TrimSpace(c.ID))
+	if c.Source == "plugin" {
+		return "Plugins"
+	}
+	if c.CommandSource == "agent_blueprint" || c.AgentBlueprintID != "" {
+		return "Workflow Commands"
+	}
+	if paletteCommandAliasTarget(id) != "" {
+		return "Shortcuts"
+	}
+	switch id {
+	case "/new", "/duplicate", "/sessions", "/rename", "/clear", "/compact", "/cancel", "/copy", "/mode", "/undo":
+		return "Session"
+	case "/add", "/drop", "/diff":
+		return "Workspace"
+	case "/mcp", "/tools", "/prompts":
+		return "Runtime"
+	case "/skills", "/experts", "/agents-list", "/expert-packs", "/agent-blueprints", "/scenarios":
+		return "Experts"
+	case "/agent", "/agents", "/model", "/theme", "/theme-export", "/theme-next", "/theme-prev", "/mouse":
+		return "Settings"
+	case "/memory", "/metrics", "/doctor", "/permissions", "/help":
+		return "Diagnostics"
+	default:
+		if c.CommandSource == "mcp_prompt" || c.Source == "mcp_prompt" || c.Invocation == "mcp_prompt" {
+			return "Runtime"
+		}
+		if strings.Contains(id, "install") || strings.Contains(id, "remove") {
+			return "Management"
+		}
+		return "Extension Commands"
+	}
+}
+
+func paletteCommandGroupRank(group string) int {
+	switch group {
+	case "Session":
+		return 10
+	case "Workspace":
+		return 20
+	case "Runtime":
+		return 30
+	case "Experts":
+		return 35
+	case "Settings":
+		return 40
+	case "Diagnostics":
+		return 50
+	case "Management":
+		return 60
+	case "Workflow Commands":
+		return 70
+	case "Extension Commands":
+		return 75
+	case "Prompt Templates":
+		return 80
+	case "Plugins":
+		return 90
+	case "Shortcuts":
+		return 100
+	default:
+		return 110
+	}
 }
 
 func paletteCommandSubtitle(c gact.Command) string {
 	id := strings.TrimSpace(c.ID)
 	title := strings.TrimSpace(c.Title)
 	desc := strings.TrimSpace(c.Description)
+	if target := paletteCommandAliasTarget(id); target != "" {
+		return "alias for " + target
+	}
+	if c.CommandSource == "mcp_prompt" || c.Source == "mcp_prompt" || c.Invocation == "mcp_prompt" {
+		parts := []string{"MCP prompt action"}
+		if c.ArgumentHint != "" {
+			parts = append(parts, "input "+c.ArgumentHint)
+		}
+		if c.AgentID != "" {
+			parts = append(parts, "expert "+c.AgentID)
+		}
+		return strings.Join(parts, " · ")
+	}
 	if c.Status != "" && c.Status != "available" {
 		reason := strings.TrimSpace(firstNonEmpty(c.DisabledReason, c.Error))
 		if reason != "" {
@@ -9831,25 +12848,39 @@ func paletteCommandSubtitle(c gact.Command) string {
 		}
 		return c.Status
 	}
-	policy := make([]string, 0, 5)
+	policy := make([]string, 0, 8)
+	if c.CommandSource == "agent_blueprint" {
+		label := "from workflow"
+		if c.AgentBlueprintID != "" {
+			label += " " + c.AgentBlueprintID
+		}
+		policy = append(policy, label)
+	} else if c.CommandSource != "" && c.CommandSource != c.Source {
+		policy = append(policy, operatorCommandSourceLabel(c.CommandSource))
+	}
+	if c.CommandScope != "" && c.CommandScope != c.CommandSource {
+		policy = append(policy, operatorCommandScopeLabel(c.CommandScope))
+	}
 	if c.UserInvocable != nil {
 		if *c.UserInvocable {
-			policy = append(policy, "user")
+			policy = append(policy, "operator command")
 		} else {
-			policy = append(policy, "not-user")
+			policy = append(policy, "not shown to operators")
 		}
 	}
-	if c.AgentInvocable != nil && *c.AgentInvocable {
-		policy = append(policy, "agent")
-	}
-	if c.PlannerVisible != nil && *c.PlannerVisible {
-		policy = append(policy, "planner")
-	}
 	if c.AgentID != "" {
-		policy = append(policy, "owner: "+c.AgentID)
+		policy = append(policy, "expert "+c.AgentID)
 	}
 	if c.ArgumentHint != "" {
-		policy = append(policy, "args: "+c.ArgumentHint)
+		policy = append(policy, "input "+c.ArgumentHint)
+	}
+	if c.CommandSource != "agent_blueprint" {
+		if c.AgentInvocable != nil && *c.AgentInvocable {
+			policy = append(policy, "agent callable")
+		}
+		if c.PlannerVisible != nil && *c.PlannerVisible {
+			policy = append(policy, "planner visible")
+		}
 	}
 	if len(policy) > 0 {
 		return strings.Join(policy, " · ")
@@ -9869,10 +12900,78 @@ func paletteCommandSubtitle(c gact.Command) string {
 	return ""
 }
 
+func operatorCommandSourceLabel(source string) string {
+	source = strings.TrimSpace(source)
+	switch source {
+	case "agent_blueprint":
+		return "from workflow"
+	case "mcp_prompt":
+		return "from MCP prompt template"
+	case "":
+		return ""
+	default:
+		return "from " + strings.ReplaceAll(source, "_", " ")
+	}
+}
+
+func operatorCommandScopeLabel(scope string) string {
+	scope = strings.TrimSpace(scope)
+	switch scope {
+	case "agent_blueprint":
+		return "workflow scoped"
+	case "mcp_prompt":
+		return "prompt-template scoped"
+	case "":
+		return ""
+	default:
+		return strings.ReplaceAll(scope, "_", " ") + " scoped"
+	}
+}
+
 func samePaletteCommandText(a, b string) bool {
 	a = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(a)), "/")
 	b = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(b)), "/")
 	return a != "" && a == b
+}
+
+func paletteCommandAliasTarget(id string) string {
+	switch strings.ToLower(strings.TrimSpace(id)) {
+	case "/blueprints":
+		return "/agent-blueprints"
+	case "/expertpacks":
+		return "/expert-packs"
+	case "/agents-list":
+		return "/experts"
+	default:
+		return ""
+	}
+}
+
+func paletteCommandSecondaryTarget(id string) string {
+	switch strings.ToLower(strings.TrimSpace(id)) {
+	case "/catalog":
+		return "/tools"
+	case "/theme-export":
+		return "/theme"
+	default:
+		return paletteCommandAliasTarget(id)
+	}
+}
+
+func shortPathLabel(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	path = strings.ReplaceAll(path, "\\", "/")
+	const marker = "/commands/"
+	if idx := strings.LastIndex(path, marker); idx >= 0 {
+		return "commands/" + strings.TrimPrefix(path[idx+len(marker):], "/")
+	}
+	if idx := strings.LastIndex(path, "/"); idx >= 0 && idx < len(path)-1 {
+		return path[idx+1:]
+	}
+	return path
 }
 
 // viewPaletteSearch renders the palette in message-search mode (filter
@@ -10054,6 +13153,8 @@ var helpTabs = []struct {
 			{"PgUp/PgDn · Ctrl+U/D", "help.conversation.page"},
 			{"y", "help.conversation.copy_selected"},
 			{"Y", "help.conversation.copy_full"},
+			{"Drag", "help.conversation.drag_copy"},
+			{"Alt+drag", "help.conversation.native_select"},
 			{"R", "help.conversation.retry"},
 			{"d", "help.conversation.delete"},
 			{"t", "help.conversation.timestamps"},
@@ -10084,23 +13185,34 @@ var helpTabs = []struct {
 		title: "Commands",
 		keys: []helpKey{
 			{"/clear", "help.commands.clear"},
+			{"/copy", "help.commands.copy"},
 			{"/cancel", "help.commands.cancel"},
+			{"/compact", "help.commands.compact"},
+			{"/mode", "help.commands.mode"},
 			{"/new", "help.commands.new"},
 			{"/rename", "help.commands.rename"},
-			{"/mcp", "help.commands.mcp"},
 			{"/tools", "help.commands.tools"},
-			{"/catalog", "help.commands.catalog"},
+			{"/mcp", "help.commands.mcp"},
 			{"/skills", "help.commands.skills"},
-			{"/agents", "help.commands.agents"},
+			{"/experts", "help.commands.agents"},
+			{"/prompts", "help.commands.prompts"},
+			{"/expert-packs", "help.commands.expert_packs"},
+			{"/agent-blueprints", "help.commands.agent_blueprints"},
 			{"/sessions", "help.commands.sessions"},
 			{"/theme", "help.commands.theme"},
-			{"/theme-export", "help.commands.theme_export"},
+			{"/agent", "help.commands.agent"},
+			{"/model", "help.commands.model"},
+			{"/doctor", "help.commands.doctor"},
+			{"/permissions", "help.commands.permissions"},
 			{"/metrics", "help.commands.metrics"},
 			{"/memory", "help.commands.memory"},
+			{"/mouse", "help.commands.mouse"},
 			{"/theme-next", "help.commands.theme_next"},
 			{"/theme-prev", "help.commands.theme_prev"},
 			{"/duplicate", "help.commands.duplicate"},
 			{"/help", "help.commands.help"},
+			{"/add", "help.commands.add"},
+			{"/drop", "help.commands.drop"},
 			{"/diff", "help.commands.diff"},
 		},
 	},
@@ -10156,7 +13268,6 @@ func (a *App) localizedHelpTabTitle(title string) string {
 // Navigation: ←/→ or h/l or Tab cycles tabs; ?/Esc closes.
 func (a *App) viewHelp() string {
 	t := a.Theme
-	w := a.modalWidth()
 
 	tabHits := make([]menuTab, 0, len(helpTabs))
 	for i, tab := range helpTabs {
@@ -10179,69 +13290,68 @@ func (a *App) viewHelp() string {
 	if idx < 0 || idx >= len(helpTabs) {
 		idx = 0
 	}
+	w := a.helpModalWidthForTab(helpTabs[idx].title)
 	var (
 		content   string
 		helpList  modalListRender
 		helpWidth = modalScrollableBodyWidth(w)
 	)
-	items := make([]modalListItem, 0, len(helpTabs[idx].keys))
-	for _, kp := range helpTabs[idx].keys {
-		key := kp.key
-		item := modalListItem{
-			id:    "help:key:" + strings.NewReplacer("/", "", " ", "-", "⇧", "shift").Replace(strings.ToLower(key)),
-			title: key,
-			meta:  a.localizer.t(kp.descID, nil),
-		}
-		if helpTabs[idx].title == "Commands" {
-			command := key
-			item.id = "help:command:" + strings.TrimPrefix(command, "/")
-			item.action = func(app *App) tea.Cmd {
-				app.helpOpen = false
-				app.helpTab = 0
-				app.helpScroll = 0
-				app.focus = FocusInput
-				app.input.Focus()
-				app.input.SetValue(command)
-				app.input.CursorEnd()
-				app.transientHint = "command staged: " + command
-				return nil
-			}
-		}
-		items = append(items, item)
-	}
-	if len(items) > 0 {
-		columns := 1
-		if helpTabs[idx].title == "Commands" && helpWidth >= 72 {
-			columns = 2
-		}
-		helpList = a.renderModalList(items, modalListOptions{
-			width:            helpWidth,
-			rowBudget:        len(items),
-			descriptionLines: 0,
-			columns:          columns,
-			minColumnWidth:   34,
-		})
+	if helpTabs[idx].title == "Commands" {
+		helpList = a.renderHelpCommandAreaColumns(helpTabs[idx].keys, helpWidth)
 		content = lipgloss.JoinVertical(lipgloss.Left, helpList.rows...)
 	} else {
-		content = ""
+		items := make([]modalListItem, 0, len(helpTabs[idx].keys))
+		for _, kp := range helpTabs[idx].keys {
+			key := kp.key
+			items = append(items, modalListItem{
+				id:    "help:key:" + strings.NewReplacer("/", "", " ", "-", "⇧", "shift").Replace(strings.ToLower(key)),
+				title: key,
+				meta:  a.localizer.t(kp.descID, nil),
+			})
+		}
+		if len(items) > 0 {
+			columns := helpListColumns(helpTabs[idx].title, helpWidth)
+			helpList = a.renderModalList(items, modalListOptions{
+				width:            helpWidth,
+				rowBudget:        len(items),
+				descriptionLines: 0,
+				columns:          columns,
+				minColumnWidth:   34,
+			})
+			content = lipgloss.JoinVertical(lipgloss.Left, helpList.rows...)
+		} else {
+			content = ""
+		}
 	}
 	buttons := []menuButton{closeMenuButton("help:close", func(app *App) {
 		app.helpOpen = false
 		app.helpTab = 0
 		app.helpScroll = 0
 	})}
+	pageSize := a.helpBodyPageSizeForTab(
+		helpTabs[idx].title,
+		maxInt(len(helpTabs[idx].keys), len(helpList.rows)),
+		maxInt(1, helpListColumns(helpTabs[idx].title, helpWidth)),
+	)
+	if helpTabs[idx].title == "Commands" {
+		pageSize = minInt(maxInt(6, len(helpList.rows)), a.modalBodyRows(14))
+	}
 	hintStyle := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted)
+	title := a.localizer.t(msgHelpTitle, nil)
+	if helpTabs[idx].title == "Commands" {
+		title = a.localizedHelpTabTitle(helpTabs[idx].title)
+	}
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
 			width:      w,
-			title:      a.localizer.t(msgHelpTitle, nil),
+			title:      title,
 			buttons:    buttons,
 			tabs:       tabHits,
 			tabPadding: 1,
 			tabSpacing: 0,
 		},
 		content:     content,
-		pageSize:    a.helpBodyPageSize(),
+		pageSize:    pageSize,
 		scroll:      a.helpScroll,
 		wheelID:     "help",
 		footerHint:  a.localizer.t(msgHelpHint, nil),
@@ -10260,12 +13370,317 @@ func (a *App) viewHelp() string {
 	return rendered.modal
 }
 
-func (a *App) helpBodyPageSize() int {
-	return a.modalBodyRows(14)
+type helpCommandEntry struct {
+	key   string
+	desc  string
+	group string
+	idx   int
+}
+
+func (a *App) helpCommandEntries(keys []helpKey) []helpCommandEntry {
+	entries := make([]helpCommandEntry, 0, len(keys))
+	for i, kp := range keys {
+		key := strings.TrimSpace(kp.key)
+		if key == "" {
+			continue
+		}
+		if !a.helpCommandSupported(key) {
+			continue
+		}
+		entries = append(entries, helpCommandEntry{
+			key:   key,
+			desc:  a.localizer.t(kp.descID, nil),
+			group: paletteCommandGroup(gact.Command{ID: key, Source: "builtin"}),
+			idx:   i,
+		})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		leftRank := paletteCommandGroupRank(entries[i].group)
+		rightRank := paletteCommandGroupRank(entries[j].group)
+		if leftRank != rightRank {
+			return leftRank < rightRank
+		}
+		leftExample := paletteCommandGroupExampleRank(entries[i].group, entries[i].key)
+		rightExample := paletteCommandGroupExampleRank(entries[j].group, entries[j].key)
+		if leftExample != rightExample {
+			return leftExample < rightExample
+		}
+		return entries[i].idx < entries[j].idx
+	})
+	return entries
+}
+
+func (a *App) helpCommandSupported(id string) bool {
+	switch strings.ToLower(strings.TrimSpace(id)) {
+	case "/prompts":
+		return a.caps.Capabilities.XClioPromptRegistry
+	case "/expert-packs":
+		return a.caps.Capabilities.XClioExpertPacks
+	case "/agent-blueprints":
+		return a.caps.Capabilities.XClioAgentBlueprints
+	case "/doctor":
+		return a.caps.Capabilities.IntegrationHealth
+	case "/memory":
+		return a.caps.Capabilities.Memory
+	default:
+		return true
+	}
+}
+
+func (a *App) renderHelpCommandAreaColumns(keys []helpKey, width int) modalListRender {
+	type commandHelpEntry struct {
+		group string
+		rows  []helpCommandEntry
+	}
+	entries := a.helpCommandEntries(keys)
+	if len(entries) == 0 {
+		return modalListRender{}
+	}
+	groups := make([]commandHelpEntry, 0, 8)
+	groupIndex := map[string]int{}
+	for _, entry := range entries {
+		idx, ok := groupIndex[entry.group]
+		if !ok {
+			idx = len(groups)
+			groupIndex[entry.group] = idx
+			groups = append(groups, commandHelpEntry{group: entry.group})
+		}
+		groups[idx].rows = append(groups[idx].rows, entry)
+	}
+	columns := 2
+	gap := 4
+	if width >= 108 && len(groups) >= 5 {
+		columns = 3
+		gap = 2
+	}
+	if width < 72 {
+		columns = 1
+		gap = 0
+	}
+	if columns > len(groups) {
+		columns = len(groups)
+	}
+	if columns < 1 {
+		columns = 1
+	}
+	colW := width
+	if columns > 1 {
+		colW = (width - gap*(columns-1)) / columns
+	}
+	for columns > 1 && colW < 28 {
+		columns--
+		if columns > 1 {
+			colW = (width - gap*(columns-1)) / columns
+		} else {
+			gap = 0
+			colW = width
+		}
+	}
+	columnGroups := make([][]commandHelpEntry, columns)
+	layoutGroups := append([]commandHelpEntry(nil), groups...)
+	perColumn := (len(layoutGroups) + columns - 1) / columns
+	for i, group := range layoutGroups {
+		col := minInt(columns-1, i/perColumn)
+		columnGroups[col] = append(columnGroups[col], group)
+	}
+	columnRows := make([][]string, columns)
+	columnHits := make([][]modalListHit, columns)
+	for col, colGroups := range columnGroups {
+		row := 0
+		for _, group := range colGroups {
+			boxRows, boxHits := a.renderHelpCommandAreaBox(group.group, group.rows, colW, col*(colW+gap), row)
+			columnRows[col] = append(columnRows[col], boxRows...)
+			columnHits[col] = append(columnHits[col], boxHits...)
+			row += len(boxRows)
+		}
+	}
+	rowCount := 0
+	for _, rows := range columnRows {
+		if len(rows) > rowCount {
+			rowCount = len(rows)
+		}
+	}
+	gapText := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Render(strings.Repeat(" ", gap))
+	cellStyle := lipgloss.NewStyle().Background(a.Theme.BgSubtle).Width(colW)
+	rows := make([]string, 0, rowCount)
+	for row := 0; row < rowCount; row++ {
+		cells := make([]string, 0, columns)
+		for col := 0; col < columns; col++ {
+			cell := ""
+			if row < len(columnRows[col]) {
+				cell = columnRows[col][row]
+			}
+			cells = append(cells, cellStyle.Render(cell))
+		}
+		rows = append(rows, strings.Join(cells, gapText))
+	}
+	hits := make([]modalListHit, 0, len(entries))
+	for _, colHits := range columnHits {
+		hits = append(hits, colHits...)
+	}
+	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+func helpCommandAreaBoxHeight(commandCount int) int {
+	return commandCount + 2
+}
+
+func (a *App) renderHelpCommandAreaBox(group string, entries []helpCommandEntry, width int, hitCol int, hitRow int) ([]string, []modalListHit) {
+	if width < 8 {
+		width = 8
+	}
+	t := a.Theme
+	borderStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
+	titleStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	commandStyle := lipgloss.NewStyle().Foreground(t.Fg).Bold(true)
+	descStyle := t.HintLabel.Italic(true)
+	innerW := maxInt(1, width-4)
+	topInnerW := maxInt(1, width-2)
+	title := titleStyle.Render(group)
+	if desc := helpCommandGroupDescription(group, entries); desc != "" && width >= 36 {
+		title += " " + t.HintLabel.Italic(true).Render(desc)
+	}
+	rows := []string{
+		borderStyle.Render("┌") + paletteTileFit(title, topInnerW) + borderStyle.Render("┐"),
+	}
+	hits := make([]modalListHit, 0, len(entries))
+	labelW := maxInt(12, minInt(21, innerW-1))
+	for idx, entry := range entries {
+		command := entry.key
+		label := truncate(command, labelW)
+		descW := maxInt(0, innerW-lipgloss.Width(label)-1)
+		body := commandStyle.Render(label)
+		if descW > 0 && width >= 36 {
+			body += " " + descStyle.Render(truncate(entry.desc, descW))
+		}
+		rows = append(rows, borderStyle.Render("│ ")+paletteTileFit(body, innerW)+borderStyle.Render(" │"))
+		hits = append(hits, modalListHit{
+			id:     "help:command:" + strings.TrimPrefix(command, "/"),
+			row:    hitRow + 1 + idx,
+			col:    hitCol + 1,
+			width:  maxInt(1, width-2),
+			height: 1,
+			action: func(command string) uiHitAction {
+				return func(app *App) tea.Cmd {
+					app.helpOpen = false
+					app.helpTab = 0
+					app.helpScroll = 0
+					app.focus = FocusInput
+					app.input.Focus()
+					app.input.SetValue(command)
+					app.input.CursorEnd()
+					app.transientHint = "command staged: " + command
+					return nil
+				}
+			}(command),
+		})
+	}
+	rows = append(rows, borderStyle.Render("└")+paletteTileFit("", topInnerW)+borderStyle.Render("┘"))
+	return rows, hits
+}
+
+func helpCommandGroupDescription(group string, rows []helpCommandEntry) string {
+	switch group {
+	case "Runtime":
+		for _, row := range rows {
+			if strings.TrimSpace(row.key) == "/prompts" {
+				return "actions, connections, prompts"
+			}
+		}
+		return "actions and connections"
+	case "Experts":
+		return "expert workflows"
+	default:
+		return paletteCommandGroupDescription(group)
+	}
+}
+
+func (a *App) helpCommandItems(keys []helpKey) []modalListItem {
+	entries := a.helpCommandEntries(keys)
+	items := make([]modalListItem, 0, len(entries))
+	for _, entry := range entries {
+		command := entry.key
+		items = append(items, modalListItem{
+			id:    "help:command:" + strings.TrimPrefix(command, "/"),
+			title: command,
+			meta:  entry.desc,
+			action: func(app *App) tea.Cmd {
+				app.helpOpen = false
+				app.helpTab = 0
+				app.helpScroll = 0
+				app.focus = FocusInput
+				app.input.Focus()
+				app.input.SetValue(command)
+				app.input.CursorEnd()
+				app.transientHint = "command staged: " + command
+				return nil
+			},
+		})
+	}
+	return items
+}
+
+func helpListColumns(title string, width int) int {
+	if title == "Commands" && width >= 72 {
+		return 2
+	}
+	return 1
+}
+
+func (a *App) helpBodyPageSizeForTab(title string, itemCount int, columns int) int {
+	maxRows := a.modalBodyRows(14)
+	if maxRows < 1 {
+		maxRows = 1
+	}
+	if columns < 1 {
+		columns = 1
+	}
+	if title == "Commands" {
+		rows := (itemCount + columns - 1) / columns
+		if rows < 6 {
+			rows = 6
+		}
+		return minInt(rows, maxRows)
+	}
+	return minInt(8, maxRows)
+}
+
+func (a *App) currentHelpBodyPageSize() int {
+	idx := a.helpTab
+	if idx < 0 || idx >= len(helpTabs) {
+		idx = 0
+	}
+	width := modalScrollableBodyWidth(a.helpModalWidthForTab(helpTabs[idx].title))
+	columns := helpListColumns(helpTabs[idx].title, width)
+	return a.helpBodyPageSizeForTab(helpTabs[idx].title, len(helpTabs[idx].keys), columns)
+}
+
+func (a *App) helpModalWidthForTab(title string) int {
+	if title == "Commands" {
+		return a.modalWidthFor(modalWidthWide)
+	}
+	w := 76
+	minW := 64
+	gutter := 8
+	if a.width <= 0 {
+		return w
+	}
+	if w > a.width-gutter {
+		w = a.width - gutter
+	}
+	if w < minW {
+		return a.modalWidth()
+	}
+	return w
 }
 
 func (a *App) paletteBodyPageSize() int {
-	return a.modalBodyRows(14)
+	return minInt(22, a.modalBodyRows(10))
+}
+
+func (a *App) paletteBodyPageSizeForRows(rows []string) int {
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return compactModalBodyRows(body, a.paletteBodyPageSize(), 8)
 }
 
 // overlay places overlay centered on top of base. Bubbletea v2 doesn't have
@@ -10359,6 +13774,13 @@ type connectedMsg struct {
 	commands []gact.Command
 }
 
+type commandsLoadedMsg struct {
+	sessionID   string
+	workspaceID string
+	commands    []gact.Command
+	err         error
+}
+
 // CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats
 // snapshot. Fired after connect + after every session.status_changed
 // → idle event for backends with capabilities.memory = true.
@@ -10403,6 +13825,13 @@ type reconnectMsg struct {
 type contextFilesLoadedMsg struct {
 	sessionID string
 	files     []gact.ContextFile
+}
+
+type contextFileContentLoadedMsg struct {
+	sessionID string
+	path      string
+	content   gact.ContextFileContent
+	err       error
 }
 
 type voiceTranscribedMsg struct {

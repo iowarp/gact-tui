@@ -173,6 +173,56 @@ func TestSSEStatusReplayCannotRegressTerminalSessionToRunning(t *testing.T) {
 	}
 }
 
+func TestSSEMessageCompletedEndTurnSettlesRunningSession(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
+	a.selected = 0
+	a.currentStatus = gact.StatusRunning
+
+	a.applySSE(client.SSEEvent{
+		Type: "message.completed",
+		Payload: map[string]any{
+			"payload": map[string]any{
+				"session_id":  "s1",
+				"message_id":  "msg_final",
+				"stop_reason": gact.StopReasonEndTurn,
+			},
+		},
+	})
+
+	if a.currentStatus != gact.StatusIdle {
+		t.Fatalf("currentStatus = %q, want idle after terminal message completion", a.currentStatus)
+	}
+	if a.sessions[0].Status != gact.StatusIdle {
+		t.Fatalf("session status = %q, want idle after terminal message completion", a.sessions[0].Status)
+	}
+}
+
+func TestSSEMessageCompletedToolUseKeepsSessionRunning(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
+	a.selected = 0
+	a.currentStatus = gact.StatusRunning
+
+	a.applySSE(client.SSEEvent{
+		Type: "message.completed",
+		Payload: map[string]any{
+			"payload": map[string]any{
+				"session_id":  "s1",
+				"message_id":  "msg_tool_use",
+				"stop_reason": gact.StopReasonToolUse,
+			},
+		},
+	})
+
+	if a.currentStatus != gact.StatusRunning {
+		t.Fatalf("currentStatus = %q, want running while tool use continues", a.currentStatus)
+	}
+	if a.sessions[0].Status != gact.StatusRunning {
+		t.Fatalf("session status = %q, want running while tool use continues", a.sessions[0].Status)
+	}
+}
+
 func TestSSEMessageReplayCannotResurrectArchivedTranscript(t *testing.T) {
 	updatedAt := time.Date(2026, 5, 25, 4, 37, 48, 0, time.UTC)
 	a := New("http://unused")

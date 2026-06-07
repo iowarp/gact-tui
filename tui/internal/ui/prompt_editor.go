@@ -71,16 +71,13 @@ func (a *App) handlePromptEditKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	if k.Text != "" {
-		runes := []rune(a.promptEditDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.promptEditCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.promptEditCursor:]...)
-		a.promptEditDraft = string(out)
-		a.promptEditCursor += len(insert)
+		a.insertPromptEditText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertPromptEditText(text string) {
+	a.promptEditDraft, a.promptEditCursor = insertTextAtCursor(a.promptEditDraft, a.promptEditCursor, text)
 }
 
 func (a *App) commitPromptEdit() (tea.Model, tea.Cmd) {

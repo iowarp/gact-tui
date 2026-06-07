@@ -35,6 +35,31 @@ func TestCapitalizeToolName(t *testing.T) {
 	}
 }
 
+func TestToolDisplayNameKnownScientificTools(t *testing.T) {
+	cases := []struct {
+		tool string
+		want string
+	}{
+		{"sac_discover_earthscope_region_waveform", "EarthScope waveform discovery"},
+		{"sac_compute_trace_statistics", "SAC trace statistics"},
+		{"sac_plot_traces", "SAC waveform visualization"},
+		{"sac_inspect_archive", "SAC trace inspection"},
+		{"ndp_search_datasets", "NDP catalog search"},
+		{"ndp_stage_resource", "NDP resource staging"},
+		{"ndp_get_dataset", "NDP dataset lookup"},
+		{"analyze_parquet", "Parquet data analysis"},
+		{"summarize_hdf5_file", "HDF5 data analysis"},
+		{"inspect_adios_bp5", "ADIOS data analysis"},
+		{"profile_csv", "CSV data analysis"},
+		{"bash", "Bash"},
+	}
+	for _, tc := range cases {
+		if got := toolDisplayName(tc.tool); got != tc.want {
+			t.Errorf("toolDisplayName(%q) = %q, want %q", tc.tool, got, tc.want)
+		}
+	}
+}
+
 func TestToolCallSummary_KnownTools(t *testing.T) {
 	cases := []struct {
 		tool  string
@@ -87,6 +112,56 @@ func TestRenderPart_ToolCallClaudeCodeShape(t *testing.T) {
 	plain := ansi.Strip(got)
 	if plain != "Bash(cd /tmp && ls)" {
 		t.Errorf("tool_call render = %q, want 'Bash(cd /tmp && ls)'", plain)
+	}
+}
+
+func TestRenderPart_RunningToolCallShowsProgressState(t *testing.T) {
+	theme := DefaultTheme()
+	p := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		ToolName: "read_file",
+		Metadata: map[string]any{
+			"status": "running",
+		},
+	}
+	got := theme.renderPart(p, 80)
+	plain := ansi.Strip(got)
+	if plain != "ReadFile()  ·  running now" {
+		t.Errorf("running tool_call render = %q, want progress state suffix", plain)
+	}
+}
+
+func TestRenderParts_SuppressesRunningStateWhenToolResultIsInline(t *testing.T) {
+	theme := DefaultTheme()
+	call := gact.Part{
+		Type:     gact.PartTypeToolCall,
+		CallID:   "call_read",
+		ToolName: "read_file",
+		Input:    map[string]any{"path": "main.go"},
+		Metadata: map[string]any{
+			"status": "running",
+		},
+	}
+	result := gact.Part{
+		Type:   gact.PartTypeToolResult,
+		CallID: "call_read",
+		Content: []gact.Part{{
+			Type: gact.PartTypeText,
+			Text: "package main",
+		}},
+	}
+
+	out := ansi.Strip(theme.renderPartsForRoleWithResults(
+		[]gact.Part{call},
+		80,
+		gact.RoleAssistant,
+		map[string]gact.Part{"call_read": result},
+	))
+	if strings.Contains(out, "running") {
+		t.Fatalf("paired tool call should not keep running suffix:\n%s", out)
+	}
+	if !strings.Contains(out, "ReadFile(main.go)") || !strings.Contains(out, "package main") {
+		t.Fatalf("paired tool render lost call/result:\n%s", out)
 	}
 }
 
@@ -157,8 +232,8 @@ func TestRenderPart_ThinkingUsesContinuationGlyph(t *testing.T) {
 	}
 	got := theme.renderPart(p, 40)
 	plain := ansi.Strip(got)
-	if !strings.Contains(plain, "⎿ thinking") {
-		t.Errorf("thinking header missing new glyph: %q", plain)
+	if !strings.Contains(plain, "⎿ planning") {
+		t.Errorf("planning header missing continuation glyph: %q", plain)
 	}
 	if !strings.Contains(plain, "considering options") {
 		t.Errorf("thinking body lost: %q", plain)

@@ -33,24 +33,90 @@ type Config struct {
 	// handler returns a static demo list. Opt-in because deterministic
 	// tests rely on the static fixture.
 	WalkWorkspaceFiles bool
+	// EmptyExpertPacks suppresses the static expert-pack fixtures. This is
+	// used by visual-loop tests to exercise the operator empty state.
+	EmptyExpertPacks bool
+	// ExpertPackFailures enables deterministic expert-pack lifecycle
+	// failures for visual-loop tests.
+	ExpertPackFailures bool
+	// EmptyPrompts suppresses the static prompt registry fixtures. This is
+	// used by visual-loop tests to exercise the operator empty state.
+	EmptyPrompts bool
+	// PromptStress appends workspace/session/provider/invalid prompt registry
+	// fixtures for visual-loop prompt catalog stress states.
+	PromptStress bool
+	// PromptSaveFailures makes prompt save requests fail deterministically.
+	// Used by visual-loop tests to prove save errors remain visible.
+	PromptSaveFailures bool
+	// EmptyTools suppresses the static tool catalog. This is used by
+	// visual-loop tests to exercise the operator empty state.
+	EmptyTools bool
+	// EmptyMcpConnections suppresses the static MCP connection catalog. This
+	// is used by visual-loop tests to exercise the operator empty state.
+	EmptyMcpConnections bool
+	// PermissionStress seeds pending/resolved permission requests and
+	// overlapping policies for visual-loop permission inspector demos.
+	PermissionStress bool
+	// MemoryUnavailable makes memory endpoints report unsupported. This is
+	// used by visual-loop tests to exercise the operator fallback state.
+	MemoryUnavailable bool
+	// LongCommands appends a deterministic batch of commands in one
+	// category. This is used by visual-loop tests to exercise palette
+	// category scrolling without changing the default command catalog.
+	LongCommands bool
+	// AgentBlueprintFailures enables deterministic blueprint lifecycle
+	// failures for visual-loop tests. Disabled by default so normal demos
+	// keep the happy-path catalog.
+	AgentBlueprintFailures bool
+	// LongAgentBlueprints appends large, long-name blueprint/source
+	// fixtures for visual-loop hierarchy and truncation tests.
+	LongAgentBlueprints bool
+	// LongAgents appends a deep, long-name agent hierarchy for visual-loop
+	// tests that exercise tree indentation, scrolling, and rich detail rows.
+	LongAgents bool
+	// AgentFailures enables deterministic user-agent lifecycle failures for
+	// visual-loop tests. Disabled by default so normal demos keep the
+	// happy-path catalog.
+	AgentFailures bool
+	// CancelFailures makes session cancellation fail deterministically for
+	// visual-loop tests that prove operator-visible cancel errors.
+	CancelFailures bool
+	// SessionCreateFailures makes POST /v1/sessions fail deterministically
+	// after startup seeding, so visual-loop tests can prove create-session
+	// errors without losing an already-attached session.
+	SessionCreateFailures bool
+	// SessionRenameFailures makes PATCH /v1/sessions title updates fail
+	// deterministically for visual-loop tests that prove manual rename
+	// failures remain operator-visible.
+	SessionRenameFailures bool
+	// ContextAddFailures makes POST /context/files fail deterministically for
+	// visual-loop tests that prove add-context errors remain readable.
+	ContextAddFailures bool
+	// ProviderEdgeStates enables deterministic provider/auth/model catalog
+	// warnings for visual-loop tests.
+	ProviderEdgeStates bool
+	// ProviderAuthSucceeds makes the provider edge-state auth endpoint mark
+	// ALCF Sophia ready instead of returning a deterministic failure.
+	ProviderAuthSucceeds bool
 }
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg           Config
-	started       time.Time
-	mux           *http.ServeMux
-	store         *store.Store
-	bus           *events.Bus
-	perms         *store.Permissions
-	contextFiles  *contextFileSet
-	latency       *latencyTracker
-	hooks         *hooksStore // §6.17 — MMM3
-	tasks         *tasksStore // §6.18 — MMM5
-	prompts       map[string]gact.PromptDefinition
-	agents        map[string]gact.AgentDef
-	agentsMu      sync.Mutex
-	userQuestions map[string]gact.UserQuestion
+	cfg            Config
+	started        time.Time
+	mux            *http.ServeMux
+	store          *store.Store
+	bus            *events.Bus
+	perms          *store.Permissions
+	contextFiles   *contextFileSet
+	latency        *latencyTracker
+	hooks          *hooksStore // §6.17 — MMM3
+	tasks          *tasksStore // §6.18 — MMM5
+	prompts        map[string]gact.PromptDefinition
+	agents         map[string]gact.AgentDef
+	agentsMu       sync.Mutex
+	userQuestions  map[string]gact.UserQuestion
+	providerAuthed map[string]bool
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -72,21 +138,39 @@ func New(cfg Config) *Server {
 // created internally; use Bus() to access it.
 func NewWithStore(cfg Config, st *store.Store) *Server {
 	s := &Server{
-		cfg:           cfg,
-		started:       time.Now(),
-		mux:           http.NewServeMux(),
-		store:         st,
-		bus:           events.NewBus(cfg.EventRingCapacity),
-		perms:         store.NewPermissions(),
-		contextFiles:  newContextFileSet(),
-		latency:       newLatencyTracker(1024),
-		hooks:         newHooksStore(),
-		tasks:         newTasksStore(),
-		prompts:       staticPromptDefinitions(),
-		agents:        map[string]gact.AgentDef{},
-		userQuestions: map[string]gact.UserQuestion{},
-		onUserMessage: cfg.OnUserMessage,
-		onCancel:      cfg.OnCancel,
+		cfg:            cfg,
+		started:        time.Now(),
+		mux:            http.NewServeMux(),
+		store:          st,
+		bus:            events.NewBus(cfg.EventRingCapacity),
+		perms:          store.NewPermissions(),
+		contextFiles:   newContextFileSet(),
+		latency:        newLatencyTracker(1024),
+		hooks:          newHooksStore(),
+		tasks:          newTasksStore(),
+		prompts:        staticPromptDefinitions(),
+		agents:         map[string]gact.AgentDef{},
+		userQuestions:  map[string]gact.UserQuestion{},
+		providerAuthed: map[string]bool{},
+		onUserMessage:  cfg.OnUserMessage,
+		onCancel:       cfg.OnCancel,
+	}
+	if cfg.EmptyPrompts {
+		s.prompts = map[string]gact.PromptDefinition{}
+	} else if cfg.PromptStress {
+		for id, prompt := range staticPromptStressDefinitions() {
+			s.prompts[id] = prompt
+		}
+	}
+	if cfg.LongAgents || cfg.AgentFailures {
+		for _, agent := range staticAgentStressDefinitions() {
+			if cfg.LongAgents || agent.ID == "fragile-user-expert" {
+				s.agents[agent.ID] = agent
+			}
+		}
+	}
+	if cfg.PermissionStress {
+		seedPermissionStress(s.perms)
 	}
 	s.routes()
 	// MMM3: kick off the hook dispatcher. Background ctx — runs for the
@@ -164,6 +248,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/sessions/{id}/questions", s.handleCreateQuestion)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/answer", s.handleAnswerQuestion)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/cancel", s.handleCancelQuestion)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/questions/{question_id}/expire", s.handleExpireQuestion)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/attempts", s.handleListAttempts)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/messages/{msg_id}/retry", s.handleRetryMessage)
 
@@ -187,6 +272,7 @@ func (s *Server) routes() {
 	// §6.7 — MCP
 	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcpServers)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcpServer)
+	s.mux.HandleFunc("DELETE /v1/mcp/servers/{id}", s.handleDeleteMcpServer)
 	s.mux.HandleFunc("POST /v1/mcp/servers/{id}/reconnect", s.handleMcpReconnect)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/tools", s.handleMcpServerTools)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}/resources", s.handleMcpServerResources)
@@ -198,6 +284,8 @@ func (s *Server) routes() {
 
 	// §6.9 — Files & context
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files", s.handleListContextFiles)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/files/content", s.handleContextFileContent)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/attachments", s.handleUploadAttachment)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/context/files", s.handleAddContextFile)
 	s.mux.HandleFunc("DELETE /v1/sessions/{id}/context/files", s.handleDeleteContextFile)
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
@@ -221,6 +309,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /v1/providers/lm", s.handlePutLMProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
+	s.mux.HandleFunc("POST /v1/providers/{id}/auth", s.handleProviderAuth)
 
 	// §6.13 — Commands
 	s.mux.HandleFunc("GET /v1/commands", s.handleListCommands)
@@ -238,16 +327,23 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/expert-packs", s.handleListExpertPacks)
 	s.mux.HandleFunc("GET /v1/expert-packs/{id}", s.handleGetExpertPack)
 	s.mux.HandleFunc("POST /v1/expert-packs/validate", s.handleValidateExpertPack)
+	s.mux.HandleFunc("POST /v1/expert-packs/install", s.handleInstallExpertPack)
+	s.mux.HandleFunc("POST /v1/expert-packs/{id}/update", s.handleUpdateExpertPack)
+	s.mux.HandleFunc("DELETE /v1/expert-packs/{id}", s.handleDeleteExpertPack)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/expert-pack", s.handleGetSessionExpertPack)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/expert-pack", s.handleSetSessionExpertPack)
 
 	// CLIO agent-blueprint extension
 	s.mux.HandleFunc("GET /v1/agent-blueprints", s.handleListAgentBlueprints)
+	s.mux.HandleFunc("GET /v1/agent-blueprints/sources", s.handleListAgentBlueprintSources)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/sources/{id}/refresh", s.handleRefreshAgentBlueprintSource)
+	s.mux.HandleFunc("DELETE /v1/agent-blueprints/sources/{id}", s.handleDeleteAgentBlueprintSource)
 	s.mux.HandleFunc("GET /v1/agent-blueprints/{id}", s.handleGetAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/validate", s.handleValidateAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/install", s.handleInstallAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/update", s.handleUpdateAgentBlueprint)
 	s.mux.HandleFunc("DELETE /v1/agent-blueprints/{id}", s.handleDeleteAgentBlueprint)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/hooks/{hook_id}/enable", s.handleEnableAgentBlueprintHook)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/{id}/mcp/{descriptor_id}/enable", s.handleEnableAgentBlueprintMCP)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/agent-blueprint", s.handleGetSessionAgentBlueprint)
 	s.mux.HandleFunc("POST /v1/sessions/{id}/agent-blueprint", s.handleSetSessionAgentBlueprint)

@@ -119,12 +119,21 @@ func (s *Server) handleAnswerQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.bus.Publish(events.Event{Type: "message.created", SessionID: sid, Payload: msg})
-	_, _ = s.store.UpdateSession(sid, func(row *gact.Session) {
+	prevStatus := ""
+	updated, _ := s.store.UpdateSession(sid, func(row *gact.Session) {
+		prevStatus = row.Status
 		row.Status = gact.StatusIdle
 		if row.Metadata != nil {
 			row.Metadata["pending_user_question_id"] = ""
 		}
 	})
+	if updated != nil {
+		s.bus.Publish(events.Event{Type: "session.status_changed", SessionID: sid, Payload: map[string]any{
+			"session_id":  sid,
+			"status":      updated.Status,
+			"prev_status": prevStatus,
+		}})
+	}
 	s.bus.Publish(events.Event{Type: "user_question.answered", SessionID: sid, Payload: q})
 	writeJSON(w, http.StatusOK, q)
 }
@@ -140,13 +149,56 @@ func (s *Server) handleCancelQuestion(w http.ResponseWriter, r *http.Request) {
 	q.Status = "cancelled"
 	q.UpdatedAt = time.Now().UTC()
 	s.userQuestions[q.ID] = q
-	_, _ = s.store.UpdateSession(sid, func(row *gact.Session) {
+	prevStatus := ""
+	updated, _ := s.store.UpdateSession(sid, func(row *gact.Session) {
+		prevStatus = row.Status
 		row.Status = gact.StatusIdle
 		if row.Metadata != nil {
 			row.Metadata["pending_user_question_id"] = ""
 		}
 	})
+	if updated != nil {
+		s.bus.Publish(events.Event{Type: "session.status_changed", SessionID: sid, Payload: map[string]any{
+			"session_id":  sid,
+			"status":      updated.Status,
+			"prev_status": prevStatus,
+		}})
+	}
 	s.bus.Publish(events.Event{Type: "user_question.cancelled", SessionID: sid, Payload: q})
+	writeJSON(w, http.StatusOK, q)
+}
+
+func (s *Server) handleExpireQuestion(w http.ResponseWriter, r *http.Request) {
+	sid := r.PathValue("id")
+	qid := r.PathValue("question_id")
+	q, err := s.findSessionQuestion(sid, qid)
+	if err != nil {
+		writeStoreError(w, err, "question_not_found", "invalid_question")
+		return
+	}
+	now := time.Now().UTC()
+	q.Status = "expired"
+	q.UpdatedAt = now
+	if q.ExpiresAt == nil {
+		q.ExpiresAt = &now
+	}
+	s.userQuestions[q.ID] = q
+	prevStatus := ""
+	updated, _ := s.store.UpdateSession(sid, func(row *gact.Session) {
+		prevStatus = row.Status
+		row.Status = gact.StatusIdle
+		if row.Metadata != nil {
+			row.Metadata["pending_user_question_id"] = ""
+		}
+	})
+	if updated != nil {
+		s.bus.Publish(events.Event{Type: "session.status_changed", SessionID: sid, Payload: map[string]any{
+			"session_id":  sid,
+			"status":      updated.Status,
+			"prev_status": prevStatus,
+		}})
+	}
+	s.bus.Publish(events.Event{Type: "user_question.expired", SessionID: sid, Payload: q})
 	writeJSON(w, http.StatusOK, q)
 }
 

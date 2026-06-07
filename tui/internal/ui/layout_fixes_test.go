@@ -7,7 +7,10 @@
 package ui
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +20,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // longConversation returns n alternating user/assistant messages so the
@@ -58,10 +62,31 @@ func TestFooter_StaysInFrameOnLongConversation(t *testing.T) {
 		t.Fatalf("rendered %d lines for height=%d — footer would overflow", len(lines), H)
 	}
 
-	// Footer must be on the last visible line (contains "Ctrl+N" hint).
+	// Footer must be on the last visible line. The exact hints are
+	// responsive, but quit stays present as the terminal-level escape.
 	last := lines[len(lines)-1]
-	if !strings.Contains(last, "Ctrl+N") {
-		t.Fatalf("last row missing footer hint (Ctrl+N) — got:\n%q", last)
+	if !strings.Contains(last, "Ctrl+C") {
+		t.Fatalf("last row missing footer quit hint — got:\n%q", last)
+	}
+}
+
+func TestComposerPlaceholderDoesNotLeaveOrphanTerminalHint(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}, nil)
+	rendered := stripANSI(renderAtSize(a, 150, 40))
+	if strings.Contains(rendered, "\nsupporting\n") || strings.Contains(rendered, "\nsupporting ") {
+		t.Fatalf("composer placeholder left orphan terminal hint:\n%s", rendered)
+	}
+}
+
+func TestComposerPlaceholderFitsWhenMouseCommandChipIsVisible(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}, nil)
+	a.MouseEnabled = true
+	rendered := stripANSI(renderAtSize(a, 150, 40))
+	if strings.Contains(rendered, "\nsupporting\n") || strings.Contains(rendered, "\nsupporting ") {
+		t.Fatalf("composer placeholder left orphan terminal hint with command chip:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "(Shift+Enter on supporting terminals)") {
+		t.Fatalf("command-chip composer should use compact placeholder copy:\n%s", rendered)
 	}
 }
 
@@ -242,6 +267,53 @@ func TestPaste_MultiLineCompresses(t *testing.T) {
 	}
 }
 
+func TestPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\r\nline 2\rline 3"})
+	a = out.(*App)
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "line 1\nline 2\nline 3" {
+		t.Fatalf("normalized paste content = %q", got)
+	}
+	if expanded := a.expandPasteText(a.input.Value()); strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded paste retained carriage returns: %q", expanded)
+	}
+}
+
+func TestBufferedPaste_NormalizesCRLFBeforeCompression(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+	a.input.SetValue("before alpha\r\nbeta\rgamma")
+	a.pasteBuffer = "alpha\r\nbeta\rgamma"
+
+	a.compactBufferedPaste()
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("pastes = %d, want 1", len(a.pastes))
+	}
+	if got := a.pastes[0].content; got != "alpha\nbeta\ngamma" {
+		t.Fatalf("normalized buffered paste = %q", got)
+	}
+	if raw := a.input.Value(); strings.Contains(raw, "\r") {
+		t.Fatalf("input retained raw carriage returns after compression: %q", raw)
+	}
+	expanded := a.expandPasteText(a.input.Value())
+	if strings.Contains(expanded, "\r") {
+		t.Fatalf("expanded buffered paste retained carriage returns: %q", expanded)
+	}
+	if !strings.Contains(expanded, "before alpha\nbeta\ngamma") {
+		t.Fatalf("expanded buffered paste missing normalized body: %q", expanded)
+	}
+}
+
 // TestPaste_ShortPassesThrough ensures 2-line pastes don't trigger the
 // compression path — overhead isn't worth it at small sizes and the
 // user experience of "pasted content: 2 lines" would feel silly.
@@ -259,6 +331,75 @@ func TestPaste_ShortPassesThrough(t *testing.T) {
 	// PasteMsg handling).
 	if !strings.Contains(a.input.Value(), "one") {
 		t.Fatalf("short paste content missing: %q", a.input.Value())
+	}
+}
+
+func TestPaste_LongSingleLineCompressesByVisualLines(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Status: gact.StatusIdle}}, nil)
+	a.focus = FocusInput
+	a.width = 92
+	a.height = 30
+	a.Theme.PasteCompressThreshold = 2
+
+	content := strings.Repeat("x", 180)
+	out, _ := a.Update(tea.PasteMsg{Content: content})
+	a = out.(*App)
+
+	if len(a.pastes) != 1 {
+		t.Fatalf("long visual paste should compress, pastes=%d input=%q", len(a.pastes), a.input.Value())
+	}
+	if a.pastes[0].lineCount < 2 {
+		t.Fatalf("visual line count = %d, want >= 2", a.pastes[0].lineCount)
+	}
+	if !strings.Contains(a.input.Value(), "[pasted content #1: ") {
+		t.Fatalf("input missing visual paste placeholder: %q", a.input.Value())
+	}
+}
+
+func TestPaste_ExpandedLongSingleLineGrowsInputByVisualLines(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Status: gact.StatusIdle}}, nil)
+	a.focus = FocusInput
+	a.width = 92
+	a.height = 30
+	a.Theme.PasteCompressThreshold = 2
+
+	content := strings.Repeat("x", 180)
+	out, _ := a.Update(tea.PasteMsg{Content: content})
+	a = out.(*App)
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	a = out.(*App)
+
+	rendered := renderAtSize(a, 92, 30)
+	if got := lipgloss.Height(rendered); got > 30 {
+		t.Fatalf("expanded visual paste pushed view over viewport: %d > 30", got)
+	}
+	if visualLineCount(a.input.Value(), a.estimatedComposerTextWidth()) < 2 {
+		t.Fatalf("expanded long line was not counted as multiple visual rows")
+	}
+}
+
+func TestLongSingleLineInputKeepsBottomBorderVisible(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Status: gact.StatusIdle}}, nil)
+	a.focus = FocusInput
+	a.width = 92
+	a.height = 30
+	a.input.SetValue(strings.Repeat("current California NWS warnings ", 10))
+
+	rendered := stripANSI(renderAtSize(a, 92, 30))
+	lines := strings.Split(rendered, "\n")
+	footerIdx := -1
+	for i, line := range lines {
+		if strings.Contains(line, "focus: input") {
+			footerIdx = i
+			break
+		}
+	}
+	if footerIdx < 1 {
+		t.Fatalf("could not find footer below input pane:\n%s", rendered)
+	}
+	borderLine := lines[footerIdx-1]
+	if !strings.Contains(borderLine, "╰") || !strings.Contains(borderLine, "╯") {
+		t.Fatalf("input bottom border should remain visible above footer, got %q\n%s", borderLine, rendered)
 	}
 }
 
@@ -289,6 +430,94 @@ func TestPaste_CtrlPExpandsLatest(t *testing.T) {
 	}
 	if len(a.pastes) != 0 {
 		t.Fatalf("paste record should be dropped after expand, got %d", len(a.pastes))
+	}
+}
+
+func TestPaste_CtrlPExpansionGrowsInputPane(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.Theme.PasteCompressThreshold = 3
+
+	out, _ := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3\nline 4\nline 5"})
+	a = out.(*App)
+	if !strings.Contains(a.input.Value(), "[pasted content") {
+		t.Fatalf("setup: paste did not compress: %q", a.input.Value())
+	}
+
+	out, _ = a.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	a = out.(*App)
+
+	rendered := renderAtSize(a, 110, 30)
+	if got := lipgloss.Height(rendered); got > 30 {
+		t.Fatalf("expanded paste pushed view over viewport: %d > 30", got)
+	}
+	plain := ansi.Strip(rendered)
+	if strings.Contains(plain, "[pasted content") {
+		t.Fatalf("expanded paste still shows placeholder:\n%s", plain)
+	}
+	if !strings.Contains(plain, "line 5") {
+		t.Fatalf("expanded paste last line missing; input pane did not grow:\n%s", plain)
+	}
+}
+
+func TestPaste_PostFailureRestoresExpandedContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/sess_1/messages" {
+			http.Error(w, `{"error":"temporarily unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.focus = FocusInput
+	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.selected = 0
+	a.Theme.PasteCompressThreshold = 3
+
+	model, cmd := a.Update(tea.PasteMsg{Content: "line 1\nline 2\nline 3"})
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("compressed paste should not dispatch a command")
+	}
+	if !strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 1 {
+		t.Fatalf("setup: paste did not compress, input=%q pastes=%d", a.input.Value(), len(a.pastes))
+	}
+
+	model, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("Enter should dispatch post command for expanded paste")
+	}
+	if got := a.input.Value(); got != "" {
+		t.Fatalf("input should clear while post is in flight, got %q", got)
+	}
+	if len(a.pastes) != 0 {
+		t.Fatalf("pastes should clear after dispatch, got %d", len(a.pastes))
+	}
+
+	msg := cmd()
+	failed, ok := msg.(postFailedMsg)
+	if !ok {
+		t.Fatalf("post cmd returned %T, want postFailedMsg", msg)
+	}
+	if strings.Contains(failed.text, "[pasted content") {
+		t.Fatalf("failed draft should not restore inert placeholder: %q", failed.text)
+	}
+	if failed.text != "line 1\nline 2\nline 3" {
+		t.Fatalf("failed draft = %q, want expanded paste body", failed.text)
+	}
+
+	model, _ = a.Update(failed)
+	a = model.(*App)
+	if got := a.input.Value(); got != "line 1\nline 2\nline 3" {
+		t.Fatalf("restored input = %q, want expanded paste body", got)
+	}
+	if strings.Contains(a.input.Value(), "[pasted content") || len(a.pastes) != 0 {
+		t.Fatalf("retry draft should be expanded and have no stale paste records, input=%q pastes=%d", a.input.Value(), len(a.pastes))
 	}
 }
 
@@ -478,7 +707,7 @@ func TestClear_RequiresDoubleConfirmation(t *testing.T) {
 	// First /clear — should arm the pending state, NOT wipe messages.
 	a.paletteOpen = true
 	a.paletteFilter = ""
-	a.paletteSel = 0
+	a.paletteSel = paletteIndexForTest(a, "/clear")
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = out.(*App)
 	if a.pendingClearSessionID != "sess_1" {
@@ -491,7 +720,7 @@ func TestClear_RequiresDoubleConfirmation(t *testing.T) {
 	// Second /clear — should wipe.
 	a.paletteOpen = true
 	a.paletteFilter = ""
-	a.paletteSel = 0
+	a.paletteSel = paletteIndexForTest(a, "/clear")
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = out.(*App)
 	if len(a.messages) != 0 {
@@ -499,6 +728,110 @@ func TestClear_RequiresDoubleConfirmation(t *testing.T) {
 	}
 	if a.pendingClearSessionID != "" {
 		t.Fatalf("pending state should clear after confirmed wipe: %q", a.pendingClearSessionID)
+	}
+}
+
+func TestClearSlashCmd_NoOpsWithoutActiveSession(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.selected = -1
+	a.commands = []gact.Command{
+		{ID: "/clear", Title: "Clear chat history", Source: "builtin"},
+	}
+	a.paletteOpen = true
+	a.paletteGroup = "Session"
+	a.paletteSel = paletteIndexForTest(a, "/clear")
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("clear no-session no-op should still schedule hint expiry")
+	}
+	if a.transientHint != "no active session to clear" {
+		t.Fatalf("clear no-session hint = %q", a.transientHint)
+	}
+	if a.pendingClearSessionID != "" {
+		t.Fatalf("clear no-session should not arm confirmation, got %q", a.pendingClearSessionID)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /clear no-op")
+	}
+}
+
+func TestCancelSlashCmd_NoOpsWhenSessionIdle(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.currentStatus = gact.StatusIdle
+	a.commands = []gact.Command{{ID: "/cancel", Title: "Cancel", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = paletteIndexForTest(a, "/cancel")
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("idle cancel should still schedule hint expiry")
+	}
+	if a.transientHint != "nothing running in selected session" {
+		t.Fatalf("idle cancel hint = %q", a.transientHint)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /cancel no-op")
+	}
+}
+
+func TestCancelSlashCmd_DispatchesWhenSessionRunning(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusRunning}}
+	a := newReadyApp(sessions, nil)
+	a.currentStatus = gact.StatusRunning
+	a.commands = []gact.Command{{ID: "/cancel", Title: "Cancel", Source: "builtin"}}
+	a.paletteOpen = true
+	a.paletteFilter = ""
+	a.paletteSel = paletteIndexForTest(a, "/cancel")
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("running cancel should dispatch backend cancellation command")
+	}
+	if a.transientHint != "cancelling run…" {
+		t.Fatalf("running cancel hint = %q", a.transientHint)
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /cancel")
+	}
+}
+
+func TestCancelSessionFailureShowsHintWithoutStageError(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/sess_1/cancel" {
+			hits++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`{"error":{"code":"cancel_failed","message":"backend unavailable"}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	a := newReadyApp([]gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusRunning}}, nil)
+	a.c = client.New(srv.URL)
+	msg := cancelCmd(a.c, "sess_1")()
+	if hits != 1 {
+		t.Fatalf("expected one backend cancel request, got %d", hits)
+	}
+
+	out, cmd := a.Update(msg)
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("cancel failure should schedule hint expiry")
+	}
+	if a.stage == StageError {
+		t.Fatalf("cancel failure should not replace the session UI with StageError: %q", a.stageError)
+	}
+	if !strings.Contains(a.transientHint, "cancel failed:") || !strings.Contains(a.transientHint, "backend unavailable") {
+		t.Fatalf("cancel failure hint = %q", a.transientHint)
 	}
 }
 
@@ -517,7 +850,7 @@ func TestSessionsSlashCmd_FocusesSidebarFilter(t *testing.T) {
 	}
 	a.paletteOpen = true
 	a.paletteFilter = ""
-	a.paletteSel = 0
+	a.paletteSel = paletteIndexForTest(a, "/sessions")
 
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = out.(*App)
@@ -531,6 +864,22 @@ func TestSessionsSlashCmd_FocusesSidebarFilter(t *testing.T) {
 	if !a.sessionFilterActive {
 		t.Fatalf("session filter should be armed for editing")
 	}
+}
+
+func paletteIndexForTest(a *App, id string) int {
+	a.paletteGroup = ""
+	for _, cmd := range a.paletteVisibleMatches() {
+		if cmd.ID == id {
+			a.paletteGroup = paletteCommandGroup(cmd)
+			break
+		}
+	}
+	for i, cmd := range a.paletteVisibleMatches() {
+		if cmd.ID == id {
+			return i
+		}
+	}
+	return 0
 }
 
 // TestCostThresholds_DefaultAndOverride verifies P3: zero → Claude
@@ -558,37 +907,129 @@ func TestCostThresholds_DefaultAndOverride(t *testing.T) {
 	}
 }
 
-// TestDuplicateSession_PreservesMeta runs the duplicate cmd against
-// an httptest backend and verifies the resulting session carries
-// over title/model/agent.
-func TestDuplicateSession_PreservesMeta(t *testing.T) {
-	// We're mostly checking the cmd's side: the request body carries
-	// the expected fields. Rather than stand up a fake HTTP backend,
-	// assemble a client pointed at an invalid URL and inspect the
-	// errMsg's stage so the "this path was exercised" assertion is
-	// cheap.
-	sessions := []gact.Session{{
+// TestDuplicateSession_PreservesTitleAndExpert runs the duplicate cmd against
+// an httptest backend and verifies the request copies only the supported
+// operator contract: title + expert, fresh context. It intentionally does not
+// copy ModelRef because CLIO uses global LM provider settings.
+func TestDuplicateSession_PreservesTitleAndExpert(t *testing.T) {
+	var req client.CreateSessionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(gact.Session{
+			ID:          "copy_1",
+			WorkspaceID: req.WorkspaceID,
+			Title:       req.Title,
+			Agent:       *req.Agent,
+		})
+	}))
+	defer srv.Close()
+
+	src := gact.Session{
 		ID:    "s1",
 		Title: "refactor auth",
 		Model: gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-opus-4-7"},
 		Agent: gact.AgentRef{ID: "code_reviewer"},
-	}}
-	a := newReadyApp(sessions, nil)
+	}
+	msg := duplicateSessionCmd(client.New(srv.URL), "ws_1", src)()
+	created, ok := msg.(sessionCreatedMsg)
+	if !ok {
+		t.Fatalf("duplicate cmd returned %T, want sessionCreatedMsg", msg)
+	}
+	if req.WorkspaceID != "ws_1" {
+		t.Fatalf("workspace_id = %q", req.WorkspaceID)
+	}
+	if req.Title != "refactor auth (copy)" {
+		t.Fatalf("title = %q", req.Title)
+	}
+	if req.Agent == nil || req.Agent.ID != "code_reviewer" {
+		t.Fatalf("agent = %#v", req.Agent)
+	}
+	if req.Model != nil {
+		t.Fatalf("duplicate should not copy stale per-session model refs: %#v", req.Model)
+	}
+	if created.session.ID != "copy_1" || created.session.Title != "refactor auth (copy)" {
+		t.Fatalf("created session = %#v", created.session)
+	}
+}
+
+func TestDuplicateSessionFailureShowsHintWithoutStageError(t *testing.T) {
+	a := newReadyApp([]gact.Session{{ID: "s1", Title: "demo"}}, nil)
+	a.stage = StageReady
+
+	out, cmd := a.Update(errMsg{stage: "duplicate-session", err: errors.New("backend unavailable")})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("duplicate failure should schedule hint expiry")
+	}
+	if a.stage != StageReady {
+		t.Fatalf("duplicate failure should keep TUI ready, got stage %v", a.stage)
+	}
+	if a.transientHint != "duplicate failed: backend unavailable" {
+		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
+func TestCreateSessionFailureShowsHintWithoutStageError(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.stage = StageReady
+
+	out, cmd := a.Update(errMsg{stage: "create-session", err: errors.New("backend unavailable")})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("create failure should schedule hint expiry")
+	}
+	if a.stage != StageReady {
+		t.Fatalf("create failure should keep TUI ready, got stage %v", a.stage)
+	}
+	if a.transientHint != "session create failed: backend unavailable" {
+		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
+func TestNewSlashCmd_DispatchesCreateSession(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.commands = []gact.Command{
+		{ID: "/new", Title: "New session", Source: "builtin"},
+	}
+	a.paletteOpen = true
+	a.paletteGroup = "Session"
+	a.paletteSel = paletteIndexForTest(a, "/new")
+
+	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = out.(*App)
+	if cmd == nil {
+		t.Fatal("/new should dispatch session creation")
+	}
+	if a.paletteOpen {
+		t.Fatal("palette should close after /new")
+	}
+}
+
+func TestDuplicateSlashCmd_NoOpsWithoutSelectedSession(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.selected = -1
 	a.commands = []gact.Command{
 		{ID: "/duplicate", Title: "copy", Source: "builtin"},
 	}
 	a.paletteOpen = true
+	a.paletteGroup = "Session"
+	a.paletteSel = paletteIndexForTest(a, "/duplicate")
+
 	out, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = out.(*App)
 	if cmd == nil {
-		t.Fatalf("no cmd returned")
+		t.Fatal("duplicate no-op should still schedule hint expiry")
 	}
-	// Palette should have closed; a duplicate would have been
-	// dispatched to the (unreachable) client. The user-visible
-	// outcome is a new session appearing via sessionCreatedMsg,
-	// but we only assert the state-machine transitioned.
+	if a.transientHint != "no selected session to duplicate" {
+		t.Fatalf("duplicate no-op hint = %q", a.transientHint)
+	}
 	if a.paletteOpen {
-		t.Fatalf("palette should close after /duplicate")
+		t.Fatal("palette should close after /duplicate no-op")
 	}
 }
 
@@ -925,7 +1366,7 @@ func TestThemeSlashCmd_OpensSettingsThemeTab(t *testing.T) {
 	}
 	a.paletteOpen = true
 	a.paletteFilter = ""
-	a.paletteSel = 0
+	a.paletteSel = paletteIndexForTest(a, "/theme")
 
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = out.(*App)
@@ -1442,6 +1883,23 @@ func TestCompose_ExpandsPastesOnOpen(t *testing.T) {
 	}
 }
 
+func TestCompose_PasteNormalizesCRLF(t *testing.T) {
+	sessions := []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a := newReadyApp(sessions, nil)
+	a.focus = FocusInput
+	a.openCompose()
+
+	out, _ := a.Update(tea.PasteMsg{Content: "alpha\r\nbeta\rgamma"})
+	a = out.(*App)
+
+	if !a.composeOpen || a.compose == nil {
+		t.Fatal("compose should remain open after paste")
+	}
+	if got := a.compose.ta.Value(); got != "alpha\nbeta\ngamma" {
+		t.Fatalf("compose paste = %q, want normalized LF newlines", got)
+	}
+}
+
 // TestInputPane_GrowsWithContent verifies multi-line buffers get a
 // taller input pane (capped at ~1/3 viewport) so users can see what
 // they're composing. Single-line buffers keep the compact 3-row pane.
@@ -1474,8 +1932,9 @@ func TestInputPane_GrowsWithContent(t *testing.T) {
 }
 
 // TestCatalogBrowser_CommandIDsRoute verifies the L5 palette routing:
-// /mcp /tools /skills fan out to catalog kinds, /agents redirects to
-// Settings tab 1, everything else falls through to RunCommand.
+// /tools opens the unified callable catalog, /mcp opens connection
+// management, /skills opens its catalog, /agents redirects to Settings tab 1,
+// everything else falls through to RunCommand.
 func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 	cases := []struct {
 		in       string
@@ -1484,10 +1943,11 @@ func TestCatalogBrowser_CommandIDsRoute(t *testing.T) {
 	}{
 		{"/mcp", true, catalogKindMcp},
 		{"/tools", true, catalogKindTools},
-		// HHHHH1: /catalog is the alias for the unified-tools view.
-		{"/catalog", true, catalogKindTools},
+		{"/catalog", false, 0},
 		{"/skills", true, catalogKindSkills},
 		{"/prompts", true, catalogKindPrompts},
+		{"/experts", true, catalogKindAgents},
+		{"/agents-list", true, catalogKindAgents},
 		{"/agent-blueprints", true, catalogKindAgentBlueprints},
 		{"/blueprints", true, catalogKindAgentBlueprints},
 		{"/clear", false, 0},
@@ -1511,7 +1971,7 @@ func TestCatalogBrowser_OpenAndClose(t *testing.T) {
 	if !a.catalogBrowserOpen {
 		t.Fatalf("openCatalogBrowser didn't flip the flag")
 	}
-	if a.catalogBrowser.title != "Tools (built-in + MCP)" {
+	if a.catalogBrowser.title != "Actions and MCP" {
 		t.Fatalf("wrong title: %q", a.catalogBrowser.title)
 	}
 	if cmd == nil {
