@@ -2456,7 +2456,8 @@ function ChatLayout(props: ChatLayoutProps) {
     const settingsJumps: Array<{ id: SettingsSection; label: string }> = [
       { id: 'backends', label: 'Backends' },
       { id: 'workspaces', label: 'Workspaces' },
-      { id: 'providers', label: 'Models & providers' },
+      { id: 'models', label: 'Models' },
+      { id: 'providers', label: 'Providers (advanced)' },
       { id: 'agents', label: 'Agents' },
       { id: 'mcp', label: 'MCP servers' },
       { id: 'memory', label: 'Memory' },
@@ -2800,6 +2801,7 @@ function ChatLayout(props: ChatLayoutProps) {
           setRailRoute(id);
         }}
         onOpenPalette={() => setPaletteOpen(true)}
+        onOpenCatalog={() => setCatalogOpen(true)}
       />
 
       <Show when={onChat() && sessionsOpen()}>
@@ -3207,7 +3209,7 @@ function ChatLayout(props: ChatLayoutProps) {
         onClose={() => setCheatsheetOpen(false)}
       />
 
-      <OnboardingTour open={tourOpen()} onFinish={finishTour} />
+      <OnboardingTour open={tourOpen()} onFinish={finishTour} client={discoveryClient} />
 
       <SharedSessionModal
         open={sharedSessionOpen()}

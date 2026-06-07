@@ -8,27 +8,71 @@ export interface ConnectScreenProps {
   onConnected: (b: BackendHandle) => void;
 }
 
+/**
+ * True when `u` points at a non-loopback host — i.e. a REMOTE / federated
+ * backend (bearer-token or SSH-tunnelled), not the bundled local clio.
+ * Reauth affordances are scoped strictly to these: the local clio's LM
+ * token is maintained externally and must never surface a "re-auth" path.
+ */
+function isRemoteBackend(u: string): boolean {
+  let host: string;
+  try {
+    host = new URL(u).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return !(
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]'
+  );
+}
+
 export function ConnectScreen(props: ConnectScreenProps) {
   const [url, setUrl] = createSignal('http://127.0.0.1:17800');
   const [token, setToken] = createSignal('');
   const [status, setStatus] = createSignal<'idle' | 'connecting' | 'error'>('idle');
   const [error, setError] = createSignal<string | null>(null);
+  // True only when a REMOTE backend rejected the request with 401/403 — the
+  // one case where re-entering bearer/SSH credentials is the fix. Drives the
+  // "Re-enter credentials" affordance. Never set for a local backend.
+  const [reauthNeeded, setReauthNeeded] = createSignal(false);
+
+  let tokenInputEl: HTMLInputElement | undefined;
 
   async function tryConnect() {
     setStatus('connecting');
     setError(null);
+    setReauthNeeded(false);
     try {
       const fetchImpl = inTauri() ? tauriFetch : globalThis.fetch;
       const res = await fetchImpl(`${url().replace(/\/+$/, '')}/v1/capabilities`, {
         headers: token() ? { Authorization: `Bearer ${token()}` } : {},
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Remote-backend auth failure → offer a credentials re-entry path
+        // instead of a generic HTTP error. Scoped to remote hosts only.
+        if ((res.status === 401 || res.status === 403) && isRemoteBackend(url())) {
+          setReauthNeeded(true);
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const caps = await res.json();
       props.onConnected({ url: url(), bearerToken: token(), capabilities: caps });
     } catch (e) {
       setStatus('error');
       setError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  /** Clear the stale token and focus the field so the user can paste a
+   * fresh credential, then they press Connect again. */
+  function reenterCredentials() {
+    setToken('');
+    setReauthNeeded(false);
+    setStatus('idle');
+    queueMicrotask(() => tokenInputEl?.focus());
   }
 
   // Actionable hint derived from the failure shape — tells the user what to
@@ -78,6 +122,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
             </label>
             <input
               id="conn-token"
+              ref={tokenInputEl}
               type="password"
               value={token()}
               onInput={(e) => setToken(e.currentTarget.value)}
@@ -95,6 +140,27 @@ export function ConnectScreen(props: ConnectScreenProps) {
                 {error()}
                 <span class="connect__error-hint">{errorHint()}</span>
               </span>
+            </div>
+          </Show>
+
+          {/* Remote-backend auth failure: offer a credentials re-entry
+              action (bearer / SSH token) instead of leaving a bare 401/403.
+              Scoped to remote hosts only — the local clio's model-provider
+              token is maintained externally and is never re-auth'd here. */}
+          <Show when={reauthNeeded()}>
+            <div class="connect__reauth" data-testid="connect-reauth">
+              <span class="connect__reauth-msg">
+                This remote backend rejected your credentials. Sign in again
+                with a fresh token.
+              </span>
+              <button
+                type="button"
+                class="connect__reauth-btn"
+                onClick={reenterCredentials}
+                data-testid="splash-reauth"
+              >
+                Re-enter credentials
+              </button>
             </div>
           </Show>
 

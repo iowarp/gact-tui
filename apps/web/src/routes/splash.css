@@ -175,6 +175,15 @@
   gap: 8px;
   margin-top: 16px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.splash__error-loghint {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  margin: 10px 0 0;
+  word-break: break-all;
 }
 
 .splash__btn {

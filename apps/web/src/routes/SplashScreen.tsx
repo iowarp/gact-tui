@@ -12,6 +12,8 @@ import {
   inTauri,
   installClio,
   onInstallProgress,
+  openLogs,
+  repairClio,
   tauriFetch,
 } from '../tauri.js';
 
@@ -67,6 +69,9 @@ export function SplashScreen(props: SplashScreenProps) {
   // (as opposed to a generic backend error). Drives the install-specific
   // testids + a Retry that re-runs the installer rather than re-polling.
   const [installFailed, setInstallFailed] = createSignal(false);
+  // Transient status line for the "Open logs" action so a reveal failure
+  // (no Tauri / log not yet written) is surfaced as a hint, not silence.
+  const [logHint, setLogHint] = createSignal<string | null>(null);
 
   let cancelled = false;
   let elapsedInterval: ReturnType<typeof setInterval> | null = null;
@@ -191,9 +196,10 @@ export function SplashScreen(props: SplashScreenProps) {
    *   transition takes over once clio resolves at its install prefix).
    * - failed → detach, fall back to the manual error card with the tail.
    */
-  function startInstall() {
+  function startInstall(force = false) {
     setInstallLog([]);
     setError(null);
+    setLogHint(null);
     setInstallFailed(false);
     setPhase('installing');
     cancelled = false;
@@ -217,18 +223,40 @@ export function SplashScreen(props: SplashScreenProps) {
         if (cancelled) return;
         setInstallFailed(true);
         setPhase('error');
-        setError(installFailureMessage(failure));
+        setError(installFailureMessage(failure, force));
       },
     });
 
-    void installClio().catch((e) => {
+    // Repair re-runs the installer with a force flag (rebuild a broken
+    // runtime); first-run install does a plain install. Both stream over
+    // the same events subscribed above.
+    const run = force ? repairClio : installClio;
+    void run().catch((e) => {
       stopInstallEvents?.();
       stopInstallEvents = null;
       if (cancelled) return;
       setInstallFailed(true);
       setPhase('error');
-      setError(`Auto-install couldn't start: ${describe(e)}`);
+      setError(
+        `${force ? 'Repair' : 'Auto-install'} couldn't start: ${describe(e)}`,
+      );
     });
+  }
+
+  /**
+   * Reveal the persisted boot log in the OS file manager. Best-effort: a
+   * failure (no Tauri, or the log not written yet) shows an inline hint
+   * rather than throwing — the manual install one-liner remains the
+   * ultimate fallback.
+   */
+  async function openLogsAction() {
+    setLogHint(null);
+    try {
+      const path = await openLogs();
+      setLogHint(path ? `Opened ${path}` : 'Logs are only available in the desktop app.');
+    } catch (e) {
+      setLogHint(`Could not open logs: ${describe(e)}`);
+    }
   }
 
   async function probePureWebBackend() {
@@ -359,7 +387,9 @@ export function SplashScreen(props: SplashScreenProps) {
                     startInstall();
                     return;
                   }
+                  // Retry = re-probe / re-spawn the EXISTING install.
                   setError(null);
+                  setLogHint(null);
                   cancelled = false;
                   if (inTauri()) {
                     void waitForTauriBackend();
@@ -371,6 +401,27 @@ export function SplashScreen(props: SplashScreenProps) {
               >
                 Retry
               </button>
+              {/* Repair = re-run the installer with --force to rebuild a
+                  broken venv/runtime. Desktop-only (pure web has no
+                  bundled runtime to repair). */}
+              <Show when={inTauri()}>
+                <button
+                  type="button"
+                  class="splash__btn splash__btn--ghost"
+                  onClick={() => startInstall(true)}
+                  data-testid="splash-repair"
+                >
+                  Repair install
+                </button>
+                <button
+                  type="button"
+                  class="splash__btn splash__btn--ghost"
+                  onClick={() => void openLogsAction()}
+                  data-testid="splash-open-logs"
+                >
+                  Open logs
+                </button>
+              </Show>
               <button
                 type="button"
                 class="splash__btn splash__btn--ghost"
@@ -380,6 +431,11 @@ export function SplashScreen(props: SplashScreenProps) {
                 Manual connect…
               </button>
             </div>
+            <Show when={logHint()}>
+              <p class="splash__error-loghint" data-testid="splash-log-hint">
+                {logHint()}
+              </p>
+            </Show>
           </div>
         </Show>
       </main>
@@ -391,10 +447,11 @@ export function SplashScreen(props: SplashScreenProps) {
  * Render a friendly one-liner for a failed auto-install, appending the
  * exit code and the tail of the installer output when present.
  */
-function installFailureMessage(failure: InstallFailure): string {
+function installFailureMessage(failure: InstallFailure, force = false): string {
   const code =
     failure.code == null ? 'could not be launched' : `exited with code ${failure.code}`;
-  const base = `The clio-agent installer ${code}.`;
+  const verb = force ? 'repair' : 'installer';
+  const base = `The clio-agent ${verb} ${code}.`;
   const tail = failure.tail?.trim();
   return tail ? `${base}\n\n${tail}` : base;
 }

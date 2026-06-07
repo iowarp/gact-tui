@@ -113,6 +113,43 @@
   font-family: var(--font-sans);
 }
 
+/* Remote-backend reauth affordance (401/403 on a remote host). */
+.connect__reauth {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent-cyan) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+}
+
+.connect__reauth-msg {
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+.connect__reauth-btn {
+  flex: none;
+  background: var(--color-accent-cyan);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.connect__reauth-btn:hover {
+  filter: brightness(1.1);
+}
+
 .connect__actions {
   display: flex;
   align-items: center;
