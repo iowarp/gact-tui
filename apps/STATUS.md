@@ -1,9 +1,26 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-06-07 (0.9-readiness audit — recon)
-**Branch:** develop (audit work will branch off)
+**Last updated:** 2026-06-07 (0.9-readiness audit — COMPLETE + real-binary verified)
+**Branch:** feat/0.9-readiness (10 commits; ready to push)
 **Phase:** 0.9 lab-release readiness — capability parity with clio @ `f647db1` AND a
 good non-technical-user UI/UX (per the hermes study in `docs/ref/`).
+
+## 0.9 AUDIT — DONE (2026-06-07). All 9 tasks (A1–A7, B1–B6) landed + gates green.
+Commits: A1 `c294c61` · A2/A3/A4 core `549b8da` · parity UI `9280752` · B1/B2/B4/B5
+`7c40a51` · B3 preview rail `7e74a6f` · rail-click fix `6328d81` · B6 design/refresh
+`5ca5c1c` · branded connect/splash + visual fallout `ef669b0`/`1d0dba9` · full
+visual-walkthrough fixes `e8dba6d`.
+
+**Verified by RUNNING the app (not just green tests)** — caught + fixed real bugs the
+suites missed: unbranded connect/splash (now CLIO brand lockup), rail-click overlap
+(expanded rail under sessions col), topbar overflow stuck, onboarding Skip off-screen,
+triple SSE toasts, the singleton-icon blank-box bug (Icon.tsx → factory fns), both-
+panels grid (5 children / 5 tracks), + ~dozen polish items. Full visual walkthrough of
+every screen done; all findings fixed. **Real Tauri binary launched end-to-end**
+(supervisor → bundled clio → real sessions → branded chrome → onboarding):
+`apps/web/screenshots/desktop-real-boot.png`. See [[feedback-run-the-real-app]].
+Gates: typecheck · lint · web 247 · core 49 · desktop 6 · cargo 30 · build ·
+screenshots 39/39. Pushing pending.
 
 ## 0.9-READINESS AUDIT (2026-06-07 — READ THIS FIRST)
 
