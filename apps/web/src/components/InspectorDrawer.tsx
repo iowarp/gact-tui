@@ -37,8 +37,8 @@ export interface InspectorDrawerProps {
   /** Per-session context files from /v1/sessions/{id}/context/files. */
   contextFiles?: ContextFile[];
   /** Fetch a context file's bytes for inline preview (1.0 item 2) — wired
-   * by ChatScreen to `client.getContextFileContent` and only passed when
-   * the backend advertises `x_clio_files_content` (clio PR #533). */
+   * by ChatScreen to `client.readWorkspaceFile` (workspace-scoped read;
+   * replaced the removed session context-file-content endpoint). */
   onPreviewContextFile?: (path: string) => Promise<ContextFileContent>;
   /** Recorded retry attempts for this session (1.0 item 3) — from
    * GET /v1/sessions/{id}/attempts. Surfaces the Attempts tab. */
@@ -1035,7 +1035,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
               </For>
             </ul>
             {/* Inline content preview (1.0 item 2) — fetched through the
-                x_clio_files_content endpoint (clio PR #533). */}
+                workspace-scoped files/read endpoint via readWorkspaceFile. */}
             <Show when={previewFor()}>
               <div class="inspector__preview" data-testid="inspector-file-preview-panel">
                 <div class="inspector__preview-head">

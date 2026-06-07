@@ -903,15 +903,17 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   test('context-file content preview round-trips real bytes (1.0 item 2)', async ({ browser }) => {
-    // Needs a backend with clio PR #533 (x_clio_files_content). Skip honestly
-    // on older backends — the capability gate means the desktop never shows
-    // the preview affordance there.
+    // Preview bytes come from the workspace-scoped read endpoint
+    // (GET /v1/workspaces/{wid}/files/read) — the session-scoped
+    // context-file-content route + x_clio_files_content flag were removed on
+    // clio develop ~2026-06. Gate on `files` (universally advertised); skip
+    // honestly only if a backend somehow lacks it.
     const caps = (await (
       await fetch(`${REAL_BACKEND}/v1/capabilities`)
     ).json()) as { capabilities?: Record<string, unknown> };
     test.skip(
-      !caps.capabilities?.['x_clio_files_content'],
-      `backend ${REAL_BACKEND} does not advertise x_clio_files_content`,
+      caps.capabilities?.['files'] === false,
+      `backend ${REAL_BACKEND} does not advertise the files capability`,
     );
 
     // Seed: create a session + upload a tiny PNG attachment via the API.

@@ -1292,15 +1292,21 @@ function LiveDriven(props: {
       }}
       contextFiles={contextFiles()}
       attempts={attemptsData() ?? []}
-      // Context-file preview (1.0 item 2) — only wired when the backend
-      // advertises x_clio_files_content (clio PR #533); older backends
-      // never see a preview button (no 404-able UI).
+      // Context-file preview (1.0 item 2). The session-scoped
+      // context-file-content endpoint + `x_clio_files_content` flag were
+      // removed on clio develop ~2026-06; bytes now come from the
+      // workspace-scoped read endpoint, gated on the `files` capability
+      // (universally advertised by clio-agent-gact). Resolve the active
+      // session's workspace id and read by path.
       onPreviewContextFile={
-        props.backend.capabilities?.capabilities?.['x_clio_files_content']
+        props.backend.capabilities?.capabilities?.['files'] !== false
           ? (path) => {
-              const sid = activeId();
-              if (!sid) return Promise.reject(new Error('no active session'));
-              return live.client.getContextFileContent(sid, path);
+              const wid = rows().find((s) => s.id === activeId())?.workspace;
+              if (!wid)
+                return Promise.reject(
+                  new Error('no workspace for active session'),
+                );
+              return live.client.readWorkspaceFile(wid, path);
             }
           : undefined
       }

@@ -18,6 +18,7 @@ import type {
   Session,
   SessionTask,
   UserQuestion,
+  WorkspaceFileEntry,
   SlashCommandDef,
   Workspace,
 } from '../wire/types.js';
@@ -639,19 +640,63 @@ export class Client {
   }
 
   /**
-   * GET /v1/sessions/{id}/context/files/content?path=… — fetch a registered
-   * context file's (or uploaded attachment's) bytes back as base64-JSON
-   * (clio PR iowarp/clio-agent#533). Gate call sites on
-   * `capabilities.x_clio_files_content` — older backends 404 this route.
+   * GET /v1/workspaces/{wid}/files — list the workspace file tree (flat
+   * entries with path/type/size/modified). Backs the file browser and the
+   * preview rail. Replaces the removed session-scoped context-file content
+   * endpoint with a broader, workspace-scoped surface.
    */
-  async getContextFileContent(
-    sessionId: string,
+  listWorkspaceFiles(
+    workspaceId: string,
+  ): Promise<{ entries: WorkspaceFileEntry[] }> {
+    return this.get<{ entries: WorkspaceFileEntry[] }>(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}/files`,
+    );
+  }
+
+  /**
+   * GET /v1/workspaces/{wid}/files/read?path=… — read one workspace file's
+   * raw bytes. The endpoint returns the bytes directly with a real
+   * Content-Type (not a base64 JSON envelope), so we normalize here to the
+   * `ContextFileContent` shape (base64 `data` + `media_type`) that the
+   * preview renderers expect — one shape for both text and image previews.
+   *
+   * This replaces the removed `getContextFileContent` (the
+   * `/v1/sessions/{id}/context/files/content` route + `x_clio_files_content`
+   * flag were dropped on clio develop ~2026-06). Workspace-scoped, so it can
+   * preview ANY workspace file, not just registered context files.
+   */
+  async readWorkspaceFile(
+    workspaceId: string,
     path: string,
   ): Promise<ContextFileContent> {
-    const raw = await this.get<{ file: ContextFileContent }>(
-      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files/content?path=${encodeURIComponent(path)}`,
-    );
-    return raw.file;
+    const url = `${this.baseUrl}/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`;
+    const res = await this.fetchImpl(url, { headers: this.headers() });
+    if (!res.ok) {
+      throw new Error(`readWorkspaceFile ${path}: HTTP ${res.status}`);
+    }
+    const mediaType =
+      res.headers.get('content-type')?.split(';')[0]?.trim() ||
+      'application/octet-stream';
+    const buf = await res.arrayBuffer();
+    // ArrayBuffer → base64 without blowing the call stack on large files.
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const data =
+      typeof btoa === 'function'
+        ? btoa(binary)
+        : Buffer.from(bytes).toString('base64');
+    return {
+      path,
+      display_path: path,
+      size: bytes.length,
+      media_type: mediaType,
+      encoding: 'base64',
+      data,
+    };
   }
 
   /**

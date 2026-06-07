@@ -285,11 +285,16 @@ export interface CapabilityFlags {
   /** Upload file bytes as session attachments (clio PR #527). */
   attachments_upload?: boolean;
   /**
-   * Retrieve registered context-file/attachment bytes back from the
-   * backend as base64-JSON (clio PR iowarp/clio-agent#533). Gates the
-   * desktop's inline file/image previews (1.0 item 2).
+   * POST /messages accepts and preserves image parts; the backend can
+   * route them to a vision-capable model (clio develop ≥ 2026-06). Gates
+   * the desktop's image-attachment send + inline image rendering.
+   *
+   * NOTE: this replaces the removed `x_clio_files_content` flag. Context-
+   * file *content* is no longer a session-scoped base64 endpoint; bytes
+   * now come from the workspace-scoped `GET /v1/workspaces/{wid}/files/read`
+   * (see Client.readWorkspaceFile). Previews gate on `files`/this flag.
    */
-  x_clio_files_content?: boolean;
+  multimodal_image_parts?: boolean;
   /**
    * The backend publishes per-session `semantic.event` SSE frames (a
    * read-only execution trace). Gates the Inspector timeline's semantic
@@ -317,7 +322,11 @@ export interface CapabilityFlags {
   [k: string]: boolean | string | number | Record<string, unknown> | undefined;
 }
 
-/** Response of GET /v1/sessions/{id}/context/files/content (clio #533). */
+/** Normalized file bytes for previews. Historically the response of the
+ * removed `GET /v1/sessions/{id}/context/files/content`; now produced
+ * client-side by `Client.readWorkspaceFile` from the raw bytes of
+ * `GET /v1/workspaces/{wid}/files/read` (base64-encoded here so image and
+ * text previews share one shape). */
 export interface ContextFileContent {
   path: string;
   display_path?: string;
@@ -325,6 +334,15 @@ export interface ContextFileContent {
   media_type: string;
   encoding: 'base64';
   data: string;
+}
+
+/** One entry from `GET /v1/workspaces/{wid}/files` (workspace file tree).
+ * Backs the file browser + the side-by-side preview rail. */
+export interface WorkspaceFileEntry {
+  path: string;
+  type: 'file' | 'dir';
+  size?: number;
+  modified?: string;
 }
 
 export interface Transports {
