@@ -27,14 +27,18 @@ person who'd never open a terminal.
 | A7 | Packaged hook/command/skill **trust + provenance** (#536–#546, #539 runtime provenance) | OPEN | Extend the gap-07 bindings/provenance surface in the Inspector. |
 
 ### Track B — UI/UX gaps (non-technical-user bar; from `docs/ref/hermes-agent-desktop.md`)
-| # | Gap | Size | 0.9? |
-|---|-----|------|------|
-| B1 | **Left-rail completeness** — every capability reachable by clicking + labeled; Cmd+K = accelerator only | S–M | strong 0.9 |
-| B2 | **Config-menu depth** — total deep-linked settings, validated provider/model dropdowns + connect buttons, one row vocabulary, one overlay shell | M | strong 0.9 |
-| B3 | **Rendered side-by-side preview rail** (file/URL/image) | L | 0.9 if A1 resolves, else 1.0 |
-| B4 | **Errors/boot as buttons** — Repair + persisted "Open logs" + reauth detection | S–M | 0.9 |
-| B5 | **Onboarding** — curated-first providers, connect buttons, skip→settings | M | 0.9 |
-| B6 | **`apps/web/DESIGN.md` + primitive consolidation**; TUI⇄desktop spinner/status parity | M | 0.9 (table stakes) |
+User decision: EVERYTHING in 0.9; restyle latitude = consolidate + visual refresh.
+| # | Gap | State |
+|---|-----|-------|
+| B1 | Left-rail completeness — labeled icon+text, grouped, Catalog promoted from Cmd-K-only | **DONE** `7c40a51` (web 191→) |
+| B2 | Config-menu depth — deep-linked sections, validated Models dropdowns + OAuth, row vocabulary | **DONE** `7c40a51` (web 228) |
+| B3 | Rendered side-by-side preview rail (workspace file browser + file/image preview, clamp-yields-to-chat) | IN PROGRESS (agent; on A1's workspace files endpoints) |
+| B4 | Errors/boot as buttons — Repair + persisted Open-logs + remote-only reauth | **DONE** `7c40a51` (cargo 30) |
+| B5 | Onboarding — ProviderSetup curated-first cards, one-click/key-field, skip→settings | **DONE** `7c40a51` |
+| B6 | `apps/web/DESIGN.md` + primitive consolidation + visual refresh; TUI⇄desktop spinner parity | PENDING (runs last, solo) |
+
+### Track A — ALL DONE (committed): A1 `c294c61`, A2/A3/A4 core `549b8da`, A5 verified, A2-A7 UI `9280752`.
+### Remaining: B3 (in progress) → B6 (visual refresh) → full live-visual proof + screenshots + push.
 
 ### Audit method
 Static recon done (this entry). Next: spin a self-run clio from the new develop (own

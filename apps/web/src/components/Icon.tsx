@@ -47,7 +47,9 @@ export type IconName =
   | 'alert'
   | 'pin'
   | 'bell'
-  | 'help';
+  | 'help'
+  | 'file'
+  | 'folder';
 
 const PATHS: Record<IconName, JSX.Element> = {
   home: <path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />,
@@ -268,6 +270,17 @@ const PATHS: Record<IconName, JSX.Element> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1 1.2-1 2" />
       <circle cx="12" cy="17" r="0.5" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M6 2h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <path d="M14 2v4h4" />
+    </>
+  ),
+  folder: (
+    <>
+      <path d="M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
     </>
   ),
 };

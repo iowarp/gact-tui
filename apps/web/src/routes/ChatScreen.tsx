@@ -30,6 +30,7 @@ import { Composer } from '../components/Composer.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
+import { PreviewRail } from '../components/PreviewRail.js';
 import {
   addDetached,
   detachedAgo,
@@ -1878,6 +1879,18 @@ function ChatLayout(props: ChatLayoutProps) {
     'clio.inspector-open.v1',
     true,
   );
+  // Side-by-side preview rail (B3). Coexists with the inspector — both can be
+  // open at once (each is its own trailing grid column). Open state persists.
+  const [previewOpen, setPreviewOpen] = createPersistedBoolean(
+    'clio.preview-rail-open.v1',
+    false,
+  );
+  // When set, the rail adopts this path as its selection (e.g. an Inspector
+  // context-file click). Cleared back to undefined after consumption is not
+  // needed — the rail only reacts to non-empty changes.
+  const [previewPath, setPreviewPath] = createSignal<string | undefined>(
+    undefined,
+  );
   const [sessionsOpen, setSessionsOpen] = createPersistedBoolean(
     'clio.sessions-open.v1',
     true,
@@ -2780,6 +2793,7 @@ function ChatLayout(props: ChatLayoutProps) {
         'chat ' +
         (onChat() ? '' : 'chat--discovery') +
         (onChat() && inspectorOpen() ? ' chat--inspector-open' : '') +
+        (onChat() && previewOpen() ? ' chat--preview-open' : '') +
         (onChat() && !sessionsOpen() ? ' chat--no-sessions' : '')
       }
       data-testid="chat-screen"
@@ -2981,6 +2995,15 @@ function ChatLayout(props: ChatLayoutProps) {
             </button>
             <button
               type="button"
+              class={'chat__iconbtn ' + (previewOpen() ? 'is-active' : '')}
+              title="Toggle file preview rail"
+              onClick={() => setPreviewOpen((v) => !v)}
+              data-testid="topbar-preview"
+            >
+              <Icon name="folder" size={14} />
+            </button>
+            <button
+              type="button"
               class={'chat__iconbtn ' + (inspectorOpen() ? 'is-active' : '')}
               title="Toggle inspector"
               onClick={() => setInspectorOpen((v) => !v)}
@@ -3169,7 +3192,18 @@ function ChatLayout(props: ChatLayoutProps) {
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
           attempts={props.attempts}
-          onPreviewContextFile={props.onPreviewContextFile}
+          onPreviewContextFile={
+            props.onPreviewContextFile
+              ? (path) => {
+                  // Mirror the click into the side-by-side rail (B3 bonus):
+                  // open it and select the path, while still returning the
+                  // bytes for the Inspector's own inline preview.
+                  setPreviewPath(path);
+                  setPreviewOpen(true);
+                  return props.onPreviewContextFile!(path);
+                }
+              : undefined
+          }
           frames={props.contextFrames ?? []}
           onLoadFrameDetail={props.onLoadFrameDetail}
           onCycleTaskStatus={props.onCycleTaskStatus}
@@ -3188,6 +3222,20 @@ function ChatLayout(props: ChatLayoutProps) {
           onCycleContextFileMode={props.onCycleContextFileMode}
           onOpenDiff={(d) => setActiveDiff(d)}
           onClose={() => setInspectorOpen(false)}
+        />
+      </Show>
+
+      <Show when={onChat() && previewOpen()}>
+        <PreviewRail
+          client={discoveryClient}
+          workspaceId={
+            props.sessions.find((s) => s.id === props.activeId)?.workspace ??
+            (props.selectedWorkspaceId === '__all'
+              ? undefined
+              : props.selectedWorkspaceId)
+          }
+          externalPath={previewPath}
+          onClose={() => setPreviewOpen(false)}
         />
       </Show>
 
