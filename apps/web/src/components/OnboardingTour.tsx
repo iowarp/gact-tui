@@ -1,5 +1,7 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import type { Client } from '@clio/core';
 import { trapFocusRef } from '../focus-trap.js';
+import { ProviderSetup, type LmPreset } from './ProviderSetup.js';
 import './onboarding-tour.css';
 
 /**
@@ -39,6 +41,10 @@ interface TourStep {
   body: string;
   /** Callout placement relative to the target. */
   placement: 'center' | 'right' | 'top' | 'bottom';
+  /** Special step kinds that render their own body instead of title+body.
+   * `provider-setup` renders the model-picker; only included when a client
+   * is supplied so the prose-only tour (and existing tests) are unaffected. */
+  kind?: 'provider-setup';
 }
 
 const STEPS: TourStep[] = [
@@ -79,17 +85,41 @@ const STEPS: TourStep[] = [
   },
 ];
 
+/** The model-picker step, inserted right after the welcome card when a client
+ * is available. Surfaces clio's provider presets so a novice configures an LM
+ * before the surface tour begins. */
+const PROVIDER_STEP: TourStep = {
+  id: 'provider-setup',
+  target: null,
+  placement: 'center',
+  kind: 'provider-setup',
+  title: 'Pick a model to get started',
+  body: '',
+};
+
+/** Build the active step list. The provider-setup step is only included when a
+ * client is supplied; otherwise the tour is the original prose-only walkthrough,
+ * keeping existing call sites and tests behaving exactly as before. */
+export function buildSteps(hasClient: boolean): TourStep[] {
+  if (!hasClient) return STEPS;
+  return [STEPS[0]!, PROVIDER_STEP, ...STEPS.slice(1)];
+}
+
 export interface OnboardingTourProps {
   open: boolean;
   onFinish: () => void;
+  /** Optional GACT client. When provided, a provider/model-setup step is added
+   * so a non-technical user can configure an LM in clicks during onboarding. */
+  client?: Client;
 }
 
 export function OnboardingTour(props: OnboardingTourProps) {
   const [stepIdx, setStepIdx] = createSignal(0);
   const [targetRect, setTargetRect] = createSignal<DOMRect | null>(null);
 
-  const step = () => STEPS[stepIdx()]!;
-  const isLast = () => stepIdx() === STEPS.length - 1;
+  const steps = () => buildSteps(!!props.client);
+  const step = () => steps()[stepIdx()]!;
+  const isLast = () => stepIdx() === steps().length - 1;
 
   // Measure the current step's target. Steps whose target is missing
   // (e.g. sessions column collapsed) degrade to a centered card.
@@ -172,7 +202,8 @@ export function OnboardingTour(props: OnboardingTourProps) {
         <div
           class={
             'tour__card ' +
-            (step().placement === 'center' || !targetRect() ? 'tour__card--center' : '')
+            (step().placement === 'center' || !targetRect() ? 'tour__card--center' : '') +
+            (step().kind === 'provider-setup' ? ' tour__card--wide' : '')
           }
           style={calloutStyle()}
           role="dialog"
@@ -182,47 +213,67 @@ export function OnboardingTour(props: OnboardingTourProps) {
           data-testid="onboarding-card"
         >
           <span class="eyebrow">
-            {stepIdx() + 1} / {STEPS.length}
+            {stepIdx() + 1} / {steps().length}
           </span>
-          <h2 class="tour__title" data-testid="onboarding-title">
-            {step().title}
-          </h2>
-          <p class="tour__body">{step().body}</p>
+
+          <Show
+            when={step().kind === 'provider-setup' && props.client}
+            fallback={
+              <>
+                <h2 class="tour__title" data-testid="onboarding-title">
+                  {step().title}
+                </h2>
+                <p class="tour__body">{step().body}</p>
+              </>
+            }
+          >
+            <ProviderSetup
+              client={props.client!}
+              onConfigured={(_p: LmPreset) => next()}
+              onSkip={() => next()}
+            />
+          </Show>
+
           <div class="tour__dots" aria-hidden="true">
-            {STEPS.map((_, i) => (
-              <span class={'tour__dot ' + (i === stepIdx() ? 'is-active' : '')} />
-            ))}
+            <For each={steps()}>
+              {(_, i) => (
+                <span class={'tour__dot ' + (i() === stepIdx() ? 'is-active' : '')} />
+              )}
+            </For>
           </div>
-          <div class="tour__actions">
-            <button
-              type="button"
-              class="tour__skip"
-              onClick={() => props.onFinish()}
-              data-testid="onboarding-skip"
-            >
-              Skip tour
-            </button>
-            <div class="tour__nav">
-              <Show when={stepIdx() > 0}>
-                <button
-                  type="button"
-                  class="btn btn--secondary"
-                  onClick={back}
-                  data-testid="onboarding-back"
-                >
-                  Back
-                </button>
-              </Show>
+
+          <Show when={step().kind !== 'provider-setup'}>
+            <div class="tour__actions">
               <button
                 type="button"
-                class="btn btn--primary"
-                onClick={next}
-                data-testid="onboarding-next"
+                class="tour__skip"
+                onClick={() => props.onFinish()}
+                data-testid="onboarding-skip"
               >
-                {isLast() ? 'Start using CLIO' : 'Next'}
+                Skip tour
               </button>
+              <div class="tour__nav">
+                <Show when={stepIdx() > 0}>
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    onClick={back}
+                    data-testid="onboarding-back"
+                  >
+                    Back
+                  </button>
+                </Show>
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  onClick={next}
+                  data-testid="onboarding-next"
+                >
+                  {isLast() ? 'Start using CLIO' : 'Next'}
+                </button>
+              </div>
             </div>
-          </div>
+          </Show>
         </div>
       </div>
     </Show>

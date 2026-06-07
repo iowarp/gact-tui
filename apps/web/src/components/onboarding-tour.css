@@ -45,6 +45,12 @@
   width: 420px;
 }
 
+/* The provider/model-setup step needs room for the card grid. */
+.tour__card--wide {
+  width: 640px;
+  max-width: calc(100vw - 48px);
+}
+
 .tour__title {
   margin: 8px 0 6px;
   font-family: var(--font-sans);

@@ -3,6 +3,7 @@ import { ConnectScreen } from './routes/ConnectScreen.js';
 import { ChatScreen } from './routes/ChatScreen.js';
 import { SplashScreen } from './routes/SplashScreen.js';
 import { SettingsShell, type SettingsSection } from './routes/SettingsShell.js';
+import { readSectionParam } from './routes/settings-deeplink.js';
 import { AddRemoteBackend } from './routes/AddRemoteBackend.js';
 import type { Capabilities } from '@clio/core';
 import { inTauri } from './tauri.js';
@@ -55,6 +56,13 @@ export function App() {
     setRoute({ name: 'connect' });
   } else if (routeParam === 'settings-backends') {
     setRoute({ name: 'settings' });
+    seedFixtureBackends(registry);
+  } else if (routeParam === 'settings') {
+    // Total deep-linking (task B2 §1): ?route=settings&section=<id> opens the
+    // shell directly on a panel and SURVIVES A REFRESH. Seed fixtures so the
+    // shell has a backend to talk to when arrived cold (e.g. a shared link).
+    const deepSection = readSectionParam();
+    setRoute({ name: 'settings', ...(deepSection ? { section: deepSection } : {}) });
     seedFixtureBackends(registry);
   } else if (routeParam === 'add-remote') {
     setRoute({ name: 'add-remote' });
