@@ -83,7 +83,10 @@ export function PromptsPage(props: PromptsPageProps) {
           </button>
         </>
       }
-      loading={data.loading}
+      // Only show the skeleton on the first load — a Save-triggered refetch
+      // keeps the stale list (and the open card + its save result) visible
+      // instead of flashing the skeleton and collapsing the editor.
+      loading={data.loading && data() == null}
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
       onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0}
@@ -113,7 +116,9 @@ export function PromptsPage(props: PromptsPageProps) {
       </Show>
       <div class="dp__section-title">Prompts ({items().length})</div>
       <div class="dp__grid">
-        <For each={items()}>{(p) => <PromptCard p={p} client={props.client} />}</For>
+        <For each={items()}>
+          {(p) => <PromptCard p={p} client={props.client} onSaved={refetch} />}
+        </For>
       </div>
     </DiscoveryPage>
   );
@@ -130,7 +135,7 @@ function PromptSourceRow(props: { source: PromptSource }) {
   );
 }
 
-function PromptCard(props: { p: PromptDef; client?: Client }) {
+function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void }) {
   const profileCount = () => {
     const profiles = props.p.profiles;
     if (!profiles) return 0;
@@ -141,6 +146,15 @@ function PromptCard(props: { p: PromptDef; client?: Client }) {
   const [preview, setPreview] = createSignal<string | null>(null);
   const [previewError, setPreviewError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
+  // A4 — editable draft + save flow. `draft` is seeded from the loaded
+  // prompt text and is what Validate/Save operate on.
+  const [draft, setDraft] = createSignal('');
+  const [scope, setScope] = createSignal<'global' | 'workspace' | 'session'>('global');
+  const [saving, setSaving] = createSignal(false);
+  const [validating, setValidating] = createSignal(false);
+  // Result of the last Validate or Save: tone drives the colour, msg the text.
+  const [result, setResult] = createSignal<{ ok: boolean; msg: string } | null>(null);
+  const toast = useToast();
 
   async function loadPreview() {
     if (preview() != null || loading()) return;
@@ -149,11 +163,49 @@ function PromptCard(props: { p: PromptDef; client?: Client }) {
     try {
       if (!props.client) throw new Error('No client');
       const res = await props.client.getPrompt(props.p.id);
-      setPreview(res.prompt.text ?? '');
+      const text = res.prompt.text ?? '';
+      setPreview(text);
+      setDraft(text);
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function validate() {
+    if (!props.client || validating()) return;
+    setValidating(true);
+    setResult(null);
+    try {
+      const res = await props.client.validatePrompt(props.p.id, { text: draft() });
+      const errs = res.validation_errors ?? [];
+      setResult(
+        errs.length === 0
+          ? { ok: true, msg: 'Prompt text is valid.' }
+          : { ok: false, msg: errs.join('; ') },
+      );
+    } catch (e) {
+      setResult({ ok: false, msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function save() {
+    if (!props.client || saving()) return;
+    setSaving(true);
+    setResult(null);
+    try {
+      await props.client.savePrompt(props.p.id, { text: draft(), scope: scope() });
+      setResult({ ok: true, msg: `Saved (${scope()}).` });
+      toast.push({ tone: 'success', title: 'Prompt saved', duration: 2200 });
+      props.onSaved?.();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setResult({ ok: false, msg });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -241,7 +293,59 @@ function PromptCard(props: { p: PromptDef; client?: Client }) {
             <div class="prompts__preview-error">{previewError()}</div>
           </Show>
           <Show when={preview() != null && !loading() && !previewError()}>
-            <pre class="prompts__preview-body">{preview()}</pre>
+            <Show
+              when={props.client}
+              fallback={<pre class="prompts__preview-body">{preview()}</pre>}
+            >
+              <textarea
+                class="rmp__editor prompts__edit"
+                value={draft()}
+                onInput={(e) => setDraft(e.currentTarget.value)}
+                rows={14}
+                data-testid="prompt-edit-text"
+              />
+              <div class="prompts__edit-actions">
+                <select
+                  class="rmp__form-select"
+                  value={scope()}
+                  onChange={(e) =>
+                    setScope(e.currentTarget.value as 'global' | 'workspace' | 'session')
+                  }
+                  data-testid="prompt-save-scope"
+                >
+                  <option value="global">global</option>
+                  <option value="workspace">workspace</option>
+                  <option value="session">session</option>
+                </select>
+                <button
+                  type="button"
+                  class="ws-form__btn"
+                  onClick={() => void validate()}
+                  disabled={validating() || saving()}
+                  data-testid="prompt-validate"
+                >
+                  {validating() ? 'Validating…' : 'Validate'}
+                </button>
+                <button
+                  type="button"
+                  class="ws-form__btn ws-form__btn--primary"
+                  onClick={() => void save()}
+                  disabled={saving() || validating()}
+                  data-testid="prompt-save"
+                >
+                  {saving() ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+              <Show when={result()}>
+                <p
+                  class={'rmp__form-err ' + (result()!.ok ? 'rmp__form-ok' : '')}
+                  data-testid="prompt-save-result"
+                >
+                  {result()!.ok ? '✓ ' : '✗ '}
+                  {result()!.msg}
+                </p>
+              </Show>
+            </Show>
           </Show>
         </div>
       </Show>

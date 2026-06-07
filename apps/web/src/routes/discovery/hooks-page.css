@@ -105,3 +105,62 @@
 .rmp__form--hooks {
   grid-template-columns: minmax(120px, auto) minmax(90px, auto) 1fr auto;
 }
+
+/* A3 — Agent blueprint sources panel. */
+.bps__form {
+  grid-template-columns: 1fr minmax(110px, auto) minmax(110px, auto) auto;
+}
+
+.bps__dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+
+.bps__dot--ok {
+  background: var(--color-success);
+}
+
+.bps__dot--error {
+  background: var(--color-error);
+}
+
+.bps__dot--unknown {
+  background: var(--color-muted);
+}
+
+.bps__ref {
+  color: var(--color-muted);
+}
+
+.bps__msg {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-error);
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.bps__btn {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 4px;
+  padding: 2px;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.bps__btn:hover:not(:disabled) {
+  border-color: var(--color-accent-cyan);
+  color: var(--color-accent-cyan);
+}
+
+.bps__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

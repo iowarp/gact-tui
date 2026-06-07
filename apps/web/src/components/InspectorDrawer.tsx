@@ -126,6 +126,32 @@ export interface SessionBindings {
   blueprint_path?: string;
   overlay?: Record<string, unknown>;
   activation?: Record<string, unknown>;
+  /** A7 — packaged-component provenance + trust (clio #536–#546 / #539).
+   * The bound blueprint's own descriptor now carries a trust/enabled
+   * gate, validation errors, and install provenance (source/ref/commit).
+   * All optional: older backends don't send the `agent_blueprint` body
+   * or its metadata. Surfaced read-only; we never invent fields. */
+  packaged?: PackagedProvenance;
+}
+
+/** A7 — read-only packaged-component provenance drawn straight from the
+ * `agent_blueprint` body of GET /v1/sessions/{id}/agent-blueprint. Each
+ * field is optional and only rendered when the live response carries it. */
+export interface PackagedProvenance {
+  /** The bound blueprint's id (for the block header). */
+  id?: string;
+  title?: string;
+  version?: string;
+  scope?: string;
+  /** Trust gate — clio reports `enabled: false` for a packaged component
+   * that failed validation / pin checks. Rendered as a trust chip. */
+  enabled?: boolean;
+  /** Validation diagnostics from clio (registry pin mismatch, etc.). */
+  validation_errors?: string[];
+  /** Install provenance from `metadata.install` — source/ref/commit. */
+  install?: Record<string, unknown>;
+  /** Bootstrap status from `metadata.bootstrap` (status + diagnostic). */
+  bootstrap?: Record<string, unknown>;
 }
 
 export interface SessionDiffRow {
@@ -324,9 +350,31 @@ function isDuplicateSemantic(eventType: string): boolean {
   );
 }
 
+/** A6 — semantic event for an invalid tool selection (clio #5xx: the
+ * model picked a tool that isn't available / isn't bound). Matched by
+ * the exact event_type and by the `tool.selection.` prefix so a future
+ * rename (e.g. `tool.selection.invalid_name`) still surfaces rather than
+ * silently rendering with a generic label. */
+function isInvalidToolSelection(eventType: string): boolean {
+  return (
+    eventType === 'tool.selection.invalid' ||
+    eventType.startsWith('tool.selection.')
+  );
+}
+
+/** Human label for the rows that warrant a friendlier name than the raw
+ * event_type. Falls back to the summary/event_type at the call site. */
+function semanticLabelOverride(eventType: string): string | null {
+  if (isInvalidToolSelection(eventType)) return 'Invalid tool selection';
+  return null;
+}
+
 /** Map a semantic-event status onto the timeline's tri-state dot. clio
- * statuses include started/running/completed/failed/blocked. */
-function semanticDot(status?: string): 'ok' | 'error' | 'running' {
+ * statuses include started/running/completed/failed/blocked. Invalid
+ * tool selection is an error condition even when the wire omits an
+ * explicit failed/blocked status, so it always lights the error dot. */
+function semanticDot(status?: string, eventType?: string): 'ok' | 'error' | 'running' {
+  if (eventType && isInvalidToolSelection(eventType)) return 'error';
   if (status === 'failed' || status === 'blocked') return 'error';
   if (status === 'started' || status === 'running') return 'running';
   return 'ok';
@@ -371,10 +419,13 @@ export function groupSemanticEvents(
     }
     byTurn.get(turnId)!.push({
       eventId: ev.event_id,
-      // summary is never redacted; event_type is the honest fallback.
-      label: (ev.summary && ev.summary.trim()) || ev.event_type,
+      // A known-event override wins; otherwise summary (never redacted),
+      // then event_type as the honest fallback.
+      label:
+        semanticLabelOverride(ev.event_type) ??
+        ((ev.summary && ev.summary.trim()) || ev.event_type),
       eventType: ev.event_type,
-      status: semanticDot(ev.status),
+      status: semanticDot(ev.status, ev.event_type),
       ...(ev.occurred_at ? { at: ev.occurred_at } : {}),
     });
   }
@@ -1468,7 +1519,101 @@ function BindingsTab(props: {
           </For>
         </dl>
       </Show>
+
+      {/* A7 (clio #536–#546 / #539): packaged-component provenance + trust
+          drawn from the `agent_blueprint` body. Read-only; each row only
+          renders when the live response actually carries the field. */}
+      <Show when={props.bindings.packaged && hasPackagedProvenance(props.bindings.packaged)}>
+        {(() => {
+          const pkg = () => props.bindings.packaged!;
+          return (
+            <>
+              <div class="inspector__sect-title">Packaged provenance</div>
+              <dl class="inspector__binding-prov" data-testid="binding-packaged">
+                <Show when={pkg().enabled !== undefined}>
+                  <div class="inspector__binding-prov-row">
+                    <dt>Trust</dt>
+                    <dd data-testid="packaged-trust">
+                      <span
+                        class={
+                          'inspector__chip ' +
+                          (pkg().enabled
+                            ? 'inspector__chip--ok'
+                            : 'inspector__chip--err')
+                        }
+                      >
+                        {pkg().enabled ? 'enabled' : 'disabled'}
+                      </span>
+                    </dd>
+                  </div>
+                </Show>
+                <Show when={pkg().version}>
+                  <div class="inspector__binding-prov-row">
+                    <dt>Version</dt>
+                    <dd data-testid="packaged-version">{pkg().version}</dd>
+                  </div>
+                </Show>
+                <Show when={pkg().scope}>
+                  <div class="inspector__binding-prov-row">
+                    <dt>Scope</dt>
+                    <dd data-testid="packaged-scope">{pkg().scope}</dd>
+                  </div>
+                </Show>
+                <For each={Object.entries(pkg().install ?? {})}>
+                  {([key, value]) => (
+                    <div class="inspector__binding-prov-row inspector__binding-prov-row--install">
+                      <dt>install.{key}</dt>
+                      <dd data-testid={`packaged-install-${key}`}>
+                        {typeof value === 'string'
+                          ? value
+                          : JSON.stringify(value)}
+                      </dd>
+                    </div>
+                  )}
+                </For>
+                <For each={Object.entries(pkg().bootstrap ?? {})}>
+                  {([key, value]) => (
+                    <div class="inspector__binding-prov-row inspector__binding-prov-row--bootstrap">
+                      <dt>bootstrap.{key}</dt>
+                      <dd data-testid={`packaged-bootstrap-${key}`}>
+                        {typeof value === 'string'
+                          ? value
+                          : JSON.stringify(value)}
+                      </dd>
+                    </div>
+                  )}
+                </For>
+                <Show when={(pkg().validation_errors?.length ?? 0) > 0}>
+                  <div class="inspector__binding-prov-row inspector__binding-prov-row--errors">
+                    <dt>Validation</dt>
+                    <dd data-testid="packaged-validation-errors">
+                      <ul class="inspector__packaged-errors">
+                        <For each={pkg().validation_errors}>
+                          {(err) => <li>{err}</li>}
+                        </For>
+                      </ul>
+                    </dd>
+                  </div>
+                </Show>
+              </dl>
+            </>
+          );
+        })()}
+      </Show>
     </section>
+  );
+}
+
+/** True when the packaged provenance carries at least one renderable
+ * field — keeps the whole block hidden for older backends. */
+function hasPackagedProvenance(p: PackagedProvenance): boolean {
+  return (
+    p.enabled !== undefined ||
+    !!p.version ||
+    !!p.scope ||
+    Object.keys(p.install ?? {}).length > 0 ||
+    Object.keys(p.bootstrap ?? {}).length > 0 ||
+    (p.validation_errors?.length ?? 0) > 0
   );
 }
 
