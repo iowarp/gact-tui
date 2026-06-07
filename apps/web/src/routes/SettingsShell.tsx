@@ -78,18 +78,18 @@ interface SectionDef {
 }
 
 const SECTIONS: SectionDef[] = [
-  { id: 'backends', label: 'Backends', icon: 'workspaces', group: 'Connection' },
+  { id: 'backends', label: 'Backends', icon: 'mcp', group: 'Connection' },
   { id: 'workspaces', label: 'Workspaces', icon: 'workspaces', group: 'Connection' },
   { id: 'models', label: 'Models', icon: 'sparkle', group: 'Agents' },
-  { id: 'providers', label: 'Providers (advanced)', icon: 'sparkle', group: 'Agents' },
+  { id: 'providers', label: 'Providers (advanced)', icon: 'plug', group: 'Agents' },
   { id: 'agents', label: 'Agents', icon: 'agents', group: 'Agents' },
   { id: 'tools', label: 'Commands', icon: 'tool', group: 'Agents' },
-  { id: 'prompts', label: 'Prompts', icon: 'sparkle', group: 'Agents' },
-  { id: 'blueprints', label: 'Agent blueprints', icon: 'agents', group: 'Agents' },
+  { id: 'prompts', label: 'Prompts', icon: 'book', group: 'Agents' },
+  { id: 'blueprints', label: 'Agent blueprints', icon: 'catalog', group: 'Agents' },
   { id: 'expert-packs', label: 'Expert packs', icon: 'sparkle', group: 'Agents' },
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', group: 'Agents' },
   { id: 'hooks', label: 'Hooks', icon: 'tool', group: 'Telemetry' },
-  { id: 'policies', label: 'Policies', icon: 'doctor', group: 'Telemetry' },
+  { id: 'policies', label: 'Policies', icon: 'shield', group: 'Telemetry' },
   { id: 'memory', label: 'Memory', icon: 'memory', group: 'Telemetry' },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', group: 'Telemetry' },
   { id: 'doctor', label: 'Doctor', icon: 'doctor', group: 'Telemetry' },
@@ -195,7 +195,13 @@ export function SettingsShell(props: SettingsShellProps) {
                         'settings-shell__nav-btn ' +
                         (s.id === section() ? 'is-active' : '')
                       }
-                      onClick={() => setSection(s.id)}
+                      onClick={(e) => {
+                        setSection(s.id);
+                        // Drop focus so the just-clicked item doesn't retain a
+                        // gray focus background that reads like a second active
+                        // item (only the cyan .is-active state should persist).
+                        e.currentTarget.blur();
+                      }}
                       data-testid={`settings-nav-${s.id}`}
                     >
                       <Icon name={s.icon} size={14} />

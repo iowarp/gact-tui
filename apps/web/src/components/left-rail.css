@@ -151,13 +151,26 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 10px;
+  padding: 0 10px;
   text-align: left;
+}
+
+/* The Command-palette row carries both a label AND a ⌘K hint, so it is the
+   tightest row in the expanded rail. Trim its inner padding/gap so the label
+   ("Command palette") fits in full instead of ellipsizing to "Command pal…". */
+.rail--expanded .rail__btn--palette {
+  gap: 8px;
+  padding-right: 6px;
+}
+
+.rail--expanded .rail__btn > .icon {
+  flex: 0 0 auto;
 }
 
 .rail__label {
   flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -166,6 +179,7 @@
 }
 
 .rail__kbd {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--color-muted);

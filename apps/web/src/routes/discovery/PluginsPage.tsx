@@ -189,7 +189,7 @@ export function PluginsPage() {
             rows={3}
             value={argsText()}
             onInput={(e) => setArgsText(e.currentTarget.value)}
-            placeholder="--fix\n--format=json"
+            placeholder={'--fix\n--format=json'}
             data-testid="plugin-args"
           />
         </div>

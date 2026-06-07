@@ -130,8 +130,12 @@ export function ComposeModal(props: ComposeModalProps) {
           data-testid="compose-modal-textarea"
         />
         <footer class="cmp__foot">
-          <span class="chip">{lineCount()} lines</span>
-          <span class="chip">{charCount()} chars</span>
+          <span class="chip">
+            {lineCount()} {lineCount() === 1 ? 'line' : 'lines'}
+          </span>
+          <span class="chip">
+            {charCount()} {charCount() === 1 ? 'char' : 'chars'}
+          </span>
           <span class="chip cmp__hint">⌘/Ctrl + ↵ send · Esc close</span>
           <button
             type="button"
