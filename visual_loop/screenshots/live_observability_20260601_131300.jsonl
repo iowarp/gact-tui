@@ -1,0 +1,50 @@
+{"event": "server.connected", "t": -0.498}
+{"event": "session.status_changed", "prev_status": "idle", "status": "running", "t": 0.009}
+{"event": "message.created", "stop_reason": "", "t": 0.009}
+{"event": "context.frame.created", "status": "assembled", "t": 0.01}
+{"event": "message.created", "stop_reason": "", "t": 3.337}
+{"call_id": "", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "orchestrator -> data", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "routing_decision", "route_source": "live_tool_observer", "selected_agent": "data", "t": 3.337, "tool_name": ""}
+{"agent_id": "ndp_catalog", "call_id": "", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "parent_id": "data", "part_type": "expert_handoff", "route_source": "live_tool_observer", "selected_agent": "", "stage": "tool.started", "status": "running", "t": 3.337, "tool_name": ""}
+{"call_id": "call_0ef739ec95d4", "event": "tool.call.started", "t": 3.337, "tool": "ndp_list_organizations"}
+{"call_id": "call_0ef739ec95d4", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 3.337, "tool_name": "ndp_list_organizations"}
+{"call_id": "call_0ef739ec95d4", "event": "tool.call.completed", "t": 8.649, "tool": "ndp_list_organizations"}
+{"call_id": "call_0ef739ec95d4", "duration_ms": 5329.280138015747, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 8.649, "tool_name": "ndp_list_organizations"}
+{"call_id": "call_76775d8bbaed", "event": "tool.call.started", "t": 8.649, "tool": "ndp_search_datasets"}
+{"call_id": "call_76775d8bbaed", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 8.649, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_76775d8bbaed", "event": "tool.call.completed", "t": 12.055, "tool": "ndp_search_datasets"}
+{"call_id": "call_76775d8bbaed", "duration_ms": 5816.0459995269775, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 12.056, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_814e4c1f0d13", "event": "tool.call.started", "t": 12.056, "tool": "ndp_search_datasets"}
+{"call_id": "call_814e4c1f0d13", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 12.056, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_814e4c1f0d13", "event": "tool.call.completed", "t": 13.761, "tool": "ndp_search_datasets"}
+{"call_id": "call_814e4c1f0d13", "duration_ms": 1753.0746459960938, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 13.761, "tool_name": "ndp_search_datasets"}
+{"event": "server.heartbeat", "t": 14.503}
+{"call_id": "call_e00aa8e64e55", "event": "tool.call.started", "t": 17.575, "tool": "ndp_stage_resource"}
+{"call_id": "call_e00aa8e64e55", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 17.575, "tool_name": "ndp_stage_resource"}
+{"call_id": "call_e00aa8e64e55", "event": "tool.call.completed", "t": 17.976, "tool": "ndp_stage_resource"}
+{"call_id": "call_e00aa8e64e55", "duration_ms": 416.34321212768555, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 17.976, "tool_name": "ndp_stage_resource"}
+{"call_id": "call_959555bd59d8", "event": "tool.call.started", "t": 23.69, "tool": "ndp_get_dataset_details"}
+{"call_id": "call_959555bd59d8", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 23.69, "tool_name": "ndp_get_dataset_details"}
+{"call_id": "call_959555bd59d8", "event": "tool.call.completed", "t": 24.091, "tool": "ndp_get_dataset_details"}
+{"call_id": "call_959555bd59d8", "duration_ms": 400.76541900634766, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 24.091, "tool_name": "ndp_get_dataset_details"}
+{"event": "server.heartbeat", "t": 29.503}
+{"call_id": "call_d558e8722e57", "event": "tool.call.started", "t": 30.105, "tool": "ndp_search_datasets"}
+{"call_id": "call_d558e8722e57", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 30.105, "tool_name": "ndp_search_datasets"}
+{"event": "server.heartbeat", "t": 44.504}
+{"call_id": "call_d558e8722e57", "event": "tool.call.completed", "t": 50.652, "tool": "ndp_search_datasets"}
+{"call_id": "call_d558e8722e57", "duration_ms": 22683.1214427948, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 50.652, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_bc7329e27a2d", "event": "tool.call.started", "t": 54.661, "tool": "ndp_search_datasets"}
+{"call_id": "call_bc7329e27a2d", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_call", "selected_agent": "", "t": 54.661, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_bc7329e27a2d", "event": "tool.call.completed", "t": 57.768, "tool": "ndp_search_datasets"}
+{"call_id": "call_bc7329e27a2d", "duration_ms": 3095.1154232025146, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 57.768, "tool_name": "ndp_search_datasets"}
+{"event": "server.heartbeat", "t": 59.505}
+{"event": "context.frame.completed", "status": "error", "t": 62.568}
+{"call_id": "call_0ef739ec95d4", "duration_ms": 5329.280138015747, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_list_organizations"}
+{"call_id": "call_76775d8bbaed", "duration_ms": 5816.0459995269775, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_814e4c1f0d13", "duration_ms": 1753.0746459960938, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_e00aa8e64e55", "duration_ms": 416.34321212768555, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_stage_resource"}
+{"call_id": "call_959555bd59d8", "duration_ms": 400.76541900634766, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_get_dataset_details"}
+{"call_id": "call_d558e8722e57", "duration_ms": 22683.1214427948, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_search_datasets"}
+{"call_id": "call_bc7329e27a2d", "duration_ms": 3095.1154232025146, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "tool_result", "selected_agent": "", "t": 62.568, "tool_name": "ndp_search_datasets"}
+{"call_id": "", "duration_ms": 0.0, "event": "message.part.added", "execution_path": "", "is_error": false, "message_id": "msg_asst_d94de456d91a", "part_type": "text", "selected_agent": "", "t": 62.568, "tool_name": ""}
+{"event": "message.part.completed", "message_id": "msg_asst_d94de456d91a", "t": 62.568}
+{"event": "message.completed", "message_id": "msg_asst_d94de456d91a", "stop_reason": "error", "t": 62.569}

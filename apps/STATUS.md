@@ -31,6 +31,33 @@ Versioning decision (user): delete the stale GitHub release `clio-desktop-v0.9.0
 - 2026-06-02 Three parallel background agents built D1-D8 (Docker / auto-install /
   bundled variant); all gates green on the combined tree (pnpm 3×, cargo 27, go 8,
   fixture visual 39/39). TUI test + release steps run in the main session.
+- 2026-06-03 **D10 DONE — clio-desktop-v0.7.0 RELEASED. The release-semantics test
+  found and fixed FOUR real pipeline bugs across three tag runs:**
+
+  | # | Bug | Failure mode | Fix (commit) |
+  |---|-----|--------------|--------------|
+  | 1 | tauri CLI resolves `--config` relative to apps/desktop (its CWD under pnpm --filter), not src-tauri/ | All 4 bundled jobs fail instantly: "configuration path does not exist" | `--config src-tauri/tauri.bundled.conf.json` (PR #117) |
+  | 2 | Tauri strictly validates config schemas — the `"//"` comment key in the overlay is rejected | All 4 bundled jobs (next failure after #1) | Comment key removed (PR #117); caught by LOCAL validation before burning a CI cycle |
+  | 3 | litellm ships benchmark data files with parentheses in their names → makensis aborts | Windows bundled jobs, ~30 min in | Prune `litellm/.../guardrail_benchmarks` + hard-fail assertion on any ()[] filename (PR #117); caught by local deep validation (full NSIS build) |
+  | 4 | build_appimage.sh fails with the 477 MB embedded runtime in resources | Linux bundled job | AppImage is lite-only; bundled Linux ships deb+rpm (PR #119) — the architecturally right call regardless |
+
+  Plus version alignment (0.9.0→0.7.0 in tauri.conf.json/Cargo.toml/package.json) so
+  artifact filenames match the tag.
+
+  **Final release state** (tag `clio-desktop-v0.7.0` on main @ `feec237`, take 3):
+  19 artifacts attached — 12 installers (lite: NSIS+MSI+arm-DMG+deb+AppImage+rpm;
+  bundled: NSIS(74MB)+MSI(116MB)+arm-DMG(105MB)+deb(308MB)+rpm(309MB)) + web zip +
+  7 SHA256 files, all correctly named 0.7.0 with `-bundled` suffixes. The 2 macos-13
+  x64 DMGs were still in GitHub's congested Intel-runner queue at audit time and
+  attach automatically when built. ghcr.io/iowarp/clio-{api,web,tui} pushed at tags
+  0.7.0/latest/sha-feec237 — **PRIVATE by default; org admin must flip visibility to
+  public** (GitHub UI: org → Packages → package → settings → Change visibility).
+
+  **Follow-ups for the 0.9 lab release:** (1) flip ghcr package visibility (user,
+  one-time); (2) consider dropping macos-13 x64 from the matrix (GitHub is
+  deprecating those runners; queue times exceed 1-2 hours); (3) the release job's
+  per-job `softprops/action-gh-release` pattern worked but is racy in principle —
+  consider a final collect-and-attach job for 0.9.
 
 ## PREVIOUS RUN — CLIO #534 SUPPORT BOARD (2026-06-02)
 
@@ -337,16 +364,13 @@ branched off PR-(N-1); the user reviews+merges). PRs only — never push develop
   memory/sharing/doctor) — confirm LIVE-PROVEN (many already are via audit/oneturn specs).
 - **Hardening (W4):** SSE drop→reconnect (Rust bridge), concurrent turns, large
   transcript, supervisor SPAWN path, shutdown reaping, ssh error paths, homelab real-turn hop.
-- **FINDING (W1) — Rust SSE bridge does NOT open in the real WebView2.** The
-  production-debug app launched via tauri-driver sat at `sse · connecting` forever
-  (composer disabled, no stream), even though the isolated Rust `run_stream` test and
-  the `--disable-web-security` web path both pass. REST (`gact_http`) works fine.
-  Mitigation shipped: `live.ts` now does **bridge-first with an EventSource fallback**
-  (BRIDGE_FALLBACK_MS=4s) — desktop streaming works (clio sends `ACAO:*`), proven by
-  the W1 e2e (`sse · open`, msg rendered, permission card up). **Caveat:** while the
-  bridge falls back, its CORS-independence purpose (#111) is defeated in the real app.
-  Root-cause of the bridge (likely the `invoke`→`Channel` open path in WebView2, or an
-  async teardown race) is a **tracked follow-up** (not a clio gap — a desktop bug).
+- **FINDING (W1) — Rust SSE bridge must be the only desktop stream path.** Earlier
+  W1 work used a bridge-first raw-`EventSource` fallback when the Rust SSE bridge did
+  not open in WebView2. That made desktop streaming work but defeated #111's
+  CORS-independence goal. Current `live.ts` keeps the pure-web `EventSource` path, but
+  Tauri now retries the Rust bridge through the normal reconnect ladder instead of
+  falling back to WebView SSE. If WebView2 bridge startup regresses, it should surface
+  as `sse · reconnecting` rather than silently returning to CLIO CORS/trust_socket.
 
 ### W2 ACTION QUEUE — from the parity verification workflow (wf_a9bd8de8, 7 agents, exhaustive)
 Each item: fix → verify (live where possible) → commit (STATUS in same commit). Work Tier-A first.
@@ -795,8 +819,8 @@ a11y ✅DONE (`audit/w3-a11y-focus-trap.png` + high-contrast preset).
   fixes: (1) WebDriver `element/value` didn't fire SolidJS's `input` event so the
   composer never registered the text → `typeInto` now sets the value via `execute/sync`
   and dispatches a real `InputEvent`. (2) **The Rust SSE bridge never opened in the real
-  WebView2** (stuck `connecting`, composer disabled) — added a bridge-first **EventSource
-  fallback** in `live.ts` (`BRIDGE_FALLBACK_MS`), so streaming connects (`sse · open`).
+  WebView2** (stuck `connecting`, composer disabled). The temporary raw-`EventSource`
+  fallback was removed for #111; Tauri now reconnects through the Rust bridge only.
   Bridge root-cause is a tracked desktop follow-up (see matrix FINDING). Proof:
   `w1-webview-permission.png`. Commit: <next>. **Next: W2 parity re-verification, starting
   with the FLAG-GATED user_question (ask-user) flow.**

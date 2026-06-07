@@ -13,7 +13,7 @@ Show
 Wait+Screen /CONVERSATION/
 Sleep 1200ms
 
-Type "/agents-list"
+Type "/experts"
 Enter
 Wait+Screen /Agents/
 Sleep 700ms
@@ -54,15 +54,9 @@ Sleep 300ms
 
 Type "/mcp"
 Enter
-Wait+Screen /MCP/
+Wait+Screen /Actions and MCP/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_alcf_20260525_mcp_catalog.png"
-Enter
-Wait+Screen /MCP ·/
-Sleep 900ms
-Screenshot "visual_loop/screenshots/live_alcf_20260525_mcp_detail.png"
-Escape
-Sleep 300ms
 Escape
 Sleep 300ms
 

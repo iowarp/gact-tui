@@ -19,7 +19,7 @@ Wait+Screen /Agent Blueprints/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_catalog.png"
 
-Enter
+Type "i"
 Wait+Screen /Install agent blueprint/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_install.png"
@@ -29,8 +29,7 @@ Wait+Screen /agent blueprint installed/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_installed.png"
 
-Down
-Enter
+Type "v"
 Wait+Screen /Validate agent blueprint/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_validate.png"
@@ -41,24 +40,32 @@ Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_validation_detail.png"
 Escape
 Sleep 300ms
+Wait+Screen /Agent Blueprints/
 
-Down
-Enter
-Wait+Screen /Update installed blueprint/
+Type "i"
+Wait+Screen /Prefilled from the last successful validation/
 Sleep 500ms
-Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_builtin_detail.png"
+Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_install_prefilled.png"
 Escape
 Sleep 300ms
+Wait+Screen /Agent Blueprints/
 
+Down
+Down
+Down
+Down
 Down
 Enter
 Wait+Screen /Broken Blueprint/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_workspace_detail.png"
 
-Down
-Down
-Enter
+Type "d"
+Wait+Screen /confirm delete/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_delete_confirm.png"
+
+Type "u"
 Wait+Screen /agent blueprint updated/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_management_updated.png"

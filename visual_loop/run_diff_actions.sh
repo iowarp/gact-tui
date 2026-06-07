@@ -4,6 +4,7 @@ set -euo pipefail
 port="${GACT_DIFF_ACTIONS_PORT:-41920}"
 backend="http://127.0.0.1:${port}"
 log="${TMPDIR:-/tmp}/gact-semantic-diff-actions.log"
+config_dir="$(mktemp -d)"
 
 .tools/emulator-server -port "$port" -timing fast >"$log" 2>&1 &
 srv=$!
@@ -13,10 +14,11 @@ cleanup() {
     kill "$tui_pid" 2>/dev/null || true
   fi
   kill "$srv" 2>/dev/null || true
+  rm -rf "$config_dir"
 }
 trap cleanup EXIT INT TERM
 sleep 0.3
 
-./tui/gact --backend "$backend" --no-intro &
+XDG_CONFIG_HOME="$config_dir" ./tui/gact --backend "$backend" --no-intro &
 tui_pid=$!
 wait "$tui_pid"

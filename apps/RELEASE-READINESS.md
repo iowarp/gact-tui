@@ -13,17 +13,18 @@ nothing here pushes the tag.
 - **Fix in place:** every frontend HTTP request routes through the Rust
   `gact_http` Tauri command (commit `38a65bf`), so the WebView origin never
   hits browser CORS when talking to a localhost/tunneled clio that emits no
-  `Access-Control-Allow-Origin`. SSE additionally has a bridge-first +
-  EventSource-fallback path (`live.ts`, W1 finding).
+  `Access-Control-Allow-Origin`. SSE routes through the Rust bridge in Tauri;
+  bridge failures reconnect through the same bridge instead of falling back to
+  a raw WebView `EventSource`.
 - **Verified:** Windows — extensively, this run: `cargo test --lib` 14/14
   (gact_http × 3 against live clio), the full Playwright audit suites, and the
   real-WebView2 e2e (W1, `audit/w1-webview-permission.png`).
 - **Not verified here:** macOS / Linux WebViews — cannot be driven from this
   Windows box. The release CI matrix (`tauri-debug` job on all four targets)
   is the canonical cross-platform check and runs automatically on the tag.
-- **Risk if skipped:** low — the Rust HTTP path is platform-independent
-  (`ureq`, no WebView involvement); only WebView-specific SSE fallback
-  behavior could differ.
+- **Risk if skipped:** low — the Rust HTTP/SSE paths are platform-independent
+  (`ureq`, no WebView involvement); only WebView bridge startup behavior could
+  differ.
 
 ### 2. macOS aarch64 installer (bash 3.2 on macos-14 runners) — **DOCUMENTED**
 

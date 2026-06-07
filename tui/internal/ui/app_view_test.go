@@ -172,6 +172,13 @@ func TestView_PermissionBanner(t *testing.T) {
 			ID:        "perm_1",
 			SessionID: "sess_1",
 			Summary:   "Run shell command: rm -rf /tmp/scratch",
+			ToolCall: gact.PermissionToolCall{
+				ToolName: "shell",
+				Input: map[string]any{
+					"command": "rm -rf /tmp/scratch",
+				},
+				Annotations: gact.ToolAnnotations{DestructiveHint: true},
+			},
 		},
 		Status: "pending",
 	}}
@@ -286,6 +293,23 @@ func TestRenderHeader_GlobalLMWinsOverStaleSessionModel(t *testing.T) {
 	}
 	if !strings.Contains(got, "workspace: default") {
 		t.Errorf("workspace label should be spelled out, got: %q", got)
+	}
+}
+
+func TestRenderHeader_WorkspaceRootPathVisible(t *testing.T) {
+	a := newReadyApp([]gact.Session{
+		{ID: "sess_1", Title: "demo", Status: gact.StatusIdle},
+	}, nil)
+	a.workspaces = []gact.Workspace{
+		{ID: "ws_a", Name: "alpha", RootPath: "/tmp/alpha"},
+		{ID: "ws_b", Name: "bravo", RootPath: "/tmp/bravo"},
+	}
+	a.wsID = "ws_b"
+	a.width = 200
+
+	got := a.renderHeader()
+	if !strings.Contains(got, "workspace: bravo @ /tmp/bravo") {
+		t.Fatalf("workspace header should include active root path, got: %q", got)
 	}
 }
 

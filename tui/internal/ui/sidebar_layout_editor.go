@@ -71,9 +71,8 @@ func (a *App) availableSidebarModuleIDs(left []sidebarModuleID, right []sidebarM
 	for _, id := range right {
 		placed[id] = true
 	}
-	registry := sidebarModuleRegistry()
 	ids := defaultSidebarModuleIDs()
-	for id := range registry {
+	for _, id := range sidebarModuleRegistryOrder() {
 		if !containsSidebarModuleID(ids, id) {
 			ids = append(ids, id)
 		}
@@ -131,32 +130,54 @@ func (a *App) handleSidebarLayoutKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q", "ctrl+s":
 		a.closeSidebarLayoutEditor()
 		return a, nil
+	case "tab", "ctrl+i":
+		a.focusNextSidebarLayoutColumn(1)
+		return a, nil
+	case "shift+tab":
+		a.focusNextSidebarLayoutColumn(-1)
+		return a, nil
 	case "up", "k":
+		if k.String() == "k" && !a.sidebarLayoutGrabbed {
+			a.moveSidebarLayoutSelection(-1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.reorderSidebarLayoutModule(-1)
 			return a, nil
 		}
-		a.moveSidebarLayoutSelection(-1)
+		a.reorderSidebarLayoutModule(-1)
 		return a, nil
 	case "down", "j":
+		if k.String() == "j" && !a.sidebarLayoutGrabbed {
+			a.moveSidebarLayoutSelection(1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.reorderSidebarLayoutModule(1)
 			return a, nil
 		}
-		a.moveSidebarLayoutSelection(1)
+		a.reorderSidebarLayoutModule(1)
 		return a, nil
 	case "left", "h":
+		if k.String() == "h" && !a.sidebarLayoutGrabbed {
+			a.focusNextSidebarLayoutColumn(-1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.transferSidebarLayoutModule(-1)
 		} else {
-			a.focusNextSidebarLayoutColumn(-1)
+			a.transferSidebarLayoutModule(-1)
 		}
 		return a, nil
 	case "right", "l":
+		if k.String() == "l" && !a.sidebarLayoutGrabbed {
+			a.focusNextSidebarLayoutColumn(1)
+			return a, nil
+		}
 		if a.sidebarLayoutGrabbed {
 			a.transferSidebarLayoutModule(1)
 		} else {
-			a.focusNextSidebarLayoutColumn(1)
+			a.transferSidebarLayoutModule(1)
 		}
 		return a, nil
 	case "enter", " ":
@@ -291,6 +312,73 @@ func (a *App) reorderSidebarLayoutModule(delta int) {
 	a.persistPrefs()
 }
 
+func (a *App) canTransferSidebarLayoutModule(delta int) bool {
+	if _, ok := a.selectedSidebarLayoutModule(); !ok || delta == 0 {
+		return false
+	}
+	target := a.sidebarLayoutCol + delta
+	return target >= sidebarLayoutColumnLeft && target <= sidebarLayoutColumnRight && target != a.sidebarLayoutCol
+}
+
+func (a *App) canReorderSidebarLayoutModule(delta int) bool {
+	if delta == 0 || a.sidebarLayoutCol == sidebarLayoutColumnAvailable {
+		return false
+	}
+	column := a.activeSidebarLayoutColumn()
+	if len(column.modules) < 2 {
+		return false
+	}
+	idx := clampSelection(a.sidebarLayoutSel[column.id], len(column.modules))
+	next := idx + delta
+	return next >= 0 && next < len(column.modules)
+}
+
+func (a *App) sidebarLayoutButtons() []menuButton {
+	return []menuButton{
+		{
+			id:       "sidebar-layout:left",
+			label:    "<",
+			disabled: !a.canTransferSidebarLayoutModule(-1),
+			action: func(app *App) tea.Cmd {
+				app.transferSidebarLayoutModule(-1)
+				return nil
+			},
+		},
+		{
+			id:       "sidebar-layout:up",
+			label:    "^",
+			disabled: !a.canReorderSidebarLayoutModule(-1),
+			action: func(app *App) tea.Cmd {
+				app.reorderSidebarLayoutModule(-1)
+				return nil
+			},
+		},
+		{
+			id:       "sidebar-layout:down",
+			label:    "v",
+			disabled: !a.canReorderSidebarLayoutModule(1),
+			action: func(app *App) tea.Cmd {
+				app.reorderSidebarLayoutModule(1)
+				return nil
+			},
+		},
+		{
+			id:       "sidebar-layout:right",
+			label:    ">",
+			disabled: !a.canTransferSidebarLayoutModule(1),
+			action: func(app *App) tea.Cmd {
+				app.transferSidebarLayoutModule(1)
+				return nil
+			},
+		},
+		{id: "sidebar-layout:reset", label: "reset", action: func(app *App) tea.Cmd {
+			app.resetSidebarLayoutEditor()
+			return nil
+		}},
+		closeMenuButton("sidebar-layout:close", func(app *App) { app.closeSidebarLayoutEditor() }),
+	}
+}
+
 func (a *App) viewSidebarLayoutEditor() string {
 	a.clampSidebarLayoutEditorSelection()
 	t := a.Theme
@@ -363,15 +451,9 @@ func (a *App) viewSidebarLayoutEditor() string {
 		bodyRows = append(bodyRows, strings.Join(cells, strings.Repeat(" ", gap)))
 	}
 	bodyRows = append(bodyRows, "")
-	bodyRows = append(bodyRows, t.HintLabel.Render("↑/↓ select  ←/→ column  Enter grab/drop  arrows move grabbed  r reset  Esc close"))
+	bodyRows = append(bodyRows, t.HintLabel.Render("j/k select  Tab column  arrows/buttons move module  Enter grab/drop  r reset  Esc close"))
 
-	buttons := []menuButton{
-		{id: "sidebar-layout:reset", label: "reset", action: func(app *App) tea.Cmd {
-			app.resetSidebarLayoutEditor()
-			return nil
-		}},
-		closeMenuButton("sidebar-layout:close", func(app *App) { app.closeSidebarLayoutEditor() }),
-	}
+	buttons := a.sidebarLayoutButtons()
 	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
 		width:   w,
 		title:   "Sidebar layout",
@@ -402,14 +484,14 @@ func (a *App) sidebarLayoutModuleLabel(id sidebarModuleID) string {
 
 func (a *App) sidebarLayoutModuleMeta(id sidebarModuleID, column int) string {
 	if _, ok := sidebarModuleRegistry()[id]; !ok {
-		return "unknown module"
+		return "unknown id"
 	}
 	switch column {
 	case sidebarLayoutColumnLeft:
-		return "left"
+		return "shown on left"
 	case sidebarLayoutColumnRight:
-		return "right"
+		return "shown on right"
 	default:
-		return "hidden"
+		return "hidden; not shown"
 	}
 }

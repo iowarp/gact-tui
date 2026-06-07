@@ -14,7 +14,7 @@ Wait+Screen /CONVERSATION/
 Sleep 1200ms
 
 # Agents catalog and first agent detail.
-Type "/agents-list"
+Type "/experts"
 Enter
 Wait+Screen /Agents/
 Sleep 700ms
@@ -46,15 +46,9 @@ Sleep 300ms
 # MCP catalog and server detail.
 Type "/mcp"
 Enter
-Wait+Screen /MCP/
+Wait+Screen /Actions and MCP/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_clio_mcp_catalog.png"
-Enter
-Wait+Screen /MCP ·/
-Sleep 700ms
-Screenshot "visual_loop/screenshots/live_clio_mcp_detail.png"
-Escape
-Sleep 300ms
 Escape
 Sleep 300ms
 

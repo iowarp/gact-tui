@@ -3,15 +3,14 @@ package ui
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -29,19 +28,39 @@ func (a *App) copyLastAssistantReplyToClipboard() string {
 	})
 }
 
-// openWorkspaceDiff runs `git diff --stat` in the current working directory
-// (or in a parent if CWD isn't a repo root) and stuffs the output into the
-// transientHint. The full diff is also written to /tmp/clio-diff-<ts>.patch
-// for users who want the full content (the toast pointer is included in
-// the hint). Long-term this should pop a scrollable modal — short-term, a
-// single-line toast + tmp file already beats nothing.
+// copySelectedConversationOrLastAssistantToClipboard mirrors what operators
+// expect from a visible transcript: copy the selected semantic block when the
+// body cursor points at one, otherwise fall back to the selected message and
+// finally to the newest assistant reply for the classic /copy behavior.
+func (a *App) copySelectedConversationOrLastAssistantToClipboard() string {
+	if a.bodySelMsgIdx >= 0 && a.bodySelMsgIdx < len(a.messages) {
+		if text, ok := selectedConversationBlockText(a.messages, a.bodySelMsgIdx, a.bodySelPartIdx); ok {
+			return copyExactTextToClipboard(text, "nothing to copy - selected block has no text", func(chars int) string {
+				return fmt.Sprintf("copied selected block (%d chars) to clipboard", chars)
+			})
+		}
+		if text, ok := messageText(a.messages[a.bodySelMsgIdx]); ok {
+			return copyExactTextToClipboard(text, "nothing to copy - selected message has no text", func(chars int) string {
+				return fmt.Sprintf("copied selected message (%d chars) to clipboard", chars)
+			})
+		}
+		return "nothing to copy - selected block has no text"
+	}
+	return a.copyLastAssistantReplyToClipboard()
+}
+
+// openWorkspaceDiff opens a scrollable in-TUI detail view for the current git
+// workspace. The operator should not have to chase a temp file just to inspect
+// what CLIO is about to touch.
 func (a *App) openWorkspaceDiff() string {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "git diff: " + err.Error()
+		a.openWorkspaceDiffDetail("Workspace diff", "Could not resolve current directory.\n\n"+err.Error())
+		return "workspace diff unavailable"
 	}
 	if _, err := exec.LookPath("git"); err != nil {
-		return "git diff: git not on PATH"
+		a.openWorkspaceDiffDetail("Workspace diff", "Git is not available on PATH.\n\nInstall git or open this workspace in an environment with git available.")
+		return "workspace diff unavailable"
 	}
 
 	// Detect whether CWD is inside a git work tree first. Without
@@ -50,32 +69,78 @@ func (a *App) openWorkspaceDiff() string {
 	check := exec.Command("git", "-C", cwd, "rev-parse", "--is-inside-work-tree")
 	if checkOut, checkErr := check.CombinedOutput(); checkErr != nil ||
 		strings.TrimSpace(string(checkOut)) != "true" {
-		return "git diff: " + cwd + " is not a git repo"
+		a.openWorkspaceDiffDetail("Workspace diff", strings.Join([]string{
+			"Not a git repository.",
+			"",
+			"directory:",
+			"  " + cwd,
+			"",
+			"Open a git workspace or use the workspace switcher before running /diff.",
+		}, "\n"))
+		return "workspace is not a git repo"
 	}
 
 	stat := exec.Command("git", "-C", cwd, "diff", "--stat")
 	statOut, statErr := stat.CombinedOutput()
 	if statErr != nil {
-		return "git diff: " + strings.TrimSpace(string(statOut))
+		body := strings.TrimSpace(string(statOut))
+		if body == "" {
+			body = statErr.Error()
+		}
+		a.openWorkspaceDiffDetail("Workspace diff", "Could not read git diff summary.\n\n"+body)
+		return "workspace diff failed"
 	}
 	if len(strings.TrimSpace(string(statOut))) == 0 {
-		return "git diff: workspace clean"
+		a.openWorkspaceDiffDetail("Workspace diff · clean", strings.Join([]string{
+			"No unstaged workspace changes.",
+			"",
+			"repository:",
+			"  " + cwd,
+		}, "\n"))
+		return "workspace clean"
 	}
 
 	full := exec.Command("git", "-C", cwd, "diff")
 	fullOut, fullErr := full.CombinedOutput()
+	summary := strings.TrimSpace(string(statOut))
+	body := strings.Join([]string{
+		"Repository",
+		"  " + cwd,
+		"",
+		"Summary",
+		indentBlock(summary, "  "),
+	}, "\n")
 	if fullErr == nil {
-		stamp := time.Now().Format("20060102-150405")
-		path := filepath.Join(os.TempDir(), fmt.Sprintf("clio-diff-%s.patch", stamp))
-		_ = os.WriteFile(path, fullOut, 0o600)
-		summary := strings.TrimSpace(string(statOut))
-		// Keep the toast on one line by collapsing the stat to the
-		// summary row (last non-empty line).
-		lines := strings.Split(summary, "\n")
-		summaryLine := lines[len(lines)-1]
-		return fmt.Sprintf("git diff: %s · full patch at %s", summaryLine, path)
+		body += "\n\nPatch\n" + indentBlock(strings.TrimRight(string(fullOut), "\n"), "  ")
+	} else {
+		body += "\n\nPatch\n  Could not read full patch: " + fullErr.Error()
 	}
-	return "git diff: " + strings.TrimSpace(string(statOut))
+	a.openWorkspaceDiffDetail("Workspace diff", body)
+	lines := strings.Split(summary, "\n")
+	return "workspace diff: " + strings.TrimSpace(lines[len(lines)-1])
+}
+
+func (a *App) openWorkspaceDiffDetail(title string, body string) {
+	a.detailView = &bulkyPartRef{
+		messageID: "workspace-diff",
+		partID:    "git",
+		title:     title,
+		fullText:  strings.TrimSpace(body),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func indentBlock(text string, prefix string) string {
+	text = strings.TrimRight(text, "\n")
+	if strings.TrimSpace(text) == "" {
+		return prefix + "(empty)"
+	}
+	lines := strings.Split(text, "\n")
+	for i := range lines {
+		lines[i] = prefix + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // currentRoutingMode reads the active session's routing_mode field, falling
@@ -122,32 +187,26 @@ func patchRoutingModeCmd(c *client.Client, sessionID, mode string) tea.Cmd {
 	}
 }
 
-// requestCompactCmd POSTs to a (provisional) backend endpoint that asks the
-// server to summarise the conversation and reclaim context. CLIO doesn't
-// expose this endpoint yet — call returns 501/404 — but plumbing the
-// command + dispatch path now means turning it on later is a one-line
-// backend swap, not another TUI release.
+// requestCompactCmd asks the backend to summarize the current session.
+// CLIO's current GACT surface is /summarize; older /compact wiring was
+// provisional and would truthfully fail on current CLIO.
 func requestCompactCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		req, _ := http.NewRequestWithContext(
-			ctx,
-			http.MethodPost,
-			c.BaseURL()+"/v1/sessions/"+sessionID+"/compact",
-			nil,
-		)
-		resp, err := http.DefaultClient.Do(req)
+		if err := c.SummarizeSession(ctx, sessionID, true, ""); err != nil {
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
+		}
+		session, err := c.GetSession(ctx, sessionID)
 		if err != nil {
-			return errMsg{err: err, stage: "compact"}
+			return sessionSummarizedMsg{sessionID: sessionID, err: err}
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode >= 400 {
-			return errMsg{
-				err:   fmt.Errorf("backend %d (compact endpoint not yet wired on this backend)", resp.StatusCode),
-				stage: "compact",
-			}
-		}
-		return nil
+		return sessionSummarizedMsg{sessionID: sessionID, session: session}
 	}
+}
+
+type sessionSummarizedMsg struct {
+	sessionID string
+	session   gact.Session
+	err       error
 }

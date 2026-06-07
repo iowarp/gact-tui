@@ -61,16 +61,13 @@ func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// non-empty Text field — lipgloss/bubbles events already filter
 	// out control bytes for us.
 	if k.Text != "" {
-		runes := []rune(a.renameDraft)
-		insert := []rune(k.Text)
-		out := make([]rune, 0, len(runes)+len(insert))
-		out = append(out, runes[:a.renameCursor]...)
-		out = append(out, insert...)
-		out = append(out, runes[a.renameCursor:]...)
-		a.renameDraft = string(out)
-		a.renameCursor += len(insert)
+		a.insertRenameText(k.Text)
 	}
 	return a, nil
+}
+
+func (a *App) insertRenameText(text string) {
+	a.renameDraft, a.renameCursor = insertTextAtCursor(a.renameDraft, a.renameCursor, text)
 }
 
 // commitRename dispatches the PATCH /v1/sessions/{id} and closes the
@@ -92,13 +89,15 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 	// server's authoritative value (or silently fail, leaving our
 	// optimistic value). This mirrors J6's msg-based update path —
 	// both terminate with sessionTitleRenamedMsg.
+	previousTitle := ""
 	for i := range a.sessions {
 		if a.sessions[i].ID == sid {
+			previousTitle = a.sessions[i].Title
 			a.sessions[i].Title = title
 			break
 		}
 	}
-	return a, patchSessionTitleCmd(a.c, sid, title)
+	return a, patchManualSessionTitleCmd(a.c, sid, title, previousTitle)
 }
 
 // viewRename renders the inline rename prompt. Matches the workspace-

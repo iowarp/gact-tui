@@ -2,6 +2,12 @@
 
 Date: 2026-05-29
 
+Historical note: this document records the completed 0.9 hardening pass from
+May 2026. It is not the current 1.0 release gate. Use
+[TUI_ONE_ZERO_RELEASE_CHECKLIST.md](TUI_ONE_ZERO_RELEASE_CHECKLIST.md) for the
+current release-candidate checklist, installed-binary checks, visual-loop gates,
+and manual terminal matrix.
+
 ## Current Status
 
 The TUI is release-candidate ready for a 0.9 PR merge. Capability parity, visual benchmark replay, terminal hardening, and release verification have all been completed from the current checkout.
@@ -92,7 +98,8 @@ Blocked or failing:
 
 ## Capability Gaps
 
-The maintained matrix is in [ZERO_NINE_CAPABILITY_MATRIX.md](ZERO_NINE_CAPABILITY_MATRIX.md).
+The maintained 1.0 matrix is in
+[TUI_ONE_ZERO_CAPABILITY_MATRIX.md](TUI_ONE_ZERO_CAPABILITY_MATRIX.md).
 
 CLIO `develop` currently advertises these relevant standard and `x_clio_*` surfaces:
 

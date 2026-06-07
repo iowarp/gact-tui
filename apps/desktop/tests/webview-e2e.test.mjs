@@ -151,8 +151,7 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     await click(sid, send);
 
     // The permission card must render in the REAL WebView — proving the
-    // SSE path delivers permission.requested end-to-end (the Rust bridge,
-    // or the EventSource fallback when the bridge doesn't open).
+    // Rust SSE bridge delivers permission.requested end-to-end.
     const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000);
     assert.ok(card, 'permission card should render');
     // Capture the proof screenshot while the card is up.

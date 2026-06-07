@@ -543,18 +543,19 @@ func (a *App) refreshLMConfig() tea.Cmd {
 	return lmConfigFetchCmd(a.c)
 }
 
-func (a *App) handleLMConfigPaste(content string) {
+func (a *App) handleLMConfigPaste(content string) tea.Cmd {
 	if a.lmConfig == nil || content == "" {
-		return
+		return nil
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(content, "\r\n", "\n"))
 	if text == "" {
-		return
+		return nil
 	}
 	switch a.lmConfig.field {
 	case lmFieldPreset:
 		a.lmConfig.providerFilter += strings.ReplaceAll(text, "\n", " ")
 		a.lmConfigSelectFirstFiltered()
+		return a.lmConfigSyncFromPreset()
 	case lmFieldAPIBase:
 		a.lmConfig.apiBase += strings.ReplaceAll(text, "\n", "")
 		a.lmConfigInvalidateCurrentCatalog()
@@ -564,6 +565,7 @@ func (a *App) handleLMConfigPaste(content string) {
 	case lmFieldAPIKey:
 		a.lmConfig.apiKey += strings.ReplaceAll(text, "\n", "")
 	}
+	return nil
 }
 
 func (a *App) handleLMConfigVertical(delta int) (tea.Model, tea.Cmd) {
@@ -1039,6 +1041,30 @@ func (a *App) lmConfigCurrentProviderKind() string {
 	return a.lmConfig.info.Presets[a.lmConfig.selected].Provider
 }
 
+func lmConfigProviderID(p client.LMProviderPreset) string {
+	if id := strings.TrimSpace(p.ID); id != "" {
+		return id
+	}
+	return strings.TrimSpace(p.Provider)
+}
+
+func lmConfigProviderModelSummary(provider, model string) string {
+	provider = strings.TrimSpace(provider)
+	model = strings.TrimSpace(model)
+	switch {
+	case provider != "" && model != "":
+		return provider + "/" + model
+	case provider != "":
+		return provider
+	default:
+		return model
+	}
+}
+
+func lmConfigNormalizedAPIBase(base string) string {
+	return strings.TrimRight(strings.TrimSpace(base), "/")
+}
+
 func (a *App) lmConfigCurrentPreset() *client.LMProviderPreset {
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return nil
@@ -1047,6 +1073,37 @@ func (a *App) lmConfigCurrentPreset() *client.LMProviderPreset {
 		return nil
 	}
 	return &a.lmConfig.info.Presets[a.lmConfig.selected]
+}
+
+func (a *App) lmConfigAppliedSummary() string {
+	if a.lmConfig == nil || a.lmConfig.info == nil || !a.lmConfig.info.Configured {
+		return ""
+	}
+	return lmConfigProviderModelSummary(a.lmConfig.info.Provider, a.lmConfig.info.Model)
+}
+
+func (a *App) lmConfigPendingSummary(p client.LMProviderPreset) string {
+	if a.lmConfig == nil {
+		return ""
+	}
+	return lmConfigProviderModelSummary(lmConfigProviderID(p), a.lmConfig.model)
+}
+
+func (a *App) lmConfigPendingDiffersFromApplied(p client.LMProviderPreset) bool {
+	if a.lmConfig == nil || a.lmConfig.info == nil || !a.lmConfig.info.Configured {
+		return false
+	}
+	info := a.lmConfig.info
+	appliedProvider := strings.TrimSpace(info.Provider)
+	pendingProviderID := lmConfigProviderID(p)
+	pendingProviderKind := strings.TrimSpace(p.Provider)
+	providerMatches := appliedProvider != "" &&
+		(strings.EqualFold(appliedProvider, pendingProviderID) || strings.EqualFold(appliedProvider, pendingProviderKind))
+	modelMatches := strings.EqualFold(strings.TrimSpace(info.Model), strings.TrimSpace(a.lmConfig.model))
+	appliedBase := lmConfigNormalizedAPIBase(info.APIBase)
+	pendingBase := lmConfigNormalizedAPIBase(a.lmConfig.apiBase)
+	apiBaseMatches := appliedBase == "" || pendingBase == "" || strings.EqualFold(appliedBase, pendingBase)
+	return !providerMatches || !modelMatches || !apiBaseMatches
 }
 
 // lmConfigModelsLoadedMsg carries the model catalog for one PRESET so
@@ -1145,7 +1202,7 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 			a.lmConfig.saving = false
 			return nil
 		}
-		ref := &gact.ModelRef{ProviderID: p.Provider, ModelID: model}
+		ref := &gact.ModelRef{ProviderID: lmConfigProviderID(p), ModelID: model}
 		return applySettingsCmd(a.c, sid, ref, nil)
 	}
 
@@ -1154,7 +1211,7 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 		apiKey = "x"
 	}
 	req := client.LMProviderRequest{
-		Provider: p.Provider,
+		Provider: lmConfigProviderID(p),
 		APIBase:  a.lmConfig.apiBase,
 		Model:    model,
 		APIKey:   apiKey,
@@ -1281,6 +1338,7 @@ func (a *App) viewLMConfig() string {
 		body:               body,
 		footer:             hint,
 	})
+	a.registerModalSurfaceWheel(rendered, "lm-config")
 	if a.lmConfig.info != nil && !a.lmConfig.loading && a.lmConfig.err == nil && !a.lmConfig.saving && !a.lmConfig.authenticating {
 		introRows := maxInt(1, strings.Count(ansi.Strip(intro), "\n")+1)
 		a.registerLMConfigHitTargets(rendered.modal, rendered.bodyRow+introRows+1, contentW, a.lmConfigBodyRows())
@@ -1838,6 +1896,14 @@ func (a *App) renderLMConfigProviderDetailsRowsAndHits(innerW int, visibleRows i
 			rows = append(rows, style.Render(line))
 		}
 	}
+	if applied := a.lmConfigAppliedSummary(); applied != "" {
+		appliedLines := wrapPlainRows(a.localizer.t(msgLMConfigApplied, map[string]string{"value": applied}), bodyW, "  ")
+		appendLines(appliedLines, lipgloss.NewStyle().Foreground(t.FgMuted), visibleRows)
+		if pending := a.lmConfigPendingSummary(*p); pending != "" && a.lmConfigPendingDiffersFromApplied(*p) {
+			pendingLines := wrapPlainRows(a.localizer.t(msgLMConfigPending, map[string]string{"value": pending}), bodyW, "  ")
+			appendLines(pendingLines, lipgloss.NewStyle().Foreground(t.Warning), visibleRows)
+		}
+	}
 	visibleHitHeight := func(start int) int {
 		if start >= visibleRows {
 			return 0
@@ -1959,6 +2025,12 @@ func (a *App) lmConfigProviderDetailsRowCount() int {
 		return 1
 	}
 	rows := 3 // label, auth, status
+	if a.lmConfigAppliedSummary() != "" {
+		rows++
+		if a.lmConfigPendingDiffersFromApplied(*p) && a.lmConfigPendingSummary(*p) != "" {
+			rows++
+		}
+	}
 	if a.lmConfig.lmConfigSelectedCanEditAPIBase() {
 		rows++
 	} else {

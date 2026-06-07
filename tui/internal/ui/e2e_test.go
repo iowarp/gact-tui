@@ -177,7 +177,8 @@ func TestE2E_TUI_PermissionFlow(t *testing.T) {
 	tm.Send(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	waitForOutput(t, tm, func(s string) bool {
-		return strings.Contains(s, "Permission needed")
+		return strings.Contains(s, "Approval needed") &&
+			strings.Contains(s, "Shell(rm -rf /tmp/scratch)")
 	}, 5*time.Second)
 
 	// 'a' to allow.

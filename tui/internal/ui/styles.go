@@ -338,7 +338,7 @@ func (t *Theme) applyStyles() {
 	t.Footer = lipgloss.NewStyle().
 		Foreground(t.FgMuted).Background(t.BgSubtle).Padding(0, 1)
 	t.Pane = lipgloss.NewStyle().
-		Foreground(t.Fg).Border(lipgloss.RoundedBorder()).
+		Foreground(t.Fg).Background(t.Bg).Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.Border).Padding(0, 1)
 	t.PaneFoc = t.Pane.BorderForeground(t.BorderFocus)
 	t.StatusBadge = lipgloss.NewStyle().

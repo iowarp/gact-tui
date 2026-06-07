@@ -53,6 +53,48 @@ func main() {
 			"serve real files from each workspace's RootPath for "+
 				"GET /v1/workspaces/{id}/files (instead of the static demo list). "+
 				"Off by default so deterministic tests keep passing.")
+		emptyExpertPacks = flag.Bool("empty-expert-packs", false,
+			"return an empty expert-pack catalog for visual-loop empty-state demos")
+		expertPackFailures = flag.Bool("expert-pack-failures", false,
+			"enable deterministic expert-pack lifecycle failures for visual-loop demos")
+		emptyPrompts = flag.Bool("empty-prompts", false,
+			"return an empty prompt catalog for visual-loop empty-state demos")
+		promptStress = flag.Bool("prompt-stress", false,
+			"append prompt registry stress fixtures for visual-loop demos")
+		promptSaveFailures = flag.Bool("prompt-save-failures", false,
+			"make prompt saves fail deterministically for visual-loop demos")
+		emptyTools = flag.Bool("empty-tools", false,
+			"return an empty tools catalog for visual-loop empty-state demos")
+		emptyMcpConnections = flag.Bool("empty-mcp-connections", false,
+			"return an empty MCP connection catalog for visual-loop empty-state demos")
+		permissionStress = flag.Bool("permission-stress", false,
+			"seed permission queue/history/policy stress fixtures for visual-loop demos")
+		memoryUnavailable = flag.Bool("memory-unavailable", false,
+			"report memory endpoints as unavailable for visual-loop unsupported-state demos")
+		longCommands = flag.Bool("long-commands", false,
+			"append extra deterministic slash commands for visual-loop palette overflow demos")
+		agentBlueprintFailures = flag.Bool("agent-blueprint-failures", false,
+			"enable deterministic agent-blueprint lifecycle failures for visual-loop demos")
+		longAgentBlueprints = flag.Bool("long-agent-blueprints", false,
+			"append long/nested agent-blueprint fixtures for visual-loop hierarchy demos")
+		longAgents = flag.Bool("long-agents", false,
+			"append long/nested agent fixtures for visual-loop hierarchy demos")
+		agentFailures = flag.Bool("agent-failures", false,
+			"enable deterministic agent lifecycle failures for visual-loop demos")
+		cancelFailures = flag.Bool("cancel-failures", false,
+			"make session cancel fail deterministically for visual-loop demos")
+		sessionCreateFailures = flag.Bool("session-create-failures", false,
+			"make session creation fail deterministically for visual-loop demos")
+		sessionRenameFailures = flag.Bool("session-rename-failures", false,
+			"make session rename title updates fail deterministically for visual-loop demos")
+		contextAddFailures = flag.Bool("context-add-failures", false,
+			"make add-context requests fail deterministically for visual-loop demos")
+		providerEdgeStates = flag.Bool("provider-edge-states", false,
+			"enable deterministic provider/auth/model catalog edge states for visual-loop demos")
+		providerAuthSucceeds = flag.Bool("provider-auth-succeeds", false,
+			"make provider-edge-states ALCF auth succeed and refresh live models")
+		activeAgentBlueprint = flag.String("active-agent-blueprint", "",
+			"mark seeded sessions as using this active agent blueprint id")
 	)
 	flag.Parse()
 
@@ -97,6 +139,7 @@ func main() {
 				WorkspaceID: step.wsID,
 				Title:       fmt.Sprintf("seeded session %d", i+1),
 				Status:      gact.StatusIdle,
+				Metadata:    activeAgentBlueprintMetadata(*activeAgentBlueprint),
 			})
 			if err != nil {
 				log.Fatalf("seed session #%d for %q: %v", i+1, step.wsID, err)
@@ -133,8 +176,28 @@ func main() {
 	}
 
 	srv := server.NewWithStore(server.Config{
-		Scenario:           *scenarioName,
-		WalkWorkspaceFiles: *walkFiles,
+		Scenario:               *scenarioName,
+		WalkWorkspaceFiles:     *walkFiles,
+		EmptyExpertPacks:       *emptyExpertPacks,
+		ExpertPackFailures:     *expertPackFailures,
+		EmptyPrompts:           *emptyPrompts,
+		PromptStress:           *promptStress,
+		PromptSaveFailures:     *promptSaveFailures,
+		EmptyTools:             *emptyTools,
+		EmptyMcpConnections:    *emptyMcpConnections,
+		PermissionStress:       *permissionStress,
+		MemoryUnavailable:      *memoryUnavailable,
+		LongCommands:           *longCommands,
+		AgentBlueprintFailures: *agentBlueprintFailures,
+		LongAgentBlueprints:    *longAgentBlueprints,
+		LongAgents:             *longAgents,
+		AgentFailures:          *agentFailures,
+		CancelFailures:         *cancelFailures,
+		SessionCreateFailures:  *sessionCreateFailures,
+		SessionRenameFailures:  *sessionRenameFailures,
+		ContextAddFailures:     *contextAddFailures,
+		ProviderEdgeStates:     *providerEdgeStates,
+		ProviderAuthSucceeds:   *providerAuthSucceeds,
 	}, st)
 
 	// Wire the scenario engine: it consumes the OnUserMessage hook, drives
@@ -193,6 +256,17 @@ func main() {
 type seedSessionStep struct {
 	wsID  string
 	count int
+}
+
+func activeAgentBlueprintMetadata(blueprintID string) map[string]any {
+	blueprintID = strings.TrimSpace(blueprintID)
+	if blueprintID == "" {
+		return nil
+	}
+	return map[string]any{
+		"active_agent_blueprint_id":    blueprintID,
+		"active_agent_blueprint_scope": "workspace",
+	}
 }
 
 // seedMessageStep is one ses_id=count entry from --seed-messages.

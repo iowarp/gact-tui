@@ -17,7 +17,7 @@ Wait+Screen /session:/
 Sleep 500ms
 Type "delete the temp directory"
 Enter
-Wait+Screen /Permission needed/
+Wait+Screen /Approval needed/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_permission_banner.png"
 

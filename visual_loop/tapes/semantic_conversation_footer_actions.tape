@@ -2,7 +2,7 @@ Output "visual_loop/screenshots/semantic_conversation_footer_actions.gif"
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 1500
+Set Width 2600
 Set Height 900
 
 Hide
@@ -22,7 +22,8 @@ Sleep 700ms
 Tab
 Sleep 200ms
 Tab
-Wait+Screen /y copy/
+Wait+Screen /drag CLIO copy/
+Wait+Screen /Alt\+drag terminal select/
 Sleep 400ms
 Screenshot "visual_loop/screenshots/semantic_conversation_footer_actions.png"
 

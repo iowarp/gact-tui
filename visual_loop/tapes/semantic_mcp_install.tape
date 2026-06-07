@@ -15,7 +15,7 @@ Sleep 1200ms
 
 Type "/mcp"
 Enter
-Wait+Screen /MCP/
+Wait+Screen /MCP Connections/
 Sleep 700ms
 
 Type "i"

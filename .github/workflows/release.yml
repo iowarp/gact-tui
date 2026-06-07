@@ -34,17 +34,31 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          EXPECTED_REVISION: ${{ github.sha }}
         run: |
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
           out="gact-${GOOS}-${GOARCH}${ext}"
           go build -trimpath -ldflags "-s -w" -o "../$out" .
+          (cd .. && sha256sum "$out" > "$out.sha256")
+          if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "amd64" ]; then
+            chmod +x "../$out"
+            version_output="$("../$out" version)"
+            printf '%s\n' "$version_output"
+            expected_short="${EXPECTED_REVISION:0:12}"
+            if ! printf '%s\n' "$version_output" | grep -q "revision: ${expected_short}"; then
+              echo "release build revision mismatch: expected ${expected_short}" >&2
+              exit 1
+            fi
+          fi
           echo "ARTIFACT=$out" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
-          path: ${{ env.ARTIFACT }}
+          path: |
+            ${{ env.ARTIFACT }}
+            ${{ env.ARTIFACT }}.sha256
 
   release:
     needs: build

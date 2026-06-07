@@ -86,7 +86,7 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 		{
 			id:          "copy-id",
 			title:       "Copy session ID",
-			description: "Copy the stable sess_ id.",
+			description: "Copy this session's identifier for logs or support.",
 			key:         "y",
 			action: func(app *App) tea.Cmd {
 				app.closeSessionActions()
@@ -106,7 +106,7 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 		{
 			id:          "delete",
 			title:       deleteTitle,
-			description: "Two-step destructive action.",
+			description: "Ask for confirmation before deleting this session.",
 			key:         "x",
 			action: func(app *App) tea.Cmd {
 				app.closeSessionActions()

@@ -50,6 +50,7 @@ func (a *App) openMcpRemoveModal() tea.Cmd {
 	a.mcpRemoveOptions = nil
 	a.mcpRemoveSel = 0
 	a.mcpRemoveSaving = false
+	a.mcpRemoveConfirmID = ""
 	return mcpListServersCmd(a.c)
 }
 
@@ -58,6 +59,7 @@ func (a *App) closeMcpRemoveModal() {
 	a.mcpRemoveOptions = nil
 	a.mcpRemoveSel = 0
 	a.mcpRemoveSaving = false
+	a.mcpRemoveConfirmID = ""
 }
 
 func (a *App) handleMcpRemoveWheel(button tea.MouseButton) tea.Cmd {
@@ -136,23 +138,14 @@ func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	default:
 		if k.Text != "" {
-			runes := []rune(a.mcpInstallInput)
-			if a.mcpInstallCursor < 0 {
-				a.mcpInstallCursor = 0
-			}
-			if a.mcpInstallCursor > len(runes) {
-				a.mcpInstallCursor = len(runes)
-			}
-			insert := []rune(k.Text)
-			out := make([]rune, 0, len(runes)+len(insert))
-			out = append(out, runes[:a.mcpInstallCursor]...)
-			out = append(out, insert...)
-			out = append(out, runes[a.mcpInstallCursor:]...)
-			a.mcpInstallInput = string(out)
-			a.mcpInstallCursor += len(insert)
+			a.insertMcpInstallText(k.Text)
 		}
 	}
 	return a, nil
+}
+
+func (a *App) insertMcpInstallText(text string) {
+	a.mcpInstallInput, a.mcpInstallCursor = insertTextAtCursor(a.mcpInstallInput, a.mcpInstallCursor, text)
 }
 
 // handleMcpRemoveKey routes keystrokes while the remove modal is open.
@@ -165,10 +158,12 @@ func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.closeMcpRemoveModal()
 		return a, nil
 	case "up", "k":
+		a.mcpRemoveConfirmID = ""
 		if a.mcpRemoveSel > 0 {
 			a.mcpRemoveSel--
 		}
 	case "down", "j":
+		a.mcpRemoveConfirmID = ""
 		if a.mcpRemoveSel < len(a.mcpRemoveOptions)-1 {
 			a.mcpRemoveSel++
 		}
@@ -177,8 +172,16 @@ func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		target := a.mcpRemoveOptions[a.mcpRemoveSel]
+		if a.mcpRemoveConfirmID != target.ID {
+			a.mcpRemoveConfirmID = target.ID
+			a.transientHint = "press Enter again to confirm removing MCP " + target.ID + " (any other key cancels)"
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.mcpRemoveConfirmID = ""
 		a.mcpRemoveSaving = true
 		return a, mcpUninstallCmd(a.c, target.ID)
+	default:
+		a.mcpRemoveConfirmID = ""
 	}
 	return a, nil
 }
@@ -241,12 +244,26 @@ func mcpUninstallCmd(c *client.Client, serverID string) tea.Cmd {
 	}
 }
 
+func mcpReconnectCmd(c *client.Client, serverID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := c.McpReconnect(ctx, serverID)
+		return mcpReconnectDoneMsg{serverID: serverID, err: err}
+	}
+}
+
 type mcpInstallDoneMsg struct {
 	result map[string]any
 	err    error
 }
 
 type mcpUninstallDoneMsg struct {
+	serverID string
+	err      error
+}
+
+type mcpReconnectDoneMsg struct {
 	serverID string
 	err      error
 }
@@ -331,11 +348,16 @@ func (a *App) viewMcpInstall() string {
 	}
 	exampleList := a.renderMcpInstallExampleList()
 	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:       w,
-		title:       "Install MCP server",
-		buttons:     buttons,
-		surfaceID:   "mcp-install",
-		intro:       []string{t.HintLabel.Render(strings.Join(exampleList.rows, "\n"))},
+		width:     w,
+		title:     "Install MCP connection",
+		buttons:   buttons,
+		surfaceID: "mcp-install",
+		intro: []string{
+			t.HintLabel.Render("Add a trusted third-party MCP connection to the current workspace."),
+			t.HintLabel.Render("Format: <name> stdio <command> [args...]  or  <name> http <url>"),
+			"",
+			t.HintLabel.Render(strings.Join(exampleList.rows, "\n")),
+		},
 		introList:   exampleList,
 		introListW:  innerW,
 		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
@@ -355,10 +377,14 @@ func (a *App) viewMcpRemove() string {
 	t := a.Theme
 	w := a.modalWidth()
 	listW := modalInsetListWidth(w)
+	removeLabel := "remove"
+	if a.mcpRemoveConfirmID != "" {
+		removeLabel = "confirm remove"
+	}
 	buttons := []menuButton{
 		{
 			id:    "mcp-remove:remove",
-			label: "remove",
+			label: removeLabel,
 			action: func(app *App) tea.Cmd {
 				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
 				return cmd
@@ -374,6 +400,11 @@ func (a *App) viewMcpRemove() string {
 		},
 	}
 	rows := []string{}
+	rows = append(rows,
+		t.HintLabel.Render("Remove custom MCP connections from the current workspace."),
+		t.HintLabel.Render("Bundled CLIO connections stay available and are not listed here."),
+		"",
+	)
 	itemBudget := a.modalListItemBudget(6, 1, mcpRemoveMaxItems)
 	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
 	listStartRow := len(rows)
@@ -385,9 +416,12 @@ func (a *App) viewMcpRemove() string {
 			id:       fmt.Sprintf("mcp-remove:item:%d", idx),
 			title:    server.Name,
 			meta:     server.ID,
-			status:   server.Transport,
+			status:   mcpRemoveRowStatus(a, server),
 			selected: i == a.mcpRemoveSel,
 			action: func(app *App) tea.Cmd {
+				if app.mcpRemoveConfirmID != server.ID {
+					app.mcpRemoveConfirmID = ""
+				}
 				app.mcpRemoveSel = idx
 				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
 				return cmd
@@ -402,21 +436,29 @@ func (a *App) viewMcpRemove() string {
 	if len(list.rows) > 0 {
 		rows = append(rows, list.rows...)
 	} else {
-		rows = append(rows, t.HintLabel.Render("(no removable MCP servers)"))
+		rows = append(rows, t.HintLabel.Render("(no removable MCP connections)"))
 	}
 	if a.mcpRemoveSaving {
 		rows = append(rows, "",
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(a.spinnerChar()+" removing…"),
 		)
+	} else if a.mcpRemoveConfirmID != "" {
+		rows = append(rows, "",
+			t.HintLabel.Render("Confirm removing "+a.mcpRemoveConfirmID+". Any other key cancels."),
+		)
+	}
+	footer := modalKeyHint("↑/↓ select", "Enter remove", "Esc cancel")
+	if a.mcpRemoveConfirmID != "" {
+		footer = modalKeyHint("Enter confirm remove", "↑/↓ cancel", "Esc cancel")
 	}
 
 	rendered := a.renderSelectableListModal(selectableListModalOptions{
 		frame: modalFrameOptions{
 			width:   w,
-			title:   "Remove MCP server",
+			title:   "Remove MCP connection",
 			buttons: buttons,
-			footer:  t.HintLabel.Render(modalKeyHint("↑/↓ select", "Enter remove", "Esc cancel")),
+			footer:  t.HintLabel.Render(footer),
 		},
 		rows:           rows,
 		list:           list,
@@ -435,4 +477,11 @@ func (a *App) viewMcpRemove() string {
 		},
 	})
 	return rendered.modal
+}
+
+func mcpRemoveRowStatus(a *App, server gact.McpServer) string {
+	if a != nil && a.mcpRemoveConfirmID == server.ID {
+		return "confirm remove"
+	}
+	return server.Transport
 }

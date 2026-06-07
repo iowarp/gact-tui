@@ -17,13 +17,24 @@ Type "/"
 Wait+Screen /Commands/
 Type "mcp"
 Enter
-Wait+Screen /MCP/
+Wait+Screen /MCP Connections/
 Sleep 700ms
 
+Down
+Down
+Down
+Down
+Down
+Wait+Screen /▌.*fake-mcp/
 Type "d"
-Wait+Screen /Remove MCP server/
+Wait+Screen /Remove MCP connection/
 Sleep 400ms
 Screenshot "visual_loop/screenshots/semantic_mcp_remove.png"
+
+Enter
+Wait+Screen /confirm remove/
+Sleep 400ms
+Screenshot "visual_loop/screenshots/semantic_mcp_remove_confirm.png"
 
 Escape
 Sleep 200ms

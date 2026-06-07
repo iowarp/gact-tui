@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -44,13 +46,24 @@ func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_body", "root_path is required")
 		return
 	}
+	rootPath := strings.TrimSpace(req.RootPath)
+	if !filepath.IsAbs(rootPath) {
+		writeError(w, http.StatusBadRequest, "invalid_workspace_root", "workspace root must be an absolute local path")
+		return
+	}
+	for _, ws := range s.store.ListWorkspaces() {
+		if filepath.Clean(ws.RootPath) == filepath.Clean(rootPath) {
+			writeError(w, http.StatusConflict, "workspace_root_conflict", "that folder is already registered as workspace "+ws.Name)
+			return
+		}
+	}
 	name := req.Name
 	if name == "" {
-		name = baseName(req.RootPath)
+		name = baseName(rootPath)
 	}
 	created, err := s.store.CreateWorkspace(gact.Workspace{
 		Name:     name,
-		RootPath: req.RootPath,
+		RootPath: rootPath,
 		Config:   req.Config,
 		Metadata: req.Metadata,
 	})
@@ -100,6 +113,10 @@ func (s *Server) handlePatchWorkspace(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if ws, err := s.store.GetWorkspace(id); err == nil && filepath.Clean(ws.RootPath) == "/tmp/gact-analysis" {
+		writeError(w, http.StatusConflict, "workspace_remove_failed", "workspace is pinned by an active benchmark profile")
+		return
+	}
 	if err := s.store.DeleteWorkspace(id); err != nil {
 		writeStoreError(w, err, "workspace_not_found", "invalid_workspace")
 		return

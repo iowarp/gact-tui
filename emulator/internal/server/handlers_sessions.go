@@ -78,6 +78,10 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	if s.cfg.SessionCreateFailures {
+		writeError(w, http.StatusBadGateway, "session_create_failed", "session create failed: workspace registry is temporarily unavailable")
+		return
+	}
 	if req.WorkspaceID == "" {
 		writeError(w, http.StatusBadRequest, "invalid_body", "workspace_id is required")
 		return
@@ -181,6 +185,10 @@ func (s *Server) handlePatchSession(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	if s.cfg.SessionRenameFailures && req.Title != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", "session title failed validation: reserved demo failure")
+		return
+	}
 	updated, err := s.store.UpdateSession(id, func(sess *gact.Session) {
 		if req.Title != nil {
 			sess.Title = *req.Title
@@ -262,6 +270,10 @@ func (s *Server) handleForkSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCancelSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cfg.CancelFailures {
+		writeError(w, http.StatusBadGateway, "cancel_failed", "cancel failed: runtime supervisor did not acknowledge the request")
+		return
+	}
 	if s.onCancel != nil {
 		s.onCancel(id)
 	}

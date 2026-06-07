@@ -2,6 +2,55 @@
 
 This folder is a handoff for a fresh Codex session whose job is to harden the GACT TUI presentation layer with a real visual feedback loop.
 
+## Visual Coverage Index
+
+The maintained tape/screenshot inventory is in [`COVERAGE.md`](COVERAGE.md).
+Update it when adding, renaming, or retiring visual-loop tapes, and use its
+"Missing Or Deferred" section to track views that should receive coverage later.
+[`MISSING_CAPTURES.md`](MISSING_CAPTURES.md) is a generated operator backlog
+derived from that ledger; regenerate it after changing missing-state rows.
+Existing captures that are useful but not primary coverage live in
+[`PRESERVED_CAPTURES.md`](PRESERVED_CAPTURES.md) until they are promoted or
+removed.
+Run `python3 visual_loop/check_visual_corpus.py --root .` to verify required
+artifacts and referenced coverage entries are present. The report also lists
+unindexed tapes/screenshots so useful captures can be added to the matrix later;
+use `--require-indexed` to ensure every tape/screenshot is listed in one of the
+visual-loop index files. Use `--include-deferred` when you want the report to
+print the Missing Or Deferred capture ledger without requiring those planned
+captures to exist yet. Use `--write-deferred-report
+visual_loop/MISSING_CAPTURES.md` to refresh the standalone backlog.
+The same corpus command also audits slash-command discoverability: built-in
+palette commands must be documented in `SLASH_COMMAND_VISUAL_COVERAGE.md`,
+canonical commands must appear in the Help Commands tab, and folded aliases must
+stay out of Help. Run `python3 visual_loop/check_slash_command_coverage.py
+--root .` only when you want the smaller command-specific report.
+The report also includes the four-case NDP demo readiness summary when the CLIO
+evidence report is available. By default that section is informational so normal
+visual corpus checks can pass while any NDP case lacks manifest-backed streaming
+proof; add `--require-ndp-demo-ready` for the final demo gate.
+
+When copy or terminal-selection behavior changes, refresh the maintained
+diagnostic report:
+
+```bash
+go build -p 1 -o tui/gact ./tui
+visual_loop/capture_gact_diag.sh
+```
+
+The generated `visual_loop/screenshots/gact_diag_clipboard_terminal.report.md`
+must include `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
+`terminal_selection`, `TERM`, and `TERM_PROGRAM`.
+
+Refresh the diagnostics readiness report after changing doctor, metrics, memory,
+or CLI diagnostic evidence:
+
+```bash
+python3 visual_loop/check_diagnostics_readiness.py --root . \
+  --write-report visual_loop/screenshots/diagnostics_readiness.report.md \
+  --strict
+```
+
 ## Current State
 
 - Repository: `https://github.com/iowarp/gact-tui`
@@ -24,22 +73,32 @@ This folder is a handoff for a fresh Codex session whose job is to harden the GA
 - Expanded child rows now render as one `└─` title connector with aligned status text, instead of duplicating `└` on both lines.
 - The sidebar footer now advertises the actual delete key `x` and the child toggle `c`.
 
-## Still Broken Or Not Good Enough
+## Current Gaps
 
 ### Scroll State
 
-The main conversation scroll is still a release-blocking bug. The observed behavior is stronger than "near the bottom":
+The old release-blocking conversation scroll bug has deterministic coverage now:
 
-- Once the transcript has scrolled up even a little, the viewport can fail to return to the bottom.
-- The selection/cursor moves, but the visible text does not follow.
-- Down, End/`G`, PageDown, and wheel-down need to reattach to the actual bottom reliably.
-- This should be fixed at the scroll state/model level, not by adding more ad hoc render nudges.
+- `semantic_long_transcript_scroll.tape`
+- `semantic_long_transcript_bottom.png`
+- `semantic_long_transcript_after_g.png`
+- `semantic_long_transcript_after_pagedown.png`
+- `semantic_long_transcript_scroll.gif`
 
-The likely root problem is that the TUI mixes message-count based scrolling with visual-line based rendering. Long tool blocks are one message/part but many visual rows. A correct fix should account for rendered block/line positions.
+Keep this evidence because it guards the exact user complaint: after scrolling
+up, `G`, End/PageDown, and wheel-down must visibly reattach to the latest
+conversation rows. Future regressions should be fixed at the scroll
+state/rendered-line geometry level rather than by adding one-off render nudges.
 
 ### Tool Rendering
 
-Tool output is still too raw and visually dense in realistic CLIO sessions. Examples from live use:
+Tool output still needs continuous scrutiny in realistic CLIO sessions, but the
+visual loop now has semantic fixture coverage for the NDP/EarthScope/NWS/CIMIS
+demo shapes and several catalog/tool/MCP surfaces. The remaining concern is not
+"raw JSON everywhere"; it is whether newly added CLIO tool shapes keep getting
+useful inline summaries with raw evidence preserved in detail views.
+
+Bad historical examples looked like this:
 
 ```text
 NdpStageResource({dataset_identifier: 3264e7ee-ef6d-42d5-b722-8ad39670cf3d, identifier_type: id, resource_index: 0, server: global})
@@ -116,6 +175,34 @@ I found a bounded NDP candidate, staged the selected resource, inspected the dat
 - Tool result previews should be visually distinct from final assistant prose.
 - Handoff, tool call, tool result, and final answer order must be obvious.
 - Evidence provenance must be clear: live event vs metadata-promoted event vs assistant prose.
+
+## Live Observability Temporal Gate
+
+Use `assert_live_observability.py` on captured SSE/visual-loop JSONL timelines
+when validating live CLIO benchmark behavior. The default `benchmark-hierarchy`
+mode requires the visible timeline to prove this ordered sequence before turn
+completion:
+
+```text
+route_or_delegate -> child_expert_active -> tool_started -> tool_completed -> parent_resumed
+```
+
+The gate intentionally requires matched benchmark hierarchy observations to
+precede `message.completed` by at least 0.25s. This prevents a false pass where
+the TUI receives a final burst of posthoc evidence immediately before the final
+answer, which looks correct in a settled screenshot but fails the human
+observability requirement.
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/<capture>.jsonl \
+  --mode benchmark-hierarchy \
+  --report visual_loop/screenshots/<capture>.strict.report.md
+```
+
+For narrower smoke checks that only prove live tool start/complete events,
+`--mode basic-tools` remains available and has no live-lead requirement by
+default.
 
 ## Recreating Real Benchmark Sessions
 
@@ -224,8 +311,60 @@ Invoke-RestMethod http://127.0.0.1:<PORT>/v1/sessions | ConvertTo-Json -Depth 8
 
 The current Linux/WSL visual loop reuses the persisted CLIO benchmark sessions;
 do not rerun the ALCF benchmark unless the CLIO trace-capture semantics change.
-Rebuild `tui/gact`, run the VHS tapes under `visual_loop/tapes/`, and inspect
-the resulting PNGs under `visual_loop/screenshots/`.
+On Linux/WSL, rebuild and relink with `make dev-install` before launching
+`gact` through either the shell or CLIO. That target points both
+`~/.local/bin/gact` and `~/.local/share/clio/gact` at the current checkout so
+visual-loop changes cannot be hidden behind a stale CLIO launcher. Then run the
+VHS tapes under `visual_loop/tapes/` and inspect the resulting PNGs under
+`visual_loop/screenshots/`.
+
+Before a release pass, run the corpus manifest check:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root .
+python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked
+python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_assert_live_observability.py
+```
+
+This fast check verifies that the maintained tapes, screenshots, live benchmark
+replay artifacts, and temporal-observability reports are present and non-empty.
+The tracked-artifact mode also fails required artifacts that only exist as local
+untracked files, so a clean checkout cannot accidentally lose release evidence.
+It does not replace screenshot inspection or strict live benchmark assertions;
+it catches missing acceptance artifacts before the visual review starts.
+
+When a fresh live benchmark capture is intended to close the temporal
+observability work, run the stricter corpus gate too:
+
+```bash
+python3 visual_loop/check_visual_corpus.py --root . \
+  --require-git-tracked \
+  --require-strict-live-pass
+```
+
+This fails unless at least one maintained strict live-observability report has
+`verdict: PASS`. Historical reports that only prove basic tool streaming should
+remain useful artifacts, but they must not be mistaken for closure-grade
+benchmark hierarchy proof.
+
+### Temporal live-observability gate
+
+Screenshots alone can miss the worst streaming regression: the TUI appears
+frozen during a long CLIO turn, then the final settled transcript looks fine.
+Pair live or benchmark captures with the JSONL temporal assertion:
+
+```bash
+python3 visual_loop/assert_live_observability.py \
+  visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.jsonl \
+  --report visual_loop/screenshots/live_observability_YYYYMMDD_HHMMSS.temporal.md
+```
+
+Default `benchmark-hierarchy` mode requires this order before final completion:
+route/delegate, child expert active, tool started, tool completed, parent
+resumed. Use `--mode basic-tools` only for synthetic smoke cases that do not
+exercise hierarchy. A strict failure with a basic-tools pass means live tool
+visibility exists, but the benchmark hierarchy/parent-resume semantics are not
+yet proven.
 
 Fresh ALCF corpus from 2026-05-25:
 
@@ -293,6 +432,57 @@ Current tape targets:
 | `live_clio_memory_pressure.tape` | `sess_530d7025d35f` | over-budget context and retained compaction evidence |
 | `live_clio_state_markers.tape` | `sess_a6c3a15a2a78`, `sess_530d7025d35f` | provider-swap transcript and compaction state markers |
 
+Four-case NDP demo readiness is tracked separately from deterministic fixture
+coverage. Run this before claiming the live demo is ready:
+
+```bash
+python3 visual_loop/check_ndp_demo_readiness.py --root .
+```
+
+To preserve the exact current missing-file list in the repo-local visual
+evidence ledger, refresh `NDP_DEMO_VISUAL_READINESS.md`:
+
+```bash
+python3 visual_loop/check_ndp_demo_readiness.py --root . \
+  --write-report visual_loop/NDP_DEMO_VISUAL_READINESS.md
+```
+
+Use `--strict` only when all four real TUI recordings are expected to exist. The
+checker reports CLIO artifact proof, deterministic TUI proof, and valid real TUI
+recordings independently so deterministic fixtures or placeholder files cannot
+be mistaken for the actual demo video/GIF evidence.
+
+Current preserved real TUI recordings cover all four NDP cases and are useful
+operator evidence. They are not yet release-ready streaming proof under the
+current manifest standard: San Diego/EarthScope and wildfire have recordings
+without manifests, while California NWS warnings and Fresno CIMIS have
+artifact-producing manifests that still record provider streaming limitations.
+
+Use the guarded capture helper for the remaining live recordings. It never
+starts, stops, or reconfigures CLIO; point it only at an isolated backend that
+you own. After VHS finishes, it validates that the prompt/early/live screenshots
+are real PNGs and the short recording is a real GIF, then writes a manifest that
+records whether the backend transcript actually produced the expected artifact
+without user-input or provider-streaming blockers:
+
+```bash
+go build -p 1 -o tui/gact ./tui
+CLIO_NDP_CAPTURE_OWN_BACKEND=1 visual_loop/capture_ndp_demo_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --workspace <WORKSPACE_ID_OR_NAME_OR_ROOT> \
+  --case california_nws_warnings \
+  --agent-blueprint <optional-blueprint-id>
+
+CLIO_NDP_CAPTURE_OWN_BACKEND=1 visual_loop/capture_ndp_demo_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --workspace <WORKSPACE_ID_OR_NAME_OR_ROOT> \
+  --case fresno_cimis_weather \
+  --agent-blueprint <optional-blueprint-id>
+```
+
+After both runs, verify readiness with
+`python3 visual_loop/check_ndp_demo_readiness.py --root . --strict`.
+
 Note: `provider_swap_memory_followup` proves retained context visually through
 the follow-up prompt, Parquet tool evidence, and final answer. The persisted
 GACT session export does not currently include a provider-transition event or
@@ -351,20 +541,20 @@ Windows issue to avoid:
 
 - Repeated `emulator-server.exe` builds under `%TEMP%` triggered Windows firewall prompts and left many windows/processes. Use a stable path like `.tools/emulator-server.exe` or run the visual loop under Linux/WSL.
 
-## Suggested First Tasks
+## Suggested Next Tasks
 
-1. Reproduce the scroll bug with a deterministic Go test:
-   - Long assistant message with many addressable tool blocks.
-   - Set `scrollOffset > 0`.
-   - Press Down repeatedly, `G`, End, PageDown, and wheel-down.
-   - Assert `scrollOffset == 0`, `stickyToBottom == true`, and the final rendered lines are visible.
-2. Replace message-count anchoring with visual-row/block anchoring.
-3. Introduce a structured tool preview layer:
-   - NDP stage resource.
-   - NDP dataset details.
-   - Parquet statistics/schema.
-   - CSV schema/read table.
-   - HDF5/ADIOS/SAC summaries.
-4. Ensure raw JSON is available in detail view for every preview.
-5. Add render-width tests that strip ANSI and assert no visible line exceeds pane width.
-6. Run the screenshot loop and review the image.
+1. Close the remaining four-case NDP demo proof gaps under live TUI execution:
+   add manifests for the preserved San Diego/EarthScope and wildfire recordings,
+   and rerun California NWS warnings and Fresno CIMIS until their manifests no
+   longer record provider streaming limitations. Use
+   `python3 visual_loop/check_ndp_demo_readiness.py --root .` to verify the
+   exact missing or invalid manifest-backed streaming proof.
+2. Continue the slash-command/operator-surface audit from `COVERAGE.md`, filling
+   targeted missing states instead of regenerating broad suites.
+3. Add true range-selection semantics for transcript/detail/text-entry surfaces
+   if product scope requires native-feeling mouse copy beyond the current scoped
+   copy and drag-copy actions.
+4. For each new CLIO tool or semantic event shape, add a deterministic fixture
+   proving the inline summary and detail/raw-evidence rendering.
+5. Run the screenshot loop and inspect the images before claiming visual fixes
+   are done.

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -11,9 +12,19 @@ import (
 )
 
 // clipboardWrite is a package-level indirection so tests can swap the
-// backend without touching the OS clipboard. Production calls through
-// to atotto/clipboard; test files override the variable.
-var clipboardWrite = clipboard.WriteAll
+// backend without touching the OS clipboard. Production tries concrete
+// terminal clipboard utilities first, then falls back to atotto/clipboard.
+var clipboardWrite = writeNativeClipboard
+var clipboardLookPath = exec.LookPath
+var clipboardAtottoWrite = clipboard.WriteAll
+var clipboardRunCommand = func(name string, args []string, input string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = strings.NewReader(input)
+	return cmd.Run()
+}
+var clipboardForcedFailure = func() bool {
+	return os.Getenv("GACT_CLIPBOARD_FORCE_FAILURE") == "1"
+}
 var osc52Write = func(text string) error {
 	encoded := base64.StdEncoding.EncodeToString([]byte(text))
 	_, err := fmt.Fprintf(os.Stdout, "\x1b]52;c;%s\a", encoded)
@@ -36,9 +47,12 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		}
 		return emptyHint
 	}
+	if clipboardForcedFailure() {
+		return clipboardFailureHint()
+	}
 	if err := clipboardWrite(text); err != nil {
 		if oscErr := osc52Write(text); oscErr != nil {
-			return "copy failed: native clipboard: " + err.Error() + "; OSC52: " + oscErr.Error()
+			return clipboardFailureHint()
 		}
 		return "sent copy via terminal OSC52 (native clipboard unavailable: " + err.Error() + ")"
 	}
@@ -46,6 +60,57 @@ func copyExactTextToClipboard(text string, emptyHint string, copiedHint func(cha
 		return "copied content to clipboard"
 	}
 	return copiedHint(len(text))
+}
+
+func clipboardFailureHint() string {
+	return "copy failed - run `gact diag`; check clipboard_native/clipboard_missing/clipboard_osc52"
+}
+
+type clipboardCommand struct {
+	name string
+	args []string
+}
+
+func nativeClipboardCommands() []clipboardCommand {
+	return []clipboardCommand{
+		{name: "wl-copy"},
+		{name: "xclip", args: []string{"-selection", "clipboard"}},
+		{name: "xsel", args: []string{"--clipboard", "--input"}},
+		{name: "pbcopy"},
+		{name: "clip.exe"},
+		{name: "powershell.exe", args: []string{"-NoProfile", "-Command", "$input | Set-Clipboard"}},
+		{name: "termux-clipboard-set"},
+	}
+}
+
+func writeNativeClipboard(text string) error {
+	var tried []string
+	var failures []string
+	fallbackNames := "wl-copy, xclip, xsel, pbcopy, clip.exe, powershell.exe, termux-clipboard-set, atotto/clipboard"
+	for _, cmd := range nativeClipboardCommands() {
+		path, err := clipboardLookPath(cmd.name)
+		if err != nil {
+			continue
+		}
+		tried = append(tried, cmd.name)
+		if err := clipboardRunCommand(path, cmd.args, text); err != nil {
+			failures = append(failures, cmd.name+": "+err.Error())
+			continue
+		}
+		return nil
+	}
+	if err := clipboardAtottoWrite(text); err != nil {
+		if len(tried) == 0 {
+			return fmt.Errorf("no native clipboard utilities found; fallback order %s; atotto/clipboard: %w", fallbackNames, err)
+		}
+		return fmt.Errorf("no native clipboard utility succeeded; fallback order %s; installed attempts: %s; failures: %s; atotto/clipboard: %w",
+			fallbackNames,
+			strings.Join(tried, ", "),
+			strings.Join(failures, "; "),
+			err,
+		)
+	}
+	return nil
 }
 
 // messageText returns the concatenated text/thinking content of a
@@ -64,6 +129,45 @@ func messageText(m gact.Message) (string, bool) {
 			}
 			chunk = "<thinking>\n" + p.Thinking + "\n</thinking>"
 		default:
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(chunk)
+	}
+	if b.Len() == 0 {
+		return "", false
+	}
+	return b.String(), true
+}
+
+func messageTranscriptText(msgs []gact.Message, msgIdx int) (string, bool) {
+	if msgIdx < 0 || msgIdx >= len(msgs) {
+		return "", false
+	}
+	m := msgs[msgIdx]
+	var b strings.Builder
+	for _, p := range m.Parts {
+		var chunk string
+		switch p.Type {
+		case gact.PartTypeText:
+			chunk = strings.TrimSpace(p.Text)
+		case gact.PartTypeThinking:
+			if strings.TrimSpace(p.Thinking) != "" {
+				chunk = "<thinking>\n" + p.Thinking + "\n</thinking>"
+			}
+		case gact.PartTypeToolCall:
+			chunk = strings.TrimSpace(toolCallDetailText(p))
+		case gact.PartTypeToolResult:
+			chunk = strings.TrimSpace(flattenToolResult(p))
+			if chunk == "" {
+				chunk = strings.TrimSpace(partDetailText(p))
+			}
+		default:
+			chunk = strings.TrimSpace(partDetailText(p))
+		}
+		if chunk == "" {
 			continue
 		}
 		if b.Len() > 0 {
@@ -164,8 +268,8 @@ func matchingToolResultForCall(msgs []gact.Message, msgIdx int, callID string) (
 // Returns ("", false) when nothing is copyable. (PPPPPPPP1)
 func fullConversationText(msgs []gact.Message) (string, bool) {
 	var b strings.Builder
-	for _, m := range msgs {
-		txt, ok := messageText(m)
+	for i, m := range msgs {
+		txt, ok := messageTranscriptText(msgs, i)
 		if !ok {
 			continue
 		}

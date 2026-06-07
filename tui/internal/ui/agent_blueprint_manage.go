@@ -33,6 +33,10 @@ func (a *App) openAgentBlueprintManage(mode string) {
 	a.agentBlueprintManageCursor = 0
 	a.agentBlueprintManageErr = ""
 	a.agentBlueprintManageSaving = false
+	if mode == agentBlueprintManageInstall && strings.TrimSpace(a.agentBlueprintLastValidatedSource) != "" {
+		a.agentBlueprintManageInput = strings.TrimSpace(a.agentBlueprintLastValidatedSource)
+		a.agentBlueprintManageCursor = len([]rune(a.agentBlueprintManageInput))
+	}
 }
 
 func (a *App) closeAgentBlueprintManage() {
@@ -165,6 +169,9 @@ func (a *App) viewAgentBlueprintManage() string {
 		"Enter a local directory, AGENT.md path, git URL, or marketplace source.",
 		"Installs into the current workspace and reloads the blueprint catalog.",
 	}
+	if mode == agentBlueprintManageInstall && strings.TrimSpace(a.agentBlueprintLastValidatedSource) != "" {
+		intro = append(intro, "Prefilled from the last successful validation; edit before installing if needed.")
+	}
 	if mode == agentBlueprintManageValidate {
 		title = "Validate agent blueprint"
 		verb = "validate"
@@ -214,16 +221,38 @@ func (a *App) viewAgentBlueprintManage() string {
 }
 
 func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) string {
+	return formatAgentBlueprintValidationWithSource(result, "")
+}
+
+func formatAgentBlueprintValidationWithSource(result gact.AgentBlueprintValidationResult, source string) string {
 	status := "valid"
 	if !result.Enabled || len(result.ValidationErrors) > 0 {
 		status = "invalid"
+	} else if len(result.ValidationWarnings) > 0 {
+		status = "warning"
 	}
-	rows := appendDetailSection(nil, "Validation",
+	rows := []string{}
+	source = strings.TrimSpace(source)
+	if source != "" {
+		next := "fix validation errors, then validate again before installing"
+		if status == "valid" || status == "warning" {
+			next = "press Esc, choose install source, and use the same source"
+		}
+		rows = appendDetailSection(rows, "Validated source",
+			detailField{"source", source},
+			detailField{"next action", next},
+		)
+		rows = append(rows, "")
+	}
+	rows = appendDetailSection(rows, "Validation",
 		detailField{"status", status},
 		detailField{"enabled", fmt.Sprintf("%t", result.Enabled)},
 	)
 	if len(result.ValidationErrors) > 0 {
 		rows = append(rows, "errors: "+strings.Join(result.ValidationErrors, "; "))
+	}
+	if len(result.ValidationWarnings) > 0 {
+		rows = append(rows, "warnings: "+strings.Join(result.ValidationWarnings, "; "))
 	}
 	if result.AgentBlueprint.ID != "" {
 		rows = append(rows, "")
@@ -235,8 +264,14 @@ func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) 
 			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintMCPDescription(descriptor))
 		}
 	}
+	if len(result.HookDescriptors) > 0 {
+		rows = append(rows, "", "Packaged hooks")
+		for _, descriptor := range result.HookDescriptors {
+			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintHookDescription(descriptor))
+		}
+	}
 	if len(result.Agents) > 0 {
-		rows = append(rows, "", "Agents")
+		rows = append(rows, "", "Experts")
 		for _, agent := range result.Agents {
 			rows = append(rows, "- "+firstNonEmpty(agent.Title, agent.ID)+": "+agentCatalogDescription(agent, result.Agents))
 		}

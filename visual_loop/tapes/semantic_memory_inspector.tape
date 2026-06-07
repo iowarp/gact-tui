@@ -23,7 +23,7 @@ Type "memory"
 Sleep 300ms
 Screenshot "visual_loop/screenshots/semantic_memory_palette.png"
 Enter
-Wait+Screen /Memory · ARC context/
+Wait+Screen /Memory · context/
 Sleep 800ms
 Screenshot "visual_loop/screenshots/semantic_memory_inspector.png"
 
