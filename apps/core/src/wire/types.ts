@@ -400,7 +400,26 @@ export interface ProviderDef {
   api_base?: string;
   env_keys?: string[];
   description?: string;
+  /** The provider/model can accept image parts in a turn (clio LM preset
+   * `supports_vision`, develop ≥ 2026-06). Pairs with the
+   * `multimodal_image_parts` capability to gate image-attachment send. */
+  supports_vision?: boolean;
   metadata?: Record<string, unknown>;
+}
+
+/** A registered Agent Blueprint *source* (git/local registry clio scans for
+ * installable blueprints). `GET/POST/DELETE /v1/agent-blueprints/sources`
+ * + `/refresh` (clio develop ≥ 2026-06). */
+export interface BlueprintSource {
+  id: string;
+  name: string;
+  source: string;
+  ref?: string;
+  pinned_commit?: string;
+  status: 'ok' | 'error' | 'unknown' | string;
+  status_message?: string;
+  added_at?: string;
+  updated_at?: string;
 }
 
 export interface McpServerInfo {

@@ -1,5 +1,6 @@
 import type {
   AgentDef,
+  BlueprintSource,
   Capabilities,
   ContextFile,
   ContextFileContent,
@@ -154,6 +155,10 @@ export class Client {
 
   private async del<T = void>(path: string): Promise<T> {
     return this.request<T>(path, 'DELETE', undefined);
+  }
+
+  private async put<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, 'PUT', body);
   }
 
   /**
@@ -1476,6 +1481,26 @@ export class Client {
   }
 
   /**
+   * PUT /v1/prompts/{id} — save edited prompt text (clio develop ≥ 2026-06).
+   * `text` is required; `scope` defaults to "global" server-side. Backs the
+   * prompts editor's Save action. Returns the saved prompt row.
+   */
+  savePrompt(
+    promptId: string,
+    body: {
+      text: string;
+      scope?: 'global' | 'workspace' | 'session' | string;
+      session_id?: string;
+      workspace_id?: string;
+    },
+  ): Promise<{ prompt: PromptDef }> {
+    return this.put<{ prompt: PromptDef }>(
+      `/v1/prompts/${encodeURIComponent(promptId)}`,
+      body,
+    );
+  }
+
+  /**
    * POST /v1/prompts/{id}/render — render a prompt with a context map
    * substituted (CLIO-owned dynamic context is merged in server-side).
    * Used by the prompts editor's "Preview" button.
@@ -1742,6 +1767,48 @@ export class Client {
         };
       }),
     };
+  }
+
+  /** GET /v1/agent-blueprints/sources — list registered blueprint sources
+   * (git/local registries clio scans for installable blueprints). clio
+   * develop ≥ 2026-06. */
+  async blueprintSources(): Promise<{ sources: BlueprintSource[] }> {
+    return this.get<{ sources: BlueprintSource[] }>(
+      '/v1/agent-blueprints/sources',
+    );
+  }
+
+  /** POST /v1/agent-blueprints/sources — register a source. `source` (a git
+   * URL or local path) is required; `ref`/`name`/`pinned_commit` optional.
+   * `refresh` (default true server-side) triggers an immediate scan. */
+  async addBlueprintSource(body: {
+    source: string;
+    ref?: string;
+    name?: string;
+    pinned_commit?: string;
+    refresh?: boolean;
+  }): Promise<{ source: BlueprintSource }> {
+    return this.post<{ source: BlueprintSource }>(
+      '/v1/agent-blueprints/sources',
+      body,
+    );
+  }
+
+  /** POST /v1/agent-blueprints/sources/{id}/refresh — re-scan one source. */
+  async refreshBlueprintSource(
+    sourceId: string,
+  ): Promise<{ source: BlueprintSource }> {
+    return this.post<{ source: BlueprintSource }>(
+      `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}/refresh`,
+      {},
+    );
+  }
+
+  /** DELETE /v1/agent-blueprints/sources/{id} — unregister a source. */
+  deleteBlueprintSource(sourceId: string): Promise<void> {
+    return this.del(
+      `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}`,
+    );
   }
 
   /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint
