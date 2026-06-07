@@ -27,7 +27,6 @@ function loadIntro(): string {
     return '';
   }
 }
-import { Icon } from '../components/Icon.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
 import './splash.css';
 
@@ -304,9 +303,7 @@ export function SplashScreen(props: SplashScreenProps) {
   return (
     <div class="splash" data-testid="splash-screen">
       <main class="splash__main">
-        <div class="splash__badge">
-          <Icon name="sparkle" size={32} />
-        </div>
+        <div class="splash__mark">C</div>
         <h1 class="splash__wordmark">CLIO Desktop</h1>
         <p class="splash__sub">Starting your local agent…</p>
         <Show when={loadIntro()}>
