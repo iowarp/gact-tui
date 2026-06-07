@@ -790,6 +790,33 @@
   color: var(--color-accent-cyan);
 }
 
+/* A7 — packaged-component provenance rows. */
+.inspector__binding-prov-row--install dd {
+  color: var(--color-accent-cyan);
+}
+
+.inspector__binding-prov-row--bootstrap dd {
+  color: var(--color-muted);
+}
+
+.inspector__binding-prov-row--errors {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.inspector__packaged-errors {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  text-align: left;
+  color: var(--color-accent-red, #e5484d);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.inspector__packaged-errors li {
+  word-break: break-word;
+}
+
 .inspector__bulk-actions {
   display: flex;
   gap: 6px;

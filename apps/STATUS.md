@@ -21,7 +21,8 @@ person who'd never open a terminal.
 | A2 | New caps `multimodal_image_parts` (CapabilityFlags) + `supports_vision` (LM preset) not typed/gated | OPEN | Add to `core/wire/types.ts`; gate image-part send + a "vision" affordance. |
 | A3 | Blueprint **sources registry** — `GET/POST/DELETE /v1/agent-blueprints/sources` + `/refresh` | OPEN | No client methods, no UI. New in #5xx. |
 | A4 | `PUT /v1/prompts/{id}` (save edited prompt) | OPEN (minor) | We have render/validate/reload; missing the save. |
-| A5 | Secured browser-origin defaults (#554) | VERIFY LIVE | Confirm web + Tauri bridge still connect (CORS). |
+| A5 | Secured browser-origin defaults (#554) | **DONE (verified, no code change)** | clio #554 = CORS default-deny (`allow_origins=[]` unless `CLIO_GACT_CORS_ORIGINS` set). Desktop unaffected (Tauri `gact_http` bridge sidesteps browser CORS — direct GET 200 on :17807). Pure-web cross-origin is blocked by design; clio-web Docker proxies `/v1` same-origin, tests use `--disable-web-security`. Action = doc note only: pure-web vs remote clio needs `CLIO_GACT_CORS_ORIGINS`. |
+| A2/A3/A4 core | vision cap type, blueprint-sources methods, prompt PUT + put() helper | **DONE (core)** | Committed `549b8da`; live-verified on :17807. UI in flight (parity agents). |
 | A6 | New semantic event(s): invalid tool selection (#627) etc. | OPEN | Inspector timeline coverage + dedupe rules. |
 | A7 | Packaged hook/command/skill **trust + provenance** (#536–#546, #539 runtime provenance) | OPEN | Extend the gap-07 bindings/provenance surface in the Inspector. |
 

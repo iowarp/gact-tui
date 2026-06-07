@@ -697,6 +697,23 @@
   font-size: 12px;
 }
 
+/* A4 — editable prompt text + save controls. */
+.prompts__edit {
+  max-height: 320px;
+  resize: vertical;
+}
+
+.prompts__edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.prompts__edit-actions .rmp__form-select {
+  margin-right: auto;
+}
+
 .dp__search-row {
   position: relative;
   display: flex;

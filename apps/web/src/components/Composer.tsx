@@ -57,6 +57,14 @@ export interface ComposerProps {
   onUploadFile?: (file: File) => Promise<{ path?: string } | void>;
   /** Backend advertises capabilities.attachments_upload. */
   attachmentsCapable?: boolean;
+  /**
+   * A2 — backend advertises capabilities.multimodal_image_parts (or a
+   * vision-capable provider). When false the dedicated "Attach image…"
+   * affordance is disabled with an explanatory tooltip; generic file
+   * upload and text are unaffected. Defaults to true (capability absent
+   * is treated as "allowed" — only an explicit `false` gates).
+   */
+  imageAttachCapable?: boolean;
 
   /** Live model options pulled from /v1/providers. */
   models?: ModelOption[];
@@ -421,11 +429,21 @@ export function Composer(props: ComposerProps = {}) {
     }
   }
   let fileInputRef: HTMLInputElement | undefined;
+  let imageInputRef: HTMLInputElement | undefined;
   const [attachMenuOpen, setAttachMenuOpen] = createSignal(false);
+
+  // A2: only an explicit `false` gates image attachment; absent → allowed.
+  const imageAttachAllowed = () => props.imageAttachCapable !== false;
 
   function openUpload() {
     setAttachMenuOpen(false);
     fileInputRef?.click();
+  }
+
+  function openImageUpload() {
+    if (!imageAttachAllowed()) return;
+    setAttachMenuOpen(false);
+    imageInputRef?.click();
   }
 
   function mentionWorkspaceFile() {
@@ -646,6 +664,16 @@ export function Composer(props: ComposerProps = {}) {
         />
 
         <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={onFilesPicked}
+          data-testid="composer-image-input"
+        />
+
+        <input
           ref={voiceInputRef}
           type="file"
           accept="audio/*"
@@ -697,6 +725,42 @@ export function Composer(props: ComposerProps = {}) {
                     <Icon name="attach" size={13} />
                     <span class="composer__attach-menuitem-label">Upload from computer…</span>
                     <span class="composer__attach-menuitem-sub">sends file bytes</span>
+                  </button>
+                </Show>
+                {/* A2: image attach is gated on multimodal_image_parts. When
+                    the backend/model can't accept images we still render the
+                    row, but disabled with an explanatory tooltip — generic
+                    file upload above and text are unaffected. */}
+                <Show
+                  when={
+                    props.attachmentsCapable &&
+                    props.onUploadFile &&
+                    imageAttachAllowed()
+                  }
+                  fallback={
+                    <Show when={props.attachmentsCapable && props.onUploadFile}>
+                      <div
+                        class="composer__attach-menuitem is-disabled"
+                        data-testid="composer-attach-image-disabled"
+                        title="This model/backend doesn't accept images"
+                      >
+                        <Icon name="attach" size={13} />
+                        <span class="composer__attach-menuitem-label">Attach image…</span>
+                        <span class="composer__attach-menuitem-sub">no image support</span>
+                      </div>
+                    </Show>
+                  }
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="composer__attach-menuitem"
+                    data-testid="composer-attach-image"
+                    onClick={openImageUpload}
+                  >
+                    <Icon name="attach" size={13} />
+                    <span class="composer__attach-menuitem-label">Attach image…</span>
+                    <span class="composer__attach-menuitem-sub">sends image bytes</span>
                   </button>
                 </Show>
                 <div class="composer__attach-menu-group">In this workspace</div>

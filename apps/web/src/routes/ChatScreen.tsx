@@ -975,6 +975,42 @@ function LiveDriven(props: {
                 Object.keys(bp.value.activation).length > 0
                   ? { activation: bp.value.activation }
                   : {}),
+                // A7 (clio #536–#546 / #539): packaged-component provenance
+                // + trust drawn from the bound blueprint's own descriptor
+                // (`agent_blueprint` body). Read-only; omitted entirely on
+                // older backends that don't send the body.
+                ...(() => {
+                  const ab = (bp.value as { agent_blueprint?: Record<string, unknown> })
+                    .agent_blueprint;
+                  if (!ab || typeof ab !== 'object') return {};
+                  const meta = (ab['metadata'] as Record<string, unknown> | undefined) ?? {};
+                  const install = meta['install'] as Record<string, unknown> | undefined;
+                  const bootstrap = meta['bootstrap'] as Record<string, unknown> | undefined;
+                  const errs = ab['validation_errors'];
+                  const packaged = {
+                    ...(typeof ab['id'] === 'string' ? { id: ab['id'] as string } : {}),
+                    ...(typeof ab['title'] === 'string' ? { title: ab['title'] as string } : {}),
+                    ...(typeof ab['version'] === 'string' && ab['version']
+                      ? { version: ab['version'] as string }
+                      : {}),
+                    ...(typeof ab['scope'] === 'string' && ab['scope']
+                      ? { scope: ab['scope'] as string }
+                      : {}),
+                    ...(typeof ab['enabled'] === 'boolean'
+                      ? { enabled: ab['enabled'] as boolean }
+                      : {}),
+                    ...(Array.isArray(errs) && errs.length > 0
+                      ? { validation_errors: errs as string[] }
+                      : {}),
+                    ...(install && Object.keys(install).length > 0
+                      ? { install }
+                      : {}),
+                    ...(bootstrap && Object.keys(bootstrap).length > 0
+                      ? { bootstrap }
+                      : {}),
+                  };
+                  return { packaged };
+                })(),
               }
             : {};
         const availableBlueprints =
@@ -3021,6 +3057,9 @@ function ChatLayout(props: ChatLayoutProps) {
               currentMatchKey={currentMatchKey()}
               streaming={props.streaming}
               scrollEl={paneSignal()}
+              imagePartsSupported={
+                props.caps?.capabilities?.['multimodal_image_parts'] !== false
+              }
             />
             <Show when={scrolledUp()}>
               <button
@@ -3074,6 +3113,9 @@ function ChatLayout(props: ChatLayoutProps) {
               : undefined
           }
           attachmentsCapable={!!props.caps?.capabilities?.attachments_upload}
+          imageAttachCapable={
+            props.caps?.capabilities?.['multimodal_image_parts'] !== false
+          }
           onUploadFile={
             props.caps?.capabilities?.attachments_upload
               ? async (file) => {
