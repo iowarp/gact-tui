@@ -1,10 +1,48 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-06-02 (distribution + release-0.7 run)
-**Branch:** `feat/distribution-and-release` (PR #74 / feat-apps-harness already merged into develop @ `8d7d9a3`)
-**Phase:** distribution engineering + release-pipeline test (0.7) → then 0.9 lab release after clio verification
+**Last updated:** 2026-06-07 (0.9-readiness audit — recon)
+**Branch:** develop (audit work will branch off)
+**Phase:** 0.9 lab-release readiness — capability parity with clio @ `f647db1` AND a
+good non-technical-user UI/UX (per the hermes study in `docs/ref/`).
 
-## DISTRIBUTION + RELEASE 0.7 BOARD (2026-06-02 — newest run, READ THIS FIRST)
+## 0.9-READINESS AUDIT (2026-06-07 — READ THIS FIRST)
+
+Clio's verification pass is done; align to **clio develop @ `f647db1`** (66 commits
+past our last alignment `176518d`; contract still `0.2`, non-breaking). Scope:
+**desktop + web only** (the TUI is aligned in parallel by another dev). Goal per
+user: **match clio's surface AND have a genuinely good interface for the
+non-technical user** — a TUI user stays in the TUI; the desktop exists for the
+person who'd never open a terminal.
+
+### Track A — capability parity gaps (concrete, from static recon)
+| # | Gap | State | Notes |
+|---|-----|-------|-------|
+| A1 | `x_clio_files_content` flag + `/v1/sessions/{id}/context/files/content` route REMOVED | **DONE** | Verified live on :17807: flag gone, route 404s. **Replacement = workspace-scoped `GET /v1/workspaces/{wid}/files` (list) + `/files/read?path=` (raw bytes)** — broader (any workspace file, not just registered context files; unblocks @-picker hover previews + backs B3). Fix: new `Client.readWorkspaceFile`/`listWorkspaceFiles` + `WorkspaceFileEntry` type; dropped dead flag, added `multimodal_image_parts`; ChatScreen previews re-gated on `files` cap + resolve workspace id. Gates green (core 49 / web 153 / typecheck / build). Live preview re-verification pending in the verification phase. |
+| A2 | New caps `multimodal_image_parts` (CapabilityFlags) + `supports_vision` (LM preset) not typed/gated | OPEN | Add to `core/wire/types.ts`; gate image-part send + a "vision" affordance. |
+| A3 | Blueprint **sources registry** — `GET/POST/DELETE /v1/agent-blueprints/sources` + `/refresh` | OPEN | No client methods, no UI. New in #5xx. |
+| A4 | `PUT /v1/prompts/{id}` (save edited prompt) | OPEN (minor) | We have render/validate/reload; missing the save. |
+| A5 | Secured browser-origin defaults (#554) | VERIFY LIVE | Confirm web + Tauri bridge still connect (CORS). |
+| A6 | New semantic event(s): invalid tool selection (#627) etc. | OPEN | Inspector timeline coverage + dedupe rules. |
+| A7 | Packaged hook/command/skill **trust + provenance** (#536–#546, #539 runtime provenance) | OPEN | Extend the gap-07 bindings/provenance surface in the Inspector. |
+
+### Track B — UI/UX gaps (non-technical-user bar; from `docs/ref/hermes-agent-desktop.md`)
+| # | Gap | Size | 0.9? |
+|---|-----|------|------|
+| B1 | **Left-rail completeness** — every capability reachable by clicking + labeled; Cmd+K = accelerator only | S–M | strong 0.9 |
+| B2 | **Config-menu depth** — total deep-linked settings, validated provider/model dropdowns + connect buttons, one row vocabulary, one overlay shell | M | strong 0.9 |
+| B3 | **Rendered side-by-side preview rail** (file/URL/image) | L | 0.9 if A1 resolves, else 1.0 |
+| B4 | **Errors/boot as buttons** — Repair + persisted "Open logs" + reauth detection | S–M | 0.9 |
+| B5 | **Onboarding** — curated-first providers, connect buttons, skip→settings | M | 0.9 |
+| B6 | **`apps/web/DESIGN.md` + primitive consolidation**; TUI⇄desktop spinner/status parity | M | 0.9 (table stakes) |
+
+### Audit method
+Static recon done (this entry). Next: spin a self-run clio from the new develop (own
+port, never touch :17800) to verify A1/A5 and snapshot the real capability set, then
+implement parity gaps with live proof + the UX track with fixture+live PNGs, same
+discipline as prior runs. **NOTE: clio-agent/.venv is NOT editable — reinstall
+(`uv pip install -e .`) to introspect/run the new develop.**
+
+## DISTRIBUTION + RELEASE 0.7 BOARD (2026-06-02)
 
 The user's direction: "lets do proper not easy" — a real distribution story for
 the whole stack, every channel, then exercise the actual release pipeline with a
