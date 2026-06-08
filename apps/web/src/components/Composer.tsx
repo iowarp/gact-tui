@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, Show, untrack, type JSX } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 import type { Client } from '@clio/core';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
@@ -843,7 +844,7 @@ export function Composer(props: ComposerProps = {}) {
               class="composer__input"
               placeholder={
                 props.placeholder ??
-                'Ask CLIO anything — type @ for files, agents, tools'
+                `Ask ${brand.name} anything — type @ for files, agents, tools`
               }
               rows={1}
               value={text()}

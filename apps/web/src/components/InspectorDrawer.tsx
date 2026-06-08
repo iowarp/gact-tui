@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 import type {
   ContextFile,
@@ -632,7 +633,7 @@ export function InspectorDrawer(props: InspectorDrawerProps) {
             <p class="inspector__empty-title">Waiting for the first turn</p>
             <p class="inspector__empty-body">
               Stop reason, tokens, cost, tool calls, thinking blocks,
-              diffs, and integration health land here once CLIO answers.
+              diffs, and integration health land here once {brand.name} answers.
             </p>
           </div>
         </Show>

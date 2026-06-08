@@ -1,6 +1,8 @@
 import { createEffect, createSignal, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { BackendHandle } from '../App.js';
 import { Icon } from '../components/Icon.js';
+import { BrandMark } from '../components/BrandMark.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import './connect.css';
 
@@ -108,13 +110,13 @@ export function ConnectScreen(props: ConnectScreenProps) {
     <div class="connect" data-testid="connect-screen-bg">
       <main class="connect__main" data-testid="connect-screen">
         <div class="connect__brand">
-          <div class="connect__mark">C</div>
-          <span class="connect__wordmark">CLIO</span>
+          <BrandMark class="connect__mark" />
+          <span class="connect__wordmark">{brand.wordmark}</span>
         </div>
-        <h1 class="connect__title">Welcome to CLIO</h1>
+        <h1 class="connect__title">Welcome to {brand.name}</h1>
         <p class="connect__lede">
-          Your local AI coding &amp; data agent. Connect to get started — it
-          defaults to the <code>clio</code> backend running on this machine.
+          {brand.tagline ? brand.tagline + '. ' : ''}Connect to get started —
+          it defaults to the local backend running on this machine.
         </p>
 
         <div class="connect__card">

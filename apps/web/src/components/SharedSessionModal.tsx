@@ -1,4 +1,5 @@
 import { Show, createResource, createSignal, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import type { Client, Message } from '@clio/core';
 import { Icon } from './Icon.js';
 import { Transcript } from './Transcript.js';
@@ -105,7 +106,7 @@ export function SharedSessionModal(props: SharedSessionModalProps) {
                   }}
                 >
                   <label class="ssm__label" for="ssm-token">
-                    Paste a CLIO share token or URL
+                    Paste a {brand.name} share token or URL
                   </label>
                   <input
                     ref={inputRef}

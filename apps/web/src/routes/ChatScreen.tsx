@@ -10,6 +10,7 @@ import {
   Show,
   Switch,
 } from 'solid-js';
+import { brand } from '@brand';
 import type {
   FileDiff,
   Message,
@@ -138,7 +139,7 @@ function FixtureDriven(props: {
   const fixtureToast = useToast();
   onMount(() => {
     const seed: Array<{ title: string; body: string; tone: 'info' | 'success' | 'warn' | 'error' }> = [
-      { title: 'CLIO responded', body: 'refactor logger — turn completed in 12.4s', tone: 'success' },
+      { title: `${brand.name} responded`, body: 'refactor logger — turn completed in 12.4s', tone: 'success' },
       { title: 'Send failed', body: 'network unreachable — retry available', tone: 'error' },
       { title: 'Permission requested', body: 'WriteFile wants access to src/handlers.go', tone: 'warn' },
       { title: 'SSE reconnected', body: 'stream re-established after a drop', tone: 'info' },
@@ -488,7 +489,7 @@ function LiveDriven(props: {
     if (!isError && !notifPrefs().turnCompletions) return;
     toast.push({
       tone: isError ? 'error' : 'success',
-      title: isError ? 'Turn ended in error' : 'CLIO responded',
+      title: isError ? 'Turn ended in error' : `${brand.name} responded`,
       body: isError
         ? 'See the message error pill for detail.'
         : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
@@ -1690,7 +1691,7 @@ function sessionToMarkdown(payload: unknown): string {
   const sess = root.session ?? {};
   const messages = root.messages ?? [];
   const lines: string[] = [];
-  lines.push(`# ${sess.title ?? 'CLIO session'}`);
+  lines.push(`# ${sess.title ?? `${brand.name} session`}`);
   if (sess.id) lines.push(`*Session* \`${sess.id}\``);
   if (sess.created_at) lines.push(`*Started* ${sess.created_at}`);
   lines.push('');
@@ -3147,7 +3148,7 @@ function ChatLayout(props: ChatLayoutProps) {
                 <span class="chat__typing-avatar" aria-hidden>
                   <Icon name="bot" size={14} />
                 </span>
-                <span class="chat__typing-label">CLIO is responding</span>
+                <span class="chat__typing-label">{brand.name} is responding</span>
                 <span class="chat__typing-dots" aria-hidden>
                   <span class="chat__typing-dot" />
                   <span class="chat__typing-dot" />
@@ -3444,8 +3445,8 @@ function EmptyState(props: {
         {props.hasSession ? 'Start the conversation' : 'Pick a session or start fresh'}
       </h2>
       <p class="chat__empty-body">
-        CLIO is wired into your workspace — ask about your data, propose a
-        change, kick off a tool. Anything you'd type into the terminal,
+        {brand.name} is wired into your workspace — ask about your data, propose
+        a change, kick off a tool. Anything you'd type into the terminal,
         you can drop here.
       </p>
       <div class="chat__empty-prompts">

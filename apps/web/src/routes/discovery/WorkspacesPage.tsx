@@ -1,4 +1,5 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { Client, Workspace } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -68,7 +69,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
     <DiscoveryPage
       icon="workspaces"
       title="Workspaces"
-      subtitle="The roots CLIO is allowed to read/write into for this backend."
+      subtitle={`The roots ${brand.name} is allowed to read/write into for this backend.`}
       actions={
         <>
           <button
@@ -95,7 +96,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
       onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0 && !showForm()}
       emptyTitle="No workspaces registered"
-      emptyBody="Click + above to add one — CLIO needs a root path before it can read or write files."
+      emptyBody={`Click + above to add one — ${brand.name} needs a root path before it can read or write files.`}
     >
       <Show when={showForm()}>
         <form
@@ -225,7 +226,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
             </span>
             <span class="dp__card-add-label">Add a workspace</span>
             <span class="dp__card-add-sub">
-              Point CLIO at a project folder on the backend host.
+              Point {brand.name} at a project folder on the backend host.
             </span>
           </button>
         </Show>

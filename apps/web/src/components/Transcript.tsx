@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
@@ -78,7 +79,7 @@ const ROLE_ICON: Record<string, IconName> = {
 
 const ROLE_LABEL: Record<string, string> = {
   user: 'You',
-  assistant: 'CLIO',
+  assistant: brand.name,
   system: 'System',
   tool: 'Tool',
 };

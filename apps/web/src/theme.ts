@@ -11,7 +11,14 @@
  * The design system (apps/design, read-only) defines the dark default; the
  * light palette lives HERE at the web layer as a token override set, so the
  * design system is never forked.
+ *
+ * Brand layer: the selected brand profile (build-time, see vite-plugin-brand)
+ * supplies `themeTokens` (e.g. the accent). These are applied as a BASE layer
+ * (no !important) beneath the user-override layer, so brand sets the default
+ * accent while user theme edits still win.
  */
+
+import { brand } from '@brand';
 
 export const THEME_TOKENS_KEY = 'clio.theme.tokens.v1';
 export const THEME_PRESET_KEY = 'clio.theme.preset.v1';
@@ -205,9 +212,35 @@ export function setThemeMode(mode: ThemeMode) {
   }
 }
 
+/**
+ * Apply the build-time brand's theme tokens as a base layer (no !important),
+ * so the brand sets the default accent / palette tweaks while the user
+ * override layer (`clio-theme-override`, which DOES use !important) wins.
+ */
+export function applyBrandTokens() {
+  if (typeof document === 'undefined') return;
+  const tokens = brand.themeTokens ?? {};
+  let style = document.getElementById('gact-brand-tokens');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'gact-brand-tokens';
+    // Append AFTER the bundled design-system stylesheet so the brand accent
+    // wins over the design default. The user-override <style>
+    // (`clio-theme-override`) is appended later AND uses !important, so manual
+    // theme edits still beat the brand base layer.
+    document.head.appendChild(style);
+  }
+  const css = Object.entries(tokens)
+    .filter(([, v]) => !!v)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n');
+  style.textContent = css ? `:root {\n${css}\n}\n` : '';
+}
+
 /** Module-load init: re-establish persisted tokens + the auto listener. */
 export function initTheme() {
   if (typeof document === 'undefined') return;
+  applyBrandTokens();
   const mode = loadThemeMode();
   if (mode === 'auto') {
     setThemeMode('auto');

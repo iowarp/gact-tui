@@ -1,5 +1,7 @@
 import { For, Show } from 'solid-js';
+import { brand } from '@brand';
 import { Icon, type IconName } from './Icon.js';
+import { BrandMark } from './BrandMark.js';
 import { createPersistedBoolean } from '../persisted.js';
 import './left-rail.css';
 
@@ -110,9 +112,9 @@ export function LeftRail(props: LeftRailProps) {
       aria-label="Primary"
     >
       <div class="rail__brand">
-        <div class="rail__wordmark">C</div>
+        <BrandMark class="rail__wordmark" />
         <Show when={expanded()}>
-          <span class="rail__wordmark-text">CLIO</span>
+          <span class="rail__wordmark-text">{brand.wordmark}</span>
         </Show>
       </div>
 

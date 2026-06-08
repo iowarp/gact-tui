@@ -3,6 +3,7 @@
  */
 import { render, screen, cleanup, fireEvent } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { brand } from '@brand';
 import {
   ONBOARDING_KEY,
   OnboardingTour,
@@ -37,7 +38,7 @@ describe('OnboardingTour', () => {
     fireEvent.click(next);
     fireEvent.click(next);
     fireEvent.click(next);
-    expect(screen.getByTestId('onboarding-next').textContent).toContain('Start using CLIO');
+    expect(screen.getByTestId('onboarding-next').textContent).toContain(`Start using ${brand.name}`);
     expect(finished).toBe(false);
     fireEvent.click(screen.getByTestId('onboarding-next'));
     expect(finished).toBe(true);

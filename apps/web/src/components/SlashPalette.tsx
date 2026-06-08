@@ -6,6 +6,7 @@ import {
   onCleanup,
   Show,
 } from 'solid-js';
+import { brand } from '@brand';
 import { fuzzyRank } from '../fuzzy.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './slash-palette.css';
@@ -27,7 +28,7 @@ export interface SlashPaletteProps {
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
-  { id: 'help', trigger: '/help', description: 'Show what CLIO can do', category: 'meta' },
+  { id: 'help', trigger: '/help', description: `Show what ${brand.name} can do`, category: 'meta' },
   { id: 'doctor', trigger: '/doctor', description: 'Inspect backend health + integrations', category: 'meta' },
   { id: 'agents', trigger: '/agents', description: 'List registered experts', category: 'discovery' },
   { id: 'tools', trigger: '/tools', description: 'Browse MCP tool gateway', category: 'discovery' },
