@@ -7,7 +7,7 @@
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';
-import type { Client, HookEvent } from '@clio/core';
+import type { BlueprintSource, Client, HookEvent } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
 import './hooks-page.css';
@@ -455,9 +455,6 @@ export function BlueprintsPage(props: ClientPageProps) {
         </>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0 && !installOpen()}
-      emptyTitle="No blueprints registered"
-      emptyBody="Install one by path (on the clio host) or a git URL via the + button."
     >
       <Show when={installOpen()}>
         <form class="rmp__install" onSubmit={submitInstall}>
@@ -509,6 +506,20 @@ export function BlueprintsPage(props: ClientPageProps) {
           </div>
         </form>
       </Show>
+      <BlueprintSourcesPanel client={props.client} />
+      <h2 class="dp__section-title">Installed blueprints</h2>
+      <Show when={!data.loading && items().length === 0}>
+        <div class="dp__empty" data-testid="blueprints-empty" style="padding-block: 16px">
+          <div class="dp__empty-icon">
+            <Icon name="agents" size={28} />
+          </div>
+          <h2 class="dp__empty-title">No blueprints installed</h2>
+          <p class="dp__empty-body">
+            Install one by path (on the clio host) or a git URL via the + button,
+            or register a source above to scan a registry.
+          </p>
+        </div>
+      </Show>
       <div class="dp__grid">
         <For each={items()}>
           {(bp) => (
@@ -548,6 +559,218 @@ export function BlueprintsPage(props: ClientPageProps) {
         </For>
       </div>
     </DiscoveryPage>
+  );
+}
+
+/**
+ * A3 — Agent blueprint *sources* management.
+ *
+ * Sources are the git/local registries clio scans for installable
+ * blueprints (distinct from the installed blueprints listed above).
+ * Backed by GET/POST/DELETE /v1/agent-blueprints/sources and the
+ * per-source POST .../{id}/refresh re-scan. Lives inline on the
+ * Agent blueprints page so the two surfaces sit together.
+ */
+function BlueprintSourcesPanel(props: ClientPageProps) {
+  const [data, { refetch }] = createResource(() =>
+    props.client.blueprintSources().catch(() => ({ sources: [] as BlueprintSource[] })),
+  );
+  const sources = () => data()?.sources ?? [];
+
+  const [source, setSource] = createSignal('');
+  const [ref, setRef] = createSignal('');
+  const [name, setName] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  // Track per-row in-flight refresh so the dot can show "checking".
+  const [refreshing, setRefreshing] = createSignal<Record<string, boolean>>({});
+
+  async function submitAdd(ev: SubmitEvent) {
+    ev.preventDefault();
+    setError(null);
+    const src = source().trim();
+    if (!src) {
+      setError('Enter a git URL or local path for the source.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const body: { source: string; ref?: string; name?: string } = { source: src };
+      const r = ref().trim();
+      const n = name().trim();
+      if (r) body.ref = r;
+      if (n) body.name = n;
+      await props.client.addBlueprintSource(body);
+      setSource('');
+      setRef('');
+      setName('');
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refresh(id: string) {
+    setRefreshing((m) => ({ ...m, [id]: true }));
+    setError(null);
+    try {
+      await props.client.refreshBlueprintSource(id);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshing((m) => {
+        const next = { ...m };
+        delete next[id];
+        return next;
+      });
+    }
+  }
+
+  async function remove(s: BlueprintSource) {
+    if (!confirm(`Remove blueprint source "${s.name || s.source}"?`)) return;
+    setError(null);
+    try {
+      await props.client.deleteBlueprintSource(s.id);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  const dotClass = (status: string) => {
+    // Live clio reports "ready" on a healthy git/local source and "ok"
+    // for in-tree registries; both are green. "error" is red; anything
+    // else (incl. the initial "unknown" before first scan) is grey.
+    if (status === 'ok' || status === 'ready') return 'bps__dot bps__dot--ok';
+    if (status === 'error') return 'bps__dot bps__dot--error';
+    return 'bps__dot bps__dot--unknown';
+  };
+
+  return (
+    <section class="rmp__panel" data-testid="blueprint-sources-panel">
+      <header class="rmp__panel-head">
+        <h2 class="rmp__panel-title">Sources</h2>
+        <span class="rmp__panel-note">
+          git / local registries clio scans for installable blueprints
+        </span>
+      </header>
+
+      <Show
+        when={!data.loading && sources().length === 0}
+        fallback={
+          <ul class="rmp__list" data-testid="blueprint-sources-list">
+            <For each={sources()}>
+              {(s) => (
+                <li class="rmp__row" data-testid={`blueprint-source-row-${s.id}`}>
+                  <span
+                    class={dotClass(s.status)}
+                    title={s.status_message || s.status}
+                    aria-label={`status: ${s.status}`}
+                  />
+                  <span class="rmp__name">{s.name || s.source}</span>
+                  <code class="rmp__uri" title={s.source}>
+                    {s.source}
+                    <Show when={s.ref}>
+                      {' '}
+                      <span class="bps__ref">@{s.ref}</span>
+                    </Show>
+                  </code>
+                  <Show when={s.status_message}>
+                    <span class="bps__msg" title={s.status_message}>
+                      {s.status_message}
+                    </span>
+                  </Show>
+                  <button
+                    type="button"
+                    class="bps__btn"
+                    title="Refresh source"
+                    aria-label={`Refresh source ${s.name || s.source}`}
+                    disabled={!!refreshing()[s.id]}
+                    onClick={() => void refresh(s.id)}
+                    data-testid={`blueprint-source-refresh-${s.id}`}
+                  >
+                    <Icon name="regenerate" size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    class="rmp__row-x"
+                    title="Remove source"
+                    aria-label={`Remove source ${s.name || s.source}`}
+                    onClick={() => void remove(s)}
+                    data-testid={`blueprint-source-remove-${s.id}`}
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </li>
+              )}
+            </For>
+          </ul>
+        }
+      >
+        <div
+          class="dp__empty"
+          data-testid="blueprint-sources-empty"
+          style="padding-block: 16px"
+        >
+          <div class="dp__empty-icon">
+            <Icon name="branch" size={28} />
+          </div>
+          <h2 class="dp__empty-title">No blueprint sources registered</h2>
+          <p class="dp__empty-body">
+            Add a git URL or local path below to point clio at a registry of
+            installable blueprints.
+          </p>
+        </div>
+      </Show>
+
+      <form
+        class="rmp__form bps__form"
+        onSubmit={submitAdd}
+        data-testid="blueprint-source-add-form"
+      >
+        <input
+          class="rmp__form-input"
+          type="text"
+          placeholder="https://github.com/org/blueprints.git · or /path/to/registry"
+          value={source()}
+          onInput={(e) => setSource(e.currentTarget.value)}
+          data-testid="blueprint-source-input"
+        />
+        <input
+          class="rmp__form-input"
+          type="text"
+          placeholder="ref (optional)"
+          value={ref()}
+          onInput={(e) => setRef(e.currentTarget.value)}
+          data-testid="blueprint-source-ref"
+        />
+        <input
+          class="rmp__form-input"
+          type="text"
+          placeholder="name (optional)"
+          value={name()}
+          onInput={(e) => setName(e.currentTarget.value)}
+          data-testid="blueprint-source-name"
+        />
+        <button
+          type="submit"
+          class="rmp__form-add"
+          disabled={busy() || !source().trim()}
+          data-testid="blueprint-source-add"
+        >
+          <Icon name="plus" size={12} />
+          <span>{busy() ? 'Adding…' : 'Add source'}</span>
+        </button>
+      </form>
+      <Show when={error()}>
+        <p class="rmp__form-err" data-testid="blueprint-source-error">
+          {error()}
+        </p>
+      </Show>
+    </section>
   );
 }
 

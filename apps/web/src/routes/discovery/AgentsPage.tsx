@@ -116,7 +116,10 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
   }
 
   return (
-    <article class="dp__card" data-testid={`agent-card-${props.agent.id}`}>
+    <article
+      class={'dp__card ' + (showDetail() ? 'dp__card--open' : '')}
+      data-testid={`agent-card-${props.agent.id}`}
+    >
       <header class="dp__card-head">
         <div class="dp__card-title-row">
           <div class="dp__card-icon">
@@ -127,9 +130,25 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
             <div class="dp__card-sub">{props.agent.id}</div>
           </div>
         </div>
-        <Show when={tier() != null}>
-          <span class="dp__tag dp__tag--cyan">tier {tier()}</span>
-        </Show>
+        <div class="dp__card-head-aux">
+          <Show when={tier() != null}>
+            <span class="dp__tag dp__tag--cyan">tier {tier()}</span>
+          </Show>
+          {/* Destructive demoted to a quiet header icon, never a loud
+              full-width Remove. The card body's disclosure is the primary. */}
+          <Show when={props.onDelete}>
+            <button
+              type="button"
+              class="dp__card-remove"
+              title="Remove agent"
+              aria-label={`Remove agent ${props.agent.title ?? props.agent.id}`}
+              onClick={() => void props.onDelete?.()}
+              data-testid={`agent-delete-${props.agent.id}`}
+            >
+              <Icon name="close" size={13} />
+            </button>
+          </Show>
+        </div>
       </header>
       <Show when={props.agent.description}>
         <p class="dp__card-body">{props.agent.description}</p>
@@ -144,18 +163,6 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
           <For each={props.agent.keywords!}>
             {(k) => <span class="dp__tag">#{k}</span>}
           </For>
-        </div>
-      </Show>
-      <Show when={props.onDelete}>
-        <div class="dp__card-actions">
-          <button
-            type="button"
-            class="dp__card-btn dp__card-btn--danger"
-            onClick={() => void props.onDelete?.()}
-            data-testid={`agent-delete-${props.agent.id}`}
-          >
-            Remove
-          </button>
         </div>
       </Show>
       <button

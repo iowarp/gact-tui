@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import { Icon, type IconName } from './Icon.js';
 import { useToast, type ToastTone } from './Toast.js';
 import { fuzzyRank } from '../fuzzy.js';
@@ -147,7 +148,7 @@ export function NotificationCenter() {
               fallback={
                 <li class="nc__empty" data-testid="notification-empty">
                   <Icon name="bell" size={16} />
-                  <span>Nothing here yet — toasts will pile up as CLIO works.</span>
+                  <span>Nothing here yet — toasts will pile up as {brand.name} works.</span>
                 </li>
               }
             >

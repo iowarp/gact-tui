@@ -50,9 +50,10 @@
 
 .trx-msg:hover { background: var(--color-surface); }
 
+/* Selected message = selection state → the single warm accent. */
 .trx-msg.is-selected {
-  background: color-mix(in srgb, var(--color-accent-cyan) 6%, var(--color-surface));
-  border-color: var(--color-accent-cyan-30);
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+  border-color: var(--color-select-border);
 }
 
 .trx-msg__head {
@@ -589,9 +590,9 @@
   min-width: 220px;
   padding: 5px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
+  border: var(--stroke-hairline);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--shadow-overlay);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -692,9 +693,9 @@
 }
 
 .trx-regen__btn--primary {
-  background: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #0a0f1a;
   font-weight: 600;
 }
 

@@ -65,9 +65,30 @@ fn get_backend(state: tauri::State<'_, Mutex<Supervisor>>) -> BackendHandle {
 /// outcomes are reported via the events above, not the return value.
 #[tauri::command]
 fn install_clio(app: tauri::AppHandle) {
+    run_installer(app, false);
+}
+
+/// Repair / reinstall the clio-agent runtime. Distinct from `install_clio`
+/// (first run) and from the splash "Retry" (which only re-probes/re-spawns
+/// the existing install): this RE-RUNS the upstream installer with a force
+/// flag (`CLIO_FORCE=1`) so a broken venv/runtime is rebuilt from scratch.
+///
+/// Streams over the SAME `clio:install-*` events as `install_clio`, so the
+/// frontend reuses the install log pane + done/failed handlers — the only
+/// difference is which button invoked it. Runs on a worker thread; outcomes
+/// are reported via events, not the return value.
+#[tauri::command]
+fn repair_clio(app: tauri::AppHandle) {
+    run_installer(app, true);
+}
+
+/// Shared spawn wrapper for `install_clio` (force=false) and `repair_clio`
+/// (force=true). Runs the upstream installer on a worker thread and, on
+/// success, re-kicks the supervisor so `get_backend` flips Starting → Ready.
+fn run_installer(app: tauri::AppHandle, force: bool) {
     std::thread::spawn(move || {
         let restart_app = app.clone();
-        supervisor::install_clio(app, move || {
+        supervisor::install_clio(app, force, move || {
             // Installer succeeded — re-kick the supervisor so the freshly
             // installed clio-agent-gact resolves and the frontend's
             // get_backend re-poll sees Starting → Ready.
@@ -78,6 +99,17 @@ fn install_clio(app: tauri::AppHandle) {
             }
         });
     });
+}
+
+/// Reveal the persisted boot log in the OS file manager so the user can
+/// open it in their default viewer. Backs the boot-failure card's
+/// "Open logs" button. Returns the revealed path (for display) or an
+/// error string the frontend surfaces inline. The log is (re)written at
+/// the start of every boot/install/repair attempt, so it always reflects
+/// the most recent failure.
+#[tauri::command]
+fn open_logs() -> Result<String, String> {
+    supervisor::open_boot_log().map(|p| p.display().to_string())
 }
 
 /// Open an SSH tunnel for an `ssh-tunnel` backend entry. Returns the
@@ -203,6 +235,8 @@ pub fn run() {
             harness_info,
             get_backend,
             install_clio,
+            repair_clio,
+            open_logs,
             tunnel_open,
             gact_http,
             sse_bridge::gact_sse_open,
@@ -210,6 +244,13 @@ pub fn run() {
             plugins::exec_plugin
         ])
         .setup(|app| {
+            // Resolve + remember the persisted boot-log path FIRST so the
+            // supervisor's worker threads (spawn + install/repair streamers)
+            // can append to it and the "Open logs" command can reveal it
+            // after a failure. Best-effort: a failure here leaves logging a
+            // no-op but never blocks boot.
+            let _ = supervisor::init_boot_log(app.handle());
+
             // Make the BUNDLED clio runtime (if this build is the bundled
             // installer variant) discoverable by the sidecar launcher on
             // EVERY platform layout. Tauri's resource dir differs per

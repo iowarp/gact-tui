@@ -106,11 +106,11 @@ export function ProvidersPage(props: ProvidersPageProps) {
           style="grid-template-columns: 1fr; margin-bottom: 20px"
           data-testid="providers-active"
         >
-          <div class="dp__stat" style="background:color-mix(in srgb, var(--color-accent-cyan) 8%, transparent); border-color: var(--color-accent-cyan-30);">
+          <div class="dp__stat" style="background: var(--color-accent-warm-12); border-color: var(--color-select-border);">
             <div class="dp__stat-label">active LM</div>
             <div
               class="dp__stat-value"
-              style="font-size: 18px; color: var(--color-accent-cyan)"
+              style="font-size: 18px; color: var(--color-accent)"
             >
               {lm()!.provider} · {lm()!.model}
             </div>

@@ -1,10 +1,90 @@
 # apps/ — STATUS
 
-**Last updated:** 2026-06-02 (distribution + release-0.7 run)
-**Branch:** `feat/distribution-and-release` (PR #74 / feat-apps-harness already merged into develop @ `8d7d9a3`)
-**Phase:** distribution engineering + release-pipeline test (0.7) → then 0.9 lab release after clio verification
+## BRAND NEUTRALITY (2026-06-07) — build-time white-label, DONE.
+GACT web+desktop are now brand-neutral by default; brand injected at BUILD via
+`GACT_BRAND=<profile>` (default `gact`). Profiles in `apps/branding/<id>/brand.json`
+(+`logo.svg`): `gact` (neutral, blue `#5b8def`, mark "G") and `clio` (orange
+`#ea7b2a`, mark "C", "Your local AI coding & data agent"). Injection: Vite virtual
+module `@brand` (`apps/web/vite-plugin-brand.ts`) exposes a typed `brand` object;
+HTML transform bakes `<title>`+favicon; `theme.ts` applies `brand.themeTokens` as a
+base layer (beneath the user-override !important layer) so accent follows the brand.
+De-hardcoded ~25 user-facing "CLIO" sites (rail, splash, connect, onboarding, chat
+empty/typing/toasts, composer placeholder, transcript role, settings/about,
+workspaces, plugins, slash/keybind, inspector, etc.) — code symbols (`@clio/core`,
+`clio:local`, `clio.*` storage keys, env-var names) left as-is. Tests/visual default
+to `clio` (vitest via `activeProfile()`, playwright via `GACT_BRAND ?? 'clio'`).
+Tauri-native injection documented in `desktop/src-tauri/tauri.brand.md` + neutral
+overlay `tauri.gact.conf.json` (`--config` hook for productName/identifier/title/
+icon; clio = base config as-is). Gates green: GACT_BRAND=clio typecheck·lint·web
+247·build·screenshots 39/39; GACT_BRAND=gact web build OK. Proof:
+`apps/web/screenshots/audit/brand-{gact,clio}-{connect,chat}.png` (gact = blue/G/no
+CLIO; clio = orange/C/identical to today).
 
-## DISTRIBUTION + RELEASE 0.7 BOARD (2026-06-02 — newest run, READ THIS FIRST)
+**Last updated:** 2026-06-07 (0.9-readiness audit — COMPLETE + real-binary verified)
+**Branch:** feat/0.9-readiness (10 commits; ready to push)
+**Phase:** 0.9 lab-release readiness — capability parity with clio @ `f647db1` AND a
+good non-technical-user UI/UX (per the hermes study in `docs/ref/`).
+
+## 0.9 AUDIT — DONE (2026-06-07). All 9 tasks (A1–A7, B1–B6) landed + gates green.
+Commits: A1 `c294c61` · A2/A3/A4 core `549b8da` · parity UI `9280752` · B1/B2/B4/B5
+`7c40a51` · B3 preview rail `7e74a6f` · rail-click fix `6328d81` · B6 design/refresh
+`5ca5c1c` · branded connect/splash + visual fallout `ef669b0`/`1d0dba9` · full
+visual-walkthrough fixes `e8dba6d`.
+
+**Verified by RUNNING the app (not just green tests)** — caught + fixed real bugs the
+suites missed: unbranded connect/splash (now CLIO brand lockup), rail-click overlap
+(expanded rail under sessions col), topbar overflow stuck, onboarding Skip off-screen,
+triple SSE toasts, the singleton-icon blank-box bug (Icon.tsx → factory fns), both-
+panels grid (5 children / 5 tracks), + ~dozen polish items. Full visual walkthrough of
+every screen done; all findings fixed. **Real Tauri binary launched end-to-end**
+(supervisor → bundled clio → real sessions → branded chrome → onboarding):
+`apps/web/screenshots/desktop-real-boot.png`. See [[feedback-run-the-real-app]].
+Gates: typecheck · lint · web 247 · core 49 · desktop 6 · cargo 30 · build ·
+screenshots 39/39. Pushing pending.
+
+## 0.9-READINESS AUDIT (2026-06-07 — READ THIS FIRST)
+
+Clio's verification pass is done; align to **clio develop @ `f647db1`** (66 commits
+past our last alignment `176518d`; contract still `0.2`, non-breaking). Scope:
+**desktop + web only** (the TUI is aligned in parallel by another dev). Goal per
+user: **match clio's surface AND have a genuinely good interface for the
+non-technical user** — a TUI user stays in the TUI; the desktop exists for the
+person who'd never open a terminal.
+
+### Track A — capability parity gaps (concrete, from static recon)
+| # | Gap | State | Notes |
+|---|-----|-------|-------|
+| A1 | `x_clio_files_content` flag + `/v1/sessions/{id}/context/files/content` route REMOVED | **DONE** | Verified live on :17807: flag gone, route 404s. **Replacement = workspace-scoped `GET /v1/workspaces/{wid}/files` (list) + `/files/read?path=` (raw bytes)** — broader (any workspace file, not just registered context files; unblocks @-picker hover previews + backs B3). Fix: new `Client.readWorkspaceFile`/`listWorkspaceFiles` + `WorkspaceFileEntry` type; dropped dead flag, added `multimodal_image_parts`; ChatScreen previews re-gated on `files` cap + resolve workspace id. Gates green (core 49 / web 153 / typecheck / build). Live preview re-verification pending in the verification phase. |
+| A2 | New caps `multimodal_image_parts` (CapabilityFlags) + `supports_vision` (LM preset) not typed/gated | OPEN | Add to `core/wire/types.ts`; gate image-part send + a "vision" affordance. |
+| A3 | Blueprint **sources registry** — `GET/POST/DELETE /v1/agent-blueprints/sources` + `/refresh` | OPEN | No client methods, no UI. New in #5xx. |
+| A4 | `PUT /v1/prompts/{id}` (save edited prompt) | OPEN (minor) | We have render/validate/reload; missing the save. |
+| A5 | Secured browser-origin defaults (#554) | **DONE (verified, no code change)** | clio #554 = CORS default-deny (`allow_origins=[]` unless `CLIO_GACT_CORS_ORIGINS` set). Desktop unaffected (Tauri `gact_http` bridge sidesteps browser CORS — direct GET 200 on :17807). Pure-web cross-origin is blocked by design; clio-web Docker proxies `/v1` same-origin, tests use `--disable-web-security`. Action = doc note only: pure-web vs remote clio needs `CLIO_GACT_CORS_ORIGINS`. |
+| A2/A3/A4 core | vision cap type, blueprint-sources methods, prompt PUT + put() helper | **DONE (core)** | Committed `549b8da`; live-verified on :17807. UI in flight (parity agents). |
+| A6 | New semantic event(s): invalid tool selection (#627) etc. | OPEN | Inspector timeline coverage + dedupe rules. |
+| A7 | Packaged hook/command/skill **trust + provenance** (#536–#546, #539 runtime provenance) | OPEN | Extend the gap-07 bindings/provenance surface in the Inspector. |
+
+### Track B — UI/UX gaps (non-technical-user bar; from `docs/ref/hermes-agent-desktop.md`)
+User decision: EVERYTHING in 0.9; restyle latitude = consolidate + visual refresh.
+| # | Gap | State |
+|---|-----|-------|
+| B1 | Left-rail completeness — labeled icon+text, grouped, Catalog promoted from Cmd-K-only | **DONE** `7c40a51` (web 191→) |
+| B2 | Config-menu depth — deep-linked sections, validated Models dropdowns + OAuth, row vocabulary | **DONE** `7c40a51` (web 228) |
+| B3 | Rendered side-by-side preview rail (workspace file browser + file/image preview, clamp-yields-to-chat) | IN PROGRESS (agent; on A1's workspace files endpoints) |
+| B4 | Errors/boot as buttons — Repair + persisted Open-logs + remote-only reauth | **DONE** `7c40a51` (cargo 30) |
+| B5 | Onboarding — ProviderSetup curated-first cards, one-click/key-field, skip→settings | **DONE** `7c40a51` |
+| B6 | `apps/web/DESIGN.md` + primitive consolidation + visual refresh; TUI⇄desktop spinner parity | PENDING (runs last, solo) |
+
+### Track A — ALL DONE (committed): A1 `c294c61`, A2/A3/A4 core `549b8da`, A5 verified, A2-A7 UI `9280752`.
+### Remaining: B3 (in progress) → B6 (visual refresh) → full live-visual proof + screenshots + push.
+
+### Audit method
+Static recon done (this entry). Next: spin a self-run clio from the new develop (own
+port, never touch :17800) to verify A1/A5 and snapshot the real capability set, then
+implement parity gaps with live proof + the UX track with fixture+live PNGs, same
+discipline as prior runs. **NOTE: clio-agent/.venv is NOT editable — reinstall
+(`uv pip install -e .`) to introspect/run the new develop.**
+
+## DISTRIBUTION + RELEASE 0.7 BOARD (2026-06-02)
 
 The user's direction: "lets do proper not easy" — a real distribution story for
 the whole stack, every channel, then exercise the actual release pipeline with a

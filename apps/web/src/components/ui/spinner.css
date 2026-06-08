@@ -1,0 +1,17 @@
+/* Spinner primitive — Braille-dots cycle, TUI-parity. The glyph is mono so
+   every frame is the same width (no horizontal jitter). Color follows the
+   surrounding text via currentColor; callers tint by setting `color`. */
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.spinner__glyph {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}

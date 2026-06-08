@@ -31,11 +31,19 @@ import type {
 const state: {
   status: BackendStatus;
   installClioCalls: number;
+  repairClioCalls: number;
+  openLogsCalls: number;
+  openLogsResult: string | null;
+  openLogsReject: string | null;
   progressHandlers: InstallProgressHandlers | null;
   unsubscribed: boolean;
 } = {
   status: { kind: 'needs_install' },
   installClioCalls: 0,
+  repairClioCalls: 0,
+  openLogsCalls: 0,
+  openLogsResult: 'C:\\Users\\me\\AppData\\clio\\logs\\clio-boot.log',
+  openLogsReject: null,
   progressHandlers: null,
   unsubscribed: false,
 };
@@ -50,6 +58,14 @@ vi.mock('../../src/tauri.js', () => {
     }),
     installClio: async () => {
       state.installClioCalls += 1;
+    },
+    repairClio: async () => {
+      state.repairClioCalls += 1;
+    },
+    openLogs: async () => {
+      state.openLogsCalls += 1;
+      if (state.openLogsReject) throw new Error(state.openLogsReject);
+      return state.openLogsResult;
     },
     onInstallProgress: (handlers: InstallProgressHandlers) => {
       state.progressHandlers = handlers;
@@ -97,6 +113,10 @@ afterEach(cleanup);
 beforeEach(() => {
   state.status = { kind: 'needs_install' };
   state.installClioCalls = 0;
+  state.repairClioCalls = 0;
+  state.openLogsCalls = 0;
+  state.openLogsResult = 'C:\\Users\\me\\AppData\\clio\\logs\\clio-boot.log';
+  state.openLogsReject = null;
   state.progressHandlers = null;
   state.unsubscribed = false;
 });
@@ -187,6 +207,86 @@ describe('Splash first-run install (one swoop)', () => {
     });
     expect(onReady.mock.calls[0]![0]).toMatchObject({
       url: 'http://127.0.0.1:17800',
+    });
+  });
+
+  it('exposes Repair + Open logs buttons on the boot-failure card, distinct from Retry', async () => {
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'broken venv' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('splash-install-failed')).toBeTruthy();
+    });
+    // All three actions are present and distinct.
+    expect(screen.getByTestId('splash-install-retry')).toBeTruthy();
+    expect(screen.getByTestId('splash-repair')).toBeTruthy();
+    expect(screen.getByTestId('splash-open-logs')).toBeTruthy();
+  });
+
+  it('Repair runs repairClio (force), not installClio, and shows the install view', async () => {
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'broken venv' });
+    await waitFor(() => expect(screen.getByTestId('splash-repair')).toBeTruthy());
+
+    // installClio was called once already (the auto first-run install).
+    const installsBefore = state.installClioCalls;
+    screen.getByTestId('splash-repair').click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('splash-installing')).toBeTruthy();
+    });
+    expect(state.repairClioCalls).toBe(1);
+    // Repair must NOT re-trigger the plain installer.
+    expect(state.installClioCalls).toBe(installsBefore);
+  });
+
+  it('a failed Repair shows a repair-specific message + the manual fallback', async () => {
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'first failure' });
+    await waitFor(() => expect(screen.getByTestId('splash-repair')).toBeTruthy());
+
+    screen.getByTestId('splash-repair').click();
+    await waitFor(() => expect(screen.getByTestId('splash-installing')).toBeTruthy());
+
+    state.progressHandlers!.onFailed({ code: 2, tail: 'repair blew up too' });
+    await waitFor(() => {
+      const card = screen.getByTestId('splash-install-failed');
+      expect(card.textContent).toContain('repair');
+      expect(card.textContent).toContain('repair blew up too');
+      // Manual one-liner remains the ultimate fallback.
+      expect(card.textContent).toContain('clio-agent');
+    });
+  });
+
+  it('Open logs invokes openLogs and surfaces the revealed path', async () => {
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'broken' });
+    await waitFor(() => expect(screen.getByTestId('splash-open-logs')).toBeTruthy());
+
+    screen.getByTestId('splash-open-logs').click();
+    await waitFor(() => {
+      expect(state.openLogsCalls).toBe(1);
+      const hint = screen.getByTestId('splash-log-hint');
+      expect(hint.textContent).toContain('clio-boot.log');
+    });
+  });
+
+  it('Open logs surfaces a hint (no traceback) when reveal fails', async () => {
+    state.openLogsReject = 'boot log not found';
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'broken' });
+    await waitFor(() => expect(screen.getByTestId('splash-open-logs')).toBeTruthy());
+
+    screen.getByTestId('splash-open-logs').click();
+    await waitFor(() => {
+      const hint = screen.getByTestId('splash-log-hint');
+      expect(hint.textContent).toContain('Could not open logs');
+      expect(hint.textContent).toContain('boot log not found');
     });
   });
 });

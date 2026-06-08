@@ -16,7 +16,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-60);
   border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-2xl);
+  box-shadow: var(--shadow-overlay);
   display: flex;
   flex-direction: column;
   z-index: 41;
@@ -54,17 +54,66 @@
   display: grid;
   grid-template-columns: 160px 1fr auto;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   padding: 8px 12px;
   border-radius: var(--radius-md);
   cursor: pointer;
 }
 
-.slash-palette__item.is-active {
-  background: rgba(0, 212, 219, 0.10);
-  outline: 1px solid var(--color-accent-cyan-30);
+/* Keep the trigger + badge vertically centered against a 2-line desc. */
+.slash-palette__item .slash-palette__trigger,
+.slash-palette__item .slash-palette__cat {
+  align-self: center;
 }
 
+/* Per-category badge tint (subtle) instead of all-cyan. The badge is a
+   classification label, not an action — neutral by default, with a faint
+   per-category hue so the list reads as grouped at a glance. */
+.slash-palette__cat {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-30);
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+
+.slash-palette__cat--meta {
+  color: var(--color-accent-cyan);
+  background: var(--color-accent-cyan-10);
+  border-color: var(--color-accent-cyan-30);
+}
+
+.slash-palette__cat--data {
+  color: var(--color-accent);
+  background: var(--color-accent-warm-12);
+  border-color: var(--color-accent-warm-30);
+}
+
+.slash-palette__cat--discovery {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.slash-palette__cat--navigation {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+/* Selected row uses the single primary/selection color (warm accent). */
+.slash-palette__item.is-active {
+  background: var(--color-select-bg);
+  outline: 1px solid var(--color-select-border);
+}
+
+/* The trigger is monospace command text → stays informational cyan. */
 .slash-palette__trigger {
   font-family: var(--font-mono);
   color: var(--color-accent-cyan);
@@ -74,6 +123,14 @@
 .slash-palette__desc {
   color: var(--color-heading);
   font-size: var(--text-sm);
+  /* Equalize row heights + keep the list scannable: clamp long descriptions
+     to two lines with an ellipsis. Full text shows on the disclosure view. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
 }
 
 .slash-palette__empty {

@@ -7,6 +7,8 @@
  * round-trip regardless of each key's internal format.
  */
 
+import { brand } from '@brand';
+
 export interface SettingsExportEnvelope {
   /** Envelope format version — bump on breaking changes. */
   version: 1;
@@ -79,7 +81,7 @@ export function importSettings(raw: string): ImportResult {
   }
   const env = parsed as Partial<SettingsExportEnvelope>;
   if (env.version !== 1 || typeof env.prefs !== 'object' || env.prefs === null) {
-    throw new Error('Not a CLIO settings export (missing version 1 envelope).');
+    throw new Error(`Not a ${brand.name} settings export (missing version 1 envelope).`);
   }
   let applied = 0;
   let skipped = 0;

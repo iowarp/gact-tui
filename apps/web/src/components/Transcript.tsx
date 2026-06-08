@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
@@ -49,6 +50,13 @@ export interface TranscriptProps {
    * virtual windowing of very large transcripts (1.0 item 6) — without it
    * (or below the threshold) every message renders, exactly as before. */
   scrollEl?: HTMLElement;
+  /**
+   * A2 — backend advertises capabilities.multimodal_image_parts. When
+   * explicitly false, image parts render an honest "image not supported
+   * by this backend" placeholder instead of an inline <img>. Defaults to
+   * true (absent capability is treated as allowed).
+   */
+  imagePartsSupported?: boolean;
 }
 
 // ---- Virtual windowing (1.0 item 6) ----
@@ -71,7 +79,7 @@ const ROLE_ICON: Record<string, IconName> = {
 
 const ROLE_LABEL: Record<string, string> = {
   user: 'You',
-  assistant: 'CLIO',
+  assistant: brand.name,
   system: 'System',
   tool: 'Tool',
 };
@@ -100,6 +108,7 @@ function PartView(props: {
   currentMatchKey?: string;
   matchBaseIndex?: number;
   showCursor?: boolean;
+  imagePartsSupported?: boolean;
 }) {
   const p = props.part;
   if (p.type === 'text') {
@@ -308,6 +317,19 @@ function PartView(props: {
   // Inline image parts (1.0 item 2). base64/url sources render directly;
   // backend file references show an honest placeholder until fetched.
   if (p.type === 'image') {
+    // A2: when the backend explicitly lacks multimodal_image_parts, render
+    // an honest placeholder rather than an <img> the backend ignored.
+    if (props.imagePartsSupported === false) {
+      return (
+        <div
+          class="trx-image-unavailable"
+          data-testid="trx-image-unsupported"
+        >
+          <Icon name="alert" size={12} />
+          <span>image not supported by this backend</span>
+        </div>
+      );
+    }
     const src =
       p.source.kind === 'base64' && p.source.data
         ? `data:${p.source.media_type ?? 'image/png'};base64,${p.source.data}`
@@ -538,6 +560,7 @@ function MessageView(props: {
   matchBaseIndex?: number;
   /** Index of the part that should show the streaming cursor (or -1). */
   streamingPartIdx?: number;
+  imagePartsSupported?: boolean;
 }) {
   const role = () => props.msg.role;
   const isAssistant = () => role() === 'assistant';
@@ -686,6 +709,7 @@ function MessageView(props: {
               currentMatchKey={props.currentMatchKey}
               matchBaseIndex={props.matchBaseIndex}
               showCursor={i() === props.streamingPartIdx}
+              imagePartsSupported={props.imagePartsSupported}
             />
           )}
         </For>
@@ -1040,6 +1064,7 @@ export function Transcript(props: TranscriptProps) {
               currentMatchKey={props.currentMatchKey}
               matchBaseIndex={baseIndexFor(m.id)}
               streamingPartIdx={partIdx}
+              imagePartsSupported={props.imagePartsSupported}
             />
           );
         }}
