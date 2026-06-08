@@ -332,6 +332,7 @@ func TestStandaloneMemoryDetailLoadedOpensInspector(t *testing.T) {
 
 func TestPaletteMemoryFilterPrioritizesExactCommand(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.Memory = true
 	a.commands = []gact.Command{
 		{ID: "/clear", Title: "Clear session messages", Description: "clear memory-like transcript text"},
 		{ID: "/memory", Title: "Memory", Description: "inspect retained memory and context"},
@@ -344,39 +345,41 @@ func TestPaletteMemoryFilterPrioritizesExactCommand(t *testing.T) {
 	}
 }
 
-func TestPaletteMemoryCommandExplainsUnsupportedBackend(t *testing.T) {
+// TestPaletteMemoryCommandHiddenWhenUnsupported asserts the hide-when-
+// unsupported contract: a backend that does not advertise the memory
+// capability must not offer /memory in the palette at all (rather than
+// offering it and flashing an "unsupported by this backend" hint on
+// invocation). The transient-hint dispatch path remains as a defensive
+// fallback for a direct keybind but is unreachable from the palette.
+func TestPaletteMemoryCommandHiddenWhenUnsupported(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.caps.Capabilities.Memory = false
 	a.paletteOpen = true
 	a.paletteFilter = "/memory"
 
-	_, cmd := a.handlePaletteKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-
-	if cmd == nil {
-		t.Fatal("unsupported /memory should return a hint-expiry command")
-	}
-	if !strings.Contains(a.transientHint, "unsupported") {
-		t.Fatalf("unsupported /memory should explain the missing backend capability, got %q", a.transientHint)
+	for _, cmd := range a.paletteMatches() {
+		if cmd.ID == "/memory" {
+			t.Fatalf("unsupported /memory should be hidden from the palette, got %#v", cmd)
+		}
 	}
 }
 
-func TestPaletteMemoryCommandShowsCapabilityStatus(t *testing.T) {
+func TestPaletteMemoryCommandShowsCapabilityStatusWhenSupported(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.caps.Capabilities.Memory = false
 	a.paletteOpen = true
 	a.paletteFilter = "memory"
 
 	out := ansi.Strip(a.viewPalette())
-
-	if !strings.Contains(out, "/memory") {
-		t.Fatalf("palette should still show memory command for discoverability:\n%s", out)
-	}
-	if !strings.Contains(out, "[unsupported]") {
-		t.Fatalf("palette should mark unsupported memory command before execution:\n%s", out)
+	if strings.Contains(out, "/memory") {
+		t.Fatalf("palette should hide memory command when unsupported:\n%s", out)
 	}
 
 	a.caps.Capabilities.Memory = true
 	out = ansi.Strip(a.viewPalette())
+	if !strings.Contains(out, "/memory") {
+		t.Fatalf("palette should surface memory command when supported:\n%s", out)
+	}
 	if !strings.Contains(out, "[retained context]") {
 		t.Fatalf("palette should mark supported memory command with purpose:\n%s", out)
 	}

@@ -1765,6 +1765,73 @@ func TestHelpCommandsHideUnsupportedOptionalSurfaces(t *testing.T) {
 	}
 }
 
+// TestCapabilityGatedCommandsHiddenWhenUnsupported is the single-source-of-
+// truth proof for the hide-when-unsupported contract: every command whose
+// optional capability flag is absent must NOT appear in either the slash
+// palette or the help/cheatsheet command list, and MUST appear once the
+// flag is set. helpCommandSupported is the shared gate both surfaces filter
+// through. Commands without a clear capability flag (core surfaces) are not
+// table entries here — they always show regardless of flags.
+func TestCapabilityGatedCommandsHiddenWhenUnsupported(t *testing.T) {
+	cases := []struct {
+		id     string
+		enable func(c *gact.CapabilityFlags)
+	}{
+		{"/prompts", func(c *gact.CapabilityFlags) { c.XClioPromptRegistry = true }},
+		{"/expert-packs", func(c *gact.CapabilityFlags) { c.XClioExpertPacks = true }},
+		{"/agent-blueprints", func(c *gact.CapabilityFlags) { c.XClioAgentBlueprints = true }},
+		{"/doctor", func(c *gact.CapabilityFlags) { c.IntegrationHealth = true }},
+		{"/memory", func(c *gact.CapabilityFlags) { c.Memory = true }},
+		{"/skills", func(c *gact.CapabilityFlags) { c.SkillsExtraction = true }},
+	}
+
+	inPalette := func(a *App, id string) bool {
+		for _, c := range a.paletteMatches() {
+			if strings.EqualFold(c.ID, id) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.id, func(t *testing.T) {
+			// Unsupported: hidden from palette, help gate, and cheatsheet.
+			off := newReadyApp(nil, nil)
+			off.width = 150
+			off.height = 50
+			if inPalette(off, tc.id) {
+				t.Fatalf("%s should be hidden from the palette when its capability is absent", tc.id)
+			}
+			if off.helpCommandSupported(tc.id) {
+				t.Fatalf("helpCommandSupported(%s) should be false when its capability is absent", tc.id)
+			}
+			off.helpOpen = true
+			off.helpTab = helpTabIndex("Commands")
+			if strings.Contains(ansi.Strip(off.viewHelp()), tc.id) {
+				t.Fatalf("%s should not appear in the Commands cheatsheet when unsupported", tc.id)
+			}
+
+			// Supported: surfaced in palette, help gate, and cheatsheet.
+			on := newReadyApp(nil, nil)
+			on.width = 150
+			on.height = 50
+			tc.enable(&on.caps.Capabilities)
+			if !inPalette(on, tc.id) {
+				t.Fatalf("%s should appear in the palette when its capability is present", tc.id)
+			}
+			if !on.helpCommandSupported(tc.id) {
+				t.Fatalf("helpCommandSupported(%s) should be true when its capability is present", tc.id)
+			}
+			on.helpOpen = true
+			on.helpTab = helpTabIndex("Commands")
+			if !strings.Contains(ansi.Strip(on.viewHelp()), tc.id) {
+				t.Fatalf("%s should appear in the Commands cheatsheet when supported", tc.id)
+			}
+		})
+	}
+}
+
 func TestModalListColumnsPreserveColumnHitGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	list := a.renderModalList([]modalListItem{
