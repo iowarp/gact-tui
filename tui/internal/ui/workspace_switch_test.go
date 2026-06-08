@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -242,7 +243,9 @@ func TestWorkspaceCreateGitURLDerivesNameAndClonePath(t *testing.T) {
 	if a.workspaceCreateName != "clio-agent" {
 		t.Fatalf("derived name = %q, want clio-agent", a.workspaceCreateName)
 	}
-	if !strings.HasSuffix(a.workspaceCreateRoot, "/clio-agent") {
+	// Compare OS-agnostically: the derived root is an OS-native path
+	// (backslashes on Windows), so normalize before the suffix check.
+	if !strings.HasSuffix(filepath.ToSlash(a.workspaceCreateRoot), "/clio-agent") {
 		t.Fatalf("derived root = %q, want suffix /clio-agent", a.workspaceCreateRoot)
 	}
 }
@@ -260,7 +263,7 @@ func TestWorkspaceCreateGitURLDerivesAcrossCharacterTyping(t *testing.T) {
 	if a.workspaceCreateName != "clio-agent" {
 		t.Fatalf("character-typed derived name = %q, want clio-agent", a.workspaceCreateName)
 	}
-	if !strings.HasSuffix(a.workspaceCreateRoot, "/clio-agent") {
+	if !strings.HasSuffix(filepath.ToSlash(a.workspaceCreateRoot), "/clio-agent") {
 		t.Fatalf("character-typed derived root = %q, want suffix /clio-agent", a.workspaceCreateRoot)
 	}
 }
@@ -826,8 +829,10 @@ func TestWorkspaceCreateSuccessSwitchesAndClearsScopedState(t *testing.T) {
 	if len(a.sessions) != 0 || len(a.messages) != 0 || len(a.contextFiles) != 0 || a.selected != -1 {
 		t.Fatalf("scoped state not cleared: sessions=%d messages=%d context=%d selected=%d", len(a.sessions), len(a.messages), len(a.contextFiles), a.selected)
 	}
-	if a.fileViewerRoot != "/tmp/new" {
-		t.Fatalf("fileViewerRoot = %q, want /tmp/new", a.fileViewerRoot)
+	// fileViewerRoot is localized to an OS-native absolute path (a drive
+	// letter is prefixed on Windows), so match the trailing segment.
+	if !strings.HasSuffix(filepath.ToSlash(a.fileViewerRoot), "/tmp/new") {
+		t.Fatalf("fileViewerRoot = %q, want suffix /tmp/new", a.fileViewerRoot)
 	}
 	if cmd == nil {
 		t.Fatal("create success should reload sessions for new workspace")

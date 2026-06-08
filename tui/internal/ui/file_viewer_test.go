@@ -114,7 +114,12 @@ func TestFileViewerUnavailableWorkspaceUsesOperatorSummary(t *testing.T) {
 			t.Fatalf("detail missing %q:\n%s", want, detail)
 		}
 	}
-	if !strings.Contains(detail, missing) || !strings.Contains(detail, "no such file") {
+	// The raw OS "file not found" error must be preserved, but its wording is
+	// platform-specific ("no such file or directory" on unix, "cannot find the
+	// file specified" on Windows) — accept either.
+	fileNotFound := strings.Contains(detail, "no such file") ||
+		strings.Contains(detail, "cannot find the file")
+	if !strings.Contains(detail, missing) || !fileNotFound {
 		t.Fatalf("detail should preserve raw path/error evidence:\n%s", detail)
 	}
 }

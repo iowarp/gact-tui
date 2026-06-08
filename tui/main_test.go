@@ -2522,7 +2522,10 @@ func TestCLI_ContextUploadJSONAndFailures(t *testing.T) {
 		t.Fatalf("bad format exit = %d, want 2", code)
 	}
 	if _, stderr, code := runGact(t, bin, map[string]string{"GACT_BACKEND": srv.URL},
-		"context", "upload", "s1", filepath.Join(tmp, "missing.txt")); code != 1 || !strings.Contains(stderr, "no such file") {
+		"context", "upload", "s1", filepath.Join(tmp, "missing.txt")); code != 1 ||
+		!(strings.Contains(stderr, "no such file") || strings.Contains(stderr, "cannot find the file")) {
+		// error wording is platform-specific (unix "no such file" / Windows
+		// "cannot find the file specified") — accept either.
 		t.Fatalf("missing file code=%d stderr=%q", code, stderr)
 	}
 
