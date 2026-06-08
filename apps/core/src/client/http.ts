@@ -1,5 +1,6 @@
 import type {
   AgentDef,
+  BlueprintSource,
   Capabilities,
   ContextFile,
   ContextFileContent,
@@ -18,6 +19,7 @@ import type {
   Session,
   SessionTask,
   UserQuestion,
+  WorkspaceFileEntry,
   SlashCommandDef,
   Workspace,
 } from '../wire/types.js';
@@ -153,6 +155,10 @@ export class Client {
 
   private async del<T = void>(path: string): Promise<T> {
     return this.request<T>(path, 'DELETE', undefined);
+  }
+
+  private async put<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, 'PUT', body);
   }
 
   /**
@@ -639,19 +645,63 @@ export class Client {
   }
 
   /**
-   * GET /v1/sessions/{id}/context/files/content?path=… — fetch a registered
-   * context file's (or uploaded attachment's) bytes back as base64-JSON
-   * (clio PR iowarp/clio-agent#533). Gate call sites on
-   * `capabilities.x_clio_files_content` — older backends 404 this route.
+   * GET /v1/workspaces/{wid}/files — list the workspace file tree (flat
+   * entries with path/type/size/modified). Backs the file browser and the
+   * preview rail. Replaces the removed session-scoped context-file content
+   * endpoint with a broader, workspace-scoped surface.
    */
-  async getContextFileContent(
-    sessionId: string,
+  listWorkspaceFiles(
+    workspaceId: string,
+  ): Promise<{ entries: WorkspaceFileEntry[] }> {
+    return this.get<{ entries: WorkspaceFileEntry[] }>(
+      `/v1/workspaces/${encodeURIComponent(workspaceId)}/files`,
+    );
+  }
+
+  /**
+   * GET /v1/workspaces/{wid}/files/read?path=… — read one workspace file's
+   * raw bytes. The endpoint returns the bytes directly with a real
+   * Content-Type (not a base64 JSON envelope), so we normalize here to the
+   * `ContextFileContent` shape (base64 `data` + `media_type`) that the
+   * preview renderers expect — one shape for both text and image previews.
+   *
+   * This replaces the removed `getContextFileContent` (the
+   * `/v1/sessions/{id}/context/files/content` route + `x_clio_files_content`
+   * flag were dropped on clio develop ~2026-06). Workspace-scoped, so it can
+   * preview ANY workspace file, not just registered context files.
+   */
+  async readWorkspaceFile(
+    workspaceId: string,
     path: string,
   ): Promise<ContextFileContent> {
-    const raw = await this.get<{ file: ContextFileContent }>(
-      `/v1/sessions/${encodeURIComponent(sessionId)}/context/files/content?path=${encodeURIComponent(path)}`,
-    );
-    return raw.file;
+    const url = `${this.baseUrl}/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`;
+    const res = await this.fetchImpl(url, { headers: this.headers() });
+    if (!res.ok) {
+      throw new Error(`readWorkspaceFile ${path}: HTTP ${res.status}`);
+    }
+    const mediaType =
+      res.headers.get('content-type')?.split(';')[0]?.trim() ||
+      'application/octet-stream';
+    const buf = await res.arrayBuffer();
+    // ArrayBuffer → base64 without blowing the call stack on large files.
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const data =
+      typeof btoa === 'function'
+        ? btoa(binary)
+        : Buffer.from(bytes).toString('base64');
+    return {
+      path,
+      display_path: path,
+      size: bytes.length,
+      media_type: mediaType,
+      encoding: 'base64',
+      data,
+    };
   }
 
   /**
@@ -1431,6 +1481,26 @@ export class Client {
   }
 
   /**
+   * PUT /v1/prompts/{id} — save edited prompt text (clio develop ≥ 2026-06).
+   * `text` is required; `scope` defaults to "global" server-side. Backs the
+   * prompts editor's Save action. Returns the saved prompt row.
+   */
+  savePrompt(
+    promptId: string,
+    body: {
+      text: string;
+      scope?: 'global' | 'workspace' | 'session' | string;
+      session_id?: string;
+      workspace_id?: string;
+    },
+  ): Promise<{ prompt: PromptDef }> {
+    return this.put<{ prompt: PromptDef }>(
+      `/v1/prompts/${encodeURIComponent(promptId)}`,
+      body,
+    );
+  }
+
+  /**
    * POST /v1/prompts/{id}/render — render a prompt with a context map
    * substituted (CLIO-owned dynamic context is merged in server-side).
    * Used by the prompts editor's "Preview" button.
@@ -1697,6 +1767,48 @@ export class Client {
         };
       }),
     };
+  }
+
+  /** GET /v1/agent-blueprints/sources — list registered blueprint sources
+   * (git/local registries clio scans for installable blueprints). clio
+   * develop ≥ 2026-06. */
+  async blueprintSources(): Promise<{ sources: BlueprintSource[] }> {
+    return this.get<{ sources: BlueprintSource[] }>(
+      '/v1/agent-blueprints/sources',
+    );
+  }
+
+  /** POST /v1/agent-blueprints/sources — register a source. `source` (a git
+   * URL or local path) is required; `ref`/`name`/`pinned_commit` optional.
+   * `refresh` (default true server-side) triggers an immediate scan. */
+  async addBlueprintSource(body: {
+    source: string;
+    ref?: string;
+    name?: string;
+    pinned_commit?: string;
+    refresh?: boolean;
+  }): Promise<{ source: BlueprintSource }> {
+    return this.post<{ source: BlueprintSource }>(
+      '/v1/agent-blueprints/sources',
+      body,
+    );
+  }
+
+  /** POST /v1/agent-blueprints/sources/{id}/refresh — re-scan one source. */
+  async refreshBlueprintSource(
+    sourceId: string,
+  ): Promise<{ source: BlueprintSource }> {
+    return this.post<{ source: BlueprintSource }>(
+      `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}/refresh`,
+      {},
+    );
+  }
+
+  /** DELETE /v1/agent-blueprints/sources/{id} — unregister a source. */
+  deleteBlueprintSource(sourceId: string): Promise<void> {
+    return this.del(
+      `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}`,
+    );
   }
 
   /** GET /v1/sessions/{id}/agent-blueprint — currently-bound blueprint

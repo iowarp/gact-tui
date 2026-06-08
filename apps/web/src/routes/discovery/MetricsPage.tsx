@@ -48,7 +48,9 @@ export function MetricsPage(props: MetricsPageProps) {
                   {([k, v]) => (
                     <div class="dp__stat">
                       <div class="dp__stat-label">{k}</div>
-                      <div class="dp__stat-value">{v}</div>
+                      <div class={'dp__stat-value ' + statusValueClass(k, v)}>
+                        {v}
+                      </div>
                     </div>
                   )}
                 </For>
@@ -118,6 +120,20 @@ export function MetricsPage(props: MetricsPageProps) {
       </Show>
     </DiscoveryPage>
   );
+}
+
+/**
+ * Semantic tint for a session-status numeral: a non-zero error/failed count
+ * is the error tint, waiting/blocked is warning, running/active is success.
+ * Zero stays neutral so a healthy board doesn't shout.
+ */
+function statusValueClass(status: string, value: number): string {
+  if (value === 0) return '';
+  const s = status.toLowerCase();
+  if (/(error|fail|crash|denied)/.test(s)) return 'dp__stat-value--err';
+  if (/(wait|block|pending|paused)/.test(s)) return 'dp__stat-value--warn';
+  if (/(run|active|ok|ready|done|complete)/.test(s)) return 'dp__stat-value--ok';
+  return '';
 }
 
 function humanUptime(s: number): string {

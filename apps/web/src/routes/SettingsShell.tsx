@@ -1,4 +1,5 @@
-import { createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
+import { createEffect, createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
 import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type LocaleTag } from '../locale.js';
@@ -18,9 +19,20 @@ import {
   type ThemeMode,
 } from '../theme.js';
 import { useToast } from '../components/Toast.js';
+import {
+  EmptyState,
+  Pill,
+  SectionHeading,
+} from '../components/SettingsPrimitives.js';
 import { inTauri, tauriFetch } from '../tauri.js';
 import { useBackendRegistry } from '../registry.js';
 import { SettingsBackends } from './SettingsBackends.js';
+import { SettingsModels } from './SettingsModels.js';
+import {
+  clearSectionParam,
+  readSectionParam,
+  writeSectionParam,
+} from './settings-deeplink.js';
 import {
   AgentsPage,
   BlueprintsPage,
@@ -42,6 +54,7 @@ import './settings-shell.css';
 export type SettingsSection =
   | 'backends'
   | 'workspaces'
+  | 'models'
   | 'providers'
   | 'agents'
   | 'tools'
@@ -66,17 +79,18 @@ interface SectionDef {
 }
 
 const SECTIONS: SectionDef[] = [
-  { id: 'backends', label: 'Backends', icon: 'workspaces', group: 'Connection' },
+  { id: 'backends', label: 'Backends', icon: 'mcp', group: 'Connection' },
   { id: 'workspaces', label: 'Workspaces', icon: 'workspaces', group: 'Connection' },
-  { id: 'providers', label: 'Models & providers', icon: 'sparkle', group: 'Agents' },
+  { id: 'models', label: 'Models', icon: 'sparkle', group: 'Agents' },
+  { id: 'providers', label: 'Providers (advanced)', icon: 'plug', group: 'Agents' },
   { id: 'agents', label: 'Agents', icon: 'agents', group: 'Agents' },
   { id: 'tools', label: 'Commands', icon: 'tool', group: 'Agents' },
-  { id: 'prompts', label: 'Prompts', icon: 'sparkle', group: 'Agents' },
-  { id: 'blueprints', label: 'Agent blueprints', icon: 'agents', group: 'Agents' },
+  { id: 'prompts', label: 'Prompts', icon: 'book', group: 'Agents' },
+  { id: 'blueprints', label: 'Agent blueprints', icon: 'catalog', group: 'Agents' },
   { id: 'expert-packs', label: 'Expert packs', icon: 'sparkle', group: 'Agents' },
   { id: 'mcp', label: 'MCP servers', icon: 'mcp', group: 'Agents' },
   { id: 'hooks', label: 'Hooks', icon: 'tool', group: 'Telemetry' },
-  { id: 'policies', label: 'Policies', icon: 'doctor', group: 'Telemetry' },
+  { id: 'policies', label: 'Policies', icon: 'shield', group: 'Telemetry' },
   { id: 'memory', label: 'Memory', icon: 'memory', group: 'Telemetry' },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', group: 'Telemetry' },
   { id: 'doctor', label: 'Doctor', icon: 'doctor', group: 'Telemetry' },
@@ -93,9 +107,23 @@ export interface SettingsShellProps {
 }
 
 export function SettingsShell(props: SettingsShellProps) {
+  // Initial section precedence: an explicit prop (e.g. a palette deep-link)
+  // wins, then the ?section= URL param (so a refresh re-opens the same panel),
+  // then the default. Total deep-linking (task B2 §1).
   const [section, setSection] = createSignal<SettingsSection>(
-    props.initial ?? 'backends',
+    props.initial ?? readSectionParam() ?? 'backends',
   );
+
+  // Keep the URL in sync with the active panel so a refresh lands here and
+  // "copy link" points at this exact section.
+  createEffect(() => {
+    writeSectionParam(section());
+  });
+
+  function back() {
+    clearSectionParam();
+    props.onBack();
+  }
 
   // Esc returns to chat — matches the behavior of every other overlay
   // in the chrome.
@@ -103,7 +131,7 @@ export function SettingsShell(props: SettingsShellProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        props.onBack();
+        back();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -145,11 +173,11 @@ export function SettingsShell(props: SettingsShellProps) {
         <button
           type="button"
           class="settings-shell__back"
-          onClick={props.onBack}
+          onClick={back}
           data-testid="settings-back"
         >
           <Icon name="chevron-right" size={14} class="settings-shell__back-icon" />
-          <span>Back to CLIO</span>
+          <span>Back to {brand.name}</span>
         </button>
         <h1 class="settings-shell__title">Settings</h1>
         <div />
@@ -168,7 +196,13 @@ export function SettingsShell(props: SettingsShellProps) {
                         'settings-shell__nav-btn ' +
                         (s.id === section() ? 'is-active' : '')
                       }
-                      onClick={() => setSection(s.id)}
+                      onClick={(e) => {
+                        setSection(s.id);
+                        // Drop focus so the just-clicked item doesn't retain a
+                        // gray focus background that reads like a second active
+                        // item (only the cyan .is-active state should persist).
+                        e.currentTarget.blur();
+                      }}
                       data-testid={`settings-nav-${s.id}`}
                     >
                       <Icon name={s.icon} size={14} />
@@ -185,11 +219,14 @@ export function SettingsShell(props: SettingsShellProps) {
             <Match when={section() === 'backends'}>
               <SettingsBackends
                 onAddRemote={props.onAddRemote}
-                onBack={props.onBack}
+                onBack={back}
               />
             </Match>
             <Match when={client() && section() === 'workspaces'}>
               <WorkspacesPage client={client()!} />
+            </Match>
+            <Match when={client() && section() === 'models'}>
+              <SettingsModels client={client()!} />
             </Match>
             <Match when={client() && section() === 'providers'}>
               <ProvidersPage client={client()!} />
@@ -354,7 +391,16 @@ function AppearanceSection() {
         </div>
       </header>
       <div class="dp__body">
-        <div class="dp__section-title">Theme</div>
+        <SectionHeading
+          title="Theme"
+          hint={
+            <>
+              <strong>Dark</strong> is the {brand.name} default. <strong>Light</strong>{' '}
+              applies the full light palette. <strong>Auto</strong> follows your
+              OS appearance setting and switches live.
+            </>
+          }
+        />
         <div class="settings-shell__choices">
           <For each={['dark', 'light', 'auto'] as const}>
             {(t) => (
@@ -373,20 +419,19 @@ function AppearanceSection() {
             )}
           </For>
         </div>
-        <p class="settings-shell__hint">
-          <strong>Dark</strong> is the CLIO default. <strong>Light</strong>{' '}
-          applies the full light palette. <strong>Auto</strong> follows your
-          OS appearance setting and switches live.
-        </p>
 
-        <div class="dp__section-title">Presets</div>
-        <p class="settings-shell__hint">
-          One-click token sets. <strong>High contrast</strong> maximizes
-          text/background separation for low-vision use; <strong>Dim</strong>{' '}
-          softens the palette for late-night sessions. Presets write the same
-          overrides as the per-color editor below, so you can fine-tune after
-          applying one.
-        </p>
+        <SectionHeading
+          title="Presets"
+          hint={
+            <>
+              One-click token sets. <strong>High contrast</strong> maximizes
+              text/background separation for low-vision use; <strong>Dim</strong>{' '}
+              softens the palette for late-night sessions. Presets write the same
+              overrides as the per-color editor below, so you can fine-tune after
+              applying one.
+            </>
+          }
+        />
         <div class="settings-shell__choices" data-testid="settings-theme-presets">
           <For each={Object.entries(THEME_PRESETS)}>
             {([id, preset]) => (
@@ -412,11 +457,10 @@ function AppearanceSection() {
           </For>
         </div>
 
-        <div class="dp__section-title">Notifications</div>
-        <p class="settings-shell__hint">
-          Which events surface as toasts. Errors always show — they carry
-          recovery actions.
-        </p>
+        <SectionHeading
+          title="Notifications"
+          hint="Which events surface as toasts. Errors always show — they carry recovery actions."
+        />
         <div class="settings-shell__toggles" data-testid="settings-notif-prefs">
           <label class="settings-shell__toggle">
             <input
@@ -425,7 +469,7 @@ function AppearanceSection() {
               onChange={(e) => setNotifPref('turnCompletions', e.currentTarget.checked)}
               data-testid="notif-pref-turn-completions"
             />
-            <span>Turn completions — “CLIO responded” after each finished turn</span>
+            <span>Turn completions — “{brand.name} responded” after each finished turn</span>
           </label>
           <label class="settings-shell__toggle">
             <input
@@ -438,12 +482,16 @@ function AppearanceSection() {
           </label>
         </div>
 
-        <div class="dp__section-title">Accent palette</div>
-        <p class="settings-shell__hint">
-          Overrides the design system's accent tokens at the web
-          layer. Saved to <code>localStorage.{THEME_TOKENS_KEY}</code>
-          and applied on every reload.
-        </p>
+        <SectionHeading
+          title="Accent palette"
+          hint={
+            <>
+              Overrides the design system's accent tokens at the web layer. Saved
+              to <code>localStorage.{THEME_TOKENS_KEY}</code> and applied on every
+              reload.
+            </>
+          }
+        />
         <div class="theme-tokens">
           <For each={ACCENT_TOKENS}>
             {(t) => {
@@ -486,13 +534,16 @@ function AppearanceSection() {
           </button>
         </Show>
 
-        <div class="dp__section-title">Locale</div>
-        <p class="settings-shell__hint">
-          Forwarded to clio as <code>Accept-Language</code> so backend
-          copy (errors, hints, slash command titles) can answer in your
-          preferred language. UI chrome strings stay English until
-          frontend i18n lands.
-        </p>
+        <SectionHeading
+          title="Locale"
+          hint={
+            <>
+              Forwarded to clio as <code>Accept-Language</code> so backend copy
+              (errors, hints, slash command titles) can answer in your preferred
+              language. UI chrome strings stay English until frontend i18n lands.
+            </>
+          }
+        />
         <div class="settings-shell__choices" data-testid="settings-locale-choices">
           <For each={LOCALES}>
             {(l) => (
@@ -523,7 +574,7 @@ function AppearanceSection() {
           </button>
         </Show>
 
-        <div class="dp__section-title">Default transcript density</div>
+        <SectionHeading title="Default transcript density" />
         <div class="settings-shell__choices">
           <For each={['verbose', 'normal', 'summary'] as const}>
             {(d) => (
@@ -546,12 +597,16 @@ function AppearanceSection() {
           The default applies to new sessions.
         </p>
 
-        <div class="dp__section-title">Custom intro splash</div>
-        <p class="settings-shell__hint">
-          Mirrors the TUI's <code>intro_file</code> config — drop a short
-          banner here and it'll render on the Splash/Connect screen while
-          CLIO boots. Plain text only (no ANSI escapes).
-        </p>
+        <SectionHeading
+          title="Custom intro splash"
+          hint={
+            <>
+              Mirrors the TUI's <code>intro_file</code> config — drop a short
+              banner here and it'll render on the Splash/Connect screen while
+              {' '}{brand.name} boots. Plain text only (no ANSI escapes).
+            </>
+          }
+        />
         <textarea
           class="settings-shell__intro"
           placeholder="e.g. ASCII art, motto, deploy tag, etc."
@@ -572,19 +627,23 @@ function AppearanceSection() {
           </button>
         </Show>
 
-        <div class="dp__section-title">Reset</div>
-        <p class="settings-shell__hint">
-          Clears all <code>clio.*</code> keys from localStorage —
-          drafts, pins, inspector tab, density, active session. Backend
-          credentials live in the registry and are not affected.
-        </p>
+        <SectionHeading
+          title="Reset"
+          hint={
+            <>
+              Clears all <code>clio.*</code> keys from localStorage — drafts, pins,
+              inspector tab, density, active session. Backend credentials live in
+              the registry and are not affected.
+            </>
+          }
+        />
         <button
           type="button"
           class="ws-form__btn ws-form__btn--primary"
           style="margin-top: 8px"
           onClick={() => {
             if (typeof localStorage === 'undefined') return;
-            if (!confirm('Clear all local CLIO preferences? This cannot be undone.')) return;
+            if (!confirm(`Clear all local ${brand.name} preferences? This cannot be undone.`)) return;
             for (let i = localStorage.length - 1; i >= 0; i--) {
               const k = localStorage.key(i);
               if (k && k.startsWith('clio.')) localStorage.removeItem(k);
@@ -659,12 +718,17 @@ function DataSection() {
         </div>
       </header>
       <div class="dp__body">
-        <div class="dp__section-title">Export</div>
-        <p class="settings-shell__hint">
-          Downloads every local preference — theme, density, notification
-          prefs, command history, pins, drafts — as a JSON file. Backend
-          connections and their credentials are <strong>never</strong> included.
-        </p>
+        <SectionHeading
+          title="Export"
+          hint={
+            <>
+              Downloads every local preference — theme, density, notification
+              prefs, command history, pins, drafts — as a JSON file. Backend
+              connections and their credentials are <strong>never</strong>{' '}
+              included.
+            </>
+          }
+        />
         <button
           type="button"
           class="ws-form__btn ws-form__btn--primary"
@@ -675,12 +739,10 @@ function DataSection() {
           Export settings…
         </button>
 
-        <div class="dp__section-title">Import</div>
-        <p class="settings-shell__hint">
-          Restores preferences from a previously exported file. Matching keys
-          are overwritten; everything else keeps its current value. The app
-          reloads after a successful import.
-        </p>
+        <SectionHeading
+          title="Import"
+          hint="Restores preferences from a previously exported file. Matching keys are overwritten; everything else keeps its current value. The app reloads after a successful import."
+        />
         <input
           ref={fileInput}
           type="file"
@@ -723,7 +785,7 @@ function AboutSection() {
             <Icon name="help" size={20} />
           </div>
           <div>
-            <h1 class="dp__title">About CLIO Desktop</h1>
+            <h1 class="dp__title">About {brand.name} Desktop</h1>
             <p class="dp__subtitle">Build identity and connected backend.</p>
           </div>
         </div>
@@ -732,7 +794,7 @@ function AboutSection() {
         <div class="dp__stats">
           <div class="dp__stat">
             <div class="dp__stat-label">app</div>
-            <div class="dp__stat-value" style="font-size:18px">CLIO Desktop</div>
+            <div class="dp__stat-value" style="font-size:18px">{brand.name} Desktop</div>
             <div class="dp__stat-sub">v0.9.1 polish wave</div>
           </div>
           <div class="dp__stat">
@@ -760,23 +822,19 @@ function AboutSection() {
         </div>
 
         <Show when={cur()?.capabilities?.capabilities}>
-          <div class="dp__section-title">Capability flags</div>
+          <SectionHeading title="Capability flags" />
           <div class="dp__card-tags settings-shell__caps">
             <For
               each={Object.entries(cur()!.capabilities!.capabilities)
                 .filter(([, v]) => typeof v === 'boolean')
                 .sort()}
             >
-              {([k, v]) => (
-                <span class={'dp__tag ' + (v ? 'dp__tag--ok' : 'dp__tag--err')}>
-                  {k}
-                </span>
-              )}
+              {([k, v]) => <Pill tone={v ? 'ok' : 'err'}>{k}</Pill>}
             </For>
           </div>
         </Show>
 
-        <div class="dp__section-title">Links</div>
+        <SectionHeading title="Links" />
         <ul class="settings-shell__links">
           <li>
             <a href="https://github.com/iowarp/gact-tui" target="_blank" rel="noreferrer">
@@ -808,14 +866,15 @@ function AboutSection() {
 
 function NoBackend() {
   return (
-    <div class="dp__empty">
-      <div class="dp__empty-icon">
-        <Icon name="workspaces" size={28} />
-      </div>
-      <h2 class="dp__empty-title">No backend connected</h2>
-      <p class="dp__empty-body">
-        Add a backend under <strong>Settings → Backends</strong> first.
-      </p>
-    </div>
+    <EmptyState
+      icon="workspaces"
+      title="No backend connected"
+      body={
+        <>
+          Add a backend under <strong>Settings → Backends</strong> first.
+        </>
+      }
+      testid="settings-no-backend"
+    />
   );
 }

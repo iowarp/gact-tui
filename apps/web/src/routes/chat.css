@@ -1,24 +1,96 @@
 /* Modern three-pane desktop layout.
-   rail (56) · sessions (320) · main (1fr) · inspector (0|340)
-*/
+   rail (auto: 56 collapsed / 208 expanded) · sessions (320) · main (1fr) · inspector (0|340)
+   The rail track is `auto` (not a fixed 56px) so it always fits the rail's
+   actual rendered width — the rail is expanded-by-default at 208px, and a
+   fixed 56px track let it overflow 152px UNDER the sessions column, whose
+   rows then intercepted clicks on the rail buttons (real clickability bug). */
 .chat {
   display: grid;
-  grid-template-columns: 56px 320px 1fr auto;
+  /* Base layout: rail · sessions · main. Each open right-hand panel
+     (inspector and/or preview rail) appends its own trailing `auto`
+     track via the `.chat--inspector-open` / `.chat--preview-open`
+     modifiers below — so the track count always matches the number of
+     rendered children. A standalone trailing `auto` here would steal a
+     track from whichever panel is open and starve the other (the
+     "both panels open collapses the preview to a sliver" bug). */
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr;
   height: 100vh;
   background: var(--color-bg);
   min-height: 0;
+  /* Preview-rail width that YIELDS to chat: the clamp gives a comfortable
+     preferred width, but `max(0, …)` collapses it before the conversation is
+     crushed below its minimum. Mirrors the hermes rule (§4). The subtracted
+     reserve accounts for the left rail + sessions column + inspector (when
+     open) + a chat minimum. */
+  --preview-rail-reserve: calc(
+    208px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
+  );
+  /* Space left for the preview after the rail + sessions + inspector + a hard
+     chat minimum (32rem). */
+  --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
+  /* The preview is the lowest-priority column: it must YIELD entirely rather
+     than render a one-word-per-line sliver when space is tight. The desired
+     width when there IS room: */
+  --preview-rail-fit: min(clamp(18rem, 32vw, 30rem), var(--preview-rail-avail));
+  /* All-CSS threshold (no media query): clamp's middle term goes hugely
+     negative when avail < 18rem (the usable minimum) so the lower bound 0
+     wins and the column collapses; when avail >= 18rem it goes hugely
+     positive so the upper bound (the fitted width) wins. */
+  --preview-rail-w: clamp(
+    0px,
+    calc((var(--preview-rail-avail) - 18rem) * 1000),
+    var(--preview-rail-fit)
+  );
+}
+
+/* Both side panels can be open at once — each is its own trailing `auto`
+   grid column sized by its own content width. The preview rail's element
+   carries the clamp width (see .preview-rail in preview-rail.css), so it
+   doesn't matter which order inspector/rail land in. We only reserve the
+   inspector's width in the clamp when it is actually open.
+
+   Each modifier appends ONE trailing `auto` track. Combined, "both open"
+   resolves to `auto <sessions> 1fr auto auto` — five tracks for the five
+   children (rail · sessions · main · inspector · preview). */
+.chat--inspector-open {
+  --inspector-w: 340px;
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
+}
+.chat--preview-open {
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
+}
+.chat--inspector-open.chat--preview-open {
+  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto auto;
+}
+
+/* Cmd+B focus mode removes the SessionsColumn from the DOM entirely, so its
+   grid track must be dropped (not just zeroed) — otherwise main-col would
+   land in an empty leftover track. We re-declare the column sets WITHOUT the
+   sessions track, preserving the per-panel trailing `auto` tracks so the
+   both-panels-open layout still resolves correctly. */
+.chat--no-sessions {
+  --sessions-w: 0px;
+  grid-template-columns: auto 1fr;
+}
+.chat--no-sessions.chat--inspector-open,
+.chat--no-sessions.chat--preview-open {
+  grid-template-columns: auto 1fr auto;
+}
+.chat--no-sessions.chat--inspector-open.chat--preview-open {
+  grid-template-columns: auto 1fr auto auto;
 }
 
 /* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
    and the inspector — they're chat-specific affordances. */
 .chat--discovery {
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: auto 1fr;
 }
 
-/* Cmd+B focus mode: collapse the sessions column.                       */
-.chat--no-sessions {
-  grid-template-columns: 56px 1fr auto;
-}
+/* Cmd+B focus mode: collapse the sessions column. The sessions track is
+   driven to 0 via --sessions-w (above); the SessionsColumn is also removed
+   from the DOM, so its 0px track is empty and harmless. We deliberately do
+   NOT override grid-template-columns here — that would drop a trailing track
+   and re-break the both-panels-open layout. */
 
 .chat__main-col {
   display: flex;
@@ -44,10 +116,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* Keep the session title visible even when meta items are wide.
-     Without this, 5 meta items + actions squeeze the title to 0px on
-     a 1440px viewport with both side panels open. */
-  flex: 1 0 140px;
+  /* Take only the breadcrumb's content width: never grow into the space
+     the secondary-chip strip vacates when it collapses (that grow created a
+     feedback loop that kept the strip stuck in the ⋯ menu), and never shrink
+     the title to 0 — when the topbar is tight the secondary strip collapses
+     into the overflow menu first, which is the real overflow defense. Long
+     titles still ellipsize via min-width:0 + the crumb's text-overflow. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -118,10 +193,11 @@
   color: var(--color-heading);
 }
 
+/* Active panel toggle = selected state → the single warm accent. */
 .chat__iconbtn.is-active {
-  background: var(--color-surface);
-  color: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan-30);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
+  border-color: var(--color-select-border);
 }
 
 .chat__meta {
@@ -145,6 +221,26 @@
 
 .chat__meta-item {
   flex: 0 0 auto;
+}
+
+/* The inline secondary-chip strip. Stays mounted in both modes so its
+   intrinsic width is always measurable for the overflow decision. When the
+   topbar is too tight it collapses into the ⋯ menu: we keep it in the DOM
+   but pull it out of the visible flow (not display:none) so scrollWidth is
+   still readable. */
+.chat__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.chat__secondary--collapsed {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  width: max-content;
 }
 
 .chat__meta-item {
@@ -206,7 +302,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-60);
   border-radius: 10px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   animation: anim-rise 160ms ease-out both;
 }
 
@@ -265,15 +361,21 @@
   width: 64px;
   height: 64px;
   border-radius: 18px;
+  /* Stronger fill + a hairline ring so the icon reads against the page bg.
+     The previous 0.22-alpha gradient was too faint and the cyan stroke
+     vanished into it. */
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-accent) 22%, transparent) 0%,
-    color-mix(in srgb, var(--color-accent-cyan) 22%, transparent) 100%
+    color-mix(in srgb, var(--color-accent) 42%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent-cyan) 42%, transparent) 100%
   );
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-cyan-30),
+    var(--glow-cyan-sm);
   display: grid;
   place-items: center;
   margin: 0 auto 16px;
-  color: var(--color-accent-cyan);
+  color: var(--color-heading);
 }
 
 .chat__empty-title {
@@ -347,7 +449,7 @@
   font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-overlay);
   z-index: 4;
   transition: transform var(--dur-fast), background var(--dur-fast);
   animation: chat-scroll-pill-in 220ms ease-out both;

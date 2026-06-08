@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { UserQuestion, UserQuestionOption } from '@clio/core';
 import { Icon } from './Icon.js';
 import './user-question-card.css';
@@ -60,7 +61,7 @@ export function UserQuestionCard(props: UserQuestionCardProps) {
     <div
       class="uqc"
       role="dialog"
-      aria-label="Question from CLIO"
+      aria-label={`Question from ${brand.name}`}
       data-testid={`user-question-${props.question.id}`}
     >
       <div class="uqc__head">
@@ -68,7 +69,7 @@ export function UserQuestionCard(props: UserQuestionCardProps) {
           <Icon name="help" size={16} />
         </span>
         <div class="uqc__head-text">
-          <div class="uqc__eyebrow">CLIO needs an answer to continue</div>
+          <div class="uqc__eyebrow">{brand.name} needs an answer to continue</div>
           <div class="uqc__prompt">{props.question.prompt}</div>
         </div>
         <button

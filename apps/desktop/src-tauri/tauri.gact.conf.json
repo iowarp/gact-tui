@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GACT Desktop",
+  "identifier": "land.charm.gact.desktop",
+  "app": {
+    "windows": [
+      {
+        "title": "GACT Desktop"
+      }
+    ]
+  },
+  "bundle": {
+    "shortDescription": "GACT Desktop — multi-backend agentic-coder UI",
+    "longDescription": "GACT Desktop is the Tauri-shell wrapper for the GACT web frontend. It speaks the GACT contract, manages SSH-tunneled multi-backend access via the OS keychain, and ships native installers per platform.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
+  }
+}

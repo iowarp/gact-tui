@@ -1,4 +1,5 @@
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { brand } from '@brand';
 import { useBackendRegistry } from '../registry.js';
 import { Client, type BackendEntry } from '@clio/core';
 import { getRequestLocale } from '../locale.js';
@@ -138,7 +139,7 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
               class={'settings__seg-btn ' + (mode() === 'ssh' ? 'is-active' : '')}
               onClick={() => setMode('ssh')}
               data-testid="add-remote-mode-ssh"
-              title={!inTauri() ? 'Form is fillable in any build; the actual ssh -L spawn only fires inside CLIO Desktop.' : undefined}
+              title={!inTauri() ? `Form is fillable in any build; the actual ssh -L spawn only fires inside ${brand.name} Desktop.` : undefined}
             >
               SSH tunnel
               <Show when={!inTauri()}>
