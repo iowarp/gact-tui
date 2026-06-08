@@ -77,9 +77,10 @@
   justify-content: flex-end;
 }
 
+/* Primary action (open shared session) = the single warm accent. */
 .ssm__open {
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
   border: none;
   border-radius: 8px;
   padding: 8px 18px;

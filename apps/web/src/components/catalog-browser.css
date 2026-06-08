@@ -95,8 +95,9 @@
   color: var(--color-text);
 }
 
+/* Highlighted catalog row = selection state → the single warm accent. */
 .cbr__item.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
+  background: var(--color-select-bg);
 }
 
 .cbr__item-label {
@@ -110,6 +111,13 @@
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--color-muted);
+  /* Clamp the catalog overlay description to two lines so rows equalize. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
 }
 
 .cbr__item-id {

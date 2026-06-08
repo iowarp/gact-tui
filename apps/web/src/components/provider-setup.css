@@ -82,7 +82,7 @@
 }
 
 .psetup__card:hover:not(:disabled) {
-  border-color: var(--color-accent-cyan);
+  border-color: var(--color-border-60);
   transform: translateY(-1px);
 }
 
@@ -91,9 +91,10 @@
   cursor: default;
 }
 
+/* Selected provider = selection state → the single warm accent. */
 .psetup__card.is-selected {
-  border-color: var(--color-accent-cyan);
-  background: var(--color-accent-cyan-10);
+  border-color: var(--color-select-border);
+  background: var(--color-select-bg);
 }
 
 .psetup__card-head {

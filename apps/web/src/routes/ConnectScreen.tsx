@@ -1,4 +1,4 @@
-import { createSignal, Show } from 'solid-js';
+import { createEffect, createSignal, Show } from 'solid-js';
 import type { BackendHandle } from '../App.js';
 import { Icon } from '../components/Icon.js';
 import { inTauri, tauriFetch } from '../tauri.js';
@@ -38,8 +38,21 @@ export function ConnectScreen(props: ConnectScreenProps) {
   // one case where re-entering bearer/SSH credentials is the fix. Drives the
   // "Re-enter credentials" affordance. Never set for a local backend.
   const [reauthNeeded, setReauthNeeded] = createSignal(false);
+  // Bearer token lives behind an "Advanced" disclosure: the localhost
+  // trust-socket happy path needs no token, so novices never see
+  // "bearer token" / "trust_socket". It auto-opens when a credential is
+  // actually required (auth failure / remote reauth).
+  const [showAdvanced, setShowAdvanced] = createSignal(false);
 
   let tokenInputEl: HTMLInputElement | undefined;
+
+  // A remote (non-loopback) URL almost always needs a bearer token, so reveal
+  // Advanced automatically once the user points at one. localhost keeps the
+  // happy path (no token field). We only ever OPEN it here — the user can
+  // still collapse it manually for a remote that trusts its socket.
+  createEffect(() => {
+    if (isRemoteBackend(url())) setShowAdvanced(true);
+  });
 
   async function tryConnect() {
     setStatus('connecting');
@@ -55,6 +68,10 @@ export function ConnectScreen(props: ConnectScreenProps) {
         // instead of a generic HTTP error. Scoped to remote hosts only.
         if ((res.status === 401 || res.status === 403) && isRemoteBackend(url())) {
           setReauthNeeded(true);
+        }
+        // An auth failure means a token IS needed — reveal the field.
+        if (res.status === 401 || res.status === 403) {
+          setShowAdvanced(true);
         }
         throw new Error(`HTTP ${res.status}`);
       }
@@ -72,6 +89,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
     setToken('');
     setReauthNeeded(false);
     setStatus('idle');
+    setShowAdvanced(true);
     queueMicrotask(() => tokenInputEl?.focus());
   }
 
@@ -114,25 +132,42 @@ export function ConnectScreen(props: ConnectScreenProps) {
             />
           </div>
 
-          <div class="field">
-            <label for="conn-token">
-              Bearer token{' '}
-              <span class="connect__hint-inline">
-                (skip when the backend uses trust_socket on localhost)
-              </span>
-            </label>
-            <input
-              id="conn-token"
-              ref={tokenInputEl}
-              type="password"
-              value={token()}
-              onInput={(e) => setToken(e.currentTarget.value)}
-              placeholder="paste a token issued by clio-agent token issue …"
-              data-testid="connect-token"
-              autocomplete="off"
-              spellcheck={false}
+          <button
+            type="button"
+            class="connect__advanced-toggle"
+            aria-expanded={showAdvanced()}
+            onClick={() => setShowAdvanced((v) => !v)}
+            data-testid="connect-advanced-toggle"
+          >
+            <Icon
+              name="chevron-right"
+              size={11}
+              class={'connect__advanced-chev ' + (showAdvanced() ? 'is-open' : '')}
             />
-          </div>
+            <span>Advanced</span>
+          </button>
+
+          <Show when={showAdvanced()}>
+            <div class="field connect__advanced">
+              <label for="conn-token">
+                Bearer token{' '}
+                <span class="connect__hint-inline">
+                  (skip when the backend uses trust_socket on localhost)
+                </span>
+              </label>
+              <input
+                id="conn-token"
+                ref={tokenInputEl}
+                type="password"
+                value={token()}
+                onInput={(e) => setToken(e.currentTarget.value)}
+                placeholder="paste a token issued by clio-agent token issue …"
+                data-testid="connect-token"
+                autocomplete="off"
+                spellcheck={false}
+              />
+            </div>
+          </Show>
 
           <Show when={error()}>
             <div class="connect__error" data-testid="connect-error">

@@ -46,9 +46,10 @@
   color: var(--color-text);
 }
 
+/* Selected inspector tab = selection state → the single warm accent. */
 .inspector__tab.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
-  color: var(--color-accent-cyan);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
 }
 
 .inspector__call-row {
@@ -700,8 +701,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
   border: none;
   border-radius: 6px;
   padding: 6px 12px;
@@ -823,9 +824,10 @@
   margin-bottom: 8px;
 }
 
+/* Primary bulk action (approve) = the single warm accent. */
 .inspector__bulk-btn {
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
   border: none;
   border-radius: 6px;
   padding: 5px 12px;

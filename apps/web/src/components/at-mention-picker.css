@@ -32,9 +32,10 @@
   cursor: pointer;
 }
 
+/* Highlighted mention = selection state → the single warm accent. */
 .atmention__item.is-active {
-  background: rgba(0, 212, 219, 0.10);
-  outline: 1px solid var(--color-accent-cyan-30);
+  background: var(--color-select-bg);
+  outline: 1px solid var(--color-select-border);
 }
 
 .atmention__kind {

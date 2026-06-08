@@ -125,9 +125,10 @@ textarea.mim__input { resize: vertical; min-height: 56px; }
   transition: background var(--dur-fast), color var(--dur-fast);
 }
 
+/* Selected segment → the single warm accent. */
 .mim__seg-btn.is-active {
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
 }
 
 .mim__env-row {
@@ -210,14 +211,14 @@ textarea.mim__input { resize: vertical; min-height: 56px; }
 }
 
 .mim__btn--primary {
-  background: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #0a0f1a;
   font-weight: 600;
 }
 
 .mim__btn--primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: color-mix(in srgb, var(--color-accent) 88%, white);
 }
 
 .mim__btn:disabled {

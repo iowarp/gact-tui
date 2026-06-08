@@ -135,7 +135,9 @@ export function SlashPalette(props: SlashPaletteProps) {
                 <span class="slash-palette__trigger">{cmd.trigger}</span>
                 <span class="slash-palette__desc">{cmd.description}</span>
                 <Show when={cmd.category}>
-                  <span class="chip">{cmd.category}</span>
+                  <span class={`slash-palette__cat slash-palette__cat--${cmd.category}`}>
+                    {cmd.category}
+                  </span>
                 </Show>
               </li>
             )}

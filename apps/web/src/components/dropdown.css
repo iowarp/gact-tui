@@ -81,9 +81,10 @@
   background: var(--color-surface-alt);
 }
 
+/* Selected dropdown item = selection state → the single warm accent. */
 .dd__item.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
-  color: var(--color-accent-cyan);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
 }
 
 .dd__item:disabled {

@@ -20,6 +20,20 @@
      The hairline derives from the border token so it follows the theme. */
   --shadow-overlay: 0 24px 64px -16px rgba(0, 0, 0, 0.55);
   --stroke-hairline: 1px solid var(--color-border-30);
+
+  /* === Selection / active semantics (design pass: ONE primary per view) ===
+     The warm brand accent is the single primary-action + selection color.
+     Selected list rows, the active nav item, and primary CTAs derive from
+     these so the treatment is consistent and theme-safe (the accent stays
+     saturated orange in light + dark, so the tint follows it). Cyan is
+     demoted to informational (code, command text, capability chips, links).
+     Tints are color-mix on the token so they ride the theme. */
+  --color-accent-warm-12: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --color-accent-warm-16: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  --color-accent-warm-30: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-warm-40: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  --color-select-bg: var(--color-accent-warm-12);
+  --color-select-border: var(--color-accent-warm-30);
 }
 
 *,
