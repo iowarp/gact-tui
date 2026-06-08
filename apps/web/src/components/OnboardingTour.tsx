@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import type { Client } from '@clio/core';
 import { trapFocusRef } from '../focus-trap.js';
 import { ProviderSetup, type LmPreset } from './ProviderSetup.js';
@@ -52,8 +53,8 @@ const STEPS: TourStep[] = [
     id: 'welcome',
     target: null,
     placement: 'center',
-    title: 'Welcome to CLIO Desktop',
-    body: 'CLIO is your agentic-coding companion — it reads your workspace, runs tools under your control, and keeps every conversation as a session on the backend. This 30-second tour shows you around.',
+    title: `Welcome to ${brand.name} Desktop`,
+    body: `${brand.name} is your agentic-coding companion — it reads your workspace, runs tools under your control, and keeps every conversation as a session on the backend. This 30-second tour shows you around.`,
   },
   {
     id: 'composer',
@@ -67,14 +68,14 @@ const STEPS: TourStep[] = [
     target: '[data-testid="sessions-column"]',
     placement: 'right',
     title: 'Sessions live on the backend',
-    body: 'Every conversation is a server-side session — switch between them, fork, pin, or archive. They survive app restarts and are shared with the CLIO TUI.',
+    body: `Every conversation is a server-side session — switch between them, fork, pin, or archive. They survive app restarts and are shared with the ${brand.name} TUI.`,
   },
   {
     id: 'rail',
     target: '[data-testid="left-rail"]',
     placement: 'right',
     title: 'Discovery & settings',
-    body: 'Browse the agents CLIO can route to, MCP tool servers, cross-session memory, runtime metrics, and backend health. Settings lives at the bottom.',
+    body: `Browse the agents ${brand.name} can route to, MCP tool servers, cross-session memory, runtime metrics, and backend health. Settings lives at the bottom.`,
   },
   {
     id: 'palette',
@@ -269,7 +270,7 @@ export function OnboardingTour(props: OnboardingTourProps) {
                   onClick={next}
                   data-testid="onboarding-next"
                 >
-                  {isLast() ? 'Start using CLIO' : 'Next'}
+                  {isLast() ? `Start using ${brand.name}` : 'Next'}
                 </button>
               </div>
             </div>

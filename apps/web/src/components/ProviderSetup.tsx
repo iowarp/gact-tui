@@ -1,4 +1,5 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { Client } from '@clio/core';
 import './provider-setup.css';
 
@@ -173,7 +174,7 @@ export function ProviderSetup(props: ProviderSetupProps) {
         Pick a model to get started
       </h2>
       <p class="psetup__lede">
-        Choose where CLIO should send your messages. Cards marked{' '}
+        Choose where {brand.name} should send your messages. Cards marked{' '}
         <span class="psetup__chip psetup__chip--ready">Ready</span> work right away —
         no key to paste.
       </p>

@@ -8,6 +8,7 @@
  * against — the caller surfaces that as a "Open in Desktop" hint.
  */
 
+import { brand } from '@brand';
 import { inTauri } from './tauri.js';
 
 export const PLUGINS_KEY = 'clio.plugins.v1';
@@ -107,7 +108,7 @@ export async function invokePlugin(
 ): Promise<PluginInvocationResult> {
   if (!inTauri()) {
     throw new Error(
-      'Plugins need the CLIO Desktop shell — open this in the desktop app to execute.',
+      `Plugins need the ${brand.name} Desktop shell — open this in the desktop app to execute.`,
     );
   }
   const args = [...(def.args ?? []), ...extraArgs];

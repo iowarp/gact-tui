@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
 import { DEFAULT_LOCALE, LOCALES, loadLocale, saveLocale, getRequestLocale, type LocaleTag } from '../locale.js';
@@ -176,7 +177,7 @@ export function SettingsShell(props: SettingsShellProps) {
           data-testid="settings-back"
         >
           <Icon name="chevron-right" size={14} class="settings-shell__back-icon" />
-          <span>Back to CLIO</span>
+          <span>Back to {brand.name}</span>
         </button>
         <h1 class="settings-shell__title">Settings</h1>
         <div />
@@ -394,7 +395,7 @@ function AppearanceSection() {
           title="Theme"
           hint={
             <>
-              <strong>Dark</strong> is the CLIO default. <strong>Light</strong>{' '}
+              <strong>Dark</strong> is the {brand.name} default. <strong>Light</strong>{' '}
               applies the full light palette. <strong>Auto</strong> follows your
               OS appearance setting and switches live.
             </>
@@ -468,7 +469,7 @@ function AppearanceSection() {
               onChange={(e) => setNotifPref('turnCompletions', e.currentTarget.checked)}
               data-testid="notif-pref-turn-completions"
             />
-            <span>Turn completions — “CLIO responded” after each finished turn</span>
+            <span>Turn completions — “{brand.name} responded” after each finished turn</span>
           </label>
           <label class="settings-shell__toggle">
             <input
@@ -601,8 +602,8 @@ function AppearanceSection() {
           hint={
             <>
               Mirrors the TUI's <code>intro_file</code> config — drop a short
-              banner here and it'll render on the Splash/Connect screen while CLIO
-              boots. Plain text only (no ANSI escapes).
+              banner here and it'll render on the Splash/Connect screen while
+              {' '}{brand.name} boots. Plain text only (no ANSI escapes).
             </>
           }
         />
@@ -642,7 +643,7 @@ function AppearanceSection() {
           style="margin-top: 8px"
           onClick={() => {
             if (typeof localStorage === 'undefined') return;
-            if (!confirm('Clear all local CLIO preferences? This cannot be undone.')) return;
+            if (!confirm(`Clear all local ${brand.name} preferences? This cannot be undone.`)) return;
             for (let i = localStorage.length - 1; i >= 0; i--) {
               const k = localStorage.key(i);
               if (k && k.startsWith('clio.')) localStorage.removeItem(k);
@@ -784,7 +785,7 @@ function AboutSection() {
             <Icon name="help" size={20} />
           </div>
           <div>
-            <h1 class="dp__title">About CLIO Desktop</h1>
+            <h1 class="dp__title">About {brand.name} Desktop</h1>
             <p class="dp__subtitle">Build identity and connected backend.</p>
           </div>
         </div>
@@ -793,7 +794,7 @@ function AboutSection() {
         <div class="dp__stats">
           <div class="dp__stat">
             <div class="dp__stat-label">app</div>
-            <div class="dp__stat-value" style="font-size:18px">CLIO Desktop</div>
+            <div class="dp__stat-value" style="font-size:18px">{brand.name} Desktop</div>
             <div class="dp__stat-sub">v0.9.1 polish wave</div>
           </div>
           <div class="dp__stat">

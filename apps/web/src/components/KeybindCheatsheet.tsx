@@ -1,4 +1,5 @@
 import { For, Show, onCleanup, onMount } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './keybind-cheatsheet.css';
@@ -24,7 +25,7 @@ const GROUPS: Group[] = [
     items: [
       { combo: [PLATFORM_MOD, 'K'], description: 'Open the command palette' },
       { combo: [PLATFORM_MOD, 'Shift', 'K'], description: 'Open the catalog browser (agents · tools · MCP · prompts · workspaces)' },
-      { combo: [PLATFORM_MOD, 'L'], description: 'Open a shared CLIO session by token (read-only)' },
+      { combo: [PLATFORM_MOD, 'L'], description: `Open a shared ${brand.name} session by token (read-only)` },
       { combo: [PLATFORM_MOD, 'Shift', 'D'], description: 'Walk away from the active session (Ctrl+K re-attaches)' },
       { combo: [PLATFORM_MOD, 'R'], description: 'Refresh the sessions list (instead of reloading the browser)' },
       { combo: [PLATFORM_MOD, 'E'], description: 'Quick-edit the last user message' },

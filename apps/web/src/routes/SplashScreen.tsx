@@ -1,6 +1,8 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { Capabilities } from '@clio/core';
 import { Client } from '@clio/core';
+import { BrandMark } from '../components/BrandMark.js';
 import type {
   BackendHandle as DesktopHandle,
   BackendStatus,
@@ -303,8 +305,8 @@ export function SplashScreen(props: SplashScreenProps) {
   return (
     <div class="splash" data-testid="splash-screen">
       <main class="splash__main">
-        <div class="splash__mark">C</div>
-        <h1 class="splash__wordmark">CLIO Desktop</h1>
+        <BrandMark class="splash__mark" />
+        <h1 class="splash__wordmark">{brand.name} Desktop</h1>
         <p class="splash__sub">Starting your local agent…</p>
         <Show when={loadIntro()}>
           <pre class="splash__intro" data-testid="splash-intro">
@@ -339,7 +341,7 @@ export function SplashScreen(props: SplashScreenProps) {
               <div class="splash__dot" />
             </div>
             <p class="splash__install-title">
-              Setting up the CLIO agent backend (first run)
+              Setting up the {brand.name} agent backend (first run)
             </p>
             <p class="splash__install-note">
               This downloads the clio-agent Python packages (~800&nbsp;MB) and
@@ -362,7 +364,9 @@ export function SplashScreen(props: SplashScreenProps) {
             data-testid={installFailed() ? 'splash-install-failed' : 'splash-error'}
           >
             <div class="splash__error-eyebrow">
-              {installFailed() ? "Couldn't install CLIO" : "Couldn't start CLIO"}
+              {installFailed()
+                ? `Couldn't install ${brand.name}`
+                : `Couldn't start ${brand.name}`}
             </div>
             <p class="splash__error-msg">{error()}</p>
             <p class="splash__error-hint">
