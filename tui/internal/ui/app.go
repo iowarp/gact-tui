@@ -4469,6 +4469,11 @@ func (a *App) paletteMatches() []gact.Command {
 			Source:      "builtin",
 		}
 	}
+	// Built-in commands offered in the palette. Capability-gated entries
+	// are filtered through helpCommandSupported (the single source of
+	// truth shared with the help cheatsheet) so unsupported surfaces are
+	// simply not shown rather than offered-then-rejected with a transient
+	// "unsupported by this backend" hint. CLIO-BBBBBBBBBB17.
 	localCmds := []gact.Command{
 		localCmd("/metrics", "command.metrics.title", "command.metrics.desc"),
 		localCmd("/memory", "command.memory.title", "command.memory.desc"),
@@ -4484,33 +4489,31 @@ func (a *App) paletteMatches() []gact.Command {
 		localCmd("/copy", "command.copy.title", "command.copy.desc"),
 		localCmd("/diff", "command.diff.title", "command.diff.desc"),
 		localCmd("/compact", "command.compact.title", "command.compact.desc"),
-	}
-	if a.caps.Capabilities.XClioPromptRegistry {
-		localCmds = append(localCmds, gact.Command{
-			ID: "/prompts", Title: "Prompts", Description: "Browse prompt profiles", Source: "builtin",
-		})
-	}
-	if a.caps.Capabilities.XClioExpertPacks {
-		localCmds = append(localCmds, gact.Command{
-			ID: "/expert-packs", Title: "Expert Packs", Description: "Browse expert packs", Source: "builtin",
-		})
-	}
-	if a.caps.Capabilities.XClioAgentBlueprints {
-		localCmds = append(localCmds,
-			gact.Command{
-				ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Manage agent blueprints", Source: "builtin",
-			},
-		)
-	}
-	if a.caps.Capabilities.IntegrationHealth {
-		localCmds = append(localCmds, localCmd("/doctor", "command.doctor.title", "command.doctor.desc"))
+		{ID: "/prompts", Title: "Prompts", Description: "Browse prompt profiles", Source: "builtin"},
+		{ID: "/expert-packs", Title: "Expert Packs", Description: "Browse expert packs", Source: "builtin"},
+		{ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Manage agent blueprints", Source: "builtin"},
+		localCmd("/doctor", "command.doctor.title", "command.doctor.desc"),
 	}
 	for _, c := range localCmds {
+		if !a.helpCommandSupported(c.ID) {
+			continue
+		}
 		if !seen[c.ID] {
 			all = append(all, c)
 			seen[c.ID] = true
 		}
 	}
+	// Final safety net: drop any command (backend-advertised, plugin, or
+	// builtin) whose capability flag is absent, so helpCommandSupported is
+	// the single source of truth across every palette source. Commands
+	// without a clear cap gate default to supported.
+	filtered := all[:0]
+	for _, c := range all {
+		if a.helpCommandSupported(c.ID) {
+			filtered = append(filtered, c)
+		}
+	}
+	all = filtered
 	all = a.normalizePaletteBuiltinCommandCopy(all)
 	if a.paletteFilter == "" {
 		return all
@@ -13433,6 +13436,14 @@ func (a *App) helpCommandEntries(keys []helpKey) []helpCommandEntry {
 	return entries
 }
 
+// helpCommandSupported is the single source of truth for whether a
+// capability-gated slash command should be OFFERED to the user. Both the
+// help/cheatsheet command list and the slash palette filter through it,
+// so an integrator whose backend doesn't advertise a capability gets a
+// clean UI rather than dead options that flash an "unsupported by this
+// backend" hint on invocation. Commands without a clear capability flag
+// (core surfaces like /tools) default to supported — we only hide where
+// there is an authoritative capability flag for the feature.
 func (a *App) helpCommandSupported(id string) bool {
 	switch strings.ToLower(strings.TrimSpace(id)) {
 	case "/prompts":
@@ -13445,6 +13456,8 @@ func (a *App) helpCommandSupported(id string) bool {
 		return a.caps.Capabilities.IntegrationHealth
 	case "/memory":
 		return a.caps.Capabilities.Memory
+	case "/skills":
+		return a.caps.Capabilities.SkillsExtraction
 	default:
 		return true
 	}
