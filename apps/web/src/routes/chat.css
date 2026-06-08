@@ -25,9 +25,21 @@
   --preview-rail-reserve: calc(
     208px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
   );
-  --preview-rail-w: min(
-    clamp(18rem, 32vw, 30rem),
-    max(0px, calc(100vw - var(--preview-rail-reserve)))
+  /* Space left for the preview after the rail + sessions + inspector + a hard
+     chat minimum (32rem). */
+  --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
+  /* The preview is the lowest-priority column: it must YIELD entirely rather
+     than render a one-word-per-line sliver when space is tight. The desired
+     width when there IS room: */
+  --preview-rail-fit: min(clamp(18rem, 32vw, 30rem), var(--preview-rail-avail));
+  /* All-CSS threshold (no media query): clamp's middle term goes hugely
+     negative when avail < 18rem (the usable minimum) so the lower bound 0
+     wins and the column collapses; when avail >= 18rem it goes hugely
+     positive so the upper bound (the fitted width) wins. */
+  --preview-rail-w: clamp(
+    0px,
+    calc((var(--preview-rail-avail) - 18rem) * 1000),
+    var(--preview-rail-fit)
   );
 }
 
@@ -181,10 +193,11 @@
   color: var(--color-heading);
 }
 
+/* Active panel toggle = selected state → the single warm accent. */
 .chat__iconbtn.is-active {
-  background: var(--color-surface);
-  color: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan-30);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
+  border-color: var(--color-select-border);
 }
 
 .chat__meta {

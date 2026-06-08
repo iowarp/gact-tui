@@ -117,7 +117,7 @@
   background: var(--color-surface-alt);
 }
 .preview-rail__row.is-selected {
-  background: var(--color-accent-cyan-30);
+  background: var(--color-select-border);
   color: var(--color-heading);
 }
 

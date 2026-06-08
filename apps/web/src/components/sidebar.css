@@ -57,9 +57,10 @@
   background: var(--color-surface-alt);
 }
 
+/* Selected row = selection state → the single warm accent. */
 .sidebar__row--active {
   background: var(--color-surface-alt);
-  border-left-color: var(--color-accent-cyan);
+  border-left-color: var(--color-accent);
 }
 
 .sidebar__pip {

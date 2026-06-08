@@ -132,10 +132,11 @@
   color: var(--color-text);
 }
 
+/* Selected filter chip = selection state → the single warm accent. */
 .nc__tone-chip.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
-  border-color: var(--color-accent-cyan);
-  color: var(--color-accent-cyan);
+  background: var(--color-select-bg);
+  border-color: var(--color-select-border);
+  color: var(--color-accent);
 }
 
 .nc__list {

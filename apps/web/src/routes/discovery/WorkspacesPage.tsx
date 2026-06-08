@@ -210,6 +210,25 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
             />
           )}
         </For>
+        {/* Inviting ghost "+ Add" card so a sparse list never reads as an
+            empty void — it sits in the grid as a peer of the real cards and
+            opens the create form. */}
+        <Show when={!showForm()}>
+          <button
+            type="button"
+            class="dp__card dp__card--add"
+            onClick={() => setShowForm(true)}
+            data-testid="workspaces-add-card"
+          >
+            <span class="dp__card-add-icon">
+              <Icon name="plus" size={20} />
+            </span>
+            <span class="dp__card-add-label">Add a workspace</span>
+            <span class="dp__card-add-sub">
+              Point CLIO at a project folder on the backend host.
+            </span>
+          </button>
+        </Show>
       </div>
     </DiscoveryPage>
   );

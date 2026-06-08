@@ -431,7 +431,23 @@ export function Composer(props: ComposerProps = {}) {
   }
   let fileInputRef: HTMLInputElement | undefined;
   let imageInputRef: HTMLInputElement | undefined;
+  let inputTextareaRef: HTMLTextAreaElement | undefined;
   const [attachMenuOpen, setAttachMenuOpen] = createSignal(false);
+
+  // Auto-grow the composer to fit its content even when `text()` is set
+  // programmatically (fixtures, history walk, paste-expand) — the onInput
+  // handler only fires for keystrokes, so a pre-filled multiline draft would
+  // otherwise stay clamped to one row and clip.
+  createEffect(() => {
+    const value = text();
+    const ta = inputTextareaRef;
+    if (!ta) return;
+    queueMicrotask(() => {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+      void value;
+    });
+  });
 
   // A2: only an explicit `false` gates image attachment; absent → allowed.
   const imageAttachAllowed = () => props.imageAttachCapable !== false;
@@ -821,6 +837,9 @@ export function Composer(props: ComposerProps = {}) {
           </div>
           <div class="composer__input-wrap">
             <textarea
+              ref={(el) => {
+                inputTextareaRef = el;
+              }}
               class="composer__input"
               placeholder={
                 props.placeholder ??

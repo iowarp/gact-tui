@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js';
 import { useBackendRegistry } from '../registry.js';
 import type { BackendEntry } from '@clio/core';
 import { inTauri, tauriFetch } from '../tauri.js';
+import { Icon } from '../components/Icon.js';
 import './settings.css';
 
 export interface SettingsBackendsProps {
@@ -164,9 +165,20 @@ function BackendRow(props: { entry: BackendEntry }) {
             return null;
           })()}
         </Show>
+        {/* Use = primary; Test/Refresh = quiet; Remove = quiet danger icon. */}
         <button
           type="button"
-          class="btn btn--secondary"
+          class="btn btn--primary"
+          data-testid={`settings-row-select-${props.entry.id}`}
+          onClick={() => reg.select(props.entry.id)}
+          disabled={reg.current()?.id === props.entry.id}
+          title="Make this the active backend"
+        >
+          Use
+        </button>
+        <button
+          type="button"
+          class="btn btn--quiet"
           data-testid={`settings-row-test-${props.entry.id}`}
           onClick={() => void testConnection()}
           disabled={testResult().state === 'running'}
@@ -176,34 +188,27 @@ function BackendRow(props: { entry: BackendEntry }) {
         </button>
         <button
           type="button"
-          class="btn btn--secondary"
-          data-testid={`settings-row-select-${props.entry.id}`}
-          onClick={() => reg.select(props.entry.id)}
-          disabled={reg.current()?.id === props.entry.id}
-        >
-          Use
-        </button>
-        <button
-          type="button"
-          class="btn btn--secondary"
+          class="btn btn--quiet"
           data-testid={`settings-row-refresh-${props.entry.id}`}
           onClick={() => void reg.refreshCapabilities(props.entry.id)}
+          title="Re-pull capabilities"
         >
           Refresh
         </button>
         <button
           type="button"
-          class="btn btn--danger"
+          class="settings__row-remove"
           data-testid={`settings-row-remove-${props.entry.id}`}
           onClick={() => reg.remove(props.entry.id)}
           disabled={props.entry.kind === 'local-sidecar'}
+          aria-label="Remove this backend"
           title={
             props.entry.kind === 'local-sidecar'
               ? 'The bundled clio can’t be removed.'
               : 'Remove this backend'
           }
         >
-          Remove
+          <Icon name="close" size={14} />
         </button>
       </div>
     </li>

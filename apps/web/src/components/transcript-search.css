@@ -84,8 +84,10 @@ mark.tx-match {
   font-weight: 500;
 }
 
+/* The active (current) match = selection focus → the single warm accent;
+   the other matches stay cyan as informational find-all highlights. */
 mark.tx-match.tx-match--current {
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+  background: var(--color-accent);
+  color: #0a0f1a;
+  box-shadow: 0 0 0 2px var(--color-accent-warm-30);
 }

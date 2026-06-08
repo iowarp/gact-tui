@@ -187,21 +187,22 @@
   word-break: break-all;
 }
 
+/* Primary action = the single warm accent. */
 .splash__btn {
   padding: 8px 18px;
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
-  border: 1px solid var(--color-accent-cyan);
+  background: var(--color-accent);
+  color: #0a0f1a;
+  border: 1px solid var(--color-accent);
   border-radius: 8px;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: filter var(--dur-fast), background var(--dur-fast);
+  transition: background var(--dur-fast);
 }
 
 .splash__btn:hover {
-  filter: brightness(1.1);
+  background: color-mix(in srgb, var(--color-accent) 88%, white);
 }
 
 .splash__btn--ghost {
