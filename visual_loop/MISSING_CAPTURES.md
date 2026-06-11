@@ -15,7 +15,7 @@ changing capture priorities or missing-state rows.
 ### High - Copy and selection
 
 - Missing capture: Live terminal permutations for drag copy, native selection, clipboard failures, and detail-modal copy across mouse modes (#150)
-- Why it matters: Deterministic copy success, native-selection toggle, and forced clipboard-failure guidance are covered; live recordings still need to preserve exact platform behavior across terminal/clipboard stacks
+- Why it matters: Deterministic copy success, native-selection toggle, and forced clipboard-failure guidance are covered; `check_copy_selection_readiness.py` now keeps that deterministic proof separate from the real terminal checklist, which still needs live-terminal evidence across the supported local environment
 
 ### High - Diagnostics
 

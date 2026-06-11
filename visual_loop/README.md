@@ -43,6 +43,15 @@ The generated `visual_loop/screenshots/gact_diag_clipboard_terminal.report.md`
 must include `mouse_capture`, `clipboard_native`, `clipboard_missing`,
 `clipboard_osc52`, `terminal_selection`, `TERM`, and `TERM_PROGRAM`.
 
+Refresh the copy/selection readiness report after changing copy behavior or
+terminal-selection evidence:
+
+```bash
+python3 visual_loop/check_copy_selection_readiness.py --root . \
+  --write-report visual_loop/screenshots/copy_selection_readiness.report.md \
+  --strict
+```
+
 For the live terminal permutation backlog (#150), capture the actual terminal
 environment from the terminal emulator being verified:
 
