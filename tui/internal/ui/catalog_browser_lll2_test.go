@@ -1909,7 +1909,7 @@ func TestCatalogBrowser_AgentBlueprintActionsAreNotListRows(t *testing.T) {
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Setup flow:", "browse sources -> select blueprint -> install", "Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter detail", "i install path", "v validate path", "s browse sources"} {
+	for _, want := range []string{"Setup flow:", "browse sources -> select blueprint -> install", "Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter detail", "s browse sources", "i manual install", "v validate file"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("blueprint browser missing %q:\n%s", want, out)
 		}

@@ -1597,8 +1597,15 @@ func (a *App) catalogBrowserHeaderButtons() []menuButton {
 func agentBlueprintCatalogActionButtons() []menuButton {
 	return []menuButton{
 		{
+			id:    "agent-blueprints:sources",
+			label: "browse sources",
+			action: func(app *App) tea.Cmd {
+				return app.openAgentBlueprintSourceBrowser()
+			},
+		},
+		{
 			id:    "agent-blueprints:install",
-			label: "install from path",
+			label: "manual install",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageInstall)
 				return nil
@@ -1606,17 +1613,10 @@ func agentBlueprintCatalogActionButtons() []menuButton {
 		},
 		{
 			id:    "agent-blueprints:validate",
-			label: "validate path",
+			label: "validate file",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return nil
-			},
-		},
-		{
-			id:    "agent-blueprints:sources",
-			label: "browse sources",
-			action: func(app *App) tea.Cmd {
-				return app.openAgentBlueprintSourceBrowser()
 			},
 		},
 	}
@@ -2682,7 +2682,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		}
 		return modalKeyHint("↑/↓ structure", "Enter details/activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprints:
-		return modalKeyHint("↑/↓ move", "Enter detail", "i install path", "v validate path", "s browse sources", "Esc close")
+		return modalKeyHint("↑/↓ move", "Enter detail", "s browse sources", "i manual install", "v validate file", "Esc close")
 	case catalogKindAgentBlueprintDetail:
 		if cb.pendingDeleteBlueprintID == cb.blueprintID && cb.blueprintID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc back")
