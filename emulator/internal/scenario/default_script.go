@@ -59,6 +59,7 @@ var defaultFinalVariants = []string{
 //   - "redacted semantic demo"                 → semantic-only tool lifecycle with redacted args
 //   - "workflow state semantic demo"            → semantic delegation event with typed workflow_state
 //   - "workflow blocker semantic demo"          → semantic delegation event with a compact blocker contract
+//   - "provider failure semantic demo"          → semantic LLM request failure with provider fallback details
 func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) {
 	userMsg, err := e.store.GetMessage(userMsgID)
 	if err != nil {
@@ -78,6 +79,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	wantsRedactedSemantic := containsAny(userText, "redacted semantic demo")
 	wantsWorkflowStateSemantic := containsAny(userText, "workflow state semantic demo")
 	wantsWorkflowBlockerSemantic := containsAny(userText, "workflow blocker semantic demo")
+	wantsProviderFailureSemantic := containsAny(userText, "provider failure semantic demo")
 	// CLIO-BBBBBBBBBB3: v0.2 routing demo — triggers the script that
 	// emits a routing_decision part + session.agent_routed event.
 	wantsRouting := containsAny(userText,
@@ -133,6 +135,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 	if wantsWorkflowBlockerSemantic {
 		runWorkflowBlockerSemanticScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsProviderFailureSemantic {
+		runProviderFailureSemanticScript(ctx, e, sessionID, userMsg)
 		return
 	}
 	if wantsRouting {

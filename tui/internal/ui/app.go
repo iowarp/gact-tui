@@ -9113,9 +9113,9 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 	switch {
 	case strings.HasPrefix(eventType, "hook.invocation."):
 		return gact.Part{}, false
-	case strings.HasPrefix(eventType, "llm.request."):
+	case strings.HasPrefix(eventType, "llm.request.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
-	case strings.HasPrefix(eventType, "turn.") && status != "failed":
+	case strings.HasPrefix(eventType, "turn.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
 	case eventType == "blueprint.delegation.parent_resumed":
 		return gact.Part{}, false
@@ -9131,7 +9131,7 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 			Text:     summary,
 			Metadata: metadata,
 		}, true
-	case status == "failed" || status == "error" || strings.Contains(eventType, ".failed") || strings.Contains(eventType, ".degraded"):
+	case semanticEventIsFailure(eventType, status):
 		return gact.Part{
 			Type:        gact.PartTypeError,
 			Code:        eventType,
@@ -9142,6 +9142,14 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 	default:
 		return gact.Part{}, false
 	}
+}
+
+func semanticEventIsFailure(eventType, status string) bool {
+	status = strings.ToLower(strings.TrimSpace(status))
+	return status == "failed" ||
+		status == "error" ||
+		strings.Contains(eventType, ".failed") ||
+		strings.Contains(eventType, ".degraded")
 }
 
 func semanticWorkflowMetadata(payload map[string]any, eventType string) map[string]any {
@@ -9326,6 +9334,7 @@ func semanticSummaryIsGenericFailure(summary string) bool {
 	normalized = strings.Trim(normalized, " .")
 	return normalized == "turn failed" ||
 		strings.HasPrefix(normalized, "turn failed:") ||
+		strings.HasPrefix(normalized, "llm request failed") ||
 		strings.HasPrefix(normalized, "clio turn failed:") ||
 		strings.HasPrefix(normalized, "provider error")
 }

@@ -467,6 +467,42 @@ func TestWorkflowBlockerSemanticScriptProducesDelegationBlocker(t *testing.T) {
 	}
 }
 
+func TestProviderFailureSemanticScriptProducesLLMRequestFailure(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("provider failure semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, "failed") {
+		got = append(got, event)
+	}
+	sawFailureEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		if payload["event_type"] != "llm.request.failed" {
+			continue
+		}
+		provider, _ := payload["provider"].(map[string]any)
+		if provider["provider_id"] == "argonne_sophia" {
+			sawFailureEvent = true
+			break
+		}
+	}
+	if !sawFailureEvent {
+		t.Fatalf("semantic provider failure fixture did not emit LLM request failure event: %#v", got)
+	}
+}
+
 func TestCancelStopsScript(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	// Use a slow timing so we can interrupt.

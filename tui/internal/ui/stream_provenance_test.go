@@ -1357,6 +1357,98 @@ func TestSemanticProviderFailureEventIsOperatorReadable(t *testing.T) {
 	}
 }
 
+func TestSemanticFailedLLMRequestIsOperatorReadable(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_llm_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "llm.request.failed",
+			"status":         "failed",
+			"summary":        "LLM request failed for main.",
+			"provider": map[string]any{
+				"provider_id": "argonne_sophia",
+				"model_id":    "openai/gpt-oss-120b",
+				"api_base":    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			},
+			"payload": map[string]any{
+				"error_info": map[string]any{
+					"error":   "provider_error",
+					"message": "live streaming failed before emitting output: unhandled errors in a TaskGroup (1 sub-exception)",
+					"metadata": map[string]any{
+						"live_streaming": false,
+						"stream_fallback": map[string]any{
+							"category":    "provider_streaming_error",
+							"description": "The live provider stream failed before emitting user-visible output.",
+						},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic LLM failure = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError || part.Code != "llm.request.failed" {
+		t.Fatalf("LLM failure should render as error: %#v", part)
+	}
+	for _, want := range []string{
+		"Provider error:",
+		"before visible output",
+		"argonne_sophia",
+		"openai/gpt-oss-120b",
+	} {
+		if !strings.Contains(part.Message, want) {
+			t.Fatalf("LLM failure message missing %q:\n%s", want, part.Message)
+		}
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"event: llm.request.failed",
+		"failure: Provider error:",
+		"fallback: provider_streaming_error: The live provider stream failed before emitting user-visible output.",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("LLM failure detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
+func TestSemanticLLMRequestProgressStaysOutOfDefaultTimeline(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_llm_started",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "llm.request.started",
+			"status":         "running",
+			"summary":        "LLM request started for main.",
+			"provider":       map[string]any{"provider_id": "argonne_sophia", "model_id": "openai/gpt-oss-120b"},
+		}},
+	})
+
+	if len(a.messages) != 0 {
+		t.Fatalf("non-failed LLM request should remain detail/debug noise, got %#v", a.messages)
+	}
+}
+
 func TestSemanticEventDetailRedactedToolInputStaysOperatorReadable(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
