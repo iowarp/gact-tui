@@ -331,6 +331,22 @@ mouse dispatcher and shared modal primitives. Remaining gaps are now narrower:
 true range/text selection and continued visual polish for wrapping/button
 alignment as new surfaces are added.
 
+### Current Gap Tracking
+
+- True text/range selection across transcript blocks, text-entry fields, compose,
+  and detail views is tracked by #150. Existing scoped copy actions cover
+  selected transcript blocks, full transcript copy, detail payload copy, context
+  copy, and paste-placeholder expansion.
+- Live breadth for large mixed tools/MCP/source catalogs and registry-backed
+  install/remove success paths is tracked by #152. Deterministic catalog
+  density, hierarchy, wrapping, empty, unavailable, reconnect, and failure states
+  are covered in `visual_loop/COVERAGE.md`.
+- Live prompt save and expert-pack lifecycle success proof is tracked by #153.
+- Real provider failure/recovery and retry-override evidence is tracked by #154.
+- Future-only affordances such as a send button, clickable `@` chips, raw path
+  links, or draggable scroll thumbs are not counted as current blockers until
+  the corresponding controls exist in the UI.
+
 ## Base UI Surfaces
 
 ### Sidebar
