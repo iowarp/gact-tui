@@ -616,12 +616,12 @@ func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	for _, want := range []string{"analysis returned a compact result to main", "next: visualization - plot SAC traces", ".../clio-seismic-staging/earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.sac"} {
+	for _, want := range []string{"analysis returned to main", "next: visualization - plot SAC traces"} {
 		if !strings.Contains(part.Text, want) {
 			t.Fatalf("next-action delegation summary missing %q: %#v", want, part)
 		}
 	}
-	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE"} {
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE", "clio-seismic-staging"} {
 		if strings.Contains(part.Text, unwanted) {
 			t.Fatalf("delegation leaked control contract %q: %#v", unwanted, part)
 		}
@@ -1029,21 +1029,77 @@ func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
 	for _, want := range []string{
 		"Operator view",
-		"result: analysis returned a compact result to main · next: visualization - plot SAC traces /workspace/tmp/earthscope_CI_BAR.sac",
+		"result: analysis returned to main · next: visualization - plot SAC traces",
 		"Event summary",
-		"what happened: analysis returned a compact result to main · next: visualization - plot SAC traces /workspace/tmp/earthscope_CI_BAR.sac",
+		"what happened: analysis returned to main · next: visualization - plot SAC traces",
 	} {
 		if !strings.Contains(ref.fullText, want) {
 			t.Fatalf("semantic detail missing readable intent %q:\n%s", want, ref.fullText)
 		}
 	}
-	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE"} {
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE", "/workspace/tmp/earthscope_CI_BAR.sac"} {
 		if strings.Contains(ref.fullText, unwanted) {
 			t.Fatalf("semantic detail leaked control contract %q:\n%s", unwanted, ref.fullText)
 		}
 	}
 	if strings.Contains(ref.fullText, "tool: Tool") {
 		t.Fatalf("semantic delegation detail should not invent a generic tool row:\n%s", ref.fullText)
+	}
+}
+
+func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_completed_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /tmp/clio-seismic-staging/trace.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 20353,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic delegation message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeExpertHandoff {
+		t.Fatalf("delegation should render as expert handoff: %#v", part)
+	}
+	for _, want := range []string{
+		"analysis returned to main",
+		"next: visualization - plot SAC traces",
+	} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("operator summary missing %q:\n%s", want, part.Text)
+		}
+	}
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "DO_NOT_FINALIZE", "/tmp/clio-seismic-staging"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("operator summary leaked plumbing %q:\n%s", unwanted, part.Text)
+		}
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalizedOut := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{"main -> analysis", "returned", "20353ms", "next: visualization", "plot SAC traces"} {
+		if !strings.Contains(normalizedOut, want) {
+			t.Fatalf("rendered timeline missing %q:\n%s", want, out)
+		}
 	}
 }
 

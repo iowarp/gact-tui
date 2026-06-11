@@ -9306,6 +9306,8 @@ func semanticSummaryIsPlumbing(summary, eventType string) bool {
 	}
 	return strings.HasPrefix(normalized, "invoking ") ||
 		strings.Contains(normalized, " delegated sync work to ") ||
+		strings.Contains(normalized, " returned a compact result to ") ||
+		strings.Contains(normalized, " returned compact result to ") ||
 		strings.Contains(normalized, "delegate.started") ||
 		strings.Contains(normalized, "delegate.completed") ||
 		strings.Contains(normalized, "parent.resumed")
@@ -9462,6 +9464,10 @@ func normalizeSemanticControlValue(text string, limit int) string {
 		}
 	}
 	parts := strings.Fields(text)
+	if len(parts) > 1 && strings.Contains(parts[0], "_") && semanticControlArgIsPath(parts[1]) {
+		parts = parts[:1]
+		text = strings.Join(parts, " ")
+	}
 	if len(parts) > 0 && strings.Contains(parts[0], "_") && !strings.Contains(parts[0], "/") {
 		parts[0] = strings.ReplaceAll(parts[0], "_", " ")
 		text = strings.Join(parts, " ")
@@ -9486,6 +9492,15 @@ func normalizeSemanticControlValue(text string, limit int) string {
 		limit = 120
 	}
 	return truncateString(text, limit)
+}
+
+func semanticControlArgIsPath(text string) bool {
+	text = strings.TrimSpace(text)
+	return strings.HasPrefix(text, "/") ||
+		strings.HasPrefix(text, "~/") ||
+		strings.HasPrefix(text, "./") ||
+		strings.HasPrefix(text, "../") ||
+		strings.Contains(text, "://")
 }
 
 func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
