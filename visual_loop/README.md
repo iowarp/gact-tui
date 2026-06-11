@@ -80,6 +80,21 @@ The script writes `live_clio_doctor_partial_gaps.png`,
 `visual_loop/screenshots/`. The metrics proof is only valid when the supplied
 session is actively streaming during capture.
 
+For the live runtime catalog backlog (#152), capture `/tools`, `/mcp`, and
+Agent Blueprint marketplace-source breadth from an owned CLIO backend:
+
+```bash
+CLIO_RUNTIME_CATALOG_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_runtime_catalogs_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <SESSION_ID>
+```
+
+The script writes live runtime catalog screenshots plus
+`live_clio_runtime_catalogs_manifest.json`. It does not perform install/remove
+operations; use it after running registry-backed lifecycle operations on the
+owned backend when those success paths are being preserved.
+
 ## Current State
 
 - Repository: `https://github.com/iowarp/gact-tui`
