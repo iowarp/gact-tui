@@ -19,7 +19,7 @@ Wait+Screen /Agent Blueprints/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_active_marker_catalog.png"
 
-Down
+Down 2
 Enter
 Wait+Screen /Agent Blueprint/
 Sleep 500ms

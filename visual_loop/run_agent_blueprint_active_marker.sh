@@ -9,6 +9,7 @@ log="${TMPDIR:-/tmp}/gact-agent-blueprint-active-marker.log"
 .tools/emulator-server \
   -port "$port" \
   -timing fast \
+  -long-agent-blueprints \
   -seed-sessions ws_default=4 \
   -seed-messages "${session_id}=1" >"$log" 2>&1 &
 srv=$!
@@ -30,7 +31,7 @@ done
 
 curl -fsS \
   -H 'Content-Type: application/json' \
-  -d '{"blueprint_id":"seismic-market"}' \
+  -d '{"blueprint_id":"san-diego-earthscope-and-ndp-live-benchmark-review-with-very-long-name"}' \
   "${backend}/v1/sessions/${session_id}/agent-blueprint" >/dev/null
 
 env GACT_ATTACH_SESSION_ID="$session_id" ./tui/gact --backend "$backend" --no-intro &

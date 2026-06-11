@@ -5532,7 +5532,7 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 	if a.sessionSidebarSummaryText(sessionIndex) != "" {
 		rows++
 	}
-	if a.sessionSidebarActivationText(sessionIndex) != "" {
+	if a.sessionSidebarActiveBlueprintID(sessionIndex) != "" {
 		rows++
 	}
 	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
@@ -5552,7 +5552,7 @@ func (a *App) sessionSidebarSummaryText(sessionIndex int) string {
 	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
 }
 
-func (a *App) sessionSidebarActivationText(sessionIndex int) string {
+func (a *App) sessionSidebarActiveBlueprintID(sessionIndex int) string {
 	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
 		return ""
 	}
@@ -5568,7 +5568,17 @@ func (a *App) sessionSidebarActivationText(sessionIndex int) string {
 	if blueprintID == "" {
 		return ""
 	}
-	return "◆ " + blueprintID
+	return blueprintID
+}
+
+func (a *App) sessionSidebarActivationText(sessionIndex int, budget int) string {
+	blueprintID := a.sessionSidebarActiveBlueprintID(sessionIndex)
+	if blueprintID == "" {
+		return ""
+	}
+	meta := mapValue(a.sessions[sessionIndex].Metadata)
+	scope := stringValue(meta["active_agent_blueprint_scope"])
+	return activeAgentBlueprintIndicator(blueprintID, scope, budget)
 }
 
 func (a *App) activeAgentBlueprintID() string {
@@ -11466,7 +11476,7 @@ func (a *App) renderSidebar(width, height int) string {
 				a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
 			}
-			if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+			if activation := a.sessionSidebarActivationText(sIdx, statusBudget); activation != "" {
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(activation, statusBudget)))
 			}
 			if !a.showChildSessions {
@@ -11726,7 +11736,7 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 			a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
 		}
-		if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+		if activation := a.sessionSidebarActivationText(sIdx, width-8); activation != "" {
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(activation, width-8)))
 		}
 	}
