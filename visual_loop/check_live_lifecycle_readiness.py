@@ -165,10 +165,18 @@ LIVE_EVIDENCE: tuple[Evidence, ...] = (
             "expert_pack_install_success",
             "expert_pack_update_success",
             "expert_pack_delete_success",
+            "prompt_save_screenshot",
+            "expert_pack_install_screenshot",
+            "expert_pack_update_screenshot",
+            "expert_pack_delete_screenshot",
         ),
         manifest_artifacts=(
             ("prompt_catalog", "visual_loop/screenshots/live_clio_prompt_catalog.png"),
+            ("prompt_save_screenshot", "visual_loop/screenshots/live_clio_prompt_save_success.png"),
             ("expert_pack_catalog", "visual_loop/screenshots/live_clio_expert_pack_catalog.png"),
+            ("expert_pack_install_screenshot", "visual_loop/screenshots/live_clio_expert_pack_install_success.png"),
+            ("expert_pack_update_screenshot", "visual_loop/screenshots/live_clio_expert_pack_update_success.png"),
+            ("expert_pack_delete_screenshot", "visual_loop/screenshots/live_clio_expert_pack_delete_success.png"),
         ),
     ),
 )

@@ -68,3 +68,7 @@
   - `expert_pack_install_success`
   - `expert_pack_update_success`
   - `expert_pack_delete_success`
+  - `prompt_save_screenshot`
+  - `expert_pack_install_screenshot`
+  - `expert_pack_update_screenshot`
+  - `expert_pack_delete_screenshot`

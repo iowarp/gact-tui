@@ -175,7 +175,11 @@ and workspace prepared for this proof. The readiness checker requires
 `mutation_consent: true`, boolean lifecycle success flags, and valid PNG
 screenshots. Screenshot paths are tracked by artifact name; success manifest
 fields such as `prompt_save_success` and `expert_pack_delete_success` must be
-actual JSON `true` values, not placeholder strings.
+actual JSON `true` values, not placeholder strings. The manifest must also
+reference the exact prompt save, expert-pack install, update, and delete success
+screenshots through `prompt_save_screenshot`,
+`expert_pack_install_screenshot`, `expert_pack_update_screenshot`, and
+`expert_pack_delete_screenshot`.
 
 ## Current State
 

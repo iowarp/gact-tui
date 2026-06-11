@@ -261,10 +261,14 @@ pathlib.Path(manifest).write_text(
             "expert_pack_down_count": int(down_count),
             "prompt_catalog": f"{out_dir}/live_clio_prompt_catalog.png",
             "prompt_save_success": True,
+            "prompt_save_screenshot": f"{out_dir}/live_clio_prompt_save_success.png",
             "expert_pack_catalog": f"{out_dir}/live_clio_expert_pack_catalog.png",
             "expert_pack_install_success": True,
+            "expert_pack_install_screenshot": f"{out_dir}/live_clio_expert_pack_install_success.png",
             "expert_pack_update_success": True,
+            "expert_pack_update_screenshot": f"{out_dir}/live_clio_expert_pack_update_success.png",
             "expert_pack_delete_success": True,
+            "expert_pack_delete_screenshot": f"{out_dir}/live_clio_expert_pack_delete_success.png",
             "note": (
                 "Captured against caller-affirmed isolated CLIO backend with "
                 "explicit mutation consent. The script saves a prompt override "
