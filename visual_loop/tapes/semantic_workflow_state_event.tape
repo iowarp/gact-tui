@@ -14,6 +14,7 @@ Wait+Screen /analysis returned/
 Wait+Screen /next: visualization/
 Wait+Screen /acquisition staged/
 Wait+Screen /artifact/
+Wait+Screen /npts: 12000/
 Screenshot "visual_loop/screenshots/semantic_workflow_state_event_inline.png"
 Tab
 Sleep 200ms

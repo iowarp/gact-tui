@@ -334,6 +334,89 @@ func TestApplySemanticToolCompletionUsesOperationalFallback(t *testing.T) {
 	}
 }
 
+func TestApplySemanticToolCompletionSummarizesDirectPayloadEvidence(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_stats",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "Tool sac_compute_trace_statistics completed.",
+			"payload": map[string]any{
+				"tool":        "sac_compute_trace_statistics",
+				"call_id":     "call_stats",
+				"ok":          true,
+				"duration_ms": 18.0,
+				"filepath":    "/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_CI_BAR.sac",
+				"npts":        12000,
+				"min":         -0.14,
+				"max":         0.19,
+				"mean":        0.003,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic tool message = %#v", a.messages)
+	}
+	text := flattenToolResult(a.messages[0].Parts[0])
+	for _, want := range []string{"sac result:", "npts: 12000", "min: -0.14", "max: 0.19", "mean: 0.003", "earthscope_CI_BAR.sac"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("direct semantic payload summary missing %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"Tool sac_compute_trace_statistics completed", "args:"} {
+		if strings.Contains(text, unwanted) {
+			t.Fatalf("direct semantic payload summary kept generic/noisy text %q:\n%s", unwanted, text)
+		}
+	}
+}
+
+func TestApplySemanticToolCompletionSummarizesDirectArtifactEvidence(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_plot",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "sac_plot_traces completed",
+			"payload": map[string]any{
+				"tool":           "sac_plot_traces",
+				"call_id":        "call_plot",
+				"ok":             true,
+				"duration_ms":    5.0,
+				"artifact_path":  "/home/jcernuda/DemoBench/sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+				"traces_plotted": 3,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic tool message = %#v", a.messages)
+	}
+	text := flattenToolResult(a.messages[0].Parts[0])
+	for _, want := range []string{"sac result:", "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png", "traces_plotted: 3"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("direct artifact payload summary missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "sac_plot_traces completed") {
+		t.Fatalf("direct artifact payload summary kept generic completion:\n%s", text)
+	}
+}
+
 func TestApplySemanticToolStartedHidesRedactedArgsInline(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
@@ -628,7 +711,7 @@ func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
 	}
 }
 
-func TestApplySemanticEventDropsAdjacentDuplicateWorkflowRows(t *testing.T) {
+func TestApplySemanticEventDropsDuplicateWorkflowRowsAcrossToolUpdates(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
@@ -657,6 +740,22 @@ func TestApplySemanticEventDropsAdjacentDuplicateWorkflowRows(t *testing.T) {
 	}
 
 	a.applySSE(event("delegate_done_1", "analysis returned a compact result to main."))
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_stats",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "Tool sac_compute_trace_statistics completed.",
+			"payload": map[string]any{
+				"tool":    "sac_compute_trace_statistics",
+				"call_id": "call_stats",
+				"npts":    12000,
+			},
+		}},
+	})
 	a.applySSE(event("delegate_done_2", "analysis returned a compact result to main."))
 	a.applySSE(event("delegate_next_1", "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces"))
 
@@ -664,16 +763,19 @@ func TestApplySemanticEventDropsAdjacentDuplicateWorkflowRows(t *testing.T) {
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	parts := a.messages[0].Parts
-	if len(parts) != 2 {
+	if len(parts) != 3 {
 		t.Fatalf("duplicate semantic workflow row should be collapsed, got %d parts: %#v", len(parts), parts)
 	}
 	if parts[0].Text != "analysis returned to main." {
 		t.Fatalf("first workflow row = %#v", parts[0])
 	}
-	if !strings.Contains(parts[1].Text, "next: visualization - plot SAC traces") {
-		t.Fatalf("distinct workflow step should still render: %#v", parts[1])
+	if parts[1].Type != gact.PartTypeToolResult || !strings.Contains(flattenToolResult(parts[1]), "npts: 12000") {
+		t.Fatalf("interleaved tool result should still render: %#v", parts[1])
 	}
-	if parts[0].Metadata["semantic_duplicate_key"] == "" || parts[1].Metadata["semantic_duplicate_key"] == "" {
+	if !strings.Contains(parts[2].Text, "next: visualization - plot SAC traces") {
+		t.Fatalf("distinct workflow step should still render: %#v", parts[2])
+	}
+	if parts[0].Metadata["semantic_duplicate_key"] == "" || parts[2].Metadata["semantic_duplicate_key"] == "" {
 		t.Fatalf("semantic duplicate keys should be recorded for workflow rows: %#v", parts)
 	}
 }

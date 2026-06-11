@@ -8586,7 +8586,7 @@ func (a *App) applySemanticEvent(e client.SSEEvent) {
 	part.Metadata["stream_source"] = "semantic_event"
 	part.Metadata["raw_event"] = pl
 	if duplicateKey := semanticEventDuplicateKey(pl, eventType, part); duplicateKey != "" {
-		if messageLastSemanticDuplicate(*msg, duplicateKey) {
+		if messageHasSemanticDuplicate(*msg, duplicateKey) {
 			return
 		}
 		part.Metadata["semantic_duplicate_key"] = duplicateKey
@@ -8704,7 +8704,7 @@ func (a *App) applyToolCallCompleted(e client.SSEEvent) {
 
 func semanticToolCompletionSummary(toolName string, summaryText string, toolPayload map[string]any, eventPayload map[string]any, duration float64, hasDuration bool, cached bool, hasCached bool) string {
 	summary := stripSemanticControlContracts(summaryText)
-	if !isGenericToolCompletionSummary(summary) {
+	if !isGenericToolCompletionSummary(summary, toolName) {
 		return summary
 	}
 	resultPayload := firstNonNil(
@@ -8718,6 +8718,12 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 		eventPayload["artifact"],
 	)
 	if text := toolEvidenceResultText(toolName, resultPayload); text != "" {
+		return text
+	}
+	if text := summarizeToolResult(toolName, semanticToolEvidencePayload(toolPayload)); text != "" {
+		return text
+	}
+	if text := summarizeToolResult(toolName, semanticToolEvidencePayload(eventPayload)); text != "" {
 		return text
 	}
 	name := strings.TrimSpace(toolName)
@@ -8735,6 +8741,44 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 		parts = append(parts, truncateString("args: "+args, 120))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func semanticToolEvidencePayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return nil
+	}
+	bookkeeping := map[string]bool{
+		"tool": true, "tool_name": true, "name": true,
+		"call_id": true, "id": true,
+		"ok": true, "cached": true,
+		"duration_ms": true, "telemetry_source": true,
+		"args": true, "args_preview": true,
+		"payload":  true,
+		"event_id": true, "session_id": true, "workspace_id": true,
+		"trace_id": true, "turn_id": true, "span_id": true, "parent_span_id": true,
+		"event_type": true, "detail_level": true, "live_observed": true, "occurred_at": true,
+		"actor": true, "subject": true, "blueprint": true, "provider": true,
+		"schema_version": true, "summary": true,
+	}
+	out := make(map[string]any)
+	for key, value := range payload {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if bookkeeping[normalized] {
+			continue
+		}
+		if normalized == "status" || normalized == "state" {
+			status := strings.ToLower(strings.TrimSpace(stringValue(value)))
+			switch status {
+			case "", "completed", "complete", "success", "ok", "done", "running", "started":
+				continue
+			}
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func semanticInlineArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
@@ -8779,14 +8823,31 @@ func semanticPreviewIsRedacted(text string) bool {
 	}
 }
 
-func isGenericToolCompletionSummary(summary string) bool {
-	summary = strings.ToLower(strings.TrimSpace(summary))
-	switch summary {
+func isGenericToolCompletionSummary(summary string, toolName string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(summary))
+	normalized = strings.Trim(normalized, " .")
+	switch normalized {
 	case "", "completed", "complete", "done", "success", "ok", "tool completed", "tool call completed":
 		return true
-	default:
-		return false
 	}
+	tool := strings.ToLower(strings.TrimSpace(toolName))
+	tool = strings.Trim(tool, " .")
+	if tool != "" {
+		display := strings.ToLower(strings.TrimSpace(toolDisplayName(toolName)))
+		display = strings.Trim(display, " .")
+		for _, candidate := range []string{
+			tool + " completed",
+			"tool " + tool + " completed",
+			display + " completed",
+			"tool " + display + " completed",
+		} {
+			candidate = strings.TrimSpace(candidate)
+			if candidate != "" && normalized == candidate {
+				return true
+			}
+		}
+	}
+	return strings.HasPrefix(normalized, "tool ") && strings.HasSuffix(normalized, " completed")
 }
 
 func semanticToolPayload(payload map[string]any) map[string]any {
@@ -9000,16 +9061,20 @@ func messageHasPartID(msg gact.Message, partID string) bool {
 	return false
 }
 
-func messageLastSemanticDuplicate(msg gact.Message, duplicateKey string) bool {
+func messageHasSemanticDuplicate(msg gact.Message, duplicateKey string) bool {
 	duplicateKey = strings.TrimSpace(duplicateKey)
-	if duplicateKey == "" || len(msg.Parts) == 0 {
+	if duplicateKey == "" {
 		return false
 	}
-	last := msg.Parts[len(msg.Parts)-1]
-	if last.Metadata == nil || last.Metadata["semantic_event"] != true {
-		return false
+	for _, part := range msg.Parts {
+		if part.Metadata == nil || part.Metadata["semantic_event"] != true {
+			continue
+		}
+		if stringValue(part.Metadata["semantic_duplicate_key"]) == duplicateKey {
+			return true
+		}
 	}
-	return stringValue(last.Metadata["semantic_duplicate_key"]) == duplicateKey
+	return false
 }
 
 func semanticEventDuplicateKey(payload map[string]any, eventType string, part gact.Part) string {

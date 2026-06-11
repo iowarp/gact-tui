@@ -74,6 +74,38 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 	e.bus.Publish(events.Event{
 		Type:      "semantic.event",
 		SessionID: sessionID,
+		Payload: map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_workflow_stats",
+			"event_type":     "tool.call.completed",
+			"status":         "completed",
+			"summary":        "Tool sac_compute_trace_statistics completed.",
+			"session_id":     sessionID,
+			"trace_id":       "trace_workflow_state",
+			"turn_id":        "turn_workflow_state",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "analysis", "tool": "sac_compute_trace_statistics"},
+			"subject":        map[string]any{"call_id": "call_workflow_stats", "agent_id": "analysis"},
+			"payload": map[string]any{
+				"tool":        "sac_compute_trace_statistics",
+				"call_id":     "call_workflow_stats",
+				"ok":          true,
+				"duration_ms": 18.0,
+				"filepath":    "/workspace/tmp/earthscope_CI_BAR.sac",
+				"npts":        12000,
+				"min":         -0.14,
+				"max":         0.19,
+				"mean":        0.003,
+			},
+		},
+	})
+	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
+		return
+	}
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
 		Payload:   workflowPayload("sem_workflow_state_duplicate"),
 	})
 	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
