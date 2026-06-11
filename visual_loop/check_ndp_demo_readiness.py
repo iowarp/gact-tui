@@ -88,6 +88,23 @@ REAL_RECORDING_SUFFIX = "short.gif"
 REAL_CAPTURE_SUFFIXES: tuple[str, ...] = (*REAL_STILL_CAPTURE_SUFFIXES, REAL_RECORDING_SUFFIX)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
+REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
+    "case_id",
+    "session_id",
+    "backend",
+    "artifact_name",
+    "session_status",
+    "assistant_message_count",
+    "verified_artifact",
+    "requested_user_input",
+    "provider_streaming_limitation",
+    "live_streaming_false",
+    "turn_cancelled",
+    "completion_timeout",
+    "semantic_event_count",
+    "live_observed_event_count",
+    "streaming_event_types",
+)
 
 
 def artifact_ok_pattern(artifact_name: str) -> re.Pattern[str]:
@@ -168,25 +185,68 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         return {"ok": False, "state": f"invalid json: {exc}", "path": rel, "required": True}
+    missing_fields = [field for field in REQUIRED_MANIFEST_FIELDS if field not in data]
+    case_id_ok = data.get("case_id") == case.case_id
+    artifact_name_ok = data.get("artifact_name") == case.artifact_name
+    session_id_ok = bool(str(data.get("session_id", "")).strip())
+    backend_ok = bool(str(data.get("backend", "")).strip())
+    assistant_message_count = int_value(data.get("assistant_message_count"))
+    semantic_event_count = int_value(data.get("semantic_event_count"))
+    live_observed_event_count = int_value(data.get("live_observed_event_count"))
+    streaming_event_types = data.get("streaming_event_types")
+    streaming_event_types_ok = isinstance(streaming_event_types, list) and any(
+        isinstance(item, str) and item.strip() for item in streaming_event_types
+    )
     verified_artifact = bool(data.get("verified_artifact"))
     requested_user_input = bool(data.get("requested_user_input"))
     provider_streaming_limitation = bool(data.get("provider_streaming_limitation"))
+    live_streaming_false = bool(data.get("live_streaming_false"))
     turn_cancelled = bool(data.get("turn_cancelled"))
     completion_timeout = bool(data.get("completion_timeout"))
     ok = (
-        verified_artifact
+        not missing_fields
+        and case_id_ok
+        and artifact_name_ok
+        and session_id_ok
+        and backend_ok
+        and assistant_message_count > 0
+        and semantic_event_count > 0
+        and live_observed_event_count > 0
+        and streaming_event_types_ok
+        and verified_artifact
         and not requested_user_input
         and not provider_streaming_limitation
+        and not live_streaming_false
         and not turn_cancelled
         and not completion_timeout
     )
     problems: list[str] = []
+    if missing_fields:
+        problems.append("manifest missing required fields: " + ", ".join(missing_fields))
+    if not case_id_ok:
+        problems.append("manifest case_id does not match case")
+    if not artifact_name_ok:
+        problems.append("manifest artifact_name does not match case")
+    if not session_id_ok:
+        problems.append("manifest session_id is empty")
+    if not backend_ok:
+        problems.append("manifest backend is empty")
+    if assistant_message_count <= 0:
+        problems.append("no assistant message observed")
+    if semantic_event_count <= 0:
+        problems.append("no semantic events observed")
+    if live_observed_event_count <= 0:
+        problems.append("no live-observed semantic events observed")
+    if not streaming_event_types_ok:
+        problems.append("streaming_event_types is empty")
     if not verified_artifact:
         problems.append("expected artifact not observed in assistant output")
     if requested_user_input:
         problems.append("assistant requested user input instead of completing the case")
     if provider_streaming_limitation:
         problems.append("provider did not expose live streaming")
+    if live_streaming_false:
+        problems.append("manifest records live_streaming=false")
     if turn_cancelled:
         problems.append("turn was cancelled before completing the case")
     if completion_timeout:
@@ -198,6 +258,21 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         "required": True,
         "data": data,
     }
+
+
+def int_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return 0
+    return 0
 
 
 def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, object]:
@@ -275,6 +350,26 @@ def render_markdown(result: dict[str, object]) -> str:
                 ready="yes" if case["ready_for_real_demo"] else "no",
             )
         )
+    lines.append("")
+    lines.append("## Streaming Manifest Contract")
+    lines.append("")
+    lines.append(
+        "A short GIF is not enough by itself. Each real run must also write a "
+        "manifest proving the recording came from a live TUI session attached "
+        "to an owned CLIO backend."
+    )
+    lines.append("")
+    lines.append("Required manifest fields:")
+    lines.extend(f"- `{field}`" for field in REQUIRED_MANIFEST_FIELDS)
+    lines.append("")
+    lines.append(
+        "A manifest only counts as streaming proof when the case/artifact match, "
+        "an assistant message and expected artifact were observed, at least one "
+        "`semantic_event_count` and one `live_observed_event_count` were recorded, "
+        "`streaming_event_types` is non-empty, and the run did not request user "
+        "input, time out, cancel, or report `provider_streaming_limitation` / "
+        "`live_streaming_false`."
+    )
     lines.append("")
     lines.append("## Real Capture Inventory")
     lines.append("")

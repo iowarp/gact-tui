@@ -302,6 +302,28 @@ while True:
 assistant_text = []
 all_metadata = []
 assistant_errors = []
+semantic_event_types = set()
+semantic_event_count = 0
+live_observed_event_count = 0
+
+def inspect_metadata(metadata):
+    global semantic_event_count, live_observed_event_count
+    if not isinstance(metadata, dict):
+        return
+    raw_event = metadata.get("raw_event")
+    if isinstance(raw_event, dict):
+        event_type = raw_event.get("event_type")
+        if isinstance(event_type, str) and event_type:
+            semantic_event_types.add(event_type)
+        semantic_event_count += 1
+        if raw_event.get("live_observed") is True:
+            live_observed_event_count += 1
+    elif metadata.get("semantic_event") is True:
+        event_type = metadata.get("event_type")
+        if isinstance(event_type, str) and event_type:
+            semantic_event_types.add(event_type)
+        semantic_event_count += 1
+
 for message in messages:
     if message.get("role") == "assistant":
         error_info = message.get("error_info")
@@ -314,9 +336,11 @@ for message in messages:
             metadata = part.get("metadata")
             if isinstance(metadata, dict):
                 all_metadata.append(metadata)
+                inspect_metadata(metadata)
         metadata = message.get("metadata")
         if isinstance(metadata, dict):
             all_metadata.append(metadata)
+            inspect_metadata(metadata)
 
 assistant_blob = "\n".join(assistant_text)
 metadata_blob = json.dumps(all_metadata, sort_keys=True)
@@ -329,6 +353,9 @@ manifest = {
     "artifact_name": artifact_name,
     "session_status": session.get("status", ""),
     "assistant_message_count": sum(1 for message in messages if message.get("role") == "assistant"),
+    "semantic_event_count": semantic_event_count,
+    "live_observed_event_count": live_observed_event_count,
+    "streaming_event_types": sorted(semantic_event_types),
     "verified_artifact": artifact_name in assistant_blob,
     "requested_user_input": "request_user_input" in assistant_blob,
     "provider_streaming_limitation": "provider_streaming_limitation" in metadata_blob,

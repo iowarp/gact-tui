@@ -50,10 +50,24 @@ def write_manifest(root: Path, case: check_ndp_demo_readiness.DemoCase, **overri
     body: dict[str, object] = {
         "case_id": case.case_id,
         "session_id": "sess_demo",
+        "backend": "http://127.0.0.1:17973",
         "artifact_name": case.artifact_name,
+        "session_status": "idle",
+        "assistant_message_count": 1,
+        "semantic_event_count": 6,
+        "live_observed_event_count": 6,
+        "streaming_event_types": [
+            "turn.started",
+            "llm.request.started",
+            "tool.call.started",
+            "tool.call.completed",
+        ],
         "verified_artifact": True,
         "requested_user_input": False,
         "provider_streaming_limitation": False,
+        "live_streaming_false": False,
+        "turn_cancelled": False,
+        "completion_timeout": False,
     }
     body.update(overrides)
     path.write_text(json.dumps(body), encoding="utf-8")
@@ -227,6 +241,32 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertFalse(legacy["real_tui_recording"]["streaming_ok"])
         self.assertFalse(legacy["ready_for_real_demo"])
         self.assertIn("manifest missing; streaming proof not verified", rendered)
+
+    def test_manifest_without_live_semantic_events_is_not_streaming_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "ndp_demo_four_cases.md"
+            seed_report(report)
+            case = check_ndp_demo_readiness.CASES[0]
+            for rel in case.deterministic_artifacts:
+                touch(root, rel)
+            for rel in check_ndp_demo_readiness.real_capture_paths(case):
+                write_real_capture(root, rel)
+            write_manifest(
+                root,
+                case,
+                semantic_event_count=0,
+                live_observed_event_count=0,
+                streaming_event_types=[],
+            )
+
+            result = check_ndp_demo_readiness.check_readiness(root, report)
+            rendered = check_ndp_demo_readiness.render_markdown(result)
+
+        self.assertFalse(result["cases"][0]["real_tui_recording"]["streaming_ok"])
+        self.assertIn("no semantic events observed", rendered)
+        self.assertIn("no live-observed semantic events observed", rendered)
+        self.assertIn("streaming_event_types is empty", rendered)
 
 
 if __name__ == "__main__":

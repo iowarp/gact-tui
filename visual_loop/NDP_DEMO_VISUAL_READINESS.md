@@ -11,6 +11,29 @@
 | California NWS warnings | yes | yes | yes | no | no | no |
 | Fresno CIMIS weather profile and visualization | yes | yes | yes | no | no | no |
 
+## Streaming Manifest Contract
+
+A short GIF is not enough by itself. Each real run must also write a manifest proving the recording came from a live TUI session attached to an owned CLIO backend.
+
+Required manifest fields:
+- `case_id`
+- `session_id`
+- `backend`
+- `artifact_name`
+- `session_status`
+- `assistant_message_count`
+- `verified_artifact`
+- `requested_user_input`
+- `provider_streaming_limitation`
+- `live_streaming_false`
+- `turn_cancelled`
+- `completion_timeout`
+- `semantic_event_count`
+- `live_observed_event_count`
+- `streaming_event_types`
+
+A manifest only counts as streaming proof when the case/artifact match, an assistant message and expected artifact were observed, at least one `semantic_event_count` and one `live_observed_event_count` were recorded, `streaming_event_types` is non-empty, and the run did not request user input, time out, cancel, or report `provider_streaming_limitation` / `live_streaming_false`.
+
 ## Real Capture Inventory
 
 | Case | Still captures | Short GIF | Manifest | Artifact observed | Streaming proof | Session status |
@@ -36,10 +59,10 @@
 - Real TUI recording artifacts missing or invalid:
   - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_short.gif` (missing)
 - Real TUI recording manifest does not prove streaming-ready live demo:
-  - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_manifest.json` (provider did not expose live streaming)
+  - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_manifest.json` (manifest missing required fields: semantic_event_count, live_observed_event_count, streaming_event_types; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)
 
 ## Missing: Fresno CIMIS weather profile and visualization
 - Real TUI recording artifacts missing or invalid:
   - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_short.gif` (missing)
 - Real TUI recording manifest does not prove streaming-ready live demo:
-  - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_manifest.json` (provider did not expose live streaming)
+  - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_manifest.json` (manifest missing required fields: semantic_event_count, live_observed_event_count, streaming_event_types; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)
