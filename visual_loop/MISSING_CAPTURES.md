@@ -7,8 +7,8 @@ changing capture priorities or missing-state rows.
 ## Summary
 
 - source: `visual_loop/COVERAGE.md`
-- deferred captures: `8`
-- priorities: High=3, Medium=4, Low=1
+- deferred captures: `7`
+- priorities: High=3, Medium=4
 
 ## Backlog
 
@@ -46,8 +46,3 @@ changing capture priorities or missing-state rows.
 
 - Missing capture: Real ALCF provider failure/recovery and retry override warning
 - Why it matters: Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; the Theme tab now exposes import/export in-view with visual proof
-
-### Low - Narrow and compact modals
-
-- Missing capture: Mobile/narrow screenshots for metrics, memory, prompts, expert packs, and settings
-- Why it matters: Current narrow coverage hits the most important paths, including palette, blueprints, tools/MCP, permissions, provider setup, details, command help, and keybindings; deeper modal families still need proof that text, footers, and scroll areas remain usable
