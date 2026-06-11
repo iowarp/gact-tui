@@ -26,6 +26,7 @@ class Evidence:
     required_for_demo: bool = True
     manifest: str | None = None
     required_manifest_keys: tuple[str, ...] = ()
+    manifest_artifacts: tuple[tuple[str, str], ...] = ()
 
 
 EVIDENCE: tuple[Evidence, ...] = (
@@ -83,6 +84,9 @@ EVIDENCE: tuple[Evidence, ...] = (
             "capabilities_gap_count",
             "health_status",
         ),
+        manifest_artifacts=(
+            ("doctor_screenshot", "visual_loop/screenshots/live_clio_doctor_partial_gaps.png"),
+        ),
     ),
     Evidence(
         area="Metrics",
@@ -101,6 +105,9 @@ EVIDENCE: tuple[Evidence, ...] = (
             "active_stream_metrics",
             "metrics_active_sessions",
             "metrics_sample_count",
+        ),
+        manifest_artifacts=(
+            ("metrics_screenshot", "visual_loop/screenshots/live_clio_metrics_active_stream.png"),
         ),
     ),
 )
@@ -157,10 +164,20 @@ def manifest_status(root: Path, evidence: Evidence) -> dict[str, object]:
     if not isinstance(data, dict):
         return {"ok": False, "state": "manifest is not an object", "missing_keys": list(evidence.required_manifest_keys)}
     missing = [key for key in evidence.required_manifest_keys if not manifest_value_ok(key, data.get(key))]
+    invalid_artifacts = [
+        {
+            "key": key,
+            "expected": expected,
+            "actual": str(data.get(key, "")).strip(),
+        }
+        for key, expected in evidence.manifest_artifacts
+        if key not in missing and str(data.get(key, "")).strip() != expected
+    ]
     return {
-        "ok": not missing,
+        "ok": not missing and not invalid_artifacts,
         "state": "present",
         "missing_keys": missing,
+        "invalid_artifacts": invalid_artifacts,
         "keys": sorted(data.keys()),
     }
 
@@ -248,6 +265,13 @@ def render_markdown(result: dict[str, object]) -> str:
                 lines.append("- Missing or false manifest keys:")
                 for key in missing_keys:
                     lines.append(f"  - `{key}`")
+            invalid_artifacts = manifest.get("invalid_artifacts", [])
+            if invalid_artifacts:
+                lines.append("- Invalid manifest artifact references:")
+                for item in invalid_artifacts:
+                    lines.append(
+                        f"  - `{item['key']}` expected `{item['expected']}` got `{item['actual']}`"
+                    )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 

@@ -169,6 +169,44 @@ class ProviderRecoveryReadinessTest(unittest.TestCase):
         self.assertIn("provider_failure_observed", report)
         self.assertIn("provider_recovery_observed", report)
 
+    def test_live_provider_manifest_must_reference_tracked_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            for rel in check_provider_recovery_readiness.LIVE_EVIDENCE.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_provider_recovery_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "failure_session_id": "sess_failed",
+                    "recovery_session_id": "sess_recovered",
+                    "retry_model": "argonne/openai/gpt-oss-120b",
+                    "provider_failure_observed": True,
+                    "retry_override_warning_observed": True,
+                    "provider_recovery_observed": True,
+                    "provider_failure_inline": "visual_loop/screenshots/old_provider_failure_inline.png",
+                    "provider_failure_detail": "visual_loop/screenshots/live_clio_provider_failure_detail.png",
+                    "retry_override_warning": "visual_loop/screenshots/live_clio_provider_retry_override_warning.png",
+                    "provider_recovery_conversation": "visual_loop/screenshots/live_clio_provider_recovery_conversation.png",
+                    "provider_recovery_setup": "visual_loop/screenshots/live_clio_provider_recovery_setup.png",
+                },
+            )
+
+            result = check_provider_recovery_readiness.check_readiness(root)
+            report = check_provider_recovery_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("provider_failure_inline", report)
+        self.assertIn("visual_loop/screenshots/live_clio_provider_failure_inline.png", report)
+        self.assertIn("visual_loop/screenshots/old_provider_failure_inline.png", report)
+
     def test_all_live_provider_recovery_evidence_can_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

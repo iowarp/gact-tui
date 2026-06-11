@@ -143,6 +143,31 @@ class DiagnosticsReadinessTest(unittest.TestCase):
         self.assertIn("metrics_active_sessions", report)
         self.assertIn("metrics_sample_count", report)
 
+    def test_live_manifest_must_reference_tracked_diagnostic_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(root, "visual_loop/screenshots/live_clio_doctor_partial_gaps.png")
+            write_artifact(root, "visual_loop/screenshots/live_clio_metrics_active_stream.png")
+            write_live_manifest(
+                root,
+                doctor_screenshot="visual_loop/screenshots/old_doctor_partial_gaps.png",
+                metrics_screenshot="visual_loop/screenshots/old_metrics_active_stream.png",
+            )
+
+            result = check_diagnostics_readiness.check_readiness(root)
+            report = check_diagnostics_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("doctor_screenshot", report)
+        self.assertIn("visual_loop/screenshots/live_clio_doctor_partial_gaps.png", report)
+        self.assertIn("visual_loop/screenshots/old_doctor_partial_gaps.png", report)
+        self.assertIn("metrics_screenshot", report)
+        self.assertIn("visual_loop/screenshots/live_clio_metrics_active_stream.png", report)
+        self.assertIn("visual_loop/screenshots/old_metrics_active_stream.png", report)
+
     def test_placeholder_diagnostics_pngs_do_not_satisfy_required_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
