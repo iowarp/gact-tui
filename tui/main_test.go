@@ -88,6 +88,47 @@ func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
 	}
 }
 
+func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	t.Setenv("GACT_CLIO_GACT_BIN", exe)
+
+	var out bytes.Buffer
+	diagWriteInstallProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"binary_path:",
+		"clio_gact: " + exe,
+		"clio_gact_status: matches running binary",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("install probe missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestDiagInstallProbeReportsStaleClioBinary(t *testing.T) {
+	stale := filepath.Join(t.TempDir(), "gact")
+	if err := os.WriteFile(stale, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write stale binary: %v", err)
+	}
+	t.Setenv("GACT_CLIO_GACT_BIN", stale)
+
+	var out bytes.Buffer
+	diagWriteInstallProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"clio_gact: " + stale,
+		"clio_gact_status: stale (does not match running binary)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("install probe missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func startEmulator(t *testing.T) (string, func()) {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
