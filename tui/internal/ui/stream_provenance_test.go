@@ -1516,6 +1516,88 @@ func TestSemanticLLMRequestProgressStaysOutOfDefaultTimeline(t *testing.T) {
 	}
 }
 
+func TestSemanticHookProgressHiddenButFailuresSurface(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_started",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "hook.invocation.started",
+			"status":         "running",
+			"summary":        "pre_message hook dispatch started.",
+			"actor":          map[string]any{"hook": "pre_message"},
+		}},
+	})
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_completed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "hook.invocation.completed",
+			"status":         "completed",
+			"summary":        "pre_message hook dispatch completed.",
+			"actor":          map[string]any{"hook": "pre_message"},
+		}},
+	})
+	if len(a.messages) != 0 {
+		t.Fatalf("successful hook lifecycle should remain debug noise, got %#v", a.messages)
+	}
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "hook.invocation.failed",
+			"status":         "failed",
+			"summary":        "pre_message hook dispatch failed.",
+			"actor":          map[string]any{"hook": "pre_message"},
+			"error_info": map[string]any{
+				"error":   "hook_error",
+				"message": "pre_message hook timed out after 30s",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("failed hook event should surface as one timeline error, got %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError || part.Code != "hook.invocation.failed" {
+		t.Fatalf("failed hook should render as semantic error: %#v", part)
+	}
+	if !strings.Contains(part.Message, "pre_message hook timed out after 30s") {
+		t.Fatalf("hook failure message should keep actionable error text:\n%s", part.Message)
+	}
+	if strings.Contains(part.Message, "hook dispatch started") || strings.Contains(part.Message, "hook dispatch completed") {
+		t.Fatalf("hook failure should not include successful lifecycle noise:\n%s", part.Message)
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"Operator view",
+		"failure: Hook error: pre_message hook timed out after 30s.",
+		"Event summary",
+		"event: hook.invocation.failed",
+		"trace: trace_1",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("hook failure detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
 func TestSemanticEventDetailRedactedToolInputStaysOperatorReadable(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

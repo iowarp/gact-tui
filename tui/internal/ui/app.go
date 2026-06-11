@@ -9111,7 +9111,7 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 		return gact.Part{}, false
 	}
 	switch {
-	case strings.HasPrefix(eventType, "hook.invocation."):
+	case strings.HasPrefix(eventType, "hook.invocation.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
 	case strings.HasPrefix(eventType, "llm.request.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
@@ -9316,6 +9316,8 @@ func semanticFailureSummary(payload map[string]any, eventType string) string {
 		label = "Tool error"
 	case "permission_error":
 		label = "Permission error"
+	case "hook_error":
+		label = "Hook error"
 	case "":
 		if strings.HasPrefix(eventType, "turn.") {
 			label = "Turn failed"
@@ -9335,6 +9337,7 @@ func semanticSummaryIsGenericFailure(summary string) bool {
 	return normalized == "turn failed" ||
 		strings.HasPrefix(normalized, "turn failed:") ||
 		strings.HasPrefix(normalized, "llm request failed") ||
+		strings.Contains(normalized, "hook dispatch failed") ||
 		strings.HasPrefix(normalized, "clio turn failed:") ||
 		strings.HasPrefix(normalized, "provider error")
 }
