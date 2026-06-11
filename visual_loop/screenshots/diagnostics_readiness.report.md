@@ -16,7 +16,9 @@
 ## Missing: Doctor - real CLIO doctor partial-capability output
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_doctor_partial_gaps.png` (missing)
+  - `visual_loop/screenshots/live_clio_diagnostics_manifest.json` (missing)
 
 ## Missing: Metrics - live long-running benchmark metrics during active stream
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_metrics_active_stream.png` (missing)
+  - `visual_loop/screenshots/live_clio_diagnostics_manifest.json` (missing)

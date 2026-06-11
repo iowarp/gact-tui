@@ -64,13 +64,19 @@ EVIDENCE: tuple[Evidence, ...] = (
     Evidence(
         area="Doctor",
         title="real CLIO doctor partial-capability output",
-        artifacts=("visual_loop/screenshots/live_clio_doctor_partial_gaps.png",),
+        artifacts=(
+            "visual_loop/screenshots/live_clio_doctor_partial_gaps.png",
+            "visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        ),
         required_for_demo=False,
     ),
     Evidence(
         area="Metrics",
         title="live long-running benchmark metrics during active stream",
-        artifacts=("visual_loop/screenshots/live_clio_metrics_active_stream.png",),
+        artifacts=(
+            "visual_loop/screenshots/live_clio_metrics_active_stream.png",
+            "visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        ),
         required_for_demo=False,
     ),
 )
