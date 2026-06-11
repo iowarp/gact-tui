@@ -126,7 +126,7 @@ required files.
 
 | Area | Missing capture | Why it matters | Priority |
 | --- | --- | --- | --- |
-| Scientific demos | Remaining real NDP demo gap: all four cases have useful real visual recordings, but none has manifest-backed streaming proof under the current standard | Deterministic fixtures prove rendering, and real runs prove artifact-producing operability for all four cases; San Diego/EarthScope and wildfire need capture manifests, while California NWS and Fresno CIMIS need manifests without the streaming limitation flag | High |
+| Scientific demos | Remaining real NDP demo gap: all four cases have preserved real TUI screenshots, but none has the required short GIF plus manifest-backed streaming proof under the current standard | Deterministic fixtures prove rendering, and real runs prove artifact-producing operability for all four cases; all four cases need short GIF recordings, San Diego/EarthScope and wildfire need capture manifests, and California NWS plus Fresno CIMIS need manifests without the streaming limitation flag | High |
 | Diagnostics | Real CLIO doctor output with partial capability gaps and long-running benchmark metrics during active stream | Deterministic fixtures, maintained `gact diag` clipboard/terminal report, and preserved live memory-pressure evidence are covered; operators still need real CLIO doctor partial-gap and active-stream metrics captures | High |
 | Copy and selection | Live terminal permutations for drag copy, native selection, clipboard failures, and detail-modal copy across mouse modes | Deterministic copy success, native-selection toggle, and forced clipboard-failure guidance are covered; live recordings still need to preserve exact platform behavior across terminal/clipboard stacks | High |
 | Agent and blueprint hierarchy | Real marketplace-source lifecycle against current CLIO registry semantics, including successful source install/update/remove and backend registry refresh outcomes | Deterministic tapes now cover large blueprint/agent trees with long names, active markers, nested children, invalid sources, and disabled activation states; real lifecycle proof is still needed for demo operator confidence | Medium |
@@ -159,13 +159,13 @@ required files.
   palette, blueprints, tools/MCP, permissions, provider setup, detail view,
   metrics, memory, prompts, expert packs, and settings.
 - Full four-case NDP demo visual capture under real agent execution.
-  All four cases currently have preserved real TUI recordings and should be kept
-  as operator evidence. Current deterministic fixtures cover all four workflow
-  semantics, and all four real runs prove artifact-producing operability. The
-  demo is not fully ready until every case has manifest-backed streaming proof:
-  San Diego/EarthScope and wildfire need manifests for their preserved
-  recordings, while California NWS warnings and Fresno CIMIS need manifests
-  without the provider streaming limitation flag.
+  All four cases currently have preserved real TUI screenshots and should be
+  kept as operator evidence. Current deterministic fixtures cover all four
+  workflow semantics, and all four real runs prove artifact-producing
+  operability. The demo is not fully ready until every case has the required
+  short GIF recording and manifest-backed streaming proof: San Diego/EarthScope
+  and wildfire need manifests, while California NWS warnings and Fresno CIMIS
+  need manifests without the provider streaming limitation flag.
   Run `python3 visual_loop/check_ndp_demo_readiness.py --root .` to audit the
   per-case distinction between CLIO artifact proof, deterministic TUI proof,
   and real TUI recordings. Use `--strict` only once all four real recordings

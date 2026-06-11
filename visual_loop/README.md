@@ -452,11 +452,12 @@ checker reports CLIO artifact proof, deterministic TUI proof, and valid real TUI
 recordings independently so deterministic fixtures or placeholder files cannot
 be mistaken for the actual demo video/GIF evidence.
 
-Current preserved real TUI recordings cover all four NDP cases and are useful
-operator evidence. They are not yet release-ready streaming proof under the
-current manifest standard: San Diego/EarthScope and wildfire have recordings
-without manifests, while California NWS warnings and Fresno CIMIS have
-artifact-producing manifests that still record provider streaming limitations.
+Current preserved real TUI screenshots cover all four NDP cases and are useful
+operator evidence. They are not yet release-ready video/GIF or streaming proof
+under the current manifest standard: all four cases need short GIF recordings,
+San Diego/EarthScope and wildfire need manifests, while California NWS warnings
+and Fresno CIMIS have artifact-producing manifests that still record provider
+streaming limitations.
 
 Use the guarded capture helper for the remaining live recordings. It never
 starts, stops, or reconfigures CLIO; point it only at an isolated backend that
@@ -544,9 +545,10 @@ Windows issue to avoid:
 ## Suggested Next Tasks
 
 1. Close the remaining four-case NDP demo proof gaps under live TUI execution:
-   add manifests for the preserved San Diego/EarthScope and wildfire recordings,
-   and rerun California NWS warnings and Fresno CIMIS until their manifests no
-   longer record provider streaming limitations. Use
+   capture the required short GIFs for all four cases, add manifests for the
+   preserved San Diego/EarthScope and wildfire runs, and rerun California NWS
+   warnings and Fresno CIMIS until their manifests no longer record provider
+   streaming limitations. Use
    `python3 visual_loop/check_ndp_demo_readiness.py --root .` to verify the
    exact missing or invalid manifest-backed streaming proof.
 2. Continue the slash-command/operator-surface audit from `COVERAGE.md`, filling

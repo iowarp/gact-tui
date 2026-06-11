@@ -24,8 +24,8 @@ changing capture priorities or missing-state rows.
 
 ### High - Scientific demos
 
-- Missing capture: Remaining real NDP demo gap: all four cases have useful real visual recordings, but none has manifest-backed streaming proof under the current standard
-- Why it matters: Deterministic fixtures prove rendering, and real runs prove artifact-producing operability for all four cases; San Diego/EarthScope and wildfire need capture manifests, while California NWS and Fresno CIMIS need manifests without the streaming limitation flag
+- Missing capture: Remaining real NDP demo gap: all four cases have preserved real TUI screenshots, but none has the required short GIF plus manifest-backed streaming proof under the current standard
+- Why it matters: Deterministic fixtures prove rendering, and real runs prove artifact-producing operability for all four cases; all four cases need short GIF recordings, San Diego/EarthScope and wildfire need capture manifests, and California NWS plus Fresno CIMIS need manifests without the streaming limitation flag
 
 ### Medium - Agent and blueprint hierarchy
 
