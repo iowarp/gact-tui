@@ -35,12 +35,12 @@ changing capture priorities or missing-state rows.
 ### Medium - Prompts and expert packs
 
 - Missing capture: Successful provider-specific prompt save against a live backend, empty active-blueprint state with a non-empty prompt registry, and successful expert-pack install/update/delete against a real source (#153)
-- Why it matters: These surfaces decide what CLIO will run; deterministic tapes now cover packaged blueprint prompt variants, scoped session overrides, provider-specific edit failure, validation errors, empty prompt registry, and expert-pack failure/lifecycle structure; real success paths still need proof
+- Why it matters: These surfaces decide what CLIO will run; deterministic tapes now cover packaged blueprint prompt variants, scoped session overrides, provider-specific edit failure, validation errors, empty prompt registry, and expert-pack failure/lifecycle structure; `check_live_lifecycle_readiness.py` keeps real prompt/expert-pack lifecycle success deferred until owned-backend captures exist
 
 ### Medium - Runtime catalogs
 
 - Missing capture: Large live mixed tools/MCP/source catalog, registry-backed MCP install/remove, and successful lifecycle outcomes across source types (#152)
-- Why it matters: Representative unified catalog states now cover built-in, recipe, MCP, disconnected/repair-needed, unavailable, empty, reconnect-failure, and detail variants; operators still need live registry-backed breadth and success-path proof
+- Why it matters: Representative unified catalog states now cover built-in, recipe, MCP, disconnected/repair-needed, unavailable, empty, reconnect-failure, and detail variants; `check_live_lifecycle_readiness.py` now separates live catalog breadth from real registry-backed MCP/source lifecycle success, both of which still need owned-backend proof
 
 ### Medium - Settings and provider setup
 

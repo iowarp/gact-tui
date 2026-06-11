@@ -1,0 +1,142 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+import check_live_lifecycle_readiness
+
+
+def write_artifact(root: Path, rel: str, text: str = "artifact") -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def write_manifest(root: Path, rel: str, data: dict[str, object]) -> None:
+    write_artifact(root, rel, json.dumps(data))
+
+
+class LiveLifecycleReadinessTest(unittest.TestCase):
+    def seed_required(self, root: Path) -> None:
+        for evidence in check_live_lifecycle_readiness.DETERMINISTIC_EVIDENCE:
+            for rel in evidence.artifacts:
+                write_artifact(root, rel)
+
+    def seed_runtime_catalog_breadth(self, root: Path) -> None:
+        evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[0]
+        for rel in evidence.artifacts:
+            if rel.endswith(".json"):
+                continue
+            write_artifact(root, rel)
+        write_manifest(
+            root,
+            "visual_loop/screenshots/live_clio_runtime_catalogs_manifest.json",
+            {
+                "backend": "http://127.0.0.1:4444",
+                "tools_catalog": "visual_loop/screenshots/live_clio_runtime_tools_catalog.png",
+                "tools_detail": "visual_loop/screenshots/live_clio_runtime_tools_detail.png",
+                "mcp_catalog": "visual_loop/screenshots/live_clio_runtime_mcp_catalog.png",
+                "mcp_detail": "visual_loop/screenshots/live_clio_runtime_mcp_detail.png",
+                "agent_blueprint_sources": "visual_loop/screenshots/live_clio_runtime_blueprint_sources.png",
+            },
+        )
+
+    def seed_registry_lifecycle(self, root: Path) -> None:
+        write_manifest(
+            root,
+            "visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
+            {
+                "backend": "http://127.0.0.1:4444",
+                "mcp_install_success": True,
+                "mcp_remove_success": True,
+                "source_refresh_success": True,
+            },
+        )
+
+    def seed_prompt_expert_lifecycle(self, root: Path) -> None:
+        evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[2]
+        for rel in evidence.artifacts:
+            if rel.endswith(".json"):
+                continue
+            write_artifact(root, rel)
+        write_manifest(
+            root,
+            "visual_loop/screenshots/live_clio_prompt_expert_pack_lifecycle_manifest.json",
+            {
+                "backend": "http://127.0.0.1:4444",
+                "expert_pack_source": "/tmp/pack",
+                "prompt_save_success": "visual_loop/screenshots/live_clio_prompt_save_success.png",
+                "expert_pack_install_success": "visual_loop/screenshots/live_clio_expert_pack_install_success.png",
+                "expert_pack_update_success": "visual_loop/screenshots/live_clio_expert_pack_update_success.png",
+                "expert_pack_delete_success": "visual_loop/screenshots/live_clio_expert_pack_delete_success.png",
+            },
+        )
+
+    def test_deterministic_lifecycle_can_pass_while_live_gaps_remain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("deterministic evidence: `2/2`", report)
+        self.assertIn("deferred live lifecycle evidence: `0/3`", report)
+        self.assertIn("live_clio_runtime_catalogs_manifest.json", report)
+        self.assertIn("live_clio_runtime_registry_lifecycle_manifest.json", report)
+        self.assertIn("live_clio_prompt_expert_pack_lifecycle_manifest.json", report)
+
+    def test_live_manifest_keys_are_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[0]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(root, "visual_loop/screenshots/live_clio_runtime_catalogs_manifest.json", {"backend": "x"})
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][0]["ok"])
+        self.assertIn("Missing manifest keys", report)
+        self.assertIn("tools_catalog", report)
+        self.assertIn("agent_blueprint_sources", report)
+
+    def test_partial_live_lifecycle_does_not_satisfy_all_live_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            self.seed_runtime_catalog_breadth(root)
+            self.seed_prompt_expert_lifecycle(root)
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("deferred live lifecycle evidence: `2/3`", report)
+        self.assertIn("live_clio_runtime_registry_lifecycle_manifest.json", report)
+
+    def test_all_live_lifecycle_evidence_can_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            self.seed_runtime_catalog_breadth(root)
+            self.seed_registry_lifecycle(root)
+            self.seed_prompt_expert_lifecycle(root)
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["live_ok"])
+        self.assertIn("deferred live lifecycle evidence: `3/3`", report)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -104,6 +104,19 @@ The script writes live runtime catalog screenshots plus
 operations; use it after running registry-backed lifecycle operations on the
 owned backend when those success paths are being preserved.
 
+Refresh the runtime catalog and prompt/expert-pack lifecycle readiness report
+after changing those deterministic surfaces or live owned-backend evidence:
+
+```bash
+python3 visual_loop/check_live_lifecycle_readiness.py --root . \
+  --write-report visual_loop/screenshots/live_lifecycle_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only when the real owned-backend captures for runtime
+catalog breadth, registry-backed MCP/source lifecycle, and prompt/expert-pack
+lifecycle are all expected to exist.
+
 For the live prompt and expert-pack lifecycle backlog (#153), capture successful
 prompt save plus expert-pack install/update/delete from an owned disposable CLIO
 backend:
