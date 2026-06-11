@@ -14,6 +14,7 @@ import (
 func BenchmarkRenderLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
 	app.MouseEnabled = true
+	_ = app.renderBody(app.width-40, app.height-3)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -24,10 +25,35 @@ func BenchmarkRenderLargeSemanticTranscript(b *testing.B) {
 func BenchmarkViewLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
 	app.MouseEnabled = true
+	_ = app.View()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = app.View()
+	}
+}
+
+func BenchmarkFullConversationCopyLargeSemanticTranscript(b *testing.B) {
+	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, ok := fullConversationText(app.messages); !ok {
+			b.Fatal("large transcript should be copyable")
+		}
+	}
+}
+
+func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
+	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
+	app.bodySelMsgIdx = len(app.messages) - 1
+	app.bodySelPartIdx = 1
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, ok := selectedConversationBlockText(app.messages, app.bodySelMsgIdx, app.bodySelPartIdx); !ok {
+			b.Fatal("selected block should be copyable")
+		}
 	}
 }
 
@@ -43,6 +69,32 @@ func TestLargeSemanticTranscriptDefaultViewIsReadable(t *testing.T) {
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("large semantic transcript missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWorkflowStateJSONSummaryDoesNotLeakInline(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: "Retained typed workflow state: {\"workflow_state\":{\"acquisition\":{\"analysis_ready\":true,\"local_path\":\"/home/jcernuda/agent-demo/MTA1.CI.LY_.30.csv\",\"metadata_path\":\"/home/jcernuda/agent-demo/earthscope_stations_clean.csv\"},\"geospatial\":{\"center_lat\":34.0522,\"center_lon\":-118.2437,\"radius_km\":50},\"visualization\":{\"artifact_path\":\"/home/jcernuda/agent-demo/sac_traces_earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.png\"}}}",
+		Metadata: map[string]any{
+			"agent_id":       "analysis",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": "Retained typed workflow state: {\"workflow_state\":{\"acquisition\":{\"analysis_ready\":true,\"local_path\":\"/home/jcernuda/agent-demo/MTA1.CI.LY_.30.csv\",\"metadata_path\":\"/home/jcernuda/agent-demo/earthscope_stations_clean.csv\"},\"geospatial\":{\"center_lat\":34.0522,\"center_lon\":-118.2437,\"radius_km\":50},\"visualization\":{\"artifact_path\":\"/home/jcernuda/agent-demo/sac_traces_earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.png\"}}}",
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	for _, want := range []string{"main -> analysis", "state:", "acquisition", "geospatial", "visualization"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workflow summary missing %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{"workflow_state", "\"local_path\"", "\"metadata_path\"", "\"artifact_path\"", "/home/jcernuda/agent-demo"} {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("workflow summary leaked raw JSON/path %q:\n%s", unwanted, out)
 		}
 	}
 }

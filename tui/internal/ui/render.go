@@ -2253,6 +2253,9 @@ func summarizeExpertHandoffOutput(output string) string {
 	if output == "" {
 		return ""
 	}
+	if summary := summarizeEmbeddedWorkflowStateText(output); summary != "" {
+		return summary
+	}
 	if summary := summarizeStructuredHandoffOutput(output); summary != "" {
 		return summary
 	}
