@@ -42,6 +42,10 @@ type Config struct {
 	// EmptyPrompts suppresses the static prompt registry fixtures. This is
 	// used by visual-loop tests to exercise the operator empty state.
 	EmptyPrompts bool
+	// EmptySkills suppresses static skill-source agents while leaving normal
+	// experts available. This is used by visual-loop tests to exercise the
+	// skills catalog empty state without removing the whole agent catalog.
+	EmptySkills bool
 	// PromptStress appends workspace/session/provider/invalid prompt registry
 	// fixtures for visual-loop prompt catalog stress states.
 	PromptStress bool

@@ -935,6 +935,64 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 	}
 }
 
+func TestCatalogEmptyStatesRenderAsGuidanceBlocks(t *testing.T) {
+	tests := []struct {
+		name string
+		kind catalogBrowserKind
+		rows []catalogItem
+		want string
+	}{
+		{
+			name: "prompts",
+			kind: catalogKindPrompts,
+			rows: promptCatalogItems(nil, client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"}),
+			want: "Activate workflow",
+		},
+		{
+			name: "skills",
+			kind: catalogKindSkills,
+			rows: []catalogItem{{
+				id:         "none",
+				title:      "No skills available",
+				desc:       "Install or activate an agent blueprint that includes skills, then reopen this view.",
+				inlineDesc: "install or activate workflow skills",
+				statusTag:  "empty",
+			}},
+			want: "No skills available",
+		},
+		{
+			name: "expert packs",
+			kind: catalogKindExpertPacks,
+			rows: expertPackCatalogItems(nil),
+			want: "Next: Install workflow pack",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newReadyApp(nil, nil)
+			a.width = 120
+			a.height = 36
+			a.catalogBrowserOpen = true
+			a.catalogBrowser = &catalogBrowserState{
+				kind:  tc.kind,
+				title: catalogBrowserTitle(tc.kind),
+				items: tc.rows,
+			}
+
+			out := ansi.Strip(a.viewCatalogBrowser())
+			if !strings.Contains(out, tc.want) {
+				t.Fatalf("empty guidance missing %q:\n%s", tc.want, out)
+			}
+			if strings.Contains(out, "▌") {
+				t.Fatalf("empty guidance should not render selected-list cursor:\n%s", out)
+			}
+			if !strings.Contains(out, "Esc close") {
+				t.Fatalf("empty guidance footer should remain actionable:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.wsID = "ws_demo"

@@ -2109,7 +2109,7 @@ func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) allAgents() []gact.AgentDef {
-	agents := staticAgents()
+	agents := staticAgents(s.cfg.EmptySkills)
 	s.agentsMu.Lock()
 	for _, agent := range s.agents {
 		agents = append(agents, agent)
@@ -2118,8 +2118,8 @@ func (s *Server) allAgents() []gact.AgentDef {
 	return agents
 }
 
-func staticAgents() []gact.AgentDef {
-	return []gact.AgentDef{
+func staticAgents(emptySkills bool) []gact.AgentDef {
+	agents := []gact.AgentDef{
 		{
 			ID: "default", Source: "builtin", Title: "Default Agent",
 			Description:  "General-purpose coding agent with full tool access.",
@@ -2135,24 +2135,6 @@ func staticAgents() []gact.AgentDef {
 			ParentID:     "code_expert",
 			Enabled:      true,
 		},
-		// Two skill-source agents so the /skills catalog browser has
-		// real data to render (LLL3). Per SPEC §6.5 line 807, skills
-		// are agents with source="skill" — no separate namespace.
-		{
-			ID: "test_writer", Source: "skill", Title: "Test Writer",
-			Description:  "Writes table-driven Go tests for a target package.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
-			Tools:        []string{"read_file", "edit_file"},
-			Enabled:      true,
-		},
-		{
-			ID: "release_notes", Source: "skill", Title: "Release Notes",
-			Description:  "Summarizes git diffs since a tag into changelog entries.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
-			Tools:        []string{"bash", "read_file"},
-			Enabled:      true,
-		},
-
 		// v0.2 — SPEC §4.3.1: three tier-2 specialists wired with
 		// tier/specialization/keywords so clients can exercise the
 		// multi-tier agent catalog without a CLIO backend handy.
@@ -2192,6 +2174,28 @@ func staticAgents() []gact.AgentDef {
 			Enabled:        true,
 		},
 	}
+	if emptySkills {
+		return agents
+	}
+	// Two skill-source agents so the /skills catalog browser has real data to
+	// render (LLL3). Per SPEC §6.5 line 807, skills are agents with
+	// source="skill"; --empty-skills suppresses only this operator catalog.
+	return append(agents,
+		gact.AgentDef{
+			ID: "test_writer", Source: "skill", Title: "Test Writer",
+			Description:  "Writes table-driven Go tests for a target package.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file", "edit_file"},
+			Enabled:      true,
+		},
+		gact.AgentDef{
+			ID: "release_notes", Source: "skill", Title: "Release Notes",
+			Description:  "Summarizes git diffs since a tag into changelog entries.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
+			Tools:        []string{"bash", "read_file"},
+			Enabled:      true,
+		},
+	)
 }
 
 func staticAgentStressDefinitions() []gact.AgentDef {

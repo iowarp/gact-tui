@@ -2397,7 +2397,12 @@ func (a *App) viewCatalogBrowser() string {
 		}
 	}
 	catalogBrowserNormalizeSelection(a.catalogBrowser)
+	emptyGuidance := catalogBrowserUsesGuidanceEmptyState(a.catalogBrowser.kind, a.catalogBrowser.items)
 	contentIndexes := catalogBrowserContentIndexes(a.catalogBrowser.kind, a.catalogBrowser.items)
+	if emptyGuidance {
+		contentIndexes = nil
+		rows = append(rows, a.renderCatalogEmptyGuidanceRows(a.catalogBrowser.items, listW)...)
+	}
 	selectionPosition := catalogBrowserSelectionPosition(contentIndexes, a.catalogBrowser.sel)
 	a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(
 		a.catalogBrowser.kind,
@@ -2409,43 +2414,45 @@ func (a *App) viewCatalogBrowser() string {
 	itemBudget := catalogBrowserVisibleItemBudget(a.catalogBrowser.kind)
 	end := min(len(contentIndexes), start+itemBudget)
 	listItems := make([]modalListItem, 0, end-start)
-	for pos := start; pos < end; pos++ {
-		i := contentIndexes[pos]
-		item := a.catalogBrowser.items[i]
-		// LLL2: dim disabled tools so the user can scan what's off
-		// at a glance. Selected highlight still wins so the cursor
-		// never disappears on a disabled row.
-		isDisabled := item.disabled || (a.catalogBrowser.kind == catalogKindTools &&
-			a.disabledTools != nil && a.disabledTools[item.id])
-		idx := i
-		description := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
-		inlineMeta := ""
-		if a.catalogBrowser.kind == catalogKindTools ||
-			a.catalogBrowser.kind == catalogKindPrompts ||
-			a.catalogBrowser.kind == catalogKindExpertPacks {
-			inlineMeta = description
-			description = ""
-		}
-		listItems = append(listItems, modalListItem{
-			id:          fmt.Sprintf("catalog:item:%d", idx),
-			title:       item.title,
-			meta:        inlineMeta,
-			description: description,
-			status:      catalogStatusTagLabel(item.statusTag),
-			selected:    i == a.catalogBrowser.sel,
-			disabled:    isDisabled,
-			action:      nil,
-		})
-		if !isDisabled {
-			listItems[len(listItems)-1].action = func(app *App) tea.Cmd {
-				if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
-					return nil
+	if !emptyGuidance {
+		for pos := start; pos < end; pos++ {
+			i := contentIndexes[pos]
+			item := a.catalogBrowser.items[i]
+			// LLL2: dim disabled tools so the user can scan what's off
+			// at a glance. Selected highlight still wins so the cursor
+			// never disappears on a disabled row.
+			isDisabled := item.disabled || (a.catalogBrowser.kind == catalogKindTools &&
+				a.disabledTools != nil && a.disabledTools[item.id])
+			idx := i
+			description := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+			inlineMeta := ""
+			if a.catalogBrowser.kind == catalogKindTools ||
+				a.catalogBrowser.kind == catalogKindPrompts ||
+				a.catalogBrowser.kind == catalogKindExpertPacks {
+				inlineMeta = description
+				description = ""
+			}
+			listItems = append(listItems, modalListItem{
+				id:          fmt.Sprintf("catalog:item:%d", idx),
+				title:       item.title,
+				meta:        inlineMeta,
+				description: description,
+				status:      catalogStatusTagLabel(item.statusTag),
+				selected:    i == a.catalogBrowser.sel,
+				disabled:    isDisabled,
+				action:      nil,
+			})
+			if !isDisabled {
+				listItems[len(listItems)-1].action = func(app *App) tea.Cmd {
+					if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
+						return nil
+					}
+					app.catalogBrowser.sel = idx
+					app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+					app.cancelCatalogPendingDeletesOutsideSelection()
+					_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
+					return cmd
 				}
-				app.catalogBrowser.sel = idx
-				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
-				app.cancelCatalogPendingDeletesOutsideSelection()
-				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
-				return cmd
 			}
 		}
 	}
@@ -2507,6 +2514,63 @@ func (a *App) viewCatalogBrowser() string {
 		a.registerModalButtons(rendered.modal, rendered.bodyRow+actionRow, actionCol, actionButtons)
 	}
 	return rendered.modal
+}
+
+func catalogBrowserUsesGuidanceEmptyState(kind catalogBrowserKind, items []catalogItem) bool {
+	switch kind {
+	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+		return catalogBrowserItemsAreEmptyState(items)
+	default:
+		return false
+	}
+}
+
+func (a *App) renderCatalogEmptyGuidanceRows(items []catalogItem, width int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	if width < 1 {
+		width = 1
+	}
+	t := a.Theme
+	rows := make([]string, 0, len(items)*3)
+	for i, item := range items {
+		title := strings.TrimSpace(item.title)
+		if title == "" {
+			continue
+		}
+		label := title
+		if i > 0 {
+			label = catalogEmptyGuidanceStepLabel(label)
+		}
+		line := "  " + lipgloss.NewStyle().Foreground(t.Fg).Bold(true).Render(label)
+		if i == 0 {
+			if status := catalogStatusTagLabel(item.statusTag); status != "" {
+				line += "  " + lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("["+status+"]")
+			}
+		}
+		rows = append(rows, truncate(line, width))
+		guidance := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+		for _, wrapped := range wrapPlainRows(guidance, width-4, "") {
+			if strings.TrimSpace(wrapped) == "" {
+				continue
+			}
+			rows = append(rows, "    "+t.HintLabel.Italic(true).Render(wrapped))
+		}
+	}
+	return rows
+}
+
+func catalogEmptyGuidanceStepLabel(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return ""
+	}
+	lower := strings.ToLower(title)
+	if strings.HasPrefix(lower, "then ") || strings.HasPrefix(lower, "next ") {
+		return title
+	}
+	return "Next: " + title
 }
 
 func catalogBrowserIntro(kind catalogBrowserKind) string {
