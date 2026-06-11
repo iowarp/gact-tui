@@ -2814,12 +2814,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.sseCancel = nil
 		}
 		a.wsID = created.ID
-		a.sessions = nil
-		a.selected = -1
-		a.messages = nil
-		a.contextFiles = nil
-		a.pendingPermissions = nil
-		a.syncFileViewerRootToWorkspace()
+		a.resetWorkspaceScopedUIState()
 		a.transientHint = "created workspace " + workspaceLabel(created)
 		return a, listSessionsCmd(a.c, created.ID)
 

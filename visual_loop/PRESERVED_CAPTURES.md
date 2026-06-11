@@ -237,6 +237,7 @@ They remain secondary evidence unless promoted into `COVERAGE.md`.
 - `semantic_tools_empty.gif`
 - `semantic_workflow_state_event.gif`
 - `semantic_workflow_state_event_final.png`
+- `semantic_workspace_files_refresh.gif`
 - `semantic_workspace_startup_selected.gif`
 - `connection_error_buttons.tape`
 - `live_observability_timeline.tape`
