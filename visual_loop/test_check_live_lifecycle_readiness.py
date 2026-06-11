@@ -171,6 +171,38 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
         self.assertIn("mcp_install_success", report)
         self.assertIn("source_refresh_success", report)
 
+    def test_runtime_catalog_manifest_must_reference_tracked_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[0]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_runtime_catalogs_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "tools_catalog": "visual_loop/screenshots/other_tools.png",
+                    "tools_detail": "visual_loop/screenshots/live_clio_runtime_tools_detail.png",
+                    "mcp_catalog": "visual_loop/screenshots/live_clio_runtime_mcp_catalog.png",
+                    "mcp_detail": "visual_loop/screenshots/live_clio_runtime_mcp_detail.png",
+                    "agent_blueprint_sources": "visual_loop/screenshots/live_clio_runtime_blueprint_sources.png",
+                },
+            )
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][0]["ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("tools_catalog", report)
+        self.assertIn("live_clio_runtime_tools_catalog.png", report)
+        self.assertIn("other_tools.png", report)
+
     def test_prompt_expert_lifecycle_requires_mutation_consent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -235,6 +267,41 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
         self.assertFalse(result["live"][2]["ok"])
         self.assertIn("prompt_save_success", report)
         self.assertIn("expert_pack_update_success", report)
+
+    def test_prompt_expert_manifest_must_reference_tracked_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[2]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_prompt_expert_pack_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "mutation_consent": True,
+                    "expert_pack_source": "/tmp/pack",
+                    "prompt_catalog": "visual_loop/screenshots/live_clio_prompt_catalog.png",
+                    "prompt_save_success": True,
+                    "expert_pack_catalog": "visual_loop/screenshots/live_clio_expert_pack_catalog_WRONG.png",
+                    "expert_pack_install_success": True,
+                    "expert_pack_update_success": True,
+                    "expert_pack_delete_success": True,
+                },
+            )
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][2]["ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("expert_pack_catalog", report)
+        self.assertIn("live_clio_expert_pack_catalog.png", report)
+        self.assertIn("live_clio_expert_pack_catalog_WRONG.png", report)
 
     def test_prompt_expert_lifecycle_rejects_string_success_flags(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
