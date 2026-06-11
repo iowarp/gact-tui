@@ -578,11 +578,53 @@ func TestApplySemanticEventSummarizesContractOnlyDelegation(t *testing.T) {
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	if part.Text != "main delegated to analysis." {
+	if part.Text != "main delegated to analysis · next: analysis - run SAC fallback" {
 		t.Fatalf("contract-only delegation summary = %#v", part)
 	}
 	if strings.Contains(part.Text, "NEXT_EXPERT") || strings.Contains(part.Text, "DO_NOT_DELEGATE") {
 		t.Fatalf("delegation leaked control contract: %#v", part)
+	}
+}
+
+func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_next_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 20353,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{"analysis returned a compact result to main", "next: visualization - plot SAC traces", ".../clio-seismic-staging/earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.sac"} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("next-action delegation summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("delegation leaked control contract %q: %#v", unwanted, part)
+		}
 	}
 }
 
@@ -900,6 +942,55 @@ func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	} {
 		if strings.Contains(ref.fullText, unwanted) {
 			t.Fatalf("semantic event detail should not repeat transport metadata %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+}
+
+func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_delegate_detail",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "blueprint.delegation.completed",
+			"status":         "completed",
+			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /workspace/tmp/earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"blueprint":      map[string]any{"pack_id": "seismic-waveform-review"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200.0,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic event message = %#v", a.messages)
+	}
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"Operator view",
+		"result: analysis returned a compact result to main · next: visualization - plot SAC traces /workspace/tmp/earthscope_CI_BAR.sac",
+		"Event summary",
+		"what happened: analysis returned a compact result to main · next: visualization - plot SAC traces /workspace/tmp/earthscope_CI_BAR.sac",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic detail missing readable intent %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("semantic detail leaked control contract %q:\n%s", unwanted, ref.fullText)
 		}
 	}
 }

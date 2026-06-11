@@ -37,7 +37,7 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 			"event_id":       "sem_workflow_state_1",
 			"event_type":     "blueprint.delegation.completed",
 			"status":         "completed",
-			"summary":        "analysis returned a compact result to main.",
+			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
 			"session_id":     sessionID,
 			"trace_id":       "trace_workflow_state",
 			"turn_id":        "turn_workflow_state",

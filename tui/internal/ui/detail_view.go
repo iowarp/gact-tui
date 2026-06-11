@@ -831,9 +831,10 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 	if len(event) == 0 {
 		return rows
 	}
+	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
 	rows = appendSemanticEventOperatorView(rows, event)
 	rows = appendDetailSection(rows, "Event summary",
-		detailField{"what happened", runtimeScalar(event["summary"])},
+		detailField{"what happened", userSummary},
 		detailField{"status", runtimeScalar(event["status"])},
 		detailField{"event", runtimeScalar(event["event_type"])},
 		detailField{"stream", semanticEventStreamLabel(event["live_observed"])},
@@ -916,8 +917,9 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		mapValue(payload["workflow_state"]),
 		mapValue(event["workflow_state"]),
 	))
+	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
 	return appendDetailSection(rows, "Operator view",
-		detailField{"result", runtimeScalar(event["summary"])},
+		detailField{"result", userSummary},
 		detailField{"status", status},
 		detailField{"agent", humanizeSemanticOperatorValue(agent)},
 		detailField{"tool", toolDisplayName(tool)},
