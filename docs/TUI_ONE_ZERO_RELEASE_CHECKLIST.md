@@ -1,6 +1,6 @@
 # GACT TUI 1.0 Release Checklist
 
-Date: 2026-06-03
+Date: 2026-06-11
 
 This checklist is the current release-readiness gate for the Bubble Tea TUI.
 The 0.9 audit documents a completed historical pass; do not use it as proof
@@ -8,20 +8,38 @@ that 1.0 is ready. 1.0 is ready only when the current release-candidate commit,
 installed binary, CI, visual-loop corpus, and manual terminal evidence all
 agree.
 
+## Historical Tracking Scope
+
+The original 1.0 hardening umbrella issues are closed and should be treated as
+historical evidence, not as the current open-issue list:
+
+- #93: CLIO capability parity and gating matrix (closed)
+- #104: manual verification umbrella (closed)
+- #105: mouse and semantic hit-target audit (closed)
+- #106: settings, provider, and configuration UX (closed)
+- #107: terminal copy, paste, and text selection (closed)
+- #108: visual-loop benchmark acceptance suite (closed)
+- #109: sidebar module ordering, context, files, and layout semantics (closed)
+- #110: release packaging, version metadata, and CI readiness (closed)
+- #113: CLIO semantic execution events end to end (closed)
+
 ## Current Tracking Scope
 
-Open TUI hardening issues that must be closed or explicitly deferred before
-tagging 1.0:
+For the active CLIO contract/TUI parity work, PR #148 is the release-candidate
+branch under review. The following open issues must be closed, merged by PR
+#148, or explicitly deferred before tagging a TUI release:
 
-- #93: CLIO capability parity and gating matrix
-- #104: manual verification umbrella
-- #105: mouse and semantic hit-target audit
-- #106: settings, provider, and configuration UX
-- #107: terminal copy, paste, and text selection
-- #108: visual-loop benchmark acceptance suite
-- #109: sidebar module ordering, context, files, and layout semantics
-- #110: release packaging, version metadata, and CI readiness
-- #113: CLIO semantic execution events end to end
+- #128: durable Agent Blueprint marketplace-source management.
+- #129: Agent Blueprint modal scroll/background behavior.
+- #130: active Agent Blueprint indicator usefulness.
+- #134: stable session trace rendering across navigation.
+- #136: readable semantic event feed with raw payloads behind details.
+- #137: user-facing Agent Blueprint timeline summaries.
+- #141: prompts, agents, skills, and expert-pack catalog purpose and empty states.
+- #142: tree/table views for agents and Agent Blueprints.
+- #143: Agent Blueprint marketplace/source install and validate workflow.
+- #145: ensure `clio` launcher uses the freshly built/installed TUI binary.
+- #149: four NDP demo cases need real TUI short GIFs and streaming manifests.
 
 ## Release-Candidate Identity
 
@@ -110,7 +128,8 @@ Acceptance:
 
 ## Manual Terminal Matrix
 
-Manual evidence must be captured in #104 or the specific issue being closed.
+Manual evidence must be captured in PR #148, in the specific issue being closed,
+or in the current live-demo proof issue (#149 for the four-case NDP recordings).
 At minimum verify:
 
 - Current Linux/WSL terminal path.
