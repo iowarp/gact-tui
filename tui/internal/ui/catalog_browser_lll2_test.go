@@ -5,10 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -1677,6 +1679,120 @@ func TestCatalogBrowser_AgentBlueprintSourceDeleteConfirmationCancelsOnChildSele
 	}
 	if hint := catalogBrowserHintText(a.catalogBrowser); strings.Contains(hint, "confirm remove") || strings.Contains(hint, "d remove") {
 		t.Fatalf("child blueprint row should not expose source removal after cancel, got %q", hint)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedSource(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.EscapedPath())
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/sources/src1/refresh":
+			writeJSONForTest(t, w, map[string]any{"source": map[string]any{"id": "src1", "name": "Data Semantics Agents"}})
+		case r.Method == http.MethodDelete && r.URL.EscapedPath() == "/v1/agent-blueprints/sources/src1":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{"Source actions", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("source browser missing %q:\n%s", want, out)
+		}
+	}
+
+	buttons := a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 2 || buttons[0].label != "refresh source" || buttons[1].label != "remove source" {
+		t.Fatalf("source action buttons = %#v", buttons)
+	}
+	msg := buttons[0].action(a)()
+	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "refreshed" || got.err != nil {
+		t.Fatalf("refresh action msg = %#v", msg)
+	}
+	cmd := buttons[1].action(a)
+	if cmd == nil || a.catalogBrowser.pendingDeleteSourceID != "src1" || !strings.Contains(a.transientHint, "confirm removing source src1") {
+		t.Fatalf("remove should arm source confirmation, pending=%q hint=%q cmd=%v", a.catalogBrowser.pendingDeleteSourceID, a.transientHint, cmd)
+	}
+	buttons = a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 2 || buttons[1].label != "confirm remove" {
+		t.Fatalf("armed source action buttons = %#v", buttons)
+	}
+	msg = buttons[1].action(a)()
+	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "deleted" || got.err != nil {
+		t.Fatalf("delete action msg = %#v", msg)
+	}
+	if !slices.Contains(paths, "POST /v1/agent-blueprints/sources/src1/refresh") || !slices.Contains(paths, "DELETE /v1/agent-blueprints/sources/src1") {
+		t.Fatalf("source action requests = %#v", paths)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t *testing.T) {
+	var installBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/install":
+			if err := json.NewDecoder(r.Body).Decode(&installBody); err != nil {
+				t.Fatalf("decode install body: %v", err)
+			}
+			writeJSONForTest(t, w, map[string]any{"status": "installed"})
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		sel:   1,
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{"Source actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("source blueprint browser missing %q:\n%s", want, out)
+		}
+	}
+	buttons := a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 2 || buttons[0].label != "install blueprint" || buttons[1].label != "refresh source" {
+		t.Fatalf("source blueprint action buttons = %#v", buttons)
+	}
+	msg := buttons[0].action(a)()
+	if got, ok := msg.(agentBlueprintManagedMsg); !ok || got.blueprintID != "seismic-waveform-review" || got.action != "installed" || got.err != nil {
+		t.Fatalf("install action msg = %#v", msg)
+	}
+	for key, want := range map[string]string{
+		"source_id":    "src1",
+		"blueprint_id": "seismic-waveform-review",
+		"scope":        "workspace",
+		"workspace_id": "ws1",
+	} {
+		if got := stringValue(installBody[key]); got != want {
+			t.Fatalf("install body %s = %q, want %q; body=%#v", key, got, want, installBody)
+		}
 	}
 }
 

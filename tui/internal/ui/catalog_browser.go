@@ -1685,6 +1685,61 @@ func (a *App) agentBlueprintDetailActionButtons() []menuButton {
 	return a.catalogActionButtonsFromItems("blueprint-detail", specs)
 }
 
+func (a *App) agentBlueprintSourceActionButtons() []menuButton {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentBlueprintSources || cb.sel < 0 || cb.sel >= len(cb.items) {
+		return nil
+	}
+	item := cb.items[cb.sel]
+	switch {
+	case strings.HasPrefix(item.id, "source-blueprint/"):
+		sourceID, blueprintID, ok := parseSourceBlueprintItemID(item.id)
+		if !ok {
+			return nil
+		}
+		return []menuButton{
+			{
+				id:    "agent-blueprint-source:install",
+				label: "install blueprint",
+				action: func(app *App) tea.Cmd {
+					return installAgentBlueprintFromSourceCmd(app.c, app.runtimeScope(), sourceID, blueprintID)
+				},
+			},
+			{
+				id:    "agent-blueprint-source:refresh",
+				label: "refresh source",
+				action: func(app *App) tea.Cmd {
+					return refreshAgentBlueprintSourceCmd(app.c, sourceID)
+				},
+			},
+		}
+	case strings.HasPrefix(item.id, "source/"):
+		sourceID := strings.TrimPrefix(item.id, "source/")
+		deleteLabel := "remove source"
+		if cb.pendingDeleteSourceID == sourceID {
+			deleteLabel = "confirm remove"
+		}
+		return []menuButton{
+			{
+				id:    "agent-blueprint-source:refresh",
+				label: "refresh source",
+				action: func(app *App) tea.Cmd {
+					return refreshAgentBlueprintSourceCmd(app.c, sourceID)
+				},
+			},
+			{
+				id:    "agent-blueprint-source:remove",
+				label: deleteLabel,
+				action: func(app *App) tea.Cmd {
+					return app.confirmOrDeleteAgentBlueprintSource(sourceID)
+				},
+			},
+		}
+	default:
+		return nil
+	}
+}
+
 type catalogActionButtonSpec struct {
 	id            string
 	label         string
@@ -2173,6 +2228,18 @@ func (a *App) viewCatalogBrowser() string {
 			"",
 			t.HintLabel.Render("Blueprint structure"),
 		)
+	}
+	if a.catalogBrowser.kind == catalogKindAgentBlueprintSources {
+		actionButtons = a.agentBlueprintSourceActionButtons()
+		if len(actionButtons) > 0 {
+			actionRow = len(rows) + 1
+			rows = append(rows,
+				t.HintLabel.Render("Source actions"),
+				renderActionButtons(actionButtons),
+				"",
+				t.HintLabel.Render("Marketplace source tree"),
+			)
+		}
 	}
 	if a.catalogBrowser.kind == catalogKindPromptDetail {
 		actionButtons = a.promptDetailActionButtons()
