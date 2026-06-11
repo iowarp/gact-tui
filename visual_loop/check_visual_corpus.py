@@ -693,6 +693,7 @@ def check_corpus(
         ok = False
     result: dict[str, object] = {
         "ok": ok,
+        "ndp_demo_required": require_ndp_demo_ready,
         "groups": groups,
         "artifact_indices": artifact_indices,
         "coverage_index": artifact_indices[0],
@@ -805,7 +806,14 @@ def print_text_report(result: dict[str, object], *, include_deferred: bool = Fal
         print()
         report = ndp.get("report", {})
         summary = ndp.get("summary", {})
-        print(f"- status: {'ready' if ndp.get('ok') else 'not ready'}")
+        required = bool(result.get("ndp_demo_required"))
+        if required:
+            print(f"- status: {'ready' if ndp.get('ok') else 'not ready'}")
+        else:
+            print(
+                "- status: "
+                + ("ready" if ndp.get("ok") else "informational; not required by this gate")
+            )
         if isinstance(report, dict):
             print(f"- report: {report.get('path')}")
             print(f"- report exists: {str(bool(report.get('exists'))).lower()}")
@@ -816,7 +824,7 @@ def print_text_report(result: dict[str, object], *, include_deferred: bool = Fal
             print(f"- streaming proof: {summary.get('streaming_proof_ready')}/{summary.get('case_count')}")
             print(f"- ready cases: {summary.get('ready_for_real_demo')}/{summary.get('case_count')}")
         cases = ndp.get("cases", [])
-        if isinstance(cases, list):
+        if required and isinstance(cases, list):
             for case in cases:
                 if not isinstance(case, dict) or case.get("ready_for_real_demo"):
                     continue

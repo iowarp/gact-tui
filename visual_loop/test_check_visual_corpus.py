@@ -174,7 +174,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
             check_visual_corpus.print_text_report(result)
         report = buf.getvalue()
         self.assertIn("## ndp_demo_readiness", report)
-        self.assertIn("- status: not ready", report)
+        self.assertIn("- status: informational; not required by this gate", report)
         self.assertIn("- streaming proof: 0/4", report)
 
     def test_ndp_demo_readiness_can_be_required_for_demo_gate(self) -> None:
@@ -191,6 +191,17 @@ class VisualCorpusCheckTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertFalse(result["ndp_demo_readiness"]["ok"])
+        self.assertTrue(result["ndp_demo_required"])
+
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            check_visual_corpus.print_text_report(result)
+        report = buf.getvalue()
+        self.assertIn("- status: not ready", report)
+        self.assertIn("- missing: San Diego / EarthScope seismic waveform review", report)
 
     def test_missing_capture_ledger_is_reported_as_deferred_backlog(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
