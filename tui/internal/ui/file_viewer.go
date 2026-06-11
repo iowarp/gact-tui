@@ -125,6 +125,7 @@ func (a *App) reloadFileViewer() {
 	entries, err := scanFileTreeExpanded(a.fileViewerRoot, "", 0, a.fileTreeExpanded)
 	a.fileTreeEntries = entries
 	a.fileTreeErr = ""
+	a.fileTreeUpdated = time.Now()
 	if err != nil {
 		a.fileTreeErr = err.Error()
 	}
@@ -456,6 +457,9 @@ func (a *App) renderFileViewerModuleRows(width int, startRow int, rowBudget int)
 			label = "workspace: " + rootLabel
 		}
 		rows = append(rows, t.HintLabel.Italic(true).Render(truncate(label, width-6)))
+		if !a.fileTreeUpdated.IsZero() && rowBudget > 2 {
+			rows = append(rows, t.HintLabel.Render(truncate("updated "+humanAgeShort(time.Since(a.fileTreeUpdated)), width-6)))
+		}
 	}
 	if a.fileTreeErr != "" {
 		errorRow := startRow + len(rows)
@@ -506,6 +510,9 @@ func (a *App) sidebarFileViewerRowCount(rowBudget int) int {
 		return rows
 	}
 	rows++
+	if !a.fileTreeUpdated.IsZero() && rowBudget > 2 {
+		rows++
+	}
 	if a.fileTreeErr != "" || len(a.visibleFileTreeEntries()) == 0 {
 		return rows + 1
 	}

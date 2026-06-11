@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func seedFileViewerTree(t *testing.T) string {
@@ -130,6 +131,76 @@ func TestFileViewerRefreshDetectsNewWorkspaceFiles(t *testing.T) {
 	}
 	if !slices.Contains(names, "created-by-agent.txt") {
 		t.Fatalf("file tree entries = %#v, want newly created file", a.fileTreeEntries)
+	}
+}
+
+func TestFileViewerRefreshTickDetectsNewWorkspaceFiles(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "initial.txt"), []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.stage = StageReady
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
+	a.syncFileViewerRootToWorkspace()
+
+	if err := os.WriteFile(filepath.Join(root, "created-after-start.txt"), []byte("artifact"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, cmd := a.Update(fileViewerRefreshTickMsg{})
+	if cmd == nil {
+		t.Fatal("file refresh tick should reschedule while the TUI is ready")
+	}
+
+	var names []string
+	for _, entry := range a.fileTreeEntries {
+		names = append(names, entry.Name)
+	}
+	if !slices.Contains(names, "created-after-start.txt") {
+		t.Fatalf("file tree entries = %#v, want newly created file after tick", a.fileTreeEntries)
+	}
+	if a.fileTreeUpdated.IsZero() {
+		t.Fatal("file refresh should stamp the last updated time")
+	}
+	out := ansi.Strip(strings.Join(a.renderFileViewerModuleRows(60, 0, 8), "\n"))
+	if !strings.Contains(out, "updated") {
+		t.Fatalf("file viewer root row should show refresh freshness, got %q", out)
+	}
+}
+
+func TestFileViewerRefreshesOnLiveSSEEvent(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "initial.txt"), []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.stage = StageReady
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
+	a.syncFileViewerRootToWorkspace()
+
+	if err := os.WriteFile(filepath.Join(root, "artifact-from-agent.txt"), []byte("artifact"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{
+		Type: "tool.call.completed",
+		Payload: map[string]any{
+			"payload": map[string]any{
+				"session_id": "s1",
+				"tool":       "write_file",
+			},
+		},
+	}})
+
+	var names []string
+	for _, entry := range a.fileTreeEntries {
+		names = append(names, entry.Name)
+	}
+	if !slices.Contains(names, "artifact-from-agent.txt") {
+		t.Fatalf("file tree entries = %#v, want newly created file after live event", a.fileTreeEntries)
 	}
 }
 

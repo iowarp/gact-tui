@@ -171,6 +171,7 @@ type App struct {
 	fileTreeErr      string
 	fileTreeRootMode string
 	fileTreeRefresh  bool
+	fileTreeUpdated  time.Time
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -2153,6 +2154,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		prevRunning := a.anySessionRunning()
 		prevStatus := a.currentStatus
 		a.applySSE(m.Event)
+		if a.sidebarHasEnabledModule(sidebarModuleFiles) {
+			a.refreshFileViewerFromWorkspace()
+		}
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
 		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled
 		// back to idle AND the backend has memory, refresh the cache
