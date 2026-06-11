@@ -495,6 +495,37 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, conversation.required)
 
+    def test_manifest_requires_semantic_trace_readability_and_revisit_proof(self) -> None:
+        conversation = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_event_detail.tape",
+            "visual_loop/screenshots/semantic_event_detail.png",
+            "visual_loop/screenshots/semantic_event_detail_evidence.png",
+            "visual_loop/tapes/semantic_workflow_state_event.tape",
+            "visual_loop/screenshots/semantic_workflow_state_event_inline.png",
+            "visual_loop/screenshots/semantic_workflow_state_event_detail.png",
+            "visual_loop/screenshots/semantic_workflow_state_event_final.png",
+            "visual_loop/tapes/semantic_blocker_handoff.tape",
+            "visual_loop/screenshots/semantic_blocker_handoff_inline.png",
+            "visual_loop/screenshots/semantic_blocker_handoff_detail.png",
+            "visual_loop/screenshots/semantic_blocker_handoff_final.png",
+            "visual_loop/tapes/semantic_provider_failure_event.tape",
+            "visual_loop/screenshots/semantic_provider_failure_inline.png",
+            "visual_loop/screenshots/semantic_provider_failure_detail.png",
+            "visual_loop/tapes/semantic_trace_revisit_stability.tape",
+            "visual_loop/screenshots/semantic_trace_revisit_before.png",
+            "visual_loop/screenshots/semantic_trace_revisit_other_session.png",
+            "visual_loop/screenshots/semantic_trace_revisit_after.png",
+            "visual_loop/tapes/semantic_redacted_tool_args.tape",
+            "visual_loop/screenshots/semantic_redacted_tool_args_started.png",
+            "visual_loop/screenshots/semantic_redacted_tool_args_completed.png",
+            "visual_loop/screenshots/semantic_redacted_tool_args_detail.png",
+        ):
+            self.assertIn(rel, conversation.required)
+
     def test_manifest_requires_conversation_copy_visual_proof(self) -> None:
         conversation = next(
             group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "conversation_tools"
