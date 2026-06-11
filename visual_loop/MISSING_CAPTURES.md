@@ -45,4 +45,4 @@ changing capture priorities or missing-state rows.
 ### Medium - Settings and provider setup
 
 - Missing capture: Real ALCF provider failure/recovery and retry override warning (#154)
-- Why it matters: Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; the Theme tab now exposes import/export in-view with visual proof
+- Why it matters: Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; `capture_live_provider_recovery_tui.sh` now records the real failure/detail/retry-warning and optional recovery/provider-setup surfaces against a caller-owned CLIO backend, but the actual owned ALCF capture still needs to be run

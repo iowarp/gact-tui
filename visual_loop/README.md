@@ -549,6 +549,23 @@ CLIO_NDP_CAPTURE_OWN_BACKEND=1 visual_loop/capture_ndp_demo_tui.sh \
 After both runs, verify readiness with
 `python3 visual_loop/check_ndp_demo_readiness.py --root . --strict`.
 
+Provider failure/recovery evidence uses the same owned-backend rule as the
+diagnostics and lifecycle helpers. Prepare an isolated CLIO backend with a real
+failed provider session and, when available, a recovered/successful session.
+Then run:
+
+```bash
+CLIO_PROVIDER_RECOVERY_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_provider_recovery_tui.sh \
+    --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+    --failure-session <FAILED_SESSION_ID> \
+    --recovery-session <RECOVERED_SESSION_ID>
+```
+
+The helper records the provider failure inline view, operator detail view, retry
+override warning, and optional recovery/provider-setup screenshots. It does not
+start, stop, authenticate, or reconfigure CLIO.
+
 Note: `provider_swap_memory_followup` proves retained context visually through
 the follow-up prompt, Parquet tool evidence, and final answer. The persisted
 GACT session export does not currently include a provider-transition event or

@@ -132,7 +132,7 @@ required files.
 | Agent and blueprint hierarchy | Real marketplace-source lifecycle against current CLIO registry semantics, including successful source install/update/remove and backend registry refresh outcomes (#128/#143) | Deterministic tapes now cover large blueprint/agent trees with long names, active markers, nested children, invalid sources, and disabled activation states; real lifecycle proof is still needed for demo operator confidence | Medium |
 | Runtime catalogs | Large live mixed tools/MCP/source catalog, registry-backed MCP install/remove, and successful lifecycle outcomes across source types (#152) | Representative unified catalog states now cover built-in, recipe, MCP, disconnected/repair-needed, unavailable, empty, reconnect-failure, and detail variants; operators still need live registry-backed breadth and success-path proof | Medium |
 | Prompts and expert packs | Successful provider-specific prompt save against a live backend, empty active-blueprint state with a non-empty prompt registry, and successful expert-pack install/update/delete against a real source (#153) | These surfaces decide what CLIO will run; deterministic tapes now cover packaged blueprint prompt variants, scoped session overrides, provider-specific edit failure, validation errors, empty prompt registry, and expert-pack failure/lifecycle structure; real success paths still need proof | Medium |
-| Settings and provider setup | Real ALCF provider failure/recovery and retry override warning (#154) | Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; the Theme tab now exposes import/export in-view with visual proof | Medium |
+| Settings and provider setup | Real ALCF provider failure/recovery and retry override warning (#154) | Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; `capture_live_provider_recovery_tui.sh` now records the real failure/detail/retry-warning and optional recovery/provider-setup surfaces against a caller-owned CLIO backend, but the actual owned ALCF capture still needs to be run | Medium |
 
 - Strict per-view matrix for every slash command and every modal tab. Current
   coverage is broad, but not every tab/state permutation has a dedicated tape.
@@ -152,7 +152,8 @@ required files.
   keep expanding only when a real source exposes a new shape not represented by
   the current hierarchy, active-marker, narrow, and lifecycle-failure captures.
 - Settings/LM config edge states: real ALCF provider recovery and retry
-  override warning.
+  override warning. Use `capture_live_provider_recovery_tui.sh` against an
+  owned CLIO backend when the failure and recovered sessions are available.
 - Catalog detail variants for all source kinds: built-in, recipe, MCP, extension,
   unavailable tool, disconnected MCP, and no tools/resources/prompts.
 - Mobile/narrow screenshots for the most important modals are covered across
