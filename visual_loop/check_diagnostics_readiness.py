@@ -14,6 +14,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -113,6 +115,11 @@ def artifact_status(root: Path, rel: str) -> dict[str, object]:
     size = path.stat().st_size
     if size == 0:
         return {"ok": False, "state": "empty"}
+    if path.suffix.lower() == ".png":
+        with path.open("rb") as handle:
+            header = handle.read(8)
+        if not header.startswith(PNG_SIGNATURE):
+            return {"ok": False, "state": "invalid png"}
     return {"ok": True, "state": "present", "bytes": size}
 
 

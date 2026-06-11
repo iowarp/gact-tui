@@ -11,7 +11,10 @@ import check_diagnostics_readiness
 def write_artifact(root: Path, rel: str, text: str = "artifact") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    if rel.endswith(".png") and text == "artifact":
+        path.write_bytes(check_diagnostics_readiness.PNG_SIGNATURE + b"fixture png")
+    else:
+        path.write_text(text, encoding="utf-8")
 
 
 def write_live_manifest(root: Path, **overrides: object) -> None:
@@ -139,6 +142,45 @@ class DiagnosticsReadinessTest(unittest.TestCase):
         self.assertIn("active_stream_metrics", report)
         self.assertIn("metrics_active_sessions", report)
         self.assertIn("metrics_sample_count", report)
+
+    def test_placeholder_diagnostics_pngs_do_not_satisfy_required_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(
+                root,
+                "visual_loop/screenshots/semantic_menu_doctor_health.png",
+                "not a png",
+            )
+
+            result = check_diagnostics_readiness.check_readiness(root)
+            report = check_diagnostics_readiness.render_markdown(result)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("invalid png", report)
+
+    def test_placeholder_live_diagnostics_pngs_do_not_satisfy_live_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(
+                root,
+                "visual_loop/screenshots/live_clio_doctor_partial_gaps.png",
+                "not a png",
+            )
+            write_artifact(
+                root,
+                "visual_loop/screenshots/live_clio_metrics_active_stream.png",
+                "not a png",
+            )
+            write_live_manifest(root)
+
+            result = check_diagnostics_readiness.check_readiness(root)
+            report = check_diagnostics_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("invalid png", report)
 
     def test_diag_report_requires_clipboard_and_terminal_markers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
