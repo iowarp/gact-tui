@@ -272,6 +272,9 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 		t.Fatalf("empty tools catalog items = %#v", msg.items)
 	}
 	item := msg.items[0]
+	if item.disabled || item.statusTag != "empty" {
+		t.Fatalf("empty tools row should be a neutral empty state without disabled chrome: %#v", item)
+	}
 	for _, want := range []string{"No callable actions available", "Add an MCP connection", "enable a workflow blueprint", "add connection or blueprint"} {
 		if !strings.Contains(item.title+" "+item.desc+" "+item.inlineDesc, want) {
 			t.Fatalf("empty tools row missing %q: %#v", want, item)

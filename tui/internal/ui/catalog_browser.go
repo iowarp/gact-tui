@@ -238,7 +238,6 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 					desc:       "Add an MCP connection, enable a workflow blueprint, or check integration health if actions were expected.",
 					inlineDesc: "add connection or blueprint",
 					statusTag:  "empty",
-					disabled:   true,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
