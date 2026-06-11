@@ -588,6 +588,18 @@ The helper records the provider failure inline view, operator detail view, retry
 override warning, and optional recovery/provider-setup screenshots. It does not
 start, stop, authenticate, or reconfigure CLIO.
 
+Refresh the provider recovery readiness report after changing provider setup,
+provider failure, retry-warning, or live provider recovery evidence:
+
+```bash
+python3 visual_loop/check_provider_recovery_readiness.py --root . \
+  --write-report visual_loop/screenshots/provider_recovery_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only after the real owned-backend provider failure/recovery
+capture has been preserved.
+
 Note: `provider_swap_memory_followup` proves retained context visually through
 the follow-up prompt, Parquet tool evidence, and final answer. The persisted
 GACT session export does not currently include a provider-transition event or
