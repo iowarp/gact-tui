@@ -325,6 +325,7 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/screenshots/semantic_event_detail.png",
             "visual_loop/screenshots/semantic_event_detail_evidence.png",
             "visual_loop/tapes/semantic_workflow_state_event.tape",
+            "visual_loop/screenshots/semantic_workflow_state_event_route.png",
             "visual_loop/screenshots/semantic_workflow_state_event_inline.png",
             "visual_loop/screenshots/semantic_workflow_state_event_detail.png",
             "visual_loop/screenshots/semantic_workflow_state_event_final.png",

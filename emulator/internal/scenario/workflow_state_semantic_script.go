@@ -29,6 +29,32 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 		return
 	}
 
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
+		Payload: map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_workflow_route",
+			"event_type":     "agent.invocation.completed",
+			"status":         "completed",
+			"summary":        "main returned a prediction.",
+			"session_id":     sessionID,
+			"trace_id":       "trace_workflow_state",
+			"turn_id":        "turn_workflow_state",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "main"},
+			"payload": map[string]any{
+				"selected_expert": "data",
+				"route_reason":    "Seismic dataset lookup routes to the data expert.",
+				"has_answer":      true,
+			},
+		},
+	})
+	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
+		return
+	}
+
 	workflowPayload := func(eventID string) map[string]any {
 		return map[string]any{
 			"schema_version": "clio.semantic_event.v1",

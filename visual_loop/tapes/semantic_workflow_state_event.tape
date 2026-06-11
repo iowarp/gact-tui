@@ -10,6 +10,9 @@ Type "bash visual_loop/run_semantic_workflow_state.sh"
 Enter
 Show
 
+Wait+Screen /main selected data/
+Wait+Screen /Seismic dataset lookup/
+Screenshot "visual_loop/screenshots/semantic_workflow_state_event_route.png"
 Wait+Screen /analysis returned/
 Wait+Screen /next: visualization/
 Wait+Screen /acquisition staged/
@@ -24,7 +27,7 @@ Up
 Sleep 200ms
 Ctrl+E
 Wait+Screen /Operator view/
-Wait+Screen /workflow state/
+Wait+Screen /Workflow trace/
 Screenshot "visual_loop/screenshots/semantic_workflow_state_event_detail.png"
 Escape
 Sleep 200ms

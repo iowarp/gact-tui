@@ -9382,6 +9382,7 @@ func semanticProviderLabel(provider map[string]any) string {
 
 func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) string {
 	refs := semanticWorkflowRefs(payload, eventType)
+	nested := mapValue(payload["payload"])
 	agent := strings.TrimSpace(refs.agent)
 	parent := strings.TrimSpace(refs.parent)
 	switch {
@@ -9418,6 +9419,24 @@ func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) s
 		case strings.Contains(eventType, ".started"):
 			return agent + " started."
 		case strings.Contains(eventType, ".completed"):
+			selected := firstNonEmpty(
+				stringValue(nested["selected_expert"]),
+				stringValue(payload["selected_expert"]),
+				stringValue(nested["selected_agent"]),
+				stringValue(payload["selected_agent"]),
+			)
+			routeReason := firstNonEmpty(
+				stringValue(nested["route_reason"]),
+				stringValue(payload["route_reason"]),
+				stringValue(nested["reason"]),
+				stringValue(payload["reason"]),
+			)
+			if selected != "" && routeReason != "" {
+				return agent + " selected " + selected + " - " + truncateString(routeReason, 180)
+			}
+			if selected != "" {
+				return agent + " selected " + selected + "."
+			}
 			return agent + " completed."
 		case strings.Contains(eventType, ".failed") || refs.status == "failed" || refs.status == "error":
 			return agent + " failed."
@@ -9456,6 +9475,8 @@ func semanticSummaryIsPlumbing(summary, eventType string) bool {
 		return true
 	}
 	return strings.HasPrefix(normalized, "invoking ") ||
+		strings.Contains(normalized, " returned a prediction") ||
+		strings.Contains(normalized, " returned prediction") ||
 		strings.Contains(normalized, " delegated sync work to ") ||
 		strings.Contains(normalized, " returned a compact result to ") ||
 		strings.Contains(normalized, " returned compact result to ") ||

@@ -939,6 +939,41 @@ func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventPrefersAgentRoutingSummaryOverGenericCompletion(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "invoke_done_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.completed",
+			"status":     "completed",
+			"summary":    "main returned a prediction.",
+			"actor":      map[string]any{"agent_id": "main"},
+			"payload": map[string]any{
+				"selected_expert": "data",
+				"route_reason":    "Seismic dataset lookup routes to the data expert.",
+				"has_answer":      true,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("agent routing semantic event message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Text != "main selected data - Seismic dataset lookup routes to the data expert." {
+		t.Fatalf("agent routing summary = %#v", part)
+	}
+	if strings.Contains(part.Text, "returned a prediction") || strings.Contains(part.Text, "completed") {
+		t.Fatalf("agent routing summary kept generic completion: %#v", part)
+	}
+}
+
 func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{

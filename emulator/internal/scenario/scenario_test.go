@@ -415,6 +415,7 @@ func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
 		got = append(got, event)
 	}
 	sawWorkflowEvent := false
+	sawRoutingEvent := false
 	for _, event := range got {
 		if event.Type != "semantic.event" {
 			continue
@@ -424,11 +425,18 @@ func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
 		workflowState, _ := nested["workflow_state"].(map[string]any)
 		if payload["event_type"] == "blueprint.delegation.completed" && len(workflowState) > 0 {
 			sawWorkflowEvent = true
-			break
+		}
+		if payload["event_type"] == "agent.invocation.completed" &&
+			nested["selected_expert"] == "data" &&
+			nested["route_reason"] == "Seismic dataset lookup routes to the data expert." {
+			sawRoutingEvent = true
 		}
 	}
 	if !sawWorkflowEvent {
 		t.Fatalf("semantic workflow fixture did not emit delegation workflow_state event: %#v", got)
+	}
+	if !sawRoutingEvent {
+		t.Fatalf("semantic workflow fixture did not emit route selection event: %#v", got)
 	}
 }
 
