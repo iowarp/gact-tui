@@ -75,11 +75,11 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
                 "mutation_consent": True,
                 "expert_pack_source": "/tmp/pack",
                 "prompt_catalog": "visual_loop/screenshots/live_clio_prompt_catalog.png",
-                "prompt_save_success": "visual_loop/screenshots/live_clio_prompt_save_success.png",
+                "prompt_save_success": True,
                 "expert_pack_catalog": "visual_loop/screenshots/live_clio_expert_pack_catalog.png",
-                "expert_pack_install_success": "visual_loop/screenshots/live_clio_expert_pack_install_success.png",
-                "expert_pack_update_success": "visual_loop/screenshots/live_clio_expert_pack_update_success.png",
-                "expert_pack_delete_success": "visual_loop/screenshots/live_clio_expert_pack_delete_success.png",
+                "expert_pack_install_success": True,
+                "expert_pack_update_success": True,
+                "expert_pack_delete_success": True,
             },
         )
 
@@ -189,6 +189,71 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
                     "mutation_consent": False,
                     "expert_pack_source": "/tmp/pack",
                     "prompt_catalog": "visual_loop/screenshots/live_clio_prompt_catalog.png",
+                    "prompt_save_success": True,
+                    "expert_pack_catalog": "visual_loop/screenshots/live_clio_expert_pack_catalog.png",
+                    "expert_pack_install_success": True,
+                    "expert_pack_update_success": True,
+                    "expert_pack_delete_success": True,
+                },
+            )
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][2]["ok"])
+        self.assertIn("mutation_consent", report)
+
+    def test_prompt_expert_lifecycle_rejects_false_success_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[2]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_prompt_expert_pack_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "mutation_consent": True,
+                    "expert_pack_source": "/tmp/pack",
+                    "prompt_catalog": "visual_loop/screenshots/live_clio_prompt_catalog.png",
+                    "prompt_save_success": False,
+                    "expert_pack_catalog": "visual_loop/screenshots/live_clio_expert_pack_catalog.png",
+                    "expert_pack_install_success": True,
+                    "expert_pack_update_success": False,
+                    "expert_pack_delete_success": True,
+                },
+            )
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][2]["ok"])
+        self.assertIn("prompt_save_success", report)
+        self.assertIn("expert_pack_update_success", report)
+
+    def test_prompt_expert_lifecycle_rejects_string_success_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[2]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_prompt_expert_pack_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "mutation_consent": True,
+                    "expert_pack_source": "/tmp/pack",
+                    "prompt_catalog": "visual_loop/screenshots/live_clio_prompt_catalog.png",
                     "prompt_save_success": "visual_loop/screenshots/live_clio_prompt_save_success.png",
                     "expert_pack_catalog": "visual_loop/screenshots/live_clio_expert_pack_catalog.png",
                     "expert_pack_install_success": "visual_loop/screenshots/live_clio_expert_pack_install_success.png",
@@ -201,7 +266,10 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
             report = check_live_lifecycle_readiness.render_markdown(result)
 
         self.assertFalse(result["live"][2]["ok"])
-        self.assertIn("mutation_consent", report)
+        self.assertIn("prompt_save_success", report)
+        self.assertIn("expert_pack_install_success", report)
+        self.assertIn("expert_pack_update_success", report)
+        self.assertIn("expert_pack_delete_success", report)
 
     def test_partial_live_lifecycle_does_not_satisfy_all_live_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

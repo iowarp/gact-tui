@@ -16,6 +16,17 @@ from pathlib import Path
 from typing import Any
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+REQUIRED_TRUE_MANIFEST_KEYS = {
+    "captured_from_owned_backend",
+    "mutation_consent",
+    "mcp_install_success",
+    "mcp_remove_success",
+    "source_refresh_success",
+    "prompt_save_success",
+    "expert_pack_install_success",
+    "expert_pack_update_success",
+    "expert_pack_delete_success",
+}
 
 
 @dataclass(frozen=True)
@@ -178,13 +189,7 @@ def manifest_status(root: Path, evidence: Evidence) -> dict[str, object]:
 
 
 def manifest_value_ok(key: str, value: object) -> bool:
-    if key in {
-        "captured_from_owned_backend",
-        "mutation_consent",
-        "mcp_install_success",
-        "mcp_remove_success",
-        "source_refresh_success",
-    }:
+    if key in REQUIRED_TRUE_MANIFEST_KEYS:
         return value is True
     return bool(str(value).strip()) if value is not None else False
 

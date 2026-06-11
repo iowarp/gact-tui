@@ -162,8 +162,10 @@ The script writes `live_clio_prompt_expert_pack_lifecycle_manifest.json` plus
 prompt and expert-pack lifecycle screenshots. It performs real prompt and
 expert-pack writes, including delete, so only run it against an isolated backend
 and workspace prepared for this proof. The readiness checker requires
-`mutation_consent: true` in the manifest and rejects false lifecycle success
-flags or invalid PNG placeholders.
+`mutation_consent: true`, boolean lifecycle success flags, and valid PNG
+screenshots. Screenshot paths are tracked by artifact name; success manifest
+fields such as `prompt_save_success` and `expert_pack_delete_success` must be
+actual JSON `true` values, not placeholder strings.
 
 ## Current State
 
