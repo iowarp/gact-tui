@@ -1793,12 +1793,13 @@ func TestExpertPackDetailActionsRenderOutsideStructureRows(t *testing.T) {
 			{id: "expert-pack-action/update", title: "Update pack"},
 			{id: "expert-pack-action/delete", title: "Delete pack"},
 			{id: "pack/data-semantics", title: "Workflow pack · Data Semantics", desc: "Operator summary"},
-			{id: "agent/main", title: "Agent · Main Expert"},
+			{id: "agent/main", title: "Root expert · Main Expert"},
+			{id: "agent/analysis", title: "  └─ Expert · Analysis Expert"},
 		},
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Pack structure", "Workflow pack · Data Semantics", "Agent · Main Expert"} {
+	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Pack structure", "Workflow pack · Data Semantics", "Root expert · Main Expert", "└─ Expert · Analysis Expert"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expert-pack detail missing %q:\n%s", want, out)
 		}
@@ -1806,6 +1807,28 @@ func TestExpertPackDetailActionsRenderOutsideStructureRows(t *testing.T) {
 	for _, unwanted := range []string{"Update pack", "Delete pack"} {
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("expert-pack action leaked into structure rows as %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestExpertPackDetailItemsUseExpertHierarchy(t *testing.T) {
+	items := expertPackDetailItems(gact.ExpertPackDetail{
+		ExpertPack: gact.ExpertPackDefinition{ID: "data-semantics", Title: "Data Semantics", Scope: "workspace", Enabled: true},
+		Agents: []gact.AgentDef{{
+			ID: "main", Title: "Main Expert", Source: "expert_pack", Enabled: true,
+		}, {
+			ID: "analysis", Title: "Analysis Expert", Source: "expert_pack", Enabled: true, ParentID: "main",
+		}},
+	})
+
+	joined := catalogItemsTextForTest(items)
+	for _, want := range []string{
+		"Root expert · Main Expert",
+		"└─ Expert · Analysis Expert",
+		"reports to Main Expert",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expert-pack hierarchy missing %q:\n%s", want, joined)
 		}
 	}
 }

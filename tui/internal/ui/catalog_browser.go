@@ -3900,23 +3900,10 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 			id: "validation", title: "Validation errors", desc: strings.Join(pack.ValidationErrors, "; "), statusTag: "error",
 		})
 	}
-	sortAgentsForCatalog(detail.Agents)
-	for _, agent := range detail.Agents {
-		status := firstNonEmpty(agent.Source, "expert")
-		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
-			status = "invalid"
-		} else if len(agent.ValidationWarnings) > 0 {
-			status = "warning"
-		} else {
-			status = operatorSourceValueLabel(status)
-		}
-		items = append(items, catalogItem{
-			id:         "agent/" + agent.ID,
-			title:      "Expert · " + operatorAgentTitle(agent),
-			desc:       agentCatalogDescription(agent, detail.Agents),
-			inlineDesc: agentCatalogInlineSummary(agent, detail.Agents),
-			statusTag:  status,
-		})
+	for _, agentItem := range hierarchicalAgentCatalogItems(detail.Agents, detail.Agents) {
+		agentID := strings.TrimPrefix(agentItem.id, "agent/")
+		agentItem.id = "agent/" + agentID
+		items = append(items, agentItem)
 	}
 	return items
 }
@@ -4910,6 +4897,10 @@ func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalo
 		return items
 	}
 
+	return hierarchicalAgentCatalogItems(filtered, agents)
+}
+
+func hierarchicalAgentCatalogItems(filtered []gact.AgentDef, allAgents []gact.AgentDef) []catalogItem {
 	byParent := map[string][]gact.AgentDef{}
 	topLevel := make([]gact.AgentDef, 0)
 	for _, agent := range filtered {
@@ -4933,7 +4924,7 @@ func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalo
 			return
 		}
 		seen[agent.ID] = true
-		items = append(items, agentCatalogHierarchyItem(agent, agents, depth))
+		items = append(items, agentCatalogHierarchyItem(agent, allAgents, depth))
 		for _, child := range byParent[agent.ID] {
 			appendAgent(child, depth+1)
 		}
